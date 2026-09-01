@@ -117,7 +117,15 @@ jobs:
         working-directory: frontend
       - run: pnpm build
         working-directory: frontend
-      - run: docker compose up -d postgres redis backend frontend
+      - name: Start services
+        run: |
+          docker compose up -d postgres redis backend frontend || {
+            docker compose ps
+            docker compose logs backend
+            docker compose logs postgres
+            docker compose logs redis
+            exit 1
+          }
       - name: Wait for backend
         run: |
           for i in $(seq 1 120); do
@@ -130,3 +138,12 @@ jobs:
           exit 1
       - run: pnpm exec playwright test
         working-directory: frontend
+      - name: Docker logs on failure
+        if: failure()
+        run: |
+          docker compose ps
+          docker compose logs backend
+          docker compose logs frontend
+      - name: Stop services
+        if: always()
+        run: docker compose down -v
