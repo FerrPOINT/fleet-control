@@ -115,6 +115,8 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
         working-directory: frontend
+      - run: pnpm exec playwright install --with-deps chromium
+        working-directory: frontend
       - run: pnpm build
         working-directory: frontend
       - name: Start services
@@ -136,7 +138,7 @@ jobs:
           done
           docker compose logs backend
           exit 1
-      - run: pnpm exec playwright test
+      - run: pnpm exec playwright test --project=chromium
         working-directory: frontend
       - name: Docker logs on failure
         if: failure()
