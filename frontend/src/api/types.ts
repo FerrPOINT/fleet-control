@@ -78,6 +78,10 @@ export interface AgentSession {
   id: string
   agent_id: string
   agent_name: string
+  user_id: string
+  user_email: string
+  user_username: string
+  user_display_name: string
   title: string
   task_key: string | null
   state: SessionState

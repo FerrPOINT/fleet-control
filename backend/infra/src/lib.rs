@@ -1,7 +1,7 @@
 pub mod entities;
 pub mod runtime;
 
-use app::{AgentProvisioner, FleetRepository, RuntimeStatePatch};
+use app::{AgentProvisioner, FleetRepository, RuntimeStatePatch, SessionListFilter};
 use async_trait::async_trait;
 use domain::{
     Agent, AgentConfig, AgentEvent, AgentKind, AgentLogEntry, AgentPaths, AgentRole, AgentRuntime,
@@ -667,11 +667,17 @@ impl FleetRepository for PostgresFleetRepository {
             .ok_or_else(|| AppError::not_found("agent_skill", name))
     }
 
-    async fn list_sessions(&self, agent_id: Option<Uuid>) -> Result<Vec<AgentSession>, AppError> {
+    async fn list_sessions(
+        &self,
+        filter: SessionListFilter,
+    ) -> Result<Vec<AgentSession>, AppError> {
         let mut query =
             agent_session::Entity::find().order_by_desc(agent_session::Column::UpdatedAt);
-        if let Some(agent_id) = agent_id {
+        if let Some(agent_id) = filter.agent_id {
             query = query.filter(agent_session::Column::AgentId.eq(agent_id));
+        }
+        if !filter.user_ids.is_empty() {
+            query = query.filter(agent_session::Column::UserId.is_in(filter.user_ids));
         }
         let sessions = query.all(&self.db).await.map_err(AppError::database)?;
         let mut result = Vec::with_capacity(sessions.len());
@@ -681,7 +687,12 @@ impl FleetRepository for PostgresFleetRepository {
                 .await
                 .map_err(AppError::database)?
                 .ok_or_else(|| AppError::not_found("agent", row.agent_id))?;
-            result.push(session_from_model(row, agent.name));
+            let user = user::Entity::find_by_id(row.user_id)
+                .one(&self.db)
+                .await
+                .map_err(AppError::database)?
+                .ok_or_else(|| AppError::not_found("user", row.user_id))?;
+            result.push(session_from_model(row, agent.name, user));
         }
         Ok(result)
     }
@@ -697,20 +708,35 @@ impl FleetRepository for PostgresFleetRepository {
             .await
             .map_err(AppError::database)?
             .ok_or_else(|| AppError::not_found("agent", row.agent_id))?;
-        Ok(session_from_model(row, agent.name))
+        let user = user::Entity::find_by_id(row.user_id)
+            .one(&self.db)
+            .await
+            .map_err(AppError::database)?
+            .ok_or_else(|| AppError::not_found("user", row.user_id))?;
+        Ok(session_from_model(row, agent.name, user))
     }
 
-    async fn create_session(&self, req: CreateSessionRequest) -> Result<AgentSession, AppError> {
+    async fn create_session(
+        &self,
+        req: CreateSessionRequest,
+        user_id: Uuid,
+    ) -> Result<AgentSession, AppError> {
         let agent = agent::Entity::find_by_id(req.agent_id)
             .one(&self.db)
             .await
             .map_err(AppError::database)?
             .ok_or_else(|| AppError::not_found("agent", req.agent_id))?;
+        user::Entity::find_by_id(user_id)
+            .one(&self.db)
+            .await
+            .map_err(AppError::database)?
+            .ok_or_else(|| AppError::not_found("user", user_id))?;
         let id = Uuid::new_v4();
         let ts = now();
         agent_session::Entity::insert(agent_session::ActiveModel {
             id: Set(id),
             agent_id: Set(req.agent_id),
+            user_id: Set(user_id),
             title: Set(req.title),
             task_key: Set(req.task_key),
             state: Set(SessionState::Draft.as_str().to_string()),
@@ -949,11 +975,19 @@ impl FleetRepository for PostgresFleetRepository {
     }
 }
 
-fn session_from_model(row: agent_session::Model, agent_name: String) -> AgentSession {
+fn session_from_model(
+    row: agent_session::Model,
+    agent_name: String,
+    user: user::Model,
+) -> AgentSession {
     AgentSession {
         id: row.id,
         agent_id: row.agent_id,
         agent_name,
+        user_id: row.user_id,
+        user_email: user.email,
+        user_username: user.username,
+        user_display_name: user.display_name,
         title: row.title,
         task_key: row.task_key,
         state: parse_session_state(&row.state),

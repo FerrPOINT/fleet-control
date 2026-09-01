@@ -28,7 +28,10 @@ Fleet:
 
 Sessions and workflow:
 
-- `GET/POST /sessions`
+- `GET /sessions?agent_id={agent_id}&user_id={id1,id2}` lists sessions by
+  optional agent and optional comma-separated user filter. Omit `user_id` for
+  all users.
+- `POST /sessions` creates a session owned by the authenticated user.
 - `GET /sessions/{session_id}`
 - `POST /sessions/{session_id}/handoff`
 - `GET /workflow-bindings`

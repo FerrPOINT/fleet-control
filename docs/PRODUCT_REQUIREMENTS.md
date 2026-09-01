@@ -14,6 +14,7 @@ task sessions between them.
   status.
 - Store agent identity, paths, config, skills, sessions, workflow bindings,
   logs and events in PostgreSQL.
+- Store each session under the authenticated user who created it.
 - Materialize guarded folders under the configured agents root.
 - Expose operator UI for all management surfaces.
 
@@ -22,5 +23,7 @@ task sessions between them.
 - Fresh database seeds Developer Hermes and Tester Hermes.
 - Each agent has distinct runtime, config, workspace and logs folders.
 - Editing skills/config for one agent does not modify another.
-- Sessions are visible globally and per agent.
-- Handoff updates the session owner and target namespace.
+- Session lists default to the current user's sessions and can be expanded to
+  all users or narrowed to multiple selected users.
+- Handoff updates the target agent and namespace while preserving the session
+  user.

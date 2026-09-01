@@ -494,6 +494,11 @@ export interface components {
             task_key?: string | null;
             title: string;
             updated_at: components["schemas"]["String"];
+            user_display_name: string;
+            user_email: string;
+            /** Format: uuid */
+            user_id: string;
+            user_username: string;
         };
         AgentSkill: {
             /** Format: uuid */
@@ -1119,7 +1124,12 @@ export interface operations {
     };
     list_sessions: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Limit sessions to one agent */
+                agent_id?: string;
+                /** @description Comma-separated user ids. Omit for all users. */
+                user_id?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;

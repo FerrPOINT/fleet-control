@@ -23,6 +23,12 @@ pub struct RuntimeStatePatch {
     pub stopped_at: Option<shared::Timestamp>,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct SessionListFilter {
+    pub agent_id: Option<Uuid>,
+    pub user_ids: Vec<Uuid>,
+}
+
 #[async_trait]
 pub trait FleetRepository: Send + Sync {
     async fn list_runtime_templates(&self) -> Result<Vec<RuntimeTemplate>, AppError>;
@@ -58,9 +64,14 @@ pub trait FleetRepository: Send + Sync {
         req: UpdateSkillRequest,
     ) -> Result<domain::AgentSkill, AppError>;
 
-    async fn list_sessions(&self, agent_id: Option<Uuid>) -> Result<Vec<AgentSession>, AppError>;
+    async fn list_sessions(&self, filter: SessionListFilter)
+    -> Result<Vec<AgentSession>, AppError>;
     async fn get_session(&self, id: Uuid) -> Result<AgentSession, AppError>;
-    async fn create_session(&self, req: CreateSessionRequest) -> Result<AgentSession, AppError>;
+    async fn create_session(
+        &self,
+        req: CreateSessionRequest,
+        user_id: Uuid,
+    ) -> Result<AgentSession, AppError>;
     async fn handoff_session(
         &self,
         id: Uuid,
@@ -153,7 +164,10 @@ impl AppContext {
     pub async fn dashboard(&self) -> Result<FleetDashboard, AppError> {
         let agents = self.repo.list_agents().await?;
         let recent_events = self.repo.list_events(12).await?;
-        let sessions = self.repo.list_sessions(None).await?;
+        let sessions = self
+            .repo
+            .list_sessions(SessionListFilter::default())
+            .await?;
         Ok(FleetDashboard {
             total_agents: agents.len(),
             running_agents: agents

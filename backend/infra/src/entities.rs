@@ -135,6 +135,7 @@ pub mod agent_session {
         #[sea_orm(primary_key, auto_increment = false)]
         pub id: Uuid,
         pub agent_id: Uuid,
+        pub user_id: Uuid,
         pub title: String,
         pub task_key: Option<String>,
         pub state: String,

@@ -195,11 +195,33 @@ const testerSkills = [
   },
 ]
 
+const user = {
+  id: ids.admin,
+  email: 'admin@fleet-control.local',
+  username: 'admin',
+  display_name: 'Fleet Admin',
+  is_system_admin: true,
+  is_active: true,
+}
+
+const qaUser = {
+  id: '00000000-0000-4000-8000-000000000002',
+  email: 'qa@fleet-control.local',
+  username: 'qa',
+  display_name: 'QA Reviewer',
+  is_system_admin: false,
+  is_active: true,
+}
+
 const sessions = [
   {
     id: ids.sessionDev,
     agent_id: ids.dev,
     agent_name: 'agent1',
+    user_id: user.id,
+    user_email: user.email,
+    user_username: user.username,
+    user_display_name: user.display_name,
     title: 'Implement Fleet Control runtime isolation',
     task_key: 'FC-001',
     state: 'active',
@@ -213,6 +235,10 @@ const sessions = [
     id: ids.sessionQa,
     agent_id: ids.tester,
     agent_name: 'agent2',
+    user_id: qaUser.id,
+    user_email: qaUser.email,
+    user_username: qaUser.username,
+    user_display_name: qaUser.display_name,
     title: 'Verify Hermes handoff workflow',
     task_key: 'FC-QA-007',
     state: 'handoff_requested',
@@ -309,15 +335,6 @@ const agentConfig = {
   updated_at: now,
 }
 
-const user = {
-  id: ids.admin,
-  email: 'admin@fleet-control.local',
-  username: 'admin',
-  display_name: 'Fleet Admin',
-  is_system_admin: true,
-  is_active: true,
-}
-
 function json(route, value, status = 200) {
   return route.fulfill({
     status,
@@ -354,7 +371,7 @@ async function mockApi(context) {
       })
     }
     if (pathName === '/api/v1/users/me') return json(route, user)
-    if (pathName === '/api/v1/users') return json(route, { users: [user] })
+    if (pathName === '/api/v1/users') return json(route, { users: [user, qaUser] })
     if (pathName === '/api/v1/runtime-templates') return json(route, runtimeTemplates)
     if (pathName === '/api/v1/dashboard') {
       return json(route, {
@@ -402,10 +419,17 @@ async function mockApi(context) {
 
     if (pathName === '/api/v1/sessions') {
       const agentId = url.searchParams.get('agent_id')
-      return json(
-        route,
-        agentId ? sessions.filter((session) => session.agent_id === agentId) : sessions,
-      )
+      const userIds = (url.searchParams.get('user_id') ?? '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
+      const byAgent = agentId
+        ? sessions.filter((session) => session.agent_id === agentId)
+        : sessions
+      const byUser = userIds.length
+        ? byAgent.filter((session) => userIds.includes(session.user_id))
+        : byAgent
+      return json(route, byUser)
     }
     const sessionMatch = pathName.match(/^\/api\/v1\/sessions\/([^/]+)(?:\/handoff)?$/)
     if (sessionMatch) {
@@ -475,7 +499,7 @@ try {
 
     for (const [fileName, urlPath] of viewport.screens) {
       await page.goto(`${baseUrl}${urlPath}`, { waitUntil: 'networkidle' })
-      await page.waitForTimeout(250)
+      await page.waitForTimeout(1000)
       await page.screenshot({
         path: path.join(outputDir, fileName),
         fullPage: true,

@@ -15,13 +15,16 @@ import {
 import type {
   Agent,
   AgentConfig,
+  AgentSession,
   AgentSkill,
   SkillState,
   UpdateAgentConfigRequest,
 } from '@/api/types'
+import { SessionUserFilter, useSessionUserFilter } from '@/shared/session-user-filter'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Textarea } from '@/shared/ui/textarea'
+import { UserAvatar } from '@/shared/ui/user-avatar'
 import {
   AgentIdentity,
   EmptyState,
@@ -440,9 +443,10 @@ function WorkspaceTab({ agent }: { agent: Agent }) {
 }
 
 function SessionsTab({ agent }: { agent: Agent }) {
+  const userFilter = useSessionUserFilter()
   const sessions = useQuery({
-    queryKey: ['sessions', agent.id],
-    queryFn: () => listSessions(agent.id),
+    queryKey: ['sessions', agent.id, userFilter.selectedUserIds],
+    queryFn: () => listSessions(agent.id, userFilter.selectedUserIds),
   })
   return (
     <Card>
@@ -450,29 +454,44 @@ function SessionsTab({ agent }: { agent: Agent }) {
         <CardTitle>Agent sessions</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
+        <SessionUserFilter filter={userFilter} className="mb-3" />
         {sessions.data?.length ? (
-          sessions.data.map((session) => (
-            <Link
-              key={session.id}
-              to={`/sessions/${session.id}`}
-              className="block rounded-md border border-border p-3 hover:bg-surface-raised"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="font-medium text-text-primary">{session.title}</p>
-                <StatusBadge value={session.state} />
-              </div>
-              <p className="mt-1 text-xs text-text-muted">
-                {session.last_message_preview ?? 'No messages yet'}
-              </p>
-            </Link>
-          ))
+          sessions.data.map((session) => <AgentSessionLink key={session.id} session={session} />)
         ) : (
           <EmptyState
-            title={sessions.isLoading ? 'Loading sessions...' : 'No sessions for this agent'}
+            title={
+              sessions.isLoading
+                ? 'Loading sessions...'
+                : userFilter.selectedUserIds.length
+                  ? 'No sessions for this agent and selected users'
+                  : 'No sessions for this agent'
+            }
           />
         )}
       </CardContent>
     </Card>
+  )
+}
+
+function AgentSessionLink({ session }: { session: AgentSession }) {
+  return (
+    <Link
+      to={`/sessions/${session.id}`}
+      className="block rounded-md border border-border p-3 hover:bg-surface-raised"
+    >
+      <div className="flex min-w-0 items-start gap-3">
+        <UserAvatar name={session.user_display_name} userId={session.user_id} size="md" />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-medium text-text-primary">{session.title}</p>
+            <StatusBadge value={session.state} />
+          </div>
+          <p className="mt-1 text-xs text-text-muted">
+            {session.user_display_name} - {session.last_message_preview ?? 'No messages yet'}
+          </p>
+        </div>
+      </div>
+    </Link>
   )
 }
 

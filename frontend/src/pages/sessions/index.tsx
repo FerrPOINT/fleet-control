@@ -3,16 +3,22 @@ import { Link } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { MessageSquarePlus } from 'lucide-react'
 import { createSession, listAgents, listSessions } from '@/api/fleet'
+import { SessionUserFilter, useSessionUserFilter } from '@/shared/session-user-filter'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
+import { UserAvatar } from '@/shared/ui/user-avatar'
 import { EmptyState, ErrorState, PageHeader, StatusBadge, formatDate } from '../common'
 
 export function SessionsPage() {
   const queryClient = useQueryClient()
   const agents = useQuery({ queryKey: ['agents'], queryFn: listAgents })
-  const sessions = useQuery({ queryKey: ['sessions'], queryFn: () => listSessions() })
+  const userFilter = useSessionUserFilter()
+  const sessions = useQuery({
+    queryKey: ['sessions', 'list', userFilter.selectedUserIds],
+    queryFn: () => listSessions(undefined, userFilter.selectedUserIds),
+  })
   const [agentId, setAgentId] = useState('')
   const [title, setTitle] = useState('New task session')
   const [taskKey, setTaskKey] = useState('')
@@ -94,6 +100,7 @@ export function SessionsPage() {
             <CardTitle>Task sessions</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
+            <SessionUserFilter filter={userFilter} className="mb-3" />
             {sessions.data?.length ? (
               sessions.data.map((session) => (
                 <Link
@@ -101,17 +108,26 @@ export function SessionsPage() {
                   to={`/sessions/${session.id}`}
                   className="block rounded-md border border-border p-3 hover:bg-surface-raised"
                 >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium text-text-primary">{session.title}</p>
-                    <StatusBadge value={session.state} />
-                    {session.task_key ? (
-                      <span className="text-xs text-text-muted">{session.task_key}</span>
-                    ) : null}
+                  <div className="flex min-w-0 items-start gap-3">
+                    <UserAvatar
+                      name={session.user_display_name}
+                      userId={session.user_id}
+                      size="md"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium text-text-primary">{session.title}</p>
+                        <StatusBadge value={session.state} />
+                        {session.task_key ? (
+                          <span className="text-xs text-text-muted">{session.task_key}</span>
+                        ) : null}
+                      </div>
+                      <p className="mt-1 text-xs text-text-muted">
+                        {session.user_display_name} - {session.agent_name} - namespace{' '}
+                        {session.namespace_id ?? 'unbound'} - {formatDate(session.updated_at)}
+                      </p>
+                    </div>
                   </div>
-                  <p className="mt-1 text-xs text-text-muted">
-                    {session.agent_name} - namespace {session.namespace_id ?? 'unbound'} -{' '}
-                    {formatDate(session.updated_at)}
-                  </p>
                 </Link>
               ))
             ) : (

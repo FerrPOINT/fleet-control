@@ -11,6 +11,8 @@ Implemented:
 - Java Agent runtime template and phase 2 contract placeholder
 - React application pages for fleet dashboard, agents, sessions, workflows,
   deployments, logs and settings
+- user-owned task sessions with default current-user filtering and multi-user
+  session visibility controls
 - full documentation baseline
 
 Known local limitation:

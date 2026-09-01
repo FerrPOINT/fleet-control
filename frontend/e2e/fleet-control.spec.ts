@@ -3,6 +3,7 @@ import { expect, test, type Page, type Route } from '@playwright/test'
 const now = '2026-09-01T10:00:00+03:00'
 const ids = {
   user: '00000000-0000-4000-8000-000000000001',
+  reviewer: '00000000-0000-4000-8000-000000000002',
   dev: '00000000-0000-4000-8000-000000000101',
   tester: '00000000-0000-4000-8000-000000000102',
   created: '00000000-0000-4000-8000-000000000103',
@@ -76,11 +77,21 @@ function makeSkill(agentId: string, name: string, title: string, state = 'enable
   }
 }
 
-function makeSession(id: string, agent: Agent, title: string, taskKey: string) {
+function makeSession(
+  id: string,
+  agent: Agent,
+  title: string,
+  taskKey: string,
+  user = userResponse(),
+) {
   return {
     id,
     agent_id: agent.id,
     agent_name: agent.name,
+    user_id: user.id,
+    user_email: user.email,
+    user_username: user.username,
+    user_display_name: user.display_name,
     title,
     task_key: taskKey,
     state: 'active',
@@ -108,7 +119,16 @@ function createState(): ApiState {
         makeSkill(tester.id, 'project-workflow', 'Project Workflow'),
       ],
     },
-    sessions: [makeSession(ids.session, dev, 'Initial developer task', 'FC-001')],
+    sessions: [
+      makeSession(ids.session, dev, 'Initial developer task', 'FC-001'),
+      makeSession(
+        '00000000-0000-4000-8000-000000000202',
+        tester,
+        'Tester review sweep',
+        'FC-002',
+        reviewerResponse(),
+      ),
+    ],
   }
 }
 
@@ -123,7 +143,9 @@ async function installMocks(page: Page, state: ApiState) {
       return fulfill(route, authResponse())
     }
     if (pathName === '/api/v1/users/me') return fulfill(route, userResponse())
-    if (pathName === '/api/v1/users') return fulfill(route, { users: [userResponse()] })
+    if (pathName === '/api/v1/users') {
+      return fulfill(route, { users: [userResponse(), reviewerResponse()] })
+    }
     if (pathName === '/api/v1/runtime-templates') return fulfill(route, runtimeTemplates())
     if (pathName === '/api/v1/dashboard') {
       return fulfill(route, {
@@ -187,10 +209,17 @@ async function installMocks(page: Page, state: ApiState) {
     }
     if (pathName === '/api/v1/sessions') {
       const agentId = url.searchParams.get('agent_id')
-      return fulfill(
-        route,
-        agentId ? state.sessions.filter((session) => session.agent_id === agentId) : state.sessions,
-      )
+      const userIds = (url.searchParams.get('user_id') ?? '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
+      const byAgent = agentId
+        ? state.sessions.filter((session) => session.agent_id === agentId)
+        : state.sessions
+      const byUser = userIds.length
+        ? byAgent.filter((session) => userIds.includes(session.user_id))
+        : byAgent
+      return fulfill(route, byUser)
     }
     const sessionMatch = pathName.match(/^\/api\/v1\/sessions\/([^/]+)(?:\/handoff)?$/)
     if (sessionMatch) {
@@ -229,6 +258,17 @@ function userResponse() {
     username: 'admin',
     display_name: 'Fleet Admin',
     is_system_admin: true,
+    is_active: true,
+  }
+}
+
+function reviewerResponse() {
+  return {
+    id: ids.reviewer,
+    email: 'qa@fleet-control.local',
+    username: 'qa',
+    display_name: 'QA Reviewer',
+    is_system_admin: false,
     is_active: true,
   }
 }
@@ -342,6 +382,8 @@ test('Hermes fleet control flow covers agents, runtime, skills, sessions and han
   await expect(page.getByText('agent2 - tester - namespace qa')).toBeVisible()
 
   await page.getByRole('link', { name: 'Agents' }).click()
+  await expect(page.getByRole('link', { name: /Initial developer task/ })).toBeVisible()
+  await expect(page.getByRole('link', { name: /Tester review sweep/ })).not.toBeVisible()
   await page.getByRole('link', { name: 'New agent' }).click()
   await expect(page.getByRole('heading', { name: 'Create agent' })).toBeVisible()
   await expect(page.getByRole('button', { name: /Hermes implemented/ })).toBeVisible()
@@ -365,6 +407,16 @@ test('Hermes fleet control flow covers agents, runtime, skills, sessions and han
   await expect(page.getByText('This skill has a local per-agent override.')).toBeVisible()
 
   await page.goto('/sessions')
+  await expect(page.getByRole('link', { name: /Initial developer task/ })).toBeVisible()
+  await expect(page.getByRole('link', { name: /Tester review sweep/ })).not.toBeVisible()
+  await page.getByRole('button', { name: 'Remove Fleet Admin filter' }).click()
+  await expect(page.getByRole('link', { name: /Tester review sweep/ })).toBeVisible()
+  await page.getByLabel('Add session user').selectOption(ids.reviewer)
+  await expect(page.getByRole('link', { name: /Initial developer task/ })).not.toBeVisible()
+  await expect(page.getByRole('link', { name: /Tester review sweep/ })).toBeVisible()
+  await page.getByLabel('Add session user').selectOption(ids.user)
+  await expect(page.getByRole('link', { name: /Initial developer task/ })).toBeVisible()
+  await expect(page.getByRole('link', { name: /Tester review sweep/ })).toBeVisible()
   await page.getByLabel('Agent').selectOption(ids.dev)
   await page.getByLabel('Title').fill('Create checkout smoke')
   await page.getByLabel('Task key').fill('FC-777')

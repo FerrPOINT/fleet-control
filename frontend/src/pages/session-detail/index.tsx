@@ -5,6 +5,7 @@ import { ArrowRightLeft } from 'lucide-react'
 import { getSession, handoffSession, listAgents } from '@/api/fleet'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
+import { UserAvatar } from '@/shared/ui/user-avatar'
 import { ErrorState, JsonBlock, PageHeader, StatusBadge, formatDate } from '../common'
 
 export function SessionDetailPage() {
@@ -54,6 +55,19 @@ export function SessionDetailPage() {
                   <span className="text-sm text-text-muted">
                     {session.data.task_key ?? 'No task key'}
                   </span>
+                </div>
+                <div className="flex min-w-0 items-center gap-3 rounded-md border border-border bg-background p-3">
+                  <UserAvatar
+                    name={session.data.user_display_name}
+                    userId={session.data.user_id}
+                    size="md"
+                  />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-text-primary">
+                      {session.data.user_display_name}
+                    </p>
+                    <p className="truncate text-xs text-text-muted">{session.data.user_email}</p>
+                  </div>
                 </div>
                 <dl className="grid gap-3 text-sm md:grid-cols-2">
                   <Field label="Agent" value={session.data.agent_name} />

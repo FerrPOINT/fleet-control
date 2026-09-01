@@ -2,13 +2,15 @@ import { FormEvent, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Bot, Coffee, Plus, Rocket } from 'lucide-react'
-import { createAgent, listAgents, listRuntimeTemplates } from '@/api/fleet'
-import type { AgentKind, AgentRole, CreateAgentRequest } from '@/api/types'
+import { createAgent, listAgents, listRuntimeTemplates, listSessions } from '@/api/fleet'
+import type { AgentKind, AgentRole, AgentSession, CreateAgentRequest } from '@/api/types'
+import { SessionUserFilter, useSessionUserFilter } from '@/shared/session-user-filter'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
 import { Textarea } from '@/shared/ui/textarea'
+import { UserAvatar } from '@/shared/ui/user-avatar'
 import {
   AgentIdentity,
   EmptyState,
@@ -21,6 +23,13 @@ import {
 export function AgentsPage({ createMode = false }: { createMode?: boolean }) {
   const agents = useQuery({ queryKey: ['agents'], queryFn: listAgents })
   const templates = useQuery({ queryKey: ['runtime-templates'], queryFn: listRuntimeTemplates })
+  const userFilter = useSessionUserFilter()
+  const sessions = useQuery({
+    queryKey: ['sessions', 'agents', userFilter.selectedUserIds],
+    queryFn: () => listSessions(undefined, userFilter.selectedUserIds),
+    enabled: !createMode,
+  })
+  const sessionsByAgent = useMemo(() => groupSessionsByAgent(sessions.data ?? []), [sessions.data])
 
   return (
     <>
@@ -40,6 +49,7 @@ export function AgentsPage({ createMode = false }: { createMode?: boolean }) {
       />
       {agents.isError ? <ErrorState message={agents.error.message} /> : null}
       {createMode ? <CreateAgentPanel templates={templates.data ?? []} /> : null}
+      {!createMode ? <SessionUserFilter filter={userFilter} className="mb-4" /> : null}
       <div className="mt-4 grid gap-3 xl:grid-cols-2">
         {agents.data?.length ? (
           agents.data.map((agent) => (
@@ -69,6 +79,29 @@ export function AgentsPage({ createMode = false }: { createMode?: boolean }) {
                     </dd>
                   </div>
                 </dl>
+                <div className="mt-4 rounded-md border border-border bg-background p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-medium uppercase text-text-muted">Sessions</p>
+                    <span className="text-xs font-medium text-text-secondary">
+                      {(sessionsByAgent.get(agent.id) ?? []).length}
+                    </span>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {sessions.isLoading ? (
+                      <p className="text-xs text-text-muted">Loading sessions...</p>
+                    ) : (sessionsByAgent.get(agent.id) ?? []).length ? (
+                      (sessionsByAgent.get(agent.id) ?? [])
+                        .slice(0, 2)
+                        .map((session) => <SessionPreview key={session.id} session={session} />)
+                    ) : (
+                      <p className="text-xs text-text-muted">
+                        {userFilter.selectedUserIds.length
+                          ? 'No sessions for selected users'
+                          : 'No sessions yet'}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </CardContent>
             </Card>
           ))
@@ -79,6 +112,33 @@ export function AgentsPage({ createMode = false }: { createMode?: boolean }) {
         )}
       </div>
     </>
+  )
+}
+
+function groupSessionsByAgent(sessions: AgentSession[]) {
+  const grouped = new Map<string, AgentSession[]>()
+  for (const session of sessions) {
+    grouped.set(session.agent_id, [...(grouped.get(session.agent_id) ?? []), session])
+  }
+  return grouped
+}
+
+function SessionPreview({ session }: { session: AgentSession }) {
+  return (
+    <Link
+      to={`/sessions/${session.id}`}
+      className="flex min-w-0 items-center gap-2 rounded-md border border-border p-2 hover:bg-surface-raised"
+    >
+      <UserAvatar name={session.user_display_name} userId={session.user_id} />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium text-text-primary">
+          {session.title}
+        </span>
+        <span className="block truncate text-xs text-text-muted">
+          {session.user_display_name} - {session.task_key ?? 'No task key'}
+        </span>
+      </span>
+    </Link>
   )
 }
 

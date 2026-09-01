@@ -666,6 +666,27 @@
           "sessions"
         ],
         "operationId": "list_sessions",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "query",
+            "description": "Limit sessions to one agent",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "description": "Comma-separated user ids. Omit for all users.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -1136,6 +1157,10 @@
           "id",
           "agent_id",
           "agent_name",
+          "user_id",
+          "user_email",
+          "user_username",
+          "user_display_name",
           "title",
           "state",
           "created_at",
@@ -1188,6 +1213,19 @@
           },
           "updated_at": {
             "$ref": "#/components/schemas/String"
+          },
+          "user_display_name": {
+            "type": "string"
+          },
+          "user_email": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user_username": {
+            "type": "string"
           }
         }
       },

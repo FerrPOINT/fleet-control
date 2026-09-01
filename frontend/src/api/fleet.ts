@@ -75,9 +75,12 @@ export function updateAgentSkill(id: string, name: string, req: UpdateSkillReque
   })
 }
 
-export function listSessions(agentId?: string) {
-  const query = agentId ? `?agent_id=${agentId}` : ''
-  return apiRequest<AgentSession[]>(`/api/v1/sessions${query}`)
+export function listSessions(agentId?: string, userIds: string[] = []) {
+  const params = new URLSearchParams()
+  if (agentId) params.set('agent_id', agentId)
+  if (userIds.length) params.set('user_id', userIds.join(','))
+  const query = params.toString()
+  return apiRequest<AgentSession[]>(`/api/v1/sessions${query ? `?${query}` : ''}`)
 }
 
 export function createSession(req: CreateSessionRequest) {
