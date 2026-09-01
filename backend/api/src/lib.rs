@@ -2,12 +2,15 @@ use app::AppContext;
 use axum::{
     Router,
     extract::DefaultBodyLimit,
-    http::{HeaderValue, Method},
+    http::{
+        HeaderValue, Method,
+        header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
+    },
     middleware::from_fn_with_state,
     routing::{get, post, put},
 };
 use std::sync::Arc;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -89,24 +92,7 @@ pub mod routes;
 pub struct ApiDoc;
 
 pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
-    let cors = CorsLayer::new()
-        .allow_methods([
-            Method::GET,
-            Method::POST,
-            Method::PUT,
-            Method::PATCH,
-            Method::DELETE,
-        ])
-        .allow_headers(Any)
-        .allow_credentials(true)
-        .allow_origin(
-            ctx.config
-                .server
-                .cors_allowed_origins
-                .iter()
-                .filter_map(|origin| origin.parse::<HeaderValue>().ok())
-                .collect::<Vec<_>>(),
-        );
+    let cors = cors_layer(&ctx.config.server.cors_allowed_origins);
 
     let protected = Router::new()
         .route("/api/v1/users/me", get(routes::users::get_me))
@@ -190,8 +176,83 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         .layer(cors)
 }
 
+fn cors_layer(allowed_origins: &[String]) -> CorsLayer {
+    CorsLayer::new()
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::PATCH,
+            Method::DELETE,
+        ])
+        .allow_headers([ACCEPT, AUTHORIZATION, CONTENT_TYPE])
+        .allow_credentials(true)
+        .allow_origin(
+            allowed_origins
+                .iter()
+                .filter_map(|origin| origin.parse::<HeaderValue>().ok())
+                .collect::<Vec<_>>(),
+        )
+}
+
 pub fn openapi_json() -> String {
     ApiDoc::openapi()
         .to_pretty_json()
         .expect("serialize OpenAPI")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{
+        body::Body,
+        http::{
+            Request, StatusCode,
+            header::{
+                ACCESS_CONTROL_ALLOW_CREDENTIALS, ACCESS_CONTROL_ALLOW_HEADERS,
+                ACCESS_CONTROL_ALLOW_ORIGIN, ACCESS_CONTROL_REQUEST_HEADERS,
+                ACCESS_CONTROL_REQUEST_METHOD, ORIGIN,
+            },
+        },
+    };
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn cors_preflight_supports_credentials_with_explicit_headers() {
+        let app = Router::new()
+            .route("/health", get(|| async { "ok" }))
+            .layer(cors_layer(&["http://localhost:23802".to_string()]));
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::OPTIONS)
+                    .uri("/health")
+                    .header(ORIGIN, "http://localhost:23802")
+                    .header(ACCESS_CONTROL_REQUEST_METHOD, "GET")
+                    .header(ACCESS_CONTROL_REQUEST_HEADERS, "authorization,content-type")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers().get(ACCESS_CONTROL_ALLOW_CREDENTIALS),
+            Some(&HeaderValue::from_static("true"))
+        );
+        assert_eq!(
+            response.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN),
+            Some(&HeaderValue::from_static("http://localhost:23802"))
+        );
+        let allow_headers = response
+            .headers()
+            .get(ACCESS_CONTROL_ALLOW_HEADERS)
+            .expect("allow headers")
+            .to_str()
+            .expect("allow headers value");
+        assert!(allow_headers.contains("authorization"));
+        assert!(allow_headers.contains("content-type"));
+    }
 }
