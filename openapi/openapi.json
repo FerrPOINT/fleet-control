@@ -11,7 +11,9 @@
   "paths": {
     "/api/v1/agents": {
       "get": {
-        "tags": ["agents"],
+        "tags": [
+          "agents"
+        ],
         "operationId": "list_agents",
         "responses": {
           "200": {
@@ -30,7 +32,9 @@
         }
       },
       "post": {
-        "tags": ["agents"],
+        "tags": [
+          "agents"
+        ],
         "operationId": "create_agent",
         "requestBody": {
           "content": {
@@ -58,7 +62,9 @@
     },
     "/api/v1/agents/{agent_id}": {
       "get": {
-        "tags": ["agents"],
+        "tags": [
+          "agents"
+        ],
         "operationId": "get_agent",
         "parameters": [
           {
@@ -85,7 +91,9 @@
         }
       },
       "delete": {
-        "tags": ["agents"],
+        "tags": [
+          "agents"
+        ],
         "operationId": "archive_agent",
         "parameters": [
           {
@@ -112,7 +120,9 @@
         }
       },
       "patch": {
-        "tags": ["agents"],
+        "tags": [
+          "agents"
+        ],
         "operationId": "update_agent",
         "parameters": [
           {
@@ -151,7 +161,9 @@
     },
     "/api/v1/agents/{agent_id}/config": {
       "get": {
-        "tags": ["agents"],
+        "tags": [
+          "agents"
+        ],
         "operationId": "get_agent_config",
         "parameters": [
           {
@@ -178,7 +190,9 @@
         }
       },
       "put": {
-        "tags": ["agents"],
+        "tags": [
+          "agents"
+        ],
         "operationId": "update_agent_config",
         "parameters": [
           {
@@ -217,7 +231,9 @@
     },
     "/api/v1/agents/{agent_id}/health": {
       "post": {
-        "tags": ["agents"],
+        "tags": [
+          "agents"
+        ],
         "operationId": "agent_health",
         "parameters": [
           {
@@ -246,7 +262,9 @@
     },
     "/api/v1/agents/{agent_id}/provision": {
       "post": {
-        "tags": ["agents"],
+        "tags": [
+          "agents"
+        ],
         "operationId": "provision_agent",
         "parameters": [
           {
@@ -275,7 +293,9 @@
     },
     "/api/v1/agents/{agent_id}/restart": {
       "post": {
-        "tags": ["agents"],
+        "tags": [
+          "agents"
+        ],
         "operationId": "restart_agent",
         "parameters": [
           {
@@ -304,7 +324,9 @@
     },
     "/api/v1/agents/{agent_id}/skills": {
       "get": {
-        "tags": ["agents"],
+        "tags": [
+          "agents"
+        ],
         "operationId": "list_agent_skills",
         "parameters": [
           {
@@ -336,7 +358,9 @@
     },
     "/api/v1/agents/{agent_id}/skills/{skill_name}": {
       "put": {
-        "tags": ["agents"],
+        "tags": [
+          "agents"
+        ],
         "operationId": "update_agent_skill",
         "parameters": [
           {
@@ -383,7 +407,9 @@
     },
     "/api/v1/agents/{agent_id}/start": {
       "post": {
-        "tags": ["agents"],
+        "tags": [
+          "agents"
+        ],
         "operationId": "start_agent",
         "parameters": [
           {
@@ -412,7 +438,9 @@
     },
     "/api/v1/agents/{agent_id}/stop": {
       "post": {
-        "tags": ["agents"],
+        "tags": [
+          "agents"
+        ],
         "operationId": "stop_agent",
         "parameters": [
           {
@@ -441,7 +469,9 @@
     },
     "/api/v1/auth/login": {
       "post": {
-        "tags": ["auth"],
+        "tags": [
+          "auth"
+        ],
         "operationId": "login",
         "requestBody": {
           "content": {
@@ -469,7 +499,9 @@
     },
     "/api/v1/auth/logout": {
       "post": {
-        "tags": ["auth"],
+        "tags": [
+          "auth"
+        ],
         "operationId": "logout_openapi",
         "responses": {
           "204": {
@@ -480,7 +512,9 @@
     },
     "/api/v1/auth/refresh": {
       "post": {
-        "tags": ["auth"],
+        "tags": [
+          "auth"
+        ],
         "operationId": "refresh_openapi",
         "responses": {
           "200": {
@@ -501,7 +535,9 @@
     },
     "/api/v1/auth/register": {
       "post": {
-        "tags": ["auth"],
+        "tags": [
+          "auth"
+        ],
         "operationId": "register",
         "requestBody": {
           "content": {
@@ -529,7 +565,9 @@
     },
     "/api/v1/dashboard": {
       "get": {
-        "tags": ["agents"],
+        "tags": [
+          "agents"
+        ],
         "operationId": "get_dashboard",
         "responses": {
           "200": {
@@ -547,7 +585,9 @@
     },
     "/api/v1/events": {
       "get": {
-        "tags": ["runtime"],
+        "tags": [
+          "runtime"
+        ],
         "operationId": "events",
         "responses": {
           "200": {
@@ -558,7 +598,9 @@
     },
     "/api/v1/health": {
       "get": {
-        "tags": ["runtime"],
+        "tags": [
+          "runtime"
+        ],
         "operationId": "health",
         "responses": {
           "200": {
@@ -574,7 +616,9 @@
     },
     "/api/v1/logs": {
       "get": {
-        "tags": ["runtime"],
+        "tags": [
+          "runtime"
+        ],
         "operationId": "list_logs",
         "responses": {
           "200": {
@@ -595,7 +639,9 @@
     },
     "/api/v1/runtime-templates": {
       "get": {
-        "tags": ["runtime"],
+        "tags": [
+          "runtime"
+        ],
         "operationId": "list_runtime_templates",
         "responses": {
           "200": {
@@ -616,7 +662,9 @@
     },
     "/api/v1/sessions": {
       "get": {
-        "tags": ["sessions"],
+        "tags": [
+          "sessions"
+        ],
         "operationId": "list_sessions",
         "responses": {
           "200": {
@@ -635,7 +683,9 @@
         }
       },
       "post": {
-        "tags": ["sessions"],
+        "tags": [
+          "sessions"
+        ],
         "operationId": "create_session",
         "requestBody": {
           "content": {
@@ -663,7 +713,9 @@
     },
     "/api/v1/sessions/{session_id}": {
       "get": {
-        "tags": ["sessions"],
+        "tags": [
+          "sessions"
+        ],
         "operationId": "get_session",
         "parameters": [
           {
@@ -692,7 +744,9 @@
     },
     "/api/v1/sessions/{session_id}/handoff": {
       "post": {
-        "tags": ["sessions"],
+        "tags": [
+          "sessions"
+        ],
         "operationId": "handoff_session",
         "parameters": [
           {
@@ -731,7 +785,9 @@
     },
     "/api/v1/users": {
       "get": {
-        "tags": ["auth"],
+        "tags": [
+          "auth"
+        ],
         "operationId": "list_users",
         "responses": {
           "200": {
@@ -749,7 +805,9 @@
     },
     "/api/v1/users/me": {
       "get": {
-        "tags": ["auth"],
+        "tags": [
+          "auth"
+        ],
         "operationId": "get_me",
         "responses": {
           "200": {
@@ -767,7 +825,9 @@
     },
     "/api/v1/workflow-bindings": {
       "get": {
-        "tags": ["agents"],
+        "tags": [
+          "agents"
+        ],
         "operationId": "list_workflow_bindings",
         "responses": {
           "200": {
@@ -806,18 +866,27 @@
         ],
         "properties": {
           "api_port": {
-            "type": ["integer", "null"],
+            "type": [
+              "integer",
+              "null"
+            ],
             "format": "int32"
           },
           "created_at": {
             "$ref": "#/components/schemas/String"
           },
           "dashboard_port": {
-            "type": ["integer", "null"],
+            "type": [
+              "integer",
+              "null"
+            ],
             "format": "int32"
           },
           "description": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "display_name": {
             "type": "string"
@@ -833,7 +902,10 @@
             "type": "string"
           },
           "namespace_id": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "ordinal": {
             "type": "integer",
@@ -849,7 +921,10 @@
             "$ref": "#/components/schemas/AgentRuntime"
           },
           "runtime_version": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "status": {
             "$ref": "#/components/schemas/AgentStatus"
@@ -858,7 +933,10 @@
             "$ref": "#/components/schemas/String"
           },
           "workflow_id": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -888,10 +966,19 @@
       },
       "AgentEvent": {
         "type": "object",
-        "required": ["id", "event_type", "message", "payload", "created_at"],
+        "required": [
+          "id",
+          "event_type",
+          "message",
+          "payload",
+          "created_at"
+        ],
         "properties": {
           "agent_id": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid"
           },
           "created_at": {
@@ -912,11 +999,20 @@
       },
       "AgentKind": {
         "type": "string",
-        "enum": ["hermes", "java_agent"]
+        "enum": [
+          "hermes",
+          "java_agent"
+        ]
       },
       "AgentLogEntry": {
         "type": "object",
-        "required": ["id", "agent_id", "stream", "message", "created_at"],
+        "required": [
+          "id",
+          "agent_id",
+          "stream",
+          "message",
+          "created_at"
+        ],
         "properties": {
           "agent_id": {
             "type": "string",
@@ -939,7 +1035,12 @@
       },
       "AgentPaths": {
         "type": "object",
-        "required": ["runtime", "config", "workspace", "logs"],
+        "required": [
+          "runtime",
+          "config",
+          "workspace",
+          "logs"
+        ],
         "properties": {
           "config": {
             "type": "string"
@@ -957,11 +1058,19 @@
       },
       "AgentRole": {
         "type": "string",
-        "enum": ["developer", "tester", "custom"]
+        "enum": [
+          "developer",
+          "tester",
+          "custom"
+        ]
       },
       "AgentRuntime": {
         "type": "object",
-        "required": ["desired_state", "command_preview", "env_preview"],
+        "required": [
+          "desired_state",
+          "command_preview",
+          "env_preview"
+        ],
         "properties": {
           "command_preview": {
             "type": "string"
@@ -971,10 +1080,16 @@
           },
           "env_preview": {},
           "health_detail": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "health_status": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "last_health_at": {
             "oneOf": [
@@ -987,7 +1102,10 @@
             ]
           },
           "pid": {
-            "type": ["integer", "null"],
+            "type": [
+              "integer",
+              "null"
+            ],
             "format": "int32"
           },
           "started_at": {
@@ -1035,23 +1153,35 @@
             "$ref": "#/components/schemas/String"
           },
           "external_session_id": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "id": {
             "type": "string",
             "format": "uuid"
           },
           "last_message_preview": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "namespace_id": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "state": {
             "$ref": "#/components/schemas/SessionState"
           },
           "task_key": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "title": {
             "type": "string"
@@ -1078,7 +1208,10 @@
             "format": "uuid"
           },
           "content": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "id": {
             "type": "string",
@@ -1147,10 +1280,17 @@
       },
       "CreateAgentRequest": {
         "type": "object",
-        "required": ["kind", "role", "display_name"],
+        "required": [
+          "kind",
+          "role",
+          "display_name"
+        ],
         "properties": {
           "description": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "display_name": {
             "type": "string"
@@ -1159,35 +1299,56 @@
             "$ref": "#/components/schemas/AgentKind"
           },
           "namespace_id": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "namespace_name": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "role": {
             "$ref": "#/components/schemas/AgentRole"
           },
           "workflow_id": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "workflow_name": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
       "CreateSessionRequest": {
         "type": "object",
-        "required": ["agent_id", "title"],
+        "required": [
+          "agent_id",
+          "title"
+        ],
         "properties": {
           "agent_id": {
             "type": "string",
             "format": "uuid"
           },
           "namespace_id": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "task_key": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "title": {
             "type": "string"
@@ -1196,7 +1357,10 @@
       },
       "DesiredState": {
         "type": "string",
-        "enum": ["running", "stopped"]
+        "enum": [
+          "running",
+          "stopped"
+        ]
       },
       "FleetDashboard": {
         "type": "object",
@@ -1241,7 +1405,9 @@
       },
       "HandoffSessionRequest": {
         "type": "object",
-        "required": ["target_agent_id"],
+        "required": [
+          "target_agent_id"
+        ],
         "properties": {
           "target_agent_id": {
             "type": "string",
@@ -1251,7 +1417,10 @@
       },
       "LoginRequest": {
         "type": "object",
-        "required": ["email", "password"],
+        "required": [
+          "email",
+          "password"
+        ],
         "properties": {
           "email": {
             "type": "string"
@@ -1263,7 +1432,12 @@
       },
       "RegisterRequest": {
         "type": "object",
-        "required": ["email", "username", "display_name", "password"],
+        "required": [
+          "email",
+          "username",
+          "display_name",
+          "password"
+        ],
         "properties": {
           "display_name": {
             "type": "string"
@@ -1281,7 +1455,11 @@
       },
       "RuntimeOperationResponse": {
         "type": "object",
-        "required": ["agent_id", "status", "message"],
+        "required": [
+          "agent_id",
+          "status",
+          "message"
+        ],
         "properties": {
           "agent_id": {
             "type": "string",
@@ -1337,14 +1515,23 @@
       },
       "SkillState": {
         "type": "string",
-        "enum": ["enabled", "disabled", "missing", "dirty"]
+        "enum": [
+          "enabled",
+          "disabled",
+          "missing",
+          "dirty"
+        ]
       },
       "String": {
         "type": "string"
       },
       "UpdateAgentConfigRequest": {
         "type": "object",
-        "required": ["config_json", "soul_md", "env_json"],
+        "required": [
+          "config_json",
+          "soul_md",
+          "env_json"
+        ],
         "properties": {
           "config_json": {},
           "env_json": {},
@@ -1357,13 +1544,22 @@
         "type": "object",
         "properties": {
           "description": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "display_name": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "namespace_id": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "role": {
             "oneOf": [
@@ -1376,16 +1572,24 @@
             ]
           },
           "workflow_id": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
       "UpdateSkillRequest": {
         "type": "object",
-        "required": ["state"],
+        "required": [
+          "state"
+        ],
         "properties": {
           "content": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "state": {
             "$ref": "#/components/schemas/SkillState"
@@ -1394,7 +1598,9 @@
       },
       "UserListResponse": {
         "type": "object",
-        "required": ["users"],
+        "required": [
+          "users"
+        ],
         "properties": {
           "users": {
             "type": "array",
@@ -1461,19 +1667,31 @@
             "format": "uuid"
           },
           "namespace_id": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "namespace_name": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "updated_at": {
             "$ref": "#/components/schemas/String"
           },
           "workflow_id": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "workflow_name": {
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       }
