@@ -1,0 +1,1500 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "api",
+    "description": "",
+    "license": {
+      "name": ""
+    },
+    "version": "0.2.0"
+  },
+  "paths": {
+    "/api/v1/agents": {
+      "get": {
+        "tags": ["agents"],
+        "operationId": "list_agents",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Agent"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["agents"],
+        "operationId": "create_agent",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAgentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Agent"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agents/{agent_id}": {
+      "get": {
+        "tags": ["agents"],
+        "operationId": "get_agent",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Agent"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["agents"],
+        "operationId": "archive_agent",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Agent"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["agents"],
+        "operationId": "update_agent",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAgentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Agent"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agents/{agent_id}/config": {
+      "get": {
+        "tags": ["agents"],
+        "operationId": "get_agent_config",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentConfig"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["agents"],
+        "operationId": "update_agent_config",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAgentConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentConfig"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agents/{agent_id}/health": {
+      "post": {
+        "tags": ["agents"],
+        "operationId": "agent_health",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeOperationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agents/{agent_id}/provision": {
+      "post": {
+        "tags": ["agents"],
+        "operationId": "provision_agent",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Agent"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agents/{agent_id}/restart": {
+      "post": {
+        "tags": ["agents"],
+        "operationId": "restart_agent",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeOperationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agents/{agent_id}/skills": {
+      "get": {
+        "tags": ["agents"],
+        "operationId": "list_agent_skills",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AgentSkill"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agents/{agent_id}/skills/{skill_name}": {
+      "put": {
+        "tags": ["agents"],
+        "operationId": "update_agent_skill",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "skill_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSkillRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSkill"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agents/{agent_id}/start": {
+      "post": {
+        "tags": ["agents"],
+        "operationId": "start_agent",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeOperationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agents/{agent_id}/stop": {
+      "post": {
+        "tags": ["agents"],
+        "operationId": "stop_agent",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeOperationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": ["auth"],
+        "operationId": "login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": ["auth"],
+        "operationId": "logout_openapi",
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "tags": ["auth"],
+        "operationId": "refresh_openapi",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "tags": ["auth"],
+        "operationId": "register",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard": {
+      "get": {
+        "tags": ["agents"],
+        "operationId": "get_dashboard",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetDashboard"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events": {
+      "get": {
+        "tags": ["runtime"],
+        "operationId": "events",
+        "responses": {
+          "200": {
+            "description": "SSE event stream"
+          }
+        }
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "tags": ["runtime"],
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/logs": {
+      "get": {
+        "tags": ["runtime"],
+        "operationId": "list_logs",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AgentLogEntry"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runtime-templates": {
+      "get": {
+        "tags": ["runtime"],
+        "operationId": "list_runtime_templates",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RuntimeTemplate"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions": {
+      "get": {
+        "tags": ["sessions"],
+        "operationId": "list_sessions",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AgentSession"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["sessions"],
+        "operationId": "create_session",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSession"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}": {
+      "get": {
+        "tags": ["sessions"],
+        "operationId": "get_session",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSession"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/handoff": {
+      "post": {
+        "tags": ["sessions"],
+        "operationId": "handoff_session",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HandoffSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSession"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "tags": ["auth"],
+        "operationId": "list_users",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me": {
+      "get": {
+        "tags": ["auth"],
+        "operationId": "get_me",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflow-bindings": {
+      "get": {
+        "tags": ["agents"],
+        "operationId": "list_workflow_bindings",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkflowBinding"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Agent": {
+        "type": "object",
+        "required": [
+          "id",
+          "ordinal",
+          "name",
+          "kind",
+          "role",
+          "status",
+          "display_name",
+          "paths",
+          "runtime",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "api_port": {
+            "type": ["integer", "null"],
+            "format": "int32"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/String"
+          },
+          "dashboard_port": {
+            "type": ["integer", "null"],
+            "format": "int32"
+          },
+          "description": {
+            "type": ["string", "null"]
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AgentKind"
+          },
+          "name": {
+            "type": "string"
+          },
+          "namespace_id": {
+            "type": ["string", "null"]
+          },
+          "ordinal": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "paths": {
+            "$ref": "#/components/schemas/AgentPaths"
+          },
+          "role": {
+            "$ref": "#/components/schemas/AgentRole"
+          },
+          "runtime": {
+            "$ref": "#/components/schemas/AgentRuntime"
+          },
+          "runtime_version": {
+            "type": ["string", "null"]
+          },
+          "status": {
+            "$ref": "#/components/schemas/AgentStatus"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/String"
+          },
+          "workflow_id": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "AgentConfig": {
+        "type": "object",
+        "required": [
+          "agent_id",
+          "config_json",
+          "soul_md",
+          "env_json",
+          "updated_at"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "config_json": {},
+          "env_json": {},
+          "soul_md": {
+            "type": "string"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/String"
+          }
+        }
+      },
+      "AgentEvent": {
+        "type": "object",
+        "required": ["id", "event_type", "message", "payload", "created_at"],
+        "properties": {
+          "agent_id": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/String"
+          },
+          "event_type": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "message": {
+            "type": "string"
+          },
+          "payload": {}
+        }
+      },
+      "AgentKind": {
+        "type": "string",
+        "enum": ["hermes", "java_agent"]
+      },
+      "AgentLogEntry": {
+        "type": "object",
+        "required": ["id", "agent_id", "stream", "message", "created_at"],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/String"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "message": {
+            "type": "string"
+          },
+          "stream": {
+            "type": "string"
+          }
+        }
+      },
+      "AgentPaths": {
+        "type": "object",
+        "required": ["runtime", "config", "workspace", "logs"],
+        "properties": {
+          "config": {
+            "type": "string"
+          },
+          "logs": {
+            "type": "string"
+          },
+          "runtime": {
+            "type": "string"
+          },
+          "workspace": {
+            "type": "string"
+          }
+        }
+      },
+      "AgentRole": {
+        "type": "string",
+        "enum": ["developer", "tester", "custom"]
+      },
+      "AgentRuntime": {
+        "type": "object",
+        "required": ["desired_state", "command_preview", "env_preview"],
+        "properties": {
+          "command_preview": {
+            "type": "string"
+          },
+          "desired_state": {
+            "$ref": "#/components/schemas/DesiredState"
+          },
+          "env_preview": {},
+          "health_detail": {
+            "type": ["string", "null"]
+          },
+          "health_status": {
+            "type": ["string", "null"]
+          },
+          "last_health_at": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/String"
+              }
+            ]
+          },
+          "pid": {
+            "type": ["integer", "null"],
+            "format": "int32"
+          },
+          "started_at": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/String"
+              }
+            ]
+          },
+          "stopped_at": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/String"
+              }
+            ]
+          }
+        }
+      },
+      "AgentSession": {
+        "type": "object",
+        "required": [
+          "id",
+          "agent_id",
+          "agent_name",
+          "title",
+          "state",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "agent_name": {
+            "type": "string"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/String"
+          },
+          "external_session_id": {
+            "type": ["string", "null"]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "last_message_preview": {
+            "type": ["string", "null"]
+          },
+          "namespace_id": {
+            "type": ["string", "null"]
+          },
+          "state": {
+            "$ref": "#/components/schemas/SessionState"
+          },
+          "task_key": {
+            "type": ["string", "null"]
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/String"
+          }
+        }
+      },
+      "AgentSkill": {
+        "type": "object",
+        "required": [
+          "id",
+          "agent_id",
+          "name",
+          "title",
+          "state",
+          "source",
+          "updated_at"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "content": {
+            "type": ["string", "null"]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/SkillState"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/String"
+          }
+        }
+      },
+      "AgentStatus": {
+        "type": "string",
+        "enum": [
+          "provisioning",
+          "ready",
+          "starting",
+          "running",
+          "stopped",
+          "failed",
+          "archived"
+        ]
+      },
+      "AuthResponse": {
+        "type": "object",
+        "required": [
+          "access_token",
+          "user_id",
+          "email",
+          "username",
+          "display_name",
+          "is_system_admin"
+        ],
+        "properties": {
+          "access_token": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "is_system_admin": {
+            "type": "boolean"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateAgentRequest": {
+        "type": "object",
+        "required": ["kind", "role", "display_name"],
+        "properties": {
+          "description": {
+            "type": ["string", "null"]
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AgentKind"
+          },
+          "namespace_id": {
+            "type": ["string", "null"]
+          },
+          "namespace_name": {
+            "type": ["string", "null"]
+          },
+          "role": {
+            "$ref": "#/components/schemas/AgentRole"
+          },
+          "workflow_id": {
+            "type": ["string", "null"]
+          },
+          "workflow_name": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "CreateSessionRequest": {
+        "type": "object",
+        "required": ["agent_id", "title"],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "namespace_id": {
+            "type": ["string", "null"]
+          },
+          "task_key": {
+            "type": ["string", "null"]
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "DesiredState": {
+        "type": "string",
+        "enum": ["running", "stopped"]
+      },
+      "FleetDashboard": {
+        "type": "object",
+        "required": [
+          "total_agents",
+          "running_agents",
+          "failed_agents",
+          "active_sessions",
+          "agents",
+          "recent_events"
+        ],
+        "properties": {
+          "active_sessions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "agents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Agent"
+            }
+          },
+          "failed_agents": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "recent_events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentEvent"
+            }
+          },
+          "running_agents": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "total_agents": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "HandoffSessionRequest": {
+        "type": "object",
+        "required": ["target_agent_id"],
+        "properties": {
+          "target_agent_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        }
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "required": ["email", "username", "display_name", "password"],
+        "properties": {
+          "display_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
+      "RuntimeOperationResponse": {
+        "type": "object",
+        "required": ["agent_id", "status", "message"],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "message": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AgentStatus"
+          }
+        }
+      },
+      "RuntimeTemplate": {
+        "type": "object",
+        "required": [
+          "kind",
+          "display_name",
+          "implemented",
+          "enabled",
+          "description",
+          "capabilities"
+        ],
+        "properties": {
+          "capabilities": {},
+          "description": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "implemented": {
+            "type": "boolean"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AgentKind"
+          }
+        }
+      },
+      "SessionState": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "active",
+          "handoff_requested",
+          "blocked",
+          "done",
+          "archived"
+        ]
+      },
+      "SkillState": {
+        "type": "string",
+        "enum": ["enabled", "disabled", "missing", "dirty"]
+      },
+      "String": {
+        "type": "string"
+      },
+      "UpdateAgentConfigRequest": {
+        "type": "object",
+        "required": ["config_json", "soul_md", "env_json"],
+        "properties": {
+          "config_json": {},
+          "env_json": {},
+          "soul_md": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateAgentRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": ["string", "null"]
+          },
+          "display_name": {
+            "type": ["string", "null"]
+          },
+          "namespace_id": {
+            "type": ["string", "null"]
+          },
+          "role": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AgentRole"
+              }
+            ]
+          },
+          "workflow_id": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "UpdateSkillRequest": {
+        "type": "object",
+        "required": ["state"],
+        "properties": {
+          "content": {
+            "type": ["string", "null"]
+          },
+          "state": {
+            "$ref": "#/components/schemas/SkillState"
+          }
+        }
+      },
+      "UserListResponse": {
+        "type": "object",
+        "required": ["users"],
+        "properties": {
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserResponse"
+            }
+          }
+        }
+      },
+      "UserResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "username",
+          "display_name",
+          "is_system_admin",
+          "is_active"
+        ],
+        "properties": {
+          "display_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "is_system_admin": {
+            "type": "boolean"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
+      "WorkflowBinding": {
+        "type": "object",
+        "required": [
+          "id",
+          "agent_id",
+          "binding_status",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "binding_status": {
+            "type": "string"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/String"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "namespace_id": {
+            "type": ["string", "null"]
+          },
+          "namespace_name": {
+            "type": ["string", "null"]
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/String"
+          },
+          "workflow_id": {
+            "type": ["string", "null"]
+          },
+          "workflow_name": {
+            "type": ["string", "null"]
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "auth",
+      "description": "Authentication"
+    },
+    {
+      "name": "agents",
+      "description": "Agent fleet management"
+    },
+    {
+      "name": "sessions",
+      "description": "Cross-agent task sessions"
+    },
+    {
+      "name": "runtime",
+      "description": "Runtime templates and deployments"
+    }
+  ]
+}

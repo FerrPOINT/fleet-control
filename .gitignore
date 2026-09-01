@@ -1,0 +1,17 @@
+/target
+node_modules
+dist
+*.log
+.env
+.env.local
+.DS_Store
+.idea
+.vscode
+coverage
+.lighthouseci
+playwright-report
+test-results
+*.tmp
+/tmp
+backend/target
+cli/target

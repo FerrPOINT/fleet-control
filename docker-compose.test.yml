@@ -1,0 +1,22 @@
+services:
+  postgres_test:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_USER: fleet_control_test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: fleet_control_test
+    ports:
+      - "127.0.0.1:15432:5432"
+    networks:
+      - fleet_control_test
+
+  redis_test:
+    image: redis:8.0-alpine
+    ports:
+      - "127.0.0.1:16379:6379"
+    networks:
+      - fleet_control_test
+
+networks:
+  fleet_control_test:
+    driver: bridge

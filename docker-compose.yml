@@ -1,0 +1,84 @@
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fleet_control}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-fleet_control}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fleet_control} -d ${POSTGRES_DB:-fleet_control}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:8.0-alpine
+    command: ["redis-server", "--save", "60", "1", "--appendonly", "no"]
+    volumes:
+      - redis_data:/data
+    ports: []
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      FLEET_CONTROL_DATABASE__URL: ${FLEET_CONTROL_DATABASE__URL:-postgres://${POSTGRES_USER:-fleet_control}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-fleet_control}}
+      FLEET_CONTROL_SERVER__ADDRESS: 0.0.0.0
+      FLEET_CONTROL_SERVER__PORT: 23801
+      FLEET_CONTROL_JWT_SECRET: ${FLEET_CONTROL_JWT_SECRET:?FLEET_CONTROL_JWT_SECRET is required}
+      FLEET_CONTROL_AUTH__REFRESH_COOKIE_SECURE: ${FLEET_CONTROL_AUTH__REFRESH_COOKIE_SECURE:-false}
+      FLEET_CONTROL_AUTH__REFRESH_COOKIE_SAME_SITE: ${FLEET_CONTROL_AUTH__REFRESH_COOKIE_SAME_SITE:-Lax}
+      FLEET_CONTROL_AUTH__REFRESH_COOKIE_PATH: /api/v1/auth
+      FLEET_CONTROL_FLEET__AGENTS_ROOT: /var/lib/fleet-control/agents
+      FLEET_CONTROL_FLEET__HERMES_SOURCE: ${FLEET_CONTROL_FLEET__HERMES_SOURCE:-/opt/hermes}
+      FLEET_CONTROL_FLEET__HERMES_COMMAND: ${FLEET_CONTROL_FLEET__HERMES_COMMAND:-hermes}
+      FLEET_CONTROL_FLEET__JAVA_AGENT_SOURCE: ${FLEET_CONTROL_FLEET__JAVA_AGENT_SOURCE:-/opt/java-agent}
+      FLEET_CONTROL_FLEET__JAVA_AGENT_COMMAND: ${FLEET_CONTROL_FLEET__JAVA_AGENT_COMMAND:-java}
+      FLEET_CONTROL_FLEET__AGENT_PORT_BASE: ${FLEET_CONTROL_FLEET__AGENT_PORT_BASE:-29000}
+      FLEET_CONTROL_FLEET__AGENT_PORT_STRIDE: ${FLEET_CONTROL_FLEET__AGENT_PORT_STRIDE:-10}
+      FLEET_CONTROL_METRICS__PUBLIC: ${FLEET_CONTROL_METRICS__PUBLIC:-true}
+      RUST_LOG: ${RUST_LOG:-info}
+    volumes:
+      - agents_data:/var/lib/fleet-control/agents
+    ports:
+      - "${BACKEND_HOST:-127.0.0.1}:${BACKEND_PORT:-23801}:23801"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:23801/api/v1/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+    ports:
+      - "${FRONTEND_PORT:-23802}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
+  agents_data:

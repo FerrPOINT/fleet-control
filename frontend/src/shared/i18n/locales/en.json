@@ -1,0 +1,11 @@
+{
+  "app": {
+    "name": "Fleet Control"
+  },
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete"
+  }
+}

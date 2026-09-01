@@ -1,0 +1,32 @@
+[package]
+name = "infra"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license-file.workspace = true
+publish = false
+
+[dependencies]
+shared = { path = "../shared" }
+domain = { path = "../domain" }
+app = { path = "../app" }
+async-trait = "0.1"
+config.workspace = true
+sea-orm.workspace = true
+sea-orm-migration.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+moka.workspace = true
+migration = { path = "../migration" }
+lettre.workspace = true
+reqwest.workspace = true
+
+[dev-dependencies]
+serial_test = "3.2"
+tokio = { workspace = true, features = ["macros", "rt"] }

@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+      - run: cargo fmt --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace -- --test-threads=1
+
+  openapi-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+      - name: Regenerate OpenAPI
+        run: cargo run -p api --bin gen-openapi > ../openapi/openapi.json.generated
+      - name: Check committed spec matches code
+        run: diff -u ../openapi/openapi.json ../openapi/openapi.json.generated
+
+  migrations:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_USER: fleet_control
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: fleet_control
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fleet_control -d fleet_control"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+      - name: Apply all migrations to clean DB
+        run: cargo run -p migration -- up
+        env:
+          DATABASE_URL: postgres://fleet_control:test@localhost:5432/fleet_control
+      - name: Verify migration status
+        run: cargo run -p migration -- status
+        env:
+          DATABASE_URL: postgres://fleet_control:test@localhost:5432/fleet_control
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm generate:api
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm test -- --run
+      - run: pnpm build
+
+  e2e:
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: ci-test
+      FLEET_CONTROL_JWT_SECRET: ci-test-secret-ci-test-secret-ci-test-32b
+      FLEET_CONTROL_AUTH__REFRESH_COOKIE_SECURE: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: frontend
+      - run: pnpm build
+        working-directory: frontend
+      - run: docker compose up -d postgres redis backend frontend
+      - name: Wait for backend
+        run: |
+          for i in $(seq 1 120); do
+            if curl -sf http://127.0.0.1:23801/api/v1/health >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker compose logs backend
+          exit 1
+      - run: pnpm exec playwright test
+        working-directory: frontend
