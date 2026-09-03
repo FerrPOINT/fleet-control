@@ -4,6 +4,22 @@
  */
 
 export interface paths {
+    "/api/v1/agent-directory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_agent_directory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/agents": {
         parameters: {
             query?: never;
@@ -164,6 +180,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/audit-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_audit_log"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -244,6 +276,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/deployments/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_deployment_jobs"];
+        put?: never;
+        post: operations["create_deployment_job"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/deployments/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_deployment_job"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/deployments/jobs/{job_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["cancel_deployment_job"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/events": {
         parameters: {
             query?: never;
@@ -252,6 +332,38 @@ export interface paths {
             cookie?: never;
         };
         get: operations["events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/events/recent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["recent_events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/executors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_executors"];
         put?: never;
         post?: never;
         delete?: never;
@@ -269,6 +381,38 @@ export interface paths {
         };
         get: operations["health"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leaders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_leaders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leaders/{leader_agent_id}/executors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_leader_executors"];
+        put: operations["update_leader_executors"];
         post?: never;
         delete?: never;
         options?: never;
@@ -340,6 +484,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/{session_id}/delegations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["create_session_delegation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions/{session_id}/handoff": {
         parameters: {
             query?: never;
@@ -350,6 +510,198 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["handoff_session"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/leader": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["assign_session_leader"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_session_messages"];
+        put?: never;
+        post: operations["create_session_message"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/participants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_session_participants"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_session_agent_runs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/runs/{run_id}/approval": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["resolve_session_run_approval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/runs/{run_id}/steer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["steer_session_run"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/runs/{run_id}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["stop_session_run"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["stream_session"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/auth": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_auth_settings"];
+        put: operations["update_auth_settings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/integrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_integration_settings"];
+        put: operations["update_integration_settings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/ports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_port_settings"];
+        put: operations["update_port_settings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/runtime": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_runtime_settings"];
+        put: operations["update_runtime_settings"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -388,6 +740,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/me/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_permissions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["update_user_role"];
+        trace?: never;
+    };
     "/api/v1/workflow-bindings": {
         parameters: {
             query?: never;
@@ -424,6 +808,7 @@ export interface components {
             /** Format: int32 */
             ordinal: number;
             paths: components["schemas"]["AgentPaths"];
+            product_role: components["schemas"]["AgentProductRole"];
             role: components["schemas"]["AgentRole"];
             runtime: components["schemas"]["AgentRuntime"];
             runtime_version?: string | null;
@@ -438,6 +823,26 @@ export interface components {
             env_json: unknown;
             soul_md: string;
             updated_at: components["schemas"]["String"];
+        };
+        AgentDirectoryItem: {
+            /** Format: int32 */
+            api_port?: number | null;
+            /** Format: int32 */
+            dashboard_port?: number | null;
+            description?: string | null;
+            display_name: string;
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["AgentKind"];
+            name: string;
+            namespace_id?: string | null;
+            /** Format: int32 */
+            ordinal: number;
+            product_role: components["schemas"]["AgentProductRole"];
+            role: components["schemas"]["AgentRole"];
+            runtime_version?: string | null;
+            status: components["schemas"]["AgentStatus"];
+            workflow_id?: string | null;
         };
         AgentEvent: {
             /** Format: uuid */
@@ -467,17 +872,21 @@ export interface components {
             workspace: string;
         };
         /** @enum {string} */
-        AgentRole: "developer" | "tester" | "custom";
+        AgentProductRole: "leader" | "executor";
+        /** @enum {string} */
+        AgentRole: "developer" | "tester" | "it_lead" | "custom";
         AgentRuntime: {
             command_preview: string;
             desired_state: components["schemas"]["DesiredState"];
             env_preview: unknown;
             health_detail?: string | null;
             health_status?: string | null;
+            last_capabilities_json: unknown;
             last_health_at?: null | components["schemas"]["String"];
             /** Format: int32 */
             pid?: number | null;
             started_at?: null | components["schemas"]["String"];
+            startup_command_redacted?: string | null;
             stopped_at?: null | components["schemas"]["String"];
         };
         AgentSession: {
@@ -485,11 +894,21 @@ export interface components {
             agent_id: string;
             agent_name: string;
             created_at: components["schemas"]["String"];
+            /** Format: uuid */
+            created_by_leader_agent_id?: string | null;
             external_session_id?: string | null;
             /** Format: uuid */
             id: string;
             last_message_preview?: string | null;
+            /** Format: uuid */
+            leader_agent_id?: string | null;
+            leader_agent_name?: string | null;
             namespace_id?: string | null;
+            /** Format: uuid */
+            parent_session_id?: string | null;
+            /** Format: uuid */
+            primary_agent_id: string;
+            primary_agent_name: string;
             state: components["schemas"]["SessionState"];
             task_key?: string | null;
             title: string;
@@ -499,6 +918,7 @@ export interface components {
             /** Format: uuid */
             user_id: string;
             user_username: string;
+            visibility: components["schemas"]["SessionVisibility"];
         };
         AgentSkill: {
             /** Format: uuid */
@@ -513,39 +933,123 @@ export interface components {
             updated_at: components["schemas"]["String"];
         };
         /** @enum {string} */
-        AgentStatus: "provisioning" | "ready" | "starting" | "running" | "stopped" | "failed" | "archived";
+        AgentStatus: "provisioning" | "ready" | "starting" | "running" | "degraded" | "stopped" | "failed" | "archived";
+        AssignSessionLeaderRequest: {
+            /** Format: uuid */
+            leader_agent_id?: string | null;
+        };
+        AuditLogEntry: {
+            action: string;
+            /** Format: uuid */
+            actor_user_id?: string | null;
+            created_at: components["schemas"]["String"];
+            entity_id?: string | null;
+            entity_type: string;
+            /** Format: uuid */
+            id: string;
+            payload: unknown;
+        };
         AuthResponse: {
             access_token: string;
             display_name: string;
             email: string;
             is_system_admin: boolean;
+            system_role: components["schemas"]["SystemRole"];
             /** Format: uuid */
             user_id: string;
             username: string;
         };
+        AuthSettings: {
+            /** Format: int64 */
+            access_token_ttl_minutes: number;
+            refresh_cookie_domain?: string | null;
+            refresh_cookie_name: string;
+            refresh_cookie_path: string;
+            refresh_cookie_same_site: string;
+            refresh_cookie_secure: boolean;
+            /** Format: int64 */
+            refresh_token_ttl_days: number;
+        };
         CreateAgentRequest: {
             description?: string | null;
             display_name: string;
+            executor_ids?: string[];
             kind: components["schemas"]["AgentKind"];
             namespace_id?: string | null;
             namespace_name?: string | null;
+            product_role?: components["schemas"]["AgentProductRole"];
             role: components["schemas"]["AgentRole"];
             workflow_id?: string | null;
             workflow_name?: string | null;
         };
-        CreateSessionRequest: {
+        CreateDeploymentJobRequest: {
             /** Format: uuid */
-            agent_id: string;
-            namespace_id?: string | null;
+            agent_id?: string | null;
+            detail?: unknown;
+            job_kind: components["schemas"]["DeploymentJobKind"];
+            runtime_kind?: null | components["schemas"]["AgentKind"];
+            title: string;
+        };
+        CreateSessionDelegationRequest: {
+            /** Format: uuid */
+            executor_agent_id: string;
+            idempotency_key?: string | null;
+            initial_message?: string | null;
             task_key?: string | null;
             title: string;
         };
+        CreateSessionMessageRequest: {
+            /** Format: uuid */
+            author_agent_id?: string | null;
+            body: string;
+            idempotency_key?: string | null;
+            message_kind?: null | components["schemas"]["MessageKind"];
+            runtime_message_id?: string | null;
+        };
+        CreateSessionRequest: {
+            /** Format: uuid */
+            agent_id?: string | null;
+            idempotency_key?: string | null;
+            /** Format: uuid */
+            leader_agent_id?: string | null;
+            namespace_id?: string | null;
+            /** Format: uuid */
+            parent_session_id?: string | null;
+            /** Format: uuid */
+            primary_agent_id?: string | null;
+            task_key?: string | null;
+            title: string;
+        };
+        DeploymentJob: {
+            /** Format: uuid */
+            agent_id?: string | null;
+            created_at: components["schemas"]["String"];
+            detail: unknown;
+            /** Format: uuid */
+            id: string;
+            job_kind: components["schemas"]["DeploymentJobKind"];
+            last_error?: string | null;
+            /** Format: uuid */
+            requested_by_user_id?: string | null;
+            runtime_kind?: null | components["schemas"]["AgentKind"];
+            state: components["schemas"]["DeploymentJobState"];
+            title: string;
+            updated_at: components["schemas"]["String"];
+        };
+        /** @enum {string} */
+        DeploymentJobKind: "provision" | "runtime_update";
+        /** @enum {string} */
+        DeploymentJobState: "queued" | "running" | "completed" | "failed" | "cancelled";
         /** @enum {string} */
         DesiredState: "running" | "stopped";
         FleetDashboard: {
             active_sessions: number;
             agents: components["schemas"]["Agent"][];
+            executor_agents: number;
             failed_agents: number;
+            leader_agents: number;
+            leader_scoped_sessions: number;
+            private_sessions: number;
             recent_events: components["schemas"]["AgentEvent"][];
             running_agents: number;
             total_agents: number;
@@ -554,9 +1058,44 @@ export interface components {
             /** Format: uuid */
             target_agent_id: string;
         };
+        IntegrationSettings: {
+            github_remote?: string | null;
+            project_workflow_status: string;
+            project_workflow_url?: string | null;
+        };
+        LeaderExecutor: {
+            created_at: components["schemas"]["String"];
+            /** Format: uuid */
+            created_by_user_id?: string | null;
+            /** Format: uuid */
+            executor_agent_id: string;
+            executor_display_name: string;
+            executor_name: string;
+            executor_profile: components["schemas"]["AgentRole"];
+            /** Format: uuid */
+            leader_agent_id: string;
+            namespace_id?: string | null;
+            workflow_id?: string | null;
+        };
         LoginRequest: {
             email: string;
             password: string;
+        };
+        /** @enum {string} */
+        MessageAuthorType: "user" | "agent" | "system";
+        /** @enum {string} */
+        MessageDeliveryState: "pending" | "dispatched" | "completed" | "failed" | "mirrored";
+        /** @enum {string} */
+        MessageKind: "user_prompt" | "assistant_message" | "tool_event" | "system_event" | "control";
+        PortSettings: {
+            /** Format: int32 */
+            agent_port_base: number;
+            /** Format: int32 */
+            agent_port_stride: number;
+            /** Format: int32 */
+            backend_port: number;
+            /** Format: int32 */
+            frontend_port: number;
         };
         RegisterRequest: {
             display_name: string;
@@ -564,11 +1103,53 @@ export interface components {
             password: string;
             username: string;
         };
+        ResolveRuntimeApprovalRequest: {
+            choice: string;
+            resolve_all?: boolean;
+        };
+        RuntimeApprovalRequest: {
+            /** Format: uuid */
+            agent_id: string;
+            created_at: components["schemas"]["String"];
+            detail: unknown;
+            /** Format: uuid */
+            id: string;
+            prompt: string;
+            resolved_at?: null | components["schemas"]["String"];
+            /** Format: uuid */
+            resolved_by_user_id?: string | null;
+            runtime_approval_id?: string | null;
+            runtime_run_id: string;
+            /** Format: uuid */
+            session_id: string;
+            /** Format: uuid */
+            session_run_id: string;
+            state: components["schemas"]["RuntimeApprovalState"];
+        };
+        /** @enum {string} */
+        RuntimeApprovalState: "pending" | "approved" | "denied" | "cancelled";
         RuntimeOperationResponse: {
             /** Format: uuid */
             agent_id: string;
             message: string;
             status: components["schemas"]["AgentStatus"];
+        };
+        RuntimeRunControlResponse: {
+            accepted: boolean;
+            message: string;
+            /** Format: uuid */
+            run_id: string;
+            runtime_run_id?: string | null;
+            /** Format: uuid */
+            session_id: string;
+            state: components["schemas"]["SessionRunState"];
+        };
+        RuntimeSettings: {
+            agents_root: string;
+            hermes_command: string;
+            hermes_source: string;
+            java_agent_command: string;
+            java_agent_source: string;
         };
         RuntimeTemplate: {
             capabilities: unknown;
@@ -578,11 +1159,79 @@ export interface components {
             implemented: boolean;
             kind: components["schemas"]["AgentKind"];
         };
+        SessionAgentRun: {
+            /** Format: uuid */
+            agent_id: string;
+            agent_name: string;
+            created_at: components["schemas"]["String"];
+            /** Format: uuid */
+            id: string;
+            last_error?: string | null;
+            last_event_at?: null | components["schemas"]["String"];
+            model?: string | null;
+            model_options: unknown;
+            provider?: string | null;
+            run_role: components["schemas"]["SessionRunRole"];
+            runtime_run_id?: string | null;
+            runtime_session_id?: string | null;
+            /** Format: uuid */
+            session_id: string;
+            state: components["schemas"]["SessionRunState"];
+            updated_at: components["schemas"]["String"];
+        };
+        SessionMessage: {
+            /** Format: uuid */
+            author_agent_id?: string | null;
+            author_display_name: string;
+            author_type: components["schemas"]["MessageAuthorType"];
+            /** Format: uuid */
+            author_user_id?: string | null;
+            body: string;
+            created_at: components["schemas"]["String"];
+            delivery_error?: string | null;
+            delivery_state: components["schemas"]["MessageDeliveryState"];
+            /** Format: uuid */
+            id: string;
+            message_kind: components["schemas"]["MessageKind"];
+            replayed: boolean;
+            runtime_message_id?: string | null;
+            /** Format: uuid */
+            session_id: string;
+        };
+        SessionParticipant: {
+            /** Format: uuid */
+            agent_id?: string | null;
+            created_at: components["schemas"]["String"];
+            display_name: string;
+            /** Format: uuid */
+            id: string;
+            participant_type: components["schemas"]["SessionParticipantType"];
+            /** Format: uuid */
+            session_id: string;
+            session_role: components["schemas"]["SessionRole"];
+            /** Format: uuid */
+            user_id?: string | null;
+        };
+        /** @enum {string} */
+        SessionParticipantType: "user" | "agent";
+        /** @enum {string} */
+        SessionRole: "owner" | "primary" | "leader" | "executor" | "observer";
+        /** @enum {string} */
+        SessionRunRole: "primary" | "leader" | "executor";
+        /** @enum {string} */
+        SessionRunState: "pending" | "running" | "waiting" | "completed" | "failed" | "cancelled" | "stopping";
         /** @enum {string} */
         SessionState: "draft" | "active" | "handoff_requested" | "blocked" | "done" | "archived";
         /** @enum {string} */
+        SessionVisibility: "private" | "leader_scoped";
+        /** @enum {string} */
         SkillState: "enabled" | "disabled" | "missing" | "dirty";
+        SteerSessionRunRequest: {
+            input: string;
+        };
         String: string;
+        /** @enum {string} */
+        SystemRole: "admin" | "operator" | "user";
         UpdateAgentConfigRequest: {
             config_json: unknown;
             env_json: unknown;
@@ -591,16 +1240,31 @@ export interface components {
         UpdateAgentRequest: {
             description?: string | null;
             display_name?: string | null;
+            executor_ids?: string[] | null;
             namespace_id?: string | null;
+            product_role?: null | components["schemas"]["AgentProductRole"];
             role?: null | components["schemas"]["AgentRole"];
             workflow_id?: string | null;
+        };
+        UpdateLeaderExecutorsRequest: {
+            executor_ids: string[];
         };
         UpdateSkillRequest: {
             content?: string | null;
             state: components["schemas"]["SkillState"];
         };
+        UpdateUserRoleRequest: {
+            role: components["schemas"]["SystemRole"];
+        };
         UserListResponse: {
             users: components["schemas"]["UserResponse"][];
+        };
+        UserPermissionsResponse: {
+            is_system_admin: boolean;
+            permissions: string[];
+            role: components["schemas"]["SystemRole"];
+            /** Format: uuid */
+            user_id: string;
         };
         UserResponse: {
             display_name: string;
@@ -609,6 +1273,7 @@ export interface components {
             id: string;
             is_active: boolean;
             is_system_admin: boolean;
+            system_role: components["schemas"]["SystemRole"];
             username: string;
         };
         WorkflowBinding: {
@@ -633,6 +1298,25 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_agent_directory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentDirectoryItem"][];
+                };
+            };
+        };
+    };
     list_agents: {
         parameters: {
             query?: never;
@@ -940,6 +1624,25 @@ export interface operations {
             };
         };
     };
+    list_audit_log: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditLogEntry"][];
+                };
+            };
+        };
+    };
     login: {
         parameters: {
             query?: never;
@@ -1047,6 +1750,90 @@ export interface operations {
             };
         };
     };
+    list_deployment_jobs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentJob"][];
+                };
+            };
+        };
+    };
+    create_deployment_job: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDeploymentJobRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentJob"];
+                };
+            };
+        };
+    };
+    get_deployment_job: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentJob"];
+                };
+            };
+        };
+    };
+    cancel_deployment_job: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentJob"];
+                };
+            };
+        };
+    };
     events: {
         parameters: {
             query?: never;
@@ -1065,6 +1852,44 @@ export interface operations {
             };
         };
     };
+    recent_events: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentEvent"][];
+                };
+            };
+        };
+    };
+    list_executors: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Agent"][];
+                };
+            };
+        };
+    };
     health: {
         parameters: {
             query?: never;
@@ -1080,6 +1905,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    list_leaders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Agent"][];
+                };
+            };
+        };
+    };
+    list_leader_executors: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                leader_agent_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaderExecutor"][];
+                };
+            };
+        };
+    };
+    update_leader_executors: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                leader_agent_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLeaderExecutorsRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaderExecutor"][];
                 };
             };
         };
@@ -1127,7 +2017,9 @@ export interface operations {
             query?: {
                 /** @description Limit sessions to one agent */
                 agent_id?: string;
-                /** @description Comma-separated user ids. Omit for all users. */
+                /** @description Limit sessions to one leader */
+                leader_agent_id?: string;
+                /** @description Comma-separated user ids, or all for admin. Omit for current user. */
                 user_id?: string;
             };
             header?: never;
@@ -1190,6 +2082,31 @@ export interface operations {
             };
         };
     };
+    create_session_delegation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSessionDelegationRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentSession"];
+                };
+            };
+        };
+    };
     handoff_session: {
         parameters: {
             query?: never;
@@ -1211,6 +2128,381 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AgentSession"];
+                };
+            };
+        };
+    };
+    assign_session_leader: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignSessionLeaderRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentSession"];
+                };
+            };
+        };
+    };
+    list_session_messages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionMessage"][];
+                };
+            };
+        };
+    };
+    create_session_message: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSessionMessageRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionMessage"];
+                };
+            };
+        };
+    };
+    list_session_participants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionParticipant"][];
+                };
+            };
+        };
+    };
+    list_session_agent_runs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionAgentRun"][];
+                };
+            };
+        };
+    };
+    resolve_session_run_approval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveRuntimeApprovalRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeRunControlResponse"];
+                };
+            };
+        };
+    };
+    steer_session_run: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SteerSessionRunRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeRunControlResponse"];
+                };
+            };
+        };
+    };
+    stop_session_run: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeRunControlResponse"];
+                };
+            };
+        };
+    };
+    stream_session: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session-scoped SSE event stream */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_auth_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthSettings"];
+                };
+            };
+        };
+    };
+    update_auth_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthSettings"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthSettings"];
+                };
+            };
+        };
+    };
+    get_integration_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrationSettings"];
+                };
+            };
+        };
+    };
+    update_integration_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IntegrationSettings"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrationSettings"];
+                };
+            };
+        };
+    };
+    get_port_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortSettings"];
+                };
+            };
+        };
+    };
+    update_port_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PortSettings"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortSettings"];
+                };
+            };
+        };
+    };
+    get_runtime_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeSettings"];
+                };
+            };
+        };
+    };
+    update_runtime_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuntimeSettings"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeSettings"];
                 };
             };
         };
@@ -1242,6 +2534,50 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserResponse"];
+                };
+            };
+        };
+    };
+    get_permissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPermissionsResponse"];
+                };
+            };
+        };
+    };
+    update_user_role: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateUserRoleRequest"];
+            };
+        };
         responses: {
             200: {
                 headers: {

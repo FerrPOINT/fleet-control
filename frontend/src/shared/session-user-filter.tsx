@@ -14,6 +14,11 @@ export function useSessionUserFilter() {
   const email = useAuthStore((state) => state.email)
   const username = useAuthStore((state) => state.username)
   const displayName = useAuthStore((state) => state.displayName)
+  const isSystemAdmin = useAuthStore((state) => state.isSystemAdmin)
+  const systemRole = useAuthStore((state) => state.systemRole)
+  const canReadAllSessions = useAuthStore((state) =>
+    state.permissions.includes('sessions:read_all'),
+  )
   const users = useQuery({ queryKey: ['users'], queryFn: listUsers })
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>(() =>
     currentUserId ? [currentUserId] : [],
@@ -26,6 +31,11 @@ export function useSessionUserFilter() {
     setInitialized(true)
   }, [currentUserId, initialized])
 
+  useEffect(() => {
+    if (canReadAllSessions || !currentUserId || selectedUserIds.length) return
+    setSelectedUserIds([currentUserId])
+  }, [canReadAllSessions, currentUserId, selectedUserIds.length])
+
   const mergedUsers = useMemo(() => {
     const knownUsers = users.data ?? []
     if (!currentUserId || knownUsers.some((user) => user.id === currentUserId)) return knownUsers
@@ -34,11 +44,12 @@ export function useSessionUserFilter() {
       email: email ?? '',
       username: username ?? email ?? 'me',
       display_name: displayName ?? email ?? 'Me',
-      is_system_admin: false,
+      system_role: systemRole,
+      is_system_admin: isSystemAdmin,
       is_active: true,
     }
     return [currentUser, ...knownUsers]
-  }, [currentUserId, displayName, email, username, users.data])
+  }, [currentUserId, displayName, email, isSystemAdmin, systemRole, username, users.data])
 
   const selectedUsers = selectedUserIds
     .map((id) => mergedUsers.find((user) => user.id === id))
@@ -49,6 +60,7 @@ export function useSessionUserFilter() {
   }
 
   function removeUser(userId: string) {
+    if (!canReadAllSessions && userId === currentUserId) return
     setSelectedUserIds((current) => current.filter((id) => id !== userId))
   }
 
@@ -57,6 +69,7 @@ export function useSessionUserFilter() {
     allUsers: mergedUsers,
     selectedUsers,
     selectedUserIds,
+    isSystemAdmin: canReadAllSessions,
     setSelectedUserIds,
     addUser,
     removeUser,
@@ -116,7 +129,8 @@ export function SessionUserFilter({
                 type="button"
                 aria-label={`Remove ${user.display_name} filter`}
                 onClick={() => filter.removeUser(user.id)}
-                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-border hover:text-text-primary"
+                disabled={!filter.isSystemAdmin}
+                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-border hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <X className="h-3.5 w-3.5" />
               </button>

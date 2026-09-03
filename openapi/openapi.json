@@ -9,6 +9,29 @@
     "version": "0.2.0"
   },
   "paths": {
+    "/api/v1/agent-directory": {
+      "get": {
+        "tags": [
+          "agents"
+        ],
+        "operationId": "list_agent_directory",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AgentDirectoryItem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/agents": {
       "get": {
         "tags": [
@@ -467,6 +490,29 @@
         }
       }
     },
+    "/api/v1/audit-log": {
+      "get": {
+        "tags": [
+          "runtime"
+        ],
+        "operationId": "list_audit_log",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AuditLogEntry"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "tags": [
@@ -583,6 +629,119 @@
         }
       }
     },
+    "/api/v1/deployments/jobs": {
+      "get": {
+        "tags": [
+          "runtime"
+        ],
+        "operationId": "list_deployment_jobs",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeploymentJob"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "runtime"
+        ],
+        "operationId": "create_deployment_job",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDeploymentJobRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentJob"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/deployments/jobs/{job_id}": {
+      "get": {
+        "tags": [
+          "runtime"
+        ],
+        "operationId": "get_deployment_job",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentJob"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/deployments/jobs/{job_id}/cancel": {
+      "post": {
+        "tags": [
+          "runtime"
+        ],
+        "operationId": "cancel_deployment_job",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentJob"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/events": {
       "get": {
         "tags": [
@@ -592,6 +751,52 @@
         "responses": {
           "200": {
             "description": "SSE event stream"
+          }
+        }
+      }
+    },
+    "/api/v1/events/recent": {
+      "get": {
+        "tags": [
+          "runtime"
+        ],
+        "operationId": "recent_events",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AgentEvent"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/executors": {
+      "get": {
+        "tags": [
+          "executors"
+        ],
+        "operationId": "list_executors",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Agent"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -608,6 +813,105 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/leaders": {
+      "get": {
+        "tags": [
+          "leaders"
+        ],
+        "operationId": "list_leaders",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Agent"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/leaders/{leader_agent_id}/executors": {
+      "get": {
+        "tags": [
+          "leaders"
+        ],
+        "operationId": "list_leader_executors",
+        "parameters": [
+          {
+            "name": "leader_agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LeaderExecutor"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "leaders"
+        ],
+        "operationId": "update_leader_executors",
+        "parameters": [
+          {
+            "name": "leader_agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLeaderExecutorsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LeaderExecutor"
+                  }
+                }
               }
             }
           }
@@ -678,9 +982,19 @@
             }
           },
           {
+            "name": "leader_agent_id",
+            "in": "query",
+            "description": "Limit sessions to one leader",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
             "name": "user_id",
             "in": "query",
-            "description": "Comma-separated user ids. Omit for all users.",
+            "description": "Comma-separated user ids, or all for admin. Omit for current user.",
             "required": false,
             "schema": {
               "type": "string"
@@ -763,6 +1077,47 @@
         }
       }
     },
+    "/api/v1/sessions/{session_id}/delegations": {
+      "post": {
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "create_session_delegation",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSessionDelegationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSession"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sessions/{session_id}/handoff": {
       "post": {
         "tags": [
@@ -797,6 +1152,544 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AgentSession"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/leader": {
+      "put": {
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "assign_session_leader",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignSessionLeaderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSession"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/messages": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "list_session_messages",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SessionMessage"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "create_session_message",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSessionMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionMessage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/participants": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "list_session_participants",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SessionParticipant"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/runs": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "list_session_agent_runs",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SessionAgentRun"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/runs/{run_id}/approval": {
+      "post": {
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "resolve_session_run_approval",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveRuntimeApprovalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeRunControlResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/runs/{run_id}/steer": {
+      "post": {
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "steer_session_run",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SteerSessionRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeRunControlResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/runs/{run_id}/stop": {
+      "post": {
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "stop_session_run",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeRunControlResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/stream": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "stream_session",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session-scoped SSE event stream"
+          }
+        }
+      }
+    },
+    "/api/v1/settings/auth": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "operationId": "get_auth_settings",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSettings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "operationId": "update_auth_settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSettings"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/settings/integrations": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "operationId": "get_integration_settings",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntegrationSettings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "operationId": "update_integration_settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntegrationSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntegrationSettings"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/settings/ports": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "operationId": "get_port_settings",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortSettings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "operationId": "update_port_settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PortSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortSettings"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/settings/runtime": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "operationId": "get_runtime_settings",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeSettings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "operationId": "update_runtime_settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuntimeSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeSettings"
                 }
               }
             }
@@ -844,6 +1737,67 @@
         }
       }
     },
+    "/api/v1/users/me/permissions": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "get_permissions",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPermissionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/role": {
+      "patch": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "update_user_role",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/workflow-bindings": {
       "get": {
         "tags": [
@@ -877,6 +1831,7 @@
           "ordinal",
           "name",
           "kind",
+          "product_role",
           "role",
           "status",
           "display_name",
@@ -935,6 +1890,9 @@
           "paths": {
             "$ref": "#/components/schemas/AgentPaths"
           },
+          "product_role": {
+            "$ref": "#/components/schemas/AgentProductRole"
+          },
           "role": {
             "$ref": "#/components/schemas/AgentRole"
           },
@@ -982,6 +1940,85 @@
           },
           "updated_at": {
             "$ref": "#/components/schemas/String"
+          }
+        }
+      },
+      "AgentDirectoryItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "ordinal",
+          "name",
+          "kind",
+          "product_role",
+          "role",
+          "status",
+          "display_name"
+        ],
+        "properties": {
+          "api_port": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "dashboard_port": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AgentKind"
+          },
+          "name": {
+            "type": "string"
+          },
+          "namespace_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ordinal": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "product_role": {
+            "$ref": "#/components/schemas/AgentProductRole"
+          },
+          "role": {
+            "$ref": "#/components/schemas/AgentRole"
+          },
+          "runtime_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/AgentStatus"
+          },
+          "workflow_id": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -1077,11 +2114,19 @@
           }
         }
       },
+      "AgentProductRole": {
+        "type": "string",
+        "enum": [
+          "leader",
+          "executor"
+        ]
+      },
       "AgentRole": {
         "type": "string",
         "enum": [
           "developer",
           "tester",
+          "it_lead",
           "custom"
         ]
       },
@@ -1090,7 +2135,8 @@
         "required": [
           "desired_state",
           "command_preview",
-          "env_preview"
+          "env_preview",
+          "last_capabilities_json"
         ],
         "properties": {
           "command_preview": {
@@ -1112,6 +2158,7 @@
               "null"
             ]
           },
+          "last_capabilities_json": {},
           "last_health_at": {
             "oneOf": [
               {
@@ -1139,6 +2186,12 @@
               }
             ]
           },
+          "startup_command_redacted": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "stopped_at": {
             "oneOf": [
               {
@@ -1156,11 +2209,14 @@
         "required": [
           "id",
           "agent_id",
+          "primary_agent_id",
           "agent_name",
+          "primary_agent_name",
           "user_id",
           "user_email",
           "user_username",
           "user_display_name",
+          "visibility",
           "title",
           "state",
           "created_at",
@@ -1176,6 +2232,13 @@
           },
           "created_at": {
             "$ref": "#/components/schemas/String"
+          },
+          "created_by_leader_agent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
           },
           "external_session_id": {
             "type": [
@@ -1193,11 +2256,38 @@
               "null"
             ]
           },
+          "leader_agent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "leader_agent_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "namespace_id": {
             "type": [
               "string",
               "null"
             ]
+          },
+          "parent_session_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "primary_agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "primary_agent_name": {
+            "type": "string"
           },
           "state": {
             "$ref": "#/components/schemas/SessionState"
@@ -1226,6 +2316,9 @@
           },
           "user_username": {
             "type": "string"
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/SessionVisibility"
           }
         }
       },
@@ -1279,10 +2372,62 @@
           "ready",
           "starting",
           "running",
+          "degraded",
           "stopped",
           "failed",
           "archived"
         ]
+      },
+      "AssignSessionLeaderRequest": {
+        "type": "object",
+        "properties": {
+          "leader_agent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "AuditLogEntry": {
+        "type": "object",
+        "required": [
+          "id",
+          "action",
+          "entity_type",
+          "payload",
+          "created_at"
+        ],
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "actor_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/String"
+          },
+          "entity_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "entity_type": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "payload": {}
+        }
       },
       "AuthResponse": {
         "type": "object",
@@ -1292,6 +2437,7 @@
           "email",
           "username",
           "display_name",
+          "system_role",
           "is_system_admin"
         ],
         "properties": {
@@ -1307,12 +2453,56 @@
           "is_system_admin": {
             "type": "boolean"
           },
+          "system_role": {
+            "$ref": "#/components/schemas/SystemRole"
+          },
           "user_id": {
             "type": "string",
             "format": "uuid"
           },
           "username": {
             "type": "string"
+          }
+        }
+      },
+      "AuthSettings": {
+        "type": "object",
+        "required": [
+          "access_token_ttl_minutes",
+          "refresh_token_ttl_days",
+          "refresh_cookie_name",
+          "refresh_cookie_secure",
+          "refresh_cookie_same_site",
+          "refresh_cookie_path"
+        ],
+        "properties": {
+          "access_token_ttl_minutes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "refresh_cookie_domain": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "refresh_cookie_name": {
+            "type": "string"
+          },
+          "refresh_cookie_path": {
+            "type": "string"
+          },
+          "refresh_cookie_same_site": {
+            "type": "string"
+          },
+          "refresh_cookie_secure": {
+            "type": "boolean"
+          },
+          "refresh_token_ttl_days": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
           }
         }
       },
@@ -1333,6 +2523,13 @@
           "display_name": {
             "type": "string"
           },
+          "executor_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           "kind": {
             "$ref": "#/components/schemas/AgentKind"
           },
@@ -1347,6 +2544,9 @@
               "string",
               "null"
             ]
+          },
+          "product_role": {
+            "$ref": "#/components/schemas/AgentProductRole"
           },
           "role": {
             "$ref": "#/components/schemas/AgentRole"
@@ -1365,18 +2565,57 @@
           }
         }
       },
-      "CreateSessionRequest": {
+      "CreateDeploymentJobRequest": {
         "type": "object",
         "required": [
-          "agent_id",
+          "job_kind",
           "title"
         ],
         "properties": {
           "agent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "detail": {},
+          "job_kind": {
+            "$ref": "#/components/schemas/DeploymentJobKind"
+          },
+          "runtime_kind": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AgentKind"
+              }
+            ]
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateSessionDelegationRequest": {
+        "type": "object",
+        "required": [
+          "executor_agent_id",
+          "title"
+        ],
+        "properties": {
+          "executor_agent_id": {
             "type": "string",
             "format": "uuid"
           },
-          "namespace_id": {
+          "idempotency_key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "initial_message": {
             "type": [
               "string",
               "null"
@@ -1393,6 +2632,184 @@
           }
         }
       },
+      "CreateSessionMessageRequest": {
+        "type": "object",
+        "required": [
+          "body"
+        ],
+        "properties": {
+          "author_agent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "body": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "message_kind": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MessageKind"
+              }
+            ]
+          },
+          "runtime_message_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "CreateSessionRequest": {
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "idempotency_key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "leader_agent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "namespace_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "parent_session_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "primary_agent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "task_key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "DeploymentJob": {
+        "type": "object",
+        "required": [
+          "id",
+          "job_kind",
+          "state",
+          "title",
+          "detail",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/String"
+          },
+          "detail": {},
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "job_kind": {
+            "$ref": "#/components/schemas/DeploymentJobKind"
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requested_by_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "runtime_kind": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AgentKind"
+              }
+            ]
+          },
+          "state": {
+            "$ref": "#/components/schemas/DeploymentJobState"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/String"
+          }
+        }
+      },
+      "DeploymentJobKind": {
+        "type": "string",
+        "enum": [
+          "provision",
+          "runtime_update"
+        ]
+      },
+      "DeploymentJobState": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "running",
+          "completed",
+          "failed",
+          "cancelled"
+        ]
+      },
       "DesiredState": {
         "type": "string",
         "enum": [
@@ -1404,9 +2821,13 @@
         "type": "object",
         "required": [
           "total_agents",
+          "leader_agents",
+          "executor_agents",
           "running_agents",
           "failed_agents",
           "active_sessions",
+          "private_sessions",
+          "leader_scoped_sessions",
           "agents",
           "recent_events"
         ],
@@ -1421,7 +2842,23 @@
               "$ref": "#/components/schemas/Agent"
             }
           },
+          "executor_agents": {
+            "type": "integer",
+            "minimum": 0
+          },
           "failed_agents": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "leader_agents": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "leader_scoped_sessions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "private_sessions": {
             "type": "integer",
             "minimum": 0
           },
@@ -1453,6 +2890,81 @@
           }
         }
       },
+      "IntegrationSettings": {
+        "type": "object",
+        "required": [
+          "project_workflow_status"
+        ],
+        "properties": {
+          "github_remote": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "project_workflow_status": {
+            "type": "string"
+          },
+          "project_workflow_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "LeaderExecutor": {
+        "type": "object",
+        "required": [
+          "leader_agent_id",
+          "executor_agent_id",
+          "executor_name",
+          "executor_display_name",
+          "executor_profile",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "$ref": "#/components/schemas/String"
+          },
+          "created_by_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "executor_agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "executor_display_name": {
+            "type": "string"
+          },
+          "executor_name": {
+            "type": "string"
+          },
+          "executor_profile": {
+            "$ref": "#/components/schemas/AgentRole"
+          },
+          "leader_agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "namespace_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "workflow_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
       "LoginRequest": {
         "type": "object",
         "required": [
@@ -1465,6 +2977,65 @@
           },
           "password": {
             "type": "string"
+          }
+        }
+      },
+      "MessageAuthorType": {
+        "type": "string",
+        "enum": [
+          "user",
+          "agent",
+          "system"
+        ]
+      },
+      "MessageDeliveryState": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "dispatched",
+          "completed",
+          "failed",
+          "mirrored"
+        ]
+      },
+      "MessageKind": {
+        "type": "string",
+        "enum": [
+          "user_prompt",
+          "assistant_message",
+          "tool_event",
+          "system_event",
+          "control"
+        ]
+      },
+      "PortSettings": {
+        "type": "object",
+        "required": [
+          "backend_port",
+          "frontend_port",
+          "agent_port_base",
+          "agent_port_stride"
+        ],
+        "properties": {
+          "agent_port_base": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "agent_port_stride": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "backend_port": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "frontend_port": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
           }
         }
       },
@@ -1491,6 +3062,97 @@
           }
         }
       },
+      "ResolveRuntimeApprovalRequest": {
+        "type": "object",
+        "required": [
+          "choice"
+        ],
+        "properties": {
+          "choice": {
+            "type": "string"
+          },
+          "resolve_all": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RuntimeApprovalRequest": {
+        "type": "object",
+        "required": [
+          "id",
+          "session_id",
+          "session_run_id",
+          "agent_id",
+          "runtime_run_id",
+          "prompt",
+          "detail",
+          "state",
+          "created_at"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/String"
+          },
+          "detail": {},
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "resolved_at": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/String"
+              }
+            ]
+          },
+          "resolved_by_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "runtime_approval_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "runtime_run_id": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "session_run_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "$ref": "#/components/schemas/RuntimeApprovalState"
+          }
+        }
+      },
+      "RuntimeApprovalState": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "approved",
+          "denied",
+          "cancelled"
+        ]
+      },
       "RuntimeOperationResponse": {
         "type": "object",
         "required": [
@@ -1508,6 +3170,68 @@
           },
           "status": {
             "$ref": "#/components/schemas/AgentStatus"
+          }
+        }
+      },
+      "RuntimeRunControlResponse": {
+        "type": "object",
+        "required": [
+          "session_id",
+          "run_id",
+          "accepted",
+          "state",
+          "message"
+        ],
+        "properties": {
+          "accepted": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "runtime_run_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "$ref": "#/components/schemas/SessionRunState"
+          }
+        }
+      },
+      "RuntimeSettings": {
+        "type": "object",
+        "required": [
+          "agents_root",
+          "hermes_source",
+          "hermes_command",
+          "java_agent_source",
+          "java_agent_command"
+        ],
+        "properties": {
+          "agents_root": {
+            "type": "string"
+          },
+          "hermes_command": {
+            "type": "string"
+          },
+          "hermes_source": {
+            "type": "string"
+          },
+          "java_agent_command": {
+            "type": "string"
+          },
+          "java_agent_source": {
+            "type": "string"
           }
         }
       },
@@ -1540,6 +3264,245 @@
           }
         }
       },
+      "SessionAgentRun": {
+        "type": "object",
+        "required": [
+          "id",
+          "session_id",
+          "agent_id",
+          "agent_name",
+          "run_role",
+          "state",
+          "model_options",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "agent_name": {
+            "type": "string"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/String"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_event_at": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/String"
+              }
+            ]
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "model_options": {},
+          "provider": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "run_role": {
+            "$ref": "#/components/schemas/SessionRunRole"
+          },
+          "runtime_run_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "runtime_session_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "$ref": "#/components/schemas/SessionRunState"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/String"
+          }
+        }
+      },
+      "SessionMessage": {
+        "type": "object",
+        "required": [
+          "id",
+          "session_id",
+          "author_type",
+          "author_display_name",
+          "body",
+          "message_kind",
+          "delivery_state",
+          "replayed",
+          "created_at"
+        ],
+        "properties": {
+          "author_agent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "author_display_name": {
+            "type": "string"
+          },
+          "author_type": {
+            "$ref": "#/components/schemas/MessageAuthorType"
+          },
+          "author_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "body": {
+            "type": "string"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/String"
+          },
+          "delivery_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "delivery_state": {
+            "$ref": "#/components/schemas/MessageDeliveryState"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "message_kind": {
+            "$ref": "#/components/schemas/MessageKind"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "runtime_message_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "session_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "SessionParticipant": {
+        "type": "object",
+        "required": [
+          "id",
+          "session_id",
+          "participant_type",
+          "session_role",
+          "display_name",
+          "created_at"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/String"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "participant_type": {
+            "$ref": "#/components/schemas/SessionParticipantType"
+          },
+          "session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "session_role": {
+            "$ref": "#/components/schemas/SessionRole"
+          },
+          "user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "SessionParticipantType": {
+        "type": "string",
+        "enum": [
+          "user",
+          "agent"
+        ]
+      },
+      "SessionRole": {
+        "type": "string",
+        "enum": [
+          "owner",
+          "primary",
+          "leader",
+          "executor",
+          "observer"
+        ]
+      },
+      "SessionRunRole": {
+        "type": "string",
+        "enum": [
+          "primary",
+          "leader",
+          "executor"
+        ]
+      },
+      "SessionRunState": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "running",
+          "waiting",
+          "completed",
+          "failed",
+          "cancelled",
+          "stopping"
+        ]
+      },
       "SessionState": {
         "type": "string",
         "enum": [
@@ -1551,6 +3514,13 @@
           "archived"
         ]
       },
+      "SessionVisibility": {
+        "type": "string",
+        "enum": [
+          "private",
+          "leader_scoped"
+        ]
+      },
       "SkillState": {
         "type": "string",
         "enum": [
@@ -1560,8 +3530,27 @@
           "dirty"
         ]
       },
+      "SteerSessionRunRequest": {
+        "type": "object",
+        "required": [
+          "input"
+        ],
+        "properties": {
+          "input": {
+            "type": "string"
+          }
+        }
+      },
       "String": {
         "type": "string"
+      },
+      "SystemRole": {
+        "type": "string",
+        "enum": [
+          "admin",
+          "operator",
+          "user"
+        ]
       },
       "UpdateAgentConfigRequest": {
         "type": "object",
@@ -1593,10 +3582,30 @@
               "null"
             ]
           },
+          "executor_ids": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           "namespace_id": {
             "type": [
               "string",
               "null"
+            ]
+          },
+          "product_role": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AgentProductRole"
+              }
             ]
           },
           "role": {
@@ -1617,6 +3626,21 @@
           }
         }
       },
+      "UpdateLeaderExecutorsRequest": {
+        "type": "object",
+        "required": [
+          "executor_ids"
+        ],
+        "properties": {
+          "executor_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
       "UpdateSkillRequest": {
         "type": "object",
         "required": [
@@ -1634,6 +3658,17 @@
           }
         }
       },
+      "UpdateUserRoleRequest": {
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/SystemRole"
+          }
+        }
+      },
       "UserListResponse": {
         "type": "object",
         "required": [
@@ -1648,6 +3683,33 @@
           }
         }
       },
+      "UserPermissionsResponse": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "role",
+          "is_system_admin",
+          "permissions"
+        ],
+        "properties": {
+          "is_system_admin": {
+            "type": "boolean"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "role": {
+            "$ref": "#/components/schemas/SystemRole"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
       "UserResponse": {
         "type": "object",
         "required": [
@@ -1655,6 +3717,7 @@
           "email",
           "username",
           "display_name",
+          "system_role",
           "is_system_admin",
           "is_active"
         ],
@@ -1674,6 +3737,9 @@
           },
           "is_system_admin": {
             "type": "boolean"
+          },
+          "system_role": {
+            "$ref": "#/components/schemas/SystemRole"
           },
           "username": {
             "type": "string"
@@ -1745,12 +3811,24 @@
       "description": "Agent fleet management"
     },
     {
+      "name": "leaders",
+      "description": "Leader agents and managed executor teams"
+    },
+    {
+      "name": "executors",
+      "description": "Executor agent inventory"
+    },
+    {
       "name": "sessions",
       "description": "Cross-agent task sessions"
     },
     {
       "name": "runtime",
       "description": "Runtime templates and deployments"
+    },
+    {
+      "name": "settings",
+      "description": "Fleet Control settings"
     }
   ]
 }

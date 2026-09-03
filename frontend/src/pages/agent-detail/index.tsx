@@ -1,7 +1,16 @@
 import { FormEvent, useEffect, useState } from 'react'
-import { Link, NavLink, useParams } from 'react-router'
+import { Link, NavLink, useLocation, useParams } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { FileCode2, Folder, HeartPulse, Play, RotateCcw, Square, Wrench } from 'lucide-react'
+import {
+  FileCode2,
+  Folder,
+  HeartPulse,
+  Pencil,
+  Play,
+  RotateCcw,
+  Square,
+  Wrench,
+} from 'lucide-react'
 import {
   getAgent,
   getAgentConfig,
@@ -47,6 +56,10 @@ const tabs = [
 
 export function AgentDetailPage({ tab }: { tab: (typeof tabs)[number][0] }) {
   const { agentId } = useParams()
+  const location = useLocation()
+  const basePath = location.pathname.startsWith('/executors')
+    ? `/executors/${agentId}`
+    : `/agents/${agentId}`
   const agent = useQuery({
     queryKey: ['agent', agentId],
     queryFn: () => getAgent(agentId!),
@@ -62,12 +75,20 @@ export function AgentDetailPage({ tab }: { tab: (typeof tabs)[number][0] }) {
       <PageHeader
         title={agent.data.display_name}
         description={`${agent.data.name} controls an isolated ${agent.data.kind} runtime.`}
+        actions={
+          <Button asChild variant="outline">
+            <Link to={`${basePath}/edit`}>
+              <Pencil className="h-4 w-4" />
+              Edit agent
+            </Link>
+          </Button>
+        }
       />
       <div className="mb-4 flex gap-1 overflow-x-auto">
         {tabs.map(([value, label]) => (
           <NavLink
             key={value}
-            to={value === 'overview' ? `/agents/${agentId}` : `/agents/${agentId}/${value}`}
+            to={value === 'overview' ? basePath : `${basePath}/${value}`}
             end={value === 'overview'}
             className={({ isActive }) =>
               cn(
@@ -182,17 +203,29 @@ function RuntimeTab({ agent }: { agent: Agent }) {
                 <StatusBadge value={agent.status} />
               </dd>
             </div>
+            <Field label="PID" value={agent.runtime.pid ?? 'not tracked'} />
+            <Field label="Health" value={agent.runtime.health_status ?? 'unknown'} />
             <Field label="API port" value={agent.api_port ?? 'n/a'} />
             <Field label="Dashboard port" value={agent.dashboard_port ?? 'n/a'} />
+            <Field label="Last health" value={formatDate(agent.runtime.last_health_at)} />
           </dl>
+          {agent.runtime.health_detail ? (
+            <p className="rounded-md border border-border bg-background p-3 text-sm text-text-secondary">
+              {agent.runtime.health_detail}
+            </p>
+          ) : null}
           {operation.isError ? <ErrorState message={operation.error.message} /> : null}
           <div>
             <p className="mb-2 text-xs font-medium uppercase text-text-muted">Command preview</p>
             <pre className="overflow-auto rounded-md border border-border bg-background p-3 text-xs text-text-secondary">
-              {agent.runtime.command_preview}
+              {agent.runtime.startup_command_redacted ?? agent.runtime.command_preview}
             </pre>
           </div>
           <JsonBlock value={agent.runtime.env_preview} />
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase text-text-muted">Capabilities</p>
+            <JsonBlock value={agent.runtime.last_capabilities_json} />
+          </div>
         </CardContent>
       </Card>
       <Card>
@@ -485,9 +518,11 @@ function AgentSessionLink({ session }: { session: AgentSession }) {
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-medium text-text-primary">{session.title}</p>
             <StatusBadge value={session.state} />
+            <StatusBadge value={session.visibility} />
           </div>
           <p className="mt-1 text-xs text-text-muted">
-            {session.user_display_name} - {session.last_message_preview ?? 'No messages yet'}
+            {session.user_display_name} - leader {session.leader_agent_name ?? 'private'} -{' '}
+            {session.last_message_preview ?? 'No messages yet'}
           </p>
         </div>
       </div>

@@ -102,6 +102,7 @@ jobs:
     env:
       POSTGRES_PASSWORD: ci-test
       FLEET_CONTROL_JWT_SECRET: ci-test-secret-ci-test-secret-ci-test-32b
+      FLEET_CONTROL_FLEET__RUNTIME_TOKEN_SECRET: ci-runtime-secret-ci-runtime-secret-32b
       FLEET_CONTROL_AUTH__REFRESH_COOKIE_SECURE: false
     steps:
       - uses: actions/checkout@v4
@@ -115,7 +116,7 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
         working-directory: frontend
-      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm exec playwright install --with-deps chromium firefox webkit
         working-directory: frontend
       - run: pnpm build
         working-directory: frontend
@@ -138,7 +139,13 @@ jobs:
           done
           docker compose logs backend
           exit 1
-      - run: pnpm exec playwright test --project=chromium
+      - run: pnpm exec playwright test
+        working-directory: frontend
+      - run: pnpm screenshots:local
+        working-directory: frontend
+      - run: pnpm screenshots:verify
+        working-directory: frontend
+      - run: pnpm markdown:check
         working-directory: frontend
       - name: Docker logs on failure
         if: failure()

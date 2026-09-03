@@ -24,6 +24,8 @@ export async function refreshAccessToken(): Promise<boolean> {
         email?: string
         username?: string
         display_name?: string
+        system_role?: 'admin' | 'operator' | 'user'
+        is_system_admin?: boolean
       }
       if (!data.access_token || !data.user_id || !data.email) {
         useAuthStore.getState().logout()
@@ -35,6 +37,11 @@ export async function refreshAccessToken(): Promise<boolean> {
         email: data.email,
         username: data.username,
         displayName: data.display_name,
+        systemRole: data.system_role ?? (data.is_system_admin ? 'admin' : 'user'),
+        isSystemAdmin: Boolean(data.is_system_admin),
+        permissions: permissionsForRole(
+          data.system_role ?? (data.is_system_admin ? 'admin' : 'user'),
+        ),
       })
       return true
     } finally {
@@ -42,6 +49,27 @@ export async function refreshAccessToken(): Promise<boolean> {
     }
   })()
   return refreshPromise
+}
+
+export function permissionsForRole(role: 'admin' | 'operator' | 'user'): string[] {
+  const base = ['sessions:read_own', 'sessions:write_own', 'agents:read_directory']
+  if (role === 'user') return base
+  const operator = [
+    ...base,
+    'agents:manage',
+    'leaders:manage',
+    'executors:manage',
+    'runtime:manage',
+    'config:manage',
+    'skills:manage',
+    'deployments:manage',
+    'logs:read',
+    'audit_log:read',
+    'settings:manage',
+    'sessions:read_all',
+  ]
+  if (role === 'operator') return operator
+  return [...operator, 'users:manage', 'rbac:manage']
 }
 
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {

@@ -1,8 +1,8 @@
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { MessageSquarePlus } from 'lucide-react'
-import { createSession, listAgents, listSessions } from '@/api/fleet'
+import { createSession, listAgentDirectory, listLeaderExecutors, listSessions } from '@/api/fleet'
 import { SessionUserFilter, useSessionUserFilter } from '@/shared/session-user-filter'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
@@ -13,28 +13,59 @@ import { EmptyState, ErrorState, PageHeader, StatusBadge, formatDate } from '../
 
 export function SessionsPage() {
   const queryClient = useQueryClient()
-  const agents = useQuery({ queryKey: ['agents'], queryFn: listAgents })
+  const agents = useQuery({ queryKey: ['agent-directory'], queryFn: listAgentDirectory })
+  const leaders = agents.data?.filter((agent) => agent.product_role === 'leader') ?? []
+  const leaderTeams = useQuery({
+    queryKey: ['leader-teams', leaders.map((leader) => leader.id).join(',')],
+    enabled: Boolean(leaders.length),
+    queryFn: async () => {
+      const teams = await Promise.all(
+        leaders.map(async (leader) => ({
+          leader,
+          executors: await listLeaderExecutors(leader.id),
+        })),
+      )
+      return teams
+    },
+  })
   const userFilter = useSessionUserFilter()
   const sessions = useQuery({
     queryKey: ['sessions', 'list', userFilter.selectedUserIds],
     queryFn: () => listSessions(undefined, userFilter.selectedUserIds),
   })
   const [agentId, setAgentId] = useState('')
+  const [leaderId, setLeaderId] = useState('')
   const [title, setTitle] = useState('New task session')
   const [taskKey, setTaskKey] = useState('')
+  const selectedAgent = agents.data?.find((agent) => agent.id === agentId) ?? agents.data?.[0]
+  const possibleLeaders =
+    selectedAgent?.product_role === 'leader'
+      ? leaders.filter((leader) => leader.id === selectedAgent.id)
+      : (leaderTeams.data
+          ?.filter((team) =>
+            team.executors.some((executor) => executor.executor_agent_id === selectedAgent?.id),
+          )
+          .map((team) => team.leader) ?? [])
 
   const mutation = useMutation({
     mutationFn: () =>
       createSession({
-        agent_id: agentId || agents.data?.[0]?.id || '',
+        primary_agent_id: selectedAgent?.id || '',
         title,
         task_key: taskKey || null,
+        leader_agent_id:
+          selectedAgent?.product_role === 'leader' ? selectedAgent.id : leaderId || null,
+        idempotency_key: globalThis.crypto?.randomUUID?.() ?? null,
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['sessions'] })
       setTaskKey('')
     },
   })
+
+  useEffect(() => {
+    if (!agentId && agents.data?.[0]) setAgentId(agents.data[0].id)
+  }, [agentId, agents.data])
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -59,12 +90,34 @@ export function SessionsPage() {
                 <select
                   id="session-agent"
                   value={agentId}
-                  onChange={(event) => setAgentId(event.target.value)}
+                  onChange={(event) => {
+                    setAgentId(event.target.value)
+                    setLeaderId('')
+                  }}
                   className="h-9 rounded-md border border-border bg-background px-3 text-sm"
                 >
                   {agents.data?.map((agent) => (
                     <option key={agent.id} value={agent.id}>
                       {agent.name} - {agent.display_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="session-leader">Leader</Label>
+                <select
+                  id="session-leader"
+                  value={selectedAgent?.product_role === 'leader' ? selectedAgent.id : leaderId}
+                  disabled={selectedAgent?.product_role === 'leader'}
+                  onChange={(event) => setLeaderId(event.target.value)}
+                  className="h-9 rounded-md border border-border bg-background px-3 text-sm disabled:opacity-60"
+                >
+                  {selectedAgent?.product_role === 'leader' ? null : (
+                    <option value="">Private chat</option>
+                  )}
+                  {possibleLeaders.map((leader) => (
+                    <option key={leader.id} value={leader.id}>
+                      {leader.name} - {leader.display_name}
                     </option>
                   ))}
                 </select>
@@ -118,12 +171,14 @@ export function SessionsPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-medium text-text-primary">{session.title}</p>
                         <StatusBadge value={session.state} />
+                        <StatusBadge value={session.visibility} />
                         {session.task_key ? (
                           <span className="text-xs text-text-muted">{session.task_key}</span>
                         ) : null}
                       </div>
                       <p className="mt-1 text-xs text-text-muted">
-                        {session.user_display_name} - {session.agent_name} - namespace{' '}
+                        {session.user_display_name} - {session.agent_name} - leader{' '}
+                        {session.leader_agent_name ?? 'private'} - namespace{' '}
                         {session.namespace_id ?? 'unbound'} - {formatDate(session.updated_at)}
                       </p>
                     </div>

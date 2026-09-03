@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, Bot, PlayCircle, XCircle } from 'lucide-react'
+import { ArrowRight, Bot, Crown, PlayCircle, UserRoundCheck, XCircle } from 'lucide-react'
 import { getDashboard } from '@/api/fleet'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
@@ -28,9 +28,16 @@ export function DashboardPage() {
 
       <div className="grid gap-3 md:grid-cols-4">
         <StatCard label="Agents" value={dashboard.data?.total_agents ?? 0} />
+        <StatCard label="Leaders" value={dashboard.data?.leader_agents ?? 0} />
+        <StatCard label="Executors" value={dashboard.data?.executor_agents ?? 0} />
         <StatCard label="Running" value={dashboard.data?.running_agents ?? 0} tone="text-success" />
+      </div>
+
+      <div className="mt-3 grid gap-3 md:grid-cols-4">
         <StatCard label="Failed" value={dashboard.data?.failed_agents ?? 0} tone="text-danger" />
         <StatCard label="Active sessions" value={dashboard.data?.active_sessions ?? 0} />
+        <StatCard label="Private sessions" value={dashboard.data?.private_sessions ?? 0} />
+        <StatCard label="Leader sessions" value={dashboard.data?.leader_scoped_sessions ?? 0} />
       </div>
 
       <div className="mt-5 grid gap-4 xl:grid-cols-[1.5fr_1fr]">
@@ -43,10 +50,19 @@ export function DashboardPage() {
               dashboard.data.agents.map((agent) => (
                 <Link
                   key={agent.id}
-                  to={`/agents/${agent.id}`}
+                  to={
+                    agent.product_role === 'leader' ? `/leaders/${agent.id}` : `/agents/${agent.id}`
+                  }
                   className="flex items-center justify-between gap-3 rounded-md border border-border p-3 transition-colors hover:bg-surface-raised"
                 >
-                  <AgentIdentity agent={agent} />
+                  <div className="flex min-w-0 items-center gap-3">
+                    {agent.product_role === 'leader' ? (
+                      <Crown className="h-4 w-4 shrink-0 text-text-muted" />
+                    ) : (
+                      <UserRoundCheck className="h-4 w-4 shrink-0 text-text-muted" />
+                    )}
+                    <AgentIdentity agent={agent} />
+                  </div>
                   <ArrowRight className="h-4 w-4 text-text-muted" />
                 </Link>
               ))

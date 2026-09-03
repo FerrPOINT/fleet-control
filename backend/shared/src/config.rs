@@ -59,6 +59,7 @@ pub struct FleetConfig {
     pub hermes_command: String,
     pub java_agent_source: String,
     pub java_agent_command: String,
+    pub runtime_token_secret: String,
     pub agent_port_base: u16,
     pub agent_port_stride: u16,
 }
@@ -130,6 +131,7 @@ impl AppConfig {
             .set_default("fleet.hermes_command", "hermes")?
             .set_default("fleet.java_agent_source", "../java-agent")?
             .set_default("fleet.java_agent_command", "java")?
+            .set_default("fleet.runtime_token_secret", "[CHANGE_ME]")?
             .set_default("fleet.agent_port_base", 29000u16)?
             .set_default("fleet.agent_port_stride", 10u16)?
             .set_default("metrics.public", true)?
@@ -150,10 +152,18 @@ impl AppConfig {
         if let Ok(secret) = env::var("FLEET_CONTROL_JWT_SECRET") {
             cfg.auth.jwt_secret = secret;
         }
+        if let Ok(secret) = env::var("FLEET_CONTROL_RUNTIME_TOKEN_SECRET") {
+            cfg.fleet.runtime_token_secret = secret;
+        }
 
         if cfg.auth.jwt_secret == "[CHANGE_ME]" {
             return Err(ConfigError::Message(
                 "auth.jwt_secret must be changed from default [CHANGE_ME]".to_string(),
+            ));
+        }
+        if cfg.fleet.runtime_token_secret == "[CHANGE_ME]" {
+            return Err(ConfigError::Message(
+                "fleet.runtime_token_secret must be changed from default [CHANGE_ME]".to_string(),
             ));
         }
         if cfg.server.auth_rate_period_secs == 0 || cfg.server.general_rate_per_second == 0 {
@@ -237,6 +247,7 @@ impl Default for FleetConfig {
             hermes_command: "hermes".to_string(),
             java_agent_source: "../java-agent".to_string(),
             java_agent_command: "java".to_string(),
+            runtime_token_secret: "[CHANGE_ME]".to_string(),
             agent_port_base: 29000,
             agent_port_stride: 10,
         }

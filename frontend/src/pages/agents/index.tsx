@@ -2,8 +2,20 @@ import { FormEvent, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Bot, Coffee, Plus, Rocket } from 'lucide-react'
-import { createAgent, listAgents, listRuntimeTemplates, listSessions } from '@/api/fleet'
-import type { AgentKind, AgentRole, AgentSession, CreateAgentRequest } from '@/api/types'
+import {
+  createAgent,
+  listAgents,
+  listExecutors,
+  listRuntimeTemplates,
+  listSessions,
+} from '@/api/fleet'
+import type {
+  AgentKind,
+  AgentProductRole,
+  AgentRole,
+  AgentSession,
+  CreateAgentRequest,
+} from '@/api/types'
 import { SessionUserFilter, useSessionUserFilter } from '@/shared/session-user-filter'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
@@ -20,7 +32,13 @@ import {
   StatusBadge,
 } from '../common'
 
-export function AgentsPage({ createMode = false }: { createMode?: boolean }) {
+export function AgentsPage({
+  createMode = false,
+  defaultProductRole = 'executor',
+}: {
+  createMode?: boolean
+  defaultProductRole?: AgentProductRole
+}) {
   const agents = useQuery({ queryKey: ['agents'], queryFn: listAgents })
   const templates = useQuery({ queryKey: ['runtime-templates'], queryFn: listRuntimeTemplates })
   const userFilter = useSessionUserFilter()
@@ -48,7 +66,12 @@ export function AgentsPage({ createMode = false }: { createMode?: boolean }) {
         }
       />
       {agents.isError ? <ErrorState message={agents.error.message} /> : null}
-      {createMode ? <CreateAgentPanel templates={templates.data ?? []} /> : null}
+      {createMode ? (
+        <CreateAgentPanel
+          templates={templates.data ?? []}
+          defaultProductRole={defaultProductRole}
+        />
+      ) : null}
       {!createMode ? <SessionUserFilter filter={userFilter} className="mb-4" /> : null}
       <div className="mt-4 grid gap-3 xl:grid-cols-2">
         {agents.data?.length ? (
@@ -118,7 +141,10 @@ export function AgentsPage({ createMode = false }: { createMode?: boolean }) {
 function groupSessionsByAgent(sessions: AgentSession[]) {
   const grouped = new Map<string, AgentSession[]>()
   for (const session of sessions) {
-    grouped.set(session.agent_id, [...(grouped.get(session.agent_id) ?? []), session])
+    grouped.set(session.primary_agent_id, [
+      ...(grouped.get(session.primary_agent_id) ?? []),
+      session,
+    ])
   }
   return grouped
 }
@@ -135,7 +161,8 @@ function SessionPreview({ session }: { session: AgentSession }) {
           {session.title}
         </span>
         <span className="block truncate text-xs text-text-muted">
-          {session.user_display_name} - {session.task_key ?? 'No task key'}
+          {session.user_display_name} - {session.leader_agent_name ?? 'private'} -{' '}
+          {session.task_key ?? 'No task key'}
         </span>
       </span>
     </Link>
@@ -144,19 +171,38 @@ function SessionPreview({ session }: { session: AgentSession }) {
 
 function CreateAgentPanel({
   templates,
+  defaultProductRole,
 }: {
   templates: Awaited<ReturnType<typeof listRuntimeTemplates>>
+  defaultProductRole: AgentProductRole
 }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const executors = useQuery({ queryKey: ['executors'], queryFn: listExecutors })
   const [kind, setKind] = useState<AgentKind>('hermes')
-  const [role, setRole] = useState<AgentRole>('developer')
-  const [displayName, setDisplayName] = useState('Developer Hermes')
-  const [description, setDescription] = useState('Primary development workflow agent')
-  const [namespaceId, setNamespaceId] = useState('dev')
-  const [namespaceName, setNamespaceName] = useState('Development')
-  const [workflowId, setWorkflowId] = useState('workflow-dev')
-  const [workflowName, setWorkflowName] = useState('Developer Workflow')
+  const [productRole, setProductRole] = useState<AgentProductRole>(defaultProductRole)
+  const [role, setRole] = useState<AgentRole>(
+    defaultProductRole === 'leader' ? 'it_lead' : 'developer',
+  )
+  const [displayName, setDisplayName] = useState(
+    defaultProductRole === 'leader' ? 'IT Lead Hermes' : 'Developer Hermes',
+  )
+  const [description, setDescription] = useState(
+    defaultProductRole === 'leader'
+      ? 'Team lead agent coordinating managed executors'
+      : 'Primary development workflow agent',
+  )
+  const [namespaceId, setNamespaceId] = useState(defaultProductRole === 'leader' ? 'lead' : 'dev')
+  const [namespaceName, setNamespaceName] = useState(
+    defaultProductRole === 'leader' ? 'Leadership' : 'Development',
+  )
+  const [workflowId, setWorkflowId] = useState(
+    defaultProductRole === 'leader' ? 'workflow-lead' : 'workflow-dev',
+  )
+  const [workflowName, setWorkflowName] = useState(
+    defaultProductRole === 'leader' ? 'Leadership Workflow' : 'Developer Workflow',
+  )
+  const [executorIds, setExecutorIds] = useState<string[]>([])
 
   const selectedTemplate = useMemo(
     () => templates.find((template) => template.kind === kind),
@@ -167,7 +213,10 @@ function CreateAgentPanel({
     mutationFn: (payload: CreateAgentRequest) => createAgent(payload),
     onSuccess: async (agent) => {
       await queryClient.invalidateQueries({ queryKey: ['agents'] })
-      navigate(`/agents/${agent.id}`)
+      await queryClient.invalidateQueries({
+        queryKey: [agent.product_role === 'leader' ? 'leaders' : 'executors'],
+      })
+      navigate(agent.product_role === 'leader' ? `/leaders/${agent.id}` : `/executors/${agent.id}`)
     },
   })
 
@@ -181,19 +230,33 @@ function CreateAgentPanel({
       setWorkflowId('workflow-java')
       setWorkflowName('Java Agent Workflow')
     } else {
-      setDisplayName(role === 'tester' ? 'Tester Hermes' : 'Developer Hermes')
-      setDescription(
-        role === 'tester'
-          ? 'QA and verification workflow agent'
-          : 'Primary development workflow agent',
-      )
+      applyRoleDefaults(productRole, role)
     }
+  }
+
+  function handleProductRole(nextProductRole: AgentProductRole) {
+    setProductRole(nextProductRole)
+    const nextRole =
+      nextProductRole === 'leader' ? 'it_lead' : role === 'it_lead' ? 'developer' : role
+    setRole(nextRole)
+    applyRoleDefaults(nextProductRole, nextRole)
   }
 
   function handleRole(nextRole: AgentRole) {
     setRole(nextRole)
     if (kind !== 'hermes') return
-    if (nextRole === 'tester') {
+    applyRoleDefaults(productRole, nextRole)
+  }
+
+  function applyRoleDefaults(nextProductRole: AgentProductRole, nextRole: AgentRole) {
+    if (nextProductRole === 'leader') {
+      setDisplayName('IT Lead Hermes')
+      setDescription('Team lead agent coordinating managed executors')
+      setNamespaceId('lead')
+      setNamespaceName('Leadership')
+      setWorkflowId('workflow-lead')
+      setWorkflowName('Leadership Workflow')
+    } else if (nextRole === 'tester') {
       setDisplayName('Tester Hermes')
       setDescription('QA and verification workflow agent')
       setNamespaceId('qa')
@@ -210,10 +273,19 @@ function CreateAgentPanel({
     }
   }
 
+  function toggleExecutor(executorId: string) {
+    setExecutorIds((current) =>
+      current.includes(executorId)
+        ? current.filter((id) => id !== executorId)
+        : [...current, executorId],
+    )
+  }
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     mutation.mutate({
       kind,
+      product_role: productRole,
       role,
       display_name: displayName,
       description,
@@ -221,6 +293,7 @@ function CreateAgentPanel({
       namespace_name: namespaceName,
       workflow_id: workflowId,
       workflow_name: workflowName,
+      executor_ids: productRole === 'leader' ? executorIds : [],
     })
   }
 
@@ -262,7 +335,19 @@ function CreateAgentPanel({
 
           <div className="grid gap-3">
             <div className="grid gap-2">
-              <Label htmlFor="role">Role</Label>
+              <Label htmlFor="product-role">Product role</Label>
+              <select
+                id="product-role"
+                value={productRole}
+                onChange={(event) => handleProductRole(event.target.value as AgentProductRole)}
+                className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+              >
+                <option value="executor">Executor</option>
+                <option value="leader">Leader</option>
+              </select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="role">Profile</Label>
               <select
                 id="role"
                 value={role}
@@ -271,9 +356,35 @@ function CreateAgentPanel({
               >
                 <option value="developer">Developer</option>
                 <option value="tester">Tester</option>
+                <option value="it_lead">IT lead</option>
                 <option value="custom">Custom</option>
               </select>
             </div>
+            {productRole === 'leader' ? (
+              <div className="grid gap-2">
+                <Label>Managed executors</Label>
+                <div className="grid gap-2 rounded-md border border-border bg-background p-3">
+                  {executors.data?.length ? (
+                    executors.data.map((executor) => (
+                      <label key={executor.id} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={executorIds.includes(executor.id)}
+                          onChange={() => toggleExecutor(executor.id)}
+                        />
+                        <span className="min-w-0 truncate">
+                          {executor.display_name} - {executor.name}
+                        </span>
+                      </label>
+                    ))
+                  ) : (
+                    <p className="text-sm text-text-muted">
+                      {executors.isLoading ? 'Loading executors...' : 'No executors yet'}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : null}
             <div className="grid gap-2">
               <Label htmlFor="display-name">Display name</Label>
               <Input

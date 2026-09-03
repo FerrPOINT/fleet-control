@@ -15,3 +15,12 @@ Published defaults:
 
 Agent data is stored in the `agents_data` volume at
 `/var/lib/fleet-control/agents` inside the backend container.
+
+Release gate:
+
+- Rust backend checks must pass with a working linker.
+- Clean DB migrations must pass.
+- OpenAPI must be regenerated from Rust source.
+- Frontend build, tests, Playwright and screenshot manifest must pass.
+- No deployment should claim green status while `link.exe` is missing on the
+  Windows gate host unless the same backend gate is green in Linux/CI.

@@ -3,7 +3,7 @@ use argon2::{
     password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
 };
 use chrono::{Duration, Utc};
-use domain::{AuthResponse, LoginRequest, RegisterRequest, UserResponse};
+use domain::{AuthResponse, LoginRequest, RegisterRequest, SystemRole, UserResponse};
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use rand_core::{OsRng, RngCore};
 use serde::{Deserialize, Serialize};
@@ -19,6 +19,7 @@ pub struct UserRecord {
     pub display_name: String,
     pub password_hash: String,
     pub refresh_token_hash: Option<String>,
+    pub system_role: SystemRole,
     pub is_system_admin: bool,
     pub is_active: bool,
 }
@@ -30,6 +31,7 @@ impl From<UserRecord> for UserResponse {
             email: value.email,
             username: value.username,
             display_name: value.display_name,
+            system_role: value.system_role,
             is_system_admin: value.is_system_admin,
             is_active: value.is_active,
         }
@@ -102,6 +104,7 @@ impl AuthService {
                 email: user.email.clone(),
                 username: user.username.clone(),
                 display_name: user.display_name.clone(),
+                system_role: user.system_role,
                 is_system_admin: user.is_system_admin,
             },
             refresh_token,

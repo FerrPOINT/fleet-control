@@ -24,6 +24,28 @@ pub enum FleetEvent {
         session_id: String,
         agent_id: String,
     },
+    SessionMessageChanged {
+        session_id: String,
+        message_id: String,
+        event: String,
+    },
+    SessionRunChanged {
+        session_id: String,
+        run_id: String,
+        runtime_run_id: Option<String>,
+        state: String,
+    },
+    SessionRunDelta {
+        session_id: String,
+        run_id: String,
+        runtime_run_id: Option<String>,
+        delta: String,
+    },
+    RuntimeApprovalRequested {
+        session_id: String,
+        run_id: String,
+        approval_id: String,
+    },
     WorkflowBindingChanged {
         agent_id: String,
     },

@@ -73,11 +73,47 @@ export function KindBadge({ kind }: { kind: AgentKind }) {
   )
 }
 
+export function ProductRoleBadge({ value }: { value: Agent['product_role'] }) {
+  return (
+    <span className="inline-flex min-h-6 items-center rounded-md border border-border-strong bg-surface-raised px-2 text-xs font-medium text-text-secondary">
+      {value === 'leader' ? 'Leader' : 'Executor'}
+    </span>
+  )
+}
+
 export function ErrorState({ message }: { message: string }) {
   return (
     <div className="flex items-center gap-2 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
       <AlertCircle className="h-4 w-4" />
       {message}
+    </div>
+  )
+}
+
+export function AccessDeniedState() {
+  return (
+    <div className="rounded-md border border-warning/40 bg-warning/10 p-5">
+      <div className="flex items-start gap-3">
+        <AlertCircle className="mt-0.5 h-5 w-5 text-warning" />
+        <div>
+          <h2 className="text-base font-semibold text-text-primary">Access denied</h2>
+          <p className="mt-1 text-sm text-text-muted">
+            Your role can use private sessions, but this fleet administration view requires an
+            operator or admin permission.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function NotFoundState() {
+  return (
+    <div className="rounded-md border border-border bg-surface p-5">
+      <h2 className="text-base font-semibold text-text-primary">Page not found</h2>
+      <p className="mt-1 text-sm text-text-muted">
+        This route is not part of the Fleet Control application map.
+      </p>
     </div>
   )
 }
@@ -104,10 +140,11 @@ export function AgentIdentity({ agent }: { agent: Agent }) {
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="truncate text-base font-semibold text-text-primary">{agent.display_name}</h2>
         <KindBadge kind={agent.kind} />
+        <ProductRoleBadge value={agent.product_role} />
         <StatusBadge value={agent.status} />
       </div>
       <p className="mt-1 text-xs text-text-muted">
-        {agent.name} - {agent.role} - namespace {agent.namespace_id ?? 'unbound'}
+        {agent.name} - profile {labelize(agent.role)} - namespace {agent.namespace_id ?? 'unbound'}
       </p>
     </div>
   )
@@ -130,6 +167,8 @@ function badgeTone(value: string) {
     case 'running':
     case 'enabled':
     case 'done':
+    case 'completed':
+    case 'dispatched':
       return 'border-success/40 bg-success/10 text-success'
     case 'failed':
     case 'missing':
@@ -137,8 +176,11 @@ function badgeTone(value: string) {
       return 'border-danger/40 bg-danger/10 text-danger'
     case 'starting':
     case 'provisioning':
+    case 'degraded':
+    case 'stopping':
     case 'handoff_requested':
     case 'dirty':
+    case 'waiting':
       return 'border-warning/40 bg-warning/10 text-warning'
     default:
       return 'border-border-strong bg-surface-raised text-text-muted'

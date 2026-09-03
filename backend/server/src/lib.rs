@@ -21,15 +21,18 @@ pub async fn run(
         .expect("failed to connect database");
     let repo = Arc::new(PostgresFleetRepository::new(db));
     let provisioner = Arc::new(FilesystemProvisioner);
+    let (events, _) = tokio::sync::broadcast::channel(256);
     let runtime = Arc::new(infra::runtime::LocalRuntimeSupervisor::new(
         config.clone(),
         repo.clone(),
+        events.clone(),
     ));
     let ctx = Arc::new(AppContext::new(
         config.clone(),
         repo.clone(),
         provisioner,
         runtime,
+        events,
     ));
     if let Err(err) = ctx.ensure_seed_agents().await {
         warn!("failed to seed default agents: {err}");

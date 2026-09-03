@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router'
 import { useMutation } from '@tanstack/react-query'
 import { UserPlus } from 'lucide-react'
 import { register } from '@/api/auth'
+import { permissionsForRole } from '@/api/client'
 import { useAuthStore } from '@/shared/auth/store'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
@@ -32,6 +33,9 @@ export function RegisterPage() {
         email: response.email,
         username: response.username,
         displayName: response.display_name,
+        systemRole: response.system_role,
+        isSystemAdmin: response.is_system_admin,
+        permissions: permissionsForRole(response.system_role),
       })
       navigate('/')
     },

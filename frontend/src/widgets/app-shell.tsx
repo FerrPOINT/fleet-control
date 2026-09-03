@@ -3,6 +3,7 @@ import {
   Bot,
   Boxes,
   Cable,
+  Crown,
   Files,
   Gauge,
   GitBranch,
@@ -10,29 +11,55 @@ import {
   ScrollText,
   Settings,
   TerminalSquare,
+  UserRoundCheck,
 } from 'lucide-react'
+import { useEffect } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router'
-import { logout } from '@/api/auth'
+import { useQuery } from '@tanstack/react-query'
+import { getCurrentUserPermissions, logout } from '@/api/auth'
 import { useAuthStore } from '@/shared/auth/store'
 import { ThemeToggle } from '@/shared/ui/theme-toggle'
 import { Button } from '@/shared/ui/button'
 import { cn } from '@/shared/lib/utils'
 
 const navItems = [
-  { to: '/', label: 'Dashboard', icon: Gauge },
-  { to: '/agents', label: 'Agents', icon: Bot },
+  { to: '/', label: 'Dashboard', icon: Gauge, permission: 'agents:manage' },
+  { to: '/leaders', label: 'Leaders', icon: Crown, permission: 'leaders:manage' },
+  { to: '/executors', label: 'Executors', icon: UserRoundCheck, permission: 'executors:manage' },
+  { to: '/agents', label: 'Agents', icon: Bot, permission: 'agents:manage' },
   { to: '/sessions', label: 'Sessions', icon: Activity },
-  { to: '/workflows', label: 'Workflows', icon: GitBranch },
-  { to: '/deployments', label: 'Deployments', icon: Boxes },
-  { to: '/logs', label: 'Logs', icon: ScrollText },
-  { to: '/settings', label: 'Settings', icon: Settings },
+  { to: '/workflows', label: 'Workflows', icon: GitBranch, permission: 'agents:manage' },
+  { to: '/deployments', label: 'Deployments', icon: Boxes, permission: 'deployments:manage' },
+  { to: '/logs', label: 'Logs', icon: ScrollText, permission: 'logs:read' },
+  { to: '/settings', label: 'Settings', icon: Settings, permission: 'settings:manage' },
 ]
 
 export function AppShell() {
   const navigate = useNavigate()
   const displayName = useAuthStore((state) => state.displayName)
   const email = useAuthStore((state) => state.email)
+  const systemRole = useAuthStore((state) => state.systemRole)
+  const permissions = useAuthStore((state) => state.permissions)
+  const setUser = useAuthStore((state) => state.setUser)
   const clearAuth = useAuthStore((state) => state.logout)
+  const visibleNavItems = navItems.filter(
+    (item) => !item.permission || permissions.includes(item.permission),
+  )
+  const permissionsQuery = useQuery({
+    queryKey: ['me', 'permissions'],
+    queryFn: getCurrentUserPermissions,
+    staleTime: 60_000,
+  })
+
+  useEffect(() => {
+    if (!permissionsQuery.data) return
+    setUser({
+      userId: permissionsQuery.data.user_id,
+      systemRole: permissionsQuery.data.role,
+      isSystemAdmin: permissionsQuery.data.is_system_admin,
+      permissions: permissionsQuery.data.permissions,
+    })
+  }, [permissionsQuery.data, setUser])
 
   async function handleLogout() {
     await logout().catch(() => undefined)
@@ -53,7 +80,7 @@ export function AppShell() {
           </div>
         </div>
         <nav className="space-y-1">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -90,7 +117,7 @@ export function AppShell() {
             </div>
           </div>
           <nav className="flex max-w-full gap-1 overflow-x-auto border-t border-border px-2 py-2 lg:hidden">
-            {navItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -116,6 +143,7 @@ export function AppShell() {
         <footer className="border-t border-border px-4 py-3 text-xs text-text-muted lg:px-6">
           <div className="flex flex-wrap items-center gap-3">
             <span>{displayName ?? email ?? 'Fleet operator'}</span>
+            <span className="capitalize">{systemRole}</span>
             <span className="hidden sm:inline">Runtime root: guarded per-agent workspaces</span>
             <TerminalSquare className="h-3.5 w-3.5" />
             <Files className="h-3.5 w-3.5" />

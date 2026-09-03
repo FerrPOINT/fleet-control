@@ -15,6 +15,7 @@ config.workspace = true
 sea-orm.workspace = true
 sea-orm-migration.workspace = true
 tokio.workspace = true
+futures-util.workspace = true
 tracing.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -26,6 +27,9 @@ moka.workspace = true
 migration = { path = "../migration" }
 lettre.workspace = true
 reqwest.workspace = true
+sha2.workspace = true
+hmac.workspace = true
+hex.workspace = true
 
 [dev-dependencies]
 serial_test = "3.2"
