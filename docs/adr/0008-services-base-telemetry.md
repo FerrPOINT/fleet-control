@@ -8,8 +8,9 @@ Accepted.
 
 `FerrPOINT/services-base` is intended to become the common foundation for SDLC
 services. Fleet Control already has a working local auth/session model, runtime
-supervisor and UI. The shared base currently offers telemetry helpers and a
-broader auth core with fleet-wide HMAC/OIDC claims.
+supervisor and UI. The shared base currently offers telemetry helpers, shared
+data/error/event primitives and a broader auth surface with `sdlc-auth-core`
+plus a central `auth-server`.
 
 Switching auth and telemetry at the same time would mix a low-risk operational
 standardization with a security/session compatibility migration.
@@ -21,7 +22,7 @@ compatibility bridge in `shared::telemetry`.
 
 The backend server initializes tracing through the bridge, and the API router
 uses its request id middleware. The implementation is aligned with
-`services-base` commit `abd23d59d09d70b79ab638167c25267eee960491`.
+`services-base` commit `24d373072c1489393c79d7b6ae826f7e870ca0e8`.
 
 Direct Cargo dependency on the private `services-base` repo is deferred until
 WSL and CI can authenticate to it reliably.

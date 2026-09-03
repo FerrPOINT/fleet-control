@@ -69,6 +69,7 @@ provision/start остаётся phase 2 contract.
 | User filters          | Sessions default to the current user; admins can expand to all users or filter by several users.    |
 | Transcript mirror     | Fleet stores control-plane message mirrors and per-agent runtime run links.                         |
 | Workflow bindings     | Namespace/workflow binding state stored locally while `project-workflow` owns workflow definitions. |
+| Storage preview       | Per-agent runtime/config/workspace/logs size report, marker state and purge eligibility.            |
 | Audit evidence        | Events, process logs, API docs, tests and screenshot manifests are part of the repo.                |
 
 ## 🧩 Capability Details
@@ -83,6 +84,7 @@ provision/start остаётся phase 2 contract.
 | Auth bridge       | Local HMAC JWTs carry fleet-compatible `aud`, `iss`, `role`, `scopes` and `sid` claims.                              |
 | Agent naming      | Agent ordinals come from database allocation and materialize `agentN` folders.                                        |
 | Deletion model    | Agent delete means archive/stop by default; physical purge is a separate explicit operation.                          |
+| Purge preview     | Storage report is read-only and recomputed from `agents_root/agentN` before deletion.                                 |
 
 <a name="stack"></a>
 

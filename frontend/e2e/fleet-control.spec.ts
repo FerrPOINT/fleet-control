@@ -12,7 +12,7 @@ const ids = {
   createdSession: '00000000-0000-4000-8000-000000000203',
 }
 
-type AgentStatus = 'running' | 'stopped' | 'ready'
+type AgentStatus = 'running' | 'stopped' | 'ready' | 'archived'
 type ProductRole = 'leader' | 'executor'
 type AgentProfile = 'developer' | 'tester' | 'it_lead' | 'custom'
 type Agent = ReturnType<typeof makeAgent>
@@ -101,6 +101,43 @@ function agentDirectoryItem(agent: Agent) {
     runtime_version: agent.runtime_version,
     dashboard_port: agent.dashboard_port,
     api_port: agent.api_port,
+  }
+}
+
+function storageReport(agent: Agent) {
+  const baseSize = agent.ordinal * 1024
+  const areas = Object.entries(agent.paths).map(([name, path], index) => ({
+    name,
+    path,
+    exists: true,
+    is_directory: true,
+    bytes: baseSize * (index + 1),
+    files: 2 + index,
+    directories: index,
+    symlinks: 0,
+    last_modified_at: now,
+  }))
+  return {
+    agent_id: agent.id,
+    agent_name: agent.name,
+    root_path: `C:\\fleet-control\\agents\\${agent.name}`,
+    root_exists: true,
+    marker_present: true,
+    marker_verified: true,
+    total_bytes: areas.reduce((sum, area) => sum + area.bytes, 0),
+    total_files: areas.reduce((sum, area) => sum + area.files, 0),
+    total_directories: areas.reduce((sum, area) => sum + area.directories, 0),
+    total_symlinks: 0,
+    areas,
+    retention: {
+      archived: agent.status === 'archived',
+      archived_since: agent.status === 'archived' ? now : null,
+      purge_eligible: agent.status === 'archived',
+      retention_hint:
+        agent.status === 'archived'
+          ? 'archived agent files can be purged explicitly by an operator'
+          : 'archive the agent before physical purge',
+    },
   }
 }
 
@@ -481,6 +518,7 @@ async function installMocks(page: Page, state: ApiState) {
         }
         return fulfill(route, agent)
       }
+      if (section === 'storage') return fulfill(route, storageReport(agent))
       if (section === 'config') return fulfill(route, agentConfig(agent))
       if (section === 'skills') {
         const skills = state.skillsByAgent[agentId] ?? []
@@ -886,6 +924,9 @@ test('Hermes fleet control flow covers agents, runtime, skills, sessions and han
   await expect(page.getByText('running').first()).toBeVisible()
 
   await page.goto(`/agents/${ids.dev}/workspace`)
+  await expect(page.getByRole('heading', { name: 'Storage report' })).toBeVisible()
+  await expect(page.getByText('Total managed size')).toBeVisible()
+  await expect(page.getByText('marker verified').first()).toBeVisible()
   await expect(page.getByRole('heading', { name: 'File purge' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Purge files' })).toBeDisabled()
 

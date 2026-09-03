@@ -820,6 +820,43 @@ pub struct AgentPaths {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct AgentStorageArea {
+    pub name: String,
+    pub path: String,
+    pub exists: bool,
+    pub is_directory: bool,
+    pub bytes: u64,
+    pub files: u64,
+    pub directories: u64,
+    pub symlinks: u64,
+    pub last_modified_at: Option<Timestamp>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct AgentRetentionReport {
+    pub archived: bool,
+    pub archived_since: Option<Timestamp>,
+    pub purge_eligible: bool,
+    pub retention_hint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct AgentStorageReport {
+    pub agent_id: Uuid,
+    pub agent_name: String,
+    pub root_path: String,
+    pub root_exists: bool,
+    pub marker_present: bool,
+    pub marker_verified: bool,
+    pub total_bytes: u64,
+    pub total_files: u64,
+    pub total_directories: u64,
+    pub total_symlinks: u64,
+    pub areas: Vec<AgentStorageArea>,
+    pub retention: AgentRetentionReport,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct AgentRuntime {
     pub desired_state: DesiredState,
     pub pid: Option<i32>,

@@ -28,3 +28,4 @@ Closed gaps:
   legacy compact-token fallback
 - explicit archived-agent folder purge with confirmation, marker guard, event
   and audit entry
+- agent storage and retention preview before physical purge

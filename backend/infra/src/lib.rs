@@ -8,12 +8,12 @@ use app::{
 use async_trait::async_trait;
 use domain::{
     Agent, AgentConfig, AgentDirectoryItem, AgentEvent, AgentKind, AgentLogEntry, AgentPaths,
-    AgentProductRole, AgentRole, AgentRuntime, AgentSession, AgentStatus,
-    AssignSessionLeaderRequest, AuditLogEntry, AuthSettings, CreateAgentRequest,
-    CreateDeploymentJobRequest, CreateSessionDelegationRequest, CreateSessionMessageRequest,
-    CreateSessionRequest, DeploymentJob, DeploymentJobKind, DeploymentJobState, DesiredState,
-    HandoffSessionRequest, IntegrationSettings, LeaderExecutor, MessageAuthorType,
-    MessageDeliveryState, MessageKind, PortSettings, PurgeAgentFilesResponse,
+    AgentProductRole, AgentRetentionReport, AgentRole, AgentRuntime, AgentSession, AgentStatus,
+    AgentStorageArea, AgentStorageReport, AssignSessionLeaderRequest, AuditLogEntry, AuthSettings,
+    CreateAgentRequest, CreateDeploymentJobRequest, CreateSessionDelegationRequest,
+    CreateSessionMessageRequest, CreateSessionRequest, DeploymentJob, DeploymentJobKind,
+    DeploymentJobState, DesiredState, HandoffSessionRequest, IntegrationSettings, LeaderExecutor,
+    MessageAuthorType, MessageDeliveryState, MessageKind, PortSettings, PurgeAgentFilesResponse,
     ResolveRuntimeApprovalRequest, RuntimeApprovalRequest, RuntimeApprovalState, RuntimeSettings,
     RuntimeTemplate, SessionAgentRun, SessionMessage, SessionParticipant, SessionParticipantType,
     SessionRole, SessionRunRole, SessionRunState, SessionState, SessionVisibility, SkillState,
@@ -2838,6 +2838,14 @@ impl AgentProvisioner for FilesystemProvisioner {
         provision_hermes(agent, config).await
     }
 
+    async fn storage_report(
+        &self,
+        agent: &Agent,
+        config: &AppConfig,
+    ) -> Result<AgentStorageReport, AppError> {
+        inspect_agent_storage(agent, config).await
+    }
+
     async fn purge_files(
         &self,
         agent: &Agent,
@@ -2926,6 +2934,200 @@ impl AgentProvisioner for FilesystemProvisioner {
             message: "agent files purged".to_string(),
         })
     }
+}
+
+async fn inspect_agent_storage(
+    agent: &Agent,
+    config: &AppConfig,
+) -> Result<AgentStorageReport, AppError> {
+    let root = PathBuf::from(&config.fleet.agents_root);
+    let agent_root = safe_agent_root(&root, &agent.name)?;
+    let root_path = normalize_path(&agent_root)?.to_string_lossy().to_string();
+    let root_exists = tokio::fs::symlink_metadata(&agent_root)
+        .await
+        .map(|metadata| metadata.is_dir() && !metadata.file_type().is_symlink())
+        .unwrap_or(false);
+    let (marker_present, marker_verified) = inspect_agent_marker(&agent_root, agent).await?;
+    let areas = vec![
+        scan_storage_area(&root, "runtime", agent_root.join("runtime")).await?,
+        scan_storage_area(&root, "config", agent_root.join("config")).await?,
+        scan_storage_area(&root, "workspace", agent_root.join("workspace")).await?,
+        scan_storage_area(&root, "logs", agent_root.join("logs")).await?,
+    ];
+    let total_bytes = areas.iter().map(|area| area.bytes).sum();
+    let total_files = areas.iter().map(|area| area.files).sum();
+    let total_directories = areas.iter().map(|area| area.directories).sum();
+    let total_symlinks = areas.iter().map(|area| area.symlinks).sum();
+    let purge_eligible = agent.status == AgentStatus::Archived && root_exists && marker_verified;
+
+    Ok(AgentStorageReport {
+        agent_id: agent.id,
+        agent_name: agent.name.clone(),
+        root_path,
+        root_exists,
+        marker_present,
+        marker_verified,
+        total_bytes,
+        total_files,
+        total_directories,
+        total_symlinks,
+        areas,
+        retention: AgentRetentionReport {
+            archived: agent.status == AgentStatus::Archived,
+            archived_since: (agent.status == AgentStatus::Archived)
+                .then(|| agent.updated_at.clone()),
+            purge_eligible,
+            retention_hint: retention_hint(agent, root_exists, marker_verified),
+        },
+    })
+}
+
+async fn inspect_agent_marker(agent_root: &Path, agent: &Agent) -> Result<(bool, bool), AppError> {
+    let marker_path = agent_root.join(".fleet-agent.json");
+    let metadata = match tokio::fs::symlink_metadata(&marker_path).await {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == ErrorKind::NotFound => return Ok((false, false)),
+        Err(error) => return Err(AppError::internal(error)),
+    };
+    if metadata.file_type().is_symlink() {
+        return Ok((true, false));
+    }
+    let Ok(marker) = tokio::fs::read_to_string(&marker_path).await else {
+        return Ok((true, false));
+    };
+    let Ok(marker) = serde_json::from_str::<Value>(&marker) else {
+        return Ok((true, false));
+    };
+    let marker_id_matches = marker
+        .get("id")
+        .and_then(Value::as_str)
+        .is_some_and(|id| id == agent.id.to_string());
+    let marker_name_matches = marker
+        .get("name")
+        .and_then(Value::as_str)
+        .is_none_or(|name| name == agent.name);
+    Ok((true, marker_id_matches && marker_name_matches))
+}
+
+#[derive(Default)]
+struct StorageCounters {
+    bytes: u64,
+    files: u64,
+    directories: u64,
+    symlinks: u64,
+    last_modified_at: Option<String>,
+}
+
+async fn scan_storage_area(
+    root: &Path,
+    name: &str,
+    path: PathBuf,
+) -> Result<AgentStorageArea, AppError> {
+    ensure_inside(root, &path)?;
+    let normalized = normalize_path(&path)?.to_string_lossy().to_string();
+    let metadata = match tokio::fs::symlink_metadata(&path).await {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == ErrorKind::NotFound => {
+            return Ok(AgentStorageArea {
+                name: name.to_string(),
+                path: normalized,
+                exists: false,
+                is_directory: false,
+                bytes: 0,
+                files: 0,
+                directories: 0,
+                symlinks: 0,
+                last_modified_at: None,
+            });
+        }
+        Err(error) => return Err(AppError::internal(error)),
+    };
+
+    let mut counters = StorageCounters::default();
+    update_last_modified(&mut counters, &metadata);
+    if metadata.file_type().is_symlink() {
+        counters.symlinks = 1;
+    } else if metadata.is_file() {
+        counters.bytes = metadata.len();
+        counters.files = 1;
+    } else if metadata.is_dir() {
+        scan_directory(root, &path, &mut counters).await?;
+    }
+
+    Ok(AgentStorageArea {
+        name: name.to_string(),
+        path: normalized,
+        exists: true,
+        is_directory: metadata.is_dir() && !metadata.file_type().is_symlink(),
+        bytes: counters.bytes,
+        files: counters.files,
+        directories: counters.directories,
+        symlinks: counters.symlinks,
+        last_modified_at: counters.last_modified_at,
+    })
+}
+
+async fn scan_directory(
+    root: &Path,
+    start: &Path,
+    counters: &mut StorageCounters,
+) -> Result<(), AppError> {
+    let mut stack = vec![start.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        ensure_inside(root, &dir)?;
+        let mut entries = tokio::fs::read_dir(&dir)
+            .await
+            .map_err(AppError::internal)?;
+        while let Some(entry) = entries.next_entry().await.map_err(AppError::internal)? {
+            let path = entry.path();
+            ensure_inside(root, &path)?;
+            let metadata = tokio::fs::symlink_metadata(&path)
+                .await
+                .map_err(AppError::internal)?;
+            update_last_modified(counters, &metadata);
+            if metadata.file_type().is_symlink() {
+                counters.symlinks += 1;
+            } else if metadata.is_dir() {
+                counters.directories += 1;
+                stack.push(path);
+            } else if metadata.is_file() {
+                counters.files += 1;
+                counters.bytes += metadata.len();
+            }
+        }
+    }
+    Ok(())
+}
+
+fn update_last_modified(counters: &mut StorageCounters, metadata: &std::fs::Metadata) {
+    let Some(modified) = metadata
+        .modified()
+        .ok()
+        .map(chrono::DateTime::<chrono::Utc>::from)
+        .map(|timestamp| timestamp.to_rfc3339())
+    else {
+        return;
+    };
+    if counters
+        .last_modified_at
+        .as_ref()
+        .is_none_or(|current| modified > *current)
+    {
+        counters.last_modified_at = Some(modified);
+    }
+}
+
+fn retention_hint(agent: &Agent, root_exists: bool, marker_verified: bool) -> String {
+    if !root_exists {
+        return "agent folder is already absent".to_string();
+    }
+    if !marker_verified {
+        return "folder marker must match this agent before purge is allowed".to_string();
+    }
+    if agent.status == AgentStatus::Archived {
+        return "archived agent files can be purged explicitly by an operator".to_string();
+    }
+    "archive the agent before physical purge".to_string()
 }
 
 async fn provision_hermes(agent: &Agent, config: &AppConfig) -> Result<(), AppError> {
@@ -3212,6 +3414,86 @@ mod tests {
         assert!(response.files_deleted);
         assert!(response.marker_verified);
         assert!(!tokio::fs::try_exists(&agent_root).await.expect("exists"));
+        let _ = tokio::fs::remove_dir_all(&root).await;
+    }
+
+    #[tokio::test]
+    async fn storage_report_summarizes_area_sizes_and_marker_state() {
+        let root = temp_purge_root();
+        let agent_id = Uuid::new_v4();
+        let agent_root = root.join("agent1");
+        let config = test_config(&root);
+        let agent = test_agent(&root, agent_id, AgentStatus::Archived);
+        write_marker(&agent_root, agent_id, "agent1").await;
+        tokio::fs::create_dir_all(agent_root.join("runtime"))
+            .await
+            .expect("runtime dir");
+        tokio::fs::create_dir_all(agent_root.join("workspace").join("nested"))
+            .await
+            .expect("workspace nested dir");
+        tokio::fs::create_dir_all(agent_root.join("logs"))
+            .await
+            .expect("logs dir");
+        tokio::fs::write(agent_root.join("runtime").join("bin.txt"), "abc")
+            .await
+            .expect("runtime file");
+        tokio::fs::write(agent_root.join("workspace").join("task.md"), "hello")
+            .await
+            .expect("workspace file");
+        tokio::fs::write(
+            agent_root.join("workspace").join("nested").join("notes.md"),
+            "notes",
+        )
+        .await
+        .expect("nested file");
+
+        let report = FilesystemProvisioner
+            .storage_report(&agent, &config)
+            .await
+            .expect("storage report");
+
+        assert!(report.root_exists);
+        assert!(report.marker_present);
+        assert!(report.marker_verified);
+        assert_eq!(report.total_bytes, 13);
+        assert_eq!(report.total_files, 3);
+        assert!(report.retention.archived);
+        assert!(report.retention.purge_eligible);
+        let workspace = report
+            .areas
+            .iter()
+            .find(|area| area.name == "workspace")
+            .expect("workspace area");
+        assert_eq!(workspace.bytes, 10);
+        assert_eq!(workspace.files, 2);
+        assert_eq!(workspace.directories, 1);
+        assert!(workspace.last_modified_at.is_some());
+        let _ = tokio::fs::remove_dir_all(&root).await;
+    }
+
+    #[tokio::test]
+    async fn storage_report_marks_foreign_marker_not_purge_eligible() {
+        let root = temp_purge_root();
+        let agent_id = Uuid::new_v4();
+        let agent_root = root.join("agent1");
+        let config = test_config(&root);
+        let agent = test_agent(&root, agent_id, AgentStatus::Archived);
+        write_marker(&agent_root, Uuid::new_v4(), "agent1").await;
+
+        let report = FilesystemProvisioner
+            .storage_report(&agent, &config)
+            .await
+            .expect("storage report");
+
+        assert!(report.marker_present);
+        assert!(!report.marker_verified);
+        assert!(!report.retention.purge_eligible);
+        assert!(
+            report
+                .retention
+                .retention_hint
+                .contains("marker must match")
+        );
         let _ = tokio::fs::remove_dir_all(&root).await;
     }
 

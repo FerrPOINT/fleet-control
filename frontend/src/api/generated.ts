@@ -196,6 +196,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/agents/{agent_id}/storage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_agent_storage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/audit-log": {
         parameters: {
             query?: never;
@@ -889,6 +905,12 @@ export interface components {
         };
         /** @enum {string} */
         AgentProductRole: "leader" | "executor";
+        AgentRetentionReport: {
+            archived: boolean;
+            archived_since?: null | components["schemas"]["String"];
+            purge_eligible: boolean;
+            retention_hint: string;
+        };
         /** @enum {string} */
         AgentRole: "developer" | "tester" | "it_lead" | "custom";
         AgentRuntime: {
@@ -950,6 +972,40 @@ export interface components {
         };
         /** @enum {string} */
         AgentStatus: "provisioning" | "ready" | "starting" | "running" | "degraded" | "stopped" | "failed" | "archived";
+        AgentStorageArea: {
+            /** Format: int64 */
+            bytes: number;
+            /** Format: int64 */
+            directories: number;
+            exists: boolean;
+            /** Format: int64 */
+            files: number;
+            is_directory: boolean;
+            last_modified_at?: null | components["schemas"]["String"];
+            name: string;
+            path: string;
+            /** Format: int64 */
+            symlinks: number;
+        };
+        AgentStorageReport: {
+            /** Format: uuid */
+            agent_id: string;
+            agent_name: string;
+            areas: components["schemas"]["AgentStorageArea"][];
+            marker_present: boolean;
+            marker_verified: boolean;
+            retention: components["schemas"]["AgentRetentionReport"];
+            root_exists: boolean;
+            root_path: string;
+            /** Format: int64 */
+            total_bytes: number;
+            /** Format: int64 */
+            total_directories: number;
+            /** Format: int64 */
+            total_files: number;
+            /** Format: int64 */
+            total_symlinks: number;
+        };
         AssignSessionLeaderRequest: {
             /** Format: uuid */
             leader_agent_id?: string | null;
@@ -1676,6 +1732,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RuntimeOperationResponse"];
+                };
+            };
+        };
+    };
+    get_agent_storage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                agent_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentStorageReport"];
                 };
             };
         };

@@ -34,6 +34,7 @@ pub mod routes;
         routes::agents::list_agents,
         routes::agents::create_agent,
         routes::agents::get_agent,
+        routes::agents::get_agent_storage,
         routes::agents::update_agent,
         routes::agents::archive_agent,
         routes::agents::purge_agent_files,
@@ -114,6 +115,9 @@ pub mod routes;
         domain::SessionAgentRun,
         domain::RuntimeApprovalRequest,
         domain::AuditLogEntry,
+        domain::AgentStorageArea,
+        domain::AgentStorageReport,
+        domain::AgentRetentionReport,
         domain::PurgeAgentFilesRequest,
         domain::PurgeAgentFilesResponse,
         domain::DeploymentJobKind,
@@ -191,6 +195,10 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
             get(routes::agents::get_agent)
                 .patch(routes::agents::update_agent)
                 .delete(routes::agents::archive_agent),
+        )
+        .route(
+            "/api/v1/agents/{agent_id}/storage",
+            get(routes::agents::get_agent_storage),
         )
         .route(
             "/api/v1/agents/{agent_id}/purge-files",

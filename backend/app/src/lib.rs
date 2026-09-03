@@ -3,11 +3,11 @@ pub mod auth;
 use async_trait::async_trait;
 use domain::{
     Agent, AgentConfig, AgentDirectoryItem, AgentEvent, AgentKind, AgentLogEntry, AgentSession,
-    AgentStatus, AssignSessionLeaderRequest, AuditLogEntry, AuthSettings, CreateAgentRequest,
-    CreateDeploymentJobRequest, CreateSessionDelegationRequest, CreateSessionMessageRequest,
-    CreateSessionRequest, DeploymentJob, FleetDashboard, HandoffSessionRequest,
-    IntegrationSettings, LeaderExecutor, MessageDeliveryState, MessageKind, PortSettings,
-    PurgeAgentFilesResponse, ResolveRuntimeApprovalRequest, RuntimeApprovalRequest,
+    AgentStatus, AgentStorageReport, AssignSessionLeaderRequest, AuditLogEntry, AuthSettings,
+    CreateAgentRequest, CreateDeploymentJobRequest, CreateSessionDelegationRequest,
+    CreateSessionMessageRequest, CreateSessionRequest, DeploymentJob, FleetDashboard,
+    HandoffSessionRequest, IntegrationSettings, LeaderExecutor, MessageDeliveryState, MessageKind,
+    PortSettings, PurgeAgentFilesResponse, ResolveRuntimeApprovalRequest, RuntimeApprovalRequest,
     RuntimeOperationResponse, RuntimeRunControlResponse, RuntimeSettings, RuntimeTemplate,
     SessionAgentRun, SessionMessage, SessionParticipant, SessionRunRole, SessionRunState,
     SteerSessionRunRequest, UpdateAgentConfigRequest, UpdateAgentRequest,
@@ -302,6 +302,11 @@ pub trait FleetRepository: Send + Sync {
 #[async_trait]
 pub trait AgentProvisioner: Send + Sync {
     async fn provision(&self, agent: &Agent, config: &AppConfig) -> Result<(), AppError>;
+    async fn storage_report(
+        &self,
+        agent: &Agent,
+        config: &AppConfig,
+    ) -> Result<AgentStorageReport, AppError>;
     async fn purge_files(
         &self,
         agent: &Agent,

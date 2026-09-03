@@ -32,6 +32,8 @@ Fleet:
 - `GET /agents`
 - `POST /agents`
 - `GET/PATCH/DELETE /agents/{agent_id}`
+- `GET /agents/{agent_id}/storage` returns the managed folder storage report,
+  marker status and purge eligibility.
 - `POST /agents/{agent_id}/purge-files` physically removes the managed
   `agents_root/agentN` folder after archive, exact name confirmation and marker
   validation.

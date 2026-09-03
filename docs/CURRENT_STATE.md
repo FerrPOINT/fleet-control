@@ -48,6 +48,8 @@ Implemented:
 - path marker guard for existing agent folders
 - explicit physical folder purge for archived agents with confirmation, marker
   validation, event and audit trail
+- read-only agent storage/retention reports for `runtime`, `config`,
+  `workspace` and `logs` with marker status and purge eligibility
 - full documentation baseline
 - generated 128-file screenshot set for all required pages at required viewports
 

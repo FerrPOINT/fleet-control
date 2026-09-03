@@ -33,6 +33,7 @@ Required scenarios:
 - ensure distinct `HERMES_HOME` values
 - reject path traversal
 - reject absolute paths outside the configured agents root
+- show storage totals and marker state before physical purge
 - start/stop/restart Hermes through a fake runtime command
 - reconcile a tracked Hermes process that exits unexpectedly
 - keep Java Agent operations typed as phase 2

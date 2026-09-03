@@ -16,7 +16,7 @@ Screens:
 - runtime controls
 - skills editor
 - config/SOUL editor
-- workspace guard
+- workspace guard with storage/retention preview and explicit purge control
 - agent sessions
 - global sessions
 - session detail, transcript mirror, leader selector, runtime runs and handoff

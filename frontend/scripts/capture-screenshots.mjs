@@ -107,6 +107,43 @@ function agentDirectoryItem(item) {
   }
 }
 
+function storageReport(item) {
+  const baseSize = item.ordinal * 1024
+  const areas = Object.entries(item.paths).map(([name, path], index) => ({
+    name,
+    path,
+    exists: true,
+    is_directory: true,
+    bytes: baseSize * (index + 1),
+    files: 2 + index,
+    directories: index,
+    symlinks: 0,
+    last_modified_at: now,
+  }))
+  return {
+    agent_id: item.id,
+    agent_name: item.name,
+    root_path: `C:\\fleet-control\\agents\\${item.name}`,
+    root_exists: true,
+    marker_present: true,
+    marker_verified: true,
+    total_bytes: areas.reduce((sum, area) => sum + area.bytes, 0),
+    total_files: areas.reduce((sum, area) => sum + area.files, 0),
+    total_directories: areas.reduce((sum, area) => sum + area.directories, 0),
+    total_symlinks: 0,
+    areas,
+    retention: {
+      archived: item.status === 'archived',
+      archived_since: item.status === 'archived' ? now : null,
+      purge_eligible: item.status === 'archived',
+      retention_hint:
+        item.status === 'archived'
+          ? 'archived agent files can be purged explicitly by an operator'
+          : 'archive the agent before physical purge',
+    },
+  }
+}
+
 const agents = [
   agent({
     id: ids.dev,
@@ -729,6 +766,7 @@ async function mockApi(context) {
       const [, agentId, section, rest] = agentMatch
       const found = agents.find((item) => item.id === agentId) ?? agents[0]
       if (!section) return json(route, found)
+      if (section === 'storage') return json(route, storageReport(found))
       if (section === 'config') return json(route, { ...agentConfig, agent_id: agentId })
       if (section === 'skills') {
         if (rest)

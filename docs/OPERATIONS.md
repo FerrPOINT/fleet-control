@@ -17,13 +17,18 @@ is a separate operator action:
 
 1. Archive the agent.
 2. Open the agent workspace tab.
-3. Type the exact `agentN` name into the purge confirmation field.
-4. Run file purge.
+3. Review the storage report totals, marker status and retention hint.
+4. Type the exact `agentN` name into the purge confirmation field.
+5. Run file purge.
 
 The backend recomputes `agents_root/agentN`, rejects symlinks, requires a
 matching `.fleet-agent.json` marker, removes only that folder and writes both an
 event and an audit entry. Purge does not remove database sessions, logs or
 audit history.
+
+The storage report is read-only. It scans `runtime`, `config`, `workspace` and
+`logs`, counts files, directories and symlinks without following symlink
+targets, and reports whether the folder is currently purge-eligible.
 
 ## Deployments
 

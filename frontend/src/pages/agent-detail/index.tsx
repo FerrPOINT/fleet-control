@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   FileCode2,
   Folder,
+  HardDrive,
   HeartPulse,
   Pencil,
   Play,
@@ -15,6 +16,7 @@ import {
 import {
   getAgent,
   getAgentConfig,
+  getAgentStorage,
   listAgentSkills,
   listLogs,
   listSessions,
@@ -28,6 +30,7 @@ import type {
   AgentConfig,
   AgentSession,
   AgentSkill,
+  AgentStorageReport,
   SkillState,
   UpdateAgentConfigRequest,
 } from '@/api/types'
@@ -461,12 +464,17 @@ function ConfigTab({ agent }: { agent: Agent }) {
 function WorkspaceTab({ agent }: { agent: Agent }) {
   const queryClient = useQueryClient()
   const [confirmation, setConfirmation] = useState('')
+  const storage = useQuery({
+    queryKey: ['agent-storage', agent.id],
+    queryFn: () => getAgentStorage(agent.id),
+  })
   const purge = useMutation({
     mutationFn: () => purgeAgentFiles(agent.id, { confirmation }),
     onSuccess: async () => {
       setConfirmation('')
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['agent', agent.id] }),
+        queryClient.invalidateQueries({ queryKey: ['agent-storage', agent.id] }),
         queryClient.invalidateQueries({ queryKey: ['agents'] }),
         queryClient.invalidateQueries({ queryKey: ['logs'] }),
         queryClient.invalidateQueries({ queryKey: ['events'] }),
@@ -493,49 +501,149 @@ function WorkspaceTab({ agent }: { agent: Agent }) {
           ))}
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>File purge</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm text-text-secondary">
-            Physical purge removes the managed agent folder after archive. The database agent,
-            sessions, logs and audit records stay available.
-          </p>
-          <div className="rounded-md border border-border bg-background p-3 text-xs text-text-muted">
-            Purge target: <span className="font-medium text-text-primary">{agent.name}</span>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="purge-confirmation">Type agent name to confirm</Label>
-            <Input
-              id="purge-confirmation"
-              value={confirmation}
-              onChange={(event) => setConfirmation(event.target.value)}
-              placeholder={agent.name}
-              disabled={purge.isPending}
-            />
-          </div>
-          {agent.status !== 'archived' ? (
-            <p className="text-xs text-text-muted">Archive the agent before purging files.</p>
-          ) : null}
-          {purge.isError ? <ErrorState message={purge.error.message} /> : null}
-          {purge.data ? (
-            <p className="rounded-md border border-border bg-background p-3 text-sm text-text-secondary">
-              {purge.data.message}: {purge.data.purged_path}
+      <div className="grid gap-4">
+        <StorageReportCard
+          report={storage.data}
+          isLoading={storage.isLoading}
+          error={storage.isError ? storage.error.message : null}
+        />
+        <Card>
+          <CardHeader>
+            <CardTitle>File purge</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-text-secondary">
+              Physical purge removes the managed agent folder after archive. The database agent,
+              sessions, logs and audit records stay available.
             </p>
-          ) : null}
-          <Button
-            variant="destructive"
-            onClick={() => purge.mutate()}
-            disabled={!canPurge || purge.isPending}
-          >
-            <Trash2 className="h-4 w-4" />
-            Purge files
-          </Button>
-        </CardContent>
-      </Card>
+            <div className="rounded-md border border-border bg-background p-3 text-xs text-text-muted">
+              Purge target: <span className="font-medium text-text-primary">{agent.name}</span>
+            </div>
+            {storage.data ? (
+              <div className="grid gap-2 rounded-md border border-border bg-background p-3 text-xs text-text-secondary">
+                <span>Total managed size: {formatBytes(storage.data.total_bytes)}</span>
+                <span>Marker: {storage.data.marker_verified ? 'verified' : 'not verified'}</span>
+                <span>{storage.data.retention.retention_hint}</span>
+              </div>
+            ) : null}
+            <div className="grid gap-2">
+              <Label htmlFor="purge-confirmation">Type agent name to confirm</Label>
+              <Input
+                id="purge-confirmation"
+                value={confirmation}
+                onChange={(event) => setConfirmation(event.target.value)}
+                placeholder={agent.name}
+                disabled={purge.isPending}
+              />
+            </div>
+            {agent.status !== 'archived' ? (
+              <p className="text-xs text-text-muted">Archive the agent before purging files.</p>
+            ) : null}
+            {purge.isError ? <ErrorState message={purge.error.message} /> : null}
+            {purge.data ? (
+              <p className="rounded-md border border-border bg-background p-3 text-sm text-text-secondary">
+                {purge.data.message}: {purge.data.purged_path}
+              </p>
+            ) : null}
+            <Button
+              variant="destructive"
+              onClick={() => purge.mutate()}
+              disabled={!canPurge || purge.isPending}
+            >
+              <Trash2 className="h-4 w-4" />
+              Purge files
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
+}
+
+function StorageReportCard({
+  report,
+  isLoading,
+  error,
+}: {
+  report?: AgentStorageReport
+  isLoading: boolean
+  error: string | null
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <HardDrive className="h-4 w-4" />
+          Storage report
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {error ? <ErrorState message={error} /> : null}
+        {isLoading ? <p className="text-sm text-text-muted">Loading storage...</p> : null}
+        {report ? (
+          <>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <Metric label="Total size" value={formatBytes(report.total_bytes)} />
+              <Metric label="Files" value={String(report.total_files)} />
+              <Metric label="Directories" value={String(report.total_directories)} />
+              <Metric label="Symlinks" value={String(report.total_symlinks)} />
+            </div>
+            <div className="rounded-md border border-border bg-background p-3 text-xs text-text-muted">
+              <p className="break-all">{report.root_path}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <StatusBadge value={report.root_exists ? 'root present' : 'root missing'} />
+                <StatusBadge value={report.marker_present ? 'marker present' : 'marker missing'} />
+                <StatusBadge
+                  value={report.marker_verified ? 'marker verified' : 'marker invalid'}
+                />
+                <StatusBadge value={report.retention.purge_eligible ? 'purge eligible' : 'kept'} />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              {report.areas.map((area) => (
+                <div
+                  key={area.name}
+                  className="grid gap-2 rounded-md border border-border p-3 text-xs sm:grid-cols-[1fr_auto]"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-text-primary">{area.name}</p>
+                    <p className="break-all text-text-muted">{area.path}</p>
+                  </div>
+                  <div className="text-left text-text-secondary sm:text-right">
+                    <p>{area.exists ? formatBytes(area.bytes) : 'missing'}</p>
+                    <p>
+                      {area.files} files, {area.directories} dirs
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : null}
+      </CardContent>
+    </Card>
+  )
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border bg-background p-3">
+      <p className="text-xs text-text-muted">{label}</p>
+      <p className="mt-1 font-medium text-text-primary">{value}</p>
+    </div>
+  )
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`
+  const units = ['KB', 'MB', 'GB', 'TB']
+  let value = bytes / 1024
+  let unit = units[0]
+  for (let index = 1; index < units.length && value >= 1024; index += 1) {
+    value /= 1024
+    unit = units[index]
+  }
+  return `${value.toFixed(value >= 10 ? 1 : 2)} ${unit}`
 }
 
 function SessionsTab({ agent }: { agent: Agent }) {

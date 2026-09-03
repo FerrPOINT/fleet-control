@@ -5,9 +5,9 @@ use axum::{
     extract::{Path, State},
 };
 use domain::{
-    Agent, AgentConfig, AgentDirectoryItem, AgentSkill, CreateAgentRequest, PurgeAgentFilesRequest,
-    PurgeAgentFilesResponse, RuntimeOperationResponse, UpdateAgentConfigRequest,
-    UpdateAgentRequest, UpdateSkillRequest,
+    Agent, AgentConfig, AgentDirectoryItem, AgentSkill, AgentStorageReport, CreateAgentRequest,
+    PurgeAgentFilesRequest, PurgeAgentFilesResponse, RuntimeOperationResponse,
+    UpdateAgentConfigRequest, UpdateAgentRequest, UpdateSkillRequest,
 };
 use shared::{AppError, FleetEvent};
 use std::sync::Arc;
@@ -115,6 +115,19 @@ pub async fn archive_agent(
         )
         .await?;
     Ok(Json(agent))
+}
+
+#[utoipa::path(get, path = "/api/v1/agents/{agent_id}/storage", tag = "agents", params(("agent_id" = Uuid, Path)), responses((status = 200, body = AgentStorageReport)))]
+pub async fn get_agent_storage(
+    State(ctx): State<Arc<AppContext>>,
+    Extension(user): Extension<CurrentUser>,
+    Path(agent_id): Path<Uuid>,
+) -> Result<Json<AgentStorageReport>, AppError> {
+    require_operator(&user)?;
+    let agent = ctx.repo.get_agent(agent_id).await?;
+    Ok(Json(
+        ctx.provisioner.storage_report(&agent, &ctx.config).await?,
+    ))
 }
 
 #[utoipa::path(post, path = "/api/v1/agents/{agent_id}/purge-files", tag = "agents", params(("agent_id" = Uuid, Path)), request_body = PurgeAgentFilesRequest, responses((status = 200, body = PurgeAgentFilesResponse)))]

@@ -28,7 +28,7 @@ can authenticate to `services-base`.
 `server` initializes logging through `shared::telemetry::init_tracing`, and
 `api` wraps HTTP routes with `shared::telemetry::request_id_mw`. The local
 bridge intentionally mirrors the `sdlc-telemetry` API shape from commit
-`abd23d59d09d70b79ab638167c25267eee960491`. Every API response therefore
+`24d373072c1489393c79d7b6ae826f7e870ca0e8`. Every API response therefore
 carries `x-request-id`, and application logs include request method, path,
 status and latency in the same format as the rest of the SDLC fleet.
 
@@ -109,6 +109,11 @@ Provisioning and runtime updates are represented as deployment jobs so operators
 can inspect, cancel and audit long-running actions. Runtime roots, runtime
 sources, port ranges, integrations and auth settings are stored as typed
 redacted control settings.
+
+Agent storage reporting is computed on demand by the filesystem provisioner. It
+reuses the same `agents_root/agentN` guard as purge/provisioning, scans only the
+managed runtime/config/workspace/logs areas, and reports marker validity before
+operators run a physical purge.
 
 ## Evidence Gate
 

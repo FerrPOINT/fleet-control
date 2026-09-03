@@ -408,6 +408,40 @@ export interface PurgeAgentFilesResponse {
   message: string
 }
 
+export interface AgentStorageArea {
+  name: string
+  path: string
+  exists: boolean
+  is_directory: boolean
+  bytes: number
+  files: number
+  directories: number
+  symlinks: number
+  last_modified_at: string | null
+}
+
+export interface AgentRetentionReport {
+  archived: boolean
+  archived_since: string | null
+  purge_eligible: boolean
+  retention_hint: string
+}
+
+export interface AgentStorageReport {
+  agent_id: string
+  agent_name: string
+  root_path: string
+  root_exists: boolean
+  marker_present: boolean
+  marker_verified: boolean
+  total_bytes: number
+  total_files: number
+  total_directories: number
+  total_symlinks: number
+  areas: AgentStorageArea[]
+  retention: AgentRetentionReport
+}
+
 export interface RuntimeOperationResponse {
   agent_id: string
   status: AgentStatus

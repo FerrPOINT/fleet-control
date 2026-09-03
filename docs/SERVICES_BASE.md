@@ -10,7 +10,12 @@ fleet contracts.
 Fleet Control currently uses a local telemetry bridge at
 `backend/shared/src/telemetry.rs`. It intentionally mirrors the
 `sdlc-telemetry` API shape from `services-base` commit
-`abd23d59d09d70b79ab638167c25267eee960491`.
+`24d373072c1489393c79d7b6ae826f7e870ca0e8`.
+
+The sibling checkout is expected at `../services-base` during local fleet
+development. It now includes the shared `auth-server`, `sdlc-auth-core`,
+`sdlc-telemetry`, `sdlc-shared` and the React UI package that future services
+should converge on.
 
 Fleet Control currently wires:
 
@@ -41,7 +46,7 @@ The expected path is:
 1. Keep `FLEET_CONTROL_AUTH__MODE=hmac` as the only active mode until the
    shared crate is reachable from WSL/CI.
 2. Replace the local HMAC validator with `sdlc-auth-core::Validator::hmac`.
-3. Add OIDC/JWKS mode backed by the shared Rauthy deployment.
+3. Add OIDC/JWKS mode backed by the shared `auth-server`/Rauthy deployment.
 4. Remove the legacy compact-token validator after all local sessions have
    expired.
 

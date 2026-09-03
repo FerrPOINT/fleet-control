@@ -8,6 +8,8 @@ Tables:
 - `agents`: sequential agent identity, runtime kind, product role, profile,
   status, ports and paths.
 - `agent_runtime`: desired state, pid, health, command and env preview.
+- `AgentStorageReport` is computed from the managed filesystem on demand and is
+  not stored in PostgreSQL.
 - `agent_configs`: config JSON, SOUL.md text and redacted env JSON.
 - `agent_skills`: per-agent skill selection and optional edited content.
 - `leader_executors`: many-to-many team binding from leader agents to executor
