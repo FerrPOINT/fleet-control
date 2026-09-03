@@ -12,6 +12,7 @@
 | Leader sees private executor task                   | privacy break               | private sessions have `leader_agent_id = NULL` and are not leader-scoped |
 | Leader writes outside its team                      | incorrect control authority | validate `leader_executors` before assignment and message authoring      |
 | Browser retry sends prompt twice                    | duplicate runtime action    | idempotent message create skips runtime dispatch on replay               |
+| Cross-service token is accepted                     | auth boundary break         | strict `aud`/`iss` validation for fleet-claim access tokens              |
 | One Fleet session maps to multiple runtime sessions | lost runtime state          | store per-agent links in `session_agent_runs`                            |
 | Concurrent agent creation reuses an ordinal         | folder/port collision       | allocate `agentN` with PostgreSQL sequence, not `count + 1`              |
 | Audit log stores secrets                            | credential exposure         | redact audit payloads and avoid copying full message bodies into audit   |

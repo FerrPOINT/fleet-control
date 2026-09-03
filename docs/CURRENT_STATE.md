@@ -13,6 +13,9 @@ Implemented:
 - agent profiles: `developer | tester | it_lead | custom`
 - `SystemRole = admin | operator | user` with backend RBAC enforcement and a
   legacy `is_system_admin` alias
+- local HMAC access tokens now carry fleet-compatible `aud`, `iss`, `role`,
+  `scopes` and `sid` claims with strict issuer/audience validation for new
+  tokens and a transition fallback for legacy compact tokens
 - race-safe `agentN` ordinal allocation through a PostgreSQL sequence
 - Hermes provisioning layout and local process supervisor
 - Hermes launch switched to `hermes serve` for the programmatic control-plane

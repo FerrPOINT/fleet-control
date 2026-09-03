@@ -6,6 +6,9 @@ Required production values:
 
 - `FLEET_CONTROL_DATABASE__URL`
 - `FLEET_CONTROL_JWT_SECRET`
+- `FLEET_CONTROL_AUTH__MODE=hmac`
+- `FLEET_CONTROL_AUTH__JWT_ISSUER=fleet-control`
+- `FLEET_CONTROL_AUTH__JWT_AUDIENCE=sdlc`
 - `POSTGRES_PASSWORD` when using Docker Compose
 
 Important runtime values:

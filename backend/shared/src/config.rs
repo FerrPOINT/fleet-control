@@ -42,7 +42,10 @@ pub struct ServerConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthConfig {
+    pub mode: String,
     pub jwt_secret: String,
+    pub jwt_issuer: String,
+    pub jwt_audience: String,
     pub access_token_ttl_minutes: u64,
     pub refresh_token_ttl_days: u64,
     pub refresh_cookie_name: String,
@@ -118,7 +121,10 @@ impl AppConfig {
             .set_default("server.auth_rate_period_secs", 15u64)?
             .set_default("server.general_rate_burst", 60u32)?
             .set_default("server.general_rate_per_second", 60u64)?
+            .set_default("auth.mode", "hmac")?
             .set_default("auth.jwt_secret", "[CHANGE_ME]")?
+            .set_default("auth.jwt_issuer", "fleet-control")?
+            .set_default("auth.jwt_audience", "sdlc")?
             .set_default("auth.access_token_ttl_minutes", 15u64)?
             .set_default("auth.refresh_token_ttl_days", 7u64)?
             .set_default("auth.refresh_cookie_name", "refresh_token")?
@@ -156,6 +162,10 @@ impl AppConfig {
             cfg.fleet.runtime_token_secret = secret;
         }
 
+        cfg.auth.mode = cfg.auth.mode.trim().to_ascii_lowercase();
+        cfg.auth.jwt_issuer = cfg.auth.jwt_issuer.trim().to_string();
+        cfg.auth.jwt_audience = cfg.auth.jwt_audience.trim().to_string();
+
         if cfg.auth.jwt_secret == "[CHANGE_ME]" {
             return Err(ConfigError::Message(
                 "auth.jwt_secret must be changed from default [CHANGE_ME]".to_string(),
@@ -164,6 +174,22 @@ impl AppConfig {
         if cfg.fleet.runtime_token_secret == "[CHANGE_ME]" {
             return Err(ConfigError::Message(
                 "fleet.runtime_token_secret must be changed from default [CHANGE_ME]".to_string(),
+            ));
+        }
+        if cfg.auth.mode != "hmac" {
+            return Err(ConfigError::Message(
+                "auth.mode currently supports only hmac; oidc is reserved for sdlc-auth-core"
+                    .to_string(),
+            ));
+        }
+        if cfg.auth.jwt_issuer.trim().is_empty() {
+            return Err(ConfigError::Message(
+                "auth.jwt_issuer must not be empty".to_string(),
+            ));
+        }
+        if cfg.auth.jwt_audience.trim().is_empty() {
+            return Err(ConfigError::Message(
+                "auth.jwt_audience must not be empty".to_string(),
             ));
         }
         if cfg.server.auth_rate_period_secs == 0 || cfg.server.general_rate_per_second == 0 {
@@ -227,7 +253,10 @@ impl Default for ServerConfig {
 impl Default for AuthConfig {
     fn default() -> Self {
         Self {
+            mode: "hmac".to_string(),
             jwt_secret: "[CHANGE_ME]".to_string(),
+            jwt_issuer: "fleet-control".to_string(),
+            jwt_audience: "sdlc".to_string(),
             access_token_ttl_minutes: 15,
             refresh_token_ttl_days: 7,
             refresh_cookie_name: "refresh_token".to_string(),

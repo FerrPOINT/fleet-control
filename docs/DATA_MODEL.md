@@ -61,6 +61,9 @@ Important constraints:
   supplied.
 - `session_agent_runs` tracks each runtime participant independently.
 - `workflow_bindings` is unique by `agent_id`.
+- `control_settings.auth` stores `mode`, `jwt_issuer`, `jwt_audience`, token
+  TTLs and refresh-cookie policy; saved rows missing the new claim fields load
+  with HMAC defaults for backward compatibility.
 - runtime kind, role, status, desired state, skill state and session state are
   checked text values.
 

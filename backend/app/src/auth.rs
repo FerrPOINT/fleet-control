@@ -4,9 +4,10 @@ use argon2::{
 };
 use chrono::{Duration, Utc};
 use domain::{AuthResponse, LoginRequest, RegisterRequest, SystemRole, UserResponse};
-use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
+use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use rand_core::{OsRng, RngCore};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use sha2::{Digest, Sha256};
 use shared::{AppError, AuthConfig};
 use uuid::Uuid;
@@ -42,7 +43,26 @@ impl From<UserRecord> for UserResponse {
 pub struct Claims {
     pub sub: String,
     pub email: String,
-    pub exp: usize,
+    pub exp: i64,
+    #[serde(default)]
+    pub iat: i64,
+    #[serde(default)]
+    pub aud: String,
+    #[serde(default)]
+    pub iss: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub role: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub scopes: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct LegacyClaims {
+    sub: String,
+    email: String,
+    exp: i64,
 }
 
 #[derive(Debug, Clone)]
@@ -83,11 +103,20 @@ impl AuthService {
     }
 
     pub fn issue_tokens(&self, user: &UserRecord) -> Result<AuthTokens, AppError> {
-        let exp = Utc::now() + Duration::minutes(self.config.access_token_ttl_minutes as i64);
+        let now = Utc::now();
+        let exp = now + Duration::minutes(self.config.access_token_ttl_minutes as i64);
+        let refresh_token = generate_refresh_token();
+        let refresh_hash = hash_refresh_token(&refresh_token);
         let claims = Claims {
             sub: user.id.to_string(),
             email: user.email.clone(),
-            exp: exp.timestamp() as usize,
+            exp: exp.timestamp(),
+            iat: now.timestamp(),
+            aud: self.config.jwt_audience.clone(),
+            iss: self.config.jwt_issuer.clone(),
+            role: Some(user.system_role.as_str().to_string()),
+            scopes: user.system_role.permissions(),
+            sid: Some(Uuid::new_v4().to_string()),
         };
         let access_token = encode(
             &Header::default(),
@@ -95,8 +124,6 @@ impl AuthService {
             &EncodingKey::from_secret(self.config.jwt_secret.as_bytes()),
         )
         .map_err(AppError::internal)?;
-        let refresh_token = generate_refresh_token();
-        let refresh_hash = hash_refresh_token(&refresh_token);
         Ok(AuthTokens {
             response: AuthResponse {
                 access_token,
@@ -113,14 +140,60 @@ impl AuthService {
     }
 
     pub fn validate_access_token(&self, token: &str) -> Result<Claims, AppError> {
-        decode::<Claims>(
+        match decode::<Claims>(
             token,
             &DecodingKey::from_secret(self.config.jwt_secret.as_bytes()),
-            &Validation::default(),
-        )
-        .map(|data| data.claims)
-        .map_err(|_| AppError::Unauthorized)
+            &self.fleet_validation(),
+        ) {
+            Ok(data) => Ok(data.claims),
+            Err(_) if token_has_legacy_claim_shape(token) => self.validate_legacy_token(token),
+            Err(_) => Err(AppError::Unauthorized),
+        }
     }
+
+    fn fleet_validation(&self) -> Validation {
+        let mut validation = Validation::new(Algorithm::HS256);
+        validation.set_audience(&[self.config.jwt_audience.as_str()]);
+        validation.set_issuer(&[self.config.jwt_issuer.as_str()]);
+        validation.set_required_spec_claims(&["exp", "sub", "aud", "iss"]);
+        validation
+    }
+
+    fn validate_legacy_token(&self, token: &str) -> Result<Claims, AppError> {
+        let mut validation = Validation::new(Algorithm::HS256);
+        validation.validate_aud = false;
+        validation.set_required_spec_claims(&["exp", "sub"]);
+        let data = decode::<LegacyClaims>(
+            token,
+            &DecodingKey::from_secret(self.config.jwt_secret.as_bytes()),
+            &validation,
+        )
+        .map_err(|_| AppError::Unauthorized)?;
+        Ok(Claims {
+            sub: data.claims.sub,
+            email: data.claims.email,
+            exp: data.claims.exp,
+            iat: 0,
+            aud: String::new(),
+            iss: String::new(),
+            role: None,
+            scopes: Vec::new(),
+            sid: None,
+        })
+    }
+}
+
+fn token_has_legacy_claim_shape(token: &str) -> bool {
+    let mut validation = Validation::new(Algorithm::HS256);
+    validation.insecure_disable_signature_validation();
+    validation.validate_exp = false;
+    validation.validate_nbf = false;
+    validation.validate_aud = false;
+    validation.set_required_spec_claims::<&str>(&[]);
+    decode::<Value>(token, &DecodingKey::from_secret(&[]), &validation)
+        .ok()
+        .and_then(|data| data.claims.as_object().cloned())
+        .is_some_and(|claims| !claims.contains_key("aud") && !claims.contains_key("iss"))
 }
 
 pub fn normalize_register(req: RegisterRequest) -> Result<RegisterRequest, AppError> {
@@ -170,4 +243,126 @@ fn generate_refresh_token() -> String {
     let mut bytes = [0_u8; 32];
     OsRng.fill_bytes(&mut bytes);
     hex::encode(bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn config() -> AuthConfig {
+        AuthConfig {
+            jwt_secret: "test-secret-long-enough".to_string(),
+            access_token_ttl_minutes: 15,
+            ..AuthConfig::default()
+        }
+    }
+
+    fn user(role: SystemRole) -> UserRecord {
+        UserRecord {
+            id: Uuid::new_v4(),
+            email: "user@example.test".to_string(),
+            username: "user".to_string(),
+            display_name: "Test User".to_string(),
+            password_hash: "hash".to_string(),
+            refresh_token_hash: None,
+            system_role: role,
+            is_system_admin: role.is_admin(),
+            is_active: true,
+        }
+    }
+
+    fn token_for_claims(config: &AuthConfig, claims: &Claims) -> String {
+        encode(
+            &Header::default(),
+            claims,
+            &EncodingKey::from_secret(config.jwt_secret.as_bytes()),
+        )
+        .expect("token")
+    }
+
+    #[test]
+    fn issued_access_token_carries_fleet_compatible_claims() {
+        let config = config();
+        let service = AuthService::new(config);
+        let user = user(SystemRole::Operator);
+
+        let tokens = service.issue_tokens(&user).expect("tokens");
+        let claims = service
+            .validate_access_token(&tokens.response.access_token)
+            .expect("claims");
+
+        assert_eq!(claims.sub, user.id.to_string());
+        assert_eq!(claims.email, user.email);
+        assert_eq!(claims.aud, "sdlc");
+        assert_eq!(claims.iss, "fleet-control");
+        assert_eq!(claims.role.as_deref(), Some("operator"));
+        assert!(claims.scopes.contains(&"runtime:manage".to_string()));
+        assert!(claims.iat > 0);
+        assert!(claims.sid.is_some());
+    }
+
+    #[test]
+    fn legacy_access_token_without_audience_and_issuer_is_accepted() {
+        let config = config();
+        let user_id = Uuid::new_v4();
+        let legacy = LegacyClaims {
+            sub: user_id.to_string(),
+            email: "legacy@example.test".to_string(),
+            exp: (Utc::now() + Duration::minutes(5)).timestamp(),
+        };
+        let token = encode(
+            &Header::default(),
+            &legacy,
+            &EncodingKey::from_secret(config.jwt_secret.as_bytes()),
+        )
+        .expect("legacy token");
+
+        assert!(token_has_legacy_claim_shape(&token));
+        let claims = AuthService::new(config)
+            .validate_access_token(&token)
+            .expect("legacy claims");
+
+        assert_eq!(claims.sub, user_id.to_string());
+        assert_eq!(claims.email, "legacy@example.test");
+        assert!(claims.aud.is_empty());
+        assert!(claims.iss.is_empty());
+        assert!(claims.scopes.is_empty());
+        assert!(claims.sid.is_none());
+    }
+
+    #[test]
+    fn wrong_audience_is_rejected_without_legacy_fallback() {
+        let config = config();
+        let service = AuthService::new(config.clone());
+        let mut claims = service
+            .issue_tokens(&user(SystemRole::Admin))
+            .and_then(|tokens| service.validate_access_token(&tokens.response.access_token))
+            .expect("claims");
+        claims.aud = "other".to_string();
+        let token = token_for_claims(&config, &claims);
+
+        assert!(!token_has_legacy_claim_shape(&token));
+        assert!(matches!(
+            service.validate_access_token(&token),
+            Err(AppError::Unauthorized)
+        ));
+    }
+
+    #[test]
+    fn wrong_issuer_is_rejected_without_legacy_fallback() {
+        let config = config();
+        let service = AuthService::new(config.clone());
+        let mut claims = service
+            .issue_tokens(&user(SystemRole::Admin))
+            .and_then(|tokens| service.validate_access_token(&tokens.response.access_token))
+            .expect("claims");
+        claims.iss = "other".to_string();
+        let token = token_for_claims(&config, &claims);
+
+        assert!(!token_has_legacy_claim_shape(&token));
+        assert!(matches!(
+            service.validate_access_token(&token),
+            Err(AppError::Unauthorized)
+        ));
+    }
 }

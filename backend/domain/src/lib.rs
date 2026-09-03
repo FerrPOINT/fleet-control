@@ -1298,6 +1298,12 @@ pub struct IntegrationSettings {
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct AuthSettings {
+    #[serde(default = "default_auth_mode")]
+    pub mode: String,
+    #[serde(default = "default_jwt_issuer")]
+    pub jwt_issuer: String,
+    #[serde(default = "default_jwt_audience")]
+    pub jwt_audience: String,
     pub access_token_ttl_minutes: u64,
     pub refresh_token_ttl_days: u64,
     pub refresh_cookie_name: String,
@@ -1305,6 +1311,18 @@ pub struct AuthSettings {
     pub refresh_cookie_same_site: String,
     pub refresh_cookie_domain: Option<String>,
     pub refresh_cookie_path: String,
+}
+
+fn default_auth_mode() -> String {
+    "hmac".to_string()
+}
+
+fn default_jwt_issuer() -> String {
+    "fleet-control".to_string()
+}
+
+fn default_jwt_audience() -> String {
+    "sdlc".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

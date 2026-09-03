@@ -444,6 +444,9 @@ export interface IntegrationSettings {
 }
 
 export interface AuthSettings {
+  mode: string
+  jwt_issuer: string
+  jwt_audience: string
   access_token_ttl_minutes: number
   refresh_token_ttl_days: number
   refresh_cookie_name: string

@@ -20,3 +20,5 @@ Compatibility:
 
 - `is_system_admin` remains stored for older code paths.
 - Effective admin status is `system_role = admin`.
+- Access tokens now include fleet-compatible issuer/audience claims. Keep
+  `mode=hmac` until `sdlc-auth-core` OIDC/JWKS validation is implemented.

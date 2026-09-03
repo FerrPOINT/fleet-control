@@ -29,20 +29,21 @@ WSL Git cannot currently authenticate to the private GitHub repository. Adding
 the git dependency in that state breaks the WSL/Linux quality gate and would
 likely break CI unless cross-repository credentials are configured.
 
-`sdlc-auth-core` is not enabled yet. Fleet Control currently issues local
-browser-session JWTs with a compact claim set. The shared auth crate expects
-fleet-wide `aud`, `iss`, `scopes` and optional `sid` claims and also supports
-OIDC/JWKS. That migration needs a compatibility step so existing local sessions
-and RBAC checks keep working.
+`sdlc-auth-core` is not enabled yet. Fleet Control now issues local
+browser-session JWTs with the shared crate's HMAC-compatible `aud`, `iss`,
+`role`, `scopes` and optional `sid` shape. Legacy compact local tokens without
+`aud` and `iss` remain accepted during the transition so existing browser
+sessions keep working. Tokens that include fleet claims are validated strictly
+against the configured issuer and audience.
 
 The expected path is:
 
-1. Extend Fleet Control access tokens with fleet-compatible claims while still
-   accepting the current local token shape during a transition window.
-2. Add `SDLC_AUTH_MODE=hmac|oidc` configuration.
-3. Validate local HMAC tokens through `sdlc-auth-core`.
-4. Add OIDC/JWKS mode backed by the shared Rauthy deployment.
-5. Remove the legacy validator after all local sessions have expired.
+1. Keep `FLEET_CONTROL_AUTH__MODE=hmac` as the only active mode until the
+   shared crate is reachable from WSL/CI.
+2. Replace the local HMAC validator with `sdlc-auth-core::Validator::hmac`.
+3. Add OIDC/JWKS mode backed by the shared Rauthy deployment.
+4. Remove the legacy compact-token validator after all local sessions have
+   expired.
 
 ## Contract
 

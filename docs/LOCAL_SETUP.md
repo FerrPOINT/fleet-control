@@ -2,6 +2,7 @@
 
 ```bash
 cp .env.example .env
+# Replace FLEET_CONTROL_JWT_SECRET and runtime token secrets before backend run.
 docker compose up -d postgres redis
 cd frontend && pnpm install
 cd backend && cargo fetch

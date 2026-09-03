@@ -32,10 +32,12 @@ bridge intentionally mirrors the `sdlc-telemetry` API shape from commit
 carries `x-request-id`, and application logs include request method, path,
 status and latency in the same format as the rest of the SDLC fleet.
 
-`sdlc-auth-core` is intentionally not switched on in this change. Fleet Control
-currently issues local browser-session JWTs with app-specific claims. Moving to
-the shared HMAC/OIDC validator requires a compatibility migration for issuer,
-audience, scopes and session ids.
+`sdlc-auth-core` is intentionally not switched on yet because the private
+shared crate is not available to WSL/CI. Fleet Control now issues local HMAC
+browser-session JWTs with fleet-compatible `aud`, `iss`, `role`, `scopes` and
+`sid` claims while still accepting legacy compact local tokens that do not have
+`aud` or `iss`. Tokens that do contain fleet claims are validated strictly
+against the configured issuer and audience.
 
 ## Security Boundary
 

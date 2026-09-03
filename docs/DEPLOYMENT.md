@@ -5,6 +5,9 @@ Docker Compose starts PostgreSQL, Redis, backend and frontend.
 ```bash
 POSTGRES_PASSWORD=change-me \
 FLEET_CONTROL_JWT_SECRET=change-me-change-me-change-me \
+FLEET_CONTROL_AUTH__MODE=hmac \
+FLEET_CONTROL_AUTH__JWT_ISSUER=fleet-control \
+FLEET_CONTROL_AUTH__JWT_AUDIENCE=sdlc \
 docker compose up -d --build
 ```
 

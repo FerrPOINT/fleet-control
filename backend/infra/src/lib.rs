@@ -413,6 +413,9 @@ fn port_settings_from_config(config: &AppConfig) -> PortSettings {
 
 fn auth_settings_from_config(config: &AppConfig) -> AuthSettings {
     AuthSettings {
+        mode: config.auth.mode.clone(),
+        jwt_issuer: config.auth.jwt_issuer.clone(),
+        jwt_audience: config.auth.jwt_audience.clone(),
         access_token_ttl_minutes: config.auth.access_token_ttl_minutes,
         refresh_token_ttl_days: config.auth.refresh_token_ttl_days,
         refresh_cookie_name: config.auth.refresh_cookie_name.clone(),
@@ -2565,13 +2568,27 @@ impl FleetRepository for PostgresFleetRepository {
 
     async fn update_auth_settings(
         &self,
-        req: AuthSettings,
+        mut req: AuthSettings,
         actor_user_id: Uuid,
     ) -> Result<AuthSettings, AppError> {
+        req.mode = req.mode.trim().to_ascii_lowercase();
+        req.jwt_issuer = req.jwt_issuer.trim().to_string();
+        req.jwt_audience = req.jwt_audience.trim().to_string();
         if req.access_token_ttl_minutes == 0 || req.refresh_token_ttl_days == 0 {
             return Err(AppError::validation(
                 "auth TTL values must be greater than zero",
             ));
+        }
+        if req.mode != "hmac" {
+            return Err(AppError::validation(
+                "auth mode currently supports only hmac; oidc is phase 2",
+            ));
+        }
+        if req.jwt_issuer.trim().is_empty() {
+            return Err(AppError::validation("jwt_issuer must not be empty"));
+        }
+        if req.jwt_audience.trim().is_empty() {
+            return Err(AppError::validation("jwt_audience must not be empty"));
         }
         save_setting(&self.db, "auth", req, actor_user_id).await
     }

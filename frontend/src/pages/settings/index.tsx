@@ -212,6 +212,22 @@ function AuthSettingsPanel() {
 
   return (
     <SettingsCard title="Auth policy" onSubmit={() => mutation.mutate()}>
+      <SelectField
+        label="Auth mode"
+        value={form.mode}
+        options={[{ value: 'hmac', label: 'hmac' }]}
+        onChange={(mode) => setForm({ ...form, mode })}
+      />
+      <TextField
+        label="JWT issuer"
+        value={form.jwt_issuer}
+        onChange={(jwt_issuer) => setForm({ ...form, jwt_issuer })}
+      />
+      <TextField
+        label="JWT audience"
+        value={form.jwt_audience}
+        onChange={(jwt_audience) => setForm({ ...form, jwt_audience })}
+      />
       <NumberField
         label="Access token TTL minutes"
         value={form.access_token_ttl_minutes}
@@ -333,6 +349,37 @@ function SettingsCard({
         </form>
       </CardContent>
     </Card>
+  )
+}
+
+function SelectField({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string
+  value: string
+  options: Array<{ value: string; label: string }>
+  onChange: (value: string) => void
+}) {
+  const id = label.toLowerCase().replaceAll(' ', '-')
+  return (
+    <div className="grid gap-2">
+      <Label htmlFor={id}>{label}</Label>
+      <select
+        id={id}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-10 rounded-md border border-border bg-background px-3 text-sm text-text-primary"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
   )
 }
 

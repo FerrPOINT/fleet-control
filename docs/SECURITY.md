@@ -1,6 +1,10 @@
 # Security
 
-- Authentication uses JWT access tokens and HttpOnly refresh cookies.
+- Authentication uses HMAC JWT access tokens and HttpOnly refresh cookies.
+- New access tokens include fleet-compatible `aud`, `iss`, `role`, `scopes` and
+  `sid` claims. Legacy compact tokens without `aud`/`iss` remain accepted during
+  the migration window, but tokens that contain fleet claims are validated
+  strictly against the configured issuer and audience.
 - The first registered user becomes `admin`.
 - `SystemRole = admin | operator | user`; `is_system_admin` remains a derived
   compatibility alias for `admin`.

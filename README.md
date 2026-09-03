@@ -80,6 +80,7 @@ provision/start остаётся phase 2 contract.
 | Session ownership | `agent_sessions.user_id` references the authenticated user that created the session.                                  |
 | Leader binding    | `leader_executors` defines which executors a leader may manage.                                                       |
 | Session leader    | `agent_sessions.leader_agent_id` is nullable; `NULL` means private chat.                                              |
+| Auth bridge       | Local HMAC JWTs carry fleet-compatible `aud`, `iss`, `role`, `scopes` and `sid` claims.                              |
 | Agent naming      | Agent ordinals come from database allocation and materialize `agentN` folders.                                        |
 | Deletion model    | Agent delete means archive/stop by default; physical purge is a separate explicit operation.                          |
 
@@ -216,8 +217,9 @@ flowchart TD
 - `task-tracker` was used only as stack/UI/docs donor; sibling SDLC repos are not mutated.
 - `services-base` provides shared fleet building blocks; Fleet Control now uses
   a telemetry-compatible local bridge because WSL/CI cannot yet fetch the
-  private shared repo directly. Auth migration to `sdlc-auth-core` remains a
-  separate compatibility step.
+  private shared repo directly. Auth tokens already use fleet-compatible HMAC
+  claims; replacing local validation with `sdlc-auth-core` remains a separate
+  compatibility step.
 - `project-workflow` remains the source of truth for workflow and namespace definitions.
 - Java Agent provisioning is intentionally blocked until the runtime adapter is implemented.
 - `agents.product_role` separates leaders from executors while `agents.kind`

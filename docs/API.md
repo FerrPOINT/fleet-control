@@ -13,6 +13,11 @@ Auth:
 - `GET /users`
 - `PATCH /users/{user_id}/role`
 
+Access tokens are local HMAC JWTs in MVP. New tokens include `aud`, `iss`,
+`role`, `scopes` and `sid` claims compatible with the future `sdlc-auth-core`
+validator. Legacy compact tokens without `aud`/`iss` remain accepted during the
+transition window.
+
 RBAC:
 
 - `admin`: all users, settings, RBAC, sessions and runtime actions.
@@ -97,6 +102,10 @@ Settings:
 - `GET/PUT /settings/ports`
 - `GET/PUT /settings/integrations`
 - `GET/PUT /settings/auth`
+
+Auth settings expose `mode`, `jwt_issuer`, `jwt_audience`, token TTLs and
+refresh-cookie policy. `mode=hmac` is the only active mode until
+`sdlc-auth-core` is adopted.
 
 The frontend build regenerates TypeScript types from `openapi/openapi.json`.
 The OpenAPI JSON is regenerated from Rust source before release. Native Windows

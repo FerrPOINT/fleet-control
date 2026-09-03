@@ -10,6 +10,7 @@ Primary risks:
 - showing private executor sessions to a leader without explicit selection
 - allowing a leader to write into an executor session outside its team binding
 - ordinary user expanding session filters to other users
+- accepting forged or cross-service JWTs with the wrong issuer or audience
 - duplicate prompt delivery during browser retries
 - role/settings/deployment changes without audit evidence
 - direct mutation of Hermes SessionDB instead of using the runtime boundary
@@ -26,6 +27,8 @@ Controls:
 - backend current-user filtering by default
 - admin/operator-only expansion to all/multiple users
 - backend RBAC for all fleet infrastructure routes
+- strict issuer/audience validation for fleet-claim JWTs and legacy fallback
+  only for compact local tokens without `aud`/`iss`
 - `leader_executors` validation before leader assignment
 - idempotency keys and payload hashes for session/message create
 - deployment/settings/role changes recorded in `audit_log`

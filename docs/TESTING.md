@@ -44,6 +44,11 @@ Required scenarios:
 - default session API filter returns the current user's sessions
 - admin/operator multi-user filter can expand to all users
 - normal users cannot read all users or expand session filters
+- newly issued access tokens carry `aud`, `iss`, `role`, `scopes` and `sid`
+- legacy compact access tokens without `aud`/`iss` remain accepted during the
+  transition window
+- access tokens with wrong issuer or audience are rejected without legacy
+  fallback
 - selecting a leader for an executor session requires `leader_executors`
 - session and message idempotency replay returns the original row
 - session and message idempotency conflict returns `409`

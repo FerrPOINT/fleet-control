@@ -398,6 +398,9 @@ async function installMocks(page: Page, state: ApiState) {
     }
     if (pathName === '/api/v1/settings/auth') {
       return fulfill(route, {
+        mode: 'hmac',
+        jwt_issuer: 'fleet-control',
+        jwt_audience: 'sdlc',
         access_token_ttl_minutes: 15,
         refresh_token_ttl_days: 7,
         refresh_cookie_name: 'refresh_token',

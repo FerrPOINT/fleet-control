@@ -15,6 +15,8 @@ Fleet Control API standards:
   a compatibility field.
 - Runtime writes go through `RuntimeAdapter`; API handlers must not write into
   Hermes internal databases.
+- New access tokens must include configured `aud` and `iss` claims. Legacy
+  compact-token compatibility may only be used for tokens that omit both fields.
 
 Pagination and filtering:
 

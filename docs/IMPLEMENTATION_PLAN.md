@@ -17,9 +17,10 @@ Phase 1: Hermes MVP completion.
 - Expand fake Hermes lifecycle tests into real adapter contract tests.
 - Add runtime reconciler tests for desired-state restart.
 - Add clean DB migration and seed workflows.
-- Add production auth/session hardening.
-- Continue shared `services-base` adoption after telemetry by migrating local
-  auth toward `sdlc-auth-core` HMAC/OIDC validation.
+- Replace the local HMAC token validator with `sdlc-auth-core::Validator::hmac`
+  after WSL/CI can fetch `services-base`.
+- Add OIDC/JWKS validation mode and retire the compact-token legacy fallback
+  after the transition window.
 
 Phase 2: Java Agent runtime.
 

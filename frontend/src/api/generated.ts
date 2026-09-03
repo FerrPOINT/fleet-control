@@ -978,6 +978,9 @@ export interface components {
         AuthSettings: {
             /** Format: int64 */
             access_token_ttl_minutes: number;
+            jwt_audience?: string;
+            jwt_issuer?: string;
+            mode?: string;
             refresh_cookie_domain?: string | null;
             refresh_cookie_name: string;
             refresh_cookie_path: string;

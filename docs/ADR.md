@@ -8,3 +8,4 @@
 - [0006-session-mirror-and-runtime-runs.md](adr/0006-session-mirror-and-runtime-runs.md)
 - [0007-leader-delegation-sessions.md](adr/0007-leader-delegation-sessions.md)
 - [0008-services-base-telemetry.md](adr/0008-services-base-telemetry.md)
+- [0009-fleet-compatible-local-jwt.md](adr/0009-fleet-compatible-local-jwt.md)

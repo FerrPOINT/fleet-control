@@ -2522,6 +2522,15 @@
             "format": "int64",
             "minimum": 0
           },
+          "jwt_audience": {
+            "type": "string"
+          },
+          "jwt_issuer": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          },
           "refresh_cookie_domain": {
             "type": [
               "string",
