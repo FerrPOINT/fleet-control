@@ -1,0 +1,33 @@
+# Umbrella build for the SDLC fleet root compose (context = /opt/dev/sdlc).
+# Stages the sibling services-base checkout so the sdlc-auth-core path
+# dependency (../../../services-base/...) resolves.
+FROM rust:1.88-slim-bookworm AS builder
+
+RUN apt-get update && apt-get install -y pkg-config libssl-dev curl zip && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+# api/Cargo.toml: sdlc-auth-core = { path = "../../../services-base/..." }
+# /app/api/../../../services-base == /services-base
+COPY services-base/Cargo.toml /services-base/Cargo.toml
+COPY services-base/crates/sdlc-auth-core /services-base/crates/sdlc-auth-core
+COPY fleet-control/backend/Cargo.toml fleet-control/backend/Cargo.lock* ./
+COPY fleet-control/backend/shared ./shared
+COPY fleet-control/backend/domain ./domain
+COPY fleet-control/backend/app ./app
+COPY fleet-control/backend/infra ./infra
+COPY fleet-control/backend/migration ./migration
+COPY fleet-control/backend/api ./api
+COPY fleet-control/backend/server ./server
+COPY fleet-control/backend/cli ./cli
+
+RUN cargo build --release --bin server
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y ca-certificates libssl3 wget && rm -rf /var/lib/apt/lists/*
+RUN groupadd -r fleet-control && useradd -r -g fleet-control -d /app -s /usr/sbin/nologin fleet-control
+WORKDIR /app
+COPY --from=builder /app/target/release/server /usr/local/bin/fleet-control-server
+RUN mkdir -p /var/lib/fleet-control/agents && chown -R fleet-control:fleet-control /var/lib/fleet-control
+USER fleet-control
+EXPOSE 23801
+CMD ["fleet-control-server"]

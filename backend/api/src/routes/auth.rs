@@ -39,6 +39,43 @@ pub async fn login(
     Json(req): Json<LoginRequest>,
 ) -> Result<(CookieJar, Json<AuthResponse>), AppError> {
     let req = auth::normalize_login(req);
+    // Central fleet auth first; local password login remains the fallback
+    // during the migration window (middleware/central_auth.rs).
+    if let Some(config) = crate::middleware::central_auth::central_login_config() {
+        match crate::middleware::central_auth::try_central_login(&config, &req.email, &req.password)
+            .await
+        {
+            Ok(Some(pair)) => {
+                let central_ctx = sdlc_auth_core::AuthContext {
+                    user_id: String::new(),
+                    role: None,
+                    scopes: Default::default(),
+                    session_id: None,
+                    email: Some(req.email.clone()),
+                    token: pair.access_token.clone(),
+                };
+                let user =
+                    crate::middleware::find_or_link_central_user_public(&ctx, &central_ctx).await?;
+                return Ok((
+                    jar,
+                    Json(domain::AuthResponse {
+                        access_token: pair.access_token,
+                        user_id: user.id,
+                        email: user.email,
+                        username: user.username,
+                        display_name: user.display_name,
+                        system_role: user.system_role,
+                        is_system_admin: user.is_system_admin,
+                    }),
+                ));
+            }
+            Ok(None) => unreachable!("config is Some"),
+            Err(Some(error)) => {
+                tracing::warn!(%error, "central login failed; falling back to local");
+            }
+            Err(None) => { /* credentials unknown centrally; local path */ }
+        }
+    }
     let user = ctx
         .repo
         .find_user_by_email(&req.email)

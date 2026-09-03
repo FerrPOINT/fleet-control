@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { listAgents, listWorkflowBindings } from '@/api/fleet'
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@sdlc/ui/ui'
 import { EmptyState, ErrorState, PageHeader, StatusBadge } from '../common'
 
 export function WorkflowsPage() {

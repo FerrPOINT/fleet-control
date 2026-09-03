@@ -18,8 +18,8 @@ import { NavLink, Outlet, useNavigate } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { getCurrentUserPermissions, logout } from '@/api/auth'
 import { useAuthStore } from '@/shared/auth/store'
-import { ThemeToggle } from '@/shared/ui/theme-toggle'
-import { Button } from '@/shared/ui/button'
+import { ThemeToggle } from '@sdlc/ui/ui'
+import { Button } from '@sdlc/ui/ui'
 import { cn } from '@/shared/lib/utils'
 
 const navItems = [
