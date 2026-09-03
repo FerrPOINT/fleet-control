@@ -11,9 +11,18 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: backend
+        working-directory: fleet-control/backend
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: fleet-control
+      # Fleet shared crates live in a sibling services-base checkout
+      # (api path dep: ../../../services-base/crates/sdlc-auth-core).
+      - uses: actions/checkout@v4
+        with:
+          repository: FerrPOINT/services-base
+          path: services-base
+          ref: main
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -28,9 +37,18 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: backend
+        working-directory: fleet-control/backend
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: fleet-control
+      # Fleet shared crates live in a sibling services-base checkout
+      # (api path dep: ../../../services-base/crates/sdlc-auth-core).
+      - uses: actions/checkout@v4
+        with:
+          repository: FerrPOINT/services-base
+          path: services-base
+          ref: main
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -44,7 +62,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: backend
+        working-directory: fleet-control/backend
     services:
       postgres:
         image: postgres:17.6-alpine
@@ -61,6 +79,15 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: fleet-control
+      # Fleet shared crates live in a sibling services-base checkout
+      # (api path dep: ../../../services-base/crates/sdlc-auth-core).
+      - uses: actions/checkout@v4
+        with:
+          repository: FerrPOINT/services-base
+          path: services-base
+          ref: main
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -78,9 +105,18 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: frontend
+        working-directory: fleet-control/frontend
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: fleet-control
+      # Fleet shared crates live in a sibling services-base checkout
+      # (api path dep: ../../../services-base/crates/sdlc-auth-core).
+      - uses: actions/checkout@v4
+        with:
+          repository: FerrPOINT/services-base
+          path: services-base
+          ref: main
       - uses: pnpm/action-setup@v4
         with:
           version: 10
@@ -106,6 +142,15 @@ jobs:
       FLEET_CONTROL_AUTH__REFRESH_COOKIE_SECURE: false
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: fleet-control
+      # Fleet shared crates live in a sibling services-base checkout
+      # (api path dep: ../../../services-base/crates/sdlc-auth-core).
+      - uses: actions/checkout@v4
+        with:
+          repository: FerrPOINT/services-base
+          path: services-base
+          ref: main
       - uses: pnpm/action-setup@v4
         with:
           version: 10
@@ -115,11 +160,11 @@ jobs:
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-        working-directory: frontend
+        working-directory: fleet-control/frontend
       - run: pnpm exec playwright install --with-deps chromium firefox webkit
-        working-directory: frontend
+        working-directory: fleet-control/frontend
       - run: pnpm build
-        working-directory: frontend
+        working-directory: fleet-control/frontend
       - name: Start services
         run: |
           docker compose up -d postgres redis backend frontend || {
@@ -140,13 +185,13 @@ jobs:
           docker compose logs backend
           exit 1
       - run: pnpm exec playwright test
-        working-directory: frontend
+        working-directory: fleet-control/frontend
       - run: pnpm screenshots:local
-        working-directory: frontend
+        working-directory: fleet-control/frontend
       - run: pnpm screenshots:verify
-        working-directory: frontend
+        working-directory: fleet-control/frontend
       - run: pnpm markdown:check
-        working-directory: frontend
+        working-directory: fleet-control/frontend
       - name: Docker logs on failure
         if: failure()
         run: |

@@ -12,8 +12,8 @@ import {
 } from '@/api/fleet'
 import type { Agent, AgentSession } from '@/api/types'
 import { SessionUserFilter, useSessionUserFilter } from '@/shared/session-user-filter'
-import { Button } from '@/shared/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
+import { Button } from '@sdlc/ui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@sdlc/ui/ui'
 import { UserAvatar } from '@/shared/ui/user-avatar'
 import {
   AgentIdentity,

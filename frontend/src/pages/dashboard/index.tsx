@@ -2,8 +2,8 @@ import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowRight, Bot, Crown, PlayCircle, UserRoundCheck, XCircle } from 'lucide-react'
 import { getDashboard } from '@/api/fleet'
-import { Button } from '@/shared/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
+import { Button } from '@sdlc/ui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@sdlc/ui/ui'
 import { AgentIdentity, EmptyState, ErrorState, PageHeader, StatCard, formatDate } from '../common'
 
 export function DashboardPage() {

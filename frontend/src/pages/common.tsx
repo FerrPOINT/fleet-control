@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { AlertCircle } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@sdlc/ui/ui'
 import { cn } from '@/shared/lib/utils'
 import type { Agent, AgentKind, AgentStatus, SessionState, SkillState } from '@/api/types'
 
