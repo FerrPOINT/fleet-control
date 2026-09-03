@@ -28,7 +28,7 @@ can authenticate to `services-base`.
 `server` initializes logging through `shared::telemetry::init_tracing`, and
 `api` wraps HTTP routes with `shared::telemetry::request_id_mw`. The local
 bridge intentionally mirrors the `sdlc-telemetry` API shape from commit
-`24d373072c1489393c79d7b6ae826f7e870ca0e8`. Every API response therefore
+`5e353e84aa99f459807aba3e31c24b8880eeceff`. Every API response therefore
 carries `x-request-id`, and application logs include request method, path,
 status and latency in the same format as the rest of the SDLC fleet.
 

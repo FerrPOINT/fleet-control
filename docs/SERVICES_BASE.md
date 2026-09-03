@@ -10,7 +10,7 @@ fleet contracts.
 Fleet Control currently uses a local telemetry bridge at
 `backend/shared/src/telemetry.rs`. It intentionally mirrors the
 `sdlc-telemetry` API shape from `services-base` commit
-`24d373072c1489393c79d7b6ae826f7e870ca0e8`.
+`5e353e84aa99f459807aba3e31c24b8880eeceff`.
 
 The sibling checkout is expected at `../services-base` during local fleet
 development. It now includes the shared `auth-server`, `sdlc-auth-core`,

@@ -22,7 +22,7 @@ compatibility bridge in `shared::telemetry`.
 
 The backend server initializes tracing through the bridge, and the API router
 uses its request id middleware. The implementation is aligned with
-`services-base` commit `24d373072c1489393c79d7b6ae826f7e870ca0e8`.
+`services-base` commit `5e353e84aa99f459807aba3e31c24b8880eeceff`.
 
 Direct Cargo dependency on the private `services-base` repo is deferred until
 WSL and CI can authenticate to it reliably.
