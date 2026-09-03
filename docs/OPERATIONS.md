@@ -10,6 +10,21 @@ provision for the same agent is safe when the marker belongs to the same agent.
 Hermes supports start, stop, restart and health. Java Agent operations are
 reserved for phase 2 and return a typed validation response.
 
+## Agent File Purge
+
+Default agent delete archives the agent and leaves files intact. Physical purge
+is a separate operator action:
+
+1. Archive the agent.
+2. Open the agent workspace tab.
+3. Type the exact `agentN` name into the purge confirmation field.
+4. Run file purge.
+
+The backend recomputes `agents_root/agentN`, rejects symlinks, requires a
+matching `.fleet-agent.json` marker, removes only that folder and writes both an
+event and an audit entry. Purge does not remove database sessions, logs or
+audit history.
+
 ## Deployments
 
 Provision and runtime update work is represented by deployment jobs. Operators

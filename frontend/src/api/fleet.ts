@@ -20,6 +20,8 @@ import type {
   IntegrationSettings,
   LeaderExecutor,
   PortSettings,
+  PurgeAgentFilesRequest,
+  PurgeAgentFilesResponse,
   RuntimeOperationResponse,
   RuntimeRunControlResponse,
   RuntimeSettings,
@@ -84,6 +86,13 @@ export function updateLeaderExecutors(id: string, req: UpdateLeaderExecutorsRequ
 
 export function archiveAgent(id: string) {
   return apiRequest<Agent>(`/api/v1/agents/${id}`, { method: 'DELETE' })
+}
+
+export function purgeAgentFiles(id: string, req: PurgeAgentFilesRequest) {
+  return apiRequest<PurgeAgentFilesResponse>(`/api/v1/agents/${id}/purge-files`, {
+    method: 'POST',
+    body: JSON.stringify(req),
+  })
 }
 
 export function runAgentOperation(

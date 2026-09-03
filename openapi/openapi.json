@@ -314,6 +314,47 @@
         }
       }
     },
+    "/api/v1/agents/{agent_id}/purge-files": {
+      "post": {
+        "tags": [
+          "agents"
+        ],
+        "operationId": "purge_agent_files",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurgeAgentFilesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurgeAgentFilesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/agents/{agent_id}/restart": {
       "post": {
         "tags": [
@@ -3036,6 +3077,49 @@
             "type": "integer",
             "format": "int32",
             "minimum": 0
+          }
+        }
+      },
+      "PurgeAgentFilesRequest": {
+        "type": "object",
+        "required": [
+          "confirmation"
+        ],
+        "properties": {
+          "confirmation": {
+            "type": "string"
+          }
+        }
+      },
+      "PurgeAgentFilesResponse": {
+        "type": "object",
+        "required": [
+          "agent_id",
+          "agent_name",
+          "purged_path",
+          "files_deleted",
+          "marker_verified",
+          "message"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "agent_name": {
+            "type": "string"
+          },
+          "files_deleted": {
+            "type": "boolean"
+          },
+          "marker_verified": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "purged_path": {
+            "type": "string"
           }
         }
       },

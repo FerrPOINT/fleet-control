@@ -16,6 +16,11 @@ Redaction:
 
 Operational expectations:
 
+- API requests pass through the `shared::telemetry` middleware, which mirrors
+  the `services-base` `sdlc-telemetry` request-id contract, and return an
+  `x-request-id` header.
 - Runtime process logs must include agent id/name and stream.
 - Failed provisioning/start/stop actions write both event and audit entries.
 - UI `/logs` separates process logs, events and audit trail.
+- `SDLC_LOG_JSON=true` enables the fleet JSON log format; otherwise Fleet
+  Control uses the compact local format.

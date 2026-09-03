@@ -6,7 +6,7 @@ use axum::{
         HeaderName, HeaderValue, Method,
         header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
     },
-    middleware::from_fn_with_state,
+    middleware::{from_fn, from_fn_with_state},
     routing::{get, patch, post, put},
 };
 use std::sync::Arc;
@@ -36,6 +36,7 @@ pub mod routes;
         routes::agents::get_agent,
         routes::agents::update_agent,
         routes::agents::archive_agent,
+        routes::agents::purge_agent_files,
         routes::agents::provision_agent,
         routes::agents::start_agent,
         routes::agents::stop_agent,
@@ -113,6 +114,8 @@ pub mod routes;
         domain::SessionAgentRun,
         domain::RuntimeApprovalRequest,
         domain::AuditLogEntry,
+        domain::PurgeAgentFilesRequest,
+        domain::PurgeAgentFilesResponse,
         domain::DeploymentJobKind,
         domain::DeploymentJobState,
         domain::DeploymentJob,
@@ -188,6 +191,10 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
             get(routes::agents::get_agent)
                 .patch(routes::agents::update_agent)
                 .delete(routes::agents::archive_agent),
+        )
+        .route(
+            "/api/v1/agents/{agent_id}/purge-files",
+            post(routes::agents::purge_agent_files),
         )
         .route(
             "/api/v1/agents/{agent_id}/provision",
@@ -332,6 +339,7 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .layer(DefaultBodyLimit::max(1024 * 1024))
         .layer(cors)
+        .layer(from_fn(shared::telemetry::request_id_mw))
 }
 
 fn cors_layer(allowed_origins: &[String]) -> CorsLayer {

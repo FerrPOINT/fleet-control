@@ -7,7 +7,8 @@ Open gaps:
 | Native Windows Rust linker missing: `link.exe` | Local tooling limitation | Environment | Install MSVC Build Tools for native Windows cargo commands |
 | Local Docker engine/compose hangs during final migration smoke rerun | Local tooling limitation | Environment | `docker compose ps` returns promptly and clean DB migration `up/status` reruns |
 | Java Agent runtime operations are phase 2 | Accepted MVP scope | Runtime | Adapter provision/start/chat implemented and tests pass |
-| Physical agent folder purge is not implemented | Accepted safety scope | Product | Separate explicit admin purge flow with confirmation and audit |
+| Direct Cargo dependency on private `services-base` is blocked in WSL/CI | Local/CI integration limitation | Platform | WSL and GitHub Actions can fetch `FerrPOINT/services-base`, then the local telemetry bridge is replaced by `sdlc-telemetry` |
+| Shared `sdlc-auth-core` adoption is still pending | Accepted fleet standardization scope | Backend | Local JWT claims are migrated to the shared HMAC/OIDC validator without breaking existing browser sessions |
 
 Closed gaps:
 
@@ -22,3 +23,6 @@ Closed gaps:
 - generated screenshot manifest
 - WSL/Linux backend check, clippy and tests
 - OpenAPI source regeneration from Rust
+- `services-base` telemetry-compatible local bridge
+- explicit archived-agent folder purge with confirmation, marker guard, event
+  and audit entry

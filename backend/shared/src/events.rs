@@ -12,6 +12,10 @@ pub enum FleetEvent {
         agent_id: String,
         name: String,
     },
+    AgentFilesPurged {
+        agent_id: String,
+        name: String,
+    },
     RuntimeChanged {
         agent_id: String,
         status: String,

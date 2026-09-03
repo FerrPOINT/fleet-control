@@ -27,6 +27,9 @@ Fleet:
 - `GET /agents`
 - `POST /agents`
 - `GET/PATCH/DELETE /agents/{agent_id}`
+- `POST /agents/{agent_id}/purge-files` physically removes the managed
+  `agents_root/agentN` folder after archive, exact name confirmation and marker
+  validation.
 - `POST /agents/{agent_id}/provision`
 - `POST /agents/{agent_id}/start`
 - `POST /agents/{agent_id}/stop`

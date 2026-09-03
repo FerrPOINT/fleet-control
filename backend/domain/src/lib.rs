@@ -1242,6 +1242,21 @@ pub struct UpdateLeaderExecutorsRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct PurgeAgentFilesRequest {
+    pub confirmation: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct PurgeAgentFilesResponse {
+    pub agent_id: Uuid,
+    pub agent_name: String,
+    pub purged_path: String,
+    pub files_deleted: bool,
+    pub marker_verified: bool,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct RuntimeOperationResponse {
     pub agent_id: Uuid,
     pub status: AgentStatus,

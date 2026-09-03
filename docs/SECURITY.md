@@ -11,8 +11,10 @@
 - `FLEET_CONTROL_FLEET__RUNTIME_TOKEN_SECRET` is required. Fleet derives a
   deterministic per-agent `API_SERVER_KEY` from that secret and the agent id;
   the raw token is written only to the managed agent env/config surface.
-- Physical folder purge is not part of default delete; agents are archived and
-  stopped first.
+- Physical folder purge is not part of default delete. It requires
+  admin/operator access, archived status, exact `agentN` confirmation, path
+  recomputation from `agents_root`, non-symlink folder/marker checks and a
+  matching `.fleet-agent.json` id.
 - Session lists default to the authenticated user on the backend.
 - Only admin/operator users can expand session/user filters to other users.
 - Backend RBAC is authoritative. The UI hides sections using

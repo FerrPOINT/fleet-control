@@ -100,6 +100,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/agents/{agent_id}/purge-files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["purge_agent_files"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/agents/{agent_id}/restart": {
         parameters: {
             query?: never;
@@ -1097,6 +1113,18 @@ export interface components {
             /** Format: int32 */
             frontend_port: number;
         };
+        PurgeAgentFilesRequest: {
+            confirmation: string;
+        };
+        PurgeAgentFilesResponse: {
+            /** Format: uuid */
+            agent_id: string;
+            agent_name: string;
+            files_deleted: boolean;
+            marker_verified: boolean;
+            message: string;
+            purged_path: string;
+        };
         RegisterRequest: {
             display_name: string;
             email: string;
@@ -1510,6 +1538,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Agent"];
+                };
+            };
+        };
+    };
+    purge_agent_files: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                agent_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurgeAgentFilesRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurgeAgentFilesResponse"];
                 };
             };
         };

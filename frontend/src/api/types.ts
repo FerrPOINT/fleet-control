@@ -395,6 +395,19 @@ export interface UpdateLeaderExecutorsRequest {
   executor_ids: string[]
 }
 
+export interface PurgeAgentFilesRequest {
+  confirmation: string
+}
+
+export interface PurgeAgentFilesResponse {
+  agent_id: string
+  agent_name: string
+  purged_path: string
+  files_deleted: boolean
+  marker_verified: boolean
+  message: string
+}
+
 export interface RuntimeOperationResponse {
   agent_id: string
   status: AgentStatus

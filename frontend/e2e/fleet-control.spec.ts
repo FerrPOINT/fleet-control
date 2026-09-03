@@ -882,6 +882,10 @@ test('Hermes fleet control flow covers agents, runtime, skills, sessions and han
   await page.getByRole('button', { exact: true, name: 'Start' }).click()
   await expect(page.getByText('running').first()).toBeVisible()
 
+  await page.goto(`/agents/${ids.dev}/workspace`)
+  await expect(page.getByRole('heading', { name: 'File purge' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Purge files' })).toBeDisabled()
+
   await page.goto(`/agents/${ids.dev}/skills`)
   await page.getByRole('button', { name: /GitHub Commit and PR/ }).click()
   await page.getByRole('textbox').fill('# GitHub Commit and PR\n\nCustom agent override.')

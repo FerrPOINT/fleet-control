@@ -18,6 +18,25 @@ frontend -> api -> app services -> infra repository/provisioner/runtime
 - `api`: Axum routes, auth middleware, REST/SSE and OpenAPI.
 - `server`: migrations, dependency wiring, seed agents and process startup.
 
+## Shared Fleet Base
+
+Fleet Control is aligned with shared fleet building blocks from
+`FerrPOINT/services-base`. The first adopted surface is telemetry. Direct Cargo
+consumption of the private `sdlc-telemetry` crate is deferred until WSL and CI
+can authenticate to `services-base`.
+
+`server` initializes logging through `shared::telemetry::init_tracing`, and
+`api` wraps HTTP routes with `shared::telemetry::request_id_mw`. The local
+bridge intentionally mirrors the `sdlc-telemetry` API shape from commit
+`abd23d59d09d70b79ab638167c25267eee960491`. Every API response therefore
+carries `x-request-id`, and application logs include request method, path,
+status and latency in the same format as the rest of the SDLC fleet.
+
+`sdlc-auth-core` is intentionally not switched on in this change. Fleet Control
+currently issues local browser-session JWTs with app-specific claims. Moving to
+the shared HMAC/OIDC validator requires a compatibility migration for issuer,
+audience, scopes and session ids.
+
 ## Security Boundary
 
 `SystemRole = admin | operator | user` is enforced in the backend. Frontend

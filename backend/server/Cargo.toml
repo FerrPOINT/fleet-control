@@ -23,7 +23,6 @@ api = { path = "../api" }
 axum.workspace = true
 tokio.workspace = true
 tracing.workspace = true
-tracing-subscriber.workspace = true
 
 [dev-dependencies]
 reqwest = { workspace = true, features = ["json"] }

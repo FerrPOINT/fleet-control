@@ -48,6 +48,7 @@ provision/start остаётся phase 2 contract.
 | Data          | PostgreSQL 17, Redis 8                                             |
 | Frontend      | React 19, Vite, Tailwind CSS                                       |
 | API           | Canonical contract in [openapi/openapi.json](openapi/openapi.json) |
+| Shared base   | `services-base` telemetry-compatible local bridge                  |
 | Ports         | Frontend `23802`, backend `23801`                                  |
 | Runtime types | `hermes`, `java_agent`                                             |
 | License       | FerrPOINT Proprietary Source-Available Evaluation License v1.0     |
@@ -92,6 +93,7 @@ provision/start остаётся phase 2 contract.
 | Domain/App  | Rust workspace crates   | runtime policies, repository contracts and events      |
 | Persistence | SeaORM + PostgreSQL     | agents, configs, skills, sessions, logs and migrations |
 | Cache/Push  | Redis + SSE             | runtime support and event stream                       |
+| Shared Base | services-base-aligned   | fleet-standard request id and tracing bridge           |
 | Frontend    | React + Vite + Tailwind | operational fleet UI                                   |
 | Contract    | OpenAPI                 | generated frontend API types                           |
 | Evidence    | Playwright screenshots  | UI coverage across desktop and mobile viewports        |
@@ -212,6 +214,10 @@ flowchart TD
 ## 🧱 Boundaries
 
 - `task-tracker` was used only as stack/UI/docs donor; sibling SDLC repos are not mutated.
+- `services-base` provides shared fleet building blocks; Fleet Control now uses
+  a telemetry-compatible local bridge because WSL/CI cannot yet fetch the
+  private shared repo directly. Auth migration to `sdlc-auth-core` remains a
+  separate compatibility step.
 - `project-workflow` remains the source of truth for workflow and namespace definitions.
 - Java Agent provisioning is intentionally blocked until the runtime adapter is implemented.
 - `agents.product_role` separates leaders from executors while `agents.kind`

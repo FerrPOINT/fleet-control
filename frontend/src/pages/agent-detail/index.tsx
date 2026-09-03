@@ -9,6 +9,7 @@ import {
   Play,
   RotateCcw,
   Square,
+  Trash2,
   Wrench,
 } from 'lucide-react'
 import {
@@ -17,6 +18,7 @@ import {
   listAgentSkills,
   listLogs,
   listSessions,
+  purgeAgentFiles,
   runAgentOperation,
   updateAgentConfig,
   updateAgentSkill,
@@ -32,6 +34,8 @@ import type {
 import { SessionUserFilter, useSessionUserFilter } from '@/shared/session-user-filter'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
+import { Input } from '@/shared/ui/input'
+import { Label } from '@/shared/ui/label'
 import { Textarea } from '@/shared/ui/textarea'
 import { UserAvatar } from '@/shared/ui/user-avatar'
 import {
@@ -455,23 +459,82 @@ function ConfigTab({ agent }: { agent: Agent }) {
 }
 
 function WorkspaceTab({ agent }: { agent: Agent }) {
+  const queryClient = useQueryClient()
+  const [confirmation, setConfirmation] = useState('')
+  const purge = useMutation({
+    mutationFn: () => purgeAgentFiles(agent.id, { confirmation }),
+    onSuccess: async () => {
+      setConfirmation('')
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['agent', agent.id] }),
+        queryClient.invalidateQueries({ queryKey: ['agents'] }),
+        queryClient.invalidateQueries({ queryKey: ['logs'] }),
+        queryClient.invalidateQueries({ queryKey: ['events'] }),
+      ])
+    },
+  })
+  const canPurge = agent.status === 'archived' && confirmation === agent.name
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Workspace guard</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {Object.entries(agent.paths).map(([key, value]) => (
-          <div key={key} className="rounded-md border border-border p-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-text-primary">
-              <Folder className="h-4 w-4 text-text-muted" />
-              {key}
+    <div className="grid gap-4 xl:grid-cols-[1fr_0.8fr]">
+      <Card>
+        <CardHeader>
+          <CardTitle>Workspace guard</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {Object.entries(agent.paths).map(([key, value]) => (
+            <div key={key} className="rounded-md border border-border p-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-text-primary">
+                <Folder className="h-4 w-4 text-text-muted" />
+                {key}
+              </div>
+              <p className="mt-1 break-all text-xs text-text-muted">{value}</p>
             </div>
-            <p className="mt-1 break-all text-xs text-text-muted">{value}</p>
+          ))}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>File purge</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-text-secondary">
+            Physical purge removes the managed agent folder after archive. The database agent,
+            sessions, logs and audit records stay available.
+          </p>
+          <div className="rounded-md border border-border bg-background p-3 text-xs text-text-muted">
+            Purge target: <span className="font-medium text-text-primary">{agent.name}</span>
           </div>
-        ))}
-      </CardContent>
-    </Card>
+          <div className="grid gap-2">
+            <Label htmlFor="purge-confirmation">Type agent name to confirm</Label>
+            <Input
+              id="purge-confirmation"
+              value={confirmation}
+              onChange={(event) => setConfirmation(event.target.value)}
+              placeholder={agent.name}
+              disabled={purge.isPending}
+            />
+          </div>
+          {agent.status !== 'archived' ? (
+            <p className="text-xs text-text-muted">Archive the agent before purging files.</p>
+          ) : null}
+          {purge.isError ? <ErrorState message={purge.error.message} /> : null}
+          {purge.data ? (
+            <p className="rounded-md border border-border bg-background p-3 text-sm text-text-secondary">
+              {purge.data.message}: {purge.data.purged_path}
+            </p>
+          ) : null}
+          <Button
+            variant="destructive"
+            onClick={() => purge.mutate()}
+            disabled={!canPurge || purge.isPending}
+          >
+            <Trash2 className="h-4 w-4" />
+            Purge files
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
   )
 }
 

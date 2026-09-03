@@ -19,6 +19,8 @@ Implemented:
   surface
 - Hermes `/v1/runs` adapter path for message dispatch, SSE event mirroring,
   run stop/steer and approval forwarding
+- `services-base` telemetry-compatible bridge through shared tracing
+  initialization and `x-request-id` middleware
 - derived per-agent runtime tokens from
   `FLEET_CONTROL_FLEET__RUNTIME_TOKEN_SECRET`; raw runtime tokens are written
   only into the managed agent env/config surface
@@ -41,6 +43,8 @@ Implemented:
 - redacted audit log writes for mutating control-plane actions
 - audit-log route with filters
 - path marker guard for existing agent folders
+- explicit physical folder purge for archived agents with confirmation, marker
+  validation, event and audit trail
 - full documentation baseline
 - generated 128-file screenshot set for all required pages at required viewports
 

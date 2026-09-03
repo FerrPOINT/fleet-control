@@ -7,11 +7,12 @@ use domain::{
     CreateDeploymentJobRequest, CreateSessionDelegationRequest, CreateSessionMessageRequest,
     CreateSessionRequest, DeploymentJob, FleetDashboard, HandoffSessionRequest,
     IntegrationSettings, LeaderExecutor, MessageDeliveryState, MessageKind, PortSettings,
-    ResolveRuntimeApprovalRequest, RuntimeApprovalRequest, RuntimeOperationResponse,
-    RuntimeRunControlResponse, RuntimeSettings, RuntimeTemplate, SessionAgentRun, SessionMessage,
-    SessionParticipant, SessionRunRole, SessionRunState, SteerSessionRunRequest,
-    UpdateAgentConfigRequest, UpdateAgentRequest, UpdateLeaderExecutorsRequest, UpdateSkillRequest,
-    UpdateUserRoleRequest, UserResponse, WorkflowBinding,
+    PurgeAgentFilesResponse, ResolveRuntimeApprovalRequest, RuntimeApprovalRequest,
+    RuntimeOperationResponse, RuntimeRunControlResponse, RuntimeSettings, RuntimeTemplate,
+    SessionAgentRun, SessionMessage, SessionParticipant, SessionRunRole, SessionRunState,
+    SteerSessionRunRequest, UpdateAgentConfigRequest, UpdateAgentRequest,
+    UpdateLeaderExecutorsRequest, UpdateSkillRequest, UpdateUserRoleRequest, UserResponse,
+    WorkflowBinding,
 };
 use shared::{AppConfig, AppError, FleetEvent};
 use std::sync::Arc;
@@ -301,6 +302,11 @@ pub trait FleetRepository: Send + Sync {
 #[async_trait]
 pub trait AgentProvisioner: Send + Sync {
     async fn provision(&self, agent: &Agent, config: &AppConfig) -> Result<(), AppError>;
+    async fn purge_files(
+        &self,
+        agent: &Agent,
+        config: &AppConfig,
+    ) -> Result<PurgeAgentFilesResponse, AppError>;
 }
 
 #[async_trait]

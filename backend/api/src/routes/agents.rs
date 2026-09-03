@@ -5,8 +5,9 @@ use axum::{
     extract::{Path, State},
 };
 use domain::{
-    Agent, AgentConfig, AgentDirectoryItem, AgentSkill, CreateAgentRequest,
-    RuntimeOperationResponse, UpdateAgentConfigRequest, UpdateAgentRequest, UpdateSkillRequest,
+    Agent, AgentConfig, AgentDirectoryItem, AgentSkill, CreateAgentRequest, PurgeAgentFilesRequest,
+    PurgeAgentFilesResponse, RuntimeOperationResponse, UpdateAgentConfigRequest,
+    UpdateAgentRequest, UpdateSkillRequest,
 };
 use shared::{AppError, FleetEvent};
 use std::sync::Arc;
@@ -114,6 +115,62 @@ pub async fn archive_agent(
         )
         .await?;
     Ok(Json(agent))
+}
+
+#[utoipa::path(post, path = "/api/v1/agents/{agent_id}/purge-files", tag = "agents", params(("agent_id" = Uuid, Path)), request_body = PurgeAgentFilesRequest, responses((status = 200, body = PurgeAgentFilesResponse)))]
+pub async fn purge_agent_files(
+    State(ctx): State<Arc<AppContext>>,
+    Extension(user): Extension<CurrentUser>,
+    Path(agent_id): Path<Uuid>,
+    Json(req): Json<PurgeAgentFilesRequest>,
+) -> Result<Json<PurgeAgentFilesResponse>, AppError> {
+    require_operator(&user)?;
+    let agent = ctx.repo.get_agent(agent_id).await?;
+    if req.confirmation != agent.name {
+        return Err(AppError::validation(format!(
+            "confirmation must exactly match {}",
+            agent.name
+        )));
+    }
+    if agent.status != domain::AgentStatus::Archived {
+        return Err(AppError::validation(
+            "agent files can only be purged after the agent is archived",
+        ));
+    }
+    let _ = ctx.runtime.stop(&agent).await;
+    let response = ctx.provisioner.purge_files(&agent, &ctx.config).await?;
+    ctx.repo
+        .insert_event(
+            Some(agent.id),
+            "agent.files_purged",
+            "Agent files were purged by an operator",
+            serde_json::json!({
+                "name": agent.name.clone(),
+                "path": response.purged_path.clone(),
+                "files_deleted": response.files_deleted,
+                "marker_verified": response.marker_verified
+            }),
+        )
+        .await?;
+    ctx.repo
+        .insert_audit(
+            Some(user.id),
+            "agent.files_purge",
+            "agent",
+            Some(agent.id.to_string()),
+            serde_json::json!({
+                "name": agent.name.clone(),
+                "path": response.purged_path.clone(),
+                "files_deleted": response.files_deleted,
+                "marker_verified": response.marker_verified
+            }),
+        )
+        .await?;
+    ctx.emit(FleetEvent::AgentFilesPurged {
+        agent_id: agent.id.to_string(),
+        name: agent.name.clone(),
+    });
+    Ok(Json(response))
 }
 
 #[utoipa::path(post, path = "/api/v1/agents/{agent_id}/provision", tag = "agents", params(("agent_id" = Uuid, Path)), responses((status = 200, body = Agent)))]

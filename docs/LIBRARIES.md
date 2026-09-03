@@ -9,6 +9,9 @@ Backend:
 - Serde for JSON DTOs.
 - UUID and time crates for ids/timestamps.
 - SHA-2 and hex for idempotency payload hashes.
+- `shared::telemetry`, aligned with `sdlc-telemetry` from
+  `FerrPOINT/services-base`, for fleet-standard tracing initialization and
+  request id middleware.
 
 Frontend:
 

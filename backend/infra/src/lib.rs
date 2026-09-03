@@ -13,12 +13,12 @@ use domain::{
     CreateDeploymentJobRequest, CreateSessionDelegationRequest, CreateSessionMessageRequest,
     CreateSessionRequest, DeploymentJob, DeploymentJobKind, DeploymentJobState, DesiredState,
     HandoffSessionRequest, IntegrationSettings, LeaderExecutor, MessageAuthorType,
-    MessageDeliveryState, MessageKind, PortSettings, ResolveRuntimeApprovalRequest,
-    RuntimeApprovalRequest, RuntimeApprovalState, RuntimeSettings, RuntimeTemplate,
-    SessionAgentRun, SessionMessage, SessionParticipant, SessionParticipantType, SessionRole,
-    SessionRunRole, SessionRunState, SessionState, SessionVisibility, SkillState, SystemRole,
-    UpdateAgentConfigRequest, UpdateAgentRequest, UpdateLeaderExecutorsRequest, UpdateSkillRequest,
-    UpdateUserRoleRequest, UserResponse, WorkflowBinding,
+    MessageDeliveryState, MessageKind, PortSettings, PurgeAgentFilesResponse,
+    ResolveRuntimeApprovalRequest, RuntimeApprovalRequest, RuntimeApprovalState, RuntimeSettings,
+    RuntimeTemplate, SessionAgentRun, SessionMessage, SessionParticipant, SessionParticipantType,
+    SessionRole, SessionRunRole, SessionRunState, SessionState, SessionVisibility, SkillState,
+    SystemRole, UpdateAgentConfigRequest, UpdateAgentRequest, UpdateLeaderExecutorsRequest,
+    UpdateSkillRequest, UpdateUserRoleRequest, UserResponse, WorkflowBinding,
 };
 use entities::{
     agent, agent_config, agent_event, agent_log, agent_runtime, agent_session, agent_skill,
@@ -38,6 +38,7 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use shared::{AppConfig, AppError, DatabaseConfig};
 use std::{
+    io::ErrorKind,
     path::{Component, Path, PathBuf},
     time::Duration,
 };
@@ -2819,6 +2820,95 @@ impl AgentProvisioner for FilesystemProvisioner {
 
         provision_hermes(agent, config).await
     }
+
+    async fn purge_files(
+        &self,
+        agent: &Agent,
+        config: &AppConfig,
+    ) -> Result<PurgeAgentFilesResponse, AppError> {
+        if agent.status != AgentStatus::Archived {
+            return Err(AppError::validation(
+                "agent files can only be purged after archive",
+            ));
+        }
+
+        let root = PathBuf::from(&config.fleet.agents_root);
+        let agent_root = safe_agent_root(&root, &agent.name)?;
+        let purged_path = normalize_path(&agent_root)?.to_string_lossy().to_string();
+        let metadata = match tokio::fs::symlink_metadata(&agent_root).await {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == ErrorKind::NotFound => {
+                return Ok(PurgeAgentFilesResponse {
+                    agent_id: agent.id,
+                    agent_name: agent.name.clone(),
+                    purged_path,
+                    files_deleted: false,
+                    marker_verified: false,
+                    message: "agent folder is already absent".to_string(),
+                });
+            }
+            Err(error) => return Err(AppError::internal(error)),
+        };
+        if metadata.file_type().is_symlink() {
+            return Err(AppError::validation(
+                "agent folder symlinks cannot be purged",
+            ));
+        }
+        if !metadata.is_dir() {
+            return Err(AppError::validation("agent root is not a directory"));
+        }
+
+        let marker_path = agent_root.join(".fleet-agent.json");
+        let marker_metadata = tokio::fs::symlink_metadata(&marker_path)
+            .await
+            .map_err(|error| {
+                if error.kind() == ErrorKind::NotFound {
+                    AppError::validation("agent marker is missing; refusing to purge files")
+                } else {
+                    AppError::internal(error)
+                }
+            })?;
+        if marker_metadata.file_type().is_symlink() {
+            return Err(AppError::validation(
+                "agent marker symlinks cannot be purged",
+            ));
+        }
+
+        let marker = tokio::fs::read_to_string(&marker_path)
+            .await
+            .map_err(AppError::internal)?;
+        let marker: Value = serde_json::from_str(&marker).map_err(AppError::internal)?;
+        let marker_id = marker
+            .get("id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| AppError::validation("agent marker is missing id"))?;
+        if marker_id != agent.id.to_string() {
+            return Err(AppError::conflict(format!(
+                "agent directory {} belongs to another agent",
+                agent.name
+            )));
+        }
+        if let Some(marker_name) = marker.get("name").and_then(Value::as_str)
+            && marker_name != agent.name
+        {
+            return Err(AppError::conflict(format!(
+                "agent directory marker name {} does not match {}",
+                marker_name, agent.name
+            )));
+        }
+
+        tokio::fs::remove_dir_all(&agent_root)
+            .await
+            .map_err(AppError::internal)?;
+        Ok(PurgeAgentFilesResponse {
+            agent_id: agent.id,
+            agent_name: agent.name.clone(),
+            purged_path,
+            files_deleted: true,
+            marker_verified: true,
+            message: "agent files purged".to_string(),
+        })
+    }
 }
 
 async fn provision_hermes(agent: &Agent, config: &AppConfig) -> Result<(), AppError> {
@@ -2938,6 +3028,72 @@ fn normalize_path(path: &Path) -> Result<PathBuf, AppError> {
 mod tests {
     use super::*;
 
+    fn temp_purge_root() -> PathBuf {
+        std::env::temp_dir().join(format!("fleet-control-purge-{}", Uuid::new_v4()))
+    }
+
+    fn test_config(root: &Path) -> AppConfig {
+        let mut config = AppConfig::default();
+        config.auth.jwt_secret = "test-jwt-secret".to_string();
+        config.fleet.runtime_token_secret = "test-runtime-secret".to_string();
+        config.fleet.agents_root = root.to_string_lossy().to_string();
+        config
+    }
+
+    fn test_agent(root: &Path, id: Uuid, status: AgentStatus) -> Agent {
+        let paths = runtime_paths(&root.to_string_lossy(), 1);
+        Agent {
+            id,
+            ordinal: 1,
+            name: "agent1".to_string(),
+            kind: AgentKind::Hermes,
+            product_role: AgentProductRole::Executor,
+            role: AgentRole::Developer,
+            status,
+            display_name: "Developer Hermes".to_string(),
+            description: None,
+            namespace_id: Some("dev".to_string()),
+            workflow_id: Some("workflow-dev".to_string()),
+            runtime_version: None,
+            dashboard_port: Some(29001),
+            api_port: Some(29002),
+            paths,
+            runtime: AgentRuntime {
+                desired_state: DesiredState::Stopped,
+                pid: None,
+                health_status: None,
+                health_detail: None,
+                command_preview: String::new(),
+                env_preview: json!({}),
+                last_capabilities_json: json!({}),
+                startup_command_redacted: None,
+                started_at: None,
+                stopped_at: None,
+                last_health_at: None,
+            },
+            created_at: shared::now().to_rfc3339(),
+            updated_at: shared::now().to_rfc3339(),
+        }
+    }
+
+    async fn write_marker(agent_root: &Path, agent_id: Uuid, name: &str) {
+        tokio::fs::create_dir_all(agent_root.join("config"))
+            .await
+            .expect("agent config dir");
+        tokio::fs::write(
+            agent_root.join(".fleet-agent.json"),
+            serde_json::to_string_pretty(&json!({
+                "id": agent_id,
+                "ordinal": 1,
+                "name": name,
+                "kind": "hermes"
+            }))
+            .expect("marker json"),
+        )
+        .await
+        .expect("agent marker");
+    }
+
     #[test]
     fn selected_primary_agent_prefers_new_field() {
         let primary_agent_id = Uuid::new_v4();
@@ -3016,5 +3172,86 @@ mod tests {
         assert_eq!(first_token, replayed_token);
         assert_ne!(first_token, second_token);
         assert!(first_token.starts_with("fc_"));
+    }
+
+    #[tokio::test]
+    async fn purge_files_deletes_archived_marked_agent_root() {
+        let root = temp_purge_root();
+        let agent_id = Uuid::new_v4();
+        let agent_root = root.join("agent1");
+        let config = test_config(&root);
+        let agent = test_agent(&root, agent_id, AgentStatus::Archived);
+        write_marker(&agent_root, agent_id, "agent1").await;
+        tokio::fs::write(agent_root.join("config").join("SOUL.md"), "test")
+            .await
+            .expect("managed file");
+
+        let provisioner = FilesystemProvisioner;
+        let response = provisioner
+            .purge_files(&agent, &config)
+            .await
+            .expect("purge files");
+
+        assert!(response.files_deleted);
+        assert!(response.marker_verified);
+        assert!(!tokio::fs::try_exists(&agent_root).await.expect("exists"));
+        let _ = tokio::fs::remove_dir_all(&root).await;
+    }
+
+    #[tokio::test]
+    async fn purge_files_rejects_foreign_marker() {
+        let root = temp_purge_root();
+        let agent_id = Uuid::new_v4();
+        let agent_root = root.join("agent1");
+        let config = test_config(&root);
+        let agent = test_agent(&root, agent_id, AgentStatus::Archived);
+        write_marker(&agent_root, Uuid::new_v4(), "agent1").await;
+
+        let provisioner = FilesystemProvisioner;
+        let err = provisioner
+            .purge_files(&agent, &config)
+            .await
+            .expect_err("foreign marker must be rejected");
+
+        assert!(err.to_string().contains("belongs to another agent"));
+        assert!(tokio::fs::try_exists(&agent_root).await.expect("exists"));
+        let _ = tokio::fs::remove_dir_all(&root).await;
+    }
+
+    #[tokio::test]
+    async fn purge_files_rejects_missing_marker() {
+        let root = temp_purge_root();
+        let agent_id = Uuid::new_v4();
+        let agent_root = root.join("agent1");
+        let config = test_config(&root);
+        let agent = test_agent(&root, agent_id, AgentStatus::Archived);
+        tokio::fs::create_dir_all(agent_root.join("config"))
+            .await
+            .expect("agent config dir");
+
+        let provisioner = FilesystemProvisioner;
+        let err = provisioner
+            .purge_files(&agent, &config)
+            .await
+            .expect_err("missing marker must be rejected");
+
+        assert!(err.to_string().contains("marker is missing"));
+        assert!(tokio::fs::try_exists(&agent_root).await.expect("exists"));
+        let _ = tokio::fs::remove_dir_all(&root).await;
+    }
+
+    #[tokio::test]
+    async fn purge_files_requires_archived_agent() {
+        let root = temp_purge_root();
+        let config = test_config(&root);
+        let agent = test_agent(&root, Uuid::new_v4(), AgentStatus::Ready);
+
+        let provisioner = FilesystemProvisioner;
+        let err = provisioner
+            .purge_files(&agent, &config)
+            .await
+            .expect_err("ready agent cannot be purged");
+
+        assert!(err.to_string().contains("after archive"));
     }
 }
