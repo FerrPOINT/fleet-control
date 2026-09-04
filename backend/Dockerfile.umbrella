@@ -10,6 +10,7 @@ WORKDIR /app
 # /app/api/../../../services-base == /services-base
 COPY services-base/Cargo.toml /services-base/Cargo.toml
 COPY services-base/crates/sdlc-auth-core /services-base/crates/sdlc-auth-core
+COPY services-base/crates/sdlc-shared /services-base/crates/sdlc-shared
 COPY fleet-control/backend/Cargo.toml fleet-control/backend/Cargo.lock* ./
 COPY fleet-control/backend/shared ./shared
 COPY fleet-control/backend/domain ./domain
