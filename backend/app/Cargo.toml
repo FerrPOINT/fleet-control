@@ -7,6 +7,7 @@ license-file.workspace = true
 publish = false
 
 [dependencies]
+sdlc-auth-core = { path = "../../../services-base/crates/sdlc-auth-core" }
 tokio = { workspace = true, features = ["sync"] }
 shared = { path = "../shared" }
 domain = { path = "../domain" }
@@ -19,7 +20,6 @@ chrono.workspace = true
 uuid.workspace = true
 anyhow.workspace = true
 jsonwebtoken.workspace = true
-argon2.workspace = true
 rand_core.workspace = true
 sha2 = "0.10"
 hex = "0.4"

@@ -1,7 +1,3 @@
-use argon2::{
-    Argon2,
-    password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
-};
 use chrono::{Duration, Utc};
 use domain::{AuthResponse, LoginRequest, RegisterRequest, SystemRole, UserResponse};
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, decode, encode};
@@ -88,18 +84,15 @@ impl AuthService {
                 "password must contain at least 8 characters",
             ));
         }
-        let salt = SaltString::generate(&mut OsRng);
-        Argon2::default()
-            .hash_password(password.as_bytes(), &salt)
-            .map(|hash| hash.to_string())
-            .map_err(AppError::internal)
+        sdlc_auth_core::password::hash_password(password).map_err(AppError::internal)
     }
 
     pub fn verify_password(&self, password: &str, hash: &str) -> Result<(), AppError> {
-        let parsed = PasswordHash::new(hash).map_err(AppError::internal)?;
-        Argon2::default()
-            .verify_password(password.as_bytes(), &parsed)
-            .map_err(|_| AppError::Unauthorized)
+        if sdlc_auth_core::password::verify_password(password, hash).map_err(AppError::internal)? {
+            Ok(())
+        } else {
+            Err(AppError::Unauthorized)
+        }
     }
 
     pub fn issue_tokens(&self, user: &UserRecord) -> Result<AuthTokens, AppError> {
