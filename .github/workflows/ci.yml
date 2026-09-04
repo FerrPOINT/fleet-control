@@ -7,32 +7,14 @@ on:
     branches: [main]
 
 jobs:
+  # fmt + clippy + test via the shared fleet gate (services-base).
   backend:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: fleet-control/backend
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          path: fleet-control
-      # Fleet shared crates live in a sibling services-base checkout
-      # (api path dep: ../../../services-base/crates/sdlc-auth-core).
-      - uses: actions/checkout@v4
-        with:
-          repository: FerrPOINT/services-base
-          path: services-base
-          ref: main
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: backend
-      - run: cargo fmt --check
-      - run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: cargo test --workspace -- --test-threads=1
-
+    uses: FerrPOINT/services-base/.github/workflows/backend-gate.yml@main
+    with:
+      working-directory: backend
+      checkout-path: fleet-control
+      services-base-sibling: true
+      apt-packages: "pkg-config libssl-dev"
   openapi-check:
     runs-on: ubuntu-latest
     defaults:
@@ -101,103 +83,11 @@ jobs:
         env:
           DATABASE_URL: postgres://fleet_control:test@localhost:5432/fleet_control
 
+  # install + test + lint + build via the shared fleet gate.
   frontend:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: fleet-control/frontend
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          path: fleet-control
-      # Fleet shared crates live in a sibling services-base checkout
-      # (api path dep: ../../../services-base/crates/sdlc-auth-core).
-      - uses: actions/checkout@v4
-        with:
-          repository: FerrPOINT/services-base
-          path: services-base
-          ref: main
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm generate:api
-      - run: pnpm typecheck
-      - run: pnpm lint
-      - run: pnpm format:check
-      - run: pnpm test -- --run
-      - run: pnpm build
-
-  e2e:
-    runs-on: ubuntu-latest
-    env:
-      POSTGRES_PASSWORD: ci-test
-      FLEET_CONTROL_JWT_SECRET: ci-test-secret-ci-test-secret-ci-test-32b
-      FLEET_CONTROL_FLEET__RUNTIME_TOKEN_SECRET: ci-runtime-secret-ci-runtime-secret-32b
-      FLEET_CONTROL_AUTH__REFRESH_COOKIE_SECURE: false
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          path: fleet-control
-      # Fleet shared crates live in a sibling services-base checkout
-      # (api path dep: ../../../services-base/crates/sdlc-auth-core).
-      - uses: actions/checkout@v4
-        with:
-          repository: FerrPOINT/services-base
-          path: services-base
-          ref: main
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile
-        working-directory: fleet-control/frontend
-      - run: pnpm exec playwright install --with-deps chromium firefox webkit
-        working-directory: fleet-control/frontend
-      - run: pnpm build
-        working-directory: fleet-control/frontend
-      - name: Start services
-        run: |
-          docker compose up -d postgres redis backend frontend || {
-            docker compose ps
-            docker compose logs backend
-            docker compose logs postgres
-            docker compose logs redis
-            exit 1
-          }
-      - name: Wait for backend
-        run: |
-          for i in $(seq 1 120); do
-            if curl -sf http://127.0.0.1:23801/api/v1/health >/dev/null; then
-              exit 0
-            fi
-            sleep 1
-          done
-          docker compose logs backend
-          exit 1
-      - run: pnpm exec playwright test
-        working-directory: fleet-control/frontend
-      - run: pnpm screenshots:local
-        working-directory: fleet-control/frontend
-      - run: pnpm screenshots:verify
-        working-directory: fleet-control/frontend
-      - run: pnpm markdown:check
-        working-directory: fleet-control/frontend
-      - name: Docker logs on failure
-        if: failure()
-        run: |
-          docker compose ps
-          docker compose logs backend
-          docker compose logs frontend
-      - name: Stop services
-        if: always()
-        run: docker compose down -v
+    uses: FerrPOINT/services-base/.github/workflows/frontend-gate.yml@main
+    with:
+      working-directory: frontend
+      checkout-path: fleet-control
+      services-base-sibling: true
+      pretest: "pnpm typecheck"
