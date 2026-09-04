@@ -72,27 +72,31 @@ export function permissionsForRole(role: 'admin' | 'operator' | 'user'): string[
   return [...operator, 'users:manage', 'rbac:manage']
 }
 
-export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = useAuthStore.getState().token
-  const headers = new Headers(init.headers)
-  headers.set('Content-Type', headers.get('Content-Type') ?? 'application/json')
-  if (token) headers.set('Authorization', `Bearer ${token}`)
+// Request plumbing comes from the shared fleet client (services-base):
+// bearer header, credentials, 401-refresh-retry, structured error envelope.
+import { createApiClient, ApiError } from '@sdlc/ui/lib'
 
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    ...init,
-    headers,
-    credentials: 'include',
-  })
-  if (response.status === 401 && !path.includes('/auth/')) {
-    const refreshed = await refreshAccessToken()
-    if (refreshed) return apiRequest<T>(path, init)
+const shared = createApiClient({
+  baseUrl: apiBaseUrl,
+  getAccessToken: () => useAuthStore.getState().token,
+  refresh: async () => refreshAccessToken(),
+})
+
+export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const method = (init.method ?? 'GET').toUpperCase()
+  const body = init.body === undefined ? undefined : JSON.parse(String(init.body))
+  switch (method) {
+    case 'POST':
+      return shared.post<T>(path, body)
+    case 'PUT':
+      return shared.put<T>(path, body)
+    case 'PATCH':
+      return shared.patch<T>(path, body)
+    case 'DELETE':
+      return shared.delete<T>(path)
+    default:
+      return shared.get<T>(path)
   }
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: response.statusText }))
-    throw new Error(error.error ?? 'request failed')
-  }
-  if (response.status === 204) return undefined as T
-  return (await response.json()) as T
 }
 
 export function jsonBody<T>(body: T): RequestInit {
@@ -101,3 +105,5 @@ export function jsonBody<T>(body: T): RequestInit {
     body: JSON.stringify(body),
   }
 }
+
+export type { ApiError }
