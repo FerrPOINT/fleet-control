@@ -14,11 +14,11 @@ jobs:
       run:
         working-directory: fleet-control/backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: fleet-control
       - name: Check out services-base sibling (path deps)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: FerrPOINT/services-base
           path: services-base
@@ -42,11 +42,11 @@ jobs:
       run:
         working-directory: fleet-control/backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: fleet-control
       - name: Check out services-base sibling (path deps)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: FerrPOINT/services-base
           path: services-base
@@ -85,12 +85,12 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: fleet-control
       # Fleet shared crates live in a sibling services-base checkout
       # (api path dep: ../../../services-base/crates/sdlc-auth-core).
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: FerrPOINT/services-base
           path: services-base
@@ -116,11 +116,11 @@ jobs:
       run:
         working-directory: fleet-control/frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: fleet-control
       - name: Check out services-base sibling (@sdlc/ui file dep)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: FerrPOINT/services-base
           path: services-base
@@ -145,11 +145,11 @@ jobs:
   deny:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: fleet-control
       - name: Check out services-base sibling (path deps)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: FerrPOINT/services-base
           path: services-base
@@ -166,11 +166,11 @@ jobs:
       run:
         working-directory: fleet-control/backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: fleet-control
       - name: Check out services-base sibling (path deps)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: FerrPOINT/services-base
           path: services-base
@@ -190,11 +190,11 @@ jobs:
       run:
         working-directory: fleet-control/frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: fleet-control
       - name: Check out services-base sibling (@sdlc/ui file dep)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: FerrPOINT/services-base
           path: services-base
