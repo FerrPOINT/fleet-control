@@ -9,19 +9,59 @@ on:
 jobs:
   # fmt + clippy + test via the shared fleet gate (services-base).
   backend:
-    uses: FerrPOINT/services-base/.github/workflows/backend-gate.yml@main
-    with:
-      working-directory: backend
-      checkout-path: fleet-control
-      services-base-sibling: true
-      apt-packages: "pkg-config libssl-dev"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fleet-control/backend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: fleet-control
+      - name: Check out services-base sibling (path deps)
+        uses: actions/checkout@v4
+        with:
+          repository: FerrPOINT/services-base
+          path: services-base
+          ref: main
+      - run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: fleet-control/backend
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace -- --test-threads=1
+
   openapi-check:
-    uses: FerrPOINT/services-base/.github/workflows/openapi-gate.yml@main
-    with:
-      checkout-path: fleet-control
-      bin: gen-openapi
-      spec: openapi/openapi.json
-      services-base-sibling: true
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fleet-control/backend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: fleet-control
+      - name: Check out services-base sibling (path deps)
+        uses: actions/checkout@v4
+        with:
+          repository: FerrPOINT/services-base
+          path: services-base
+          ref: main
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: fleet-control/backend
+      - name: Regenerate OpenAPI
+        run: |
+          mkdir -p ../openapi
+          cargo run -p api --bin gen-openapi > ../openapi/openapi.json.generated
+      - name: Check committed spec matches code
+        run: diff -u ../openapi/openapi.json openapi/openapi.json.generated
 
   migrations:
     runs-on: ubuntu-latest
@@ -68,9 +108,32 @@ jobs:
 
   # install + test + lint + build via the shared fleet gate.
   frontend:
-    uses: FerrPOINT/services-base/.github/workflows/frontend-gate.yml@main
-    with:
-      working-directory: frontend
-      checkout-path: fleet-control
-      services-base-sibling: true
-      pretest: "pnpm typecheck"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fleet-control/frontend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: fleet-control
+      - name: Check out services-base sibling (@sdlc/ui file dep)
+        uses: actions/checkout@v4
+        with:
+          repository: FerrPOINT/services-base
+          path: services-base
+          ref: main
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: fleet-control/frontend/pnpm-lock.yaml
+      - run: pnpm install --no-frozen-lockfile
+        env:
+          CI: "true"
+      - run: pnpm openapi:check
+      - run: pnpm test -- --run
+      - run: pnpm lint
+      - run: pnpm build
