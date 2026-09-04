@@ -8,6 +8,7 @@ publish = false
 
 [dependencies]
 # Fleet shared primitives: sibling services-base checkout.
+sdlc-telemetry = { path = "../../../services-base/crates/sdlc-telemetry" }
 sdlc-shared = { path = "../../../services-base/crates/sdlc-shared" }
 serde.workspace = true
 serde_json.workspace = true
