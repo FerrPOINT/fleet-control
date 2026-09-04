@@ -2,15 +2,10 @@ use app::AppContext;
 use axum::{
     Router,
     extract::DefaultBodyLimit,
-    http::{
-        HeaderName, HeaderValue, Method,
-        header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
-    },
     middleware::{from_fn, from_fn_with_state},
     routing::{get, patch, post, put},
 };
 use std::sync::Arc;
-use tower_http::cors::CorsLayer;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -350,28 +345,8 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         .layer(from_fn(shared::telemetry::request_id_mw))
 }
 
-fn cors_layer(allowed_origins: &[String]) -> CorsLayer {
-    CorsLayer::new()
-        .allow_methods([
-            Method::GET,
-            Method::POST,
-            Method::PUT,
-            Method::PATCH,
-            Method::DELETE,
-        ])
-        .allow_headers([
-            ACCEPT,
-            AUTHORIZATION,
-            CONTENT_TYPE,
-            HeaderName::from_static("idempotency-key"),
-        ])
-        .allow_credentials(true)
-        .allow_origin(
-            allowed_origins
-                .iter()
-                .filter_map(|origin| origin.parse::<HeaderValue>().ok())
-                .collect::<Vec<_>>(),
-        )
+fn cors_layer(allowed_origins: &[String]) -> tower_http::cors::CorsLayer {
+    sdlc_shared::cors::cors_layer(allowed_origins)
 }
 
 pub fn openapi_json() -> String {
@@ -386,7 +361,7 @@ mod tests {
     use axum::{
         body::Body,
         http::{
-            Request, StatusCode,
+            HeaderValue, Method, Request, StatusCode,
             header::{
                 ACCESS_CONTROL_ALLOW_CREDENTIALS, ACCESS_CONTROL_ALLOW_HEADERS,
                 ACCESS_CONTROL_ALLOW_ORIGIN, ACCESS_CONTROL_REQUEST_HEADERS,

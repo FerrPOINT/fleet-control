@@ -11,6 +11,7 @@ name = "gen-openapi"
 path = "src/bin/gen_openapi.rs"
 
 [dependencies]
+sdlc-shared = { path = "../../../services-base/crates/sdlc-shared" }
 # Fleet auth core + central login proxy: sibling services-base checkout.
 sdlc-auth-core = { path = "../../../services-base/crates/sdlc-auth-core" }
 shared = { path = "../shared" }
