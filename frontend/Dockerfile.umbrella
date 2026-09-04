@@ -8,10 +8,10 @@ RUN corepack enable && corepack prepare pnpm@10.28.1 --activate
 WORKDIR /app
 COPY fleet-control/frontend/package.json fleet-control/frontend/pnpm-lock.yaml fleet-control/frontend/pnpm-workspace.yaml ./
 COPY services-base/frontend /services-base/frontend
+COPY fleet-control/openapi/openapi.json ../openapi/openapi.json
 RUN pnpm install --frozen-lockfile
 
 COPY fleet-control/frontend/ ./
-COPY fleet-control/openapi/openapi.json ../openapi/openapi.json
 RUN pnpm build
 
 FROM nginx:alpine
