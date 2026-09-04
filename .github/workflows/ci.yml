@@ -141,3 +141,90 @@ jobs:
       - run: pnpm test -- --run
       - run: pnpm lint
       - run: pnpm build
+
+  deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: fleet-control
+      - name: Check out services-base sibling (path deps)
+        uses: actions/checkout@v4
+        with:
+          repository: FerrPOINT/services-base
+          path: services-base
+          ref: main
+          token: ${{ secrets.SERVICES_BASE_TOKEN }}
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: fleet-control/backend/Cargo.toml
+          arguments: --all-features
+
+  audit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fleet-control/backend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: fleet-control
+      - name: Check out services-base sibling (path deps)
+        uses: actions/checkout@v4
+        with:
+          repository: FerrPOINT/services-base
+          path: services-base
+          ref: main
+          token: ${{ secrets.SERVICES_BASE_TOKEN }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: fleet-control/backend
+      - uses: taiki-e/install-action@cargo-audit
+      - run: cargo audit --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2024-0436
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: fleet-control/frontend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: fleet-control
+      - name: Check out services-base sibling (@sdlc/ui file dep)
+        uses: actions/checkout@v4
+        with:
+          repository: FerrPOINT/services-base
+          path: services-base
+          ref: main
+          token: ${{ secrets.SERVICES_BASE_TOKEN }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: fleet-control/frontend/pnpm-lock.yaml
+      - run: pnpm install --no-frozen-lockfile
+        env:
+          CI: "true"
+      - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Run Playwright against vite preview
+        run: |
+          pnpm exec vite preview --port 4173 --strictPort &
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:4173/ >/dev/null 2>&1 && break
+            sleep 1
+          done
+          PLAYWRIGHT_BASE_URL=http://localhost:4173 pnpm exec playwright test --project=chromium
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: fleet-control-playwright-traces
+          path: fleet-control/frontend/test-results
+          retention-days: 5
+
