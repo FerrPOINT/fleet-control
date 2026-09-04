@@ -59,7 +59,7 @@ impl IntoResponse for AppError {
 
 impl AppError {
     pub fn not_found(entity: &str, id: impl std::fmt::Display) -> Self {
-        Self::NotFound(format!("{} {} not found", entity, id))
+        Self::NotFound(format!("{entity} {id} not found"))
     }
 
     pub fn invalid_input(msg: impl Into<String>) -> Self {

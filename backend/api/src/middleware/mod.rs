@@ -63,14 +63,18 @@ pub async fn require_auth(
         .ok_or(AppError::Unauthorized)?;
     // Central fleet auth-server first (ES256 via JWKS); legacy HS256 access
     // tokens remain valid during the migration window.
-    if let Some(central) = central_auth::try_central(token).await.ok().flatten() {
-        let user = find_or_link_central_user(&ctx, &central).await?;
-        req.extensions_mut().insert(CurrentUser {
-            id: user.id,
-            role: user.system_role,
-            is_system_admin: user.is_system_admin,
-        });
-        return Ok(next.run(req).await);
+    match central_auth::check_token(token).await {
+        central_auth::CentralCheck::Validated(central) => {
+            let user = find_or_link_central_user(&ctx, &central).await?;
+            req.extensions_mut().insert(CurrentUser {
+                id: user.id,
+                role: user.system_role,
+                is_system_admin: user.is_system_admin,
+            });
+            return Ok(next.run(req).await);
+        }
+        central_auth::CentralCheck::Expired => return Err(AppError::Unauthorized),
+        central_auth::CentralCheck::FallThrough => {}
     }
 
     let claims = ctx.auth.validate_access_token(token)?;
