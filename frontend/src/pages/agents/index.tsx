@@ -224,7 +224,7 @@ function CreateAgentPanel({
     setKind(nextKind)
     if (nextKind === 'java_agent') {
       setDisplayName('Java Agent')
-      setDescription('Spring Boot runtime contract for phase 2')
+      setDescription('Spring Boot runtime with process control and actuator health')
       setNamespaceId('java')
       setNamespaceName('Java Agent')
       setWorkflowId('workflow-java')

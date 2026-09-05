@@ -135,6 +135,7 @@ export function JsonBlock({ value }: { value: unknown }) {
 }
 
 export function AgentIdentity({ agent }: { agent: Agent }) {
+  const health = agent.runtime?.health_status
   return (
     <div className="min-w-0">
       <div className="flex flex-wrap items-center gap-2">
@@ -142,6 +143,7 @@ export function AgentIdentity({ agent }: { agent: Agent }) {
         <KindBadge kind={agent.kind} />
         <ProductRoleBadge value={agent.product_role} />
         <StatusBadge value={agent.status} />
+        {health ? <StatusBadge value={health} /> : null}
       </div>
       <p className="mt-1 text-xs text-text-muted">
         {agent.name} - profile {labelize(agent.role)} - namespace {agent.namespace_id ?? 'unbound'}
