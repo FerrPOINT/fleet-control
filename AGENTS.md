@@ -18,8 +18,13 @@ agent runtimes.
 - Do not mutate sibling SDLC repositories while working here.
 - `task-tracker` is a reference/template only.
 - Hermes is the first implemented runtime.
-- Java Agent must remain represented in types, API, docs and UI, but process
-  launch/provision is phase 2 until the adapter is implemented.
+- Java Agent adapter is implemented: supervisor spawns
+  `java -jar <agents_root>/agentN/runtime/backend.jar --spring.profiles.active=noop`
+  and gates readiness on `/actuator/health/readiness` (db-only, per the
+  java-agent contract; optional components may stay DOWN). The jar is
+  provisioned externally into the agent layout; a missing jar fails start with
+  a validation error. The JDK is expected at `fleet.java_agent_command`
+  (umbrella compose mounts it read-only).
 - `project-workflow` owns namespace/workflow definitions. Fleet Control stores
   bindings and connection status.
 

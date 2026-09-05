@@ -536,13 +536,13 @@ impl FleetRepository for PostgresFleetRepository {
             RuntimeTemplate {
                 kind: AgentKind::JavaAgent,
                 display_name: "Java Agent".to_string(),
-                implemented: false,
+                implemented: true,
                 enabled: true,
-                description: "Spring Boot Java Agent runtime contract reserved for phase 2"
+                description: "Spring Boot Java Agent runtime (process control + actuator health)"
                     .to_string(),
                 capabilities: json!({
-                    "provision": false,
-                    "process_control": false,
+                    "provision": "jar:runtime/backend.jar",
+                    "process_control": true,
                     "skills": "contract",
                     "sessions": "/api/v2/sessions",
                     "health": "/actuator/health",
@@ -558,6 +558,20 @@ impl FleetRepository for PostgresFleetRepository {
                 .map_err(AppError::database)?
                 .is_some()
             {
+                // Keep the seeded catalog in sync with code (implemented
+                // flags evolve as adapters land).
+                runtime_template::Entity::update(runtime_template::ActiveModel {
+                    kind: Set(template.kind.as_str().to_string()),
+                    display_name: Set(template.display_name),
+                    implemented: Set(template.implemented),
+                    enabled: Set(template.enabled),
+                    description: Set(template.description),
+                    capabilities: Set(template.capabilities),
+                    updated_at: Set(now()),
+                })
+                .exec(&self.db)
+                .await
+                .map_err(AppError::database)?;
                 continue;
             }
             runtime_template::Entity::insert(runtime_template::ActiveModel {
@@ -2780,11 +2794,11 @@ pub struct FilesystemProvisioner;
 #[async_trait]
 impl AgentProvisioner for FilesystemProvisioner {
     async fn provision(&self, agent: &Agent, config: &AppConfig) -> Result<(), AppError> {
-        if agent.kind == AgentKind::JavaAgent {
-            return Err(AppError::validation(
-                "Java Agent runtime provisioning is planned for phase 2",
-            ));
-        }
+        // Java agents share the same layout; the runtime jar is expected at
+        // agents/agentN/runtime/backend.jar and is copied by the build
+        // pipeline (java_agent_source), not provisioned here. Missing jar is
+        // reported at start time by the supervisor.
+
         let root = PathBuf::from(&config.fleet.agents_root);
         let agent_root = safe_agent_root(&root, &agent.name)?;
         tokio::fs::create_dir_all(&agent_root)

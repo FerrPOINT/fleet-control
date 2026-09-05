@@ -123,6 +123,74 @@ impl LocalRuntimeSupervisor {
         Ok(command)
     }
 
+    fn java_agent_command(&self, agent: &Agent) -> Result<Command, AppError> {
+        // runtime/backend.jar is provisioned into the agent layout by the
+        // build pipeline (gradle bootJar copied to agents/agentN/runtime).
+        let jar = std::path::Path::new(&agent.paths.runtime).join("backend.jar");
+        if !jar.exists() {
+            return Err(AppError::validation(format!(
+                "java agent jar is not provisioned: {}",
+                jar.display()
+            )));
+        }
+        let port = agent
+            .api_port
+            .ok_or_else(|| AppError::validation("agent api_port is required"))?;
+        let mut command = Command::new(&self.config.fleet.java_agent_command);
+        command
+            .arg("-jar")
+            .arg(&jar)
+            .arg(format!("--server.port={port}"))
+            .arg("--spring.profiles.active=noop")
+            .env("AGENT_SERVER_PORT", port.to_string())
+            .current_dir(&agent.paths.workspace)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        Ok(command)
+    }
+
+    async fn probe_java_agent(&self, agent: &Agent) -> Result<Value, AppError> {
+        // Readiness is db-only per the java-agent contract; optional
+        // components (browser CDP, model) may be DOWN while the runtime
+        // still serves traffic, so probe readiness, not the aggregate.
+        let base = Self::hermes_base_url(agent)?;
+        let readiness = self
+            .client
+            .get(format!("{base}/actuator/health/readiness"))
+            .send()
+            .await
+            .map_err(AppError::internal)?;
+        if !readiness.status().is_success() {
+            return Err(AppError::validation(format!(
+                "java agent /actuator/health/readiness returned {}",
+                readiness.status()
+            )));
+        }
+        let readiness: Value = readiness.json().await.map_err(AppError::internal)?;
+        if readiness.get("status").and_then(Value::as_str) != Some("UP") {
+            return Err(AppError::validation(
+                "java agent readiness status is not UP",
+            ));
+        }
+        Ok(readiness)
+    }
+
+    async fn wait_for_java_agent_ready(&self, agent: &Agent) -> Result<Value, AppError> {
+        let mut elapsed = Duration::ZERO;
+        let mut last_error = "java agent readiness probe did not run".to_string();
+        while elapsed < HERMES_READY_TIMEOUT {
+            match self.probe_java_agent(agent).await {
+                Ok(health) => return Ok(health),
+                Err(err) => last_error = err.to_string(),
+            }
+            sleep(HERMES_READY_POLL).await;
+            elapsed += HERMES_READY_POLL;
+        }
+        Err(AppError::validation(format!(
+            "java agent did not become ready: {last_error}"
+        )))
+    }
+
     async fn spawn_log_reader<R>(&self, agent_id: Uuid, stream: &'static str, reader: R)
     where
         R: tokio::io::AsyncRead + Unpin + Send + 'static,
@@ -753,13 +821,159 @@ fn pick_error(value: &Value) -> Option<String> {
         .map(|error| crate::redact_text(&error))
 }
 
+impl LocalRuntimeSupervisor {
+    /// Launches the provisioned java agent jar and waits for actuator UP.
+    async fn start_java_agent(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
+        if self.children.lock().await.contains_key(&agent.id) {
+            let updated = self
+                .repo
+                .update_runtime_state(
+                    agent.id,
+                    RuntimeStatePatch {
+                        status: AgentStatus::Running,
+                        desired_state: DesiredState::Running,
+                        pid: agent.runtime.pid,
+                        health_status: Some("running".to_string()),
+                        health_detail: Some("process is already tracked".to_string()),
+                        last_capabilities_json: None,
+                        startup_command_redacted: Some(self.command_preview(agent)),
+                        started_at: parse_domain_ts(&agent.runtime.started_at),
+                        stopped_at: None,
+                    },
+                )
+                .await?;
+            return Ok(RuntimeOperationResponse {
+                agent_id: updated.id,
+                status: updated.status,
+                message: "java agent is already running".to_string(),
+            });
+        }
+
+        let starting = self
+            .repo
+            .update_runtime_state(
+                agent.id,
+                RuntimeStatePatch {
+                    status: AgentStatus::Starting,
+                    desired_state: DesiredState::Running,
+                    pid: None,
+                    health_status: Some("starting".to_string()),
+                    health_detail: Some("java agent launch requested".to_string()),
+                    last_capabilities_json: None,
+                    startup_command_redacted: Some(self.command_preview(agent)),
+                    started_at: None,
+                    stopped_at: None,
+                },
+            )
+            .await?;
+        let _ = self
+            .repo
+            .insert_log(starting.id, "system", "java agent start requested")
+            .await;
+
+        let mut command = self.java_agent_command(&starting)?;
+        let mut child = match command.spawn() {
+            Ok(child) => child,
+            Err(err) => {
+                let detail = format!("failed to spawn java agent: {err}");
+                let updated = self
+                    .repo
+                    .update_runtime_state(
+                        starting.id,
+                        RuntimeStatePatch {
+                            status: AgentStatus::Failed,
+                            desired_state: DesiredState::Stopped,
+                            pid: None,
+                            health_status: Some("failed".to_string()),
+                            health_detail: Some(detail.clone()),
+                            last_capabilities_json: None,
+                            startup_command_redacted: Some(self.command_preview(&starting)),
+                            started_at: None,
+                            stopped_at: Some(shared::now()),
+                        },
+                    )
+                    .await?;
+                let _ = self.repo.insert_log(updated.id, "stderr", &detail).await;
+                return Ok(RuntimeOperationResponse {
+                    agent_id: updated.id,
+                    status: updated.status,
+                    message: "failed to spawn java agent runtime".to_string(),
+                });
+            }
+        };
+
+        if let Some(stdout) = child.stdout.take() {
+            self.spawn_log_reader(starting.id, "stdout", stdout).await;
+        }
+        if let Some(stderr) = child.stderr.take() {
+            self.spawn_log_reader(starting.id, "stderr", stderr).await;
+        }
+        let pid = child.id().map(|id| id as i32);
+        self.children.lock().await.insert(starting.id, child);
+
+        match self.wait_for_java_agent_ready(&starting).await {
+            Ok(health) => {
+                let updated = self
+                    .repo
+                    .update_runtime_state(
+                        starting.id,
+                        RuntimeStatePatch {
+                            status: AgentStatus::Running,
+                            desired_state: DesiredState::Running,
+                            pid,
+                            health_status: Some("running".to_string()),
+                            health_detail: Some("java agent actuator is UP".to_string()),
+                            last_capabilities_json: Some(health),
+                            startup_command_redacted: Some(self.command_preview(&starting)),
+                            started_at: Some(shared::now()),
+                            stopped_at: None,
+                        },
+                    )
+                    .await?;
+                Ok(RuntimeOperationResponse {
+                    agent_id: updated.id,
+                    status: updated.status,
+                    message: "java agent runtime started and actuator is UP".to_string(),
+                })
+            }
+            Err(err) => {
+                if let Some(mut child) = self.children.lock().await.remove(&starting.id) {
+                    let _ = child.kill().await;
+                }
+                let detail = crate::redact_text(&err.to_string());
+                let updated = self
+                    .repo
+                    .update_runtime_state(
+                        starting.id,
+                        RuntimeStatePatch {
+                            status: AgentStatus::Failed,
+                            desired_state: DesiredState::Stopped,
+                            pid: None,
+                            health_status: Some("failed".to_string()),
+                            health_detail: Some(detail.clone()),
+                            last_capabilities_json: None,
+                            startup_command_redacted: Some(self.command_preview(&starting)),
+                            started_at: None,
+                            stopped_at: Some(shared::now()),
+                        },
+                    )
+                    .await?;
+                let _ = self.repo.insert_log(updated.id, "stderr", &detail).await;
+                Ok(RuntimeOperationResponse {
+                    agent_id: updated.id,
+                    status: updated.status,
+                    message: detail,
+                })
+            }
+        }
+    }
+}
+
 #[async_trait]
 impl RuntimeSupervisor for LocalRuntimeSupervisor {
     async fn start(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
         if agent.kind == AgentKind::JavaAgent {
-            return Err(AppError::validation(
-                "Java Agent runtime start is planned for phase 2",
-            ));
+            return self.start_java_agent(agent).await;
         }
         if self.children.lock().await.contains_key(&agent.id) {
             let updated = self
@@ -912,11 +1126,6 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
     }
 
     async fn stop(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
-        if agent.kind == AgentKind::JavaAgent {
-            return Err(AppError::validation(
-                "Java Agent runtime stop is planned for phase 2",
-            ));
-        }
         let mut children = self.children.lock().await;
         if let Some(mut child) = children.remove(&agent.id) {
             let _ = child.kill().await;
@@ -995,29 +1204,73 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
         }
 
         if agent.kind == AgentKind::JavaAgent {
-            let detail = "Java Agent health endpoint is reserved for phase 2".to_string();
-            let updated = self
-                .repo
-                .update_runtime_state(
-                    agent.id,
-                    RuntimeStatePatch {
-                        status: agent.status,
-                        desired_state: agent.runtime.desired_state,
-                        pid: agent.runtime.pid,
-                        health_status: Some("planned".to_string()),
-                        health_detail: Some(detail.clone()),
-                        last_capabilities_json: None,
-                        startup_command_redacted: Some(self.command_preview(agent)),
-                        started_at: parse_domain_ts(&agent.runtime.started_at),
-                        stopped_at: parse_domain_ts(&agent.runtime.stopped_at),
-                    },
-                )
-                .await?;
-            return Ok(RuntimeOperationResponse {
-                agent_id: updated.id,
-                status: updated.status,
-                message: detail,
-            });
+            return match self.probe_java_agent(agent).await {
+                Ok(health) => {
+                    let (status, detail) = if tracked {
+                        (
+                            AgentStatus::Running,
+                            "java agent actuator is UP".to_string(),
+                        )
+                    } else {
+                        (
+                            AgentStatus::Degraded,
+                            "java agent is UP but process is not tracked by this Fleet Control instance"
+                                .to_string(),
+                        )
+                    };
+                    let updated = self
+                        .repo
+                        .update_runtime_state(
+                            agent.id,
+                            RuntimeStatePatch {
+                                status,
+                                desired_state: DesiredState::Running,
+                                pid: if tracked { agent.runtime.pid } else { None },
+                                health_status: Some("healthy".to_string()),
+                                health_detail: Some(detail.clone()),
+                                last_capabilities_json: Some(health),
+                                startup_command_redacted: Some(self.command_preview(agent)),
+                                started_at: parse_domain_ts(&agent.runtime.started_at),
+                                stopped_at: parse_domain_ts(&agent.runtime.stopped_at),
+                            },
+                        )
+                        .await?;
+                    Ok(RuntimeOperationResponse {
+                        agent_id: updated.id,
+                        status: updated.status,
+                        message: detail,
+                    })
+                }
+                Err(err) => {
+                    let detail = crate::redact_text(&err.to_string());
+                    let updated = self
+                        .repo
+                        .update_runtime_state(
+                            agent.id,
+                            RuntimeStatePatch {
+                                status: if tracked {
+                                    AgentStatus::Degraded
+                                } else {
+                                    AgentStatus::Stopped
+                                },
+                                desired_state: agent.runtime.desired_state,
+                                pid: agent.runtime.pid,
+                                health_status: Some("unhealthy".to_string()),
+                                health_detail: Some(detail.clone()),
+                                last_capabilities_json: None,
+                                startup_command_redacted: Some(self.command_preview(agent)),
+                                started_at: parse_domain_ts(&agent.runtime.started_at),
+                                stopped_at: parse_domain_ts(&agent.runtime.stopped_at),
+                            },
+                        )
+                        .await?;
+                    Ok(RuntimeOperationResponse {
+                        agent_id: updated.id,
+                        status: updated.status,
+                        message: detail,
+                    })
+                }
+            };
         }
 
         match self.probe_hermes(agent).await {
