@@ -2,7 +2,6 @@ import {
   Activity,
   Bot,
   Boxes,
-  Cable,
   Crown,
   Files,
   Gauge,
@@ -20,7 +19,7 @@ import { getCurrentUserPermissions, logout } from '@/api/auth'
 import { useAuthStore } from '@/shared/auth/store'
 import { ThemeToggle } from '@sdlc/ui/ui'
 import { ServiceSwitcher } from '@sdlc/ui/ui'
-import { Button } from '@sdlc/ui/ui'
+import { Button, PlatformMark } from '@sdlc/ui/ui'
 import { cn } from '@/shared/lib/utils'
 
 const navItems = [
@@ -72,9 +71,7 @@ export function AppShell() {
     <div className="min-h-screen bg-background text-text-primary">
       <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-border bg-surface px-3 py-4 lg:block">
         <div className="mb-6 flex items-center gap-3 px-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-accent text-white">
-            <Cable className="h-5 w-5" />
-          </div>
+          <PlatformMark />
           <div>
             <p className="text-sm font-semibold text-text-primary">Fleet Control</p>
             <p className="text-xs text-text-muted">Agent fleet plane</p>
