@@ -19,6 +19,7 @@ import { useQuery } from '@tanstack/react-query'
 import { getCurrentUserPermissions, logout } from '@/api/auth'
 import { useAuthStore } from '@/shared/auth/store'
 import { ThemeToggle } from '@sdlc/ui/ui'
+import { ServiceSwitcher } from '@sdlc/ui/ui'
 import { Button } from '@sdlc/ui/ui'
 import { cn } from '@/shared/lib/utils'
 
@@ -109,7 +110,8 @@ export function AppShell() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <ThemeToggle />
+              <ServiceSwitcher currentKey="fleet-control" />
+          <ThemeToggle />
               <Button variant="outline" size="sm" onClick={handleLogout}>
                 <LogOut className="h-4 w-4" />
                 Sign out
