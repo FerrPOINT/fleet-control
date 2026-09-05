@@ -31,7 +31,7 @@
 
 ## 🎯 Позиционирование
 
-**Fleet Control** — internal SDLC control plane для FerrPOINT: управление
+**Fleet Control** — internal Base platform control plane для FerrPOINT: управление
 флотом изолированных agent runtimes, лидерами, исполнителями, их
 config/workspace, skills, sessions, handoff и namespace/workflow bindings.
 
@@ -216,7 +216,7 @@ flowchart TD
 
 ## 🧱 Boundaries
 
-- `task-tracker` was used only as stack/UI/docs donor; sibling SDLC repos are not mutated.
+- `task-tracker` was used only as stack/UI/docs donor; sibling fleet repos are not mutated.
 - `services-base` provides shared fleet building blocks; Fleet Control now uses
   a telemetry-compatible local bridge because WSL/CI cannot yet fetch the
   private shared repo directly. Auth tokens already use fleet-compatible HMAC
