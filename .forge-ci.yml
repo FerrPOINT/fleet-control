@@ -1,0 +1,18 @@
+version: 1
+on: [push]
+defaults:
+  image: rust:1.88
+  timeout: 30m
+jobs:
+  build:
+    commands:
+      - cargo build --workspace
+  test:
+    needs: [build]
+    commands:
+      - cargo test --workspace
+  fmt:
+    needs: [build]
+    commands:
+      - rustup component add rustfmt
+      - cargo fmt --all -- --check
