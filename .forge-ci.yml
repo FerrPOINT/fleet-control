@@ -16,4 +16,4 @@ jobs:
     needs: [build]
     commands:
       - cp -r /workspaces/services-base-src ../services-base
-      - cd backend && rustup component add rustfmt && cargo fmt --all -- --check
+      - cd backend && RUSTUP_HOME=/tmp/rustup rustup component add rustfmt && RUSTUP_HOME=/tmp/rustup cargo fmt --all -- --check
