@@ -19,4 +19,5 @@ jobs:
       - cp -r /usr/local/rustup /tmp/rustup
       - cd backend
       - RUSTUP_HOME=/tmp/rustup rustup component add rustfmt
-      - /tmp/rustup/toolchains/*/bin/cargo fmt --all -- --check
+      - export PATH=/tmp/rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/bin:$PATH
+      - cargo fmt --all -- --check
