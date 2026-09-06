@@ -76,6 +76,15 @@ impl Default for AuditLogFilter {
     }
 }
 
+/// Session observed on a managed runtime (e.g. Java Agent /api/v2/sessions).
+#[derive(Debug, Clone)]
+pub struct RuntimeSessionSnapshot {
+    pub external_id: String,
+    pub title: Option<String>,
+    pub created_at: Option<chrono::DateTime<chrono::FixedOffset>>,
+    pub updated_at: Option<chrono::DateTime<chrono::FixedOffset>>,
+}
+
 #[async_trait]
 pub trait FleetRepository: Send + Sync {
     async fn list_runtime_templates(&self) -> Result<Vec<RuntimeTemplate>, AppError>;
@@ -128,6 +137,11 @@ pub trait FleetRepository: Send + Sync {
 
     async fn list_sessions(&self, filter: SessionListFilter)
     -> Result<Vec<AgentSession>, AppError>;
+    async fn sync_runtime_sessions(
+        &self,
+        agent_id: Uuid,
+        sessions: Vec<RuntimeSessionSnapshot>,
+    ) -> Result<u64, AppError>;
     async fn get_session(&self, id: Uuid) -> Result<AgentSession, AppError>;
     async fn create_session(
         &self,

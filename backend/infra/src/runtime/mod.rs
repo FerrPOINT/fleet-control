@@ -1,4 +1,7 @@
-use app::{FleetRepository, RuntimeApprovalCreate, RuntimeStatePatch, RuntimeSupervisor};
+use app::{
+    FleetRepository, RuntimeApprovalCreate, RuntimeSessionSnapshot, RuntimeStatePatch,
+    RuntimeSupervisor,
+};
 use async_trait::async_trait;
 use domain::{
     Agent, AgentKind, AgentProductRole, AgentSession, AgentStatus, DesiredState, MessageAuthorType,
@@ -94,6 +97,11 @@ impl LocalRuntimeSupervisor {
                         {
                             let _ = supervisor.health(&agent).await;
                         }
+                        if agent.kind == AgentKind::JavaAgent
+                            && agent.status == AgentStatus::Running
+                        {
+                            let _ = supervisor.sync_java_agent_sessions(&agent).await;
+                        }
                     }
                 }
             });
@@ -147,6 +155,53 @@ impl LocalRuntimeSupervisor {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
         Ok(command)
+    }
+
+    /// Pull /api/v2/sessions from a running java agent into Fleet Control.
+    async fn sync_java_agent_sessions(&self, agent: &Agent) -> Result<u64, AppError> {
+        let base = Self::hermes_base_url(agent)?;
+        let response = self
+            .client
+            .get(format!("{base}/api/v2/sessions?limit=100"))
+            .send()
+            .await
+            .map_err(AppError::internal)?;
+        if !response.status().is_success() {
+            return Err(AppError::validation(format!(
+                "java agent /api/v2/sessions returned {}",
+                response.status()
+            )));
+        }
+        let payload: Value = response.json().await.map_err(AppError::internal)?;
+        let Some(items) = payload.get("data").and_then(Value::as_array) else {
+            return Ok(0);
+        };
+        let snapshots = items
+            .iter()
+            .filter_map(|item| {
+                let external_id = item.get("id").and_then(Value::as_str)?.to_string();
+                let title = item
+                    .get("title")
+                    .and_then(Value::as_str)
+                    .map(str::to_string);
+                let created_at = item
+                    .get("createdAt")
+                    .and_then(Value::as_str)
+                    .and_then(|v| chrono::DateTime::parse_from_rfc3339(v).ok());
+                let updated_at = item
+                    .get("updatedAt")
+                    .and_then(Value::as_str)
+                    .and_then(|v| chrono::DateTime::parse_from_rfc3339(v).ok());
+                Some(RuntimeSessionSnapshot {
+                    external_id,
+                    title,
+                    created_at,
+                    updated_at,
+                })
+            })
+            .collect::<Vec<_>>();
+        let applied = self.repo.sync_runtime_sessions(agent.id, snapshots).await?;
+        Ok(applied)
     }
 
     async fn probe_java_agent(&self, agent: &Agent) -> Result<Value, AppError> {

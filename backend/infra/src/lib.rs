@@ -2,8 +2,8 @@ pub mod entities;
 pub mod runtime;
 
 use app::{
-    AgentProvisioner, AuditLogFilter, FleetRepository, RuntimeApprovalCreate, RuntimeStatePatch,
-    SessionListFilter,
+    AgentProvisioner, AuditLogFilter, FleetRepository, RuntimeApprovalCreate,
+    RuntimeSessionSnapshot, RuntimeStatePatch, SessionListFilter,
 };
 use async_trait::async_trait;
 use domain::{
@@ -1191,6 +1191,101 @@ impl FleetRepository for PostgresFleetRepository {
             .map_err(AppError::database)?
             .ok_or_else(|| AppError::not_found("user", row.user_id))?;
         Ok(session_from_model(row, agent, leader, user))
+    }
+
+    async fn sync_runtime_sessions(
+        &self,
+        agent_id: Uuid,
+        sessions: Vec<RuntimeSessionSnapshot>,
+    ) -> Result<u64, AppError> {
+        let agent = agent::Entity::find_by_id(agent_id)
+            .one(&self.db)
+            .await
+            .map_err(AppError::database)?
+            .ok_or_else(|| AppError::not_found("agent", agent_id))?;
+        // Service user that owns runtime-imported sessions.
+        let system_user = user::Entity::find()
+            .filter(user::Column::Email.eq("runtime@fleet-control.local"))
+            .one(&self.db)
+            .await
+            .map_err(AppError::database)?;
+        let system_user_id = match system_user {
+            Some(u) => u.id,
+            None => {
+                let id = Uuid::new_v4();
+                user::Entity::insert(user::ActiveModel {
+                    id: Set(id),
+                    email: Set("runtime@fleet-control.local".to_string()),
+                    username: Set("runtime-sync".to_string()),
+                    display_name: Set("Runtime Sync".to_string()),
+                    password_hash: Set(String::new()),
+                    refresh_token_hash: Set(None),
+                    is_system_admin: Set(false),
+                    is_active: Set(true),
+                    system_role: Set("user".to_string()),
+                    created_at: Set(now()),
+                    updated_at: Set(now()),
+                })
+                .exec(&self.db)
+                .await
+                .map_err(AppError::database)?;
+                id
+            }
+        };
+        let mut applied = 0u64;
+        for snapshot in sessions {
+            let existing = agent_session::Entity::find()
+                .filter(agent_session::Column::ExternalSessionId.eq(&snapshot.external_id))
+                .one(&self.db)
+                .await
+                .map_err(AppError::database)?;
+            match existing {
+                Some(model) => {
+                    let mut patch = agent_session::ActiveModel {
+                        id: Set(model.id),
+                        ..Default::default()
+                    };
+                    if let Some(title) = snapshot.title.clone() {
+                        patch.title = Set(title);
+                    }
+                    if let Some(updated) = snapshot.updated_at {
+                        patch.updated_at = Set(updated);
+                    }
+                    patch.update(&self.db).await.map_err(AppError::database)?;
+                }
+                None => {
+                    agent_session::Entity::insert(agent_session::ActiveModel {
+                        id: Set(Uuid::new_v4()),
+                        agent_id: Set(agent.id),
+                        user_id: Set(system_user_id),
+                        leader_agent_id: Set(None),
+                        parent_session_id: Set(None),
+                        created_by_leader_agent_id: Set(None),
+                        visibility: Set(SessionVisibility::Private.as_str().to_string()),
+                        title: Set(snapshot
+                            .title
+                            .clone()
+                            .unwrap_or_else(|| "Imported runtime session".to_string())),
+                        task_key: Set(None),
+                        state: Set(SessionState::Active.as_str().to_string()),
+                        namespace_id: Set(agent.namespace_id.clone()),
+                        external_session_id: Set(Some(snapshot.external_id.clone())),
+                        last_message_preview: Set(Some(
+                            "Imported from runtime /api/v2/sessions".to_string(),
+                        )),
+                        idempotency_key: Set(None),
+                        idempotency_payload_hash: Set(None),
+                        created_at: Set(snapshot.created_at.unwrap_or_else(now)),
+                        updated_at: Set(snapshot.updated_at.unwrap_or_else(now)),
+                    })
+                    .exec(&self.db)
+                    .await
+                    .map_err(AppError::database)?;
+                }
+            }
+            applied += 1;
+        }
+        Ok(applied)
     }
 
     async fn create_session(
