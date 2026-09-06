@@ -5,13 +5,12 @@ defaults:
 jobs:
   build:
     commands:
-      - cargo build --workspace
+      - cd backend && cargo build --workspace
   test:
     needs: [build]
     commands:
-      - cargo test --workspace
+      - cd backend && cargo test --workspace
   fmt:
     needs: [build]
     commands:
-      - rustup component add rustfmt
-      - cargo fmt --all -- --check
+      - cd backend && rustup component add rustfmt && cargo fmt --all -- --check
