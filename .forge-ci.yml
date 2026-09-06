@@ -5,12 +5,15 @@ defaults:
 jobs:
   build:
     commands:
+      - cp -r /workspaces/services-base-src ../services-base
       - cd backend && cargo build --workspace
   test:
     needs: [build]
     commands:
+      - cp -r /workspaces/services-base-src ../services-base
       - cd backend && cargo test --workspace
   fmt:
     needs: [build]
     commands:
+      - cp -r /workspaces/services-base-src ../services-base
       - cd backend && rustup component add rustfmt && cargo fmt --all -- --check
