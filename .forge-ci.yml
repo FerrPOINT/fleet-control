@@ -1,5 +1,4 @@
 version: 1
-on: [push]
 defaults:
   image: rust:1.88
   timeout: 30m
