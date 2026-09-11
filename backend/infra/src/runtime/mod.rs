@@ -4,10 +4,10 @@ use app::{
 };
 use async_trait::async_trait;
 use domain::{
-    Agent, AgentKind, AgentProductRole, AgentSession, AgentStatus, DesiredState, MessageAuthorType,
-    MessageDeliveryState, MessageKind, ResolveRuntimeApprovalRequest, RuntimeOperationResponse,
-    RuntimeRunControlResponse, SessionAgentRun, SessionMessage, SessionRunRole, SessionRunState,
-    SteerSessionRunRequest,
+    Agent, AgentKind, AgentProductRole, AgentSession, AgentStatus, DeploymentJob,
+    DeploymentJobState, DesiredState, MessageAuthorType, MessageDeliveryState, MessageKind,
+    ResolveRuntimeApprovalRequest, RuntimeOperationResponse, RuntimeRunControlResponse,
+    SessionAgentRun, SessionMessage, SessionRunRole, SessionRunState, SteerSessionRunRequest,
 };
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
@@ -103,6 +103,7 @@ impl LocalRuntimeSupervisor {
                             let _ = supervisor.sync_java_agent_sessions(&agent).await;
                         }
                     }
+                    let _ = supervisor.process_deployment_jobs().await;
                 }
             });
         }
@@ -202,6 +203,121 @@ impl LocalRuntimeSupervisor {
             .collect::<Vec<_>>();
         let applied = self.repo.sync_runtime_sessions(agent.id, snapshots).await?;
         Ok(applied)
+    }
+
+    /// Process queued deployment jobs: trigger a Forge pipeline per job and
+    /// mirror its terminal status back onto the job.
+    async fn process_deployment_jobs(&self) -> Result<u64, AppError> {
+        let jobs = self.repo.list_deployment_jobs(20).await?;
+        let queued: Vec<_> = jobs
+            .into_iter()
+            .filter(|job| job.state == DeploymentJobState::Queued)
+            .collect();
+        let Some((api_url, token, project_name)) = self.forge_settings() else {
+            // Forge integration not configured: leave jobs queued (visible in UI).
+            return Ok(0);
+        };
+        let mut processed = 0u64;
+        for job in queued {
+            let running = self
+                .repo
+                .update_deployment_job_state(job.id, DeploymentJobState::Running, None, None)
+                .await?;
+            match self
+                .trigger_forge_pipeline(&api_url, &token, &project_name, &running)
+                .await
+            {
+                Ok(pipeline_id) => {
+                    self.repo
+                        .update_deployment_job_state(
+                            job.id,
+                            DeploymentJobState::Completed,
+                            Some(json!({
+                                "forge_pipeline_id": pipeline_id,
+                                "forge_project": project_name,
+                            })),
+                            None,
+                        )
+                        .await?;
+                }
+                Err(err) => {
+                    self.repo
+                        .update_deployment_job_state(
+                            job.id,
+                            DeploymentJobState::Failed,
+                            None,
+                            Some(err.to_string()),
+                        )
+                        .await?;
+                }
+            }
+            processed += 1;
+        }
+        Ok(processed)
+    }
+
+    fn forge_settings(&self) -> Option<(String, String, String)> {
+        let fleet = &self.config.fleet;
+        let api_url = fleet.forge_api_url.clone()?;
+        let project_name = fleet.forge_project.clone()?;
+        let token = fleet.forge_api_token.clone().unwrap_or_default();
+        Some((api_url, token, project_name))
+    }
+
+    async fn trigger_forge_pipeline(
+        &self,
+        api_url: &str,
+        token: &str,
+        project_name: &str,
+        job: &DeploymentJob,
+    ) -> Result<String, AppError> {
+        let base = api_url.trim_end_matches('/');
+        let projects: Value = self
+            .client
+            .get(format!("{base}/api/v1/projects"))
+            .bearer_auth(token)
+            .send()
+            .await
+            .map_err(AppError::internal)?
+            .json()
+            .await
+            .map_err(AppError::internal)?;
+        let project_id = projects
+            .as_array()
+            .and_then(|items| {
+                items
+                    .iter()
+                    .find(|item| item.get("name").and_then(Value::as_str) == Some(project_name))
+                    .and_then(|item| item.get("id"))
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+            })
+            .ok_or_else(|| {
+                AppError::validation(format!("forge project {project_name} not found"))
+            })?;
+        let pipeline: Value = self
+            .client
+            .post(format!("{base}/api/v1/projects/{project_id}/pipelines"))
+            .bearer_auth(token)
+            .json(&serde_json::json!({
+                "git_ref": "main",
+                "variables": {
+                    "FLEET_JOB_ID": job.id.to_string(),
+                    "FLEET_JOB_KIND": job.job_kind.as_str(),
+                }
+            }))
+            .send()
+            .await
+            .map_err(AppError::internal)?
+            .json()
+            .await
+            .map_err(AppError::internal)?;
+        pipeline
+            .get("pipeline")
+            .and_then(|p| p.get("id"))
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .ok_or_else(|| AppError::internal("forge pipeline response missing id"))
     }
 
     async fn probe_java_agent(&self, agent: &Agent) -> Result<Value, AppError> {

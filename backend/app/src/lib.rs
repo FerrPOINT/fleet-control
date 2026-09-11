@@ -5,14 +5,14 @@ use domain::{
     Agent, AgentConfig, AgentDirectoryItem, AgentEvent, AgentKind, AgentLogEntry, AgentSession,
     AgentStatus, AgentStorageReport, AssignSessionLeaderRequest, AuditLogEntry, AuthSettings,
     CreateAgentRequest, CreateDeploymentJobRequest, CreateSessionDelegationRequest,
-    CreateSessionMessageRequest, CreateSessionRequest, DeploymentJob, FleetDashboard,
-    HandoffSessionRequest, IntegrationSettings, LeaderExecutor, MessageDeliveryState, MessageKind,
-    PortSettings, PurgeAgentFilesResponse, ResolveRuntimeApprovalRequest, RuntimeApprovalRequest,
-    RuntimeOperationResponse, RuntimeRunControlResponse, RuntimeSettings, RuntimeTemplate,
-    SessionAgentRun, SessionMessage, SessionParticipant, SessionRunRole, SessionRunState,
-    SteerSessionRunRequest, UpdateAgentConfigRequest, UpdateAgentRequest,
-    UpdateLeaderExecutorsRequest, UpdateSkillRequest, UpdateUserRoleRequest, UserResponse,
-    WorkflowBinding,
+    CreateSessionMessageRequest, CreateSessionRequest, DeploymentJob, DeploymentJobState,
+    FleetDashboard, HandoffSessionRequest, IntegrationSettings, LeaderExecutor,
+    MessageDeliveryState, MessageKind, PortSettings, PurgeAgentFilesResponse,
+    ResolveRuntimeApprovalRequest, RuntimeApprovalRequest, RuntimeOperationResponse,
+    RuntimeRunControlResponse, RuntimeSettings, RuntimeTemplate, SessionAgentRun, SessionMessage,
+    SessionParticipant, SessionRunRole, SessionRunState, SteerSessionRunRequest,
+    UpdateAgentConfigRequest, UpdateAgentRequest, UpdateLeaderExecutorsRequest, UpdateSkillRequest,
+    UpdateUserRoleRequest, UserResponse, WorkflowBinding,
 };
 use shared::{AppConfig, AppError, FleetEvent};
 use std::sync::Arc;
@@ -275,6 +275,13 @@ pub trait FleetRepository: Send + Sync {
     ) -> Result<(), AppError>;
 
     async fn list_deployment_jobs(&self, limit: u64) -> Result<Vec<DeploymentJob>, AppError>;
+    async fn update_deployment_job_state(
+        &self,
+        job_id: Uuid,
+        state: DeploymentJobState,
+        detail_patch: Option<serde_json::Value>,
+        last_error: Option<String>,
+    ) -> Result<DeploymentJob, AppError>;
     async fn get_deployment_job(&self, id: Uuid) -> Result<DeploymentJob, AppError>;
     async fn create_deployment_job(
         &self,

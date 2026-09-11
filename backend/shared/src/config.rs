@@ -65,6 +65,12 @@ pub struct FleetConfig {
     pub runtime_token_secret: String,
     pub agent_port_base: u16,
     pub agent_port_stride: u16,
+    /// Forge (CI-CD) base URL for deployment triggers, e.g. http://cicd-backend:22801.
+    pub forge_api_url: Option<String>,
+    /// Bearer token for Forge API when auth is enabled there.
+    pub forge_api_token: Option<String>,
+    /// Forge project name used for deployment triggers.
+    pub forge_project: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -140,6 +146,9 @@ impl AppConfig {
             .set_default("fleet.runtime_token_secret", "[CHANGE_ME]")?
             .set_default("fleet.agent_port_base", 29000u16)?
             .set_default("fleet.agent_port_stride", 10u16)?
+            .set_default("fleet.forge_api_url", Option::<String>::None)?
+            .set_default("fleet.forge_api_token", Option::<String>::None)?
+            .set_default("fleet.forge_project", Option::<String>::None)?
             .set_default("metrics.public", true)?
             .build()?;
 
@@ -276,6 +285,9 @@ impl Default for FleetConfig {
             hermes_command: "hermes".to_string(),
             java_agent_source: "../java-agent".to_string(),
             java_agent_command: "java".to_string(),
+            forge_api_url: None,
+            forge_api_token: None,
+            forge_project: None,
             runtime_token_secret: "[CHANGE_ME]".to_string(),
             agent_port_base: 29000,
             agent_port_stride: 10,

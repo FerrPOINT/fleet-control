@@ -2598,6 +2598,36 @@ impl FleetRepository for PostgresFleetRepository {
         self.get_deployment_job(id).await
     }
 
+    async fn update_deployment_job_state(
+        &self,
+        job_id: Uuid,
+        state: DeploymentJobState,
+        detail_patch: Option<Value>,
+        last_error: Option<String>,
+    ) -> Result<DeploymentJob, AppError> {
+        let row = deployment_job::Entity::find_by_id(job_id)
+            .one(&self.db)
+            .await
+            .map_err(AppError::database)?
+            .ok_or_else(|| AppError::not_found("deployment_job", job_id))?;
+        let detail_base = row.detail.clone();
+        let mut model = row.into_active_model();
+        model.state = Set(state.as_str().to_string());
+        if let Some(patch) = detail_patch {
+            let mut detail = detail_base;
+            if let (Some(dst), Some(src)) = (detail.as_object_mut(), patch.as_object()) {
+                for (k, v) in src {
+                    dst.insert(k.clone(), v.clone());
+                }
+            }
+            model.detail = Set(detail);
+        }
+        model.last_error = Set(last_error);
+        model.updated_at = Set(now());
+        let updated = model.update(&self.db).await.map_err(AppError::database)?;
+        Ok(deployment_job_from_model(updated))
+    }
+
     async fn cancel_deployment_job(
         &self,
         id: Uuid,
