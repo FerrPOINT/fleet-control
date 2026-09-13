@@ -71,6 +71,8 @@ pub struct FleetConfig {
     pub forge_api_token: Option<String>,
     /// Forge project name used for deployment triggers.
     pub forge_project: Option<String>,
+    /// project-workflow base URL for namespace/workflow sync, e.g. http://pw-api:8811.
+    pub project_workflow_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -149,6 +151,7 @@ impl AppConfig {
             .set_default("fleet.forge_api_url", Option::<String>::None)?
             .set_default("fleet.forge_api_token", Option::<String>::None)?
             .set_default("fleet.forge_project", Option::<String>::None)?
+            .set_default("fleet.project_workflow_url", Option::<String>::None)?
             .set_default("metrics.public", true)?
             .build()?;
 
@@ -288,6 +291,7 @@ impl Default for FleetConfig {
             forge_api_url: None,
             forge_api_token: None,
             forge_project: None,
+            project_workflow_url: None,
             runtime_token_secret: "[CHANGE_ME]".to_string(),
             agent_port_base: 29000,
             agent_port_stride: 10,

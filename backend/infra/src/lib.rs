@@ -2276,6 +2276,41 @@ impl FleetRepository for PostgresFleetRepository {
         Ok(result.rows_affected)
     }
 
+    async fn refresh_workflow_bindings(
+        &self,
+        known_namespaces: Vec<(String, String)>,
+        known_workflows: Vec<(String, String)>,
+    ) -> Result<u64, AppError> {
+        let bindings = workflow_binding::Entity::find()
+            .all(&self.db)
+            .await
+            .map_err(AppError::database)?;
+        let mut updated = 0u64;
+        for row in bindings {
+            let ns_live = known_namespaces.iter().any(|(id, name)| {
+                Some(id.as_str()) == row.namespace_id.as_deref()
+                    && Some(name.as_str()) == row.namespace_name.as_deref()
+            });
+            let wf_live = known_workflows.iter().any(|(id, name)| {
+                Some(id.as_str()) == row.workflow_id.as_deref()
+                    && Some(name.as_str()) == row.workflow_name.as_deref()
+            });
+            let target = if ns_live && wf_live {
+                "connected"
+            } else {
+                "stale"
+            };
+            if row.binding_status != target {
+                let mut model = row.into_active_model();
+                model.binding_status = Set(target.to_string());
+                model.updated_at = Set(chrono::Utc::now().into());
+                model.update(&self.db).await.map_err(AppError::database)?;
+                updated += 1;
+            }
+        }
+        Ok(updated)
+    }
+
     async fn list_workflow_bindings(&self) -> Result<Vec<WorkflowBinding>, AppError> {
         workflow_binding::Entity::find()
             .order_by_asc(workflow_binding::Column::NamespaceId)

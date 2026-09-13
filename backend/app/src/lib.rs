@@ -225,6 +225,14 @@ pub trait FleetRepository: Send + Sync {
     ) -> Result<u64, AppError>;
 
     async fn list_workflow_bindings(&self) -> Result<Vec<WorkflowBinding>, AppError>;
+
+    /// project-workflow sync: refresh binding_status for known bindings
+    /// against the live project-workflow namespace/workflow catalog.
+    async fn refresh_workflow_bindings(
+        &self,
+        known_namespaces: Vec<(String, String)>,
+        known_workflows: Vec<(String, String)>,
+    ) -> Result<u64, AppError>;
     async fn list_events(&self, limit: u64) -> Result<Vec<AgentEvent>, AppError>;
     async fn insert_event(
         &self,
