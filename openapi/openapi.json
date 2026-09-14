@@ -752,6 +752,42 @@
         }
       }
     },
+    "/api/v1/deployments/jobs/bulk": {
+      "post": {
+        "tags": [
+          "runtime"
+        ],
+        "operationId": "bulk_create_deployment_jobs",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeploymentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "One deployment job per agent created (archived/unknown agents skipped)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkDeploymentResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Empty/oversized agent_ids or invalid rollback combination"
+          },
+          "403": {
+            "description": "Operator role required"
+          }
+        }
+      }
+    },
     "/api/v1/deployments/jobs/{job_id}": {
       "get": {
         "tags": [
@@ -2770,6 +2806,68 @@
           "refresh_token_ttl_days": {
             "type": "integer",
             "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "BulkDeploymentRequest": {
+        "type": "object",
+        "description": "Bulk runtime operation (IMPLEMENTATION_PLAN Phase 3): one job per agent,\ncreated atomically. `rollback: true` marks runtime_update jobs as\nrollback jobs (previous runtime version restored on execution).",
+        "required": [
+          "job_kind",
+          "agent_ids",
+          "title"
+        ],
+        "properties": {
+          "agent_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "detail": {},
+          "job_kind": {
+            "$ref": "#/components/schemas/DeploymentJobKind"
+          },
+          "rollback": {
+            "type": "boolean"
+          },
+          "runtime_kind": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AgentKind"
+              }
+            ]
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "BulkDeploymentResult": {
+        "type": "object",
+        "required": [
+          "jobs",
+          "created",
+          "skipped"
+        ],
+        "properties": {
+          "created": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "jobs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeploymentJob"
+            }
+          },
+          "skipped": {
+            "type": "integer",
             "minimum": 0
           }
         }

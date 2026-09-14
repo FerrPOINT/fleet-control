@@ -1315,6 +1315,28 @@ pub struct CreateDeploymentJobRequest {
     pub detail: Option<Value>,
 }
 
+/// Bulk runtime operation (IMPLEMENTATION_PLAN Phase 3): one job per agent,
+/// created atomically. `rollback: true` marks runtime_update jobs as
+/// rollback jobs (previous runtime version restored on execution).
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct BulkDeploymentRequest {
+    pub job_kind: DeploymentJobKind,
+    pub agent_ids: Vec<Uuid>,
+    pub runtime_kind: Option<AgentKind>,
+    pub title: String,
+    #[serde(default)]
+    pub detail: Option<Value>,
+    #[serde(default)]
+    pub rollback: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct BulkDeploymentResult {
+    pub jobs: Vec<DeploymentJob>,
+    pub created: usize,
+    pub skipped: usize,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct RuntimeSettings {
     pub agents_root: String,

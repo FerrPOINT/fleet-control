@@ -3,7 +3,10 @@ use axum::{
     Extension, Json,
     extract::{Path, Query, State},
 };
-use domain::{CreateDeploymentJobRequest, DeploymentJob, RuntimeTemplate};
+use domain::{
+    BulkDeploymentRequest, BulkDeploymentResult, CreateDeploymentJobRequest, DeploymentJob,
+    RuntimeTemplate,
+};
 use serde::Deserialize;
 use shared::AppError;
 use std::sync::Arc;
@@ -86,4 +89,35 @@ pub async fn cancel_deployment_job(
         )
         .await?;
     Ok(Json(job))
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/deployments/jobs/bulk",
+    tag = "runtime",
+    request_body = BulkDeploymentRequest,
+    responses(
+        (status = 200, description = "One deployment job per agent created (archived/unknown agents skipped)", body = BulkDeploymentResult),
+        (status = 400, description = "Empty/oversized agent_ids or invalid rollback combination"),
+        (status = 403, description = "Operator role required"),
+    )
+)]
+pub async fn bulk_create_deployment_jobs(
+    State(ctx): State<Arc<AppContext>>,
+    Extension(user): Extension<crate::middleware::CurrentUser>,
+    Json(req): Json<BulkDeploymentRequest>,
+) -> Result<Json<BulkDeploymentResult>, AppError> {
+    crate::middleware::require_operator(&user)?;
+    let audit_payload = serde_json::to_value(&req).map_err(AppError::internal)?;
+    let result = ctx.repo.bulk_create_deployment_jobs(req, user.id).await?;
+    ctx.repo
+        .insert_audit(
+            Some(user.id),
+            "deployment_job.bulk_create",
+            "deployment_job",
+            None,
+            audit_payload,
+        )
+        .await?;
+    Ok(Json(result))
 }

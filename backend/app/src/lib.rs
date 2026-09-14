@@ -4,10 +4,10 @@ use async_trait::async_trait;
 use domain::{
     Agent, AgentConfig, AgentDirectoryItem, AgentEvent, AgentKind, AgentLogEntry, AgentSession,
     AgentStatus, AgentStorageReport, AssignSessionLeaderRequest, AuditLogEntry, AuthSettings,
-    CreateAgentRequest, CreateDeploymentJobRequest, CreateSessionDelegationRequest,
-    CreateSessionMessageRequest, CreateSessionRequest, DeploymentJob, DeploymentJobState,
-    FleetDashboard, HandoffSessionRequest, IntegrationSettings, LeaderExecutor,
-    MessageDeliveryState, MessageKind, PortSettings, PurgeAgentFilesResponse,
+    BulkDeploymentRequest, BulkDeploymentResult, CreateAgentRequest, CreateDeploymentJobRequest,
+    CreateSessionDelegationRequest, CreateSessionMessageRequest, CreateSessionRequest,
+    DeploymentJob, DeploymentJobState, FleetDashboard, HandoffSessionRequest, IntegrationSettings,
+    LeaderExecutor, MessageDeliveryState, MessageKind, PortSettings, PurgeAgentFilesResponse,
     ResolveRuntimeApprovalRequest, RuntimeApprovalRequest, RuntimeOperationResponse,
     RuntimeRunControlResponse, RuntimeSettings, RuntimeTemplate, SessionAgentRun, SessionMessage,
     SessionParticipant, SessionRunRole, SessionRunState, SteerSessionRunRequest,
@@ -296,6 +296,14 @@ pub trait FleetRepository: Send + Sync {
         req: CreateDeploymentJobRequest,
         requested_by_user_id: Uuid,
     ) -> Result<DeploymentJob, AppError>;
+    /// Bulk variant (IMPLEMENTATION_PLAN Phase 3): creates one job per agent
+    /// id, skipping archived agents; `rollback` marks runtime_update jobs as
+    /// rollback (detail carries `"rollback": true`).
+    async fn bulk_create_deployment_jobs(
+        &self,
+        req: BulkDeploymentRequest,
+        requested_by_user_id: Uuid,
+    ) -> Result<BulkDeploymentResult, AppError>;
     async fn cancel_deployment_job(
         &self,
         id: Uuid,

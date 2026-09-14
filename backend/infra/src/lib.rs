@@ -10,15 +10,16 @@ use domain::{
     Agent, AgentConfig, AgentDirectoryItem, AgentEvent, AgentKind, AgentLogEntry, AgentPaths,
     AgentProductRole, AgentRetentionReport, AgentRole, AgentRuntime, AgentSession, AgentStatus,
     AgentStorageArea, AgentStorageReport, AssignSessionLeaderRequest, AuditLogEntry, AuthSettings,
-    CreateAgentRequest, CreateDeploymentJobRequest, CreateSessionDelegationRequest,
-    CreateSessionMessageRequest, CreateSessionRequest, DeploymentJob, DeploymentJobKind,
-    DeploymentJobState, DesiredState, HandoffSessionRequest, IntegrationSettings, LeaderExecutor,
-    MessageAuthorType, MessageDeliveryState, MessageKind, PortSettings, PurgeAgentFilesResponse,
-    ResolveRuntimeApprovalRequest, RuntimeApprovalRequest, RuntimeApprovalState, RuntimeSettings,
-    RuntimeTemplate, SessionAgentRun, SessionMessage, SessionParticipant, SessionParticipantType,
-    SessionRole, SessionRunRole, SessionRunState, SessionState, SessionVisibility, SkillState,
-    SystemRole, UpdateAgentConfigRequest, UpdateAgentRequest, UpdateLeaderExecutorsRequest,
-    UpdateSkillRequest, UpdateUserRoleRequest, UserResponse, WorkflowBinding,
+    BulkDeploymentRequest, BulkDeploymentResult, CreateAgentRequest, CreateDeploymentJobRequest,
+    CreateSessionDelegationRequest, CreateSessionMessageRequest, CreateSessionRequest,
+    DeploymentJob, DeploymentJobKind, DeploymentJobState, DesiredState, HandoffSessionRequest,
+    IntegrationSettings, LeaderExecutor, MessageAuthorType, MessageDeliveryState, MessageKind,
+    PortSettings, PurgeAgentFilesResponse, ResolveRuntimeApprovalRequest, RuntimeApprovalRequest,
+    RuntimeApprovalState, RuntimeSettings, RuntimeTemplate, SessionAgentRun, SessionMessage,
+    SessionParticipant, SessionParticipantType, SessionRole, SessionRunRole, SessionRunState,
+    SessionState, SessionVisibility, SkillState, SystemRole, UpdateAgentConfigRequest,
+    UpdateAgentRequest, UpdateLeaderExecutorsRequest, UpdateSkillRequest, UpdateUserRoleRequest,
+    UserResponse, WorkflowBinding,
 };
 use entities::{
     agent, agent_config, agent_event, agent_log, agent_runtime, agent_session, agent_skill,
@@ -485,6 +486,28 @@ where
         .map_err(AppError::database)?;
     }
     Ok(value)
+}
+
+/// Shared validation for bulk deployment requests (unit-tested).
+fn validate_bulk_deployment_request(req: &BulkDeploymentRequest) -> Result<bool, AppError> {
+    if req.title.trim().is_empty() {
+        return Err(AppError::validation("deployment job title is required"));
+    }
+    if req.agent_ids.is_empty() {
+        return Err(AppError::validation("agent_ids must not be empty"));
+    }
+    if req.agent_ids.len() > 100 {
+        return Err(AppError::validation(
+            "agent_ids is limited to 100 per bulk request",
+        ));
+    }
+    let rollback = req.rollback && req.job_kind == DeploymentJobKind::RuntimeUpdate;
+    if req.rollback && !rollback {
+        return Err(AppError::validation(
+            "rollback is only valid for runtime_update jobs",
+        ));
+    }
+    Ok(rollback)
 }
 
 #[async_trait]
@@ -2633,6 +2656,58 @@ impl FleetRepository for PostgresFleetRepository {
         self.get_deployment_job(id).await
     }
 
+    async fn bulk_create_deployment_jobs(
+        &self,
+        req: BulkDeploymentRequest,
+        requested_by_user_id: Uuid,
+    ) -> Result<BulkDeploymentResult, AppError> {
+        let rollback = validate_bulk_deployment_request(&req)?;
+        let mut detail = req.detail.unwrap_or_else(|| json!({}));
+        if rollback {
+            if let Some(object) = detail.as_object_mut() {
+                object.insert("rollback".to_string(), json!(true));
+            }
+        }
+        let detail = redact_json(detail);
+        let ts = now();
+        let mut jobs = Vec::with_capacity(req.agent_ids.len());
+        let mut skipped = 0usize;
+        for agent_id in &req.agent_ids {
+            if load_agent_row(&self.db, *agent_id).await.is_err() {
+                skipped += 1;
+                continue;
+            }
+            let id = Uuid::new_v4();
+            deployment_job::Entity::insert(deployment_job::ActiveModel {
+                id: Set(id),
+                job_kind: Set(req.job_kind.as_str().to_string()),
+                state: Set(DeploymentJobState::Queued.as_str().to_string()),
+                agent_id: Set(Some(*agent_id)),
+                runtime_kind: Set(req.runtime_kind.map(|kind| kind.as_str().to_string())),
+                requested_by_user_id: Set(Some(requested_by_user_id)),
+                title: Set(format!(
+                    "{}{}",
+                    req.title.trim(),
+                    if rollback { " (rollback)" } else { "" }
+                )),
+                detail: Set(detail.clone()),
+                last_error: Set(None),
+                created_at: Set(ts),
+                updated_at: Set(ts),
+            })
+            .exec(&self.db)
+            .await
+            .map_err(AppError::database)?;
+            jobs.push(self.get_deployment_job(id).await?);
+        }
+        let created = jobs.len();
+        Ok(BulkDeploymentResult {
+            jobs,
+            created,
+            skipped,
+        })
+    }
+
     async fn update_deployment_job_state(
         &self,
         job_id: Uuid,
@@ -3810,5 +3885,61 @@ mod tests {
             .expect_err("ready agent cannot be purged");
 
         assert!(err.to_string().contains("after archive"));
+    }
+
+    #[test]
+    fn bulk_validation_rejects_empty_title_and_agents() {
+        let req = BulkDeploymentRequest {
+            job_kind: DeploymentJobKind::RuntimeUpdate,
+            agent_ids: vec![],
+            runtime_kind: None,
+            title: "  ".to_string(),
+            detail: None,
+            rollback: false,
+        };
+        assert!(validate_bulk_deployment_request(&req).is_err());
+
+        let req = BulkDeploymentRequest {
+            agent_ids: vec![Uuid::new_v4()],
+            title: "update".to_string(),
+            ..req
+        };
+        assert!(validate_bulk_deployment_request(&req).is_ok());
+    }
+
+    #[test]
+    fn bulk_validation_rejects_oversized_batches() {
+        let req = BulkDeploymentRequest {
+            job_kind: DeploymentJobKind::RuntimeUpdate,
+            agent_ids: (0..101).map(|_| Uuid::new_v4()).collect(),
+            runtime_kind: None,
+            title: "update".to_string(),
+            detail: None,
+            rollback: false,
+        };
+        assert!(validate_bulk_deployment_request(&req).is_err());
+    }
+
+    #[test]
+    fn bulk_validation_rejects_rollback_for_provision() {
+        let req = BulkDeploymentRequest {
+            job_kind: DeploymentJobKind::Provision,
+            agent_ids: vec![Uuid::new_v4()],
+            runtime_kind: None,
+            title: "provision".to_string(),
+            detail: None,
+            rollback: true,
+        };
+        assert!(validate_bulk_deployment_request(&req).is_err());
+
+        let req = BulkDeploymentRequest {
+            job_kind: DeploymentJobKind::RuntimeUpdate,
+            agent_ids: vec![Uuid::new_v4()],
+            runtime_kind: None,
+            title: "update".to_string(),
+            detail: None,
+            rollback: true,
+        };
+        assert!(validate_bulk_deployment_request(&req).unwrap());
     }
 }

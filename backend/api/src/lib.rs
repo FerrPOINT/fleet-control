@@ -65,6 +65,7 @@ pub mod routes;
         routes::deployments::list_deployment_jobs,
         routes::deployments::get_deployment_job,
         routes::deployments::create_deployment_job,
+        routes::deployments::bulk_create_deployment_jobs,
         routes::deployments::cancel_deployment_job,
         routes::settings::get_runtime_settings,
         routes::settings::update_runtime_settings,
@@ -146,6 +147,8 @@ pub mod routes;
         domain::RuntimeRunControlResponse,
         domain::UpdateLeaderExecutorsRequest,
         domain::CreateDeploymentJobRequest,
+        domain::BulkDeploymentRequest,
+        domain::BulkDeploymentResult,
         domain::RuntimeSettings,
         domain::PortSettings,
         domain::IntegrationSettings,
@@ -301,6 +304,10 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
             "/api/v1/deployments/jobs",
             get(routes::deployments::list_deployment_jobs)
                 .post(routes::deployments::create_deployment_job),
+        )
+        .route(
+            "/api/v1/deployments/jobs/bulk",
+            post(routes::deployments::bulk_create_deployment_jobs),
         )
         .route(
             "/api/v1/deployments/jobs/{job_id}",
