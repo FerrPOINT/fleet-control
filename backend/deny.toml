@@ -14,6 +14,12 @@ ignore = [
     # utoipa-axum 0.2 (macro-only, not linked into the binary). No safe
     # upgrade exists; revisit when utoipa-axum drops it.
     "RUSTSEC-2024-0436",
+    # rsa 0.9.10 Marvin Attack (RUSTSEC-2023-0071): no patched release exists
+    # (intentional per advisory). We use rsa only for LOCAL JWK -> DecodingKey
+    # public-key parsing in OIDC validation; no private-key network decrypt
+    # operations, so the timing sidechannel does not apply. Revisit if a
+    # patched rsa is released.
+    "RUSTSEC-2023-0071",
 ]
 
 [licenses]
