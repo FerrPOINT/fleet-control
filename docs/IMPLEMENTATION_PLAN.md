@@ -30,7 +30,7 @@ Phase 2: Java Agent runtime.
 
 Phase 3: fleet operations.
 
-- Add operator retention policy thresholds and scheduled stale-folder review.
+- Add operator retention policy thresholds and scheduled stale-folder review. — done: `fleet.retention.stale_archived_days` / `fleet.retention.review_interval_secs`, stale flag + archived days in storage report, scheduled review worker, `POST /api/v1/settings/retention/review`.
 - Add richer monitoring and alerts.
 - Add bulk runtime updates and rollback.
 - Add cross-project workflow health integration.

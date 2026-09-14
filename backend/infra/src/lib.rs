@@ -3133,6 +3133,11 @@ async fn inspect_agent_storage(
     let total_directories = areas.iter().map(|area| area.directories).sum();
     let total_symlinks = areas.iter().map(|area| area.symlinks).sum();
     let purge_eligible = agent.status == AgentStatus::Archived && root_exists && marker_verified;
+    let archived_days =
+        (agent.status == AgentStatus::Archived).then(|| days_since(&agent.updated_at));
+    let stale = archived_days
+        .map(|days| days >= i64::from(config.fleet.retention.stale_archived_days))
+        .unwrap_or(false);
 
     Ok(AgentStorageReport {
         agent_id: agent.id,
@@ -3151,7 +3156,15 @@ async fn inspect_agent_storage(
             archived_since: (agent.status == AgentStatus::Archived)
                 .then(|| agent.updated_at.clone()),
             purge_eligible,
-            retention_hint: retention_hint(agent, root_exists, marker_verified),
+            stale,
+            archived_days,
+            retention_hint: retention_hint(
+                agent,
+                root_exists,
+                marker_verified,
+                stale,
+                &config.fleet.retention,
+            ),
         },
     })
 }
@@ -3291,7 +3304,21 @@ fn update_last_modified(counters: &mut StorageCounters, metadata: &std::fs::Meta
     }
 }
 
-fn retention_hint(agent: &Agent, root_exists: bool, marker_verified: bool) -> String {
+fn days_since(timestamp: &str) -> i64 {
+    let now = chrono::Utc::now();
+    let ts = chrono::DateTime::parse_from_rfc3339(timestamp)
+        .map(|dt| dt.with_timezone(&chrono::Utc))
+        .unwrap_or(now);
+    (now - ts).num_days()
+}
+
+fn retention_hint(
+    agent: &Agent,
+    root_exists: bool,
+    marker_verified: bool,
+    stale: bool,
+    retention: &shared::RetentionConfig,
+) -> String {
     if !root_exists {
         return "agent folder is already absent".to_string();
     }
@@ -3299,6 +3326,12 @@ fn retention_hint(agent: &Agent, root_exists: bool, marker_verified: bool) -> St
         return "folder marker must match this agent before purge is allowed".to_string();
     }
     if agent.status == AgentStatus::Archived {
+        if stale {
+            return format!(
+                "archived agent is stale (over {} days); review and purge it",
+                retention.stale_archived_days
+            );
+        }
         return "archived agent files can be purged explicitly by an operator".to_string();
     }
     "archive the agent before physical purge".to_string()
@@ -3565,6 +3598,57 @@ mod tests {
         assert_eq!(first_token, replayed_token);
         assert_ne!(first_token, second_token);
         assert!(first_token.starts_with("fc_"));
+    }
+
+    #[tokio::test]
+    async fn storage_report_marks_stale_archived_agent() {
+        let root = temp_purge_root();
+        let agent_id = Uuid::new_v4();
+        let agent_root = root.join("agent1");
+        let mut config = test_config(&root);
+        config.fleet.retention.stale_archived_days = 30;
+        // Archived 40 days ago: stale.
+        let mut agent = test_agent(&root, agent_id, AgentStatus::Archived);
+        agent.updated_at = (chrono::Utc::now() - chrono::Duration::days(40))
+            .to_rfc3339()
+            .to_string();
+        write_marker(&agent_root, agent_id, "agent1").await;
+
+        let provisioner = FilesystemProvisioner;
+        let report = provisioner
+            .storage_report(&agent, &config)
+            .await
+            .expect("storage report");
+        assert!(report.retention.archived);
+        assert!(report.retention.purge_eligible);
+        assert!(report.retention.stale);
+        assert_eq!(report.retention.archived_days, Some(40));
+        assert!(
+            report
+                .retention
+                .retention_hint
+                .contains("stale (over 30 days)")
+        );
+
+        // Archived 5 days ago: not stale yet.
+        let mut fresh = test_agent(&root, agent_id, AgentStatus::Archived);
+        fresh.updated_at = (chrono::Utc::now() - chrono::Duration::days(5))
+            .to_rfc3339()
+            .to_string();
+        let report_fresh = provisioner
+            .storage_report(&fresh, &config)
+            .await
+            .expect("storage report fresh");
+        assert!(!report_fresh.retention.stale);
+        assert_eq!(report_fresh.retention.archived_days, Some(5));
+        assert!(
+            report_fresh
+                .retention
+                .retention_hint
+                .contains("purged explicitly")
+        );
+
+        let _ = tokio::fs::remove_dir_all(&root).await;
     }
 
     #[tokio::test]

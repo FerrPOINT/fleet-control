@@ -104,6 +104,7 @@ Settings:
 - `GET/PUT /settings/ports`
 - `GET/PUT /settings/integrations`
 - `GET/PUT /settings/auth`
+- `POST /settings/retention/review` — запустить проход stale-folder review сейчас (operator, audited): возвращает `stale_agent_ids` archived-агентов старше `fleet.retention.stale_archived_days`, порог и время прохода
 
 Auth settings expose `mode`, `jwt_issuer`, `jwt_audience`, token TTLs and
 refresh-cookie policy. `mode=hmac` is the only active mode until

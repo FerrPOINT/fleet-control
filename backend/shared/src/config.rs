@@ -56,6 +56,23 @@ pub struct AuthConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RetentionConfig {
+    /// Archived agents older than this many days become `stale` in review.
+    pub stale_archived_days: u32,
+    /// Run the scheduled stale-folder review with this period (seconds).
+    pub review_interval_secs: u64,
+}
+
+impl Default for RetentionConfig {
+    fn default() -> Self {
+        Self {
+            stale_archived_days: 30,
+            review_interval_secs: 3600,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FleetConfig {
     pub agents_root: String,
     pub hermes_source: String,
@@ -73,6 +90,8 @@ pub struct FleetConfig {
     pub forge_project: Option<String>,
     /// project-workflow base URL for namespace/workflow sync, e.g. http://pw-api:8811.
     pub project_workflow_url: Option<String>,
+    /// Operator retention policy thresholds (docs/IMPLEMENTATION_PLAN.md Phase 3).
+    pub retention: RetentionConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -152,6 +171,8 @@ impl AppConfig {
             .set_default("fleet.forge_api_token", Option::<String>::None)?
             .set_default("fleet.forge_project", Option::<String>::None)?
             .set_default("fleet.project_workflow_url", Option::<String>::None)?
+            .set_default("fleet.retention.stale_archived_days", 30u64)?
+            .set_default("fleet.retention.review_interval_secs", 3600u64)?
             .set_default("metrics.public", true)?
             .build()?;
 
@@ -295,6 +316,7 @@ impl Default for FleetConfig {
             runtime_token_secret: "[CHANGE_ME]".to_string(),
             agent_port_base: 29000,
             agent_port_stride: 10,
+            retention: RetentionConfig::default(),
         }
     }
 }

@@ -384,7 +384,44 @@ pub struct AppContext {
     pub events: broadcast::Sender<FleetEvent>,
 }
 
+/// Result of one scheduled stale-folder review pass
+/// (docs/IMPLEMENTATION_PLAN.md Phase 3).
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct RetentionReviewOutcome {
+    /// Agents whose archived folders exceeded the stale threshold.
+    pub stale_agent_ids: Vec<Uuid>,
+    /// The stale threshold (days) used for this pass.
+    pub stale_archived_days: u32,
+    pub reviewed_at: shared::Timestamp,
+}
+
 impl AppContext {
+    /// Scheduled stale-folder review: scans archived agents and returns the
+    /// ones older than `fleet.retention.stale_archived_days`. Read-only —
+    /// physical purge stays a separate explicit operator action.
+    pub async fn review_stale_agent_folders(&self) -> Result<RetentionReviewOutcome, AppError> {
+        let threshold = i64::from(self.config.fleet.retention.stale_archived_days);
+        let agents = self.repo.list_agents().await?;
+        let now = chrono::Utc::now();
+        let mut stale = Vec::new();
+        for agent in agents {
+            if agent.status != AgentStatus::Archived {
+                continue;
+            }
+            let ts = chrono::DateTime::parse_from_rfc3339(&agent.updated_at)
+                .map(|dt| dt.with_timezone(&chrono::Utc))
+                .map_err(|e| AppError::internal(format!("invalid agent timestamp: {e}")))?;
+            if (now - ts).num_days() >= threshold {
+                stale.push(agent.id);
+            }
+        }
+        Ok(RetentionReviewOutcome {
+            stale_agent_ids: stale,
+            stale_archived_days: self.config.fleet.retention.stale_archived_days,
+            reviewed_at: now.fixed_offset(),
+        })
+    }
+
     pub fn new(
         config: Arc<AppConfig>,
         repo: Arc<dyn FleetRepository>,

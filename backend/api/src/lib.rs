@@ -74,12 +74,14 @@ pub mod routes;
         routes::settings::update_integration_settings,
         routes::settings::get_auth_settings,
         routes::settings::update_auth_settings,
+        routes::settings::run_retention_review,
         routes::logs::list_logs,
         routes::logs::list_audit_log,
         routes::events::recent_events,
         routes::events::events,
     ),
     components(schemas(
+        routes::settings::RetentionReviewOutcomeDto,
         domain::Agent,
         domain::SystemRole,
         domain::AgentKind,
@@ -325,6 +327,10 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         .route(
             "/api/v1/settings/auth",
             get(routes::settings::get_auth_settings).put(routes::settings::update_auth_settings),
+        )
+        .route(
+            "/settings/retention/review",
+            post(routes::settings::run_retention_review),
         )
         .route("/api/v1/logs", get(routes::logs::list_logs))
         .route("/api/v1/audit-log", get(routes::logs::list_audit_log))

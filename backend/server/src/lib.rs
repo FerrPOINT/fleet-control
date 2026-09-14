@@ -38,6 +38,36 @@ pub async fn run(
         warn!("failed to seed default agents: {err}");
     }
 
+    // Scheduled stale-folder review (docs/IMPLEMENTATION_PLAN.md Phase 3):
+    // periodically surface archived agents older than the operator
+    // threshold. Read-only; purge remains an explicit operator action.
+    {
+        let ctx = ctx.clone();
+        let interval =
+            std::time::Duration::from_secs(config.fleet.retention.review_interval_secs.max(60));
+        tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(interval);
+            ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            loop {
+                ticker.tick().await;
+                match ctx.review_stale_agent_folders().await {
+                    Ok(outcome) if !outcome.stale_agent_ids.is_empty() => {
+                        tracing::warn!(
+                            "retention review: {} stale archived agent(s) exceed {} days: {:?}",
+                            outcome.stale_agent_ids.len(),
+                            outcome.stale_archived_days,
+                            outcome.stale_agent_ids
+                        );
+                    }
+                    Ok(_) => {}
+                    Err(err) => {
+                        tracing::warn!("retention review failed: {err}");
+                    }
+                }
+            }
+        });
+    }
+
     let address = config.server_addr();
     let listener = tokio::net::TcpListener::bind(address)
         .await

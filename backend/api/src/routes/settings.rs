@@ -123,3 +123,41 @@ pub async fn update_auth_settings(
         .await?;
     Ok(Json(settings))
 }
+
+#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
+pub struct RetentionReviewOutcomeDto {
+    pub stale_agent_ids: Vec<uuid::Uuid>,
+    pub stale_archived_days: u32,
+    pub reviewed_at: String,
+}
+
+impl From<app::RetentionReviewOutcome> for RetentionReviewOutcomeDto {
+    fn from(o: app::RetentionReviewOutcome) -> Self {
+        Self {
+            stale_agent_ids: o.stale_agent_ids,
+            stale_archived_days: o.stale_archived_days,
+            reviewed_at: o.reviewed_at.to_rfc3339(),
+        }
+    }
+}
+
+#[utoipa::path(post, path = "/api/v1/settings/retention/review", tag = "settings", responses((status = 200, body = RetentionReviewOutcomeDto)))]
+/// Run one stale-folder review pass now (operator): lists archived agents
+/// older than `fleet.retention.stale_archived_days`. Read-only.
+pub async fn run_retention_review(
+    State(ctx): State<Arc<AppContext>>,
+    Extension(user): Extension<crate::middleware::CurrentUser>,
+) -> Result<Json<RetentionReviewOutcomeDto>, AppError> {
+    crate::middleware::require_operator(&user)?;
+    let outcome = ctx.review_stale_agent_folders().await?;
+    ctx.repo
+        .insert_audit(
+            Some(user.id),
+            "settings.retention.review",
+            "settings",
+            Some("retention".to_string()),
+            serde_json::to_value(&outcome).map_err(AppError::internal)?,
+        )
+        .await?;
+    Ok(Json(RetentionReviewOutcomeDto::from(outcome)))
+}

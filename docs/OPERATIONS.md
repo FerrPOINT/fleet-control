@@ -18,6 +18,12 @@ is a separate operator action:
 1. Archive the agent.
 2. Open the agent workspace tab.
 3. Review the storage report totals, marker status and retention hint.
+   The report also flags `stale` archived agents (older than
+   `fleet.retention.stale_archived_days`, default 30) and shows
+   `archived_days`; the scheduled stale-folder review logs stale agents
+   every `fleet.retention.review_interval_secs` (default hourly), and an
+   operator can run a pass on demand via
+   `POST /api/v1/settings/retention/review` (operator role, audited).
 4. Type the exact `agentN` name into the purge confirmation field.
 5. Run file purge.
 

@@ -1721,6 +1721,27 @@
         }
       }
     },
+    "/api/v1/settings/retention/review": {
+      "post": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Run one stale-folder review pass now (operator): lists archived agents\nolder than `fleet.retention.stale_archived_days`. Read-only.",
+        "operationId": "run_retention_review",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionReviewOutcomeDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/settings/runtime": {
       "get": {
         "tags": [
@@ -2198,11 +2219,20 @@
         "required": [
           "archived",
           "purge_eligible",
+          "stale",
           "retention_hint"
         ],
         "properties": {
           "archived": {
             "type": "boolean"
+          },
+          "archived_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Days since the agent was archived, when archived."
           },
           "archived_since": {
             "oneOf": [
@@ -2219,6 +2249,10 @@
           },
           "retention_hint": {
             "type": "string"
+          },
+          "stale": {
+            "type": "boolean",
+            "description": "True when the archived agent is older than the operator stale\nthreshold (fleet.retention.stale_archived_days) — the scheduled\nstale-folder review surfaces exactly these agents."
           }
         }
       },
@@ -3350,6 +3384,31 @@
           },
           "resolve_all": {
             "type": "boolean"
+          }
+        }
+      },
+      "RetentionReviewOutcomeDto": {
+        "type": "object",
+        "required": [
+          "stale_agent_ids",
+          "stale_archived_days",
+          "reviewed_at"
+        ],
+        "properties": {
+          "reviewed_at": {
+            "type": "string"
+          },
+          "stale_agent_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "stale_archived_days": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
           }
         }
       },

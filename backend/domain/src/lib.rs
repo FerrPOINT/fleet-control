@@ -837,6 +837,12 @@ pub struct AgentRetentionReport {
     pub archived: bool,
     pub archived_since: Option<Timestamp>,
     pub purge_eligible: bool,
+    /// True when the archived agent is older than the operator stale
+    /// threshold (fleet.retention.stale_archived_days) — the scheduled
+    /// stale-folder review surfaces exactly these agents.
+    pub stale: bool,
+    /// Days since the agent was archived, when archived.
+    pub archived_days: Option<i64>,
     pub retention_hint: String,
 }
 

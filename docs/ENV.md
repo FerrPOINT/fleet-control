@@ -20,6 +20,8 @@ Important runtime values:
 - `FLEET_CONTROL_FLEET__JAVA_AGENT_COMMAND`
 - `FLEET_CONTROL_FLEET__AGENT_PORT_BASE`
 - `FLEET_CONTROL_FLEET__AGENT_PORT_STRIDE`
+| `FLEET_CONTROL_FLEET__RETENTION__STALE_ARCHIVED_DAYS` | 30 | Stale threshold (days) for archived agent folders |
+| `FLEET_CONTROL_FLEET__RETENTION__REVIEW_INTERVAL_SECS` | 3600 | Scheduled stale-folder review period (seconds) |
 
 Default ports:
 
