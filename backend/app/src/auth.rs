@@ -68,14 +68,221 @@ pub struct AuthTokens {
     pub refresh_hash: String,
 }
 
-#[derive(Debug, Clone)]
+/// RS256 access-token validation against a remote OIDC provider's JWKS
+/// (IMPLEMENTATION_PLAN: "Add OIDC/JWKS validation mode"). Keys are fetched
+/// over HTTPS, cached in memory and refreshed on the configured interval or
+/// on unknown-`kid` decode errors.
+pub struct OidcValidator {
+    jwks_url: String,
+    issuer: String,
+    audience: String,
+    role_claim: String,
+    client: reqwest::Client,
+    keys: std::sync::RwLock<OidcKeyCache>,
+}
+
+struct OidcKeyCache {
+    keys: Vec<Jwk>,
+    fetched_at: std::time::Instant,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct Jwk {
+    kid: Option<String>,
+    kty: String,
+    n: Option<String>,
+    e: Option<String>,
+    /// Algorithm hint; informational only (RS256 is enforced by validation).
+    #[allow(dead_code)]
+    alg: Option<String>,
+}
+
+impl Jwk {
+    fn to_decoding_key(&self) -> Option<jsonwebtoken::DecodingKey> {
+        if self.kty != "RSA" {
+            return None;
+        }
+        let n = self.n.as_deref()?;
+        let e = self.e.as_deref()?;
+        // Decode base64url modulus/exponent manually: no ring dependency
+        // assumptions beyond what jsonwebtoken already uses.
+        fn b64url(input: &str) -> Option<Vec<u8>> {
+            use base64::Engine;
+            base64::engine::general_purpose::URL_SAFE_NO_PAD
+                .decode(input)
+                .ok()
+        }
+        let n = b64url(n)?;
+        let e = b64url(e)?;
+        let pem_input = rsa::RsaPublicKey::new(
+            rsa::BigUint::from_bytes_be(&n),
+            rsa::BigUint::from_bytes_be(&e),
+        )
+        .ok()?;
+        use rsa::pkcs1::EncodeRsaPublicKey;
+        let der = pem_input.to_pkcs1_der().ok()?.as_bytes().to_vec();
+        Some(jsonwebtoken::DecodingKey::from_rsa_der(&der))
+    }
+}
+
+impl OidcValidator {
+    pub fn new(config: &AuthConfig) -> Self {
+        let jwks_url = if config.oidc_jwks_url.trim().is_empty() {
+            format!(
+                "{}/keys",
+                config.oidc_issuer_url.trim().trim_end_matches('/')
+            )
+        } else {
+            config.oidc_jwks_url.trim().to_string()
+        };
+        Self {
+            jwks_url,
+            issuer: config
+                .oidc_issuer_url
+                .trim()
+                .trim_end_matches('/')
+                .to_string(),
+            audience: config.oidc_audience.trim().to_string(),
+            role_claim: config.oidc_role_claim.clone(),
+            client: reqwest::Client::new(),
+            keys: std::sync::RwLock::new(OidcKeyCache {
+                keys: Vec::new(),
+                fetched_at: std::time::Instant::now() - std::time::Duration::from_secs(24 * 3600),
+            }),
+        }
+    }
+
+    /// Test-only constructor with pre-seeded keys (no network).
+    #[cfg(test)]
+    pub fn with_keys(config: &AuthConfig, keys: Vec<Jwk>) -> Self {
+        let validator = Self::new(config);
+        *validator.keys.write().unwrap() = OidcKeyCache {
+            keys,
+            fetched_at: std::time::Instant::now(),
+        };
+        validator
+    }
+
+    async fn refresh_keys(&self) -> Result<(), AppError> {
+        let jwks: serde_json::Value = self
+            .client
+            .get(&self.jwks_url)
+            .timeout(std::time::Duration::from_secs(10))
+            .send()
+            .await
+            .map_err(|e| {
+                tracing::warn!("jwks fetch failed: {e}");
+                AppError::Unauthorized
+            })?
+            .json()
+            .await
+            .map_err(|e| {
+                tracing::warn!("jwks parse failed: {e}");
+                AppError::Unauthorized
+            })?;
+        let keys: Vec<Jwk> = serde_json::from_value(
+            jwks.get("keys")
+                .cloned()
+                .unwrap_or(serde_json::Value::Array(Vec::new())),
+        )
+        .unwrap_or_default();
+        *self.keys.write().unwrap() = OidcKeyCache {
+            keys,
+            fetched_at: std::time::Instant::now(),
+        };
+        Ok(())
+    }
+
+    fn find_key(&self, kid: Option<&str>) -> Option<Jwk> {
+        let cache = self.keys.read().unwrap();
+        cache
+            .keys
+            .iter()
+            .find(|k| match (kid, &k.kid) {
+                (Some(want), Some(have)) => want == have,
+                (None, _) | (_, None) => true,
+            })
+            .cloned()
+    }
+
+    fn cache_fresh(&self, refresh_secs: u64) -> bool {
+        self.keys.read().unwrap().fetched_at.elapsed().as_secs() < refresh_secs
+    }
+
+    /// Validates an RS256 access token: signature against JWKS, `iss` and
+    /// (when configured) `aud` claims, expiry. Returns the claims value.
+    pub async fn validate_access_token(
+        &self,
+        token: &str,
+        refresh_secs: u64,
+    ) -> Result<serde_json::Value, AppError> {
+        let header = jsonwebtoken::decode_header(token).map_err(|e| {
+            tracing::warn!("invalid token header: {e}");
+            AppError::Unauthorized
+        })?;
+        if header.alg != jsonwebtoken::Algorithm::RS256 {
+            return Err(AppError::Unauthorized);
+        }
+        let kid = header.kid;
+        if !self.cache_fresh(refresh_secs) {
+            self.refresh_keys().await?;
+        }
+        let mut key = self.find_key(kid.as_deref());
+        if key.is_none() {
+            // unknown kid -> force one refresh and retry
+            self.refresh_keys().await?;
+            key = self.find_key(kid.as_deref());
+        }
+        let jwk = key.ok_or(AppError::Unauthorized)?;
+        let decoding = jwk.to_decoding_key().ok_or(AppError::Unauthorized)?;
+
+        let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::RS256);
+        validation.set_issuer(&[&self.issuer]);
+        if !self.audience.is_empty() {
+            validation.set_audience(&[&self.audience]);
+        } else {
+            validation.validate_aud = false;
+        }
+        let data = jsonwebtoken::decode::<serde_json::Value>(token, &decoding, &validation)
+            .map_err(|e| {
+                tracing::warn!("invalid oidc token: {e}");
+                AppError::Unauthorized
+            })?;
+        Ok(data.claims)
+    }
+
+    /// Maps the configured role claim to a SystemRole (unknown -> Viewer).
+    pub fn role_from_claims(&self, claims: &serde_json::Value) -> SystemRole {
+        let raw = claims
+            .get(&self.role_claim)
+            .and_then(Value::as_str)
+            .unwrap_or("viewer");
+        match raw.to_ascii_lowercase().as_str() {
+            "admin" | "administrator" => SystemRole::Admin,
+            "operator" | "maintainer" => SystemRole::Operator,
+            _ => SystemRole::User,
+        }
+    }
+}
+
 pub struct AuthService {
     config: AuthConfig,
+    oidc: Option<OidcValidator>,
 }
 
 impl AuthService {
     pub fn new(config: AuthConfig) -> Self {
-        Self { config }
+        let oidc = if config.mode == "oidc" {
+            Some(OidcValidator::new(&config))
+        } else {
+            None
+        };
+        Self { config, oidc }
+    }
+
+    /// True when the service validates provider-issued RS256 tokens only.
+    pub fn is_oidc_mode(&self) -> bool {
+        self.oidc.is_some()
     }
 
     pub fn hash_password(&self, password: &str) -> Result<String, AppError> {
@@ -132,7 +339,58 @@ impl AuthService {
         })
     }
 
-    pub fn validate_access_token(&self, token: &str) -> Result<Claims, AppError> {
+    pub async fn validate_access_token(&self, token: &str) -> Result<Claims, AppError> {
+        // OIDC mode: RS256 validation against the provider's JWKS. Local
+        // HMAC tokens are NOT accepted in oidc mode (fail-closed switch).
+        if let Some(validator) = &self.oidc {
+            let claims = validator
+                .validate_access_token(token, self.config.oidc_jwks_refresh_secs)
+                .await?;
+            let sub = claims
+                .get("sub")
+                .and_then(Value::as_str)
+                .ok_or(AppError::Unauthorized)?
+                .to_string();
+            let role = validator.role_from_claims(&claims);
+            let email = claims
+                .get("email")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string();
+            let scopes = claims
+                .get("scope")
+                .and_then(Value::as_str)
+                .map(|scope| scope.split_whitespace().map(str::to_string).collect())
+                .unwrap_or_default();
+            return Ok(Claims {
+                sub,
+                email,
+                exp: claims
+                    .get("exp")
+                    .and_then(Value::as_i64)
+                    .unwrap_or_default(),
+                iat: claims
+                    .get("iat")
+                    .and_then(Value::as_i64)
+                    .unwrap_or_default(),
+                aud: claims
+                    .get("aud")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
+                iss: claims
+                    .get("iss")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
+                role: Some(role.to_string()),
+                scopes,
+                sid: claims
+                    .get("sid")
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
+            });
+        }
         match decode::<Claims>(
             token,
             &DecodingKey::from_secret(self.config.jwt_secret.as_bytes()),
@@ -273,8 +531,8 @@ mod tests {
         .expect("token")
     }
 
-    #[test]
-    fn issued_access_token_carries_fleet_compatible_claims() {
+    #[tokio::test]
+    async fn issued_access_token_carries_fleet_compatible_claims() {
         let config = config();
         let service = AuthService::new(config);
         let user = user(SystemRole::Operator);
@@ -282,6 +540,7 @@ mod tests {
         let tokens = service.issue_tokens(&user).expect("tokens");
         let claims = service
             .validate_access_token(&tokens.response.access_token)
+            .await
             .expect("claims");
 
         assert_eq!(claims.sub, user.id.to_string());
@@ -294,8 +553,8 @@ mod tests {
         assert!(claims.sid.is_some());
     }
 
-    #[test]
-    fn legacy_access_token_without_audience_and_issuer_is_accepted() {
+    #[tokio::test]
+    async fn legacy_access_token_without_audience_and_issuer_is_accepted() {
         let config = config();
         let user_id = Uuid::new_v4();
         let legacy = LegacyClaims {
@@ -313,6 +572,7 @@ mod tests {
         assert!(token_has_legacy_claim_shape(&token));
         let claims = AuthService::new(config)
             .validate_access_token(&token)
+            .await
             .expect("legacy claims");
 
         assert_eq!(claims.sub, user_id.to_string());
@@ -323,39 +583,172 @@ mod tests {
         assert!(claims.sid.is_none());
     }
 
-    #[test]
-    fn wrong_audience_is_rejected_without_legacy_fallback() {
+    #[tokio::test]
+    async fn wrong_audience_is_rejected_without_legacy_fallback() {
         let config = config();
         let service = AuthService::new(config.clone());
-        let mut claims = service
+        let tokens = service
             .issue_tokens(&user(SystemRole::Admin))
-            .and_then(|tokens| service.validate_access_token(&tokens.response.access_token))
+            .expect("tokens");
+        let mut claims = service
+            .validate_access_token(&tokens.response.access_token)
+            .await
             .expect("claims");
         claims.aud = "other".to_string();
         let token = token_for_claims(&config, &claims);
 
         assert!(!token_has_legacy_claim_shape(&token));
         assert!(matches!(
-            service.validate_access_token(&token),
+            service.validate_access_token(&token).await,
             Err(AppError::Unauthorized)
         ));
     }
 
-    #[test]
-    fn wrong_issuer_is_rejected_without_legacy_fallback() {
+    #[tokio::test]
+    async fn wrong_issuer_is_rejected_without_legacy_fallback() {
         let config = config();
         let service = AuthService::new(config.clone());
-        let mut claims = service
+        let tokens = service
             .issue_tokens(&user(SystemRole::Admin))
-            .and_then(|tokens| service.validate_access_token(&tokens.response.access_token))
+            .expect("tokens");
+        let mut claims = service
+            .validate_access_token(&tokens.response.access_token)
+            .await
             .expect("claims");
         claims.iss = "other".to_string();
         let token = token_for_claims(&config, &claims);
 
         assert!(!token_has_legacy_claim_shape(&token));
         assert!(matches!(
-            service.validate_access_token(&token),
+            service.validate_access_token(&token).await,
             Err(AppError::Unauthorized)
         ));
+    }
+
+    // --- OIDC/JWKS validation (IMPLEMENTATION_PLAN auth item) ---
+
+    fn oidc_config() -> AuthConfig {
+        AuthConfig {
+            mode: "oidc".to_string(),
+            jwt_secret: "test".to_string(),
+            jwt_issuer: "fleet".to_string(),
+            jwt_audience: "fleet".to_string(),
+            oidc_issuer_url: "https://idp.example.test".to_string(),
+            oidc_jwks_url: String::new(),
+            oidc_audience: "fleet-control".to_string(),
+            oidc_role_claim: "role".to_string(),
+            oidc_jwks_refresh_secs: 300,
+            access_token_ttl_minutes: 15,
+            refresh_token_ttl_days: 7,
+            refresh_cookie_name: "refresh_token".to_string(),
+            refresh_cookie_secure: true,
+            refresh_cookie_same_site: "Lax".to_string(),
+            refresh_cookie_domain: None,
+            refresh_cookie_path: "/api/v1".to_string(),
+        }
+    }
+
+    fn generate_jwk_pair() -> (Jwk, jsonwebtoken::EncodingKey) {
+        use base64::Engine;
+        use rsa::pkcs8::EncodePrivateKey;
+        use rsa::traits::PublicKeyParts;
+        let mut rng = rand_core::OsRng;
+        let key = rsa::RsaPrivateKey::new(&mut rng, 2048).expect("rsa key");
+        let b64 = |v: &[u8]| base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(v);
+        let jwk = Jwk {
+            kid: Some("test-key-1".to_string()),
+            kty: "RSA".to_string(),
+            n: Some(b64(&key.n().to_bytes_be())),
+            e: Some(b64(&key.e().to_bytes_be())),
+            alg: Some("RS256".to_string()),
+        };
+        let pkcs8 = key
+            .to_pkcs8_pem(rsa::pkcs8::LineEnding::LF)
+            .expect("pkcs8 pem");
+        (
+            jwk,
+            jsonwebtoken::EncodingKey::from_rsa_pem(pkcs8.as_bytes()).expect("encoding key"),
+        )
+    }
+
+    #[tokio::test]
+    async fn oidc_validator_accepts_provider_rs256_token() {
+        let config = oidc_config();
+        let (jwk, encoding) = generate_jwk_pair();
+        let validator = OidcValidator::with_keys(&config, vec![jwk]);
+
+        let header = jsonwebtoken::Header {
+            alg: jsonwebtoken::Algorithm::RS256,
+            kid: Some("test-key-1".to_string()),
+            ..Default::default()
+        };
+        let claims = serde_json::json!({
+            "sub": "user-1",
+            "email": "user@example.test",
+            "iss": "https://idp.example.test",
+            "aud": "fleet-control",
+            "exp": (Utc::now() + Duration::minutes(10)).timestamp(),
+            "iat": Utc::now().timestamp(),
+            "role": "admin",
+        });
+        let token = jsonwebtoken::encode(&header, &claims, &encoding).expect("sign");
+
+        let validated = validator
+            .validate_access_token(&token, 300)
+            .await
+            .expect("valid");
+        assert_eq!(validated["sub"], "user-1");
+        assert_eq!(validator.role_from_claims(&validated), SystemRole::Admin);
+    }
+
+    #[tokio::test]
+    async fn oidc_validator_rejects_hmac_and_wrong_issuer() {
+        let config = oidc_config();
+        let (jwk, encoding) = generate_jwk_pair();
+        let validator = OidcValidator::with_keys(&config, vec![jwk]);
+
+        let hmac_token = jsonwebtoken::encode(
+            &jsonwebtoken::Header::default(),
+            &serde_json::json!({"sub": "x", "iss": "https://idp.example.test", "aud": "fleet-control", "exp": (Utc::now() + Duration::minutes(10)).timestamp()}),
+            &jsonwebtoken::EncodingKey::from_secret(b"attacker-secret"),
+        )
+        .expect("hmac sign");
+        assert!(
+            validator
+                .validate_access_token(&hmac_token, 300)
+                .await
+                .is_err()
+        );
+
+        let header = jsonwebtoken::Header {
+            alg: jsonwebtoken::Algorithm::RS256,
+            kid: Some("test-key-1".to_string()),
+            ..Default::default()
+        };
+        let claims = serde_json::json!({
+            "sub": "user-1",
+            "iss": "https://evil.example.test",
+            "aud": "fleet-control",
+            "exp": (Utc::now() + Duration::minutes(10)).timestamp(),
+        });
+        let token = jsonwebtoken::encode(&header, &claims, &encoding).expect("sign");
+        assert!(validator.validate_access_token(&token, 300).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn hmac_tokens_rejected_when_oidc_mode_active() {
+        let (jwk, _encoding) = generate_jwk_pair();
+        let service = AuthService {
+            config: oidc_config(),
+            oidc: Some(OidcValidator::with_keys(&oidc_config(), vec![jwk])),
+        };
+        assert!(service.is_oidc_mode());
+        let hmac_token = jsonwebtoken::encode(
+            &jsonwebtoken::Header::default(),
+            &serde_json::json!({"sub": "u", "email": "u@x", "iss": "fleet", "aud": "fleet", "exp": (Utc::now() + Duration::minutes(5)).timestamp()}),
+            &jsonwebtoken::EncodingKey::from_secret(b"test"),
+        )
+        .expect("sign");
+        assert!(service.validate_access_token(&hmac_token).await.is_err());
     }
 }

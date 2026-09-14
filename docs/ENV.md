@@ -27,3 +27,12 @@ Default ports:
 
 - backend: `23801`
 - frontend: `23802`
+
+## OIDC mode (auth.mode=oidc)
+
+- `FLEET_CONTROL_AUTH__MODE=oidc` — включает RS256/JWKS-валидацию access-токенов; локальный HMAC и local login отключены fail-closed.
+- `FLEET_CONTROL_AUTH__OIDC_ISSUER_URL` — issuer провайдера (обязателен в oidc-режиме); `iss`-клейм проверяется строго.
+- `FLEET_CONTROL_AUTH__OIDC_JWKS_URL` — переопределение JWKS (default `<issuer>/keys`).
+- `FLEET_CONTROL_AUTH__OIDC_AUDIENCE` — ожидаемый `aud` (пусто = не проверять).
+- `FLEET_CONTROL_AUTH__OIDC_ROLE_CLAIM` — клейм роли (default `role`; admin→Admin, operator/maintainer→Operator, прочее→User).
+- `FLEET_CONTROL_AUTH__OIDC_JWKS_REFRESH_SECS` — интервал обновления кэша ключей (default 300; принудительный refresh при неизвестном `kid`).

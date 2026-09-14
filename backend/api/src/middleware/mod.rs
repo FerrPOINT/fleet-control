@@ -77,7 +77,7 @@ pub async fn require_auth(
         central_auth::CentralCheck::FallThrough => {}
     }
 
-    let claims = ctx.auth.validate_access_token(token)?;
+    let claims = ctx.auth.validate_access_token(token).await?;
     let user_id = claims
         .sub
         .parse::<Uuid>()

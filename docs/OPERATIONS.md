@@ -62,3 +62,8 @@ reconciles status by marking an untracked Hermes process as stopped.
 Use idempotency keys when retrying session/message create calls. If the previous
 payload differs, the API returns `409` and the operator should create a new
 intent instead of replaying the old key.
+
+
+## OIDC authentication mode
+
+`auth.mode=oidc` (см. docs/ENV.md): access-токены валидируются как RS256 против JWKS провайдера (кэш в памяти, refresh по интервалу и при неизвестном `kid`); `iss`/`aud` проверяются строго; HMAC-токены и локальный логин (`POST /api/v1/auth/login`) отклоняются — перевод на режим требует выданных провайдером токенов. Роль FC берётся из `oidc_role_claim` (admin→Admin, operator/maintainer→Operator, иначе User). Legacy-фоллбек компакт-токенов в oidc-режиме не действует.

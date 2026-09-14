@@ -46,6 +46,17 @@ pub struct AuthConfig {
     pub jwt_secret: String,
     pub jwt_issuer: String,
     pub jwt_audience: String,
+    /// OIDC mode: issuer URL used for the `iss` claim check and default
+    /// JWKS URL (`<issuer>/keys`).
+    pub oidc_issuer_url: String,
+    /// Override JWKS URL (defaults to `<issuer>/keys` when empty).
+    pub oidc_jwks_url: String,
+    /// Expected `aud` claim for provider-issued access tokens.
+    pub oidc_audience: String,
+    /// Claim carrying the FC role mapping ('role' by default).
+    pub oidc_role_claim: String,
+    /// JWKS cache refresh interval, seconds (default 300).
+    pub oidc_jwks_refresh_secs: u64,
     pub access_token_ttl_minutes: u64,
     pub refresh_token_ttl_days: u64,
     pub refresh_cookie_name: String,
@@ -149,6 +160,11 @@ impl AppConfig {
             .set_default("server.general_rate_burst", 60u32)?
             .set_default("server.general_rate_per_second", 60u64)?
             .set_default("auth.mode", "hmac")?
+            .set_default("auth.oidc_issuer_url", "")?
+            .set_default("auth.oidc_jwks_url", "")?
+            .set_default("auth.oidc_audience", "")?
+            .set_default("auth.oidc_role_claim", "role")?
+            .set_default("auth.oidc_jwks_refresh_secs", 300)?
             .set_default("auth.jwt_secret", "[CHANGE_ME]")?
             .set_default("auth.jwt_issuer", "fleet-control")?
             .set_default("auth.jwt_audience", "sdlc")?
@@ -209,10 +225,14 @@ impl AppConfig {
                 "fleet.runtime_token_secret must be changed from default [CHANGE_ME]".to_string(),
             ));
         }
-        if cfg.auth.mode != "hmac" {
+        if cfg.auth.mode == "oidc" && cfg.auth.oidc_issuer_url.trim().is_empty() {
             return Err(ConfigError::Message(
-                "auth.mode currently supports only hmac; oidc is reserved for sdlc-auth-core"
-                    .to_string(),
+                "auth.mode=oidc requires auth.oidc_issuer_url".to_string(),
+            ));
+        }
+        if cfg.auth.mode != "hmac" && cfg.auth.mode != "oidc" {
+            return Err(ConfigError::Message(
+                "auth.mode supports only hmac or oidc".to_string(),
             ));
         }
         if cfg.auth.jwt_issuer.trim().is_empty() {
@@ -290,6 +310,11 @@ impl Default for AuthConfig {
             jwt_secret: "[CHANGE_ME]".to_string(),
             jwt_issuer: "fleet-control".to_string(),
             jwt_audience: "sdlc".to_string(),
+            oidc_issuer_url: String::new(),
+            oidc_jwks_url: String::new(),
+            oidc_audience: String::new(),
+            oidc_role_claim: "role".to_string(),
+            oidc_jwks_refresh_secs: 300,
             access_token_ttl_minutes: 15,
             refresh_token_ttl_days: 7,
             refresh_cookie_name: "refresh_token".to_string(),

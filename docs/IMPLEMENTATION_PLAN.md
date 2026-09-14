@@ -20,7 +20,7 @@ Phase 1: Hermes MVP completion.
 - Replace the local HMAC token validator with `sdlc-auth-core::Validator::hmac`
   after WSL/CI can fetch `services-base`.
 - Add OIDC/JWKS validation mode and retire the compact-token legacy fallback
-  after the transition window.
+  after the transition window. — done: `auth.mode=oidc` — RS256/JWKS (кэш+refresh, kid-miss), строгие iss/aud, маппинг ролей, local login и HMAC-токены отклоняются fail-closed (см. docs/ENV.md, docs/OPERATIONS.md).
 
 Phase 2: Java Agent runtime.
 

@@ -20,6 +20,9 @@ chrono.workspace = true
 uuid.workspace = true
 anyhow.workspace = true
 jsonwebtoken.workspace = true
+reqwest.workspace = true
+rsa = { version = "0.9", features = ["std"] }
+base64 = "0.22"
 rand_core.workspace = true
 sha2 = "0.10"
 hex = "0.4"

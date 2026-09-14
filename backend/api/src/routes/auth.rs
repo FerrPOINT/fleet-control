@@ -38,6 +38,11 @@ pub async fn login(
     jar: CookieJar,
     Json(req): Json<LoginRequest>,
 ) -> Result<(CookieJar, Json<AuthResponse>), AppError> {
+    // OIDC mode: local credentials are disabled fail-closed; tokens come
+    // exclusively from the configured provider.
+    if ctx.auth.is_oidc_mode() {
+        return Err(AppError::Unauthorized);
+    }
     let req = auth::normalize_login(req);
     // Central fleet auth first; local password login remains the fallback
     // during the migration window (middleware/central_auth.rs).
