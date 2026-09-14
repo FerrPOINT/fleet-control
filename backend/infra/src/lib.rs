@@ -23,9 +23,9 @@ use domain::{
 };
 use entities::{
     agent, agent_config, agent_event, agent_log, agent_runtime, agent_session, agent_skill,
-    audit_log, control_setting, deployment_job, leader_executor, runtime_approval_request,
-    runtime_template, session_agent_run, session_message, session_participant, user,
-    workflow_binding,
+    audit_log, control_setting, deployment_job, fleet_alerts, leader_executor,
+    runtime_approval_request, runtime_template, session_agent_run, session_message,
+    session_participant, user, workflow_binding,
 };
 use hmac::{Hmac, Mac};
 use sea_orm::{
@@ -87,6 +87,11 @@ fn api_ts(value: shared::Timestamp) -> domain::Timestamp {
 
 fn api_ts_opt(value: Option<shared::Timestamp>) -> Option<domain::Timestamp> {
     value.map(api_ts)
+}
+
+fn parse_ts(value: &str) -> chrono::DateTime<chrono::FixedOffset> {
+    chrono::DateTime::parse_from_rfc3339(value)
+        .unwrap_or_else(|_| chrono::Utc::now().fixed_offset())
 }
 
 fn parse_kind(value: &str) -> AgentKind {
@@ -508,6 +513,21 @@ fn validate_bulk_deployment_request(req: &BulkDeploymentRequest) -> Result<bool,
         ));
     }
     Ok(rollback)
+}
+
+fn fleet_alert_to_domain(row: fleet_alerts::Model) -> domain::FleetAlert {
+    domain::FleetAlert {
+        id: row.id,
+        agent_id: row.agent_id,
+        kind: row.kind,
+        severity: row.severity,
+        detail: row.detail,
+        state: row.state,
+        opened_at: row.opened_at.to_rfc3339(),
+        resolved_at: row.resolved_at.map(|t| t.to_rfc3339()),
+        acknowledged_at: row.acknowledged_at.map(|t| t.to_rfc3339()),
+        acknowledged_by_user_id: row.acknowledged_by_user_id,
+    }
 }
 
 #[async_trait]
@@ -2403,6 +2423,107 @@ impl FleetRepository for PostgresFleetRepository {
             .into_iter()
             .find(|event| event.id == id)
             .ok_or_else(|| AppError::not_found("agent_event", id))
+    }
+
+    async fn list_fleet_alerts(
+        &self,
+        state: Option<&str>,
+    ) -> Result<Vec<domain::FleetAlert>, AppError> {
+        let mut query = fleet_alerts::Entity::find().order_by_desc(fleet_alerts::Column::OpenedAt);
+        if let Some(state) = state {
+            query = query.filter(fleet_alerts::Column::State.eq(state));
+        }
+        let rows = query.all(&self.db).await.map_err(AppError::database)?;
+        Ok(rows.into_iter().map(fleet_alert_to_domain).collect())
+    }
+
+    async fn acknowledge_fleet_alert(
+        &self,
+        alert_id: Uuid,
+        user_id: Uuid,
+    ) -> Result<domain::FleetAlert, AppError> {
+        let updated = fleet_alerts::Entity::update_many()
+            .col_expr(
+                fleet_alerts::Column::State,
+                sea_orm::sea_query::Expr::value("acknowledged"),
+            )
+            .col_expr(
+                fleet_alerts::Column::AcknowledgedAt,
+                sea_orm::sea_query::Expr::value(chrono::Utc::now().fixed_offset()),
+            )
+            .col_expr(
+                fleet_alerts::Column::AcknowledgedByUserId,
+                sea_orm::sea_query::Expr::value(user_id),
+            )
+            .filter(fleet_alerts::Column::Id.eq(alert_id))
+            .filter(fleet_alerts::Column::State.eq("open"))
+            .exec(&self.db)
+            .await
+            .map_err(AppError::database)?;
+        if updated.rows_affected == 0 {
+            return Err(AppError::not_found("fleet_alert(open)", alert_id));
+        }
+        self.list_fleet_alerts(None)
+            .await?
+            .into_iter()
+            .find(|alert| alert.id == alert_id)
+            .ok_or_else(|| AppError::not_found("fleet_alert", alert_id))
+    }
+
+    async fn insert_fleet_alert(
+        &self,
+        alert: domain::FleetAlert,
+    ) -> Result<domain::FleetAlert, AppError> {
+        fleet_alerts::Entity::insert(fleet_alerts::ActiveModel {
+            id: Set(alert.id),
+            agent_id: Set(alert.agent_id),
+            kind: Set(alert.kind.clone()),
+            severity: Set(alert.severity.clone()),
+            detail: Set(alert.detail.clone()),
+            state: Set(alert.state.clone()),
+            opened_at: Set(parse_ts(&alert.opened_at)),
+            resolved_at: Set(alert.resolved_at.as_deref().map(parse_ts)),
+            acknowledged_at: Set(alert.acknowledged_at.as_deref().map(parse_ts)),
+            acknowledged_by_user_id: Set(alert.acknowledged_by_user_id),
+        })
+        .exec(&self.db)
+        .await
+        .map_err(AppError::database)?;
+        Ok(alert)
+    }
+
+    async fn resolve_open_alerts_of_kind(
+        &self,
+        agent_id: Uuid,
+        kind: &str,
+        resolution_detail: Value,
+    ) -> Result<u64, AppError> {
+        let updated = fleet_alerts::Entity::update_many()
+            .col_expr(
+                fleet_alerts::Column::State,
+                sea_orm::sea_query::Expr::value("resolved"),
+            )
+            .col_expr(
+                fleet_alerts::Column::ResolvedAt,
+                sea_orm::sea_query::Expr::value(chrono::Utc::now().fixed_offset()),
+            )
+            .filter(fleet_alerts::Column::AgentId.eq(agent_id))
+            .filter(fleet_alerts::Column::Kind.eq(kind))
+            .filter(fleet_alerts::Column::State.eq("open"))
+            .exec(&self.db)
+            .await
+            .map_err(AppError::database)?;
+        if updated.rows_affected > 0 {
+            self.insert_audit(
+                None,
+                "fleet_alert.resolved",
+                "fleet_alert",
+                Some(agent_id.to_string()),
+                resolution_detail,
+            )
+            .await?;
+        }
+        Ok(updated.rows_affected)
     }
 
     async fn insert_audit(

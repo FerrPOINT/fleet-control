@@ -891,6 +891,22 @@ pub struct WorkflowBinding {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+/// Fleet monitoring alert raised on agent health transitions
+/// (IMPLEMENTATION_PLAN Phase 3 monitoring item).
+pub struct FleetAlert {
+    pub id: Uuid,
+    pub agent_id: Option<Uuid>,
+    pub kind: String,
+    pub severity: String,
+    pub detail: serde_json::Value,
+    pub state: String,
+    pub opened_at: Timestamp,
+    pub resolved_at: Option<Timestamp>,
+    pub acknowledged_at: Option<Timestamp>,
+    pub acknowledged_by_user_id: Option<Uuid>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Agent {
     pub id: Uuid,
     pub ordinal: i32,

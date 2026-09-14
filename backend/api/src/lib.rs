@@ -38,6 +38,8 @@ pub mod routes;
         routes::agents::stop_agent,
         routes::agents::restart_agent,
         routes::agents::agent_health,
+        routes::agents::list_fleet_alerts,
+        routes::agents::acknowledge_fleet_alert,
         routes::agents::get_agent_config,
         routes::agents::update_agent_config,
         routes::agents::list_agent_skills,
@@ -223,6 +225,14 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         .route(
             "/api/v1/agents/{agent_id}/health",
             post(routes::agents::agent_health),
+        )
+        .route(
+            "/api/v1/fleet-alerts",
+            get(routes::agents::list_fleet_alerts),
+        )
+        .route(
+            "/api/v1/fleet-alerts/{alert_id}/acknowledge",
+            post(routes::agents::acknowledge_fleet_alert),
         )
         .route(
             "/api/v1/agents/{agent_id}/config",

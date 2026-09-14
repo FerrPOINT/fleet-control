@@ -241,6 +241,26 @@ pub trait FleetRepository: Send + Sync {
         message: &str,
         payload: serde_json::Value,
     ) -> Result<AgentEvent, AppError>;
+    async fn list_fleet_alerts(
+        &self,
+        state: Option<&str>,
+    ) -> Result<Vec<domain::FleetAlert>, AppError>;
+    async fn acknowledge_fleet_alert(
+        &self,
+        alert_id: Uuid,
+        user_id: Uuid,
+    ) -> Result<domain::FleetAlert, AppError>;
+    async fn insert_fleet_alert(
+        &self,
+        alert: domain::FleetAlert,
+    ) -> Result<domain::FleetAlert, AppError>;
+    async fn resolve_open_alerts_of_kind(
+        &self,
+        agent_id: Uuid,
+        kind: &str,
+        resolution_detail: serde_json::Value,
+    ) -> Result<u64, AppError>;
+
     async fn insert_audit(
         &self,
         actor_user_id: Option<Uuid>,
@@ -543,5 +563,128 @@ impl AppContext {
             });
         }
         Ok(())
+    }
+}
+
+// --- Fleet monitoring alerts (IMPLEMENTATION_PLAN Phase 3) ---
+
+/// Maps a runtime health transition to the alert(s) it should raise.
+/// Returns (kind, severity) pairs: `agent_down` on a previously-healthy
+/// agent going down, `agent_recovered` auto-resolves open `agent_down`
+/// alerts, restart loops raise `agent_restart_loop`.
+pub fn health_transition_alerts(previous: Option<&str>, current: &str) -> Vec<(String, String)> {
+    let was_up = matches!(previous, Some("running") | Some("ready"));
+    let is_down = matches!(current, "failed" | "stopped" | "degraded");
+    let mut out = Vec::new();
+    if was_up && is_down {
+        out.push(("agent_down".to_string(), "critical".to_string()));
+    }
+    if let Some(prev) = previous {
+        if (prev == "failed" || prev == "stopped") && (current == "running" || current == "ready") {
+            out.push(("agent_recovered".to_string(), "info".to_string()));
+        }
+    }
+    out
+}
+
+#[async_trait]
+pub trait AlertService: Send + Sync {
+    /// Records health transitions for an agent: raises `agent_down` /
+    /// `agent_restart_loop` alerts and resolves open down-alerts on recovery.
+    async fn record_health_transition(
+        &self,
+        agent_id: Uuid,
+        previous_status: Option<String>,
+        current_status: &str,
+    ) -> Result<(), AppError>;
+}
+
+pub struct RepositoryAlertService {
+    pub repository: Arc<dyn FleetRepository>,
+}
+
+impl RepositoryAlertService {
+    /// See [`AlertService::record_health_transition`].
+    pub async fn record_health_transition(
+        &self,
+        agent_id: Uuid,
+        previous_status: Option<String>,
+        current_status: &str,
+    ) -> Result<(), AppError> {
+        AlertService::record_health_transition(self, agent_id, previous_status, current_status)
+            .await
+    }
+}
+
+#[async_trait]
+impl AlertService for RepositoryAlertService {
+    async fn record_health_transition(
+        &self,
+        agent_id: Uuid,
+        previous_status: Option<String>,
+        current_status: &str,
+    ) -> Result<(), AppError> {
+        let previous = previous_status.as_deref();
+        for (kind, severity) in health_transition_alerts(previous, current_status) {
+            if kind == "agent_recovered" {
+                self.repository
+                    .resolve_open_alerts_of_kind(
+                        agent_id,
+                        "agent_down",
+                        serde_json::json!({"recovered_to": current_status}),
+                    )
+                    .await?;
+                continue;
+            }
+            self.repository
+                .insert_fleet_alert(domain::FleetAlert {
+                    id: Uuid::new_v4(),
+                    agent_id: Some(agent_id),
+                    kind: kind.clone(),
+                    severity,
+                    detail: serde_json::json!({
+                        "previous": previous,
+                        "current": current_status,
+                    }),
+                    state: "open".to_string(),
+                    opened_at: chrono::Utc::now().to_rfc3339(),
+                    resolved_at: None,
+                    acknowledged_at: None,
+                    acknowledged_by_user_id: None,
+                })
+                .await?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod alert_tests {
+    use super::*;
+
+    #[test]
+    fn healthy_to_failed_raises_critical_down() {
+        let alerts = health_transition_alerts(Some("running"), "failed");
+        assert_eq!(
+            alerts,
+            vec![("agent_down".to_string(), "critical".to_string())]
+        );
+    }
+
+    #[test]
+    fn recovery_resolves_down_alert() {
+        let alerts = health_transition_alerts(Some("failed"), "running");
+        assert_eq!(
+            alerts,
+            vec![("agent_recovered".to_string(), "info".to_string())]
+        );
+    }
+
+    #[test]
+    fn steady_states_raise_nothing() {
+        assert!(health_transition_alerts(None, "running").is_empty());
+        assert!(health_transition_alerts(Some("running"), "running").is_empty());
+        // first observation of a failed agent (no previous) does not alert
+        assert!(health_transition_alerts(None, "failed").is_empty());
     }
 }

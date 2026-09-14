@@ -3,6 +3,12 @@
 ## [Unreleased]
 
 ### Added
+
+- Fleet monitoring alerts: миграция 6 (`fleet_alerts`), авто-алерты переходов здоровья агентов (agent_down / agent_recovered авто-resolve), `GET /api/v1/fleet-alerts` + acknowledge (Operator+, аудит), нед блокирующая запись переходов из start/stop/health.
+
+## [Unreleased]
+
+### Added
 - OIDC/JWKS validation mode: `auth.mode=oidc` — RS256 против JWKS провайдера (кэш + refresh + kid-miss retry), строгие `iss`/`aud`, role-клейм маппинг, HMAC/local login отключены fail-closed.
 
 ## [Unreleased]

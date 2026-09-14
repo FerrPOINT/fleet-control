@@ -219,7 +219,14 @@ pub async fn start_agent(
 ) -> Result<Json<RuntimeOperationResponse>, AppError> {
     require_operator(&user)?;
     let agent = ctx.repo.get_agent(agent_id).await?;
+    let previous_status = Some(agent.status.as_str().to_string());
     let response = ctx.runtime.start(&agent).await?;
+    record_health_transition(
+        ctx.clone(),
+        agent.id,
+        previous_status,
+        response.status.as_str(),
+    );
     ctx.repo
         .insert_audit(
             Some(user.id),
@@ -244,7 +251,14 @@ pub async fn stop_agent(
 ) -> Result<Json<RuntimeOperationResponse>, AppError> {
     require_operator(&user)?;
     let agent = ctx.repo.get_agent(agent_id).await?;
+    let previous_status = Some(agent.status.as_str().to_string());
     let response = ctx.runtime.stop(&agent).await?;
+    record_health_transition(
+        ctx.clone(),
+        agent.id,
+        previous_status,
+        response.status.as_str(),
+    );
     ctx.repo
         .insert_audit(
             Some(user.id),
@@ -286,7 +300,14 @@ pub async fn agent_health(
 ) -> Result<Json<RuntimeOperationResponse>, AppError> {
     require_operator(&user)?;
     let agent = ctx.repo.get_agent(agent_id).await?;
+    let previous_status = Some(agent.status.as_str().to_string());
     let response = ctx.runtime.health(&agent).await?;
+    record_health_transition(
+        ctx.clone(),
+        agent.id,
+        previous_status,
+        response.status.as_str(),
+    );
     ctx.repo
         .insert_audit(
             Some(user.id),
@@ -368,4 +389,63 @@ pub async fn update_agent_skill(
         skill: skill.name.clone(),
     });
     Ok(Json(skill))
+}
+
+#[utoipa::path(get, path = "/api/v1/fleet-alerts", tag = "agents", params(("state" = Option<String>, Query)), responses((status = 200, body = [domain::FleetAlert])))]
+pub async fn list_fleet_alerts(
+    State(ctx): State<Arc<AppContext>>,
+    Extension(user): Extension<CurrentUser>,
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> Result<Json<Vec<domain::FleetAlert>>, AppError> {
+    require_operator(&user)?;
+    let state = params.get("state").map(String::as_str);
+    if let Some(state) = state {
+        if !matches!(state, "open" | "acknowledged" | "resolved") {
+            return Err(AppError::validation(
+                "state must be open|acknowledged|resolved",
+            ));
+        }
+    }
+    Ok(Json(ctx.repo.list_fleet_alerts(state).await?))
+}
+
+#[utoipa::path(post, path = "/api/v1/fleet-alerts/{alert_id}/acknowledge", tag = "agents", params(("alert_id" = Uuid, Path)), responses((status = 200, body = domain::FleetAlert)))]
+pub async fn acknowledge_fleet_alert(
+    State(ctx): State<Arc<AppContext>>,
+    Extension(user): Extension<CurrentUser>,
+    Path(alert_id): Path<Uuid>,
+) -> Result<Json<domain::FleetAlert>, AppError> {
+    require_operator(&user)?;
+    let alert = ctx.repo.acknowledge_fleet_alert(alert_id, user.id).await?;
+    ctx.repo
+        .insert_audit(
+            Some(user.id),
+            "fleet_alert.acknowledge",
+            "fleet_alert",
+            Some(alert.id.to_string()),
+            serde_json::json!({ "kind": alert.kind, "agent_id": alert.agent_id }),
+        )
+        .await?;
+    Ok(Json(alert))
+}
+
+/// Fires fleet-alert transitions without blocking the API response.
+fn record_health_transition(
+    ctx: std::sync::Arc<app::AppContext>,
+    agent_id: uuid::Uuid,
+    previous_status: Option<String>,
+    current_status: &str,
+) {
+    let current_status = current_status.to_string();
+    tokio::spawn(async move {
+        let alerts = app::RepositoryAlertService {
+            repository: ctx.repo.clone(),
+        };
+        if let Err(error) = alerts
+            .record_health_transition(agent_id, previous_status, &current_status)
+            .await
+        {
+            tracing::warn!(agent_id = %agent_id, %error, "failed to record health transition");
+        }
+    });
 }

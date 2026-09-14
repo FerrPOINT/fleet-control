@@ -909,6 +909,70 @@
         }
       }
     },
+    "/api/v1/fleet-alerts": {
+      "get": {
+        "tags": [
+          "agents"
+        ],
+        "operationId": "list_fleet_alerts",
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FleetAlert"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/fleet-alerts/{alert_id}/acknowledge": {
+      "post": {
+        "tags": [
+          "agents"
+        ],
+        "operationId": "acknowledge_fleet_alert",
+        "parameters": [
+          {
+            "name": "alert_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetAlert"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/health": {
       "get": {
         "tags": [
@@ -3182,6 +3246,71 @@
           "running",
           "stopped"
         ]
+      },
+      "FleetAlert": {
+        "type": "object",
+        "description": "Fleet monitoring alert raised on agent health transitions\n(IMPLEMENTATION_PLAN Phase 3 monitoring item).",
+        "required": [
+          "id",
+          "kind",
+          "severity",
+          "detail",
+          "state",
+          "opened_at"
+        ],
+        "properties": {
+          "acknowledged_at": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/String"
+              }
+            ]
+          },
+          "acknowledged_by_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "agent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "detail": {},
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "opened_at": {
+            "$ref": "#/components/schemas/String"
+          },
+          "resolved_at": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/String"
+              }
+            ]
+          },
+          "severity": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        }
       },
       "FleetDashboard": {
         "type": "object",

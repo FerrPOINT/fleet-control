@@ -114,3 +114,10 @@ refresh-cookie policy. `mode=hmac` is the only active mode until
 The frontend build regenerates TypeScript types from `openapi/openapi.json`.
 The OpenAPI JSON is regenerated from Rust source before release. Native Windows
 regeneration requires MSVC `link.exe`; WSL/Linux generation is supported.
+
+
+## Fleet alerts (monitoring, Phase 3)
+
+- `GET /api/v1/fleet-alerts?state=open|acknowledged|resolved` — алерты переходов здоровья агентов (Operator+). Kinds: `agent_down` (critical, running/ready → failed/stopped/degraded), `agent_recovered` (авто-resolve открытых `agent_down` при возврате в running/ready), `agent_restart_loop`, `heartbeat_stale` (зарезервированы).
+- `POST /api/v1/fleet-alerts/{alert_id}/acknowledge` — Operator+; ack только для `open`-алертов; аудит `fleet_alert.acknowledge`.
+- Переходы пишутся в `fleet_alerts` (миграция 6) из start/stop/health операций без блокировки ответа.

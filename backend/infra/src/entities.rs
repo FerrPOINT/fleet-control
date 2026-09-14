@@ -398,6 +398,31 @@ pub mod audit_log {
     impl ActiveModelBehavior for ActiveModel {}
 }
 
+pub mod fleet_alerts {
+    use sea_orm::entity::prelude::*;
+
+    #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
+    #[sea_orm(table_name = "fleet_alerts")]
+    pub struct Model {
+        #[sea_orm(primary_key, auto_increment = false)]
+        pub id: Uuid,
+        pub agent_id: Option<Uuid>,
+        pub kind: String,
+        pub severity: String,
+        pub detail: Json,
+        pub state: String,
+        pub opened_at: DateTimeWithTimeZone,
+        pub resolved_at: Option<DateTimeWithTimeZone>,
+        pub acknowledged_at: Option<DateTimeWithTimeZone>,
+        pub acknowledged_by_user_id: Option<Uuid>,
+    }
+
+    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+    pub enum Relation {}
+
+    impl ActiveModelBehavior for ActiveModel {}
+}
+
 pub mod deployment_job {
     use sea_orm::entity::prelude::*;
 
