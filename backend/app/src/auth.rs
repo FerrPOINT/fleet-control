@@ -775,8 +775,10 @@ mod tests {
     #[tokio::test]
     async fn hmac_tokens_rejected_when_oidc_mode_active() {
         let (jwk, _encoding) = generate_jwk_pair();
-        let service =
-            AuthService::with_oidc_validator(oidc_config(), OidcValidator::with_keys(&oidc_config(), vec![jwk]));
+        let service = AuthService::with_oidc_validator(
+            oidc_config(),
+            OidcValidator::with_keys(&oidc_config(), vec![jwk]),
+        );
         assert!(service.is_oidc_mode());
         let hmac_token = jsonwebtoken::encode(
             &jsonwebtoken::Header::default(),
