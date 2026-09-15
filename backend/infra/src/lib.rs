@@ -2492,6 +2492,26 @@ impl FleetRepository for PostgresFleetRepository {
         Ok(alert)
     }
 
+    async fn recent_restart_count(
+        &self,
+        agent_id: Uuid,
+        window: chrono::Duration,
+    ) -> Result<u32, AppError> {
+        use sea_orm::{ColumnTrait, Condition, EntityTrait, PaginatorTrait, QueryFilter};
+        let since = (chrono::Utc::now() - window).fixed_offset();
+        let count = crate::entities::agent_event::Entity::find()
+            .filter(
+                Condition::all()
+                    .add(crate::entities::agent_event::Column::AgentId.eq(agent_id))
+                    .add(crate::entities::agent_event::Column::EventType.eq("agent.restart"))
+                    .add(crate::entities::agent_event::Column::CreatedAt.gte(since)),
+            )
+            .count(&self.db)
+            .await
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+        Ok(count as u32)
+    }
+
     async fn resolve_open_alerts_of_kind(
         &self,
         agent_id: Uuid,

@@ -254,6 +254,14 @@ pub trait FleetRepository: Send + Sync {
         &self,
         alert: domain::FleetAlert,
     ) -> Result<domain::FleetAlert, AppError>;
+
+    /// Restarts recorded for the agent within the window (crash-loop input).
+    async fn recent_restart_count(
+        &self,
+        agent_id: Uuid,
+        window: chrono::Duration,
+    ) -> Result<u32, AppError>;
+
     async fn resolve_open_alerts_of_kind(
         &self,
         agent_id: Uuid,
@@ -572,6 +580,50 @@ impl AppContext {
 /// Returns (kind, severity) pairs: `agent_down` on a previously-healthy
 /// agent going down, `agent_recovered` auto-resolves open `agent_down`
 /// alerts, restart loops raise `agent_restart_loop`.
+/// Restart-loop detection input: restarts observed within the sliding window.
+#[derive(Debug, Clone, Copy)]
+pub struct RestartContext {
+    pub recent_restarts: u32,
+    pub loop_threshold: u32,
+}
+
+/// True when the agent restarted at least `loop_threshold` times inside the
+/// observation window (crash loop).
+pub fn restart_loop_detected(recent_restarts: u32, loop_threshold: u32) -> bool {
+    loop_threshold > 0 && recent_restarts >= loop_threshold
+}
+
+/// True when a running-desired agent has not reported health within
+/// `stale_after_minutes`. Stopped/degraded agents do not owe heartbeats.
+pub fn heartbeat_stale(
+    last_health_at: Option<chrono::DateTime<chrono::Utc>>,
+    current_status: &str,
+    stale_after_minutes: i64,
+) -> bool {
+    if current_status != "running" {
+        return false;
+    }
+    match last_health_at {
+        Some(ts) => chrono::Utc::now() - ts > chrono::Duration::minutes(stale_after_minutes),
+        None => false,
+    }
+}
+
+/// Extended transition alerts: a crash loop overrides the plain down alert
+/// so operators see the loop, not a storm of individual downs.
+pub fn health_transition_alerts_ex(
+    previous: Option<&str>,
+    current: &str,
+    restarts: RestartContext,
+) -> Vec<(String, String)> {
+    let mut out = health_transition_alerts(previous, current);
+    if restart_loop_detected(restarts.recent_restarts, restarts.loop_threshold) {
+        out.retain(|(kind, _)| kind != "agent_down");
+        out.push(("agent_restart_loop".to_string(), "warning".to_string()));
+    }
+    out
+}
+
 pub fn health_transition_alerts(previous: Option<&str>, current: &str) -> Vec<(String, String)> {
     let was_up = matches!(previous, Some("running") | Some("ready"));
     let is_down = matches!(current, "failed" | "stopped" | "degraded");
@@ -616,6 +668,51 @@ impl RepositoryAlertService {
     }
 }
 
+impl RepositoryAlertService {
+    /// Scan running agents for stale heartbeats; raises one open
+    /// `agent_heartbeat_stale` alert per agent (auto-resolved on recovery).
+    pub async fn record_heartbeat_freshness(&self) -> Result<(), AppError> {
+        let agents = self.repository.list_agents().await?;
+        for agent in &agents {
+            let last_health = agent
+                .runtime
+                .last_health_at
+                .as_deref()
+                .and_then(|ts| chrono::DateTime::parse_from_rfc3339(ts).ok())
+                .map(|ts| ts.with_timezone(&chrono::Utc));
+            let stale = heartbeat_stale(last_health, agent.status.as_str(), 10);
+            if stale {
+                let already_open = self
+                    .repository
+                    .list_fleet_alerts(Some("open"))
+                    .await?
+                    .iter()
+                    .any(|a| a.agent_id == Some(agent.id) && a.kind == "agent_heartbeat_stale");
+                if already_open {
+                    continue;
+                }
+                self.repository
+                    .insert_fleet_alert(domain::FleetAlert {
+                        id: Uuid::new_v4(),
+                        agent_id: Some(agent.id),
+                        kind: "agent_heartbeat_stale".to_string(),
+                        severity: "warning".to_string(),
+                        detail: serde_json::json!({
+                            "last_health_at": agent.runtime.last_health_at,
+                        }),
+                        state: "open".to_string(),
+                        opened_at: chrono::Utc::now().to_rfc3339(),
+                        resolved_at: None,
+                        acknowledged_at: None,
+                        acknowledged_by_user_id: None,
+                    })
+                    .await?;
+            }
+        }
+        Ok(())
+    }
+}
+
 #[async_trait]
 impl AlertService for RepositoryAlertService {
     async fn record_health_transition(
@@ -625,12 +722,35 @@ impl AlertService for RepositoryAlertService {
         current_status: &str,
     ) -> Result<(), AppError> {
         let previous = previous_status.as_deref();
-        for (kind, severity) in health_transition_alerts(previous, current_status) {
+        let recent_restarts = self
+            .repository
+            .recent_restart_count(agent_id, chrono::Duration::minutes(15))
+            .await
+            .unwrap_or(0);
+        let restarts = RestartContext {
+            recent_restarts,
+            loop_threshold: 3,
+        };
+        for (kind, severity) in health_transition_alerts_ex(previous, current_status, restarts) {
             if kind == "agent_recovered" {
                 self.repository
                     .resolve_open_alerts_of_kind(
                         agent_id,
                         "agent_down",
+                        serde_json::json!({"recovered_to": current_status}),
+                    )
+                    .await?;
+                self.repository
+                    .resolve_open_alerts_of_kind(
+                        agent_id,
+                        "agent_restart_loop",
+                        serde_json::json!({"recovered_to": current_status}),
+                    )
+                    .await?;
+                self.repository
+                    .resolve_open_alerts_of_kind(
+                        agent_id,
+                        "agent_heartbeat_stale",
                         serde_json::json!({"recovered_to": current_status}),
                     )
                     .await?;
@@ -678,6 +798,57 @@ mod alert_tests {
             alerts,
             vec![("agent_recovered".to_string(), "info".to_string())]
         );
+    }
+
+    #[test]
+    fn restart_loop_detected_when_restarts_within_window() {
+        assert!(restart_loop_detected(3, 3));
+        assert!(restart_loop_detected(5, 3));
+        assert!(!restart_loop_detected(2, 3));
+        assert!(!restart_loop_detected(0, 3));
+    }
+
+    #[test]
+    fn heartbeat_stale_detected_for_running_desired_agent() {
+        use chrono::{Duration, Utc};
+        let now = Utc::now();
+        assert!(heartbeat_stale(
+            Some(now - Duration::minutes(30)),
+            "running",
+            15
+        ));
+        assert!(!heartbeat_stale(
+            Some(now - Duration::minutes(5)),
+            "running",
+            15
+        ));
+        // stopped/degraded agents do not expect fresh heartbeats
+        assert!(!heartbeat_stale(
+            Some(now - Duration::hours(6)),
+            "stopped",
+            15
+        ));
+        assert!(!heartbeat_stale(
+            Some(now - Duration::hours(6)),
+            "degraded",
+            15
+        ));
+        // missing heartbeat never flags (unknown monitoring state)
+        assert!(!heartbeat_stale(None, "running", 15));
+    }
+
+    #[test]
+    fn loop_transition_overrides_down_alert() {
+        let alerts = health_transition_alerts_ex(
+            Some("running"),
+            "failed",
+            RestartContext {
+                recent_restarts: 3,
+                loop_threshold: 3,
+            },
+        );
+        assert!(alerts.contains(&("agent_restart_loop".to_string(), "warning".to_string())));
+        assert!(!alerts.contains(&("agent_down".to_string(), "critical".to_string())));
     }
 
     #[test]

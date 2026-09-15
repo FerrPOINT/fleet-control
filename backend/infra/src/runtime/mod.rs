@@ -33,6 +33,7 @@ pub struct LocalRuntimeSupervisor {
     children: Arc<Mutex<HashMap<Uuid, Child>>>,
     client: reqwest::Client,
     events: broadcast::Sender<FleetEvent>,
+    alerts: Arc<app::RepositoryAlertService>,
 }
 
 #[derive(Debug, Serialize)]
@@ -71,10 +72,13 @@ impl LocalRuntimeSupervisor {
     ) -> Self {
         let supervisor = Self {
             config,
-            repo,
+            repo: repo.clone(),
             children: Arc::new(Mutex::new(HashMap::new())),
             client: reqwest::Client::new(),
             events,
+            alerts: Arc::new(app::RepositoryAlertService {
+                repository: repo.clone(),
+            }),
         };
         supervisor.spawn_reconciler();
         supervisor
@@ -105,6 +109,9 @@ impl LocalRuntimeSupervisor {
                     }
                     let _ = supervisor.process_deployment_jobs().await;
                     let _ = supervisor.sync_project_workflow().await;
+                    if let Err(err) = supervisor.alerts.record_heartbeat_freshness().await {
+                        tracing::warn!("heartbeat freshness scan failed: {err}");
+                    }
                 }
             });
         }
