@@ -268,6 +268,9 @@ impl OidcValidator {
 pub struct AuthService {
     config: AuthConfig,
     oidc: Option<OidcValidator>,
+    /// Shared HMAC validator from `sdlc-auth-core` (single implementation
+    /// across the fleet; see docs/IMPLEMENTATION_PLAN.md Phase 1).
+    auth_core_hmac: sdlc_auth_core::Validator,
 }
 
 impl AuthService {
@@ -277,7 +280,31 @@ impl AuthService {
         } else {
             None
         };
-        Self { config, oidc }
+        let auth_core_hmac = sdlc_auth_core::Validator::hmac_with_audience(
+            &config.jwt_secret,
+            &config.jwt_issuer,
+            &config.jwt_audience,
+        );
+        Self {
+            config,
+            oidc,
+            auth_core_hmac,
+        }
+    }
+
+    /// Builds the service around a pre-seeded OIDC validator (tests with
+    /// static JWKS fixtures).
+    pub fn with_oidc_validator(config: AuthConfig, oidc: OidcValidator) -> Self {
+        let auth_core_hmac = sdlc_auth_core::Validator::hmac_with_audience(
+            &config.jwt_secret,
+            &config.jwt_issuer,
+            &config.jwt_audience,
+        );
+        Self {
+            config,
+            oidc: Some(oidc),
+            auth_core_hmac,
+        }
     }
 
     /// True when the service validates provider-issued RS256 tokens only.
@@ -391,23 +418,33 @@ impl AuthService {
                     .map(str::to_string),
             });
         }
-        match decode::<Claims>(
-            token,
-            &DecodingKey::from_secret(self.config.jwt_secret.as_bytes()),
-            &self.fleet_validation(),
-        ) {
-            Ok(data) => Ok(data.claims),
+        // HMAC mode: delegate signature/issuer/audience checks to the shared
+        // sdlc-auth-core validator; only legacy pre-fleet tokens (no aud/iss)
+        // fall back to the transitional local decode.
+        match self
+            .auth_core_hmac
+            .validate(token)
+            .map_err(|_| AppError::Unauthorized)
+            .and_then(|_| {
+                // Signature/issuer/audience are already verified by auth-core;
+                // re-decode locally only to hydrate the full FC Claims shape
+                // (exp/iat are not part of AuthContext), so all validation
+                // knobs except signature are off here.
+                let mut rehydrate = Validation::new(Algorithm::HS256);
+                rehydrate.validate_aud = false;
+                rehydrate.validate_exp = false;
+                decode::<Claims>(
+                    token,
+                    &DecodingKey::from_secret(self.config.jwt_secret.as_bytes()),
+                    &rehydrate,
+                )
+                .map(|data| data.claims)
+                .map_err(|_| AppError::Unauthorized)
+            }) {
+            Ok(claims) => Ok(claims),
             Err(_) if token_has_legacy_claim_shape(token) => self.validate_legacy_token(token),
             Err(_) => Err(AppError::Unauthorized),
         }
-    }
-
-    fn fleet_validation(&self) -> Validation {
-        let mut validation = Validation::new(Algorithm::HS256);
-        validation.set_audience(&[self.config.jwt_audience.as_str()]);
-        validation.set_issuer(&[self.config.jwt_issuer.as_str()]);
-        validation.set_required_spec_claims(&["exp", "sub", "aud", "iss"]);
-        validation
     }
 
     fn validate_legacy_token(&self, token: &str) -> Result<Claims, AppError> {
@@ -738,10 +775,8 @@ mod tests {
     #[tokio::test]
     async fn hmac_tokens_rejected_when_oidc_mode_active() {
         let (jwk, _encoding) = generate_jwk_pair();
-        let service = AuthService {
-            config: oidc_config(),
-            oidc: Some(OidcValidator::with_keys(&oidc_config(), vec![jwk])),
-        };
+        let service =
+            AuthService::with_oidc_validator(oidc_config(), OidcValidator::with_keys(&oidc_config(), vec![jwk]));
         assert!(service.is_oidc_mode());
         let hmac_token = jsonwebtoken::encode(
             &jsonwebtoken::Header::default(),
