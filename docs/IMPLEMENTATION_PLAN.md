@@ -15,7 +15,7 @@ Phase 1: Hermes MVP completion.
 
 - Finish real Hermes API session open/send/stream integration.
 - Expand fake Hermes lifecycle tests into real adapter contract tests.
-- Add runtime reconciler tests for desired-state restart.
+- Add runtime reconciler tests for desired-state restart. — done: `reconcile_action(status, desired)` решает Restart/HealthCheck/None (unit-тесты переходов), reconciler-цикл перезапускает failed/stopped агентов с desired=running и health-checkает running.
 - Add clean DB migration and seed workflows.
 - Replace the local HMAC token validator with `sdlc-auth-core::Validator::hmac`
   after WSL/CI can fetch `services-base`.

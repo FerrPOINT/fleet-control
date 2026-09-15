@@ -4,6 +4,12 @@
 
 ### Added
 
+- Runtime reconciler Phase 1: `reconcile_action` desired-state переходы (failed/stopped при desired=running — авто-restart в reconciler-цикле), unit-тесты матрицы статусов.
+
+## [Unreleased]
+
+### Added
+
 - Fleet alerts: `agent_restart_loop` (≥3 рестарта за 15 мин, перекрывает шторм `agent_down`, авто-resolve при recovery) и `agent_heartbeat_stale` (running без health ≥10 мин, reconciler-скан с дедупом).
 
 ## [Unreleased]
