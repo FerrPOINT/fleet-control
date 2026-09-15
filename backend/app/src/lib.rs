@@ -580,6 +580,31 @@ impl AppContext {
 /// Returns (kind, severity) pairs: `agent_down` on a previously-healthy
 /// agent going down, `agent_recovered` auto-resolves open `agent_down`
 /// alerts, restart loops raise `agent_restart_loop`.
+/// Desired-state reconciliation decision for one agent (Phase 1 runtime
+/// reconciler): a failed/stopped agent with desired=running must be
+/// restarted; a running agent with desired=stopped must be stopped.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReconcileAction {
+    Restart,
+    Stop,
+    HealthCheck,
+    None,
+}
+
+pub fn reconcile_action(
+    status: domain::AgentStatus,
+    desired: domain::DesiredState,
+) -> ReconcileAction {
+    use domain::AgentStatus as S;
+    use domain::DesiredState as D;
+    match (status, desired) {
+        (S::Failed | S::Stopped, D::Running) => ReconcileAction::Restart,
+        (S::Running | S::Starting | S::Degraded, _) => ReconcileAction::HealthCheck,
+        (_, D::Running) => ReconcileAction::HealthCheck,
+        _ => ReconcileAction::None,
+    }
+}
+
 /// Restart-loop detection input: restarts observed within the sliding window.
 #[derive(Debug, Clone, Copy)]
 pub struct RestartContext {
@@ -797,6 +822,43 @@ mod alert_tests {
         assert_eq!(
             alerts,
             vec![("agent_recovered".to_string(), "info".to_string())]
+        );
+    }
+
+    #[test]
+    fn reconcile_restarts_failed_agent_with_running_desired_state() {
+        use domain::AgentStatus as S;
+        use domain::DesiredState as D;
+        assert_eq!(
+            reconcile_action(S::Failed, D::Running),
+            ReconcileAction::Restart
+        );
+        assert_eq!(
+            reconcile_action(S::Stopped, D::Running),
+            ReconcileAction::Restart
+        );
+        // desired=stopped: no restart even after failure
+        assert_eq!(
+            reconcile_action(S::Failed, D::Stopped),
+            ReconcileAction::None
+        );
+        // healthy running agent: just health checks
+        assert_eq!(
+            reconcile_action(S::Running, D::Running),
+            ReconcileAction::HealthCheck
+        );
+        assert_eq!(
+            reconcile_action(S::Degraded, D::Running),
+            ReconcileAction::HealthCheck
+        );
+        // stopped as desired: nothing to do
+        assert_eq!(
+            reconcile_action(S::Stopped, D::Stopped),
+            ReconcileAction::None
+        );
+        assert_eq!(
+            reconcile_action(S::Ready, D::Stopped),
+            ReconcileAction::None
         );
     }
 

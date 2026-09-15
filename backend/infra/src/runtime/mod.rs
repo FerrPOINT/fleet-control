@@ -94,12 +94,23 @@ impl LocalRuntimeSupervisor {
                         continue;
                     };
                     for agent in agents {
-                        if matches!(
-                            agent.status,
-                            AgentStatus::Running | AgentStatus::Starting | AgentStatus::Degraded
-                        ) || agent.runtime.desired_state == DesiredState::Running
-                        {
-                            let _ = supervisor.health(&agent).await;
+                        match app::reconcile_action(agent.status, agent.runtime.desired_state) {
+                            app::ReconcileAction::Restart => {
+                                tracing::info!(
+                                    "reconciler: restarting failed agent {} (desired=running)",
+                                    agent.name
+                                );
+                                if let Err(err) = supervisor.restart(&agent).await {
+                                    tracing::warn!(
+                                        "reconciler restart failed for {}: {err}",
+                                        agent.name
+                                    );
+                                }
+                            }
+                            app::ReconcileAction::HealthCheck => {
+                                let _ = supervisor.health(&agent).await;
+                            }
+                            app::ReconcileAction::Stop | app::ReconcileAction::None => {}
                         }
                         if agent.kind == AgentKind::JavaAgent
                             && agent.status == AgentStatus::Running
