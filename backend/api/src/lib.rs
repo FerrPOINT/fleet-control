@@ -355,7 +355,15 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         .route("/api/v1/events", get(routes::events::events))
         .route_layer(from_fn_with_state(ctx.clone(), middleware::require_auth));
 
+    let (metric_layer, metric_handle) = axum_prometheus::PrometheusMetricLayer::pair();
     Router::new()
+        .route(
+            "/metrics",
+            get(move || {
+                let handle = metric_handle.clone();
+                async move { handle.render() }
+            }),
+        )
         .route("/api/v1/health", get(routes::health::health))
         .route("/api/v1/auth/register", post(routes::auth::register))
         .route("/api/v1/auth/login", post(routes::auth::login))
@@ -364,6 +372,7 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         .merge(protected)
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .layer(DefaultBodyLimit::max(1024 * 1024))
+        .layer(metric_layer)
         .layer(cors)
         .layer(from_fn(shared::telemetry::request_id_mw))
 }
@@ -431,5 +440,51 @@ mod tests {
             .expect("allow headers value");
         assert!(allow_headers.contains("authorization"));
         assert!(allow_headers.contains("content-type"));
+    }
+
+    #[tokio::test]
+    async fn metrics_endpoint_exposes_prometheus_counters() {
+        // M1: the /metrics route pattern used by router() must render the
+        // Prometheus exposition after the metric layer recorded a request.
+        let (metric_layer, metric_handle) = axum_prometheus::PrometheusMetricLayer::pair();
+        let app = Router::new()
+            .route(
+                "/metrics",
+                get(move || {
+                    let handle = metric_handle.clone();
+                    async move { handle.render() }
+                }),
+            )
+            .route("/healthz", get(|| async { "ok" }))
+            .layer(metric_layer);
+        // generate one recorded request
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/healthz")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("warmup response");
+        let metrics_response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/metrics")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("metrics response");
+        assert_eq!(metrics_response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(metrics_response.into_body(), usize::MAX)
+            .await
+            .expect("body");
+        let text = String::from_utf8_lossy(&body);
+        assert!(
+            text.contains("axum_http_requests_total"),
+            "prometheus exposition must contain request counters, got: {text}"
+        );
     }
 }
