@@ -841,6 +841,39 @@ async function mockApi(context) {
     }
     if (pathName === '/api/v1/events/recent') return json(route, events)
     if (pathName === '/api/v1/audit-log') return json(route, auditLog)
+    if (pathName === '/api/v1/fleet-alerts') {
+      const stateFilter = route.request().url().includes('state=')
+        ? route.request().url().split('state=')[1]?.split('&')[0]
+        : undefined
+      const allAlerts = [
+        {
+          id: '00000000-0000-4000-8000-000000000a01',
+          agent_id: ids.dev,
+          kind: 'agent_down',
+          severity: 'critical',
+          detail: { previous: 'running', current: 'failed' },
+          state: 'open',
+          opened_at: now,
+          resolved_at: null,
+          acknowledged_at: null,
+          acknowledged_by_user_id: null,
+        },
+        {
+          id: '00000000-0000-4000-8000-000000000a02',
+          agent_id: ids.qa,
+          kind: 'agent_recovered',
+          severity: 'info',
+          detail: { recovered_to: 'running' },
+          state: 'resolved',
+          opened_at: now,
+          resolved_at: now,
+          acknowledged_at: null,
+          acknowledged_by_user_id: null,
+        },
+      ]
+      const filtered = stateFilter ? allAlerts.filter((a) => a.state === stateFilter) : allAlerts
+      return json(route, filtered)
+    }
     if (pathName === '/api/v1/health') return json(route, { status: 'ok' })
 
     return json(route, { error: `Unhandled screenshot mock route: ${pathName}` }, 404)
@@ -888,13 +921,15 @@ const coreScreens = [
   ['38-settings-integrations.png', '/settings?tab=integrations'],
   ['39-settings-auth.png', '/settings?tab=auth'],
   ['40-settings-users.png', '/settings?tab=users'],
-  ['41-access-denied.png', '/access-denied'],
-  ['42-not-found.png', '/not-a-fleet-route'],
+  ['41-alerts.png', '/alerts'],
+  ['42-access-denied.png', '/access-denied'],
+  ['43-not-found.png', '/not-a-fleet-route'],
 ]
 
 const mobileOnlyScreens = [
-  ['43-mobile-dashboard.png', '/'],
-  ['44-mobile-leader-detail.png', `/leaders/${ids.lead}`],
+  ['44-mobile-dashboard.png', '/'],
+  ['45-mobile-leader-detail.png', `/leaders/${ids.lead}`],
+  ['46-mobile-alerts.png', '/alerts'],
 ]
 
 const viewports = [

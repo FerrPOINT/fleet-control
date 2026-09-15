@@ -11,6 +11,7 @@ import { SessionsPage } from '@/pages/sessions'
 import { SessionDetailPage } from '@/pages/session-detail'
 import { WorkflowsPage } from '@/pages/workflows'
 import { DeploymentsPage } from '@/pages/deployments'
+import { AlertsPage } from '@/pages/alerts'
 import { LogsPage } from '@/pages/logs'
 import { SettingsPage } from '@/pages/settings'
 import { LoginPage } from '@/pages/login'
@@ -242,6 +243,14 @@ export const router = createBrowserRouter([
             element: (
               <PermissionGate permission="deployments:manage">
                 <DeploymentsPage />
+              </PermissionGate>
+            ),
+          },
+          {
+            path: '/alerts',
+            element: (
+              <PermissionGate permission="logs:read">
+                <AlertsPage />
               </PermissionGate>
             ),
           },

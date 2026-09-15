@@ -316,3 +316,48 @@ export function updateAuthSettings(req: AuthSettings) {
     body: JSON.stringify(req),
   })
 }
+
+export interface FleetAlert {
+  id: string
+  agent_id: string | null
+  kind: string
+  severity: string
+  detail: Record<string, unknown>
+  state: 'open' | 'acknowledged' | 'resolved'
+  opened_at: string
+  resolved_at: string | null
+  acknowledged_at: string | null
+  acknowledged_by_user_id: string | null
+}
+
+export function listFleetAlerts(state?: 'open' | 'acknowledged' | 'resolved') {
+  const query = state ? `?state=${encodeURIComponent(state)}` : ''
+  return apiRequest<FleetAlert[]>(`/api/v1/fleet-alerts${query}`)
+}
+
+export function acknowledgeFleetAlert(alertId: string) {
+  return apiRequest<FleetAlert>(`/api/v1/fleet-alerts/${encodeURIComponent(alertId)}/acknowledge`, {
+    method: 'POST',
+  })
+}
+
+export interface BulkDeploymentRequest {
+  job_kind: import('./types').DeploymentJobKind
+  agent_ids: string[]
+  runtime_kind?: import('./types').AgentKind | null
+  rollback?: boolean
+  title?: string | null
+  detail?: Record<string, unknown> | null
+}
+
+export interface BulkDeploymentResult {
+  created: string[]
+  skipped: { agent_id: string; reason: string }[]
+}
+
+export function bulkCreateDeploymentJobs(req: BulkDeploymentRequest) {
+  return apiRequest<BulkDeploymentResult>('/api/v1/deployments/jobs/bulk', {
+    method: 'POST',
+    body: JSON.stringify(req),
+  })
+}

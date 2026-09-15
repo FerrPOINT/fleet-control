@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Ban, PackagePlus } from 'lucide-react'
 import {
+  bulkCreateDeploymentJobs,
   cancelDeploymentJob,
   createDeploymentJob,
   getDeploymentJob,
@@ -145,9 +146,86 @@ function DeploymentJobs({ onOpen }: { onOpen: (jobId: string) => void }) {
     mutationFn: cancelDeploymentJob,
     onSuccess: async () => queryClient.invalidateQueries({ queryKey: ['deployment-jobs'] }),
   })
+  const [bulkSelected, setBulkSelected] = useState<string[]>([])
+  const [bulkRollback, setBulkRollback] = useState(false)
+  const bulkAgents = (agents.data ?? []).filter((agent) => agent.status !== 'archived')
+  const bulkMutation = useMutation({
+    mutationFn: () =>
+      bulkCreateDeploymentJobs({
+        job_kind: 'runtime_update',
+        agent_ids: bulkSelected,
+        rollback: bulkRollback,
+        detail: { requested_from: 'deployments_page_bulk' },
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['deployment-jobs'] })
+      setBulkSelected([])
+    },
+  })
+  const toggleBulkAgent = (agentId: string) => {
+    setBulkSelected((current) =>
+      current.includes(agentId)
+        ? current.filter((id) => id !== agentId)
+        : [...current, agentId],
+    )
+  }
 
   return (
     <div className="grid gap-4 xl:grid-cols-[380px_1fr]">
+      <Card>
+        <CardHeader>
+          <CardTitle>Bulk actions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3">
+            <p className="text-xs text-text-muted">
+              Runtime update for selected non-archived agents ({bulkSelected.length}/{bulkAgents.length} selected).
+            </p>
+            <div className="max-h-56 space-y-1 overflow-y-auto">
+              {bulkAgents.map((agent) => (
+                <label
+                  key={agent.id}
+                  className="flex items-center gap-2 rounded border border-border px-2 py-1 text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    checked={bulkSelected.includes(agent.id)}
+                    onChange={() => toggleBulkAgent(agent.id)}
+                  />
+                  <span className="truncate">
+                    {agent.name} - {agent.display_name}
+                  </span>
+                </label>
+              ))}
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={bulkRollback}
+                onChange={(event) => setBulkRollback(event.target.checked)}
+              />
+              Rollback to previous runtime version
+            </label>
+            <Button
+              type="button"
+              disabled={bulkMutation.isPending || bulkSelected.length === 0}
+              onClick={() => bulkMutation.mutate()}
+            >
+              Bulk create runtime update
+            </Button>
+            {bulkMutation.data ? (
+              <p className="text-xs text-text-muted" data-testid="bulk-result">
+                Created {bulkMutation.data.created.length} job(s)
+                {bulkMutation.data.skipped.length
+                  ? `, skipped ${bulkMutation.data.skipped.length}`
+                  : ''}
+                .
+              </p>
+            ) : null}
+            {bulkMutation.isError ? <ErrorState message={bulkMutation.error.message} /> : null}
+          </div>
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle>Create job</CardTitle>

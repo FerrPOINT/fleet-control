@@ -10,6 +10,7 @@ import {
   ScrollText,
   Settings,
   TerminalSquare,
+  TriangleAlert,
   UserRoundCheck,
 } from 'lucide-react'
 import { useEffect } from 'react'
@@ -30,6 +31,7 @@ const navItems = [
   { to: '/sessions', label: 'Sessions', icon: Activity },
   { to: '/workflows', label: 'Workflows', icon: GitBranch, permission: 'agents:manage' },
   { to: '/deployments', label: 'Deployments', icon: Boxes, permission: 'deployments:manage' },
+  { to: '/alerts', label: 'Alerts', icon: TriangleAlert, permission: 'logs:read' },
   { to: '/logs', label: 'Logs', icon: ScrollText, permission: 'logs:read' },
   { to: '/settings', label: 'Settings', icon: Settings, permission: 'settings:manage' },
 ]

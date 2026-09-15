@@ -70,6 +70,9 @@ provision/start остаётся phase 2 contract.
 | Transcript mirror     | Fleet stores control-plane message mirrors and per-agent runtime run links.                         |
 | Workflow bindings     | Namespace/workflow binding state stored locally while `project-workflow` owns workflow definitions. |
 | Storage preview       | Per-agent runtime/config/workspace/logs size report, marker state and purge eligibility.            |
+| Bulk deployments      | Runtime update / rollback for a selected set of non-archived agents in one request.                |
+| Fleet alerts          | Health-transition alerts (`agent_down`, auto-resolved `agent_recovered`) with acknowledgement.       |
+| OIDC / JWKS           | Central auth mode: RS256 access tokens validated against a cached JWKS with strict `iss`/`aud`.      |
 | Audit evidence        | Events, process logs, API docs, tests and screenshot manifests are part of the repo.                |
 
 ## 🧩 Capability Details
@@ -172,28 +175,30 @@ The first registered user receives `system_role = admin`.
 
 ## 🖼️ Screenshots
 
-Recapture parameters and the generated 128-file evidence set are tracked in
+| Surface | Preview |
+|---|---|
+| Dashboard | ![Дашборд](docs/assets/screens/1920x1080/03-dashboard.png) |
+| Leaders | ![Лидеры](docs/assets/screens/1920x1080/04-leaders.png) |
+| Leader detail | ![Карточка лида](docs/assets/screens/1920x1080/06-leader-detail.png) |
+| Executors | ![Исполнители](docs/assets/screens/1920x1080/08-executors.png) |
+| Technical agents | ![Технические агенты](docs/assets/screens/1920x1080/12-agents.png) |
+| Agent overview | ![Карточка агента](docs/assets/screens/1920x1080/14-agent-overview.png) |
+| Agent runtime | ![Runtime агента](docs/assets/screens/1920x1080/16-agent-runtime.png) |
+| Sessions | ![Сессии](docs/assets/screens/1920x1080/26-sessions.png) |
+| Leader-scoped session | ![Сессия в контексте лида](docs/assets/screens/1920x1080/28-session-leader-detail.png) |
+| Workflows | ![Workflows](docs/assets/screens/1920x1080/29-workflows.png) |
+| Deployment jobs | ![Задания деплоя](docs/assets/screens/1920x1080/31-deployments-jobs.png) |
+| Fleet alerts | ![Алерты флота](docs/assets/screens/1920x1080/41-alerts.png) |
+| Audit logs | ![Журнал аудита](docs/assets/screens/1920x1080/35-logs-audit.png) |
+| Settings | ![Настройки](docs/assets/screens/1920x1080/36-settings.png) |
+| Mobile dashboard | ![Дашборд — мобильная версия](docs/assets/screens/375x812/44-mobile-dashboard.png) |
+| Mobile alerts | ![Алерты — мобильная версия](docs/assets/screens/375x812/46-mobile-alerts.png) |
+
+Recapture parameters and the full 132-file evidence set are tracked in
 [docs/assets/screens/manifest.md](docs/assets/screens/manifest.md). Required
-views are captured at `375x812`, `1920x1080` and `2560x1440`.
-
-Captured groups:
-
-- auth, dashboard, access denied and not found
-- leaders list/create/detail/edit
-- executors list/create/detail/edit/runtime/skills/config/workspace/sessions
-- technical agents list/create/detail/edit/runtime/skills/config/workspace/sessions
-- sessions list, private detail, leader-scoped detail and delegation flow
-- workflows, deployments overview/jobs/detail
-- logs process/events/audit
-- settings runtime/ports/integrations/auth/users
-
-Representative screenshots:
-
-- [leaders detail](docs/assets/screens/1920x1080/06-leader-detail.png)
-- [leader-scoped session](docs/assets/screens/1920x1080/28-session-leader-detail.png)
-- [deployment jobs](docs/assets/screens/1920x1080/31-deployments-jobs.png)
-- [audit logs](docs/assets/screens/1920x1080/35-logs-audit.png)
-- [settings runtime](docs/assets/screens/1920x1080/36-settings.png)
+views are captured at `375x812`, `1920x1080` and `2560x1440`. На мобильных
+широкие таблицы (сессии, deployment jobs, алерты) горизонтально прокручиваются
+внутри карточки — честная адаптивность, без урезания колонок.
 
 <a name="architecture"></a>
 
