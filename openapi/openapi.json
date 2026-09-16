@@ -2013,6 +2013,67 @@
           }
         }
       }
+    },
+    "/api/v1/workflow-bindings/{agent_id}": {
+      "put": {
+        "tags": [
+          "agents"
+        ],
+        "operationId": "rebind_workflow_binding",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RebindWorkflowBindingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowBinding"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflow-catalog": {
+      "get": {
+        "tags": [
+          "agents"
+        ],
+        "operationId": "get_workflow_catalog",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowCatalog"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3577,6 +3638,21 @@
           }
         }
       },
+      "RebindWorkflowBindingRequest": {
+        "type": "object",
+        "required": [
+          "namespace_id",
+          "workflow_id"
+        ],
+        "properties": {
+          "namespace_id": {
+            "type": "string"
+          },
+          "workflow_id": {
+            "type": "string"
+          }
+        }
+      },
       "RegisterRequest": {
         "type": "object",
         "required": [
@@ -4359,6 +4435,61 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "WorkflowCatalog": {
+        "type": "object",
+        "required": [
+          "namespaces",
+          "workflows"
+        ],
+        "properties": {
+          "namespaces": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkflowNamespaceCatalogEntry"
+            }
+          },
+          "workflows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkflowCatalogEntry"
+            }
+          }
+        }
+      },
+      "WorkflowCatalogEntry": {
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "WorkflowNamespaceCatalogEntry": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "workflow_id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "workflow_id": {
+            "type": "string"
           }
         }
       }

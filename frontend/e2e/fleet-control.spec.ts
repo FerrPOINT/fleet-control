@@ -29,6 +29,7 @@ type ApiState = {
   messagesBySession: Record<string, Message[]>
   runsBySession: Record<string, Run[]>
   deploymentJobs: DeploymentJob[]
+  workflowBindings: ReturnType<typeof workflowBindings>
 }
 
 function makeAgent(
@@ -315,6 +316,7 @@ function createState(): ApiState {
       ],
     },
     deploymentJobs: [makeDeploymentJob()],
+    workflowBindings: workflowBindings(),
   }
 }
 
@@ -687,7 +689,25 @@ async function installMocks(page: Page, state: ApiState) {
       return fulfill(route, session)
     }
 
-    if (pathName === '/api/v1/workflow-bindings') return fulfill(route, workflowBindings())
+    if (pathName === '/api/v1/workflow-catalog') {
+      return fulfill(route, {
+        namespaces: [{ id: '1', name: 'Основной', workflow_id: '1' }],
+        workflows: [{ id: '1', name: 'sdlc-business-tech-v1' }],
+      })
+    }
+    const bindingMatch = pathName.match(/^\/api\/v1\/workflow-bindings\/([^/]+)$/)
+    if (bindingMatch && method === 'PUT') {
+      const binding = state.workflowBindings.find((item) => item.agent_id === bindingMatch[1])
+      if (!binding) return fulfill(route, { error: 'binding not found' }, 404)
+      const body = (await request.postDataJSON()) as { namespace_id: string; workflow_id: string }
+      binding.namespace_id = body.namespace_id
+      binding.namespace_name = 'Основной'
+      binding.workflow_id = body.workflow_id
+      binding.workflow_name = 'sdlc-business-tech-v1'
+      binding.binding_status = 'connected'
+      return fulfill(route, binding)
+    }
+    if (pathName === '/api/v1/workflow-bindings') return fulfill(route, state.workflowBindings)
     if (pathName === '/api/v1/logs') return fulfill(route, logs())
     if (pathName === '/api/v1/events/recent') return fulfill(route, events())
     if (pathName === '/api/v1/audit-log') return fulfill(route, auditLog())
@@ -834,7 +854,7 @@ function workflowBindings() {
       namespace_name: 'Developer',
       workflow_id: 'workflow-dev',
       workflow_name: 'Developer Workflow',
-      binding_status: 'connected',
+      binding_status: 'stale',
       created_at: now,
       updated_at: now,
     },
@@ -876,6 +896,16 @@ function logs() {
     },
   ]
 }
+
+test('workflow bindings rebind only to a workflow in the selected namespace', async ({ page }) => {
+  const state = createState()
+  await installMocks(page, state)
+  await page.goto('/workflows')
+
+  await expect(page.getByText('Developer Hermes', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Rebind to sdlc-business-tech-v1' }).click()
+  await expect(page.getByText('sdlc-business-tech-v1').first()).toBeVisible()
+})
 
 test('Hermes fleet control flow covers agents, runtime, skills, sessions and handoff', async ({
   page,

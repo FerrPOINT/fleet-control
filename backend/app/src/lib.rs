@@ -12,7 +12,8 @@ use domain::{
     RuntimeRunControlResponse, RuntimeSettings, RuntimeTemplate, SessionAgentRun, SessionMessage,
     SessionParticipant, SessionRunRole, SessionRunState, SteerSessionRunRequest,
     UpdateAgentConfigRequest, UpdateAgentRequest, UpdateLeaderExecutorsRequest, UpdateSkillRequest,
-    UpdateUserRoleRequest, UserResponse, WorkflowBinding,
+    UpdateUserRoleRequest, UserResponse, WorkflowBinding, WorkflowCatalog, WorkflowCatalogEntry,
+    WorkflowNamespaceCatalogEntry,
 };
 use shared::{AppConfig, AppError, FleetEvent};
 use std::sync::Arc;
@@ -225,6 +226,12 @@ pub trait FleetRepository: Send + Sync {
     ) -> Result<u64, AppError>;
 
     async fn list_workflow_bindings(&self) -> Result<Vec<WorkflowBinding>, AppError>;
+    async fn rebind_workflow_binding(
+        &self,
+        agent_id: Uuid,
+        namespace: WorkflowNamespaceCatalogEntry,
+        workflow: WorkflowCatalogEntry,
+    ) -> Result<WorkflowBinding, AppError>;
 
     /// project-workflow sync: refresh binding_status for known bindings
     /// against the live project-workflow namespace/workflow catalog.
@@ -803,9 +810,169 @@ impl AlertService for RepositoryAlertService {
     }
 }
 
+fn catalog_id(value: Option<&serde_json::Value>, field: &str) -> Result<String, AppError> {
+    match value {
+        Some(serde_json::Value::String(value)) if !value.trim().is_empty() => Ok(value.clone()),
+        Some(serde_json::Value::Number(value)) => Ok(value.to_string()),
+        _ => Err(AppError::internal(format!(
+            "project-workflow {field} is invalid"
+        ))),
+    }
+}
+
+pub fn workflow_catalog_from_payloads(
+    namespaces_payload: serde_json::Value,
+    workflows_payload: serde_json::Value,
+) -> Result<WorkflowCatalog, AppError> {
+    let workflows = workflows_payload
+        .get("workflows")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| AppError::internal("project-workflow workflows response is invalid"))?
+        .iter()
+        .map(|item| {
+            Ok(WorkflowCatalogEntry {
+                id: catalog_id(item.get("id"), "workflow id")?,
+                name: item
+                    .get("name")
+                    .and_then(serde_json::Value::as_str)
+                    .filter(|name| !name.trim().is_empty())
+                    .map(str::to_string)
+                    .ok_or_else(|| {
+                        AppError::internal("project-workflow workflow name is invalid")
+                    })?,
+            })
+        })
+        .collect::<Result<Vec<_>, AppError>>()?;
+    let namespaces = namespaces_payload
+        .get("namespaces")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| AppError::internal("project-workflow namespaces response is invalid"))?
+        .iter()
+        .map(|item| {
+            Ok(WorkflowNamespaceCatalogEntry {
+                id: catalog_id(item.get("id"), "namespace id")?,
+                name: item
+                    .get("name")
+                    .or_else(|| item.get("namespace_name"))
+                    .and_then(serde_json::Value::as_str)
+                    .filter(|name| !name.trim().is_empty())
+                    .map(str::to_string)
+                    .ok_or_else(|| {
+                        AppError::internal("project-workflow namespace name is invalid")
+                    })?,
+                workflow_id: catalog_id(item.get("workflow_id"), "namespace workflow id")?,
+            })
+        })
+        .collect::<Result<Vec<_>, AppError>>()?;
+    if namespaces.iter().any(|namespace| {
+        !workflows
+            .iter()
+            .any(|workflow| workflow.id == namespace.workflow_id)
+    }) {
+        return Err(AppError::validation(
+            "project-workflow namespace references an unknown workflow",
+        ));
+    }
+    Ok(WorkflowCatalog {
+        namespaces,
+        workflows,
+    })
+}
+
+pub async fn fetch_workflow_catalog(config: &AppConfig) -> Result<WorkflowCatalog, AppError> {
+    let base = config
+        .fleet
+        .project_workflow_url
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| AppError::validation("project-workflow integration is not configured"))?
+        .trim_end_matches('/');
+    let client = reqwest::Client::new();
+    let namespaces = client
+        .get(format!("{base}/api/namespaces"))
+        .send()
+        .await
+        .map_err(|error| AppError::internal(error.to_string()))?
+        .error_for_status()
+        .map_err(|error| AppError::internal(error.to_string()))?
+        .json()
+        .await
+        .map_err(|error| AppError::internal(error.to_string()))?;
+    let workflows = client
+        .get(format!("{base}/api/workflows"))
+        .send()
+        .await
+        .map_err(|error| AppError::internal(error.to_string()))?
+        .error_for_status()
+        .map_err(|error| AppError::internal(error.to_string()))?
+        .json()
+        .await
+        .map_err(|error| AppError::internal(error.to_string()))?;
+    workflow_catalog_from_payloads(namespaces, workflows)
+}
+
+pub fn workflow_rebind_selection(
+    catalog: &WorkflowCatalog,
+    namespace_id: &str,
+    workflow_id: &str,
+) -> Result<(WorkflowNamespaceCatalogEntry, WorkflowCatalogEntry), AppError> {
+    let namespace = catalog
+        .namespaces
+        .iter()
+        .find(|item| item.id == namespace_id)
+        .cloned()
+        .ok_or_else(|| AppError::validation("project-workflow namespace was not found"))?;
+    if namespace.workflow_id != workflow_id {
+        return Err(AppError::validation(
+            "selected workflow does not belong to the selected namespace",
+        ));
+    }
+    let workflow = catalog
+        .workflows
+        .iter()
+        .find(|item| item.id == workflow_id)
+        .cloned()
+        .ok_or_else(|| AppError::validation("project-workflow workflow was not found"))?;
+    Ok((namespace, workflow))
+}
+
 #[cfg(test)]
 mod alert_tests {
     use super::*;
+
+    #[test]
+    fn workflow_catalog_rejects_namespace_with_unknown_workflow() {
+        let error = workflow_catalog_from_payloads(
+            serde_json::json!({
+                "namespaces": [{"id": 1, "name": "Development", "workflow_id": 99}]
+            }),
+            serde_json::json!({"workflows": [{"id": 10, "name": "Development workflow"}]}),
+        )
+        .expect_err("namespace references a missing workflow");
+
+        assert!(error.to_string().contains("unknown workflow"));
+    }
+
+    #[test]
+    fn workflow_catalog_rejects_workflow_outside_selected_namespace() {
+        let catalog = workflow_catalog_from_payloads(
+            serde_json::json!({
+                "namespaces": [{"id": 1, "name": "Development", "workflow_id": 10}]
+            }),
+            serde_json::json!({
+                "workflows": [
+                    {"id": 10, "name": "Development workflow"},
+                    {"id": 20, "name": "QA workflow"}
+                ]
+            }),
+        )
+        .expect("valid project-workflow catalog");
+
+        let error = workflow_rebind_selection(&catalog, "1", "20")
+            .expect_err("workflow belongs to another namespace");
+        assert!(error.to_string().contains("does not belong"));
+    }
 
     #[test]
     fn healthy_to_failed_raises_critical_down() {

@@ -200,6 +200,25 @@ export interface WorkflowBinding {
   updated_at: string
 }
 
+export interface WorkflowCatalogEntry {
+  id: string
+  name: string
+}
+
+export interface WorkflowNamespaceCatalogEntry extends WorkflowCatalogEntry {
+  workflow_id: string
+}
+
+export interface WorkflowCatalog {
+  namespaces: WorkflowNamespaceCatalogEntry[]
+  workflows: WorkflowCatalogEntry[]
+}
+
+export interface RebindWorkflowBindingRequest {
+  namespace_id: string
+  workflow_id: string
+}
+
 export interface AgentEvent {
   id: string
   agent_id: string | null

@@ -172,6 +172,28 @@ fn parse_deployment_job_state(value: &str) -> DeploymentJobState {
     value.parse().unwrap_or(DeploymentJobState::Failed)
 }
 
+fn workflow_config_with_binding(mut config: Value, namespace_id: &str, workflow_id: &str) -> Value {
+    if let Some(values) = config.as_object_mut() {
+        values.insert("namespace_id".to_string(), json!(namespace_id));
+        values.insert("workflow_id".to_string(), json!(workflow_id));
+    }
+    config
+}
+
+fn workflow_binding_from_row(row: workflow_binding::Model) -> WorkflowBinding {
+    WorkflowBinding {
+        id: row.id,
+        agent_id: row.agent_id,
+        namespace_id: row.namespace_id,
+        namespace_name: row.namespace_name,
+        workflow_id: row.workflow_id,
+        workflow_name: row.workflow_name,
+        binding_status: row.binding_status,
+        created_at: api_ts(row.created_at),
+        updated_at: api_ts(row.updated_at),
+    }
+}
+
 fn workflow_binding_status(
     namespace_id: Option<&str>,
     namespace_name: Option<&str>,
@@ -2381,27 +2403,75 @@ impl FleetRepository for PostgresFleetRepository {
         Ok(updated)
     }
 
+    async fn rebind_workflow_binding(
+        &self,
+        agent_id: Uuid,
+        namespace: domain::WorkflowNamespaceCatalogEntry,
+        workflow: domain::WorkflowCatalogEntry,
+    ) -> Result<WorkflowBinding, AppError> {
+        let txn = self.db.begin().await.map_err(AppError::database)?;
+        let timestamp = now();
+        let agent_exists = agent::Entity::find_by_id(agent_id)
+            .one(&txn)
+            .await
+            .map_err(AppError::database)?
+            .is_some();
+        if !agent_exists {
+            return Err(AppError::not_found("agent", agent_id));
+        }
+        let updated_agents = agent::Entity::update_many()
+            .set(agent::ActiveModel {
+                namespace_id: Set(Some(namespace.id.clone())),
+                workflow_id: Set(Some(workflow.id.clone())),
+                updated_at: Set(timestamp),
+                ..Default::default()
+            })
+            .filter(agent::Column::Id.eq(agent_id))
+            .exec(&txn)
+            .await
+            .map_err(AppError::database)?;
+        if updated_agents.rows_affected != 1 {
+            return Err(AppError::not_found("agent", agent_id));
+        }
+        let binding = workflow_binding::Entity::find()
+            .filter(workflow_binding::Column::AgentId.eq(agent_id))
+            .one(&txn)
+            .await
+            .map_err(AppError::database)?
+            .ok_or_else(|| AppError::not_found("workflow_binding", agent_id))?;
+        let mut binding = binding.into_active_model();
+        binding.namespace_id = Set(Some(namespace.id));
+        binding.namespace_name = Set(Some(namespace.name));
+        binding.workflow_id = Set(Some(workflow.id));
+        binding.workflow_name = Set(Some(workflow.name));
+        binding.binding_status = Set("connected".to_string());
+        binding.updated_at = Set(timestamp);
+        let binding = binding.update(&txn).await.map_err(AppError::database)?;
+        if let Some(config_row) = agent_config::Entity::find_by_id(agent_id)
+            .one(&txn)
+            .await
+            .map_err(AppError::database)?
+        {
+            let mut config = config_row.into_active_model();
+            config.config_json = Set(workflow_config_with_binding(
+                config.config_json.clone().unwrap(),
+                binding.namespace_id.as_deref().unwrap_or_default(),
+                binding.workflow_id.as_deref().unwrap_or_default(),
+            ));
+            config.updated_at = Set(timestamp);
+            config.update(&txn).await.map_err(AppError::database)?;
+        }
+        txn.commit().await.map_err(AppError::database)?;
+        Ok(workflow_binding_from_row(binding))
+    }
+
     async fn list_workflow_bindings(&self) -> Result<Vec<WorkflowBinding>, AppError> {
         workflow_binding::Entity::find()
             .order_by_asc(workflow_binding::Column::NamespaceId)
             .all(&self.db)
             .await
             .map_err(AppError::database)
-            .map(|rows| {
-                rows.into_iter()
-                    .map(|row| WorkflowBinding {
-                        id: row.id,
-                        agent_id: row.agent_id,
-                        namespace_id: row.namespace_id,
-                        namespace_name: row.namespace_name,
-                        workflow_id: row.workflow_id,
-                        workflow_name: row.workflow_name,
-                        binding_status: row.binding_status,
-                        created_at: api_ts(row.created_at),
-                        updated_at: api_ts(row.updated_at),
-                    })
-                    .collect()
-            })
+            .map(|rows| rows.into_iter().map(workflow_binding_from_row).collect())
     }
 
     async fn list_events(&self, limit: u64) -> Result<Vec<AgentEvent>, AppError> {
@@ -4073,6 +4143,26 @@ mod tests {
             ..req
         };
         assert!(validate_bulk_deployment_request(&req).is_ok());
+    }
+
+    #[test]
+    fn workflow_config_rebind_preserves_unrelated_runtime_settings() {
+        let config = serde_json::json!({
+            "agent": "agent1",
+            "terminal": { "cwd": "/work" },
+            "namespace_id": "dev",
+            "workflow_id": "workflow-dev"
+        });
+
+        assert_eq!(
+            workflow_config_with_binding(config, "1", "1"),
+            serde_json::json!({
+                "agent": "agent1",
+                "terminal": { "cwd": "/work" },
+                "namespace_id": "1",
+                "workflow_id": "1"
+            })
+        );
     }
 
     #[test]

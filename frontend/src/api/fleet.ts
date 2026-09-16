@@ -37,6 +37,8 @@ import type {
   UpdateLeaderExecutorsRequest,
   UpdateSkillRequest,
   WorkflowBinding,
+  WorkflowCatalog,
+  RebindWorkflowBindingRequest,
 } from './types'
 
 export function getDashboard() {
@@ -216,6 +218,17 @@ export function resolveSessionRunApproval(
 
 export function listWorkflowBindings() {
   return apiRequest<WorkflowBinding[]>('/api/v1/workflow-bindings')
+}
+
+export function getWorkflowCatalog() {
+  return apiRequest<WorkflowCatalog>('/api/v1/workflow-catalog')
+}
+
+export function rebindWorkflowBinding(id: string, req: RebindWorkflowBindingRequest) {
+  return apiRequest<WorkflowBinding>(`/api/v1/workflow-bindings/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(req),
+  })
 }
 
 export function listRuntimeTemplates() {

@@ -891,6 +891,31 @@ pub struct WorkflowBinding {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct WorkflowCatalogEntry {
+    pub id: String,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct WorkflowNamespaceCatalogEntry {
+    pub id: String,
+    pub name: String,
+    pub workflow_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct WorkflowCatalog {
+    pub namespaces: Vec<WorkflowNamespaceCatalogEntry>,
+    pub workflows: Vec<WorkflowCatalogEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct RebindWorkflowBindingRequest {
+    pub namespace_id: String,
+    pub workflow_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 /// Fleet monitoring alert raised on agent health transitions
 /// (IMPLEMENTATION_PLAN Phase 3 monitoring item).
 pub struct FleetAlert {

@@ -75,6 +75,12 @@ Sessions and workflow:
 - `POST /sessions/{session_id}/runs/{run_id}/approval` forwards the decision to
   Hermes and resolves pending Fleet approval mirror records for that run.
 - `GET /workflow-bindings`
+- `GET /workflow-catalog` proxies the live Project Workflow catalog for operator selection.
+- `PUT /workflow-bindings/{agent_id}` requires an operator and an exact
+  `{namespace_id, workflow_id}` pair from that live catalog. Fleet rejects a
+  workflow outside the selected namespace, atomically updates the agent and its
+  binding, then records an audit entry. Stale bindings are never retargeted by
+  the background reconciler.
 
 Session defaults:
 

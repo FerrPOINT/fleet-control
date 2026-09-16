@@ -63,6 +63,8 @@ pub mod routes;
         routes::sessions::stop_session_run,
         routes::sessions::resolve_session_run_approval,
         routes::workflows::list_workflow_bindings,
+        routes::workflows::get_workflow_catalog,
+        routes::workflows::rebind_workflow_binding,
         routes::deployments::list_runtime_templates,
         routes::deployments::list_deployment_jobs,
         routes::deployments::get_deployment_job,
@@ -305,6 +307,14 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         .route(
             "/api/v1/workflow-bindings",
             get(routes::workflows::list_workflow_bindings),
+        )
+        .route(
+            "/api/v1/workflow-catalog",
+            get(routes::workflows::get_workflow_catalog),
+        )
+        .route(
+            "/api/v1/workflow-bindings/{agent_id}",
+            put(routes::workflows::rebind_workflow_binding),
         )
         .route(
             "/api/v1/runtime-templates",
