@@ -5,6 +5,7 @@
 ### Security
 
 - HMAC access-token validation now delegates to the shared `sdlc-auth-core::Validator` (`hmac_with_audience` with the configured issuer/audience); the duplicated local decode/validate path is retired. Legacy pre-fleet token fallback and OIDC mode are unchanged.
+- Align `tower-http` with `sdlc-shared` (0.7): production container builds no longer link incompatible CORS layer types after the shared dependency update.
 
 ### Added
 
