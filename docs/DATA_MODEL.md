@@ -32,7 +32,7 @@ Tables:
   lifecycle state.
 - `control_settings`: typed JSON settings for runtime roots, ports,
   integrations and auth.
-- `workflow_bindings`: per-agent namespace/workflow link.
+- `workflow_bindings`: per-agent namespace/workflow link. `binding_status` is computed from the live Project Workflow catalog: `connected` for an exact ID/name match, `stale` for a removed or renamed persisted selection, and `unbound` when no selection exists.
 - `agent_events`: audit-friendly event stream for UI invalidation.
 - `agent_logs`: bounded process/runtime log records.
 - `audit_log`: immutable operator action audit for agent changes, runtime

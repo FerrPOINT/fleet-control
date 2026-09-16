@@ -11,4 +11,10 @@ Fields:
 - `workflow_name`
 - `binding_status`
 
+Status is computed by Fleet Control from the live `project-workflow` catalog:
+
+- `connected` — both stored ID/name pairs exactly match live namespace and workflow entries.
+- `stale` — a persisted selection no longer exists or was renamed upstream; Fleet keeps the values for operator diagnosis and does not silently retarget an agent.
+- `unbound` — no namespace or workflow selection was stored for the agent.
+
 The source of truth for namespace/workflow behavior is `project-workflow`.

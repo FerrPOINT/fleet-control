@@ -172,6 +172,38 @@ fn parse_deployment_job_state(value: &str) -> DeploymentJobState {
     value.parse().unwrap_or(DeploymentJobState::Failed)
 }
 
+fn workflow_binding_status(
+    namespace_id: Option<&str>,
+    namespace_name: Option<&str>,
+    workflow_id: Option<&str>,
+    workflow_name: Option<&str>,
+    known_namespaces: &[(String, String)],
+    known_workflows: &[(String, String)],
+) -> &'static str {
+    let namespace_id = namespace_id.filter(|value| !value.trim().is_empty());
+    let namespace_name = namespace_name.filter(|value| !value.trim().is_empty());
+    let workflow_id = workflow_id.filter(|value| !value.trim().is_empty());
+    let workflow_name = workflow_name.filter(|value| !value.trim().is_empty());
+    if namespace_id.is_none()
+        && namespace_name.is_none()
+        && workflow_id.is_none()
+        && workflow_name.is_none()
+    {
+        return "unbound";
+    }
+    let namespace_live = known_namespaces.iter().any(|(id, name)| {
+        Some(id.as_str()) == namespace_id && Some(name.as_str()) == namespace_name
+    });
+    let workflow_live = known_workflows
+        .iter()
+        .any(|(id, name)| Some(id.as_str()) == workflow_id && Some(name.as_str()) == workflow_name);
+    if namespace_live && workflow_live {
+        "connected"
+    } else {
+        "stale"
+    }
+}
+
 fn agent_directory_item(agent: &Agent) -> AgentDirectoryItem {
     AgentDirectoryItem {
         id: agent.id,
@@ -2330,19 +2362,14 @@ impl FleetRepository for PostgresFleetRepository {
             .map_err(AppError::database)?;
         let mut updated = 0u64;
         for row in bindings {
-            let ns_live = known_namespaces.iter().any(|(id, name)| {
-                Some(id.as_str()) == row.namespace_id.as_deref()
-                    && Some(name.as_str()) == row.namespace_name.as_deref()
-            });
-            let wf_live = known_workflows.iter().any(|(id, name)| {
-                Some(id.as_str()) == row.workflow_id.as_deref()
-                    && Some(name.as_str()) == row.workflow_name.as_deref()
-            });
-            let target = if ns_live && wf_live {
-                "connected"
-            } else {
-                "stale"
-            };
+            let target = workflow_binding_status(
+                row.namespace_id.as_deref(),
+                row.namespace_name.as_deref(),
+                row.workflow_id.as_deref(),
+                row.workflow_name.as_deref(),
+                &known_namespaces,
+                &known_workflows,
+            );
             if row.binding_status != target {
                 let mut model = row.into_active_model();
                 model.binding_status = Set(target.to_string());
@@ -4046,6 +4073,46 @@ mod tests {
             ..req
         };
         assert!(validate_bulk_deployment_request(&req).is_ok());
+    }
+
+    #[test]
+    fn workflow_binding_status_distinguishes_connected_stale_and_unbound() {
+        let namespaces = vec![("1".to_string(), "Основной".to_string())];
+        let workflows = vec![("1".to_string(), "sdlc-business-tech-v1".to_string())];
+
+        assert_eq!(
+            workflow_binding_status(
+                Some("1"),
+                Some("Основной"),
+                Some("1"),
+                Some("sdlc-business-tech-v1"),
+                &namespaces,
+                &workflows,
+            ),
+            "connected"
+        );
+        assert_eq!(
+            workflow_binding_status(
+                Some("dev"),
+                Some("Development"),
+                Some("workflow-dev"),
+                Some("Developer Workflow"),
+                &namespaces,
+                &workflows,
+            ),
+            "stale"
+        );
+        assert_eq!(
+            workflow_binding_status(
+                Some(""),
+                Some(""),
+                Some(""),
+                Some(""),
+                &namespaces,
+                &workflows,
+            ),
+            "unbound"
+        );
     }
 
     #[test]
