@@ -7,6 +7,7 @@ import type {
   AgentSession,
   AgentEvent,
   AgentStorageReport,
+  AgentStorageReview,
   AuditLogEntry,
   AssignSessionLeaderRequest,
   CreateAgentRequest,
@@ -93,6 +94,10 @@ export function archiveAgent(id: string) {
 
 export function getAgentStorage(id: string) {
   return apiRequest<AgentStorageReport>(`/api/v1/agents/${id}/storage`)
+}
+
+export function getAgentStorageReview() {
+  return apiRequest<AgentStorageReview>('/api/v1/agents/storage-review')
 }
 
 export function purgeAgentFiles(id: string, req: PurgeAgentFilesRequest) {

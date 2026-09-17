@@ -50,6 +50,8 @@ Implemented:
   validation, event and audit trail
 - read-only agent storage/retention reports for `runtime`, `config`,
   `workspace` and `logs` with marker status and purge eligibility
+- fleet-wide storage/retention review for technical agent inventory with total
+  managed bytes, archived bytes, purge-ready agents and marker/path issues
 - full documentation baseline
 - generated 128-file screenshot set for all required pages at required viewports
 

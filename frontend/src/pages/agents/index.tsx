@@ -1,9 +1,10 @@
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, type ReactNode, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bot, Coffee, Plus, Rocket } from 'lucide-react'
+import { Archive, Bot, Coffee, HardDrive, Plus, Rocket, ShieldAlert } from 'lucide-react'
 import {
   createAgent,
+  getAgentStorageReview,
   listAgents,
   listExecutors,
   listRuntimeTemplates,
@@ -14,6 +15,8 @@ import type {
   AgentProductRole,
   AgentRole,
   AgentSession,
+  AgentStorageReview,
+  AgentStorageReviewItem,
   CreateAgentRequest,
 } from '@/api/types'
 import { SessionUserFilter, useSessionUserFilter } from '@/shared/session-user-filter'
@@ -47,6 +50,11 @@ export function AgentsPage({
     queryFn: () => listSessions(undefined, userFilter.selectedUserIds),
     enabled: !createMode,
   })
+  const storageReview = useQuery({
+    queryKey: ['agent-storage-review'],
+    queryFn: getAgentStorageReview,
+    enabled: !createMode,
+  })
   const sessionsByAgent = useMemo(() => groupSessionsByAgent(sessions.data ?? []), [sessions.data])
 
   return (
@@ -73,6 +81,13 @@ export function AgentsPage({
         />
       ) : null}
       {!createMode ? <SessionUserFilter filter={userFilter} className="mb-4" /> : null}
+      {!createMode ? (
+        <StorageReviewPanel
+          review={storageReview.data}
+          isLoading={storageReview.isLoading}
+          error={storageReview.isError ? storageReview.error.message : null}
+        />
+      ) : null}
       <div className="mt-4 grid gap-3 xl:grid-cols-2">
         {agents.data?.length ? (
           agents.data.map((agent) => (
@@ -136,6 +151,129 @@ export function AgentsPage({
       </div>
     </>
   )
+}
+
+function StorageReviewPanel({
+  review,
+  isLoading,
+  error,
+}: {
+  review?: AgentStorageReview
+  isLoading: boolean
+  error: string | null
+}) {
+  const candidates = review?.items.filter((item) => item.purge_eligible) ?? []
+  const issues =
+    review?.items.filter(
+      (item) => !item.root_exists || (item.root_exists && !item.marker_verified),
+    ) ?? []
+
+  return (
+    <Card className="mb-4">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <HardDrive className="h-4 w-4" />
+          Storage review
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {error ? <ErrorState message={error} /> : null}
+        {isLoading ? <p className="text-sm text-text-muted">Reviewing managed folders...</p> : null}
+        {review ? (
+          <>
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+              <StorageMetric label="Managed size" value={formatBytes(review.total_bytes)} />
+              <StorageMetric label="Archived size" value={formatBytes(review.archived_bytes)} />
+              <StorageMetric label="Agents" value={String(review.total_agents)} />
+              <StorageMetric label="Purge ready" value={String(review.purge_eligible_agents)} />
+              <StorageMetric
+                label="Folder issues"
+                value={String(review.marker_issue_agents + review.missing_root_agents)}
+              />
+            </div>
+            <div className="grid gap-3 xl:grid-cols-2">
+              <StorageList
+                icon={<Archive className="h-4 w-4" />}
+                title="Purge candidates"
+                empty="No archived agents are ready for physical purge"
+                items={candidates}
+              />
+              <StorageList
+                icon={<ShieldAlert className="h-4 w-4" />}
+                title="Marker and folder issues"
+                empty="All managed folders have matching markers"
+                items={issues}
+              />
+            </div>
+            <p className="text-xs text-text-muted">Reviewed at {review.reviewed_at}</p>
+          </>
+        ) : null}
+      </CardContent>
+    </Card>
+  )
+}
+
+function StorageMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border bg-background p-3">
+      <p className="text-xs text-text-muted">{label}</p>
+      <p className="mt-1 font-medium text-text-primary">{value}</p>
+    </div>
+  )
+}
+
+function StorageList({
+  icon,
+  title,
+  empty,
+  items,
+}: {
+  icon: ReactNode
+  title: string
+  empty: string
+  items: AgentStorageReviewItem[]
+}) {
+  return (
+    <div className="rounded-md border border-border bg-background p-3">
+      <div className="flex items-center gap-2 text-sm font-medium text-text-primary">
+        {icon}
+        {title}
+      </div>
+      <div className="mt-3 grid gap-2">
+        {items.length ? (
+          items.slice(0, 3).map((item) => (
+            <Link
+              key={item.agent_id}
+              to={`/agents/${item.agent_id}/workspace`}
+              className="rounded-md border border-border p-2 hover:bg-surface-raised"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-medium text-text-primary">{item.display_name}</span>
+                <StatusBadge value={item.status} />
+              </div>
+              <p className="mt-1 text-xs text-text-muted">
+                {item.agent_name} - {formatBytes(item.total_bytes)} - {item.retention_hint}
+              </p>
+            </Link>
+          ))
+        ) : (
+          <p className="text-sm text-text-muted">{empty}</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`
+  const units = ['KB', 'MB', 'GB', 'TB']
+  let value = bytes / 1024
+  let unit = units[0]
+  for (let index = 1; index < units.length && value >= 1024; index += 1) {
+    value /= 1024
+    unit = units[index]
+  }
+  return `${value.toFixed(value >= 10 ? 1 : 2)} ${unit}`
 }
 
 function groupSessionsByAgent(sessions: AgentSession[]) {

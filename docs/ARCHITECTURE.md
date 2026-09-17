@@ -115,6 +115,9 @@ reuses the same `agents_root/agentN` guard as purge/provisioning, scans only the
 managed runtime/config/workspace/logs areas, and reports marker validity before
 operators run a physical purge.
 
+Fleet-wide storage review aggregates those read-only per-agent reports for the
+technical inventory and does not persist or repair filesystem state.
+
 ## Evidence Gate
 
 OpenAPI is generated from Rust source, frontend types are generated from

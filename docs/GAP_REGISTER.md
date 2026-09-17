@@ -29,3 +29,4 @@ Closed gaps:
 - explicit archived-agent folder purge with confirmation, marker guard, event
   and audit entry
 - agent storage and retention preview before physical purge
+- fleet-wide agent storage review with purge candidates and marker/path issues

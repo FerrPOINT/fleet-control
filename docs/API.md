@@ -41,6 +41,9 @@ Fleet:
 - `GET /agent-directory`
 - `GET /agents`
 - `POST /agents`
+- `GET /agents/storage-review` returns a fleet-wide managed-folder retention
+  review with total bytes, archived bytes, purge-ready agents and marker/path
+  issues.
 - `GET/PATCH/DELETE /agents/{agent_id}`
 - `GET /agents/{agent_id}/storage` returns the managed folder storage report,
   marker status and purge eligibility.

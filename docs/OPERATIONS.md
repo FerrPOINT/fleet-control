@@ -36,6 +36,11 @@ The storage report is read-only. It scans `runtime`, `config`, `workspace` and
 `logs`, counts files, directories and symlinks without following symlink
 targets, and reports whether the folder is currently purge-eligible.
 
+The technical `/agents` inventory also has a fleet-wide storage review. It
+aggregates the same read-only reports across every managed agent and highlights
+archived folders that are purge-ready plus marker/path issues that require
+operator inspection before any destructive action.
+
 ## Deployments
 
 Provision and runtime update work is represented by deployment jobs. Operators
