@@ -863,6 +863,35 @@ pub struct AgentStorageReport {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct AgentStorageReviewItem {
+    pub agent_id: Uuid,
+    pub agent_name: String,
+    pub display_name: String,
+    pub kind: AgentKind,
+    pub product_role: AgentProductRole,
+    pub status: AgentStatus,
+    pub total_bytes: u64,
+    pub total_files: u64,
+    pub root_exists: bool,
+    pub marker_verified: bool,
+    pub purge_eligible: bool,
+    pub retention_hint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct AgentStorageReview {
+    pub reviewed_at: Timestamp,
+    pub total_agents: usize,
+    pub total_bytes: u64,
+    pub archived_agents: usize,
+    pub archived_bytes: u64,
+    pub purge_eligible_agents: usize,
+    pub missing_root_agents: usize,
+    pub marker_issue_agents: usize,
+    pub items: Vec<AgentStorageReviewItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct AgentRuntime {
     pub desired_state: DesiredState,
     pub pid: Option<i32>,

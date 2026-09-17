@@ -144,6 +144,40 @@ function storageReport(item) {
   }
 }
 
+function storageReview(items) {
+  const reviewItems = items.map((item) => {
+    const report = storageReport(item)
+    return {
+      agent_id: item.id,
+      agent_name: item.name,
+      display_name: item.display_name,
+      kind: item.kind,
+      product_role: item.product_role,
+      status: item.status,
+      total_bytes: report.total_bytes,
+      total_files: report.total_files,
+      root_exists: report.root_exists,
+      marker_verified: report.marker_verified,
+      purge_eligible: report.retention.purge_eligible,
+      retention_hint: report.retention.retention_hint,
+    }
+  })
+  return {
+    reviewed_at: now,
+    total_agents: reviewItems.length,
+    total_bytes: reviewItems.reduce((sum, item) => sum + item.total_bytes, 0),
+    archived_agents: reviewItems.filter((item) => item.status === 'archived').length,
+    archived_bytes: reviewItems
+      .filter((item) => item.status === 'archived')
+      .reduce((sum, item) => sum + item.total_bytes, 0),
+    purge_eligible_agents: reviewItems.filter((item) => item.purge_eligible).length,
+    missing_root_agents: reviewItems.filter((item) => !item.root_exists).length,
+    marker_issue_agents: reviewItems.filter((item) => item.root_exists && !item.marker_verified)
+      .length,
+    items: reviewItems,
+  }
+}
+
 const agents = [
   agent({
     id: ids.dev,
@@ -751,6 +785,7 @@ async function mockApi(context) {
     )
     if (deploymentJobMatch) return json(route, deploymentJobs[0])
     if (pathName === '/api/v1/agents' && method === 'GET') return json(route, agents)
+    if (pathName === '/api/v1/agents/storage-review') return json(route, storageReview(agents))
     if (pathName === '/api/v1/agents' && method === 'POST') {
       return json(route, {
         ...agents[0],

@@ -22,6 +22,8 @@
 - Agent storage reporting is read-only, recomputes managed paths from
   `agents_root/agentN`, and does not follow symlink targets while counting disk
   usage.
+- Fleet-wide storage review uses the same guarded per-agent reports and never
+  performs deletion or marker repair by itself.
 - Session lists default to the authenticated user on the backend.
 - Only admin/operator users can expand session/user filters to other users.
 - Backend RBAC is authoritative. The UI hides sections using

@@ -5,9 +5,10 @@ use axum::{
     extract::{Path, State},
 };
 use domain::{
-    Agent, AgentConfig, AgentDirectoryItem, AgentSkill, AgentStorageReport, CreateAgentRequest,
-    PurgeAgentFilesRequest, PurgeAgentFilesResponse, RuntimeOperationResponse,
-    UpdateAgentConfigRequest, UpdateAgentRequest, UpdateSkillRequest,
+    Agent, AgentConfig, AgentDirectoryItem, AgentSkill, AgentStatus, AgentStorageReport,
+    AgentStorageReview, AgentStorageReviewItem, CreateAgentRequest, PurgeAgentFilesRequest,
+    PurgeAgentFilesResponse, RuntimeOperationResponse, UpdateAgentConfigRequest,
+    UpdateAgentRequest, UpdateSkillRequest,
 };
 use shared::{AppError, FleetEvent};
 use std::sync::Arc;
@@ -27,6 +28,24 @@ pub async fn list_agent_directory(
     State(ctx): State<Arc<AppContext>>,
 ) -> Result<Json<Vec<AgentDirectoryItem>>, AppError> {
     Ok(Json(ctx.repo.list_agent_directory().await?))
+}
+
+#[utoipa::path(get, path = "/api/v1/agents/storage-review", tag = "agents", responses((status = 200, body = AgentStorageReview)))]
+pub async fn get_agent_storage_review(
+    State(ctx): State<Arc<AppContext>>,
+    Extension(user): Extension<CurrentUser>,
+) -> Result<Json<AgentStorageReview>, AppError> {
+    require_operator(&user)?;
+    let agents = ctx.repo.list_agents().await?;
+    let mut items = Vec::with_capacity(agents.len());
+    for agent in agents {
+        let storage = ctx.provisioner.storage_report(&agent, &ctx.config).await?;
+        items.push(storage_review_item(&agent, storage));
+    }
+    Ok(Json(build_storage_review(
+        items,
+        shared::now().to_rfc3339(),
+    )))
 }
 
 #[utoipa::path(post, path = "/api/v1/agents", tag = "agents", request_body = CreateAgentRequest, responses((status = 200, body = Agent)))]
@@ -448,4 +467,101 @@ fn record_health_transition(
             tracing::warn!(agent_id = %agent_id, %error, "failed to record health transition");
         }
     });
+}
+
+fn storage_review_item(agent: &Agent, storage: AgentStorageReport) -> AgentStorageReviewItem {
+    AgentStorageReviewItem {
+        agent_id: agent.id,
+        agent_name: agent.name.clone(),
+        display_name: agent.display_name.clone(),
+        kind: agent.kind,
+        product_role: agent.product_role,
+        status: agent.status,
+        total_bytes: storage.total_bytes,
+        total_files: storage.total_files,
+        root_exists: storage.root_exists,
+        marker_verified: storage.marker_verified,
+        purge_eligible: storage.retention.purge_eligible,
+        retention_hint: storage.retention.retention_hint,
+    }
+}
+
+fn build_storage_review(
+    items: Vec<AgentStorageReviewItem>,
+    reviewed_at: String,
+) -> AgentStorageReview {
+    let total_bytes = items.iter().map(|item| item.total_bytes).sum();
+    let archived_bytes = items
+        .iter()
+        .filter(|item| item.status == AgentStatus::Archived)
+        .map(|item| item.total_bytes)
+        .sum();
+    AgentStorageReview {
+        reviewed_at,
+        total_agents: items.len(),
+        total_bytes,
+        archived_agents: items
+            .iter()
+            .filter(|item| item.status == AgentStatus::Archived)
+            .count(),
+        archived_bytes,
+        purge_eligible_agents: items.iter().filter(|item| item.purge_eligible).count(),
+        missing_root_agents: items.iter().filter(|item| !item.root_exists).count(),
+        marker_issue_agents: items
+            .iter()
+            .filter(|item| item.root_exists && !item.marker_verified)
+            .count(),
+        items,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use domain::{AgentKind, AgentProductRole};
+
+    fn review_item(
+        agent_name: &str,
+        status: AgentStatus,
+        total_bytes: u64,
+        root_exists: bool,
+        marker_verified: bool,
+        purge_eligible: bool,
+    ) -> AgentStorageReviewItem {
+        AgentStorageReviewItem {
+            agent_id: Uuid::new_v4(),
+            agent_name: agent_name.to_string(),
+            display_name: agent_name.to_string(),
+            kind: AgentKind::Hermes,
+            product_role: AgentProductRole::Executor,
+            status,
+            total_bytes,
+            total_files: 1,
+            root_exists,
+            marker_verified,
+            purge_eligible,
+            retention_hint: "hint".to_string(),
+        }
+    }
+
+    #[test]
+    fn storage_review_summarizes_retention_state() {
+        let review = build_storage_review(
+            vec![
+                review_item("agent1", AgentStatus::Running, 100, true, true, false),
+                review_item("agent2", AgentStatus::Archived, 200, true, true, true),
+                review_item("agent3", AgentStatus::Archived, 300, true, false, false),
+                review_item("agent4", AgentStatus::Archived, 400, false, false, false),
+            ],
+            "2026-09-03T10:00:00Z".to_string(),
+        );
+
+        assert_eq!(review.total_agents, 4);
+        assert_eq!(review.total_bytes, 1000);
+        assert_eq!(review.archived_agents, 3);
+        assert_eq!(review.archived_bytes, 900);
+        assert_eq!(review.purge_eligible_agents, 1);
+        assert_eq!(review.marker_issue_agents, 1);
+        assert_eq!(review.missing_root_agents, 1);
+    }
 }

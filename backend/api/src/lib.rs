@@ -27,6 +27,7 @@ pub mod routes;
         routes::dashboard::get_dashboard,
         routes::agents::list_agent_directory,
         routes::agents::list_agents,
+        routes::agents::get_agent_storage_review,
         routes::agents::create_agent,
         routes::agents::get_agent,
         routes::agents::get_agent_storage,
@@ -119,6 +120,8 @@ pub mod routes;
         domain::AuditLogEntry,
         domain::AgentStorageArea,
         domain::AgentStorageReport,
+        domain::AgentStorageReview,
+        domain::AgentStorageReviewItem,
         domain::AgentRetentionReport,
         domain::PurgeAgentFilesRequest,
         domain::PurgeAgentFilesResponse,
@@ -193,6 +196,10 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         .route(
             "/api/v1/agents",
             get(routes::agents::list_agents).post(routes::agents::create_agent),
+        )
+        .route(
+            "/api/v1/agents/storage-review",
+            get(routes::agents::get_agent_storage_review),
         )
         .route(
             "/api/v1/agents/{agent_id}",

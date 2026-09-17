@@ -56,8 +56,9 @@
 | Workflows | Namespace/workflow bindings (source of truth — `project-workflow`). |
 | Deployments | Runtime templates и deployment jobs. |
 | Алерты | Fleet alerts page с bulk runtime update panel. |
+| Storage review | Fleet-wide и per-agent size reports, marker state и purge eligibility. |
+| OIDC / JWKS | Central auth mode: RS256 access tokens, cached JWKS, строгие `iss`/`aud`. |
 | Наблюдаемость | Request id, audit/events, rate controls, health и Prometheus metrics. |
-
 ## Стек
 
 | Zone | Tech | Роль |
@@ -69,8 +70,21 @@
 | Shared Base | services-base-aligned | fleet-standard request id и tracing bridge |
 | Frontend | React + Vite + Tailwind | operational fleet UI |
 | Contract | OpenAPI | generated frontend API types |
-| Evidence | Playwright screenshots | UI coverage desktop и mobile viewports |
+| Evidence | Playwright screenshots | UI coverage desktop viewports |
 
+Модель runtime (из storage review):
+
+| Area              | Details                                                                                                               |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Hermes layout     | `HERMES_HOME=data/agents/agentN/config`, cwd `data/agents/agentN/workspace`.                                          |
+| Java Agent layout | `AGENT_SERVER_PORT`, `SPRING_CONFIG_ADDITIONAL_LOCATION`, `/actuator/health`, `/api/v2/sessions`, `/v1/capabilities`. |
+| Session ownership | `agent_sessions.user_id` references the authenticated user that created the session.                                  |
+| Leader binding    | `leader_executors` defines which executors a leader may manage.                                                       |
+| Session leader    | `agent_sessions.leader_agent_id` is nullable; `NULL` means private chat.                                              |
+| Auth bridge       | Local HMAC JWTs carry fleet-compatible `aud`, `iss`, `role`, `scopes` and `sid` claims.                              |
+| Agent naming      | Agent ordinals come from database allocation and materialize `agentN` folders.                                        |
+| Deletion model    | Agent delete means archive/stop by default; physical purge is a separate explicit operation.                          |
+| Purge preview     | Storage reports are read-only and recomputed from `agents_root/agentN` before deletion.                               |
 <a name="quick-start"></a>
 
 ## Быстрый старт

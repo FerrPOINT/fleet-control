@@ -142,6 +142,39 @@ function storageReport(agent: Agent) {
   }
 }
 
+function storageReview(agents: Agent[]) {
+  const items = agents.map((agent) => {
+    const report = storageReport(agent)
+    return {
+      agent_id: agent.id,
+      agent_name: agent.name,
+      display_name: agent.display_name,
+      kind: agent.kind,
+      product_role: agent.product_role,
+      status: agent.status,
+      total_bytes: report.total_bytes,
+      total_files: report.total_files,
+      root_exists: report.root_exists,
+      marker_verified: report.marker_verified,
+      purge_eligible: report.retention.purge_eligible,
+      retention_hint: report.retention.retention_hint,
+    }
+  })
+  return {
+    reviewed_at: now,
+    total_agents: items.length,
+    total_bytes: items.reduce((sum, item) => sum + item.total_bytes, 0),
+    archived_agents: items.filter((item) => item.status === 'archived').length,
+    archived_bytes: items
+      .filter((item) => item.status === 'archived')
+      .reduce((sum, item) => sum + item.total_bytes, 0),
+    purge_eligible_agents: items.filter((item) => item.purge_eligible).length,
+    missing_root_agents: items.filter((item) => !item.root_exists).length,
+    marker_issue_agents: items.filter((item) => item.root_exists && !item.marker_verified).length,
+    items,
+  }
+}
+
 function makeSkill(agentId: string, name: string, title: string, state = 'enabled') {
   return {
     id: `${agentId}-${name}`,
@@ -474,6 +507,9 @@ async function installMocks(page: Page, state: ApiState) {
       return fulfill(route, job)
     }
     if (pathName === '/api/v1/agents' && method === 'GET') return fulfill(route, state.agents)
+    if (pathName === '/api/v1/agents/storage-review') {
+      return fulfill(route, storageReview(state.agents))
+    }
     if (pathName === '/api/v1/agents' && method === 'POST') {
       const body = (await request.postDataJSON()) as {
         display_name?: string
@@ -907,6 +943,20 @@ test('workflow bindings rebind only to a workflow in the selected namespace', as
   await expect(page.getByText('sdlc-business-tech-v1').first()).toBeVisible()
 })
 
+test('storage review links purge candidates to their workspace', async ({ page }) => {
+  const state = createState()
+  const tester = state.agents.find((agent) => agent.id === ids.tester)
+  if (!tester) throw new Error('tester fixture is missing')
+  tester.status = 'archived'
+  await installMocks(page, state)
+
+  await page.goto('/agents')
+
+  await expect(
+    page.locator(`a[href="/agents/${ids.tester}/workspace"]`),
+  ).toBeVisible()
+})
+
 test('Hermes fleet control flow covers agents, runtime, skills, sessions and handoff', async ({
   page,
 }) => {
@@ -935,6 +985,9 @@ test('Hermes fleet control flow covers agents, runtime, skills, sessions and han
   await expect(page.getByText('Developer Hermes')).toBeVisible()
 
   await page.getByRole('link', { name: 'Agents' }).click()
+  await expect(page.getByRole('heading', { name: 'Storage review' })).toBeVisible()
+  await expect(page.getByText('Managed size')).toBeVisible()
+  await expect(page.getByText('All managed folders have matching markers')).toBeVisible()
   await expect(page.getByRole('link', { name: /Initial developer task/ })).toBeVisible()
   await expect(page.getByRole('link', { name: /Tester review sweep/ })).not.toBeVisible()
   await page.getByRole('link', { name: 'New agent' }).click()

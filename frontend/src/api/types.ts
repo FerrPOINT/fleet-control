@@ -457,6 +457,33 @@ export interface AgentStorageReport {
   retention: AgentRetentionReport
 }
 
+export interface AgentStorageReviewItem {
+  agent_id: string
+  agent_name: string
+  display_name: string
+  kind: AgentKind
+  product_role: AgentProductRole
+  status: AgentStatus
+  total_bytes: number
+  total_files: number
+  root_exists: boolean
+  marker_verified: boolean
+  purge_eligible: boolean
+  retention_hint: string
+}
+
+export interface AgentStorageReview {
+  reviewed_at: string
+  total_agents: number
+  total_bytes: number
+  archived_agents: number
+  archived_bytes: number
+  purge_eligible_agents: number
+  missing_root_agents: number
+  marker_issue_agents: number
+  items: AgentStorageReviewItem[]
+}
+
 export interface RuntimeOperationResponse {
   agent_id: string
   status: AgentStatus
