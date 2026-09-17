@@ -374,6 +374,7 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
                 async move { handle.render() }
             }),
         )
+        .route("/health", get(routes::health::health))
         .route("/api/v1/health", get(routes::health::health))
         .route("/api/v1/auth/register", post(routes::auth::register))
         .route("/api/v1/auth/login", post(routes::auth::login))
