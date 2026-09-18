@@ -208,11 +208,11 @@ cargo run -p server
 
 ### Мобильный интерфейс (375×812)
 
-|   |   |
-| :---: | :---: |
-| ![Дашборд на мобильном](docs/assets/screens/375x812/03-dashboard.png) | ![Лидер на мобильном](docs/assets/screens/375x812/06-leader-detail.png) |
-| ![Агент на мобильном](docs/assets/screens/375x812/14-agent-overview.png) | ![Сессии на мобильном](docs/assets/screens/375x812/26-sessions.png) |
-| ![Алерты на мобильном](docs/assets/screens/375x812/41-alerts.png) | ![Вход на мобильном](docs/assets/screens/375x812/01-login.png) |
+![Дашборд на мобильном](docs/assets/screens/375x812/03-dashboard.png) ![Лидер на мобильном](docs/assets/screens/375x812/06-leader-detail.png)
+
+![Агент на мобильном](docs/assets/screens/375x812/14-agent-overview.png) ![Сессии на мобильном](docs/assets/screens/375x812/26-sessions.png)
+
+![Алерты на мобильном](docs/assets/screens/375x812/41-alerts.png) ![Вход на мобильном](docs/assets/screens/375x812/01-login.png)
 
 На мобильных широкие таблицы (сессии, deployment jobs, алерты) горизонтально прокручиваются внутри карточки — честная адаптивность, без урезания колонок.
 
