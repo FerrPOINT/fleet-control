@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="420" viewBox="0 0 1600 420" role="img" aria-labelledby="title desc">
+  <title id="title">Base Fleet Control</title>
+  <desc id="desc">Control plane for isolated Hermes and Java Agent runtimes.</desc>
+  <defs>
+    <linearGradient id="field" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#171a3d"/><stop offset=".55" stop-color="#3730a3"/><stop offset="1" stop-color="#0e7490"/></linearGradient>
+    <linearGradient id="line" x1="0" x2="1"><stop stop-color="#c7d2fe"/><stop offset="1" stop-color="#a5f3fc"/></linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <rect width="1600" height="420" fill="url(#field)"/>
+  <path d="M0 358C205 257 333 440 525 334S720 280 840 334" fill="none" stroke="#67e8f9" stroke-opacity=".2" stroke-width="2"/>
+  <path d="M0 85C210 182 354 30 571 116s347 96 540 11 303-6 489 80" fill="none" stroke="#c7d2fe" stroke-opacity=".2" stroke-width="2"/>
+  <g transform="translate(128 96)" fill="none" stroke="url(#line)" stroke-width="5" filter="url(#glow)">
+    <circle cx="82" cy="116" r="36"/>
+    <circle cx="258" cy="44" r="28"/>
+    <circle cx="300" cy="191" r="28"/>
+    <path d="M117 101l112-45M115 133l158 45"/>
+  </g>
+  <g fill="#e0f2fe"><circle cx="210" cy="212" r="10"/><circle cx="386" cy="140" r="10"/><circle cx="428" cy="287" r="10"/></g>
+  <text x="610" y="182" fill="#f8fafc" font-family="Georgia, serif" font-size="72" font-weight="700" letter-spacing="-2">Fleet Control</text>
+  <text x="615" y="239" fill="#c7d2fe" font-family="ui-monospace, monospace" font-size="30" letter-spacing="2">AGENTS / RUNTIMES / OPERATIONS</text>
+  <rect x="615" y="274" width="470" height="5" rx="2.5" fill="url(#line)"/>
+  <text x="615" y="325" fill="#a5f3fc" font-family="ui-monospace, monospace" font-size="27">ISOLATED AGENT CONTROL PLANE</text>
+</svg>
