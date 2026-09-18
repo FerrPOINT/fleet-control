@@ -3,117 +3,295 @@
 </p>
 
 <p align="center">
-  <a href="#capabilities"><img src="https://img.shields.io/badge/Capabilities-3730a3?style=for-the-badge" alt="Capabilities" /></a>
-  <a href="#quick-start"><img src="https://img.shields.io/badge/Quick_Start-4338ca?style=for-the-badge" alt="Quick start" /></a>
-  <a href="#visual-proof"><img src="https://img.shields.io/badge/Visual_Proof-0e7490?style=for-the-badge" alt="Visual proof" /></a>
-  <a href="#safety"><img src="https://img.shields.io/badge/Safety-155e75?style=for-the-badge" alt="Safety" /></a>
-  <a href="#quality"><img src="https://img.shields.io/badge/Quality-334155?style=for-the-badge" alt="Quality" /></a>
+  <a href="#overview"><img src="https://img.shields.io/badge/Overview-3730a3?style=for-the-badge" alt="Overview" /></a>
+  <a href="#capabilities"><img src="https://img.shields.io/badge/Capabilities-4338ca?style=for-the-badge" alt="Capabilities" /></a>
+  <a href="#routes"><img src="https://img.shields.io/badge/Routes-0e7490?style=for-the-badge" alt="Routes" /></a>
+  <a href="#quick-start"><img src="https://img.shields.io/badge/Quick_Start-155e75?style=for-the-badge" alt="Quick start" /></a>
+  <a href="#visual-proof"><img src="https://img.shields.io/badge/Visual_Proof-0f766e?style=for-the-badge" alt="Visual proof" /></a>
+  <a href="#safety"><img src="https://img.shields.io/badge/Safety-334155?style=for-the-badge" alt="Safety" /></a>
+  <a href="#quality"><img src="https://img.shields.io/badge/Quality-52525b?style=for-the-badge" alt="Quality" /></a>
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Rust-2024-000000?style=flat-square&logo=rust&logoColor=white" alt="Rust 2024" />
   <img src="https://img.shields.io/badge/Axum-Rest_API-3730a3?style=flat-square" alt="Axum REST API" />
+  <img src="https://img.shields.io/badge/SeaORM-2563EB?style=flat-square" alt="SeaORM" />
   <img src="https://img.shields.io/badge/PostgreSQL-17-4169e1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL 17" />
   <img src="https://img.shields.io/badge/Redis-8-dc2626?style=flat-square&logo=redis&logoColor=white" alt="Redis 8" />
   <img src="https://img.shields.io/badge/React-19-38bdf8?style=flat-square&logo=react&logoColor=0f172a" alt="React 19" />
+  <img src="https://img.shields.io/badge/OpenAPI-6BA539?style=flat-square&logo=openapiinitiative&logoColor=white" alt="OpenAPI" />
   <img src="https://img.shields.io/badge/CI-.github%2Fworkflows%2Fci.yml-15803d?style=flat-square" alt="Repository CI" />
 </p>
 
-> **Base Fleet Control** is a self-hosted control plane for isolated agent runtimes, their sessions, skills, configuration, storage and runtime lifecycle. It manages the runtime boundary; it does not replace the workflow, documentation or CI/CD systems connected to that boundary.
+---
+
+> **Base Fleet Control** — self-hosted control plane для изолированных agent runtime: лидеры, исполнители, технические агенты, их сессии, skills, конфигурация, storage, деплой и lifecycle. Управляет runtime-границей; не заменяет workflow, документацию или CI/CD-системы за этой границей. Env-префикс: `FLEET_CONTROL_`.
 
 <a name="overview"></a>
-## Overview
 
-Fleet Control is an API-backed React application and a Rust control-plane workspace. It separates runtime implementation (`hermes`, `java_agent`) from product role (`leader`, `executor`) and keeps every managed agent within an isolated runtime/config/workspace/log layout.
+## Обзор и Snapshot
 
-| Surface | Current behavior | Boundary |
-|---|---|---|
-| Agents | Create and archive technical agents; manage profiles, skills, configuration, workspace/storage views and sessions. | Physical purge is an explicit guarded operation beneath the configured agents root. |
-| Runtime lifecycle | Provision, start, stop, restart, health and logs through runtime adapters. | The control plane owns orchestration, not the agent's private session database. |
-| Hermes | Managed Hermes processes use an isolated home and workspace per agent. | Two managed agents never share a Hermes home. |
-| Java Agent | The adapter provisions/starts an externally supplied JAR and checks its readiness endpoint. | The JAR and JDK are operator-provisioned; a missing JAR fails validation rather than being invented or downloaded. |
-| Sessions | Private-by-default task sessions, leader/executor binding, control-message mirrors and runtime run links. | `project-workflow` owns workflow definitions; Fleet stores bindings only. |
-| Interfaces | React UI, public API, OpenAPI artifact, SSE and configurable Prometheus metrics. | `wiki` owns knowledge/evidence; Forge CI/CD owns build and deployment pipelines. |
+| Поле | Значение |
+|---|---|
+| Backend | Rust 2024 workspace: api, app, domain, infra, shared, server, cli, migration |
+| Data | PostgreSQL 17 (agents, configs, skills, sessions, logs), Redis 8 + SSE |
+| Frontend | React 19, Vite, Tailwind CSS |
+| Runtime adapters | Hermes (изолированный home/workspace), Java Agent (operator-provided JAR) |
+| API | [openapi/openapi.json](openapi/openapi.json) — canonical contract |
+| Порты | repository-local: frontend `23802`, backend `23801`; Base umbrella: frontend `7742`, API `7741` |
+| License | FerrPOINT Proprietary Source-Available Evaluation License v1.0 |
 
-The runtime model and external ownership boundaries are documented in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/contracts](docs/contracts).
+Первый зарегистрированный пользователь получает `system_role = admin`.
 
 <a name="capabilities"></a>
-## Capabilities
 
-- **Isolated runtime layouts.** Assign every agent an ordinal-backed runtime, config, workspace and logs area; guard filesystem actions under the configured root.
-- **Agent operations.** Manage Hermes and Java Agent adapter lifecycles, environment/configuration views, skill files, storage reports, runtime logs and deployment-job history.
-- **Leader and executor control.** Bind leaders to executors and link task sessions to a selected leader without conflating an agent's runtime kind with its product role.
-- **Session evidence.** Store control-plane message mirrors and runtime-run links with idempotent creation; preserve private-by-default session ownership.
-- **Identity and observability.** Use local or configured central-auth validation/login bridging, request IDs, audit/events, rate controls, health and Prometheus metrics.
+## Возможности
+
+| Feature | Описание |
+|---|---|
+| Leader/executor модель | `agents.product_role` (leader/executor) отделён от `agents.kind` (runtime type). |
+| Технические агенты | Создание, архивирование, profiles, skills, конфигурация, workspace/storage view и сессии. |
+| Runtime lifecycle | Provision, start, stop, restart, health и logs через runtime adapters. |
+| Сессии | Private-by-default task sessions, привязка к лидеру, control-message mirrors и runtime run links. |
+| Workflows | Namespace/workflow bindings (source of truth — `project-workflow`). |
+| Deployments | Runtime templates и deployment jobs. |
+| Алерты | Fleet alerts page с bulk runtime update panel. |
+| Наблюдаемость | Request id, audit/events, rate controls, health и Prometheus metrics. |
+
+## Стек
+
+| Zone | Tech | Роль |
+|---|---|---|
+| API | Rust + Axum | HTTP routes, auth, DTO boundary |
+| Domain/App | Rust workspace crates | services, policies, repository contracts |
+| Persistence | SeaORM + PostgreSQL | runtime data и migrations |
+| Cache/Push | Redis + SSE | runtime support и event stream |
+| Shared Base | services-base-aligned | fleet-standard request id и tracing bridge |
+| Frontend | React + Vite + Tailwind | operational fleet UI |
+| Contract | OpenAPI | generated frontend API types |
+| Evidence | Playwright screenshots | UI coverage desktop и mobile viewports |
 
 <a name="quick-start"></a>
-## Quick Start
 
-Repository Compose has no usable defaults for database, session or runtime-token secrets. Copy the template, set operator-owned values and keep `.env` ignored.
+## Быстрый старт
 
 ```bash
 cp .env.example .env
-# Edit .env: set POSTGRES_PASSWORD, FLEET_CONTROL_JWT_SECRET and
-# FLEET_CONTROL_FLEET__RUNTIME_TOKEN_SECRET.
+# Заменить POSTGRES_PASSWORD, FLEET_CONTROL_JWT_SECRET и
+# FLEET_CONTROL_FLEET__RUNTIME_TOKEN_SECRET в .env
 docker compose up --build -d
 curl -fsS http://127.0.0.1:23801/api/v1/health
 ```
 
-Repository-local defaults are frontend `23802` and API `23801`; PostgreSQL and Redis remain internal. In the Base umbrella runtime, frontend/API are published at `7742`/`7741`; those are deployment-local coordinates, not public endpoints.
+Frontend dev:
 
-For runtime wiring and operator procedures, read [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md), [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md), [docs/OPERATIONS.md](docs/OPERATIONS.md), [docs/API.md](docs/API.md) and [docs/ENV.md](docs/ENV.md).
+```bash
+cd frontend
+pnpm install
+pnpm generate:api
+pnpm dev
+```
+
+Backend dev:
+
+```bash
+cd backend
+cargo run -p server
+```
+
+- Frontend dev: `http://127.0.0.1:5173`
+- Frontend Docker: `http://127.0.0.1:23802`
+- Backend: `http://127.0.0.1:23801/api/v1/health`
+- API docs: `http://127.0.0.1:23801/swagger-ui/`
+
+<a name="routes"></a>
+
+## Фронтенд-роуты
+
+| Route | Назначение |
+| --- | --- |
+| `/login`, `/register` | Auth |
+| `/`, `/dashboard` | Fleet dashboard |
+| `/leaders` | Leader agents, managed executors и leader-scoped sessions |
+| `/leaders/new` | Создание leader wizard |
+| `/leaders/:leaderId` | Leader team editor и sessions |
+| `/leaders/:leaderId/edit` | Leader identity, profile, workflow и team edit |
+| `/executors` | Executor agents и task sessions |
+| `/executors/new` | Создание executor wizard |
+| `/executors/:agentId` | Executor overview |
+| `/executors/:agentId/edit` | Executor identity, profile и workflow edit |
+| `/agents` | Технический инвентарь агентов с фильтром session ownership |
+| `/agents/new` | Создание generic agent wizard |
+| `/agents/:agentId` | Agent overview |
+| `/agents/:agentId/edit` | Generic agent identity edit |
+| `/agents/:agentId/runtime` | Runtime provision/start/stop/restart/health |
+| `/agents/:agentId/skills` | Per-agent skills |
+| `/agents/:agentId/config` | Config, SOUL и env editor |
+| `/agents/:agentId/workspace` | Guarded workspace overview |
+| `/agents/:agentId/sessions` | Agent-local sessions |
+| `/sessions` | Cross-agent task sessions с user и leader фильтрами |
+| `/sessions/:sessionId` | Transcript mirror, leader selector, runtime runs и handoff |
+| `/workflows` | Namespace/workflow bindings |
+| `/deployments` | Runtime templates и deployment surface |
+| `/logs` | Global logs и event stream |
+| `/settings` | Root paths, runtime sources, integrations и users |
 
 <a name="visual-proof"></a>
-## Visual Proof
 
-The root README intentionally uses only blank initial-operator sign-in evidence. It excludes dashboard, alerts, session and runtime screens because even deterministic fixtures reveal agent names, namespaces, UUID-shaped values, locale-specific timestamps or internal roadmap context. The complete 132-screen route inventory and capture contract remain in [docs/assets/screens/manifest.md](docs/assets/screens/manifest.md).
+## Визуальные доказательства
 
-### Initial operator boundary
+Скриншоты — реальные поверхности продукта, снятые на детерминированном fixture. Desktop — `1920x1080` full-page, mobile — `375x812`. Полный 132-файловый evidence-набор и параметры пересъёмки: [docs/assets/screens/manifest.md](docs/assets/screens/manifest.md).
 
-![Fleet Control initial operator sign-in](docs/assets/screens/1920x1080/01-login.png)
+### Вход
 
-### Initial operator boundary on mobile
+![Вход](docs/assets/screens/1920x1080/01-login.png)
 
-![Fleet Control initial operator sign-in on mobile](docs/assets/screens/375x812/01-login.png)
+### Вход на мобильном
 
-The mobile proof is captured at `375x812`; both fields are blank and neither browser chrome nor a deployment identifier is present.
+![Вход на мобильном](docs/assets/screens/375x812/01-login.png)
+
+### Дашборд
+
+![Дашборд](docs/assets/screens/1920x1080/03-dashboard.png)
+
+### Лидеры
+
+![Лидеры](docs/assets/screens/1920x1080/04-leaders.png)
+
+### Карточка лида
+
+![Карточка лида](docs/assets/screens/1920x1080/06-leader-detail.png)
+
+### Исполнители
+
+![Исполнители](docs/assets/screens/1920x1080/08-executors.png)
+
+### Технические агенты
+
+![Технические агенты](docs/assets/screens/1920x1080/12-agents.png)
+
+### Карточка агента
+
+![Карточка агента](docs/assets/screens/1920x1080/14-agent-overview.png)
+
+### Runtime агента
+
+![Runtime агента](docs/assets/screens/1920x1080/16-agent-runtime.png)
+
+### Сессии
+
+![Сессии](docs/assets/screens/1920x1080/26-sessions.png)
+
+### Сессия в контексте лида
+
+![Сессия в контексте лида](docs/assets/screens/1920x1080/28-session-leader-detail.png)
+
+### Workflows
+
+![Workflows](docs/assets/screens/1920x1080/29-workflows.png)
+
+### Задания деплоя
+
+![Задания деплоя](docs/assets/screens/1920x1080/31-deployments-jobs.png)
+
+### Алерты флота
+
+![Алерты флота](docs/assets/screens/1920x1080/41-alerts.png)
+
+### Журнал аудита
+
+![Журнал аудита](docs/assets/screens/1920x1080/35-logs-audit.png)
+
+### Настройки
+
+![Настройки](docs/assets/screens/1920x1080/36-settings.png)
+
+### Дашборд — мобильная версия
+
+![Дашборд — мобильная версия](docs/assets/screens/375x812/03-dashboard.png)
+
+### Алерты — мобильная версия
+
+![Алерты — мобильная версия](docs/assets/screens/375x812/41-alerts.png)
+
+На мобильных широкие таблицы (сессии, deployment jobs, алерты) горизонтально прокручиваются внутри карточки — честная адаптивность, без урезания колонок.
+
+## Архитектура
+
+```mermaid
+flowchart TD
+    UI[React Fleet Control SPA] --> API[Axum API]
+    API --> App[Application services]
+    App --> Domain[Domain contracts]
+    App --> Repo[SeaORM repositories]
+    Repo --> DB[(PostgreSQL)]
+    API --> Redis[(Redis)]
+    App --> Runtime[Runtime supervisor/adapters]
+    Runtime --> Hermes[Hermes serve process]
+    Runtime --> Java[Java Agent phase 2 contract]
+    API --> OpenAPI[OpenAPI contract]
+    OpenAPI --> Gen[Generated frontend types]
+```
 
 <a name="safety"></a>
-## Safety Boundaries
 
-- **Filesystem guard.** Runtime, config, workspace and logs operations remain under the configured agents root. Storage reports use the same guarded layout as provisioning and purge.
-- **Process isolation.** Managed Hermes runtimes receive dedicated home/workspace paths. Java Agent requires an operator-supplied runtime JAR and configured Java command before start is allowed.
-- **Secret handling.** Configuration/env output is redacted; never commit `.env`, runtime tokens, credentials or copied process logs containing secrets.
-- **Authority split.** Fleet mirrors control-plane messages and dispatches through adapters; it does not write directly into agent-private state. Workflow, documentation and CI/CD ownership remain with their respective Base products.
-- **Network and metrics.** PostgreSQL/Redis are internal in repository Compose. `/metrics` is configurable for internal scraping and does not replace authorization, ingress or network policy.
+## Границы
 
-Review [docs/SECURITY.md](docs/SECURITY.md), [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) and the runtime contracts before operating a shared fleet.
+- `task-tracker` использовался только как stack/UI/docs donor; sibling fleet repos не мутируются.
+- `services-base` предоставляет shared building blocks; Fleet Control использует telemetry-совместимый локальный bridge (WSL/CI не может fetch private shared repo). Auth tokens уже используют fleet-compatible HMAC claims; замена локальной валидации на `sdlc-auth-core` — отдельный шаг совместимости.
+- `project-workflow` остаётся source of truth для workflow и namespace definitions.
+- Java Agent provisioning намеренно заблокирован до реализации runtime adapter.
+- Fleet Control зеркалит transcript/control сообщения и диспатчит через runtime boundary; он не пишет напрямую в Hermes SessionDB.
+- Filesystem-операции остаются под настроенным agents root; secrets подлежат redaction.
+- Physical purge — явная guarded-операция под настроенным agents root.
 
 <a name="quality"></a>
-## Quality and Verification
 
-| Gate | Command |
-|---|---|
-| README contract tests | `python3 -m unittest scripts.tests.test_verify_readme -v` |
-| README assets and anchors | `python3 scripts/verify_readme.py` |
-| Backend workspace | `cd backend && cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace -- --test-threads=1` |
-| Frontend API/type/test/lint/build | `cd frontend && pnpm openapi:check && pnpm typecheck && pnpm test -- --run && pnpm lint && pnpm format:check && pnpm build` |
-| Browser E2E | `cd frontend && pnpm test:e2e -- --project=chromium` |
-| Screenshot manifest | `cd frontend && pnpm screenshots:verify` |
-| Compose contract | `docker compose config -q` |
-| Runtime liveness | `curl -fsS http://127.0.0.1:23801/api/v1/health` |
+## Качество и проверки
 
-GitHub Actions runs backend, OpenAPI, migrations, dependency checks, frontend and browser-E2E gates. The independent README job guards required anchors, reviewed evidence, local images, placeholders and accidental local filesystem paths.
+| Проверка | Команда |
+| --- | --- |
+| Frontend typecheck | `cd frontend && pnpm typecheck` |
+| Frontend lint | `cd frontend && pnpm lint` |
+| Frontend unit tests | `cd frontend && pnpm test` |
+| Frontend build | `cd frontend && pnpm build` |
+| Playwright e2e | `cd frontend && pnpm test:e2e` |
+| Screenshots | `cd frontend && pnpm screenshots:local && pnpm screenshots:verify` |
+| Backend format | `cd backend && cargo fmt --all -- --check` |
+| Backend compile | `cd backend && cargo check --workspace --all-targets` |
+| Backend clippy | `cd backend && cargo clippy --workspace --all-targets -- -D warnings` |
+| Backend tests | `cd backend && cargo test --workspace` |
+| README contract | `python3 scripts/verify_readme.py` |
+| CI | GitHub Actions: backend, frontend, migrations, OpenAPI и e2e |
 
-## Documentation Map
+## Карта проекта
 
-- **Scope and architecture:** [docs/TZ.md](docs/TZ.md), [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- **Runtime contracts:** [docs/contracts/AGENT_RUNTIME_CONTRACT.md](docs/contracts/AGENT_RUNTIME_CONTRACT.md), [docs/contracts/HERMES_ADAPTER_CONTRACT.md](docs/contracts/HERMES_ADAPTER_CONTRACT.md), [docs/contracts/JAVA_AGENT_ADAPTER_CONTRACT.md](docs/contracts/JAVA_AGENT_ADAPTER_CONTRACT.md)
-- **API and data:** [docs/API.md](docs/API.md), [docs/DATA_MODEL.md](docs/DATA_MODEL.md), [openapi/openapi.json](openapi/openapi.json)
-- **Operators:** [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md), [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md), [docs/OPERATIONS.md](docs/OPERATIONS.md)
-- **Security and quality:** [docs/SECURITY.md](docs/SECURITY.md), [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md), [docs/TESTING.md](docs/TESTING.md)
+```text
+fleet-control/
+├── backend/     # Rust workspace: api, app, domain, infra, shared, server, cli, migration
+├── frontend/    # React SPA: pages, widgets, generated API client и Playwright tests
+├── openapi/     # canonical generated API contract
+├── docs/        # requirements, architecture, contracts, operations, security и screenshots
+├── .github/     # CI workflow
+└── docker-compose.yml
+```
+
+## Документы
+
+- [docs/README.md](docs/README.md) — обзор документации.
+- [docs/TZ.md](docs/TZ.md), [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md) — scope и требования.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/FRONTEND_ARCHITECTURE.md](docs/FRONTEND_ARCHITECTURE.md), [docs/contracts](docs/contracts) — архитектура и контракты.
+- [docs/DATA_MODEL.md](docs/DATA_MODEL.md), [docs/API.md](docs/API.md), [docs/ENV.md](docs/ENV.md) — технические справочники.
+- [docs/LOCAL_SETUP.md](docs/LOCAL_SETUP.md), [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md), [docs/OPERATIONS.md](docs/OPERATIONS.md) — runbooks.
+- [docs/SECURITY.md](docs/SECURITY.md), [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) — security model.
+- [docs/TESTING.md](docs/TESTING.md), [docs/RISK_REGISTER.md](docs/RISK_REGISTER.md), [docs/TRACEABILITY.md](docs/TRACEABILITY.md) — качество и traceability.
+- [docs/PRE_DEVELOPMENT_GATE.md](docs/PRE_DEVELOPMENT_GATE.md), [docs/GAP_REGISTER.md](docs/GAP_REGISTER.md), [docs/QUALITY_GATE.md](docs/QUALITY_GATE.md), [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) — pre-development hardening gate.
+- [docs/assets/screens/manifest.md](docs/assets/screens/manifest.md) — screenshot manifest.
 
 <a name="license"></a>
-## License
 
-FerrPOINT Proprietary Source-Available Evaluation License v1.0. This repository is not open source. Viewing and evaluation are allowed under [LICENSE](LICENSE); commercial, production, resale, redistribution and SaaS/hosting use require a written FerrPOINT license. See [NOTICE](NOTICE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+## Лицензия
+
+Proprietary source-available. Not open source. Viewing/evaluation only.
+
+Commercial, production, resale, redistribution, SaaS/hosting use require written license from FerrPOINT. См. [LICENSE](LICENSE), [NOTICE](NOTICE) и [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
