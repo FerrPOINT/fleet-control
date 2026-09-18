@@ -262,7 +262,7 @@ flowchart TD
 | Backend clippy | `cd backend && cargo clippy --workspace --all-targets -- -D warnings` |
 | Backend tests | `cd backend && cargo test --workspace` |
 | README contract | `python3 scripts/verify_readme.py` |
-| CI | GitHub Actions: backend, frontend, migrations, OpenAPI и e2e |
+| CI | GitHub Actions: docs, backend, OpenAPI drift и frontend gates |
 
 ## Карта проекта
 
