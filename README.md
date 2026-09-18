@@ -206,13 +206,13 @@ cargo run -p server
 
 ![Настройки](docs/assets/screens/1920x1080/36-settings.png)
 
-### Дашборд — мобильная версия
+### Мобильный интерфейс (375×812)
 
-![Дашборд — мобильная версия](docs/assets/screens/375x812/03-dashboard.png)
-
-### Алерты — мобильная версия
-
-![Алерты — мобильная версия](docs/assets/screens/375x812/41-alerts.png)
+|   |   |
+| :---: | :---: |
+| ![Дашборд на мобильном](docs/assets/screens/375x812/03-dashboard.png) | ![Лидер на мобильном](docs/assets/screens/375x812/06-leader-detail.png) |
+| ![Агент на мобильном](docs/assets/screens/375x812/14-agent-overview.png) | ![Сессии на мобильном](docs/assets/screens/375x812/26-sessions.png) |
+| ![Алерты на мобильном](docs/assets/screens/375x812/41-alerts.png) | ![Вход на мобильном](docs/assets/screens/375x812/01-login.png) |
 
 На мобильных широкие таблицы (сессии, deployment jobs, алерты) горизонтально прокручиваются внутри карточки — честная адаптивность, без урезания колонок.
 
