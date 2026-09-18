@@ -22,7 +22,7 @@ class VerifyReadmeTests(unittest.TestCase):
         (root / "README.md").write_text(readme, encoding="utf-8")
         return root
 
-    def test_accepts_complete_readme_with_reviewed_login_evidence(self) -> None:
+    def test_accepts_complete_readme_with_reviewed_dashboard_evidence(self) -> None:
         validator = load_validator()
         root = self.make_repo(
             '<a name="overview"></a>\n'
@@ -32,12 +32,10 @@ class VerifyReadmeTests(unittest.TestCase):
             '<a name="safety"></a>\n'
             '<a name="quality"></a>\n'
             '<a name="license"></a>\n'
-            '![login](docs/assets/screens/1920x1080/01-login.png)\n'
-            '![mobile](docs/assets/screens/375x812/01-login.png)\n'
+            '![dashboard](docs/assets/screens/1920x1080/03-dashboard.png)\n'
         )
         for relative in [
-            "docs/assets/screens/1920x1080/01-login.png",
-            "docs/assets/screens/375x812/01-login.png",
+            "docs/assets/screens/1920x1080/03-dashboard.png",
         ]:
             asset = root / relative
             asset.parent.mkdir(parents=True, exist_ok=True)
@@ -45,14 +43,14 @@ class VerifyReadmeTests(unittest.TestCase):
 
         self.assertEqual(validator.validate(root), [])
 
-    def test_reports_missing_required_mobile_proof(self) -> None:
+    def test_reports_missing_required_proof(self) -> None:
         validator = load_validator()
         root = self.make_repo('<a name="overview"></a>\n')
 
         findings = validator.validate(root)
 
         self.assertIn(
-            "RMD004: README.md: missing proof asset: docs/assets/screens/375x812/01-login.png",
+            "RMD004: README.md: missing proof asset: docs/assets/screens/1920x1080/03-dashboard.png",
             findings,
         )
 
