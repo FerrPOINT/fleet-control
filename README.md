@@ -140,15 +140,7 @@ cargo run -p server
 
 ## Визуальные доказательства
 
-Скриншоты — реальные поверхности продукта, снятые на детерминированном fixture. Desktop — `1920x1080` full-page, mobile — `375x812`. Полный 132-файловый evidence-набор и параметры пересъёмки: [docs/assets/screens/manifest.md](docs/assets/screens/manifest.md).
-
-### Вход
-
-![Вход](docs/assets/screens/1920x1080/01-login.png)
-
-### Вход на мобильном
-
-![Вход на мобильном](docs/assets/screens/375x812/01-login.png)
+Скриншоты — реальные поверхности продукта, снятые на детерминированном fixture. Desktop — `1920x1080` full-page. Полный 132-файловый evidence-набор и параметры пересъёмки: [docs/assets/screens/manifest.md](docs/assets/screens/manifest.md).
 
 ### Дашборд
 
@@ -205,10 +197,6 @@ cargo run -p server
 ### Настройки
 
 ![Настройки](docs/assets/screens/1920x1080/36-settings.png)
-
-### Мобильный интерфейс (375×812)
-
-![Мобильный интерфейс: колонка 1](docs/assets/screens/375x812/m-col-left.png) ![Мобильный интерфейс: колонка 2](docs/assets/screens/375x812/m-col-right.png)
 
 На мобильных широкие таблицы (сессии, deployment jobs, алерты) горизонтально прокручиваются внутри карточки — честная адаптивность, без урезания колонок.
 
