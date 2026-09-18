@@ -208,13 +208,7 @@ cargo run -p server
 
 ### Мобильный интерфейс (375×812)
 
-<img src="docs/assets/screens/375x812/03-dashboard.png" alt="Дашборд на мобильном" width="49.5%" align="left" />
-<img src="docs/assets/screens/375x812/06-leader-detail.png" alt="Лидер на мобильном" width="49.5%" align="left" />
-<img src="docs/assets/screens/375x812/14-agent-overview.png" alt="Агент на мобильном" width="49.5%" align="left" />
-<img src="docs/assets/screens/375x812/26-sessions.png" alt="Сессии на мобильном" width="49.5%" align="left" />
-<img src="docs/assets/screens/375x812/41-alerts.png" alt="Алерты на мобильном" width="49.5%" align="left" />
-<img src="docs/assets/screens/375x812/01-login.png" alt="Вход на мобильном" width="49.5%" align="left" />
-<br clear="all" />
+<img src="docs/assets/screens/375x812/03-dashboard.png" alt="Дашборд на мобильном" width="49.5%" align="left" /> <img src="docs/assets/screens/375x812/06-leader-detail.png" alt="Лидер на мобильном" width="49.5%" align="left" /> <img src="docs/assets/screens/375x812/14-agent-overview.png" alt="Агент на мобильном" width="49.5%" align="left" /> <img src="docs/assets/screens/375x812/26-sessions.png" alt="Сессии на мобильном" width="49.5%" align="left" /> <img src="docs/assets/screens/375x812/41-alerts.png" alt="Алерты на мобильном" width="49.5%" align="left" /> <img src="docs/assets/screens/375x812/01-login.png" alt="Вход на мобильном" width="49.5%" align="left" />
 
 На мобильных широкие таблицы (сессии, deployment jobs, алерты) горизонтально прокручиваются внутри карточки — честная адаптивность, без урезания колонок.
 
