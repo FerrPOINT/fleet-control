@@ -104,6 +104,35 @@
     "namespace": "namespace:",
     "unbound": "unbound"
   },
+  "workflows": {
+    "title": "Workflow bindings",
+    "description": "Agent bindings to Project Workflow namespaces.",
+    "search": "Search agents and workflows",
+    "status": "Status",
+    "count": "Showing {{shown}} of {{total}}",
+    "namespace": "Namespace",
+    "targetNamespace": "New namespace for {{name}}",
+    "catalogLoading": "Loading catalog...",
+    "noNamespaces": "No namespaces available",
+    "rebind": "Rebind",
+    "rebinding": "Saving...",
+    "rebindSuccess": "Binding updated",
+    "rebindError": "Could not rebind agent. Your selection is preserved.",
+    "loadError": "Could not load bindings.",
+    "agentsError": "Could not load agent names; showing IDs.",
+    "catalogError": "Project Workflow catalog is unavailable; rebinding is temporarily disabled.",
+    "retry": "Retry",
+    "loading": "Loading bindings...",
+    "empty": "No workflow bindings yet",
+    "noMatches": "No bindings match these filters",
+    "filters": {
+      "all": "All",
+      "stale": "Stale",
+      "connected": "Connected",
+      "unbound": "Unbound",
+      "pending": "Pending"
+    }
+  },
   "statuses": {
     "provisioning": "Provisioning",
     "ready": "Ready",
@@ -139,7 +168,10 @@
     "marker_missing": "Marker missing",
     "purge_eligible": "Purge eligible",
     "kept": "Kept",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "stale": "Stale",
+    "connected": "Connected",
+    "unbound": "Unbound"
   },
   "common": {
     "loading": "Loading...",
