@@ -3,15 +3,16 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { toast } from 'sonner'
-import { LeaderDetailPage } from './index'
+import { LeaderDetailPage, LeadersPage } from './index'
 import * as fleet from '@/api/fleet'
 import * as auth from '@/api/auth'
-import type { Agent, LeaderExecutor } from '@/api/types'
+import type { Agent, AgentSession, LeaderExecutor } from '@/api/types'
 
 vi.mock('@/api/fleet', () => ({
   listAgents: vi.fn(),
   listExecutors: vi.fn(),
   listLeaderExecutors: vi.fn(),
+  listLeaders: vi.fn(),
   listSessions: vi.fn(),
   updateLeaderExecutors: vi.fn(),
 }))
@@ -54,10 +55,22 @@ function renderPage() {
   )
 }
 
+function renderDirectory() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <LeadersPage />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
+
 describe('LeaderDetailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(fleet.listAgents).mockResolvedValue([leader, ...executors])
+    vi.mocked(fleet.listLeaders).mockResolvedValue([leader])
     vi.mocked(fleet.listExecutors).mockResolvedValue(executors)
     vi.mocked(fleet.listLeaderExecutors).mockResolvedValue(originalTeam)
     vi.mocked(fleet.listSessions).mockResolvedValue([])
@@ -150,5 +163,85 @@ describe('LeaderDetailPage', () => {
     expect(screen.queryByText('Сессий этого лидера пока нет')).not.toBeInTheDocument()
     fireEvent.click(within(error.parentElement!).getByRole('button', { name: 'Повторить' }))
     await screen.findByText('Сессий этого лидера пока нет')
+  })
+})
+
+describe('LeadersPage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(fleet.listLeaders).mockResolvedValue([leader])
+    vi.mocked(fleet.listSessions).mockResolvedValue([])
+    vi.mocked(auth.listUsers).mockResolvedValue([])
+  })
+
+  it('searches leaders and reveals sessions without per-leader team requests', async () => {
+    vi.mocked(fleet.listSessions).mockResolvedValue([
+      {
+        id: 'session-1',
+        leader_agent_id: leader.id,
+        title: 'Release review',
+        user_display_name: 'QA User',
+        user_id: 'user-1',
+        visibility: 'leader_scoped',
+        state: 'active',
+        agent_name: 'lead',
+        updated_at: '2026-09-19T12:00:00Z',
+      } as AgentSession,
+    ])
+    renderDirectory()
+    await screen.findByText('Lead Hermes')
+    expect(screen.getByText('Показано 1 из 1')).toBeInTheDocument()
+    expect(fleet.listLeaderExecutors).not.toHaveBeenCalled()
+    fireEvent.click(await screen.findByText('1 сессия'))
+    expect(screen.getByText('Release review')).toBeVisible()
+
+    fireEvent.change(screen.getByLabelText('Найти лидера'), { target: { value: 'missing' } })
+    expect(screen.getByText('Лидеры не найдены')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Найти лидера'), { target: { value: 'lead' } })
+    expect(screen.getByText('Lead Hermes')).toBeInTheDocument()
+  })
+
+  it('does not disguise a leader request failure as an empty directory', async () => {
+    vi.mocked(fleet.listLeaders)
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce([leader])
+    renderDirectory()
+    const error = await screen.findByRole('alert')
+    expect(error).toHaveTextContent('Не удалось загрузить лидеров')
+    expect(screen.queryByText('Лидеров пока нет')).not.toBeInTheDocument()
+    fireEvent.click(within(error.parentElement!).getByRole('button', { name: 'Повторить' }))
+    await screen.findByText('Lead Hermes')
+  })
+
+  it('keeps session errors separate from a no-sessions result', async () => {
+    vi.mocked(fleet.listSessions)
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce([])
+    renderDirectory()
+    await screen.findByText('Lead Hermes')
+    const error = await screen.findByRole('alert')
+    expect(error).toHaveTextContent('Не удалось загрузить сессии лидеров')
+    expect(screen.queryByText('Сессий для выбранных пользователей нет')).not.toBeInTheDocument()
+    fireEvent.click(within(error.parentElement!).getByRole('button', { name: 'Повторить' }))
+    await screen.findByText('Сессий для выбранных пользователей нет')
+  })
+
+  it('reveals more leaders without extra requests', async () => {
+    vi.mocked(fleet.listLeaders).mockResolvedValue(
+      Array.from({ length: 26 }, (_, index) => ({
+        ...leader,
+        id: `leader-${index}`,
+        name: `leader-${index}`,
+        display_name: `Leader ${String(index).padStart(2, '0')}`,
+      })),
+    )
+    renderDirectory()
+    await screen.findByText('Показано 25 из 26')
+    expect(screen.getAllByRole('link', { name: 'Открыть' })).toHaveLength(25)
+    fireEvent.click(screen.getByRole('button', { name: 'Показать ещё' }))
+    expect(screen.getByText('Показано 26 из 26')).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: 'Открыть' })).toHaveLength(26)
+    expect(fleet.listLeaders).toHaveBeenCalledTimes(1)
+    expect(fleet.listLeaderExecutors).not.toHaveBeenCalled()
   })
 })
