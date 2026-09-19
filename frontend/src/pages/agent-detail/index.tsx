@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useEffect, useId, useState } from 'react'
 import { Link, NavLink, useLocation, useParams } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -369,6 +369,7 @@ function SkillsTab({ agent }: { agent: Agent }) {
               </div>
               <p className="break-all text-xs text-text-muted">{selectedSkill.source}</p>
               <Textarea
+                aria-label={`Edit ${selectedSkill.title}`}
                 className="min-h-72 font-mono text-xs"
                 value={skillDraft}
                 onChange={(event) => setSkillDraft(event.target.value)}
@@ -429,6 +430,7 @@ function ConfigTab({ agent }: { agent: Agent }) {
         </CardHeader>
         <CardContent>
           <Textarea
+            aria-label="SOUL.md"
             className="min-h-72 font-mono text-xs"
             value={draft.soul_md}
             onChange={(event) => setDraft({ ...draft, soul_md: event.target.value })}
@@ -719,6 +721,7 @@ function JsonEditor({
   value: Record<string, unknown>
   onChange: (value: Record<string, unknown>) => void
 }) {
+  const inputId = useId()
   const [text, setText] = useState(JSON.stringify(value, null, 2))
   const [error, setError] = useState<string | null>(null)
 
@@ -737,8 +740,11 @@ function JsonEditor({
 
   return (
     <div className="grid gap-2">
-      <label className="text-xs font-medium uppercase text-text-muted">{label}</label>
+      <label htmlFor={inputId} className="text-xs font-medium uppercase text-text-muted">
+        {label}
+      </label>
       <Textarea
+        id={inputId}
         className="min-h-44 font-mono text-xs"
         value={text}
         onChange={(event) => handleChange(event.target.value)}

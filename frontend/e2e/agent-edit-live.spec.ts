@@ -16,7 +16,10 @@ const account =
       ) as { email: string; password: string })
     : { email: '', password: '' }
 
-test('executor edit does not request a leader team', async ({ page, request }) => {
+test('executor edit avoids leader requests and exposes named editors', async ({
+  page,
+  request,
+}) => {
   test.setTimeout(120_000)
   const login = await request.post('http://localhost:7701/auth/login', {
     data: { email: account.email, password: account.password },
@@ -58,4 +61,21 @@ test('executor edit does not request a leader team', async ({ page, request }) =
   mkdirSync(dirname(screenshot), { recursive: true })
   await page.screenshot({ path: screenshot, fullPage: true })
   expect(badRequests).toEqual([])
+
+  await page.goto(`http://localhost:7742/agents/${executor.id}/config`)
+  await expect(page.getByRole('textbox', { name: 'SOUL.md' })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'config.json' })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'env.json' })).toBeVisible()
+
+  const skillsResponse = await request.get(
+    `http://localhost:7742/api/v1/agents/${executor.id}/skills`,
+    {
+      headers: { Authorization: `Bearer ${access_token}` },
+    },
+  )
+  expect(skillsResponse.ok(), await skillsResponse.text()).toBeTruthy()
+  const skills = (await skillsResponse.json()) as { title: string }[]
+  expect(skills.length).toBeGreaterThan(0)
+  await page.goto(`http://localhost:7742/agents/${executor.id}/skills`)
+  await expect(page.getByRole('textbox', { name: `Edit ${skills[0]!.title}` })).toBeVisible()
 })
