@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { UserPlus, X } from 'lucide-react'
 import { listUsers } from '@/api/auth'
 import type { UserResponse } from '@/api/types'
@@ -83,21 +84,24 @@ export function SessionUserFilter({
   filter: SessionUserFilterState
   className?: string
 }) {
+  const { t } = useTranslation()
   const availableUsers = filter.allUsers.filter((user) => !filter.selectedUserIds.includes(user.id))
 
   return (
     <div className={cn('rounded-md border border-border bg-background p-3', className)}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-medium uppercase text-text-muted">Session users</p>
+          <p className="text-xs font-medium uppercase text-text-muted">
+            {t('sessionFilter.title')}
+          </p>
           <p className="mt-1 text-sm text-text-secondary">
-            {filter.selectedUserIds.length ? 'Filtered by selected users' : 'All users'}
+            {filter.selectedUserIds.length ? t('sessionFilter.selected') : t('sessionFilter.all')}
           </p>
         </div>
         <label className="flex min-w-0 items-center gap-2 text-sm">
           <UserPlus className="h-4 w-4 shrink-0 text-text-muted" />
           <select
-            aria-label="Add session user"
+            aria-label={t('sessionFilter.add')}
             value=""
             disabled={!availableUsers.length}
             onChange={(event) => {
@@ -107,7 +111,7 @@ export function SessionUserFilter({
             }}
             className="h-9 min-w-0 rounded-md border border-border bg-background px-3 text-sm text-text-primary disabled:opacity-60"
           >
-            <option value="">Add user</option>
+            <option value="">{t('sessionFilter.add')}</option>
             {availableUsers.map((user) => (
               <option key={user.id} value={user.id}>
                 {user.display_name}
@@ -127,7 +131,7 @@ export function SessionUserFilter({
               <span className="min-w-0 truncate">{user.display_name}</span>
               <button
                 type="button"
-                aria-label={`Remove ${user.display_name} filter`}
+                aria-label={t('sessionFilter.remove', { name: user.display_name })}
                 onClick={() => filter.removeUser(user.id)}
                 disabled={!filter.isSystemAdmin}
                 className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-border hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
@@ -139,10 +143,22 @@ export function SessionUserFilter({
         ) : (
           <span className="inline-flex min-h-8 items-center gap-2 rounded-md border border-border-strong bg-surface-raised px-2 text-sm text-text-muted">
             <UserAvatar />
-            All users
+            {t('sessionFilter.all')}
           </span>
         )}
       </div>
+      {filter.users.isError ? (
+        <div role="alert" className="mt-2 flex flex-wrap items-center gap-2 text-sm text-danger">
+          <span>{t('sessionFilter.loadError')}</span>
+          <button
+            type="button"
+            onClick={() => void filter.users.refetch()}
+            className="rounded-sm underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus"
+          >
+            {t('sessionFilter.retry')}
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }

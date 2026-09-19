@@ -35,6 +35,35 @@
     "noAgents": "No agents yet",
     "noEvents": "No events recorded"
   },
+  "executors": {
+    "title": "Executors",
+    "description": "Delivery agents with isolated workspaces and workflow bindings.",
+    "new": "New executor",
+    "open": "Open",
+    "search": "Find an executor",
+    "count": "Showing {{shown}} of {{total}}",
+    "loading": "Loading executors...",
+    "empty": "No executors yet",
+    "noMatches": "No executors found",
+    "loadError": "Could not load executors.",
+    "sessionsError": "Could not load executor sessions.",
+    "loadingSessions": "Loading sessions...",
+    "sessionsCount_one": "{{count}} session",
+    "sessionsCount_other": "{{count}} sessions",
+    "noSessions": "No sessions for selected users",
+    "private": "private",
+    "showMore": "Show more",
+    "retry": "Retry"
+  },
+  "sessionFilter": {
+    "title": "Session users",
+    "selected": "Filtered by selected users",
+    "all": "All users",
+    "add": "Add user",
+    "remove": "Remove {{name}} filter",
+    "loadError": "Could not load users; the list may be incomplete.",
+    "retry": "Retry"
+  },
   "settings": {
     "title": "Settings",
     "tabs": {
