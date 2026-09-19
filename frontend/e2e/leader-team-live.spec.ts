@@ -124,6 +124,17 @@ test('live leader team is read-only until changed and fits responsive themes', a
     expect(listTeamRequests).toEqual([])
     await page.getByRole('link', { name: 'Открыть', exact: true }).click()
 
+    await page.goto(`http://localhost:7742/leaders/${leaderId}/edit`)
+    await expect(page.getByRole('heading', { name: `Изменить ${displayName}` })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Сохранить агента' })).toBeEnabled()
+    await page.setViewportSize({ width: 375, height: 812 })
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
+    ).toBeTruthy()
+    await page.goto(`http://localhost:7742/leaders/${leaderId}`)
+
     await expect(page.getByText('Исполнители команды')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Сохранить команду' })).toBeDisabled()
     await expect(page.getByRole('checkbox').first()).toBeVisible()

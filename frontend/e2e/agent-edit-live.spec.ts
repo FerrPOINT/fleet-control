@@ -35,32 +35,56 @@ test('executor edit avoids leader requests and exposes named editors', async ({
   const executor = executors[0]!
 
   const badRequests: string[] = []
+  const consoleErrors: string[] = []
   page.on('response', (result) => {
+    if (result.url().includes('/api/v1/') && result.status() >= 400) {
+      badRequests.push(`${result.status()} ${result.url()}`)
+    }
     if (result.url().includes(`/api/v1/leaders/${executor.id}/executors`)) {
       badRequests.push(`${result.status()} ${result.url()}`)
     }
+  })
+  page.on('console', (message) => {
+    if (message.type() === 'error') consoleErrors.push(message.text())
   })
   await page.goto(`http://localhost:7742/executors/${executor.id}/edit`)
   await page.getByLabel('Email').fill(account.email)
   await page.getByLabel('Пароль').fill(account.password)
   await page.getByRole('button', { name: 'Войти', exact: true }).click()
 
-  await expect(page.getByRole('heading', { name: `Edit ${executor.display_name}` })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Save agent' })).toBeEnabled()
-  for (const width of [1280, 375]) {
-    await page.setViewportSize({ width, height: 812 })
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
-      ),
-    ).toBeTruthy()
+  await expect(
+    page.getByRole('heading', { name: `Изменить ${executor.display_name}` }),
+  ).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Сохранить агента' })).toBeEnabled()
+  for (const theme of ['light', 'gray', 'dark']) {
+    await page.evaluate((value) => localStorage.setItem('theme', value), theme)
+    await page.reload()
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
+    await expect(
+      page.getByRole('heading', { name: `Изменить ${executor.display_name}` }),
+    ).toBeVisible()
+    for (const [width, height] of [
+      [375, 812],
+      [768, 1024],
+      [1280, 800],
+      [1920, 1080],
+    ]) {
+      await page.setViewportSize({ width, height })
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      ).toBeTruthy()
+    }
   }
   const screenshot = fileURLToPath(
     new URL('../../../.local/screenshots/fleet-agent-edit-375.png', import.meta.url),
   )
   mkdirSync(dirname(screenshot), { recursive: true })
+  await page.setViewportSize({ width: 375, height: 812 })
   await page.screenshot({ path: screenshot, fullPage: true })
   expect(badRequests).toEqual([])
+  expect(consoleErrors).toEqual([])
 
   await page.goto(`http://localhost:7742/agents/${executor.id}/config`)
   await expect(page.getByRole('textbox', { name: 'SOUL.md' })).toBeVisible()
