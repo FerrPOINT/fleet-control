@@ -1,6 +1,91 @@
 {
   "app": {
-    "name": "Fleet Control"
+    "name": "Fleet Control",
+    "subtitle": "Управление агентами",
+    "signOut": "Выйти",
+    "operator": "Оператор Fleet Control"
+  },
+  "navigation": {
+    "dashboard": "Обзор",
+    "leaders": "Лидеры",
+    "executors": "Исполнители",
+    "agents": "Агенты",
+    "sessions": "Сессии",
+    "workflows": "Процессы",
+    "deployments": "Развёртывания",
+    "alerts": "Оповещения",
+    "logs": "Журналы",
+    "settings": "Настройки",
+    "sections": "Разделы Fleet Control",
+    "section": "Раздел Fleet Control"
+  },
+  "dashboard": {
+    "title": "Обзор агентов",
+    "newAgent": "Создать агента",
+    "agents": "Агенты",
+    "leaders": "Лидеры",
+    "executors": "Исполнители",
+    "running": "Запущены",
+    "failed": "С ошибкой",
+    "activeSessions": "Активные сессии",
+    "privateSessions": "Личные сессии",
+    "leaderSessions": "Сессии лидеров",
+    "recentEvents": "Последние события",
+    "loadingAgents": "Загрузка агентов...",
+    "noAgents": "Агентов пока нет",
+    "noEvents": "Событий пока нет"
+  },
+  "productRoles": {
+    "leader": "Лидер",
+    "executor": "Исполнитель"
+  },
+  "agentRoles": {
+    "developer": "разработчик",
+    "tester": "тестировщик",
+    "it_lead": "технический руководитель",
+    "custom": "другая роль"
+  },
+  "agent": {
+    "profile": "профиль:",
+    "namespace": "пространство:",
+    "unbound": "не назначено"
+  },
+  "statuses": {
+    "provisioning": "Подготовка",
+    "ready": "Готов",
+    "starting": "Запускается",
+    "running": "Работает",
+    "degraded": "Работает с ограничениями",
+    "stopped": "Остановлен",
+    "failed": "Ошибка",
+    "archived": "В архиве",
+    "not_started": "Не запущен",
+    "enabled": "Включён",
+    "disabled": "Выключен",
+    "missing": "Отсутствует",
+    "dirty": "Изменён",
+    "draft": "Черновик",
+    "active": "Активен",
+    "handoff_requested": "Ожидает передачи",
+    "blocked": "Заблокирован",
+    "done": "Завершён",
+    "private": "Личная",
+    "leader_scoped": "Для лидера",
+    "pending": "Ожидает",
+    "waiting": "Ожидает",
+    "completed": "Завершено",
+    "dispatched": "Отправлено",
+    "cancelled": "Отменено",
+    "stopping": "Останавливается",
+    "implemented": "Реализовано",
+    "planned": "Запланировано",
+    "root_present": "Каталог есть",
+    "root_missing": "Каталога нет",
+    "marker_present": "Маркер есть",
+    "marker_missing": "Маркера нет",
+    "purge_eligible": "Можно очистить",
+    "kept": "Сохранено",
+    "unknown": "Неизвестно"
   },
   "common": {
     "loading": "Загрузка...",

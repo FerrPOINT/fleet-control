@@ -3,19 +3,18 @@ import {
   Bot,
   Boxes,
   Crown,
-  Files,
   Gauge,
   GitBranch,
   LogOut,
   ScrollText,
   Settings,
-  TerminalSquare,
   TriangleAlert,
   UserRoundCheck,
 } from 'lucide-react'
 import { useEffect } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { getCurrentUserPermissions } from '@/api/auth'
 import { endSso } from '@sdlc/ui/sso'
 import { ssoConfig, useAuthStore } from '@/shared/auth/store'
@@ -25,19 +24,40 @@ import { Button, PlatformMark } from '@sdlc/ui/ui'
 import { cn } from '@/shared/lib/utils'
 
 const navItems = [
-  { to: '/', label: 'Dashboard', icon: Gauge, permission: 'agents:manage' },
-  { to: '/leaders', label: 'Leaders', icon: Crown, permission: 'leaders:manage' },
-  { to: '/executors', label: 'Executors', icon: UserRoundCheck, permission: 'executors:manage' },
-  { to: '/agents', label: 'Agents', icon: Bot, permission: 'agents:manage' },
-  { to: '/sessions', label: 'Sessions', icon: Activity },
-  { to: '/workflows', label: 'Workflows', icon: GitBranch, permission: 'agents:manage' },
-  { to: '/deployments', label: 'Deployments', icon: Boxes, permission: 'deployments:manage' },
-  { to: '/alerts', label: 'Alerts', icon: TriangleAlert, permission: 'logs:read' },
-  { to: '/logs', label: 'Logs', icon: ScrollText, permission: 'logs:read' },
-  { to: '/settings', label: 'Settings', icon: Settings, permission: 'settings:manage' },
+  { to: '/', labelKey: 'navigation.dashboard', icon: Gauge, permission: 'agents:manage' },
+  { to: '/leaders', labelKey: 'navigation.leaders', icon: Crown, permission: 'leaders:manage' },
+  {
+    to: '/executors',
+    labelKey: 'navigation.executors',
+    icon: UserRoundCheck,
+    permission: 'executors:manage',
+  },
+  { to: '/agents', labelKey: 'navigation.agents', icon: Bot, permission: 'agents:manage' },
+  { to: '/sessions', labelKey: 'navigation.sessions', icon: Activity },
+  {
+    to: '/workflows',
+    labelKey: 'navigation.workflows',
+    icon: GitBranch,
+    permission: 'agents:manage',
+  },
+  {
+    to: '/deployments',
+    labelKey: 'navigation.deployments',
+    icon: Boxes,
+    permission: 'deployments:manage',
+  },
+  { to: '/alerts', labelKey: 'navigation.alerts', icon: TriangleAlert, permission: 'logs:read' },
+  { to: '/logs', labelKey: 'navigation.logs', icon: ScrollText, permission: 'logs:read' },
+  {
+    to: '/settings',
+    labelKey: 'navigation.settings',
+    icon: Settings,
+    permission: 'settings:manage',
+  },
 ]
 
 export function AppShell() {
+  const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
   const displayName = useAuthStore((state) => state.displayName)
@@ -76,7 +96,7 @@ export function AppShell() {
           <PlatformMark />
           <div>
             <p className="text-sm font-semibold text-text-primary">Fleet Control</p>
-            <p className="text-xs text-text-muted">Agent fleet plane</p>
+            <p className="text-xs text-text-muted">{t('app.subtitle')}</p>
           </div>
         </div>
         <nav className="space-y-1">
@@ -93,7 +113,7 @@ export function AppShell() {
               }
             >
               <item.icon className="h-4 w-4" />
-              {item.label}
+              {t(item.labelKey)}
             </NavLink>
           ))}
         </nav>
@@ -101,25 +121,26 @@ export function AppShell() {
 
       <div className="min-w-0 overflow-x-hidden lg:pl-64">
         <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
-          <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-6">
-            <div className="min-w-0">
+          <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 px-4 py-3 lg:justify-end lg:px-6">
+            <div className="min-w-0 lg:hidden">
               <p className="text-sm font-semibold text-text-primary">Fleet Control</p>
-              <p className="truncate text-xs text-text-muted">
-                Hermes now, Java Agent contract next
-              </p>
+              <p className="truncate text-xs text-text-muted">{t('app.subtitle')}</p>
             </div>
             <div className="flex items-center gap-2">
               <ServiceSwitcher currentKey="fleet-control" />
               <ThemeToggle />
               <Button variant="outline" size="sm" onClick={handleLogout}>
                 <LogOut className="h-4 w-4" />
-                Sign out
+                {t('app.signOut')}
               </Button>
             </div>
           </div>
-          <nav className="border-t border-border px-4 py-2 lg:hidden" aria-label="Fleet sections">
+          <nav
+            className="border-t border-border px-4 py-2 lg:hidden"
+            aria-label={t('navigation.sections')}
+          >
             <select
-              aria-label="Fleet section"
+              aria-label={t('navigation.section')}
               className="h-10 w-full rounded-md border border-border-strong bg-surface px-3 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
               value={
                 visibleNavItems.find(
@@ -132,7 +153,7 @@ export function AppShell() {
             >
               {visibleNavItems.map((item) => (
                 <option key={item.to} value={item.to}>
-                  {item.label}
+                  {t(item.labelKey)}
                 </option>
               ))}
             </select>
@@ -145,10 +166,7 @@ export function AppShell() {
 
         <footer className="border-t border-border px-4 py-3 text-xs text-text-muted lg:px-6">
           <div className="flex flex-wrap items-center gap-3">
-            <span>{displayName ?? email ?? 'Fleet operator'}</span>
-            <span className="hidden sm:inline">Runtime root: guarded per-agent workspaces</span>
-            <TerminalSquare className="h-3.5 w-3.5" />
-            <Files className="h-3.5 w-3.5" />
+            <span>{displayName ?? email ?? t('app.operator')}</span>
           </div>
         </footer>
       </div>
