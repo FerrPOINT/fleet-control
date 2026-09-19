@@ -14,7 +14,7 @@ import {
   UserRoundCheck,
 } from 'lucide-react'
 import { useEffect } from 'react'
-import { NavLink, Outlet } from 'react-router'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { getCurrentUserPermissions } from '@/api/auth'
 import { endSso } from '@sdlc/ui/sso'
@@ -38,6 +38,8 @@ const navItems = [
 ]
 
 export function AppShell() {
+  const location = useLocation()
+  const navigate = useNavigate()
   const displayName = useAuthStore((state) => state.displayName)
   const email = useAuthStore((state) => state.email)
   const permissions = useAuthStore((state) => state.permissions)
@@ -115,23 +117,25 @@ export function AppShell() {
               </Button>
             </div>
           </div>
-          <nav className="flex max-w-full gap-1 overflow-x-auto border-t border-border px-2 py-2 lg:hidden">
-            {visibleNavItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === '/'}
-                className={({ isActive }) =>
-                  cn(
-                    'flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-xs text-text-secondary',
-                    isActive && 'bg-surface-raised text-text-primary',
-                  )
-                }
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </NavLink>
-            ))}
+          <nav className="border-t border-border px-4 py-2 lg:hidden" aria-label="Fleet sections">
+            <select
+              aria-label="Fleet section"
+              className="h-10 w-full rounded-md border border-border-strong bg-surface px-3 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+              value={
+                visibleNavItems.find(
+                  (item) =>
+                    item.to !== '/' &&
+                    (location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)),
+                )?.to ?? visibleNavItems[0]?.to
+              }
+              onChange={(event) => navigate(event.target.value)}
+            >
+              {visibleNavItems.map((item) => (
+                <option key={item.to} value={item.to}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
           </nav>
         </header>
 
