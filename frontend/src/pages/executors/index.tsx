@@ -136,7 +136,7 @@ function ExecutorRow({
     <li className="min-w-0 py-3">
       <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
         <AgentIdentity agent={executor} />
-        <Button asChild variant="outline" size="sm">
+        <Button asChild variant="outline" size="sm" className="min-h-10">
           <Link to={`/executors/${executor.id}`}>{t('executors.open')}</Link>
         </Button>
       </div>
@@ -144,7 +144,7 @@ function ExecutorRow({
         <p className="mt-2 text-xs text-text-muted">{t('executors.loadingSessions')}</p>
       ) : sessions.length ? (
         <details className="mt-2 group">
-          <summary className="w-fit cursor-pointer text-sm text-accent underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
+          <summary className="inline-flex min-h-10 cursor-pointer items-center text-sm text-accent underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
             {t('executors.sessionsCount', { count: sessions.length })}
           </summary>
           <div className="mt-2 grid gap-1 sm:grid-cols-2 xl:grid-cols-3">
@@ -188,7 +188,7 @@ function SessionPreview({ session }: { session: AgentSession }) {
   return (
     <Link
       to={`/sessions/${session.id}`}
-      className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 hover:bg-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
+      className="flex min-h-10 min-w-0 items-center gap-2 rounded-md px-2 py-1.5 hover:bg-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
     >
       <UserAvatar name={session.user_display_name} userId={session.user_id} />
       <span className="min-w-0 flex-1">

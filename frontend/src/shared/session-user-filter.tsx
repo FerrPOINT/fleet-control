@@ -109,7 +109,7 @@ export function SessionUserFilter({
               filter.addUser(event.target.value)
               event.currentTarget.value = ''
             }}
-            className="h-9 min-w-0 rounded-md border border-border bg-background px-3 text-sm text-text-primary disabled:opacity-60"
+            className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm text-text-primary disabled:opacity-60"
           >
             <option value="">{t('sessionFilter.add')}</option>
             {availableUsers.map((user) => (
@@ -125,7 +125,7 @@ export function SessionUserFilter({
           filter.selectedUsers.map((user) => (
             <span
               key={user.id}
-              className="inline-flex min-h-8 max-w-full items-center gap-2 rounded-md border border-border-strong bg-surface-raised px-2 text-sm text-text-primary"
+              className="inline-flex min-h-10 max-w-full items-center gap-2 rounded-md border border-border-strong bg-surface-raised pl-2 text-sm text-text-primary"
             >
               <UserAvatar name={user.display_name} userId={user.id} />
               <span className="min-w-0 truncate">{user.display_name}</span>
@@ -134,7 +134,7 @@ export function SessionUserFilter({
                 aria-label={t('sessionFilter.remove', { name: user.display_name })}
                 onClick={() => filter.removeUser(user.id)}
                 disabled={!filter.isSystemAdmin}
-                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-border hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-border hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
