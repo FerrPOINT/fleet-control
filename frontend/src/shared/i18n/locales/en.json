@@ -1,6 +1,91 @@
 {
   "app": {
-    "name": "Fleet Control"
+    "name": "Fleet Control",
+    "subtitle": "Agent management",
+    "signOut": "Sign out",
+    "operator": "Fleet operator"
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "leaders": "Leaders",
+    "executors": "Executors",
+    "agents": "Agents",
+    "sessions": "Sessions",
+    "workflows": "Workflows",
+    "deployments": "Deployments",
+    "alerts": "Alerts",
+    "logs": "Logs",
+    "settings": "Settings",
+    "sections": "Fleet Control sections",
+    "section": "Fleet Control section"
+  },
+  "dashboard": {
+    "title": "Fleet dashboard",
+    "newAgent": "New agent",
+    "agents": "Agents",
+    "leaders": "Leaders",
+    "executors": "Executors",
+    "running": "Running",
+    "failed": "Failed",
+    "activeSessions": "Active sessions",
+    "privateSessions": "Private sessions",
+    "leaderSessions": "Leader sessions",
+    "recentEvents": "Recent events",
+    "loadingAgents": "Loading fleet...",
+    "noAgents": "No agents yet",
+    "noEvents": "No events recorded"
+  },
+  "productRoles": {
+    "leader": "Leader",
+    "executor": "Executor"
+  },
+  "agentRoles": {
+    "developer": "developer",
+    "tester": "tester",
+    "it_lead": "IT lead",
+    "custom": "custom"
+  },
+  "agent": {
+    "profile": "profile:",
+    "namespace": "namespace:",
+    "unbound": "unbound"
+  },
+  "statuses": {
+    "provisioning": "Provisioning",
+    "ready": "Ready",
+    "starting": "Starting",
+    "running": "Running",
+    "degraded": "Degraded",
+    "stopped": "Stopped",
+    "failed": "Failed",
+    "archived": "Archived",
+    "not_started": "Not started",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "missing": "Missing",
+    "dirty": "Changed",
+    "draft": "Draft",
+    "active": "Active",
+    "handoff_requested": "Handoff requested",
+    "blocked": "Blocked",
+    "done": "Done",
+    "private": "Private",
+    "leader_scoped": "Leader scoped",
+    "pending": "Pending",
+    "waiting": "Waiting",
+    "completed": "Completed",
+    "dispatched": "Dispatched",
+    "cancelled": "Cancelled",
+    "stopping": "Stopping",
+    "implemented": "Implemented",
+    "planned": "Planned",
+    "root_present": "Root present",
+    "root_missing": "Root missing",
+    "marker_present": "Marker present",
+    "marker_missing": "Marker missing",
+    "purge_eligible": "Purge eligible",
+    "kept": "Kept",
+    "unknown": "Unknown"
   },
   "common": {
     "loading": "Loading...",

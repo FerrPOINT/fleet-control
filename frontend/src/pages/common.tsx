@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { AlertCircle } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@sdlc/ui/ui'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/shared/lib/utils'
 import type { Agent, AgentKind, AgentStatus, SessionState, SkillState } from '@/api/types'
 
@@ -36,14 +36,10 @@ export function StatCard({
   tone?: string
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-xs uppercase">{label}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className={cn('text-3xl font-semibold text-text-primary', tone)}>{value}</div>
-      </CardContent>
-    </Card>
+    <div className="min-w-0 border-b border-r border-border px-3 py-3">
+      <p className="text-xs text-text-muted">{label}</p>
+      <p className={cn('mt-1 text-xl font-semibold text-text-primary', tone)}>{value}</p>
+    </div>
   )
 }
 
@@ -53,6 +49,8 @@ export function StatusBadge({
   value: AgentStatus | SkillState | SessionState | string | null | undefined
 }) {
   const normalized = value ?? 'unknown'
+  const { t } = useTranslation()
+  const key = normalized.toLowerCase().replaceAll(' ', '_')
   return (
     <span
       className={cn(
@@ -60,7 +58,7 @@ export function StatusBadge({
         badgeTone(normalized),
       )}
     >
-      {labelize(normalized)}
+      {t(`statuses.${key}`, { defaultValue: labelize(normalized) })}
     </span>
   )
 }
@@ -74,9 +72,10 @@ export function KindBadge({ kind }: { kind: AgentKind }) {
 }
 
 export function ProductRoleBadge({ value }: { value: Agent['product_role'] }) {
+  const { t } = useTranslation()
   return (
     <span className="inline-flex min-h-6 items-center rounded-md border border-border-strong bg-surface-raised px-2 text-xs font-medium text-text-secondary">
-      {value === 'leader' ? 'Leader' : 'Executor'}
+      {t(`productRoles.${value}`)}
     </span>
   )
 }
@@ -138,6 +137,7 @@ export function JsonBlock({ value }: { value: unknown }) {
 }
 
 export function AgentIdentity({ agent }: { agent: Agent }) {
+  const { t } = useTranslation()
   const health = agent.runtime?.health_status
   return (
     <div className="min-w-0">
@@ -149,7 +149,9 @@ export function AgentIdentity({ agent }: { agent: Agent }) {
         {health ? <StatusBadge value={health} /> : null}
       </div>
       <p className="mt-1 text-xs text-text-muted">
-        {agent.name} - profile {labelize(agent.role)} - namespace {agent.namespace_id ?? 'unbound'}
+        {agent.name} · {t('agent.profile')}{' '}
+        {t(`agentRoles.${agent.role}`, { defaultValue: labelize(agent.role) })} ·{' '}
+        {t('agent.namespace')} {agent.namespace_id ?? t('agent.unbound')}
       </p>
     </div>
   )
