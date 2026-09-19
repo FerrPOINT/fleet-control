@@ -75,9 +75,9 @@ describe('AgentEditPage team loading', () => {
     vi.mocked(fleet.getAgent).mockResolvedValue(executor)
     renderEdit('executor')
 
-    await screen.findByRole('heading', { name: 'Edit Executor One' })
+    await screen.findByRole('heading', { name: 'Изменить Executor One' })
     expect(fleet.listLeaderExecutors).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Save agent' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить агента' }))
 
     await waitFor(() => expect(fleet.updateAgent).toHaveBeenCalledOnce())
     expect(fleet.updateAgent).toHaveBeenCalledWith(
@@ -93,16 +93,18 @@ describe('AgentEditPage team loading', () => {
       .mockResolvedValueOnce([{ executor_agent_id: executor.id }] as never)
     renderEdit('leader')
 
-    await screen.findByRole('heading', { name: 'Edit Leader One' })
-    await screen.findByText(/Could not load managed executors: service unavailable/)
-    expect(screen.getByRole('button', { name: 'Save agent' })).toBeDisabled()
+    await screen.findByRole('heading', { name: 'Изменить Leader One' })
+    await screen.findByText('Не удалось загрузить состав команды. Сохранение недоступно.')
+    expect(screen.getByRole('button', { name: 'Сохранить агента' })).toBeDisabled()
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
     expect(fleet.updateAgent).not.toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Save agent' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить' }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Сохранить агента' })).toBeEnabled(),
+    )
     expect(screen.getByRole('checkbox')).toBeChecked()
-    fireEvent.click(screen.getByRole('button', { name: 'Save agent' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить агента' }))
 
     await waitFor(() => expect(fleet.updateAgent).toHaveBeenCalledOnce())
     expect(fleet.updateAgent).toHaveBeenCalledWith(
@@ -115,17 +117,58 @@ describe('AgentEditPage team loading', () => {
     vi.mocked(fleet.getAgent).mockResolvedValue(executor)
     renderEdit('executor')
 
-    await screen.findByRole('heading', { name: 'Edit Executor One' })
-    fireEvent.change(screen.getByLabelText('Product role'), { target: { value: 'leader' } })
-    await screen.findByText('Managed executors')
+    await screen.findByRole('heading', { name: 'Изменить Executor One' })
+    fireEvent.change(screen.getByLabelText('Тип агента'), { target: { value: 'leader' } })
+    await screen.findByText('Исполнители команды')
     expect(fleet.listLeaderExecutors).not.toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: 'Save agent' })).toBeEnabled()
-    fireEvent.click(screen.getByRole('button', { name: 'Save agent' }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Сохранить агента' })).toBeEnabled(),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить агента' }))
 
     await waitFor(() => expect(fleet.updateAgent).toHaveBeenCalledOnce())
     expect(fleet.updateAgent).toHaveBeenCalledWith(
       executor.id,
       expect.objectContaining({ product_role: 'leader', executor_ids: [] }),
     )
+  })
+
+  it('blocks promotion while the executor catalog is unavailable and allows retry', async () => {
+    vi.mocked(fleet.getAgent).mockResolvedValue(executor)
+    vi.mocked(fleet.listExecutors)
+      .mockRejectedValueOnce(new Error('temporary outage'))
+      .mockResolvedValueOnce([executor])
+    renderEdit('executor')
+
+    await screen.findByRole('heading', { name: 'Изменить Executor One' })
+    fireEvent.change(screen.getByLabelText('Тип агента'), { target: { value: 'leader' } })
+    await screen.findByText('Не удалось загрузить исполнителей. Сохранение недоступно.')
+    expect(screen.getByRole('button', { name: 'Сохранить агента' })).toBeDisabled()
+    expect(fleet.updateAgent).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить' }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Сохранить агента' })).toBeEnabled(),
+    )
+  })
+
+  it('preserves the draft after a failed save and confirms a retry', async () => {
+    vi.mocked(fleet.getAgent).mockResolvedValue(executor)
+    vi.mocked(fleet.updateAgent)
+      .mockRejectedValueOnce(new Error('temporary outage'))
+      .mockResolvedValueOnce({ ...executor, display_name: 'Updated agent' })
+    renderEdit('executor')
+
+    await screen.findByRole('heading', { name: 'Изменить Executor One' })
+    fireEvent.change(screen.getByLabelText('Отображаемое имя'), {
+      target: { value: 'Updated agent' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить агента' }))
+    await screen.findByText('Не удалось сохранить агента. Изменения остались в форме.')
+    expect(screen.getByLabelText('Отображаемое имя')).toHaveValue('Updated agent')
+    expect(screen.getByRole('heading', { name: 'Изменить Executor One' })).toBeVisible()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить агента' }))
+    await screen.findByText('Executor saved')
   })
 })

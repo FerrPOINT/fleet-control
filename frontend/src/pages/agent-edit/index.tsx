@@ -1,7 +1,9 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { FileCode2, Save, Wrench } from 'lucide-react'
+import { toast } from 'sonner'
 import { getAgent, listExecutors, listLeaderExecutors, updateAgent } from '@/api/fleet'
 import type { AgentProductRole, AgentRole, UpdateAgentRequest } from '@/api/types'
 import { Button } from '@sdlc/ui/ui'
@@ -12,6 +14,7 @@ import { Textarea } from '@sdlc/ui/ui'
 import { AgentIdentity, EmptyState, ErrorState, PageHeader, StatusBadge } from '../common'
 
 export function AgentEditPage({ defaultProductRole }: { defaultProductRole?: AgentProductRole }) {
+  const { t } = useTranslation()
   const { agentId, leaderId } = useParams()
   const id = leaderId ?? agentId
   const navigate = useNavigate()
@@ -57,10 +60,12 @@ export function AgentEditPage({ defaultProductRole }: { defaultProductRole?: Age
   )
   const draftExecutorIds = selectedExecutorIds ?? currentTeamIds
   const teamRequired = productRole === 'leader' && agent.data?.product_role === 'leader'
-  const teamUnavailable = teamRequired && (team.isError || !team.data)
+  const teamUnavailable =
+    productRole === 'leader' &&
+    ((teamRequired && (team.isError || !team.data)) || executors.isError || !executors.data)
   const mutation = useMutation({
     mutationFn: () => {
-      if (teamUnavailable) throw new Error('Load the managed executors before saving')
+      if (teamUnavailable) throw new Error(t('agentEdit.teamUnavailable'))
       const payload: UpdateAgentRequest = {
         product_role: productRole,
         role,
@@ -80,6 +85,7 @@ export function AgentEditPage({ defaultProductRole }: { defaultProductRole?: Age
         queryClient.invalidateQueries({ queryKey: ['executors'] }),
         queryClient.invalidateQueries({ queryKey: ['leader-executors', id] }),
       ])
+      toast.success(t('agentEdit.saved'))
       navigate(
         updated.product_role === 'leader' ? `/leaders/${updated.id}` : `/executors/${updated.id}`,
       )
@@ -106,9 +112,17 @@ export function AgentEditPage({ defaultProductRole }: { defaultProductRole?: Age
     mutation.mutate()
   }
 
-  if (!id) return <ErrorState message="Agent id is missing" />
-  if (agent.isError) return <ErrorState message={agent.error.message} />
-  if (!agent.data) return <EmptyState title="Loading agent..." />
+  if (!id) return <ErrorState message={t('agentEdit.missingId')} />
+  if (agent.isError)
+    return (
+      <div className="space-y-3">
+        <ErrorState message={t('agentEdit.loadError')} />
+        <Button type="button" variant="outline" onClick={() => void agent.refetch()}>
+          {t('agentEdit.retry')}
+        </Button>
+      </div>
+    )
+  if (!agent.data) return <EmptyState title={t('agentEdit.loading')} />
 
   const roleOptions =
     productRole === 'leader'
@@ -118,126 +132,137 @@ export function AgentEditPage({ defaultProductRole }: { defaultProductRole?: Age
   return (
     <>
       <PageHeader
-        title={`Edit ${agent.data.display_name}`}
-        description={`${agent.data.name} identity, product role and workflow binding.`}
+        title={t('agentEdit.title', { name: agent.data.display_name })}
+        description={t('agentEdit.description', { name: agent.data.name })}
         actions={
           <Button asChild variant="outline">
             <Link to={agent.data.product_role === 'leader' ? `/leaders/${id}` : `/executors/${id}`}>
-              Back to overview
+              {t('agentEdit.back')}
             </Link>
           </Button>
         }
       />
-      <form className="grid gap-4 xl:grid-cols-[1fr_420px]" onSubmit={submit}>
+      <form
+        className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,420px)]"
+        onSubmit={submit}
+        aria-busy={mutation.isPending}
+      >
         <Card>
           <CardHeader>
-            <CardTitle>Identity</CardTitle>
+            <CardTitle>{t('agentEdit.identity')}</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3">
             <AgentIdentity agent={agent.data} />
             <div className="grid gap-2">
-              <Label htmlFor="edit-product-role">Product role</Label>
+              <Label htmlFor="edit-product-role">{t('agentEdit.productRole')}</Label>
               <select
                 id="edit-product-role"
                 value={productRole}
+                disabled={mutation.isPending}
                 onChange={(event) => handleProductRole(event.target.value as AgentProductRole)}
-                className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+                className="h-10 rounded-md border border-border bg-background px-3 text-sm"
               >
-                <option value="executor">Executor</option>
-                <option value="leader">Leader</option>
+                <option value="executor">{t('productRoles.executor')}</option>
+                <option value="leader">{t('productRoles.leader')}</option>
               </select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-role">Profile</Label>
+              <Label htmlFor="edit-role">{t('agentEdit.profile')}</Label>
               <select
                 id="edit-role"
                 value={role}
+                disabled={mutation.isPending}
                 onChange={(event) => setRole(event.target.value as AgentRole)}
-                className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+                className="h-10 rounded-md border border-border bg-background px-3 text-sm"
               >
                 {roleOptions.map((option) => (
                   <option key={option} value={option}>
-                    {option.replaceAll('_', ' ')}
+                    {t(`agentRoles.${option}`)}
                   </option>
                 ))}
               </select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-display-name">Display name</Label>
+              <Label htmlFor="edit-display-name">{t('agentEdit.displayName')}</Label>
               <Input
                 id="edit-display-name"
                 value={displayName}
+                disabled={mutation.isPending}
                 onChange={(event) => setDisplayName(event.target.value)}
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-description">Description</Label>
+              <Label htmlFor="edit-description">{t('agentEdit.details')}</Label>
               <Textarea
                 id="edit-description"
                 value={description}
+                disabled={mutation.isPending}
                 onChange={(event) => setDescription(event.target.value)}
               />
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               <div className="grid gap-2">
-                <Label htmlFor="edit-namespace">Namespace ID</Label>
+                <Label htmlFor="edit-namespace">{t('agentEdit.namespaceId')}</Label>
                 <Input
                   id="edit-namespace"
                   value={namespaceId}
+                  disabled={mutation.isPending}
                   onChange={(event) => setNamespaceId(event.target.value)}
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="edit-workflow">Workflow ID</Label>
+                <Label htmlFor="edit-workflow">{t('agentEdit.workflowId')}</Label>
                 <Input
                   id="edit-workflow"
                   value={workflowId}
+                  disabled={mutation.isPending}
                   onChange={(event) => setWorkflowId(event.target.value)}
                 />
               </div>
             </div>
-            {mutation.isError ? <ErrorState message={mutation.error.message} /> : null}
+            {mutation.isError ? <ErrorState message={t('agentEdit.saveError')} /> : null}
             <Button
               type="submit"
               disabled={mutation.isPending || !displayName.trim() || teamUnavailable}
             >
               <Save className="h-4 w-4" />
-              Save agent
+              {mutation.isPending ? t('agentEdit.saving') : t('agentEdit.save')}
             </Button>
           </CardContent>
         </Card>
 
-        <div className="grid gap-4">
+        <div className="grid content-start gap-4">
           {productRole === 'leader' ? (
             <Card>
               <CardHeader>
-                <CardTitle>Managed executors</CardTitle>
+                <CardTitle>{t('agentEdit.managedExecutors')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {teamRequired && team.isError ? (
                   <div className="space-y-2">
-                    <ErrorState
-                      message={`Could not load managed executors: ${team.error.message}`}
-                    />
+                    <ErrorState message={t('agentEdit.teamError')} />
                     <Button type="button" variant="outline" onClick={() => void team.refetch()}>
-                      Retry
+                      {t('agentEdit.retry')}
                     </Button>
                   </div>
                 ) : null}
                 {teamRequired && team.isLoading ? (
-                  <p className="text-sm text-text-muted">Loading managed executors...</p>
+                  <p className="text-sm text-text-muted">{t('agentEdit.loadingTeam')}</p>
                 ) : null}
-                {!teamUnavailable && executors.isError ? (
+                {executors.isError ? (
                   <div className="space-y-2">
-                    <ErrorState message={`Could not load executors: ${executors.error.message}`} />
+                    <ErrorState message={t('agentEdit.executorsError')} />
                     <Button
                       type="button"
                       variant="outline"
                       onClick={() => void executors.refetch()}
                     >
-                      Retry executors
+                      {t('agentEdit.retry')}
                     </Button>
                   </div>
+                ) : null}
+                {executors.isLoading && !executors.data ? (
+                  <p className="text-sm text-text-muted">{t('agentEdit.loadingExecutors')}</p>
                 ) : null}
                 {!teamUnavailable &&
                 !executors.isError &&
@@ -252,6 +277,7 @@ export function AgentEditPage({ defaultProductRole }: { defaultProductRole?: Age
                         <input
                           type="checkbox"
                           checked={draftExecutorIds.includes(executor.id)}
+                          disabled={mutation.isPending}
                           onChange={() => toggleExecutor(executor.id)}
                         />
                         <span className="min-w-0 flex-1">
@@ -259,14 +285,19 @@ export function AgentEditPage({ defaultProductRole }: { defaultProductRole?: Age
                             {executor.display_name}
                           </span>
                           <span className="block truncate text-xs text-text-muted">
-                            {executor.name} - {executor.role} - {executor.namespace_id ?? 'unbound'}
+                            {executor.name} · {t(`agentRoles.${executor.role}`)} ·{' '}
+                            {executor.namespace_id ?? t('agent.unbound')}
                           </span>
                         </span>
                       </label>
                     ))
                 ) : !teamUnavailable && !executors.isError ? (
                   <EmptyState
-                    title={executors.isLoading ? 'Loading executors...' : 'No executors yet'}
+                    title={
+                      executors.isLoading
+                        ? t('agentEdit.loadingExecutors')
+                        : t('agentEdit.noExecutors')
+                    }
                   />
                 ) : null}
               </CardContent>
@@ -275,7 +306,7 @@ export function AgentEditPage({ defaultProductRole }: { defaultProductRole?: Age
 
           <Card>
             <CardHeader>
-              <CardTitle>Prompt and skills</CardTitle>
+              <CardTitle>{t('agentEdit.promptAndSkills')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex flex-wrap gap-2">
@@ -285,13 +316,13 @@ export function AgentEditPage({ defaultProductRole }: { defaultProductRole?: Age
               <Button asChild variant="outline">
                 <Link to={`/agents/${id}/config`}>
                   <FileCode2 className="h-4 w-4" />
-                  Open config
+                  {t('agentEdit.openConfig')}
                 </Link>
               </Button>
               <Button asChild variant="outline">
                 <Link to={`/agents/${id}/skills`}>
                   <Wrench className="h-4 w-4" />
-                  Open skills
+                  {t('agentEdit.openSkills')}
                 </Link>
               </Button>
             </CardContent>
