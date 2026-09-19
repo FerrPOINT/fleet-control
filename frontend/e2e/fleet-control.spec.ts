@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from '@playwright/test'
+import { generateKeyPairSync, sign } from 'node:crypto'
 
 const now = '2026-09-01T10:00:00+03:00'
 const ids = {
@@ -351,6 +352,65 @@ function createState(): ApiState {
     deploymentJobs: [makeDeploymentJob()],
     workflowBindings: workflowBindings(),
   }
+}
+
+async function installSsoMocks(page: Page) {
+  const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' })
+  const jwk = { ...publicKey.export({ format: 'jwk' }), kid: 'qa', alg: 'ES256', use: 'sig' }
+  let issuer = 'http://localhost:7701'
+  let nonce = ''
+  await page.route('**/oidc/authorize**', async (route) => {
+    const url = new URL(route.request().url())
+    issuer = url.origin
+    nonce = url.searchParams.get('nonce') ?? ''
+    const callback = new URL(url.searchParams.get('redirect_uri') ?? '/')
+    callback.searchParams.set('code', 'qa-code')
+    callback.searchParams.set('state', url.searchParams.get('state') ?? '')
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/html',
+      body: `<!doctype html><script>location.replace(${JSON.stringify(callback.toString())})</script>`,
+    })
+  })
+  await page.route('**/oidc/token', async (route) => {
+    const header = Buffer.from(JSON.stringify({ alg: 'ES256', typ: 'JWT', kid: 'qa' })).toString(
+      'base64url',
+    )
+    const payload = Buffer.from(
+      JSON.stringify({
+        iss: issuer,
+        aud: 'fleet-control',
+        sub: ids.user,
+        email: 'admin@fleet-control.local',
+        nonce,
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      }),
+    ).toString('base64url')
+    const content = `${header}.${payload}`
+    const signature = sign('sha256', Buffer.from(content), {
+      key: privateKey,
+      dsaEncoding: 'ieee-p1363',
+    }).toString('base64url')
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'access-control-allow-origin': '*' },
+      body: JSON.stringify({
+        access_token: 'qa-access-token',
+        id_token: `${content}.${signature}`,
+        expires_in: 3600,
+      }),
+    })
+  })
+  await page.route('**/oidc/jwks', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'access-control-allow-origin': '*' },
+      body: JSON.stringify({ keys: [jwk] }),
+    }),
+  )
 }
 
 async function installMocks(page: Page, state: ApiState) {
@@ -943,6 +1003,201 @@ test('workflow bindings rebind only to a workflow in the selected namespace', as
   await expect(page.getByText('sdlc-business-tech-v1').first()).toBeVisible()
 })
 
+test('settings save states and controls work without touching the backend', async ({
+  page,
+}, testInfo) => {
+  const state = createState()
+  const pageErrors: string[] = []
+  page.on('pageerror', (error) => pageErrors.push(error.message))
+  await installSsoMocks(page)
+  await installMocks(page, state)
+  const settings = {
+    runtime: {
+      agents_root: 'C:\\fleet-control\\agents',
+      hermes_source: '..\\hermes',
+      hermes_command: 'hermes',
+      java_agent_source: '..\\java-agent',
+      java_agent_command: 'java',
+    },
+    ports: {
+      backend_port: 23801,
+      frontend_port: 23802,
+      agent_port_base: 29000,
+      agent_port_stride: 10,
+    },
+    integrations: {
+      project_workflow_url: 'http://localhost:23811',
+      project_workflow_status: 'connected',
+      github_remote: 'https://github.com/FerrPOINT/fleet-control',
+    },
+    auth: {
+      mode: 'hmac',
+      jwt_issuer: 'fleet-control',
+      jwt_audience: 'sdlc',
+      access_token_ttl_minutes: 15,
+      refresh_token_ttl_days: 7,
+      refresh_cookie_name: 'refresh_token',
+      refresh_cookie_secure: true,
+      refresh_cookie_same_site: 'Lax',
+      refresh_cookie_domain: null,
+      refresh_cookie_path: '/api/v1/auth',
+    },
+  }
+  const initialSettings = structuredClone(settings)
+  const writes: Array<{ tab: keyof typeof settings; body: unknown }> = []
+  let releaseSave: (() => void) | null = null
+  let holdSave = false
+  let failSave = false
+  await page.route('**/api/v1/settings/*', async (route) => {
+    const tab = new URL(route.request().url()).pathname.split('/').at(-1) as keyof typeof settings
+    if (!(tab in settings)) return fulfill(route, { error: 'Unhandled setting' }, 404)
+    if (route.request().method() === 'GET') return fulfill(route, settings[tab])
+    if (route.request().method() !== 'PUT') return fulfill(route, { error: 'Read-only QA' }, 405)
+    const body = route.request().postDataJSON()
+    writes.push({ tab, body })
+    if (holdSave) {
+      await new Promise<void>((resolve) => {
+        releaseSave = resolve
+      })
+      holdSave = false
+    }
+    if (failSave) {
+      failSave = false
+      return fulfill(route, { error: 'QA save failure' }, 503)
+    }
+    Object.assign(settings[tab], body)
+    return fulfill(route, settings[tab])
+  })
+
+  await page.setViewportSize({ width: 375, height: 812 })
+  await page.goto('/settings')
+  await expect(page.getByRole('note')).toContainText('Сохранение не меняет работу сервиса')
+  const command = page.getByRole('textbox', { name: 'Команда Hermes' })
+  await expect(command).toHaveValue('hermes')
+  await command.fill('hermes --qa')
+  holdSave = true
+  await page.getByRole('button', { name: 'Сохранить изменения' }).click()
+  await expect(command).toBeDisabled()
+  await expect(page.getByRole('form', { name: 'Источники и команды' })).toHaveAttribute(
+    'aria-busy',
+    'true',
+  )
+  await expect(page.getByRole('button', { name: 'Сохраняем...' })).toBeDisabled()
+  await page.waitForTimeout(1000)
+  await page.screenshot({ path: testInfo.outputPath('settings-pending-375.png'), fullPage: true })
+  releaseSave?.()
+  await expect(page.getByRole('status').getByText('Запись сохранена, не применена')).toBeVisible()
+  await expect(page.getByRole('form', { name: 'Источники и команды' })).toHaveAttribute(
+    'aria-busy',
+    'false',
+  )
+  await expect(command).toHaveValue('hermes --qa')
+  await page.waitForTimeout(1000)
+  await page.screenshot({ path: testInfo.outputPath('settings-saved-375.png'), fullPage: true })
+
+  await command.fill('hermes --failure')
+  failSave = true
+  await page.getByRole('button', { name: 'Сохранить изменения' }).click()
+  await expect(page.getByRole('alert').getByText(/Не удалось сохранить настройки/)).toBeVisible()
+  await expect(command).toHaveValue('hermes --failure')
+  await expect(page.getByRole('button', { name: 'Сохранить изменения' })).toBeEnabled()
+  await page.waitForTimeout(1000)
+  await page.screenshot({ path: testInfo.outputPath('settings-error-375.png'), fullPage: true })
+  await page.getByRole('button', { name: 'Сохранить изменения' }).click()
+  await expect(page.getByRole('status').getByText('Запись сохранена, не применена')).toBeVisible()
+  await expect(command).toHaveValue('hermes --failure')
+
+  await page.getByRole('tab', { name: 'Порты' }).click()
+  const stride = page.getByRole('spinbutton', { name: 'Шаг портов агентов' })
+  await stride.fill('12')
+  await page.getByRole('button', { name: 'Сохранить изменения' }).click()
+  await expect(page.getByRole('status').getByText('Запись сохранена, не применена')).toBeVisible()
+  await expect(stride).toHaveValue('12')
+
+  await page.getByRole('tab', { name: 'Интеграции' }).click()
+  const workflowStatus = page.getByRole('textbox', { name: 'Статус Project Workflow' })
+  await workflowStatus.fill('ready')
+  await page.getByRole('button', { name: 'Сохранить изменения' }).click()
+  await expect(page.getByRole('status').getByText('Запись сохранена, не применена')).toBeVisible()
+  await expect(workflowStatus).toHaveValue('ready')
+
+  await page.getByRole('tab', { name: 'Доступ' }).click()
+  const issuer = page.getByRole('textbox', { name: 'Издатель JWT' })
+  await issuer.fill('fleet-control-qa')
+  await page.getByRole('button', { name: 'Сохранить изменения' }).click()
+  await expect(page.getByRole('status').getByText('Запись сохранена, не применена')).toBeVisible()
+  await expect(issuer).toHaveValue('fleet-control-qa')
+
+  const tabs = [
+    { name: 'Среда', form: 'Источники и команды' },
+    { name: 'Порты', form: 'Сетевые порты' },
+    { name: 'Интеграции', form: 'Интеграции' },
+    { name: 'Доступ', form: 'Политика аутентификации' },
+    { name: 'Пользователи', form: null },
+  ]
+  for (const width of [375, 1280]) {
+    await page.setViewportSize({ width, height: width === 375 ? 812 : 900 })
+    for (const tab of tabs) {
+      await page.getByRole('tab', { name: tab.name }).click()
+      if (tab.form) await expect(page.getByRole('form', { name: tab.form })).toBeVisible()
+      else await expect(page.getByRole('heading', { name: 'Пользователи' })).toBeVisible()
+      const layout = await page.evaluate(() => {
+        const visible = (element: Element) => element.getClientRects().length > 0
+        const controls = [
+          ...document.querySelectorAll('main button, main input, main select'),
+        ].filter(visible)
+        return {
+          scrollWidth: document.documentElement.scrollWidth,
+          smallTargets: controls
+            .filter((element) => {
+              if (element instanceof HTMLInputElement && element.type === 'checkbox') return false
+              const rect = element.getBoundingClientRect()
+              return rect.width < 40 || rect.height < 40
+            })
+            .map((element) => element.outerHTML.slice(0, 100)),
+          unnamedFields: controls
+            .filter(
+              (element) =>
+                (element instanceof HTMLInputElement || element instanceof HTMLSelectElement) &&
+                !element.labels?.length &&
+                !element.getAttribute('aria-label'),
+            )
+            .map((element) => element.outerHTML.slice(0, 100)),
+        }
+      })
+      expect(layout.scrollWidth).toBe(width)
+      expect(layout.smallTargets).toEqual([])
+      expect(layout.unnamedFields).toEqual([])
+      if (width === 375 && tab.name === 'Доступ') {
+        await page.waitForTimeout(1000)
+        await page.screenshot({
+          path: testInfo.outputPath('settings-auth-375.png'),
+          fullPage: true,
+        })
+      }
+    }
+  }
+  await page.getByRole('tab', { name: 'Среда' }).click()
+  await page.getByRole('button', { name: 'Тема: dark' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'gray')
+  await page.getByRole('button', { name: 'Тема: gray' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  await page.waitForTimeout(1000)
+  await page.screenshot({ path: testInfo.outputPath('settings-light-1280.png'), fullPage: true })
+  expect(writes).toEqual([
+    { tab: 'runtime', body: { ...initialSettings.runtime, hermes_command: 'hermes --qa' } },
+    { tab: 'runtime', body: { ...initialSettings.runtime, hermes_command: 'hermes --failure' } },
+    { tab: 'runtime', body: { ...initialSettings.runtime, hermes_command: 'hermes --failure' } },
+    { tab: 'ports', body: { ...initialSettings.ports, agent_port_stride: 12 } },
+    {
+      tab: 'integrations',
+      body: { ...initialSettings.integrations, project_workflow_status: 'ready' },
+    },
+    { tab: 'auth', body: { ...initialSettings.auth, jwt_issuer: 'fleet-control-qa' } },
+  ])
+  expect(pageErrors).toEqual([])
+})
+
 test('storage review links purge candidates to their workspace', async ({ page }) => {
   const state = createState()
   const tester = state.agents.find((agent) => agent.id === ids.tester)
@@ -952,9 +1207,7 @@ test('storage review links purge candidates to their workspace', async ({ page }
 
   await page.goto('/agents')
 
-  await expect(
-    page.locator(`a[href="/agents/${ids.tester}/workspace"]`),
-  ).toBeVisible()
+  await expect(page.locator(`a[href="/agents/${ids.tester}/workspace"]`)).toBeVisible()
 })
 
 test('Hermes fleet control flow covers agents, runtime, skills, sessions and handoff', async ({

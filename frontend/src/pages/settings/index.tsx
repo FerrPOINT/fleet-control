@@ -48,6 +48,14 @@ export function SettingsPage() {
             ))}
           </TabsList>
         </div>
+        {selectedTab !== 'users' && (
+          <p
+            role="note"
+            className="mb-4 max-w-4xl border-l-2 border-warning pl-3 text-sm text-text-secondary"
+          >
+            {t('settings.storedOnlyNotice')}
+          </p>
+        )}
         <TabsContent value="runtime" forceMount className="data-[state=inactive]:hidden">
           <RuntimeSettingsPanel active={selectedTab === 'runtime'} />
         </TabsContent>
@@ -533,7 +541,12 @@ function SettingsCard({
         <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        <form aria-label={title} className="grid gap-3 md:grid-cols-2" onSubmit={submit}>
+        <form
+          aria-label={title}
+          aria-busy={pending}
+          className="grid gap-3 md:grid-cols-2"
+          onSubmit={submit}
+        >
           {loadError && (
             <div
               role="alert"

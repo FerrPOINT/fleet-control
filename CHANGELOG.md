@@ -9,6 +9,9 @@
 
 ### Added
 
+- Settings UI теперь явно различает сохранённую запись и активную конфигурацию,
+  а браузерный QA покрывает pending, успех, ошибку и повтор сохранения без записи
+  в действующий backend.
 - Настройки Fleet Control: локализованные вкладки, поиск пользователей,
   сохранение черновика и явные состояния загрузки, сохранения и ошибки.
 - Runtime reconciler Phase 1: `reconcile_action` desired-state переходы (failed/stopped при desired=running — авто-restart в reconciler-цикле), unit-тесты матрицы статусов.
