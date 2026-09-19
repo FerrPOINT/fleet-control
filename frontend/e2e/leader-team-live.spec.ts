@@ -94,7 +94,8 @@ test('live leader team is read-only until changed and fits responsive themes', a
           ),
         ).toBeTruthy()
         const evidence =
-          (theme === 'light' && width === 375) || (theme === 'gray' && width === 1280)
+          process.env.SDLC_CAPTURE_EVIDENCE === '1' &&
+          ((theme === 'light' && width === 375) || (theme === 'gray' && width === 1280))
         const screenshot = fileURLToPath(
           new URL(
             evidence

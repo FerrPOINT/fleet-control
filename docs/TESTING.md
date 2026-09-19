@@ -25,6 +25,13 @@ pnpm screenshots:local
 pnpm screenshots:verify
 ```
 
+`e2e/leader-team-live.spec.ts` requires `SDLC_LIVE_QA=1` and the local
+`.local/qa-session.json` from the workspace QA bootstrap. It creates an
+isolated `qa-leader-team-*` agent, then archives it and purges only its own
+files. Screenshots go to workspace `.local/screenshots` by default; set
+`SDLC_CAPTURE_EVIDENCE=1` only when intentionally refreshing the committed
+leader-team evidence images.
+
 Required scenarios:
 
 - create Developer Hermes and Tester Hermes
