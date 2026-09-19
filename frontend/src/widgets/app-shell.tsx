@@ -14,10 +14,11 @@ import {
   UserRoundCheck,
 } from 'lucide-react'
 import { useEffect } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router'
+import { NavLink, Outlet } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
-import { getCurrentUserPermissions, logout } from '@/api/auth'
-import { useAuthStore } from '@/shared/auth/store'
+import { getCurrentUserPermissions } from '@/api/auth'
+import { endSso } from '@sdlc/ui/sso'
+import { ssoConfig, useAuthStore } from '@/shared/auth/store'
 import { ThemeToggle } from '@sdlc/ui/ui'
 import { ServiceSwitcher } from '@sdlc/ui/ui'
 import { Button, PlatformMark } from '@sdlc/ui/ui'
@@ -37,10 +38,8 @@ const navItems = [
 ]
 
 export function AppShell() {
-  const navigate = useNavigate()
   const displayName = useAuthStore((state) => state.displayName)
   const email = useAuthStore((state) => state.email)
-  const systemRole = useAuthStore((state) => state.systemRole)
   const permissions = useAuthStore((state) => state.permissions)
   const setUser = useAuthStore((state) => state.setUser)
   const clearAuth = useAuthStore((state) => state.logout)
@@ -63,10 +62,9 @@ export function AppShell() {
     })
   }, [permissionsQuery.data, setUser])
 
-  async function handleLogout() {
-    await logout().catch(() => undefined)
+  function handleLogout() {
     clearAuth()
-    navigate('/login')
+    endSso(ssoConfig)
   }
 
   return (
@@ -144,7 +142,6 @@ export function AppShell() {
         <footer className="border-t border-border px-4 py-3 text-xs text-text-muted lg:px-6">
           <div className="flex flex-wrap items-center gap-3">
             <span>{displayName ?? email ?? 'Fleet operator'}</span>
-            <span className="capitalize">{systemRole}</span>
             <span className="hidden sm:inline">Runtime root: guarded per-agent workspaces</span>
             <TerminalSquare className="h-3.5 w-3.5" />
             <Files className="h-3.5 w-3.5" />

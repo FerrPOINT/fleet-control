@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+export const ssoConfig = { issuer: import.meta.env.VITE_AUTH_ISSUER ?? 'http://localhost:7701', clientId: 'fleet-control' }
+
 function readStoredAuth(): {
   token: string | null
   userId: string | null

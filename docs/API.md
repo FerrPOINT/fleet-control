@@ -4,6 +4,11 @@ Base path: `/api/v1`.
 
 Auth:
 
+При настроенном `FLEET_CONTROL_AUTH__CENTRAL_JWKS_URI` UI использует Central
+Auth Authorization Code + PKCE, а backend проверяет центральный Bearer token и
+активность сессии. Локальные register/login/refresh и изменение роли закрыты;
+ошибка Central Auth не переключает приложение на локальный пароль.
+
 - `POST /auth/register`
 - `POST /auth/login`
 - `POST /auth/refresh`
@@ -13,12 +18,17 @@ Auth:
 - `GET /users`
 - `PATCH /users/{user_id}/role`
 
-Access tokens are local HMAC JWTs in MVP. New tokens include `aud`, `iss`,
-`role`, `scopes` and `sid` claims compatible with the future `sdlc-auth-core`
-validator. Legacy compact tokens without `aud`/`iss` remain accepted during the
-transition window.
+В платформенном режиме access tokens выпускает Central Auth. Локальный профиль
+создаётся строго по `sub`, каталог `/users` синхронизируется с Central Auth, а
+личные API-токены управляются в Admin Panel. Local HMAC JWTs остаются только для
+явного legacy-режима без центральной конфигурации.
 
 RBAC:
+
+В центральном режиме все активные люди получают одинаковые пользовательские
+права Fleet Control; экраны назначения локальных ролей скрыты. Роли ниже
+применяются только к legacy-режиму. Runtime/service credentials остаются
+отдельной машинной границей.
 
 - `admin`: all users, settings, RBAC, sessions and runtime actions.
 - `operator`: agents, leaders, executors, runtime, config, skills, deployments,
@@ -113,9 +123,9 @@ Settings:
 - `POST /deployments/jobs/bulk` — bulk runtime updates/rollback (Phase 3): один job на агента из `agent_ids` (≤100), archived/unknown пропускаются и считаются в `skipped`; `rollback: true` допустим только для `runtime_update` (помечает jobs и добавляет `detail.rollback`).
 - `POST /settings/retention/review` — запустить проход stale-folder review сейчас (operator, audited): возвращает `stale_agent_ids` archived-агентов старше `fleet.retention.stale_archived_days`, порог и время прохода
 
-Auth settings expose `mode`, `jwt_issuer`, `jwt_audience`, token TTLs and
-refresh-cookie policy. `mode=hmac` is the only active mode until
-`sdlc-auth-core` is adopted.
+Auth settings expose legacy `mode`, `jwt_issuer`, `jwt_audience`, token TTLs and
+refresh-cookie policy. В платформенном стенде фактический human auth задаётся
+Central Auth env-конфигурацией и общим `sdlc-auth-core`.
 
 The frontend build regenerates TypeScript types from `openapi/openapi.json`.
 The OpenAPI JSON is regenerated from Rust source before release. Native Windows

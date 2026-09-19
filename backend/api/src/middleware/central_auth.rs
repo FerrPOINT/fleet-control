@@ -16,6 +16,7 @@ pub enum CentralCheck {
     FallThrough,
     /// Central token, expired.
     Expired,
+    Unavailable,
 }
 
 pub async fn check_token(token: &str) -> CentralCheck {
@@ -24,9 +25,10 @@ pub async fn check_token(token: &str) -> CentralCheck {
         BridgeOutcome::NotOurs | BridgeOutcome::NotConfigured => CentralCheck::FallThrough,
         BridgeOutcome::Expired => CentralCheck::Expired,
         BridgeOutcome::Invalid(reason) => {
-            tracing::debug!(reason, "bearer is not a valid central token; legacy path");
-            CentralCheck::FallThrough
+            tracing::debug!(reason, "central token rejected");
+            CentralCheck::Expired
         }
+        BridgeOutcome::Unavailable => CentralCheck::Unavailable,
     }
 }
 
@@ -35,9 +37,16 @@ pub async fn check_token(token: &str) -> CentralCheck {
 pub async fn try_login(
     email: &str,
     password: &str,
-) -> Option<sdlc_auth_core::service_bridge::CentralTokenPair> {
+) -> Option<(
+    sdlc_auth_core::service_bridge::CentralTokenPair,
+    sdlc_auth_core::AuthContext,
+)> {
     match BRIDGE.try_login(email, password).await {
-        Ok(pair) => pair,
+        Ok(Some(pair)) => match BRIDGE.try_token(&pair.access_token).await {
+            BridgeOutcome::Validated(ctx) => Some((pair, ctx)),
+            _ => None,
+        },
+        Ok(None) => None,
         Err(transport) => {
             tracing::warn!(%transport, "central login failed; local fallback");
             None

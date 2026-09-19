@@ -319,10 +319,6 @@ export interface UserPermissionsResponse {
   permissions: string[]
 }
 
-export interface UpdateUserRoleRequest {
-  role: SystemRole
-}
-
 export interface CreateAgentRequest {
   kind: AgentKind
   product_role: AgentProductRole

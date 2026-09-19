@@ -2,8 +2,8 @@
 
 Tables:
 
-- `users`: accounts, `system_role`, legacy `is_system_admin`, refresh token
-  hash and timestamps.
+- `users`: локальные профили для авторов/FK, immutable `central_sub`, legacy
+  `system_role`/`is_system_admin`, refresh token hash and timestamps.
 - `runtime_templates`: runtime kind metadata and capabilities.
 - `agents`: sequential agent identity, runtime kind, product role, profile,
   status, ports and paths.
@@ -40,8 +40,12 @@ Tables:
 
 Important constraints:
 
+- `users.central_sub` уникален для центральных профилей; email уникален только
+  среди legacy rows с `central_sub IS NULL`, поэтому исторический и новый
+  профиль могут безопасно иметь одинаковый email.
 - `users.system_role` is `admin`, `operator` or `user`; `is_system_admin` is a
-  derived legacy alias for `admin`.
+  derived legacy alias for `admin`. В центральном режиме эти поля не
+  ограничивают людей и сохраняются только для совместимости.
 - `agents.ordinal` and `agents.name` are unique.
 - `agent_skills` is unique by `(agent_id, name)`.
 - `agents.product_role` is `leader` or `executor`.

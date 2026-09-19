@@ -65,16 +65,28 @@ pub async fn require_auth(
     // tokens remain valid during the migration window.
     match central_auth::check_token(token).await {
         central_auth::CentralCheck::Validated(central) => {
+            if !central.allows_service("fleet-control", req.method().as_str()) {
+                return Err(AppError::Forbidden);
+            }
             let user = find_or_link_central_user(&ctx, &central).await?;
             req.extensions_mut().insert(CurrentUser {
                 id: user.id,
-                role: user.system_role,
-                is_system_admin: user.is_system_admin,
+                role: SystemRole::Admin,
+                is_system_admin: true,
             });
             return Ok(next.run(req).await);
         }
         central_auth::CentralCheck::Expired => return Err(AppError::Unauthorized),
+        central_auth::CentralCheck::Unavailable => {
+            return Err(AppError::Unavailable(
+                "Central Auth is temporarily unavailable".into(),
+            ));
+        }
         central_auth::CentralCheck::FallThrough => {}
+    }
+
+    if std::env::var_os("FLEET_CONTROL_AUTH__CENTRAL_JWKS_URI").is_some() {
+        return Err(AppError::Unauthorized);
     }
 
     let claims = ctx.auth.validate_access_token(token).await?;
@@ -121,21 +133,11 @@ async fn find_or_link_central_user(
     if email.is_empty() {
         return Err(AppError::Unauthorized);
     }
-    if let Some(existing) = ctx.repo.find_user_by_email(&email).await? {
-        if !existing.is_active {
-            return Err(AppError::Forbidden);
-        }
-        return Ok(existing);
-    }
-    let username = email.split('@').next().unwrap_or("central");
-    if username.len() < 3 {
-        return Err(AppError::Unauthorized);
-    }
-    let request = domain::RegisterRequest {
-        email: email.clone(),
-        username: username.to_string(),
-        display_name: username.to_string(),
-        password: String::new(), // shadow user: local login impossible ("!" hash)
-    };
-    ctx.repo.create_user(request, "!".to_string(), false).await
+    ctx.repo
+        .find_or_create_central_user(
+            &central.user_id,
+            &email,
+            email.split('@').next().unwrap_or(&email),
+        )
+        .await
 }

@@ -15,7 +15,7 @@ import { AlertsPage } from '@/pages/alerts'
 import { LogsPage } from '@/pages/logs'
 import { SettingsPage } from '@/pages/settings'
 import { LoginPage } from '@/pages/login'
-import { RegisterPage } from '@/pages/register'
+import { SsoCallbackPage } from '@/pages/sso-callback'
 import { AccessDeniedState, NotFoundState } from '@/pages/common'
 import { useAuthStore } from '@/shared/auth/store'
 
@@ -46,7 +46,8 @@ export const router = createBrowserRouter([
     element: <RequireAuth />,
     children: [
       { path: '/login', element: <LoginPage /> },
-      { path: '/register', element: <RegisterPage /> },
+      { path: '/register', element: <Navigate to="/login" replace /> },
+      { path: '/sso/callback', element: <SsoCallbackPage /> },
       {
         element: <AppShell />,
         children: [
