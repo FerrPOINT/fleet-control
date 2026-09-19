@@ -21,13 +21,17 @@ export function AgentEditPage({ defaultProductRole }: { defaultProductRole?: Age
     queryFn: () => getAgent(id!),
     enabled: Boolean(id),
   })
-  const executors = useQuery({ queryKey: ['executors'], queryFn: listExecutors })
+  const [productRole, setProductRole] = useState<AgentProductRole>(defaultProductRole ?? 'executor')
+  const executors = useQuery({
+    queryKey: ['executors'],
+    queryFn: listExecutors,
+    enabled: productRole === 'leader',
+  })
   const team = useQuery({
     queryKey: ['leader-executors', id],
     queryFn: () => listLeaderExecutors(id!),
-    enabled: Boolean(id),
+    enabled: Boolean(id && agent.data?.product_role === 'leader'),
   })
-  const [productRole, setProductRole] = useState<AgentProductRole>(defaultProductRole ?? 'executor')
   const [role, setRole] = useState<AgentRole>(
     defaultProductRole === 'leader' ? 'it_lead' : 'developer',
   )
@@ -52,8 +56,11 @@ export function AgentEditPage({ defaultProductRole }: { defaultProductRole?: Age
     [team.data],
   )
   const draftExecutorIds = selectedExecutorIds ?? currentTeamIds
+  const teamRequired = productRole === 'leader' && agent.data?.product_role === 'leader'
+  const teamUnavailable = teamRequired && (team.isError || !team.data)
   const mutation = useMutation({
     mutationFn: () => {
+      if (teamUnavailable) throw new Error('Load the managed executors before saving')
       const payload: UpdateAgentRequest = {
         product_role: productRole,
         role,
@@ -95,6 +102,7 @@ export function AgentEditPage({ defaultProductRole }: { defaultProductRole?: Age
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (teamUnavailable) return
     mutation.mutate()
   }
 
@@ -189,7 +197,10 @@ export function AgentEditPage({ defaultProductRole }: { defaultProductRole?: Age
               </div>
             </div>
             {mutation.isError ? <ErrorState message={mutation.error.message} /> : null}
-            <Button type="submit" disabled={mutation.isPending || !displayName.trim()}>
+            <Button
+              type="submit"
+              disabled={mutation.isPending || !displayName.trim() || teamUnavailable}
+            >
               <Save className="h-4 w-4" />
               Save agent
             </Button>
@@ -203,7 +214,34 @@ export function AgentEditPage({ defaultProductRole }: { defaultProductRole?: Age
                 <CardTitle>Managed executors</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {executors.data?.filter((executor) => executor.id !== id).length ? (
+                {teamRequired && team.isError ? (
+                  <div className="space-y-2">
+                    <ErrorState
+                      message={`Could not load managed executors: ${team.error.message}`}
+                    />
+                    <Button type="button" variant="outline" onClick={() => void team.refetch()}>
+                      Retry
+                    </Button>
+                  </div>
+                ) : null}
+                {teamRequired && team.isLoading ? (
+                  <p className="text-sm text-text-muted">Loading managed executors...</p>
+                ) : null}
+                {!teamUnavailable && executors.isError ? (
+                  <div className="space-y-2">
+                    <ErrorState message={`Could not load executors: ${executors.error.message}`} />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => void executors.refetch()}
+                    >
+                      Retry executors
+                    </Button>
+                  </div>
+                ) : null}
+                {!teamUnavailable &&
+                !executors.isError &&
+                executors.data?.filter((executor) => executor.id !== id).length ? (
                   executors.data
                     .filter((executor) => executor.id !== id)
                     .map((executor) => (
@@ -226,11 +264,11 @@ export function AgentEditPage({ defaultProductRole }: { defaultProductRole?: Age
                         </span>
                       </label>
                     ))
-                ) : (
+                ) : !teamUnavailable && !executors.isError ? (
                   <EmptyState
                     title={executors.isLoading ? 'Loading executors...' : 'No executors yet'}
                   />
-                )}
+                ) : null}
               </CardContent>
             </Card>
           ) : null}
