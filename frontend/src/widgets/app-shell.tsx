@@ -110,7 +110,7 @@ export function AppShell() {
             </div>
             <div className="flex items-center gap-2">
               <ServiceSwitcher currentKey="fleet-control" />
-          <ThemeToggle />
+              <ThemeToggle />
               <Button variant="outline" size="sm" onClick={handleLogout}>
                 <LogOut className="h-4 w-4" />
                 Sign out
