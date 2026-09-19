@@ -170,6 +170,9 @@ pub async fn purge_agent_files(
         ));
     }
     let _ = ctx.runtime.stop(&agent).await;
+    ctx.repo
+        .update_agent_status(agent_id, AgentStatus::Archived)
+        .await?;
     let response = ctx.provisioner.purge_files(&agent, &ctx.config).await?;
     ctx.repo
         .insert_event(

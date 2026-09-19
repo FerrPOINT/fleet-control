@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Crown, Pencil, Plus, Save, Users } from 'lucide-react'
+import { toast } from 'sonner'
 import {
   listAgents,
   listExecutors,
@@ -107,6 +109,7 @@ function LeaderCard({ leader, sessions }: { leader: Agent; sessions: AgentSessio
 }
 
 export function LeaderDetailPage() {
+  const { t } = useTranslation()
   const { leaderId } = useParams()
   const queryClient = useQueryClient()
   const agents = useQuery({ queryKey: ['agents'], queryFn: listAgents })
@@ -129,14 +132,22 @@ export function LeaderDetailPage() {
     [team.data],
   )
   const draftExecutorIds = selectedExecutorIds ?? currentTeamIds
+  const hasTeamChanges =
+    selectedExecutorIds !== null &&
+    (selectedExecutorIds.length !== currentTeamIds.length ||
+      currentTeamIds.some((id) => !selectedExecutorIds.includes(id)))
+  const teamReady = team.isSuccess && executors.isSuccess
   const mutation = useMutation({
-    mutationFn: () => updateLeaderExecutors(leaderId!, { executor_ids: draftExecutorIds }),
-    onSuccess: async () => {
+    mutationFn: (executorIds: string[]) =>
+      updateLeaderExecutors(leaderId!, { executor_ids: executorIds }),
+    onSuccess: async (updatedTeam) => {
+      queryClient.setQueryData(['leader-executors', leaderId], updatedTeam)
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['leader-executors', leaderId] }),
         queryClient.invalidateQueries({ queryKey: ['leaders'] }),
       ])
       setSelectedExecutorIds(null)
+      toast.success(t('leaders.teamSaved'))
     },
   })
 
@@ -148,26 +159,26 @@ export function LeaderDetailPage() {
     )
   }
 
-  if (!leaderId) return <ErrorState message="Leader id is missing" />
+  if (!leaderId) return <ErrorState message={t('leaders.missingId')} />
   if (agents.isError) return <ErrorState message={agents.error.message} />
   if (!leader)
-    return <EmptyState title={agents.isLoading ? 'Loading leader...' : 'Leader not found'} />
+    return <EmptyState title={agents.isLoading ? t('leaders.loading') : t('leaders.notFound')} />
 
   return (
     <>
       <PageHeader
         title={leader.display_name}
-        description={`${leader.name} manages executor task sessions through Fleet Control.`}
+        description={t('leaders.detailDescription', { name: leader.name })}
         actions={
           <>
             <Button asChild variant="outline">
               <Link to={`/leaders/${leader.id}/edit`}>
                 <Pencil className="h-4 w-4" />
-                Edit leader
+                {t('leaders.edit')}
               </Link>
             </Button>
             <Button asChild variant="outline">
-              <Link to={`/agents/${leader.id}`}>Technical details</Link>
+              <Link to={`/agents/${leader.id}`}>{t('leaders.technicalDetails')}</Link>
             </Button>
           </>
         }
@@ -177,11 +188,20 @@ export function LeaderDetailPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-4 w-4" />
-              Managed executors
+              {t('leaders.managedExecutors')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {executors.data?.length ? (
+            {team.isError ? (
+              <LoadError message={t('leaders.teamError')} retry={() => void team.refetch()} />
+            ) : null}
+            {executors.isError ? (
+              <LoadError
+                message={t('leaders.executorsError')}
+                retry={() => void executors.refetch()}
+              />
+            ) : null}
+            {teamReady && executors.data?.length ? (
               executors.data.map((executor) => (
                 <label
                   key={executor.id}
@@ -191,26 +211,32 @@ export function LeaderDetailPage() {
                     type="checkbox"
                     checked={draftExecutorIds.includes(executor.id)}
                     onChange={() => toggleExecutor(executor.id)}
+                    disabled={mutation.isPending}
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium text-text-primary">
                       {executor.display_name}
                     </span>
                     <span className="block truncate text-xs text-text-muted">
-                      {executor.name} - {executor.role} - {executor.namespace_id ?? 'unbound'}
+                      {executor.name} -{' '}
+                      {t(`agentRoles.${executor.role}`, { defaultValue: executor.role })} -{' '}
+                      {executor.namespace_id ?? t('agent.unbound')}
                     </span>
                   </span>
                 </label>
               ))
-            ) : (
+            ) : !team.isError && !executors.isError ? (
               <EmptyState
-                title={executors.isLoading ? 'Loading executors...' : 'No executors yet'}
+                title={!teamReady ? t('leaders.loadingTeam') : t('leaders.noExecutors')}
               />
-            )}
+            ) : null}
             {mutation.isError ? <ErrorState message={mutation.error.message} /> : null}
-            <Button onClick={() => mutation.mutate()} disabled={mutation.isPending}>
+            <Button
+              onClick={() => mutation.mutate([...draftExecutorIds])}
+              disabled={!teamReady || !hasTeamChanges || mutation.isPending}
+            >
               <Save className="h-4 w-4" />
-              Save team
+              {mutation.isPending ? t('leaders.savingTeam') : t('leaders.saveTeam')}
             </Button>
           </CardContent>
         </Card>
@@ -219,22 +245,39 @@ export function LeaderDetailPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Crown className="h-4 w-4" />
-              Leader sessions
+              {t('leaders.sessions')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <SessionUserFilter filter={userFilter} className="mb-3" />
-            {sessions.data?.length ? (
+            <SessionUserFilter filter={userFilter} className="mb-3 border-0 bg-transparent p-0" />
+            {sessions.isError ? (
+              <LoadError
+                message={t('leaders.sessionsError')}
+                retry={() => void sessions.refetch()}
+              />
+            ) : sessions.data?.length ? (
               sessions.data.map((session) => <SessionLine key={session.id} session={session} />)
             ) : (
               <EmptyState
-                title={sessions.isLoading ? 'Loading sessions...' : 'No sessions for this leader'}
+                title={sessions.isLoading ? t('leaders.loadingSessions') : t('leaders.noSessions')}
               />
             )}
           </CardContent>
         </Card>
       </div>
     </>
+  )
+}
+
+function LoadError({ message, retry }: { message: string; retry: () => void }) {
+  const { t } = useTranslation()
+  return (
+    <div className="space-y-2">
+      <ErrorState message={message} />
+      <Button type="button" variant="outline" size="sm" onClick={retry}>
+        {t('leaders.retry')}
+      </Button>
+    </div>
   )
 }
 
