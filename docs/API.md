@@ -88,7 +88,12 @@ Sessions and workflow:
 - `POST /sessions/{session_id}/runs/{run_id}/approval` forwards the decision to
   Hermes and resolves pending Fleet approval mirror records for that run.
 - `GET /workflow-bindings`
-- `GET /workflow-catalog` proxies the live Project Workflow catalog for operator selection.
+- `GET /workflow-catalog` reads the live Project Workflow catalog via its
+  read-only `/internal/runtime/catalog` bridge. Configure
+  `FLEET_CONTROL_FLEET__PROJECT_WORKFLOW_URL` and
+  `FLEET_CONTROL_FLEET__PROJECT_WORKFLOW_CATALOG_TOKEN` on Fleet; the latter
+  must match Workflow's `PROJECT_WORKFLOW_FLEET_CATALOG_TOKEN` and is never
+  returned to the browser. Background binding refresh uses the same bridge.
 - `PUT /workflow-bindings/{agent_id}` requires an operator and an exact
   `{namespace_id, workflow_id}` pair from that live catalog. Fleet rejects a
   workflow outside the selected namespace, atomically updates the agent and its

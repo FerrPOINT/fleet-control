@@ -101,6 +101,8 @@ pub struct FleetConfig {
     pub forge_project: Option<String>,
     /// project-workflow base URL for namespace/workflow sync, e.g. http://pw-api:8811.
     pub project_workflow_url: Option<String>,
+    /// Read-only machine token for the Project Workflow catalog bridge.
+    pub project_workflow_catalog_token: Option<String>,
     /// Operator retention policy thresholds (docs/IMPLEMENTATION_PLAN.md Phase 3).
     pub retention: RetentionConfig,
 }
@@ -187,6 +189,10 @@ impl AppConfig {
             .set_default("fleet.forge_api_token", Option::<String>::None)?
             .set_default("fleet.forge_project", Option::<String>::None)?
             .set_default("fleet.project_workflow_url", Option::<String>::None)?
+            .set_default(
+                "fleet.project_workflow_catalog_token",
+                Option::<String>::None,
+            )?
             .set_default("fleet.retention.stale_archived_days", 30u64)?
             .set_default("fleet.retention.review_interval_secs", 3600u64)?
             .set_default("metrics.public", true)?
@@ -338,6 +344,7 @@ impl Default for FleetConfig {
             forge_api_token: None,
             forge_project: None,
             project_workflow_url: None,
+            project_workflow_catalog_token: None,
             runtime_token_secret: "[CHANGE_ME]".to_string(),
             agent_port_base: 29000,
             agent_port_stride: 10,

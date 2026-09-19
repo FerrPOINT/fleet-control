@@ -896,28 +896,35 @@ pub async fn fetch_workflow_catalog(config: &AppConfig) -> Result<WorkflowCatalo
         .filter(|value| !value.is_empty())
         .ok_or_else(|| AppError::validation("project-workflow integration is not configured"))?
         .trim_end_matches('/');
-    let client = reqwest::Client::new();
-    let namespaces = client
-        .get(format!("{base}/api/namespaces"))
+    let token = config
+        .fleet
+        .project_workflow_catalog_token
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            AppError::Unavailable("Project Workflow catalog token is not configured".into())
+        })?;
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .map_err(|_| AppError::Unavailable("Project Workflow is unavailable".into()))?;
+    let response = client
+        .get(format!("{base}/internal/runtime/catalog"))
+        .bearer_auth(token)
         .send()
         .await
-        .map_err(|error| AppError::internal(error.to_string()))?
-        .error_for_status()
-        .map_err(|error| AppError::internal(error.to_string()))?
+        .map_err(|_| AppError::Unavailable("Project Workflow is unavailable".into()))?;
+    if !response.status().is_success() {
+        return Err(AppError::Unavailable(
+            "Project Workflow catalog is unavailable".into(),
+        ));
+    }
+    let payload: serde_json::Value = response
         .json()
         .await
-        .map_err(|error| AppError::internal(error.to_string()))?;
-    let workflows = client
-        .get(format!("{base}/api/workflows"))
-        .send()
-        .await
-        .map_err(|error| AppError::internal(error.to_string()))?
-        .error_for_status()
-        .map_err(|error| AppError::internal(error.to_string()))?
-        .json()
-        .await
-        .map_err(|error| AppError::internal(error.to_string()))?;
-    workflow_catalog_from_payloads(namespaces, workflows)
+        .map_err(|_| AppError::Unavailable("Project Workflow catalog is invalid".into()))?;
+    workflow_catalog_from_payloads(payload.clone(), payload)
 }
 
 pub fn workflow_rebind_selection(
@@ -948,6 +955,14 @@ pub fn workflow_rebind_selection(
 #[cfg(test)]
 mod alert_tests {
     use super::*;
+
+    #[tokio::test]
+    async fn workflow_catalog_requires_a_machine_token() {
+        let mut config = AppConfig::default();
+        config.fleet.project_workflow_url = Some("http://127.0.0.1:1".into());
+        let error = fetch_workflow_catalog(&config).await.unwrap_err();
+        assert!(matches!(error, AppError::Unavailable(_)));
+    }
 
     #[test]
     fn workflow_catalog_rejects_namespace_with_unknown_workflow() {
