@@ -133,6 +133,32 @@
       "pending": "Pending"
     }
   },
+  "logs": {
+    "title": "Logs",
+    "description": "Process output, control events, and audit trail.",
+    "sections": "Log sections",
+    "tabs": {
+      "process": "Processes",
+      "events": "Events",
+      "audit": "Audit"
+    },
+    "agent": "Agent",
+    "allAgents": "All agents",
+    "agentsError": "Could not load agents; the combined log is still available.",
+    "action": "Action",
+    "entityType": "Entity type",
+    "apply": "Apply",
+    "clear": "Clear",
+    "retry": "Retry",
+    "loading": "Loading entries...",
+    "emptyProcess": "No process logs yet",
+    "emptyEvents": "No events yet",
+    "emptyAudit": "No audit entries yet",
+    "noMatches": "No entries match these filters",
+    "count": "Showing {{shown}} of {{total}}",
+    "showMore": "Show more",
+    "limitNotice": "Only the latest {{limit}} entries are available here; refine your filter to search."
+  },
   "statuses": {
     "provisioning": "Provisioning",
     "ready": "Ready",
