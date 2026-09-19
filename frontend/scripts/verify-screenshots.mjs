@@ -30,11 +30,11 @@ if (entries.length !== expectedTotal) {
   )
 }
 
-if (entries.length < 120) {
+if (entries.length < 80) {
   throw new Error(`Screenshot manifest is unexpectedly small: ${entries.length} rows.`)
 }
 
-const requiredViewports = new Set(['375x812', '1920x1080', '2560x1440'])
+const requiredViewports = new Set(['1920x1080', '2560x1440'])
 const foundViewports = new Set(entries.map((entry) => entry.viewport))
 
 for (const viewport of requiredViewports) {

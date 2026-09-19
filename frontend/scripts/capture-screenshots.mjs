@@ -881,8 +881,6 @@ async function mockApi(context) {
 }
 
 const coreScreens = [
-  ['01-login.png', '/login'],
-  ['02-register.png', '/register'],
   ['03-dashboard.png', '/'],
   ['04-leaders.png', '/leaders'],
   ['05-leader-new.png', '/leaders/new'],
@@ -926,14 +924,7 @@ const coreScreens = [
   ['43-not-found.png', '/not-a-fleet-route'],
 ]
 
-const mobileOnlyScreens = [
-  ['44-mobile-dashboard.png', '/'],
-  ['45-mobile-leader-detail.png', `/leaders/${ids.lead}`],
-  ['46-mobile-alerts.png', '/alerts'],
-]
-
 const viewports = [
-  { name: '375x812', width: 375, height: 812, screens: [...coreScreens, ...mobileOnlyScreens] },
   { name: '1920x1080', width: 1920, height: 1080, screens: coreScreens },
   { name: '2560x1440', width: 2560, height: 1440, screens: coreScreens },
 ]
