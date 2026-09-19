@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Crown, Pencil, Plus, Save, Users } from 'lucide-react'
+import { Crown, Pencil, Plus, Save, Search, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   listAgents,
@@ -14,7 +14,7 @@ import {
 } from '@/api/fleet'
 import type { Agent, AgentSession } from '@/api/types'
 import { SessionUserFilter, useSessionUserFilter } from '@/shared/session-user-filter'
-import { Button } from '@sdlc/ui/ui'
+import { Button, Input } from '@sdlc/ui/ui'
 import { Card, CardContent, CardHeader, CardTitle } from '@sdlc/ui/ui'
 import { UserAvatar } from '@/shared/ui/user-avatar'
 import {
@@ -27,84 +27,155 @@ import {
 } from '../common'
 
 export function LeadersPage() {
+  const { t } = useTranslation()
   const leaders = useQuery({ queryKey: ['leaders'], queryFn: listLeaders })
   const userFilter = useSessionUserFilter()
   const sessions = useQuery({
     queryKey: ['sessions', 'leaders', userFilter.selectedUserIds],
     queryFn: () => listSessions(undefined, userFilter.selectedUserIds),
   })
-
-  if (leaders.isError) return <ErrorState message={leaders.error.message} />
+  const [search, setSearch] = useState('')
+  const [visibleCount, setVisibleCount] = useState(25)
+  const sessionsByLeader = useMemo(() => {
+    const grouped = new Map<string, AgentSession[]>()
+    for (const session of sessions.data ?? []) {
+      if (!session.leader_agent_id) continue
+      grouped.set(session.leader_agent_id, [
+        ...(grouped.get(session.leader_agent_id) ?? []),
+        session,
+      ])
+    }
+    return grouped
+  }, [sessions.data])
+  const matchingLeaders = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase()
+    return (leaders.data ?? [])
+      .filter((leader) =>
+        `${leader.display_name} ${leader.name} ${leader.role}`.toLocaleLowerCase().includes(query),
+      )
+      .sort((a, b) => a.display_name.localeCompare(b.display_name))
+  }, [leaders.data, search])
 
   return (
     <>
       <PageHeader
-        title="Leaders"
-        description="Team lead agents coordinate executor sessions, prompts and workflow scopes."
+        title={t('leaders.title')}
+        description={t('leaders.description')}
         actions={
           <Button asChild>
             <Link to="/leaders/new">
               <Plus className="h-4 w-4" />
-              New leader
+              {t('leaders.new')}
             </Link>
           </Button>
         }
       />
       <SessionUserFilter filter={userFilter} className="mb-4" />
-      <div className="grid gap-3 xl:grid-cols-2">
-        {leaders.data?.length ? (
-          leaders.data.map((leader) => (
-            <LeaderCard
-              key={leader.id}
-              leader={leader}
-              sessions={(sessions.data ?? []).filter(
-                (session) => session.leader_agent_id === leader.id,
-              )}
-            />
-          ))
-        ) : (
-          <div className="xl:col-span-2">
-            <EmptyState title={leaders.isLoading ? 'Loading leaders...' : 'No leaders yet'} />
-          </div>
-        )}
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+        <label className="relative block w-full max-w-sm">
+          <span className="sr-only">{t('leaders.search')}</span>
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+          <Input
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value)
+              setVisibleCount(25)
+            }}
+            placeholder={t('leaders.search')}
+            className="h-10 pl-9"
+          />
+        </label>
+        {!leaders.isLoading && !leaders.isError ? (
+          <p className="text-sm text-text-muted">
+            {t('leaders.count', {
+              shown: Math.min(visibleCount, matchingLeaders.length),
+              total: matchingLeaders.length,
+            })}
+          </p>
+        ) : null}
       </div>
+      {leaders.isError ? (
+        <LoadError message={t('leaders.loadError')} retry={() => void leaders.refetch()} />
+      ) : leaders.isLoading ? (
+        <EmptyState title={t('leaders.loadingList')} />
+      ) : !leaders.data?.length ? (
+        <EmptyState title={t('leaders.empty')} />
+      ) : !matchingLeaders.length ? (
+        <EmptyState title={t('leaders.noMatches')} />
+      ) : (
+        <>
+          {sessions.isError ? (
+            <div className="mb-3">
+              <LoadError
+                message={t('leaders.listSessionsError')}
+                retry={() => void sessions.refetch()}
+              />
+            </div>
+          ) : null}
+          <ul className="divide-y divide-border border-y border-border">
+            {matchingLeaders.slice(0, visibleCount).map((leader) => (
+              <LeaderRow
+                key={leader.id}
+                leader={leader}
+                sessions={sessionsByLeader.get(leader.id) ?? []}
+                sessionsLoading={sessions.isLoading}
+                sessionsFailed={sessions.isError}
+              />
+            ))}
+          </ul>
+          {visibleCount < matchingLeaders.length ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-4"
+              onClick={() => setVisibleCount((current) => current + 25)}
+            >
+              {t('leaders.showMore')}
+            </Button>
+          ) : null}
+        </>
+      )}
     </>
   )
 }
 
-function LeaderCard({ leader, sessions }: { leader: Agent; sessions: AgentSession[] }) {
-  const team = useQuery({
-    queryKey: ['leader-executors', leader.id],
-    queryFn: () => listLeaderExecutors(leader.id),
-  })
-
+function LeaderRow({
+  leader,
+  sessions,
+  sessionsLoading,
+  sessionsFailed,
+}: {
+  leader: Agent
+  sessions: AgentSession[]
+  sessionsLoading: boolean
+  sessionsFailed: boolean
+}) {
+  const { t } = useTranslation()
   return (
-    <Card>
-      <CardContent className="pt-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <AgentIdentity agent={leader} />
-          <Button asChild variant="outline" size="sm">
-            <Link to={`/leaders/${leader.id}`}>Open</Link>
-          </Button>
-        </div>
-        <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
-          <Metric label="Executors" value={team.data?.length ?? 0} />
-          <Metric label="Sessions" value={sessions.length} />
-          <Metric label="Namespace" value={leader.namespace_id ?? 'unbound'} />
-        </dl>
-        <div className="mt-4 rounded-md border border-border bg-background p-3">
-          <p className="text-xs font-medium uppercase text-text-muted">Active team tasks</p>
-          <div className="mt-3 space-y-2">
-            {sessions.slice(0, 3).map((session) => (
+    <li className="min-w-0 py-3">
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+        <AgentIdentity agent={leader} />
+        <Button asChild variant="outline" size="sm" className="min-h-10">
+          <Link to={`/leaders/${leader.id}`}>{t('leaders.open')}</Link>
+        </Button>
+      </div>
+      {sessionsFailed ? null : sessionsLoading ? (
+        <p className="mt-2 text-xs text-text-muted">{t('leaders.loadingSessions')}</p>
+      ) : sessions.length ? (
+        <details className="mt-2">
+          <summary className="inline-flex min-h-10 cursor-pointer items-center text-sm text-accent underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
+            {t('leaders.sessionsCount', { count: sessions.length })}
+          </summary>
+          <div className="mt-2 grid gap-2 xl:grid-cols-2">
+            {sessions.map((session) => (
               <SessionLine key={session.id} session={session} />
             ))}
-            {!sessions.length ? (
-              <p className="text-xs text-text-muted">No leader-scoped sessions</p>
-            ) : null}
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </details>
+      ) : (
+        <p className="mt-2 text-xs text-text-muted">{t('leaders.noListSessions')}</p>
+      )}
+    </li>
   )
 }
 
@@ -299,14 +370,5 @@ function SessionLine({ session }: { session: AgentSession }) {
         </span>
       </span>
     </Link>
-  )
-}
-
-function Metric({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div>
-      <dt className="text-xs text-text-muted">{label}</dt>
-      <dd className="font-medium text-text-primary">{value}</dd>
-    </div>
   )
 }

@@ -30,7 +30,8 @@ pnpm screenshots:verify
 isolated `qa-leader-team-*` agent, then archives it and purges only its own
 files. Screenshots go to workspace `.local/screenshots` by default; set
 `SDLC_CAPTURE_EVIDENCE=1` only when intentionally refreshing the committed
-leader-team evidence images.
+leader-team evidence images. `SDLC_CAPTURE_LEADERS_EVIDENCE=1` separately
+refreshes the leaders directory evidence.
 
 Required scenarios:
 
