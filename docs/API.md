@@ -49,7 +49,7 @@ Fleet:
   marker status and purge eligibility.
 - `POST /agents/{agent_id}/purge-files` physically removes the managed
   `agents_root/agentN` folder after archive, exact name confirmation and marker
-  validation.
+  validation. The agent remains archived after file removal.
 - `POST /agents/{agent_id}/provision`
 - `POST /agents/{agent_id}/start`
 - `POST /agents/{agent_id}/stop`

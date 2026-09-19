@@ -55,6 +55,27 @@
     "showMore": "Show more",
     "retry": "Retry"
   },
+  "leaders": {
+    "missingId": "Leader ID is missing",
+    "loading": "Loading leader...",
+    "notFound": "Leader not found",
+    "detailDescription": "{{name}} manages executor sessions.",
+    "edit": "Edit leader",
+    "technicalDetails": "Technical details",
+    "managedExecutors": "Managed executors",
+    "teamError": "Could not load the team. Saving is unavailable.",
+    "executorsError": "Could not load executors. Saving is unavailable.",
+    "loadingTeam": "Loading team...",
+    "noExecutors": "No executors yet",
+    "saveTeam": "Save team",
+    "savingTeam": "Saving...",
+    "teamSaved": "Team saved",
+    "sessions": "Leader sessions",
+    "sessionsError": "Could not load leader sessions.",
+    "loadingSessions": "Loading sessions...",
+    "noSessions": "No sessions for this leader",
+    "retry": "Retry"
+  },
   "sessionFilter": {
     "title": "Session users",
     "selected": "Filtered by selected users",
