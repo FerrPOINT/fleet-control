@@ -51,11 +51,11 @@ export function ExecutorsPage() {
                     <Link to={`/executors/${executor.id}`}>Open</Link>
                   </Button>
                 </div>
-                <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
+                <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
                   <Metric label="Profile" value={executor.role} />
                   <Metric label="Namespace" value={executor.namespace_id ?? 'unbound'} />
                   <Metric label="Workflow" value={executor.workflow_id ?? 'unbound'} />
-                </div>
+                </dl>
                 <div className="mt-4 rounded-md border border-border bg-background p-3">
                   <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase text-text-muted">
                     <UserRoundCheck className="h-4 w-4" />

@@ -278,68 +278,22 @@ impl LocalRuntimeSupervisor {
     /// Pull the project-workflow namespace/workflow catalog and refresh
     /// workflow binding statuses (Phase 3: project-workflow API sync).
     async fn sync_project_workflow(&self) -> Result<u64, AppError> {
-        let Some(base) = self.config.fleet.project_workflow_url.clone() else {
+        if self.config.fleet.project_workflow_url.is_none()
+            || self.config.fleet.project_workflow_catalog_token.is_none()
+        {
             return Ok(0);
-        };
-        let base = base.trim_end_matches('/').to_string();
-        let namespaces: Value = self
-            .client
-            .get(format!("{base}/api/namespaces"))
-            .send()
-            .await
-            .map_err(AppError::internal)?
-            .json()
-            .await
-            .map_err(AppError::internal)?;
-        let workflows: Value = self
-            .client
-            .get(format!("{base}/api/workflows"))
-            .send()
-            .await
-            .map_err(AppError::internal)?
-            .json()
-            .await
-            .map_err(AppError::internal)?;
-        let known_namespaces: Vec<(String, String)> = namespaces
-            .get("namespaces")
-            .and_then(Value::as_array)
-            .map(|items| {
-                items
-                    .iter()
-                    .filter_map(|item| {
-                        let id = item.get("id").and_then(|v| match v {
-                            Value::Number(n) => Some(n.to_string()),
-                            Value::String(s) => Some(s.clone()),
-                            _ => None,
-                        })?;
-                        let name = item
-                            .get("name")
-                            .or_else(|| item.get("namespace_name"))
-                            .and_then(Value::as_str)?
-                            .to_string();
-                        Some((id, name))
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
-        let known_workflows: Vec<(String, String)> = workflows
-            .get("workflows")
-            .and_then(Value::as_array)
-            .map(|items| {
-                items
-                    .iter()
-                    .filter_map(|item| {
-                        let id = item.get("id").and_then(|v| match v {
-                            Value::Number(n) => Some(n.to_string()),
-                            Value::String(s) => Some(s.clone()),
-                            _ => None,
-                        })?;
-                        let name = item.get("name").and_then(Value::as_str)?.to_string();
-                        Some((id, name))
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
+        }
+        let catalog = app::fetch_workflow_catalog(&self.config).await?;
+        let known_namespaces: Vec<(String, String)> = catalog
+            .namespaces
+            .into_iter()
+            .map(|item| (item.id, item.name))
+            .collect();
+        let known_workflows: Vec<(String, String)> = catalog
+            .workflows
+            .into_iter()
+            .map(|item| (item.id, item.name))
+            .collect();
         self.repo
             .refresh_workflow_bindings(known_namespaces, known_workflows)
             .await

@@ -58,7 +58,9 @@ function ProcessLogs() {
         <CardTitle>Process logs</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        <Label htmlFor="process-log-agent">Агент</Label>
         <select
+          id="process-log-agent"
           value={agentId}
           onChange={(event) => setAgentId(event.target.value)}
           className="h-9 rounded-md border border-border bg-background px-3 text-sm"

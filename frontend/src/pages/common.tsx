@@ -83,8 +83,11 @@ export function ProductRoleBadge({ value }: { value: Agent['product_role'] }) {
 
 export function ErrorState({ message }: { message: string }) {
   return (
-    <div className="flex items-center gap-2 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
-      <AlertCircle className="h-4 w-4" />
+    <div
+      role="alert"
+      className="flex items-center gap-2 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-text-primary"
+    >
+      <AlertCircle className="h-4 w-4 shrink-0 text-danger" />
       {message}
     </div>
   )
