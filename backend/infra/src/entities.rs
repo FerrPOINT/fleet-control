@@ -7,6 +7,7 @@ pub mod user {
         #[sea_orm(primary_key, auto_increment = false)]
         pub id: Uuid,
         pub email: String,
+        pub central_sub: Option<String>,
         pub username: String,
         pub display_name: String,
         pub password_hash: String,

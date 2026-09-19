@@ -1,8 +1,8 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Save, ShieldCheck } from 'lucide-react'
-import { listUsers, updateUserRole } from '@/api/auth'
+import { ExternalLink, Save } from 'lucide-react'
+import { listUsers } from '@/api/auth'
 import {
   getAuthSettings,
   getIntegrationSettings,
@@ -18,14 +18,13 @@ import type {
   IntegrationSettings,
   PortSettings,
   RuntimeSettings,
-  SystemRole,
 } from '@/api/types'
-import { Button } from '@sdlc/ui/ui'
+import { Button, usePlatformServices } from '@sdlc/ui/ui'
 import { Card, CardContent, CardHeader, CardTitle } from '@sdlc/ui/ui'
 import { Input } from '@sdlc/ui/ui'
 import { Label } from '@sdlc/ui/ui'
 import { UserAvatar } from '@/shared/ui/user-avatar'
-import { ErrorState, PageHeader, StatusBadge } from '../common'
+import { ErrorState, PageHeader } from '../common'
 
 const tabs = ['runtime', 'ports', 'integrations', 'auth', 'users'] as const
 type SettingsTab = (typeof tabs)[number]
@@ -38,7 +37,7 @@ export function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Settings" description="Runtime roots, ports, integrations and RBAC." />
+      <PageHeader title="Settings" description="Runtime roots, ports, integrations and authentication." />
       <div className="mb-4 flex flex-wrap gap-2">
         {tabs.map((tab) => (
           <Button
@@ -275,51 +274,40 @@ function AuthSettingsPanel() {
 }
 
 function UsersPanel() {
-  const queryClient = useQueryClient()
   const users = useQuery({ queryKey: ['users'], queryFn: listUsers })
-  const mutation = useMutation({
-    mutationFn: ({ id, role }: { id: string; role: SystemRole }) => updateUserRole(id, { role }),
-    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ['users'] }),
-  })
+  const { services } = usePlatformServices()
+  const adminUrl = services.find((service) => service.key === 'admin-panel')?.ui_url
 
   if (users.isError) return <ErrorState message={users.error.message} />
+  if (users.isLoading) return <CardLoading title="Users" />
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <ShieldCheck className="h-4 w-4" />
-          Users and roles
-        </CardTitle>
+      <CardHeader className="flex-row flex-wrap items-center justify-between gap-3">
+        <CardTitle>Users</CardTitle>
+        {adminUrl && (
+          <Button asChild variant="secondary" size="sm">
+            <a href={`${adminUrl.replace(/\/$/, '')}/users`}>
+              <ExternalLink className="h-4 w-4" />
+              Manage in Admin Panel
+            </a>
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-2">
+        {users.data?.length === 0 && <p className="text-sm text-text-muted">No users</p>}
         {users.data?.map((user) => (
           <div
             key={user.id}
-            className="flex flex-wrap items-center gap-3 rounded-md border border-border p-3"
+            className="flex min-w-0 items-center gap-3 border-b border-border py-3 last:border-0"
           >
             <UserAvatar name={user.display_name} userId={user.id} size="md" />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-text-primary">{user.display_name}</p>
-              <p className="truncate text-xs text-text-muted">{user.email}</p>
+              <p className="break-words text-sm font-medium text-text-primary">{user.display_name}</p>
+              <p className="break-all text-xs text-text-muted">{user.email}</p>
             </div>
-            <StatusBadge value={user.system_role} />
-            <select
-              aria-label={`Role for ${user.display_name}`}
-              value={user.system_role}
-              onChange={(event) =>
-                mutation.mutate({ id: user.id, role: event.target.value as SystemRole })
-              }
-              disabled={mutation.isPending}
-              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
-            >
-              <option value="admin">admin</option>
-              <option value="operator">operator</option>
-              <option value="user">user</option>
-            </select>
           </div>
         ))}
-        {mutation.isError ? <ErrorState message={mutation.error.message} /> : null}
       </CardContent>
     </Card>
   )

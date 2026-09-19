@@ -6,6 +6,7 @@ mod m20260901_000003_leaders_sessions;
 mod m20260901_000004_pre_development_hardening;
 mod m20260901_000005_runtime_protocol;
 mod m20260914_000006_fleet_alerts;
+mod m20260918_000007_central_subject;
 
 pub struct Migrator;
 
@@ -19,6 +20,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260901_000004_pre_development_hardening::Migration),
             Box::new(m20260901_000005_runtime_protocol::Migration),
             Box::new(m20260914_000006_fleet_alerts::Migration),
+            Box::new(m20260918_000007_central_subject::Migration),
         ]
     }
 }

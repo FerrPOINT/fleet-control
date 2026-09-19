@@ -11,6 +11,9 @@ pub async fn register(
     jar: CookieJar,
     Json(req): Json<RegisterRequest>,
 ) -> Result<(CookieJar, Json<AuthResponse>), AppError> {
+    if std::env::var_os("FLEET_CONTROL_AUTH__CENTRAL_JWKS_URI").is_some() {
+        return Err(AppError::Forbidden);
+    }
     let req = auth::normalize_register(req)?;
     let existing = ctx.repo.find_user_by_email(&req.email).await?;
     if existing.is_some() {
@@ -40,22 +43,16 @@ pub async fn login(
 ) -> Result<(CookieJar, Json<AuthResponse>), AppError> {
     // OIDC mode: local credentials are disabled fail-closed; tokens come
     // exclusively from the configured provider.
-    if ctx.auth.is_oidc_mode() {
+    if ctx.auth.is_oidc_mode() || std::env::var_os("FLEET_CONTROL_AUTH__CENTRAL_JWKS_URI").is_some()
+    {
         return Err(AppError::Unauthorized);
     }
     let req = auth::normalize_login(req);
     // Central fleet auth first; local password login remains the fallback
     // during the migration window (middleware/central_auth.rs).
-    if let Some(pair) = crate::middleware::central_auth::try_login(&req.email, &req.password).await
+    if let Some((pair, central_ctx)) =
+        crate::middleware::central_auth::try_login(&req.email, &req.password).await
     {
-        let central_ctx = sdlc_auth_core::AuthContext {
-            user_id: String::new(),
-            role: None,
-            scopes: Default::default(),
-            session_id: None,
-            email: Some(req.email.clone()),
-            token: pair.access_token.clone(),
-        };
         let user = crate::middleware::find_or_link_central_user_public(&ctx, &central_ctx).await?;
         return Ok((
             jar,
@@ -94,6 +91,9 @@ pub async fn refresh(
     State(ctx): State<Arc<AppContext>>,
     jar: CookieJar,
 ) -> Result<(CookieJar, Json<AuthResponse>), AppError> {
+    if std::env::var_os("FLEET_CONTROL_AUTH__CENTRAL_JWKS_URI").is_some() {
+        return Err(AppError::Unauthorized);
+    }
     let cookie = jar
         .get(&ctx.config.auth.refresh_cookie_name)
         .ok_or(AppError::Unauthorized)?;

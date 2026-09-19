@@ -298,6 +298,14 @@ pub trait FleetRepository: Send + Sync {
     ) -> Result<AgentLogEntry, AppError>;
 
     async fn find_user_by_email(&self, email: &str) -> Result<Option<auth::UserRecord>, AppError>;
+    async fn find_or_create_central_user(
+        &self,
+        _sub: &str,
+        _email: &str,
+        _display_name: &str,
+    ) -> Result<auth::UserRecord, AppError> {
+        Err(AppError::Unauthorized)
+    }
     async fn find_user_by_id(&self, id: Uuid) -> Result<Option<auth::UserRecord>, AppError>;
     async fn list_users(&self) -> Result<Vec<UserResponse>, AppError>;
     async fn update_user_role(

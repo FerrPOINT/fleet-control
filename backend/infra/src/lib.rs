@@ -1311,6 +1311,7 @@ impl FleetRepository for PostgresFleetRepository {
             None => {
                 let id = Uuid::new_v4();
                 user::Entity::insert(user::ActiveModel {
+                    central_sub: sea_orm::ActiveValue::NotSet,
                     id: Set(id),
                     email: Set("runtime@fleet-control.local".to_string()),
                     username: Set("runtime-sync".to_string()),
@@ -2752,10 +2753,50 @@ impl FleetRepository for PostgresFleetRepository {
     ) -> Result<Option<app::auth::UserRecord>, AppError> {
         user::Entity::find()
             .filter(user::Column::Email.eq(email))
+            .filter(user::Column::CentralSub.is_null())
             .one(&self.db)
             .await
             .map_err(AppError::database)
             .map(|row| row.map(user_record))
+    }
+
+    async fn find_or_create_central_user(
+        &self,
+        sub: &str,
+        email: &str,
+        display_name: &str,
+    ) -> Result<app::auth::UserRecord, AppError> {
+        if sub.trim().is_empty() || email.trim().is_empty() {
+            return Err(AppError::Unauthorized);
+        }
+        let id = Uuid::new_v4();
+        self.db
+            .execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "INSERT INTO users (id, email, username, display_name, password_hash, central_sub, \
+               system_role, is_system_admin, is_active, created_at, updated_at) \
+             VALUES ($1, $2, $3, $4, '!', $5, 'user', false, true, now(), now()) \
+             ON CONFLICT (central_sub) WHERE central_sub IS NOT NULL DO NOTHING",
+                [
+                    id.into(),
+                    email.trim().to_lowercase().into(),
+                    format!("central-{}", id.simple()).into(),
+                    display_name.trim().into(),
+                    sub.trim().into(),
+                ],
+            ))
+            .await
+            .map_err(AppError::database)?;
+        let model = user::Entity::find()
+            .filter(user::Column::CentralSub.eq(sub.trim()))
+            .one(&self.db)
+            .await
+            .map_err(AppError::database)?
+            .ok_or(AppError::Unauthorized)?;
+        if !model.is_active {
+            return Err(AppError::Unauthorized);
+        }
+        Ok(user_record(model))
     }
 
     async fn find_user_by_id(&self, id: Uuid) -> Result<Option<app::auth::UserRecord>, AppError> {
@@ -2802,6 +2843,7 @@ impl FleetRepository for PostgresFleetRepository {
         let id = Uuid::new_v4();
         let ts = now();
         user::Entity::insert(user::ActiveModel {
+            central_sub: sea_orm::ActiveValue::NotSet,
             id: Set(id),
             email: Set(req.email),
             username: Set(req.username),

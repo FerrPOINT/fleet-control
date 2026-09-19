@@ -3,7 +3,6 @@ import type {
   AuthResponse,
   LoginRequest,
   RegisterRequest,
-  UpdateUserRoleRequest,
   UserListResponse,
   UserPermissionsResponse,
   UserResponse,
@@ -34,16 +33,6 @@ export async function getCurrentUserPermissions(): Promise<UserPermissionsRespon
 export async function listUsers(): Promise<UserResponse[]> {
   const response = await apiRequest<UserListResponse>('/api/v1/users')
   return response.users
-}
-
-export async function updateUserRole(
-  id: string,
-  req: UpdateUserRoleRequest,
-): Promise<UserResponse> {
-  return apiRequest<UserResponse>(`/api/v1/users/${id}/role`, {
-    method: 'PATCH',
-    body: JSON.stringify(req),
-  })
 }
 
 export async function logout(): Promise<void> {
