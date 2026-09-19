@@ -88,3 +88,17 @@ Total screenshots: 82.
 | 2560x1440 | `docs/assets/screens/2560x1440/41-alerts.png` | `/alerts` |
 | 2560x1440 | `docs/assets/screens/2560x1440/42-access-denied.png` | `/access-denied` |
 | 2560x1440 | `docs/assets/screens/2560x1440/43-not-found.png` | `/not-a-fleet-route` |
+
+## Settings Save QA 2026-09-19
+
+Isolated Chromium preview with all `/api/v1/**` and OIDC responses mocked. The
+test exercised the four settings PUT routes, including pending, failure, retry,
+and success; no request reached a running Fleet backend. Full-page captures:
+
+| Viewport | File | State |
+| --- | --- | --- |
+| 375x812 | `docs/assets/screens/2026-09-19-settings-save/settings-pending-375.png` | Runtime save pending, dark |
+| 375x812 | `docs/assets/screens/2026-09-19-settings-save/settings-saved-375.png` | Stored-only success, dark |
+| 375x812 | `docs/assets/screens/2026-09-19-settings-save/settings-error-375.png` | Recoverable save error, dark |
+| 375x812 | `docs/assets/screens/2026-09-19-settings-save/settings-auth-375.png` | Auth settings, dark |
+| 1280x900 | `docs/assets/screens/2026-09-19-settings-save/settings-light-1280.png` | Runtime settings, light |

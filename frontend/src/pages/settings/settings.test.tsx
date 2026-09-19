@@ -121,7 +121,9 @@ describe('SettingsPage', () => {
         hermes_command: 'hermes --quiet',
       }),
     )
-    await waitFor(() => expect(screen.getByText('Изменения сохранены')).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByText('Запись сохранена, не применена')).toBeInTheDocument(),
+    )
     expect(screen.getByRole('button', { name: 'Сохранить изменения' })).toBeDisabled()
   })
 
@@ -205,6 +207,13 @@ describe('SettingsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Сбросить' }))
     expect(sameSite).toHaveValue('Lax')
     expect(fleet.updateAuthSettings).not.toHaveBeenCalled()
+  })
+
+  it('explains that saved values are not applied to the running service', async () => {
+    renderSettings()
+    expect(await screen.findByRole('note')).toHaveTextContent('Сохранение не меняет работу сервиса')
+    fireEvent.keyDown(screen.getByRole('tab', { name: 'Пользователи' }), { key: 'Enter' })
+    expect(screen.queryByRole('note')).not.toBeInTheDocument()
   })
 
   it('shows a searchable users list with an Admin Panel handoff', async () => {
