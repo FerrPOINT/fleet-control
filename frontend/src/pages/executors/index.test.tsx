@@ -108,4 +108,33 @@ describe('ExecutorsPage', () => {
     fireEvent.click(within(error.parentElement!).getByRole('button', { name: 'Повторить' }))
     await screen.findByText('Alpha Executor')
   })
+
+  it('reports a user directory failure and recovers without clearing the executor list', async () => {
+    vi.mocked(auth.listUsers).mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce([])
+    renderPage()
+    await screen.findByText('Alpha Executor')
+    const error = await screen.findByRole('alert')
+    expect(error).toHaveTextContent('Не удалось загрузить пользователей')
+    fireEvent.click(within(error).getByRole('button', { name: 'Повторить' }))
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+    expect(screen.getByText('Beta Executor')).toBeInTheDocument()
+  })
+
+  it('loads more executors without querying the backend again', async () => {
+    vi.mocked(fleet.listExecutors).mockResolvedValue(
+      Array.from({ length: 26 }, (_, index) => ({
+        ...executors[0],
+        id: `agent-${index}`,
+        name: `agent-${index}`,
+        display_name: `Executor ${String(index).padStart(2, '0')}`,
+      })) as Agent[],
+    )
+    renderPage()
+    await screen.findByText('Показано 25 из 26')
+    expect(screen.getAllByRole('link', { name: 'Открыть' })).toHaveLength(25)
+    fireEvent.click(screen.getByRole('button', { name: 'Показать ещё' }))
+    expect(screen.getByText('Показано 26 из 26')).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: 'Открыть' })).toHaveLength(26)
+    expect(fleet.listExecutors).toHaveBeenCalledTimes(1)
+  })
 })
