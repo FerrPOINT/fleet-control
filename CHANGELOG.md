@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+- Streamlined настройки Fleet (#13); локализованный/компактный dashboard (#12).
+### Fixed
+- Семантика сохранения настроек (#14); метки полей редактора (#11); аудит dev-зависимостей (#15).
 ### Security
 
 - HMAC access-token validation now delegates to the shared `sdlc-auth-core::Validator` (`hmac_with_audience` with the configured issuer/audience); the duplicated local decode/validate path is retired. Legacy pre-fleet token fallback and OIDC mode are unchanged.
