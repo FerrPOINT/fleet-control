@@ -1,7 +1,10 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-export const ssoConfig = { issuer: import.meta.env.VITE_AUTH_ISSUER ?? 'http://localhost:7701', clientId: 'fleet-control' }
+export const ssoConfig = {
+  issuer: import.meta.env.VITE_AUTH_ISSUER ?? 'http://localhost:7701',
+  clientId: 'fleet-control',
+}
 
 function readStoredAuth(): {
   token: string | null
@@ -30,6 +33,14 @@ function readStoredAuth(): {
       }
     const parsed = JSON.parse(raw)
     const state = parsed.state ?? parsed
+    if (state && typeof state === 'object' && 'token' in state) {
+      const safeState = { ...state }
+      delete safeState.token
+      localStorage.setItem(
+        'fleet-control-auth',
+        JSON.stringify(parsed.state ? { ...parsed, state: safeState } : safeState),
+      )
+    }
     return {
       token: null,
       userId: state.userId ?? state.user_id ?? null,
@@ -41,6 +52,11 @@ function readStoredAuth(): {
       permissions: state.permissions ?? [],
     }
   } catch {
+    try {
+      localStorage.removeItem('fleet-control-auth')
+    } catch {
+      // Storage may be unavailable in private or opaque browser contexts.
+    }
     return {
       token: null,
       userId: null,
