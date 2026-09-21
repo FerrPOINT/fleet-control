@@ -1,7 +1,18 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowRightLeft, Crown, Send, UsersRound } from 'lucide-react'
+import {
+  ArrowRightLeft,
+  Crown,
+  ExternalLink,
+  MessageSquareText,
+  RefreshCw,
+  Send,
+  Square,
+  UsersRound,
+} from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import {
   assignSessionLeader,
   createSessionDelegation,
@@ -17,37 +28,59 @@ import {
   steerSessionRun,
   stopSessionRun,
 } from '@/api/fleet'
-import type { SessionAgentRun } from '@/api/types'
+import type { AgentSession, SessionAgentRun, SessionMessage, SessionParticipant } from '@/api/types'
 import { useAuthStore } from '@/shared/auth/store'
-import { Input } from '@sdlc/ui/ui'
-import { Label } from '@sdlc/ui/ui'
-import { Button } from '@sdlc/ui/ui'
-import { Card, CardContent, CardHeader, CardTitle } from '@sdlc/ui/ui'
-import { Textarea } from '@sdlc/ui/ui'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+  Button,
+  Input,
+  Label,
+  Textarea,
+} from '@sdlc/ui/ui'
 import { UserAvatar } from '@/shared/ui/user-avatar'
 import { EmptyState, ErrorState, PageHeader, StatusBadge, formatDate } from '../common'
 
+let fallbackRequestSequence = 0
+
+function newIdempotencyKey() {
+  return (
+    globalThis.crypto?.randomUUID?.() ?? `fleet-ui-${Date.now()}-${(fallbackRequestSequence += 1)}`
+  )
+}
+
 export function SessionDetailPage() {
+  const { t } = useTranslation()
   const { sessionId } = useParams()
   const queryClient = useQueryClient()
+  const canManageAgents = useAuthStore((state) => state.permissions.includes('agents:manage'))
   const session = useQuery({
     queryKey: ['session', sessionId],
     queryFn: () => getSession(sessionId!),
     enabled: Boolean(sessionId),
   })
   const agents = useQuery({ queryKey: ['agent-directory'], queryFn: listAgentDirectory })
-  const leaders = agents.data?.filter((agent) => agent.product_role === 'leader') ?? []
+  const leaders = useMemo(
+    () => agents.data?.filter((agent) => agent.product_role === 'leader') ?? [],
+    [agents.data],
+  )
   const leaderTeams = useQuery({
     queryKey: ['leader-teams', leaders.map((leader) => leader.id).join(',')],
     enabled: Boolean(leaders.length),
-    queryFn: async () => {
-      return Promise.all(
+    queryFn: async () =>
+      Promise.all(
         leaders.map(async (leader) => ({
           leader,
           executors: await listLeaderExecutors(leader.id),
         })),
-      )
-    },
+      ),
   })
   const messages = useQuery({
     queryKey: ['session-messages', sessionId],
@@ -66,533 +99,930 @@ export function SessionDetailPage() {
     queryFn: () => listSessionParticipants(sessionId!),
     enabled: Boolean(sessionId),
   })
-  const canManageAgents = useAuthStore((state) => state.permissions.includes('agents:manage'))
+
   const [targetAgentId, setTargetAgentId] = useState('')
   const [leaderId, setLeaderId] = useState('')
   const [messageBody, setMessageBody] = useState('')
+  const [messageRequestKey, setMessageRequestKey] = useState(newIdempotencyKey)
   const [authorMode, setAuthorMode] = useState<'user' | 'leader'>('user')
   const [delegationExecutorId, setDelegationExecutorId] = useState('')
-  const [delegationTitle, setDelegationTitle] = useState('Delegated executor task')
+  const [delegationTitle, setDelegationTitle] = useState(() => t('sessionDetail.delegationDefault'))
   const [delegationMessage, setDelegationMessage] = useState('')
-  const [steerDraftByRun, setSteerDraftByRun] = useState<Record<string, string>>({})
+  const [delegationRequestKey, setDelegationRequestKey] = useState(newIdempotencyKey)
+
   const primaryAgent = agents.data?.find((agent) => agent.id === session.data?.primary_agent_id)
-  const possibleLeaders =
-    primaryAgent?.product_role === 'leader'
-      ? leaders.filter((leader) => leader.id === primaryAgent.id)
-      : (leaderTeams.data
-          ?.filter((team) =>
-            team.executors.some((executor) => executor.executor_agent_id === primaryAgent?.id),
-          )
-          .map((team) => team.leader) ?? [])
+  const possibleLeaders = useMemo(() => {
+    const eligible =
+      primaryAgent?.product_role === 'leader'
+        ? leaders.filter((leader) => leader.id === primaryAgent.id)
+        : (leaderTeams.data
+            ?.filter((team) =>
+              team.executors.some((executor) => executor.executor_agent_id === primaryAgent?.id),
+            )
+            .map((team) => team.leader) ?? [])
+    const current = leaders.find((leader) => leader.id === session.data?.leader_agent_id)
+    return current && !eligible.some((leader) => leader.id === current.id)
+      ? [current, ...eligible]
+      : eligible
+  }, [leaderTeams.data, leaders, primaryAgent, session.data?.leader_agent_id])
   const delegationExecutors = useMemo(
     () =>
       leaderTeams.data?.find((team) => team.leader.id === session.data?.leader_agent_id)
         ?.executors ?? [],
     [leaderTeams.data, session.data?.leader_agent_id],
   )
+  const teamsLoading = Boolean(leaders.length) && leaderTeams.isPending
 
   useEffect(() => {
     setLeaderId(session.data?.leader_agent_id ?? '')
   }, [session.data?.leader_agent_id])
 
   useEffect(() => {
-    if (!delegationExecutorId && delegationExecutors[0]) {
-      setDelegationExecutorId(delegationExecutors[0].executor_agent_id)
+    if (!session.data?.leader_agent_id) setAuthorMode('user')
+  }, [session.data?.leader_agent_id])
+
+  useEffect(() => {
+    const executorStillAvailable = delegationExecutors.some(
+      (executor) => executor.executor_agent_id === delegationExecutorId,
+    )
+    if (!executorStillAvailable) {
+      setDelegationExecutorId(delegationExecutors[0]?.executor_agent_id ?? '')
     }
   }, [delegationExecutorId, delegationExecutors])
 
-  const mutation = useMutation({
+  const handoffMutation = useMutation({
     mutationFn: () => handoffSession(sessionId!, { target_agent_id: targetAgentId }),
-    onSuccess: async () => {
+    onSuccess: async (updated) => {
+      setTargetAgentId('')
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['session', sessionId] }),
         queryClient.invalidateQueries({ queryKey: ['sessions'] }),
       ])
+      toast.success(t('sessionDetail.handoffSuccess', { agent: updated.primary_agent_name }))
     },
   })
   const leaderMutation = useMutation({
     mutationFn: () => assignSessionLeader(sessionId!, { leader_agent_id: leaderId || null }),
-    onSuccess: async () => {
+    onSuccess: async (updated) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['session', sessionId] }),
         queryClient.invalidateQueries({ queryKey: ['session-messages', sessionId] }),
         queryClient.invalidateQueries({ queryKey: ['session-runs', sessionId] }),
         queryClient.invalidateQueries({ queryKey: ['sessions'] }),
       ])
+      toast.success(
+        updated.leader_agent_name
+          ? t('sessionDetail.leaderSuccess', { leader: updated.leader_agent_name })
+          : t('sessionDetail.privateSuccess'),
+      )
     },
   })
   const messageMutation = useMutation({
     mutationFn: () =>
       createSessionMessage(sessionId!, {
-        body: messageBody,
+        body: messageBody.trim(),
         author_agent_id:
           authorMode === 'leader' && session.data?.leader_agent_id
             ? session.data.leader_agent_id
             : null,
+        idempotency_key: messageRequestKey,
       }),
     onSuccess: async () => {
       setMessageBody('')
+      setMessageRequestKey(newIdempotencyKey())
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['session', sessionId] }),
         queryClient.invalidateQueries({ queryKey: ['session-messages', sessionId] }),
         queryClient.invalidateQueries({ queryKey: ['session-runs', sessionId] }),
         queryClient.invalidateQueries({ queryKey: ['sessions'] }),
       ])
+      toast.success(t('sessionDetail.messageSuccess'))
     },
-  })
-  const stopRunMutation = useMutation({
-    mutationFn: (runId: string) => stopSessionRun(sessionId!, runId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['session-runs', sessionId] }),
-  })
-  const steerRunMutation = useMutation({
-    mutationFn: ({ runId, input }: { runId: string; input: string }) =>
-      steerSessionRun(sessionId!, runId, { input }),
-    onSuccess: async (_response, variables) => {
-      setSteerDraftByRun((drafts) => ({ ...drafts, [variables.runId]: '' }))
-      await queryClient.invalidateQueries({ queryKey: ['session-runs', sessionId] })
-    },
-  })
-  const approvalMutation = useMutation({
-    mutationFn: ({ runId, choice }: { runId: string; choice: string }) =>
-      resolveSessionRunApproval(sessionId!, runId, { choice, resolve_all: true }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['session-runs', sessionId] }),
   })
   const delegationMutation = useMutation({
     mutationFn: () =>
       createSessionDelegation(sessionId!, {
         executor_agent_id: delegationExecutorId,
-        title: delegationTitle,
-        initial_message: delegationMessage || null,
-        idempotency_key: globalThis.crypto?.randomUUID?.() ?? null,
+        title: delegationTitle.trim(),
+        initial_message: delegationMessage.trim() || null,
+        idempotency_key: delegationRequestKey,
       }),
-    onSuccess: async () => {
+    onSuccess: async (created) => {
       setDelegationMessage('')
+      setDelegationRequestKey(newIdempotencyKey())
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['sessions'] }),
         queryClient.invalidateQueries({ queryKey: ['session', sessionId] }),
         queryClient.invalidateQueries({ queryKey: ['session-messages', sessionId] }),
       ])
+      toast.success(t('sessionDetail.delegationSuccess', { title: created.title }))
     },
   })
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  function changeMessageBody(value: string) {
+    setMessageBody(value)
+    messageMutation.reset()
+    setMessageRequestKey(newIdempotencyKey())
+  }
+
+  function resetDelegationRequest() {
+    delegationMutation.reset()
+    setDelegationRequestKey(newIdempotencyKey())
+  }
+
+  function submitHandoff(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (targetAgentId) mutation.mutate()
+    if (targetAgentId && !handoffMutation.isPending) handoffMutation.mutate()
   }
 
   function submitLeader(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    leaderMutation.mutate()
+    if (!leaderMutation.isPending) leaderMutation.mutate()
   }
 
   function submitMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (messageBody.trim()) messageMutation.mutate()
+    if (messageBody.trim() && !messageMutation.isPending) messageMutation.mutate()
   }
 
   function submitDelegation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (delegationExecutorId) delegationMutation.mutate()
+    if (delegationExecutorId && delegationTitle.trim() && !delegationMutation.isPending) {
+      delegationMutation.mutate()
+    }
   }
 
-  if (!sessionId) return <ErrorState message="Session id is missing" />
-  if (session.isError) return <ErrorState message={session.error.message} />
+  if (!sessionId) return <ErrorState message={t('sessionDetail.missingId')} />
+
+  if (session.isPending && !session.data) {
+    return (
+      <>
+        <PageHeader title={t('sessionDetail.title')} description={t('sessionDetail.description')} />
+        <EmptyState title={t('sessionDetail.loadingSession')} />
+      </>
+    )
+  }
+
+  if (session.isError && !session.data) {
+    return (
+      <>
+        <PageHeader title={t('sessionDetail.title')} description={t('sessionDetail.description')} />
+        <RetryState
+          message={t('sessionDetail.sessionError')}
+          onRetry={() => void session.refetch()}
+        />
+      </>
+    )
+  }
+
+  if (!session.data) return null
 
   return (
     <>
-      <PageHeader
-        title={session.data?.title ?? 'Session'}
-        description="Task chat metadata and cross-agent handoff."
-      />
-      <div className="grid gap-4 xl:grid-cols-[1fr_360px]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Session state</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {session.data ? (
-              <>
-                <div className="flex flex-wrap items-center gap-2">
-                  <StatusBadge value={session.data.state} />
-                  <StatusBadge value={session.data.visibility} />
-                  <span className="text-sm text-text-muted">
-                    {session.data.task_key ?? 'No task key'}
-                  </span>
-                </div>
-                <div className="flex min-w-0 items-center gap-3 rounded-md border border-border bg-background p-3">
-                  <UserAvatar
-                    name={session.data.user_display_name}
-                    userId={session.data.user_id}
-                    size="md"
-                  />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-text-primary">
-                      {session.data.user_display_name}
-                    </p>
-                    <p className="truncate text-xs text-text-muted">{session.data.user_email}</p>
-                  </div>
-                </div>
-                <dl className="grid gap-3 text-sm md:grid-cols-2">
-                  <Field label="Primary agent" value={session.data.primary_agent_name} />
-                  <Field label="Leader" value={session.data.leader_agent_name ?? 'private'} />
-                  <Field label="Namespace" value={session.data.namespace_id ?? 'unbound'} />
-                  <Field label="Parent session" value={session.data.parent_session_id ?? 'none'} />
-                  <Field
-                    label="External session"
-                    value={session.data.external_session_id ?? 'none'}
-                  />
-                  <Field label="Updated" value={formatDate(session.data.updated_at)} />
-                </dl>
-              </>
-            ) : null}
-          </CardContent>
-        </Card>
+      <PageHeader title={session.data.title} description={t('sessionDetail.description')} />
+      {session.isError ? (
+        <div className="mb-4">
+          <RetryState
+            message={t('sessionDetail.sessionStale')}
+            onRetry={() => void session.refetch()}
+          />
+        </div>
+      ) : null}
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Crown className="h-4 w-4" />
-              Leader
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form className="grid gap-3" onSubmit={submitLeader}>
+      <SessionSummary session={session.data} />
+
+      <div className="mt-6 grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="min-w-0 space-y-8">
+          <section aria-labelledby="session-transcript-title">
+            <SectionHeading
+              id="session-transcript-title"
+              icon={<MessageSquareText className="h-4 w-4" />}
+              title={t('sessionDetail.transcript')}
+              count={messages.data?.length}
+              refreshing={messages.isFetching && Boolean(messages.data)}
+              refreshLabel={t('sessionDetail.refreshing')}
+            />
+            <MessagesSection
+              messages={messages.data}
+              pending={messages.isPending}
+              failed={messages.isError}
+              onRetry={() => void messages.refetch()}
+            />
+            <form
+              className="mt-4 grid gap-3 rounded-md border border-border bg-surface p-4"
+              onSubmit={submitMessage}
+              aria-busy={messageMutation.isPending}
+            >
+              <div className="grid max-w-sm gap-2">
+                <Label htmlFor="session-message-author">{t('sessionDetail.messageAuthor')}</Label>
+                <select
+                  id="session-message-author"
+                  value={authorMode}
+                  disabled={messageMutation.isPending}
+                  onChange={(event) => {
+                    setAuthorMode(event.target.value as 'user' | 'leader')
+                    messageMutation.reset()
+                    setMessageRequestKey(newIdempotencyKey())
+                  }}
+                  className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <option value="user">{t('sessionDetail.sendAsMe')}</option>
+                  <option value="leader" disabled={!session.data.leader_agent_id}>
+                    {t('sessionDetail.sendAsLeader')}
+                  </option>
+                </select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="session-message-body">{t('sessionDetail.message')}</Label>
+                <Textarea
+                  id="session-message-body"
+                  className="min-h-24"
+                  value={messageBody}
+                  disabled={messageMutation.isPending}
+                  onChange={(event) => changeMessageBody(event.target.value)}
+                  placeholder={t('sessionDetail.messagePlaceholder')}
+                />
+              </div>
+              {messageMutation.isError ? (
+                <ErrorState message={t('sessionDetail.messageError')} />
+              ) : null}
+              <div className="flex justify-end">
+                <Button
+                  type="submit"
+                  className="h-10"
+                  disabled={messageMutation.isPending || !messageBody.trim()}
+                >
+                  <Send className="h-4 w-4" />
+                  {messageMutation.isPending
+                    ? t('sessionDetail.sending')
+                    : t('sessionDetail.sendMessage')}
+                </Button>
+              </div>
+            </form>
+          </section>
+
+          <section aria-labelledby="session-runs-title">
+            <SectionHeading
+              id="session-runs-title"
+              title={t('sessionDetail.runs')}
+              count={runs.data?.length}
+              refreshing={runs.isFetching && Boolean(runs.data)}
+              refreshLabel={t('sessionDetail.refreshing')}
+            />
+            {runs.isError && runs.data ? (
+              <div className="mb-3">
+                <RetryState
+                  message={t('sessionDetail.runsStale')}
+                  onRetry={() => void runs.refetch()}
+                />
+              </div>
+            ) : null}
+            {runs.isError && !runs.data ? (
+              <RetryState
+                message={t('sessionDetail.runsError')}
+                onRetry={() => void runs.refetch()}
+              />
+            ) : runs.isPending ? (
+              <EmptyState title={t('sessionDetail.loadingRuns')} />
+            ) : runs.data?.length ? (
+              <ul className="divide-y divide-border rounded-md border border-border bg-surface">
+                {runs.data.map((run) => (
+                  <RuntimeRunRow key={run.id} run={run} sessionId={sessionId} />
+                ))}
+              </ul>
+            ) : (
+              <EmptyState title={t('sessionDetail.noRuns')} />
+            )}
+          </section>
+        </div>
+
+        <aside className="min-w-0 space-y-6">
+          <section
+            className="rounded-md border border-border bg-surface p-4"
+            aria-labelledby="session-controls-title"
+          >
+            <h2 id="session-controls-title" className="text-base font-semibold text-text-primary">
+              {t('sessionDetail.controls')}
+            </h2>
+            {agents.isError ? (
+              <div className="mt-3">
+                <RetryState
+                  message={
+                    agents.data ? t('sessionDetail.agentsStale') : t('sessionDetail.agentsError')
+                  }
+                  onRetry={() => void agents.refetch()}
+                />
+              </div>
+            ) : null}
+
+            <form className="mt-4 grid gap-3" onSubmit={submitLeader}>
+              <div className="flex items-center gap-2 text-sm font-medium text-text-primary">
+                <Crown className="h-4 w-4" />
+                {t('sessionDetail.leader')}
+              </div>
+              <Label className="sr-only" htmlFor="session-leader">
+                {t('sessionDetail.sessionLeader')}
+              </Label>
               <select
-                aria-label="Session leader"
+                id="session-leader"
                 value={leaderId}
-                onChange={(event) => setLeaderId(event.target.value)}
-                className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+                disabled={!agents.data || teamsLoading || leaderMutation.isPending}
+                onChange={(event) => {
+                  setLeaderId(event.target.value)
+                  leaderMutation.reset()
+                }}
+                className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <option value="">Private chat</option>
+                <option value="">{t('sessionDetail.privateChat')}</option>
                 {possibleLeaders.map((leader) => (
                   <option key={leader.id} value={leader.id}>
-                    {leader.name} - {leader.display_name}
+                    {leader.display_name} ({leader.name})
                   </option>
                 ))}
               </select>
-              {leaderMutation.isError ? (
-                <ErrorState message={leaderMutation.error.message} />
+              {teamsLoading ? (
+                <p className="text-xs text-text-muted">{t('sessionDetail.loadingLeaders')}</p>
+              ) : leaderTeams.isError ? (
+                <RetryState
+                  message={t('sessionDetail.leadersError')}
+                  onRetry={() => void leaderTeams.refetch()}
+                />
               ) : null}
-              <Button type="submit" disabled={leaderMutation.isPending}>
+              {leaderMutation.isError ? (
+                <ErrorState message={t('sessionDetail.leaderError')} />
+              ) : null}
+              <Button
+                type="submit"
+                variant="outline"
+                className="h-10"
+                disabled={
+                  !agents.data ||
+                  teamsLoading ||
+                  leaderMutation.isPending ||
+                  leaderId === (session.data.leader_agent_id ?? '')
+                }
+              >
                 <Crown className="h-4 w-4" />
-                Save leader
+                {leaderMutation.isPending
+                  ? t('sessionDetail.saving')
+                  : t('sessionDetail.saveLeader')}
               </Button>
             </form>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Handoff</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form className="grid gap-3" onSubmit={submit}>
+            <form className="mt-5 grid gap-3 border-t border-border pt-5" onSubmit={submitHandoff}>
+              <div className="flex items-center gap-2 text-sm font-medium text-text-primary">
+                <ArrowRightLeft className="h-4 w-4" />
+                {t('sessionDetail.handoff')}
+              </div>
+              <Label className="sr-only" htmlFor="session-handoff-agent">
+                {t('sessionDetail.handoffTarget')}
+              </Label>
               <select
-                aria-label="Handoff target agent"
+                id="session-handoff-agent"
                 value={targetAgentId}
-                onChange={(event) => setTargetAgentId(event.target.value)}
-                className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+                disabled={!agents.data || handoffMutation.isPending}
+                onChange={(event) => {
+                  setTargetAgentId(event.target.value)
+                  handoffMutation.reset()
+                }}
+                className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <option value="">Select target agent</option>
+                <option value="">{t('sessionDetail.selectAgent')}</option>
                 {agents.data
-                  ?.filter((agent) => agent.id !== session.data?.primary_agent_id)
+                  ?.filter((agent) => agent.id !== session.data.primary_agent_id)
                   .map((agent) => (
                     <option key={agent.id} value={agent.id}>
-                      {agent.name} - {agent.display_name}
+                      {agent.display_name} ({agent.name})
                     </option>
                   ))}
               </select>
-              {mutation.isError ? <ErrorState message={mutation.error.message} /> : null}
-              <Button type="submit" disabled={!targetAgentId || mutation.isPending}>
-                <ArrowRightLeft className="h-4 w-4" />
-                Handoff session
-              </Button>
-              {session.data && canManageAgents ? (
-                <Button asChild variant="outline">
-                  <Link to={`/agents/${session.data.primary_agent_id}/sessions`}>
-                    Open agent sessions
-                  </Link>
-                </Button>
+              <p className="text-xs text-text-muted">{t('sessionDetail.handoffHelp')}</p>
+              {handoffMutation.isError ? (
+                <ErrorState message={t('sessionDetail.handoffError')} />
               ) : null}
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-      <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_360px]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Transcript mirror</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {messages.data?.length ? (
-              messages.data.map((message) => (
-                <div key={message.id} className="rounded-md border border-border bg-background p-3">
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-text-muted">
-                    <StatusBadge value={message.author_type} />
-                    <StatusBadge value={message.message_kind} />
-                    <StatusBadge value={message.delivery_state} />
-                    <span>{message.author_display_name}</span>
-                    <span>{formatDate(message.created_at)}</span>
-                  </div>
-                  <p className="mt-2 whitespace-pre-wrap text-sm text-text-secondary">
-                    {message.body}
-                  </p>
-                  {message.runtime_message_id ? (
-                    <p className="mt-2 break-all text-xs text-text-muted">
-                      runtime {message.runtime_message_id}
-                    </p>
-                  ) : null}
-                  {message.delivery_error ? (
-                    <p className="mt-2 text-xs text-danger">{message.delivery_error}</p>
-                  ) : null}
-                </div>
-              ))
-            ) : (
-              <EmptyState
-                title={messages.isLoading ? 'Loading transcript...' : 'No mirrored messages'}
-              />
-            )}
-            <form className="grid gap-3" onSubmit={submitMessage}>
-              <select
-                aria-label="Message author"
-                value={authorMode}
-                onChange={(event) => setAuthorMode(event.target.value as 'user' | 'leader')}
-                className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+              <Button
+                type="submit"
+                variant="outline"
+                className="h-10"
+                disabled={!targetAgentId || handoffMutation.isPending}
               >
-                <option value="user">Send as me</option>
-                <option value="leader" disabled={!session.data?.leader_agent_id}>
-                  Send as selected leader
-                </option>
-              </select>
-              <Textarea
-                className="min-h-24"
-                value={messageBody}
-                onChange={(event) => setMessageBody(event.target.value)}
-                placeholder="Write a session message"
-              />
-              {messageMutation.isError ? (
-                <ErrorState message={messageMutation.error.message} />
-              ) : null}
-              <Button type="submit" disabled={messageMutation.isPending || !messageBody.trim()}>
-                <Send className="h-4 w-4" />
-                Send message
+                <ArrowRightLeft className="h-4 w-4" />
+                {handoffMutation.isPending
+                  ? t('sessionDetail.handingOff')
+                  : t('sessionDetail.handoffAction')}
               </Button>
             </form>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Runtime runs</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {runs.data?.length ? (
-              runs.data.map((run) => (
-                <RuntimeRunCard
-                  key={run.id}
-                  run={run}
-                  steerDraft={steerDraftByRun[run.id] ?? ''}
-                  onSteerDraftChange={(value) =>
-                    setSteerDraftByRun((drafts) => ({ ...drafts, [run.id]: value }))
-                  }
-                  onStop={() => stopRunMutation.mutate(run.id)}
-                  onSteer={() =>
-                    steerRunMutation.mutate({
-                      runId: run.id,
-                      input: steerDraftByRun[run.id] ?? '',
-                    })
-                  }
-                  onApprove={() => approvalMutation.mutate({ runId: run.id, choice: 'always' })}
-                  onDeny={() => approvalMutation.mutate({ runId: run.id, choice: 'deny' })}
-                  isMutating={
-                    stopRunMutation.isPending ||
-                    steerRunMutation.isPending ||
-                    approvalMutation.isPending
-                  }
-                />
-              ))
-            ) : (
-              <EmptyState title={runs.isLoading ? 'Loading runs...' : 'No runtime runs'} />
-            )}
-            {stopRunMutation.isError ? (
-              <ErrorState message={stopRunMutation.error.message} />
+            {canManageAgents ? (
+              <Button asChild variant="ghost" className="mt-3 h-10 w-full">
+                <Link to={`/agents/${session.data.primary_agent_id}/sessions`}>
+                  <ExternalLink className="h-4 w-4" />
+                  {t('sessionDetail.openAgentSessions')}
+                </Link>
+              </Button>
             ) : null}
-            {steerRunMutation.isError ? (
-              <ErrorState message={steerRunMutation.error.message} />
-            ) : null}
-            {approvalMutation.isError ? (
-              <ErrorState message={approvalMutation.error.message} />
-            ) : null}
-          </CardContent>
-        </Card>
+          </section>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <UsersRound className="h-4 w-4" />
-              Participants
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {participants.data?.length ? (
-              participants.data.map((participant) => (
-                <div key={participant.id} className="rounded-md border border-border p-3 text-sm">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <StatusBadge value={participant.participant_type} />
-                    <StatusBadge value={participant.session_role} />
-                    <span className="font-medium text-text-primary">
-                      {participant.display_name}
-                    </span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <EmptyState
-                title={participants.isLoading ? 'Loading participants...' : 'No participants'}
-              />
-            )}
-          </CardContent>
-        </Card>
+          <section aria-labelledby="session-participants-title">
+            <SectionHeading
+              id="session-participants-title"
+              icon={<UsersRound className="h-4 w-4" />}
+              title={t('sessionDetail.participants')}
+              count={participants.data?.length}
+            />
+            <ParticipantsSection
+              participants={participants.data}
+              pending={participants.isPending}
+              failed={participants.isError}
+              onRetry={() => void participants.refetch()}
+            />
+          </section>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Delegation</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form className="grid gap-3" onSubmit={submitDelegation}>
+          <section
+            className="rounded-md border border-border bg-surface p-4"
+            aria-labelledby="session-delegation-title"
+          >
+            <h2 id="session-delegation-title" className="text-base font-semibold text-text-primary">
+              {t('sessionDetail.delegation')}
+            </h2>
+            <p className="mt-1 text-xs text-text-muted">{t('sessionDetail.delegationHelp')}</p>
+            <form
+              className="mt-4 grid gap-3"
+              onSubmit={submitDelegation}
+              aria-busy={delegationMutation.isPending}
+            >
               <div className="grid gap-2">
-                <Label htmlFor="delegation-executor">Executor</Label>
+                <Label htmlFor="delegation-executor">{t('sessionDetail.executor')}</Label>
                 <select
                   id="delegation-executor"
                   value={delegationExecutorId}
-                  onChange={(event) => setDelegationExecutorId(event.target.value)}
-                  className="h-9 rounded-md border border-border bg-background px-3 text-sm"
-                  disabled={!session.data?.leader_agent_id}
+                  disabled={
+                    !session.data.leader_agent_id ||
+                    teamsLoading ||
+                    (leaderTeams.isError && !leaderTeams.data) ||
+                    delegationMutation.isPending
+                  }
+                  onChange={(event) => {
+                    setDelegationExecutorId(event.target.value)
+                    resetDelegationRequest()
+                  }}
+                  className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <option value="">Select executor</option>
+                  <option value="">{t('sessionDetail.selectExecutor')}</option>
                   {delegationExecutors.map((executor) => (
                     <option key={executor.executor_agent_id} value={executor.executor_agent_id}>
-                      {executor.executor_name} - {executor.executor_display_name}
+                      {executor.executor_display_name} ({executor.executor_name})
                     </option>
                   ))}
                 </select>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="delegation-title">Title</Label>
+                <Label htmlFor="delegation-title">{t('sessionDetail.delegationTitle')}</Label>
                 <Input
                   id="delegation-title"
+                  className="h-10"
                   value={delegationTitle}
-                  onChange={(event) => setDelegationTitle(event.target.value)}
+                  required
+                  disabled={delegationMutation.isPending}
+                  onChange={(event) => {
+                    setDelegationTitle(event.target.value)
+                    resetDelegationRequest()
+                  }}
                 />
               </div>
-              <Textarea
-                className="min-h-20"
-                value={delegationMessage}
-                onChange={(event) => setDelegationMessage(event.target.value)}
-                placeholder="Initial task for the executor"
-              />
+              <div className="grid gap-2">
+                <Label htmlFor="delegation-message">{t('sessionDetail.delegationMessage')}</Label>
+                <Textarea
+                  id="delegation-message"
+                  className="min-h-20"
+                  value={delegationMessage}
+                  disabled={delegationMutation.isPending}
+                  onChange={(event) => {
+                    setDelegationMessage(event.target.value)
+                    resetDelegationRequest()
+                  }}
+                  placeholder={t('sessionDetail.delegationPlaceholder')}
+                />
+              </div>
+              {!session.data.leader_agent_id ? (
+                <p className="text-xs text-text-muted">
+                  {t('sessionDetail.delegationNeedsLeader')}
+                </p>
+              ) : !delegationExecutors.length && !teamsLoading && !leaderTeams.isError ? (
+                <p className="text-xs text-text-muted">{t('sessionDetail.noExecutors')}</p>
+              ) : null}
               {delegationMutation.isError ? (
-                <ErrorState message={delegationMutation.error.message} />
+                <ErrorState message={t('sessionDetail.delegationError')} />
               ) : null}
               <Button
                 type="submit"
+                className="h-10"
                 disabled={
                   delegationMutation.isPending ||
-                  !session.data?.leader_agent_id ||
-                  !delegationExecutorId
+                  !session.data.leader_agent_id ||
+                  !delegationExecutorId ||
+                  !delegationTitle.trim()
                 }
               >
                 <ArrowRightLeft className="h-4 w-4" />
-                Delegate task
+                {delegationMutation.isPending
+                  ? t('sessionDetail.delegating')
+                  : t('sessionDetail.delegate')}
               </Button>
             </form>
-          </CardContent>
-        </Card>
+          </section>
+        </aside>
       </div>
     </>
   )
 }
 
-function RuntimeRunCard({
-  run,
-  steerDraft,
-  onSteerDraftChange,
-  onStop,
-  onSteer,
-  onApprove,
-  onDeny,
-  isMutating,
-}: {
-  run: SessionAgentRun
-  steerDraft: string
-  onSteerDraftChange: (value: string) => void
-  onStop: () => void
-  onSteer: () => void
-  onApprove: () => void
-  onDeny: () => void
-  isMutating: boolean
-}) {
-  const canControl = run.state === 'running' || run.state === 'waiting'
+function SessionSummary({ session }: { session: AgentSession }) {
+  const { t } = useTranslation()
   return (
-    <div className="rounded-md border border-border p-3 text-sm">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="font-medium text-text-primary">{run.agent_name}</span>
+    <section className="border-y border-border py-4" aria-label={t('sessionDetail.summary')}>
+      <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <UserAvatar name={session.user_display_name} userId={session.user_id} size="md" />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-text-primary">
+              {session.user_display_name}
+            </p>
+            <p className="truncate text-xs text-text-muted">{session.user_email}</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge value={session.state} />
+          <StatusBadge value={session.visibility} />
+          {session.task_key ? (
+            <span className="text-sm font-medium text-text-secondary">{session.task_key}</span>
+          ) : null}
+        </div>
+      </div>
+      <dl className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2 xl:grid-cols-3">
+        <Field label={t('sessionDetail.primaryAgent')} value={session.primary_agent_name} />
+        <Field
+          label={t('sessionDetail.leader')}
+          value={session.leader_agent_name ?? t('sessionDetail.privateValue')}
+        />
+        <Field
+          label={t('sessionDetail.namespace')}
+          value={session.namespace_id ?? t('sessionDetail.unboundValue')}
+        />
+        <Field
+          label={t('sessionDetail.parentSession')}
+          value={session.parent_session_id ?? t('sessionDetail.noneValue')}
+          technical={Boolean(session.parent_session_id)}
+        />
+        <Field
+          label={t('sessionDetail.externalSession')}
+          value={session.external_session_id ?? t('sessionDetail.noneValue')}
+          technical={Boolean(session.external_session_id)}
+        />
+        <Field label={t('sessionDetail.updated')} value={formatDate(session.updated_at)} />
+      </dl>
+    </section>
+  )
+}
+
+function MessagesSection({
+  messages,
+  pending,
+  failed,
+  onRetry,
+}: {
+  messages: SessionMessage[] | undefined
+  pending: boolean
+  failed: boolean
+  onRetry: () => void
+}) {
+  const { t } = useTranslation()
+  if (failed && !messages) {
+    return <RetryState message={t('sessionDetail.messagesError')} onRetry={onRetry} />
+  }
+  if (pending) return <EmptyState title={t('sessionDetail.loadingMessages')} />
+  return (
+    <>
+      {failed ? (
+        <div className="mb-3">
+          <RetryState message={t('sessionDetail.messagesStale')} onRetry={onRetry} />
+        </div>
+      ) : null}
+      {messages?.length ? (
+        <ol className="divide-y divide-border rounded-md border border-border bg-surface">
+          {messages.map((message) => (
+            <li key={message.id} className="min-w-0 p-4">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-text-muted">
+                <span className="font-medium text-text-primary">{message.author_display_name}</span>
+                <StatusBadge value={message.author_type} />
+                <StatusBadge value={message.message_kind} />
+                <StatusBadge value={message.delivery_state} />
+                <time dateTime={message.created_at}>{formatDate(message.created_at)}</time>
+              </div>
+              <p className="mt-2 whitespace-pre-wrap break-words text-sm text-text-secondary">
+                {message.body}
+              </p>
+              {message.runtime_message_id || message.delivery_error ? (
+                <details className="mt-2">
+                  <summary className="flex min-h-10 cursor-pointer items-center text-xs font-medium text-accent">
+                    {t('sessionDetail.technicalDetails')}
+                  </summary>
+                  <div className="space-y-1 border-l border-border pl-3 text-xs text-text-muted">
+                    {message.runtime_message_id ? (
+                      <p className="break-all">
+                        {t('sessionDetail.runtimeMessage')}: {message.runtime_message_id}
+                      </p>
+                    ) : null}
+                    {message.delivery_error ? (
+                      <p className="break-words text-danger">{message.delivery_error}</p>
+                    ) : null}
+                  </div>
+                </details>
+              ) : null}
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <EmptyState title={t('sessionDetail.noMessages')} />
+      )}
+    </>
+  )
+}
+
+function ParticipantsSection({
+  participants,
+  pending,
+  failed,
+  onRetry,
+}: {
+  participants: SessionParticipant[] | undefined
+  pending: boolean
+  failed: boolean
+  onRetry: () => void
+}) {
+  const { t } = useTranslation()
+  if (failed && !participants) {
+    return <RetryState message={t('sessionDetail.participantsError')} onRetry={onRetry} />
+  }
+  if (pending) return <EmptyState title={t('sessionDetail.loadingParticipants')} />
+  return (
+    <>
+      {failed ? (
+        <div className="mb-3">
+          <RetryState message={t('sessionDetail.participantsStale')} onRetry={onRetry} />
+        </div>
+      ) : null}
+      {participants?.length ? (
+        <ul className="divide-y divide-border rounded-md border border-border bg-surface">
+          {participants.map((participant) => (
+            <li key={participant.id} className="min-w-0 p-3">
+              <p className="break-words text-sm font-medium text-text-primary">
+                {participant.display_name}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <StatusBadge value={participant.participant_type} />
+                <StatusBadge value={participant.session_role} />
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <EmptyState title={t('sessionDetail.noParticipants')} />
+      )}
+    </>
+  )
+}
+
+function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: string }) {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const [steerDraft, setSteerDraft] = useState('')
+  const canControl = run.state === 'running' || run.state === 'waiting'
+  const stopMutation = useMutation({
+    mutationFn: () => stopSessionRun(sessionId, run.id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['session-runs', sessionId] })
+      toast.success(t('sessionDetail.stopSuccess', { agent: run.agent_name }))
+    },
+  })
+  const steerMutation = useMutation({
+    mutationFn: () => steerSessionRun(sessionId, run.id, { input: steerDraft.trim() }),
+    onSuccess: async () => {
+      setSteerDraft('')
+      await queryClient.invalidateQueries({ queryKey: ['session-runs', sessionId] })
+      toast.success(t('sessionDetail.steerSuccess', { agent: run.agent_name }))
+    },
+  })
+  const approvalMutation = useMutation({
+    mutationFn: (choice: 'approve' | 'deny') =>
+      resolveSessionRunApproval(sessionId, run.id, { choice, resolve_all: true }),
+    onSuccess: async (_response, choice) => {
+      await queryClient.invalidateQueries({ queryKey: ['session-runs', sessionId] })
+      toast.success(
+        choice === 'approve'
+          ? t('sessionDetail.approveSuccess', { agent: run.agent_name })
+          : t('sessionDetail.denySuccess', { agent: run.agent_name }),
+      )
+    },
+  })
+  const actionPending =
+    stopMutation.isPending || steerMutation.isPending || approvalMutation.isPending
+  const actionFailed = stopMutation.isError || steerMutation.isError || approvalMutation.isError
+
+  function submitSteer(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (steerDraft.trim() && !actionPending) steerMutation.mutate()
+  }
+
+  return (
+    <li className="min-w-0 p-4">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <span className="break-words font-medium text-text-primary">{run.agent_name}</span>
         <StatusBadge value={run.run_role} />
         <StatusBadge value={run.state} />
       </div>
-      <p className="mt-1 break-all text-xs text-text-muted">
-        session {run.runtime_session_id ?? 'pending'}
-      </p>
-      <p className="mt-1 break-all text-xs text-text-muted">
-        run {run.runtime_run_id ?? 'not dispatched'}
-      </p>
-      {run.last_event_at ? (
-        <p className="mt-1 text-xs text-text-muted">last event {formatDate(run.last_event_at)}</p>
+      {run.last_error ? (
+        <p className="mt-2 break-words text-xs text-danger">{run.last_error}</p>
       ) : null}
-      {run.last_error ? <p className="mt-2 text-xs text-danger">{run.last_error}</p> : null}
+      <details className="mt-2">
+        <summary className="flex min-h-10 cursor-pointer items-center text-xs font-medium text-accent">
+          {t('sessionDetail.technicalDetails')}
+        </summary>
+        <dl className="grid gap-2 border-l border-border pl-3 text-xs sm:grid-cols-2">
+          <Field
+            label={t('sessionDetail.runtimeSession')}
+            value={run.runtime_session_id ?? t('sessionDetail.pendingValue')}
+            technical
+          />
+          <Field
+            label={t('sessionDetail.runtimeRun')}
+            value={run.runtime_run_id ?? t('sessionDetail.notDispatchedValue')}
+            technical
+          />
+          <Field
+            label={t('sessionDetail.model')}
+            value={run.model ?? t('sessionDetail.noneValue')}
+          />
+          <Field
+            label={t('sessionDetail.lastEvent')}
+            value={
+              run.last_event_at ? formatDate(run.last_event_at) : t('sessionDetail.neverValue')
+            }
+          />
+        </dl>
+      </details>
       {canControl ? (
-        <div className="mt-3 grid gap-2">
+        <div className="mt-3 grid gap-3">
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={onStop} disabled={isMutating}>
-              Stop
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="h-10"
+                  disabled={actionPending}
+                >
+                  <Square className="h-4 w-4" />
+                  {t('sessionDetail.stop')}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t('sessionDetail.stopConfirmTitle')}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t('sessionDetail.stopConfirmDescription', { agent: run.agent_name })}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t('sessionDetail.cancel')}</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => stopMutation.mutate()}>
+                    {t('sessionDetail.stopAction')}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             {run.state === 'waiting' ? (
               <>
-                <Button size="sm" variant="outline" onClick={onApprove} disabled={isMutating}>
-                  Approve
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10"
+                  onClick={() => approvalMutation.mutate('approve')}
+                  disabled={actionPending}
+                >
+                  {t('sessionDetail.approve')}
                 </Button>
-                <Button size="sm" variant="outline" onClick={onDeny} disabled={isMutating}>
-                  Deny
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10"
+                  onClick={() => approvalMutation.mutate('deny')}
+                  disabled={actionPending}
+                >
+                  {t('sessionDetail.deny')}
                 </Button>
               </>
             ) : null}
           </div>
-          <div className="grid gap-2">
+          <form className="grid gap-2 sm:grid-cols-[1fr_auto]" onSubmit={submitSteer}>
+            <Label className="sr-only" htmlFor={`steer-${run.id}`}>
+              {t('sessionDetail.steerLabel', { agent: run.agent_name })}
+            </Label>
             <Input
+              id={`steer-${run.id}`}
+              className="h-10 min-w-0"
               value={steerDraft}
-              onChange={(event) => onSteerDraftChange(event.target.value)}
-              placeholder="Steer this run"
+              disabled={actionPending}
+              onChange={(event) => {
+                setSteerDraft(event.target.value)
+                steerMutation.reset()
+              }}
+              placeholder={t('sessionDetail.steerPlaceholder')}
             />
             <Button
-              size="sm"
+              type="submit"
               variant="outline"
-              onClick={onSteer}
-              disabled={isMutating || !steerDraft.trim()}
+              className="h-10"
+              disabled={actionPending || !steerDraft.trim()}
             >
-              Steer
+              {steerMutation.isPending ? t('sessionDetail.sending') : t('sessionDetail.steer')}
             </Button>
-          </div>
+          </form>
+          {actionFailed ? <ErrorState message={t('sessionDetail.runActionError')} /> : null}
         </div>
+      ) : null}
+    </li>
+  )
+}
+
+function SectionHeading({
+  id,
+  icon,
+  title,
+  count,
+  refreshing,
+  refreshLabel,
+}: {
+  id: string
+  icon?: ReactNode
+  title: string
+  count?: number
+  refreshing?: boolean
+  refreshLabel?: string
+}) {
+  return (
+    <div className="mb-3 flex min-h-10 flex-wrap items-center justify-between gap-2">
+      <h2 id={id} className="flex items-center gap-2 text-base font-semibold text-text-primary">
+        {icon}
+        {title}
+        {typeof count === 'number' ? (
+          <span className="text-sm font-normal text-text-muted">({count})</span>
+        ) : null}
+      </h2>
+      {refreshing ? (
+        <span className="inline-flex items-center gap-2 text-xs text-text-muted">
+          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+          {refreshLabel}
+        </span>
       ) : null}
     </div>
   )
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+function RetryState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const { t } = useTranslation()
   return (
-    <div>
+    <div className="space-y-2">
+      <ErrorState message={message} />
+      <Button type="button" variant="outline" className="h-10" onClick={onRetry}>
+        <RefreshCw className="h-4 w-4" />
+        {t('sessionDetail.retry')}
+      </Button>
+    </div>
+  )
+}
+
+function Field({
+  label,
+  value,
+  technical = false,
+}: {
+  label: string
+  value: string
+  technical?: boolean
+}) {
+  return (
+    <div className="min-w-0">
       <dt className="text-xs text-text-muted">{label}</dt>
-      <dd className="break-words font-medium text-text-primary">{value}</dd>
+      <dd
+        className={
+          technical
+            ? 'break-all font-mono text-xs font-medium text-text-primary'
+            : 'break-words font-medium text-text-primary'
+        }
+      >
+        {value}
+      </dd>
     </div>
   )
 }
