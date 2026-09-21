@@ -130,7 +130,7 @@ export function EmptyState({ title }: { title: string }) {
 
 export function JsonBlock({ value }: { value: unknown }) {
   return (
-    <pre className="max-h-80 w-full max-w-full overflow-auto rounded-md border border-border bg-background p-3 text-xs text-text-secondary">
+    <pre className="w-full max-w-full whitespace-pre-wrap break-all rounded-md border border-border bg-background p-3 text-xs text-text-secondary">
       {JSON.stringify(value, null, 2)}
     </pre>
   )

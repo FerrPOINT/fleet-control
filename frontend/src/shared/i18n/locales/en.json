@@ -5,6 +5,9 @@
     "signOut": "Sign out",
     "operator": "Fleet operator"
   },
+  "shell": {
+    "openNavigation": "Open navigation"
+  },
   "navigation": {
     "dashboard": "Dashboard",
     "leaders": "Leaders",
