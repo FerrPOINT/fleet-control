@@ -13,6 +13,10 @@ import { Label } from '@sdlc/ui/ui'
 import { UserAvatar } from '@/shared/ui/user-avatar'
 import { EmptyState, ErrorState, PageHeader, StatusBadge, formatDate } from '../common'
 
+function newIdempotencyKey(): string | null {
+  return globalThis.crypto?.randomUUID?.() ?? null
+}
+
 export function SessionsPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -41,6 +45,7 @@ export function SessionsPage() {
   const [title, setTitle] = useState(() => t('sessions.defaultTitle'))
   const [taskKey, setTaskKey] = useState('')
   const [titleTouched, setTitleTouched] = useState(false)
+  const [idempotencyKey, setIdempotencyKey] = useState(newIdempotencyKey)
   const selectedAgent = agents.data?.find((agent) => agent.id === agentId) ?? agents.data?.[0]
   const possibleLeaders =
     selectedAgent?.product_role === 'leader'
@@ -65,16 +70,22 @@ export function SessionsPage() {
         task_key: taskKey.trim() || null,
         leader_agent_id:
           selectedAgent?.product_role === 'leader' ? selectedAgent.id : leaderId || null,
-        idempotency_key: globalThis.crypto?.randomUUID?.() ?? null,
+        idempotency_key: idempotencyKey,
       }),
     onSuccess: async (createdSession) => {
       await queryClient.invalidateQueries({ queryKey: ['sessions'] })
       setTitle(t('sessions.defaultTitle'))
       setTaskKey('')
       setTitleTouched(false)
+      setIdempotencyKey(newIdempotencyKey())
       toast.success(t('sessions.created', { title: createdSession.title }))
     },
   })
+
+  function resetDraftMutation() {
+    mutation.reset()
+    setIdempotencyKey(newIdempotencyKey())
+  }
 
   useEffect(() => {
     if (!agentId && agents.data?.[0]) setAgentId(agents.data[0].id)
@@ -83,7 +94,7 @@ export function SessionsPage() {
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setTitleTouched(true)
-    if (!titleIsValid || formUnavailable) return
+    if (!titleIsValid || formUnavailable || mutation.isPending) return
     mutation.mutate()
   }
 
@@ -108,7 +119,7 @@ export function SessionsPage() {
                   onChange={(event) => {
                     setAgentId(event.target.value)
                     setLeaderId('')
-                    mutation.reset()
+                    resetDraftMutation()
                   }}
                   className="h-10 rounded-md border border-border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                 >
@@ -151,7 +162,7 @@ export function SessionsPage() {
                   }
                   onChange={(event) => {
                     setLeaderId(event.target.value)
-                    mutation.reset()
+                    resetDraftMutation()
                   }}
                   aria-describedby="session-leader-help"
                   className="h-10 rounded-md border border-border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
@@ -203,7 +214,7 @@ export function SessionsPage() {
                   onBlur={() => setTitleTouched(true)}
                   onChange={(event) => {
                     setTitle(event.target.value)
-                    mutation.reset()
+                    resetDraftMutation()
                   }}
                 />
                 {titleTouched && !titleIsValid ? (
@@ -221,7 +232,7 @@ export function SessionsPage() {
                   disabled={mutation.isPending}
                   onChange={(event) => {
                     setTaskKey(event.target.value)
-                    mutation.reset()
+                    resetDraftMutation()
                   }}
                   placeholder="CARD-123"
                 />

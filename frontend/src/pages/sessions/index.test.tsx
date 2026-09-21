@@ -131,6 +131,28 @@ describe('SessionsPage', () => {
     expect(fleet.createSession).not.toHaveBeenCalled()
   })
 
+  it('reuses the draft idempotency key when a failed request is retried', async () => {
+    vi.mocked(fleet.createSession)
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(session)
+    renderPage()
+
+    const agent = await screen.findByLabelText('Агент')
+    await waitFor(() => expect(agent).toHaveValue(executor.id))
+    const create = screen.getByRole('button', { name: 'Создать сессию' })
+    expect(create).toBeEnabled()
+    fireEvent.click(create)
+    await screen.findByText(/Не удалось создать сессию/)
+    const firstKey = vi.mocked(fleet.createSession).mock.calls[0]?.[0].idempotency_key
+
+    fireEvent.click(create)
+    await waitFor(() => expect(fleet.createSession).toHaveBeenCalledTimes(2))
+    const retryKey = vi.mocked(fleet.createSession).mock.calls[1]?.[0].idempotency_key
+
+    expect(firstKey).toBeTruthy()
+    expect(retryKey).toBe(firstKey)
+  })
+
   it('keeps creation unavailable until an agent request is retried successfully', async () => {
     vi.mocked(fleet.listAgentDirectory)
       .mockRejectedValueOnce(new Error('offline'))
