@@ -362,15 +362,16 @@ export function acknowledgeFleetAlert(alertId: string) {
 export interface BulkDeploymentRequest {
   job_kind: import('./types').DeploymentJobKind
   agent_ids: string[]
+  title: string
   runtime_kind?: import('./types').AgentKind | null
   rollback?: boolean
-  title?: string | null
   detail?: Record<string, unknown> | null
 }
 
 export interface BulkDeploymentResult {
-  created: string[]
-  skipped: { agent_id: string; reason: string }[]
+  jobs: import('./types').DeploymentJob[]
+  created: number
+  skipped: number
 }
 
 export function bulkCreateDeploymentJobs(req: BulkDeploymentRequest) {
