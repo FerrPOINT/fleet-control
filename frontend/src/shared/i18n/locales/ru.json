@@ -5,6 +5,9 @@
     "signOut": "Выйти",
     "operator": "Оператор Fleet Control"
   },
+  "shell": {
+    "openNavigation": "Открыть навигацию"
+  },
   "navigation": {
     "dashboard": "Обзор",
     "leaders": "Лидеры",
