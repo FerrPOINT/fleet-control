@@ -1464,7 +1464,7 @@ impl FleetRepository for PostgresFleetRepository {
             }
         }
 
-        let id = Uuid::new_v4();
+        let session_id = Uuid::new_v4();
         let ts = now();
         let visibility = if leader_agent_id.is_some() {
             SessionVisibility::LeaderScoped
@@ -1473,7 +1473,7 @@ impl FleetRepository for PostgresFleetRepository {
         };
         let txn = self.db.begin().await.map_err(AppError::database)?;
         agent_session::Entity::insert(agent_session::ActiveModel {
-            id: Set(id),
+            id: Set(session_id),
             agent_id: Set(primary_agent_id),
             user_id: Set(user_id),
             leader_agent_id: Set(leader_agent_id),
@@ -1498,7 +1498,7 @@ impl FleetRepository for PostgresFleetRepository {
         .map_err(AppError::database)?;
         session_participant::Entity::insert(session_participant::ActiveModel {
             id: Set(Uuid::new_v4()),
-            session_id: Set(id),
+            session_id: Set(session_id),
             participant_type: Set(SessionParticipantType::User.as_str().to_string()),
             user_id: Set(Some(user_id)),
             agent_id: Set(None),
@@ -1510,7 +1510,7 @@ impl FleetRepository for PostgresFleetRepository {
         .map_err(AppError::database)?;
         session_participant::Entity::insert(session_participant::ActiveModel {
             id: Set(Uuid::new_v4()),
-            session_id: Set(id),
+            session_id: Set(session_id),
             participant_type: Set(SessionParticipantType::Agent.as_str().to_string()),
             user_id: Set(None),
             agent_id: Set(Some(primary_agent_id)),
@@ -1523,7 +1523,7 @@ impl FleetRepository for PostgresFleetRepository {
         if let Some(leader_id) = leader_agent_id {
             session_participant::Entity::insert(session_participant::ActiveModel {
                 id: Set(Uuid::new_v4()),
-                session_id: Set(id),
+                session_id: Set(session_id),
                 participant_type: Set(SessionParticipantType::Agent.as_str().to_string()),
                 user_id: Set(None),
                 agent_id: Set(Some(leader_id)),
@@ -1539,29 +1539,18 @@ impl FleetRepository for PostgresFleetRepository {
         } else {
             SessionRunRole::Primary
         };
-        let id = Uuid::new_v4();
-        session_agent_run::Entity::insert(session_agent_run::ActiveModel {
-            id: Set(id),
-            session_id: Set(id),
-            agent_id: Set(primary_agent_id),
-            runtime_session_id: Set(None),
-            runtime_run_id: Set(None),
-            run_role: Set(primary_run_role.as_str().to_string()),
-            state: Set(SessionRunState::Pending.as_str().to_string()),
-            last_error: Set(None),
-            last_event_at: Set(None),
-            model: Set(None),
-            provider: Set(None),
-            model_options: Set(json!({})),
-            created_at: Set(ts),
-            updated_at: Set(ts),
-        })
+        session_agent_run::Entity::insert(pending_session_run(
+            session_id,
+            primary_agent_id,
+            primary_run_role,
+            ts,
+        ))
         .exec(&txn)
         .await
         .map_err(AppError::database)?;
         session_message::Entity::insert(session_message::ActiveModel {
             id: Set(Uuid::new_v4()),
-            session_id: Set(id),
+            session_id: Set(session_id),
             author_type: Set(MessageAuthorType::System.as_str().to_string()),
             author_user_id: Set(None),
             author_agent_id: Set(None),
@@ -1579,7 +1568,7 @@ impl FleetRepository for PostgresFleetRepository {
         .await
         .map_err(AppError::database)?;
         txn.commit().await.map_err(AppError::database)?;
-        self.get_session(id).await
+        self.get_session(session_id).await
     }
 
     async fn create_session_delegation(
@@ -1740,22 +1729,12 @@ impl FleetRepository for PostgresFleetRepository {
             .exec(&txn)
             .await
             .map_err(AppError::database)?;
-            session_agent_run::Entity::insert(session_agent_run::ActiveModel {
-                id: Set(Uuid::new_v4()),
-                session_id: Set(id),
-                agent_id: Set(leader_id),
-                runtime_session_id: Set(None),
-                runtime_run_id: Set(None),
-                run_role: Set(SessionRunRole::Leader.as_str().to_string()),
-                state: Set(SessionRunState::Pending.as_str().to_string()),
-                last_error: Set(None),
-                last_event_at: Set(None),
-                model: Set(None),
-                provider: Set(None),
-                model_options: Set(json!({})),
-                created_at: Set(ts),
-                updated_at: Set(ts),
-            })
+            session_agent_run::Entity::insert(pending_session_run(
+                id,
+                leader_id,
+                SessionRunRole::Leader,
+                ts,
+            ))
             .exec(&txn)
             .await
             .map_err(AppError::database)?;
@@ -3162,6 +3141,30 @@ fn selected_primary_agent_id(req: &CreateSessionRequest) -> Result<Uuid, AppErro
         .ok_or_else(|| AppError::validation("primary_agent_id is required"))
 }
 
+fn pending_session_run(
+    session_id: Uuid,
+    agent_id: Uuid,
+    run_role: SessionRunRole,
+    timestamp: shared::Timestamp,
+) -> session_agent_run::ActiveModel {
+    session_agent_run::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        session_id: Set(session_id),
+        agent_id: Set(agent_id),
+        runtime_session_id: Set(None),
+        runtime_run_id: Set(None),
+        run_role: Set(run_role.as_str().to_string()),
+        state: Set(SessionRunState::Pending.as_str().to_string()),
+        last_error: Set(None),
+        last_event_at: Set(None),
+        model: Set(None),
+        provider: Set(None),
+        model_options: Set(json!({})),
+        created_at: Set(timestamp),
+        updated_at: Set(timestamp),
+    }
+}
+
 fn participant_display_name(
     participant_type: SessionParticipantType,
     user: Option<&user::Model>,
@@ -3914,6 +3917,17 @@ mod tests {
             selected_primary_agent_id(&req).expect("agent id"),
             legacy_agent_id
         );
+    }
+
+    #[test]
+    fn pending_session_run_keeps_run_and_session_ids_distinct() {
+        let session_id = Uuid::new_v4();
+        let agent_id = Uuid::new_v4();
+        let model = pending_session_run(session_id, agent_id, SessionRunRole::Primary, now());
+
+        assert_ne!(model.id.unwrap(), session_id);
+        assert_eq!(model.session_id.unwrap(), session_id);
+        assert_eq!(model.agent_id.unwrap(), agent_id);
     }
 
     #[test]
