@@ -29,4 +29,9 @@ describe('fleet status labels', () => {
     render(<StatusBadge value="custom_state" />)
     expect(screen.getByText('custom state')).toBeInTheDocument()
   })
+
+  it('keeps success badges readable on the light theme surface', () => {
+    render(<StatusBadge value="running" />)
+    expect(screen.getByText('Работает')).toHaveClass('text-text-primary')
+  })
 })

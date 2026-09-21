@@ -176,7 +176,7 @@ function badgeTone(value: string) {
     case 'done':
     case 'completed':
     case 'dispatched':
-      return 'border-success/40 bg-success/10 text-success'
+      return 'border-success/40 bg-success/10 text-text-primary'
     case 'failed':
     case 'missing':
     case 'blocked':
