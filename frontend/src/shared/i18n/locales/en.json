@@ -326,6 +326,55 @@
       "pending": "Pending"
     }
   },
+  "alerts": {
+    "title": "Alerts",
+    "description": "Failures, recoveries, and other agent state changes.",
+    "filtersLabel": "Filter alerts by state",
+    "filters": {
+      "all": "All",
+      "open": "Open",
+      "acknowledged": "Acknowledged",
+      "resolved": "Resolved"
+    },
+    "listTitle": "Alerts: {{count}}",
+    "loading": "Loading alerts...",
+    "loadError": "Could not load alerts.",
+    "refreshError": "Could not refresh the list; showing the latest loaded data.",
+    "directoryError": "Could not load agent names; showing IDs.",
+    "retry": "Retry",
+    "refresh": "Refresh",
+    "refreshing": "Refreshing...",
+    "emptyAll": "No alerts yet",
+    "emptyFiltered": "No alerts in this state",
+    "showMore": "Show more",
+    "fleetScope": "Entire fleet",
+    "unknownAgent": "Unknown agent",
+    "opened": "Opened",
+    "acknowledgedAt": "Acknowledged",
+    "resolvedAt": "Resolved",
+    "details": "Technical details",
+    "acknowledge": "Acknowledge",
+    "acknowledging": "Acknowledging...",
+    "acknowledgedSuccess": "Alert acknowledged",
+    "acknowledgeError": "Could not acknowledge the alert.",
+    "retryAcknowledge": "Retry acknowledgement",
+    "severity": {
+      "critical": "Critical",
+      "warning": "Warning",
+      "info": "Information"
+    },
+    "states": {
+      "open": "Open",
+      "acknowledged": "Acknowledged",
+      "resolved": "Resolved"
+    },
+    "kinds": {
+      "agent_down": "Agent unavailable",
+      "agent_recovered": "Agent recovered",
+      "agent_restart_loop": "Restart loop",
+      "agent_heartbeat_stale": "Agent heartbeat is stale"
+    }
+  },
   "logs": {
     "title": "Logs",
     "description": "Process output, control events, and audit trail.",

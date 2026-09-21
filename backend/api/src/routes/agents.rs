@@ -421,12 +421,12 @@ pub async fn list_fleet_alerts(
 ) -> Result<Json<Vec<domain::FleetAlert>>, AppError> {
     require_operator(&user)?;
     let state = params.get("state").map(String::as_str);
-    if let Some(state) = state {
-        if !matches!(state, "open" | "acknowledged" | "resolved") {
-            return Err(AppError::validation(
-                "state must be open|acknowledged|resolved",
-            ));
-        }
+    if let Some(state) = state
+        && !matches!(state, "open" | "acknowledged" | "resolved")
+    {
+        return Err(AppError::validation(
+            "state must be open|acknowledged|resolved",
+        ));
     }
     Ok(Json(ctx.repo.list_fleet_alerts(state).await?))
 }
