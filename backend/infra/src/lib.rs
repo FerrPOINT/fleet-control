@@ -2589,7 +2589,7 @@ impl FleetRepository for PostgresFleetRepository {
         Ok(count as u32)
     }
 
-    async fn resolve_open_alerts_of_kind(
+    async fn resolve_active_alerts_of_kind(
         &self,
         agent_id: Uuid,
         kind: &str,
@@ -2606,7 +2606,7 @@ impl FleetRepository for PostgresFleetRepository {
             )
             .filter(fleet_alerts::Column::AgentId.eq(agent_id))
             .filter(fleet_alerts::Column::Kind.eq(kind))
-            .filter(fleet_alerts::Column::State.eq("open"))
+            .filter(fleet_alerts::Column::State.is_in(app::ACTIVE_ALERT_STATES))
             .exec(&self.db)
             .await
             .map_err(AppError::database)?;

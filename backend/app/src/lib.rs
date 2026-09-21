@@ -269,7 +269,7 @@ pub trait FleetRepository: Send + Sync {
         window: chrono::Duration,
     ) -> Result<u32, AppError>;
 
-    async fn resolve_open_alerts_of_kind(
+    async fn resolve_active_alerts_of_kind(
         &self,
         agent_id: Uuid,
         kind: &str,
@@ -593,7 +593,7 @@ impl AppContext {
 
 /// Maps a runtime health transition to the alert(s) it should raise.
 /// Returns (kind, severity) pairs: `agent_down` on a previously-healthy
-/// agent going down, `agent_recovered` auto-resolves open `agent_down`
+/// agent going down, `agent_recovered` auto-resolves active `agent_down`
 /// alerts, restart loops raise `agent_restart_loop`.
 /// Desired-state reconciliation decision for one agent (Phase 1 runtime
 /// reconciler): a failed/stopped agent with desired=running must be
@@ -671,18 +671,25 @@ pub fn health_transition_alerts(previous: Option<&str>, current: &str) -> Vec<(S
     if was_up && is_down {
         out.push(("agent_down".to_string(), "critical".to_string()));
     }
-    if let Some(prev) = previous {
-        if (prev == "failed" || prev == "stopped") && (current == "running" || current == "ready") {
-            out.push(("agent_recovered".to_string(), "info".to_string()));
-        }
+    if let Some(prev) = previous
+        && (prev == "failed" || prev == "stopped")
+        && (current == "running" || current == "ready")
+    {
+        out.push(("agent_recovered".to_string(), "info".to_string()));
     }
     out
+}
+
+pub const ACTIVE_ALERT_STATES: [&str; 2] = ["open", "acknowledged"];
+
+pub fn alert_state_is_active(state: &str) -> bool {
+    ACTIVE_ALERT_STATES.contains(&state)
 }
 
 #[async_trait]
 pub trait AlertService: Send + Sync {
     /// Records health transitions for an agent: raises `agent_down` /
-    /// `agent_restart_loop` alerts and resolves open down-alerts on recovery.
+    /// `agent_restart_loop` alerts and resolves active down-alerts on recovery.
     async fn record_health_transition(
         &self,
         agent_id: Uuid,
@@ -709,10 +716,17 @@ impl RepositoryAlertService {
 }
 
 impl RepositoryAlertService {
-    /// Scan running agents for stale heartbeats; raises one open
+    /// Scan running agents for stale heartbeats; raises one active
     /// `agent_heartbeat_stale` alert per agent (auto-resolved on recovery).
     pub async fn record_heartbeat_freshness(&self) -> Result<(), AppError> {
         let agents = self.repository.list_agents().await?;
+        let active_alerts = self
+            .repository
+            .list_fleet_alerts(None)
+            .await?
+            .into_iter()
+            .filter(|alert| alert_state_is_active(&alert.state))
+            .collect::<Vec<_>>();
         for agent in &agents {
             let last_health = agent
                 .runtime
@@ -722,13 +736,10 @@ impl RepositoryAlertService {
                 .map(|ts| ts.with_timezone(&chrono::Utc));
             let stale = heartbeat_stale(last_health, agent.status.as_str(), 10);
             if stale {
-                let already_open = self
-                    .repository
-                    .list_fleet_alerts(Some("open"))
-                    .await?
+                let already_active = active_alerts
                     .iter()
                     .any(|a| a.agent_id == Some(agent.id) && a.kind == "agent_heartbeat_stale");
-                if already_open {
+                if already_active {
                     continue;
                 }
                 self.repository
@@ -774,21 +785,21 @@ impl AlertService for RepositoryAlertService {
         for (kind, severity) in health_transition_alerts_ex(previous, current_status, restarts) {
             if kind == "agent_recovered" {
                 self.repository
-                    .resolve_open_alerts_of_kind(
+                    .resolve_active_alerts_of_kind(
                         agent_id,
                         "agent_down",
                         serde_json::json!({"recovered_to": current_status}),
                     )
                     .await?;
                 self.repository
-                    .resolve_open_alerts_of_kind(
+                    .resolve_active_alerts_of_kind(
                         agent_id,
                         "agent_restart_loop",
                         serde_json::json!({"recovered_to": current_status}),
                     )
                     .await?;
                 self.repository
-                    .resolve_open_alerts_of_kind(
+                    .resolve_active_alerts_of_kind(
                         agent_id,
                         "agent_heartbeat_stale",
                         serde_json::json!({"recovered_to": current_status}),
@@ -1013,6 +1024,13 @@ mod alert_tests {
             alerts,
             vec![("agent_recovered".to_string(), "info".to_string())]
         );
+    }
+
+    #[test]
+    fn acknowledged_alerts_remain_active_until_recovery() {
+        assert!(alert_state_is_active("open"));
+        assert!(alert_state_is_active("acknowledged"));
+        assert!(!alert_state_is_active("resolved"));
     }
 
     #[test]
