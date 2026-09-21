@@ -2,6 +2,8 @@ import { FormEvent, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { MessageSquarePlus } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { createSession, listAgentDirectory, listLeaderExecutors, listSessions } from '@/api/fleet'
 import { SessionUserFilter, useSessionUserFilter } from '@/shared/session-user-filter'
 import { Button } from '@sdlc/ui/ui'
@@ -11,7 +13,12 @@ import { Label } from '@sdlc/ui/ui'
 import { UserAvatar } from '@/shared/ui/user-avatar'
 import { EmptyState, ErrorState, PageHeader, StatusBadge, formatDate } from '../common'
 
+function newIdempotencyKey(): string | null {
+  return globalThis.crypto?.randomUUID?.() ?? null
+}
+
 export function SessionsPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const agents = useQuery({ queryKey: ['agent-directory'], queryFn: listAgentDirectory })
   const leaders = agents.data?.filter((agent) => agent.product_role === 'leader') ?? []
@@ -35,8 +42,10 @@ export function SessionsPage() {
   })
   const [agentId, setAgentId] = useState('')
   const [leaderId, setLeaderId] = useState('')
-  const [title, setTitle] = useState('New task session')
+  const [title, setTitle] = useState(() => t('sessions.defaultTitle'))
   const [taskKey, setTaskKey] = useState('')
+  const [titleTouched, setTitleTouched] = useState(false)
+  const [idempotencyKey, setIdempotencyKey] = useState(newIdempotencyKey)
   const selectedAgent = agents.data?.find((agent) => agent.id === agentId) ?? agents.data?.[0]
   const possibleLeaders =
     selectedAgent?.product_role === 'leader'
@@ -46,22 +55,37 @@ export function SessionsPage() {
             team.executors.some((executor) => executor.executor_agent_id === selectedAgent?.id),
           )
           .map((team) => team.leader) ?? [])
+  const needsLeaderDirectory = selectedAgent?.product_role === 'executor' && leaders.length > 0
+  const leaderDirectoryUnavailable = needsLeaderDirectory && leaderTeams.isError
+  const leaderDirectoryLoading = needsLeaderDirectory && leaderTeams.isPending
+  const titleIsValid = Boolean(title.trim())
+  const formUnavailable =
+    agents.isPending || agents.isError || !selectedAgent || leaderDirectoryLoading
 
   const mutation = useMutation({
     mutationFn: () =>
       createSession({
         primary_agent_id: selectedAgent?.id || '',
-        title,
-        task_key: taskKey || null,
+        title: title.trim(),
+        task_key: taskKey.trim() || null,
         leader_agent_id:
           selectedAgent?.product_role === 'leader' ? selectedAgent.id : leaderId || null,
-        idempotency_key: globalThis.crypto?.randomUUID?.() ?? null,
+        idempotency_key: idempotencyKey,
       }),
-    onSuccess: async () => {
+    onSuccess: async (createdSession) => {
       await queryClient.invalidateQueries({ queryKey: ['sessions'] })
+      setTitle(t('sessions.defaultTitle'))
       setTaskKey('')
+      setTitleTouched(false)
+      setIdempotencyKey(newIdempotencyKey())
+      toast.success(t('sessions.created', { title: createdSession.title }))
     },
   })
+
+  function resetDraftMutation() {
+    mutation.reset()
+    setIdempotencyKey(newIdempotencyKey())
+  }
 
   useEffect(() => {
     if (!agentId && agents.data?.[0]) setAgentId(agents.data[0].id)
@@ -69,80 +93,159 @@ export function SessionsPage() {
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    setTitleTouched(true)
+    if (!titleIsValid || formUnavailable || mutation.isPending) return
     mutation.mutate()
   }
 
   return (
     <>
-      <PageHeader
-        title="Sessions"
-        description="Every chat is tracked as a task session and can move between agents."
-      />
+      <PageHeader title={t('sessions.title')} description={t('sessions.description')} />
       <div className="grid gap-4 xl:grid-cols-[380px_1fr]">
         <Card>
           <CardHeader>
-            <CardTitle>Create session</CardTitle>
+            <CardTitle>{t('sessions.createTitle')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <form className="grid gap-3" onSubmit={submit}>
+            <form className="grid gap-3" onSubmit={submit} aria-busy={mutation.isPending}>
               <div className="grid gap-2">
-                <Label htmlFor="session-agent">Agent</Label>
+                <Label htmlFor="session-agent">{t('sessions.agent')}</Label>
                 <select
                   id="session-agent"
                   value={agentId}
+                  disabled={
+                    agents.isPending || agents.isError || !agents.data?.length || mutation.isPending
+                  }
                   onChange={(event) => {
                     setAgentId(event.target.value)
                     setLeaderId('')
+                    resetDraftMutation()
                   }}
-                  className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+                  className="h-10 rounded-md border border-border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                 >
+                  {!agents.data?.length ? (
+                    <option value="">
+                      {agents.isPending ? t('sessions.loadingAgents') : t('sessions.noAgents')}
+                    </option>
+                  ) : null}
                   {agents.data?.map((agent) => (
                     <option key={agent.id} value={agent.id}>
-                      {agent.name} - {agent.display_name}
+                      {agent.display_name} ({agent.name})
                     </option>
                   ))}
                 </select>
+                {agents.isError ? (
+                  <div className="space-y-2">
+                    <ErrorState message={t('sessions.agentsError')} />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void agents.refetch()}
+                    >
+                      {t('sessions.retry')}
+                    </Button>
+                  </div>
+                ) : null}
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="session-leader">Leader</Label>
+                <Label htmlFor="session-leader">{t('sessions.leader')}</Label>
                 <select
                   id="session-leader"
                   value={selectedAgent?.product_role === 'leader' ? selectedAgent.id : leaderId}
-                  disabled={selectedAgent?.product_role === 'leader'}
-                  onChange={(event) => setLeaderId(event.target.value)}
-                  className="h-9 rounded-md border border-border bg-background px-3 text-sm disabled:opacity-60"
+                  disabled={
+                    !selectedAgent ||
+                    selectedAgent.product_role === 'leader' ||
+                    leaderDirectoryLoading ||
+                    leaderDirectoryUnavailable ||
+                    mutation.isPending
+                  }
+                  onChange={(event) => {
+                    setLeaderId(event.target.value)
+                    resetDraftMutation()
+                  }}
+                  aria-describedby="session-leader-help"
+                  className="h-10 rounded-md border border-border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {selectedAgent?.product_role === 'leader' ? null : (
-                    <option value="">Private chat</option>
+                    <option value="">{t('sessions.privateSession')}</option>
                   )}
                   {possibleLeaders.map((leader) => (
                     <option key={leader.id} value={leader.id}>
-                      {leader.name} - {leader.display_name}
+                      {leader.display_name} ({leader.name})
                     </option>
                   ))}
                 </select>
+                <p id="session-leader-help" className="text-xs text-text-muted">
+                  {selectedAgent?.product_role === 'leader'
+                    ? t('sessions.directLeaderHelp')
+                    : leaderDirectoryLoading
+                      ? t('sessions.loadingLeaders')
+                      : possibleLeaders.length
+                        ? t('sessions.leaderHelp')
+                        : t('sessions.privateOnlyHelp')}
+                </p>
+                {leaderDirectoryUnavailable ? (
+                  <div className="space-y-2">
+                    <ErrorState message={t('sessions.leadersError')} />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void leaderTeams.refetch()}
+                    >
+                      {t('sessions.retry')}
+                    </Button>
+                  </div>
+                ) : null}
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="session-title">Title</Label>
+                <Label htmlFor="session-title">{t('sessions.sessionTitle')}</Label>
                 <Input
                   id="session-title"
                   value={title}
-                  onChange={(event) => setTitle(event.target.value)}
+                  className="h-10"
+                  required
+                  disabled={mutation.isPending}
+                  aria-invalid={titleTouched && !titleIsValid}
+                  aria-describedby={
+                    titleTouched && !titleIsValid ? 'session-title-error' : undefined
+                  }
+                  onBlur={() => setTitleTouched(true)}
+                  onChange={(event) => {
+                    setTitle(event.target.value)
+                    resetDraftMutation()
+                  }}
                 />
+                {titleTouched && !titleIsValid ? (
+                  <p id="session-title-error" role="alert" className="text-sm text-danger">
+                    {t('sessions.titleRequired')}
+                  </p>
+                ) : null}
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="task-key">Task key</Label>
+                <Label htmlFor="task-key">{t('sessions.taskKey')}</Label>
                 <Input
                   id="task-key"
                   value={taskKey}
-                  onChange={(event) => setTaskKey(event.target.value)}
+                  className="h-10"
+                  disabled={mutation.isPending}
+                  onChange={(event) => {
+                    setTaskKey(event.target.value)
+                    resetDraftMutation()
+                  }}
                   placeholder="CARD-123"
                 />
+                <p className="text-xs text-text-muted">{t('sessions.taskKeyHelp')}</p>
               </div>
-              {mutation.isError ? <ErrorState message={mutation.error.message} /> : null}
-              <Button type="submit" disabled={mutation.isPending || !agents.data?.length}>
+              {mutation.isError ? <ErrorState message={t('sessions.createError')} /> : null}
+              <Button
+                type="submit"
+                className="h-10"
+                disabled={mutation.isPending || formUnavailable || !titleIsValid}
+              >
                 <MessageSquarePlus className="h-4 w-4" />
-                Create session
+                {mutation.isPending ? t('sessions.creating') : t('sessions.create')}
               </Button>
             </form>
           </CardContent>
@@ -150,43 +253,85 @@ export function SessionsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Task sessions</CardTitle>
+            <CardTitle>
+              {t('sessions.listTitle')}
+              {sessions.data ? (
+                <span className="ml-2 text-sm font-normal text-text-muted">
+                  {sessions.data.length}
+                </span>
+              ) : null}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             <SessionUserFilter filter={userFilter} className="mb-3" />
-            {sessions.data?.length ? (
-              sessions.data.map((session) => (
-                <Link
-                  key={session.id}
-                  to={`/sessions/${session.id}`}
-                  className="block rounded-md border border-border p-3 hover:bg-surface-raised"
+            {sessions.isError ? (
+              <div className="space-y-2">
+                <ErrorState message={t('sessions.listError')} />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void sessions.refetch()}
                 >
-                  <div className="flex min-w-0 items-start gap-3">
-                    <UserAvatar
-                      name={session.user_display_name}
-                      userId={session.user_id}
-                      size="md"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium text-text-primary">{session.title}</p>
-                        <StatusBadge value={session.state} />
-                        <StatusBadge value={session.visibility} />
-                        {session.task_key ? (
-                          <span className="text-xs text-text-muted">{session.task_key}</span>
-                        ) : null}
+                  {t('sessions.retry')}
+                </Button>
+              </div>
+            ) : sessions.isPending ? (
+              <EmptyState title={t('sessions.loadingSessions')} />
+            ) : sessions.data.length ? (
+              <ul className="space-y-2" aria-label={t('sessions.listLabel')}>
+                {sessions.data.map((session) => (
+                  <li key={session.id}>
+                    <Link
+                      to={`/sessions/${session.id}`}
+                      className="block rounded-md border border-border p-3 transition-colors hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                    >
+                      <div className="flex min-w-0 items-start gap-3">
+                        <UserAvatar
+                          name={session.user_display_name}
+                          userId={session.user_id}
+                          size="md"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="min-w-0 break-words font-medium text-text-primary">
+                              {session.title}
+                            </p>
+                            <StatusBadge value={session.state} />
+                            <StatusBadge value={session.visibility} />
+                            {session.task_key ? (
+                              <span className="font-mono text-xs text-text-muted">
+                                {session.task_key}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-text-muted">
+                            <span>
+                              {t('sessions.userMeta', { name: session.user_display_name })}
+                            </span>
+                            <span>{t('sessions.agentMeta', { name: session.agent_name })}</span>
+                            <span>
+                              {t('sessions.leaderMeta', {
+                                name: session.leader_agent_name ?? t('sessions.privateValue'),
+                              })}
+                            </span>
+                            <span>
+                              {t('sessions.namespaceMeta', {
+                                name: session.namespace_id ?? t('sessions.unboundValue'),
+                              })}
+                            </span>
+                            <span>
+                              {t('sessions.updatedMeta', { date: formatDate(session.updated_at) })}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <p className="mt-1 text-xs text-text-muted">
-                        {session.user_display_name} - {session.agent_name} - leader{' '}
-                        {session.leader_agent_name ?? 'private'} - namespace{' '}
-                        {session.namespace_id ?? 'unbound'} - {formatDate(session.updated_at)}
-                      </p>
-                    </div>
-                  </div>
-                </Link>
-              ))
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             ) : (
-              <EmptyState title={sessions.isLoading ? 'Loading sessions...' : 'No sessions yet'} />
+              <EmptyState title={t('sessions.noSessions')} />
             )}
           </CardContent>
         </Card>
