@@ -208,4 +208,13 @@ describe('DeploymentsPage', () => {
     expect(screen.getByText('Dev One')).toBeVisible()
     expect(screen.queryByText('Шаблонов сред пока нет')).not.toBeInTheDocument()
   })
+
+  it('wraps technical JSON without creating a nested scroller', async () => {
+    const { container } = renderPage('overview')
+
+    await screen.findByText('Возможности шаблона')
+    const json = container.querySelector('pre')
+    expect(json).toHaveClass('whitespace-pre-wrap', 'break-all')
+    expect(json).not.toHaveClass('overflow-auto')
+  })
 })
