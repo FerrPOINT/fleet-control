@@ -29,8 +29,8 @@ Additional gates:
 - clean DB migration up/status
 - OpenAPI regenerate and diff
 - markdown link check through `pnpm markdown:check`
-- visual review of desktop and mobile screenshots for leaders, sessions,
-  settings, deployments and logs
+- visual review of desktop screenshots for leaders, sessions, settings,
+  deployments and logs; narrow-viewport behavior is verified by UI tests.
 
 Native Windows cargo commands require MSVC `link.exe`. The backend gate may be
 run through WSL/Linux when the Windows-native linker is not installed.

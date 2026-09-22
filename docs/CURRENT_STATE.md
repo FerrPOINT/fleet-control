@@ -53,7 +53,7 @@ Implemented:
 - fleet-wide storage/retention review for technical agent inventory with total
   managed bytes, archived bytes, purge-ready agents and marker/path issues
 - full documentation baseline
-- generated 128-file screenshot set for all required pages at required viewports
+- generated 82-file desktop screenshot set for all required product routes
 
 Known local limitation:
 
@@ -76,6 +76,6 @@ Latest verified gates:
 - `pnpm generate:api`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check`,
   `pnpm test`, `pnpm build`.
 - `pnpm exec playwright test` across Chromium, Firefox and WebKit.
-- `pnpm screenshots:local` with 128 generated screenshots.
+- `pnpm screenshots:local` with 82 generated desktop screenshots.
 - `pnpm screenshots:verify`.
 - `pnpm markdown:check` for `README.md` and `docs/**/*.md`.

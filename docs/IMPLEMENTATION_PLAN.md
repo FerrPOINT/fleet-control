@@ -8,7 +8,7 @@ Phase 0: pre-development hardening.
 - Deployment jobs and settings surfaces. — done: `deployment_jobs` + bulk `POST /deployments/jobs/bulk`, settings API с per-key аудитом (docs/API.md).
 - Product pages for leaders and executors. — done: `frontend/src/pages/{leaders,executors}` + карточки агентов/сессий.
 - Technical pages for agents, deployments, logs and settings. — done: `frontend/src/pages/{agents,deployments,logs,settings,alerts}`.
-- Screenshot manifest and evidence capture. — done: 132 файла в `docs/assets/screens/` + manifest.md (desktop 1920×1080/2560×1440 + mobile 375×812).
+- Screenshot manifest and evidence capture. — done: 82 desktop-файла в `docs/assets/screens/` + manifest.md (`1920x1080` и `2560x1440`).
 - Documentation and ADR alignment. — done: полный док-паритет с task-tracker (55 файлов), ADR + ADR_INDEX синхронизированы.
 
 Phase 1: Hermes MVP completion.

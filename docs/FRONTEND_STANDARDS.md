@@ -41,4 +41,4 @@ route-local shell variants or Fleet-local content-width classes.
 
 - [UI/UX](UI_UX.md) — route behavior and operational states.
 - [Frontend Architecture](FRONTEND_ARCHITECTURE.md) — implementation boundaries.
-- [Base UI Shell Standard](../../../../UI_SHELL_STANDARD.md) — common shell contract.
+- [Base UI Shell Standard](https://github.com/FerrPOINT/services-base/blob/main/docs/platform/UI_SHELL_STANDARD.md) — common shell contract.

@@ -72,4 +72,4 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 ## Evidence
 
 - [assets/screens/manifest.md](assets/screens/manifest.md) contains the
-  generated route-to-screenshot matrix for 128 screenshots.
+  generated desktop route-to-screenshot matrix for 82 screenshots.

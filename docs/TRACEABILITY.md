@@ -20,5 +20,5 @@
 | Deployments               | deployment job model, list/detail/create/cancel UI and API                 |
 | Logs                      | process logs, events and audit tabs                                        |
 | Operator audit            | `audit_log` writes for mutating agent/session/runtime/config/skill actions |
-| Screenshots               | generated 128-file screenshot manifest                                     |
+| Screenshots               | generated 82-file desktop screenshot manifest                              |
 | Full SDLC docs            | docs index, contracts, ADRs and pre-development gate docs                  |
