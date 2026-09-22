@@ -1,6 +1,7 @@
 import { FormEvent, type ReactNode, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Archive, Bot, Coffee, HardDrive, Plus, Rocket, ShieldAlert } from 'lucide-react'
 import {
   createAgent,
@@ -33,6 +34,7 @@ import {
   JsonBlock,
   PageHeader,
   StatusBadge,
+  formatDate,
 } from '../common'
 
 export function AgentsPage({
@@ -42,6 +44,7 @@ export function AgentsPage({
   createMode?: boolean
   defaultProductRole?: AgentProductRole
 }) {
+  const { t } = useTranslation()
   const agents = useQuery({ queryKey: ['agents'], queryFn: listAgents })
   const templates = useQuery({ queryKey: ['runtime-templates'], queryFn: listRuntimeTemplates })
   const userFilter = useSessionUserFilter()
@@ -60,95 +63,114 @@ export function AgentsPage({
   return (
     <>
       <PageHeader
-        title={createMode ? 'Create agent' : 'Agents'}
-        description="Managed Hermes and Java Agent runtimes with isolated runtime, config, workspace and logs."
+        title={createMode ? t('agents.createTitle') : t('agents.title')}
+        description={t('agents.description')}
         actions={
           !createMode ? (
             <Button asChild>
               <Link to="/agents/new">
                 <Plus className="h-4 w-4" />
-                New agent
+                {t('agents.new')}
               </Link>
             </Button>
           ) : null
         }
       />
-      {agents.isError ? <ErrorState message={agents.error.message} /> : null}
-      {createMode ? (
-        <CreateAgentPanel
-          templates={templates.data ?? []}
-          defaultProductRole={defaultProductRole}
-        />
+      {agents.isError ? (
+        <RetryState message={t('agents.loadError')} onRetry={() => void agents.refetch()} />
+      ) : null}
+      {createMode && templates.isError ? (
+        <RetryState message={t('agents.templatesError')} onRetry={() => void templates.refetch()} />
+      ) : null}
+      {createMode && templates.isPending ? (
+        <EmptyState title={t('agents.loadingTemplates')} />
+      ) : null}
+      {createMode && templates.isSuccess && templates.data.length ? (
+        <CreateAgentPanel templates={templates.data} defaultProductRole={defaultProductRole} />
+      ) : null}
+      {createMode && templates.isSuccess && !templates.data.length ? (
+        <EmptyState title={t('agents.noTemplates')} />
       ) : null}
       {!createMode ? <SessionUserFilter filter={userFilter} className="mb-4" /> : null}
+      {!createMode && sessions.isError ? (
+        <RetryState message={t('agents.sessionsError')} onRetry={() => void sessions.refetch()} />
+      ) : null}
       {!createMode ? (
         <StorageReviewPanel
           review={storageReview.data}
           isLoading={storageReview.isLoading}
-          error={storageReview.isError ? storageReview.error.message : null}
+          isError={storageReview.isError}
+          onRetry={() => void storageReview.refetch()}
         />
       ) : null}
-      <div className="mt-4 grid gap-3 xl:grid-cols-2">
-        {agents.data?.length ? (
-          agents.data.map((agent) => (
-            <Card key={agent.id}>
-              <CardContent className="pt-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <AgentIdentity agent={agent} />
-                  <Button asChild variant="outline" size="sm">
-                    <Link to={`/agents/${agent.id}`}>Open</Link>
-                  </Button>
-                </div>
-                <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
-                  <div>
-                    <dt className="text-xs text-text-muted">API port</dt>
-                    <dd className="font-medium text-text-primary">{agent.api_port ?? 'n/a'}</dd>
+      {!agents.isError ? (
+        agents.data?.length ? (
+          <div className="mt-4 divide-y divide-border rounded-md border border-border bg-surface">
+            {agents.data.map((agent) => {
+              const agentSessions = sessionsByAgent.get(agent.id) ?? []
+              return (
+                <article key={agent.id} className="p-3 sm:p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <AgentIdentity agent={agent} />
+                    <Button asChild variant="outline" size="sm" className="h-10">
+                      <Link to={`/agents/${agent.id}`}>{t('agents.open')}</Link>
+                    </Button>
                   </div>
-                  <div>
-                    <dt className="text-xs text-text-muted">Dashboard</dt>
-                    <dd className="font-medium text-text-primary">
-                      {agent.dashboard_port ?? 'n/a'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-text-muted">Workflow</dt>
-                    <dd className="font-medium text-text-primary">
-                      {agent.workflow_id ?? 'unbound'}
-                    </dd>
-                  </div>
-                </dl>
-                <div className="mt-4 rounded-md border border-border bg-background p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs font-medium uppercase text-text-muted">Sessions</p>
-                    <span className="text-xs font-medium text-text-secondary">
-                      {(sessionsByAgent.get(agent.id) ?? []).length}
-                    </span>
-                  </div>
-                  <div className="mt-3 space-y-2">
-                    {sessions.isLoading ? (
-                      <p className="text-xs text-text-muted">Loading sessions...</p>
-                    ) : (sessionsByAgent.get(agent.id) ?? []).length ? (
-                      (sessionsByAgent.get(agent.id) ?? [])
-                        .slice(0, 2)
-                        .map((session) => <SessionPreview key={session.id} session={session} />)
-                    ) : (
-                      <p className="text-xs text-text-muted">
-                        {userFilter.selectedUserIds.length
-                          ? 'No sessions for selected users'
-                          : 'No sessions yet'}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        ) : (
-          <div className="xl:col-span-2">
-            <EmptyState title={agents.isLoading ? 'Loading agents...' : 'No agents yet'} />
+                  <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-2 border-t border-border pt-3 text-sm">
+                    <div className="min-w-24">
+                      <dt className="text-xs text-text-muted">{t('agents.apiPort')}</dt>
+                      <dd className="font-medium text-text-primary">
+                        {agent.api_port ?? t('agents.notAvailable')}
+                      </dd>
+                    </div>
+                    <div className="min-w-24">
+                      <dt className="text-xs text-text-muted">{t('agents.dashboard')}</dt>
+                      <dd className="font-medium text-text-primary">
+                        {agent.dashboard_port ?? t('agents.notAvailable')}
+                      </dd>
+                    </div>
+                    <div className="min-w-0 flex-1 basis-40">
+                      <dt className="text-xs text-text-muted">{t('agents.workflow')}</dt>
+                      <dd className="truncate font-medium text-text-primary">
+                        {agent.workflow_id ?? t('agents.unbound')}
+                      </dd>
+                    </div>
+                  </dl>
+                  <section className="mt-3 border-t border-border pt-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="text-xs font-medium uppercase text-text-muted">
+                        {t('agents.sessions')}
+                      </h3>
+                      <span className="text-xs font-medium text-text-secondary">
+                        {agentSessions.length}
+                      </span>
+                    </div>
+                    <div className="mt-2 space-y-2">
+                      {sessions.isLoading ? (
+                        <p className="text-xs text-text-muted">{t('agents.loadingSessions')}</p>
+                      ) : sessions.isError ? (
+                        <p className="text-xs text-text-muted">{t('agents.sessionsUnavailable')}</p>
+                      ) : agentSessions.length ? (
+                        agentSessions
+                          .slice(0, 2)
+                          .map((session) => <SessionPreview key={session.id} session={session} />)
+                      ) : (
+                        <p className="text-xs text-text-muted">
+                          {userFilter.selectedUserIds.length
+                            ? t('agents.noFilteredSessions')
+                            : t('agents.noSessions')}
+                        </p>
+                      )}
+                    </div>
+                  </section>
+                </article>
+              )
+            })}
           </div>
-        )}
-      </div>
+        ) : (
+          <EmptyState title={agents.isLoading ? t('agents.loading') : t('agents.empty')} />
+        )
+      ) : null}
     </>
   )
 }
@@ -156,12 +178,15 @@ export function AgentsPage({
 function StorageReviewPanel({
   review,
   isLoading,
-  error,
+  isError,
+  onRetry,
 }: {
   review?: AgentStorageReview
   isLoading: boolean
-  error: string | null
+  isError: boolean
+  onRetry: () => void
 }) {
+  const { t, i18n } = useTranslation()
   const candidates = review?.items.filter((item) => item.purge_eligible) ?? []
   const issues =
     review?.items.filter(
@@ -169,47 +194,59 @@ function StorageReviewPanel({
     ) ?? []
 
   return (
-    <Card className="mb-4">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <HardDrive className="h-4 w-4" />
-          Storage review
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {error ? <ErrorState message={error} /> : null}
-        {isLoading ? <p className="text-sm text-text-muted">Reviewing managed folders...</p> : null}
-        {review ? (
-          <>
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-              <StorageMetric label="Managed size" value={formatBytes(review.total_bytes)} />
-              <StorageMetric label="Archived size" value={formatBytes(review.archived_bytes)} />
-              <StorageMetric label="Agents" value={String(review.total_agents)} />
-              <StorageMetric label="Purge ready" value={String(review.purge_eligible_agents)} />
-              <StorageMetric
-                label="Folder issues"
-                value={String(review.marker_issue_agents + review.missing_root_agents)}
-              />
-            </div>
-            <div className="grid gap-3 xl:grid-cols-2">
-              <StorageList
-                icon={<Archive className="h-4 w-4" />}
-                title="Purge candidates"
-                empty="No archived agents are ready for physical purge"
-                items={candidates}
-              />
-              <StorageList
-                icon={<ShieldAlert className="h-4 w-4" />}
-                title="Marker and folder issues"
-                empty="All managed folders have matching markers"
-                items={issues}
-              />
-            </div>
-            <p className="text-xs text-text-muted">Reviewed at {review.reviewed_at}</p>
-          </>
-        ) : null}
-      </CardContent>
-    </Card>
+    <section className="mb-4 space-y-4 border-y border-border py-4" aria-labelledby="storage-title">
+      <h2
+        id="storage-title"
+        className="flex items-center gap-2 text-base font-semibold text-text-primary"
+      >
+        <HardDrive className="h-4 w-4" />
+        {t('agents.storageTitle')}
+      </h2>
+      {isError ? <RetryState message={t('agents.storageError')} onRetry={onRetry} /> : null}
+      {isLoading ? <p className="text-sm text-text-muted">{t('agents.reviewingStorage')}</p> : null}
+      {review ? (
+        <>
+          <div className="grid grid-cols-2 gap-2 xl:grid-cols-5">
+            <StorageMetric
+              label={t('agents.managedSize')}
+              value={formatBytes(review.total_bytes)}
+            />
+            <StorageMetric
+              label={t('agents.archivedSize')}
+              value={formatBytes(review.archived_bytes)}
+            />
+            <StorageMetric label={t('agents.totalAgents')} value={String(review.total_agents)} />
+            <StorageMetric
+              label={t('agents.purgeReady')}
+              value={String(review.purge_eligible_agents)}
+            />
+            <StorageMetric
+              label={t('agents.folderIssues')}
+              value={String(review.marker_issue_agents + review.missing_root_agents)}
+            />
+          </div>
+          <div className="grid gap-3 xl:grid-cols-2">
+            <StorageList
+              icon={<Archive className="h-4 w-4" />}
+              title={t('agents.purgeCandidates')}
+              empty={t('agents.noPurgeCandidates')}
+              items={candidates}
+            />
+            <StorageList
+              icon={<ShieldAlert className="h-4 w-4" />}
+              title={t('agents.storageIssues')}
+              empty={t('agents.noStorageIssues')}
+              items={issues}
+            />
+          </div>
+          <p className="text-xs text-text-muted">
+            {t('agents.reviewedAt', {
+              date: formatDate(review.reviewed_at, i18n.resolvedLanguage),
+            })}
+          </p>
+        </>
+      ) : null}
+    </section>
   )
 }
 
@@ -233,6 +270,20 @@ function StorageList({
   empty: string
   items: AgentStorageReviewItem[]
 }) {
+  const { t } = useTranslation()
+
+  function localizeRetentionHint(hint: string) {
+    const staleDays = hint.match(/archived agent is stale \(over (\d+) days\)/)?.[1]
+    if (staleDays) return t('agents.retentionStale', { days: staleDays })
+    const key = {
+      'agent folder is already absent': 'agents.retentionAbsent',
+      'folder marker must match this agent before purge is allowed': 'agents.retentionMarker',
+      'archived agent files can be purged explicitly by an operator': 'agents.retentionArchived',
+      'archive the agent before physical purge': 'agents.retentionActive',
+    }[hint]
+    return key ? t(key) : hint
+  }
+
   return (
     <div className="rounded-md border border-border bg-background p-3">
       <div className="flex items-center gap-2 text-sm font-medium text-text-primary">
@@ -252,7 +303,8 @@ function StorageList({
                 <StatusBadge value={item.status} />
               </div>
               <p className="mt-1 text-xs text-text-muted">
-                {item.agent_name} - {formatBytes(item.total_bytes)} - {item.retention_hint}
+                {item.agent_name} - {formatBytes(item.total_bytes)} -{' '}
+                {localizeRetentionHint(item.retention_hint)}
               </p>
             </Link>
           ))
@@ -260,6 +312,18 @@ function StorageList({
           <p className="text-sm text-text-muted">{empty}</p>
         )}
       </div>
+    </div>
+  )
+}
+
+function RetryState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const { t } = useTranslation()
+  return (
+    <div className="space-y-2">
+      <ErrorState message={message} />
+      <Button type="button" variant="outline" className="h-10" onClick={onRetry}>
+        {t('agents.retry')}
+      </Button>
     </div>
   )
 }
@@ -288,6 +352,7 @@ function groupSessionsByAgent(sessions: AgentSession[]) {
 }
 
 function SessionPreview({ session }: { session: AgentSession }) {
+  const { t } = useTranslation()
   return (
     <Link
       to={`/sessions/${session.id}`}
@@ -299,8 +364,8 @@ function SessionPreview({ session }: { session: AgentSession }) {
           {session.title}
         </span>
         <span className="block truncate text-xs text-text-muted">
-          {session.user_display_name} - {session.leader_agent_name ?? 'private'} -{' '}
-          {session.task_key ?? 'No task key'}
+          {session.user_display_name} - {session.leader_agent_name ?? t('agents.privateSession')} -{' '}
+          {session.task_key ?? t('agents.noTaskKey')}
         </span>
       </span>
     </Link>
@@ -314,6 +379,7 @@ function CreateAgentPanel({
   templates: Awaited<ReturnType<typeof listRuntimeTemplates>>
   defaultProductRole: AgentProductRole
 }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const executors = useQuery({ queryKey: ['executors'], queryFn: listExecutors })
@@ -438,150 +504,168 @@ function CreateAgentPanel({
   return (
     <Card className="mb-5">
       <CardHeader>
-        <CardTitle>Provision wizard</CardTitle>
+        <CardTitle>{t('agents.provisionWizard')}</CardTitle>
       </CardHeader>
       <CardContent>
-        <form className="grid gap-4 xl:grid-cols-[1fr_1.2fr]" onSubmit={submit}>
-          <div className="grid gap-3">
-            {templates.map((template) => (
-              <button
-                type="button"
-                key={template.kind}
-                onClick={() => selectKind(template.kind)}
-                className={`rounded-md border p-4 text-left transition-colors ${
-                  kind === template.kind
-                    ? 'border-accent bg-accent/10'
-                    : 'border-border bg-background hover:bg-surface-raised'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    {template.kind === 'hermes' ? (
-                      <Bot className="h-4 w-4" />
-                    ) : (
-                      <Coffee className="h-4 w-4" />
-                    )}
-                    <span className="font-medium text-text-primary">{template.display_name}</span>
+        <form
+          className="grid gap-4 xl:grid-cols-[1fr_1.2fr]"
+          onSubmit={submit}
+          aria-busy={mutation.isPending}
+        >
+          <fieldset className="contents" disabled={mutation.isPending}>
+            <div className="grid gap-3">
+              {templates.map((template) => (
+                <button
+                  type="button"
+                  key={template.kind}
+                  onClick={() => selectKind(template.kind)}
+                  className={`rounded-md border p-4 text-left transition-colors ${
+                    kind === template.kind
+                      ? 'border-accent bg-accent/10'
+                      : 'border-border bg-background hover:bg-surface-raised'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      {template.kind === 'hermes' ? (
+                        <Bot className="h-4 w-4" />
+                      ) : (
+                        <Coffee className="h-4 w-4" />
+                      )}
+                      <span className="font-medium text-text-primary">{template.display_name}</span>
+                    </div>
+                    <StatusBadge value={template.implemented ? 'implemented' : 'planned'} />
                   </div>
-                  <StatusBadge value={template.implemented ? 'implemented' : 'planned'} />
-                </div>
-                <p className="mt-2 text-sm text-text-muted">{template.description}</p>
-              </button>
-            ))}
-            <JsonBlock value={selectedTemplate?.capabilities ?? {}} />
-          </div>
+                  <p className="mt-2 text-sm text-text-muted">{template.description}</p>
+                </button>
+              ))}
+              <JsonBlock value={selectedTemplate?.capabilities ?? {}} />
+            </div>
 
-          <div className="grid gap-3">
-            <div className="grid gap-2">
-              <Label htmlFor="product-role">Product role</Label>
-              <select
-                id="product-role"
-                value={productRole}
-                onChange={(event) => handleProductRole(event.target.value as AgentProductRole)}
-                className="h-9 rounded-md border border-border bg-background px-3 text-sm"
-              >
-                <option value="executor">Executor</option>
-                <option value="leader">Leader</option>
-              </select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="role">Profile</Label>
-              <select
-                id="role"
-                value={role}
-                onChange={(event) => handleRole(event.target.value as AgentRole)}
-                className="h-9 rounded-md border border-border bg-background px-3 text-sm"
-              >
-                <option value="developer">Developer</option>
-                <option value="tester">Tester</option>
-                <option value="it_lead">IT lead</option>
-                <option value="custom">Custom</option>
-              </select>
-            </div>
-            {productRole === 'leader' ? (
+            <div className="grid gap-3">
               <div className="grid gap-2">
-                <Label>Managed executors</Label>
-                <div className="grid gap-2 rounded-md border border-border bg-background p-3">
-                  {executors.data?.length ? (
-                    executors.data.map((executor) => (
-                      <label key={executor.id} className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={executorIds.includes(executor.id)}
-                          onChange={() => toggleExecutor(executor.id)}
-                        />
-                        <span className="min-w-0 truncate">
-                          {executor.display_name} - {executor.name}
-                        </span>
-                      </label>
-                    ))
-                  ) : (
-                    <p className="text-sm text-text-muted">
-                      {executors.isLoading ? 'Loading executors...' : 'No executors yet'}
-                    </p>
-                  )}
+                <Label htmlFor="product-role">{t('agents.productRole')}</Label>
+                <select
+                  id="product-role"
+                  value={productRole}
+                  onChange={(event) => handleProductRole(event.target.value as AgentProductRole)}
+                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                >
+                  <option value="executor">{t('agents.executor')}</option>
+                  <option value="leader">{t('agents.leader')}</option>
+                </select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="role">{t('agents.profile')}</Label>
+                <select
+                  id="role"
+                  value={role}
+                  onChange={(event) => handleRole(event.target.value as AgentRole)}
+                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                >
+                  <option value="developer">{t('agents.developer')}</option>
+                  <option value="tester">{t('agents.tester')}</option>
+                  <option value="it_lead">{t('agents.itLead')}</option>
+                  <option value="custom">{t('agents.custom')}</option>
+                </select>
+              </div>
+              {productRole === 'leader' ? (
+                <div className="grid gap-2">
+                  <Label>{t('agents.managedExecutors')}</Label>
+                  <div className="grid gap-2 rounded-md border border-border bg-background p-3">
+                    {executors.isError ? (
+                      <RetryState
+                        message={t('agents.executorsError')}
+                        onRetry={() => void executors.refetch()}
+                      />
+                    ) : executors.data?.length ? (
+                      executors.data.map((executor) => (
+                        <label
+                          key={executor.id}
+                          className="flex min-h-10 items-center gap-2 text-sm"
+                        >
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4"
+                            checked={executorIds.includes(executor.id)}
+                            onChange={() => toggleExecutor(executor.id)}
+                          />
+                          <span className="min-w-0 truncate">
+                            {executor.display_name} - {executor.name}
+                          </span>
+                        </label>
+                      ))
+                    ) : (
+                      <p className="text-sm text-text-muted">
+                        {executors.isLoading
+                          ? t('agents.loadingExecutors')
+                          : t('agents.noExecutors')}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+              <div className="grid gap-2">
+                <Label htmlFor="display-name">{t('agents.displayName')}</Label>
+                <Input
+                  id="display-name"
+                  value={displayName}
+                  onChange={(event) => setDisplayName(event.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="description">{t('agents.details')}</Label>
+                <Textarea
+                  id="description"
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                />
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="namespace-id">{t('agents.namespaceId')}</Label>
+                  <Input
+                    id="namespace-id"
+                    value={namespaceId}
+                    onChange={(event) => setNamespaceId(event.target.value)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="namespace-name">{t('agents.namespaceName')}</Label>
+                  <Input
+                    id="namespace-name"
+                    value={namespaceName}
+                    onChange={(event) => setNamespaceName(event.target.value)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="workflow-id">{t('agents.workflowId')}</Label>
+                  <Input
+                    id="workflow-id"
+                    value={workflowId}
+                    onChange={(event) => setWorkflowId(event.target.value)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="workflow-name">{t('agents.workflowName')}</Label>
+                  <Input
+                    id="workflow-name"
+                    value={workflowName}
+                    onChange={(event) => setWorkflowName(event.target.value)}
+                  />
                 </div>
               </div>
-            ) : null}
-            <div className="grid gap-2">
-              <Label htmlFor="display-name">Display name</Label>
-              <Input
-                id="display-name"
-                value={displayName}
-                onChange={(event) => setDisplayName(event.target.value)}
-              />
+              {mutation.isError ? <ErrorState message={t('agents.createError')} /> : null}
+              <Button
+                type="submit"
+                disabled={mutation.isPending || selectedTemplate?.implemented === false}
+                aria-busy={mutation.isPending}
+              >
+                <Rocket className="h-4 w-4" />
+                {mutation.isPending ? t('agents.creating') : t('agents.create')}
+              </Button>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-              />
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="grid gap-2">
-                <Label htmlFor="namespace-id">Namespace ID</Label>
-                <Input
-                  id="namespace-id"
-                  value={namespaceId}
-                  onChange={(event) => setNamespaceId(event.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="namespace-name">Namespace name</Label>
-                <Input
-                  id="namespace-name"
-                  value={namespaceName}
-                  onChange={(event) => setNamespaceName(event.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="workflow-id">Workflow ID</Label>
-                <Input
-                  id="workflow-id"
-                  value={workflowId}
-                  onChange={(event) => setWorkflowId(event.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="workflow-name">Workflow name</Label>
-                <Input
-                  id="workflow-name"
-                  value={workflowName}
-                  onChange={(event) => setWorkflowName(event.target.value)}
-                />
-              </div>
-            </div>
-            {mutation.isError ? <ErrorState message={mutation.error.message} /> : null}
-            <Button
-              type="submit"
-              disabled={mutation.isPending || selectedTemplate?.implemented === false}
-            >
-              <Rocket className="h-4 w-4" />
-              Create agent
-            </Button>
-          </div>
+          </fieldset>
         </form>
       </CardContent>
     </Card>
