@@ -157,9 +157,9 @@ export function AgentIdentity({ agent }: { agent: Agent }) {
   )
 }
 
-export function formatDate(value: string | null | undefined) {
+export function formatDate(value: string | null | undefined, locale?: string) {
   if (!value) return 'never'
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value))
