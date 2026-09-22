@@ -124,21 +124,25 @@ Runtime:
 
 Settings:
 
-- `GET/PUT /settings/runtime`
-- `GET/PUT /settings/ports`
-- `GET/PUT /settings/integrations`
-- `GET/PUT /settings/auth`
+- `GET /settings/runtime` — эффективные startup-пути, источники и команды.
+- `GET /settings/ports` — эффективные startup-порты backend и агентов;
+  frontend port остаётся справочным внутренним значением deployment.
+- `GET /settings/integrations` — эффективное подключение Project Workflow из
+  startup-конфигурации.
+- `GET /settings/auth` — эффективная legacy auth/cookie policy; в платформенном
+  режиме human auth принадлежит Central Auth.
+- Legacy `PUT` для этих четырёх endpoint сохранён для совместимости как
+  idempotent no-op: точное совпадение с effective snapshot возвращает `200`,
+  а попытка изменить значение — `409 Conflict`. Runtime-конфигурация через
+  Fleet API не изменяется.
 
 - `POST /deployments/jobs/bulk` — bulk runtime updates/rollback (Phase 3): один job на агента из `agent_ids` (≤100), archived/unknown пропускаются и считаются в `skipped`; `rollback: true` допустим только для `runtime_update` (помечает jobs и добавляет `detail.rollback`).
 - `POST /settings/retention/review` — запустить проход stale-folder review сейчас (operator, audited): возвращает `stale_agent_ids` archived-агентов старше `fleet.retention.stale_archived_days`, порог и время прохода
 
-Auth settings expose legacy `mode`, `jwt_issuer`, `jwt_audience`, token TTLs and
-refresh-cookie policy. В платформенном стенде фактический human auth задаётся
-Central Auth env-конфигурацией и общим `sdlc-auth-core`.
-
-Эти `PUT` сохраняют запись параметров для чтения через `GET`, но не изменяют
-активную конфигурацию запущенного процесса. Runtime, порты и cookie-policy
-используют параметры запуска; платформенный вход управляется Central Auth.
+Сохранённые ранее строки `control_settings` не считаются активной
+конфигурацией и не подменяют значения запуска. Параметры меняются в
+deployment/env-конфигурации с последующим restart/redeploy; пользователи и
+платформенный вход управляются Central Auth.
 
 The frontend build regenerates TypeScript types from `openapi/openapi.json`.
 The OpenAPI JSON is regenerated from Rust source before release. Native Windows

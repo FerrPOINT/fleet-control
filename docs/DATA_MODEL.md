@@ -30,8 +30,10 @@ Tables:
   records for that run.
 - `deployment_jobs`: provision/runtime update job queue and operator-visible
   lifecycle state.
-- `control_settings`: typed JSON settings for runtime roots, ports,
-  integrations and auth.
+- `control_settings`: legacy typed JSON rows for runtime roots, ports,
+  integrations and auth. They are retained for migration compatibility but
+  are not an active configuration source; `GET /settings/*` reads startup
+  configuration.
 - `workflow_bindings`: per-agent namespace/workflow link. `binding_status` is computed from the live Project Workflow catalog: `connected` for an exact ID/name match, `stale` for a removed or renamed persisted selection, and `unbound` when no selection exists.
 - `agent_events`: audit-friendly event stream for UI invalidation.
 - `agent_logs`: bounded process/runtime log records.
@@ -67,9 +69,9 @@ Important constraints:
   supplied.
 - `session_agent_runs` tracks each runtime participant independently.
 - `workflow_bindings` is unique by `agent_id`.
-- `control_settings.auth` stores `mode`, `jwt_issuer`, `jwt_audience`, token
-  TTLs and refresh-cookie policy; saved rows missing the new claim fields load
-  with HMAC defaults for backward compatibility.
+- Historical `control_settings.auth` rows may contain `mode`, `jwt_issuer`,
+  `jwt_audience`, token TTLs and refresh-cookie policy, but are ignored by the
+  effective settings API and runtime.
 - runtime kind, role, status, desired state, skill state and session state are
   checked text values.
 

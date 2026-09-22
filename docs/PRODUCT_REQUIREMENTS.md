@@ -23,8 +23,9 @@ coordinate executor task sessions directly or through leader agents.
 - Keep human-created executor chats private by default.
 - Make session and message creation idempotent.
 - Store Fleet transcript mirror messages and per-agent runtime run links.
-- Track deployment/provision jobs and editable runtime/auth/integration
-  settings.
+- Track deployment/provision jobs and expose the effective startup
+  runtime/auth/integration configuration without pretending to apply runtime
+  changes from the Fleet UI.
 - Materialize guarded folders under the configured agents root.
 - Expose operator UI for all management surfaces.
 
@@ -48,6 +49,7 @@ coordinate executor task sessions directly or through leader agents.
 - Replaying the same session/message idempotency key returns the previous result
   without duplicate runtime writes; a changed payload returns `409`.
 - `/deployments` exposes job create/detail/cancel states.
-- `/settings` exposes runtime roots, ports, integrations, auth and users/RBAC.
+- `/settings` exposes read-only effective runtime roots, ports, integrations
+  and legacy auth policy; user/RBAC changes are handed off to Admin Panel.
 - Screenshot manifest covers all required page groups at all required
   viewports.

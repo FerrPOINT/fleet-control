@@ -16,7 +16,7 @@
 | Leader delegation         | `/sessions/{id}/delegations`, parent/child sessions, managed executor check |
 | Agent switching/handoff   | session handoff API, participants and runtime runs                         |
 | Idempotency               | session/message idempotency keys, payload hashes and conflict handling      |
-| Settings                  | `/settings/runtime`, `/ports`, `/integrations`, `/auth`, users/RBAC UI      |
+| Settings                  | Read-only effective `/settings/runtime`, `/ports`, `/integrations`, `/auth`; users handoff |
 | Deployments               | deployment job model, list/detail/create/cancel UI and API                 |
 | Logs                      | process logs, events and audit tabs                                        |
 | Operator audit            | `audit_log` writes for mutating agent/session/runtime/config/skill actions |

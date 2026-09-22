@@ -1,0 +1,678 @@
+{
+  "ok": true,
+  "matrix": [
+    {
+      "tab": "runtime",
+      "theme": "light",
+      "width": 375,
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "runtime",
+      "theme": "light",
+      "width": 1280,
+      "viewportWidth": 1280,
+      "documentWidth": 1280,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "ports",
+      "theme": "light",
+      "width": 375,
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "ports",
+      "theme": "light",
+      "width": 1280,
+      "viewportWidth": 1280,
+      "documentWidth": 1280,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "integrations",
+      "theme": "light",
+      "width": 375,
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "integrations",
+      "theme": "light",
+      "width": 1280,
+      "viewportWidth": 1280,
+      "documentWidth": 1280,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "auth",
+      "theme": "light",
+      "width": 375,
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "auth",
+      "theme": "light",
+      "width": 1280,
+      "viewportWidth": 1280,
+      "documentWidth": 1280,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "users",
+      "theme": "light",
+      "width": 375,
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "forms": 0,
+      "readOnlyBadges": 0,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "users",
+      "theme": "light",
+      "width": 1280,
+      "viewportWidth": 1280,
+      "documentWidth": 1280,
+      "forms": 0,
+      "readOnlyBadges": 0,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "runtime",
+      "theme": "light",
+      "width": 768,
+      "viewportWidth": 768,
+      "documentWidth": 768,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "runtime",
+      "theme": "light",
+      "width": 1920,
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "runtime",
+      "theme": "light",
+      "width": 2560,
+      "viewportWidth": 2560,
+      "documentWidth": 2560,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "runtime",
+      "theme": "gray",
+      "width": 375,
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "runtime",
+      "theme": "gray",
+      "width": 1280,
+      "viewportWidth": 1280,
+      "documentWidth": 1280,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "ports",
+      "theme": "gray",
+      "width": 375,
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "ports",
+      "theme": "gray",
+      "width": 1280,
+      "viewportWidth": 1280,
+      "documentWidth": 1280,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "integrations",
+      "theme": "gray",
+      "width": 375,
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "integrations",
+      "theme": "gray",
+      "width": 1280,
+      "viewportWidth": 1280,
+      "documentWidth": 1280,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "auth",
+      "theme": "gray",
+      "width": 375,
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "auth",
+      "theme": "gray",
+      "width": 1280,
+      "viewportWidth": 1280,
+      "documentWidth": 1280,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "users",
+      "theme": "gray",
+      "width": 375,
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "forms": 0,
+      "readOnlyBadges": 0,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "users",
+      "theme": "gray",
+      "width": 1280,
+      "viewportWidth": 1280,
+      "documentWidth": 1280,
+      "forms": 0,
+      "readOnlyBadges": 0,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "runtime",
+      "theme": "gray",
+      "width": 768,
+      "viewportWidth": 768,
+      "documentWidth": 768,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "runtime",
+      "theme": "gray",
+      "width": 1920,
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "runtime",
+      "theme": "gray",
+      "width": 2560,
+      "viewportWidth": 2560,
+      "documentWidth": 2560,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "runtime",
+      "theme": "dark",
+      "width": 375,
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "runtime",
+      "theme": "dark",
+      "width": 1280,
+      "viewportWidth": 1280,
+      "documentWidth": 1280,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "ports",
+      "theme": "dark",
+      "width": 375,
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "ports",
+      "theme": "dark",
+      "width": 1280,
+      "viewportWidth": 1280,
+      "documentWidth": 1280,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "integrations",
+      "theme": "dark",
+      "width": 375,
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "integrations",
+      "theme": "dark",
+      "width": 1280,
+      "viewportWidth": 1280,
+      "documentWidth": 1280,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "auth",
+      "theme": "dark",
+      "width": 375,
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "auth",
+      "theme": "dark",
+      "width": 1280,
+      "viewportWidth": 1280,
+      "documentWidth": 1280,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "users",
+      "theme": "dark",
+      "width": 375,
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "forms": 0,
+      "readOnlyBadges": 0,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "users",
+      "theme": "dark",
+      "width": 1280,
+      "viewportWidth": 1280,
+      "documentWidth": 1280,
+      "forms": 0,
+      "readOnlyBadges": 0,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "runtime",
+      "theme": "dark",
+      "width": 768,
+      "viewportWidth": 768,
+      "documentWidth": 768,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "runtime",
+      "theme": "dark",
+      "width": 1920,
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    },
+    {
+      "tab": "runtime",
+      "theme": "dark",
+      "width": 2560,
+      "viewportWidth": 2560,
+      "documentWidth": 2560,
+      "forms": 0,
+      "readOnlyBadges": 1,
+      "saveButtons": 0,
+      "userRows": 0,
+      "smallTargets": [],
+      "unnamedControls": [],
+      "seriousOrCriticalAxeViolations": []
+    }
+  ],
+  "interactions": [
+    {
+      "name": "initial-error-retry",
+      "expectedStatus": 503,
+      "recovered": true
+    },
+    {
+      "name": "users-search-pagination",
+      "total": 17,
+      "pageTwo": 5,
+      "directUrlPersisted": true
+    }
+  ],
+  "reads": [
+    {
+      "name": "runtime",
+      "method": "GET"
+    },
+    {
+      "name": "runtime",
+      "method": "GET"
+    },
+    {
+      "name": "runtime",
+      "method": "GET"
+    },
+    {
+      "name": "runtime",
+      "method": "GET"
+    },
+    {
+      "name": "runtime",
+      "method": "GET"
+    },
+    {
+      "name": "runtime",
+      "method": "GET"
+    },
+    {
+      "name": "ports",
+      "method": "GET"
+    },
+    {
+      "name": "integrations",
+      "method": "GET"
+    },
+    {
+      "name": "auth",
+      "method": "GET"
+    },
+    {
+      "name": "users",
+      "method": "GET"
+    },
+    {
+      "name": "runtime",
+      "method": "GET"
+    },
+    {
+      "name": "ports",
+      "method": "GET"
+    },
+    {
+      "name": "integrations",
+      "method": "GET"
+    },
+    {
+      "name": "auth",
+      "method": "GET"
+    },
+    {
+      "name": "users",
+      "method": "GET"
+    },
+    {
+      "name": "runtime",
+      "method": "GET"
+    },
+    {
+      "name": "ports",
+      "method": "GET"
+    },
+    {
+      "name": "integrations",
+      "method": "GET"
+    },
+    {
+      "name": "auth",
+      "method": "GET"
+    },
+    {
+      "name": "users",
+      "method": "GET"
+    },
+    {
+      "name": "runtime",
+      "method": "GET"
+    },
+    {
+      "name": "users",
+      "method": "GET"
+    }
+  ],
+  "expectedFailures": [
+    {
+      "status": 503,
+      "pathname": "/api/v1/settings/runtime"
+    },
+    {
+      "status": 503,
+      "pathname": "/api/v1/settings/runtime"
+    },
+    {
+      "status": 503,
+      "pathname": "/api/v1/settings/runtime"
+    },
+    {
+      "status": 503,
+      "pathname": "/api/v1/settings/runtime"
+    },
+    {
+      "status": 503,
+      "pathname": "/api/v1/settings/runtime"
+    }
+  ],
+  "unexpectedErrors": [],
+  "mutations": []
+}
