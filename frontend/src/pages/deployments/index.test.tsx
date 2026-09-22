@@ -178,16 +178,39 @@ describe('DeploymentsPage', () => {
       .mockResolvedValueOnce(cancelledJob)
     renderPage()
 
-    const cancel = await screen.findByRole('button', { name: 'Отменить' })
+    const cancel = await screen.findByRole('button', {
+      name: 'Отменить задание «Prepare Dev One»',
+    })
     fireEvent.click(cancel)
+    const dialog = screen.getByRole('alertdialog')
+    expect(dialog).toBeVisible()
+    expect(within(dialog).getByRole('heading', { name: 'Отменить задание?' })).toBeVisible()
+    expect(within(dialog).getByText(/Prepare Dev One/)).toBeVisible()
+    expect(fleet.cancelDeploymentJob).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Отменить задание' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось отменить задание')
     expect(screen.getByText('Prepare Dev One')).toBeVisible()
 
-    fireEvent.click(cancel)
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить отмену' }))
     await waitFor(() =>
       expect(toast.success).toHaveBeenCalledWith('Задание «Prepare Dev One» отменено'),
     )
     expect(fleet.cancelDeploymentJob).toHaveBeenCalledTimes(2)
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+  })
+
+  it('leaves a deployment job untouched when cancellation is dismissed', async () => {
+    renderPage()
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Отменить задание «Prepare Dev One»' }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Не отменять' }))
+
+    expect(fleet.cancelDeploymentJob).not.toHaveBeenCalled()
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(screen.getByText('Prepare Dev One')).toBeVisible()
   })
 
   it('loads a requested job detail and exposes technical data on a direct URL', async () => {

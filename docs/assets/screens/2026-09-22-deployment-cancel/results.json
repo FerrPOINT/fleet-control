@@ -1,0 +1,62 @@
+{
+  "samples": [
+    {
+      "state": "confirm",
+      "width": 375,
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "confirm",
+      "width": 1920,
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "confirm",
+      "width": 2560,
+      "viewportWidth": 2560,
+      "documentWidth": 2560,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "error",
+      "width": 375,
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "error",
+      "width": 1920,
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "recovered",
+      "width": 375,
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "smallTouchTargets": [],
+      "axe": []
+    }
+  ],
+  "escapedWithoutMutation": true,
+  "pendingDisabled": true,
+  "cancelAttempts": 2,
+  "writes": [
+    "POST /api/v1/deployments/jobs/00000000-0000-4000-8000-00000000d001/cancel",
+    "POST /api/v1/deployments/jobs/00000000-0000-4000-8000-00000000d001/cancel"
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "unexpectedHttpErrors": []
+}
