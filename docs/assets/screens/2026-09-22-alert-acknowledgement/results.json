@@ -1,0 +1,134 @@
+{
+  "samples": [
+    {
+      "state": "list",
+      "width": 375,
+      "theme": "light",
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "list",
+      "width": 375,
+      "theme": "gray",
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "list",
+      "width": 375,
+      "theme": "dark",
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "list",
+      "width": 1920,
+      "theme": "light",
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "list",
+      "width": 1920,
+      "theme": "gray",
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "list",
+      "width": 1920,
+      "theme": "dark",
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "list",
+      "width": 2560,
+      "theme": "light",
+      "viewportWidth": 2560,
+      "documentWidth": 2560,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "list",
+      "width": 2560,
+      "theme": "gray",
+      "viewportWidth": 2560,
+      "documentWidth": 2560,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "list",
+      "width": 2560,
+      "theme": "dark",
+      "viewportWidth": 2560,
+      "documentWidth": 2560,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "error",
+      "width": 375,
+      "theme": "dark",
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "error",
+      "width": 1920,
+      "theme": "light",
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "recovered",
+      "width": 375,
+      "theme": "gray",
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "recovered",
+      "width": 2560,
+      "theme": "dark",
+      "viewportWidth": 2560,
+      "documentWidth": 2560,
+      "smallTouchTargets": [],
+      "axe": []
+    }
+  ],
+  "uniqueActionNames": true,
+  "pendingDisabled": true,
+  "rowRetainedAfterError": true,
+  "firstActionRemoved": true,
+  "secondActionRetained": true,
+  "acknowledgeAttempts": 2,
+  "writes": [
+    "POST /api/v1/fleet-alerts/00000000-0000-4000-8000-00000000a101/acknowledge",
+    "POST /api/v1/fleet-alerts/00000000-0000-4000-8000-00000000a101/acknowledge"
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "unexpectedHttpErrors": []
+}

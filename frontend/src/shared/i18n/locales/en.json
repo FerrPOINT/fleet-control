@@ -527,6 +527,7 @@
     "resolvedAt": "Resolved",
     "details": "Technical details",
     "acknowledge": "Acknowledge",
+    "acknowledgeAlert": "Acknowledge alert “{{title}}”",
     "acknowledging": "Acknowledging...",
     "acknowledgedSuccess": "Alert acknowledged",
     "acknowledgeError": "Could not acknowledge the alert.",

@@ -169,6 +169,7 @@ function AlertRow({
   })
   const severityClass = severityTone[alert.severity] ?? 'border-border bg-surface-raised'
   const alertStateClass = stateTone[alert.state] ?? 'border-border bg-surface-raised'
+  const alertTitle = t(`alerts.kinds.${alert.kind}`, { defaultValue: labelize(alert.kind) })
 
   return (
     <li className="min-w-0 py-3" aria-busy={acknowledge.isPending}>
@@ -188,9 +189,7 @@ function AlertRow({
               {t(`alerts.states.${alert.state}`, { defaultValue: labelize(alert.state) })}
             </span>
           </div>
-          <h3 className="mt-2 font-medium text-text-primary">
-            {t(`alerts.kinds.${alert.kind}`, { defaultValue: labelize(alert.kind) })}
-          </h3>
+          <h3 className="mt-2 font-medium text-text-primary">{alertTitle}</h3>
           <p className="mt-1 text-sm text-text-secondary">
             {agent
               ? `${agent.display_name} · ${agent.name}`
@@ -226,6 +225,7 @@ function AlertRow({
             type="button"
             className="h-10 w-full lg:w-auto"
             variant="outline"
+            aria-label={t('alerts.acknowledgeAlert', { title: alertTitle })}
             disabled={acknowledge.isPending}
             onClick={() => acknowledge.mutate()}
           >

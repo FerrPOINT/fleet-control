@@ -97,7 +97,11 @@ describe('AlertsPage', () => {
 
     fireEvent.click(screen.getAllByText('Технические данные')[0]!)
     expect(screen.getByText(/"previous": "running"/)).toBeVisible()
-    expect(screen.getAllByRole('button', { name: 'Подтвердить' })).toHaveLength(1)
+    expect(
+      screen.getByRole('button', {
+        name: 'Подтвердить получение оповещения «Агент недоступен»',
+      }),
+    ).toBeVisible()
   })
 
   it('keeps the state filter in the URL-backed query', async () => {
@@ -134,15 +138,19 @@ describe('AlertsPage', () => {
       })
     renderPage()
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Подтвердить' }))
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Подтвердить получение оповещения «Агент недоступен»',
+      }),
+    )
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Не удалось подтвердить оповещение')
+    expect(alert).toHaveTextContent('Не удалось подтвердить получение оповещения')
     expect(screen.getByRole('heading', { name: 'Агент недоступен' })).toBeVisible()
 
     fireEvent.click(screen.getByRole('button', { name: 'Повторить подтверждение' }))
     await waitFor(() => expect(fleet.acknowledgeFleetAlert).toHaveBeenCalledTimes(2))
     expect(fleet.acknowledgeFleetAlert).toHaveBeenLastCalledWith(alertsFixture[0]!.id)
-    expect(toast.success).toHaveBeenCalledWith('Оповещение подтверждено')
+    expect(toast.success).toHaveBeenCalledWith('Получение оповещения подтверждено')
   })
 
   it('falls back to an agent ID when the directory is unavailable', async () => {
