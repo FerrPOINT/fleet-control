@@ -277,12 +277,16 @@ describe('SessionDetailPage', () => {
     const firstInput = await screen.findByLabelText('Уточнение для Agent Alpha')
     const secondInput = screen.getByLabelText('Уточнение для Agent Beta')
     fireEvent.change(firstInput, { target: { value: '  Continue carefully  ' } })
-    fireEvent.click(within(firstInput.closest('form')!).getByRole('button', { name: 'Направить' }))
+    fireEvent.click(
+      within(firstInput.closest('form')!).getByRole('button', {
+        name: 'Направить уточнение для Agent Alpha',
+      }),
+    )
     await waitFor(() => expect(fleet.steerSessionRun).toHaveBeenCalledTimes(1))
 
     expect(firstInput).toBeDisabled()
     expect(secondInput).toBeEnabled()
-    expect(screen.getAllByRole('button', { name: 'Остановить' })[1]).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Остановить запуск Agent Beta' })).toBeEnabled()
 
     resolveSteer(controlResponse)
     await waitFor(() =>
@@ -291,5 +295,42 @@ describe('SessionDetailPage', () => {
     expect(fleet.steerSessionRun).toHaveBeenCalledWith(session.id, runAlpha.id, {
       input: 'Continue carefully',
     })
+  })
+
+  it('keeps stop confirmation open while pending and allows retry after an error', async () => {
+    vi.mocked(fleet.listSessionAgentRuns).mockResolvedValue([runAlpha, runBeta])
+    let rejectStop: (error: Error) => void = () => undefined
+    vi.mocked(fleet.stopSessionRun)
+      .mockImplementationOnce(() => new Promise((_resolve, reject) => (rejectStop = reject)))
+      .mockResolvedValueOnce(controlResponse)
+    renderPage()
+
+    const stopAlpha = await screen.findByRole('button', {
+      name: 'Остановить запуск Agent Alpha',
+    })
+    fireEvent.click(stopAlpha)
+    let dialog = await screen.findByRole('alertdialog')
+    expect(dialog).toHaveTextContent('Агент Agent Alpha прекратит текущую работу')
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Отмена' }))
+    expect(fleet.stopSessionRun).not.toHaveBeenCalled()
+
+    fireEvent.click(stopAlpha)
+    dialog = await screen.findByRole('alertdialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Остановить запуск' }))
+    await waitFor(() => expect(fleet.stopSessionRun).toHaveBeenCalledTimes(1))
+    expect(within(dialog).getByRole('button', { name: 'Останавливаем...' })).toBeDisabled()
+    expect(within(dialog).getByRole('button', { name: 'Отмена' })).toBeDisabled()
+
+    rejectStop(new Error('offline'))
+    expect(
+      await within(dialog).findByText('Не удалось запросить остановку запуска. Повторите попытку.'),
+    ).toBeVisible()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Повторить остановку' }))
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(fleet.stopSessionRun).toHaveBeenCalledTimes(2)
+    expect(fleet.stopSessionRun).toHaveBeenLastCalledWith(session.id, runAlpha.id)
+    expect(toast.success).toHaveBeenCalledWith('Остановка запуска Agent Alpha запрошена')
   })
 })

@@ -797,10 +797,12 @@ function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: st
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [steerDraft, setSteerDraft] = useState('')
+  const [stopDialogOpen, setStopDialogOpen] = useState(false)
   const canControl = run.state === 'running' || run.state === 'waiting'
   const stopMutation = useMutation({
     mutationFn: () => stopSessionRun(sessionId, run.id),
     onSuccess: async () => {
+      setStopDialogOpen(false)
       await queryClient.invalidateQueries({ queryKey: ['session-runs', sessionId] })
       toast.success(t('sessionDetail.stopSuccess', { agent: run.agent_name }))
     },
@@ -827,7 +829,7 @@ function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: st
   })
   const actionPending =
     stopMutation.isPending || steerMutation.isPending || approvalMutation.isPending
-  const actionFailed = stopMutation.isError || steerMutation.isError || approvalMutation.isError
+  const actionFailed = steerMutation.isError || approvalMutation.isError
 
   function submitSteer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -845,7 +847,10 @@ function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: st
         <p className="mt-2 break-words text-xs text-danger">{run.last_error}</p>
       ) : null}
       <details className="mt-2">
-        <summary className="flex min-h-10 cursor-pointer items-center text-xs font-medium text-accent">
+        <summary
+          className="flex min-h-10 cursor-pointer items-center text-xs font-medium text-accent"
+          aria-label={t('sessionDetail.technicalDetailsRun', { agent: run.agent_name })}
+        >
           {t('sessionDetail.technicalDetails')}
         </summary>
         <dl className="grid gap-2 border-l border-border pl-3 text-xs sm:grid-cols-2">
@@ -874,29 +879,58 @@ function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: st
       {canControl ? (
         <div className="mt-3 grid gap-3">
           <div className="flex flex-wrap gap-2">
-            <AlertDialog>
+            <AlertDialog
+              open={stopDialogOpen}
+              onOpenChange={(open) => {
+                if (open) {
+                  stopMutation.reset()
+                  setStopDialogOpen(true)
+                } else if (!stopMutation.isPending) {
+                  setStopDialogOpen(false)
+                  stopMutation.reset()
+                }
+              }}
+            >
               <AlertDialogTrigger asChild>
                 <Button
                   type="button"
                   variant="destructive"
                   className="h-10"
+                  aria-label={t('sessionDetail.stopRun', { agent: run.agent_name })}
+                  style={{ color: 'var(--color-accent-foreground)' }}
                   disabled={actionPending}
                 >
                   <Square className="h-4 w-4" />
                   {t('sessionDetail.stop')}
                 </Button>
               </AlertDialogTrigger>
-              <AlertDialogContent>
+              <AlertDialogContent aria-busy={stopMutation.isPending}>
                 <AlertDialogHeader>
                   <AlertDialogTitle>{t('sessionDetail.stopConfirmTitle')}</AlertDialogTitle>
                   <AlertDialogDescription>
                     {t('sessionDetail.stopConfirmDescription', { agent: run.agent_name })}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
+                {stopMutation.isError ? (
+                  <ErrorState message={t('sessionDetail.stopError')} />
+                ) : null}
                 <AlertDialogFooter>
-                  <AlertDialogCancel>{t('sessionDetail.cancel')}</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => stopMutation.mutate()}>
-                    {t('sessionDetail.stopAction')}
+                  <AlertDialogCancel disabled={stopMutation.isPending}>
+                    {t('sessionDetail.cancel')}
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    disabled={stopMutation.isPending}
+                    style={{ color: 'var(--color-accent-foreground)' }}
+                    onClick={(event) => {
+                      event.preventDefault()
+                      stopMutation.mutate()
+                    }}
+                  >
+                    {stopMutation.isPending
+                      ? t('sessionDetail.stopping')
+                      : stopMutation.isError
+                        ? t('sessionDetail.retryStop')
+                        : t('sessionDetail.stopAction')}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -907,6 +941,7 @@ function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: st
                   type="button"
                   variant="outline"
                   className="h-10"
+                  aria-label={t('sessionDetail.approveRun', { agent: run.agent_name })}
                   onClick={() => approvalMutation.mutate('approve')}
                   disabled={actionPending}
                 >
@@ -916,6 +951,7 @@ function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: st
                   type="button"
                   variant="outline"
                   className="h-10"
+                  aria-label={t('sessionDetail.denyRun', { agent: run.agent_name })}
                   onClick={() => approvalMutation.mutate('deny')}
                   disabled={actionPending}
                 >
@@ -943,6 +979,7 @@ function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: st
               type="submit"
               variant="outline"
               className="h-10"
+              aria-label={t('sessionDetail.steerRun', { agent: run.agent_name })}
               disabled={actionPending || !steerDraft.trim()}
             >
               {steerMutation.isPending ? t('sessionDetail.sending') : t('sessionDetail.steer')}
