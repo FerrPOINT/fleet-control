@@ -7,17 +7,18 @@ use domain::{
     BulkDeploymentRequest, BulkDeploymentResult, CreateAgentRequest, CreateDeploymentJobRequest,
     CreateSessionDelegationRequest, CreateSessionMessageRequest, CreateSessionRequest,
     DeploymentJob, DeploymentJobState, FleetDashboard, HandoffSessionRequest, IntegrationSettings,
-    LeaderExecutor, MessageDeliveryState, MessageKind, PortSettings, PurgeAgentFilesResponse,
-    ResolveRuntimeApprovalRequest, RuntimeApprovalRequest, RuntimeOperationResponse,
-    RuntimeRunControlResponse, RuntimeSettings, RuntimeTemplate, SessionAgentRun, SessionMessage,
-    SessionParticipant, SessionRunRole, SessionRunState, SteerSessionRunRequest,
-    UpdateAgentConfigRequest, UpdateAgentRequest, UpdateLeaderExecutorsRequest, UpdateSkillRequest,
-    UpdateUserRoleRequest, UserResponse, WorkflowBinding, WorkflowCatalog, WorkflowCatalogEntry,
-    WorkflowNamespaceCatalogEntry,
+    LeaderExecutor, ManagedIntegrationSettings, ManagedPortSettings, ManagedRetentionSettings,
+    ManagedSettingsChange, ManagedSettingsSnapshot, ManagedSettingsVersion, MessageDeliveryState,
+    MessageKind, PortSettings, PurgeAgentFilesResponse, ResolveRuntimeApprovalRequest,
+    RuntimeApprovalRequest, RuntimeOperationResponse, RuntimeRunControlResponse, RuntimeSettings,
+    RuntimeTemplate, SessionAgentRun, SessionMessage, SessionParticipant, SessionRunRole,
+    SessionRunState, SteerSessionRunRequest, UpdateAgentConfigRequest, UpdateAgentRequest,
+    UpdateLeaderExecutorsRequest, UpdateSkillRequest, UpdateUserRoleRequest, UserResponse,
+    WorkflowBinding, WorkflowCatalog, WorkflowCatalogEntry, WorkflowNamespaceCatalogEntry,
 };
 use shared::{AppConfig, AppError, FleetEvent};
 use std::sync::Arc;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, mpsc};
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -360,6 +361,24 @@ pub trait FleetRepository: Send + Sync {
         config: &AppConfig,
     ) -> Result<IntegrationSettings, AppError>;
     async fn get_auth_settings(&self, config: &AppConfig) -> Result<AuthSettings, AppError>;
+    async fn get_active_managed_settings(&self)
+    -> Result<Option<ManagedSettingsVersion>, AppError>;
+    async fn get_managed_settings_version(
+        &self,
+        version: i64,
+    ) -> Result<ManagedSettingsVersion, AppError>;
+    async fn list_managed_settings_versions(
+        &self,
+        limit: u64,
+    ) -> Result<Vec<ManagedSettingsVersion>, AppError>;
+    async fn activate_managed_settings(
+        &self,
+        snapshot: ManagedSettingsSnapshot,
+        actor_user_id: Uuid,
+        expected_active_version: Option<i64>,
+        rollback_of_version: Option<i64>,
+        audit_action: &str,
+    ) -> Result<ManagedSettingsVersion, AppError>;
 }
 
 #[async_trait]
@@ -416,6 +435,7 @@ pub struct AppContext {
     pub runtime: Arc<dyn RuntimeSupervisor>,
     pub auth: auth::AuthService,
     pub events: broadcast::Sender<FleetEvent>,
+    restart_tx: mpsc::Sender<()>,
 }
 
 /// Result of one scheduled stale-folder review pass
@@ -462,6 +482,7 @@ impl AppContext {
         provisioner: Arc<dyn AgentProvisioner>,
         runtime: Arc<dyn RuntimeSupervisor>,
         events: broadcast::Sender<FleetEvent>,
+        restart_tx: mpsc::Sender<()>,
     ) -> Self {
         let auth = auth::AuthService::new(config.auth.clone());
         Self {
@@ -471,7 +492,16 @@ impl AppContext {
             runtime,
             auth,
             events,
+            restart_tx,
         }
+    }
+
+    pub fn schedule_restart(&self) {
+        let restart_tx = self.restart_tx.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_millis(350)).await;
+            let _ = restart_tx.send(()).await;
+        });
     }
 
     pub fn emit(&self, event: FleetEvent) {
@@ -569,6 +599,250 @@ impl AppContext {
             });
         }
         Ok(())
+    }
+}
+
+pub fn managed_settings_from_config(config: &AppConfig) -> ManagedSettingsSnapshot {
+    ManagedSettingsSnapshot {
+        runtime: RuntimeSettings {
+            agents_root: config.fleet.agents_root.clone(),
+            hermes_source: config.fleet.hermes_source.clone(),
+            hermes_command: config.fleet.hermes_command.clone(),
+            java_agent_source: config.fleet.java_agent_source.clone(),
+            java_agent_command: config.fleet.java_agent_command.clone(),
+        },
+        ports: ManagedPortSettings {
+            agent_port_base: config.fleet.agent_port_base,
+            agent_port_stride: config.fleet.agent_port_stride,
+        },
+        integrations: ManagedIntegrationSettings {
+            forge_api_url: config.fleet.forge_api_url.clone(),
+            forge_project: config.fleet.forge_project.clone(),
+            project_workflow_url: config.fleet.project_workflow_url.clone(),
+        },
+        auth: AuthSettings {
+            mode: config.auth.mode.clone(),
+            jwt_issuer: config.auth.jwt_issuer.clone(),
+            jwt_audience: config.auth.jwt_audience.clone(),
+            access_token_ttl_minutes: config.auth.access_token_ttl_minutes,
+            refresh_token_ttl_days: config.auth.refresh_token_ttl_days,
+            refresh_cookie_name: config.auth.refresh_cookie_name.clone(),
+            refresh_cookie_secure: config.auth.refresh_cookie_secure,
+            refresh_cookie_same_site: config.auth.refresh_cookie_same_site.clone(),
+            refresh_cookie_domain: config.auth.refresh_cookie_domain.clone(),
+            refresh_cookie_path: config.auth.refresh_cookie_path.clone(),
+        },
+        retention: ManagedRetentionSettings {
+            stale_archived_days: config.fleet.retention.stale_archived_days,
+            review_interval_secs: config.fleet.retention.review_interval_secs,
+        },
+    }
+}
+
+pub fn normalize_managed_settings(
+    mut snapshot: ManagedSettingsSnapshot,
+) -> ManagedSettingsSnapshot {
+    snapshot.runtime.agents_root = snapshot.runtime.agents_root.trim().to_string();
+    snapshot.runtime.hermes_source = snapshot.runtime.hermes_source.trim().to_string();
+    snapshot.runtime.hermes_command = snapshot.runtime.hermes_command.trim().to_string();
+    snapshot.runtime.java_agent_source = snapshot.runtime.java_agent_source.trim().to_string();
+    snapshot.runtime.java_agent_command = snapshot.runtime.java_agent_command.trim().to_string();
+    snapshot.integrations.forge_api_url = normalize_optional(snapshot.integrations.forge_api_url);
+    snapshot.integrations.forge_project = normalize_optional(snapshot.integrations.forge_project);
+    snapshot.integrations.project_workflow_url =
+        normalize_optional(snapshot.integrations.project_workflow_url);
+    snapshot.auth.mode = snapshot.auth.mode.trim().to_ascii_lowercase();
+    snapshot.auth.jwt_issuer = snapshot.auth.jwt_issuer.trim().to_string();
+    snapshot.auth.jwt_audience = snapshot.auth.jwt_audience.trim().to_string();
+    snapshot.auth.refresh_cookie_name = snapshot.auth.refresh_cookie_name.trim().to_string();
+    snapshot.auth.refresh_cookie_same_site =
+        snapshot.auth.refresh_cookie_same_site.trim().to_string();
+    snapshot.auth.refresh_cookie_domain = normalize_optional(snapshot.auth.refresh_cookie_domain);
+    snapshot.auth.refresh_cookie_path = snapshot.auth.refresh_cookie_path.trim().to_string();
+    snapshot
+}
+
+fn normalize_optional(value: Option<String>) -> Option<String> {
+    value
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+pub fn validate_managed_settings(
+    snapshot: &ManagedSettingsSnapshot,
+    base_config: &AppConfig,
+) -> Result<(), AppError> {
+    for (name, value) in [
+        ("runtime.agents_root", snapshot.runtime.agents_root.as_str()),
+        (
+            "runtime.hermes_source",
+            snapshot.runtime.hermes_source.as_str(),
+        ),
+        (
+            "runtime.hermes_command",
+            snapshot.runtime.hermes_command.as_str(),
+        ),
+        (
+            "runtime.java_agent_source",
+            snapshot.runtime.java_agent_source.as_str(),
+        ),
+        (
+            "runtime.java_agent_command",
+            snapshot.runtime.java_agent_command.as_str(),
+        ),
+        ("auth.jwt_issuer", snapshot.auth.jwt_issuer.as_str()),
+        ("auth.jwt_audience", snapshot.auth.jwt_audience.as_str()),
+        (
+            "auth.refresh_cookie_name",
+            snapshot.auth.refresh_cookie_name.as_str(),
+        ),
+    ] {
+        if value.is_empty() {
+            return Err(AppError::validation(format!("{name} must not be empty")));
+        }
+    }
+    if snapshot.ports.agent_port_base < 1024 {
+        return Err(AppError::validation(
+            "ports.agent_port_base must be at least 1024",
+        ));
+    }
+    if snapshot.ports.agent_port_stride < 4 {
+        return Err(AppError::validation(
+            "ports.agent_port_stride must be at least 4",
+        ));
+    }
+    if snapshot.retention.review_interval_secs < 60 {
+        return Err(AppError::validation(
+            "retention.review_interval_secs must be at least 60",
+        ));
+    }
+    if snapshot.auth.access_token_ttl_minutes == 0 || snapshot.auth.refresh_token_ttl_days == 0 {
+        return Err(AppError::validation(
+            "auth token TTL values must be positive",
+        ));
+    }
+    if snapshot.auth.mode != "hmac" && snapshot.auth.mode != "oidc" {
+        return Err(AppError::validation("auth.mode supports only hmac or oidc"));
+    }
+    if snapshot.auth.mode == "oidc" && base_config.auth.oidc_issuer_url.trim().is_empty() {
+        return Err(AppError::validation(
+            "auth.mode=oidc requires startup auth.oidc_issuer_url",
+        ));
+    }
+    if !snapshot.auth.refresh_cookie_path.starts_with('/') {
+        return Err(AppError::validation(
+            "auth.refresh_cookie_path must start with /",
+        ));
+    }
+    if !matches!(
+        snapshot.auth.refresh_cookie_same_site.as_str(),
+        "Lax" | "Strict" | "None"
+    ) {
+        return Err(AppError::validation(
+            "auth.refresh_cookie_same_site must be Lax, Strict, or None",
+        ));
+    }
+    if snapshot.auth.refresh_cookie_same_site == "None" && !snapshot.auth.refresh_cookie_secure {
+        return Err(AppError::validation(
+            "SameSite=None requires a secure refresh cookie",
+        ));
+    }
+    for (name, value) in [
+        (
+            "integrations.forge_api_url",
+            snapshot.integrations.forge_api_url.as_deref(),
+        ),
+        (
+            "integrations.project_workflow_url",
+            snapshot.integrations.project_workflow_url.as_deref(),
+        ),
+    ] {
+        if let Some(value) = value {
+            let url = reqwest::Url::parse(value)
+                .map_err(|_| AppError::validation(format!("{name} must be a valid URL")))?;
+            if !matches!(url.scheme(), "http" | "https") {
+                return Err(AppError::validation(format!(
+                    "{name} must use http or https"
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn apply_managed_settings(
+    base_config: &AppConfig,
+    snapshot: &ManagedSettingsSnapshot,
+) -> AppConfig {
+    let mut config = base_config.clone();
+    config.fleet.agents_root = snapshot.runtime.agents_root.clone();
+    config.fleet.hermes_source = snapshot.runtime.hermes_source.clone();
+    config.fleet.hermes_command = snapshot.runtime.hermes_command.clone();
+    config.fleet.java_agent_source = snapshot.runtime.java_agent_source.clone();
+    config.fleet.java_agent_command = snapshot.runtime.java_agent_command.clone();
+    config.fleet.agent_port_base = snapshot.ports.agent_port_base;
+    config.fleet.agent_port_stride = snapshot.ports.agent_port_stride;
+    config.fleet.forge_api_url = snapshot.integrations.forge_api_url.clone();
+    config.fleet.forge_project = snapshot.integrations.forge_project.clone();
+    config.fleet.project_workflow_url = snapshot.integrations.project_workflow_url.clone();
+    config.auth.mode = snapshot.auth.mode.clone();
+    config.auth.jwt_issuer = snapshot.auth.jwt_issuer.clone();
+    config.auth.jwt_audience = snapshot.auth.jwt_audience.clone();
+    config.auth.access_token_ttl_minutes = snapshot.auth.access_token_ttl_minutes;
+    config.auth.refresh_token_ttl_days = snapshot.auth.refresh_token_ttl_days;
+    config.auth.refresh_cookie_name = snapshot.auth.refresh_cookie_name.clone();
+    config.auth.refresh_cookie_secure = snapshot.auth.refresh_cookie_secure;
+    config.auth.refresh_cookie_same_site = snapshot.auth.refresh_cookie_same_site.clone();
+    config.auth.refresh_cookie_domain = snapshot.auth.refresh_cookie_domain.clone();
+    config.auth.refresh_cookie_path = snapshot.auth.refresh_cookie_path.clone();
+    config.fleet.retention.stale_archived_days = snapshot.retention.stale_archived_days;
+    config.fleet.retention.review_interval_secs = snapshot.retention.review_interval_secs;
+    config
+}
+
+pub fn managed_settings_changes(
+    current: &ManagedSettingsSnapshot,
+    proposed: &ManagedSettingsSnapshot,
+) -> Result<Vec<ManagedSettingsChange>, AppError> {
+    let current = serde_json::to_value(current).map_err(AppError::internal)?;
+    let proposed = serde_json::to_value(proposed).map_err(AppError::internal)?;
+    let mut changes = Vec::new();
+    collect_settings_changes("", &current, &proposed, &mut changes);
+    Ok(changes)
+}
+
+fn collect_settings_changes(
+    path: &str,
+    current: &serde_json::Value,
+    proposed: &serde_json::Value,
+    changes: &mut Vec<ManagedSettingsChange>,
+) {
+    match (current, proposed) {
+        (serde_json::Value::Object(current), serde_json::Value::Object(proposed)) => {
+            let mut keys = current.keys().chain(proposed.keys()).collect::<Vec<_>>();
+            keys.sort_unstable();
+            keys.dedup();
+            for key in keys {
+                let child_path = if path.is_empty() {
+                    key.to_string()
+                } else {
+                    format!("{path}.{key}")
+                };
+                collect_settings_changes(
+                    &child_path,
+                    current.get(key).unwrap_or(&serde_json::Value::Null),
+                    proposed.get(key).unwrap_or(&serde_json::Value::Null),
+                    changes,
+                );
+            }
+        }
+        _ if current != proposed => changes.push(ManagedSettingsChange {
+            path: path.to_string(),
+            before: current.clone(),
+            after: proposed.clone(),
+            requires_restart: true,
+        }),
+        _ => {}
     }
 }
 
@@ -944,6 +1218,74 @@ pub fn workflow_rebind_selection(
         .cloned()
         .ok_or_else(|| AppError::validation("project-workflow workflow was not found"))?;
     Ok((namespace, workflow))
+}
+
+#[cfg(test)]
+mod managed_settings_tests {
+    use super::*;
+
+    #[test]
+    fn managed_settings_are_normalized_and_diffed_by_field() {
+        let config = AppConfig::default();
+        let current = managed_settings_from_config(&config);
+        let mut proposed = current.clone();
+        proposed.runtime.hermes_command = "  hermes-next  ".to_string();
+        proposed.integrations.forge_api_url = Some("  http://forge:22801/  ".to_string());
+
+        let proposed = normalize_managed_settings(proposed);
+        let changes = managed_settings_changes(&current, &proposed).expect("settings diff");
+
+        assert_eq!(proposed.runtime.hermes_command, "hermes-next");
+        assert_eq!(
+            proposed.integrations.forge_api_url.as_deref(),
+            Some("http://forge:22801/")
+        );
+        assert_eq!(changes.len(), 2);
+        assert!(changes.iter().all(|change| change.requires_restart));
+        assert!(
+            changes
+                .iter()
+                .any(|change| change.path == "runtime.hermes_command")
+        );
+    }
+
+    #[test]
+    fn managed_settings_reject_invalid_runtime_and_cookie_contracts() {
+        let config = AppConfig::default();
+        let mut snapshot = managed_settings_from_config(&config);
+        snapshot.ports.agent_port_stride = 3;
+        assert!(validate_managed_settings(&snapshot, &config).is_err());
+
+        snapshot.ports.agent_port_stride = 10;
+        snapshot.auth.refresh_cookie_same_site = "None".to_string();
+        snapshot.auth.refresh_cookie_secure = false;
+        assert!(validate_managed_settings(&snapshot, &config).is_err());
+
+        snapshot.auth.refresh_cookie_secure = true;
+        snapshot.integrations.project_workflow_url = Some("file:///tmp/workflow".to_string());
+        assert!(validate_managed_settings(&snapshot, &config).is_err());
+    }
+
+    #[test]
+    fn applying_managed_settings_preserves_secret_and_infrastructure_configuration() {
+        let mut base = AppConfig::default();
+        base.database.url = "postgres://db/fleet".to_string();
+        base.server.port = 23801;
+        base.auth.jwt_secret = "jwt-secret".to_string();
+        base.fleet.runtime_token_secret = "runtime-secret".to_string();
+        let mut snapshot = managed_settings_from_config(&base);
+        snapshot.runtime.hermes_command = "hermes-next".to_string();
+        snapshot.ports.agent_port_base = 31000;
+
+        let effective = apply_managed_settings(&base, &snapshot);
+
+        assert_eq!(effective.fleet.hermes_command, "hermes-next");
+        assert_eq!(effective.fleet.agent_port_base, 31000);
+        assert_eq!(effective.server.port, 23801);
+        assert_eq!(effective.database.url, "postgres://db/fleet");
+        assert_eq!(effective.auth.jwt_secret, "jwt-secret");
+        assert_eq!(effective.fleet.runtime_token_secret, "runtime-secret");
+    }
 }
 
 #[cfg(test)]

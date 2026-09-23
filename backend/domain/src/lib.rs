@@ -1448,6 +1448,90 @@ pub struct AuthSettings {
     pub refresh_cookie_path: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct ManagedPortSettings {
+    pub agent_port_base: u16,
+    pub agent_port_stride: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct ManagedIntegrationSettings {
+    pub forge_api_url: Option<String>,
+    pub forge_project: Option<String>,
+    pub project_workflow_url: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct ManagedRetentionSettings {
+    pub stale_archived_days: u32,
+    pub review_interval_secs: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct ManagedSettingsSnapshot {
+    pub runtime: RuntimeSettings,
+    pub ports: ManagedPortSettings,
+    pub integrations: ManagedIntegrationSettings,
+    pub auth: AuthSettings,
+    pub retention: ManagedRetentionSettings,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct ManagedSettingsVersion {
+    pub id: Uuid,
+    pub version: i64,
+    pub snapshot: ManagedSettingsSnapshot,
+    pub created_by_user_id: Option<Uuid>,
+    pub rollback_of_version: Option<i64>,
+    pub created_at: String,
+    pub is_active: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct ManagedSettingsChange {
+    pub path: String,
+    pub before: Value,
+    pub after: Value,
+    pub requires_restart: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct ManagedSettingsPreviewRequest {
+    pub snapshot: ManagedSettingsSnapshot,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct ManagedSettingsState {
+    pub active_version: Option<i64>,
+    pub snapshot: ManagedSettingsSnapshot,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct ManagedSettingsPreview {
+    pub active_version: Option<i64>,
+    pub changes: Vec<ManagedSettingsChange>,
+    pub restart_required: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct ApplyManagedSettingsRequest {
+    pub snapshot: ManagedSettingsSnapshot,
+    pub expected_active_version: Option<i64>,
+    pub confirm_restart: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct RollbackManagedSettingsRequest {
+    pub expected_active_version: Option<i64>,
+    pub confirm_restart: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct ApplyManagedSettingsResponse {
+    pub version: Option<ManagedSettingsVersion>,
+    pub restart_scheduled: bool,
+}
+
 fn default_auth_mode() -> String {
     "hmac".to_string()
 }

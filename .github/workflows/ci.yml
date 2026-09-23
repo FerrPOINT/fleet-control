@@ -28,6 +28,23 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_USER: fleet_control
+          POSTGRES_PASSWORD: fleet_control
+          POSTGRES_DB: fleet_control_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fleet_control -d fleet_control_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      FLEET_TEST_DATABASE_URL: postgres://fleet_control:fleet_control@127.0.0.1:5432/fleet_control_test
+      FLEET_MIGRATION_TEST_DATABASE_URL: postgres://fleet_control:fleet_control@127.0.0.1:5432/fleet_control_test
     defaults:
       run:
         working-directory: fleet-control/backend

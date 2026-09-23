@@ -3,6 +3,10 @@
 ## [Unreleased]
 
 ### Added
+- Versioned managed Fleet settings API with validated preview, optimistic
+  concurrency, explicit restart confirmation, immutable history, atomic audit
+  records and rollback-as-a-new-version. The active snapshot is applied on
+  process startup while deployment-owned secrets and port mappings are kept.
 - Streamlined настройки Fleet (#13); локализованный/компактный dashboard (#12).
 ### Fixed
 - `/settings` больше не предлагает фиктивное применение runtime-конфигурации:

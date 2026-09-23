@@ -13,25 +13,25 @@ use domain::{
     BulkDeploymentRequest, BulkDeploymentResult, CreateAgentRequest, CreateDeploymentJobRequest,
     CreateSessionDelegationRequest, CreateSessionMessageRequest, CreateSessionRequest,
     DeploymentJob, DeploymentJobKind, DeploymentJobState, DesiredState, HandoffSessionRequest,
-    IntegrationSettings, LeaderExecutor, MessageAuthorType, MessageDeliveryState, MessageKind,
-    PortSettings, PurgeAgentFilesResponse, ResolveRuntimeApprovalRequest, RuntimeApprovalRequest,
-    RuntimeApprovalState, RuntimeSettings, RuntimeTemplate, SessionAgentRun, SessionMessage,
-    SessionParticipant, SessionParticipantType, SessionRole, SessionRunRole, SessionRunState,
-    SessionState, SessionVisibility, SkillState, SystemRole, UpdateAgentConfigRequest,
-    UpdateAgentRequest, UpdateLeaderExecutorsRequest, UpdateSkillRequest, UpdateUserRoleRequest,
-    UserResponse, WorkflowBinding,
+    IntegrationSettings, LeaderExecutor, ManagedSettingsSnapshot, ManagedSettingsVersion,
+    MessageAuthorType, MessageDeliveryState, MessageKind, PortSettings, PurgeAgentFilesResponse,
+    ResolveRuntimeApprovalRequest, RuntimeApprovalRequest, RuntimeApprovalState, RuntimeSettings,
+    RuntimeTemplate, SessionAgentRun, SessionMessage, SessionParticipant, SessionParticipantType,
+    SessionRole, SessionRunRole, SessionRunState, SessionState, SessionVisibility, SkillState,
+    SystemRole, UpdateAgentConfigRequest, UpdateAgentRequest, UpdateLeaderExecutorsRequest,
+    UpdateSkillRequest, UpdateUserRoleRequest, UserResponse, WorkflowBinding,
 };
 use entities::{
     agent, agent_config, agent_event, agent_log, agent_runtime, agent_session, agent_skill,
-    audit_log, deployment_job, fleet_alerts, leader_executor, runtime_approval_request,
-    runtime_template, session_agent_run, session_message, session_participant, user,
-    workflow_binding,
+    audit_log, deployment_job, fleet_alerts, leader_executor, managed_settings_version,
+    runtime_approval_request, runtime_template, session_agent_run, session_message,
+    session_participant, user, workflow_binding,
 };
 use hmac::{Hmac, Mac};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectOptions, ConnectionTrait, Database,
-    DatabaseBackend, DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter, QueryOrder,
-    QuerySelect, Statement, TransactionTrait,
+    ActiveModelTrait, ActiveValue::NotSet, ActiveValue::Set, ColumnTrait, ConnectOptions,
+    ConnectionTrait, Database, DatabaseBackend, DatabaseConnection, EntityTrait, IntoActiveModel,
+    QueryFilter, QueryOrder, QuerySelect, Statement, TransactionTrait,
 };
 use sea_orm_migration::MigratorTrait;
 use serde_json::{Value, json};
@@ -433,6 +433,20 @@ fn audit_entry(row: audit_log::Model) -> AuditLogEntry {
         payload: row.payload,
         created_at: api_ts(row.created_at),
     }
+}
+
+fn managed_settings_entry(
+    row: managed_settings_version::Model,
+) -> Result<ManagedSettingsVersion, AppError> {
+    Ok(ManagedSettingsVersion {
+        id: row.id,
+        version: row.version,
+        snapshot: serde_json::from_value(row.snapshot).map_err(AppError::internal)?,
+        created_by_user_id: row.created_by_user_id,
+        rollback_of_version: row.rollback_of_version,
+        created_at: api_ts(row.created_at),
+        is_active: row.is_active,
+    })
 }
 
 fn deployment_job_from_model(row: deployment_job::Model) -> DeploymentJob {
@@ -2999,6 +3013,113 @@ impl FleetRepository for PostgresFleetRepository {
 
     async fn get_auth_settings(&self, config: &AppConfig) -> Result<AuthSettings, AppError> {
         Ok(auth_settings_from_config(config))
+    }
+
+    async fn get_active_managed_settings(
+        &self,
+    ) -> Result<Option<ManagedSettingsVersion>, AppError> {
+        managed_settings_version::Entity::find()
+            .filter(managed_settings_version::Column::IsActive.eq(true))
+            .one(&self.db)
+            .await
+            .map_err(AppError::database)?
+            .map(managed_settings_entry)
+            .transpose()
+    }
+
+    async fn get_managed_settings_version(
+        &self,
+        version: i64,
+    ) -> Result<ManagedSettingsVersion, AppError> {
+        let row = managed_settings_version::Entity::find()
+            .filter(managed_settings_version::Column::Version.eq(version))
+            .one(&self.db)
+            .await
+            .map_err(AppError::database)?
+            .ok_or_else(|| AppError::not_found("managed_settings_version", version))?;
+        managed_settings_entry(row)
+    }
+
+    async fn list_managed_settings_versions(
+        &self,
+        limit: u64,
+    ) -> Result<Vec<ManagedSettingsVersion>, AppError> {
+        let rows = managed_settings_version::Entity::find()
+            .order_by_desc(managed_settings_version::Column::Version)
+            .limit(limit.clamp(1, 100))
+            .all(&self.db)
+            .await
+            .map_err(AppError::database)?;
+        rows.into_iter().map(managed_settings_entry).collect()
+    }
+
+    async fn activate_managed_settings(
+        &self,
+        snapshot: ManagedSettingsSnapshot,
+        actor_user_id: Uuid,
+        expected_active_version: Option<i64>,
+        rollback_of_version: Option<i64>,
+        audit_action: &str,
+    ) -> Result<ManagedSettingsVersion, AppError> {
+        let txn = self.db.begin().await.map_err(AppError::database)?;
+        txn.execute(Statement::from_string(
+            DatabaseBackend::Postgres,
+            "SELECT pg_advisory_xact_lock(238010008)".to_string(),
+        ))
+        .await
+        .map_err(AppError::database)?;
+
+        let active = managed_settings_version::Entity::find()
+            .filter(managed_settings_version::Column::IsActive.eq(true))
+            .one(&txn)
+            .await
+            .map_err(AppError::database)?;
+        let actual_active_version = active.as_ref().map(|row| row.version);
+        if actual_active_version != expected_active_version {
+            return Err(AppError::conflict(format!(
+                "managed settings changed concurrently: expected version {expected_active_version:?}, active version is {actual_active_version:?}"
+            )));
+        }
+
+        if let Some(active) = active {
+            let mut model = active.into_active_model();
+            model.is_active = Set(false);
+            model.update(&txn).await.map_err(AppError::database)?;
+        }
+
+        let row = managed_settings_version::ActiveModel {
+            id: Set(Uuid::new_v4()),
+            version: NotSet,
+            snapshot: Set(serde_json::to_value(&snapshot).map_err(AppError::internal)?),
+            created_by_user_id: Set(Some(actor_user_id)),
+            rollback_of_version: Set(rollback_of_version),
+            created_at: Set(now()),
+            is_active: Set(true),
+        }
+        .insert(&txn)
+        .await
+        .map_err(AppError::database)?;
+
+        audit_log::ActiveModel {
+            id: Set(Uuid::new_v4()),
+            actor_user_id: Set(Some(actor_user_id)),
+            action: Set(audit_action.to_string()),
+            entity_type: Set("managed_settings_version".to_string()),
+            entity_id: Set(Some(row.version.to_string())),
+            payload: Set(json!({
+                "version": row.version,
+                "previous_version": expected_active_version,
+                "rollback_of_version": rollback_of_version,
+                "snapshot": snapshot,
+            })),
+            created_at: Set(now()),
+        }
+        .insert(&txn)
+        .await
+        .map_err(AppError::database)?;
+
+        txn.commit().await.map_err(AppError::database)?;
+        managed_settings_entry(row)
     }
 }
 

@@ -399,6 +399,28 @@ pub mod audit_log {
     impl ActiveModelBehavior for ActiveModel {}
 }
 
+pub mod managed_settings_version {
+    use sea_orm::entity::prelude::*;
+
+    #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
+    #[sea_orm(table_name = "managed_settings_versions")]
+    pub struct Model {
+        #[sea_orm(primary_key, auto_increment = false)]
+        pub id: Uuid,
+        pub version: i64,
+        pub snapshot: Json,
+        pub created_by_user_id: Option<Uuid>,
+        pub rollback_of_version: Option<i64>,
+        pub created_at: DateTimeWithTimeZone,
+        pub is_active: bool,
+    }
+
+    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+    pub enum Relation {}
+
+    impl ActiveModelBehavior for ActiveModel {}
+}
+
 pub mod fleet_alerts {
     use sea_orm::entity::prelude::*;
 
