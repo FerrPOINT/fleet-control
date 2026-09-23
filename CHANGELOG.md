@@ -13,6 +13,8 @@
   confirmation context available for retry.
 - Streamlined настройки Fleet (#13); локализованный/компактный dashboard (#12).
 ### Fixed
+- Settings tabs now keep their Radix tab panels in the accessibility tree, so
+  every `aria-controls` reference resolves across responsive layouts.
 - `/settings` больше не предлагает фиктивное применение runtime-конфигурации:
   UI показывает эффективные startup-значения только для чтения, а legacy PUT
   допускает только совместимый no-op и отвечает `409` при попытке изменения.
