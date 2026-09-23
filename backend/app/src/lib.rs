@@ -354,29 +354,12 @@ pub trait FleetRepository: Send + Sync {
     ) -> Result<DeploymentJob, AppError>;
 
     async fn get_runtime_settings(&self, config: &AppConfig) -> Result<RuntimeSettings, AppError>;
-    async fn update_runtime_settings(
-        &self,
-        req: RuntimeSettings,
-        actor_user_id: Uuid,
-    ) -> Result<RuntimeSettings, AppError>;
     async fn get_port_settings(&self, config: &AppConfig) -> Result<PortSettings, AppError>;
-    async fn update_port_settings(
+    async fn get_integration_settings(
         &self,
-        req: PortSettings,
-        actor_user_id: Uuid,
-    ) -> Result<PortSettings, AppError>;
-    async fn get_integration_settings(&self) -> Result<IntegrationSettings, AppError>;
-    async fn update_integration_settings(
-        &self,
-        req: IntegrationSettings,
-        actor_user_id: Uuid,
+        config: &AppConfig,
     ) -> Result<IntegrationSettings, AppError>;
     async fn get_auth_settings(&self, config: &AppConfig) -> Result<AuthSettings, AppError>;
-    async fn update_auth_settings(
-        &self,
-        req: AuthSettings,
-        actor_user_id: Uuid,
-    ) -> Result<AuthSettings, AppError>;
 }
 
 #[async_trait]

@@ -9,13 +9,9 @@ import { SettingsPage } from './index'
 vi.mock('@/api/fleet', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api/fleet')>()),
   getRuntimeSettings: vi.fn(),
-  updateRuntimeSettings: vi.fn(),
   getPortSettings: vi.fn(),
-  updatePortSettings: vi.fn(),
   getIntegrationSettings: vi.fn(),
-  updateIntegrationSettings: vi.fn(),
   getAuthSettings: vi.fn(),
-  updateAuthSettings: vi.fn(),
 }))
 vi.mock('@/api/auth', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api/auth')>()),
@@ -36,8 +32,8 @@ const ports = {
   agent_port_stride: 10,
 }
 const integrations = {
-  project_workflow_url: null,
-  project_workflow_status: 'enabled',
+  project_workflow_url: 'http://project-workflow:8000',
+  project_workflow_status: 'configured',
   github_remote: null,
 }
 const authSettings = {
@@ -70,150 +66,78 @@ function renderSettings(initialEntry = '/settings') {
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(fleet.getRuntimeSettings).mockResolvedValue(runtime)
-  vi.mocked(fleet.updateRuntimeSettings).mockImplementation(async (value) => value)
   vi.mocked(fleet.getPortSettings).mockResolvedValue(ports)
-  vi.mocked(fleet.updatePortSettings).mockImplementation(async (value) => value)
   vi.mocked(fleet.getIntegrationSettings).mockResolvedValue(integrations)
-  vi.mocked(fleet.updateIntegrationSettings).mockImplementation(async (value) => value)
   vi.mocked(fleet.getAuthSettings).mockResolvedValue(authSettings)
-  vi.mocked(fleet.updateAuthSettings).mockImplementation(async (value) => value)
   vi.mocked(auth.listUsers).mockResolvedValue([])
 })
 
 describe('SettingsPage', () => {
-  it('keeps an unsaved draft through tab switches and a background refetch', async () => {
-    const client = renderSettings()
-    const root = await screen.findByRole('textbox', { name: 'Каталог агентов' })
-    const form = screen.getByRole('form', { name: 'Источники и команды' })
-    expect(within(form).getByRole('button', { name: 'Сохранить изменения' })).toBeDisabled()
-
-    fireEvent.change(root, { target: { value: '/local/agents' } })
-    expect(within(form).getByRole('button', { name: 'Сохранить изменения' })).toBeEnabled()
-    fireEvent.keyDown(screen.getByRole('tab', { name: 'Порты' }), { key: 'Enter' })
-    await screen.findByRole('spinbutton', { name: 'Порт API' })
-    fireEvent.keyDown(screen.getByRole('tab', { name: 'Среда' }), { key: 'Enter' })
-    expect(screen.getByRole('textbox', { name: 'Каталог агентов' })).toHaveValue('/local/agents')
-
-    vi.mocked(fleet.getRuntimeSettings).mockResolvedValue({
-      ...runtime,
-      agents_root: '/server/agents',
-    })
-    await act(async () => {
-      await client.refetchQueries({ queryKey: ['settings', 'runtime'] })
-    })
-    await waitFor(() =>
-      expect(within(form).getByRole('button', { name: 'Сбросить' })).toBeEnabled(),
-    )
-    expect(root).toHaveValue('/local/agents')
-    fireEvent.click(within(form).getByRole('button', { name: 'Сбросить' }))
-    await waitFor(() => expect(root).toHaveValue('/server/agents'))
-  })
-
-  it('saves only changed settings and acknowledges success', async () => {
+  it('shows effective runtime values without fake editing controls', async () => {
     renderSettings()
-    const command = await screen.findByRole('textbox', { name: 'Команда Hermes' })
-    fireEvent.change(command, { target: { value: 'hermes --quiet' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Сохранить изменения' }))
 
-    await waitFor(() =>
-      expect(fleet.updateRuntimeSettings).toHaveBeenCalledWith({
-        ...runtime,
-        hermes_command: 'hermes --quiet',
-      }),
-    )
-    await waitFor(() =>
-      expect(screen.getByText('Запись сохранена, не применена')).toBeInTheDocument(),
-    )
-    expect(screen.getByRole('button', { name: 'Сохранить изменения' })).toBeDisabled()
+    const panel = await screen.findByRole('region', { name: 'Источники и команды' })
+    expect(within(panel).getByText('/agents')).toBeInTheDocument()
+    expect(within(panel).getByText('hermes')).toBeInTheDocument()
+    expect(within(panel).getByText('Только чтение')).toBeInTheDocument()
+    expect(within(panel).getByText(/deployment Fleet Control/)).toBeInTheDocument()
+    expect(screen.queryByRole('form')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Сохранить изменения' })).not.toBeInTheDocument()
+    expect(screen.getByRole('note')).toHaveTextContent('Показаны активные значения запуска')
   })
 
-  it('keeps the draft and shows a recoverable save error', async () => {
-    vi.mocked(fleet.updateRuntimeSettings).mockRejectedValueOnce(new Error('network'))
-    renderSettings()
-    const command = await screen.findByRole('textbox', { name: 'Команда Hermes' })
-    fireEvent.change(command, { target: { value: 'hermes --quiet' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Сохранить изменения' }))
+  it('loads only the selected settings tab and keeps its state in the URL', async () => {
+    renderSettings('/settings?tab=ports')
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось сохранить настройки')
-    expect(command).toHaveValue('hermes --quiet')
-    expect(screen.getByRole('button', { name: 'Сохранить изменения' })).toBeEnabled()
-    fireEvent.click(screen.getByRole('button', { name: 'Сбросить' }))
-    expect(command).toHaveValue('hermes')
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-  })
+    const panel = await screen.findByRole('region', { name: 'Сетевые порты' })
+    expect(within(panel).getByText('24000')).toBeInTheDocument()
+    expect(fleet.getRuntimeSettings).not.toHaveBeenCalled()
+    expect(fleet.getPortSettings).toHaveBeenCalledTimes(1)
 
-  it('disables inputs while a save is pending', async () => {
-    let completeSave!: (value: typeof runtime) => void
-    vi.mocked(fleet.updateRuntimeSettings).mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          completeSave = resolve
-        }),
+    fireEvent.keyDown(screen.getByRole('tab', { name: 'Интеграции' }), { key: 'Enter' })
+    expect(await screen.findByRole('region', { name: 'Интеграции' })).toHaveTextContent(
+      'http://project-workflow:8000',
     )
-    renderSettings()
-    const command = await screen.findByRole('textbox', { name: 'Команда Hermes' })
-    fireEvent.change(command, { target: { value: 'hermes --quiet' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Сохранить изменения' }))
-    await waitFor(() => expect(command).toBeDisabled())
-    expect(screen.getByRole('button', { name: 'Сохраняем...' })).toBeDisabled()
-    await act(async () => completeSave({ ...runtime, hermes_command: 'hermes --quiet' }))
-    await waitFor(() => expect(command).toBeEnabled())
-  })
-
-  it('preserves a draft when a background refresh fails and retries it', async () => {
-    const client = renderSettings()
-    const root = await screen.findByRole('textbox', { name: 'Каталог агентов' })
-    fireEvent.change(root, { target: { value: '/local/agents' } })
-    vi.mocked(fleet.getRuntimeSettings).mockRejectedValueOnce(new Error('network'))
-    await act(async () => {
-      await client.refetchQueries({ queryKey: ['settings', 'runtime'] })
-    })
-    expect(root).toHaveValue('/local/agents')
-    expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось загрузить настройки')
-    fireEvent.click(screen.getByRole('button', { name: 'Повторить' }))
-    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
-    expect(root).toHaveValue('/local/agents')
+    expect(fleet.getIntegrationSettings).toHaveBeenCalledTimes(1)
   })
 
   it('recovers from an initial settings load failure', async () => {
     vi.mocked(fleet.getRuntimeSettings).mockRejectedValueOnce(new Error('network'))
     renderSettings()
+
     expect(await screen.findByText('Не удалось загрузить настройки.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Повторить' }))
-    expect(await screen.findByRole('textbox', { name: 'Каталог агентов' })).toHaveValue('/agents')
+    expect(await screen.findByRole('region', { name: 'Источники и команды' })).toHaveTextContent(
+      '/agents',
+    )
   })
 
-  it('keeps an empty or too-small port invalid instead of silently sending zero', async () => {
-    renderSettings('/settings?tab=ports')
-    const stride = (await screen.findByRole('spinbutton', {
-      name: 'Шаг портов агентов',
-    })) as HTMLInputElement
-    fireEvent.change(stride, { target: { value: '' } })
-    expect(stride).toHaveValue(null)
-    expect(stride.checkValidity()).toBe(false)
-    fireEvent.change(stride, { target: { value: '3' } })
-    expect(stride.checkValidity()).toBe(false)
-    expect(fleet.updatePortSettings).not.toHaveBeenCalled()
+  it('keeps the last effective snapshot when a refresh fails and can retry', async () => {
+    const client = renderSettings()
+    await screen.findByText('/agents')
+    vi.mocked(fleet.getRuntimeSettings).mockRejectedValueOnce(new Error('network'))
+
+    await act(async () => {
+      await client.refetchQueries({ queryKey: ['settings', 'runtime'] })
+    })
+
+    expect(screen.getByText('/agents')).toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent('последний успешный снимок')
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить' }))
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
   })
 
-  it('keeps auth choices constrained to supported values', async () => {
-    renderSettings('/settings?tab=auth')
-    const sameSite = await screen.findByRole('combobox', { name: 'Политика SameSite' })
-    const mode = screen.getByRole('combobox', { name: 'Режим аутентификации' })
-    expect(within(mode).getAllByRole('option')).toHaveLength(1)
-    expect(within(sameSite).getAllByRole('option')).toHaveLength(3)
-    fireEvent.change(sameSite, { target: { value: 'Strict' } })
-    expect(screen.getByRole('button', { name: 'Сохранить изменения' })).toBeEnabled()
-    fireEvent.click(screen.getByRole('button', { name: 'Сбросить' }))
-    expect(sameSite).toHaveValue('Lax')
-    expect(fleet.updateAuthSettings).not.toHaveBeenCalled()
-  })
+  it('explains ownership for integrations and platform authentication', async () => {
+    renderSettings('/settings?tab=integrations')
+    const integrationsPanel = await screen.findByRole('region', { name: 'Интеграции' })
+    expect(within(integrationsPanel).getByText('Настроено')).toBeInTheDocument()
+    expect(within(integrationsPanel).queryByText('Репозиторий GitHub')).not.toBeInTheDocument()
 
-  it('explains that saved values are not applied to the running service', async () => {
-    renderSettings()
-    expect(await screen.findByRole('note')).toHaveTextContent('Сохранение не меняет работу сервиса')
-    fireEvent.keyDown(screen.getByRole('tab', { name: 'Пользователи' }), { key: 'Enter' })
-    expect(screen.queryByRole('note')).not.toBeInTheDocument()
+    fireEvent.keyDown(screen.getByRole('tab', { name: 'Доступ' }), { key: 'Enter' })
+    const authPanel = await screen.findByRole('region', { name: 'Политика аутентификации' })
+    expect(within(authPanel).getByText(/Central Auth/)).toBeInTheDocument()
+    expect(within(authPanel).getByText('HMAC')).toBeInTheDocument()
+    expect(within(authPanel).getByText('Нет')).toBeInTheDocument()
   })
 
   it('shows a searchable users list with an Admin Panel handoff', async () => {
@@ -231,6 +155,7 @@ describe('SettingsPage', () => {
       'http://localhost:7772/users',
     )
     expect(screen.getAllByText(/User \d+/)).toHaveLength(12)
+    expect(screen.queryByRole('note')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Далее' }))
     expect(screen.getAllByText(/User \d+/)).toHaveLength(1)
     fireEvent.change(screen.getByRole('searchbox', { name: 'Найти пользователя' }), {

@@ -10,10 +10,14 @@ Roles:
 
 Admin tasks:
 
-- Promote/demote users in `/settings?tab=users`.
+- Open Admin Panel from `/settings?tab=users` to manage users and platform roles.
 - Review role changes in `/logs?tab=audit`.
-- Configure runtime roots and sources in `/settings`.
-- Configure ports and auth in `/settings`.
+- Inspect effective runtime, port, integration and legacy auth startup values
+  in `/settings`.
+- Change runtime roots, sources, ports and Project Workflow connection through
+  `FLEET_CONTROL_*` deployment/environment configuration, then restart or
+  redeploy Fleet Control.
+- Manage human access and platform authentication in Central Auth/Admin Panel.
 - Review all sessions through the user filter.
 
 Compatibility:

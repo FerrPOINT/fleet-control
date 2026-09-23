@@ -1705,7 +1705,7 @@
         "operationId": "get_auth_settings",
         "responses": {
           "200": {
-            "description": "",
+            "description": "Effective startup settings",
             "content": {
               "application/json": {
                 "schema": {
@@ -1733,7 +1733,7 @@
         },
         "responses": {
           "200": {
-            "description": "",
+            "description": "No-op when the request matches effective startup settings",
             "content": {
               "application/json": {
                 "schema": {
@@ -1741,6 +1741,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Settings are managed by startup configuration"
           }
         }
       }
@@ -1753,7 +1756,7 @@
         "operationId": "get_integration_settings",
         "responses": {
           "200": {
-            "description": "",
+            "description": "Effective startup settings",
             "content": {
               "application/json": {
                 "schema": {
@@ -1781,7 +1784,7 @@
         },
         "responses": {
           "200": {
-            "description": "",
+            "description": "No-op when the request matches effective startup settings",
             "content": {
               "application/json": {
                 "schema": {
@@ -1789,6 +1792,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Settings are managed by startup configuration"
           }
         }
       }
@@ -1801,7 +1807,7 @@
         "operationId": "get_port_settings",
         "responses": {
           "200": {
-            "description": "",
+            "description": "Effective startup settings",
             "content": {
               "application/json": {
                 "schema": {
@@ -1829,7 +1835,7 @@
         },
         "responses": {
           "200": {
-            "description": "",
+            "description": "No-op when the request matches effective startup settings",
             "content": {
               "application/json": {
                 "schema": {
@@ -1837,6 +1843,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Settings are managed by startup configuration"
           }
         }
       }
@@ -1870,7 +1879,7 @@
         "operationId": "get_runtime_settings",
         "responses": {
           "200": {
-            "description": "",
+            "description": "Effective startup settings",
             "content": {
               "application/json": {
                 "schema": {
@@ -1898,7 +1907,7 @@
         },
         "responses": {
           "200": {
-            "description": "",
+            "description": "No-op when the request matches effective startup settings",
             "content": {
               "application/json": {
                 "schema": {
@@ -1906,6 +1915,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Settings are managed by startup configuration"
           }
         }
       }

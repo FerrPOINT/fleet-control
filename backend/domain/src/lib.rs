@@ -1407,7 +1407,7 @@ pub struct BulkDeploymentResult {
     pub skipped: usize,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct RuntimeSettings {
     pub agents_root: String,
     pub hermes_source: String,
@@ -1416,7 +1416,7 @@ pub struct RuntimeSettings {
     pub java_agent_command: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct PortSettings {
     pub backend_port: u16,
     pub frontend_port: u16,
@@ -1424,14 +1424,14 @@ pub struct PortSettings {
     pub agent_port_stride: u16,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct IntegrationSettings {
     pub project_workflow_url: Option<String>,
     pub project_workflow_status: String,
     pub github_remote: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct AuthSettings {
     #[serde(default = "default_auth_mode")]
     pub mode: String,

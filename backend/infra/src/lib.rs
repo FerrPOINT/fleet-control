@@ -23,9 +23,9 @@ use domain::{
 };
 use entities::{
     agent, agent_config, agent_event, agent_log, agent_runtime, agent_session, agent_skill,
-    audit_log, control_setting, deployment_job, fleet_alerts, leader_executor,
-    runtime_approval_request, runtime_template, session_agent_run, session_message,
-    session_participant, user, workflow_binding,
+    audit_log, deployment_job, fleet_alerts, leader_executor, runtime_approval_request,
+    runtime_template, session_agent_run, session_message, session_participant, user,
+    workflow_binding,
 };
 use hmac::{Hmac, Mac};
 use sea_orm::{
@@ -34,7 +34,6 @@ use sea_orm::{
     QuerySelect, Statement, TransactionTrait,
 };
 use sea_orm_migration::MigratorTrait;
-use serde::{Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use shared::{AppConfig, AppError, DatabaseConfig};
@@ -486,65 +485,25 @@ fn auth_settings_from_config(config: &AppConfig) -> AuthSettings {
     }
 }
 
-fn default_integration_settings() -> IntegrationSettings {
+fn integration_settings_from_config(config: &AppConfig) -> IntegrationSettings {
+    let project_workflow_url = config
+        .fleet
+        .project_workflow_url
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    let configured = project_workflow_url.is_some();
     IntegrationSettings {
-        project_workflow_url: None,
-        project_workflow_status: "not_connected".to_string(),
-        github_remote: Some("https://github.com/FerrPOINT/fleet-control".to_string()),
+        project_workflow_url,
+        project_workflow_status: if configured {
+            "configured"
+        } else {
+            "not_configured"
+        }
+        .to_string(),
+        github_remote: None,
     }
-}
-
-async fn load_setting<T>(
-    db: &DatabaseConnection,
-    key: &str,
-    default_value: T,
-) -> Result<T, AppError>
-where
-    T: DeserializeOwned,
-{
-    let Some(row) = control_setting::Entity::find_by_id(key.to_string())
-        .one(db)
-        .await
-        .map_err(AppError::database)?
-    else {
-        return Ok(default_value);
-    };
-    serde_json::from_value(row.value_json).map_err(AppError::internal)
-}
-
-async fn save_setting<T>(
-    db: &DatabaseConnection,
-    key: &str,
-    value: T,
-    actor_user_id: Uuid,
-) -> Result<T, AppError>
-where
-    T: Clone + Serialize,
-{
-    let ts = now();
-    let value_json = serde_json::to_value(value.clone()).map_err(AppError::internal)?;
-    if let Some(row) = control_setting::Entity::find_by_id(key.to_string())
-        .one(db)
-        .await
-        .map_err(AppError::database)?
-    {
-        let mut model = row.into_active_model();
-        model.value_json = Set(redact_json(value_json));
-        model.updated_by_user_id = Set(Some(actor_user_id));
-        model.updated_at = Set(ts);
-        model.update(db).await.map_err(AppError::database)?;
-    } else {
-        control_setting::Entity::insert(control_setting::ActiveModel {
-            key: Set(key.to_string()),
-            value_json: Set(redact_json(value_json)),
-            updated_by_user_id: Set(Some(actor_user_id)),
-            updated_at: Set(ts),
-        })
-        .exec(db)
-        .await
-        .map_err(AppError::database)?;
-    }
-    Ok(value)
 }
 
 /// Shared validation for bulk deployment requests (unit-tested).
@@ -3024,81 +2983,22 @@ impl FleetRepository for PostgresFleetRepository {
     }
 
     async fn get_runtime_settings(&self, config: &AppConfig) -> Result<RuntimeSettings, AppError> {
-        load_setting(&self.db, "runtime", runtime_settings_from_config(config)).await
-    }
-
-    async fn update_runtime_settings(
-        &self,
-        req: RuntimeSettings,
-        actor_user_id: Uuid,
-    ) -> Result<RuntimeSettings, AppError> {
-        if req.agents_root.trim().is_empty()
-            || req.hermes_command.trim().is_empty()
-            || req.java_agent_command.trim().is_empty()
-        {
-            return Err(AppError::validation(
-                "runtime roots and commands must not be empty",
-            ));
-        }
-        save_setting(&self.db, "runtime", req, actor_user_id).await
+        Ok(runtime_settings_from_config(config))
     }
 
     async fn get_port_settings(&self, config: &AppConfig) -> Result<PortSettings, AppError> {
-        load_setting(&self.db, "ports", port_settings_from_config(config)).await
+        Ok(port_settings_from_config(config))
     }
 
-    async fn update_port_settings(
+    async fn get_integration_settings(
         &self,
-        req: PortSettings,
-        actor_user_id: Uuid,
-    ) -> Result<PortSettings, AppError> {
-        if req.agent_port_stride < 4 {
-            return Err(AppError::validation("agent_port_stride must be at least 4"));
-        }
-        save_setting(&self.db, "ports", req, actor_user_id).await
-    }
-
-    async fn get_integration_settings(&self) -> Result<IntegrationSettings, AppError> {
-        load_setting(&self.db, "integrations", default_integration_settings()).await
-    }
-
-    async fn update_integration_settings(
-        &self,
-        req: IntegrationSettings,
-        actor_user_id: Uuid,
+        config: &AppConfig,
     ) -> Result<IntegrationSettings, AppError> {
-        save_setting(&self.db, "integrations", req, actor_user_id).await
+        Ok(integration_settings_from_config(config))
     }
 
     async fn get_auth_settings(&self, config: &AppConfig) -> Result<AuthSettings, AppError> {
-        load_setting(&self.db, "auth", auth_settings_from_config(config)).await
-    }
-
-    async fn update_auth_settings(
-        &self,
-        mut req: AuthSettings,
-        actor_user_id: Uuid,
-    ) -> Result<AuthSettings, AppError> {
-        req.mode = req.mode.trim().to_ascii_lowercase();
-        req.jwt_issuer = req.jwt_issuer.trim().to_string();
-        req.jwt_audience = req.jwt_audience.trim().to_string();
-        if req.access_token_ttl_minutes == 0 || req.refresh_token_ttl_days == 0 {
-            return Err(AppError::validation(
-                "auth TTL values must be greater than zero",
-            ));
-        }
-        if req.mode != "hmac" {
-            return Err(AppError::validation(
-                "auth mode currently supports only hmac; oidc is phase 2",
-            ));
-        }
-        if req.jwt_issuer.trim().is_empty() {
-            return Err(AppError::validation("jwt_issuer must not be empty"));
-        }
-        if req.jwt_audience.trim().is_empty() {
-            return Err(AppError::validation("jwt_audience must not be empty"));
-        }
-        save_setting(&self.db, "auth", req, actor_user_id).await
+        Ok(auth_settings_from_config(config))
     }
 }
 
@@ -3967,6 +3867,50 @@ mod tests {
         assert_eq!(first_token, replayed_token);
         assert_ne!(first_token, second_token);
         assert!(first_token.starts_with("fc_"));
+    }
+
+    #[test]
+    fn settings_snapshots_follow_effective_startup_config() {
+        let mut config = AppConfig::default();
+        config.server.port = 24001;
+        config.fleet.agents_root = "/srv/fleet/agents".to_string();
+        config.fleet.hermes_command = "hermes-cli".to_string();
+        config.fleet.agent_port_base = 31000;
+        config.fleet.project_workflow_url = Some("http://workflow:8000".to_string());
+        config.auth.jwt_issuer = "central-auth".to_string();
+
+        assert_eq!(
+            runtime_settings_from_config(&config).agents_root,
+            "/srv/fleet/agents"
+        );
+        assert_eq!(
+            runtime_settings_from_config(&config).hermes_command,
+            "hermes-cli"
+        );
+        assert_eq!(port_settings_from_config(&config).backend_port, 24001);
+        assert_eq!(port_settings_from_config(&config).agent_port_base, 31000);
+        assert_eq!(
+            integration_settings_from_config(&config).project_workflow_status,
+            "configured"
+        );
+        assert_eq!(
+            integration_settings_from_config(&config).project_workflow_url,
+            Some("http://workflow:8000".to_string())
+        );
+        assert_eq!(
+            auth_settings_from_config(&config).jwt_issuer,
+            "central-auth"
+        );
+
+        config.fleet.project_workflow_url = Some("   ".to_string());
+        assert_eq!(
+            integration_settings_from_config(&config),
+            IntegrationSettings {
+                project_workflow_url: None,
+                project_workflow_status: "not_configured".to_string(),
+                github_remote: None,
+            }
+        );
     }
 
     #[tokio::test]
