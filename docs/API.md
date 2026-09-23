@@ -134,15 +134,32 @@ Settings:
 - Legacy `PUT` для этих четырёх endpoint сохранён для совместимости как
   idempotent no-op: точное совпадение с effective snapshot возвращает `200`,
   а попытка изменить значение — `409 Conflict`. Runtime-конфигурация через
-  Fleet API не изменяется.
+  эти legacy endpoint не изменяется.
+- `GET /settings/managed` — применённый процессом управляемый snapshot и номер
+  активной версии. До первого применения `active_version` равен `null`, а
+  snapshot собирается из deployment/env-конфигурации.
+- `POST /settings/managed/preview` — нормализовать и проверить полный snapshot,
+  вернуть field-level diff и признак обязательного restart без записи в БД.
+- `POST /settings/managed/apply` — атомарно создать новую активную версию.
+  Требует `expected_active_version` и `confirm_restart=true`; после успешного
+  ответа процесс завершается с кодом `75`, чтобы supervisor выполнил restart.
+- `GET /settings/managed/versions?limit=20` — неизменяемая история версий.
+- `POST /settings/managed/versions/{version}/rollback` — создать новую активную
+  версию из выбранного snapshot; история не переписывается.
+
+Managed snapshot включает runtime roots/commands, диапазон портов агентов,
+несекретные CI/CD и Project Workflow integration settings, auth/cookie policy и
+retention thresholds. Database URL, JWT/runtime/API tokens, backend bind port,
+frontend port и host/container port mappings остаются deployment-owned. Apply и
+rollback записываются в `audit_log` в одной PostgreSQL-транзакции с переключением
+активной версии; stale `expected_active_version` получает `409 Conflict`.
 
 - `POST /deployments/jobs/bulk` — bulk runtime updates/rollback (Phase 3): один job на агента из `agent_ids` (≤100), archived/unknown пропускаются и считаются в `skipped`; `rollback: true` допустим только для `runtime_update` (помечает jobs и добавляет `detail.rollback`).
 - `POST /settings/retention/review` — запустить проход stale-folder review сейчас (operator, audited): возвращает `stale_agent_ids` archived-агентов старше `fleet.retention.stale_archived_days`, порог и время прохода
 
-Сохранённые ранее строки `control_settings` не считаются активной
-конфигурацией и не подменяют значения запуска. Параметры меняются в
-deployment/env-конфигурации с последующим restart/redeploy; пользователи и
-платформенный вход управляются Central Auth.
+Управляемая версия накладывается на deployment/env baseline при следующем
+старте процесса. Секреты и сетевое подключение контейнера из baseline всегда
+сохраняются; пользователи и платформенный вход управляются Central Auth.
 
 The frontend build regenerates TypeScript types from `openapi/openapi.json`.
 The OpenAPI JSON is regenerated from Rust source before release. Native Windows

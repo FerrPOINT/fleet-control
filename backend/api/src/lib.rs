@@ -80,6 +80,11 @@ pub mod routes;
         routes::settings::update_integration_settings,
         routes::settings::get_auth_settings,
         routes::settings::update_auth_settings,
+        routes::settings::get_managed_settings,
+        routes::settings::preview_managed_settings,
+        routes::settings::apply_managed_settings,
+        routes::settings::list_managed_settings_versions,
+        routes::settings::rollback_managed_settings,
         routes::settings::run_retention_review,
         routes::logs::list_logs,
         routes::logs::list_audit_log,
@@ -160,6 +165,18 @@ pub mod routes;
         domain::PortSettings,
         domain::IntegrationSettings,
         domain::AuthSettings,
+        domain::ManagedPortSettings,
+        domain::ManagedIntegrationSettings,
+        domain::ManagedRetentionSettings,
+        domain::ManagedSettingsSnapshot,
+        domain::ManagedSettingsVersion,
+        domain::ManagedSettingsChange,
+        domain::ManagedSettingsPreviewRequest,
+        domain::ManagedSettingsState,
+        domain::ManagedSettingsPreview,
+        domain::ApplyManagedSettingsRequest,
+        domain::RollbackManagedSettingsRequest,
+        domain::ApplyManagedSettingsResponse,
         domain::RuntimeOperationResponse,
     )),
     tags(
@@ -361,6 +378,26 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         .route(
             "/api/v1/settings/auth",
             get(routes::settings::get_auth_settings).put(routes::settings::update_auth_settings),
+        )
+        .route(
+            "/api/v1/settings/managed",
+            get(routes::settings::get_managed_settings),
+        )
+        .route(
+            "/api/v1/settings/managed/preview",
+            post(routes::settings::preview_managed_settings),
+        )
+        .route(
+            "/api/v1/settings/managed/apply",
+            post(routes::settings::apply_managed_settings),
+        )
+        .route(
+            "/api/v1/settings/managed/versions",
+            get(routes::settings::list_managed_settings_versions),
+        )
+        .route(
+            "/api/v1/settings/managed/versions/{version}/rollback",
+            post(routes::settings::rollback_managed_settings),
         )
         .route(
             "/settings/retention/review",

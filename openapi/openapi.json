@@ -1799,6 +1799,180 @@
         }
       }
     },
+    "/api/v1/settings/managed": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "operationId": "get_managed_settings",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedSettingsState"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/settings/managed/apply": {
+      "post": {
+        "tags": [
+          "settings"
+        ],
+        "operationId": "apply_managed_settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyManagedSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplyManagedSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid settings or restart not confirmed"
+          },
+          "409": {
+            "description": "Active version changed concurrently"
+          }
+        }
+      }
+    },
+    "/api/v1/settings/managed/preview": {
+      "post": {
+        "tags": [
+          "settings"
+        ],
+        "operationId": "preview_managed_settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManagedSettingsPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedSettingsPreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid settings"
+          }
+        }
+      }
+    },
+    "/api/v1/settings/managed/versions": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "operationId": "list_managed_settings_versions",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ManagedSettingsVersion"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/settings/managed/versions/{version}/rollback": {
+      "post": {
+        "tags": [
+          "settings"
+        ],
+        "operationId": "rollback_managed_settings",
+        "parameters": [
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RollbackManagedSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplyManagedSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid settings or restart not confirmed"
+          },
+          "404": {
+            "description": "Version not found"
+          },
+          "409": {
+            "description": "Active version changed concurrently"
+          }
+        }
+      }
+    },
     "/api/v1/settings/ports": {
       "get": {
         "tags": [
@@ -2945,6 +3119,49 @@
           }
         }
       },
+      "ApplyManagedSettingsRequest": {
+        "type": "object",
+        "required": [
+          "snapshot",
+          "confirm_restart"
+        ],
+        "properties": {
+          "confirm_restart": {
+            "type": "boolean"
+          },
+          "expected_active_version": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/ManagedSettingsSnapshot"
+          }
+        }
+      },
+      "ApplyManagedSettingsResponse": {
+        "type": "object",
+        "required": [
+          "restart_scheduled"
+        ],
+        "properties": {
+          "restart_scheduled": {
+            "type": "boolean"
+          },
+          "version": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ManagedSettingsVersion"
+              }
+            ]
+          }
+        }
+      },
       "AssignSessionLeaderRequest": {
         "type": "object",
         "properties": {
@@ -3683,6 +3900,210 @@
           }
         }
       },
+      "ManagedIntegrationSettings": {
+        "type": "object",
+        "properties": {
+          "forge_api_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "forge_project": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "project_workflow_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ManagedPortSettings": {
+        "type": "object",
+        "required": [
+          "agent_port_base",
+          "agent_port_stride"
+        ],
+        "properties": {
+          "agent_port_base": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "agent_port_stride": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "ManagedRetentionSettings": {
+        "type": "object",
+        "required": [
+          "stale_archived_days",
+          "review_interval_secs"
+        ],
+        "properties": {
+          "review_interval_secs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "stale_archived_days": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "ManagedSettingsChange": {
+        "type": "object",
+        "required": [
+          "path",
+          "before",
+          "after",
+          "requires_restart"
+        ],
+        "properties": {
+          "after": {},
+          "before": {},
+          "path": {
+            "type": "string"
+          },
+          "requires_restart": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ManagedSettingsPreview": {
+        "type": "object",
+        "required": [
+          "changes",
+          "restart_required"
+        ],
+        "properties": {
+          "active_version": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ManagedSettingsChange"
+            }
+          },
+          "restart_required": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ManagedSettingsPreviewRequest": {
+        "type": "object",
+        "required": [
+          "snapshot"
+        ],
+        "properties": {
+          "snapshot": {
+            "$ref": "#/components/schemas/ManagedSettingsSnapshot"
+          }
+        }
+      },
+      "ManagedSettingsSnapshot": {
+        "type": "object",
+        "required": [
+          "runtime",
+          "ports",
+          "integrations",
+          "auth",
+          "retention"
+        ],
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/AuthSettings"
+          },
+          "integrations": {
+            "$ref": "#/components/schemas/ManagedIntegrationSettings"
+          },
+          "ports": {
+            "$ref": "#/components/schemas/ManagedPortSettings"
+          },
+          "retention": {
+            "$ref": "#/components/schemas/ManagedRetentionSettings"
+          },
+          "runtime": {
+            "$ref": "#/components/schemas/RuntimeSettings"
+          }
+        }
+      },
+      "ManagedSettingsState": {
+        "type": "object",
+        "required": [
+          "snapshot"
+        ],
+        "properties": {
+          "active_version": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/ManagedSettingsSnapshot"
+          }
+        }
+      },
+      "ManagedSettingsVersion": {
+        "type": "object",
+        "required": [
+          "id",
+          "version",
+          "snapshot",
+          "created_at",
+          "is_active"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "created_by_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "rollback_of_version": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/ManagedSettingsSnapshot"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
       "MessageAuthorType": {
         "type": "string",
         "enum": [
@@ -3859,6 +4280,24 @@
             "type": "integer",
             "format": "int32",
             "minimum": 0
+          }
+        }
+      },
+      "RollbackManagedSettingsRequest": {
+        "type": "object",
+        "required": [
+          "confirm_restart"
+        ],
+        "properties": {
+          "confirm_restart": {
+            "type": "boolean"
+          },
+          "expected_active_version": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
           }
         }
       },

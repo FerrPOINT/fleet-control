@@ -1,5 +1,24 @@
 # Operations
 
+## Managed settings restart
+
+`POST /api/v1/settings/managed/apply` and the rollback endpoint persist the
+new active snapshot and its audit record atomically, return the accepted
+version, then request graceful process shutdown. The server binary exits with
+code `75`; the production Compose service uses `restart: unless-stopped` and
+starts again with the active database snapshot overlaid on the deployment
+baseline.
+
+Before apply, call `/api/v1/settings/managed/preview` and display every changed
+field. Clients must send the previewed `active_version` back as
+`expected_active_version` and require explicit restart confirmation. A `409`
+means another operator changed settings and the preview must be refreshed.
+
+If the supervisor does not restart the process, start it with the normal
+deployment command. The active version remains durable. Secrets, database
+connectivity and container port mappings are never sourced from managed
+settings, so recovery remains possible from the deployment environment.
+
 ## Provisioning
 
 Provisioning creates database rows first, then materializes folders. Re-running
