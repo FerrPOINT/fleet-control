@@ -20,6 +20,11 @@ import type {
   HandoffSessionRequest,
   AuthSettings,
   IntegrationSettings,
+  ApplyManagedSettingsResponse,
+  ManagedSettingsPreview,
+  ManagedSettingsSnapshot,
+  ManagedSettingsState,
+  ManagedSettingsVersion,
   LeaderExecutor,
   PortSettings,
   PurgeAgentFilesRequest,
@@ -333,6 +338,48 @@ export function updateAuthSettings(req: AuthSettings) {
     method: 'PUT',
     body: JSON.stringify(req),
   })
+}
+
+export function getManagedSettings() {
+  return apiRequest<ManagedSettingsState>('/api/v1/settings/managed')
+}
+
+export function previewManagedSettings(snapshot: ManagedSettingsSnapshot) {
+  return apiRequest<ManagedSettingsPreview>('/api/v1/settings/managed/preview', {
+    method: 'POST',
+    body: JSON.stringify({ snapshot }),
+  })
+}
+
+export function applyManagedSettings(
+  snapshot: ManagedSettingsSnapshot,
+  expectedActiveVersion: number | null,
+) {
+  return apiRequest<ApplyManagedSettingsResponse>('/api/v1/settings/managed/apply', {
+    method: 'POST',
+    body: JSON.stringify({
+      snapshot,
+      expected_active_version: expectedActiveVersion,
+      confirm_restart: true,
+    }),
+  })
+}
+
+export function listManagedSettingsVersions(limit = 20) {
+  return apiRequest<ManagedSettingsVersion[]>(`/api/v1/settings/managed/versions?limit=${limit}`)
+}
+
+export function rollbackManagedSettings(version: number, expectedActiveVersion: number | null) {
+  return apiRequest<ApplyManagedSettingsResponse>(
+    `/api/v1/settings/managed/versions/${version}/rollback`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        expected_active_version: expectedActiveVersion,
+        confirm_restart: true,
+      }),
+    },
+  )
 }
 
 export interface FleetAlert {

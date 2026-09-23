@@ -531,3 +531,54 @@ export interface AuthSettings {
   refresh_cookie_domain: string | null
   refresh_cookie_path: string
 }
+
+export interface ManagedSettingsSnapshot {
+  runtime: RuntimeSettings
+  ports: {
+    agent_port_base: number
+    agent_port_stride: number
+  }
+  integrations: {
+    forge_api_url: string | null
+    forge_project: string | null
+    project_workflow_url: string | null
+  }
+  auth: AuthSettings
+  retention: {
+    stale_archived_days: number
+    review_interval_secs: number
+  }
+}
+
+export interface ManagedSettingsState {
+  active_version: number | null
+  snapshot: ManagedSettingsSnapshot
+}
+
+export interface ManagedSettingsChange {
+  path: string
+  before: unknown
+  after: unknown
+  requires_restart: boolean
+}
+
+export interface ManagedSettingsPreview {
+  active_version: number | null
+  changes: ManagedSettingsChange[]
+  restart_required: boolean
+}
+
+export interface ManagedSettingsVersion {
+  id: string
+  version: number
+  snapshot: ManagedSettingsSnapshot
+  created_by_user_id: string | null
+  rollback_of_version: number | null
+  created_at: string
+  is_active: boolean
+}
+
+export interface ApplyManagedSettingsResponse {
+  version: ManagedSettingsVersion | null
+  restart_scheduled: boolean
+}

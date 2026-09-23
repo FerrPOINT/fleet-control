@@ -68,7 +68,18 @@ use `/deployments?tab=jobs` to create, inspect and cancel jobs.
 ## Settings
 
 Runtime roots, runtime sources, port ranges, integrations and auth settings are
-managed in `/settings`. Secret-like values must be returned redacted.
+managed in `/settings`. The runtime, ports, integrations, access and retention
+tabs edit one shared draft. Operators must review the server-generated field
+diff before applying it; confirmation stores an immutable version and requests
+a graceful Fleet Control restart. The history tab previews the same diff before
+restoring an older snapshot, and rollback creates a new version rather than
+rewriting history.
+
+Backend/frontend bind ports, host mappings, database URLs, signing material and
+integration tokens remain deployment-owned and are not editable in this UI.
+Failed preview, apply or rollback requests keep the draft and confirmation
+context so the operator can correct or retry the operation. A stale expected
+version is rejected instead of overwriting another operator's change.
 
 ## Logs
 

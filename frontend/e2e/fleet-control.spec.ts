@@ -13,6 +13,35 @@ const ids = {
   createdSession: '00000000-0000-4000-8000-000000000203',
 }
 
+const managedSettingsSnapshot = {
+  runtime: {
+    agents_root: 'C:\\fleet-control\\agents',
+    hermes_source: '..\\hermes',
+    hermes_command: 'hermes',
+    java_agent_source: '..\\java-agent',
+    java_agent_command: 'java',
+  },
+  ports: { agent_port_base: 29000, agent_port_stride: 10 },
+  integrations: {
+    forge_api_url: 'http://ci-cd:22801',
+    forge_project: 'fleet-control',
+    project_workflow_url: 'http://project-workflow:8000',
+  },
+  auth: {
+    mode: 'hmac',
+    jwt_issuer: 'fleet-control',
+    jwt_audience: 'sdlc',
+    access_token_ttl_minutes: 15,
+    refresh_token_ttl_days: 7,
+    refresh_cookie_name: 'refresh_token',
+    refresh_cookie_secure: true,
+    refresh_cookie_same_site: 'Lax',
+    refresh_cookie_domain: null,
+    refresh_cookie_path: '/api/v1/auth',
+  },
+  retention: { stale_archived_days: 30, review_interval_secs: 3600 },
+}
+
 type AgentStatus = 'running' | 'stopped' | 'ready' | 'archived'
 type ProductRole = 'leader' | 'executor'
 type AgentProfile = 'developer' | 'tester' | 'it_lead' | 'custom'
@@ -503,6 +532,34 @@ async function installMocks(page: Page, state: ApiState) {
         agents: state.agents,
         recent_events: events(),
       })
+    }
+    if (pathName === '/api/v1/settings/managed' && method === 'GET') {
+      return fulfill(route, { active_version: 2, snapshot: managedSettingsSnapshot })
+    }
+    if (pathName === '/api/v1/settings/managed/versions' && method === 'GET') {
+      return fulfill(route, [
+        {
+          id: 'settings-v2',
+          version: 2,
+          snapshot: managedSettingsSnapshot,
+          created_by_user_id: ids.user,
+          rollback_of_version: null,
+          created_at: now,
+          is_active: true,
+        },
+        {
+          id: 'settings-v1',
+          version: 1,
+          snapshot: {
+            ...managedSettingsSnapshot,
+            runtime: { ...managedSettingsSnapshot.runtime, hermes_command: 'hermes-old' },
+          },
+          created_by_user_id: ids.user,
+          rollback_of_version: null,
+          created_at: '2026-08-31T10:00:00+03:00',
+          is_active: false,
+        },
+      ])
     }
     if (pathName === '/api/v1/settings/runtime') {
       return fulfill(route, {
@@ -1003,7 +1060,7 @@ test('workflow bindings rebind only to a workflow in the selected namespace', as
   await expect(page.getByText('sdlc-business-tech-v1').first()).toBeVisible()
 })
 
-test('settings save states and controls work without touching the backend', async ({
+test('managed settings require preview, preserve failed changes and expose rollback history', async ({
   page,
 }, testInfo) => {
   const state = createState()
@@ -1011,136 +1068,148 @@ test('settings save states and controls work without touching the backend', asyn
   page.on('pageerror', (error) => pageErrors.push(error.message))
   await installSsoMocks(page)
   await installMocks(page, state)
-  const settings = {
-    runtime: {
-      agents_root: 'C:\\fleet-control\\agents',
-      hermes_source: '..\\hermes',
-      hermes_command: 'hermes',
-      java_agent_source: '..\\java-agent',
-      java_agent_command: 'java',
-    },
-    ports: {
-      backend_port: 23801,
-      frontend_port: 23802,
-      agent_port_base: 29000,
-      agent_port_stride: 10,
-    },
-    integrations: {
-      project_workflow_url: 'http://localhost:23811',
-      project_workflow_status: 'connected',
-      github_remote: 'https://github.com/FerrPOINT/fleet-control',
-    },
-    auth: {
-      mode: 'hmac',
-      jwt_issuer: 'fleet-control',
-      jwt_audience: 'sdlc',
-      access_token_ttl_minutes: 15,
-      refresh_token_ttl_days: 7,
-      refresh_cookie_name: 'refresh_token',
-      refresh_cookie_secure: true,
-      refresh_cookie_same_site: 'Lax',
-      refresh_cookie_domain: null,
-      refresh_cookie_path: '/api/v1/auth',
-    },
+  const historicalSnapshot = {
+    ...managedSettingsSnapshot,
+    runtime: { ...managedSettingsSnapshot.runtime, hermes_command: 'hermes-old' },
   }
-  const initialSettings = structuredClone(settings)
-  const writes: Array<{ tab: keyof typeof settings; body: unknown }> = []
-  let releaseSave: (() => void) | null = null
-  let holdSave = false
-  let failSave = false
-  await page.route('**/api/v1/settings/*', async (route) => {
-    const tab = new URL(route.request().url()).pathname.split('/').at(-1) as keyof typeof settings
-    if (!(tab in settings)) return fulfill(route, { error: 'Unhandled setting' }, 404)
-    if (route.request().method() === 'GET') return fulfill(route, settings[tab])
-    if (route.request().method() !== 'PUT') return fulfill(route, { error: 'Read-only QA' }, 405)
-    const body = route.request().postDataJSON()
-    writes.push({ tab, body })
-    if (holdSave) {
-      await new Promise<void>((resolve) => {
-        releaseSave = resolve
+  const writes: unknown[] = []
+  let releasePreview: (() => void) | null = null
+  let holdPreview = false
+  let failApply = true
+  await page.route('**/api/v1/settings/managed**', async (route) => {
+    const request = route.request()
+    const pathName = new URL(request.url()).pathname
+    const method = request.method()
+    if (pathName === '/api/v1/settings/managed' && method === 'GET') {
+      return fulfill(route, { active_version: 2, snapshot: managedSettingsSnapshot })
+    }
+    if (pathName === '/api/v1/settings/managed/versions' && method === 'GET') {
+      return fulfill(route, [
+        {
+          id: 'settings-v2',
+          version: 2,
+          snapshot: managedSettingsSnapshot,
+          created_by_user_id: ids.user,
+          rollback_of_version: null,
+          created_at: now,
+          is_active: true,
+        },
+        {
+          id: 'settings-v1',
+          version: 1,
+          snapshot: historicalSnapshot,
+          created_by_user_id: ids.user,
+          rollback_of_version: null,
+          created_at: '2026-08-31T10:00:00+03:00',
+          is_active: false,
+        },
+      ])
+    }
+    if (pathName === '/api/v1/settings/managed/preview' && method === 'POST') {
+      const body = request.postDataJSON() as { snapshot: typeof managedSettingsSnapshot }
+      if (holdPreview) {
+        await new Promise<void>((resolve) => {
+          releasePreview = resolve
+        })
+        holdPreview = false
+      }
+      return fulfill(route, {
+        active_version: 2,
+        restart_required: true,
+        changes: [
+          {
+            path: 'runtime.hermes_command',
+            before: managedSettingsSnapshot.runtime.hermes_command,
+            after: body.snapshot.runtime.hermes_command,
+            requires_restart: true,
+          },
+        ],
       })
-      holdSave = false
     }
-    if (failSave) {
-      failSave = false
-      return fulfill(route, { error: 'QA save failure' }, 503)
+    if (pathName === '/api/v1/settings/managed/apply' && method === 'POST') {
+      const body = request.postDataJSON()
+      writes.push(body)
+      if (failApply) {
+        failApply = false
+        return fulfill(route, { error: 'QA apply failure' }, 503)
+      }
+      return fulfill(route, {
+        restart_scheduled: true,
+        version: {
+          id: 'settings-v3',
+          version: 3,
+          snapshot: (body as { snapshot: typeof managedSettingsSnapshot }).snapshot,
+          created_by_user_id: ids.user,
+          rollback_of_version: null,
+          created_at: now,
+          is_active: true,
+        },
+      })
     }
-    Object.assign(settings[tab], body)
-    return fulfill(route, settings[tab])
+    if (pathName === '/api/v1/settings/managed/versions/1/rollback' && method === 'POST') {
+      return fulfill(route, {
+        restart_scheduled: true,
+        version: {
+          id: 'settings-v3',
+          version: 3,
+          snapshot: historicalSnapshot,
+          created_by_user_id: ids.user,
+          rollback_of_version: 1,
+          created_at: now,
+          is_active: true,
+        },
+      })
+    }
+    return fulfill(route, { error: `Unhandled managed settings route: ${method} ${pathName}` }, 404)
   })
 
   await page.setViewportSize({ width: 375, height: 812 })
   await page.goto('/settings')
-  await expect(page.getByRole('note')).toContainText('Сохранение не меняет работу сервиса')
   const command = page.getByRole('textbox', { name: 'Команда Hermes' })
   await expect(command).toHaveValue('hermes')
   await command.fill('hermes --qa')
-  holdSave = true
-  await page.getByRole('button', { name: 'Сохранить изменения' }).click()
+  holdPreview = true
+  await page.getByRole('button', { name: 'Проверить изменения' }).click()
   await expect(command).toBeDisabled()
-  await expect(page.getByRole('form', { name: 'Источники и команды' })).toHaveAttribute(
-    'aria-busy',
-    'true',
-  )
-  await expect(page.getByRole('button', { name: 'Сохраняем...' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Проверяем...' })).toBeDisabled()
   await page.waitForTimeout(1000)
-  await page.screenshot({ path: testInfo.outputPath('settings-pending-375.png'), fullPage: true })
-  releaseSave?.()
-  await expect(page.getByRole('status').getByText('Запись сохранена, не применена')).toBeVisible()
-  await expect(page.getByRole('form', { name: 'Источники и команды' })).toHaveAttribute(
-    'aria-busy',
-    'false',
-  )
-  await expect(command).toHaveValue('hermes --qa')
+  await page.screenshot({
+    path: testInfo.outputPath('settings-preview-pending-375.png'),
+    fullPage: true,
+  })
+  releasePreview?.()
+  const dialog = page.getByRole('alertdialog')
+  await expect(dialog).toContainText('runtime.hermes_command')
   await page.waitForTimeout(1000)
-  await page.screenshot({ path: testInfo.outputPath('settings-saved-375.png'), fullPage: true })
+  await page.screenshot({ path: testInfo.outputPath('settings-preview-375.png'), fullPage: true })
 
-  await command.fill('hermes --failure')
-  failSave = true
-  await page.getByRole('button', { name: 'Сохранить изменения' }).click()
-  await expect(page.getByRole('alert').getByText(/Не удалось сохранить настройки/)).toBeVisible()
-  await expect(command).toHaveValue('hermes --failure')
-  await expect(page.getByRole('button', { name: 'Сохранить изменения' })).toBeEnabled()
+  await dialog.getByRole('button', { name: 'Применить и перезапустить' }).click()
+  await expect(dialog.getByRole('alert')).toContainText('QA apply failure')
+  await expect(dialog).toBeVisible()
+  await expect(page.locator('#hermes-command')).toHaveValue('hermes --qa')
   await page.waitForTimeout(1000)
-  await page.screenshot({ path: testInfo.outputPath('settings-error-375.png'), fullPage: true })
-  await page.getByRole('button', { name: 'Сохранить изменения' }).click()
-  await expect(page.getByRole('status').getByText('Запись сохранена, не применена')).toBeVisible()
-  await expect(command).toHaveValue('hermes --failure')
-
-  await page.getByRole('tab', { name: 'Порты' }).click()
-  const stride = page.getByRole('spinbutton', { name: 'Шаг портов агентов' })
-  await stride.fill('12')
-  await page.getByRole('button', { name: 'Сохранить изменения' }).click()
-  await expect(page.getByRole('status').getByText('Запись сохранена, не применена')).toBeVisible()
-  await expect(stride).toHaveValue('12')
-
-  await page.getByRole('tab', { name: 'Интеграции' }).click()
-  const workflowStatus = page.getByRole('textbox', { name: 'Статус Project Workflow' })
-  await workflowStatus.fill('ready')
-  await page.getByRole('button', { name: 'Сохранить изменения' }).click()
-  await expect(page.getByRole('status').getByText('Запись сохранена, не применена')).toBeVisible()
-  await expect(workflowStatus).toHaveValue('ready')
-
-  await page.getByRole('tab', { name: 'Доступ' }).click()
-  const issuer = page.getByRole('textbox', { name: 'Издатель JWT' })
-  await issuer.fill('fleet-control-qa')
-  await page.getByRole('button', { name: 'Сохранить изменения' }).click()
-  await expect(page.getByRole('status').getByText('Запись сохранена, не применена')).toBeVisible()
-  await expect(issuer).toHaveValue('fleet-control-qa')
+  await page.screenshot({
+    path: testInfo.outputPath('settings-apply-error-375.png'),
+    fullPage: true,
+  })
+  await dialog.getByRole('button', { name: 'Применить и перезапустить' }).click()
+  await expect(dialog).toBeHidden()
+  await expect(page.getByRole('status')).toContainText('перезапускается с новой версией')
 
   const tabs = [
-    { name: 'Среда', form: 'Источники и команды' },
-    { name: 'Порты', form: 'Сетевые порты' },
-    { name: 'Интеграции', form: 'Интеграции' },
-    { name: 'Доступ', form: 'Политика аутентификации' },
-    { name: 'Пользователи', form: null },
+    { name: 'Среда', text: 'Источники и команды' },
+    { name: 'Порты', text: 'Сетевые порты' },
+    { name: 'Интеграции', text: 'Интеграции' },
+    { name: 'Доступ', text: 'Политика аутентификации' },
+    { name: 'Хранение', text: 'Политика хранения' },
+    { name: 'История', text: 'История версий' },
+    { name: 'Пользователи', text: 'Пользователи' },
   ]
-  for (const width of [375, 1280]) {
-    await page.setViewportSize({ width, height: width === 375 ? 812 : 900 })
+  for (const width of [375, 768, 1280, 1920]) {
+    await page.setViewportSize({ width, height: width <= 768 ? 812 : 1080 })
     for (const tab of tabs) {
       await page.getByRole('tab', { name: tab.name }).click()
-      if (tab.form) await expect(page.getByRole('form', { name: tab.form })).toBeVisible()
-      else await expect(page.getByRole('heading', { name: 'Пользователи' })).toBeVisible()
+      await expect(page.getByText(tab.text, { exact: true }).first()).toBeVisible()
       const layout = await page.evaluate(() => {
         const visible = (element: Element) => element.getClientRects().length > 0
         const controls = [
@@ -1154,7 +1223,14 @@ test('settings save states and controls work without touching the backend', asyn
               const rect = element.getBoundingClientRect()
               return rect.width < 40 || rect.height < 40
             })
-            .map((element) => element.outerHTML.slice(0, 100)),
+            .map((element) => {
+              const rect = element.getBoundingClientRect()
+              return {
+                label: element.getAttribute('aria-label') ?? element.textContent?.trim(),
+                width: rect.width,
+                height: rect.height,
+              }
+            }),
           unnamedFields: controls
             .filter(
               (element) =>
@@ -1168,10 +1244,10 @@ test('settings save states and controls work without touching the backend', asyn
       expect(layout.scrollWidth).toBe(width)
       expect(layout.smallTargets).toEqual([])
       expect(layout.unnamedFields).toEqual([])
-      if (width === 375 && tab.name === 'Доступ') {
+      if ((width === 375 || width === 1920) && tab.name === 'История') {
         await page.waitForTimeout(1000)
         await page.screenshot({
-          path: testInfo.outputPath('settings-auth-375.png'),
+          path: testInfo.outputPath(`settings-history-${width}.png`),
           fullPage: true,
         })
       }
@@ -1184,17 +1260,16 @@ test('settings save states and controls work without touching the backend', asyn
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
   await page.waitForTimeout(1000)
   await page.screenshot({ path: testInfo.outputPath('settings-light-1280.png'), fullPage: true })
-  expect(writes).toEqual([
-    { tab: 'runtime', body: { ...initialSettings.runtime, hermes_command: 'hermes --qa' } },
-    { tab: 'runtime', body: { ...initialSettings.runtime, hermes_command: 'hermes --failure' } },
-    { tab: 'runtime', body: { ...initialSettings.runtime, hermes_command: 'hermes --failure' } },
-    { tab: 'ports', body: { ...initialSettings.ports, agent_port_stride: 12 } },
-    {
-      tab: 'integrations',
-      body: { ...initialSettings.integrations, project_workflow_status: 'ready' },
+  expect(writes).toHaveLength(2)
+  expect(writes[0]).toEqual({
+    snapshot: {
+      ...managedSettingsSnapshot,
+      runtime: { ...managedSettingsSnapshot.runtime, hermes_command: 'hermes --qa' },
     },
-    { tab: 'auth', body: { ...initialSettings.auth, jwt_issuer: 'fleet-control-qa' } },
-  ])
+    expected_active_version: 2,
+    confirm_restart: true,
+  })
+  expect(writes[1]).toEqual(writes[0])
   expect(pageErrors).toEqual([])
 })
 
@@ -1332,8 +1407,8 @@ test('Hermes fleet control flow covers agents, runtime, skills, sessions and han
   await expect(page.getByText('session.create')).toBeVisible()
 
   await page.goto('/settings?tab=users')
-  await expect(page.getByRole('heading', { name: 'Users and roles' })).toBeVisible()
-  await page.getByRole('combobox').nth(1).selectOption('operator')
+  await expect(page.getByRole('heading', { name: 'Пользователи' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Открыть в Admin Panel' })).toBeVisible()
   await expect(page.getByText('QA Reviewer')).toBeVisible()
 
   await page.goto('/access-denied')
