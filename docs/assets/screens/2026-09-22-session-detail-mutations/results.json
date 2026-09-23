@@ -1,0 +1,219 @@
+{
+  "samples": [
+    {
+      "state": "detail",
+      "width": 375,
+      "theme": "light",
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "detail",
+      "width": 375,
+      "theme": "gray",
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "detail",
+      "width": 375,
+      "theme": "dark",
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "detail",
+      "width": 1920,
+      "theme": "light",
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "detail",
+      "width": 1920,
+      "theme": "gray",
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "detail",
+      "width": 1920,
+      "theme": "dark",
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "detail",
+      "width": 2560,
+      "theme": "light",
+      "viewportWidth": 2560,
+      "documentWidth": 2560,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "detail",
+      "width": 2560,
+      "theme": "gray",
+      "viewportWidth": 2560,
+      "documentWidth": 2560,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "detail",
+      "width": 2560,
+      "theme": "dark",
+      "viewportWidth": 2560,
+      "documentWidth": 2560,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "message-error",
+      "width": 375,
+      "theme": "dark",
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "delegation-error",
+      "width": 1920,
+      "theme": "light",
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "stop-confirm",
+      "width": 375,
+      "theme": "gray",
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "stop-error",
+      "width": 375,
+      "theme": "dark",
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "stop-error",
+      "width": 1920,
+      "theme": "light",
+      "viewportWidth": 1920,
+      "documentWidth": 1920,
+      "smallTouchTargets": [],
+      "axe": []
+    },
+    {
+      "state": "stop-recovered",
+      "width": 2560,
+      "theme": "dark",
+      "viewportWidth": 2560,
+      "documentWidth": 2560,
+      "smallTouchTargets": [],
+      "axe": []
+    }
+  ],
+  "uniqueRunActions": true,
+  "messageDraftRetained": true,
+  "messageRetryStable": true,
+  "delegationDraftRetained": true,
+  "delegationRetryStable": true,
+  "steerPendingDisabled": true,
+  "otherRunAvailableDuringSteer": true,
+  "steerPayloadCorrect": true,
+  "escapeWithoutStop": true,
+  "stopPendingDisabled": true,
+  "stopDialogLockedDuringPending": true,
+  "stopDialogRetainedAfterError": true,
+  "stoppedRunControlsRemoved": true,
+  "otherRunControlsRetained": true,
+  "attempts": {
+    "messageAttempts": 2,
+    "delegationAttempts": 2,
+    "steerAttempts": 1,
+    "stopAttempts": 2
+  },
+  "writes": [
+    {
+      "kind": "message",
+      "path": "/api/v1/sessions/00000000-0000-4000-8000-00000000b101/messages",
+      "payload": {
+        "body": "Проверка runtime",
+        "author_agent_id": null,
+        "idempotency_key": "79cbe147-003d-4273-9fe1-0a883a14553c"
+      }
+    },
+    {
+      "kind": "message",
+      "path": "/api/v1/sessions/00000000-0000-4000-8000-00000000b101/messages",
+      "payload": {
+        "body": "Проверка runtime",
+        "author_agent_id": null,
+        "idempotency_key": "79cbe147-003d-4273-9fe1-0a883a14553c"
+      }
+    },
+    {
+      "kind": "delegation",
+      "path": "/api/v1/sessions/00000000-0000-4000-8000-00000000b101/delegations",
+      "payload": {
+        "executor_agent_id": "00000000-0000-4000-8000-00000000b302",
+        "title": "Проверка исполнителя",
+        "initial_message": "Собери отчёт",
+        "idempotency_key": "d891e2cb-e139-42a2-90d6-db77010beebd"
+      }
+    },
+    {
+      "kind": "delegation",
+      "path": "/api/v1/sessions/00000000-0000-4000-8000-00000000b101/delegations",
+      "payload": {
+        "executor_agent_id": "00000000-0000-4000-8000-00000000b302",
+        "title": "Проверка исполнителя",
+        "initial_message": "Собери отчёт",
+        "idempotency_key": "d891e2cb-e139-42a2-90d6-db77010beebd"
+      }
+    },
+    {
+      "kind": "steer",
+      "path": "/api/v1/sessions/00000000-0000-4000-8000-00000000b101/runs/00000000-0000-4000-8000-00000000b401/steer",
+      "payload": {
+        "input": "Продолжи осторожно"
+      }
+    },
+    {
+      "kind": "stop",
+      "path": "/api/v1/sessions/00000000-0000-4000-8000-00000000b101/runs/00000000-0000-4000-8000-00000000b401/stop",
+      "payload": {}
+    },
+    {
+      "kind": "stop",
+      "path": "/api/v1/sessions/00000000-0000-4000-8000-00000000b101/runs/00000000-0000-4000-8000-00000000b401/stop",
+      "payload": {}
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "unexpectedHttpErrors": []
+}
