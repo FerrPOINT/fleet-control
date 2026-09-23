@@ -1318,7 +1318,10 @@ test('Hermes fleet control flow covers agents, runtime, skills, sessions and han
   await page.getByLabel('Title').fill('Runtime update dry run')
   await page.getByRole('button', { name: 'Create job' }).click()
   await expect(page.getByText('Runtime update dry run')).toBeVisible()
-  await page.getByRole('button', { name: 'Cancel' }).first().click()
+  await page.getByRole('button', { name: 'Cancel job “Runtime update dry run”' }).click()
+  const cancelDialog = page.getByRole('alertdialog')
+  await expect(cancelDialog.getByRole('heading', { name: 'Cancel this job?' })).toBeVisible()
+  await cancelDialog.getByRole('button', { name: 'Cancel job' }).click()
   await expect(page.getByText('cancelled')).toBeVisible()
 
   await page.goto('/logs?tab=events')

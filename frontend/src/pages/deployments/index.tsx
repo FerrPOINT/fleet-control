@@ -13,8 +13,18 @@ import {
   listDeploymentJobs,
   listRuntimeTemplates,
 } from '@/api/fleet'
-import type { AgentKind, DeploymentJobKind } from '@/api/types'
-import { Button } from '@sdlc/ui/ui'
+import type { AgentKind, DeploymentJob, DeploymentJobKind } from '@/api/types'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  Button,
+} from '@sdlc/ui/ui'
 import { Card, CardContent, CardHeader, CardTitle } from '@sdlc/ui/ui'
 import { Input } from '@sdlc/ui/ui'
 import { Label } from '@sdlc/ui/ui'
@@ -167,6 +177,7 @@ function DeploymentJobs({ onOpen }: { onOpen: (jobId: string) => void }) {
   const [bulkSelected, setBulkSelected] = useState<string[]>([])
   const [bulkRollback, setBulkRollback] = useState(false)
   const [bulkTitle, setBulkTitle] = useState(() => t('deployments.bulkDefaultTitle'))
+  const [cancelTarget, setCancelTarget] = useState<DeploymentJob | null>(null)
   const bulkAgents = (agents.data ?? []).filter((agent) => agent.status !== 'archived')
 
   const createMutation = useMutation({
@@ -187,6 +198,7 @@ function DeploymentJobs({ onOpen }: { onOpen: (jobId: string) => void }) {
     mutationFn: cancelDeploymentJob,
     onSuccess: async (cancelled) => {
       await queryClient.invalidateQueries({ queryKey: ['deployment-jobs'] })
+      setCancelTarget(null)
       toast.success(t('deployments.jobCancelled', { title: cancelled.title }))
     },
   })
@@ -457,8 +469,6 @@ function DeploymentJobs({ onOpen }: { onOpen: (jobId: string) => void }) {
             <ul className="divide-y divide-border rounded-md border border-border">
               {jobs.data.map((job) => {
                 const canCancel = job.state === 'queued' || job.state === 'running'
-                const isCancelling = cancelMutation.isPending && cancelMutation.variables === job.id
-                const cancelFailed = cancelMutation.isError && cancelMutation.variables === job.id
                 return (
                   <li key={job.id} className="p-3">
                     <div className="flex flex-wrap items-center gap-2">
@@ -483,17 +493,16 @@ function DeploymentJobs({ onOpen }: { onOpen: (jobId: string) => void }) {
                       <Button
                         className="mt-2 h-10"
                         variant="outline"
-                        onClick={() => cancelMutation.mutate(job.id)}
+                        aria-label={t('deployments.cancelJob', { title: job.title })}
+                        onClick={() => {
+                          cancelMutation.reset()
+                          setCancelTarget(job)
+                        }}
                         disabled={cancelMutation.isPending}
                       >
                         <Ban className="h-4 w-4" />
-                        {isCancelling ? t('deployments.cancelling') : t('deployments.cancel')}
+                        {t('deployments.cancel')}
                       </Button>
-                    ) : null}
-                    {cancelFailed ? (
-                      <div className="mt-2">
-                        <ErrorState message={t('deployments.cancelError')} />
-                      </div>
                     ) : null}
                   </li>
                 )
@@ -504,6 +513,45 @@ function DeploymentJobs({ onOpen }: { onOpen: (jobId: string) => void }) {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={Boolean(cancelTarget)}
+        onOpenChange={(open) => {
+          if (!open && !cancelMutation.isPending) {
+            setCancelTarget(null)
+            cancelMutation.reset()
+          }
+        }}
+      >
+        <AlertDialogContent aria-busy={cancelMutation.isPending}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('deployments.cancelConfirmTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('deployments.cancelConfirmDescription', { title: cancelTarget?.title ?? '' })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {cancelMutation.isError ? <ErrorState message={t('deployments.cancelError')} /> : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelMutation.isPending}>
+              {t('deployments.keepJob')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={cancelMutation.isPending || !cancelTarget}
+              style={{ color: 'var(--color-accent-foreground)' }}
+              onClick={(event) => {
+                event.preventDefault()
+                if (cancelTarget) cancelMutation.mutate(cancelTarget.id)
+              }}
+            >
+              {cancelMutation.isPending
+                ? t('deployments.cancelling')
+                : cancelMutation.isError
+                  ? t('deployments.retryCancel')
+                  : t('deployments.confirmCancel')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
