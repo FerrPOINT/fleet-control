@@ -57,6 +57,8 @@ const requiredRoutes = [
   '/logs',
   '/logs?tab=audit',
   '/settings',
+  '/settings?tab=retention',
+  '/settings?tab=history',
   '/settings?tab=users',
   '/access-denied',
   '/not-a-fleet-route',

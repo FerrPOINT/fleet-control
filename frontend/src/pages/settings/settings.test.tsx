@@ -1,53 +1,73 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as fleet from '@/api/fleet'
 import * as auth from '@/api/auth'
+import type { ManagedSettingsSnapshot, ManagedSettingsVersion } from '@/api/types'
 import { SettingsPage } from './index'
 
 vi.mock('@/api/fleet', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api/fleet')>()),
-  getRuntimeSettings: vi.fn(),
-  getPortSettings: vi.fn(),
-  getIntegrationSettings: vi.fn(),
-  getAuthSettings: vi.fn(),
+  getManagedSettings: vi.fn(),
+  previewManagedSettings: vi.fn(),
+  applyManagedSettings: vi.fn(),
+  listManagedSettingsVersions: vi.fn(),
+  rollbackManagedSettings: vi.fn(),
 }))
 vi.mock('@/api/auth', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api/auth')>()),
   listUsers: vi.fn(),
 }))
 
-const runtime = {
-  agents_root: '/agents',
-  hermes_source: '../hermes',
-  hermes_command: 'hermes',
-  java_agent_source: '../java-agent',
-  java_agent_command: 'java',
+const snapshot: ManagedSettingsSnapshot = {
+  runtime: {
+    agents_root: '/agents',
+    hermes_source: '../hermes',
+    hermes_command: 'hermes',
+    java_agent_source: '../java-agent',
+    java_agent_command: 'java',
+  },
+  ports: { agent_port_base: 24000, agent_port_stride: 10 },
+  integrations: {
+    forge_api_url: 'http://ci-cd:22801',
+    forge_project: 'fleet-control',
+    project_workflow_url: 'http://project-workflow:8000',
+  },
+  auth: {
+    mode: 'hmac',
+    jwt_issuer: 'fleet-control',
+    jwt_audience: 'sdlc',
+    access_token_ttl_minutes: 15,
+    refresh_token_ttl_days: 7,
+    refresh_cookie_name: 'refresh_token',
+    refresh_cookie_secure: false,
+    refresh_cookie_same_site: 'Lax',
+    refresh_cookie_domain: null,
+    refresh_cookie_path: '/api/v1/auth',
+  },
+  retention: { stale_archived_days: 30, review_interval_secs: 3600 },
 }
-const ports = {
-  backend_port: 23801,
-  frontend_port: 23802,
-  agent_port_base: 24000,
-  agent_port_stride: 10,
+
+const activeVersion: ManagedSettingsVersion = {
+  id: 'version-2',
+  version: 2,
+  snapshot,
+  created_by_user_id: 'user-1',
+  rollback_of_version: null,
+  created_at: '2026-09-23T10:00:00+00:00',
+  is_active: true,
 }
-const integrations = {
-  project_workflow_url: 'http://project-workflow:8000',
-  project_workflow_status: 'configured',
-  github_remote: null,
+const historicalVersion: ManagedSettingsVersion = {
+  id: 'version-1',
+  version: 1,
+  snapshot: { ...snapshot, runtime: { ...snapshot.runtime, hermes_command: 'hermes-old' } },
+  created_by_user_id: 'user-1',
+  rollback_of_version: null,
+  created_at: '2026-09-22T10:00:00+00:00',
+  is_active: false,
 }
-const authSettings = {
-  mode: 'hmac',
-  jwt_issuer: 'fleet-control',
-  jwt_audience: 'sdlc',
-  access_token_ttl_minutes: 15,
-  refresh_token_ttl_days: 7,
-  refresh_cookie_name: 'refresh_token',
-  refresh_cookie_secure: false,
-  refresh_cookie_same_site: 'Lax',
-  refresh_cookie_domain: null,
-  refresh_cookie_path: '/api/v1/auth',
-}
+const versions: ManagedSettingsVersion[] = [activeVersion, historicalVersion]
 
 function renderSettings(initialEntry = '/settings') {
   const client = new QueryClient({
@@ -65,79 +85,157 @@ function renderSettings(initialEntry = '/settings') {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(fleet.getRuntimeSettings).mockResolvedValue(runtime)
-  vi.mocked(fleet.getPortSettings).mockResolvedValue(ports)
-  vi.mocked(fleet.getIntegrationSettings).mockResolvedValue(integrations)
-  vi.mocked(fleet.getAuthSettings).mockResolvedValue(authSettings)
+  vi.mocked(fleet.getManagedSettings).mockResolvedValue({ active_version: 2, snapshot })
+  vi.mocked(fleet.previewManagedSettings).mockImplementation(async (proposed) => ({
+    active_version: 2,
+    restart_required: true,
+    changes: [
+      {
+        path: 'runtime.hermes_command',
+        before: 'hermes',
+        after: proposed.runtime.hermes_command,
+        requires_restart: true,
+      },
+    ],
+  }))
+  vi.mocked(fleet.applyManagedSettings).mockResolvedValue({
+    restart_scheduled: true,
+    version: { ...activeVersion, version: 3, id: 'version-3' },
+  })
+  vi.mocked(fleet.listManagedSettingsVersions).mockResolvedValue(versions)
+  vi.mocked(fleet.rollbackManagedSettings).mockResolvedValue({
+    restart_scheduled: true,
+    version: { ...activeVersion, version: 3, id: 'version-3', rollback_of_version: 1 },
+  })
   vi.mocked(auth.listUsers).mockResolvedValue([])
 })
 
 describe('SettingsPage', () => {
-  it('shows effective runtime values without fake editing controls', async () => {
+  it('edits a shared draft and previews every change before apply', async () => {
     renderSettings()
+    const command = await screen.findByLabelText('Команда Hermes')
+    expect(command).toHaveValue('hermes')
+    expect(screen.getByText('Активная версия №2')).toBeInTheDocument()
 
-    const panel = await screen.findByRole('region', { name: 'Источники и команды' })
-    expect(within(panel).getByText('/agents')).toBeInTheDocument()
-    expect(within(panel).getByText('hermes')).toBeInTheDocument()
-    expect(within(panel).getByText('Только чтение')).toBeInTheDocument()
-    expect(within(panel).getByText(/deployment Fleet Control/)).toBeInTheDocument()
-    expect(screen.queryByRole('form')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Сохранить изменения' })).not.toBeInTheDocument()
-    expect(screen.getByRole('note')).toHaveTextContent('Показаны активные значения запуска')
-  })
+    fireEvent.change(command, { target: { value: 'hermes-next' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить изменения' }))
 
-  it('loads only the selected settings tab and keeps its state in the URL', async () => {
-    renderSettings('/settings?tab=ports')
-
-    const panel = await screen.findByRole('region', { name: 'Сетевые порты' })
-    expect(within(panel).getByText('24000')).toBeInTheDocument()
-    expect(fleet.getRuntimeSettings).not.toHaveBeenCalled()
-    expect(fleet.getPortSettings).toHaveBeenCalledTimes(1)
-
-    fireEvent.keyDown(screen.getByRole('tab', { name: 'Интеграции' }), { key: 'Enter' })
-    expect(await screen.findByRole('region', { name: 'Интеграции' })).toHaveTextContent(
-      'http://project-workflow:8000',
+    expect(await screen.findByRole('alertdialog')).toHaveTextContent('runtime.hermes_command')
+    expect(fleet.previewManagedSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtime: expect.objectContaining({ hermes_command: 'hermes-next' }),
+      }),
     )
-    expect(fleet.getIntegrationSettings).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Применить и перезапустить' }))
+    await waitFor(() =>
+      expect(fleet.applyManagedSettings).toHaveBeenCalledWith(expect.anything(), 2),
+    )
+    expect(await screen.findByRole('status')).toHaveTextContent('перезапускается с новой версией')
   })
 
-  it('recovers from an initial settings load failure', async () => {
-    vi.mocked(fleet.getRuntimeSettings).mockRejectedValueOnce(new Error('network'))
+  it('keeps the draft and confirmation open when apply fails, then retries', async () => {
+    vi.mocked(fleet.applyManagedSettings)
+      .mockRejectedValueOnce(new Error('apply failed'))
+      .mockResolvedValueOnce({ restart_scheduled: true, version: activeVersion })
     renderSettings()
+    const command = await screen.findByLabelText('Команда Hermes')
+    fireEvent.change(command, { target: { value: 'hermes-next' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить изменения' }))
+    await screen.findByRole('alertdialog')
 
+    fireEvent.click(screen.getByRole('button', { name: 'Применить и перезапустить' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('apply failed')
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+    expect(command).toHaveValue('hermes-next')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Применить и перезапустить' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(fleet.applyManagedSettings).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps the draft when preview validation fails and allows retry', async () => {
+    vi.mocked(fleet.previewManagedSettings)
+      .mockRejectedValueOnce(new Error('preview failed'))
+      .mockImplementationOnce(async (proposed) => ({
+        active_version: 2,
+        restart_required: true,
+        changes: [
+          {
+            path: 'runtime.hermes_command',
+            before: 'hermes',
+            after: proposed.runtime.hermes_command,
+            requires_restart: true,
+          },
+        ],
+      }))
+    renderSettings()
+    const command = await screen.findByLabelText('Команда Hermes')
+    fireEvent.change(command, { target: { value: 'invalid-command' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить изменения' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('preview failed')
+    expect(command).toHaveValue('invalid-command')
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить изменения' }))
+    expect(await screen.findByRole('alertdialog')).toHaveTextContent('runtime.hermes_command')
+  })
+
+  it('resets an unsaved draft to the effective snapshot', async () => {
+    renderSettings()
+    const command = await screen.findByLabelText('Команда Hermes')
+    fireEvent.change(command, { target: { value: 'temporary' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Сбросить черновик' }))
+    expect(command).toHaveValue('hermes')
+  })
+
+  it('previews a historical version before rollback and preserves the expected version', async () => {
+    renderSettings('/settings?tab=history')
+    expect(await screen.findByText('Версия №2')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Вернуть' }))
+    expect(await screen.findByRole('alertdialog')).toHaveTextContent('Вернуть настройки версии №1')
+    expect(fleet.previewManagedSettings).toHaveBeenCalledWith(historicalVersion.snapshot)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить rollback' }))
+    await waitFor(() => expect(fleet.rollbackManagedSettings).toHaveBeenCalledWith(1, 2))
+    expect(await screen.findByRole('status')).toHaveTextContent('Rollback сохранён')
+  })
+
+  it('keeps rollback confirmation open after an error and retries the same version', async () => {
+    vi.mocked(fleet.rollbackManagedSettings)
+      .mockRejectedValueOnce(new Error('rollback failed'))
+      .mockResolvedValueOnce({ restart_scheduled: true, version: activeVersion })
+    renderSettings('/settings?tab=history')
+    await screen.findByText('Версия №2')
+    fireEvent.click(screen.getByRole('button', { name: 'Вернуть' }))
+    await screen.findByRole('alertdialog')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить rollback' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('rollback failed')
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить rollback' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(fleet.rollbackManagedSettings).toHaveBeenNthCalledWith(1, 1, 2)
+    expect(fleet.rollbackManagedSettings).toHaveBeenNthCalledWith(2, 1, 2)
+  })
+
+  it('recovers from an initial load failure and keeps a successful snapshot on refresh error', async () => {
+    vi.mocked(fleet.getManagedSettings).mockRejectedValueOnce(new Error('network'))
+    const client = renderSettings()
     expect(await screen.findByText('Не удалось загрузить настройки.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Повторить' }))
-    expect(await screen.findByRole('region', { name: 'Источники и команды' })).toHaveTextContent(
-      '/agents',
-    )
-  })
+    expect(await screen.findByLabelText('Команда Hermes')).toHaveValue('hermes')
 
-  it('keeps the last effective snapshot when a refresh fails and can retry', async () => {
-    const client = renderSettings()
-    await screen.findByText('/agents')
-    vi.mocked(fleet.getRuntimeSettings).mockRejectedValueOnce(new Error('network'))
-
+    vi.mocked(fleet.getManagedSettings).mockRejectedValueOnce(new Error('refresh failed'))
     await act(async () => {
-      await client.refetchQueries({ queryKey: ['settings', 'runtime'] })
+      await client.refetchQueries({ queryKey: ['settings', 'managed'] })
     })
-
-    expect(screen.getByText('/agents')).toBeInTheDocument()
+    expect(screen.getByLabelText('Команда Hermes')).toHaveValue('hermes')
     expect(await screen.findByRole('alert')).toHaveTextContent('последний успешный снимок')
-    fireEvent.click(screen.getByRole('button', { name: 'Повторить' }))
-    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
   })
 
-  it('explains ownership for integrations and platform authentication', async () => {
-    renderSettings('/settings?tab=integrations')
-    const integrationsPanel = await screen.findByRole('region', { name: 'Интеграции' })
-    expect(within(integrationsPanel).getByText('Настроено')).toBeInTheDocument()
-    expect(within(integrationsPanel).queryByText('Репозиторий GitHub')).not.toBeInTheDocument()
-
-    fireEvent.keyDown(screen.getByRole('tab', { name: 'Доступ' }), { key: 'Enter' })
-    const authPanel = await screen.findByRole('region', { name: 'Политика аутентификации' })
-    expect(within(authPanel).getByText(/Central Auth/)).toBeInTheDocument()
-    expect(within(authPanel).getByText('HMAC')).toBeInTheDocument()
-    expect(within(authPanel).getByText('Нет')).toBeInTheDocument()
+  it('shows managed agent ports while explaining deployment-owned service ports', async () => {
+    renderSettings('/settings?tab=ports')
+    expect(await screen.findByLabelText('Первый порт агента')).toHaveValue(24000)
+    expect(screen.getByText(/Порты backend\/frontend/)).toBeInTheDocument()
   })
 
   it('shows a searchable users list with an Admin Panel handoff', async () => {
@@ -155,7 +253,6 @@ describe('SettingsPage', () => {
       'http://localhost:7772/users',
     )
     expect(screen.getAllByText(/User \d+/)).toHaveLength(12)
-    expect(screen.queryByRole('note')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Далее' }))
     expect(screen.getAllByText(/User \d+/)).toHaveLength(1)
     fireEvent.change(screen.getByRole('searchbox', { name: 'Найти пользователя' }), {

@@ -1,4 +1,5 @@
 import { chromium } from '@playwright/test'
+import { generateKeyPairSync, sign } from 'node:crypto'
 import { mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -21,6 +22,35 @@ const ids = {
   skillGh: '00000000-0000-4000-8000-000000000303',
   bindingDev: '00000000-0000-4000-8000-000000000401',
   bindingQa: '00000000-0000-4000-8000-000000000402',
+}
+
+const managedSettingsSnapshot = {
+  runtime: {
+    agents_root: 'C:\\fleet-control\\agents',
+    hermes_source: '..\\hermes',
+    hermes_command: 'hermes',
+    java_agent_source: '..\\java-agent',
+    java_agent_command: 'java',
+  },
+  ports: { agent_port_base: 29000, agent_port_stride: 10 },
+  integrations: {
+    forge_api_url: 'http://ci-cd:22801',
+    forge_project: 'fleet-control',
+    project_workflow_url: 'http://project-workflow:8000',
+  },
+  auth: {
+    mode: 'hmac',
+    jwt_issuer: 'fleet-control',
+    jwt_audience: 'sdlc',
+    access_token_ttl_minutes: 15,
+    refresh_token_ttl_days: 7,
+    refresh_cookie_name: 'refresh_token',
+    refresh_cookie_secure: true,
+    refresh_cookie_same_site: 'Lax',
+    refresh_cookie_domain: null,
+    refresh_cookie_path: '/api/v1/auth',
+  },
+  retention: { stale_archived_days: 30, review_interval_secs: 3600 },
 }
 
 function agent({
@@ -647,6 +677,70 @@ function json(route, value, status = 200) {
   })
 }
 
+async function mockSso(context) {
+  const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' })
+  const jwk = {
+    ...publicKey.export({ format: 'jwk' }),
+    kid: 'screenshots',
+    alg: 'ES256',
+    use: 'sig',
+  }
+  let issuer = 'http://localhost:7701'
+  let nonce = ''
+  await context.route('**/oidc/authorize**', async (route) => {
+    const url = new URL(route.request().url())
+    issuer = url.origin
+    nonce = url.searchParams.get('nonce') ?? ''
+    const callback = new URL(url.searchParams.get('redirect_uri') ?? '/')
+    callback.searchParams.set('code', 'screenshot-code')
+    callback.searchParams.set('state', url.searchParams.get('state') ?? '')
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/html',
+      body: `<!doctype html><script>location.replace(${JSON.stringify(callback.toString())})</script>`,
+    })
+  })
+  await context.route('**/oidc/token', async (route) => {
+    const header = Buffer.from(
+      JSON.stringify({ alg: 'ES256', typ: 'JWT', kid: 'screenshots' }),
+    ).toString('base64url')
+    const payload = Buffer.from(
+      JSON.stringify({
+        iss: issuer,
+        aud: 'fleet-control',
+        sub: ids.admin,
+        email: user.email,
+        nonce,
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      }),
+    ).toString('base64url')
+    const content = `${header}.${payload}`
+    const signature = sign('sha256', Buffer.from(content), {
+      key: privateKey,
+      dsaEncoding: 'ieee-p1363',
+    }).toString('base64url')
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'access-control-allow-origin': '*' },
+      body: JSON.stringify({
+        access_token: 'screenshot-access-token',
+        id_token: `${content}.${signature}`,
+        expires_in: 3600,
+      }),
+    })
+  })
+  await context.route('**/oidc/jwks', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'access-control-allow-origin': '*' },
+      body: JSON.stringify({ keys: [jwk] }),
+    }),
+  )
+}
+
 async function mockApi(context) {
   await context.route('**/api/v1/**', async (route) => {
     const request = route.request()
@@ -738,6 +832,34 @@ async function mockApi(context) {
         agents,
         recent_events: events,
       })
+    }
+    if (pathName === '/api/v1/settings/managed' && method === 'GET') {
+      return json(route, { active_version: 2, snapshot: managedSettingsSnapshot })
+    }
+    if (pathName === '/api/v1/settings/managed/versions' && method === 'GET') {
+      return json(route, [
+        {
+          id: 'settings-v2',
+          version: 2,
+          snapshot: managedSettingsSnapshot,
+          created_by_user_id: ids.admin,
+          rollback_of_version: null,
+          created_at: now,
+          is_active: true,
+        },
+        {
+          id: 'settings-v1',
+          version: 1,
+          snapshot: {
+            ...managedSettingsSnapshot,
+            runtime: { ...managedSettingsSnapshot.runtime, hermes_command: 'hermes-old' },
+          },
+          created_by_user_id: ids.admin,
+          rollback_of_version: null,
+          created_at: '2026-08-31T10:00:00+03:00',
+          is_active: false,
+        },
+      ])
     }
     if (pathName === '/api/v1/settings/runtime') {
       return json(route, {
@@ -953,6 +1075,8 @@ const coreScreens = [
   ['37-settings-ports.png', '/settings?tab=ports'],
   ['38-settings-integrations.png', '/settings?tab=integrations'],
   ['39-settings-auth.png', '/settings?tab=auth'],
+  ['39a-settings-retention.png', '/settings?tab=retention'],
+  ['39b-settings-history.png', '/settings?tab=history'],
   ['40-settings-users.png', '/settings?tab=users'],
   ['41-alerts.png', '/alerts'],
   ['42-access-denied.png', '/access-denied'],
@@ -973,6 +1097,7 @@ try {
       viewport: { width: viewport.width, height: viewport.height },
       deviceScaleFactor: 1,
     })
+    await mockSso(context)
     await mockApi(context)
 
     const page = await context.newPage()
@@ -985,8 +1110,23 @@ try {
       }
     }
 
-    for (const [fileName, urlPath] of viewport.screens) {
-      await page.goto(`${baseUrl}${urlPath}`, { waitUntil: 'networkidle' })
+    for (const [index, [fileName, urlPath]] of viewport.screens.entries()) {
+      if (index === 0) {
+        await page.goto(`${baseUrl}${urlPath}`, { waitUntil: 'domcontentloaded' })
+      } else {
+        await page.evaluate((nextPath) => {
+          window.history.pushState({}, '', nextPath)
+          window.dispatchEvent(new PopStateEvent('popstate'))
+        }, urlPath)
+      }
+      await page.waitForTimeout(1000)
+      await page.waitForURL((url) => `${url.pathname}${url.search}` === urlPath, {
+        timeout: 15_000,
+      })
+      await page.locator('main').waitFor({ state: 'visible' })
+      if (page.url().includes('/oidc/')) {
+        throw new Error(`Screenshot route ${urlPath} escaped to Central Auth: ${page.url()}`)
+      }
       await page.waitForTimeout(1000)
       await page.screenshot({
         path: path.join(outputDir, fileName),
