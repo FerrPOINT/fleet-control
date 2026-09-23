@@ -12,6 +12,7 @@ import {
   CardTitle,
   Input,
   Tabs,
+  TabsContent,
   TabsList,
   TabsTrigger,
   usePlatformServices,
@@ -46,12 +47,18 @@ export function SettingsPage() {
             ))}
           </TabsList>
         </div>
+        {tabs.map((tab) => (
+          <TabsContent key={tab} value={tab} forceMount className="mt-0">
+            {tab === selectedTab ? (
+              tab === 'users' ? (
+                <UsersPanel />
+              ) : (
+                <ManagedSettingsWorkspace tab={tab as ManagedSettingsTab} />
+              )
+            ) : null}
+          </TabsContent>
+        ))}
       </Tabs>
-      {selectedTab === 'users' ? (
-        <UsersPanel />
-      ) : (
-        <ManagedSettingsWorkspace tab={selectedTab as ManagedSettingsTab} />
-      )}
     </>
   )
 }

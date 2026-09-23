@@ -111,6 +111,17 @@ beforeEach(() => {
 })
 
 describe('SettingsPage', () => {
+  it('connects every tab to an existing tabpanel', async () => {
+    renderSettings()
+    await screen.findByLabelText('Команда Hermes')
+
+    for (const tab of screen.getAllByRole('tab')) {
+      const panelId = tab.getAttribute('aria-controls')
+      expect(panelId).toBeTruthy()
+      expect(document.getElementById(panelId!)).toHaveAttribute('role', 'tabpanel')
+    }
+  })
+
   it('edits a shared draft and previews every change before apply', async () => {
     renderSettings()
     const command = await screen.findByLabelText('Команда Hermes')
