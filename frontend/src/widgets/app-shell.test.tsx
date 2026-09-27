@@ -29,6 +29,7 @@ function renderShell(path = '/sessions/session-1') {
           <Routes>
             <Route element={<AppShell />}>
               <Route path="/" element={<h1>Dashboard content</h1>} />
+              <Route path="/agents/:agentId/runtime" element={<h1>Runtime content</h1>} />
               <Route path="/sessions/:sessionId" element={<h1>Session content</h1>} />
             </Route>
           </Routes>
@@ -63,11 +64,25 @@ describe('AppShell', () => {
     renderShell()
 
     expect(await screen.findByRole('heading', { name: 'Session content' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Session content' }).parentElement).toHaveAttribute(
+      'data-page-layout',
+      'detail-with-aside',
+    )
     const sessions = screen.getByRole('link', { name: 'Сессии' })
     expect(sessions).toHaveClass('bg-surface-raised')
     expect(screen.getByRole('link', { name: 'Агенты' })).toBeVisible()
     expect(screen.queryByRole('link', { name: 'Настройки' })).not.toBeInTheDocument()
     expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument()
+  })
+
+  it('keeps nested entity tabs in the shared detail mode', async () => {
+    renderShell('/agents/agent-1/runtime')
+
+    expect(await screen.findByRole('heading', { name: 'Runtime content' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Runtime content' }).parentElement).toHaveAttribute(
+      'data-page-layout',
+      'detail-with-aside',
+    )
   })
 
   it('closes the mobile drawer with Escape and returns focus to its trigger', async () => {

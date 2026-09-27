@@ -142,7 +142,7 @@ export function ManagedSettingsWorkspace({ tab }: { tab: ManagedSettingsTab }) {
   }
 
   return (
-    <div className="max-w-5xl space-y-4">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 border-y border-border py-3">
         <div>
           <p className="text-sm font-medium text-text-primary">
