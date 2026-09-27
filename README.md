@@ -70,7 +70,7 @@
 | Shared Base | services-base-aligned | fleet-standard request id и tracing bridge |
 | Frontend | React + Vite + Tailwind | operational fleet UI |
 | Contract | OpenAPI | generated frontend API types |
-| Evidence | Playwright screenshots | UI coverage desktop viewports |
+| Evidence | Playwright screenshots | UI coverage desktop and mobile viewports |
 
 Модель runtime (из storage review):
 
@@ -154,7 +154,14 @@ cargo run -p server
 
 ## Визуальные доказательства
 
-Скриншоты — реальные поверхности продукта, снятые на детерминированном fixture. Desktop — `1920x1080` full-page. Полный 132-файловый evidence-набор и параметры пересъёмки: [docs/assets/screens/manifest.md](docs/assets/screens/manifest.md).
+Скриншоты — реальные поверхности продукта, снятые на детерминированном fixture.
+Desktop — `1920x1080` full-page. Актуальный 89-файловый маршрутный набор, включая
+desktop `2560x1440` и mobile `375x812`, и параметры пересъёмки:
+[docs/assets/screens/manifest.md](docs/assets/screens/manifest.md).
+
+| Wide | Reading | Detail with aside |
+|---|---|---|
+| ![Дашборд, mobile](docs/assets/screens/375x812/03-dashboard.png) | ![Настройки, mobile](docs/assets/screens/375x812/36-settings.png) | ![Сессия лида, mobile](docs/assets/screens/375x812/28-session-leader-detail.png) |
 
 ### Дашборд
 

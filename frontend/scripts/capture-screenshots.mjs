@@ -1086,6 +1086,16 @@ const coreScreens = [
 const viewports = [
   { name: '1920x1080', width: 1920, height: 1080, screens: coreScreens },
   { name: '2560x1440', width: 2560, height: 1440, screens: coreScreens },
+  {
+    name: '375x812',
+    width: 375,
+    height: 812,
+    screens: [
+      ['03-dashboard.png', '/'],
+      ['28-session-leader-detail.png', `/sessions/${ids.sessionQa}`],
+      ['36-settings.png', '/settings'],
+    ],
+  },
 ]
 
 const browser = await chromium.launch()
