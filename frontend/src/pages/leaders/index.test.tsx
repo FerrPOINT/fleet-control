@@ -78,6 +78,14 @@ describe('LeaderDetailPage', () => {
     vi.mocked(fleet.updateLeaderExecutors).mockResolvedValue(expandedTeam)
   })
 
+  it('keeps sessions first and team controls in the contextual rail', async () => {
+    renderPage()
+    const rail = await screen.findByRole('complementary', { name: 'Исполнители команды' })
+    expect(rail.parentElement).toHaveClass('page-split')
+    expect(rail.previousElementSibling).toHaveTextContent('Сессии лидера')
+    expect(within(rail).getByRole('button', { name: 'Сохранить команду' })).toBeVisible()
+  })
+
   it('blocks saving while the team failed to load and retries safely', async () => {
     vi.mocked(fleet.listLeaderExecutors)
       .mockRejectedValueOnce(new Error('offline'))

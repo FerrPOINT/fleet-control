@@ -99,3 +99,15 @@ Screenshots default to workspace `.local/screenshots/fleet-agent-detail` and
 must be inspected before publishing selected evidence. Error/retry, pending
 locks, failed-draft retention and invalid JSON are covered by the agent-detail
 unit suite; live API failures are not simulated by this acceptance test.
+
+`e2e/detail-layout-live.spec.ts` uses the same live flags and session path. It
+creates only its own QA executor, leader and an empty session; no agent process
+or message dispatch is started. Agent records are archived in `finally` through
+the API. Session history has no delete API and is retained in the isolated QA
+project until that project's explicit teardown.
+
+The layout test measures actual rail width, position, grid gap and stacking
+order on overview, workspace, leader detail and session detail at
+375/768/1023/1024/1279/1280/1920 px, in all three themes (84 combinations).
+It also runs axe and checks document overflow. DOM unit tests check semantic
+landmarks and primary-before-rail order; they are not CSS geometry evidence.

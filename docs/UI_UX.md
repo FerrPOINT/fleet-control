@@ -70,4 +70,20 @@ Agent detail (2026-10-01):
   drafts; success appears after a successful response and clears on new edits.
 - Both JSON editors require an object; malformed JSON, arrays and scalar values
   disable config submission. File purge also requires a verified storage marker.
-- This change does not close the separate detail-column geometry/header audit.
+- Shared header ownership remains a separate platform audit item.
+
+Detail geometry (2026-10-01):
+
+| Route | Mode | Primary / contextual rail |
+|---|---|---|
+| `/agents/:id`, `/executors/:id` | detail-with-aside | Identity / runtime snapshot |
+| `/agents/:id/workspace`, executor alias | detail-with-aside | Managed paths / storage and purge controls |
+| `/sessions/:id` | detail-with-aside | Transcript and runs / session controls and participants |
+| `/leaders/:id` | detail-with-aside | Sessions / team editor |
+| Agent runtime, skills and config tabs | wide | Two working panels, not a metadata rail |
+
+Detail layouts use `page-split` from Base, not a locally copied grid contract.
+The contextual rail is 320 px at viewport widths >= 1024 px and follows the
+primary content below that breakpoint. Grid children have `min-width: 0` and
+align to the start so a long rail does not stretch a short primary tool into a
+large empty card. The server API and action behavior are unchanged.

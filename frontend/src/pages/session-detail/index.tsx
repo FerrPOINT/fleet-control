@@ -291,7 +291,7 @@ export function SessionDetailPage() {
 
       <SessionSummary session={session.data} />
 
-      <div className="mt-6 grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="page-split mt-6 items-start" data-page-layout="detail-with-aside">
         <div className="min-w-0 space-y-8">
           <section aria-labelledby="session-transcript-title">
             <SectionHeading
@@ -396,7 +396,7 @@ export function SessionDetailPage() {
           </section>
         </div>
 
-        <aside className="min-w-0 space-y-6">
+        <aside className="min-w-0 space-y-6" aria-label={t('sessionDetail.controls')}>
           <section
             className="rounded-md border border-border bg-surface p-4"
             aria-labelledby="session-controls-title"
