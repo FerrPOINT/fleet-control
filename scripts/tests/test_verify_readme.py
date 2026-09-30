@@ -32,10 +32,14 @@ class VerifyReadmeTests(unittest.TestCase):
             '<a name="safety"></a>\n'
             '<a name="quality"></a>\n'
             '<a name="license"></a>\n'
-            '![dashboard](docs/assets/screens/1920x1080/03-dashboard.png)\n'
+            '### Dashboard (`wide`)\n![dashboard](docs/assets/screens/1920x1080/03-dashboard.png)\n'
+            '### Settings (`reading/form`)\n![settings](docs/assets/screens/1920x1080/36-settings.png)\n'
+            '### Leader (`detail-with-aside`)\n![detail](docs/assets/screens/1920x1080/06-leader-detail.png)\n'
         )
         for relative in [
             "docs/assets/screens/1920x1080/03-dashboard.png",
+            "docs/assets/screens/1920x1080/36-settings.png",
+            "docs/assets/screens/1920x1080/06-leader-detail.png",
         ]:
             asset = root / relative
             asset.parent.mkdir(parents=True, exist_ok=True)
@@ -53,6 +57,12 @@ class VerifyReadmeTests(unittest.TestCase):
             "RMD004: README.md: missing proof asset: docs/assets/screens/1920x1080/03-dashboard.png",
             findings,
         )
+
+    def test_rejects_mobile_screenshot_in_readme(self) -> None:
+        validator = load_validator()
+        root = self.make_repo("![Mobile](docs/assets/screens/375x812/03-dashboard.png)\n")
+
+        self.assertIn("RMD007", "\n".join(validator.validate(root)))
 
 
 if __name__ == "__main__":

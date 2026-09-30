@@ -19,7 +19,10 @@ REQUIRED_ANCHORS = {
 }
 REQUIRED_PROOF = {
     "docs/assets/screens/1920x1080/03-dashboard.png",
+    "docs/assets/screens/1920x1080/36-settings.png",
+    "docs/assets/screens/1920x1080/06-leader-detail.png",
 }
+REQUIRED_LAYOUT_LABELS = ("wide", "reading/form", "detail-with-aside")
 MD_IMAGE_RE = re.compile(r"!\[[^]]*\]\(([^)]+)\)")
 HTML_IMAGE_RE = re.compile(r"<img\b[^>]*\bsrc=[\"']([^\"']+)[\"']", re.IGNORECASE)
 ANCHOR_RE = re.compile(r"<a\b[^>]*\bname=[\"']([^\"']+)[\"']", re.IGNORECASE)
@@ -45,8 +48,13 @@ def validate(root: Path) -> list[str]:
     for proof in sorted(REQUIRED_PROOF):
         if proof not in images:
             findings.append(f"RMD004: README.md: missing proof asset: {proof}")
+    for layout in REQUIRED_LAYOUT_LABELS:
+        if not re.search(rf"^### .+\(`{re.escape(layout)}`\)$", text, re.MULTILINE):
+            findings.append(f"RMD008: README.md: missing desktop layout example: {layout}")
 
     for image in images:
+        if re.search(r"(?:^|/)(?:\d+x\d+|mobile)(?:/|[-_.])", image, re.IGNORECASE) and "1920x1080" not in image:
+            findings.append("RMD007: README.md: mobile screenshot included in README gallery")
         image = unquote(image)
         if image.startswith(("http://", "https://", "data:", "#")):
             continue

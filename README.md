@@ -154,72 +154,22 @@ cargo run -p server
 
 ## Визуальные доказательства
 
-Скриншоты — реальные поверхности продукта, снятые на детерминированном fixture.
-Desktop — `1920x1080` full-page. Актуальный 89-файловый маршрутный набор, включая
-desktop `2560x1440` и mobile `375x812`, и параметры пересъёмки:
-[docs/assets/screens/manifest.md](docs/assets/screens/manifest.md).
+Представительные реальные страницы сняты на детерминированной fixture при
+`1920x1080` в default theme. Полный маршрутный набор, включая responsive QA и
+параметры пересъёмки, хранится в
+[manifest](docs/assets/screens/manifest.md).
 
-| Wide | Reading | Detail with aside |
-|---|---|---|
-| ![Дашборд, mobile](docs/assets/screens/375x812/03-dashboard.png) | ![Настройки, mobile](docs/assets/screens/375x812/36-settings.png) | ![Сессия лида, mobile](docs/assets/screens/375x812/28-session-leader-detail.png) |
-
-### Дашборд
+### Дашборд (`wide`)
 
 ![Дашборд](docs/assets/screens/1920x1080/03-dashboard.png)
 
-### Лидеры
-
-![Лидеры](docs/assets/screens/1920x1080/04-leaders.png)
-
-### Карточка лида
+### Карточка лида (`detail-with-aside`)
 
 ![Карточка лида](docs/assets/screens/1920x1080/06-leader-detail.png)
 
-### Исполнители
-
-![Исполнители](docs/assets/screens/1920x1080/08-executors.png)
-
-### Технические агенты
-
-![Технические агенты](docs/assets/screens/1920x1080/12-agents.png)
-
-### Карточка агента
-
-![Карточка агента](docs/assets/screens/1920x1080/14-agent-overview.png)
-
-### Runtime агента
-
-![Runtime агента](docs/assets/screens/1920x1080/16-agent-runtime.png)
-
-### Сессии
-
-![Сессии](docs/assets/screens/1920x1080/26-sessions.png)
-
-### Сессия в контексте лида
-
-![Сессия в контексте лида](docs/assets/screens/1920x1080/28-session-leader-detail.png)
-
-### Workflows
-
-![Workflows](docs/assets/screens/1920x1080/29-workflows.png)
-
-### Задания деплоя
-
-![Задания деплоя](docs/assets/screens/1920x1080/31-deployments-jobs.png)
-
-### Алерты флота
-
-![Алерты флота](docs/assets/screens/1920x1080/41-alerts.png)
-
-### Журнал аудита
-
-![Журнал аудита](docs/assets/screens/1920x1080/35-logs-audit.png)
-
-### Настройки
+### Настройки (`reading/form`)
 
 ![Настройки](docs/assets/screens/1920x1080/36-settings.png)
-
-На мобильных широкие таблицы (сессии, deployment jobs, алерты) горизонтально прокручиваются внутри карточки — честная адаптивность, без урезания колонок.
 
 ## Архитектура
 
