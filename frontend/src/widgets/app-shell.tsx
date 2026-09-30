@@ -14,7 +14,7 @@ import {
   UserRoundCheck,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { NavLink, Outlet } from 'react-router'
+import { NavLink, Outlet, useLocation } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { getCurrentUserPermissions } from '@/api/auth'
@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  PageFrame,
   PlatformMark,
   ServiceSwitcher,
   ThemeToggle,
@@ -70,6 +71,7 @@ type NavigationItem = (typeof navItems)[number]
 
 export function AppShell() {
   const { t } = useTranslation()
+  const location = useLocation()
   const displayName = useAuthStore((state) => state.displayName)
   const email = useAuthStore((state) => state.email)
   const permissions = useAuthStore((state) => state.permissions)
@@ -84,6 +86,13 @@ export function AppShell() {
     staleTime: 60_000,
   })
   const operatorName = displayName ?? email ?? t('app.operator')
+  const pageLayout =
+    location.pathname === '/settings' ||
+    /\/(agents|leaders|executors)\/(new|[^/]+\/edit)$/.test(location.pathname)
+      ? 'reading'
+      : /^\/(agents|leaders|executors|sessions)\/[^/]+(?:\/.*)?$/.test(location.pathname)
+        ? 'detail-with-aside'
+        : 'wide'
 
   useEffect(() => {
     if (!permissionsQuery.data) return
@@ -102,7 +111,7 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen bg-background text-text-primary">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[72px] flex-col border-r border-border bg-surface px-2 py-3 md:flex xl:w-[264px] xl:px-3">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--shell-sidebar-compact)] flex-col border-r border-border bg-surface px-2 py-3 md:flex xl:w-[var(--shell-sidebar-expanded)] xl:px-3">
         <div className="mb-4 flex h-10 items-center justify-center gap-3 px-1 xl:justify-start xl:px-2">
           <PlatformMark withName={false} />
           <div className="hidden min-w-0 xl:block">
@@ -128,8 +137,8 @@ export function AppShell() {
         </div>
       </aside>
 
-      <div className="min-w-0 overflow-x-hidden md:pl-[72px] xl:pl-[264px]">
-        <header className="sticky top-0 z-20 h-[60px] border-b border-border bg-background/95 backdrop-blur">
+      <div className="min-w-0 overflow-x-hidden md:pl-[var(--shell-sidebar-compact)] xl:pl-[var(--shell-sidebar-expanded)]">
+        <header className="sticky top-0 z-20 h-[var(--shell-header-height)] border-b border-border bg-background/95 backdrop-blur">
           <div className="flex h-full items-center gap-2 px-4 md:px-5 xl:px-6">
             <MobileNavigation items={visibleNavItems} operatorName={operatorName} email={email} />
             <div className="min-w-0 md:hidden">
@@ -164,8 +173,10 @@ export function AppShell() {
           </div>
         </header>
 
-        <main className="min-h-[calc(100dvh-60px)] min-w-0 px-4 py-5 md:px-5 xl:px-6">
-          <Outlet />
+        <main className="shell-main min-h-[calc(100dvh-var(--shell-header-height))]">
+          <PageFrame mode={pageLayout}>
+            <Outlet />
+          </PageFrame>
         </main>
       </div>
     </div>
@@ -234,7 +245,7 @@ function MobileNavigation({
         </Button>
       </DialogTrigger>
       <DialogContent className="!left-0 !top-0 !flex !h-dvh !max-h-dvh !w-[min(320px,calc(100%-2rem))] !max-w-none !translate-x-0 !translate-y-0 !flex-col !gap-0 !rounded-none !border-y-0 !border-l-0 !p-0 [&>button]:h-10 [&>button]:min-h-10 [&>button]:w-10 [&>button]:min-w-10">
-        <DialogHeader className="flex h-[60px] flex-row items-center gap-3 border-b border-border px-4 pr-14 text-left">
+        <DialogHeader className="flex h-[var(--shell-header-height)] flex-row items-center gap-3 border-b border-border px-4 pr-14 text-left">
           <PlatformMark withName={false} />
           <div className="min-w-0">
             <DialogTitle className="truncate text-base">{t('app.name')}</DialogTitle>
