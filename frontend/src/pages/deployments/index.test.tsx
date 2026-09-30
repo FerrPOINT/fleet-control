@@ -158,6 +158,70 @@ describe('DeploymentsPage', () => {
     expect(toast.success).toHaveBeenCalledWith('Задание «Prepare Dev One» создано')
   })
 
+  it('creates a product release for an exact commit without agent runtime fields', async () => {
+    renderPage()
+    await screen.findByRole('heading', { name: 'Новое задание' })
+    fireEvent.change(screen.getByLabelText('Операция'), { target: { value: 'product_deploy' } })
+    const sha = '337735f23a2d255d374928eda057378e93faad76'
+    fireEvent.change(screen.getByLabelText('SHA коммита'), { target: { value: sha } })
+    fireEvent.click(screen.getByRole('button', { name: 'Создать задание' }))
+    await waitFor(() =>
+      expect(fleet.createDeploymentJob).toHaveBeenCalledWith({
+        title: 'Выпуск Service Pulse в demo',
+        job_kind: 'product_deploy',
+        environment: 'demo',
+        commit_sha: sha,
+        previous_release_id: null,
+        idempotency_key: expect.any(String),
+      }),
+    )
+  })
+
+  it('offers only a completed health-verified product release as a rollback target', async () => {
+    const releaseId = '497442ff-32c4-4414-bc19-2f90b5152be1'
+    vi.mocked(fleet.listDeploymentJobs).mockResolvedValue([
+      queuedJob,
+      {
+        ...queuedJob,
+        id: 'release-job',
+        job_kind: 'product_deploy',
+        state: 'completed',
+        title: 'Verified Pulse',
+        detail: { forge_deployment_id: releaseId, health_verified: true },
+      },
+      {
+        ...queuedJob,
+        id: 'unverified-job',
+        job_kind: 'product_deploy',
+        state: 'completed',
+        title: 'Unverified Pulse',
+        detail: { forge_deployment_id: 'bad', health_verified: false },
+      },
+    ] as DeploymentJob[])
+    renderPage()
+    await screen.findByRole('heading', { name: 'Новое задание' })
+    fireEvent.change(screen.getByLabelText('Операция'), { target: { value: 'product_rollback' } })
+    const select = screen.getByLabelText('Проверенный выпуск')
+    await waitFor(() =>
+      expect(within(select).getByRole('option', { name: 'Verified Pulse' })).toBeInTheDocument(),
+    )
+    expect(
+      within(select).queryByRole('option', { name: 'Unverified Pulse' }),
+    ).not.toBeInTheDocument()
+    fireEvent.change(select, { target: { value: releaseId } })
+    fireEvent.click(screen.getByRole('button', { name: 'Создать задание' }))
+    await waitFor(() =>
+      expect(fleet.createDeploymentJob).toHaveBeenCalledWith({
+        title: 'Откат Service Pulse в demo',
+        job_kind: 'product_rollback',
+        environment: 'demo',
+        commit_sha: null,
+        previous_release_id: releaseId,
+        idempotency_key: expect.any(String),
+      }),
+    )
+  })
+
   it('distinguishes a failed job request from an empty list and retries it', async () => {
     vi.mocked(fleet.listDeploymentJobs)
       .mockRejectedValueOnce(new Error('offline'))

@@ -5,9 +5,10 @@ use app::{
 use async_trait::async_trait;
 use domain::{
     Agent, AgentKind, AgentProductRole, AgentSession, AgentStatus, DeploymentJob,
-    DeploymentJobState, DesiredState, MessageAuthorType, MessageDeliveryState, MessageKind,
-    ResolveRuntimeApprovalRequest, RuntimeOperationResponse, RuntimeRunControlResponse,
-    SessionAgentRun, SessionMessage, SessionRunRole, SessionRunState, SteerSessionRunRequest,
+    DeploymentJobKind, DeploymentJobState, DesiredState, MessageAuthorType, MessageDeliveryState,
+    MessageKind, ResolveRuntimeApprovalRequest, RuntimeOperationResponse,
+    RuntimeRunControlResponse, SessionAgentRun, SessionMessage, SessionRunRole, SessionRunState,
+    SteerSessionRunRequest,
 };
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
@@ -230,7 +231,13 @@ impl LocalRuntimeSupervisor {
         let jobs = self.repo.list_deployment_jobs(20).await?;
         let queued: Vec<_> = jobs
             .into_iter()
-            .filter(|job| job.state == DeploymentJobState::Queued)
+            .filter(|job| {
+                job.state == DeploymentJobState::Queued
+                    && matches!(
+                        job.job_kind,
+                        DeploymentJobKind::Provision | DeploymentJobKind::RuntimeUpdate
+                    )
+            })
             .collect();
         let Some((api_url, token, project_name)) = self.forge_settings() else {
             // Forge integration not configured: leave jobs queued (visible in UI).
@@ -272,7 +279,329 @@ impl LocalRuntimeSupervisor {
             }
             processed += 1;
         }
+        processed += self.process_product_jobs(&api_url, &token).await?;
         Ok(processed)
+    }
+
+    async fn process_product_jobs(&self, api_url: &str, token: &str) -> Result<u64, AppError> {
+        let jobs = self.repo.list_deployment_jobs(500).await?;
+        let mut processed = 0;
+        for job in jobs.into_iter().filter(|job| {
+            matches!(
+                job.job_kind,
+                DeploymentJobKind::ProductDeploy | DeploymentJobKind::ProductRollback
+            ) && matches!(
+                job.state,
+                DeploymentJobState::Queued | DeploymentJobState::Running
+            )
+        }) {
+            let job = self.repo.get_deployment_job(job.id).await?;
+            if !matches!(
+                job.state,
+                DeploymentJobState::Queued | DeploymentJobState::Running
+            ) {
+                continue;
+            }
+            if let Err(error) = self.process_product_job(api_url, token, &job).await {
+                let current = self.repo.get_deployment_job(job.id).await?;
+                if let Some(deployment_id) = current
+                    .detail
+                    .get("forge_deployment_id")
+                    .and_then(Value::as_str)
+                {
+                    let _ = self
+                        .client
+                        .post(format!(
+                            "{}/api/v1/deployments/{deployment_id}/cancel",
+                            api_url.trim_end_matches('/')
+                        ))
+                        .bearer_auth(token)
+                        .send()
+                        .await;
+                }
+                self.repo
+                    .update_deployment_job_state(
+                        job.id,
+                        DeploymentJobState::Failed,
+                        None,
+                        Some(error.to_string()),
+                    )
+                    .await?;
+            }
+            processed += 1;
+        }
+        Ok(processed)
+    }
+
+    async fn process_product_job(
+        &self,
+        api_url: &str,
+        token: &str,
+        job: &DeploymentJob,
+    ) -> Result<(), AppError> {
+        let running = if job.state == DeploymentJobState::Queued {
+            self.repo
+                .update_deployment_job_state(job.id, DeploymentJobState::Running, None, None)
+                .await?
+        } else {
+            job.clone()
+        };
+        if running.state != DeploymentJobState::Running {
+            return Ok(());
+        }
+        let base = api_url.trim_end_matches('/');
+        let (deployment_id, environment_id) = match (
+            running
+                .detail
+                .get("forge_deployment_id")
+                .and_then(Value::as_str),
+            running
+                .detail
+                .get("forge_environment_id")
+                .and_then(Value::as_str),
+        ) {
+            (Some(deployment_id), Some(environment_id)) => {
+                (deployment_id.to_owned(), environment_id.to_owned())
+            }
+            _ => {
+                let (deployment_id, environment_id) =
+                    self.start_product_release(base, token, &running).await?;
+                if self.repo.get_deployment_job(job.id).await?.state != DeploymentJobState::Running
+                {
+                    let _ = self
+                        .client
+                        .post(format!("{base}/api/v1/deployments/{deployment_id}/cancel"))
+                        .bearer_auth(token)
+                        .send()
+                        .await;
+                    return Ok(());
+                }
+                self.repo
+                    .update_deployment_job_state(
+                        job.id,
+                        DeploymentJobState::Running,
+                        Some(json!({
+                            "forge_deployment_id": deployment_id,
+                            "forge_environment_id": environment_id,
+                        })),
+                        None,
+                    )
+                    .await?;
+                (deployment_id, environment_id)
+            }
+        };
+        let created =
+            chrono::DateTime::parse_from_rfc3339(&job.created_at).map_err(AppError::internal)?;
+        if chrono::Utc::now()
+            .signed_duration_since(created)
+            .num_minutes()
+            >= 30
+        {
+            return Err(AppError::validation(
+                "product deployment timed out after 30 minutes",
+            ));
+        }
+        let deployments: Value = self
+            .client
+            .get(format!(
+                "{base}/api/v1/environments/{environment_id}/deployments"
+            ))
+            .bearer_auth(token)
+            .send()
+            .await
+            .map_err(AppError::internal)?
+            .error_for_status()
+            .map_err(AppError::internal)?
+            .json()
+            .await
+            .map_err(AppError::internal)?;
+        let deployment = deployments
+            .as_array()
+            .and_then(|items| {
+                items.iter().find(|item| {
+                    item.get("id").and_then(Value::as_str) == Some(deployment_id.as_str())
+                })
+            })
+            .ok_or_else(|| AppError::validation("Forge deployment is missing"))?;
+        let status = deployment
+            .get("status")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if status == "failed" {
+            return Err(AppError::validation("Forge deployment failed"));
+        }
+        let Some(pipeline_id) = deployment.get("pipeline_id").and_then(Value::as_str) else {
+            return Ok(());
+        };
+        let pipeline: Value = self
+            .client
+            .get(format!("{base}/api/v1/pipelines/{pipeline_id}"))
+            .bearer_auth(token)
+            .send()
+            .await
+            .map_err(AppError::internal)?
+            .error_for_status()
+            .map_err(AppError::internal)?
+            .json()
+            .await
+            .map_err(AppError::internal)?;
+        let pipeline_status = pipeline
+            .get("pipeline")
+            .and_then(|value| value.get("status"))
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if matches!(pipeline_status, "failed" | "canceled") {
+            return Err(AppError::validation(format!(
+                "Forge pipeline {pipeline_status}"
+            )));
+        }
+        self.repo
+            .update_deployment_job_state(
+                job.id,
+                DeploymentJobState::Running,
+                Some(json!({ "forge_pipeline_id": pipeline_id })),
+                None,
+            )
+            .await?;
+        if pipeline_status != "success" || status != "success" {
+            return Ok(());
+        }
+        let api_health = self
+            .config
+            .fleet
+            .pulse_health_url
+            .as_deref()
+            .ok_or_else(|| AppError::validation("Pulse API health URL is not configured"))?;
+        let ui_health = self
+            .config
+            .fleet
+            .pulse_ui_url
+            .as_deref()
+            .ok_or_else(|| AppError::validation("Pulse UI health URL is not configured"))?;
+        for (label, url) in [("API", api_health), ("UI", ui_health)] {
+            let response = self
+                .client
+                .get(url)
+                .send()
+                .await
+                .map_err(AppError::internal)?;
+            if !response.status().is_success() {
+                return Err(AppError::validation(format!(
+                    "Pulse {label} health returned {}",
+                    response.status()
+                )));
+            }
+        }
+        self.repo
+            .update_deployment_job_state(
+                job.id,
+                DeploymentJobState::Completed,
+                Some(json!({ "health_verified": true })),
+                None,
+            )
+            .await?;
+        Ok(())
+    }
+
+    async fn start_product_release(
+        &self,
+        base: &str,
+        token: &str,
+        job: &DeploymentJob,
+    ) -> Result<(String, String), AppError> {
+        let projects: Value = self
+            .client
+            .get(format!("{base}/api/v1/projects"))
+            .bearer_auth(token)
+            .send()
+            .await
+            .map_err(AppError::internal)?
+            .error_for_status()
+            .map_err(AppError::internal)?
+            .json()
+            .await
+            .map_err(AppError::internal)?;
+        let project_id = projects
+            .as_array()
+            .and_then(|items| {
+                items.iter().find(|item| {
+                    item.get("repository_url")
+                        .and_then(Value::as_str)
+                        .is_some_and(|url| url.ends_with("/service-pulse.git"))
+                })
+            })
+            .and_then(|item| item.get("id"))
+            .and_then(Value::as_str)
+            .ok_or_else(|| AppError::validation("Service Pulse Forge project not found"))?;
+        let environments: Value = self
+            .client
+            .get(format!("{base}/api/v1/projects/{project_id}/environments"))
+            .bearer_auth(token)
+            .send()
+            .await
+            .map_err(AppError::internal)?
+            .error_for_status()
+            .map_err(AppError::internal)?
+            .json()
+            .await
+            .map_err(AppError::internal)?;
+        let environment_id = environments
+            .as_array()
+            .and_then(|items| {
+                items
+                    .iter()
+                    .find(|item| item.get("name").and_then(Value::as_str) == Some("demo"))
+            })
+            .and_then(|item| item.get("id"))
+            .and_then(Value::as_str)
+            .ok_or_else(|| AppError::validation("Forge demo environment not found"))?
+            .to_owned();
+        let request_key = job
+            .detail
+            .get("idempotency_key")
+            .and_then(Value::as_str)
+            .ok_or_else(|| AppError::validation("product job missing idempotency key"))?;
+        let request = match job.job_kind {
+            DeploymentJobKind::ProductDeploy => {
+                let sha = job
+                    .detail
+                    .get("commit_sha")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| AppError::validation("product job missing commit SHA"))?;
+                self.client
+                    .post(format!(
+                        "{base}/api/v1/environments/{environment_id}/deployments"
+                    ))
+                    .bearer_auth(token)
+                    .json(&json!({ "git_ref": sha, "request_key": request_key }))
+            }
+            DeploymentJobKind::ProductRollback => {
+                let previous = job
+                    .detail
+                    .get("previous_release_id")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| AppError::validation("product job missing previous release"))?;
+                self.client
+                    .post(format!("{base}/api/v1/deployments/{previous}/rollback"))
+                    .bearer_auth(token)
+                    .json(&json!({ "request_key": request_key }))
+            }
+            _ => return Err(AppError::validation("not a product deployment job")),
+        };
+        let deployment: Value = request
+            .send()
+            .await
+            .map_err(AppError::internal)?
+            .error_for_status()
+            .map_err(AppError::internal)?
+            .json()
+            .await
+            .map_err(AppError::internal)?;
+        let deployment_id = deployment
+            .get("id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| AppError::internal("Forge deployment response missing id"))?;
+        Ok((deployment_id.to_owned(), environment_id))
     }
 
     /// Pull the project-workflow namespace/workflow catalog and refresh

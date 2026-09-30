@@ -461,6 +461,7 @@ pub mod deployment_job {
         pub requested_by_user_id: Option<Uuid>,
         pub title: String,
         pub detail: Json,
+        pub idempotency_key: Option<Uuid>,
         pub last_error: Option<String>,
         pub created_at: DateTimeWithTimeZone,
         pub updated_at: DateTimeWithTimeZone,

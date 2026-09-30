@@ -168,28 +168,57 @@ function DeploymentOverview() {
 function DeploymentJobs({ onOpen }: { onOpen: (jobId: string) => void }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const jobs = useQuery({ queryKey: ['deployment-jobs'], queryFn: () => listDeploymentJobs(100) })
+  const jobs = useQuery({
+    queryKey: ['deployment-jobs'],
+    queryFn: () => listDeploymentJobs(100),
+    refetchInterval: 5000,
+  })
   const agents = useQuery({ queryKey: ['agents'], queryFn: listAgents })
   const [title, setTitle] = useState(() => t('deployments.provisionDefaultTitle'))
   const [jobKind, setJobKind] = useState<DeploymentJobKind>('provision')
   const [runtimeKind, setRuntimeKind] = useState<AgentKind>('hermes')
   const [agentId, setAgentId] = useState('')
+  const [commitSha, setCommitSha] = useState('')
+  const [previousReleaseId, setPreviousReleaseId] = useState('')
+  const [requestKey, setRequestKey] = useState(() => globalThis.crypto.randomUUID())
   const [bulkSelected, setBulkSelected] = useState<string[]>([])
   const [bulkRollback, setBulkRollback] = useState(false)
   const [bulkTitle, setBulkTitle] = useState(() => t('deployments.bulkDefaultTitle'))
   const [cancelTarget, setCancelTarget] = useState<DeploymentJob | null>(null)
   const bulkAgents = (agents.data ?? []).filter((agent) => agent.status !== 'archived')
+  const isProductJob = jobKind === 'product_deploy' || jobKind === 'product_rollback'
+  const releaseOptions = (jobs.data ?? [])
+    .filter(
+      (job) =>
+        (job.job_kind === 'product_deploy' || job.job_kind === 'product_rollback') &&
+        job.state === 'completed' &&
+        job.detail.health_verified === true &&
+        typeof job.detail.forge_deployment_id === 'string',
+    )
+    .map((job) => [job.detail.forge_deployment_id as string, job.title] as [string, string])
 
   const createMutation = useMutation({
     mutationFn: () =>
-      createDeploymentJob({
-        title: title.trim(),
-        job_kind: jobKind,
-        runtime_kind: runtimeKind,
-        agent_id: agentId || null,
-        detail: { requested_from: 'deployments_page' },
-      }),
+      createDeploymentJob(
+        isProductJob
+          ? {
+              title: title.trim(),
+              job_kind: jobKind,
+              environment: 'demo',
+              commit_sha: jobKind === 'product_deploy' ? commitSha.trim().toLowerCase() : null,
+              previous_release_id: jobKind === 'product_rollback' ? previousReleaseId : null,
+              idempotency_key: requestKey,
+            }
+          : {
+              title: title.trim(),
+              job_kind: jobKind,
+              runtime_kind: runtimeKind,
+              agent_id: agentId || null,
+              detail: { requested_from: 'deployments_page' },
+            },
+      ),
     onSuccess: async (created) => {
+      setRequestKey(globalThis.crypto.randomUUID())
       await queryClient.invalidateQueries({ queryKey: ['deployment-jobs'] })
       toast.success(t('deployments.jobCreated', { title: created.title }))
     },
@@ -223,15 +252,22 @@ function DeploymentJobs({ onOpen }: { onOpen: (jobId: string) => void }) {
     const knownDefaults = [
       t('deployments.provisionDefaultTitle'),
       t('deployments.updateDefaultTitle'),
+      t('deployments.productDeployDefaultTitle'),
+      t('deployments.productRollbackDefaultTitle'),
     ]
     if (knownDefaults.includes(title)) {
       setTitle(
         nextKind === 'provision'
           ? t('deployments.provisionDefaultTitle')
-          : t('deployments.updateDefaultTitle'),
+          : nextKind === 'runtime_update'
+            ? t('deployments.updateDefaultTitle')
+            : nextKind === 'product_deploy'
+              ? t('deployments.productDeployDefaultTitle')
+              : t('deployments.productRollbackDefaultTitle'),
       )
     }
     setJobKind(nextKind)
+    setRequestKey(globalThis.crypto.randomUUID())
     createMutation.reset()
   }
 
@@ -365,7 +401,7 @@ function DeploymentJobs({ onOpen }: { onOpen: (jobId: string) => void }) {
               aria-busy={createMutation.isPending}
               onSubmit={(event) => {
                 event.preventDefault()
-                if (title.trim() && !agents.isPending) createMutation.mutate()
+                if (title.trim() && (isProductJob || !agents.isPending)) createMutation.mutate()
               }}
             >
               <LabeledSelect
@@ -377,49 +413,89 @@ function DeploymentJobs({ onOpen }: { onOpen: (jobId: string) => void }) {
                 options={[
                   ['provision', t('deployments.provision')],
                   ['runtime_update', t('deployments.runtimeUpdate')],
+                  ['product_deploy', t('deployments.productDeploy')],
+                  ['product_rollback', t('deployments.productRollback')],
                 ]}
               />
-              <LabeledSelect
-                id="deployment-runtime"
-                label={t('deployments.runtime')}
-                value={runtimeKind}
-                disabled={createMutation.isPending}
-                onChange={(value) => {
-                  setRuntimeKind(value as AgentKind)
-                  createMutation.reset()
-                }}
-                options={[
-                  ['hermes', 'Hermes'],
-                  ['java_agent', 'Java Agent'],
-                ]}
-              />
-              <LabeledSelect
-                id="deployment-agent"
-                label={t('deployments.agent')}
-                value={agentId}
-                disabled={agents.isPending || agents.isError || createMutation.isPending}
-                onChange={(value) => {
-                  setAgentId(value)
-                  createMutation.reset()
-                }}
-                options={[
-                  [
-                    '',
-                    agents.isPending
-                      ? t('deployments.loadingAgents')
-                      : t('deployments.fleetLevelJob'),
-                  ],
-                  ...(agents.data ?? []).map(
-                    (agent) =>
-                      [agent.id, `${agent.display_name} (${agent.name})`] as [string, string],
-                  ),
-                ]}
-              />
-              {agents.isError ? (
-                <RetryState
-                  message={t('deployments.singleAgentsError')}
-                  onRetry={() => void agents.refetch()}
-                />
+              {isProductJob ? (
+                jobKind === 'product_deploy' ? (
+                  <div className="grid gap-2">
+                    <Label htmlFor="deployment-commit-sha">{t('deployments.commitSha')}</Label>
+                    <Input
+                      id="deployment-commit-sha"
+                      value={commitSha}
+                      required
+                      minLength={40}
+                      maxLength={40}
+                      pattern="[0-9a-fA-F]{40}"
+                      disabled={createMutation.isPending}
+                      onChange={(event) => {
+                        setCommitSha(event.target.value)
+                        setRequestKey(globalThis.crypto.randomUUID())
+                        createMutation.reset()
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <LabeledSelect
+                    id="deployment-previous-release"
+                    label={t('deployments.previousRelease')}
+                    value={previousReleaseId}
+                    disabled={createMutation.isPending}
+                    onChange={(value) => {
+                      setPreviousReleaseId(value)
+                      setRequestKey(globalThis.crypto.randomUUID())
+                      createMutation.reset()
+                    }}
+                    options={[['', t('deployments.selectRelease')], ...releaseOptions]}
+                  />
+                )
+              ) : null}
+              {!isProductJob ? (
+                <>
+                  <LabeledSelect
+                    id="deployment-runtime"
+                    label={t('deployments.runtime')}
+                    value={runtimeKind}
+                    disabled={createMutation.isPending}
+                    onChange={(value) => {
+                      setRuntimeKind(value as AgentKind)
+                      createMutation.reset()
+                    }}
+                    options={[
+                      ['hermes', 'Hermes'],
+                      ['java_agent', 'Java Agent'],
+                    ]}
+                  />
+                  <LabeledSelect
+                    id="deployment-agent"
+                    label={t('deployments.agent')}
+                    value={agentId}
+                    disabled={agents.isPending || agents.isError || createMutation.isPending}
+                    onChange={(value) => {
+                      setAgentId(value)
+                      createMutation.reset()
+                    }}
+                    options={[
+                      [
+                        '',
+                        agents.isPending
+                          ? t('deployments.loadingAgents')
+                          : t('deployments.fleetLevelJob'),
+                      ],
+                      ...(agents.data ?? []).map(
+                        (agent) =>
+                          [agent.id, `${agent.display_name} (${agent.name})`] as [string, string],
+                      ),
+                    ]}
+                  />
+                  {agents.isError ? (
+                    <RetryState
+                      message={t('deployments.singleAgentsError')}
+                      onRetry={() => void agents.refetch()}
+                    />
+                  ) : null}
+                </>
               ) : null}
               <div className="grid gap-2">
                 <Label htmlFor="deployment-title">{t('deployments.jobTitle')}</Label>
@@ -438,7 +514,13 @@ function DeploymentJobs({ onOpen }: { onOpen: (jobId: string) => void }) {
               <Button
                 type="submit"
                 className="h-10"
-                disabled={createMutation.isPending || agents.isPending || !title.trim()}
+                disabled={
+                  createMutation.isPending ||
+                  (!isProductJob && agents.isPending) ||
+                  !title.trim() ||
+                  (jobKind === 'product_deploy' && !/^[0-9a-f]{40}$/i.test(commitSha.trim())) ||
+                  (jobKind === 'product_rollback' && !previousReleaseId)
+                }
               >
                 <PackagePlus className="h-4 w-4" />
                 {createMutation.isPending ? t('deployments.creating') : t('deployments.create')}
@@ -569,6 +651,7 @@ function DeploymentJobDetail({ jobId }: { jobId: string | null }) {
     queryKey: ['deployment-job', effectiveJobId],
     queryFn: () => getDeploymentJob(effectiveJobId!),
     enabled: Boolean(effectiveJobId),
+    refetchInterval: 5000,
   })
 
   if (!jobId && jobs.isError) {
