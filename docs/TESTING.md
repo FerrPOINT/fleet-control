@@ -74,3 +74,28 @@ Required scenarios:
 - logs UI separates process logs, events and audit trail
 - settings UI supports user role changes
 - screenshot manifest is generated and contains the required viewports/routes
+
+## Agent Detail Live Acceptance
+
+From `frontend`, run against an already running QA platform:
+
+```powershell
+$env:SDLC_LIVE_QA = '1'
+$env:SDLC_QA_SESSION_FILE = (Resolve-Path ../../services-base/deploy/.local/qa-session.json).Path
+$env:PLAYWRIGHT_BASE_URL = 'http://localhost:7742'
+pnpm exec playwright test e2e/agent-detail-live.spec.ts --project chromium --workers 1 --retries 0
+```
+
+The default session-file location is the same Base bootstrap path; passwords
+are never committed. The test uses real Central Auth and Fleet APIs, creates a
+uniquely prefixed QA executor, never starts its runtime and archives only that
+record through the normal API in `finally`. Archived history and managed files
+are retained by the product contract; this test does not delete volumes.
+
+All six tabs are checked at 375, 768, 1280, 1920 and 2560 px in light, gray and
+dark themes (90 combinations), with full-page screenshots, keyboard navigation,
+40 px tab targets, no document/tab overflow and no serious/critical axe issues.
+Screenshots default to workspace `.local/screenshots/fleet-agent-detail` and
+must be inspected before publishing selected evidence. Error/retry, pending
+locks, failed-draft retention and invalid JSON are covered by the agent-detail
+unit suite; live API failures are not simulated by this acceptance test.

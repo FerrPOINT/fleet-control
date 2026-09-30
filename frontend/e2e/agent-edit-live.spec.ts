@@ -10,7 +10,10 @@ const account =
   process.env.SDLC_LIVE_QA === '1'
     ? (JSON.parse(
         readFileSync(
-          fileURLToPath(new URL('../../../.local/qa-session.json', import.meta.url)),
+          process.env.SDLC_QA_SESSION_FILE ??
+            fileURLToPath(
+              new URL('../../../services-base/deploy/.local/qa-session.json', import.meta.url),
+            ),
           'utf8',
         ),
       ) as { email: string; password: string })
@@ -101,5 +104,7 @@ test('executor edit avoids leader requests and exposes named editors', async ({
   const skills = (await skillsResponse.json()) as { title: string }[]
   expect(skills.length).toBeGreaterThan(0)
   await page.goto(`http://localhost:7742/agents/${executor.id}/skills`)
-  await expect(page.getByRole('textbox', { name: `Edit ${skills[0]!.title}` })).toBeVisible()
+  await expect(
+    page.getByRole('textbox', { name: `Изменить навык ${skills[0]!.title}` }),
+  ).toBeVisible()
 })
