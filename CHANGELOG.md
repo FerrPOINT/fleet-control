@@ -15,6 +15,10 @@
   confirmation context available for retry.
 - Streamlined настройки Fleet (#13); локализованный/компактный dashboard (#12).
 ### Fixed
+- Fleet detail layouts now use the shared Base 320 px contextual rail from
+  1024 px. Agent overview/workspace and session controls stack below primary
+  content on smaller screens; leader sessions precede the team editor in DOM
+  and visual order. Two-panel editors remain wide workspaces.
 - Agent detail: localized six tabs and runtime/storage states, wrapping 40 px
   navigation, explicit load errors with retry, pending locks and confirmed save
   feedback. Invalid JSON objects cannot submit a previously valid config value;

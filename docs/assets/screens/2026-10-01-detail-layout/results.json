@@ -1,0 +1,33 @@
+{
+  "captured_at_utc": "2026-09-30T23:53:21Z",
+  "mode": "live-isolated-production-compose",
+  "mocked_api": false,
+  "source_base_revision": "a2369529925fb25688db740b3e42d49b868487ae",
+  "source_branch": "fix/fleet-detail-rails",
+  "source_capture_state": "base revision plus reviewed task patch, before task commit",
+  "shared_ui_revision": "a679930167bcfc176831e53269c25eb53329bc58",
+  "source_files_sha256": {
+    "frontend/src/pages/agent-detail/index.tsx": "A5A534E75C231CA9A2488D5F3ECD4C7D13E90EC4C5A3ED63353C339C6E2C768E",
+    "frontend/src/pages/session-detail/index.tsx": "5B2AD897B62420D753E78A9826CCB332FBBD4020B6B704ADA8FE46B3E58DC98E",
+    "frontend/src/pages/leaders/index.tsx": "619F431F3607E08D3547C39EA4F2C5EBB183626B6D5E1DC98F29DC248BB91FBF"
+  },
+  "image_id": "sha256:6f89476ecc6015e54c655fed2c50c4c9f7c88fdd49d7fd30dd1917dca4ed1f37",
+  "compose_config_hash": "90ea0f7fd87e9eafcaec18f9a8b59168bb60e163baa218abe04d1146b732e2e0",
+  "routes": ["agent overview", "agent workspace", "leader detail", "session detail"],
+  "themes": ["light", "gray", "dark"],
+  "viewports": [[375, 812], [768, 1024], [1023, 800], [1024, 800], [1279, 800], [1280, 800], [1920, 1080]],
+  "geometry_combinations": 84,
+  "actual_rail_width_px": 320,
+  "actual_two_column_breakpoint_px": 1024,
+  "stacking_order": "primary then rail",
+  "geometry_violations": 0,
+  "page_overflows": 0,
+  "serious_or_critical_axe": 0,
+  "console_page_or_api_errors": 0,
+  "same_run_agent_tab_and_main_route_combinations": 210,
+  "live_tests_passed": 3,
+  "live_tests_retries": 0,
+  "screenshots_full_page": true,
+  "qa_runtime_started": false,
+  "whole_platform_release_accepted": false
+}

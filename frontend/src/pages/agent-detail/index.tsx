@@ -120,8 +120,8 @@ export function AgentDetailPage({ tab }: { tab: (typeof tabs)[number] }) {
 function OverviewTab({ agent }: { agent: Agent }) {
   const { t, i18n } = useTranslation()
   return (
-    <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-      <Card>
+    <div className="page-split items-start" data-page-layout="detail-with-aside">
+      <Card className="min-w-0">
         <CardHeader>
           <CardTitle>{t('agentDetail.identity')}</CardTitle>
         </CardHeader>
@@ -162,15 +162,17 @@ function OverviewTab({ agent }: { agent: Agent }) {
           </dl>
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('agentDetail.snapshot')}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <StatusBadge value={agent.status} />
-          <JsonBlock value={agent.runtime} />
-        </CardContent>
-      </Card>
+      <aside className="min-w-0" aria-label={t('agentDetail.snapshot')}>
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('agentDetail.snapshot')}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <StatusBadge value={agent.status} />
+            <JsonBlock value={agent.runtime} />
+          </CardContent>
+        </Card>
+      </aside>
     </div>
   )
 }
@@ -192,7 +194,10 @@ function RuntimeTab({ agent }: { agent: Agent }) {
   })
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+    <div
+      className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+      data-page-layout="wide"
+    >
       <Card>
         <CardHeader>
           <CardTitle>{t('agentDetail.controls')}</CardTitle>
@@ -372,7 +377,10 @@ function SkillsTab({ agent }: { agent: Agent }) {
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+    <div
+      className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+      data-page-layout="wide"
+    >
       <Card>
         <CardHeader>
           <CardTitle>{t('agentDetail.tabs.skills')}</CardTitle>
@@ -518,11 +526,14 @@ function ConfigTab({ agent }: { agent: Agent }) {
     )
 
   return (
-    <form onSubmit={submit}>
+    <form onSubmit={submit} data-page-layout="wide">
       {config.isError ? (
         <RetryState message={t('agentDetail.configError')} onRetry={() => void config.refetch()} />
       ) : null}
-      <fieldset disabled={mutation.isPending} className="grid min-w-0 gap-4 xl:grid-cols-2">
+      <fieldset
+        disabled={mutation.isPending}
+        className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+      >
         <Card>
           <CardHeader>
             <CardTitle>SOUL.md</CardTitle>
@@ -603,8 +614,8 @@ function WorkspaceTab({ agent }: { agent: Agent }) {
   const canPurge = agent.status === 'archived' && confirmation === agent.name
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[1fr_0.8fr]">
-      <Card>
+    <div className="page-split items-start" data-page-layout="detail-with-aside">
+      <Card className="min-w-0">
         <CardHeader>
           <CardTitle>{t('agentDetail.workspaceGuard')}</CardTitle>
         </CardHeader>
@@ -620,7 +631,7 @@ function WorkspaceTab({ agent }: { agent: Agent }) {
           ))}
         </CardContent>
       </Card>
-      <div className="grid gap-4">
+      <aside className="min-w-0 space-y-4" aria-label={t('agentDetail.storageReport')}>
         <StorageReportCard
           report={storage.data}
           isLoading={storage.isLoading}
@@ -695,7 +706,7 @@ function WorkspaceTab({ agent }: { agent: Agent }) {
             </Button>
           </CardContent>
         </Card>
-      </div>
+      </aside>
     </div>
   )
 }

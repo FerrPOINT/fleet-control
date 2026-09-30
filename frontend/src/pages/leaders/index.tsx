@@ -254,65 +254,8 @@ export function LeaderDetailPage() {
           </>
         }
       />
-      <div className="grid gap-4 xl:grid-cols-[420px_1fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              {t('leaders.managedExecutors')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {team.isError ? (
-              <LoadError message={t('leaders.teamError')} retry={() => void team.refetch()} />
-            ) : null}
-            {executors.isError ? (
-              <LoadError
-                message={t('leaders.executorsError')}
-                retry={() => void executors.refetch()}
-              />
-            ) : null}
-            {teamReady && executors.data?.length ? (
-              executors.data.map((executor) => (
-                <label
-                  key={executor.id}
-                  className="flex items-center gap-3 rounded-md border border-border p-3 text-sm"
-                >
-                  <input
-                    type="checkbox"
-                    checked={draftExecutorIds.includes(executor.id)}
-                    onChange={() => toggleExecutor(executor.id)}
-                    disabled={mutation.isPending}
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium text-text-primary">
-                      {executor.display_name}
-                    </span>
-                    <span className="block truncate text-xs text-text-muted">
-                      {executor.name} -{' '}
-                      {t(`agentRoles.${executor.role}`, { defaultValue: executor.role })} -{' '}
-                      {executor.namespace_id ?? t('agent.unbound')}
-                    </span>
-                  </span>
-                </label>
-              ))
-            ) : !team.isError && !executors.isError ? (
-              <EmptyState
-                title={!teamReady ? t('leaders.loadingTeam') : t('leaders.noExecutors')}
-              />
-            ) : null}
-            {mutation.isError ? <ErrorState message={mutation.error.message} /> : null}
-            <Button
-              onClick={() => mutation.mutate([...draftExecutorIds])}
-              disabled={!teamReady || !hasTeamChanges || mutation.isPending}
-            >
-              <Save className="h-4 w-4" />
-              {mutation.isPending ? t('leaders.savingTeam') : t('leaders.saveTeam')}
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
+      <div className="page-split items-start" data-page-layout="detail-with-aside">
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Crown className="h-4 w-4" />
@@ -335,6 +278,64 @@ export function LeaderDetailPage() {
             )}
           </CardContent>
         </Card>
+        <aside className="min-w-0" aria-label={t('leaders.managedExecutors')}>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                {t('leaders.managedExecutors')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {team.isError ? (
+                <LoadError message={t('leaders.teamError')} retry={() => void team.refetch()} />
+              ) : null}
+              {executors.isError ? (
+                <LoadError
+                  message={t('leaders.executorsError')}
+                  retry={() => void executors.refetch()}
+                />
+              ) : null}
+              {teamReady && executors.data?.length ? (
+                executors.data.map((executor) => (
+                  <label
+                    key={executor.id}
+                    className="flex items-center gap-3 rounded-md border border-border p-3 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={draftExecutorIds.includes(executor.id)}
+                      onChange={() => toggleExecutor(executor.id)}
+                      disabled={mutation.isPending}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium text-text-primary">
+                        {executor.display_name}
+                      </span>
+                      <span className="block truncate text-xs text-text-muted">
+                        {executor.name} -{' '}
+                        {t(`agentRoles.${executor.role}`, { defaultValue: executor.role })} -{' '}
+                        {executor.namespace_id ?? t('agent.unbound')}
+                      </span>
+                    </span>
+                  </label>
+                ))
+              ) : !team.isError && !executors.isError ? (
+                <EmptyState
+                  title={!teamReady ? t('leaders.loadingTeam') : t('leaders.noExecutors')}
+                />
+              ) : null}
+              {mutation.isError ? <ErrorState message={mutation.error.message} /> : null}
+              <Button
+                onClick={() => mutation.mutate([...draftExecutorIds])}
+                disabled={!teamReady || !hasTeamChanges || mutation.isPending}
+              >
+                <Save className="h-4 w-4" />
+                {mutation.isPending ? t('leaders.savingTeam') : t('leaders.saveTeam')}
+              </Button>
+            </CardContent>
+          </Card>
+        </aside>
       </div>
     </>
   )

@@ -193,6 +193,9 @@ describe('SessionDetailPage', () => {
     expect(screen.getByText('Запусков среды пока нет')).toBeVisible()
     expect(screen.getByText('Участников пока нет')).toBeVisible()
     expect(screen.getByText('Управление сессией')).toBeVisible()
+    const rail = screen.getByRole('complementary', { name: 'Управление сессией' })
+    expect(rail.parentElement).toHaveClass('page-split')
+    expect(rail.previousElementSibling).toHaveTextContent('Сообщений пока нет')
   })
 
   it('hides backend details on initial failure and retries the session query', async () => {

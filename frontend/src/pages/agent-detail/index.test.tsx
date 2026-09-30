@@ -115,6 +115,9 @@ describe('localized agent detail', () => {
     expect(screen.getByText('Описание не задано')).toBeVisible()
     expect(screen.getByText('qa-agent — изолированная среда Hermes.')).toBeVisible()
     expect(screen.getByText('Обновлён')).toBeVisible()
+    expect(
+      screen.getByRole('complementary', { name: 'Состояние среды' }).parentElement,
+    ).toHaveClass('page-split')
     expect(screen.queryByText('never')).not.toBeInTheDocument()
   })
 
@@ -169,6 +172,7 @@ describe('localized agent detail', () => {
     vi.mocked(fleet.updateAgentConfig).mockRejectedValue(new Error('offline'))
     renderDetail('config')
     const soul = await screen.findByRole('textbox', { name: 'SOUL.md' })
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument()
     const json = screen.getByRole('textbox', { name: 'config.json' })
     fireEvent.change(soul, { target: { value: 'Keep this draft' } })
     for (const invalid of ['{', 'null', '[]', '42']) {
