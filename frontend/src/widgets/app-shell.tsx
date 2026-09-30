@@ -76,7 +76,6 @@ export function AppShell() {
   const email = useAuthStore((state) => state.email)
   const permissions = useAuthStore((state) => state.permissions)
   const setUser = useAuthStore((state) => state.setUser)
-  const clearAuth = useAuthStore((state) => state.logout)
   const visibleNavItems = navItems.filter(
     (item) => !item.permission || permissions.includes(item.permission),
   )
@@ -105,7 +104,6 @@ export function AppShell() {
   }, [permissionsQuery.data, setUser])
 
   function handleLogout() {
-    clearAuth()
     endSso(ssoConfig)
   }
 

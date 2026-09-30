@@ -98,12 +98,12 @@ describe('AppShell', () => {
     expect(trigger).toHaveFocus()
   })
 
-  it('clears local auth and starts central sign-out', async () => {
+  it('starts central sign-out before any local login reroute', async () => {
     renderShell()
 
     fireEvent.click(await screen.findByRole('button', { name: 'Выйти' }))
 
-    expect(useAuthStore.getState().token).toBeNull()
+    expect(useAuthStore.getState().token).toBe('test-token')
     expect(endSso).toHaveBeenCalledWith(expect.objectContaining({ clientId: 'fleet-control' }))
   })
 })

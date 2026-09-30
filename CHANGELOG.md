@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Выход направляет браузер в Central Auth до изменения локального auth-state.
+
 ### Added
 - Versioned managed Fleet settings API with validated preview, optimistic
   concurrency, explicit restart confirmation, immutable history, atomic audit
