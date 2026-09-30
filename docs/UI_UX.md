@@ -57,3 +57,17 @@ Quality states:
   applicable.
 - Mutating buttons are disabled while saving.
 - Permission-gated navigation uses `/api/v1/users/me/permissions`.
+
+Agent detail (2026-10-01):
+
+- Overview, runtime, skills, config, workspace and sessions use the active
+  Russian/English locale. Agent names, file paths, runtime diagnostics, logs and JSON remain data,
+  not translated API identifiers.
+- Section links wrap without a horizontal scroller and retain a 40 px target.
+- Agent, log, skill, config, storage and session loading failures have a retry
+  action and are distinct from an empty result.
+- Config and skill editors lock during mutation. Failed saves retain their
+  drafts; success appears after a successful response and clears on new edits.
+- Both JSON editors require an object; malformed JSON, arrays and scalar values
+  disable config submission. File purge also requires a verified storage marker.
+- This change does not close the separate detail-column geometry/header audit.

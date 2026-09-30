@@ -15,6 +15,10 @@
   confirmation context available for retry.
 - Streamlined настройки Fleet (#13); локализованный/компактный dashboard (#12).
 ### Fixed
+- Agent detail: localized six tabs and runtime/storage states, wrapping 40 px
+  navigation, explicit load errors with retry, pending locks and confirmed save
+  feedback. Invalid JSON objects cannot submit a previously valid config value;
+  failed saves preserve drafts.
 - Settings tabs now keep their Radix tab panels in the accessibility tree, so
   every `aria-controls` reference resolves across responsive layouts.
 - `/settings` больше не предлагает фиктивное применение runtime-конфигурации:

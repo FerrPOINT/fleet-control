@@ -1,0 +1,28 @@
+{
+  "captured_at_utc": "2026-09-30T23:38:12Z",
+  "mode": "live-isolated-production-compose",
+  "mocked_api": false,
+  "source_base_revision": "0cced457c035b220ec94f59ec42dd8b8e12b0ffc",
+  "source_branch": "fix/agent-detail-localized-states",
+  "source_capture_state": "base revision plus reviewed task patch, before task commit",
+  "source_files_sha256": {
+    "frontend/src/pages/agent-detail/index.tsx": "52B987347E50564D02B92AC9975896565FFA285413CBBE9D34DACF37CAE30522",
+    "frontend/src/shared/i18n/locales/ru.json": "48B63B53B46A7A961F7FE5426B1DE7A5D2413C6B55A5190855164AC98C3177E5",
+    "frontend/src/shared/i18n/locales/en.json": "1D06CB1C660F8D411CEA4E937863FA5196B23B9B0AE191A54F0E934AA1A3ACD1"
+  },
+  "image_id": "sha256:50bf1c451c9347d09d989277cba26228ce41e54ae300a0910d069ac1a89b1bdb",
+  "compose_config_hash": "90ea0f7fd87e9eafcaec18f9a8b59168bb60e163baa218abe04d1146b732e2e0",
+  "tabs": ["overview", "runtime", "skills", "config", "workspace", "sessions"],
+  "themes": ["light", "gray", "dark"],
+  "viewports": [[375, 812], [768, 1024], [1280, 800], [1920, 1080], [2560, 1440]],
+  "combinations": 90,
+  "page_or_tab_overflows": 0,
+  "serious_or_critical_axe": 0,
+  "console_page_or_api_errors": 0,
+  "minimum_tab_target_height_px": 40,
+  "screenshots_full_page": true,
+  "keyboard_navigation_and_invalid_json": "passed",
+  "qa_runtime_started": false,
+  "qa_record_cleanup": "archived via Fleet DELETE API; product history and files retained",
+  "whole_platform_release_accepted": false
+}

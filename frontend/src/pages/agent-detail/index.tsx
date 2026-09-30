@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useId, useState } from 'react'
 import { Link, NavLink, useLocation, useParams } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import {
   FileCode2,
   Folder,
@@ -52,16 +53,10 @@ import {
 } from '../common'
 import { cn } from '@/shared/lib/utils'
 
-const tabs = [
-  ['overview', 'Overview'],
-  ['runtime', 'Runtime'],
-  ['skills', 'Skills'],
-  ['config', 'Config'],
-  ['workspace', 'Workspace'],
-  ['sessions', 'Sessions'],
-] as const
+const tabs = ['overview', 'runtime', 'skills', 'config', 'workspace', 'sessions'] as const
 
-export function AgentDetailPage({ tab }: { tab: (typeof tabs)[number][0] }) {
+export function AgentDetailPage({ tab }: { tab: (typeof tabs)[number] }) {
+  const { t } = useTranslation()
   const { agentId } = useParams()
   const location = useLocation()
   const basePath = location.pathname.startsWith('/executors')
@@ -73,41 +68,45 @@ export function AgentDetailPage({ tab }: { tab: (typeof tabs)[number][0] }) {
     enabled: Boolean(agentId),
   })
 
-  if (!agentId) return <ErrorState message="Agent id is missing" />
-  if (agent.isError) return <ErrorState message={agent.error.message} />
-  if (!agent.data) return <EmptyState title="Loading agent..." />
+  if (!agentId) return <ErrorState message={t('agentDetail.missingId')} />
+  if (agent.isError)
+    return <RetryState message={t('agentDetail.loadError')} onRetry={() => void agent.refetch()} />
+  if (!agent.data) return <EmptyState title={t('agentDetail.loading')} />
 
   return (
     <>
       <PageHeader
         title={agent.data.display_name}
-        description={`${agent.data.name} controls an isolated ${agent.data.kind} runtime.`}
+        description={t('agentDetail.description', {
+          name: agent.data.name,
+          kind: agent.data.kind === 'java_agent' ? 'Java Agent' : 'Hermes',
+        })}
         actions={
-          <Button asChild variant="outline">
+          <Button asChild variant="outline" className="min-h-10 sm:min-h-10">
             <Link to={`${basePath}/edit`}>
               <Pencil className="h-4 w-4" />
-              Edit agent
+              {t('agentDetail.edit')}
             </Link>
           </Button>
         }
       />
-      <div className="mb-4 flex gap-1 overflow-x-auto">
-        {tabs.map(([value, label]) => (
+      <nav aria-label={t('agentDetail.sections')} className="mb-4 flex flex-wrap gap-1">
+        {tabs.map((value) => (
           <NavLink
             key={value}
             to={value === 'overview' ? basePath : `${basePath}/${value}`}
             end={value === 'overview'}
             className={({ isActive }) =>
               cn(
-                'h-9 shrink-0 rounded-md px-3 py-2 text-sm text-text-muted hover:bg-surface-raised hover:text-text-primary',
+                'inline-flex min-h-10 items-center rounded-md px-3 py-2 text-sm text-text-muted hover:bg-surface-raised hover:text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
                 isActive && 'bg-surface-raised text-text-primary',
               )
             }
           >
-            {label}
+            {t(`agentDetail.tabs.${value}`)}
           </NavLink>
         ))}
-      </div>
+      </nav>
       {tab === 'overview' ? <OverviewTab agent={agent.data} /> : null}
       {tab === 'runtime' ? <RuntimeTab agent={agent.data} /> : null}
       {tab === 'skills' ? <SkillsTab agent={agent.data} /> : null}
@@ -119,28 +118,53 @@ export function AgentDetailPage({ tab }: { tab: (typeof tabs)[number][0] }) {
 }
 
 function OverviewTab({ agent }: { agent: Agent }) {
+  const { t, i18n } = useTranslation()
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
       <Card>
         <CardHeader>
-          <CardTitle>Identity</CardTitle>
+          <CardTitle>{t('agentDetail.identity')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <AgentIdentity agent={agent} />
-          <p className="text-sm text-text-secondary">{agent.description ?? 'No description'}</p>
+          <p className="text-sm text-text-secondary">
+            {agent.description || t('agentDetail.noDescription')}
+          </p>
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
-            <Field label="Namespace" value={agent.namespace_id ?? 'unbound'} />
-            <Field label="Workflow" value={agent.workflow_id ?? 'unbound'} />
-            <Field label="API port" value={agent.api_port ?? 'n/a'} />
-            <Field label="Dashboard port" value={agent.dashboard_port ?? 'n/a'} />
-            <Field label="Updated" value={formatDate(agent.updated_at)} />
-            <Field label="Version" value={agent.runtime_version ?? 'unknown'} />
+            <Field
+              label={t('agentDetail.namespace')}
+              value={agent.namespace_id ?? t('agentDetail.unbound')}
+            />
+            <Field
+              label={t('agentDetail.workflow')}
+              value={agent.workflow_id ?? t('agentDetail.unbound')}
+            />
+            <Field
+              label={t('agentDetail.apiPort')}
+              value={agent.api_port ?? t('agentDetail.notSet')}
+            />
+            <Field
+              label={t('agentDetail.dashboardPort')}
+              value={agent.dashboard_port ?? t('agentDetail.notSet')}
+            />
+            <Field
+              label={t('agentDetail.updated')}
+              value={
+                agent.updated_at
+                  ? formatDate(agent.updated_at, i18n.language)
+                  : t('agentDetail.never')
+              }
+            />
+            <Field
+              label={t('agentDetail.version')}
+              value={agent.runtime_version ?? t('statuses.unknown')}
+            />
           </dl>
         </CardContent>
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>Runtime snapshot</CardTitle>
+          <CardTitle>{t('agentDetail.snapshot')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <StatusBadge value={agent.status} />
@@ -152,6 +176,7 @@ function OverviewTab({ agent }: { agent: Agent }) {
 }
 
 function RuntimeTab({ agent }: { agent: Agent }) {
+  const { t, i18n } = useTranslation()
   const queryClient = useQueryClient()
   const logs = useQuery({ queryKey: ['logs', agent.id], queryFn: () => listLogs(agent.id, 40) })
   const operation = useMutation({
@@ -170,86 +195,125 @@ function RuntimeTab({ agent }: { agent: Agent }) {
     <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
       <Card>
         <CardHeader>
-          <CardTitle>Controls</CardTitle>
+          <CardTitle>{t('agentDetail.controls')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-2">
-            <Button onClick={() => operation.mutate('start')} disabled={operation.isPending}>
+            <Button
+              className="min-h-10 sm:min-h-10"
+              onClick={() => operation.mutate('start')}
+              disabled={operation.isPending}
+            >
               <Play className="h-4 w-4" />
-              Start
+              {t('agentDetail.start')}
             </Button>
             <Button
+              className="min-h-10 sm:min-h-10"
               variant="outline"
               onClick={() => operation.mutate('stop')}
               disabled={operation.isPending}
             >
               <Square className="h-4 w-4" />
-              Stop
+              {t('agentDetail.stop')}
             </Button>
             <Button
+              className="min-h-10 sm:min-h-10"
               variant="outline"
               onClick={() => operation.mutate('restart')}
               disabled={operation.isPending}
             >
               <RotateCcw className="h-4 w-4" />
-              Restart
+              {t('agentDetail.restart')}
             </Button>
             <Button
+              className="min-h-10 sm:min-h-10"
               variant="outline"
               onClick={() => operation.mutate('health')}
               disabled={operation.isPending}
             >
               <HeartPulse className="h-4 w-4" />
-              Health
+              {t('agentDetail.checkHealth')}
             </Button>
           </div>
           <dl className="grid gap-3 text-sm sm:grid-cols-3">
             <div>
-              <dt className="text-xs text-text-muted">Status</dt>
+              <dt className="text-xs text-text-muted">{t('agentDetail.status')}</dt>
               <dd className="mt-1">
                 <StatusBadge value={agent.status} />
               </dd>
             </div>
-            <Field label="PID" value={agent.runtime.pid ?? 'not tracked'} />
-            <Field label="Health" value={agent.runtime.health_status ?? 'unknown'} />
-            <Field label="API port" value={agent.api_port ?? 'n/a'} />
-            <Field label="Dashboard port" value={agent.dashboard_port ?? 'n/a'} />
-            <Field label="Last health" value={formatDate(agent.runtime.last_health_at)} />
+            <Field label="PID" value={agent.runtime.pid ?? t('agentDetail.notTracked')} />
+            <div>
+              <dt className="text-xs text-text-muted">{t('agentDetail.health')}</dt>
+              <dd className="mt-1">
+                <StatusBadge value={agent.runtime.health_status} />
+              </dd>
+            </div>
+            <Field
+              label={t('agentDetail.apiPort')}
+              value={agent.api_port ?? t('agentDetail.notSet')}
+            />
+            <Field
+              label={t('agentDetail.dashboardPort')}
+              value={agent.dashboard_port ?? t('agentDetail.notSet')}
+            />
+            <Field
+              label={t('agentDetail.lastHealth')}
+              value={
+                agent.runtime.last_health_at
+                  ? formatDate(agent.runtime.last_health_at, i18n.language)
+                  : t('agentDetail.never')
+              }
+            />
           </dl>
           {agent.runtime.health_detail ? (
             <p className="rounded-md border border-border bg-background p-3 text-sm text-text-secondary">
               {agent.runtime.health_detail}
             </p>
           ) : null}
-          {operation.isError ? <ErrorState message={operation.error.message} /> : null}
+          {operation.isError ? <ErrorState message={t('agentDetail.operationError')} /> : null}
+          {operation.isPending ? <p role="status">{t('agentDetail.operationPending')}</p> : null}
+          {operation.isSuccess ? <p role="status">{t('agentDetail.operationSuccess')}</p> : null}
           <div>
-            <p className="mb-2 text-xs font-medium uppercase text-text-muted">Command preview</p>
-            <pre className="overflow-auto rounded-md border border-border bg-background p-3 text-xs text-text-secondary">
+            <p className="mb-2 text-xs font-medium uppercase text-text-muted">
+              {t('agentDetail.command')}
+            </p>
+            <pre className="whitespace-pre-wrap break-all rounded-md border border-border bg-background p-3 text-xs text-text-secondary">
               {agent.runtime.startup_command_redacted ?? agent.runtime.command_preview}
             </pre>
           </div>
           <JsonBlock value={agent.runtime.env_preview} />
           <div>
-            <p className="mb-2 text-xs font-medium uppercase text-text-muted">Capabilities</p>
+            <p className="mb-2 text-xs font-medium uppercase text-text-muted">
+              {t('agentDetail.capabilities')}
+            </p>
             <JsonBlock value={agent.runtime.last_capabilities_json} />
           </div>
         </CardContent>
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>Recent logs</CardTitle>
+          <CardTitle>{t('agentDetail.recentLogs')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {logs.data?.length ? (
+          {logs.isError ? (
+            <RetryState message={t('agentDetail.logsError')} onRetry={() => void logs.refetch()} />
+          ) : logs.data?.length ? (
             logs.data.map((entry) => (
               <div key={entry.id} className="rounded-md border border-border p-2 text-xs">
-                <span className="text-text-muted">{formatDate(entry.created_at)}</span>
+                <span className="text-text-muted">
+                  {formatDate(entry.created_at, i18n.language)}
+                </span>
                 <span className="ml-2 font-medium text-text-primary">{entry.stream}</span>
-                <p className="mt-1 text-text-secondary">{entry.message}</p>
+                <p className="mt-1 whitespace-pre-wrap break-all text-text-secondary">
+                  {entry.message}
+                </p>
               </div>
             ))
           ) : (
-            <EmptyState title={logs.isLoading ? 'Loading logs...' : 'No logs for this agent'} />
+            <EmptyState
+              title={t(logs.isLoading ? 'agentDetail.logsLoading' : 'agentDetail.logsEmpty')}
+            />
           )}
         </CardContent>
       </Card>
@@ -258,6 +322,7 @@ function RuntimeTab({ agent }: { agent: Agent }) {
 }
 
 function SkillsTab({ agent }: { agent: Agent }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null)
   const [skillDraft, setSkillDraft] = useState('')
@@ -310,10 +375,15 @@ function SkillsTab({ agent }: { agent: Agent }) {
     <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
       <Card>
         <CardHeader>
-          <CardTitle>Skills</CardTitle>
+          <CardTitle>{t('agentDetail.tabs.skills')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {skills.data?.length ? (
+          {skills.isError ? (
+            <RetryState
+              message={t('agentDetail.skillsError')}
+              onRetry={() => void skills.refetch()}
+            />
+          ) : skills.data?.length ? (
             skills.data.map((skill) => (
               <div
                 key={skill.id}
@@ -324,8 +394,10 @@ function SkillsTab({ agent }: { agent: Agent }) {
               >
                 <button
                   type="button"
-                  className="min-w-0 text-left"
+                  className="min-h-10 min-w-0 text-left"
+                  disabled={mutation.isPending}
                   onClick={() => {
+                    mutation.reset()
                     setSelectedSkillId(skill.id)
                     setSkillDraft(skill.content ?? '')
                   }}
@@ -336,32 +408,35 @@ function SkillsTab({ agent }: { agent: Agent }) {
                     <StatusBadge value={skill.state} />
                   </div>
                   <p className="mt-1 break-all text-xs text-text-muted">
-                    {skill.name} from {skill.source}
+                    {t('agentDetail.skillSource', { name: skill.name, source: skill.source })}
                   </p>
                 </button>
                 <div className="flex items-start justify-end">
                   <Button
                     variant="outline"
                     size="sm"
+                    className="min-h-10 sm:min-h-10"
                     disabled={mutation.isPending}
                     onClick={() => toggleSkill(skill)}
                   >
-                    {skill.state === 'enabled' ? 'Disable' : 'Enable'}
+                    {t(skill.state === 'enabled' ? 'agentDetail.disable' : 'agentDetail.enable')}
                   </Button>
                 </div>
               </div>
             ))
           ) : (
-            <EmptyState title={skills.isLoading ? 'Loading skills...' : 'No skills selected'} />
+            <EmptyState
+              title={t(skills.isLoading ? 'agentDetail.skillsLoading' : 'agentDetail.skillsEmpty')}
+            />
           )}
         </CardContent>
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>Per-agent editor</CardTitle>
+          <CardTitle>{t('agentDetail.skillEditor')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {selectedSkill ? (
+          {!skills.isError && selectedSkill ? (
             <>
               <div className="flex flex-wrap items-center gap-2">
                 <p className="font-medium text-text-primary">{selectedSkill.title}</p>
@@ -369,22 +444,31 @@ function SkillsTab({ agent }: { agent: Agent }) {
               </div>
               <p className="break-all text-xs text-text-muted">{selectedSkill.source}</p>
               <Textarea
-                aria-label={`Edit ${selectedSkill.title}`}
+                aria-label={t('agentDetail.editSkill', { title: selectedSkill.title })}
                 className="min-h-72 font-mono text-xs"
                 value={skillDraft}
-                onChange={(event) => setSkillDraft(event.target.value)}
+                disabled={mutation.isPending}
+                onChange={(event) => {
+                  mutation.reset()
+                  setSkillDraft(event.target.value)
+                }}
               />
               {selectedSkill.state === 'dirty' ? (
-                <p className="text-xs text-warning">This skill has a local per-agent override.</p>
+                <p className="text-xs text-warning">{t('agentDetail.skillOverride')}</p>
               ) : null}
-              {mutation.isError ? <ErrorState message={mutation.error.message} /> : null}
-              <Button onClick={saveSelectedSkill} disabled={mutation.isPending}>
+              {mutation.isError ? <ErrorState message={t('agentDetail.skillSaveError')} /> : null}
+              {mutation.isSuccess ? <p role="status">{t('agentDetail.skillSaved')}</p> : null}
+              <Button
+                className="min-h-10 sm:min-h-10"
+                onClick={saveSelectedSkill}
+                disabled={mutation.isPending}
+              >
                 <FileCode2 className="h-4 w-4" />
-                Save skill
+                {t(mutation.isPending ? 'agentDetail.saving' : 'agentDetail.saveSkill')}
               </Button>
             </>
           ) : (
-            <EmptyState title="Select a skill to edit" />
+            <EmptyState title={t('agentDetail.selectSkill')} />
           )}
         </CardContent>
       </Card>
@@ -393,12 +477,15 @@ function SkillsTab({ agent }: { agent: Agent }) {
 }
 
 function ConfigTab({ agent }: { agent: Agent }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const config = useQuery({
     queryKey: ['config', agent.id],
     queryFn: () => getAgentConfig(agent.id),
   })
   const [draft, setDraft] = useState<AgentConfig | null>(null)
+  const [configValid, setConfigValid] = useState(true)
+  const [envValid, setEnvValid] = useState(true)
 
   useEffect(() => {
     if (config.data) setDraft(config.data)
@@ -411,7 +498,7 @@ function ConfigTab({ agent }: { agent: Agent }) {
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!draft) return
+    if (!draft || !configValid || !envValid || mutation.isPending || config.isError) return
     mutation.mutate({
       config_json: draft.config_json,
       soul_md: draft.soul_md,
@@ -419,51 +506,81 @@ function ConfigTab({ agent }: { agent: Agent }) {
     })
   }
 
+  if (config.isError && !draft)
+    return (
+      <RetryState message={t('agentDetail.configError')} onRetry={() => void config.refetch()} />
+    )
   if (!draft)
-    return <EmptyState title={config.isLoading ? 'Loading config...' : 'Config not found'} />
+    return (
+      <EmptyState
+        title={t(config.isLoading ? 'agentDetail.configLoading' : 'agentDetail.configEmpty')}
+      />
+    )
 
   return (
-    <form className="grid gap-4 xl:grid-cols-2" onSubmit={submit}>
-      <Card>
-        <CardHeader>
-          <CardTitle>SOUL.md</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            aria-label="SOUL.md"
-            className="min-h-72 font-mono text-xs"
-            value={draft.soul_md}
-            onChange={(event) => setDraft({ ...draft, soul_md: event.target.value })}
-          />
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Config and env</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <JsonEditor
-            label="config.json"
-            value={draft.config_json}
-            onChange={(config_json) => setDraft({ ...draft, config_json })}
-          />
-          <JsonEditor
-            label="env.json"
-            value={draft.env_json}
-            onChange={(env_json) => setDraft({ ...draft, env_json })}
-          />
-          {mutation.isError ? <ErrorState message={mutation.error.message} /> : null}
-          <Button type="submit" disabled={mutation.isPending}>
-            <FileCode2 className="h-4 w-4" />
-            Save config
-          </Button>
-        </CardContent>
-      </Card>
+    <form onSubmit={submit}>
+      {config.isError ? (
+        <RetryState message={t('agentDetail.configError')} onRetry={() => void config.refetch()} />
+      ) : null}
+      <fieldset disabled={mutation.isPending} className="grid min-w-0 gap-4 xl:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>SOUL.md</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              aria-label="SOUL.md"
+              className="min-h-72 font-mono text-xs"
+              value={draft.soul_md}
+              onChange={(event) => {
+                mutation.reset()
+                setDraft({ ...draft, soul_md: event.target.value })
+              }}
+            />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('agentDetail.configAndEnv')}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <JsonEditor
+              label="config.json"
+              value={draft.config_json}
+              onValidityChange={(valid) => {
+                mutation.reset()
+                setConfigValid(valid)
+              }}
+              onChange={(config_json) => setDraft({ ...draft, config_json })}
+            />
+            <JsonEditor
+              label="env.json"
+              value={draft.env_json}
+              onValidityChange={(valid) => {
+                mutation.reset()
+                setEnvValid(valid)
+              }}
+              onChange={(env_json) => setDraft({ ...draft, env_json })}
+            />
+            {mutation.isError ? <ErrorState message={t('agentDetail.configSaveError')} /> : null}
+            {mutation.isSuccess ? <p role="status">{t('agentDetail.configSaved')}</p> : null}
+            <Button
+              className="min-h-10 sm:min-h-10"
+              type="submit"
+              disabled={mutation.isPending || !configValid || !envValid || config.isError}
+            >
+              <FileCode2 className="h-4 w-4" />
+              {t(mutation.isPending ? 'agentDetail.saving' : 'agentDetail.saveConfig')}
+            </Button>
+          </CardContent>
+        </Card>
+      </fieldset>
     </form>
   )
 }
 
 function WorkspaceTab({ agent }: { agent: Agent }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [confirmation, setConfirmation] = useState('')
   const storage = useQuery({
@@ -489,7 +606,7 @@ function WorkspaceTab({ agent }: { agent: Agent }) {
     <div className="grid gap-4 xl:grid-cols-[1fr_0.8fr]">
       <Card>
         <CardHeader>
-          <CardTitle>Workspace guard</CardTitle>
+          <CardTitle>{t('agentDetail.workspaceGuard')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {Object.entries(agent.paths).map(([key, value]) => (
@@ -508,28 +625,46 @@ function WorkspaceTab({ agent }: { agent: Agent }) {
           report={storage.data}
           isLoading={storage.isLoading}
           error={storage.isError ? storage.error.message : null}
+          onRetry={() => void storage.refetch()}
         />
         <Card>
           <CardHeader>
-            <CardTitle>File purge</CardTitle>
+            <CardTitle>{t('agentDetail.filePurge')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-sm text-text-secondary">
-              Physical purge removes the managed agent folder after archive. The database agent,
-              sessions, logs and audit records stay available.
-            </p>
+            <p className="text-sm text-text-secondary">{t('agentDetail.purgeDescription')}</p>
             <div className="rounded-md border border-border bg-background p-3 text-xs text-text-muted">
-              Purge target: <span className="font-medium text-text-primary">{agent.name}</span>
+              {t('agentDetail.purgeTarget')}:{' '}
+              <span className="font-medium text-text-primary">{agent.name}</span>
             </div>
-            {storage.data ? (
+            {!storage.isError && storage.data ? (
               <div className="grid gap-2 rounded-md border border-border bg-background p-3 text-xs text-text-secondary">
-                <span>Total managed size: {formatBytes(storage.data.total_bytes)}</span>
-                <span>Marker: {storage.data.marker_verified ? 'verified' : 'not verified'}</span>
-                <span>{storage.data.retention.retention_hint}</span>
+                <span>
+                  {t('agentDetail.totalSize')}: {formatBytes(storage.data.total_bytes)}
+                </span>
+                <span>
+                  {t('agentDetail.marker')}:{' '}
+                  {t(
+                    storage.data.marker_verified
+                      ? 'agentDetail.verified'
+                      : 'agentDetail.notVerified',
+                  )}
+                </span>
+                <span>
+                  {t(
+                    !storage.data.root_exists
+                      ? 'agentDetail.rootAbsent'
+                      : !storage.data.marker_verified
+                        ? 'agentDetail.markerRequired'
+                        : storage.data.retention.archived
+                          ? 'agentDetail.purgeAllowed'
+                          : 'agentDetail.archiveFirst',
+                  )}
+                </span>
               </div>
             ) : null}
             <div className="grid gap-2">
-              <Label htmlFor="purge-confirmation">Type agent name to confirm</Label>
+              <Label htmlFor="purge-confirmation">{t('agentDetail.confirmName')}</Label>
               <Input
                 id="purge-confirmation"
                 value={confirmation}
@@ -538,22 +673,25 @@ function WorkspaceTab({ agent }: { agent: Agent }) {
                 disabled={purge.isPending}
               />
             </div>
-            {agent.status !== 'archived' ? (
-              <p className="text-xs text-text-muted">Archive the agent before purging files.</p>
-            ) : null}
-            {purge.isError ? <ErrorState message={purge.error.message} /> : null}
+            {purge.isError ? <ErrorState message={t('agentDetail.purgeError')} /> : null}
             {purge.data ? (
-              <p className="rounded-md border border-border bg-background p-3 text-sm text-text-secondary">
-                {purge.data.message}: {purge.data.purged_path}
+              <p
+                role="status"
+                className="break-all rounded-md border border-border bg-background p-3 text-sm text-text-secondary"
+              >
+                {t('agentDetail.purgeSuccess')}: {purge.data.purged_path}
               </p>
             ) : null}
             <Button
+              className="min-h-10 sm:min-h-10"
               variant="destructive"
               onClick={() => purge.mutate()}
-              disabled={!canPurge || purge.isPending}
+              disabled={
+                !canPurge || purge.isPending || storage.isError || !storage.data?.marker_verified
+              }
             >
               <Trash2 className="h-4 w-4" />
-              Purge files
+              {t(purge.isPending ? 'agentDetail.purging' : 'agentDetail.purgeFiles')}
             </Button>
           </CardContent>
         </Card>
@@ -566,29 +704,37 @@ function StorageReportCard({
   report,
   isLoading,
   error,
+  onRetry,
 }: {
   report?: AgentStorageReport
   isLoading: boolean
   error: string | null
+  onRetry: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <HardDrive className="h-4 w-4" />
-          Storage report
+          {t('agentDetail.storageReport')}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {error ? <ErrorState message={error} /> : null}
-        {isLoading ? <p className="text-sm text-text-muted">Loading storage...</p> : null}
-        {report ? (
+        {error ? <RetryState message={t('agentDetail.storageError')} onRetry={onRetry} /> : null}
+        {isLoading ? (
+          <p className="text-sm text-text-muted">{t('agentDetail.storageLoading')}</p>
+        ) : null}
+        {!error && report ? (
           <>
             <div className="grid grid-cols-2 gap-2 text-sm">
-              <Metric label="Total size" value={formatBytes(report.total_bytes)} />
-              <Metric label="Files" value={String(report.total_files)} />
-              <Metric label="Directories" value={String(report.total_directories)} />
-              <Metric label="Symlinks" value={String(report.total_symlinks)} />
+              <Metric label={t('agentDetail.totalSize')} value={formatBytes(report.total_bytes)} />
+              <Metric label={t('agentDetail.files')} value={String(report.total_files)} />
+              <Metric
+                label={t('agentDetail.directories')}
+                value={String(report.total_directories)}
+              />
+              <Metric label={t('agentDetail.symlinks')} value={String(report.total_symlinks)} />
             </div>
             <div className="rounded-md border border-border bg-background p-3 text-xs text-text-muted">
               <p className="break-all">{report.root_path}</p>
@@ -612,9 +758,12 @@ function StorageReportCard({
                     <p className="break-all text-text-muted">{area.path}</p>
                   </div>
                   <div className="text-left text-text-secondary sm:text-right">
-                    <p>{area.exists ? formatBytes(area.bytes) : 'missing'}</p>
+                    <p>{area.exists ? formatBytes(area.bytes) : t('statuses.missing')}</p>
                     <p>
-                      {area.files} files, {area.directories} dirs
+                      {t('agentDetail.areaCounts', {
+                        files: area.files,
+                        directories: area.directories,
+                      })}
                     </p>
                   </div>
                 </div>
@@ -649,6 +798,7 @@ function formatBytes(bytes: number) {
 }
 
 function SessionsTab({ agent }: { agent: Agent }) {
+  const { t } = useTranslation()
   const userFilter = useSessionUserFilter()
   const sessions = useQuery({
     queryKey: ['sessions', agent.id, userFilter.selectedUserIds],
@@ -657,21 +807,26 @@ function SessionsTab({ agent }: { agent: Agent }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Agent sessions</CardTitle>
+        <CardTitle>{t('agentDetail.sessions')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
         <SessionUserFilter filter={userFilter} className="mb-3" />
-        {sessions.data?.length ? (
+        {sessions.isError ? (
+          <RetryState
+            message={t('agentDetail.sessionsError')}
+            onRetry={() => void sessions.refetch()}
+          />
+        ) : sessions.data?.length ? (
           sessions.data.map((session) => <AgentSessionLink key={session.id} session={session} />)
         ) : (
           <EmptyState
-            title={
+            title={t(
               sessions.isLoading
-                ? 'Loading sessions...'
+                ? 'agentDetail.sessionsLoading'
                 : userFilter.selectedUserIds.length
-                  ? 'No sessions for this agent and selected users'
-                  : 'No sessions for this agent'
-            }
+                  ? 'agentDetail.sessionsFilteredEmpty'
+                  : 'agentDetail.sessionsEmpty',
+            )}
           />
         )}
       </CardContent>
@@ -680,6 +835,7 @@ function SessionsTab({ agent }: { agent: Agent }) {
 }
 
 function AgentSessionLink({ session }: { session: AgentSession }) {
+  const { t } = useTranslation()
   return (
     <Link
       to={`/sessions/${session.id}`}
@@ -694,8 +850,9 @@ function AgentSessionLink({ session }: { session: AgentSession }) {
             <StatusBadge value={session.visibility} />
           </div>
           <p className="mt-1 text-xs text-text-muted">
-            {session.user_display_name} - leader {session.leader_agent_name ?? 'private'} -{' '}
-            {session.last_message_preview ?? 'No messages yet'}
+            {session.user_display_name} · {t('agentDetail.leader')}{' '}
+            {session.leader_agent_name ?? t('statuses.private')} ·{' '}
+            {session.last_message_preview ?? t('agentDetail.noMessages')}
           </p>
         </div>
       </div>
@@ -716,11 +873,14 @@ function JsonEditor({
   label,
   value,
   onChange,
+  onValidityChange,
 }: {
   label: string
   value: Record<string, unknown>
   onChange: (value: Record<string, unknown>) => void
+  onValidityChange: (valid: boolean) => void
 }) {
+  const { t } = useTranslation()
   const inputId = useId()
   const [text, setText] = useState(JSON.stringify(value, null, 2))
   const [error, setError] = useState<string | null>(null)
@@ -731,10 +891,14 @@ function JsonEditor({
     setText(next)
     try {
       const parsed = JSON.parse(next) as Record<string, unknown>
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+        throw new Error('object required')
       setError(null)
+      onValidityChange(true)
       onChange(parsed)
     } catch {
-      setError('Invalid JSON')
+      setError(t('agentDetail.invalidJson'))
+      onValidityChange(false)
     }
   }
 
@@ -747,9 +911,27 @@ function JsonEditor({
         id={inputId}
         className="min-h-44 font-mono text-xs"
         value={text}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? `${inputId}-error` : undefined}
         onChange={(event) => handleChange(event.target.value)}
       />
-      {error ? <p className="text-xs text-danger">{error}</p> : null}
+      {error ? (
+        <p id={`${inputId}-error`} role="alert" className="text-xs text-danger">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+function RetryState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const { t } = useTranslation()
+  return (
+    <div className="space-y-2">
+      <ErrorState message={message} />
+      <Button className="min-h-10 sm:min-h-10" variant="outline" onClick={onRetry}>
+        {t('agentDetail.retry')}
+      </Button>
     </div>
   )
 }
