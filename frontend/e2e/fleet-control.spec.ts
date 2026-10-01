@@ -1493,7 +1493,7 @@ test('Hermes fleet control flow covers agents, runtime, skills, sessions and han
   await expect(page.getByText('agent2', { exact: true })).toBeVisible()
 
   await page.goto('/deployments?tab=jobs')
-  await expect(page.getByRole('heading', { name: 'Развёртывания' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Развёртывания', exact: true })).toBeVisible()
   await page.locator('#deployment-title').fill('Runtime update dry run')
   await page.getByRole('button', { name: 'Создать задание' }).click()
   await expect(
