@@ -1,0 +1,13 @@
+.git
+.local
+.env
+.env.*
+**/node_modules
+**/target
+**/__pycache__
+**/.pytest_cache
+**/test-results
+**/playwright-report
+frontend/dist
+docs/assets
+openapi/*.generated

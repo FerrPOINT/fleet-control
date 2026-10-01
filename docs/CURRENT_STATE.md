@@ -34,19 +34,24 @@ Verified on 2026-10-01, separate from the historical baseline below:
   27 opt-in live checks require a running backend and are not acceptance evidence.
 - Screenshot manifest verifies 135 fixture images at 375x812, 1920x1080,
   2560x1440. Desktop config and mobile Chats/transcript inspected visually.
+- Standalone Rust 1.88 release and frontend Docker images built successfully
+  with locked dependencies and explicit sibling Base contexts. A disposable
+  clean PostgreSQL/Redis/backend/Nginx stack passed health, authenticated RBAC,
+  private-chat denial, idempotent replay/conflict, immediate proxied session SSE
+  and session persistence after backend restart. The disposable stack was removed.
 
 CI now includes compile, migration rollback/reapply, frontend formatting,
 route/link/screenshot gates, three-browser fixture acceptance and browser evidence
-artifacts. Shared Base changes are published in
+artifacts plus disposable authenticated container acceptance. Shared Base changes are published in
 [services-base #121](https://github.com/FerrPOINT/services-base/pull/121).
-Fleet CI pins Base to `d03096d4f21cff5231e23d7a8744c51413d25569` until the
+Fleet CI pins Base to `af1bdd4746dfda331d0c32741af3f7c502fad816` until the
 dependency is merged. GitHub CI status must be checked on the current PR head;
 local checks alone do not prove CI acceptance.
 
 The real seven-agent PM/requirements/decomposition/Rework/deployment scenario,
-cross-service CI and production receipts remain unverified. Frontend dev server
-is available on localhost:23802; the attempted background backend launch was
-blocked by tool policy, so this is not a live full-stack acceptance environment.
+cross-service CI and production receipts remain unverified. Container acceptance
+proves the standalone Fleet foundation, not actual Hermes/provider execution,
+Central Auth integration or a complete automatic SDLC environment.
 
 ## Historical Baseline
 

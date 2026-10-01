@@ -46,7 +46,7 @@ importers:
         specifier: ^1.1.11
         version: 1.1.18(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@sdlc/ui':
-        specifier: file:..\..\services-base\frontend
+        specifier: file:../../services-base/frontend
         version: file:../../services-base/frontend(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(i18next@25.10.10(typescript@5.9.3))(react-dom@19.2.7(react@19.2.7))(react-i18next@15.7.4(i18next@25.10.10(typescript@5.9.3))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3))(react-router@8.4.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)(yaml@2.9.0)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.7))
       '@tanstack/react-query':
         specifier: ^5.74.4

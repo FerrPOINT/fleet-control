@@ -92,11 +92,15 @@ remaining blockers: [SDLC implementation](docs/SDLC_IMPLEMENTATION.md).
 
 ## Быстрый старт
 
+Сначала разместите совместимый `services-base` рядом с `fleet-control`.
+Docker использует именованный BuildKit context; требуется Compose 2.17+.
+Ревизия Base и ограничения runtime описаны в [DEPLOYMENT](docs/DEPLOYMENT.md).
+
 ```bash
 cp .env.example .env
 # Заменить POSTGRES_PASSWORD, FLEET_CONTROL_JWT_SECRET и
 # FLEET_CONTROL_FLEET__RUNTIME_TOKEN_SECRET в .env
-docker compose up --build -d
+docker compose up --build -d --wait
 curl -fsS http://127.0.0.1:23801/api/v1/health
 ```
 

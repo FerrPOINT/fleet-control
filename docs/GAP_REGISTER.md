@@ -13,12 +13,11 @@ Open gaps:
 | Gap | Severity | Owner | Exit criteria |
 | --- | --- | --- | --- |
 | Native Windows Rust linker missing: `link.exe` | Local tooling limitation | Environment | Install MSVC Build Tools for native Windows cargo commands |
-| Full-stack compose and live seven-agent acceptance not rerun | Product/integration blocker | Integration | Actual PM/publication/children/Rework/integration/deployment receipts; not fixture success |
+| Live seven-agent acceptance not completed; standalone foundation Compose smoke passed | Product/integration blocker | Integration | Actual PM/publication/children/Rework/integration/deployment receipts; not fixture success |
 | Java Agent chat/control/config activation are phase 2; jar lifecycle retained | Accepted scope | Runtime | Required chat/control capabilities verified before SDLC admission |
-| Clean-clone shared-base dependency/version and CI proof | Integration blocker | Platform | Pin compatible Base checkout and run all repo gates/contract drift in CI |
+| Default-branch shared-base availability | Merge-order dependency | Platform | Merge Base #121 before Fleet #44; current Fleet CI pins compatible Base and verifies repo/container gates |
 | Local legacy auth retirement and machine/project scopes | Security blocker for automatic SDLC | Backend | Verified assignment identities, project scopes and audited retirement of local fallback |
 | Runtime OS/tool isolation is not implemented | Security blocker for hostile/untrusted workloads | Runtime/platform | Verified identity/container mounts, host-secret, cross-agent filesystem/network and shared-agent cross-user SessionDB denial tests |
-| Live backend development launch not completed | Local tooling limitation | Environment | Normal configured backend startup and authenticated smoke; background attempt blocked by tool policy |
 | Central Auth loading/error screenshots and live identity acceptance | Evidence gap | Frontend/identity | Verified SSO client, failure/loading captures and cross-service subject/access tests |
 
 Chat/session gaps:

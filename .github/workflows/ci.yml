@@ -11,6 +11,42 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  containers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: fleet-control
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: fleet-control
+      - uses: actions/checkout@v7
+        with:
+          repository: FerrPOINT/services-base
+          path: services-base
+          ref: af1bdd4746dfda331d0c32741af3f7c502fad816
+          token: ${{ secrets.SERVICES_BASE_TOKEN }}
+      - name: Disposable Compose credentials
+        run: |
+          for key in POSTGRES_PASSWORD FLEET_CONTROL_JWT_SECRET FLEET_CONTROL_FLEET__RUNTIME_TOKEN_SECRET; do
+            value=$(openssl rand -hex 32)
+            echo "::add-mask::$value"
+            echo "$key=$value" >> "$GITHUB_ENV"
+          done
+          echo "BACKEND_PORT=55491" >> "$GITHUB_ENV"
+          echo "FRONTEND_PORT=55492" >> "$GITHUB_ENV"
+      - name: Build and start clean Compose stack
+        run: docker compose -p fleet-ci up -d --build --wait --wait-timeout 120
+      - name: Authenticated container acceptance
+        run: python3 scripts/compose_smoke.py --url http://127.0.0.1:55492 --compose-project fleet-ci
+      - name: Container status
+        if: always()
+        run: docker compose -p fleet-ci ps -a
+      - name: Remove only disposable CI stack
+        if: always()
+        run: docker compose -p fleet-ci down --volumes --remove-orphans
+
   docs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -57,7 +93,7 @@ jobs:
         with:
           repository: FerrPOINT/services-base
           path: services-base
-          ref: d03096d4f21cff5231e23d7a8744c51413d25569
+          ref: af1bdd4746dfda331d0c32741af3f7c502fad816
           token: ${{ secrets.SERVICES_BASE_TOKEN }}
       - run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev postgresql-client
       - uses: dtolnay/rust-toolchain@stable
@@ -103,7 +139,7 @@ jobs:
         with:
           repository: FerrPOINT/services-base
           path: services-base
-          ref: d03096d4f21cff5231e23d7a8744c51413d25569
+          ref: af1bdd4746dfda331d0c32741af3f7c502fad816
           token: ${{ secrets.SERVICES_BASE_TOKEN }}
       - uses: pnpm/action-setup@v6
         with:
@@ -117,7 +153,7 @@ jobs:
         run: pnpm --dir ../../services-base/frontend install --frozen-lockfile
         env:
           CI: "true"
-      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm install --frozen-lockfile
         env:
           CI: "true"
       - run: pnpm openapi:check
