@@ -6,7 +6,8 @@
     "operator": "Fleet operator"
   },
   "shell": {
-    "openNavigation": "Open navigation"
+    "openNavigation": "Open navigation",
+    "account": "Account"
   },
   "navigation": {
     "dashboard": "Dashboard",

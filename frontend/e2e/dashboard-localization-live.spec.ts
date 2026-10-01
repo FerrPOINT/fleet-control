@@ -5,12 +5,16 @@ import { expect, test } from '@playwright/test'
 
 test.skip(process.env.SDLC_LIVE_QA !== '1', 'Requires the running local SDLC fleet')
 test.skip(({ browserName }) => browserName !== 'chromium', 'Single browser live smoke')
+test.use({ trace: 'off', video: 'off', screenshot: 'off' })
 
 const account =
   process.env.SDLC_LIVE_QA === '1'
     ? (JSON.parse(
         readFileSync(
-          fileURLToPath(new URL('../../../.local/qa-session.json', import.meta.url)),
+          process.env.SDLC_QA_SESSION_FILE ??
+            fileURLToPath(
+              new URL('../../../services-base/deploy/.local/qa-session.json', import.meta.url),
+            ),
           'utf8',
         ),
       ) as { email: string; password: string })
@@ -47,13 +51,21 @@ test('dashboard and navigation use Russian labels on the live fleet', async ({ p
     await expect(page.getByRole('heading', { name: 'Обзор агентов' })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Создать агента' })).toBeVisible()
     await expect(page.getByText('Последние события')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Выйти' })).toBeVisible()
+    await page.getByRole('button', { name: 'Аккаунт', exact: true }).click()
+    await expect(page.getByRole('menuitem', { name: 'Выйти', exact: true })).toBeVisible()
+    await page.keyboard.press('Escape')
     await expect(page.getByText('Исполнитель').first()).toBeVisible()
     await expect(page.getByText('Готов').first()).toBeVisible()
     await expect(page.getByText('Executor', { exact: true })).toHaveCount(0)
     await expect(page.getByText('ready', { exact: true })).toHaveCount(0)
     if (width === 375) {
-      await expect(page.getByRole('combobox', { name: 'Раздел Fleet Control' })).toHaveValue('/')
+      const opener = page.getByRole('button', { name: 'Открыть навигацию' })
+      await opener.click()
+      await expect(
+        page.getByRole('dialog').getByRole('link', { name: 'Обзор', exact: true }),
+      ).toHaveAttribute('aria-current', 'page')
+      await page.keyboard.press('Escape')
+      await expect(opener).toBeFocused()
     } else {
       await expect(page.getByRole('link', { name: 'Обзор', exact: true })).toBeVisible()
     }

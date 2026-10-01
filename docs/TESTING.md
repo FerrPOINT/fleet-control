@@ -25,6 +25,15 @@ pnpm screenshots:local
 pnpm screenshots:verify
 ```
 
+`e2e/platform-header-live.spec.ts` checks the installed Base header against real
+Fleet/Central Auth: three routes, three themes and eleven widths (320-2560 px),
+runtime services, keyboard/touch, native inert cleanup, drawer and central logout.
+Run with `SDLC_LIVE_QA=1`, private `SDLC_QA_SESSION_FILE` and optional
+`E2E_BASE_URL` (default `http://localhost:7742`) / `SDLC_HEADER_EVIDENCE_DIR`.
+The dashboard localization smoke uses the same private session path. Neither
+test publishes secrets, auth traces or browser video. Keep API mocks out of
+this live gate; the component fixtures remain separate fast checks.
+
 `e2e/leader-team-live.spec.ts` requires `SDLC_LIVE_QA=1` and the local
 `.local/qa-session.json` from the workspace QA bootstrap. It creates an
 isolated `qa-leader-team-*` agent, then archives it and purges only its own

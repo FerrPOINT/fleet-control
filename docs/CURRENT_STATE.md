@@ -1,5 +1,11 @@
 # Current State
 
+2026-10-01 Header update: the Base PlatformHeader is integrated with a nav-only
+sidebar and one account menu. Frontend 117/117 (shell 17), backend 60/60 with two
+real isolated PostgreSQL tests; live candidate 5/5, 5.7 minutes, no mocked API.
+Scope and fingerprints: [Header plan](plan/2026-10-01-platform-header.md).
+The following pre-development snapshot is historical and is not a release attestation.
+
 Status: pre-development hardening implemented and validated through WSL/Linux
 backend gates plus Windows frontend gates. Native Windows Rust commands still
 require MSVC `link.exe`.
