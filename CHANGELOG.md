@@ -46,6 +46,9 @@
   navigation, explicit load errors with retry, pending locks and confirmed save
   feedback. Invalid JSON objects cannot submit a previously valid config value;
   failed saves preserve drafts.
+- Hermes с desired state running восстанавливается после перезапуска Fleet,
+  если локальный процесс отсутствует. SSE completion сохраняет настоящий
+  output модели вместо имени события или идентификатора run.
 - Settings tabs now keep their Radix tab panels in the accessibility tree, so
   every `aria-controls` reference resolves across responsive layouts.
 - `/settings` больше не предлагает фиктивное применение runtime-конфигурации:

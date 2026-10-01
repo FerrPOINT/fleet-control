@@ -755,6 +755,8 @@ pub enum SessionState {
 pub enum DeploymentJobKind {
     Provision,
     RuntimeUpdate,
+    ProductDeploy,
+    ProductRollback,
 }
 
 impl DeploymentJobKind {
@@ -762,6 +764,8 @@ impl DeploymentJobKind {
         match self {
             Self::Provision => "provision",
             Self::RuntimeUpdate => "runtime_update",
+            Self::ProductDeploy => "product_deploy",
+            Self::ProductRollback => "product_rollback",
         }
     }
 }
@@ -779,6 +783,8 @@ impl FromStr for DeploymentJobKind {
         match value {
             "provision" => Ok(Self::Provision),
             "runtime_update" => Ok(Self::RuntimeUpdate),
+            "product_deploy" => Ok(Self::ProductDeploy),
+            "product_rollback" => Ok(Self::ProductRollback),
             _ => Err(format!("unknown deployment job kind: {value}")),
         }
     }
@@ -1616,6 +1622,10 @@ pub struct CreateDeploymentJobRequest {
     pub runtime_kind: Option<AgentKind>,
     pub title: String,
     pub detail: Option<Value>,
+    pub environment: Option<String>,
+    pub commit_sha: Option<String>,
+    pub previous_release_id: Option<Uuid>,
+    pub idempotency_key: Option<Uuid>,
 }
 
 /// Bulk runtime operation (IMPLEMENTATION_PLAN Phase 3): one job per agent,
