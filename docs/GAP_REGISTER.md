@@ -1,14 +1,34 @@
 # Gap Register
 
+## October SDLC Gate
+
+Automatic SDLC remains blocked. See the exhaustive owner/stage table in
+[SDLC_IMPLEMENTATION.md](SDLC_IMPLEMENTATION.md). Foundation changes do not close
+machine identity/project authorization, task binding, PM requirements/publication,
+11 workflow modes/receipts, assignment leases/fencing, crash recovery, Hermes
+acceptance proof, exact-SHA CI/deployment or seven-agent end-to-end acceptance.
+
 Open gaps:
 
 | Gap | Severity | Owner | Exit criteria |
 | --- | --- | --- | --- |
 | Native Windows Rust linker missing: `link.exe` | Local tooling limitation | Environment | Install MSVC Build Tools for native Windows cargo commands |
-| Local Docker engine/compose hangs during final migration smoke rerun | Local tooling limitation | Environment | `docker compose ps` returns promptly and clean DB migration `up/status` reruns |
-| Java Agent runtime operations are phase 2 | Accepted MVP scope | Runtime | Adapter provision/start/chat implemented and tests pass |
-| Direct Cargo dependency on private `services-base` is blocked in WSL/CI | Local/CI integration limitation | Platform | WSL and GitHub Actions can fetch `FerrPOINT/services-base`, then the local telemetry bridge is replaced by `sdlc-telemetry` |
-| Shared `sdlc-auth-core` validator adoption is still pending | Accepted fleet standardization scope | Backend | Local HMAC validation is replaced by `sdlc-auth-core::Validator::hmac`, OIDC/JWKS mode is added, and legacy compact-token fallback is removed after the transition window |
+| Live seven-agent acceptance not completed; standalone foundation Compose smoke passed | Product/integration blocker | Integration | Actual PM/publication/children/Rework/integration/deployment receipts; not fixture success |
+| Java Agent chat/control/config activation are phase 2; jar lifecycle retained | Accepted scope | Runtime | Required chat/control capabilities verified before SDLC admission |
+| Default-branch shared-base availability | Merge-order dependency | Platform | Merge Base #121 before Fleet #44; current Fleet CI pins compatible Base and verifies repo/container gates |
+| Local legacy auth retirement and machine/project scopes | Security blocker for automatic SDLC | Backend | Verified assignment identities, project scopes and audited retirement of local fallback |
+| Runtime OS/tool isolation is not implemented | Security blocker for hostile/untrusted workloads | Runtime/platform | Verified identity/container mounts, host-secret, cross-agent filesystem/network and shared-agent cross-user SessionDB denial tests |
+| Central Auth loading/error screenshots and live identity acceptance | Evidence gap | Frontend/identity | Verified SSO client, failure/loading captures and cross-service subject/access tests |
+
+Chat/session gaps:
+
+The closed labels below describe the historical baseline, not complete chat acceptance.
+The source-reviewed chat gaps `CHAT-01` through `CHAT-14` remain open in
+[CHAT.md](CHAT.md). They include central/legacy permission differences,
+parent access validation, autonomous leader identity, leader-authored dispatch,
+run history retention, durable dispatch, replay/concurrency, SSE recovery,
+approval controls and handoff/continuation. Closing a baseline feature does
+not close those execution and authorization gaps.
 
 Closed gaps:
 

@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process'
 import process from 'node:process'
 
 const previewPort = process.env.SCREENSHOT_PREVIEW_PORT ?? '4173'
-const baseUrl = process.env.SCREENSHOT_BASE_URL ?? `http://127.0.0.1:${previewPort}`
+const baseUrl = process.env.SCREENSHOT_BASE_URL ?? `http://localhost:${previewPort}`
 
 function run(command, args, options = {}) {
   return new Promise((resolve, reject) => {

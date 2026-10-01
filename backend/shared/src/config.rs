@@ -92,6 +92,9 @@ pub struct FleetConfig {
     pub forge_api_token: Option<String>,
     /// Forge project name used for deployment triggers.
     pub forge_project: Option<String>,
+    /// Pulse API health endpoint reachable from Fleet, checked after Forge completes.
+    pub pulse_health_url: Option<String>,
+    pub pulse_ui_url: Option<String>,
     /// project-workflow base URL for namespace/workflow sync, e.g. http://pw-api:8811.
     pub project_workflow_url: Option<String>,
     /// Read-only machine token for the Project Workflow catalog bridge.
@@ -181,6 +184,8 @@ impl AppConfig {
             .set_default("fleet.forge_api_url", Option::<String>::None)?
             .set_default("fleet.forge_api_token", Option::<String>::None)?
             .set_default("fleet.forge_project", Option::<String>::None)?
+            .set_default("fleet.pulse_health_url", Option::<String>::None)?
+            .set_default("fleet.pulse_ui_url", Option::<String>::None)?
             .set_default("fleet.project_workflow_url", Option::<String>::None)?
             .set_default(
                 "fleet.project_workflow_catalog_token",
@@ -324,6 +329,8 @@ impl Default for FleetConfig {
             forge_api_url: None,
             forge_api_token: None,
             forge_project: None,
+            pulse_health_url: None,
+            pulse_ui_url: None,
             project_workflow_url: None,
             project_workflow_catalog_token: None,
             runtime_token_secret: "[CHANGE_ME]".to_string(),

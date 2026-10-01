@@ -1,5 +1,9 @@
 # API Edge Cases
 
+Leader-specific cases below apply to preserved legacy `/sessions` routes.
+The new `/chats` route excludes leader controls. Target task-bound identity and
+SDLC transition gates remain described in [SDLC implementation](SDLC_IMPLEMENTATION.md).
+
 Required edge-case behavior:
 
 - `POST /sessions` without `user_id` always owns the session by the current
@@ -17,4 +21,5 @@ Required edge-case behavior:
 - Delegation requires a leader-scoped parent session and a managed executor.
 - Runtime unavailable errors must leave the Fleet mirror consistent and mark the
   related run as failed or waiting.
-- Java Agent operations return typed `not_implemented` until phase 2.
+- Java chat/control/config activation operations remain phase 2; the existing
+  jar lifecycle remains available and must not be reported as unimplemented.

@@ -1,5 +1,12 @@
 # Implementation Plan
 
+## Current SDLC Scope
+
+The historical phases below are not completion evidence for the October SDLC plan.
+Current implementation, boundaries, blockers and acceptance are maintained in
+[SDLC_IMPLEMENTATION.md](SDLC_IMPLEMENTATION.md). Leaders are deferred. Java lifecycle
+exists, but runtime chat/control still returns phase-2 errors and cannot run SDLC.
+
 Phase 0: pre-development hardening.
 
 - RBAC and permissions endpoint. — done: `SystemRole = admin|operator|user` c бэкенд-энфорсментом (middleware + `GET /users/{id}/permissions`, `PATCH /users/{id}/role`), legacy `is_system_admin` alias; см. docs/AUTHORIZATION.md.
@@ -25,7 +32,7 @@ Phase 1: Hermes MVP completion.
 Phase 2: Java Agent runtime.
 
 - Implement Spring Boot launch/provision adapter. — done: supervisor поднимает `java -jar <agents_root>/agentN/runtime/backend.jar --spring.profiles.active=noop`, readiness по `/actuator/health/readiness` (db-only).
-- Wire health, capabilities, sessions and chat stream. — done: health/capabilities/sessions/chat-стрим через ja REST/SSE адаптер (runtime/mod.rs).
+- Wire health, capabilities, sessions and chat stream. — partial: health/readiness and lifecycle exist; chat/control remain phase 2 in runtime/mod.rs.
 - Add Java Agent runtime tests and screenshots. — done: runtime-тесты provision/launch/readiness + скрин-свидетельства java-agent-страниц в evidence-сете.
 
 Phase 3: fleet operations.

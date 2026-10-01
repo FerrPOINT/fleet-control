@@ -1,0 +1,724 @@
+{
+  "schemaVersion": 1,
+  "product": "fleet-control",
+  "routeSource": "frontend/src/app/router.tsx",
+  "shellSource": "frontend/src/widgets/app-shell.tsx",
+  "acceptanceStatus": "pending",
+  "routes": [
+    {
+      "pattern": "/",
+      "kind": "operational",
+      "layout": "wide",
+      "roles": [
+        "agents:manage"
+      ],
+      "fixture": "isolated:/",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/*",
+      "kind": "operational",
+      "layout": "wide",
+      "roles": [
+        "authenticated"
+      ],
+      "fixture": "isolated:/*",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error",
+        "not-found"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/access-denied",
+      "kind": "operational",
+      "layout": "wide",
+      "roles": [
+        "authenticated"
+      ],
+      "fixture": "isolated:/access-denied",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/agents",
+      "kind": "operational",
+      "layout": "wide",
+      "roles": [
+        "agents:read_directory"
+      ],
+      "fixture": "isolated:/agents",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/agents/:agentId",
+      "kind": "operational",
+      "layout": "detail-with-aside",
+      "roles": [
+        "agents:manage"
+      ],
+      "fixture": "isolated:/agents/:agentId",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error",
+        "not-found"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/agents/:agentId/config",
+      "kind": "operational",
+      "layout": "detail-with-aside",
+      "roles": [
+        "agents:manage"
+      ],
+      "fixture": "isolated:/agents/:agentId/config",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error",
+        "not-found"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/agents/:agentId/edit",
+      "kind": "operational",
+      "layout": "reading",
+      "roles": [
+        "agents:manage"
+      ],
+      "fixture": "isolated:/agents/:agentId/edit",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error",
+        "not-found"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/agents/:agentId/runtime",
+      "kind": "operational",
+      "layout": "detail-with-aside",
+      "roles": [
+        "agents:manage"
+      ],
+      "fixture": "isolated:/agents/:agentId/runtime",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error",
+        "not-found"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/agents/:agentId/sessions",
+      "kind": "operational",
+      "layout": "detail-with-aside",
+      "roles": [
+        "agents:manage"
+      ],
+      "fixture": "isolated:/agents/:agentId/sessions",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error",
+        "not-found"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/agents/:agentId/skills",
+      "kind": "operational",
+      "layout": "detail-with-aside",
+      "roles": [
+        "agents:manage"
+      ],
+      "fixture": "isolated:/agents/:agentId/skills",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error",
+        "not-found"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/agents/:agentId/workspace",
+      "kind": "operational",
+      "layout": "detail-with-aside",
+      "roles": [
+        "agents:manage"
+      ],
+      "fixture": "isolated:/agents/:agentId/workspace",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error",
+        "not-found"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/agents/new",
+      "kind": "operational",
+      "layout": "reading",
+      "roles": [
+        "agents:manage"
+      ],
+      "fixture": "isolated:/agents/new",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/alerts",
+      "kind": "operational",
+      "layout": "wide",
+      "roles": [
+        "logs:read"
+      ],
+      "fixture": "isolated:/alerts",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/chats",
+      "kind": "operational",
+      "layout": "wide",
+      "roles": [
+        "authenticated"
+      ],
+      "fixture": "isolated:/chats",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/chats/:sessionId",
+      "kind": "operational",
+      "layout": "detail-with-aside",
+      "roles": [
+        "authenticated"
+      ],
+      "fixture": "isolated:/chats/:sessionId",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error",
+        "not-found"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/dashboard",
+      "kind": "redirect"
+    },
+    {
+      "pattern": "/deployments",
+      "kind": "operational",
+      "layout": "wide",
+      "roles": [
+        "deployments:manage"
+      ],
+      "fixture": "isolated:/deployments",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/executors",
+      "kind": "operational",
+      "layout": "wide",
+      "roles": [
+        "executors:manage"
+      ],
+      "fixture": "isolated:/executors",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/executors/:agentId",
+      "kind": "operational",
+      "layout": "detail-with-aside",
+      "roles": [
+        "executors:manage"
+      ],
+      "fixture": "isolated:/executors/:agentId",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error",
+        "not-found"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/executors/:agentId/config",
+      "kind": "operational",
+      "layout": "detail-with-aside",
+      "roles": [
+        "executors:manage"
+      ],
+      "fixture": "isolated:/executors/:agentId/config",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error",
+        "not-found"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/executors/:agentId/edit",
+      "kind": "operational",
+      "layout": "reading",
+      "roles": [
+        "executors:manage"
+      ],
+      "fixture": "isolated:/executors/:agentId/edit",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error",
+        "not-found"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/executors/:agentId/runtime",
+      "kind": "operational",
+      "layout": "detail-with-aside",
+      "roles": [
+        "executors:manage"
+      ],
+      "fixture": "isolated:/executors/:agentId/runtime",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error",
+        "not-found"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/executors/:agentId/sessions",
+      "kind": "operational",
+      "layout": "detail-with-aside",
+      "roles": [
+        "executors:manage"
+      ],
+      "fixture": "isolated:/executors/:agentId/sessions",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error",
+        "not-found"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/executors/:agentId/skills",
+      "kind": "operational",
+      "layout": "detail-with-aside",
+      "roles": [
+        "executors:manage"
+      ],
+      "fixture": "isolated:/executors/:agentId/skills",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error",
+        "not-found"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/executors/:agentId/workspace",
+      "kind": "operational",
+      "layout": "detail-with-aside",
+      "roles": [
+        "executors:manage"
+      ],
+      "fixture": "isolated:/executors/:agentId/workspace",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error",
+        "not-found"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/executors/new",
+      "kind": "operational",
+      "layout": "reading",
+      "roles": [
+        "executors:manage"
+      ],
+      "fixture": "isolated:/executors/new",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/leaders",
+      "kind": "operational",
+      "layout": "wide",
+      "roles": [
+        "leaders:manage"
+      ],
+      "fixture": "isolated:/leaders",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/leaders/:leaderId",
+      "kind": "operational",
+      "layout": "detail-with-aside",
+      "roles": [
+        "leaders:manage"
+      ],
+      "fixture": "isolated:/leaders/:leaderId",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error",
+        "not-found"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/leaders/:leaderId/edit",
+      "kind": "operational",
+      "layout": "reading",
+      "roles": [
+        "leaders:manage"
+      ],
+      "fixture": "isolated:/leaders/:leaderId/edit",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error",
+        "not-found"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/leaders/new",
+      "kind": "operational",
+      "layout": "reading",
+      "roles": [
+        "leaders:manage"
+      ],
+      "fixture": "isolated:/leaders/new",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/login",
+      "kind": "public"
+    },
+    {
+      "pattern": "/logs",
+      "kind": "operational",
+      "layout": "wide",
+      "roles": [
+        "logs:read"
+      ],
+      "fixture": "isolated:/logs",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/register",
+      "kind": "redirect"
+    },
+    {
+      "pattern": "/sessions",
+      "kind": "operational",
+      "layout": "wide",
+      "roles": [
+        "authenticated"
+      ],
+      "fixture": "isolated:/sessions",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/sessions/:sessionId",
+      "kind": "operational",
+      "layout": "detail-with-aside",
+      "roles": [
+        "authenticated"
+      ],
+      "fixture": "isolated:/sessions/:sessionId",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error",
+        "not-found"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/settings",
+      "kind": "operational",
+      "layout": "reading",
+      "roles": [
+        "settings:manage"
+      ],
+      "fixture": "isolated:/settings",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    },
+    {
+      "pattern": "/sso/callback",
+      "kind": "public"
+    },
+    {
+      "pattern": "/workflows",
+      "kind": "operational",
+      "layout": "wide",
+      "roles": [
+        "agents:manage"
+      ],
+      "fixture": "isolated:/workflows",
+      "states": [
+        "normal",
+        "loading",
+        "empty",
+        "permission-denied",
+        "error",
+        "partial-error"
+      ],
+      "qa": {
+        "status": "not-run"
+      }
+    }
+  ]
+}

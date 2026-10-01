@@ -2,6 +2,8 @@ export type AgentKind = 'hermes' | 'java_agent'
 export type SystemRole = 'admin' | 'operator' | 'user'
 export type AgentProductRole = 'leader' | 'executor'
 export type AgentRole = 'developer' | 'tester' | 'it_lead' | 'custom'
+export type SdlcRole =
+  'project_manager' | 'analyst' | 'architect' | 'developer' | 'reviewer' | 'tester' | 'dev_ops'
 export type AgentStatus =
   'provisioning' | 'ready' | 'starting' | 'running' | 'degraded' | 'stopped' | 'failed' | 'archived'
 export type DesiredState = 'running' | 'stopped'
@@ -47,6 +49,7 @@ export interface Agent {
   kind: AgentKind
   product_role: AgentProductRole
   role: AgentRole
+  sdlc_role?: SdlcRole | null
   status: AgentStatus
   display_name: string
   description: string | null
@@ -68,6 +71,7 @@ export interface AgentDirectoryItem {
   kind: AgentKind
   product_role: AgentProductRole
   role: AgentRole
+  sdlc_role?: SdlcRole | null
   status: AgentStatus
   display_name: string
   description: string | null
@@ -93,6 +97,27 @@ export interface AgentConfig {
   soul_md: string
   env_json: Record<string, unknown>
   updated_at: string
+}
+
+export interface AgentConfigRevision {
+  agent_id: string
+  revision: number
+  state: 'draft' | 'validated' | 'activating' | 'active' | 'failed'
+  snapshot: { config: UpdateAgentConfigRequest; skills: AgentSkill[] }
+  validation_errors: string[]
+  last_error: string | null
+  is_desired: boolean
+  is_effective: boolean
+  draining: boolean
+  created_at: string
+}
+
+export interface AgentSdlcReadiness {
+  agent_id: string
+  runtime_healthy: boolean
+  ready_for_sdlc: boolean
+  effective_revision: number | null
+  blockers: string[]
 }
 
 export interface AgentSkill {
@@ -246,7 +271,8 @@ export interface AuditLogEntry {
   created_at: string
 }
 
-export type DeploymentJobKind = 'provision' | 'runtime_update'
+export type DeploymentJobKind =
+  'provision' | 'runtime_update' | 'product_deploy' | 'product_rollback'
 export type DeploymentJobState = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
 
 export interface DeploymentJob {
@@ -323,6 +349,7 @@ export interface CreateAgentRequest {
   kind: AgentKind
   product_role: AgentProductRole
   role: AgentRole
+  sdlc_role?: SdlcRole | null
   display_name: string
   description?: string | null
   namespace_id?: string | null
@@ -335,6 +362,7 @@ export interface CreateAgentRequest {
 export interface UpdateAgentRequest {
   product_role?: AgentProductRole
   role?: AgentRole
+  sdlc_role?: SdlcRole | null
   display_name?: string
   description?: string
   namespace_id?: string
@@ -496,6 +524,10 @@ export interface CreateDeploymentJobRequest {
   runtime_kind?: AgentKind | null
   title: string
   detail?: Record<string, unknown> | null
+  environment?: string | null
+  commit_sha?: string | null
+  previous_release_id?: string | null
+  idempotency_key?: string | null
 }
 
 export interface RuntimeSettings {

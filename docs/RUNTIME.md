@@ -1,5 +1,10 @@
 # Runtime
 
+Runtime health is not SDLC readiness. Fleet returns
+`workflow_assignment_protocol_not_verified` until the assignment, workflow
+step/rebind and receipt protocols are verified. See
+[SDLC implementation](SDLC_IMPLEMENTATION.md) for remaining runtime gates.
+
 Runtime contract:
 
 - `provision`
@@ -27,12 +32,25 @@ Hermes:
 - Runtime controls use `/steer`, `/stop` and `/approval` endpoints when the
   capability matrix allows them.
 - Dashboard is an operator link, not the write channel for messages.
+- When the Hermes API is unreachable and this supervisor has no tracked child,
+  health marks the runtime stopped while retaining its desired state. An agent
+  whose desired state is running is then restarted by the reconciler. A tracked
+  process with an unhealthy API remains degraded and is probed again.
+- Prompt outbox is transactional. Unknown POST acceptance is not automatically
+  retried; the agent remains occupied pending reconciliation.
+- Stream EOF is not completion. Fleet requires a terminal event or terminal
+  status readback, and deduplicates the final mirror response.
+- Configuration is draft/validated/activating/active/failed with desired and
+  effective revisions. Activation drains runs and checks files/runtime before
+  releasing the agent. Failed rollback keeps the agent drained.
 
 Java Agent:
 
-- Phase 2 runtime.
+- Existing externally provisioned Java jar lifecycle is retained. Chat/control
+  and configuration activation are phase 2 and cannot enter automatic SDLC.
 - Reserved fields: `AGENT_SERVER_PORT`,
   `SPRING_CONFIG_ADDITIONAL_LOCATION`, `/actuator/health`,
   `/api/v1/agent/chat/stream`, `/api/v2/sessions`, `/v1/capabilities`.
-- Provision/start/chat operations return typed `not_implemented` until adapter
-  implementation is complete.
+- Start requires the managed `runtime/backend.jar`, JDK command and db-only
+  `/actuator/health/readiness` health. Missing jar fails validation; no fake
+  successful chat/control is returned.

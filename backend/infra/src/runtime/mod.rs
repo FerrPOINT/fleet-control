@@ -5,9 +5,10 @@ use app::{
 use async_trait::async_trait;
 use domain::{
     Agent, AgentKind, AgentProductRole, AgentSession, AgentStatus, DeploymentJob,
-    DeploymentJobState, DesiredState, MessageAuthorType, MessageDeliveryState, MessageKind,
-    ResolveRuntimeApprovalRequest, RuntimeOperationResponse, RuntimeRunControlResponse,
-    SessionAgentRun, SessionMessage, SessionRunRole, SessionRunState, SteerSessionRunRequest,
+    DeploymentJobKind, DeploymentJobState, DesiredState, MessageAuthorType, MessageDeliveryState,
+    MessageKind, ResolveRuntimeApprovalRequest, RuntimeOperationResponse,
+    RuntimeRunControlResponse, SessionAgentRun, SessionMessage, SessionRunRole, SessionRunState,
+    SteerSessionRunRequest,
 };
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
@@ -22,7 +23,7 @@ use tokio::{
 };
 use uuid::Uuid;
 
-const HERMES_READY_TIMEOUT: Duration = Duration::from_secs(30);
+const HERMES_READY_TIMEOUT: Duration = Duration::from_secs(60);
 const HERMES_READY_POLL: Duration = Duration::from_millis(500);
 const RECONCILE_INTERVAL: Duration = Duration::from_secs(30);
 
@@ -74,14 +75,220 @@ impl LocalRuntimeSupervisor {
             config,
             repo: repo.clone(),
             children: Arc::new(Mutex::new(HashMap::new())),
-            client: reqwest::Client::new(),
+            client: reqwest::Client::builder()
+                .connect_timeout(Duration::from_secs(5))
+                .build()
+                .expect("runtime HTTP client configuration"),
             events,
             alerts: Arc::new(app::RepositoryAlertService {
                 repository: repo.clone(),
             }),
         };
         supervisor.spawn_reconciler();
+        supervisor.spawn_message_dispatcher();
+        supervisor.spawn_config_activator();
         supervisor
+    }
+
+    fn spawn_message_dispatcher(&self) {
+        let supervisor = self.clone();
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            handle.spawn(async move {
+                loop {
+                    match supervisor.repo.claim_message_dispatch().await {
+                        Ok(Some(message)) => {
+                            let result = async {
+                                let session =
+                                    supervisor.repo.get_session(message.session_id).await?;
+                                let agent =
+                                    supervisor.repo.get_agent(session.primary_agent_id).await?;
+                                supervisor.send_message(&agent, &session, &message).await
+                            }
+                            .await;
+                            let error = match result {
+                                Ok(response) if response.status != AgentStatus::Failed => None,
+                                Ok(response) => Some(response.message),
+                                Err(error) => Some(crate::redact_text(&error.to_string())),
+                            };
+                            // Unknown acceptance never causes automatic redispatch.
+                            let _ = supervisor
+                                .repo
+                                .finish_message_dispatch(message.id, error.is_some(), error)
+                                .await;
+                        }
+                        Ok(None) => sleep(Duration::from_millis(250)).await,
+                        Err(error) => {
+                            tracing::warn!("message outbox failed: {error}");
+                            sleep(Duration::from_secs(1)).await;
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    fn spawn_config_activator(&self) {
+        let supervisor = self.clone();
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            handle.spawn(async move {
+                loop {
+                    match supervisor.repo.claim_config_activation().await {
+                        Ok(Some(revision)) => {
+                            let result = supervisor.apply_config_revision(&revision).await;
+                            let reconciled = !matches!(&result, Err(AppError::Unavailable(_)));
+                            let error = result
+                                .err()
+                                .map(|error| crate::redact_text(&error.to_string()));
+                            if let Err(error) = supervisor
+                                .repo
+                                .finish_config_activation(
+                                    revision.agent_id,
+                                    revision.revision,
+                                    error,
+                                    reconciled,
+                                )
+                                .await
+                            {
+                                tracing::error!(
+                                    "configuration activation requires reconciliation: {error}"
+                                );
+                            }
+                        }
+                        Ok(None) => sleep(Duration::from_secs(1)).await,
+                        Err(error) => {
+                            tracing::warn!("configuration activation queue failed: {error}");
+                            sleep(Duration::from_secs(2)).await;
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    async fn apply_config_revision(
+        &self,
+        revision: &domain::AgentConfigRevision,
+    ) -> Result<(), AppError> {
+        let agent = self.repo.get_agent(revision.agent_id).await?;
+        if agent.kind != AgentKind::Hermes {
+            return Err(AppError::validation(
+                "Java Agent config activation is not implemented",
+            ));
+        }
+        let running = agent.status == AgentStatus::Running;
+        if !matches!(
+            agent.status,
+            AgentStatus::Running | AgentStatus::Ready | AgentStatus::Stopped
+        ) {
+            return Err(AppError::conflict(
+                "runtime must be running, ready or stopped before configuration activation",
+            ));
+        }
+        if running && !self.children.lock().await.contains_key(&agent.id) {
+            return Err(AppError::conflict(
+                "untracked runtime must be reconciled before configuration activation",
+            ));
+        }
+        let files = crate::configuration_files(&agent, &self.config, revision).await?;
+        let mut backups = Vec::new();
+        for (path, _) in &files {
+            let old = match tokio::fs::read(path).await {
+                Ok(content) => Some(content),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+                Err(error) => return Err(AppError::internal(error)),
+            };
+            backups.push((path.clone(), old));
+        }
+        if running {
+            self.stop(&agent).await?;
+        }
+        let applied = async {
+            for (path, body) in &files {
+                if body.is_empty() && path.file_name().is_some_and(|name| name == "SKILL.md") {
+                    if tokio::fs::try_exists(path)
+                        .await
+                        .map_err(AppError::internal)?
+                    {
+                        tokio::fs::remove_file(path)
+                            .await
+                            .map_err(AppError::internal)?;
+                    }
+                } else {
+                    crate::write_configuration_file(path, body.as_bytes()).await?;
+                }
+            }
+            for (path, body) in &files {
+                if body.is_empty() && path.file_name().is_some_and(|name| name == "SKILL.md") {
+                    if tokio::fs::try_exists(path)
+                        .await
+                        .map_err(AppError::internal)?
+                    {
+                        return Err(AppError::validation("disabled skill is still present"));
+                    }
+                } else if tokio::fs::read(path).await.map_err(AppError::internal)?
+                    != body.as_bytes()
+                {
+                    return Err(AppError::validation(
+                        "configuration readback did not match the revision",
+                    ));
+                }
+            }
+            if running && self.start(&agent).await?.status != AgentStatus::Running {
+                return Err(AppError::validation(
+                    "runtime did not pass readiness with the new configuration",
+                ));
+            }
+            Ok::<_, AppError>(())
+        }
+        .await;
+        if let Err(error) = applied {
+            if running {
+                let _ = self.stop(&agent).await;
+            }
+            let rollback = async {
+                for (path, old) in backups {
+                    match old {
+                        Some(content) => crate::write_configuration_file(&path, &content).await?,
+                        None => {
+                            if tokio::fs::try_exists(&path)
+                                .await
+                                .map_err(AppError::internal)?
+                            {
+                                tokio::fs::remove_file(path)
+                                    .await
+                                    .map_err(AppError::internal)?;
+                            }
+                        }
+                    }
+                }
+                if running && self.start(&agent).await?.status != AgentStatus::Running {
+                    return Err(AppError::Unavailable(
+                        "configuration rollback restored files but runtime readiness failed".into(),
+                    ));
+                }
+                Ok::<_, AppError>(())
+            }
+            .await;
+            if rollback.is_err() {
+                return Err(AppError::Unavailable(
+                    "configuration rollback could not be verified; agent remains drained".into(),
+                ));
+            }
+            return Err(error);
+        }
+        if let Err(error) = self
+            .repo
+            .insert_event(
+                Some(agent.id),
+                "config_revision_activated",
+                "Configuration applied and read back",
+                json!({"revision": revision.revision}),
+            )
+            .await
+        {
+            tracing::warn!("configuration applied but event persistence failed: {error}");
+        }
+        Ok(())
     }
 
     fn spawn_reconciler(&self) {
@@ -94,6 +301,14 @@ impl LocalRuntimeSupervisor {
                         continue;
                     };
                     for agent in agents {
+                        if supervisor
+                            .repo
+                            .agent_is_draining(agent.id)
+                            .await
+                            .unwrap_or(true)
+                        {
+                            continue;
+                        }
                         match app::reconcile_action(agent.status, agent.runtime.desired_state) {
                             app::ReconcileAction::Restart => {
                                 tracing::info!(
@@ -131,6 +346,22 @@ impl LocalRuntimeSupervisor {
     fn hermes_command(&self, agent: &Agent) -> Result<Command, AppError> {
         let token = crate::agent_runtime_token(&self.config, agent.id)?;
         let mut command = Command::new(&self.config.fleet.hermes_command);
+        command.env_clear();
+        for name in [
+            "PATH",
+            "HOME",
+            "USERPROFILE",
+            "SYSTEMROOT",
+            "WINDIR",
+            "TEMP",
+            "TMP",
+            "LANG",
+            "LC_ALL",
+        ] {
+            if let Some(value) = std::env::var_os(name) {
+                command.env(name, value);
+            }
+        }
         command
             .arg("serve")
             .arg("--host")
@@ -230,7 +461,13 @@ impl LocalRuntimeSupervisor {
         let jobs = self.repo.list_deployment_jobs(20).await?;
         let queued: Vec<_> = jobs
             .into_iter()
-            .filter(|job| job.state == DeploymentJobState::Queued)
+            .filter(|job| {
+                job.state == DeploymentJobState::Queued
+                    && matches!(
+                        job.job_kind,
+                        DeploymentJobKind::Provision | DeploymentJobKind::RuntimeUpdate
+                    )
+            })
             .collect();
         let Some((api_url, token, project_name)) = self.forge_settings() else {
             // Forge integration not configured: leave jobs queued (visible in UI).
@@ -272,7 +509,329 @@ impl LocalRuntimeSupervisor {
             }
             processed += 1;
         }
+        processed += self.process_product_jobs(&api_url, &token).await?;
         Ok(processed)
+    }
+
+    async fn process_product_jobs(&self, api_url: &str, token: &str) -> Result<u64, AppError> {
+        let jobs = self.repo.list_deployment_jobs(500).await?;
+        let mut processed = 0;
+        for job in jobs.into_iter().filter(|job| {
+            matches!(
+                job.job_kind,
+                DeploymentJobKind::ProductDeploy | DeploymentJobKind::ProductRollback
+            ) && matches!(
+                job.state,
+                DeploymentJobState::Queued | DeploymentJobState::Running
+            )
+        }) {
+            let job = self.repo.get_deployment_job(job.id).await?;
+            if !matches!(
+                job.state,
+                DeploymentJobState::Queued | DeploymentJobState::Running
+            ) {
+                continue;
+            }
+            if let Err(error) = self.process_product_job(api_url, token, &job).await {
+                let current = self.repo.get_deployment_job(job.id).await?;
+                if let Some(deployment_id) = current
+                    .detail
+                    .get("forge_deployment_id")
+                    .and_then(Value::as_str)
+                {
+                    let _ = self
+                        .client
+                        .post(format!(
+                            "{}/api/v1/deployments/{deployment_id}/cancel",
+                            api_url.trim_end_matches('/')
+                        ))
+                        .bearer_auth(token)
+                        .send()
+                        .await;
+                }
+                self.repo
+                    .update_deployment_job_state(
+                        job.id,
+                        DeploymentJobState::Failed,
+                        None,
+                        Some(error.to_string()),
+                    )
+                    .await?;
+            }
+            processed += 1;
+        }
+        Ok(processed)
+    }
+
+    async fn process_product_job(
+        &self,
+        api_url: &str,
+        token: &str,
+        job: &DeploymentJob,
+    ) -> Result<(), AppError> {
+        let running = if job.state == DeploymentJobState::Queued {
+            self.repo
+                .update_deployment_job_state(job.id, DeploymentJobState::Running, None, None)
+                .await?
+        } else {
+            job.clone()
+        };
+        if running.state != DeploymentJobState::Running {
+            return Ok(());
+        }
+        let base = api_url.trim_end_matches('/');
+        let (deployment_id, environment_id) = match (
+            running
+                .detail
+                .get("forge_deployment_id")
+                .and_then(Value::as_str),
+            running
+                .detail
+                .get("forge_environment_id")
+                .and_then(Value::as_str),
+        ) {
+            (Some(deployment_id), Some(environment_id)) => {
+                (deployment_id.to_owned(), environment_id.to_owned())
+            }
+            _ => {
+                let (deployment_id, environment_id) =
+                    self.start_product_release(base, token, &running).await?;
+                if self.repo.get_deployment_job(job.id).await?.state != DeploymentJobState::Running
+                {
+                    let _ = self
+                        .client
+                        .post(format!("{base}/api/v1/deployments/{deployment_id}/cancel"))
+                        .bearer_auth(token)
+                        .send()
+                        .await;
+                    return Ok(());
+                }
+                self.repo
+                    .update_deployment_job_state(
+                        job.id,
+                        DeploymentJobState::Running,
+                        Some(json!({
+                            "forge_deployment_id": deployment_id,
+                            "forge_environment_id": environment_id,
+                        })),
+                        None,
+                    )
+                    .await?;
+                (deployment_id, environment_id)
+            }
+        };
+        let created =
+            chrono::DateTime::parse_from_rfc3339(&job.created_at).map_err(AppError::internal)?;
+        if chrono::Utc::now()
+            .signed_duration_since(created)
+            .num_minutes()
+            >= 30
+        {
+            return Err(AppError::validation(
+                "product deployment timed out after 30 minutes",
+            ));
+        }
+        let deployments: Value = self
+            .client
+            .get(format!(
+                "{base}/api/v1/environments/{environment_id}/deployments"
+            ))
+            .bearer_auth(token)
+            .send()
+            .await
+            .map_err(AppError::internal)?
+            .error_for_status()
+            .map_err(AppError::internal)?
+            .json()
+            .await
+            .map_err(AppError::internal)?;
+        let deployment = deployments
+            .as_array()
+            .and_then(|items| {
+                items.iter().find(|item| {
+                    item.get("id").and_then(Value::as_str) == Some(deployment_id.as_str())
+                })
+            })
+            .ok_or_else(|| AppError::validation("Forge deployment is missing"))?;
+        let status = deployment
+            .get("status")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if status == "failed" {
+            return Err(AppError::validation("Forge deployment failed"));
+        }
+        let Some(pipeline_id) = deployment.get("pipeline_id").and_then(Value::as_str) else {
+            return Ok(());
+        };
+        let pipeline: Value = self
+            .client
+            .get(format!("{base}/api/v1/pipelines/{pipeline_id}"))
+            .bearer_auth(token)
+            .send()
+            .await
+            .map_err(AppError::internal)?
+            .error_for_status()
+            .map_err(AppError::internal)?
+            .json()
+            .await
+            .map_err(AppError::internal)?;
+        let pipeline_status = pipeline
+            .get("pipeline")
+            .and_then(|value| value.get("status"))
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if matches!(pipeline_status, "failed" | "canceled") {
+            return Err(AppError::validation(format!(
+                "Forge pipeline {pipeline_status}"
+            )));
+        }
+        self.repo
+            .update_deployment_job_state(
+                job.id,
+                DeploymentJobState::Running,
+                Some(json!({ "forge_pipeline_id": pipeline_id })),
+                None,
+            )
+            .await?;
+        if pipeline_status != "success" || status != "success" {
+            return Ok(());
+        }
+        let api_health = self
+            .config
+            .fleet
+            .pulse_health_url
+            .as_deref()
+            .ok_or_else(|| AppError::validation("Pulse API health URL is not configured"))?;
+        let ui_health = self
+            .config
+            .fleet
+            .pulse_ui_url
+            .as_deref()
+            .ok_or_else(|| AppError::validation("Pulse UI health URL is not configured"))?;
+        for (label, url) in [("API", api_health), ("UI", ui_health)] {
+            let response = self
+                .client
+                .get(url)
+                .send()
+                .await
+                .map_err(AppError::internal)?;
+            if !response.status().is_success() {
+                return Err(AppError::validation(format!(
+                    "Pulse {label} health returned {}",
+                    response.status()
+                )));
+            }
+        }
+        self.repo
+            .update_deployment_job_state(
+                job.id,
+                DeploymentJobState::Completed,
+                Some(json!({ "health_verified": true })),
+                None,
+            )
+            .await?;
+        Ok(())
+    }
+
+    async fn start_product_release(
+        &self,
+        base: &str,
+        token: &str,
+        job: &DeploymentJob,
+    ) -> Result<(String, String), AppError> {
+        let projects: Value = self
+            .client
+            .get(format!("{base}/api/v1/projects"))
+            .bearer_auth(token)
+            .send()
+            .await
+            .map_err(AppError::internal)?
+            .error_for_status()
+            .map_err(AppError::internal)?
+            .json()
+            .await
+            .map_err(AppError::internal)?;
+        let project_id = projects
+            .as_array()
+            .and_then(|items| {
+                items.iter().find(|item| {
+                    item.get("repository_url")
+                        .and_then(Value::as_str)
+                        .is_some_and(|url| url.ends_with("/service-pulse.git"))
+                })
+            })
+            .and_then(|item| item.get("id"))
+            .and_then(Value::as_str)
+            .ok_or_else(|| AppError::validation("Service Pulse Forge project not found"))?;
+        let environments: Value = self
+            .client
+            .get(format!("{base}/api/v1/projects/{project_id}/environments"))
+            .bearer_auth(token)
+            .send()
+            .await
+            .map_err(AppError::internal)?
+            .error_for_status()
+            .map_err(AppError::internal)?
+            .json()
+            .await
+            .map_err(AppError::internal)?;
+        let environment_id = environments
+            .as_array()
+            .and_then(|items| {
+                items
+                    .iter()
+                    .find(|item| item.get("name").and_then(Value::as_str) == Some("demo"))
+            })
+            .and_then(|item| item.get("id"))
+            .and_then(Value::as_str)
+            .ok_or_else(|| AppError::validation("Forge demo environment not found"))?
+            .to_owned();
+        let request_key = job
+            .detail
+            .get("idempotency_key")
+            .and_then(Value::as_str)
+            .ok_or_else(|| AppError::validation("product job missing idempotency key"))?;
+        let request = match job.job_kind {
+            DeploymentJobKind::ProductDeploy => {
+                let sha = job
+                    .detail
+                    .get("commit_sha")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| AppError::validation("product job missing commit SHA"))?;
+                self.client
+                    .post(format!(
+                        "{base}/api/v1/environments/{environment_id}/deployments"
+                    ))
+                    .bearer_auth(token)
+                    .json(&json!({ "git_ref": sha, "request_key": request_key }))
+            }
+            DeploymentJobKind::ProductRollback => {
+                let previous = job
+                    .detail
+                    .get("previous_release_id")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| AppError::validation("product job missing previous release"))?;
+                self.client
+                    .post(format!("{base}/api/v1/deployments/{previous}/rollback"))
+                    .bearer_auth(token)
+                    .json(&json!({ "request_key": request_key }))
+            }
+            _ => return Err(AppError::validation("not a product deployment job")),
+        };
+        let deployment: Value = request
+            .send()
+            .await
+            .map_err(AppError::internal)?
+            .error_for_status()
+            .map_err(AppError::internal)?
+            .json()
+            .await
+            .map_err(AppError::internal)?;
+        let deployment_id = deployment
+            .get("id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| AppError::internal("Forge deployment response missing id"))?;
+        Ok((deployment_id.to_owned(), environment_id))
     }
 
     /// Pull the project-workflow namespace/workflow catalog and refresh
@@ -478,6 +1037,7 @@ impl LocalRuntimeSupervisor {
         let health = self
             .client
             .get(format!("{base}/health"))
+            .timeout(Duration::from_secs(3))
             .bearer_auth(&token)
             .send()
             .await
@@ -491,6 +1051,7 @@ impl LocalRuntimeSupervisor {
         let capabilities = self
             .client
             .get(format!("{base}/v1/capabilities"))
+            .timeout(Duration::from_secs(3))
             .bearer_auth(token)
             .send()
             .await
@@ -558,6 +1119,7 @@ impl LocalRuntimeSupervisor {
             .post(format!("{base}/v1/runs"))
             .bearer_auth(token)
             .header("Idempotency-Key", message.id.to_string())
+            .timeout(Duration::from_secs(30))
             .json(&HermesRunStartRequest {
                 input: Self::runtime_input(agent, session, message),
                 session_id: runtime_session_id,
@@ -628,7 +1190,7 @@ impl LocalRuntimeSupervisor {
                     .repo
                     .update_session_message_delivery(
                         message.id,
-                        MessageDeliveryState::Failed,
+                        MessageDeliveryState::Dispatched,
                         Some(runtime_run_id.clone()),
                         Some(redacted.clone()),
                     )
@@ -638,7 +1200,7 @@ impl LocalRuntimeSupervisor {
                     .update_session_agent_run_dispatch(
                         run.id,
                         Some(runtime_run_id.clone()),
-                        SessionRunState::Failed,
+                        SessionRunState::Waiting,
                         Some(redacted.clone()),
                     )
                     .await
@@ -738,18 +1300,34 @@ impl LocalRuntimeSupervisor {
         }
 
         if !terminal_seen {
-            let body = if final_text.trim().is_empty() {
-                "Hermes run completed without a final response payload".to_string()
-            } else {
-                final_text
+            let response = self
+                .client
+                .get(format!("{base}/v1/runs/{runtime_run_id}"))
+                .timeout(Duration::from_secs(10))
+                .bearer_auth(crate::agent_runtime_token(&self.config, agent.id)?)
+                .send()
+                .await
+                .map_err(AppError::internal)?;
+            if !response.status().is_success() {
+                return Err(AppError::Unavailable("Hermes stream ended without a terminal event; status reconciliation is required".into()));
+            }
+            let payload: Value = response.json().await.map_err(AppError::internal)?;
+            let state = pick_string(&payload, &["state", "status"]).unwrap_or_default();
+            let event = match state.as_str() {
+                "completed" | "succeeded" => "run.completed",
+                "failed" | "interrupted" => "run.failed",
+                "cancelled" | "stopped" => "run.cancelled",
+                _ => return Err(AppError::Unavailable("Hermes stream ended while run status is non-terminal; reconciliation is required".into())),
             };
-            self.persist_assistant_completion(
+            self.handle_hermes_event(
                 &agent,
                 &session,
                 &message,
                 &run,
                 &runtime_run_id,
-                body,
+                Some(event.to_string()),
+                payload.to_string(),
+                &mut final_text,
             )
             .await?;
         }
@@ -776,12 +1354,22 @@ impl LocalRuntimeSupervisor {
         if event_type.contains("delta") {
             if let Some(delta) = pick_string(&payload, &["delta", "text", "output_text"]) {
                 final_text.push_str(&delta);
-                let _ = self.events.send(FleetEvent::SessionRunDelta {
-                    session_id: session.id.to_string(),
-                    run_id: run.id.to_string(),
-                    runtime_run_id: Some(runtime_run_id.to_string()),
-                    delta,
-                });
+                let mut secrets: Vec<String> = std::env::vars()
+                    .filter(|(name, _)| name.starts_with("FLEET_CONTROL_SECRET__"))
+                    .map(|(_, value)| value)
+                    .collect();
+                secrets.push(crate::agent_runtime_token(&self.config, agent.id)?);
+                let text = crate::redact_stream_text(final_text, &secrets);
+                self.repo
+                    .append_session_event(
+                        session.id,
+                        "session_run_delta",
+                        json!({
+                            "type": "session_run_delta", "session_id": session.id, "run_id": run.id,
+                            "runtime_run_id": runtime_run_id, "text": text,
+                        }),
+                    )
+                    .await?;
             }
             return Ok(false);
         }
@@ -862,7 +1450,10 @@ impl LocalRuntimeSupervisor {
             return Ok(true);
         }
 
-        if event_type.contains("fail") || event_type.contains("error") {
+        if event_type.contains("fail")
+            || event_type.contains("error")
+            || event_type.contains("interrupted")
+        {
             let error =
                 pick_error(&payload).unwrap_or_else(|| format!("Hermes event {event_type}"));
             self.repo
@@ -891,7 +1482,9 @@ impl LocalRuntimeSupervisor {
                 &payload,
                 &[
                     "final_response",
+                    "output",
                     "output_text",
+                    "content",
                     "response",
                     "message",
                     "text",
@@ -1007,15 +1600,25 @@ fn parse_domain_ts(value: &Option<domain::Timestamp>) -> Option<shared::Timestam
 }
 
 fn pick_string(value: &Value, keys: &[&str]) -> Option<String> {
+    if let Value::String(text) = value {
+        return Some(text.clone());
+    }
+    pick_named_string(value, keys)
+}
+
+fn pick_named_string(value: &Value, keys: &[&str]) -> Option<String> {
     for key in keys {
         if let Some(found) = value.get(*key).and_then(Value::as_str) {
             return Some(found.to_string());
         }
     }
     match value {
-        Value::Object(map) => map.values().find_map(|value| pick_string(value, keys)),
-        Value::Array(items) => items.iter().find_map(|value| pick_string(value, keys)),
-        Value::String(text) => Some(text.clone()),
+        Value::Object(map) => map
+            .values()
+            .find_map(|value| pick_named_string(value, keys)),
+        Value::Array(items) => items
+            .iter()
+            .find_map(|value| pick_named_string(value, keys)),
         _ => None,
     }
 }
@@ -1523,7 +2126,9 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
             }
             Err(err) => {
                 let detail = crate::redact_text(&err.to_string());
-                let status = if tracked || agent.runtime.desired_state == DesiredState::Running {
+                // Preserve desired_state, but allow the reconciler to restart
+                // an absent process after Fleet itself was restarted.
+                let status = if tracked {
                     AgentStatus::Degraded
                 } else {
                     AgentStatus::Stopped
@@ -1779,6 +2384,7 @@ mod tests {
             kind: AgentKind::Hermes,
             product_role,
             role: domain::AgentRole::Developer,
+            sdlc_role: Some(domain::SdlcRole::Developer),
             status: AgentStatus::Running,
             display_name: "Agent".to_string(),
             description: None,
@@ -1896,5 +2502,32 @@ mod tests {
         let payload = json!({ "error": { "message": "api_key=super-secret" } });
 
         assert_eq!(pick_error(&payload).as_deref(), Some("api_key=redacted"));
+    }
+
+    #[test]
+    fn hermes_completion_reads_output_instead_of_event_name() {
+        let payload =
+            json!({"event": "run.completed", "run_id": "run-1", "output": "FLEET_HERMES_OK"});
+        assert_eq!(
+            pick_string(&payload, &["final_response", "output", "text"]).as_deref(),
+            Some("FLEET_HERMES_OK")
+        );
+    }
+
+    #[test]
+    fn missing_text_does_not_become_a_runtime_identifier() {
+        let payload =
+            json!({"event": "run.completed", "run_id": "run-1", "usage": {"model": "model-1"}});
+        assert_eq!(pick_string(&payload, &["output", "text"]), None);
+    }
+
+    #[test]
+    fn nested_delta_ignores_unrelated_event_fields() {
+        let payload =
+            json!({"event": "message.delta", "data": {"delta": "reply"}, "run_id": "run-1"});
+        assert_eq!(
+            pick_string(&payload, &["delta", "text"]).as_deref(),
+            Some("reply")
+        );
     }
 }

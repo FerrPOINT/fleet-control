@@ -1,5 +1,16 @@
 # Data Model
 
+## October Foundation Schema
+
+Additive migration 000009 adds `agents.sdlc_role`, `session_event_cursors`,
+`session_events`, `message_dispatch_outbox`, `agent_config_revisions` and
+`agent_config_heads`. Cursor allocation is transactional per session, not a
+global sequence; uncommitted late events cannot be skipped by committed cursors.
+Message insertion, its durable event and dispatch row commit together.
+Desired/effective config heads are separate; activation failure cannot promote
+the desired revision. Tracker task binding/assignment leases are not implemented
+here yet. See [scope and blockers](SDLC_IMPLEMENTATION.md).
+
 Tables:
 
 - `users`: локальные профили для авторов/FK, immutable `central_sub`, legacy
@@ -28,8 +39,11 @@ Tables:
 - `runtime_approval_requests`: Hermes approval mirror records tied to a Fleet
   session run; details are redacted and successful approvals close pending
   records for that run.
-- `deployment_jobs`: provision/runtime update job queue and operator-visible
-  lifecycle state.
+- `deployment_jobs`: provision/runtime update and Service Pulse product deploy/rollback
+  jobs with operator-visible lifecycle state. Product jobs keep `demo`, exact SHA
+  or previous Forge release ID in `detail`, a unique nullable UUID
+  `idempotency_key`, Forge deployment/pipeline IDs and post-release health
+  result. Only product jobs require the key; agent runtime jobs remain separate.
 - `control_settings`: legacy typed JSON rows for runtime roots, ports,
   integrations and auth. They are retained for migration compatibility but
   are not an active configuration source; `GET /settings/*` reads startup

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(__dirname, '../..')
 const outputRoot = path.join(repoRoot, 'docs/assets/screens')
-const baseUrl = process.env.SCREENSHOT_BASE_URL ?? 'http://127.0.0.1:4173'
+const baseUrl = process.env.SCREENSHOT_BASE_URL ?? 'http://localhost:4173'
 const now = '2026-09-01T10:00:00+03:00'
 
 const ids = {
@@ -73,6 +73,7 @@ function agent({
     ordinal,
     name,
     kind: 'hermes',
+    sdlc_role: productRole === 'leader' ? null : role === 'tester' ? 'tester' : 'developer',
     product_role: productRole,
     role,
     status,
@@ -126,6 +127,7 @@ function agentDirectoryItem(item) {
     kind: item.kind,
     product_role: item.product_role,
     role: item.role,
+    sdlc_role: item.sdlc_role,
     status: item.status,
     display_name: item.display_name,
     description: item.description,
@@ -924,6 +926,29 @@ async function mockApi(context) {
       const found = agents.find((item) => item.id === agentId) ?? agents[0]
       if (!section) return json(route, found)
       if (section === 'storage') return json(route, storageReport(found))
+      if (section === 'readiness')
+        return json(route, {
+          agent_id: agentId,
+          runtime_healthy: true,
+          ready_for_sdlc: false,
+          effective_revision: null,
+          blockers: ['workflow_assignment_protocol_not_verified'],
+        })
+      if (section === 'config' && rest === 'revisions')
+        return json(route, [
+          {
+            agent_id: agentId,
+            revision: 1,
+            state: 'draft',
+            is_desired: true,
+            is_effective: false,
+            draining: false,
+            validation_errors: [],
+            last_error: null,
+            created_at: now,
+            snapshot: { config: agentConfig, skills },
+          },
+        ])
       if (section === 'config') return json(route, { ...agentConfig, agent_id: agentId })
       if (section === 'skills') {
         if (rest)
@@ -1038,6 +1063,8 @@ async function mockApi(context) {
 }
 
 const coreScreens = [
+  ['44-chats.png', '/chats'],
+  ['45-chat-private-detail.png', `/chats/${ids.sessionDev}`],
   ['03-dashboard.png', '/'],
   ['04-leaders.png', '/leaders'],
   ['05-leader-new.png', '/leaders/new'],
@@ -1084,18 +1111,9 @@ const coreScreens = [
 ]
 
 const viewports = [
+  { name: '375x812', width: 375, height: 812, screens: coreScreens },
   { name: '1920x1080', width: 1920, height: 1080, screens: coreScreens },
   { name: '2560x1440', width: 2560, height: 1440, screens: coreScreens },
-  {
-    name: '375x812',
-    width: 375,
-    height: 812,
-    screens: [
-      ['03-dashboard.png', '/'],
-      ['28-session-leader-detail.png', `/sessions/${ids.sessionQa}`],
-      ['36-settings.png', '/settings'],
-    ],
-  },
 ]
 
 const browser = await chromium.launch()

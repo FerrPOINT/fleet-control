@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { completeSso } from '@sdlc/ui/sso'
-import { Button } from '@sdlc/ui/ui'
-import { apiBaseUrl, permissionsForRole } from '@/api/client'
+import { Button, DelayedFallback } from '@sdlc/ui/ui'
+import { apiBaseUrl } from '@/api/client'
+import type { UserPermissionsResponse } from '@/api/types'
 import { ssoConfig, useAuthStore } from '@/shared/auth/store'
 
 let pending: ReturnType<typeof completeSso> | null = null
@@ -35,6 +36,13 @@ export function SsoCallbackPage() {
           username: string
           display_name: string
         }
+        const permissionsResponse = await fetch(`${apiBaseUrl}/api/v1/users/me/permissions`, {
+          headers: { Authorization: `Bearer ${session.accessToken}` },
+        })
+        if (!permissionsResponse.ok) throw new Error('Не удалось проверить права Fleet Control.')
+        const permissions = (await permissionsResponse.json()) as UserPermissionsResponse
+        if (permissions.user_id !== user.id)
+          throw new Error('Профиль и права пользователя не совпадают.')
         if (!active) return
         useAuthStore.getState().setAuth({
           token: session.accessToken,
@@ -42,9 +50,9 @@ export function SsoCallbackPage() {
           email: user.email,
           username: user.username,
           displayName: user.display_name,
-          systemRole: 'admin',
-          isSystemAdmin: true,
-          permissions: permissionsForRole('admin'),
+          systemRole: permissions.role,
+          isSystemAdmin: permissions.is_system_admin,
+          permissions: permissions.permissions,
         })
         navigate(session.returnTo, { replace: true })
       })
@@ -63,7 +71,9 @@ export function SsoCallbackPage() {
           <Button onClick={() => navigate('/login', { replace: true })}>Повторить вход</Button>
         </div>
       ) : (
-        <p role="status">Завершаем вход...</p>
+        <DelayedFallback>
+          <p role="status">Завершаем вход...</p>
+        </DelayedFallback>
       )}
     </main>
   )

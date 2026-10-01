@@ -32,5 +32,6 @@ hmac.workspace = true
 hex.workspace = true
 
 [dev-dependencies]
+axum.workspace = true
 serial_test = "3.2"
 tokio = { workspace = true, features = ["macros", "rt"] }

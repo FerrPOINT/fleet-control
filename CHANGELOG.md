@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+- Fix standalone Docker builds with explicit shared Base contexts and locked
+  installs; add Compose health/auth/privacy/SSE/restart acceptance in CI.
+- Disable Nginx buffering for session streams and bind frontend to loopback
+  by default; explicit network exposure requires deployment configuration.
+- Add seven SDLC specializations, agent-grouped Chats, durable session events,
+  transactional prompt dispatch and versioned config activation with drain/rollback.
+- Enforce verified-subject permissions, redact legacy configuration secrets and
+  preserve managed files during provisioning. Automatic SDLC remains blocked
+  pending cross-service contracts and live acceptance.
+
 - Выход направляет браузер в Central Auth до изменения локального auth-state.
 
 ### Added
@@ -28,6 +38,9 @@
   navigation, explicit load errors with retry, pending locks and confirmed save
   feedback. Invalid JSON objects cannot submit a previously valid config value;
   failed saves preserve drafts.
+- Hermes с desired state running восстанавливается после перезапуска Fleet,
+  если локальный процесс отсутствует. SSE completion сохраняет настоящий
+  output модели вместо имени события или идентификатора run.
 - Settings tabs now keep their Radix tab panels in the accessibility tree, so
   every `aria-controls` reference resolves across responsive layouts.
 - `/settings` больше не предлагает фиктивное применение runtime-конфигурации:

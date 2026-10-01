@@ -1,5 +1,31 @@
 # Testing
 
+## SDLC Foundation Checks
+
+New regression coverage: PostgreSQL concurrent session/message idempotency and
+private authorization; configuration drain/rollback state; unknown dispatch
+capacity; fake Hermes HTTP EOF versus terminal readback and single response
+mirroring; split-secret stream redaction; seven specialization and Chats routing;
+SSO backend-role preservation and fail-closed permission checks.
+
+Run database tests explicitly against isolated disposable PostgreSQL databases:
+
+```bash
+export FLEET_TEST_DATABASE_URL=postgres://USER:PASSWORD@HOST:PORT/fleet_test
+export FLEET_MIGRATION_TEST_DATABASE_URL=postgres://USER:PASSWORD@HOST:PORT/fleet_migration_test
+cargo test --workspace -- --test-threads=1
+```
+
+Without these variables, database test functions return early; a green unit run
+alone is not PostgreSQL evidence. The central-subject migration fixture uses a
+fresh database. Fixture Playwright cases run on Chromium, Firefox and WebKit;
+live cases require `SDLC_LIVE_QA=1`. Screenshots are fixture evidence, not a real
+seven-agent PM/decomposition/Rework/deployment acceptance.
+
+Chat/session acceptance scenarios `C-01` through `C-15` and their current
+source-review gaps are defined in [CHAT.md](CHAT.md). Existing frontend unit
+checks are not evidence of live runtime delivery or backend permission closure.
+
 Backend checks:
 
 ```bash
@@ -55,7 +81,8 @@ Required scenarios:
   states on the technical agents page
 - start/stop/restart Hermes through a fake runtime command
 - reconcile a tracked Hermes process that exits unexpectedly
-- keep Java Agent operations typed as phase 2
+- keep Java chat/control/config activation typed as phase 2 while preserving
+  the existing jar lifecycle
 - edit one agent's skills without changing another
 - enforce `admin`, `operator` and `user` RBAC at backend routes
 - direct executor session is private by default

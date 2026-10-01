@@ -1,28 +1,27 @@
-# Umbrella build for the SDLC fleet root compose (context = /opt/dev/sdlc).
-# Stages the sibling services-base checkout so the sdlc-auth-core path
-# dependency (../../../services-base/...) resolves.
+# syntax=docker/dockerfile:1
 FROM rust:1.88.0-slim-bookworm AS builder
 
-RUN apt-get update && apt-get install -y pkg-config libssl-dev unzip curl unzip zip && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y pkg-config libssl-dev unzip curl && rm -rf /var/lib/apt/lists/*
+
+COPY --from=services_base Cargo.toml LICENSE /services-base/
+COPY --from=services_base crates/sdlc-auth-core /services-base/crates/sdlc-auth-core
+COPY --from=services_base crates/sdlc-shared /services-base/crates/sdlc-shared
+COPY --from=services_base crates/sdlc-telemetry /services-base/crates/sdlc-telemetry
 
 WORKDIR /app
-# api/Cargo.toml: sdlc-auth-core = { path = "../../../services-base/..." }
-# /app/api/../../../services-base == /services-base
-COPY services-base/Cargo.toml /services-base/Cargo.toml
-COPY services-base/crates/sdlc-auth-core /services-base/crates/sdlc-auth-core
-COPY services-base/crates/sdlc-shared /services-base/crates/sdlc-shared
-COPY services-base/crates/sdlc-telemetry /services-base/crates/sdlc-telemetry
-COPY fleet-control/backend/Cargo.toml fleet-control/backend/Cargo.lock* ./
-COPY fleet-control/backend/shared ./shared
-COPY fleet-control/backend/domain ./domain
-COPY fleet-control/backend/app ./app
-COPY fleet-control/backend/infra ./infra
-COPY fleet-control/backend/migration ./migration
-COPY fleet-control/backend/api ./api
-COPY fleet-control/backend/server ./server
-COPY fleet-control/backend/cli ./cli
+COPY backend/Cargo.toml backend/Cargo.lock* ./
+COPY LICENSE ./LICENSE
+COPY backend/shared ./shared
+COPY backend/domain ./domain
+COPY backend/app ./app
+COPY backend/infra ./infra
+COPY backend/migration ./migration
+COPY backend/api ./api
+COPY backend/server ./server
+COPY backend/cli ./cli
 
-RUN cargo build --locked --release --bin server
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    cargo build --locked --release --bin server
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y ca-certificates libssl3 wget && rm -rf /var/lib/apt/lists/*

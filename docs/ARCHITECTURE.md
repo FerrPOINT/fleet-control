@@ -1,5 +1,9 @@
 # Architecture
 
+Current SDLC scope and unimplemented gates are tracked in
+[SDLC implementation](SDLC_IMPLEMENTATION.md). Automatic SDLC remains disabled;
+legacy leaders are preserved, not part of the current delivery scope.
+
 Fleet Control keeps a small control-plane core:
 
 ```text
@@ -21,23 +25,19 @@ frontend -> api -> app services -> infra repository/provisioner/runtime
 ## Shared Fleet Base
 
 Fleet Control is aligned with shared fleet building blocks from
-`FerrPOINT/services-base`. The first adopted surface is telemetry. Direct Cargo
-consumption of the private `sdlc-telemetry` crate is deferred until WSL and CI
-can authenticate to `services-base`.
+`FerrPOINT/services-base`. Cargo consumes `sdlc-telemetry`, `sdlc-shared` and
+`sdlc-auth-core` through sibling checkout path dependencies. The frontend consumes
+`@sdlc/ui`, including shell, controls, API utilities and bearer SSE reconnect.
 
 `server` initializes logging through `shared::telemetry::init_tracing`, and
-`api` wraps HTTP routes with `shared::telemetry::request_id_mw`. The local
-bridge intentionally mirrors the `sdlc-telemetry` API shape from commit
-`5e353e84aa99f459807aba3e31c24b8880eeceff`. Every API response therefore
+`api` wraps HTTP routes with `shared::telemetry::request_id_mw`. Every API response
 carries `x-request-id`, and application logs include request method, path,
 status and latency in the same format as the rest of the SDLC fleet.
 
-`sdlc-auth-core` is intentionally not switched on yet because the private
-shared crate is not available to WSL/CI. Fleet Control now issues local HMAC
-browser-session JWTs with fleet-compatible `aud`, `iss`, `role`, `scopes` and
-`sid` claims while still accepting legacy compact local tokens that do not have
-`aud` or `iss`. Tokens that do contain fleet claims are validated strictly
-against the configured issuer and audience.
+Central ES256 validation uses `sdlc-auth-core` with JWKS. Local users are linked
+only by verified central subject and retain their stored role. Central mode
+disables local credential fallback; there is no effective-admin bypass. Standalone
+legacy HMAC mode retains strict issuer/audience validation for fleet claims.
 
 ## Security Boundary
 
@@ -58,15 +58,30 @@ Runtime-specific behavior stays behind the supervisor/provisioner contracts.
 Hermes and Java Agent differ in env vars, health checks, session APIs and launch
 commands, but share the same agent/session/skill model.
 
-Fleet Control separates two axes that must not be conflated:
+Fleet Control separates three axes that must not be conflated:
 
 - `AgentKind` is the runtime implementation: `hermes` or `java_agent`.
 - `AgentProductRole` is the product role: `leader` or `executor`.
+- `SdlcRole` is the real agent specialization: Project Manager, Analyst,
+  Architect, Developer, Reviewer, Tester or DevOps.
 
 Profiles such as `developer`, `tester` and `it_lead` define prompts, skills and
 workflow bindings. They are not runtime kinds.
 
-## Leaders, Executors And Sessions
+## Chats And Legacy Leaders
+
+`/chats` groups sessions under the concrete agent and does not expose legacy
+leader/handoff controls. User filtering is enforced by the backend. Immutable
+Tracker task/agent binding and machine assignment scope remain required work;
+a free private chat never advances a business stage.
+
+Prompt and dispatch intent are committed atomically in PostgreSQL. Agent-row
+locking serializes claims; running/waiting runs and unknown acceptance hold
+capacity. Durable per-session events provide cursor replay, not a lossy global
+broadcast. Config activation drains assignments and separates desired/effective
+revision, with verified readback and rollback before releasing the drain.
+
+The following leader behavior remains only on the compatible `/sessions` routes.
 
 Leaders and executors are stored in the same `agents` table. A leader manages
 executors through `leader_executors`; a task session can optionally select one
