@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+- Add a server-only Base credential delegation client with exact Tracker PM
+  assignment/execution/agent/version scopes, bounded no-retry/no-redirect HTTP,
+  redacted secrets and fixed-origin child authorization. Coordinator and runtime
+  handoff remain blocked pending live integration.
+
 - Add transactional Tracker event inbox foundation with immutable replay receipts,
   per-binding cursors and safe transcript/stream projections; background polling
   and PM answer delivery remain separate integration work.

@@ -32,6 +32,15 @@ Transactional Tracker inbox storage is now implemented: exact replay deduplicati
 immutable receipts, per-binding source cursor and safe transcript/stream projection.
 The authenticated background poller and PM answer delivery remain unwired.
 
+The 2026-10-02 follow-up implements the server-only Base delegation client.
+Commands derive the actual Tracker task/assignment/execution/agent/version grant;
+responses must have exact scopes, a live bounded expiry and no-store protection.
+Secrets are not serializable or debug-visible, and child authorization is bound
+to the configured Tracker API origin. This does not yet issue credentials from
+the PM coordinator or hand them to real runtime tools. The follow-up passed 100
+Rust library tests, format, all-target check and strict all-target Clippy.
+No new PostgreSQL or live provider acceptance is implied by that library gate.
+
 Verified on the refreshed working branch on 2026-10-01: 96 Fleet Rust library tests
 and strict Clippy, 26 actual PostgreSQL 17.11 integration cases, 212 frontend tests and source/client
 OpenAPI plus seven Tracker wire contracts. Three-browser fixture checks cover the

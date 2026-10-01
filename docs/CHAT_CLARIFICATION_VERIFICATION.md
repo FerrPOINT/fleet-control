@@ -149,6 +149,16 @@ normalizer. Rollout must compare the actual Tracker build with the same snapshot
 
 ## Release Blockers
 
+The 2026-10-02 server-only credential client follow-up passed 100 WSL Rust library
+tests, format, all-target check and strict all-target Clippy. Its four focused
+cases validate actual Tracker grant formatting and safe integer bounds,
+201/200 acknowledgements, strict scope/token/expiry/no-store checks, foreign
+origin/pre-authorized-request denial, root/child debug redaction, revocation,
+redirect/oversize/malformed/error rejection and unknown-outcome preservation.
+The HTTP issuer is controlled test code, not a live Base deployment. Public API,
+database schema, frontend and accepted runtime were unchanged in this follow-up.
+Persisted issuance operations and actual credential/tool handoff remain open.
+
 Creation saga, scoped PM structured tools, Tracker outbox/Fleet inbox projection, live
 Hermes PM verification and workflow resume/rebind, independent readiness verifier,
 live directory and restart/denial

@@ -2,6 +2,7 @@ mod approval_decisions;
 mod chats_directory;
 mod config_revisions;
 pub mod entities;
+pub mod pm_credentials;
 mod pm_execution;
 pub mod runtime;
 mod task_chats;

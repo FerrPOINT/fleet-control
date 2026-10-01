@@ -22,8 +22,9 @@ These do not mean the complete approved plan is done.
 | Gap | Exit criteria |
 | --- | --- |
 | Draft/assignment/chat/initial dispatch creation saga | Persisted operation state and restart-safe actual PM start after links and owner checks |
-| PM structured tools and runtime-scoped machine credentials | Real Hermes publishes questions/revisions through assigned machine API, no prose parsing |
+| PM structured tools and runtime-scoped machine credentials | Server-only bounded Base delegation client implemented; coordinator issuance ledger and runtime tool handoff remain. Real Hermes publishes questions/revisions through assigned machine API, no prose parsing. |
 | Tracker outbox -> Fleet inbox/mirror projection | Transactional inbox/cursor/mirror repository implemented; authenticated background poller and live crash/reconnect acceptance remain. Projection is not PM delivery. |
+| Bounded Tracker event projection | Before polling, add a versioned metadata-only projection with a serialized byte-budgeted contiguous prefix. Legacy events can contain a whole requirements document or task aggregate; reducing event count cannot make a single oversized event safe. Pin projection version per inbox stream and verify large/multibyte/replay cases. |
 | Answer delivery and workflow continuation | Readback callback implemented; wire it to actual PM dispatch/checkpoint/rebind and one new run; late replies rejected |
 | Readiness verifier integration | Trusted checklist/prerequisite receipts for exact revision/hash, no false Backlog |
 | Server chat search/pagination/aggregate counts | Own-database and Chromium/Firefox/WebKit fixture acceptance passed in working branch; release review and live acceptance remain |

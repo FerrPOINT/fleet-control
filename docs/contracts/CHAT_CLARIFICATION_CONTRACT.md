@@ -100,6 +100,31 @@ apply to PM Draft must use explicit typed absence in that variant, not fabricate
 receipt strings. Required inputs and runtime workspace evidence remain real.
 The general delivery assignment contract must not be weakened to admit Draft.
 
+### Scoped Credential Issuance
+
+The Fleet server-side `infra::pm_credentials` client implements the Base #126
+delegation wire protocol. Its PM command derives exactly Tracker read/write and
+`task-tracker:sdlc:pm:<task>:<assignment>:<execution>:<agent>:<version>` scopes
+from the persisted assignment identity, matching Tracker's `PmAssignment.scope`.
+Base's policy and Tracker's current assignment checks remain authoritative;
+possession of this credential cannot substitute for ownership or workflow proof.
+
+Before issuance, the coordinator must persist the command/key and parent
+credential identity. An unknown response reuses that exact command under the
+same parent, never a new operation key or a rotated parent. The HTTP client
+does not retry automatically. Expired replay is rejected, not renewed implicitly.
+Successful acknowledgement must include `no-store`, the exact scopes, a non-nil
+token ID and a live bounded expiry. Its body is size-limited and redirects are
+disabled. Neither issuer nor delegated credential debug output contains a secret;
+the credential cannot be serialized and authenticates only API requests at the
+configured Tracker origin. The receiving gateway must disable redirects and
+apply its own bounded response handling.
+
+This client is not yet connected to the PM creation coordinator or runtime tools.
+Root PAT configuration, persisted issuance/revocation operations, short-lived
+child handoff, parent identity pinning and actual Base/Tracker acceptance remain
+release prerequisites. No root PAT is placed in a runtime env or tool argument.
+
 ## Interface
 
 Tracker: /api/v1/issues/{id}/sdlc context, questions/answers, requirements revisions/detail/diff,
