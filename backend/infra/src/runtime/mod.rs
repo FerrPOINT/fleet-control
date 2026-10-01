@@ -23,7 +23,7 @@ use tokio::{
 };
 use uuid::Uuid;
 
-const HERMES_READY_TIMEOUT: Duration = Duration::from_secs(30);
+const HERMES_READY_TIMEOUT: Duration = Duration::from_secs(60);
 const HERMES_READY_POLL: Duration = Duration::from_millis(500);
 const RECONCILE_INTERVAL: Duration = Duration::from_secs(30);
 
