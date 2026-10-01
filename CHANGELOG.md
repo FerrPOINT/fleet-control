@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Повторный явный вход разрешён после отменённого перехода Central Auth;
+  автоматический guard не отменяет logout. Отмена перехода не показывает
+  ложную ошибку доступности Auth, а ошибка сервера остаётся видимой.
+
 - Fix standalone Docker builds with explicit shared Base contexts and locked
   installs; add Compose health/auth/privacy/SSE/restart acceptance in CI.
 - Disable Nginx buffering for session streams and bind frontend to loopback
