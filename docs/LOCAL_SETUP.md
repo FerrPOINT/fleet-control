@@ -13,6 +13,7 @@ SDLC is not enabled by running these services; see
 cp .env.example .env
 # Replace FLEET_CONTROL_JWT_SECRET and runtime token secrets before backend run.
 docker compose up -d postgres redis
+pnpm --dir ../services-base/frontend install --frozen-lockfile
 cd frontend && pnpm install
 cd backend && cargo fetch
 ```

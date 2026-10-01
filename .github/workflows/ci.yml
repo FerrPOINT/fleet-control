@@ -113,6 +113,10 @@ jobs:
           node-version: 22
           cache: pnpm
           cache-dependency-path: fleet-control/frontend/pnpm-lock.yaml
+      - name: Install shared UI validator dependencies
+        run: pnpm --dir ../../services-base/frontend install --frozen-lockfile
+        env:
+          CI: "true"
       - run: pnpm install --no-frozen-lockfile
         env:
           CI: "true"
