@@ -38,6 +38,7 @@ pub mod agent {
         pub kind: String,
         pub product_role: String,
         pub role: String,
+        pub sdlc_role: Option<String>,
         pub status: String,
         pub display_name: String,
         pub description: Option<String>,

@@ -2,6 +2,7 @@ use app::{AppContext, SessionListFilter};
 use axum::{
     Extension, Json,
     extract::{Path, Query, State},
+    http::{HeaderMap, header},
     response::sse::{Event, KeepAlive, Sse},
 };
 use domain::{
@@ -13,8 +14,7 @@ use domain::{
 use futures_util::stream::Stream;
 use serde::Deserialize;
 use shared::{AppError, FleetEvent};
-use std::{convert::Infallible, sync::Arc, time::Duration};
-use tokio_stream::{StreamExt, wrappers::BroadcastStream};
+use std::{collections::VecDeque, convert::Infallible, sync::Arc, time::Duration};
 use uuid::Uuid;
 
 #[derive(Debug, Deserialize)]
@@ -212,6 +212,16 @@ pub async fn create_session_message(
     Path(session_id): Path<Uuid>,
     Json(req): Json<CreateSessionMessageRequest>,
 ) -> Result<Json<SessionMessage>, AppError> {
+    if req.author_agent_id.is_some()
+        || req.runtime_message_id.is_some()
+        || req
+            .message_kind
+            .is_some_and(|kind| kind != domain::MessageKind::UserPrompt)
+    {
+        return Err(AppError::validation(
+            "human messages cannot impersonate runtime agents or events",
+        ));
+    }
     let audit_payload = serde_json::json!({
         "author_agent_id": req.author_agent_id,
         "message_kind": req.message_kind,
@@ -219,6 +229,12 @@ pub async fn create_session_message(
     });
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_write_access(&session, &user)?;
+    let agent = ctx.repo.get_agent(session.primary_agent_id).await?;
+    if agent.kind == domain::AgentKind::JavaAgent {
+        return Err(AppError::validation(
+            "Java Agent runtime chat is planned for phase 2",
+        ));
+    }
     let message = ctx
         .repo
         .create_session_message(session_id, req, user.id)
@@ -233,7 +249,6 @@ pub async fn create_session_message(
                 audit_payload,
             )
             .await?;
-        dispatch_session_message(&ctx, &session, &message).await?;
     }
     if !message.replayed {
         ctx.emit(FleetEvent::SessionChanged {
@@ -263,11 +278,6 @@ pub async fn create_session_delegation(
     Json(req): Json<CreateSessionDelegationRequest>,
 ) -> Result<Json<AgentSession>, AppError> {
     let audit_payload = serde_json::to_value(&req).map_err(AppError::internal)?;
-    let dispatch_initial = req
-        .initial_message
-        .as_deref()
-        .map(str::trim)
-        .is_some_and(|body| !body.is_empty());
     let parent = ctx.repo.get_session(session_id).await?;
     ensure_session_write_access(&parent, &user)?;
     let child = ctx
@@ -287,20 +297,6 @@ pub async fn create_session_delegation(
         session_id: child.id.to_string(),
         agent_id: child.primary_agent_id.to_string(),
     });
-    if dispatch_initial
-        && let Some(message) = ctx
-            .repo
-            .list_session_messages(child.id)
-            .await?
-            .into_iter()
-            .rev()
-            .find(|message| {
-                message.message_kind == domain::MessageKind::UserPrompt
-                    && message.delivery_state == domain::MessageDeliveryState::Pending
-            })
-    {
-        dispatch_session_message(&ctx, &child, &message).await?;
-    }
     Ok(Json(child))
 }
 
@@ -345,26 +341,99 @@ pub async fn list_session_agent_runs(
     Ok(Json(ctx.repo.list_session_agent_runs(session_id).await?))
 }
 
-#[utoipa::path(get, path = "/api/v1/sessions/{session_id}/stream", tag = "sessions", params(("session_id" = Uuid, Path)), responses((status = 200, description = "Session-scoped SSE event stream")))]
+#[derive(Debug, Deserialize)]
+pub struct StreamQuery {
+    pub cursor: Option<i64>,
+}
+
+#[utoipa::path(get, path = "/api/v1/sessions/{session_id}/stream", tag = "sessions", params(("session_id" = Uuid, Path), ("cursor" = Option<i64>, Query, description = "Replay events after this session cursor; Last-Event-ID is also supported")), responses((status = 200, description = "Durable session-scoped SSE event stream")))]
 pub async fn stream_session(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<crate::middleware::CurrentUser>,
     Path(session_id): Path<Uuid>,
+    Query(query): Query<StreamQuery>,
+    headers: HeaderMap,
 ) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, AppError> {
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_read_access(&session, &user)?;
-    let expected = session_id.to_string();
-    let stream = BroadcastStream::new(ctx.events.subscribe()).filter_map(move |event| {
-        let expected = expected.clone();
-        match event {
-            Ok(event) if event_session_id(&event).as_deref() == Some(expected.as_str()) => {
-                serde_json::to_string(&event)
-                    .ok()
-                    .map(|json| Ok(Event::default().event("session").data(json)))
+    let header_cursor = headers
+        .get("last-event-id")
+        .map(|value| {
+            value
+                .to_str()
+                .ok()
+                .and_then(|value| value.parse::<i64>().ok())
+                .ok_or_else(|| AppError::validation("invalid Last-Event-ID"))
+        })
+        .transpose()?;
+    let current = ctx.repo.session_event_cursor(session_id).await?;
+    let cursor = query.cursor.or(header_cursor).unwrap_or(current);
+    if cursor < 0 || cursor > current {
+        return Err(AppError::validation("session cursor is out of range"));
+    }
+    let token = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "))
+        .ok_or(AppError::Unauthorized)?
+        .to_string();
+    let mut queue = VecDeque::new();
+    // Snapshot invalidation closes the gap between the initial detail load and stream open.
+    queue.push_back(
+        Event::default()
+            .event("session")
+            .id(cursor.to_string())
+            .data(serde_json::json!({ "type": "snapshot", "session_id": session_id }).to_string()),
+    );
+    let stream = futures_util::stream::unfold(
+        (ctx, user, token, cursor, queue),
+        move |(ctx, user, token, mut cursor, mut queue)| async move {
+            loop {
+                let valid_token = match crate::middleware::central_auth::check_token(&token).await {
+                    crate::middleware::central_auth::CentralCheck::Validated(central) => {
+                        central.allows_service("fleet-control", "GET")
+                    }
+                    crate::middleware::central_auth::CentralCheck::FallThrough
+                        if std::env::var_os("FLEET_CONTROL_AUTH__CENTRAL_JWKS_URI").is_none() =>
+                    {
+                        ctx.auth.validate_access_token(&token).await.is_ok()
+                    }
+                    _ => false,
+                };
+                let principal = ctx.repo.find_user_by_id(user.id).await.ok().flatten()?;
+                if !valid_token || !principal.is_active {
+                    return None;
+                }
+                let session = ctx.repo.get_session(session_id).await.ok()?;
+                if session.user_id != user.id && !principal.system_role.can_read_all_sessions() {
+                    return None;
+                }
+                if let Some(event) = queue.pop_front() {
+                    return Some((
+                        Ok::<_, Infallible>(event),
+                        (ctx, user, token, cursor, queue),
+                    ));
+                }
+                let events = ctx
+                    .repo
+                    .list_session_events(session_id, cursor)
+                    .await
+                    .ok()?;
+                for event in events {
+                    cursor = event.sequence;
+                    queue.push_back(
+                        Event::default()
+                            .event("session")
+                            .id(event.sequence.to_string())
+                            .data(event.payload.to_string()),
+                    );
+                }
+                if queue.is_empty() {
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                }
             }
-            _ => None,
-        }
-    });
+        },
+    );
     Ok(Sse::new(stream).keep_alive(KeepAlive::new().interval(Duration::from_secs(20))))
 }
 
@@ -458,43 +527,11 @@ pub async fn resolve_session_run_approval(
     Ok(Json(response))
 }
 
-async fn dispatch_session_message(
-    ctx: &Arc<AppContext>,
-    session: &AgentSession,
-    message: &SessionMessage,
-) -> Result<(), AppError> {
-    let target_agent_id = session.primary_agent_id;
-    let agent = ctx.repo.get_agent(target_agent_id).await?;
-    let response = ctx.runtime.send_message(&agent, session, message).await?;
-    if response.status == domain::AgentStatus::Failed {
-        ctx.repo
-            .insert_event(
-                Some(agent.id),
-                "runtime_message_dispatch_failed",
-                &response.message,
-                serde_json::json!({ "session_id": session.id, "message_id": message.id }),
-            )
-            .await?;
-    }
-    Ok(())
-}
-
 fn ensure_run_belongs_to_session(run: &SessionAgentRun, session_id: Uuid) -> Result<(), AppError> {
     if run.session_id != session_id {
         return Err(AppError::not_found("session_agent_run", run.id));
     }
     Ok(())
-}
-
-fn event_session_id(event: &FleetEvent) -> Option<String> {
-    match event {
-        FleetEvent::SessionChanged { session_id, .. }
-        | FleetEvent::SessionMessageChanged { session_id, .. }
-        | FleetEvent::SessionRunChanged { session_id, .. }
-        | FleetEvent::SessionRunDelta { session_id, .. }
-        | FleetEvent::RuntimeApprovalRequested { session_id, .. } => Some(session_id.clone()),
-        _ => None,
-    }
 }
 
 fn ensure_session_read_access(

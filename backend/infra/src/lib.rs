@@ -1,3 +1,4 @@
+mod config_revisions;
 pub mod entities;
 pub mod runtime;
 
@@ -233,6 +234,7 @@ fn agent_directory_item(agent: &Agent) -> AgentDirectoryItem {
         kind: agent.kind,
         product_role: agent.product_role,
         role: agent.role,
+        sdlc_role: agent.sdlc_role,
         status: agent.status,
         display_name: agent.display_name.clone(),
         description: agent.description.clone(),
@@ -318,6 +320,10 @@ fn agent_from_models(agent: agent::Model, runtime: agent_runtime::Model) -> Agen
         kind: parse_kind(&agent.kind),
         product_role: parse_product_role(&agent.product_role),
         role: parse_role(&agent.role),
+        sdlc_role: agent
+            .sdlc_role
+            .as_deref()
+            .and_then(|value| value.parse().ok()),
         status: parse_status(&agent.status),
         display_name: agent.display_name,
         description: agent.description,
@@ -675,12 +681,16 @@ impl FleetRepository for PostgresFleetRepository {
     }
 
     async fn list_agent_directory(&self) -> Result<Vec<AgentDirectoryItem>, AppError> {
-        Ok(self
-            .list_agents()
-            .await?
-            .iter()
-            .map(agent_directory_item)
-            .collect())
+        let rows = agent::Entity::find()
+            .order_by_asc(agent::Column::Ordinal)
+            .all(&self.db)
+            .await
+            .map_err(AppError::database)?;
+        let mut result = Vec::with_capacity(rows.len());
+        for row in rows {
+            result.push(agent_directory_item(&load_agent(&self.db, row.id).await?));
+        }
+        Ok(result)
     }
 
     async fn list_agents_by_product_role(
@@ -747,6 +757,7 @@ impl FleetRepository for PostgresFleetRepository {
             kind: req.kind,
             product_role: req.product_role,
             role: req.role,
+            sdlc_role: req.sdlc_role,
             status: AgentStatus::Provisioning,
             display_name: req.display_name.clone(),
             description: req.description.clone(),
@@ -780,6 +791,7 @@ impl FleetRepository for PostgresFleetRepository {
             kind: Set(req.kind.as_str().to_string()),
             product_role: Set(req.product_role.as_str().to_string()),
             role: Set(req.role.as_str().to_string()),
+            sdlc_role: Set(req.sdlc_role.map(|role| role.as_str().to_string())),
             status: Set(AgentStatus::Provisioning.as_str().to_string()),
             display_name: Set(req.display_name),
             description: Set(req.description),
@@ -909,6 +921,9 @@ impl FleetRepository for PostgresFleetRepository {
         }
         if let Some(role) = req.role {
             model.role = Set(role.as_str().to_string());
+        }
+        if let Some(role) = req.sdlc_role {
+            model.sdlc_role = Set(Some(role.as_str().to_string()));
         }
         if let Some(display_name) = req.display_name {
             model.display_name = Set(display_name);
@@ -1097,9 +1112,9 @@ impl FleetRepository for PostgresFleetRepository {
             .map_err(AppError::database)?
             .map(|row| AgentConfig {
                 agent_id: row.agent_id,
-                config_json: row.config_json,
+                config_json: redact_configuration_json(row.config_json),
                 soul_md: row.soul_md,
-                env_json: row.env_json,
+                env_json: redact_configuration_json(row.env_json),
                 updated_at: api_ts(row.updated_at),
             })
             .ok_or_else(|| AppError::not_found("agent_config", agent_id))
@@ -1118,10 +1133,58 @@ impl FleetRepository for PostgresFleetRepository {
             .into_active_model();
         model.config_json = Set(req.config_json);
         model.soul_md = Set(req.soul_md);
-        model.env_json = Set(redact_json(req.env_json));
+        model.env_json = Set(req.env_json);
         model.updated_at = Set(now());
         model.update(&self.db).await.map_err(AppError::database)?;
         self.get_agent_config(agent_id).await
+    }
+
+    async fn create_config_revision(
+        &self,
+        id: Uuid,
+        config: UpdateAgentConfigRequest,
+        actor: Uuid,
+    ) -> Result<domain::AgentConfigRevision, AppError> {
+        config_revisions::create(self, id, config, actor).await
+    }
+    async fn list_config_revisions(
+        &self,
+        id: Uuid,
+    ) -> Result<Vec<domain::AgentConfigRevision>, AppError> {
+        config_revisions::list(self, id).await
+    }
+    async fn validate_config_revision(
+        &self,
+        id: Uuid,
+        revision: i64,
+        errors: Vec<String>,
+    ) -> Result<domain::AgentConfigRevision, AppError> {
+        config_revisions::validate(self, id, revision, errors).await
+    }
+    async fn request_config_activation(
+        &self,
+        id: Uuid,
+        revision: i64,
+        actor: Uuid,
+    ) -> Result<domain::AgentConfigRevision, AppError> {
+        config_revisions::activate(self, id, revision, actor).await
+    }
+    async fn claim_config_activation(
+        &self,
+    ) -> Result<Option<domain::AgentConfigRevision>, AppError> {
+        config_revisions::claim(self).await
+    }
+    async fn finish_config_activation(
+        &self,
+        id: Uuid,
+        revision: i64,
+        error: Option<String>,
+        reconciled: bool,
+    ) -> Result<(), AppError> {
+        config_revisions::finish(self, id, revision, error, reconciled).await
+    }
+    async fn agent_is_draining(&self, id: Uuid) -> Result<bool, AppError> {
+        config_revisions::draining(self, id).await
     }
 
     async fn list_agent_skills(&self, agent_id: Uuid) -> Result<Vec<domain::AgentSkill>, AppError> {
@@ -1364,6 +1427,7 @@ impl FleetRepository for PostgresFleetRepository {
         req: CreateSessionRequest,
         user_id: Uuid,
     ) -> Result<AgentSession, AppError> {
+        let txn = self.db.begin().await.map_err(AppError::database)?;
         let idempotency_key = req
             .idempotency_key
             .as_ref()
@@ -1375,15 +1439,25 @@ impl FleetRepository for PostgresFleetRepository {
             )?),
             None => None,
         };
+        if let Some(key) = idempotency_key.as_ref() {
+            txn.execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                [format!("session:{user_id}:{key}").into()],
+            ))
+            .await
+            .map_err(AppError::database)?;
+        }
         if let Some(key) = idempotency_key.as_ref()
             && let Some(existing) = agent_session::Entity::find()
                 .filter(agent_session::Column::UserId.eq(user_id))
                 .filter(agent_session::Column::IdempotencyKey.eq(key))
-                .one(&self.db)
+                .one(&txn)
                 .await
                 .map_err(AppError::database)?
         {
             if existing.idempotency_payload_hash == idempotency_payload_hash {
+                txn.commit().await.map_err(AppError::database)?;
                 return self.get_session(existing.id).await;
             }
             return Err(AppError::conflict(
@@ -1391,16 +1465,21 @@ impl FleetRepository for PostgresFleetRepository {
             ));
         }
         let primary_agent_id = selected_primary_agent_id(&req)?;
-        let agent = load_agent_row(&self.db, primary_agent_id).await?;
+        let agent = load_agent_row(&txn, primary_agent_id).await?;
+        if agent.status == AgentStatus::Archived.as_str() {
+            return Err(AppError::conflict(
+                "cannot create a chat with an archived agent",
+            ));
+        }
         user::Entity::find_by_id(user_id)
-            .one(&self.db)
+            .one(&txn)
             .await
             .map_err(AppError::database)?
             .ok_or_else(|| AppError::not_found("user", user_id))?;
         let parent = match req.parent_session_id {
             Some(parent_session_id) => Some(
                 agent_session::Entity::find_by_id(parent_session_id)
-                    .one(&self.db)
+                    .one(&txn)
                     .await
                     .map_err(AppError::database)?
                     .ok_or_else(|| AppError::not_found("parent_session", parent_session_id))?,
@@ -1408,6 +1487,12 @@ impl FleetRepository for PostgresFleetRepository {
             None => None,
         };
         let primary_product_role = parse_product_role(&agent.product_role);
+        if parent
+            .as_ref()
+            .is_some_and(|parent| parent.user_id != user_id)
+        {
+            return Err(AppError::Forbidden);
+        }
         let leader_agent_id = req
             .leader_agent_id
             .or_else(|| parent.as_ref().and_then(|session| session.leader_agent_id))
@@ -1416,8 +1501,7 @@ impl FleetRepository for PostgresFleetRepository {
             });
 
         if let Some(leader_id) = leader_agent_id {
-            ensure_agent_product_role(&self.db, leader_id, AgentProductRole::Leader, "leader")
-                .await?;
+            ensure_agent_product_role(&txn, leader_id, AgentProductRole::Leader, "leader").await?;
             if primary_product_role == AgentProductRole::Leader && leader_id != primary_agent_id {
                 return Err(AppError::validation(
                     "leader chat must use the same primary and leader agent",
@@ -1425,7 +1509,7 @@ impl FleetRepository for PostgresFleetRepository {
             }
             if primary_product_role == AgentProductRole::Executor {
                 let allowed = leader_executor::Entity::find_by_id((leader_id, primary_agent_id))
-                    .one(&self.db)
+                    .one(&txn)
                     .await
                     .map_err(AppError::database)?
                     .is_some();
@@ -1444,7 +1528,6 @@ impl FleetRepository for PostgresFleetRepository {
         } else {
             SessionVisibility::Private
         };
-        let txn = self.db.begin().await.map_err(AppError::database)?;
         agent_session::Entity::insert(agent_session::ActiveModel {
             id: Set(session_id),
             agent_id: Set(primary_agent_id),
@@ -1837,6 +1920,71 @@ impl FleetRepository for PostgresFleetRepository {
         self.get_session(id).await
     }
 
+    async fn list_session_events(
+        &self,
+        id: Uuid,
+        after: i64,
+    ) -> Result<Vec<domain::SessionEvent>, AppError> {
+        let rows = self
+            .db
+            .query_all(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT session_id, sequence, event_type, payload, created_at FROM session_events
+             WHERE session_id = $1 AND sequence > $2 ORDER BY sequence LIMIT 100",
+                [id.into(), after.into()],
+            ))
+            .await
+            .map_err(AppError::database)?;
+        rows.into_iter()
+            .map(|row| {
+                Ok(domain::SessionEvent {
+                    session_id: row.try_get("", "session_id").map_err(AppError::database)?,
+                    sequence: row.try_get("", "sequence").map_err(AppError::database)?,
+                    event_type: row.try_get("", "event_type").map_err(AppError::database)?,
+                    payload: row.try_get("", "payload").map_err(AppError::database)?,
+                    created_at: api_ts(row.try_get("", "created_at").map_err(AppError::database)?),
+                })
+            })
+            .collect()
+    }
+
+    async fn append_session_event(
+        &self,
+        id: Uuid,
+        event_type: &str,
+        payload: Value,
+    ) -> Result<(), AppError> {
+        self.db
+            .execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "WITH cursor AS (
+                INSERT INTO session_event_cursors(session_id, sequence) VALUES ($1, 1)
+                ON CONFLICT(session_id) DO UPDATE SET sequence = session_event_cursors.sequence + 1
+                RETURNING sequence)
+             INSERT INTO session_events(session_id, sequence, event_type, payload)
+                SELECT $1, sequence, $2, $3 FROM cursor",
+                [id.into(), event_type.into(), redact_json(payload).into()],
+            ))
+            .await
+            .map_err(AppError::database)?;
+        Ok(())
+    }
+
+    async fn session_event_cursor(&self, id: Uuid) -> Result<i64, AppError> {
+        let row = self
+            .db
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT sequence FROM session_event_cursors WHERE session_id = $1",
+                [id.into()],
+            ))
+            .await
+            .map_err(AppError::database)?;
+        row.map(|row| row.try_get("", "sequence").map_err(AppError::database))
+            .transpose()
+            .map(|value| value.unwrap_or(0))
+    }
+
     async fn list_session_messages(&self, id: Uuid) -> Result<Vec<SessionMessage>, AppError> {
         let rows = session_message::Entity::find()
             .filter(session_message::Column::SessionId.eq(id))
@@ -1874,7 +2022,7 @@ impl FleetRepository for PostgresFleetRepository {
                     author_user.as_ref(),
                     author_agent.as_ref(),
                 ),
-                body: row.body,
+                body: redact_text(&row.body),
                 message_kind: parse_message_kind(&row.message_kind),
                 runtime_message_id: row.runtime_message_id,
                 delivery_state: parse_message_delivery_state(&row.delivery_state),
@@ -1884,6 +2032,61 @@ impl FleetRepository for PostgresFleetRepository {
             });
         }
         Ok(result)
+    }
+
+    async fn claim_message_dispatch(&self) -> Result<Option<SessionMessage>, AppError> {
+        let row = self.db.query_one(Statement::from_string(DatabaseBackend::Postgres,
+            "WITH candidate AS (
+                SELECT o.message_id FROM message_dispatch_outbox o
+                JOIN agents a ON a.id = o.agent_id
+                WHERE o.state = 'pending' AND a.status = 'running' AND a.kind = 'hermes'
+                  AND NOT EXISTS (SELECT 1 FROM agent_config_heads h WHERE h.agent_id = a.id AND h.draining)
+                  AND NOT EXISTS (SELECT 1 FROM message_dispatch_outbox busy WHERE busy.agent_id = a.id AND busy.state IN ('dispatching','uncertain'))
+                  AND NOT EXISTS (SELECT 1 FROM session_agent_runs r WHERE r.agent_id = a.id
+                      AND r.state IN ('pending','running','waiting','stopping') AND r.runtime_session_id IS NOT NULL)
+                ORDER BY o.created_at, o.message_id FOR UPDATE OF a, o SKIP LOCKED LIMIT 1)
+             UPDATE message_dispatch_outbox o SET state = 'dispatching', updated_at = now()
+                FROM candidate WHERE o.message_id = candidate.message_id RETURNING o.message_id".to_string()))
+            .await.map_err(AppError::database)?;
+        let Some(row) = row else {
+            return Ok(None);
+        };
+        let id: Uuid = row.try_get("", "message_id").map_err(AppError::database)?;
+        let message = session_message::Entity::find_by_id(id)
+            .one(&self.db)
+            .await
+            .map_err(AppError::database)?
+            .ok_or_else(|| AppError::not_found("session_message", id))?;
+        let mut result = self
+            .list_session_messages(message.session_id)
+            .await?
+            .into_iter()
+            .find(|message| message.id == id);
+        // Runtime dispatch receives the original prompt; public transcript reads are redacted.
+        if let Some(result) = result.as_mut() {
+            result.body = message.body;
+        }
+        Ok(result)
+    }
+
+    async fn finish_message_dispatch(
+        &self,
+        message_id: Uuid,
+        uncertain: bool,
+        error: Option<String>,
+    ) -> Result<(), AppError> {
+        let state = if uncertain {
+            "uncertain"
+        } else if error.is_some() {
+            "failed"
+        } else {
+            "dispatched"
+        };
+        self.db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "UPDATE message_dispatch_outbox SET state = $2, last_error = $3, updated_at = now() WHERE message_id = $1 AND state = 'dispatching'",
+            [message_id.into(), state.into(), error.map(|error| redact_text(&error)).into()]))
+            .await.map_err(AppError::database)?;
+        Ok(())
     }
 
     async fn list_session_participants(
@@ -1952,12 +2155,23 @@ impl FleetRepository for PostgresFleetRepository {
             )?),
             None => None,
         };
+        let txn = self.db.begin().await.map_err(AppError::database)?;
         let session = agent_session::Entity::find_by_id(id)
-            .one(&self.db)
+            .lock_exclusive()
+            .one(&txn)
             .await
             .map_err(AppError::database)?
             .ok_or_else(|| AppError::not_found("agent_session", id))?;
-        if actor_user_id != session.user_id {
+        let actor = user::Entity::find_by_id(actor_user_id)
+            .one(&txn)
+            .await
+            .map_err(AppError::database)?
+            .ok_or(AppError::Unauthorized)?;
+        if !actor.is_active
+            || (actor_user_id != session.user_id
+                && !parse_system_role(&actor.system_role, actor.is_system_admin)
+                    .can_operate_fleet())
+        {
             return Err(AppError::Forbidden);
         }
         if let Some(key) = idempotency_key.as_ref()
@@ -1965,11 +2179,12 @@ impl FleetRepository for PostgresFleetRepository {
                 .filter(session_message::Column::SessionId.eq(id))
                 .filter(session_message::Column::CreatedByUserId.eq(actor_user_id))
                 .filter(session_message::Column::IdempotencyKey.eq(key))
-                .one(&self.db)
+                .one(&txn)
                 .await
                 .map_err(AppError::database)?
         {
             if existing.idempotency_payload_hash == idempotency_payload_hash {
+                txn.commit().await.map_err(AppError::database)?;
                 let mut message = self
                     .list_session_messages(id)
                     .await?
@@ -2007,7 +2222,6 @@ impl FleetRepository for PostgresFleetRepository {
             };
         let message_id = Uuid::new_v4();
         let ts = now();
-        let txn = self.db.begin().await.map_err(AppError::database)?;
         session_message::Entity::insert(session_message::ActiveModel {
             id: Set(message_id),
             session_id: Set(id),
@@ -2080,15 +2294,40 @@ impl FleetRepository for PostgresFleetRepository {
         run_role: SessionRunRole,
         runtime_session_id: String,
     ) -> Result<SessionAgentRun, AppError> {
-        load_agent_row(&self.db, agent_id).await?;
+        let txn = self.db.begin().await.map_err(AppError::database)?;
+        let agent = agent::Entity::find_by_id(agent_id)
+            .lock_exclusive()
+            .one(&txn)
+            .await
+            .map_err(AppError::database)?
+            .ok_or_else(|| AppError::not_found("agent", agent_id))?;
+        if agent.status != AgentStatus::Running.as_str() {
+            return Err(AppError::conflict("agent runtime is not running"));
+        }
+        let active = session_agent_run::Entity::find()
+            .filter(session_agent_run::Column::AgentId.eq(agent_id))
+            .filter(
+                session_agent_run::Column::State
+                    .is_in(["pending", "running", "waiting", "stopping"]),
+            )
+            .filter(session_agent_run::Column::RuntimeSessionId.is_not_null())
+            .one(&txn)
+            .await
+            .map_err(AppError::database)?;
+        if active.is_some() {
+            return Err(AppError::conflict(
+                "agent already has an active or unresolved run; use steer or reconcile it",
+            ));
+        }
         let ts = now();
         if let Some(row) = session_agent_run::Entity::find()
             .filter(session_agent_run::Column::SessionId.eq(session_id))
             .filter(session_agent_run::Column::AgentId.eq(agent_id))
             .filter(session_agent_run::Column::State.eq(SessionRunState::Pending.as_str()))
             .filter(session_agent_run::Column::RuntimeRunId.is_null())
+            .filter(session_agent_run::Column::RuntimeSessionId.is_null())
             .order_by_asc(session_agent_run::Column::CreatedAt)
-            .one(&self.db)
+            .one(&txn)
             .await
             .map_err(AppError::database)?
         {
@@ -2096,7 +2335,8 @@ impl FleetRepository for PostgresFleetRepository {
             model.runtime_session_id = Set(Some(runtime_session_id));
             model.run_role = Set(run_role.as_str().to_string());
             model.updated_at = Set(ts);
-            let updated = model.update(&self.db).await.map_err(AppError::database)?;
+            let updated = model.update(&txn).await.map_err(AppError::database)?;
+            txn.commit().await.map_err(AppError::database)?;
             return session_run_from_model(&self.db, updated).await;
         }
 
@@ -2117,15 +2357,16 @@ impl FleetRepository for PostgresFleetRepository {
             created_at: Set(ts),
             updated_at: Set(ts),
         })
-        .exec(&self.db)
+        .exec(&txn)
         .await
         .map_err(AppError::database)?;
 
         let row = session_agent_run::Entity::find_by_id(id)
-            .one(&self.db)
+            .one(&txn)
             .await
             .map_err(AppError::database)?
             .ok_or_else(|| AppError::internal("session run insert returned no row"))?;
+        txn.commit().await.map_err(AppError::database)?;
         session_run_from_model(&self.db, row).await
     }
 
@@ -2161,7 +2402,7 @@ impl FleetRepository for PostgresFleetRepository {
         message_kind: MessageKind,
         runtime_message_id: Option<String>,
     ) -> Result<SessionMessage, AppError> {
-        let body = body.trim().to_string();
+        let body = redact_text(body.trim());
         if body.is_empty() {
             return Err(AppError::validation("message body is required"));
         }
@@ -2173,6 +2414,35 @@ impl FleetRepository for PostgresFleetRepository {
             MessageAuthorType::System
         };
         let txn = self.db.begin().await.map_err(AppError::database)?;
+        agent_session::Entity::find_by_id(session_id)
+            .lock_exclusive()
+            .one(&txn)
+            .await
+            .map_err(AppError::database)?
+            .ok_or_else(|| AppError::not_found("agent_session", session_id))?;
+        if message_kind == MessageKind::AssistantMessage
+            && let Some(runtime_id) = runtime_message_id.as_ref()
+        {
+            let mut existing = session_message::Entity::find()
+                .filter(session_message::Column::SessionId.eq(session_id))
+                .filter(
+                    session_message::Column::MessageKind.eq(MessageKind::AssistantMessage.as_str()),
+                )
+                .filter(session_message::Column::RuntimeMessageId.eq(runtime_id));
+            existing = match author_agent_id {
+                Some(id) => existing.filter(session_message::Column::AuthorAgentId.eq(id)),
+                None => existing.filter(session_message::Column::AuthorAgentId.is_null()),
+            };
+            if let Some(row) = existing.one(&txn).await.map_err(AppError::database)? {
+                txn.commit().await.map_err(AppError::database)?;
+                return self
+                    .list_session_messages(session_id)
+                    .await?
+                    .into_iter()
+                    .find(|message| message.id == row.id)
+                    .ok_or_else(|| AppError::not_found("session_message", row.id));
+            }
+        }
         session_message::Entity::insert(session_message::ActiveModel {
             id: Set(id),
             session_id: Set(session_id),
@@ -2895,10 +3165,8 @@ impl FleetRepository for PostgresFleetRepository {
     ) -> Result<BulkDeploymentResult, AppError> {
         let rollback = validate_bulk_deployment_request(&req)?;
         let mut detail = req.detail.unwrap_or_else(|| json!({}));
-        if rollback {
-            if let Some(object) = detail.as_object_mut() {
-                object.insert("rollback".to_string(), json!(true));
-            }
+        if rollback && let Some(object) = detail.as_object_mut() {
+            object.insert("rollback".to_string(), json!(true));
         }
         let detail = redact_json(detail);
         let ts = now();
@@ -3150,7 +3418,7 @@ fn session_from_model(
         state: parse_session_state(&row.state),
         namespace_id: row.namespace_id,
         external_session_id: row.external_session_id,
-        last_message_preview: row.last_message_preview,
+        last_message_preview: row.last_message_preview.map(|value| redact_text(&value)),
         created_at: api_ts(row.created_at),
         updated_at: api_ts(row.updated_at),
     }
@@ -3293,6 +3561,46 @@ fn titleize(name: &str) -> String {
         .join(" ")
 }
 
+fn redact_configuration_json(value: Value) -> Value {
+    match value {
+        Value::Object(map) => Value::Object(
+            map.into_iter()
+                .map(|(key, value)| {
+                    let secret = domain::is_configuration_secret_name(&key);
+                    let safe_reference = value.as_object().is_some_and(|object| {
+                        object.len() == 1
+                            && object
+                                .get("secret_ref")
+                                .and_then(Value::as_str)
+                                .is_some_and(|reference| {
+                                    !reference.is_empty()
+                                        && reference.len() <= 128
+                                        && reference.bytes().all(|ch| {
+                                            ch.is_ascii_uppercase()
+                                                || ch.is_ascii_digit()
+                                                || ch == b'_'
+                                        })
+                                })
+                    });
+                    let value = if secret && !safe_reference {
+                        Value::String("redacted".into())
+                    } else if safe_reference {
+                        value
+                    } else {
+                        redact_configuration_json(value)
+                    };
+                    (key, value)
+                })
+                .collect(),
+        ),
+        Value::Array(items) => {
+            Value::Array(items.into_iter().map(redact_configuration_json).collect())
+        }
+        Value::String(value) => Value::String(redact_text(&value)),
+        other => other,
+    }
+}
+
 fn redact_json(value: Value) -> Value {
     match value {
         Value::Object(map) => Value::Object(
@@ -3312,17 +3620,57 @@ fn redact_json(value: Value) -> Value {
                 .collect(),
         ),
         Value::Array(items) => Value::Array(items.into_iter().map(redact_json).collect()),
+        Value::String(value) => Value::String(redact_text(&value)),
         other => other,
     }
 }
 
 fn redact_text(value: &str) -> String {
     let mut output = value.to_string();
+    for (name, secret) in std::env::vars() {
+        if (name.starts_with("FLEET_CONTROL_SECRET__")
+            || name == "FLEET_CONTROL_RUNTIME__TOKEN_SECRET"
+            || name == "FLEET_CONTROL_FLEET__RUNTIME_TOKEN_SECRET")
+            && secret.len() >= 4
+        {
+            output = output.replace(&secret, "redacted");
+        }
+    }
     for marker in ["token=", "password=", "secret=", "api_key=", "apikey="] {
         if let Some(pos) = output.to_ascii_lowercase().find(marker) {
             output.truncate(pos + marker.len());
             output.push_str("redacted");
         }
+    }
+    let mut offset = 0;
+    while let Some(start) = output[offset..].find("fc_").map(|start| start + offset) {
+        let length = output[start + 3..]
+            .bytes()
+            .take_while(u8::is_ascii_hexdigit)
+            .count();
+        if length < 32 {
+            offset = start + 3;
+            continue;
+        }
+        output.replace_range(start..start + 3 + length, "redacted");
+        offset = start + "redacted".len();
+    }
+    output
+}
+
+fn redact_stream_text(value: &str, secrets: &[String]) -> String {
+    let mut end = value.len();
+    // Withhold a suffix that might be the beginning of a credential split across SSE frames.
+    for secret in secrets.iter().filter(|secret| secret.len() >= 4) {
+        for (offset, _) in secret.char_indices().skip(1) {
+            if value.ends_with(&secret[..offset]) {
+                end = end.min(value.len() - offset);
+            }
+        }
+    }
+    let mut output = redact_text(&value[..end]);
+    for secret in secrets {
+        output = output.replace(secret, "redacted");
     }
     output
 }
@@ -3333,6 +3681,15 @@ pub struct FilesystemProvisioner;
 #[async_trait]
 impl AgentProvisioner for FilesystemProvisioner {
     async fn provision(&self, agent: &Agent, config: &AppConfig) -> Result<(), AppError> {
+        if !matches!(
+            agent.status,
+            AgentStatus::Provisioning | AgentStatus::Ready | AgentStatus::Stopped
+        ) || agent.runtime.pid.is_some()
+        {
+            return Err(AppError::conflict(
+                "stop and reconcile the runtime before provisioning",
+            ));
+        }
         // Java agents share the same layout; the runtime jar is expected at
         // agents/agentN/runtime/backend.jar and is copied by the build
         // pipeline (java_agent_source), not provisioned here. Missing jar is
@@ -3340,10 +3697,30 @@ impl AgentProvisioner for FilesystemProvisioner {
 
         let root = PathBuf::from(&config.fleet.agents_root);
         let agent_root = safe_agent_root(&root, &agent.name)?;
+        reject_symlink_components(&root, &agent_root).await?;
+        if tokio::fs::try_exists(&agent_root)
+            .await
+            .map_err(AppError::internal)?
+            && !tokio::fs::try_exists(agent_root.join(".fleet-agent.json"))
+                .await
+                .map_err(AppError::internal)?
+            && tokio::fs::read_dir(&agent_root)
+                .await
+                .map_err(AppError::internal)?
+                .next_entry()
+                .await
+                .map_err(AppError::internal)?
+                .is_some()
+        {
+            return Err(AppError::conflict(
+                "refusing to adopt a nonempty directory without an agent marker",
+            ));
+        }
         tokio::fs::create_dir_all(&agent_root)
             .await
             .map_err(AppError::internal)?;
         let marker_path = agent_root.join(".fleet-agent.json");
+        reject_symlink_components(&root, &marker_path).await?;
         if tokio::fs::try_exists(&marker_path)
             .await
             .map_err(AppError::internal)?
@@ -3371,6 +3748,7 @@ impl AgentProvisioner for FilesystemProvisioner {
         ] {
             let path = PathBuf::from(path);
             ensure_inside(&root, &path)?;
+            reject_symlink_components(&root, &path).await?;
             tokio::fs::create_dir_all(path)
                 .await
                 .map_err(AppError::internal)?;
@@ -3720,6 +4098,13 @@ async fn provision_hermes(agent: &Agent, config: &AppConfig) -> Result<(), AppEr
     let config_path = PathBuf::from(&agent.paths.config);
     let runtime_path = PathBuf::from(&agent.paths.runtime);
     let token = agent_runtime_token(config, agent.id)?;
+    for file in ["config.yaml", "SOUL.md", ".env", "skills", "sessions"] {
+        reject_symlink_components(
+            Path::new(&config.fleet.agents_root),
+            &config_path.join(file),
+        )
+        .await?;
+    }
     tokio::fs::create_dir_all(config_path.join("skills"))
         .await
         .map_err(AppError::internal)?;
@@ -3746,7 +4131,7 @@ async fn provision_hermes(agent: &Agent, config: &AppConfig) -> Result<(), AppEr
         ),
     )
     .await?;
-    write_managed(
+    write_if_missing(
         config_path.join(".env"),
         format!(
             "# Managed by Fleet Control. Secrets are redacted in API responses.\nHERMES_HOME={}\nHERMES_SERVE_HEADLESS=1\nAPI_SERVER_ENABLED=true\nAPI_SERVER_KEY={}\nAPI_SERVER_CORS_ORIGINS={}\n",
@@ -3768,22 +4153,202 @@ async fn provision_hermes(agent: &Agent, config: &AppConfig) -> Result<(), AppEr
     .await
 }
 
-async fn write_if_missing(path: PathBuf, content: String) -> Result<(), AppError> {
-    if tokio::fs::try_exists(&path)
-        .await
-        .map_err(AppError::internal)?
-    {
-        return Ok(());
+async fn reject_symlink_components(root: &Path, path: &Path) -> Result<(), AppError> {
+    let root = normalize_path(root)?;
+    let path = normalize_path(path)?;
+    let suffix = path
+        .strip_prefix(&root)
+        .map_err(|_| AppError::validation("path escapes agents root"))?;
+    let mut current = root;
+    for component in std::iter::once(None).chain(suffix.components().map(Some)) {
+        if let Some(component) = component {
+            current.push(component.as_os_str());
+        }
+        match tokio::fs::symlink_metadata(&current).await {
+            Ok(metadata) => {
+                #[cfg(windows)]
+                let reparse_point = {
+                    use std::os::windows::fs::MetadataExt;
+                    metadata.file_attributes() & 0x400 != 0
+                };
+                #[cfg(not(windows))]
+                let reparse_point = false;
+                if metadata.file_type().is_symlink() || reparse_point {
+                    return Err(AppError::validation(
+                        "managed paths cannot traverse symlinks or junctions",
+                    ));
+                }
+            }
+            Err(error) if error.kind() == ErrorKind::NotFound => break,
+            Err(error) => return Err(AppError::internal(error)),
+        }
     }
-    tokio::fs::write(path, content)
+    Ok(())
+}
+
+pub(crate) async fn configuration_files(
+    agent: &Agent,
+    config: &AppConfig,
+    revision: &domain::AgentConfigRevision,
+) -> Result<Vec<(PathBuf, String)>, AppError> {
+    let root = Path::new(&config.fleet.agents_root);
+    let agent_root = safe_agent_root(root, &agent.name)?;
+    reject_symlink_components(root, &agent_root).await?;
+    let (marker, verified) = inspect_agent_marker(&agent_root, agent).await?;
+    if !marker || !verified {
+        return Err(AppError::validation(
+            "provisioned agent marker must match before activation",
+        ));
+    }
+    let expected = agent_root.join("config");
+    if normalize_path(Path::new(&agent.paths.config))? != normalize_path(&expected)? {
+        return Err(AppError::validation(
+            "agent config path does not match its isolated layout",
+        ));
+    }
+    let mut content = revision.snapshot.config.config_json.clone();
+    if content
+        .get("terminal")
+        .is_some_and(|value| !value.is_object())
+    {
+        return Err(AppError::validation(
+            "terminal configuration must be an object",
+        ));
+    }
+    content["terminal"]["cwd"] = json!(agent.paths.workspace);
+    let mut env = format!(
+        "HERMES_HOME={}\nHERMES_SERVE_HEADLESS=1\nAPI_SERVER_ENABLED=true\nAPI_SERVER_KEY={}\n",
+        serde_json::to_string(&agent.paths.config).map_err(AppError::internal)?,
+        agent_runtime_token(config, agent.id)?
+    );
+    if let Some(values) = revision.snapshot.config.env_json.as_object() {
+        for (key, value) in values {
+            if matches!(
+                key.as_str(),
+                "HERMES_HOME" | "HERMES_SERVE_HEADLESS" | "API_SERVER_ENABLED" | "API_SERVER_KEY"
+            ) {
+                continue;
+            }
+            let value = if let Some(reference) = value.get("secret_ref").and_then(Value::as_str) {
+                std::env::var(format!("FLEET_CONTROL_SECRET__{reference}")).map_err(|_| {
+                    AppError::validation(format!("secret_ref for {key} is unavailable"))
+                })?
+            } else {
+                value.as_str().unwrap_or_default().to_string()
+            };
+            if value == "redacted" {
+                return Err(AppError::validation(format!(
+                    "masked value for {key} cannot replace a secret reference"
+                )));
+            }
+            env.push_str(&format!(
+                "{key}={}\n",
+                serde_json::to_string(&value).map_err(AppError::internal)?
+            ));
+        }
+    }
+    let mut files = vec![
+        (
+            expected.join("config.yaml"),
+            serde_json::to_string_pretty(&content).map_err(AppError::internal)?,
+        ),
+        (
+            expected.join("SOUL.md"),
+            revision.snapshot.config.soul_md.clone(),
+        ),
+        (expected.join(".env"), env),
+    ];
+    for skill in &revision.snapshot.skills {
+        if skill.name.is_empty()
+            || !skill
+                .name
+                .bytes()
+                .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, b'-' | b'_'))
+        {
+            return Err(AppError::validation(
+                "skill name is not a safe directory name",
+            ));
+        }
+        let dir = expected.join("skills").join(&skill.name);
+        reject_symlink_components(root, &dir).await?;
+        tokio::fs::create_dir_all(&dir)
+            .await
+            .map_err(AppError::internal)?;
+        let path = dir.join("SKILL.md");
+        let body = if skill.state == SkillState::Enabled {
+            skill
+                .content
+                .clone()
+                .filter(|content| !content.trim().is_empty())
+                .ok_or_else(|| {
+                    AppError::validation(format!(
+                        "enabled skill {} has no installed content",
+                        skill.name
+                    ))
+                })?
+        } else {
+            String::new()
+        };
+        files.push((path, body));
+    }
+    let hashes: serde_json::Map<String, Value> = files
+        .iter()
+        .map(|(path, body)| {
+            (
+                path.strip_prefix(&expected)
+                    .unwrap_or(path)
+                    .to_string_lossy()
+                    .into_owned(),
+                if body.is_empty() && path.file_name().is_some_and(|name| name == "SKILL.md") {
+                    Value::Null
+                } else {
+                    json!(hex::encode(Sha256::digest(body.as_bytes())))
+                },
+            )
+        })
+        .collect();
+    files.push((
+        expected.join(".fleet-config-revision.json"),
+        serde_json::json!({"agent_id":agent.id,"revision":revision.revision,"hashes":hashes})
+            .to_string(),
+    ));
+    for (path, _) in &files {
+        reject_symlink_components(root, path).await?;
+    }
+    Ok(files)
+}
+
+pub(crate) async fn write_configuration_file(path: &Path, body: &[u8]) -> Result<(), AppError> {
+    use tokio::io::AsyncWriteExt;
+    let temporary = path.with_file_name(format!(".fleet-next-{}", Uuid::new_v4()));
+    let mut options = tokio::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    options.mode(0o600);
+    let mut file = options.open(&temporary).await.map_err(AppError::internal)?;
+    file.write_all(body).await.map_err(AppError::internal)?;
+    file.sync_all().await.map_err(AppError::internal)?;
+    drop(file);
+    tokio::fs::rename(&temporary, path)
         .await
         .map_err(AppError::internal)
 }
 
-async fn write_managed(path: PathBuf, content: String) -> Result<(), AppError> {
-    tokio::fs::write(path, content)
+async fn write_if_missing(path: PathBuf, content: String) -> Result<(), AppError> {
+    use tokio::io::AsyncWriteExt;
+    let mut options = tokio::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    options.mode(0o600);
+    let mut file = match options.open(path).await {
+        Ok(file) => file,
+        Err(error) if error.kind() == ErrorKind::AlreadyExists => return Ok(()),
+        Err(error) => return Err(AppError::internal(error)),
+    };
+    file.write_all(content.as_bytes())
         .await
-        .map_err(AppError::internal)
+        .map_err(AppError::internal)?;
+    file.sync_all().await.map_err(AppError::internal)
 }
 
 fn safe_agent_root(root: &Path, name: &str) -> Result<PathBuf, AppError> {
@@ -3833,6 +4398,102 @@ fn normalize_path(path: &Path) -> Result<PathBuf, AppError> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn configuration_reads_mask_legacy_secrets_and_preserve_safe_references() {
+        let value = redact_configuration_json(json!({
+            "OPENAI_API_KEY": "legacy-credential",
+            "GITHUB_TOKEN": {"secret_ref": "GITHUB"},
+            "INVALID_TOKEN": {"secret_ref": "GITHUB", "plaintext": "credential"},
+            "INVALID_API_KEY": {"secret_ref": "not a reference"},
+            "CREDENTIAL": "old-credential",
+            "PRIVATE_KEY": "old-private-key",
+            "TASK_KEY": "FC-001",
+            "model": {"provider": "openai", "api_key": "old-model-secret"},
+            "entries": [{"password": "old-password"}],
+            "ORDINARY_VALUE": "preserved"
+        }));
+        assert_eq!(value["OPENAI_API_KEY"], "redacted");
+        assert_eq!(value["GITHUB_TOKEN"], json!({"secret_ref": "GITHUB"}));
+        assert_eq!(value["INVALID_TOKEN"], "redacted");
+        assert_eq!(value["INVALID_API_KEY"], "redacted");
+        assert_eq!(value["CREDENTIAL"], "redacted");
+        assert_eq!(value["PRIVATE_KEY"], "redacted");
+        assert_eq!(value["TASK_KEY"], "FC-001");
+        assert_eq!(value["model"]["provider"], "openai");
+        assert_eq!(value["model"]["api_key"], "redacted");
+        assert_eq!(value["entries"][0]["password"], "redacted");
+        assert_eq!(value["ORDINARY_VALUE"], "preserved");
+    }
+
+    #[tokio::test]
+    async fn provisioning_preserves_effective_env_and_restricts_new_files() {
+        let root = temp_purge_root();
+        let agent = test_agent(&root, Uuid::new_v4(), AgentStatus::Ready);
+        let config = test_config(&root);
+        FilesystemProvisioner
+            .provision(&agent, &config)
+            .await
+            .unwrap();
+        let env = Path::new(&agent.paths.config).join(".env");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                tokio::fs::metadata(&env)
+                    .await
+                    .unwrap()
+                    .permissions()
+                    .mode()
+                    & 0o777,
+                0o600
+            );
+        }
+        tokio::fs::write(&env, "EFFECTIVE_CONFIG=preserved\n")
+            .await
+            .unwrap();
+        FilesystemProvisioner
+            .provision(&agent, &config)
+            .await
+            .unwrap();
+        assert_eq!(
+            tokio::fs::read_to_string(&env).await.unwrap(),
+            "EFFECTIVE_CONFIG=preserved\n"
+        );
+        tokio::fs::remove_dir_all(root).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn provisioning_rejects_active_runtime_without_creating_files() {
+        let root = temp_purge_root();
+        let agent = test_agent(&root, Uuid::new_v4(), AgentStatus::Running);
+        assert!(
+            FilesystemProvisioner
+                .provision(&agent, &test_config(&root))
+                .await
+                .is_err()
+        );
+        assert!(!root.exists());
+    }
+
+    #[tokio::test]
+    async fn provisioning_does_not_adopt_nonempty_unmarked_folder() {
+        let root = temp_purge_root();
+        let foreign = root.join("agent1");
+        tokio::fs::create_dir_all(&foreign).await.unwrap();
+        let file = foreign.join("foreign.txt");
+        tokio::fs::write(&file, "preserved").await.unwrap();
+        let agent = test_agent(&root, Uuid::new_v4(), AgentStatus::Ready);
+        assert!(
+            FilesystemProvisioner
+                .provision(&agent, &test_config(&root))
+                .await
+                .is_err()
+        );
+        assert_eq!(tokio::fs::read_to_string(file).await.unwrap(), "preserved");
+        assert!(!foreign.join(".fleet-agent.json").exists());
+        tokio::fs::remove_dir_all(root).await.unwrap();
+    }
+
     fn temp_purge_root() -> PathBuf {
         std::env::temp_dir().join(format!("fleet-control-purge-{}", Uuid::new_v4()))
     }
@@ -3854,6 +4515,7 @@ mod tests {
             kind: AgentKind::Hermes,
             product_role: AgentProductRole::Executor,
             role: AgentRole::Developer,
+            sdlc_role: Some(domain::SdlcRole::Developer),
             status,
             display_name: "Developer Hermes".to_string(),
             description: None,
@@ -3988,6 +4650,23 @@ mod tests {
         assert_eq!(first_token, replayed_token);
         assert_ne!(first_token, second_token);
         assert!(first_token.starts_with("fc_"));
+    }
+
+    #[test]
+    fn streaming_redaction_withholds_split_credentials() {
+        let secret = "private-provider-credential".to_string();
+        assert_eq!(
+            redact_stream_text("Output: private-prov", std::slice::from_ref(&secret)),
+            "Output: "
+        );
+        assert_eq!(
+            redact_stream_text("Output: private-provider-credential done", &[secret]),
+            "Output: redacted done"
+        );
+        assert_eq!(
+            redact_text("fc_docs and fc_abcdef123456abcdef123456abcdef123456"),
+            "fc_docs and redacted"
+        );
     }
 
     #[test]

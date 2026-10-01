@@ -13,6 +13,8 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { connectAuthenticatedEventStream } from '@sdlc/ui/lib'
+import { apiBaseUrl } from '@/api/client'
 import {
   assignSessionLeader,
   createSessionDelegation,
@@ -56,10 +58,12 @@ function newIdempotencyKey() {
   )
 }
 
-export function SessionDetailPage() {
+export function SessionDetailPage({ legacyControls = true }: { legacyControls?: boolean }) {
   const { t } = useTranslation()
   const { sessionId } = useParams()
   const queryClient = useQueryClient()
+  const token = useAuthStore((state) => state.token)
+  const [streamText, setStreamText] = useState<Record<string, string>>({})
   const canManageAgents = useAuthStore((state) => state.permissions.includes('agents:manage'))
   const session = useQuery({
     queryKey: ['session', sessionId],
@@ -73,7 +77,7 @@ export function SessionDetailPage() {
   )
   const leaderTeams = useQuery({
     queryKey: ['leader-teams', leaders.map((leader) => leader.id).join(',')],
-    enabled: Boolean(leaders.length),
+    enabled: legacyControls && Boolean(leaders.length),
     queryFn: async () =>
       Promise.all(
         leaders.map(async (leader) => ({
@@ -86,19 +90,61 @@ export function SessionDetailPage() {
     queryKey: ['session-messages', sessionId],
     queryFn: () => listSessionMessages(sessionId!),
     enabled: Boolean(sessionId),
-    refetchInterval: 2000,
+    refetchInterval: 10_000,
   })
   const runs = useQuery({
     queryKey: ['session-runs', sessionId],
     queryFn: () => listSessionAgentRuns(sessionId!),
     enabled: Boolean(sessionId),
-    refetchInterval: 2000,
+    refetchInterval: 10_000,
   })
   const participants = useQuery({
     queryKey: ['session-participants', sessionId],
     queryFn: () => listSessionParticipants(sessionId!),
     enabled: Boolean(sessionId),
   })
+
+  useEffect(() => {
+    if (!sessionId || !token) return
+    setStreamText({})
+    const refresh = () => {
+      void queryClient.invalidateQueries({ queryKey: ['session', sessionId] })
+      void queryClient.invalidateQueries({ queryKey: ['session-messages', sessionId] })
+      void queryClient.invalidateQueries({ queryKey: ['session-runs', sessionId] })
+      void queryClient.invalidateQueries({ queryKey: ['session-participants', sessionId] })
+    }
+    return connectAuthenticatedEventStream({
+      url: `${apiBaseUrl}/api/v1/sessions/${sessionId}/stream`,
+      token,
+      eventTypes: ['session'],
+      onOpen: refresh,
+      onEvent: (_type, data) => {
+        if (
+          data &&
+          typeof data === 'object' &&
+          'type' in data &&
+          data.type === 'session_run_delta' &&
+          'run_id' in data &&
+          typeof data.run_id === 'string'
+        ) {
+          const id = data.run_id
+          if ('text' in data && typeof data.text === 'string') {
+            const text = data.text
+            setStreamText((current) => ({ ...current, [id]: text }))
+          } else if ('delta' in data && typeof data.delta === 'string') {
+            const delta = data.delta
+            setStreamText((current) => ({ ...current, [id]: (current[id] ?? '') + delta }))
+          }
+        } else refresh()
+      },
+    })
+  }, [queryClient, sessionId, token])
+
+  const activeRun = [...(runs.data ?? [])]
+    .reverse()
+    .find(
+      (run) => (run.state === 'running' || run.state === 'waiting') && Boolean(run.runtime_run_id),
+    )
 
   const [targetAgentId, setTargetAgentId] = useState('')
   const [leaderId, setLeaderId] = useState('')
@@ -178,15 +224,18 @@ export function SessionDetailPage() {
     },
   })
   const messageMutation = useMutation({
-    mutationFn: () =>
-      createSessionMessage(sessionId!, {
+    mutationFn: async () => {
+      if (activeRun)
+        return await steerSessionRun(sessionId!, activeRun.id, { input: messageBody.trim() })
+      return await createSessionMessage(sessionId!, {
         body: messageBody.trim(),
         author_agent_id:
           authorMode === 'leader' && session.data?.leader_agent_id
             ? session.data.leader_agent_id
             : null,
         idempotency_key: messageRequestKey,
-      }),
+      })
+    },
     onSuccess: async () => {
       setMessageBody('')
       setMessageRequestKey(newIdempotencyKey())
@@ -308,6 +357,14 @@ export function SessionDetailPage() {
               failed={messages.isError}
               onRetry={() => void messages.refetch()}
             />
+            {activeRun && streamText[activeRun.id] ? (
+              <div role="status" aria-live="polite" className="mt-3 border-l-2 border-accent pl-4">
+                <p className="text-xs font-medium text-text-muted">{activeRun.agent_name}</p>
+                <p className="mt-2 whitespace-pre-wrap break-words text-sm text-text-primary">
+                  {streamText[activeRun.id]}
+                </p>
+              </div>
+            ) : null}
             <form
               className="mt-4 grid gap-3 rounded-md border border-border bg-surface p-4"
               onSubmit={submitMessage}
@@ -327,7 +384,7 @@ export function SessionDetailPage() {
                   className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <option value="user">{t('sessionDetail.sendAsMe')}</option>
-                  <option value="leader" disabled={!session.data.leader_agent_id}>
+                  <option value="leader" disabled>
                     {t('sessionDetail.sendAsLeader')}
                   </option>
                 </select>
@@ -397,131 +454,143 @@ export function SessionDetailPage() {
         </div>
 
         <aside className="min-w-0 space-y-6" aria-label={t('sessionDetail.controls')}>
-          <section
-            className="rounded-md border border-border bg-surface p-4"
-            aria-labelledby="session-controls-title"
-          >
-            <h2 id="session-controls-title" className="text-base font-semibold text-text-primary">
-              {t('sessionDetail.controls')}
-            </h2>
-            {agents.isError ? (
-              <div className="mt-3">
-                <RetryState
-                  message={
-                    agents.data ? t('sessionDetail.agentsStale') : t('sessionDetail.agentsError')
-                  }
-                  onRetry={() => void agents.refetch()}
-                />
-              </div>
-            ) : null}
-
-            <form className="mt-4 grid gap-3" onSubmit={submitLeader}>
-              <div className="flex items-center gap-2 text-sm font-medium text-text-primary">
-                <Crown className="h-4 w-4" />
-                {t('sessionDetail.leader')}
-              </div>
-              <Label className="sr-only" htmlFor="session-leader">
-                {t('sessionDetail.sessionLeader')}
-              </Label>
-              <select
-                id="session-leader"
-                value={leaderId}
-                disabled={!agents.data || teamsLoading || leaderMutation.isPending}
-                onChange={(event) => {
-                  setLeaderId(event.target.value)
-                  leaderMutation.reset()
-                }}
-                className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <option value="">{t('sessionDetail.privateChat')}</option>
-                {possibleLeaders.map((leader) => (
-                  <option key={leader.id} value={leader.id}>
-                    {leader.display_name} ({leader.name})
-                  </option>
-                ))}
-              </select>
-              {teamsLoading ? (
-                <p className="text-xs text-text-muted">{t('sessionDetail.loadingLeaders')}</p>
-              ) : leaderTeams.isError ? (
-                <RetryState
-                  message={t('sessionDetail.leadersError')}
-                  onRetry={() => void leaderTeams.refetch()}
-                />
+          {legacyControls ? (
+            <section
+              className="rounded-md border border-border bg-surface p-4"
+              aria-labelledby="session-controls-title"
+            >
+              <h2 id="session-controls-title" className="text-base font-semibold text-text-primary">
+                {t('sessionDetail.controls')}
+              </h2>
+              {agents.isError ? (
+                <div className="mt-3">
+                  <RetryState
+                    message={
+                      agents.data ? t('sessionDetail.agentsStale') : t('sessionDetail.agentsError')
+                    }
+                    onRetry={() => void agents.refetch()}
+                  />
+                </div>
               ) : null}
-              {leaderMutation.isError ? (
-                <ErrorState message={t('sessionDetail.leaderError')} />
-              ) : null}
-              <Button
-                type="submit"
-                variant="outline"
-                className="h-10"
-                disabled={
-                  !agents.data ||
-                  teamsLoading ||
-                  leaderMutation.isPending ||
-                  leaderId === (session.data.leader_agent_id ?? '')
-                }
-              >
-                <Crown className="h-4 w-4" />
-                {leaderMutation.isPending
-                  ? t('sessionDetail.saving')
-                  : t('sessionDetail.saveLeader')}
-              </Button>
-            </form>
 
-            <form className="mt-5 grid gap-3 border-t border-border pt-5" onSubmit={submitHandoff}>
-              <div className="flex items-center gap-2 text-sm font-medium text-text-primary">
-                <ArrowRightLeft className="h-4 w-4" />
-                {t('sessionDetail.handoff')}
-              </div>
-              <Label className="sr-only" htmlFor="session-handoff-agent">
-                {t('sessionDetail.handoffTarget')}
-              </Label>
-              <select
-                id="session-handoff-agent"
-                value={targetAgentId}
-                disabled={!agents.data || handoffMutation.isPending}
-                onChange={(event) => {
-                  setTargetAgentId(event.target.value)
-                  handoffMutation.reset()
-                }}
-                className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <option value="">{t('sessionDetail.selectAgent')}</option>
-                {agents.data
-                  ?.filter((agent) => agent.id !== session.data.primary_agent_id)
-                  .map((agent) => (
-                    <option key={agent.id} value={agent.id}>
-                      {agent.display_name} ({agent.name})
+              <form className="mt-4 grid gap-3" onSubmit={submitLeader}>
+                <div className="flex items-center gap-2 text-sm font-medium text-text-primary">
+                  <Crown className="h-4 w-4" />
+                  {t('sessionDetail.leader')}
+                </div>
+                <Label className="sr-only" htmlFor="session-leader">
+                  {t('sessionDetail.sessionLeader')}
+                </Label>
+                <select
+                  id="session-leader"
+                  value={leaderId}
+                  disabled={!agents.data || teamsLoading || leaderMutation.isPending}
+                  onChange={(event) => {
+                    setLeaderId(event.target.value)
+                    leaderMutation.reset()
+                  }}
+                  className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <option value="">{t('sessionDetail.privateChat')}</option>
+                  {possibleLeaders.map((leader) => (
+                    <option key={leader.id} value={leader.id}>
+                      {leader.display_name} ({leader.name})
                     </option>
                   ))}
-              </select>
-              <p className="text-xs text-text-muted">{t('sessionDetail.handoffHelp')}</p>
-              {handoffMutation.isError ? (
-                <ErrorState message={t('sessionDetail.handoffError')} />
-              ) : null}
-              <Button
-                type="submit"
-                variant="outline"
-                className="h-10"
-                disabled={!targetAgentId || handoffMutation.isPending}
-              >
-                <ArrowRightLeft className="h-4 w-4" />
-                {handoffMutation.isPending
-                  ? t('sessionDetail.handingOff')
-                  : t('sessionDetail.handoffAction')}
-              </Button>
-            </form>
+                </select>
+                {teamsLoading ? (
+                  <p className="text-xs text-text-muted">{t('sessionDetail.loadingLeaders')}</p>
+                ) : leaderTeams.isError ? (
+                  <RetryState
+                    message={t('sessionDetail.leadersError')}
+                    onRetry={() => void leaderTeams.refetch()}
+                  />
+                ) : null}
+                {leaderMutation.isError ? (
+                  <ErrorState message={t('sessionDetail.leaderError')} />
+                ) : null}
+                <Button
+                  type="submit"
+                  variant="outline"
+                  className="h-10"
+                  disabled={
+                    !agents.data ||
+                    teamsLoading ||
+                    leaderMutation.isPending ||
+                    leaderId === (session.data.leader_agent_id ?? '')
+                  }
+                >
+                  <Crown className="h-4 w-4" />
+                  {leaderMutation.isPending
+                    ? t('sessionDetail.saving')
+                    : t('sessionDetail.saveLeader')}
+                </Button>
+              </form>
 
-            {canManageAgents ? (
-              <Button asChild variant="ghost" className="mt-3 h-10 w-full">
-                <Link to={`/agents/${session.data.primary_agent_id}/sessions`}>
-                  <ExternalLink className="h-4 w-4" />
-                  {t('sessionDetail.openAgentSessions')}
-                </Link>
-              </Button>
-            ) : null}
-          </section>
+              <form
+                className="mt-5 grid gap-3 border-t border-border pt-5"
+                onSubmit={submitHandoff}
+              >
+                <div className="flex items-center gap-2 text-sm font-medium text-text-primary">
+                  <ArrowRightLeft className="h-4 w-4" />
+                  {t('sessionDetail.handoff')}
+                </div>
+                <Label className="sr-only" htmlFor="session-handoff-agent">
+                  {t('sessionDetail.handoffTarget')}
+                </Label>
+                <select
+                  id="session-handoff-agent"
+                  value={targetAgentId}
+                  disabled={!agents.data || handoffMutation.isPending}
+                  onChange={(event) => {
+                    setTargetAgentId(event.target.value)
+                    handoffMutation.reset()
+                  }}
+                  className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <option value="">{t('sessionDetail.selectAgent')}</option>
+                  {agents.data
+                    ?.filter((agent) => agent.id !== session.data.primary_agent_id)
+                    .map((agent) => (
+                      <option key={agent.id} value={agent.id}>
+                        {agent.display_name} ({agent.name})
+                      </option>
+                    ))}
+                </select>
+                <p className="text-xs text-text-muted">{t('sessionDetail.handoffHelp')}</p>
+                {handoffMutation.isError ? (
+                  <ErrorState message={t('sessionDetail.handoffError')} />
+                ) : null}
+                <Button
+                  type="submit"
+                  variant="outline"
+                  className="h-10"
+                  disabled={!targetAgentId || handoffMutation.isPending}
+                >
+                  <ArrowRightLeft className="h-4 w-4" />
+                  {handoffMutation.isPending
+                    ? t('sessionDetail.handingOff')
+                    : t('sessionDetail.handoffAction')}
+                </Button>
+              </form>
+
+              {canManageAgents ? (
+                <Button asChild variant="ghost" className="mt-3 h-10 w-full">
+                  <Link to={`/agents/${session.data.primary_agent_id}/sessions`}>
+                    <ExternalLink className="h-4 w-4" />
+                    {t('sessionDetail.openAgentSessions')}
+                  </Link>
+                </Button>
+              ) : null}
+            </section>
+          ) : canManageAgents ? (
+            <Button asChild variant="outline">
+              <Link to={`/agents/${session.data.primary_agent_id}`}>
+                <ExternalLink className="h-4 w-4" />
+                {t('agents.open')}
+              </Link>
+            </Button>
+          ) : null}
 
           <section aria-labelledby="session-participants-title">
             <SectionHeading
@@ -538,99 +607,104 @@ export function SessionDetailPage() {
             />
           </section>
 
-          <section
-            className="rounded-md border border-border bg-surface p-4"
-            aria-labelledby="session-delegation-title"
-          >
-            <h2 id="session-delegation-title" className="text-base font-semibold text-text-primary">
-              {t('sessionDetail.delegation')}
-            </h2>
-            <p className="mt-1 text-xs text-text-muted">{t('sessionDetail.delegationHelp')}</p>
-            <form
-              className="mt-4 grid gap-3"
-              onSubmit={submitDelegation}
-              aria-busy={delegationMutation.isPending}
+          {legacyControls ? (
+            <section
+              className="rounded-md border border-border bg-surface p-4"
+              aria-labelledby="session-delegation-title"
             >
-              <div className="grid gap-2">
-                <Label htmlFor="delegation-executor">{t('sessionDetail.executor')}</Label>
-                <select
-                  id="delegation-executor"
-                  value={delegationExecutorId}
-                  disabled={
-                    !session.data.leader_agent_id ||
-                    teamsLoading ||
-                    (leaderTeams.isError && !leaderTeams.data) ||
-                    delegationMutation.isPending
-                  }
-                  onChange={(event) => {
-                    setDelegationExecutorId(event.target.value)
-                    resetDelegationRequest()
-                  }}
-                  className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <option value="">{t('sessionDetail.selectExecutor')}</option>
-                  {delegationExecutors.map((executor) => (
-                    <option key={executor.executor_agent_id} value={executor.executor_agent_id}>
-                      {executor.executor_display_name} ({executor.executor_name})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="delegation-title">{t('sessionDetail.delegationTitle')}</Label>
-                <Input
-                  id="delegation-title"
-                  className="h-10"
-                  value={delegationTitle}
-                  required
-                  disabled={delegationMutation.isPending}
-                  onChange={(event) => {
-                    setDelegationTitle(event.target.value)
-                    resetDelegationRequest()
-                  }}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="delegation-message">{t('sessionDetail.delegationMessage')}</Label>
-                <Textarea
-                  id="delegation-message"
-                  className="min-h-20"
-                  value={delegationMessage}
-                  disabled={delegationMutation.isPending}
-                  onChange={(event) => {
-                    setDelegationMessage(event.target.value)
-                    resetDelegationRequest()
-                  }}
-                  placeholder={t('sessionDetail.delegationPlaceholder')}
-                />
-              </div>
-              {!session.data.leader_agent_id ? (
-                <p className="text-xs text-text-muted">
-                  {t('sessionDetail.delegationNeedsLeader')}
-                </p>
-              ) : !delegationExecutors.length && !teamsLoading && !leaderTeams.isError ? (
-                <p className="text-xs text-text-muted">{t('sessionDetail.noExecutors')}</p>
-              ) : null}
-              {delegationMutation.isError ? (
-                <ErrorState message={t('sessionDetail.delegationError')} />
-              ) : null}
-              <Button
-                type="submit"
-                className="h-10"
-                disabled={
-                  delegationMutation.isPending ||
-                  !session.data.leader_agent_id ||
-                  !delegationExecutorId ||
-                  !delegationTitle.trim()
-                }
+              <h2
+                id="session-delegation-title"
+                className="text-base font-semibold text-text-primary"
               >
-                <ArrowRightLeft className="h-4 w-4" />
-                {delegationMutation.isPending
-                  ? t('sessionDetail.delegating')
-                  : t('sessionDetail.delegate')}
-              </Button>
-            </form>
-          </section>
+                {t('sessionDetail.delegation')}
+              </h2>
+              <p className="mt-1 text-xs text-text-muted">{t('sessionDetail.delegationHelp')}</p>
+              <form
+                className="mt-4 grid gap-3"
+                onSubmit={submitDelegation}
+                aria-busy={delegationMutation.isPending}
+              >
+                <div className="grid gap-2">
+                  <Label htmlFor="delegation-executor">{t('sessionDetail.executor')}</Label>
+                  <select
+                    id="delegation-executor"
+                    value={delegationExecutorId}
+                    disabled={
+                      !session.data.leader_agent_id ||
+                      teamsLoading ||
+                      (leaderTeams.isError && !leaderTeams.data) ||
+                      delegationMutation.isPending
+                    }
+                    onChange={(event) => {
+                      setDelegationExecutorId(event.target.value)
+                      resetDelegationRequest()
+                    }}
+                    className="h-10 min-w-0 rounded-md border border-border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <option value="">{t('sessionDetail.selectExecutor')}</option>
+                    {delegationExecutors.map((executor) => (
+                      <option key={executor.executor_agent_id} value={executor.executor_agent_id}>
+                        {executor.executor_display_name} ({executor.executor_name})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="delegation-title">{t('sessionDetail.delegationTitle')}</Label>
+                  <Input
+                    id="delegation-title"
+                    className="h-10"
+                    value={delegationTitle}
+                    required
+                    disabled={delegationMutation.isPending}
+                    onChange={(event) => {
+                      setDelegationTitle(event.target.value)
+                      resetDelegationRequest()
+                    }}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="delegation-message">{t('sessionDetail.delegationMessage')}</Label>
+                  <Textarea
+                    id="delegation-message"
+                    className="min-h-20"
+                    value={delegationMessage}
+                    disabled={delegationMutation.isPending}
+                    onChange={(event) => {
+                      setDelegationMessage(event.target.value)
+                      resetDelegationRequest()
+                    }}
+                    placeholder={t('sessionDetail.delegationPlaceholder')}
+                  />
+                </div>
+                {!session.data.leader_agent_id ? (
+                  <p className="text-xs text-text-muted">
+                    {t('sessionDetail.delegationNeedsLeader')}
+                  </p>
+                ) : !delegationExecutors.length && !teamsLoading && !leaderTeams.isError ? (
+                  <p className="text-xs text-text-muted">{t('sessionDetail.noExecutors')}</p>
+                ) : null}
+                {delegationMutation.isError ? (
+                  <ErrorState message={t('sessionDetail.delegationError')} />
+                ) : null}
+                <Button
+                  type="submit"
+                  className="h-10"
+                  disabled={
+                    delegationMutation.isPending ||
+                    !session.data.leader_agent_id ||
+                    !delegationExecutorId ||
+                    !delegationTitle.trim()
+                  }
+                >
+                  <ArrowRightLeft className="h-4 w-4" />
+                  {delegationMutation.isPending
+                    ? t('sessionDetail.delegating')
+                    : t('sessionDetail.delegate')}
+                </Button>
+              </form>
+            </section>
+          ) : null}
         </aside>
       </div>
     </>

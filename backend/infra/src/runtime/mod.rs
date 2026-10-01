@@ -74,14 +74,220 @@ impl LocalRuntimeSupervisor {
             config,
             repo: repo.clone(),
             children: Arc::new(Mutex::new(HashMap::new())),
-            client: reqwest::Client::new(),
+            client: reqwest::Client::builder()
+                .connect_timeout(Duration::from_secs(5))
+                .build()
+                .expect("runtime HTTP client configuration"),
             events,
             alerts: Arc::new(app::RepositoryAlertService {
                 repository: repo.clone(),
             }),
         };
         supervisor.spawn_reconciler();
+        supervisor.spawn_message_dispatcher();
+        supervisor.spawn_config_activator();
         supervisor
+    }
+
+    fn spawn_message_dispatcher(&self) {
+        let supervisor = self.clone();
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            handle.spawn(async move {
+                loop {
+                    match supervisor.repo.claim_message_dispatch().await {
+                        Ok(Some(message)) => {
+                            let result = async {
+                                let session =
+                                    supervisor.repo.get_session(message.session_id).await?;
+                                let agent =
+                                    supervisor.repo.get_agent(session.primary_agent_id).await?;
+                                supervisor.send_message(&agent, &session, &message).await
+                            }
+                            .await;
+                            let error = match result {
+                                Ok(response) if response.status != AgentStatus::Failed => None,
+                                Ok(response) => Some(response.message),
+                                Err(error) => Some(crate::redact_text(&error.to_string())),
+                            };
+                            // Unknown acceptance never causes automatic redispatch.
+                            let _ = supervisor
+                                .repo
+                                .finish_message_dispatch(message.id, error.is_some(), error)
+                                .await;
+                        }
+                        Ok(None) => sleep(Duration::from_millis(250)).await,
+                        Err(error) => {
+                            tracing::warn!("message outbox failed: {error}");
+                            sleep(Duration::from_secs(1)).await;
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    fn spawn_config_activator(&self) {
+        let supervisor = self.clone();
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            handle.spawn(async move {
+                loop {
+                    match supervisor.repo.claim_config_activation().await {
+                        Ok(Some(revision)) => {
+                            let result = supervisor.apply_config_revision(&revision).await;
+                            let reconciled = !matches!(&result, Err(AppError::Unavailable(_)));
+                            let error = result
+                                .err()
+                                .map(|error| crate::redact_text(&error.to_string()));
+                            if let Err(error) = supervisor
+                                .repo
+                                .finish_config_activation(
+                                    revision.agent_id,
+                                    revision.revision,
+                                    error,
+                                    reconciled,
+                                )
+                                .await
+                            {
+                                tracing::error!(
+                                    "configuration activation requires reconciliation: {error}"
+                                );
+                            }
+                        }
+                        Ok(None) => sleep(Duration::from_secs(1)).await,
+                        Err(error) => {
+                            tracing::warn!("configuration activation queue failed: {error}");
+                            sleep(Duration::from_secs(2)).await;
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    async fn apply_config_revision(
+        &self,
+        revision: &domain::AgentConfigRevision,
+    ) -> Result<(), AppError> {
+        let agent = self.repo.get_agent(revision.agent_id).await?;
+        if agent.kind != AgentKind::Hermes {
+            return Err(AppError::validation(
+                "Java Agent config activation is not implemented",
+            ));
+        }
+        let running = agent.status == AgentStatus::Running;
+        if !matches!(
+            agent.status,
+            AgentStatus::Running | AgentStatus::Ready | AgentStatus::Stopped
+        ) {
+            return Err(AppError::conflict(
+                "runtime must be running, ready or stopped before configuration activation",
+            ));
+        }
+        if running && !self.children.lock().await.contains_key(&agent.id) {
+            return Err(AppError::conflict(
+                "untracked runtime must be reconciled before configuration activation",
+            ));
+        }
+        let files = crate::configuration_files(&agent, &self.config, revision).await?;
+        let mut backups = Vec::new();
+        for (path, _) in &files {
+            let old = match tokio::fs::read(path).await {
+                Ok(content) => Some(content),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+                Err(error) => return Err(AppError::internal(error)),
+            };
+            backups.push((path.clone(), old));
+        }
+        if running {
+            self.stop(&agent).await?;
+        }
+        let applied = async {
+            for (path, body) in &files {
+                if body.is_empty() && path.file_name().is_some_and(|name| name == "SKILL.md") {
+                    if tokio::fs::try_exists(path)
+                        .await
+                        .map_err(AppError::internal)?
+                    {
+                        tokio::fs::remove_file(path)
+                            .await
+                            .map_err(AppError::internal)?;
+                    }
+                } else {
+                    crate::write_configuration_file(path, body.as_bytes()).await?;
+                }
+            }
+            for (path, body) in &files {
+                if body.is_empty() && path.file_name().is_some_and(|name| name == "SKILL.md") {
+                    if tokio::fs::try_exists(path)
+                        .await
+                        .map_err(AppError::internal)?
+                    {
+                        return Err(AppError::validation("disabled skill is still present"));
+                    }
+                } else if tokio::fs::read(path).await.map_err(AppError::internal)?
+                    != body.as_bytes()
+                {
+                    return Err(AppError::validation(
+                        "configuration readback did not match the revision",
+                    ));
+                }
+            }
+            if running && self.start(&agent).await?.status != AgentStatus::Running {
+                return Err(AppError::validation(
+                    "runtime did not pass readiness with the new configuration",
+                ));
+            }
+            Ok::<_, AppError>(())
+        }
+        .await;
+        if let Err(error) = applied {
+            if running {
+                let _ = self.stop(&agent).await;
+            }
+            let rollback = async {
+                for (path, old) in backups {
+                    match old {
+                        Some(content) => crate::write_configuration_file(&path, &content).await?,
+                        None => {
+                            if tokio::fs::try_exists(&path)
+                                .await
+                                .map_err(AppError::internal)?
+                            {
+                                tokio::fs::remove_file(path)
+                                    .await
+                                    .map_err(AppError::internal)?;
+                            }
+                        }
+                    }
+                }
+                if running && self.start(&agent).await?.status != AgentStatus::Running {
+                    return Err(AppError::Unavailable(
+                        "configuration rollback restored files but runtime readiness failed".into(),
+                    ));
+                }
+                Ok::<_, AppError>(())
+            }
+            .await;
+            if rollback.is_err() {
+                return Err(AppError::Unavailable(
+                    "configuration rollback could not be verified; agent remains drained".into(),
+                ));
+            }
+            return Err(error);
+        }
+        if let Err(error) = self
+            .repo
+            .insert_event(
+                Some(agent.id),
+                "config_revision_activated",
+                "Configuration applied and read back",
+                json!({"revision": revision.revision}),
+            )
+            .await
+        {
+            tracing::warn!("configuration applied but event persistence failed: {error}");
+        }
+        Ok(())
     }
 
     fn spawn_reconciler(&self) {
@@ -94,6 +300,14 @@ impl LocalRuntimeSupervisor {
                         continue;
                     };
                     for agent in agents {
+                        if supervisor
+                            .repo
+                            .agent_is_draining(agent.id)
+                            .await
+                            .unwrap_or(true)
+                        {
+                            continue;
+                        }
                         match app::reconcile_action(agent.status, agent.runtime.desired_state) {
                             app::ReconcileAction::Restart => {
                                 tracing::info!(
@@ -131,6 +345,22 @@ impl LocalRuntimeSupervisor {
     fn hermes_command(&self, agent: &Agent) -> Result<Command, AppError> {
         let token = crate::agent_runtime_token(&self.config, agent.id)?;
         let mut command = Command::new(&self.config.fleet.hermes_command);
+        command.env_clear();
+        for name in [
+            "PATH",
+            "HOME",
+            "USERPROFILE",
+            "SYSTEMROOT",
+            "WINDIR",
+            "TEMP",
+            "TMP",
+            "LANG",
+            "LC_ALL",
+        ] {
+            if let Some(value) = std::env::var_os(name) {
+                command.env(name, value);
+            }
+        }
         command
             .arg("serve")
             .arg("--host")
@@ -478,6 +708,7 @@ impl LocalRuntimeSupervisor {
         let health = self
             .client
             .get(format!("{base}/health"))
+            .timeout(Duration::from_secs(3))
             .bearer_auth(&token)
             .send()
             .await
@@ -491,6 +722,7 @@ impl LocalRuntimeSupervisor {
         let capabilities = self
             .client
             .get(format!("{base}/v1/capabilities"))
+            .timeout(Duration::from_secs(3))
             .bearer_auth(token)
             .send()
             .await
@@ -558,6 +790,7 @@ impl LocalRuntimeSupervisor {
             .post(format!("{base}/v1/runs"))
             .bearer_auth(token)
             .header("Idempotency-Key", message.id.to_string())
+            .timeout(Duration::from_secs(30))
             .json(&HermesRunStartRequest {
                 input: Self::runtime_input(agent, session, message),
                 session_id: runtime_session_id,
@@ -628,7 +861,7 @@ impl LocalRuntimeSupervisor {
                     .repo
                     .update_session_message_delivery(
                         message.id,
-                        MessageDeliveryState::Failed,
+                        MessageDeliveryState::Dispatched,
                         Some(runtime_run_id.clone()),
                         Some(redacted.clone()),
                     )
@@ -638,7 +871,7 @@ impl LocalRuntimeSupervisor {
                     .update_session_agent_run_dispatch(
                         run.id,
                         Some(runtime_run_id.clone()),
-                        SessionRunState::Failed,
+                        SessionRunState::Waiting,
                         Some(redacted.clone()),
                     )
                     .await
@@ -738,18 +971,34 @@ impl LocalRuntimeSupervisor {
         }
 
         if !terminal_seen {
-            let body = if final_text.trim().is_empty() {
-                "Hermes run completed without a final response payload".to_string()
-            } else {
-                final_text
+            let response = self
+                .client
+                .get(format!("{base}/v1/runs/{runtime_run_id}"))
+                .timeout(Duration::from_secs(10))
+                .bearer_auth(crate::agent_runtime_token(&self.config, agent.id)?)
+                .send()
+                .await
+                .map_err(AppError::internal)?;
+            if !response.status().is_success() {
+                return Err(AppError::Unavailable("Hermes stream ended without a terminal event; status reconciliation is required".into()));
+            }
+            let payload: Value = response.json().await.map_err(AppError::internal)?;
+            let state = pick_string(&payload, &["state", "status"]).unwrap_or_default();
+            let event = match state.as_str() {
+                "completed" | "succeeded" => "run.completed",
+                "failed" | "interrupted" => "run.failed",
+                "cancelled" | "stopped" => "run.cancelled",
+                _ => return Err(AppError::Unavailable("Hermes stream ended while run status is non-terminal; reconciliation is required".into())),
             };
-            self.persist_assistant_completion(
+            self.handle_hermes_event(
                 &agent,
                 &session,
                 &message,
                 &run,
                 &runtime_run_id,
-                body,
+                Some(event.to_string()),
+                payload.to_string(),
+                &mut final_text,
             )
             .await?;
         }
@@ -776,12 +1025,22 @@ impl LocalRuntimeSupervisor {
         if event_type.contains("delta") {
             if let Some(delta) = pick_string(&payload, &["delta", "text", "output_text"]) {
                 final_text.push_str(&delta);
-                let _ = self.events.send(FleetEvent::SessionRunDelta {
-                    session_id: session.id.to_string(),
-                    run_id: run.id.to_string(),
-                    runtime_run_id: Some(runtime_run_id.to_string()),
-                    delta,
-                });
+                let mut secrets: Vec<String> = std::env::vars()
+                    .filter(|(name, _)| name.starts_with("FLEET_CONTROL_SECRET__"))
+                    .map(|(_, value)| value)
+                    .collect();
+                secrets.push(crate::agent_runtime_token(&self.config, agent.id)?);
+                let text = crate::redact_stream_text(final_text, &secrets);
+                self.repo
+                    .append_session_event(
+                        session.id,
+                        "session_run_delta",
+                        json!({
+                            "type": "session_run_delta", "session_id": session.id, "run_id": run.id,
+                            "runtime_run_id": runtime_run_id, "text": text,
+                        }),
+                    )
+                    .await?;
             }
             return Ok(false);
         }
@@ -862,7 +1121,10 @@ impl LocalRuntimeSupervisor {
             return Ok(true);
         }
 
-        if event_type.contains("fail") || event_type.contains("error") {
+        if event_type.contains("fail")
+            || event_type.contains("error")
+            || event_type.contains("interrupted")
+        {
             let error =
                 pick_error(&payload).unwrap_or_else(|| format!("Hermes event {event_type}"));
             self.repo
@@ -1779,6 +2041,7 @@ mod tests {
             kind: AgentKind::Hermes,
             product_role,
             role: domain::AgentRole::Developer,
+            sdlc_role: Some(domain::SdlcRole::Developer),
             status: AgentStatus::Running,
             display_name: "Agent".to_string(),
             description: None,

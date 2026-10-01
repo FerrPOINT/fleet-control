@@ -2,6 +2,9 @@
   <img src="docs/assets/fleet-control-readme-banner.svg" alt="Base Fleet Control - isolated agent runtime operations" />
 </p>
 
+SDLC implementation is in progress, not production accepted. Current scope and
+remaining blockers: [SDLC implementation](docs/SDLC_IMPLEMENTATION.md).
+
 <p align="center">
   <a href="#overview"><img src="https://img.shields.io/badge/Overview-3730a3?style=for-the-badge" alt="Overview" /></a>
   <a href="#capabilities"><img src="https://img.shields.io/badge/Capabilities-4338ca?style=for-the-badge" alt="Capabilities" /></a>
@@ -193,7 +196,7 @@ flowchart TD
     API --> Redis[(Redis)]
     App --> Runtime[Runtime supervisor/adapters]
     Runtime --> Hermes[Hermes serve process]
-    Runtime --> Java[Java Agent phase 2 contract]
+    Runtime --> Java[Java jar lifecycle and phase 2 chat]
     API --> OpenAPI[OpenAPI contract]
     OpenAPI --> Gen[Generated frontend types]
 ```
@@ -244,6 +247,7 @@ fleet-control/
 ## Документы
 
 - [docs/README.md](docs/README.md) — обзор документации.
+- [docs/CHAT.md](docs/CHAT.md) — полный контракт чатов и сессий, текущие ограничения и критерии приёмки.
 - [docs/TZ.md](docs/TZ.md), [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md) — scope и требования.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/FRONTEND_ARCHITECTURE.md](docs/FRONTEND_ARCHITECTURE.md), [docs/contracts](docs/contracts) — архитектура и контракты.
 - [docs/DATA_MODEL.md](docs/DATA_MODEL.md), [docs/API.md](docs/API.md), [docs/ENV.md](docs/ENV.md) — технические справочники.

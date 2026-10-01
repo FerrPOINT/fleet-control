@@ -1,7 +1,13 @@
 import type { ReactNode } from 'react'
-import { AlertCircle } from 'lucide-react'
+import {
+  PageHeader as BasePageHeader,
+  ErrorState as BaseErrorState,
+  EmptyState as BaseEmptyState,
+  ResourceStateView,
+} from '@sdlc/ui/ui'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/shared/lib/utils'
+import { sdlcRoleLabel } from '@/shared/sdlc-roles'
 import type { Agent, AgentKind, AgentStatus, SessionState, SkillState } from '@/api/types'
 
 export function PageHeader({
@@ -14,14 +20,8 @@ export function PageHeader({
   actions?: ReactNode
 }) {
   return (
-    <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-      <div className="min-w-0">
-        <h1 className="text-2xl font-semibold text-text-primary">{title}</h1>
-        {description ? (
-          <p className="mt-1 max-w-3xl text-sm text-text-muted">{description}</p>
-        ) : null}
-      </div>
-      {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+    <div className="mb-5">
+      <BasePageHeader title={title} context={description} actions={actions} />
     </div>
   )
 }
@@ -81,51 +81,19 @@ export function ProductRoleBadge({ value }: { value: Agent['product_role'] }) {
 }
 
 export function ErrorState({ message }: { message: string }) {
-  return (
-    <div
-      role="alert"
-      className="flex items-center gap-2 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-text-primary"
-    >
-      <AlertCircle className="h-4 w-4 shrink-0 text-danger" />
-      {message}
-    </div>
-  )
+  return <BaseErrorState message={message} />
 }
 
 export function AccessDeniedState() {
-  return (
-    <div className="rounded-md border border-warning/40 bg-warning/10 p-5">
-      <div className="flex items-start gap-3">
-        <AlertCircle className="mt-0.5 h-5 w-5 text-warning" />
-        <div>
-          <h2 className="text-base font-semibold text-text-primary">Access denied</h2>
-          <p className="mt-1 text-sm text-text-muted">
-            Your role can use private sessions, but this fleet administration view requires an
-            operator or admin permission.
-          </p>
-        </div>
-      </div>
-    </div>
-  )
+  return <ResourceStateView state={{ kind: 'permission-denied' }} />
 }
 
 export function NotFoundState() {
-  return (
-    <div className="rounded-md border border-border bg-surface p-5">
-      <h2 className="text-base font-semibold text-text-primary">Page not found</h2>
-      <p className="mt-1 text-sm text-text-muted">
-        This route is not part of the Fleet Control application map.
-      </p>
-    </div>
-  )
+  return <ResourceStateView state={{ kind: 'not-found' }} />
 }
 
 export function EmptyState({ title }: { title: string }) {
-  return (
-    <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-text-muted">
-      {title}
-    </div>
-  )
+  return <BaseEmptyState message={title} />
 }
 
 export function JsonBlock({ value }: { value: unknown }) {
@@ -147,6 +115,9 @@ export function AgentIdentity({ agent }: { agent: Agent }) {
         <ProductRoleBadge value={agent.product_role} />
         <StatusBadge value={agent.status} />
         {health ? <StatusBadge value={health} /> : null}
+        {agent.sdlc_role ? (
+          <span className="text-xs text-text-muted">{sdlcRoleLabel(agent.sdlc_role)}</span>
+        ) : null}
       </div>
       <p className="mt-1 text-xs text-text-muted">
         {agent.name} · {t('agent.profile')}{' '}

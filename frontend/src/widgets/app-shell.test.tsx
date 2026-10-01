@@ -26,7 +26,7 @@ const desktop = {
   removeEventListener: vi.fn(),
 }
 
-function renderShell(path = '/sessions/session-1') {
+function renderShell(path = '/chats/session-1') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
@@ -40,6 +40,7 @@ function renderShell(path = '/sessions/session-1') {
               <Route path="/settings" element={<h1>Settings content</h1>} />
               <Route path="/agents/:agentId/runtime" element={<h1>Runtime content</h1>} />
               <Route path="/sessions/:sessionId" element={<h1>Session content</h1>} />
+              <Route path="/chats/:sessionId" element={<h1>Session content</h1>} />
             </Route>
           </Routes>
         </MemoryRouter>
@@ -90,7 +91,7 @@ describe('AppShell', () => {
       ),
     ).toEqual(['leading', 'services', 'actions'])
     const sidebar = container.querySelector('aside')!
-    expect(sidebar).toHaveClass('top-[var(--shell-header-height)]')
+    expect(sidebar).toHaveClass('base-shell-sidebar')
     expect(sidebar).not.toHaveTextContent('Fleet Control')
     expect(sidebar).not.toHaveTextContent('Fleet Operator')
     expect(screen.getByRole('link', { name: 'Fleet Control' })).toHaveAttribute('href', '/')
@@ -144,9 +145,10 @@ describe('AppShell', () => {
       'data-page-layout',
       'detail-with-aside',
     )
-    const sessions = screen.getByRole('link', { name: 'Сессии' })
-    expect(sessions).toHaveClass('bg-surface-raised')
+    const sessions = screen.getByRole('link', { name: 'Чаты' })
+    expect(sessions).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('link', { name: 'Агенты' })).toBeVisible()
+    expect(screen.queryByRole('link', { name: 'Лидеры' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Настройки' })).not.toBeInTheDocument()
     expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument()
   })
@@ -167,7 +169,10 @@ describe('AppShell', () => {
 
     fireEvent.click(trigger)
     const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByRole('link', { name: 'Сессии' })).toHaveClass('bg-surface-raised')
+    expect(within(dialog).getByRole('link', { name: 'Чаты' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
 
     fireEvent.keyDown(document, { key: 'Escape' })
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())

@@ -133,6 +133,30 @@ export function updateAgentConfig(id: string, req: UpdateAgentConfigRequest) {
   })
 }
 
+export function listAgentConfigRevisions(id: string) {
+  return apiRequest<import('./types').AgentConfigRevision[]>(
+    `/api/v1/agents/${id}/config/revisions`,
+  )
+}
+
+export function validateAgentConfigRevision(id: string, revision: number) {
+  return apiRequest<import('./types').AgentConfigRevision>(
+    `/api/v1/agents/${id}/config/revisions/${revision}/validate`,
+    { method: 'POST', body: '{}' },
+  )
+}
+
+export function activateAgentConfigRevision(id: string, revision: number) {
+  return apiRequest<import('./types').AgentConfigRevision>(
+    `/api/v1/agents/${id}/config/revisions/${revision}/activate`,
+    { method: 'POST', body: '{}' },
+  )
+}
+
+export function getAgentSdlcReadiness(id: string) {
+  return apiRequest<import('./types').AgentSdlcReadiness>(`/api/v1/agents/${id}/readiness`)
+}
+
 export function listAgentSkills(id: string) {
   return apiRequest<import('./types').AgentSkill[]>(`/api/v1/agents/${id}/skills`)
 }

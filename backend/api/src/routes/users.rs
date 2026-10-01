@@ -41,6 +41,16 @@ pub async fn list_users(
     Extension(current): Extension<CurrentUser>,
     headers: HeaderMap,
 ) -> Result<Json<UserListResponse>, AppError> {
+    if !current.can_read_all_sessions() {
+        let user = ctx
+            .repo
+            .find_user_by_id(current.id)
+            .await?
+            .ok_or(AppError::Unauthorized)?;
+        return Ok(Json(UserListResponse {
+            users: vec![user.into()],
+        }));
+    }
     if let Ok(jwks) = std::env::var("FLEET_CONTROL_AUTH__CENTRAL_JWKS_URI") {
         let token = headers
             .get(header::AUTHORIZATION)
@@ -123,9 +133,6 @@ pub async fn update_user_role(
     Path(user_id): Path<Uuid>,
     Json(req): Json<UpdateUserRoleRequest>,
 ) -> Result<Json<UserResponse>, AppError> {
-    if std::env::var_os("FLEET_CONTROL_AUTH__CENTRAL_JWKS_URI").is_some() {
-        return Err(AppError::Forbidden);
-    }
     require_admin(&current)?;
     let audit_payload = serde_json::to_value(&req).map_err(AppError::internal)?;
     let user = ctx.repo.update_user_role(user_id, req).await?;

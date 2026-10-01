@@ -2,7 +2,13 @@
 
 ## Status
 
-Accepted.
+Superseded for browser authentication; retained as historical context.
+
+As of 2026-10-01, browser sign-in uses central authentication and
+`sdlc-auth-core`. A verified central subject resolves to a Fleet database user;
+the stored local role is authoritative and does not implicitly become admin.
+The local-token migration described below is historical, not the current
+browser authentication contract. See [Security](../SECURITY.md).
 
 ## Context
 
