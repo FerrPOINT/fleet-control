@@ -2,6 +2,10 @@
 .local
 .env
 .env.*
+**/.env
+**/.env.*
+data
+agents
 **/node_modules
 **/target
 **/__pycache__

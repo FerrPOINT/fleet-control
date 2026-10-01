@@ -31,6 +31,8 @@ the first registered user on a clean database is the administrator. Complete
 bootstrap on loopback before exposing the service. It is not the Central Auth
 deployment: use the platform's authenticated umbrella deployment for SSO. Do not
 infer shared identity or production isolation from standalone smoke success.
+The browser login uses Central Auth, not a local HMAC login form; this recipe
+alone accepts API clients and serves assets but does not establish browser SSO.
 
 Hermes, its dependencies and model credentials are not bundled in these images.
 Running real runtimes requires separately provisioned binaries, guarded agent
