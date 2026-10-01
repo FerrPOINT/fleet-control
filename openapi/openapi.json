@@ -3725,9 +3725,35 @@
             ],
             "format": "uuid"
           },
+          "commit_sha": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "detail": {},
+          "environment": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "idempotency_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
           "job_kind": {
             "$ref": "#/components/schemas/DeploymentJobKind"
+          },
+          "previous_release_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
           },
           "runtime_kind": {
             "oneOf": [
@@ -3943,7 +3969,9 @@
         "type": "string",
         "enum": [
           "provision",
-          "runtime_update"
+          "runtime_update",
+          "product_deploy",
+          "product_rollback"
         ]
       },
       "DeploymentJobState": {

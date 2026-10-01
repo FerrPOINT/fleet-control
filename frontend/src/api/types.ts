@@ -271,7 +271,8 @@ export interface AuditLogEntry {
   created_at: string
 }
 
-export type DeploymentJobKind = 'provision' | 'runtime_update'
+export type DeploymentJobKind =
+  'provision' | 'runtime_update' | 'product_deploy' | 'product_rollback'
 export type DeploymentJobState = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
 
 export interface DeploymentJob {
@@ -523,6 +524,10 @@ export interface CreateDeploymentJobRequest {
   runtime_kind?: AgentKind | null
   title: string
   detail?: Record<string, unknown> | null
+  environment?: string | null
+  commit_sha?: string | null
+  previous_release_id?: string | null
+  idempotency_key?: string | null
 }
 
 export interface RuntimeSettings {

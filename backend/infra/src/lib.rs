@@ -528,6 +528,14 @@ fn integration_settings_from_config(config: &AppConfig) -> IntegrationSettings {
 
 /// Shared validation for bulk deployment requests (unit-tested).
 fn validate_bulk_deployment_request(req: &BulkDeploymentRequest) -> Result<bool, AppError> {
+    if matches!(
+        req.job_kind,
+        DeploymentJobKind::ProductDeploy | DeploymentJobKind::ProductRollback
+    ) {
+        return Err(AppError::validation(
+            "product deployments require a single idempotent request",
+        ));
+    }
     if req.title.trim().is_empty() {
         return Err(AppError::validation("deployment job title is required"));
     }
@@ -3134,12 +3142,81 @@ impl FleetRepository for PostgresFleetRepository {
         if req.title.trim().is_empty() {
             return Err(AppError::validation("deployment job title is required"));
         }
+        let product_job = matches!(
+            req.job_kind,
+            DeploymentJobKind::ProductDeploy | DeploymentJobKind::ProductRollback
+        );
+        let detail = if product_job {
+            if req.agent_id.is_some() || req.runtime_kind.is_some() || req.detail.is_some() {
+                return Err(AppError::validation(
+                    "product jobs cannot target agent runtimes",
+                ));
+            }
+            if req.environment.as_deref() != Some("demo") || req.idempotency_key.is_none() {
+                return Err(AppError::validation(
+                    "product jobs require environment demo and idempotency_key",
+                ));
+            }
+            match req.job_kind {
+                DeploymentJobKind::ProductDeploy => {
+                    let sha = req.commit_sha.as_deref().unwrap_or_default();
+                    if sha.len() != 40
+                        || !sha.bytes().all(|byte| byte.is_ascii_hexdigit())
+                        || req.previous_release_id.is_some()
+                    {
+                        return Err(AppError::validation(
+                            "product_deploy requires exact commit_sha only",
+                        ));
+                    }
+                }
+                DeploymentJobKind::ProductRollback => {
+                    if req.previous_release_id.is_none() || req.commit_sha.is_some() {
+                        return Err(AppError::validation(
+                            "product_rollback requires previous_release_id only",
+                        ));
+                    }
+                }
+                _ => unreachable!(),
+            }
+            json!({
+                "environment": "demo",
+                "commit_sha": req.commit_sha,
+                "previous_release_id": req.previous_release_id,
+                "idempotency_key": req.idempotency_key,
+            })
+        } else {
+            if req.environment.is_some()
+                || req.commit_sha.is_some()
+                || req.previous_release_id.is_some()
+                || req.idempotency_key.is_some()
+            {
+                return Err(AppError::validation(
+                    "product deployment fields require a product job kind",
+                ));
+            }
+            redact_json(req.detail.unwrap_or_else(|| json!({})))
+        };
+        if let Some(key) = req.idempotency_key {
+            if let Some(existing) = deployment_job::Entity::find()
+                .filter(deployment_job::Column::IdempotencyKey.eq(key))
+                .one(&self.db)
+                .await
+                .map_err(AppError::database)?
+            {
+                if existing.job_kind != req.job_kind.as_str() || existing.detail != detail {
+                    return Err(AppError::conflict(
+                        "idempotency key belongs to another request",
+                    ));
+                }
+                return Ok(deployment_job_from_model(existing));
+            }
+        }
         if let Some(agent_id) = req.agent_id {
             load_agent_row(&self.db, agent_id).await?;
         }
         let id = Uuid::new_v4();
         let ts = now();
-        deployment_job::Entity::insert(deployment_job::ActiveModel {
+        let inserted = deployment_job::Entity::insert(deployment_job::ActiveModel {
             id: Set(id),
             job_kind: Set(req.job_kind.as_str().to_string()),
             state: Set(DeploymentJobState::Queued.as_str().to_string()),
@@ -3147,14 +3224,32 @@ impl FleetRepository for PostgresFleetRepository {
             runtime_kind: Set(req.runtime_kind.map(|kind| kind.as_str().to_string())),
             requested_by_user_id: Set(Some(requested_by_user_id)),
             title: Set(req.title.trim().to_string()),
-            detail: Set(redact_json(req.detail.unwrap_or_else(|| json!({})))),
+            detail: Set(detail.clone()),
+            idempotency_key: Set(req.idempotency_key),
             last_error: Set(None),
             created_at: Set(ts),
             updated_at: Set(ts),
         })
         .exec(&self.db)
-        .await
-        .map_err(AppError::database)?;
+        .await;
+        if let Err(error) = inserted {
+            if let Some(key) = req.idempotency_key {
+                if let Some(existing) = deployment_job::Entity::find()
+                    .filter(deployment_job::Column::IdempotencyKey.eq(key))
+                    .one(&self.db)
+                    .await
+                    .map_err(AppError::database)?
+                {
+                    if existing.job_kind == req.job_kind.as_str() && existing.detail == detail {
+                        return Ok(deployment_job_from_model(existing));
+                    }
+                    return Err(AppError::conflict(
+                        "idempotency key belongs to another request",
+                    ));
+                }
+            }
+            return Err(AppError::database(error));
+        }
         self.get_deployment_job(id).await
     }
 
@@ -3191,6 +3286,7 @@ impl FleetRepository for PostgresFleetRepository {
                     if rollback { " (rollback)" } else { "" }
                 )),
                 detail: Set(detail.clone()),
+                idempotency_key: Set(None),
                 last_error: Set(None),
                 created_at: Set(ts),
                 updated_at: Set(ts),
@@ -3220,6 +3316,27 @@ impl FleetRepository for PostgresFleetRepository {
             .await
             .map_err(AppError::database)?
             .ok_or_else(|| AppError::not_found("deployment_job", job_id))?;
+        if matches!(
+            parse_deployment_job_kind(&row.job_kind),
+            DeploymentJobKind::ProductDeploy | DeploymentJobKind::ProductRollback
+        ) {
+            self.db
+                .execute(Statement::from_sql_and_values(
+                    DatabaseBackend::Postgres,
+                    "UPDATE deployment_jobs \
+                     SET state = $2, detail = detail || $3::jsonb, last_error = $4, updated_at = now() \
+                     WHERE id = $1 AND (state = 'running' OR (state = 'queued' AND $2 IN ('running', 'failed')))",
+                    vec![
+                        job_id.into(),
+                        state.as_str().to_owned().into(),
+                        detail_patch.unwrap_or_else(|| json!({})).to_string().into(),
+                        last_error.into(),
+                    ],
+                ))
+                .await
+                .map_err(AppError::database)?;
+            return self.get_deployment_job(job_id).await;
+        }
         let detail_base = row.detail.clone();
         let mut model = row.into_active_model();
         model.state = Set(state.as_str().to_string());
@@ -3257,8 +3374,17 @@ impl FleetRepository for PostgresFleetRepository {
         ) {
             return Err(AppError::conflict("deployment job is already terminal"));
         }
+        let product_job = matches!(
+            parse_deployment_job_kind(&row.job_kind),
+            DeploymentJobKind::ProductDeploy | DeploymentJobKind::ProductRollback
+        );
         let mut model = row.into_active_model();
-        model.state = Set(DeploymentJobState::Cancelled.as_str().to_string());
+        if product_job {
+            model.state = Set(DeploymentJobState::Failed.as_str().to_string());
+            model.last_error = Set(Some("cancelled by operator".to_string()));
+        } else {
+            model.state = Set(DeploymentJobState::Cancelled.as_str().to_string());
+        }
         model.updated_at = Set(now());
         let updated = model.update(&self.db).await.map_err(AppError::database)?;
         Ok(deployment_job_from_model(updated))

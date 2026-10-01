@@ -39,8 +39,11 @@ Tables:
 - `runtime_approval_requests`: Hermes approval mirror records tied to a Fleet
   session run; details are redacted and successful approvals close pending
   records for that run.
-- `deployment_jobs`: provision/runtime update job queue and operator-visible
-  lifecycle state.
+- `deployment_jobs`: provision/runtime update and Service Pulse product deploy/rollback
+  jobs with operator-visible lifecycle state. Product jobs keep `demo`, exact SHA
+  or previous Forge release ID in `detail`, a unique nullable UUID
+  `idempotency_key`, Forge deployment/pipeline IDs and post-release health
+  result. Only product jobs require the key; agent runtime jobs remain separate.
 - `control_settings`: legacy typed JSON rows for runtime roots, ports,
   integrations and auth. They are retained for migration compatibility but
   are not an active configuration source; `GET /settings/*` reads startup
