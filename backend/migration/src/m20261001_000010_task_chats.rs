@@ -17,6 +17,29 @@ impl MigrationTrait for Migration {
                 created_at timestamptz NOT NULL DEFAULT now(),
                 UNIQUE(tracker_instance_id, task_id, agent_id)
              );
+             CREATE TABLE tracker_event_cursors (
+                session_id uuid PRIMARY KEY REFERENCES task_chat_bindings(session_id),
+                sequence bigint NOT NULL DEFAULT 0 CHECK (sequence >= 0)
+             );
+             CREATE TABLE tracker_event_inbox (
+                session_id uuid NOT NULL REFERENCES task_chat_bindings(session_id),
+                event_id uuid NOT NULL,
+                source_sequence bigint NOT NULL CHECK (source_sequence > 0),
+                event_type text NOT NULL,
+                payload_hash text NOT NULL CHECK (length(payload_hash) = 64),
+                message_id uuid NOT NULL UNIQUE REFERENCES session_messages(id),
+                source_created_at timestamptz NOT NULL,
+                received_at timestamptz NOT NULL DEFAULT now(),
+                PRIMARY KEY(session_id,event_id),
+                UNIQUE(session_id,source_sequence)
+             );
+             CREATE FUNCTION fleet_guard_tracker_receipt() RETURNS trigger AS $$
+             BEGIN
+                RAISE EXCEPTION 'Tracker event receipt is immutable' USING ERRCODE = '23514';
+             END;
+             $$ LANGUAGE plpgsql;
+             CREATE TRIGGER fleet_tracker_receipt_guard BEFORE UPDATE OR DELETE ON tracker_event_inbox
+                FOR EACH ROW EXECUTE FUNCTION fleet_guard_tracker_receipt();
              CREATE FUNCTION fleet_guard_task_chat() RETURNS trigger AS $$
              BEGIN
                 IF EXISTS (SELECT 1 FROM task_chat_bindings WHERE session_id = OLD.id)
@@ -101,6 +124,7 @@ impl MigrationTrait for Migration {
             .get_connection()
             .execute_unprepared(
                 "DROP TABLE runtime_approval_decisions; DROP FUNCTION fleet_guard_approval_decision(); DROP TABLE pm_run_bindings; DROP FUNCTION fleet_guard_pm_run();
+             DROP TABLE tracker_event_inbox; DROP FUNCTION fleet_guard_tracker_receipt(); DROP TABLE tracker_event_cursors;
              DROP TRIGGER fleet_task_chat_identity ON agent_sessions;
              DROP FUNCTION fleet_guard_task_chat();
              DROP INDEX session_messages_history_idx;

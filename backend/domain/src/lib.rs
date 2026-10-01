@@ -12,6 +12,8 @@ pub mod chats_directory;
 pub use chats_directory::*;
 pub mod approval_decisions;
 pub use approval_decisions::*;
+pub mod tracker_events;
+pub use tracker_events::*;
 
 pub type Timestamp = String;
 

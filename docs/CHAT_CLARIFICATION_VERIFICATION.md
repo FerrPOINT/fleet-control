@@ -115,6 +115,15 @@ These cases use authoritative database transactions and controlled HTTP servers,
 not live Central Auth/Hermes/provider acceptance. Cross-service replacement still
 needs confirmed runtime quiescence, not just a last-moment authorization read.
 
+The subsequent inbox foundation passed the complete WSL workspace gate: 96 library
+tests and 26 actual PostgreSQL 17.11 cases with both database URLs configured.
+Three new DB regressions prove concurrent exact replay, cursor persistence after
+reconnect, changed-payload/stale-page/foreign-binding rejection, receipt immutability
+and rollback of the entire page on an injected mid-page database failure. Hashes
+and safe metadata are stored, not arbitrary answer/result bodies. No prompt is
+queued by projection. The background gateway poller and real PM delivery are
+still remaining integration work; these tests do not prove either.
+
 The refreshed frontend passed 212 unit tests. Approval response shape errors are
 surfaced as loading errors rather than crashing the transcript. Screenshot/browser
 fixtures are kept distinct from real PM acceptance.

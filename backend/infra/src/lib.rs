@@ -5,6 +5,7 @@ pub mod entities;
 mod pm_execution;
 pub mod runtime;
 mod task_chats;
+mod tracker_events;
 
 use app::{
     AgentProvisioner, AuditLogFilter, FleetRepository, RuntimeApprovalCreate,
@@ -652,6 +653,19 @@ impl FleetRepository for PostgresFleetRepository {
         session_id: Uuid,
     ) -> Result<Option<domain::TaskChatBinding>, AppError> {
         self.task_binding(session_id).await
+    }
+    async fn tracker_event_cursor(&self, session_id: Uuid) -> Result<i64, AppError> {
+        self.source_event_cursor(session_id).await
+    }
+    async fn project_tracker_events(
+        &self,
+        session_id: Uuid,
+        binding: domain::TaskChatBinding,
+        after: i64,
+        page: domain::TrackerOutboxPage,
+    ) -> Result<domain::TrackerProjectionReceipt, AppError> {
+        self.persist_tracker_page(session_id, binding, after, page)
+            .await
     }
     async fn bind_task_chat(
         &self,

@@ -28,8 +28,12 @@ Task-bound lists/counts and all transcript/run/control reads now require current
 Tracker project access; streams recheck before emitting queued events. A reservation
 lock wait is followed by fresh assignment authorization before approval dispatch.
 
-Verified on the refreshed working branch on 2026-10-01: 93 Fleet Rust library tests
-and strict Clippy, 23 actual PostgreSQL 17.11 integration cases, 212 frontend tests and source/client
+Transactional Tracker inbox storage is now implemented: exact replay deduplication,
+immutable receipts, per-binding source cursor and safe transcript/stream projection.
+The authenticated background poller and PM answer delivery remain unwired.
+
+Verified on the refreshed working branch on 2026-10-01: 96 Fleet Rust library tests
+and strict Clippy, 26 actual PostgreSQL 17.11 integration cases, 212 frontend tests and source/client
 OpenAPI plus seven Tracker wire contracts. Three-browser fixture checks cover the
 chat tabs at all three viewports, targeted approvals and the server directory;
 chat checks include axe, tablet context and keyboard focus. These fixtures

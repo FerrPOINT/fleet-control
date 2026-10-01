@@ -131,3 +131,22 @@ uniqueness is scoped to the agent, not the fleet. Authenticated readback records
 terminal proof once and rejects regression or a different terminal result. DB
 triggers also prevent reservation/mapping/terminal mutation through direct SQL.
 Proof observation alone does not free visible run capacity or advance Tracker.
+
+## Tracker Event Inbox
+
+The same single pending migration adds `tracker_event_cursors` and
+`tracker_event_inbox`. Cursors belong to an immutable task-chat binding, not to an
+agent-wide or user-wide feed. Tracker's sequence is global, so task-specific gaps
+are valid; Fleet's stream cursor is allocated separately per session.
+
+Inbox receipts are unique by `(session_id,event_id)` and
+`(session_id,source_sequence)`, and reference one mirrored system message. They
+store a canonical event hash and source metadata, not the raw answer/result.
+Update/delete triggers protect receipts. One transaction commits the message,
+safe durable invalidation, receipt and source cursor. Exact concurrent replay
+adds nothing; changed payload/identity conflicts. A stale page with unseen events
+must be fetched again from the persisted cursor, never merged speculatively.
+
+This repository foundation is implemented. The authenticated background poller
+and answer-to-PM continuation are not yet wired; a projection receipt is not a
+runtime delivery receipt and does not transition Tracker business state.

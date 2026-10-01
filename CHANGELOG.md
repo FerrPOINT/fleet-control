@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Add transactional Tracker event inbox foundation with immutable replay receipts,
+  per-binding cursors and safe transcript/stream projections; background polling
+  and PM answer delivery remain separate integration work.
+
 - Recheck Tracker project access for task-bound transcript, lists/counts, runs,
   controls and every session-stream event; retained Fleet ownership cannot bypass revocation.
 - Revalidate PM assignment after approval reservation waits; definitely undispatched

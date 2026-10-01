@@ -705,6 +705,214 @@ async fn pm_fixture() -> Option<(PostgresFleetRepository, domain::PmRunReservati
     ))
 }
 
+fn tracker_page(binding: &domain::TaskChatBinding) -> domain::TrackerOutboxPage {
+    domain::TrackerOutboxPage {
+        events: [7, 12]
+            .into_iter()
+            .map(|sequence| domain::TrackerOutboxEvent {
+                sequence,
+                event_id: Uuid::new_v4(),
+                task_id: binding.task_id,
+                event_type: "clarification.answered".into(),
+                payload: domain::TrackerEventPayload {
+                    contract_version: 1,
+                    tracker_instance_id: binding.tracker_instance_id.clone(),
+                    project_id: binding.project_id,
+                    task_id: binding.task_id,
+                    root_task_id: binding.root_task_id,
+                    owner_subject: binding.owner_subject.clone(),
+                    stage: domain::TrackerStage::Draft,
+                    requirement_revision: Some(1),
+                    result: serde_json::json!({"text":"private-answer-secret","token":"not-for-transcript"}),
+                },
+                created_at: chrono::Utc::now(),
+            })
+            .collect(),
+    }
+}
+
+#[tokio::test]
+async fn tracker_inbox_projects_concurrent_replay_once_and_preserves_cursor_after_reconnect() {
+    let Some((repo, reservation)) = pm_fixture().await else {
+        return;
+    };
+    let session = reservation.session_id;
+    let binding = repo.get_task_chat_binding(session).await.unwrap().unwrap();
+    let page = tracker_page(&binding);
+    assert_eq!(repo.tracker_event_cursor(session).await.unwrap(), 0);
+    let (first, second) = tokio::join!(
+        repo.project_tracker_events(session, binding.clone(), 0, page.clone()),
+        repo.project_tracker_events(session, binding.clone(), 0, page.clone())
+    );
+    let receipts = [first.unwrap(), second.unwrap()];
+    assert_eq!(
+        receipts
+            .iter()
+            .map(|receipt| receipt.projected)
+            .sum::<usize>(),
+        2
+    );
+    assert!(receipts.iter().all(|receipt| receipt.cursor == 12));
+    let messages = repo.list_session_messages(session).await.unwrap();
+    let mirrored: Vec<_> = messages
+        .iter()
+        .filter(|message| {
+            message
+                .runtime_message_id
+                .as_deref()
+                .is_some_and(|id| id.starts_with("tracker:"))
+        })
+        .collect();
+    assert_eq!(mirrored.len(), 2);
+    for message in mirrored {
+        assert!(message.body.contains("delivery is separate"));
+        assert!(!message.body.contains("private-answer-secret"));
+        assert!(!message.body.contains("not-for-transcript"));
+        assert_eq!(
+            message.delivery_state,
+            domain::MessageDeliveryState::Mirrored
+        );
+    }
+    let events = repo.list_session_events(session, 0).await.unwrap();
+    let projected: Vec<_> = events
+        .iter()
+        .filter(|event| event.event_type == "tracker_event")
+        .collect();
+    assert_eq!(projected.len(), 2);
+    assert!(
+        projected
+            .iter()
+            .all(|event| !event.payload.to_string().contains("private-answer-secret"))
+    );
+    assert!(!repo.has_pending_session_dispatch(session).await.unwrap());
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let restarted = PostgresFleetRepository::new(db);
+    assert_eq!(restarted.tracker_event_cursor(session).await.unwrap(), 12);
+    let replay = restarted
+        .project_tracker_events(session, binding, 0, page)
+        .await
+        .unwrap();
+    assert_eq!(replay.projected, 0);
+    assert_eq!(replay.cursor, 12);
+    assert_eq!(
+        restarted
+            .list_session_events(session, 0)
+            .await
+            .unwrap()
+            .len(),
+        events.len()
+    );
+}
+
+#[tokio::test]
+async fn tracker_inbox_rejects_changed_payload_stale_pages_and_foreign_bindings_atomically() {
+    let Some((repo, reservation)) = pm_fixture().await else {
+        return;
+    };
+    let session = reservation.session_id;
+    let binding = repo.get_task_chat_binding(session).await.unwrap().unwrap();
+    let page = tracker_page(&binding);
+    repo.project_tracker_events(session, binding.clone(), 0, page.clone())
+        .await
+        .unwrap();
+    let initial = repo.list_session_events(session, 0).await.unwrap().len();
+    let mut changed = page.clone();
+    changed.events[1].payload.result = serde_json::json!({"text":"changed-answer"});
+    assert!(
+        repo.project_tracker_events(session, binding.clone(), 0, changed)
+            .await
+            .is_err()
+    );
+    let mut stale = page.clone();
+    stale.events[1].sequence = 99;
+    stale.events[1].event_id = Uuid::new_v4();
+    assert!(
+        repo.project_tracker_events(session, binding.clone(), 0, stale.clone())
+            .await
+            .is_err()
+    );
+    let mut foreign = binding.clone();
+    foreign.project_id = Uuid::new_v4();
+    stale.events = vec![stale.events[1].clone()];
+    stale.events[0].payload.project_id = foreign.project_id;
+    assert!(
+        repo.project_tracker_events(session, foreign, 12, stale)
+            .await
+            .is_err()
+    );
+    assert_eq!(repo.tracker_event_cursor(session).await.unwrap(), 12);
+    assert_eq!(
+        repo.list_session_events(session, 0).await.unwrap().len(),
+        initial
+    );
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    assert!(
+        db.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE tracker_event_inbox SET payload_hash=repeat('a',64) WHERE session_id=$1",
+            [session.into()]
+        ))
+        .await
+        .is_err()
+    );
+    assert!(
+        db.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "DELETE FROM tracker_event_inbox WHERE session_id=$1",
+            [session.into()]
+        ))
+        .await
+        .is_err()
+    );
+}
+
+#[tokio::test]
+async fn tracker_inbox_mid_page_database_failure_rolls_back_messages_events_and_cursor() {
+    let Some((repo, reservation)) = pm_fixture().await else {
+        return;
+    };
+    let session = reservation.session_id;
+    let binding = repo.get_task_chat_binding(session).await.unwrap().unwrap();
+    let page = tracker_page(&binding);
+    let events_before = repo.list_session_events(session, 0).await.unwrap().len();
+    let messages_before = repo.list_session_messages(session).await.unwrap().len();
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let constraint = format!("inbox_qa_{}", session.simple());
+    db.execute_unprepared(&format!(
+        "ALTER TABLE tracker_event_inbox ADD CONSTRAINT {constraint} CHECK (session_id <> '{session}'::uuid OR source_sequence <> 12) NOT VALID"
+    )).await.unwrap();
+    let failed = repo
+        .project_tracker_events(session, binding.clone(), 0, page.clone())
+        .await;
+    db.execute_unprepared(&format!(
+        "ALTER TABLE tracker_event_inbox DROP CONSTRAINT {constraint}"
+    ))
+    .await
+    .unwrap();
+    assert!(failed.is_err());
+    assert_eq!(repo.tracker_event_cursor(session).await.unwrap(), 0);
+    assert_eq!(
+        repo.list_session_events(session, 0).await.unwrap().len(),
+        events_before
+    );
+    assert_eq!(
+        repo.list_session_messages(session).await.unwrap().len(),
+        messages_before
+    );
+    let retried = repo
+        .project_tracker_events(session, binding, 0, page)
+        .await
+        .unwrap();
+    assert_eq!(retried.projected, 2);
+    assert_eq!(retried.cursor, 12);
+}
+
 #[tokio::test]
 async fn task_approval_history_survives_reassignment_but_not_project_access_revocation() {
     let Some((repo, reservation)) = pm_fixture().await else {

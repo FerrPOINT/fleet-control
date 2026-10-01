@@ -23,7 +23,7 @@ These do not mean the complete approved plan is done.
 | --- | --- |
 | Draft/assignment/chat/initial dispatch creation saga | Persisted operation state and restart-safe actual PM start after links and owner checks |
 | PM structured tools and runtime-scoped machine credentials | Real Hermes publishes questions/revisions through assigned machine API, no prose parsing |
-| Tracker outbox -> Fleet inbox/mirror projection | Cursor/replay and transactional event dedup under crash/reconnect; no polling-only delivery claim |
+| Tracker outbox -> Fleet inbox/mirror projection | Transactional inbox/cursor/mirror repository implemented; authenticated background poller and live crash/reconnect acceptance remain. Projection is not PM delivery. |
 | Answer delivery and workflow continuation | Readback callback implemented; wire it to actual PM dispatch/checkpoint/rebind and one new run; late replies rejected |
 | Readiness verifier integration | Trusted checklist/prerequisite receipts for exact revision/hash, no false Backlog |
 | Server chat search/pagination/aggregate counts | Own-database and Chromium/Firefox/WebKit fixture acceptance passed in working branch; release review and live acceptance remain |
