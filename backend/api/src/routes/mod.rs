@@ -1,5 +1,7 @@
 pub mod agents;
+pub mod approvals;
 pub mod auth;
+pub mod chats_directory;
 pub mod dashboard;
 pub mod deployments;
 pub mod events;
@@ -7,6 +9,7 @@ pub mod executors;
 pub mod health;
 pub mod leaders;
 pub mod logs;
+pub mod pm_runtime;
 pub mod sessions;
 pub mod settings;
 pub mod task_chats;

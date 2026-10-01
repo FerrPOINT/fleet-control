@@ -107,6 +107,17 @@ jobs:
       - run: cargo check --workspace --all-targets
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace -- --test-threads=1
+      - name: Isolated directory and approval SSE acceptance
+        env:
+          PGPASSWORD: fleet_control
+          FLEET_CHATS_DIRECTORY_TEST_DATABASE_URL: postgres://fleet_control:fleet_control@127.0.0.1:5432/fleet_chats_directory_test
+          FLEET_RUNTIME_APPROVAL_EVENTS_TEST_DATABASE_URL: postgres://fleet_approval_events_test:ci-test-only@127.0.0.1:5432/fleet_runtime_approval_events_test
+        run: |
+          psql -h 127.0.0.1 -U fleet_control -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE fleet_chats_directory_test;'
+          psql -h 127.0.0.1 -U fleet_control -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE fleet_approval_events_test LOGIN PASSWORD 'ci-test-only';"
+          psql -h 127.0.0.1 -U fleet_control -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE fleet_runtime_approval_events_test OWNER fleet_approval_events_test;'
+          cargo test -p infra --test chats_directory -- --ignored --test-threads=1
+          cargo test -p infra --test runtime_approval_events -- --ignored --test-threads=1
       - name: Clean migration up, rollback new revisions and reapply
         env:
           PGPASSWORD: fleet_control

@@ -846,6 +846,83 @@
         }
       }
     },
+    "/api/v1/chats/directory": {
+      "get": {
+        "tags": [
+          "task-chats"
+        ],
+        "operationId": "directory",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "query",
+            "description": "Concrete non-archived agent",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "description": "Omit for mine; all or comma-separated UUIDs requires read_all for other users",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Literal case-insensitive title, task-key or owner search, at most 200 characters",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "description": "Session cursor in this agent/user/search scope; ordered by created_at DESC, id DESC",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Page size 1..100, default 50",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatsDirectoryPage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Scope denied"
+          },
+          "422": {
+            "description": "Invalid filter or cursor"
+          }
+        }
+      }
+    },
     "/api/v1/dashboard": {
       "get": {
         "tags": [
@@ -1414,6 +1491,134 @@
         }
       }
     },
+    "/api/v1/sessions/{session_id}/approvals": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RuntimeApprovalRequest"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/approvals/{approval_id}/decision": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "read",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "approval_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalDecision"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "decide",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "approval_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApprovalDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalDecision"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/api/v1/sessions/{session_id}/chat-controls": {
       "get": {
         "tags": [
@@ -1958,15 +2163,8 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RuntimeRunControlResponse"
-                }
-              }
-            }
+          "409": {
+            "description": "Use the exact approval request decision endpoint"
           }
         }
       }
@@ -2747,6 +2945,46 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/internal/runtime/v1/pm/runs/{session_run_id}": {
+      "get": {
+        "tags": [
+          "pm-runtime"
+        ],
+        "operationId": "readback",
+        "parameters": [
+          {
+            "name": "session_run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PmRuntimeObservation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
           }
         }
       }
@@ -3758,6 +3996,82 @@
           }
         }
       },
+      "ApprovalChoice": {
+        "type": "string",
+        "enum": [
+          "once",
+          "deny"
+        ]
+      },
+      "ApprovalDecision": {
+        "type": "object",
+        "required": [
+          "id",
+          "session_id",
+          "approval_id",
+          "session_run_id",
+          "actor_user_id",
+          "choice",
+          "state",
+          "created_at"
+        ],
+        "properties": {
+          "actor_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "approval_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "choice": {
+            "$ref": "#/components/schemas/ApprovalChoice"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/String"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "session_run_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ApprovalDecisionState"
+          }
+        }
+      },
+      "ApprovalDecisionRequest": {
+        "type": "object",
+        "required": [
+          "choice",
+          "idempotency_key"
+        ],
+        "properties": {
+          "choice": {
+            "$ref": "#/components/schemas/ApprovalChoice"
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ApprovalDecisionState": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "delivered",
+          "uncertain",
+          "failed"
+        ]
+      },
       "AssignSessionLeaderRequest": {
         "type": "object",
         "properties": {
@@ -4003,6 +4317,58 @@
           },
           "can_stop": {
             "type": "boolean"
+          }
+        }
+      },
+      "ChatsDirectoryAgent": {
+        "type": "object",
+        "required": [
+          "agent",
+          "matching_session_count"
+        ],
+        "properties": {
+          "agent": {
+            "$ref": "#/components/schemas/AgentDirectoryItem"
+          },
+          "matching_session_count": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "ChatsDirectoryPage": {
+        "type": "object",
+        "required": [
+          "agents",
+          "items"
+        ],
+        "properties": {
+          "agents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatsDirectoryAgent"
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentSession"
+            }
+          },
+          "next_before": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "selected_agent_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -4864,6 +5230,118 @@
           "tool_event",
           "system_event",
           "control"
+        ]
+      },
+      "PmExecutionIdentity": {
+        "type": "object",
+        "description": "Identity shared with Project Workflow; runtime-local IDs are never execution IDs.",
+        "required": [
+          "task",
+          "execution_ref",
+          "tracker_instance_ref",
+          "tracker_project_ref",
+          "task_ref",
+          "root_ref",
+          "agent_ref",
+          "assignment_operation_key",
+          "assignment_ref",
+          "assignment_revision"
+        ],
+        "properties": {
+          "agent_ref": {
+            "type": "string"
+          },
+          "assignment_operation_key": {
+            "type": "string"
+          },
+          "assignment_ref": {
+            "type": "string"
+          },
+          "assignment_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "execution_ref": {
+            "type": "string"
+          },
+          "root_ref": {
+            "type": "string"
+          },
+          "task": {
+            "type": "string"
+          },
+          "task_ref": {
+            "type": "string"
+          },
+          "tracker_instance_ref": {
+            "type": "string"
+          },
+          "tracker_project_ref": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PmRuntimeObservation": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PmExecutionIdentity"
+          },
+          {
+            "type": "object",
+            "required": [
+              "observation_ref",
+              "binding_ref",
+              "hermes_run_ref",
+              "session_run_id",
+              "status",
+              "dispatch_operation_key",
+              "fence"
+            ],
+            "properties": {
+              "binding_ref": {
+                "type": "string"
+              },
+              "checkpoint_ref": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "dispatch_operation_key": {
+                "type": "string"
+              },
+              "fence": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "hermes_run_ref": {
+                "type": "string"
+              },
+              "observation_ref": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "session_run_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "status": {
+                "$ref": "#/components/schemas/PmRuntimeStatus"
+              }
+            }
+          }
+        ],
+        "description": "Exact callback wire shape consumed by Project Workflow (no API envelope)."
+      },
+      "PmRuntimeStatus": {
+        "type": "string",
+        "enum": [
+          "running",
+          "completed",
+          "failed",
+          "cancelled",
+          "stopped"
         ]
       },
       "PortSettings": {

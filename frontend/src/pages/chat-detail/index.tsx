@@ -52,6 +52,7 @@ import {
   type AnswerInput,
 } from '@/api/task-chats'
 import { useAuthStore } from '@/shared/auth/store'
+import { TaskApprovalsPanel } from './approvals'
 import { UserAvatar } from '@/shared/ui/user-avatar'
 import { EmptyState, ErrorState, StatusBadge, formatDate } from '../common'
 import './chat.css'
@@ -125,6 +126,8 @@ function ChatWorkspace({ id }: { id: string }) {
     ? params.get('tab')!
     : 'dialogue'
   const owner = session.data?.user_id === userId
+  const canResolveApprovals =
+    useAuthStore((state) => state.permissions.includes('agents:manage')) || owner
   const context = task.data?.tracker
   const questionList = questions.data?.questions ?? []
   const selectedQuestion =
@@ -165,6 +168,8 @@ function ChatWorkspace({ id }: { id: string }) {
         'task-context',
         'clarifications',
         'requirements',
+        'task-approvals',
+        'task-approval-decision',
       ].map((key) => client.invalidateQueries({ queryKey: [key, id] })),
     )
   }
@@ -202,6 +207,8 @@ function ChatWorkspace({ id }: { id: string }) {
             'task-context',
             'clarifications',
             'requirements',
+            'task-approvals',
+            'task-approval-decision',
           ].forEach((key) => {
             void client.invalidateQueries({ queryKey: [key, id] })
           })
@@ -493,6 +500,7 @@ function ChatWorkspace({ id }: { id: string }) {
                     <p>{delta[activeRun.id]}</p>
                   </article>
                 )}
+                <TaskApprovalsPanel sessionId={id} canResolve={canResolveApprovals} hideWhenEmpty />
               </div>
               {newMessages && (
                 <Button

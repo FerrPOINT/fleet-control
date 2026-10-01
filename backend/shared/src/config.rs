@@ -14,6 +14,32 @@ pub struct AppConfig {
     pub fleet: FleetConfig,
     #[serde(default)]
     pub metrics: MetricsConfig,
+    #[serde(default)]
+    pub pm: PmConfig,
+    #[serde(default)]
+    pub tracker: TrackerConfig,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TrackerConfig {
+    pub url: String,
+    pub instance_id: String,
+}
+
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PmConfig {
+    #[serde(skip_serializing)]
+    pub readback_token: String,
+}
+
+impl std::fmt::Debug for PmConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PmConfig")
+            .field("readback_token", &"[REDACTED]")
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

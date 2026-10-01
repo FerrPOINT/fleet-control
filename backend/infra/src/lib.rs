@@ -1,5 +1,8 @@
+mod approval_decisions;
+mod chats_directory;
 mod config_revisions;
 pub mod entities;
+mod pm_execution;
 pub mod runtime;
 mod task_chats;
 
@@ -566,6 +569,64 @@ fn fleet_alert_to_domain(row: fleet_alerts::Model) -> domain::FleetAlert {
 
 #[async_trait]
 impl FleetRepository for PostgresFleetRepository {
+    async fn list_session_approvals(
+        &self,
+        session: Uuid,
+    ) -> Result<Vec<RuntimeApprovalRequest>, AppError> {
+        approval_decisions::list(self, session).await
+    }
+    async fn approval_decision(
+        &self,
+        session: Uuid,
+        approval: Uuid,
+    ) -> Result<domain::ApprovalDecision, AppError> {
+        approval_decisions::get(self, session, approval).await
+    }
+    async fn reserve_approval_decision(
+        &self,
+        session: Uuid,
+        approval: Uuid,
+        actor: Uuid,
+        req: domain::ApprovalDecisionRequest,
+    ) -> Result<domain::ReservedApprovalDecision, AppError> {
+        approval_decisions::reserve(self, session, approval, actor, req).await
+    }
+    async fn deliver_approval_decision(
+        &self,
+        id: Uuid,
+    ) -> Result<domain::ApprovalDecision, AppError> {
+        approval_decisions::deliver(self, id).await
+    }
+    async fn list_chats_directory(
+        &self,
+        filter: domain::ChatsDirectoryFilter,
+    ) -> Result<domain::ChatsDirectoryPage, AppError> {
+        self.chats_directory(filter).await
+    }
+    async fn reserve_pm_run(
+        &self,
+        reservation: domain::PmRunReservation,
+    ) -> Result<domain::PmRunRecord, AppError> {
+        pm_execution::reserve(self, reservation).await
+    }
+    async fn get_pm_run(&self, id: Uuid) -> Result<domain::PmRunRecord, AppError> {
+        pm_execution::get(self, id).await
+    }
+    async fn accept_pm_run(
+        &self,
+        id: Uuid,
+        hermes_run_ref: String,
+        hermes_session_ref: String,
+    ) -> Result<domain::PmRunRecord, AppError> {
+        pm_execution::accept(self, id, hermes_run_ref, hermes_session_ref).await
+    }
+    async fn observe_pm_run(
+        &self,
+        id: Uuid,
+        status: domain::PmRuntimeStatus,
+    ) -> Result<(), AppError> {
+        pm_execution::observe(self, id, status).await
+    }
     async fn has_pending_session_dispatch(&self, id: Uuid) -> Result<bool, AppError> {
         let row=self.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
             "SELECT EXISTS(SELECT 1 FROM message_dispatch_outbox o JOIN session_messages m ON m.id=o.message_id WHERE m.session_id=$1 AND o.state IN ('pending','dispatching','uncertain')) AS pending",[id.into()]))
@@ -2526,39 +2587,30 @@ impl FleetRepository for PostgresFleetRepository {
         &self,
         req: RuntimeApprovalCreate,
     ) -> Result<RuntimeApprovalRequest, AppError> {
-        if let Some(runtime_approval_id) = req.runtime_approval_id.as_ref()
-            && let Some(existing) = runtime_approval_request::Entity::find()
-                .filter(runtime_approval_request::Column::SessionRunId.eq(req.session_run_id))
-                .filter(runtime_approval_request::Column::RuntimeApprovalId.eq(runtime_approval_id))
-                .one(&self.db)
-                .await
-                .map_err(AppError::database)?
-        {
-            return Ok(runtime_approval_from_model(existing));
-        }
         let id = Uuid::new_v4();
-        runtime_approval_request::Entity::insert(runtime_approval_request::ActiveModel {
-            id: Set(id),
-            session_id: Set(req.session_id),
-            session_run_id: Set(req.session_run_id),
-            agent_id: Set(req.agent_id),
-            runtime_run_id: Set(req.runtime_run_id),
-            runtime_approval_id: Set(req.runtime_approval_id),
-            prompt: Set(req.prompt),
-            detail: Set(redact_json(req.detail)),
-            state: Set(RuntimeApprovalState::Pending.as_str().to_string()),
-            resolved_by_user_id: Set(None),
-            resolved_at: Set(None),
-            created_at: Set(now()),
-        })
-        .exec(&self.db)
-        .await
-        .map_err(AppError::database)?;
-        let row = runtime_approval_request::Entity::find_by_id(id)
+        self.db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "INSERT INTO runtime_approval_requests(id,session_id,session_run_id,agent_id,runtime_run_id,runtime_approval_id,prompt,detail,state,created_at)
+             VALUES($1,$2,$3,$4,$5,$6,$7,$8,'pending',now())
+             ON CONFLICT(session_run_id,runtime_approval_id) WHERE runtime_approval_id IS NOT NULL DO NOTHING",
+            [id.into(),req.session_id.into(),req.session_run_id.into(),req.agent_id.into(),req.runtime_run_id.clone().into(),req.runtime_approval_id.clone().into(),redact_text(&req.prompt).into(),redact_json(req.detail).into()]))
+            .await.map_err(AppError::database)?;
+        let query = match req.runtime_approval_id {
+            Some(request_id) => runtime_approval_request::Entity::find()
+                .filter(runtime_approval_request::Column::SessionRunId.eq(req.session_run_id))
+                .filter(runtime_approval_request::Column::RuntimeApprovalId.eq(request_id)),
+            None => runtime_approval_request::Entity::find_by_id(id),
+        };
+        let row = query
             .one(&self.db)
             .await
             .map_err(AppError::database)?
             .ok_or_else(|| AppError::not_found("runtime_approval_request", id))?;
+        if row.session_id != req.session_id
+            || row.agent_id != req.agent_id
+            || row.runtime_run_id != req.runtime_run_id
+        {
+            return Err(AppError::conflict("runtime approval identity changed"));
+        }
         Ok(runtime_approval_from_model(row))
     }
 

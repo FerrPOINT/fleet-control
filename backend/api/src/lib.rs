@@ -16,6 +16,11 @@ pub mod routes;
 #[openapi(
     paths(
         routes::health::health,
+        routes::pm_runtime::readback,
+        routes::chats_directory::directory,
+        routes::approvals::list,
+        routes::approvals::read,
+        routes::approvals::decide,
         routes::auth::register,
         routes::auth::login,
         routes::auth::refresh_openapi,
@@ -107,6 +112,10 @@ pub mod routes;
         routes::settings::RetentionReviewOutcomeDto,
         domain::Agent,
         domain::SystemRole,
+        domain::ApprovalChoice,
+        domain::ApprovalDecisionState,
+        domain::ApprovalDecisionRequest,
+        domain::ApprovalDecision,
         domain::AgentKind,
         domain::AgentProductRole,
         domain::AgentRole,
@@ -135,6 +144,11 @@ pub mod routes;
         domain::ConfirmRequirementsRequest,
         domain::MessageHistoryPage,
         domain::ChatControls,
+        domain::PmExecutionIdentity,
+        domain::PmRuntimeStatus,
+        domain::PmRuntimeObservation,
+        domain::ChatsDirectoryAgent,
+        domain::ChatsDirectoryPage,
         domain::AgentStatus,
         domain::DesiredState,
         domain::SkillState,
@@ -333,6 +347,10 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         )
         .route("/api/v1/executors", get(routes::executors::list_executors))
         .route(
+            "/api/v1/chats/directory",
+            get(routes::chats_directory::directory),
+        )
+        .route(
             "/api/v1/sessions",
             get(routes::sessions::list_sessions).post(routes::sessions::create_session),
         )
@@ -412,6 +430,14 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         .route(
             "/api/v1/sessions/{session_id}/runs/{run_id}/approval",
             post(routes::sessions::resolve_session_run_approval),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/approvals",
+            get(routes::approvals::list),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/approvals/{approval_id}/decision",
+            get(routes::approvals::read).post(routes::approvals::decide),
         )
         .route(
             "/api/v1/workflow-bindings",
@@ -505,6 +531,10 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         )
         .route("/health", get(routes::health::health))
         .route("/api/v1/health", get(routes::health::health))
+        .route(
+            "/internal/runtime/v1/pm/runs/{session_run_id}",
+            get(routes::pm_runtime::readback),
+        )
         .route("/api/v1/auth/register", post(routes::auth::register))
         .route("/api/v1/auth/login", post(routes::auth::login))
         .route("/api/v1/auth/refresh", post(routes::auth::refresh))

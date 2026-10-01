@@ -48,6 +48,15 @@ Wait captures execution checkpoint. Old run must be terminal or safely stopped b
 resume preserves execution, verifies Workflow rebind and rejects stale request/fencing/version.
 Unknown runtime acceptance requires readback; no blind redispatch or EOF-as-success.
 
+Fleet implements the machine-only Workflow callback
+`GET /internal/runtime/v1/pm/runs/{session_run_id}`. The flat response is the
+Workflow `RuntimeObservation` identity plus observation/binding/run/status,
+dispatch key, checkpoint and fence. Fleet run UUIDs are globally unique;
+Hermes run references are agent-local. A dedicated callback token is not an agent
+credential. Reservations commit before dispatch, acknowledgement pins the
+effective Hermes session ID, and every callback probes the actual runtime.
+This callback is a prerequisite, not proof that the dispatch/resume saga is wired.
+
 ## Interface
 
 Tracker: /api/v1/issues/{id}/sdlc context, questions/answers, requirements revisions/detail/diff,

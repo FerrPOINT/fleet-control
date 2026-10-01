@@ -1,5 +1,16 @@
 # API
 
+## Exact Runtime Approval Decisions
+
+- `GET /api/v1/sessions/{session_id}/approvals` lists redacted requests visible to the owner or an operator/admin.
+- `GET /api/v1/sessions/{session_id}/approvals/{approval_id}/decision` reads the durable decision; `404` means no command has been reserved.
+- `POST /api/v1/sessions/{session_id}/approvals/{approval_id}/decision` accepts only `choice: once | deny` and a required `idempotency_key`. A verified human session is required; machine PATs cannot self-approve. Operator/admin approval is a runtime permission, never requirements confirmation.
+- Reservation and audit commit before HTTP. An identical replay returns the same decision without another runtime call; a changed actor, key or choice returns `409`. Hermes must acknowledge the exact run/request/choice and exactly one resolution before `delivered` is stored.
+- `uncertain` is not success or rejection. It survives process restart and blocks a new command for that request. Do not retry dispatch when the runtime outcome is unknown. Readback is safe; operator reconciliation still needs independent evidence.
+- The legacy run-wide `/runs/{run_id}/approval` route returns `409`: broad `always`, session grants and `resolve_all` are not available in Fleet. Existing transcript routes remain supported.
+
+These runtime requests are separate from Tracker clarification answers and exact-revision requirements confirmation.
+
 ## October SDLC Foundation
 
 `sdlc_role` is independent from `kind` and `product_role`. Configuration `PUT`
@@ -204,6 +215,21 @@ rollback записываются в `audit_log` в одной PostgreSQL-тра
 The frontend build regenerates TypeScript types from `openapi/openapi.json`.
 The OpenAPI JSON is regenerated from Rust source before release. Native Windows
 regeneration requires MSVC `link.exe`; WSL/Linux generation is supported.
+
+## PM Runtime Readback
+
+`GET /internal/runtime/v1/pm/runs/{session_run_id}` is a machine-only callback
+for Project Workflow, outside browser authentication. It requires the dedicated
+`FLEET_CONTROL_PM__READBACK_TOKEN`; an unset/short/reused credential fails closed.
+The response is the flat Workflow `RuntimeObservation`, without a Fleet envelope.
+It contains immutable Tracker/assignment/execution identity, Fleet run UUID,
+binding, dispatch key, fence, checkpoint and a fresh observation UUID/status.
+
+Fleet probes the authenticated Hermes `/v1/runs/{runtime_run_id}` on every call.
+Runtime mapping mismatch, unknown status, unreachable runtime and malformed or
+oversized replies return `503`; contradiction of stored terminal proof returns
+`409`. Cached Fleet run state, EOF and a human-provided status are not proof.
+The endpoint does not create assignments, dispatch a prompt or resume Workflow.
 
 
 ## Fleet alerts (monitoring, Phase 3)

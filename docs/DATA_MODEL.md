@@ -1,5 +1,9 @@
 # Data Model
 
+## Targeted Approval Commands
+
+`runtime_approval_decisions` stores one immutable human decision per runtime approval request. It pins the session, run, actor, choice and command key; the actor/key pair is unique across requests. The initial state is `uncertain`, committed before any HTTP side effect. A verified exact acknowledgement permits the sole implemented state transition to `delivered`. The corresponding request resolution, audit entry and durable stream invalidation commit together. Replays never dispatch and never settle other pending requests. Raw runtime credentials and approval response bodies are not stored in this ledger.
+
 ## October Foundation Schema
 
 Additive migration 000009 adds `agents.sdlc_role`, `session_event_cursors`,
@@ -106,3 +110,19 @@ Indexes cover agent status filters, product-role filters, per-agent/per-user
 session lists, leader-scoped session lists, participants, message ordering,
 runtime runs, task-key lookup, workflow namespace lookup, deployment job state,
 audit-log filters and recent events/logs.
+
+## PM Run Proof
+
+Migration 11 adds `pm_run_bindings`. Each Fleet run UUID has one immutable
+reservation containing its task chat, concrete agent, Tracker identity,
+assignment/execution, workflow binding, dispatch operation key, checkpoint and
+fence. Reservation and technical capacity allocation commit together, before any
+runtime HTTP request. Concurrent identical reservations replay the same record;
+altered payloads conflict. An unresolved reservation keeps the agent occupied.
+
+Runtime acknowledgement pins both the agent-local Hermes run reference and its
+effective session ID (Hermes can resolve a Fleet alias). Both are write-once;
+uniqueness is scoped to the agent, not the fleet. Authenticated readback records
+terminal proof once and rejects regression or a different terminal result. DB
+triggers also prevent reservation/mapping/terminal mutation through direct SQL.
+Proof observation alone does not free visible run capacity or advance Tracker.

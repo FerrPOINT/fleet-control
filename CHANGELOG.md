@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+- Add server-authorized chat directory search, aggregate counts and scoped cursors;
+  keep own-user default and preserve return context without loading all transcripts.
+- Add immutable PM run reservations and authenticated fresh Hermes readback for
+  Workflow; unknown acceptance holds capacity and terminal proof cannot regress.
+- Integrate exact-request human tool approvals with immutable command replay,
+  stale-assignment protection and no automatic redispatch after an unknown outcome.
+  PM structured dispatch/resume and live clarification acceptance remain incomplete.
+
 - Fix standalone Docker builds with explicit shared Base contexts and locked
   installs; add Compose health/auth/privacy/SSE/restart acceptance in CI.
 - Disable Nginx buffering for session streams and bind frontend to loopback

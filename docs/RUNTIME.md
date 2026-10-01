@@ -50,3 +50,12 @@ Java Agent:
 - Start requires the managed `runtime/backend.jar`, JDK command and db-only
   `/actuator/health/readiness` health. Missing jar fails validation; no fake
   successful chat/control is returned.
+
+PM continuation proof is separate from runtime health and from visible run state.
+The internal Workflow callback performs a fresh bounded/no-redirect HTTP probe
+against the managed agent port, with Fleet's derived per-agent credential. It
+verifies the acknowledged Hermes run and effective session identity. Queued,
+running, approval-wait and stopping are non-terminal; interrupted is failed, not
+successful or safely stopped. Terminal proof is immutable. Missing acceptance
+mapping or inaccessible runtime blocks continuation; neither an SSE EOF nor a
+database status can substitute for the probe.

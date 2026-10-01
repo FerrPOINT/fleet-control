@@ -23,6 +23,9 @@ pub struct CurrentUser {
 #[derive(Clone, Debug)]
 pub struct VerifiedCentralSubject(pub String);
 
+#[derive(Clone, Debug)]
+pub struct VerifiedHumanSession;
+
 impl CurrentUser {
     pub fn can_operate_fleet(&self) -> bool {
         self.role.can_operate_fleet()
@@ -72,6 +75,9 @@ pub async fn require_auth(
                 return Err(AppError::Forbidden);
             }
             let user = find_or_link_central_user(&ctx, &central).await?;
+            if central.session_id.is_some() {
+                req.extensions_mut().insert(VerifiedHumanSession);
+            }
             req.extensions_mut()
                 .insert(VerifiedCentralSubject(central.user_id.clone()));
             req.extensions_mut().insert(CurrentUser {
@@ -112,7 +118,16 @@ pub async fn require_auth(
         role: user.system_role,
         is_system_admin: user.is_system_admin,
     });
+    // A sessionless provider token may represent a machine. Only the local
+    // login mode is human-compatible here; central sessions are proven above.
+    if local_login_proves_human(&ctx.config.auth.mode) {
+        req.extensions_mut().insert(VerifiedHumanSession);
+    }
     Ok(next.run(req).await)
+}
+
+fn local_login_proves_human(mode: &str) -> bool {
+    mode.eq_ignore_ascii_case("hmac")
 }
 
 /// Resolves the local user by the verified central subject, never by email,
@@ -181,4 +196,15 @@ async fn find_or_link_central_user(
             .ok_or(AppError::Unauthorized);
     }
     Ok(user)
+}
+
+#[cfg(test)]
+mod human_session_tests {
+    #[test]
+    fn provider_validation_is_not_human_session_proof() {
+        assert!(super::local_login_proves_human("hmac"));
+        for mode in ["oidc", "oauth", "", "unknown"] {
+            assert!(!super::local_login_proves_human(mode));
+        }
+    }
 }

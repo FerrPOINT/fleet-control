@@ -14,6 +14,9 @@ Open gaps:
 
 Implemented: immutable task binding, paginated Fleet history, fixed-origin Tracker gateway,
 owner-only structured answer/exact-revision confirmation UI, draft and unknown-outcome guards.
+The follow-up branch also implements immutable PM run reservation and fresh
+machine-only Workflow readback. These have PostgreSQL/test-runtime evidence,
+not actual PM dispatch or resume acceptance.
 These do not mean the complete approved plan is done.
 
 | Gap | Exit criteria |
@@ -21,11 +24,11 @@ These do not mean the complete approved plan is done.
 | Draft/assignment/chat/initial dispatch creation saga | Persisted operation state and restart-safe actual PM start after links and owner checks |
 | PM structured tools and runtime-scoped machine credentials | Real Hermes publishes questions/revisions through assigned machine API, no prose parsing |
 | Tracker outbox -> Fleet inbox/mirror projection | Cursor/replay and transactional event dedup under crash/reconnect; no polling-only delivery claim |
-| Answer delivery and workflow continuation | Trusted runtime readback, terminal old run, checkpoint/rebind and one new run; late replies rejected |
+| Answer delivery and workflow continuation | Readback callback implemented; wire it to actual PM dispatch/checkpoint/rebind and one new run; late replies rejected |
 | Readiness verifier integration | Trusted checklist/prerequisite receipts for exact revision/hash, no false Backlog |
-| Server chat search/pagination/aggregate counts | Authorized list endpoint with stable cursor and matching per-agent counts; current grouping/search is client-side |
+| Server chat search/pagination/aggregate counts | Own-database and Chromium/Firefox/WebKit fixture acceptance passed in working branch; release review and live acceptance remain |
 | Live acceptance and production screenshots | Real PM/owner/Tracker/Workflow flow, restart/denial tests; fixture screenshots stay separately labeled |
-| Targeted tool approval UI and context evidence | Specific run/action controls independent from business clarification, verified receipts/links |
+| Targeted tool approval UI and context evidence | Exact human-only backend decisions and integrated UI have PostgreSQL/authenticated fake-runtime and three-browser fixture evidence; independent unknown-outcome reconciliation and live evidence remain |
 
 SDLC send/steer stays fail-closed until verified assignments are integrated. Do not enable
 automatic assignments or label this feature production-ready on the strength of UI fixtures.

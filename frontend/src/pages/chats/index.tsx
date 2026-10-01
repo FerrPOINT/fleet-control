@@ -1,55 +1,67 @@
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bot, MessageSquare, Plus, Search } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Bot, MessageSquare, Plus, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, Input, Label } from '@sdlc/ui/ui'
-import { createSession, listAgentDirectory, listSessions } from '@/api/fleet'
-import type { AgentDirectoryItem, AgentSession } from '@/api/types'
+import { createSession } from '@/api/fleet'
+import { getChatsDirectory } from '@/api/chats-directory'
+import type { AgentDirectoryItem } from '@/api/types'
 import { useSessionUserFilter, SessionUserFilter } from '@/shared/session-user-filter'
+import { useAuthStore } from '@/shared/auth/store'
 import { UserAvatar } from '@/shared/ui/user-avatar'
 import { sdlcRoleLabel } from '@/shared/sdlc-roles'
 import { EmptyState, ErrorState, PageHeader, StatusBadge, formatDate } from '../common'
-
-export function groupChats(agents: AgentDirectoryItem[], sessions: AgentSession[]) {
-  return agents.map((agent) => ({
-    agent,
-    sessions: sessions
-      .filter((session) => session.primary_agent_id === agent.id)
-      .sort((a, b) => b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id)),
-  }))
-}
 
 export function ChatsPage() {
   const { t } = useTranslation()
   const [params, setParams] = useSearchParams()
   const search = params.get('q') ?? ''
   const [createOpen, setCreateOpen] = useState(false)
+  const currentUserId = useAuthStore((state) => state.userId)
   const userScope = params.get('users')
-  const filter = useSessionUserFilter(
-    userScope === null ? undefined : userScope === 'all' ? [] : userScope.split(','),
-  )
-  const agents = useQuery({ queryKey: ['agent-directory'], queryFn: listAgentDirectory })
-  const sessions = useQuery({
-    queryKey: ['sessions', 'chats', filter.selectedUserIds],
-    queryFn: () => listSessions(undefined, filter.selectedUserIds),
+  const filter = useSessionUserFilter()
+  const selectedUserIds =
+    filter.isSystemAdmin && userScope !== null
+      ? userScope.trim().toLowerCase() === 'all' || !userScope.trim()
+        ? []
+        : userScope
+            .split(',')
+            .map((value) => value.trim())
+            .filter(Boolean)
+      : currentUserId
+        ? [currentUserId]
+        : []
+  const agentId = params.get('agent') ?? undefined
+  const before = params.get('before') ?? undefined
+  const directory = useQuery({
+    queryKey: [
+      'chats-directory',
+      currentUserId,
+      filter.isSystemAdmin,
+      agentId,
+      selectedUserIds,
+      search,
+      before,
+    ],
+    queryFn: () =>
+      getChatsDirectory({ agentId, userIds: selectedUserIds, search, before, limit: 50 }),
+    enabled: Boolean(currentUserId),
   })
-  const groups = groupChats(agents.data ?? [], sessions.data ?? [])
-  const selectedId =
-    params.get('agent') ??
-    groups.find((group) => group.sessions.length)?.agent.id ??
-    groups[0]?.agent.id
+  const page = directory.isError ? undefined : directory.data
+  const groups = page?.agents ?? []
+  const selectedId = page?.selected_agent_id
   const selected = groups.find((group) => group.agent.id === selectedId)
   const returnParams = new URLSearchParams(params)
   if (selectedId) returnParams.set('agent', selectedId)
-  returnParams.set('users', filter.selectedUserIds.join(',') || 'all')
+  returnParams.set('users', selectedUserIds.join(',') || 'all')
   const returnTo = `/chats?${returnParams}`
   const setUsers = (ids: string[]) => {
-    filter.setSelectedUserIds(ids)
     setParams(
       (current) => {
         const next = new URLSearchParams(current)
         next.set('users', ids.join(',') || 'all')
+        next.delete('before')
         return next
       },
       { replace: true },
@@ -57,20 +69,24 @@ export function ChatsPage() {
   }
   const persistedFilter = {
     ...filter,
+    selectedUserIds,
+    selectedUsers: selectedUserIds
+      .map((id) => filter.allUsers.find((user) => user.id === id))
+      .filter((user): user is NonNullable<typeof user> => Boolean(user)),
     addUser: (userId: string) => {
-      if (filter.isSystemAdmin) setUsers([...new Set([...filter.selectedUserIds, userId])])
+      if (filter.isSystemAdmin) setUsers([...new Set([...selectedUserIds, userId])])
     },
     removeUser: (userId: string) => {
-      if (filter.isSystemAdmin) setUsers(filter.selectedUserIds.filter((id) => id !== userId))
+      if (filter.isSystemAdmin) setUsers(selectedUserIds.filter((id) => id !== userId))
     },
   }
-  const needle = search.trim().toLocaleLowerCase()
-  const visibleSessions =
-    selected?.sessions.filter((session) =>
-      [session.title, session.task_key ?? '', session.user_display_name].some((value) =>
-        value.toLocaleLowerCase().includes(needle),
-      ),
-    ) ?? []
+  const visibleSessions = page?.items ?? []
+  const firstPage = () =>
+    setParams((current) => {
+      const next = new URLSearchParams(current)
+      next.delete('before')
+      return next
+    })
 
   return (
     <>
@@ -80,7 +96,7 @@ export function ChatsPage() {
           selected?.agent.product_role === 'executor' && selected.agent.status !== 'archived' ? (
             <Button
               onClick={() => setCreateOpen(true)}
-              disabled={agents.isPending || sessions.isPending}
+              disabled={directory.isPending || directory.isError}
             >
               <Plus className="h-4 w-4" />
               {t('chats.new')}
@@ -89,30 +105,71 @@ export function ChatsPage() {
         }
       />
       <SessionUserFilter filter={persistedFilter} className="mb-4" />
-      {agents.isError || sessions.isError ? (
+      <label className="relative mb-4 block w-full min-w-0 sm:max-w-md">
+        <Search className="absolute left-3 top-3 h-4 w-4 text-text-muted" aria-hidden />
+        <Input
+          value={search}
+          onChange={(event) =>
+            setParams(
+              (current) => {
+                const next = new URLSearchParams(current)
+                if (event.target.value) next.set('q', event.target.value)
+                else next.delete('q')
+                next.delete('before')
+                return next
+              },
+              { replace: true },
+            )
+          }
+          className="h-10 pl-9"
+          maxLength={200}
+          aria-label={t('chats.search')}
+          placeholder={t('chats.search')}
+        />
+      </label>
+      {directory.isError ? (
         <div className="mb-4 space-y-2">
           <ErrorState message={t('chats.loadError')} />
           <Button
             variant="outline"
             onClick={() => {
-              void agents.refetch()
-              void sessions.refetch()
+              void directory.refetch()
             }}
           >
             {t('sessions.retry')}
           </Button>
+          {before && (
+            <Button variant="outline" onClick={firstPage}>
+              {t('chats.firstPage', { defaultValue: 'Первая страница' })}
+            </Button>
+          )}
+          {agentId && (
+            <Button
+              variant="outline"
+              onClick={() =>
+                setParams((current) => {
+                  const next = new URLSearchParams(current)
+                  next.delete('agent')
+                  next.delete('before')
+                  return next
+                })
+              }
+            >
+              {t('chats.selectAgent')}
+            </Button>
+          )}
         </div>
       ) : null}
-      {agents.isPending || sessions.isPending ? (
+      {directory.isPending ? (
         <EmptyState title={t('chats.loading')} />
-      ) : (
+      ) : !directory.isError ? (
         <div className="grid min-w-0 gap-4 md:grid-cols-[260px_minmax(0,1fr)]">
           <nav
             aria-label={t('chats.agents')}
             className="min-w-0 border-b border-border md:border-b-0 md:border-r md:pr-4"
           >
             <ul className="space-y-1 pb-4">
-              {groups.map(({ agent, sessions: agentSessions }) => (
+              {groups.map(({ agent, matching_session_count }) => (
                 <li key={agent.id}>
                   <button
                     type="button"
@@ -121,6 +178,7 @@ export function ChatsPage() {
                       setParams((current) => {
                         const next = new URLSearchParams(current)
                         next.set('agent', agent.id)
+                        next.delete('before')
                         return next
                       })
                     }
@@ -139,15 +197,13 @@ export function ChatsPage() {
                       className="text-xs tabular-nums text-text-muted"
                       aria-label={t('chats.count')}
                     >
-                      {agentSessions.length}
+                      {matching_session_count}
                     </span>
                   </button>
                 </li>
               ))}
             </ul>
-            {!groups.length && !agents.isError ? (
-              <EmptyState title={t('sessions.noAgents')} />
-            ) : null}
+            {!groups.length ? <EmptyState title={t('sessions.noAgents')} /> : null}
           </nav>
           <section className="min-w-0" aria-label={t('chats.sessions')}>
             {selected ? (
@@ -157,26 +213,6 @@ export function ChatsPage() {
                     {selected.agent.display_name}
                   </h2>
                   <StatusBadge value={selected.agent.status} />
-                  <label className="relative ml-auto w-full min-w-0 sm:w-72">
-                    <Search className="absolute left-3 top-3 h-4 w-4 text-text-muted" aria-hidden />
-                    <Input
-                      value={search}
-                      onChange={(event) =>
-                        setParams(
-                          (current) => {
-                            const next = new URLSearchParams(current)
-                            if (event.target.value) next.set('q', event.target.value)
-                            else next.delete('q')
-                            return next
-                          },
-                          { replace: true },
-                        )
-                      }
-                      className="h-10 pl-9"
-                      aria-label={t('chats.search')}
-                      placeholder={t('chats.search')}
-                    />
-                  </label>
                 </div>
                 <ul className="divide-y divide-border">
                   {visibleSessions.map((session) => (
@@ -217,16 +253,47 @@ export function ChatsPage() {
                     </li>
                   ))}
                 </ul>
-                {!visibleSessions.length && !sessions.isError ? (
-                  <EmptyState title={t('chats.empty')} />
-                ) : null}
+                {!visibleSessions.length ? <EmptyState title={t('chats.empty')} /> : null}
+                <nav
+                  className="mt-4 flex items-center justify-end gap-2"
+                  aria-label={t('chats.pagination', { defaultValue: 'Страницы чатов' })}
+                >
+                  <Button
+                    variant="outline"
+                    className="h-10 w-10 p-0"
+                    title={t('chats.firstPage', { defaultValue: 'Первая страница' })}
+                    aria-label={t('chats.firstPage', { defaultValue: 'Первая страница' })}
+                    disabled={!before || directory.isFetching}
+                    onClick={firstPage}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-10 w-10 p-0"
+                    title={t('chats.nextPage', { defaultValue: 'Следующая страница' })}
+                    aria-label={t('chats.nextPage', { defaultValue: 'Следующая страница' })}
+                    disabled={!page?.next_before || directory.isFetching}
+                    onClick={() => {
+                      if (!page?.next_before || !selectedId) return
+                      setParams((current) => {
+                        const next = new URLSearchParams(current)
+                        next.set('agent', selectedId)
+                        next.set('before', page.next_before!)
+                        return next
+                      })
+                    }}
+                  >
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </nav>
               </>
-            ) : !agents.isError ? (
+            ) : (
               <EmptyState title={t('chats.selectAgent')} />
-            ) : null}
+            )}
           </section>
         </div>
-      )}
+      ) : null}
       {selected ? (
         <CreatePrivateChat
           agent={selected.agent}
@@ -264,7 +331,7 @@ function CreatePrivateChat({
         idempotency_key: key,
       }),
     onSuccess: async (session) => {
-      await client.invalidateQueries({ queryKey: ['sessions'] })
+      await client.invalidateQueries({ queryKey: ['chats-directory'] })
       onOpenChange(false)
       setTitle('')
       setKey(crypto.randomUUID())

@@ -81,13 +81,13 @@ pub async fn controls(
 }
 
 impl TrackerGateway {
-    fn configured() -> Result<Self, AppError> {
-        let raw = std::env::var("FLEET_CONTROL_TRACKER__URL").map_err(|_| {
-            AppError::Unavailable("Task Tracker integration is not configured".into())
-        })?;
-        let instance = std::env::var("FLEET_CONTROL_TRACKER__INSTANCE_ID")
-            .map_err(|_| AppError::Unavailable("Task Tracker instance is not configured".into()))?;
-        Self::parse(&raw, instance)
+    fn configured(config: &shared::config::TrackerConfig) -> Result<Self, AppError> {
+        if config.url.is_empty() || config.instance_id.is_empty() {
+            return Err(AppError::Unavailable(
+                "Task Tracker integration is not configured".into(),
+            ));
+        }
+        Self::parse(&config.url, config.instance_id.clone())
     }
     fn parse(raw: &str, instance: String) -> Result<Self, AppError> {
         let url =
@@ -265,7 +265,7 @@ pub async fn bind_task_chat(
     if session.user_id != user.id {
         return Err(AppError::Forbidden);
     }
-    let gateway = TrackerGateway::configured()?;
+    let gateway = TrackerGateway::configured(&ctx.config.tracker)?;
     let (status, value) = gateway
         .request(req.task_id, &["context".into()], &headers, None)
         .await?;
@@ -294,29 +294,43 @@ pub async fn task_context(
     Path(id): Path<Uuid>,
     headers: HeaderMap,
 ) -> Result<Json<SessionTaskContext>, AppError> {
+    Ok(Json(
+        load_task_context(&ctx, &user, id, &headers, true).await?,
+    ))
+}
+
+pub(super) async fn load_task_context(
+    ctx: &Arc<AppContext>,
+    user: &CurrentUser,
+    id: Uuid,
+    headers: &HeaderMap,
+    require_current_agent: bool,
+) -> Result<SessionTaskContext, AppError> {
     let session = ctx.repo.get_session(id).await?;
     if session.user_id != user.id && !user.can_read_all_sessions() {
         return Err(AppError::Forbidden);
     }
     let Some(binding) = ctx.repo.get_task_chat_binding(id).await? else {
-        return Ok(Json(SessionTaskContext {
+        return Ok(SessionTaskContext {
             binding: None,
             tracker: None,
-        }));
+        });
     };
-    let gateway = TrackerGateway::configured()?;
+    let gateway = TrackerGateway::configured(&ctx.config.tracker)?;
     if gateway.instance != binding.tracker_instance_id {
         return Err(AppError::Unavailable(
             "bound Tracker instance is not configured".into(),
         ));
     }
     let (status, value) = gateway
-        .request(binding.task_id, &["context".into()], &headers, None)
+        .request(binding.task_id, &["context".into()], headers, None)
         .await?;
     if status != StatusCode::OK {
         return Err(context_error(status));
     }
-    check_current_agent(&value, binding.agent_id)?;
+    if require_current_agent {
+        check_current_agent(&value, binding.agent_id)?;
+    }
     let checked = check_context(
         value.clone(),
         &gateway,
@@ -327,10 +341,10 @@ pub async fn task_context(
     if checked != binding {
         return Err(AppError::conflict("Tracker binding identity changed"));
     }
-    Ok(Json(SessionTaskContext {
+    Ok(SessionTaskContext {
         binding: Some(binding),
         tracker: Some(decode_response(value)?),
-    }))
+    })
 }
 
 #[utoipa::path(get,path="/api/v1/sessions/{session_id}/clarifications",tag="task-chats",params(("session_id"=Uuid,Path)),responses((status=200,body=domain::TrackerClarifications)))]
@@ -436,7 +450,7 @@ async fn proxy(
     body: Option<Value>,
 ) -> Result<(StatusCode, Json<Value>), AppError> {
     let binding = authorized_binding(ctx, id, user, write).await?;
-    let gateway = TrackerGateway::configured()?;
+    let gateway = TrackerGateway::configured(&ctx.config.tracker)?;
     if gateway.instance != binding.tracker_instance_id {
         return Err(AppError::Unavailable(
             "bound Tracker instance is not configured".into(),

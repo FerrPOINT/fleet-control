@@ -76,6 +76,7 @@ test('PM chat clarification preserves explicit answers and exact confirmation', 
   const commands: { path: string; body: unknown }[] = []
   await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
     const path = new URL(route.request().url()).pathname
+    if (path.endsWith('/approvals')) return fulfill(route, [])
     if (path.endsWith('/task-context'))
       return fulfill(route, {
         binding: {
@@ -1081,6 +1082,15 @@ async function installMocks(page: Page, state: ApiState) {
       session.visibility = leader ? 'leader_scoped' : 'private'
       return fulfill(route, session)
     }
+    if (/^\/api\/v1\/sessions\/[^/]+\/stream$/.test(pathName)) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream',
+        headers: { 'access-control-allow-origin': '*', 'cache-control': 'no-store' },
+        body: ': fixture heartbeat\n\n',
+      })
+    }
+    if (/^\/api\/v1\/sessions\/[^/]+\/approvals$/.test(pathName)) return fulfill(route, [])
     const sessionMatch = pathName.match(/^\/api\/v1\/sessions\/([^/]+)(?:\/handoff)?$/)
     if (sessionMatch) {
       const session =

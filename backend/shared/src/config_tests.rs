@@ -10,12 +10,41 @@ fn defaults_are_fleet_control_specific() {
     assert_eq!(cfg.auth.jwt_audience, "sdlc");
     assert_eq!(cfg.fleet.agent_port_base, 29000);
     assert_eq!(cfg.fleet.agent_port_stride, 10);
+    assert!(cfg.pm.readback_token.is_empty());
+    assert!(cfg.tracker.url.is_empty());
+    assert!(cfg.tracker.instance_id.is_empty());
     assert!(
         cfg.server
             .cors_allowed_origins
             .iter()
             .any(|origin| origin.contains("23802"))
     );
+}
+
+#[test]
+fn tracker_configuration_defaults_and_round_trips_without_process_environment() {
+    let mut legacy = serde_json::to_value(AppConfig::default()).unwrap();
+    legacy.as_object_mut().unwrap().remove("tracker");
+    let restored: AppConfig = serde_json::from_value(legacy).unwrap();
+    assert!(restored.tracker.url.is_empty());
+    let cfg: TrackerConfig = serde_json::from_value(serde_json::json!({
+        "url":"http://tracker.example.test:8080", "instance_id":"tracker-one"
+    }))
+    .unwrap();
+    assert_eq!(cfg.instance_id, "tracker-one");
+    assert_eq!(cfg.url, "http://tracker.example.test:8080");
+}
+
+#[test]
+fn pm_config_debug_does_not_disclose_readback_credential() {
+    let cfg = PmConfig {
+        readback_token: "test-only-pm-readback-secret".into(),
+    };
+    let debug = format!("{cfg:?}");
+    assert!(!debug.contains(&cfg.readback_token));
+    assert!(debug.contains("[REDACTED]"));
+    let serialized = serde_json::to_value(&cfg).unwrap();
+    assert!(serialized.get("readback_token").is_none());
 }
 
 #[test]

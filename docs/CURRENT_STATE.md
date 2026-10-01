@@ -20,12 +20,16 @@ owner exact-revision confirmation. Gateway validates immutable Tracker identity;
 migration 000010 prevents task-chat reassignment. Normal prompts/steer cannot bypass SDLC.
 Tracker backend and Workflow continuation are developed in separate repositories.
 
-Verified on 2026-10-01: 69 Fleet Rust library tests and strict Clippy, 11 actual PostgreSQL
-foundation tests including binding concurrency/history/runtime recovery, clean migrations
-and central-subject migration regression, 146 frontend tests, typecheck/build/lint/format,
-source/client OpenAPI drift and seven Tracker wire contracts. All 21 browser fixtures pass
-in Chromium/Firefox/WebKit, including production chat tabs at all three viewports,
-axe checks, tablet context and keyboard focus. These fixtures
+The follow-up adds server-scoped directory counts/search/cursors, immutable PM run
+proof and machine-only fresh readback, and integrated exact-request tool approvals.
+Readback/replay does not redispatch; fresh decisions reject stale PM assignments.
+Provider JWT validation alone never grants human approval capability.
+
+Verified on the working branch on 2026-10-01: 88 Fleet Rust library tests and strict
+Clippy, 19 actual PostgreSQL integration cases, 202 frontend tests and source/client
+OpenAPI plus seven Tracker wire contracts. Three-browser fixture checks cover the
+chat tabs at all three viewports, targeted approvals and the server directory;
+chat checks include axe, tablet context and keyboard focus. These fixtures
 do not prove live PM delivery. Current gaps and rollout block are listed in
 [Gap Register](GAP_REGISTER.md). Existing production screenshot manifest remains historical
 until live integration acceptance; new controller captures are UI fixture evidence only.

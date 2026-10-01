@@ -89,6 +89,82 @@ pub struct RuntimeSessionSnapshot {
 
 #[async_trait]
 pub trait FleetRepository: Send + Sync {
+    async fn list_session_approvals(
+        &self,
+        _session_id: Uuid,
+    ) -> Result<Vec<RuntimeApprovalRequest>, AppError> {
+        Err(AppError::Unavailable(
+            "targeted approvals are unavailable".into(),
+        ))
+    }
+    async fn approval_decision(
+        &self,
+        _session_id: Uuid,
+        _approval_id: Uuid,
+    ) -> Result<domain::ApprovalDecision, AppError> {
+        Err(AppError::Unavailable(
+            "targeted approvals are unavailable".into(),
+        ))
+    }
+    async fn reserve_approval_decision(
+        &self,
+        _session_id: Uuid,
+        _approval_id: Uuid,
+        _actor: Uuid,
+        _req: domain::ApprovalDecisionRequest,
+    ) -> Result<domain::ReservedApprovalDecision, AppError> {
+        Err(AppError::Unavailable(
+            "targeted approvals are unavailable".into(),
+        ))
+    }
+    async fn deliver_approval_decision(
+        &self,
+        _decision_id: Uuid,
+    ) -> Result<domain::ApprovalDecision, AppError> {
+        Err(AppError::Unavailable(
+            "targeted approvals are unavailable".into(),
+        ))
+    }
+    async fn list_chats_directory(
+        &self,
+        _filter: domain::ChatsDirectoryFilter,
+    ) -> Result<domain::ChatsDirectoryPage, AppError> {
+        Err(AppError::Unavailable(
+            "chat directory is not available".into(),
+        ))
+    }
+    async fn reserve_pm_run(
+        &self,
+        _reservation: domain::PmRunReservation,
+    ) -> Result<domain::PmRunRecord, AppError> {
+        Err(AppError::Unavailable(
+            "PM run repository is not available".into(),
+        ))
+    }
+    async fn get_pm_run(&self, _id: Uuid) -> Result<domain::PmRunRecord, AppError> {
+        Err(AppError::Unavailable(
+            "PM run repository is not available".into(),
+        ))
+    }
+    async fn accept_pm_run(
+        &self,
+        _id: Uuid,
+        _hermes_run_ref: String,
+        _hermes_session_ref: String,
+    ) -> Result<domain::PmRunRecord, AppError> {
+        Err(AppError::Unavailable(
+            "PM run repository is not available".into(),
+        ))
+    }
+    async fn observe_pm_run(
+        &self,
+        _id: Uuid,
+        _status: domain::PmRuntimeStatus,
+    ) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "PM run repository is not available".into(),
+        ))
+    }
     async fn has_pending_session_dispatch(&self, _session_id: Uuid) -> Result<bool, AppError> {
         Ok(false)
     }
@@ -481,6 +557,26 @@ pub trait AgentProvisioner: Send + Sync {
 
 #[async_trait]
 pub trait RuntimeSupervisor: Send + Sync {
+    async fn resolve_targeted_approval(
+        &self,
+        _agent: &Agent,
+        _run: &SessionAgentRun,
+        _approval: &RuntimeApprovalRequest,
+        _choice: domain::ApprovalChoice,
+    ) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "targeted approvals are unavailable".into(),
+        ))
+    }
+    async fn probe_pm_run(
+        &self,
+        _agent: &Agent,
+        _record: &domain::PmRunRecord,
+    ) -> Result<domain::PmRuntimeStatus, AppError> {
+        Err(AppError::Unavailable(
+            "PM runtime readback is not available".into(),
+        ))
+    }
     async fn start(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError>;
     async fn stop(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError>;
     async fn restart(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError>;

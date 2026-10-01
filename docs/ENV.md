@@ -38,6 +38,16 @@ Important runtime values:
 | `FLEET_CONTROL_FLEET__RETENTION__STALE_ARCHIVED_DAYS` | 30 | Stale threshold (days) for archived agent folders |
 | `FLEET_CONTROL_FLEET__RETENTION__REVIEW_INTERVAL_SECS` | 3600 | Scheduled stale-folder review period (seconds) |
 
+## PM Readback
+
+- `FLEET_CONTROL_PM__READBACK_TOKEN`: dedicated machine callback secret, 32..512
+  ASCII graphic bytes without whitespace; unset by default. Must differ from JWT signing,
+  runtime derivation and Workflow catalog secrets. Never expose it to agents or
+  browsers. Configure the same value as Workflow's
+  `PROJECT_WORKFLOW_PM_READBACK_TOKEN` and its fixed callback URL as
+  `http://<fleet>/internal/runtime/v1/pm/runs` (Workflow appends the run UUID). Enabling the
+  callback alone does not enable PM dispatch or automatic assignments.
+
 Default ports:
 
 - backend: `23801`

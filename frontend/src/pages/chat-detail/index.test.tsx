@@ -265,7 +265,7 @@ describe('production chat', () => {
   })
   it('returns focus to the context trigger after Escape', async () => {
     renderPage()
-    const trigger = await screen.findByRole('button', { name: 'Контекст задачи', exact: true })
+    const trigger = await screen.findByRole('button', { name: /^Контекст задачи$/ })
     await userEvent.click(trigger)
     await screen.findByRole('dialog', { name: 'Контекст задачи' })
     await userEvent.keyboard('{Escape}')

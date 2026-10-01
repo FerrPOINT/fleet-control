@@ -30,7 +30,69 @@ impl MigrationTrait for Migration {
              $$ LANGUAGE plpgsql;
              CREATE TRIGGER fleet_task_chat_identity BEFORE UPDATE ON agent_sessions
                 FOR EACH ROW EXECUTE FUNCTION fleet_guard_task_chat();
-             CREATE INDEX session_messages_history_idx ON session_messages(session_id, created_at DESC, id DESC);"
+             CREATE INDEX session_messages_history_idx ON session_messages(session_id, created_at DESC, id DESC);
+             CREATE TABLE pm_run_bindings (
+                session_run_id uuid PRIMARY KEY REFERENCES session_agent_runs(id),
+                session_id uuid NOT NULL REFERENCES task_chat_bindings(session_id),
+                agent_id uuid NOT NULL REFERENCES agents(id),
+                reservation jsonb NOT NULL,
+                dispatch_operation_key text NOT NULL CHECK (length(dispatch_operation_key) BETWEEN 1 AND 128),
+                runtime_session_id text NOT NULL,
+                hermes_run_ref text CHECK (length(hermes_run_ref) BETWEEN 1 AND 512),
+                hermes_session_ref text CHECK (length(hermes_session_ref) BETWEEN 1 AND 512),
+                CHECK ((hermes_run_ref IS NULL) = (hermes_session_ref IS NULL)),
+                terminal_status text CHECK (terminal_status IN ('completed','failed','cancelled','stopped')),
+                created_at timestamptz NOT NULL DEFAULT now(),
+                observed_at timestamptz,
+                UNIQUE(agent_id, dispatch_operation_key),
+                UNIQUE(agent_id, hermes_run_ref)
+             );
+             CREATE FUNCTION fleet_guard_pm_run() RETURNS trigger AS $$
+             BEGIN
+                IF NEW.session_run_id IS DISTINCT FROM OLD.session_run_id
+                   OR NEW.session_id IS DISTINCT FROM OLD.session_id
+                   OR NEW.agent_id IS DISTINCT FROM OLD.agent_id
+                   OR NEW.reservation IS DISTINCT FROM OLD.reservation
+                   OR NEW.dispatch_operation_key IS DISTINCT FROM OLD.dispatch_operation_key
+                   OR NEW.runtime_session_id IS DISTINCT FROM OLD.runtime_session_id
+                   OR (OLD.hermes_run_ref IS NOT NULL AND NEW.hermes_run_ref IS DISTINCT FROM OLD.hermes_run_ref)
+                   OR (OLD.hermes_session_ref IS NOT NULL AND NEW.hermes_session_ref IS DISTINCT FROM OLD.hermes_session_ref)
+                   OR (OLD.terminal_status IS NOT NULL AND NEW.terminal_status IS DISTINCT FROM OLD.terminal_status) THEN
+                    RAISE EXCEPTION 'PM run proof is immutable' USING ERRCODE = '23514';
+                END IF;
+                RETURN NEW;
+             END;
+             $$ LANGUAGE plpgsql;
+             CREATE TRIGGER fleet_pm_run_identity BEFORE UPDATE ON pm_run_bindings
+                FOR EACH ROW EXECUTE FUNCTION fleet_guard_pm_run();
+             CREATE INDEX pm_run_bindings_session_idx ON pm_run_bindings(session_id,created_at);
+             CREATE TABLE runtime_approval_decisions (
+                id uuid PRIMARY KEY,
+                session_id uuid NOT NULL REFERENCES agent_sessions(id),
+                approval_id uuid NOT NULL UNIQUE REFERENCES runtime_approval_requests(id),
+                session_run_id uuid NOT NULL REFERENCES session_agent_runs(id),
+                actor_user_id uuid NOT NULL REFERENCES users(id),
+                choice text NOT NULL CHECK (choice IN ('once','deny')),
+                idempotency_key text NOT NULL CHECK (length(idempotency_key) BETWEEN 1 AND 128),
+                state text NOT NULL CHECK (state IN ('pending','delivered','uncertain','failed')),
+                created_at timestamptz NOT NULL DEFAULT now(),
+                delivered_at timestamptz,
+                UNIQUE(actor_user_id,idempotency_key)
+             );
+             CREATE FUNCTION fleet_guard_approval_decision() RETURNS trigger AS $$
+             BEGIN
+                IF (to_jsonb(NEW) - 'state' - 'delivered_at') IS DISTINCT FROM (to_jsonb(OLD) - 'state' - 'delivered_at')
+                   OR (OLD.state = 'delivered' AND NEW IS DISTINCT FROM OLD)
+                   OR (NEW.state IS DISTINCT FROM OLD.state AND NOT (OLD.state = 'uncertain' AND NEW.state = 'delivered')) THEN
+                    RAISE EXCEPTION 'approval decision is immutable' USING ERRCODE = '23514';
+                END IF;
+                RETURN NEW;
+             END;
+             $$ LANGUAGE plpgsql;
+             CREATE TRIGGER fleet_approval_decision_guard BEFORE UPDATE ON runtime_approval_decisions
+                FOR EACH ROW EXECUTE FUNCTION fleet_guard_approval_decision();
+             CREATE TRIGGER fleet_approval_decision_event AFTER INSERT OR UPDATE ON runtime_approval_decisions
+                FOR EACH ROW EXECUTE FUNCTION fleet_record_session_event();"
         ).await?;
         Ok(())
     }
@@ -38,7 +100,8 @@ impl MigrationTrait for Migration {
         manager
             .get_connection()
             .execute_unprepared(
-                "DROP TRIGGER fleet_task_chat_identity ON agent_sessions;
+                "DROP TABLE runtime_approval_decisions; DROP FUNCTION fleet_guard_approval_decision(); DROP TABLE pm_run_bindings; DROP FUNCTION fleet_guard_pm_run();
+             DROP TRIGGER fleet_task_chat_identity ON agent_sessions;
              DROP FUNCTION fleet_guard_task_chat();
              DROP INDEX session_messages_history_idx;
              DROP TABLE task_chat_bindings;",

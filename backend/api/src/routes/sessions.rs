@@ -502,45 +502,20 @@ pub async fn stop_session_run(
     Ok(Json(response))
 }
 
-#[utoipa::path(post, path = "/api/v1/sessions/{session_id}/runs/{run_id}/approval", tag = "sessions", params(("session_id" = Uuid, Path), ("run_id" = Uuid, Path)), request_body = ResolveRuntimeApprovalRequest, responses((status = 200, body = RuntimeRunControlResponse)))]
+#[utoipa::path(post, path = "/api/v1/sessions/{session_id}/runs/{run_id}/approval", tag = "sessions", params(("session_id" = Uuid, Path), ("run_id" = Uuid, Path)), request_body = ResolveRuntimeApprovalRequest, responses((status = 409, description = "Use the exact approval request decision endpoint")))]
 pub async fn resolve_session_run_approval(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<crate::middleware::CurrentUser>,
     Path((session_id, run_id)): Path<(Uuid, Uuid)>,
-    Json(req): Json<ResolveRuntimeApprovalRequest>,
+    Json(_req): Json<ResolveRuntimeApprovalRequest>,
 ) -> Result<Json<RuntimeRunControlResponse>, AppError> {
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_write_access(&session, &user)?;
     let run = ctx.repo.get_session_agent_run(run_id).await?;
     ensure_run_belongs_to_session(&run, session_id)?;
-    let agent = ctx.repo.get_agent(run.agent_id).await?;
-    let audit_payload = serde_json::json!({
-        "session_id": session_id,
-        "runtime_run_id": run.runtime_run_id,
-        "choice": req.choice,
-        "resolve_all": req.resolve_all,
-    });
-    let response = ctx
-        .runtime
-        .resolve_approval(&agent, &run, req.clone())
-        .await?;
-    let resolved_count = ctx
-        .repo
-        .resolve_runtime_approval_requests_for_run(run.id, req, user.id)
-        .await?;
-    ctx.repo
-        .insert_audit(
-            Some(user.id),
-            "session_run.approval",
-            "session_run",
-            Some(run.id.to_string()),
-            serde_json::json!({
-                "request": audit_payload,
-                "resolved_approval_requests": resolved_count,
-            }),
-        )
-        .await?;
-    Ok(Json(response))
+    Err(AppError::conflict(
+        "run-wide approval is disabled; use an exact approval request decision",
+    ))
 }
 
 fn ensure_run_belongs_to_session(run: &SessionAgentRun, session_id: Uuid) -> Result<(), AppError> {
