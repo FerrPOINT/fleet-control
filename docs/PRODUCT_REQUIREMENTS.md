@@ -2,10 +2,34 @@
 
 ## Goal
 
-Fleet Control manages multiple isolated agent runtimes and lets an operator
-coordinate executor task sessions directly or through leader agents.
+Fleet Control manages real agent runtimes and separate per-agent chats. Tracker,
+Workflow and CI/CD own requirements, scheduling, workflow receipts and deployment.
+The target is automatic SDLC after PM clarification and human confirmation of an
+exact requirements revision. This target is not yet implemented end to end.
 
-## MVP
+## Current SDLC Scope
+
+- Seven independent specializations: PM, Analyst, Architect, Developer, Reviewer,
+  Tester and DevOps; runtime kind and legacy product role remain separate.
+- `/chats` groups a concrete agent's sessions. Free private chats do not advance
+  stages. Immutable Tracker task/agent binding remains an implementation gap.
+- Rework must continue the same task/agent chat; agent replacement must create
+  a new chat and retain the old history without copying transcripts.
+- Configuration revisions distinguish desired/effective state and use drain,
+  validation, activation/readback and rollback.
+- Runtime health is not SDLC readiness. Unverified assignment/workflow contracts
+  keep automatic SDLC blocked.
+- Leaders are deferred. Existing data and legacy routes are retained, but no new
+  leader/team automation is required for this release.
+- Hermes is the primary chat runtime. Existing Java jar lifecycle is retained;
+  Java chat/control/config activation are phase 2.
+- API ownership is authoritative. Local processes are not hostile-tenant OS
+  sandboxes; see [Threat model](THREAT_MODEL.md).
+
+Full stage requirements, owner boundaries and uncompleted acceptance are in
+[SDLC implementation](SDLC_IMPLEMENTATION.md).
+
+## Historical Baseline Scope
 
 - Create sequential managed agents: `agent1`, `agent2`, and so on.
 - Support two runtime kinds in the model: Hermes and Java Agent.
@@ -29,7 +53,10 @@ coordinate executor task sessions directly or through leader agents.
 - Materialize guarded folders under the configured agents root.
 - Expose operator UI for all management surfaces.
 
-## Success Criteria
+## Historical Baseline Criteria
+
+These criteria describe legacy routes, not acceptance of the current SDLC plan.
+New Chats must not use handoff to change an existing task-bound agent identity.
 
 - Fresh database seeds Developer Hermes and Tester Hermes.
 - Each agent has distinct runtime, config, workspace and logs folders.

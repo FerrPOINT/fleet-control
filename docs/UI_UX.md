@@ -3,6 +3,9 @@
 Fleet Control is an operational application. The UI should be dense, calm and
 scan-friendly.
 
+The complete chat/session behavior, current polling implementation, target
+streaming UX and acceptance scenarios are documented in [CHAT.md](CHAT.md).
+
 Screens:
 
 - dashboard

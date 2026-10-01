@@ -1,0 +1,12 @@
+# UI/UX-карта fleet-control
+
+Нормативные правила принадлежат Base UI/UX Standard в соседнем checkout:
+`services-base/docs/platform/UI_UX_STANDARD.md` (относительно общего SDLC workspace).
+Этот документ содержит только продуктовую карту и исключения.
+
+- Route patterns, layout и роли: [ui-routes.json](ui-routes.json).
+- Проверка статического соответствия: `cd frontend && pnpm ui:check`.
+- `isolated:...` обозначает сценарий изолированной QA-фикстуры, а не существующую production-запись. Seed и исполнение всех сценариев ещё требуют подтверждения.
+- `qa.status: not-run` означает отсутствие приёмки текущего snapshot. Статический gate не закрывает browser/state acceptance.
+- Доказательства скриншотов хранятся отдельно от route manifest; историческая галерея не подтверждает новую сборку.
+- Согласованных исключений из общего shell-контракта нет.

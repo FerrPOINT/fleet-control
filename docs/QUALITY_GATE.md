@@ -28,6 +28,9 @@ Additional gates:
 
 - clean DB migration up/status
 - OpenAPI regenerate and diff
+- standalone release Docker builds with sibling Base named contexts and locked
+  dependencies; fresh Compose health plus `scripts/compose_smoke.py` acceptance
+  (auth/RBAC, privacy, idempotency, proxied session SSE and restart persistence)
 - markdown link check through `pnpm markdown:check`
 - visual review of desktop screenshots for leaders, sessions, settings,
   deployments and logs; narrow-viewport behavior is verified by UI tests.

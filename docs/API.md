@@ -1,5 +1,17 @@
 # API
 
+## October SDLC Foundation
+
+`sdlc_role` is independent from `kind` and `product_role`. Configuration `PUT`
+now saves a draft, not effective runtime files. New operator/admin routes:
+`GET /agents/{id}/config/revisions`, `POST /agents/{id}/config/revisions/{revision}/validate`,
+`POST .../activate`, and `GET /agents/{id}/readiness` (all under `/api/v1`).
+Human message requests cannot set agent authors/runtime IDs or non-prompt kinds.
+Pending prompts use transactional outbox; acceptance-unknown dispatch is not retried.
+Session SSE supports `Last-Event-ID` or `cursor`, and rechecks ownership/role/expiry.
+Delta events contain a redacted `text` snapshot, not a fragment that could expose
+a credential split across frames. See [current scope](SDLC_IMPLEMENTATION.md).
+
 Base path: `/api/v1`.
 
 Auth:
@@ -63,6 +75,11 @@ Fleet:
 - `GET /executors`
 
 Sessions and workflow:
+
+Единые правила чатов и source-review расхождения описаны в [CHAT.md](CHAT.md).
+Там отдельно отмечены текущий SSE wire format, synchronous dispatch, ограничения
+agent authorship и различия central/legacy permissions; наличие route не
+подтверждает выполнение всех целевых гарантий.
 
 - `GET /sessions?agent_id={agent_id}&leader_agent_id={leader_id}&user_id={id1,id2}`
   lists sessions by primary agent, selected leader and user filter.

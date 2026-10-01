@@ -96,6 +96,9 @@ pub async fn update_agent(
     Json(req): Json<UpdateAgentRequest>,
 ) -> Result<Json<Agent>, AppError> {
     require_operator(&user)?;
+    if ctx.repo.agent_is_draining(agent_id).await? {
+        return Err(AppError::conflict("agent configuration is draining"));
+    }
     let audit_payload = serde_json::to_value(&req).map_err(AppError::internal)?;
     let agent = ctx.repo.update_agent(agent_id, req).await?;
     ctx.repo
@@ -121,8 +124,11 @@ pub async fn archive_agent(
     Path(agent_id): Path<Uuid>,
 ) -> Result<Json<Agent>, AppError> {
     require_operator(&user)?;
+    if ctx.repo.agent_is_draining(agent_id).await? {
+        return Err(AppError::conflict("agent configuration is draining"));
+    }
     let agent = ctx.repo.get_agent(agent_id).await?;
-    let _ = ctx.runtime.stop(&agent).await;
+    ctx.runtime.stop(&agent).await?;
     let agent = ctx.repo.archive_agent(agent_id).await?;
     ctx.repo
         .insert_audit(
@@ -215,6 +221,9 @@ pub async fn provision_agent(
     Path(agent_id): Path<Uuid>,
 ) -> Result<Json<Agent>, AppError> {
     require_operator(&user)?;
+    if ctx.repo.agent_is_draining(agent_id).await? {
+        return Err(AppError::conflict("agent configuration is draining"));
+    }
     let agent = ctx.repo.get_agent(agent_id).await?;
     ctx.provisioner.provision(&agent, &ctx.config).await?;
     let agent = ctx
@@ -240,6 +249,9 @@ pub async fn start_agent(
     Path(agent_id): Path<Uuid>,
 ) -> Result<Json<RuntimeOperationResponse>, AppError> {
     require_operator(&user)?;
+    if ctx.repo.agent_is_draining(agent_id).await? {
+        return Err(AppError::conflict("agent configuration is draining"));
+    }
     let agent = ctx.repo.get_agent(agent_id).await?;
     let previous_status = Some(agent.status.as_str().to_string());
     let response = ctx.runtime.start(&agent).await?;
@@ -272,6 +284,9 @@ pub async fn stop_agent(
     Path(agent_id): Path<Uuid>,
 ) -> Result<Json<RuntimeOperationResponse>, AppError> {
     require_operator(&user)?;
+    if ctx.repo.agent_is_draining(agent_id).await? {
+        return Err(AppError::conflict("agent configuration is draining"));
+    }
     let agent = ctx.repo.get_agent(agent_id).await?;
     let previous_status = Some(agent.status.as_str().to_string());
     let response = ctx.runtime.stop(&agent).await?;
@@ -300,6 +315,9 @@ pub async fn restart_agent(
     Path(agent_id): Path<Uuid>,
 ) -> Result<Json<RuntimeOperationResponse>, AppError> {
     require_operator(&user)?;
+    if ctx.repo.agent_is_draining(agent_id).await? {
+        return Err(AppError::conflict("agent configuration is draining"));
+    }
     let agent = ctx.repo.get_agent(agent_id).await?;
     let response = ctx.runtime.restart(&agent).await?;
     ctx.repo
@@ -360,18 +378,135 @@ pub async fn update_agent_config(
     Json(req): Json<UpdateAgentConfigRequest>,
 ) -> Result<Json<AgentConfig>, AppError> {
     require_operator(&user)?;
-    let audit_payload = serde_json::to_value(&req).map_err(AppError::internal)?;
-    let config = ctx.repo.update_agent_config(agent_id, req).await?;
     ctx.repo
-        .insert_audit(
-            Some(user.id),
-            "agent_config.update",
-            "agent_config",
-            Some(agent_id.to_string()),
-            audit_payload,
-        )
+        .create_config_revision(agent_id, req, user.id)
         .await?;
-    Ok(Json(config))
+    Ok(Json(ctx.repo.get_agent_config(agent_id).await?))
+}
+
+#[utoipa::path(get, path = "/api/v1/agents/{agent_id}/config/revisions", tag = "agents", params(("agent_id" = Uuid, Path)), responses((status = 200, body = Vec<domain::AgentConfigRevision>)))]
+pub async fn list_config_revisions(
+    State(ctx): State<Arc<AppContext>>,
+    Extension(user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<Vec<domain::AgentConfigRevision>>, AppError> {
+    require_operator(&user)?;
+    Ok(Json(ctx.repo.list_config_revisions(id).await?))
+}
+
+#[utoipa::path(post, path = "/api/v1/agents/{agent_id}/config/revisions/{revision}/validate", tag = "agents", params(("agent_id" = Uuid, Path), ("revision" = i64, Path)), responses((status = 200, body = domain::AgentConfigRevision)))]
+pub async fn validate_config_revision(
+    State(ctx): State<Arc<AppContext>>,
+    Extension(user): Extension<CurrentUser>,
+    Path((id, revision)): Path<(Uuid, i64)>,
+) -> Result<Json<domain::AgentConfigRevision>, AppError> {
+    require_operator(&user)?;
+    let value = ctx
+        .repo
+        .list_config_revisions(id)
+        .await?
+        .into_iter()
+        .find(|value| value.revision == revision)
+        .ok_or_else(|| AppError::not_found("config_revision", revision))?;
+    let mut errors = value.snapshot.config.input_errors();
+    if value
+        .snapshot
+        .config
+        .config_json
+        .get("terminal")
+        .is_some_and(|value| !value.is_object())
+    {
+        errors.push("terminal configuration must be an object".into());
+    }
+    for skill in &value.snapshot.skills {
+        if skill.state == domain::SkillState::Enabled
+            && skill
+                .content
+                .as_deref()
+                .is_none_or(|value| value.trim().is_empty())
+        {
+            errors.push(format!(
+                "enabled skill {} has no installed content",
+                skill.name
+            ));
+        }
+    }
+    if let Some(env) = value.snapshot.config.env_json.as_object() {
+        for (key, value) in env {
+            if let Some(reference) = value.get("secret_ref").and_then(serde_json::Value::as_str)
+                && std::env::var_os(format!("FLEET_CONTROL_SECRET__{reference}")).is_none()
+            {
+                errors.push(format!("secret_ref for {key} is unavailable"));
+            }
+        }
+    }
+    Ok(Json(
+        ctx.repo
+            .validate_config_revision(id, revision, errors)
+            .await?,
+    ))
+}
+
+#[utoipa::path(post, path = "/api/v1/agents/{agent_id}/config/revisions/{revision}/activate", tag = "agents", params(("agent_id" = Uuid, Path), ("revision" = i64, Path)), responses((status = 200, body = domain::AgentConfigRevision)))]
+pub async fn activate_config_revision(
+    State(ctx): State<Arc<AppContext>>,
+    Extension(user): Extension<CurrentUser>,
+    Path((id, revision)): Path<(Uuid, i64)>,
+) -> Result<Json<domain::AgentConfigRevision>, AppError> {
+    require_operator(&user)?;
+    let agent = ctx.repo.get_agent(id).await?;
+    if agent.kind != domain::AgentKind::Hermes {
+        return Err(AppError::validation(
+            "Java Agent configuration activation is planned for phase 2",
+        ));
+    }
+    Ok(Json(
+        ctx.repo
+            .request_config_activation(id, revision, user.id)
+            .await?,
+    ))
+}
+
+#[utoipa::path(get, path = "/api/v1/agents/{agent_id}/readiness", tag = "agents", params(("agent_id" = Uuid, Path)), responses((status = 200, body = domain::AgentSdlcReadiness)))]
+pub async fn get_sdlc_readiness(
+    State(ctx): State<Arc<AppContext>>,
+    Extension(user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<domain::AgentSdlcReadiness>, AppError> {
+    require_operator(&user)?;
+    let agent = ctx.repo.get_agent(id).await?;
+    let revisions = ctx.repo.list_config_revisions(id).await?;
+    let effective = revisions.iter().find(|value| value.is_effective);
+    let runtime_healthy = agent.status == domain::AgentStatus::Running
+        && agent.runtime.health_status.as_deref() == Some("running");
+    let mut blockers = Vec::new();
+    if !runtime_healthy {
+        blockers.push("runtime_not_healthy".into());
+    }
+    if agent.sdlc_role.is_none() {
+        blockers.push("sdlc_role_not_assigned".into());
+    }
+    if agent.kind != domain::AgentKind::Hermes {
+        blockers.push("runtime_chat_capabilities_not_implemented".into());
+    }
+    if effective.is_none() {
+        blockers.push("configuration_not_applied".into());
+    }
+    if revisions.iter().any(|value| value.draining) {
+        blockers.push("configuration_draining".into());
+    }
+    if agent.namespace_id.is_none() || agent.workflow_id.is_none() {
+        blockers.push("workflow_not_bound".into());
+    }
+    // Existing workflow catalog is not proof of assignment/rebind/terminal support.
+    blockers.push("workflow_assignment_protocol_not_verified".into());
+    Ok(Json(domain::AgentSdlcReadiness {
+        agent_id: id,
+        runtime_healthy,
+        ready_for_sdlc: blockers.is_empty(),
+        effective_revision: effective.map(|value| value.revision),
+        blockers,
+    }))
 }
 
 #[utoipa::path(get, path = "/api/v1/agents/{agent_id}/skills", tag = "agents", params(("agent_id" = Uuid, Path)), responses((status = 200, body = Vec<AgentSkill>)))]
@@ -392,7 +527,10 @@ pub async fn update_agent_skill(
     Json(req): Json<UpdateSkillRequest>,
 ) -> Result<Json<AgentSkill>, AppError> {
     require_operator(&user)?;
-    let audit_payload = serde_json::to_value(&req).map_err(AppError::internal)?;
+    if ctx.repo.agent_is_draining(agent_id).await? {
+        return Err(AppError::conflict("agent configuration is draining"));
+    }
+    let audit_payload = serde_json::json!({"state": req.state, "content_length": req.content.as_ref().map(|value| value.len())});
     let skill = ctx
         .repo
         .update_agent_skill(agent_id, skill_name, req)

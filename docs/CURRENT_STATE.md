@@ -1,14 +1,59 @@
 # Current State
 
-2026-10-01 Header update: the Base PlatformHeader is integrated with a nav-only
-sidebar and one account menu. Frontend 117/117 (shell 17), backend 60/60 with two
-real isolated PostgreSQL tests; live candidate 5/5, 5.7 minutes, no mocked API.
-Scope and fingerprints: [Header plan](plan/2026-10-01-platform-header.md).
-The following pre-development snapshot is historical and is not a release attestation.
+Status (2026-10-01): SDLC foundation is partially implemented. Automatic SDLC is
+blocked until cross-service assignment/workflow/deployment contracts are verified.
+See [SDLC implementation](SDLC_IMPLEMENTATION.md). The baseline feature/gate lists
+below are historical, not acceptance evidence for the new SDLC plan.
 
-Status: pre-development hardening implemented and validated through WSL/Linux
-backend gates plus Windows frontend gates. Native Windows Rust commands still
-require MSVC `link.exe`.
+New implementation: seven specializations, agent-grouped `/chats`, read-only
+directory, persistent bearer SSE replay, transactional prompt outbox, concurrent
+idempotency, no effective-admin central bypass, versioned configuration activation
+with drain/readback/rollback and fail-closed SDLC readiness.
+
+Native Windows Rust commands still require MSVC `link.exe`.
+
+## October Foundation Evidence
+
+Verified on 2026-10-01, separate from the historical baseline below:
+
+- WSL workspace tests: 73 passed with both PostgreSQL test URLs configured,
+  including six foundation HTTP/DB tests, `interrupted` failure handling and
+  three provisioning preservation/ownership/active-runtime regressions, and
+  legacy configuration secret masking with safe-reference preservation.
+- Strict WSL Clippy and Rust formatting passed.
+- Clean PostgreSQL migration up, new foundation migration down (one step),
+  up/status passed. Unpublished schema changes are consolidated into 000009.
+- Rust-source OpenAPI regeneration is byte-identical to the current spec;
+  frontend API generation and drift check passed.
+- Frontend: 125 tests in 21 files; typecheck/build, lint and format check passed
+  after integrating the latest upstream header, contextual rails and safe editors.
+- Shared bearer SSE: four regression tests passed.
+- Installed Base UI contract: 38 route patterns; README structure and its three
+  validator tests passed; Markdown links checked across 84 documents.
+- Playwright: 18 fixture checks passed across Chromium/Firefox/WebKit;
+  27 opt-in live checks require a running backend and are not acceptance evidence.
+- Screenshot manifest verifies 135 fixture images at 375x812, 1920x1080,
+  2560x1440. Desktop config and mobile Chats/transcript inspected visually.
+- Standalone Rust 1.88 release and frontend Docker images built successfully
+  with locked dependencies and explicit sibling Base contexts. A disposable
+  clean PostgreSQL/Redis/backend/Nginx stack passed health, authenticated RBAC,
+  private-chat denial, idempotent replay/conflict, immediate proxied session SSE
+  and session persistence after backend restart. The disposable stack was removed.
+
+CI now includes compile, migration rollback/reapply, frontend formatting,
+route/link/screenshot gates, three-browser fixture acceptance and browser evidence
+artifacts plus disposable authenticated container acceptance. Shared Base changes are published in
+[services-base #121](https://github.com/FerrPOINT/services-base/pull/121).
+Fleet CI pins Base to `af1bdd4746dfda331d0c32741af3f7c502fad816` until the
+dependency is merged. GitHub CI status must be checked on the current PR head;
+local checks alone do not prove CI acceptance.
+
+The real seven-agent PM/requirements/decomposition/Rework/deployment scenario,
+cross-service CI and production receipts remain unverified. Container acceptance
+proves the standalone Fleet foundation, not actual Hermes/provider execution,
+Central Auth integration or a complete automatic SDLC environment.
+
+## Historical Baseline
 
 Implemented:
 
@@ -33,7 +78,8 @@ Implemented:
 - derived per-agent runtime tokens from
   `FLEET_CONTROL_FLEET__RUNTIME_TOKEN_SECRET`; raw runtime tokens are written
   only into the managed agent env/config surface
-- Java Agent runtime template and phase 2 contract placeholder
+- Java Agent template and existing externally provisioned jar lifecycle;
+  chat/control/config activation remain phase 2
 - React application pages for fleet dashboard, leaders, executors, technical
   agents, sessions, workflows, deployments, logs and settings
 - permission-aware navigation, access denied and not found states
@@ -59,17 +105,18 @@ Implemented:
 - fleet-wide storage/retention review for technical agent inventory with total
   managed bytes, archived bytes, purge-ready agents and marker/path issues
 - full documentation baseline
-- generated 82-file desktop screenshot set for all required product routes
+- historical 82-file desktop screenshot set, superseded by the October manifest
 
 Known local limitation:
 
 - Native Windows Rust check is blocked until MSVC Build Tools provide
   `link.exe`.
-- Final local Docker migration smoke rerun is blocked because `docker compose`
-  hangs before returning even `ps`; this is tracked as an environment gap.
+- The earlier Docker engine hang is no longer the migration blocker: October
+  tests ran against an isolated PostgreSQL 17 container. Full compose smoke has
+  not been rerun.
 - WSL/Linux backend check, clippy, tests and OpenAPI source regeneration pass.
 
-Latest verified gates:
+Historical verified gates:
 
 - `cargo fmt --all --check` through WSL/Linux.
 - `cargo check --workspace --all-targets` through WSL/Linux.

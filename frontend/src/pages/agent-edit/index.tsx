@@ -5,7 +5,8 @@ import { useTranslation } from 'react-i18next'
 import { FileCode2, Save, Wrench } from 'lucide-react'
 import { toast } from 'sonner'
 import { getAgent, listExecutors, listLeaderExecutors, updateAgent } from '@/api/fleet'
-import type { AgentProductRole, AgentRole, UpdateAgentRequest } from '@/api/types'
+import type { AgentProductRole, AgentRole, SdlcRole, UpdateAgentRequest } from '@/api/types'
+import { sdlcRoles } from '@/shared/sdlc-roles'
 import { Button } from '@sdlc/ui/ui'
 import { Card, CardContent, CardHeader, CardTitle } from '@sdlc/ui/ui'
 import { Input } from '@sdlc/ui/ui'
@@ -39,6 +40,7 @@ export function AgentEditPage({ defaultProductRole }: { defaultProductRole?: Age
     defaultProductRole === 'leader' ? 'it_lead' : 'developer',
   )
   const [displayName, setDisplayName] = useState('')
+  const [sdlcRole, setSdlcRole] = useState<SdlcRole | ''>('')
   const [description, setDescription] = useState('')
   const [namespaceId, setNamespaceId] = useState('')
   const [workflowId, setWorkflowId] = useState('')
@@ -48,6 +50,7 @@ export function AgentEditPage({ defaultProductRole }: { defaultProductRole?: Age
     if (!agent.data) return
     setProductRole(agent.data.product_role)
     setRole(agent.data.role)
+    setSdlcRole(agent.data.sdlc_role ?? '')
     setDisplayName(agent.data.display_name)
     setDescription(agent.data.description ?? '')
     setNamespaceId(agent.data.namespace_id ?? '')
@@ -69,6 +72,7 @@ export function AgentEditPage({ defaultProductRole }: { defaultProductRole?: Age
       const payload: UpdateAgentRequest = {
         product_role: productRole,
         role,
+        ...(sdlcRole && productRole === 'executor' ? { sdlc_role: sdlcRole } : {}),
         display_name: displayName,
         description,
         namespace_id: namespaceId,
@@ -153,6 +157,27 @@ export function AgentEditPage({ defaultProductRole }: { defaultProductRole?: Age
           </CardHeader>
           <CardContent className="grid gap-3">
             <AgentIdentity agent={agent.data} />
+            {productRole === 'executor' ? (
+              <div className="grid gap-2">
+                <Label htmlFor="edit-sdlc-role">SDLC</Label>
+                <select
+                  id="edit-sdlc-role"
+                  value={sdlcRole}
+                  disabled={mutation.isPending}
+                  onChange={(event) => setSdlcRole(event.target.value as SdlcRole | '')}
+                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                >
+                  <option value="" disabled>
+                    -
+                  </option>
+                  {sdlcRoles.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
             <div className="grid gap-2">
               <Label htmlFor="edit-product-role">{t('agentEdit.productRole')}</Label>
               <select

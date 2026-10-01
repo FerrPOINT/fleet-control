@@ -3,11 +3,13 @@ import { RequireAuth } from '@/shared/auth/require-auth'
 import { AppShell } from '@/widgets/app-shell'
 import { DashboardPage } from '@/pages/dashboard'
 import { AgentsPage } from '@/pages/agents'
+import { AgentDirectoryPage } from '@/pages/agents/directory'
 import { AgentDetailPage } from '@/pages/agent-detail'
 import { AgentEditPage } from '@/pages/agent-edit'
 import { ExecutorsPage } from '@/pages/executors'
 import { LeaderDetailPage, LeadersPage } from '@/pages/leaders'
 import { SessionsPage } from '@/pages/sessions'
+import { ChatsPage } from '@/pages/chats'
 import { SessionDetailPage } from '@/pages/session-detail'
 import { WorkflowsPage } from '@/pages/workflows'
 import { DeploymentsPage } from '@/pages/deployments'
@@ -37,8 +39,13 @@ function NotFoundPage() {
 
 function HomePage() {
   const permissions = useAuthStore((state) => state.permissions)
-  if (!permissions.includes('agents:manage')) return <Navigate to="/sessions" replace />
+  if (!permissions.includes('agents:manage')) return <Navigate to="/chats" replace />
   return <DashboardPage />
+}
+
+function AgentIndexPage() {
+  const canManage = useAuthStore((state) => state.permissions.includes('agents:manage'))
+  return canManage ? <AgentsPage /> : <AgentDirectoryPage />
 }
 
 export const router = createBrowserRouter([
@@ -56,8 +63,8 @@ export const router = createBrowserRouter([
           {
             path: '/agents',
             element: (
-              <PermissionGate permission="agents:manage">
-                <AgentsPage />
+              <PermissionGate permission="agents:read_directory">
+                <AgentIndexPage />
               </PermissionGate>
             ),
           },
@@ -231,6 +238,8 @@ export const router = createBrowserRouter([
           },
           { path: '/sessions', element: <SessionsPage /> },
           { path: '/sessions/:sessionId', element: <SessionDetailPage /> },
+          { path: '/chats', element: <ChatsPage /> },
+          { path: '/chats/:sessionId', element: <SessionDetailPage legacyControls={false} /> },
           {
             path: '/workflows',
             element: (

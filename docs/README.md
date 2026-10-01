@@ -5,6 +5,8 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 
 ## Product And State
 
+- [SDLC_IMPLEMENTATION.md](SDLC_IMPLEMENTATION.md) — реализация нового SDLC, границы и оставшаяся приёмка.
+
 - [TZ.md](TZ.md)
 - [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md)
 - [CURRENT_STATE.md](CURRENT_STATE.md)
@@ -18,6 +20,8 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 - [ARCHITECTURE.md](ARCHITECTURE.md)
 - [FRONTEND_ARCHITECTURE.md](FRONTEND_ARCHITECTURE.md)
 - [DOMAIN_MODEL.md](DOMAIN_MODEL.md)
+- [CHAT.md](CHAT.md) — текущий Chats scope и сохранённый аудит legacy-сессий;
+  лиды и автономный SDLC не объявлены завершёнными.
 - [DATA_MODEL.md](DATA_MODEL.md)
 - [WORKFLOW.md](WORKFLOW.md)
 - [RUNTIME.md](RUNTIME.md)
@@ -72,4 +76,5 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 ## Evidence
 
 - [assets/screens/manifest.md](assets/screens/manifest.md) contains the
-  generated desktop route-to-screenshot matrix for 82 screenshots.
+  generated route-to-screenshot matrix for 135 fixture screenshots at three
+  viewports. It does not prove real runtime execution or Central Auth acceptance.

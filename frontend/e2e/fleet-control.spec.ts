@@ -396,9 +396,9 @@ async function installSsoMocks(page: Page) {
     callback.searchParams.set('code', 'qa-code')
     callback.searchParams.set('state', url.searchParams.get('state') ?? '')
     await route.fulfill({
-      status: 302,
-      headers: { location: callback.toString() },
-      body: '',
+      status: 200,
+      contentType: 'text/html',
+      body: `<!doctype html><script>location.replace(${JSON.stringify(callback.toString())})</script>`,
     })
   })
   await page.route('**/oidc/token', async (route) => {
@@ -443,11 +443,23 @@ async function installSsoMocks(page: Page) {
 }
 
 async function installMocks(page: Page, state: ApiState) {
+  await installSsoMocks(page)
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request()
     const url = new URL(request.url())
     const pathName = url.pathname
     const method = request.method()
+
+    if (method === 'OPTIONS') {
+      return route.fulfill({
+        status: 204,
+        headers: {
+          'access-control-allow-origin': '*',
+          'access-control-allow-methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+          'access-control-allow-headers': 'Authorization, Content-Type, Last-Event-ID',
+        },
+      })
+    }
 
     if (pathName === '/api/v1/auth/refresh') {
       return fulfill(route, authResponse())
@@ -674,6 +686,15 @@ async function installMocks(page: Page, state: ApiState) {
         return fulfill(route, agent)
       }
       if (section === 'storage') return fulfill(route, storageReport(agent))
+      if (section === 'config' && rest === 'revisions') return fulfill(route, [])
+      if (section === 'readiness')
+        return fulfill(route, {
+          agent_id: agentId,
+          runtime_healthy: true,
+          ready_for_sdlc: false,
+          effective_revision: null,
+          blockers: ['workflow_assignment_protocol_not_verified'],
+        })
       if (section === 'config') return fulfill(route, agentConfig(agent))
       if (section === 'skills') {
         const skills = state.skillsByAgent[agentId] ?? []
@@ -872,6 +893,7 @@ function fulfill(route: Route, value: unknown, status = 200) {
   return route.fulfill({
     status,
     contentType: 'application/json',
+    headers: { 'access-control-allow-origin': '*' },
     body: JSON.stringify(value),
   })
 }
@@ -1073,7 +1095,7 @@ test('uses the shared work-area geometry across semantic page modes', async ({
       await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible({
         timeout: 15_000,
       })
-      const layout = page.locator('[data-page-layout]')
+      const layout = page.locator('.shell-main > .page-frame > [data-page-layout]')
       await expect(layout).toHaveAttribute('data-page-layout', mode)
 
       const geometry = await layout.evaluate((element) => {
@@ -1110,7 +1132,7 @@ test('workflow bindings rebind only to a workflow in the selected namespace', as
   await page.goto('/workflows')
 
   await expect(page.getByText('Developer Hermes', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Rebind to sdlc-business-tech-v1' }).click()
+  await page.getByRole('button', { name: 'Перепривязать', exact: true }).click()
   await expect(page.getByText('sdlc-business-tech-v1').first()).toBeVisible()
 })
 
@@ -1339,125 +1361,155 @@ test('storage review links purge candidates to their workspace', async ({ page }
   await expect(page.locator(`a[href="/agents/${ids.tester}/workspace"]`)).toBeVisible()
 })
 
-test('Hermes fleet control flow covers agents, runtime, skills, sessions and handoff', async ({
+test('Chats groups private sessions by agent and keeps leader controls out of the new route', async ({
   page,
 }) => {
   const state = createState()
   await installMocks(page, state)
+  await page.goto('/chats')
+  await expect(page.getByRole('heading', { name: 'Чаты', exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: /Initial developer task/ })).toBeVisible()
+  await page.getByRole('button', { name: 'Убрать фильтр по Fleet Admin' }).click()
+  await page.getByRole('button', { name: /Tester Hermes/ }).click()
+  await expect(page.getByRole('link', { name: /Tester review sweep/ })).toBeVisible()
+  await expect(page.getByRole('link', { name: /Initial developer task/ })).not.toBeVisible()
+  await page.getByRole('button', { name: /Developer Hermes/ }).click()
+  await page.getByRole('link', { name: /Initial developer task/ }).click()
+  await expect(page.getByLabel('Лидер сессии')).not.toBeVisible()
+  await expect(page.getByLabel('Новый основной агент')).not.toBeVisible()
+  await expect(page.getByPlaceholder('Напишите сообщение для этой сессии')).toBeVisible()
+})
+
+test('Hermes fleet control flow covers agents, runtime, skills, sessions and handoff', async ({
+  page,
+}) => {
+  test.setTimeout(90_000)
+  const state = createState()
+  await installMocks(page, state)
 
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Fleet dashboard' })).toBeVisible()
-  await expect(page.getByText('agent1 - profile developer - namespace dev')).toBeVisible()
-  await expect(page.getByText('agent2 - profile tester - namespace qa')).toBeVisible()
-  await expect(page.getByText('agent3 - profile it lead - namespace dev')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Обзор агентов' })).toBeVisible()
+  await expect(page.getByText(/agent1.*разработчик.*dev/).first()).toBeVisible()
+  await expect(page.getByText(/agent2.*тестировщик.*qa/).first()).toBeVisible()
+  await expect(page.getByText(/agent3.*технический руководитель.*dev/).first()).toBeVisible()
 
-  await page.getByRole('link', { name: 'Leaders' }).click()
-  await expect(page.getByRole('heading', { name: 'Leaders' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Лидеры' })).not.toBeVisible()
+  await page.goto('/leaders')
+  await expect(page.getByRole('heading', { name: 'Лидеры' })).toBeVisible()
   await expect(page.getByRole('link', { name: /Tester review sweep/ })).not.toBeVisible()
-  await page.getByRole('button', { name: 'Remove Fleet Admin filter' }).click()
+  await page.getByRole('button', { name: 'Убрать фильтр по Fleet Admin' }).click()
+  await page.locator('main summary').first().click()
   await expect(page.getByRole('link', { name: /Tester review sweep/ })).toBeVisible()
   await page.goto(`/leaders/${ids.lead}/edit`)
-  await expect(page.getByRole('heading', { name: 'Edit IT Lead Hermes' })).toBeVisible()
-  await expect(page.getByText('Managed executors')).toBeVisible()
-  await page.getByRole('button', { name: 'Save agent' }).click()
+  await expect(page.getByRole('heading', { name: 'Изменить IT Lead Hermes' })).toBeVisible()
+  await expect(page.getByText('Исполнители команды')).toBeVisible()
+  await page.getByRole('button', { name: 'Сохранить агента' }).click()
   await expect(page).toHaveURL(new RegExp(`/leaders/${ids.lead}$`))
 
-  await page.getByRole('link', { name: 'Executors' }).click()
-  await expect(page.getByRole('heading', { name: 'Executors' })).toBeVisible()
+  await page.goto('/executors')
+  await expect(page.getByRole('heading', { name: 'Исполнители' })).toBeVisible()
   await expect(page.getByText('Developer Hermes')).toBeVisible()
 
-  await page.getByRole('link', { name: 'Agents' }).click()
-  await expect(page.getByRole('heading', { name: 'Storage review' })).toBeVisible()
-  await expect(page.getByText('Managed size')).toBeVisible()
-  await expect(page.getByText('All managed folders have matching markers')).toBeVisible()
+  await page.getByRole('link', { name: 'Агенты' }).click()
+  await expect(page.getByRole('heading', { name: 'Хранилище агентов' })).toBeVisible()
+  await expect(page.getByText('Занято')).toBeVisible()
+  await expect(page.getByText('Все управляемые каталоги имеют корректные маркеры')).toBeVisible()
   await expect(page.getByRole('link', { name: /Initial developer task/ })).toBeVisible()
   await expect(page.getByRole('link', { name: /Tester review sweep/ })).not.toBeVisible()
-  await page.getByRole('link', { name: 'New agent' }).click()
-  await expect(page.getByRole('heading', { name: 'Create agent' })).toBeVisible()
-  await expect(page.getByRole('button', { name: /Hermes implemented/ })).toBeVisible()
-  await expect(page.getByRole('button', { name: /Java Agent planned/ })).toBeVisible()
-  await page.getByLabel('Profile').selectOption('tester')
-  await expect(page.getByLabel('Display name')).toHaveValue('Tester Hermes')
-  await page.getByRole('button', { name: 'Create agent' }).click()
+  await page.getByRole('link', { name: 'Создать агента' }).click()
+  await expect(page.getByRole('heading', { name: 'Создание агента' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Hermes Реализовано/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Java Agent Запланировано/ })).toBeVisible()
+  await page.getByLabel('Специализация', { exact: true }).selectOption('tester')
+  await expect(page.getByLabel('Отображаемое имя')).toHaveValue('Tester Hermes')
+  await page.getByRole('button', { name: 'Создать агента' }).click()
   await expect(page).toHaveURL(new RegExp(`/executors/${ids.created}$`))
   await expect(page.getByRole('heading', { level: 1, name: 'Tester Hermes' })).toBeVisible()
 
   await page.goto(`/agents/${ids.dev}/runtime`)
-  await page.getByRole('button', { exact: true, name: 'Stop' }).click()
-  await expect(page.getByText('stopped').first()).toBeVisible()
-  await page.getByRole('button', { exact: true, name: 'Start' }).click()
-  await expect(page.getByText('running').first()).toBeVisible()
+  await page.getByRole('button', { exact: true, name: 'Остановить' }).click()
+  await expect(page.getByText('Остановлен').first()).toBeVisible()
+  await page.getByRole('button', { exact: true, name: 'Запустить' }).click()
+  await expect(page.getByText('Работает').first()).toBeVisible()
 
   await page.goto(`/agents/${ids.dev}/workspace`)
-  await expect(page.getByRole('heading', { name: 'Storage report' })).toBeVisible()
-  await expect(page.getByText('Total managed size')).toBeVisible()
-  await expect(page.getByText('marker verified').first()).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'File purge' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Purge files' })).toBeDisabled()
+  await expect(page.getByRole('heading', { name: 'Использование диска' })).toBeVisible()
+  await expect(page.getByText('Общий размер', { exact: true }).first()).toBeVisible()
+  await expect(page.getByText('Маркер проверен', { exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Удаление файлов' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Удалить файлы' })).toBeDisabled()
 
   await page.goto(`/agents/${ids.dev}/skills`)
   await page.getByRole('button', { name: /GitHub Commit and PR/ }).click()
   await page.getByRole('textbox').fill('# GitHub Commit and PR\n\nCustom agent override.')
-  await page.getByRole('button', { name: 'Save skill' }).click()
-  await expect(page.getByText('This skill has a local per-agent override.')).toBeVisible()
+  await page.getByRole('button', { name: 'Сохранить навык' }).click()
+  await expect(page.getByText('Для этого агента задана локальная версия навыка.')).toBeVisible()
 
   await page.goto('/sessions')
   await expect(page.getByRole('link', { name: /Initial developer task/ })).toBeVisible()
   await expect(page.getByRole('link', { name: /Tester review sweep/ })).not.toBeVisible()
-  await page.getByRole('button', { name: 'Remove Fleet Admin filter' }).click()
+  await page.getByRole('button', { name: 'Убрать фильтр по Fleet Admin' }).click()
   await expect(page.getByRole('link', { name: /Tester review sweep/ })).toBeVisible()
-  await page.getByLabel('Add session user').selectOption(ids.reviewer)
+  await page.getByLabel('Добавить пользователя').selectOption(ids.reviewer)
   await expect(page.getByRole('link', { name: /Initial developer task/ })).not.toBeVisible()
   await expect(page.getByRole('link', { name: /Tester review sweep/ })).toBeVisible()
-  await page.getByLabel('Add session user').selectOption(ids.user)
+  await page.getByLabel('Добавить пользователя').selectOption(ids.user)
   await expect(page.getByRole('link', { name: /Initial developer task/ })).toBeVisible()
   await expect(page.getByRole('link', { name: /Tester review sweep/ })).toBeVisible()
-  await page.getByLabel('Agent').selectOption(ids.dev)
-  await expect(page.getByLabel('Leader')).toHaveValue('')
-  await page.getByLabel('Title').fill('Create checkout smoke')
-  await page.getByLabel('Task key').fill('FC-777')
-  await page.getByRole('button', { name: 'Create session' }).click()
+  await page.getByLabel('Агент', { exact: true }).selectOption(ids.dev)
+  await expect(page.getByLabel('Лидер')).toHaveValue('')
+  await page.getByLabel('Название').fill('Create checkout smoke')
+  await page.getByLabel('Ключ задачи').fill('FC-777')
+  await page.getByRole('button', { name: 'Создать сессию' }).click()
   await expect(page.getByRole('link', { name: /Create checkout smoke/ })).toBeVisible()
 
   await page.goto(`/sessions/${ids.createdSession}`)
-  await page.getByLabel('Session leader').selectOption(ids.lead)
-  await page.getByRole('button', { name: 'Save leader' }).click()
-  await expect(page.getByText('leader scoped')).toBeVisible()
-  await page.getByLabel('Message author').selectOption('leader')
-  await page.getByPlaceholder('Write a session message').fill('Please coordinate the smoke test.')
-  await page.getByRole('button', { name: 'Send message' }).click()
+  await page.getByLabel('Лидер сессии').selectOption(ids.lead)
+  await page.getByRole('button', { name: 'Сохранить лидера' }).click()
+  await expect(page.getByText('Для лидера')).toBeVisible()
+  await expect(page.getByLabel('Отправитель').locator('option[value="leader"]')).toBeDisabled()
+  await page.getByLabel('Отправитель').selectOption('user')
+  await page
+    .getByPlaceholder('Напишите сообщение для этой сессии')
+    .fill('Please coordinate the smoke test.')
+  await page.getByRole('button', { name: 'Отправить', exact: true }).click()
   await expect(
     page.locator('p').filter({ hasText: 'Please coordinate the smoke test.' }).first(),
   ).toBeVisible()
-  await page.getByLabel('Executor').selectOption(ids.tester)
-  await page.getByLabel('Title').fill('Delegated QA smoke')
-  await page.getByPlaceholder('Initial task for the executor').fill('Run the delegated QA sweep.')
-  await page.getByRole('button', { name: 'Delegate task' }).click()
+  await page.getByLabel('Исполнитель').selectOption(ids.tester)
+  await page.getByLabel('Название задачи').fill('Delegated QA smoke')
+  await page
+    .getByPlaceholder('Опишите результат, который должен подготовить исполнитель')
+    .fill('Run the delegated QA sweep.')
+  await page.getByRole('button', { name: 'Делегировать', exact: true }).click()
+  await expect(page.getByText('Создана связанная сессия «Delegated QA smoke»')).toBeVisible()
   await page.goto('/sessions')
-  await page.getByRole('button', { name: 'Remove Fleet Admin filter' }).click()
+  await page.getByRole('button', { name: 'Убрать фильтр по Fleet Admin' }).click()
   await expect(page.getByRole('link', { name: /Delegated QA smoke/ })).toBeVisible()
   await page.goto(`/sessions/${ids.createdSession}`)
-  await page.getByLabel('Handoff target agent').selectOption(ids.tester)
-  await page.getByRole('button', { name: 'Handoff session' }).click()
-  await expect(page.getByText('handoff requested')).toBeVisible()
+  await page.getByLabel('Новый основной агент').selectOption(ids.tester)
+  await page.getByRole('button', { name: 'Передать сессию' }).click()
+  await expect(page.getByText('Ожидает передачи')).toBeVisible()
   await expect(page.getByText('agent2', { exact: true })).toBeVisible()
 
   await page.goto('/deployments?tab=jobs')
-  await expect(page.getByRole('heading', { name: 'Provision and update jobs' })).toBeVisible()
-  await page.getByLabel('Title').fill('Runtime update dry run')
-  await page.getByRole('button', { name: 'Create job' }).click()
-  await expect(page.getByText('Runtime update dry run')).toBeVisible()
-  await page.getByRole('button', { name: 'Cancel job “Runtime update dry run”' }).click()
+  await expect(page.getByRole('heading', { name: 'Задания подготовки и обновления' })).toBeVisible()
+  await page.locator('#deployment-title').fill('Runtime update dry run')
+  await page.getByRole('button', { name: 'Создать задание' }).click()
+  await expect(
+    page.getByRole('button', { name: 'Runtime update dry run', exact: true }),
+  ).toBeVisible()
+  await page.getByRole('button', { name: 'Отменить задание «Runtime update dry run»' }).click()
   const cancelDialog = page.getByRole('alertdialog')
-  await expect(cancelDialog.getByRole('heading', { name: 'Cancel this job?' })).toBeVisible()
-  await cancelDialog.getByRole('button', { name: 'Cancel job' }).click()
-  await expect(page.getByText('cancelled')).toBeVisible()
+  await expect(cancelDialog.getByRole('heading', { name: 'Отменить задание?' })).toBeVisible()
+  await cancelDialog.getByRole('button', { name: 'Отменить задание' }).click()
+  await expect(page.getByText('Отменено').first()).toBeVisible()
 
   await page.goto('/logs?tab=events')
-  await expect(page.getByRole('heading', { name: 'Control-plane events' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'События', exact: true })).toBeVisible()
   await expect(page.getByText('runtime_started')).toBeVisible()
   await page.goto('/logs?tab=audit')
-  await expect(page.getByRole('heading', { name: 'Audit trail' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Аудит', exact: true })).toBeVisible()
   await expect(page.getByText('session.create')).toBeVisible()
 
   await page.goto('/settings?tab=users')
@@ -1466,7 +1518,7 @@ test('Hermes fleet control flow covers agents, runtime, skills, sessions and han
   await expect(page.getByText('QA Reviewer')).toBeVisible()
 
   await page.goto('/access-denied')
-  await expect(page.getByRole('heading', { name: 'Access denied' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Нет доступа' })).toBeVisible()
   await page.goto('/not-a-fleet-route')
-  await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Объект не найден' })).toBeVisible()
 })

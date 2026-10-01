@@ -1,6 +1,12 @@
 # Java Agent Adapter Contract
 
-Java Agent is modeled in MVP and implemented in phase 2.
+Java Agent is modeled alongside Hermes. Existing local jar provisioning layout,
+start/stop/restart and readiness checks are implemented and retained. Chat/control,
+configuration activation and automatic SDLC admission remain phase 2.
+
+Current launch: `java -jar agentN/runtime/backend.jar --spring.profiles.active=noop`.
+The jar is supplied externally; a missing jar is a validation error. Readiness
+uses `/actuator/health/readiness` with the Java service's db-only readiness contract.
 
 Expected launch inputs:
 
@@ -10,10 +16,12 @@ Expected launch inputs:
 
 Expected endpoints:
 
-- `GET /actuator/health`
+- `GET /actuator/health/readiness` (current lifecycle)
 - `POST /api/v1/agent/chat/stream`
 - `GET/POST /api/v2/sessions`
 - `GET /v1/capabilities`
 
-Until implemented, provisioning and lifecycle operations must return a typed
-phase 2 response instead of attempting a partial launch.
+Unimplemented chat/control/stream/approval operations return typed
+`not_implemented`. The generic phase-2 label must not disable the working jar
+lifecycle. Java is not ready for automatic SDLC until required capabilities and
+workflow bindings have been verified.
