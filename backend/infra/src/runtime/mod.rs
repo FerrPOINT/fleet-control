@@ -1220,7 +1220,9 @@ impl LocalRuntimeSupervisor {
                 &payload,
                 &[
                     "final_response",
+                    "output",
                     "output_text",
+                    "content",
                     "response",
                     "message",
                     "text",
@@ -1336,15 +1338,25 @@ fn parse_domain_ts(value: &Option<domain::Timestamp>) -> Option<shared::Timestam
 }
 
 fn pick_string(value: &Value, keys: &[&str]) -> Option<String> {
+    if let Value::String(text) = value {
+        return Some(text.clone());
+    }
+    pick_named_string(value, keys)
+}
+
+fn pick_named_string(value: &Value, keys: &[&str]) -> Option<String> {
     for key in keys {
         if let Some(found) = value.get(*key).and_then(Value::as_str) {
             return Some(found.to_string());
         }
     }
     match value {
-        Value::Object(map) => map.values().find_map(|value| pick_string(value, keys)),
-        Value::Array(items) => items.iter().find_map(|value| pick_string(value, keys)),
-        Value::String(text) => Some(text.clone()),
+        Value::Object(map) => map
+            .values()
+            .find_map(|value| pick_named_string(value, keys)),
+        Value::Array(items) => items
+            .iter()
+            .find_map(|value| pick_named_string(value, keys)),
         _ => None,
     }
 }
@@ -1852,7 +1864,9 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
             }
             Err(err) => {
                 let detail = crate::redact_text(&err.to_string());
-                let status = if tracked || agent.runtime.desired_state == DesiredState::Running {
+                // Preserve desired_state, but allow the reconciler to restart
+                // an absent process after Fleet itself was restarted.
+                let status = if tracked {
                     AgentStatus::Degraded
                 } else {
                     AgentStatus::Stopped
@@ -2225,5 +2239,32 @@ mod tests {
         let payload = json!({ "error": { "message": "api_key=super-secret" } });
 
         assert_eq!(pick_error(&payload).as_deref(), Some("api_key=redacted"));
+    }
+
+    #[test]
+    fn hermes_completion_reads_output_instead_of_event_name() {
+        let payload =
+            json!({"event": "run.completed", "run_id": "run-1", "output": "FLEET_HERMES_OK"});
+        assert_eq!(
+            pick_string(&payload, &["final_response", "output", "text"]).as_deref(),
+            Some("FLEET_HERMES_OK")
+        );
+    }
+
+    #[test]
+    fn missing_text_does_not_become_a_runtime_identifier() {
+        let payload =
+            json!({"event": "run.completed", "run_id": "run-1", "usage": {"model": "model-1"}});
+        assert_eq!(pick_string(&payload, &["output", "text"]), None);
+    }
+
+    #[test]
+    fn nested_delta_ignores_unrelated_event_fields() {
+        let payload =
+            json!({"event": "message.delta", "data": {"delta": "reply"}, "run_id": "run-1"});
+        assert_eq!(
+            pick_string(&payload, &["delta", "text"]).as_deref(),
+            Some("reply")
+        );
     }
 }

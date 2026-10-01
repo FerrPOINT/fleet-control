@@ -27,6 +27,10 @@ Hermes:
 - Runtime controls use `/steer`, `/stop` and `/approval` endpoints when the
   capability matrix allows them.
 - Dashboard is an operator link, not the write channel for messages.
+- When the Hermes API is unreachable and this supervisor has no tracked child,
+  health marks the runtime stopped while retaining its desired state. An agent
+  whose desired state is running is then restarted by the reconciler. A tracked
+  process with an unhealthy API remains degraded and is probed again.
 
 Java Agent:
 
