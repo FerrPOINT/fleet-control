@@ -9,13 +9,7 @@ COPY --from=services_base frontend /services-base/frontend
 COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
-COPY fleet-control/frontend/ ./
-ARG VITE_PLATFORM_BRANDING_URL=""
-ENV VITE_PLATFORM_BRANDING_URL=${VITE_PLATFORM_BRANDING_URL}
-ARG VITE_PLATFORM_SERVICES_URL=""
-ENV VITE_PLATFORM_SERVICES_URL=${VITE_PLATFORM_SERVICES_URL}
-ARG VITE_AUTH_ISSUER="http://localhost:7701"
-ENV VITE_AUTH_ISSUER=${VITE_AUTH_ISSUER}
+COPY frontend/ ./
 ARG VITE_PLATFORM_BRANDING_URL=""
 ENV VITE_PLATFORM_BRANDING_URL=${VITE_PLATFORM_BRANDING_URL}
 ARG VITE_PLATFORM_SERVICES_URL=""
@@ -26,6 +20,6 @@ RUN pnpm build
 
 FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
-COPY fleet-control/frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
