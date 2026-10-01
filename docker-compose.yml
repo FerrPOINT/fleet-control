@@ -29,8 +29,8 @@ services:
 
   backend:
     build:
-      context: .
-      dockerfile: backend/Dockerfile
+      context: ..
+      dockerfile: fleet-control/backend/Dockerfile
     restart: unless-stopped
     environment:
       FLEET_CONTROL_DATABASE__URL: ${FLEET_CONTROL_DATABASE__URL:-postgres://${POSTGRES_USER:-fleet_control}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-fleet_control}}
@@ -68,8 +68,8 @@ services:
 
   frontend:
     build:
-      context: .
-      dockerfile: frontend/Dockerfile
+      context: ..
+      dockerfile: fleet-control/frontend/Dockerfile
     restart: unless-stopped
     environment:
       NODE_ENV: production

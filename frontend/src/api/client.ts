@@ -40,27 +40,12 @@ const shared = createApiClient({
 })
 
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const method = (init.method ?? 'GET').toUpperCase()
-  const body = init.body === undefined ? undefined : JSON.parse(String(init.body))
-  switch (method) {
-    case 'POST':
-      return shared.post<T>(path, body)
-    case 'PUT':
-      return shared.put<T>(path, body)
-    case 'PATCH':
-      return shared.patch<T>(path, body)
-    case 'DELETE':
-      return shared.delete<T>(path)
-    default:
-      return shared.get<T>(path)
+  const headers = new Headers(init.headers)
+  // Existing Fleet callers pass serialized JSON without explicit headers.
+  if (typeof init.body === 'string' && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json')
   }
-}
-
-export function jsonBody<T>(body: T): RequestInit {
-  return {
-    method: 'POST',
-    body: JSON.stringify(body),
-  }
+  return shared.request<T>(path, { ...init, headers })
 }
 
 export type { ApiError }

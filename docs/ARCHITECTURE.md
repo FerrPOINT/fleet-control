@@ -131,3 +131,7 @@ considered green while any generated contract or screenshot manifest is stale.
 
 `project-workflow` owns workflows and namespaces. Fleet Control stores bindings
 only. `wiki` owns docs/evidence. `CI-CD` owns build/deployment pipelines.
+
+## Общая база
+
+Подключение версий, границы контрактов и проверки описаны в [BASE_INTEGRATION](BASE_INTEGRATION.md).

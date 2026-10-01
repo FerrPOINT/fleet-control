@@ -22,8 +22,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "openapi:check": "node node_modules/@sdlc/ui/scripts/sdlc-openapi-check.mjs --spec ../openapi/openapi.json --schema src/api/generated.ts",
-    "openapi:compat": "SPEC=openapi/openapi.json SPEC_NAME=openapi/openapi.json node node_modules/@sdlc/ui/scripts/sdlc-openapi-compat.mjs",
-    "postinstall": "openapi-typescript ../openapi/openapi.json -o src/api/generated.ts"
+    "openapi:compat": "node scripts/base-openapi-compat.mjs",
+    "postinstall": "openapi-typescript ../openapi/openapi.json -o src/api/generated.ts",
+    "theme:check": "node ../../services-base/frontend/scripts/sdlc-effective-theme-check.mjs"
   },
   "dependencies": {
     "@sdlc/ui": "file:../../services-base/frontend",
@@ -92,5 +93,6 @@
       "nanoid@>=3.0.0 <3.3.18": "3.3.18",
       "postcss@>=8.0.0 <8.5.23": "8.5.23"
     }
-  }
+  },
+  "packageManager": "pnpm@10.28.1"
 }

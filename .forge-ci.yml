@@ -1,21 +1,24 @@
 version: 1
 defaults:
-  image: rust:1.88
+  image: rust:1.88.0
   timeout: 30m
 jobs:
   build:
     commands:
-      - cp -r /workspaces/services-base-src ../services-base
-      - cd backend && cargo build --workspace
+      - python3 /runner-sources/services-base/scripts/verify_base_revision.py --revision .base-revision --base /runner-sources/services-base
+      - ln -sfn /runner-sources/services-base ../services-base
+      - cd backend && cargo build --locked --workspace
   test:
     needs: [build]
     commands:
-      - cp -r /workspaces/services-base-src ../services-base
-      - cd backend && cargo test --workspace
+      - python3 /runner-sources/services-base/scripts/verify_base_revision.py --revision .base-revision --base /runner-sources/services-base
+      - ln -sfn /runner-sources/services-base ../services-base
+      - cd backend && cargo test --locked --workspace
   fmt:
     needs: [build]
     commands:
-      - cp -r /workspaces/services-base-src ../services-base
+      - python3 /runner-sources/services-base/scripts/verify_base_revision.py --revision .base-revision --base /runner-sources/services-base
+      - ln -sfn /runner-sources/services-base ../services-base
       - cp -r /usr/local/rustup /tmp/rustup
       - cd backend
       - RUSTUP_HOME=/tmp/rustup rustup component add rustfmt
