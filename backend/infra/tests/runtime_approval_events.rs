@@ -151,8 +151,8 @@ async fn authenticated_hermes_sse_ingests_exact_requests_and_never_response_even
         .try_get::<i64>("", "count")
         .unwrap();
     assert_eq!(
-        migrations, 10,
-        "fixture must exercise the current ten-migration branch"
+        migrations, 11,
+        "fixture must include accepted deployment and pending task-chat migrations"
     );
     let owner = Uuid::new_v4();
     db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,

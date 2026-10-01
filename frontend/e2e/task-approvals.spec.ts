@@ -33,6 +33,7 @@ const assets = new Map<string, { body: string | Buffer; contentType: string }>()
 let fixtureHtml = ''
 
 test.beforeAll(async () => {
+  test.setTimeout(120000)
   const virtualId = 'virtual:approval-fixture'
   const bundles = await build({
     root: frontendRoot,

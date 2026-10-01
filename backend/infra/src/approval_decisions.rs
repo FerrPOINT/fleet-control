@@ -195,6 +195,9 @@ pub(super) async fn deliver(
     if previous.state == domain::ApprovalDecisionState::Delivered {
         return Ok(previous);
     }
+    if previous.state != domain::ApprovalDecisionState::Uncertain {
+        return Err(AppError::conflict("approval decision cannot be delivered"));
+    }
     if row.state != "pending" {
         return Err(AppError::conflict(
             "approval was settled by a different control path",
@@ -211,6 +214,51 @@ pub(super) async fn deliver(
     .await
     .map_err(AppError::database)?;
     audit(&txn, previous.actor_user_id, id, "approval.decision_delivered", json!({"approval_id":approval,"session_id":session,"run_id":previous.session_run_id,"choice":previous.choice})).await?;
+    let result = load(&txn, session, approval).await?;
+    txn.commit().await.map_err(AppError::database)?;
+    Ok(result)
+}
+
+pub(super) async fn fail_undispatched(
+    repo: &PostgresFleetRepository,
+    id: Uuid,
+) -> Result<ApprovalDecision, AppError> {
+    let txn = repo.db.begin().await.map_err(AppError::database)?;
+    let row = txn
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT session_id,approval_id FROM runtime_approval_decisions WHERE id=$1 FOR UPDATE",
+            [id.into()],
+        ))
+        .await
+        .map_err(AppError::database)?
+        .ok_or_else(|| AppError::not_found("approval_decision", id))?;
+    let session = row.try_get("", "session_id").map_err(AppError::database)?;
+    let approval = row.try_get("", "approval_id").map_err(AppError::database)?;
+    let previous = load(&txn, session, approval).await?;
+    if previous.state == domain::ApprovalDecisionState::Failed {
+        return Ok(previous);
+    }
+    if previous.state != domain::ApprovalDecisionState::Uncertain {
+        return Err(AppError::conflict(
+            "approval decision was already dispatched",
+        ));
+    }
+    txn.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE runtime_approval_decisions SET state='failed' WHERE id=$1",
+        [id.into()],
+    ))
+    .await
+    .map_err(AppError::database)?;
+    audit(
+        &txn,
+        previous.actor_user_id,
+        id,
+        "approval.decision_not_dispatched",
+        json!({"approval_id":approval,"session_id":session,"run_id":previous.session_run_id}),
+    )
+    .await?;
     let result = load(&txn, session, approval).await?;
     txn.commit().await.map_err(AppError::database)?;
     Ok(result)

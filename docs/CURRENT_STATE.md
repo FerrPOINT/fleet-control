@@ -24,9 +24,12 @@ The follow-up adds server-scoped directory counts/search/cursors, immutable PM r
 proof and machine-only fresh readback, and integrated exact-request tool approvals.
 Readback/replay does not redispatch; fresh decisions reject stale PM assignments.
 Provider JWT validation alone never grants human approval capability.
+Task-bound lists/counts and all transcript/run/control reads now require current
+Tracker project access; streams recheck before emitting queued events. A reservation
+lock wait is followed by fresh assignment authorization before approval dispatch.
 
-Verified on the working branch on 2026-10-01: 88 Fleet Rust library tests and strict
-Clippy, 19 actual PostgreSQL integration cases, 202 frontend tests and source/client
+Verified on the refreshed working branch on 2026-10-01: 93 Fleet Rust library tests
+and strict Clippy, 23 actual PostgreSQL 17.11 integration cases, 212 frontend tests and source/client
 OpenAPI plus seven Tracker wire contracts. Three-browser fixture checks cover the
 chat tabs at all three viewports, targeted approvals and the server directory;
 chat checks include axe, tablet context and keyboard focus. These fixtures
@@ -35,6 +38,10 @@ do not prove live PM delivery. Current gaps and rollout block are listed in
 until live integration acceptance; new controller captures are UI fixture evidence only.
 Nine controller screenshots have generated route/view/viewport/hash verification. See
 [verification ledger](CHAT_CLARIFICATION_VERIFICATION.md) for service boundaries and blockers.
+The merged eleven-file schema passed clean up, pending migration 000010 down,
+reapply and status on an isolated PostgreSQL 17 database. This feature owns only
+one new migration. Disposable QA database ownership was verified before cleanup;
+accepted runtimes, images and volumes were not changed.
 
 ## October Foundation Evidence
 

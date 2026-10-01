@@ -778,7 +778,15 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
     };
     let revoked = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let check = revoked.clone();
-    let tracker = axum::Router::new().route(
+    let list_check = revoked.clone();
+    let project = binding.project_id;
+    let instance = binding.tracker_instance_id.clone();
+    let tracker = axum::Router::new()
+    .route("/api/v1/sdlc/project-access",axum::routing::get(move || {
+        let check=list_check.clone();let instance=instance.clone();
+        async move { axum::Json(serde_json::json!({"contract_version":1,"tracker_instance_id":instance,"project_ids":if check.load(Ordering::SeqCst) {vec![]} else {vec![project]}})) }
+    }))
+    .route(
         "/api/v1/issues/{id}/sdlc/context",
         axum::routing::get(
             move |axum::extract::Path(id): axum::extract::Path<Uuid>,
@@ -787,9 +795,13 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
                 let context = context.clone();
                 async move {
                     assert_eq!(id, context.task_id);
-                    assert_eq!(
-                        headers.get("authorization").unwrap(),
-                        "Bearer verified-owner-fixture"
+                    assert!(
+                        headers
+                            .get("authorization")
+                            .unwrap()
+                            .to_str()
+                            .unwrap()
+                            .starts_with("Bearer ")
                     );
                     if check.load(Ordering::SeqCst) {
                         (
@@ -830,7 +842,55 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
         events,
         restart_tx,
     ));
+    let token = ctx
+        .auth
+        .issue_tokens(
+            &repo
+                .find_user_by_id(session.user_id)
+                .await
+                .unwrap()
+                .unwrap(),
+        )
+        .unwrap()
+        .response
+        .access_token;
     let router = axum::Router::new()
+        .route(
+            "/api/v1/sessions",
+            axum::routing::get(api::routes::sessions::list_sessions),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}",
+            axum::routing::get(api::routes::sessions::get_session),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/messages",
+            axum::routing::get(api::routes::sessions::list_session_messages),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/participants",
+            axum::routing::get(api::routes::sessions::list_session_participants),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/runs",
+            axum::routing::get(api::routes::sessions::list_session_agent_runs),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/history",
+            axum::routing::get(api::routes::task_chats::history),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/chat-controls",
+            axum::routing::get(api::routes::task_chats::controls),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/stream",
+            axum::routing::get(api::routes::sessions::stream_session),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/runs/{run_id}/stop",
+            axum::routing::post(api::routes::sessions::stop_session_run),
+        )
         .route(
             "/api/v1/sessions/{session_id}/approvals",
             axum::routing::get(api::routes::approvals::list),
@@ -855,6 +915,41 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
     let fleet_server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
     let client = reqwest::Client::new();
     let url = format!("{base}/{}/decision", old.id);
+    let session_url = base.strip_suffix("/approvals").unwrap();
+    let list_url = session_url
+        .strip_suffix(&format!("/{}", session.id))
+        .unwrap();
+    let sessions = client
+        .get(list_url)
+        .bearer_auth("verified-owner-fixture")
+        .send()
+        .await
+        .unwrap()
+        .json::<Vec<domain::AgentSession>>()
+        .await
+        .unwrap();
+    assert_eq!(sessions.len(), 1);
+    assert_eq!(sessions[0].id, session.id);
+    for suffix in [
+        "",
+        "/messages",
+        "/participants",
+        "/runs",
+        "/history",
+        "/chat-controls",
+    ] {
+        assert_eq!(
+            client
+                .get(format!("{session_url}{suffix}"))
+                .bearer_auth("verified-owner-fixture")
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            reqwest::StatusCode::OK,
+            "historical chat read failed after reassignment: {suffix}"
+        );
+    }
     let read = client
         .get(&url)
         .bearer_auth("verified-owner-fixture")
@@ -904,7 +999,93 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
         repo.approval_decision(session.id, fresh.id).await,
         Err(shared::AppError::NotFound(_))
     ));
+    let mut stream = client
+        .get(format!("{session_url}/stream"))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(stream.status(), reqwest::StatusCode::OK);
+    let snapshot = tokio::time::timeout(Duration::from_secs(3), stream.chunk())
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    assert!(std::str::from_utf8(&snapshot).unwrap().contains("snapshot"));
     revoked.store(true, Ordering::SeqCst);
+    assert!(
+        client
+            .get(list_url)
+            .bearer_auth("verified-owner-fixture")
+            .send()
+            .await
+            .unwrap()
+            .json::<Vec<domain::AgentSession>>()
+            .await
+            .unwrap()
+            .is_empty(),
+        "legacy session list leaked revoked task metadata"
+    );
+    repo.insert_session_message_mirror(
+        session.id,
+        Some(session.primary_agent_id),
+        "Must not leak after revocation".into(),
+        MessageKind::AssistantMessage,
+        Some("revoked-event".into()),
+    )
+    .await
+    .unwrap();
+    assert!(
+        tokio::time::timeout(Duration::from_secs(3), stream.chunk())
+            .await
+            .expect("revoked stream did not terminate")
+            .unwrap()
+            .is_none(),
+        "revoked stream delivered queued data"
+    );
+    assert_eq!(
+        client
+            .get(format!("{session_url}/stream"))
+            .bearer_auth(&token)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        reqwest::StatusCode::FORBIDDEN
+    );
+    for suffix in [
+        "",
+        "/messages",
+        "/participants",
+        "/runs",
+        "/history",
+        "/chat-controls",
+    ] {
+        assert_eq!(
+            client
+                .get(format!("{session_url}{suffix}"))
+                .bearer_auth("verified-owner-fixture")
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            reqwest::StatusCode::FORBIDDEN,
+            "revoked project still exposed chat: {suffix}"
+        );
+    }
+    assert_eq!(
+        client
+            .post(format!(
+                "{session_url}/runs/{}/stop",
+                reservation.session_run_id
+            ))
+            .bearer_auth("verified-owner-fixture")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        reqwest::StatusCode::FORBIDDEN
+    );
     assert_eq!(
         client
             .get(&url)
@@ -1079,6 +1260,340 @@ async fn pm_reservation_is_atomic_idempotent_and_holds_capacity_when_acceptance_
     .await
     .unwrap();
     assert!(repo.reserve_pm_run(concurrent).await.is_ok());
+}
+
+#[tokio::test]
+async fn pm_reservation_does_not_deadlock_mirror_agent_foreign_key() {
+    let Some((repo, request)) = pm_fixture().await else {
+        return;
+    };
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let mirror = db.begin().await.unwrap();
+    mirror
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT id FROM agent_sessions WHERE id=$1 FOR UPDATE",
+            [request.session_id.into()],
+        ))
+        .await
+        .unwrap();
+    let repo = Arc::new(repo);
+    let worker = repo.clone();
+    let reservation = request.clone();
+    let pending = tokio::spawn(async move { worker.reserve_pm_run(reservation).await });
+    let mut locked = false;
+    for _ in 0..100 {
+        if let Err(error) = db
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT id FROM agents WHERE id=$1 FOR UPDATE NOWAIT",
+                [request.identity.agent_id().unwrap().into()],
+            ))
+            .await
+        {
+            assert!(
+                error.to_string().contains("could not obtain lock"),
+                "unexpected probe error: {error}"
+            );
+            locked = true;
+            break;
+        }
+        sleep(Duration::from_millis(20)).await;
+    }
+    assert!(
+        locked,
+        "PM reservation never reached its agent capacity lock"
+    );
+    // Production mirroring holds the session lock before this author-agent FK.
+    tokio::time::timeout(Duration::from_secs(3), mirror.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "INSERT INTO session_messages(id,session_id,author_type,author_agent_id,body,message_kind,delivery_state,created_at)
+         VALUES($1,$2,'agent',$3,'Mirror lock regression','assistant_message','mirrored',now())",
+        [Uuid::new_v4().into(),request.session_id.into(),request.identity.agent_id().unwrap().into()]))).await
+        .expect("PM capacity reservation and mirror agent FK formed a lock cycle").unwrap();
+    mirror.commit().await.unwrap();
+    let result = tokio::time::timeout(Duration::from_secs(3), pending)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    assert_eq!(result.reservation, request);
+    assert_eq!(
+        repo.list_session_messages(request.session_id)
+            .await
+            .unwrap()
+            .iter()
+            .filter(|message| message.body == "Mirror lock regression")
+            .count(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn undispatched_approval_failure_is_terminal_and_never_replayed_as_delivery() {
+    let Some((repo, owner, _)) = fixture().await else {
+        return;
+    };
+    let (session, _, approval) = approval_fixture(&repo, owner, "undispatched-approval").await;
+    let command = domain::ApprovalDecisionRequest {
+        choice: domain::ApprovalChoice::Once,
+        idempotency_key: "undispatched-command".into(),
+    };
+    let first = repo
+        .reserve_approval_decision(session.id, approval.id, owner, command.clone())
+        .await
+        .unwrap();
+    let failed = repo
+        .fail_undispatched_approval_decision(first.decision.id)
+        .await
+        .unwrap();
+    assert_eq!(failed.state, domain::ApprovalDecisionState::Failed);
+    assert_eq!(
+        repo.fail_undispatched_approval_decision(first.decision.id)
+            .await
+            .unwrap()
+            .state,
+        failed.state
+    );
+    let replay = repo
+        .reserve_approval_decision(session.id, approval.id, owner, command)
+        .await
+        .unwrap();
+    assert!(!replay.dispatch);
+    assert_eq!(replay.decision.id, failed.id);
+    assert_eq!(replay.decision.state, failed.state);
+    assert!(
+        repo.deliver_approval_decision(first.decision.id)
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        repo.list_session_approvals(session.id).await.unwrap()[0].state,
+        domain::RuntimeApprovalState::Pending
+    );
+}
+
+#[tokio::test]
+async fn task_approval_rechecks_assignment_after_waiting_for_actor_lock() {
+    let Some((repo, reservation)) = pm_fixture().await else {
+        return;
+    };
+    let session = repo.get_session(reservation.session_id).await.unwrap();
+    let binding = repo
+        .get_task_chat_binding(session.id)
+        .await
+        .unwrap()
+        .unwrap();
+    repo.reserve_pm_run(reservation.clone()).await.unwrap();
+    repo.accept_pm_run(
+        reservation.session_run_id,
+        "run_race".into(),
+        reservation.runtime_session_id(),
+    )
+    .await
+    .unwrap();
+    let approval = repo
+        .upsert_runtime_approval_request(app::RuntimeApprovalCreate {
+            session_id: session.id,
+            session_run_id: reservation.session_run_id,
+            agent_id: session.primary_agent_id,
+            runtime_run_id: "run_race".into(),
+            runtime_approval_id: Some("race_action".into()),
+            prompt: "Bounded action".into(),
+            detail: serde_json::json!({}),
+        })
+        .await
+        .unwrap();
+    let mut context = domain::TrackerTaskContext {
+        contract_version: 1,
+        tracker_instance_id: binding.tracker_instance_id.clone(),
+        project_id: binding.project_id,
+        task_id: binding.task_id,
+        root_task_id: binding.root_task_id,
+        owner_subject: binding.owner_subject,
+        stage: domain::TrackerStage::Draft,
+        requirement_revision: None,
+        waiting_reason: None,
+        permissions: domain::TrackerPermissions {
+            can_answer: false,
+            can_confirm: false,
+        },
+        assignment: Some(domain::TrackerPmAssignment {
+            assignment_id: Uuid::parse_str(&reservation.identity.assignment_ref).unwrap(),
+            execution_id: Uuid::parse_str(&reservation.identity.execution_ref).unwrap(),
+            agent_id: session.primary_agent_id,
+            version: reservation.identity.assignment_revision,
+            machine_subject: "pm-machine".into(),
+        }),
+    };
+    let initial = context.clone();
+    context.assignment.as_mut().unwrap().version += 1;
+    let changed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let check = changed.clone();
+    let reads = Arc::new(AtomicUsize::new(0));
+    let read_count = reads.clone();
+    let tracker = axum::Router::new().route(
+        "/api/v1/issues/{id}/sdlc/context",
+        axum::routing::get(move || {
+            let initial = initial.clone();
+            let context = context.clone();
+            let check = check.clone();
+            let read_count = read_count.clone();
+            async move {
+                read_count.fetch_add(1, Ordering::SeqCst);
+                axum::Json(if check.load(Ordering::SeqCst) {
+                    context
+                } else {
+                    initial
+                })
+            }
+        }),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let tracker_url = format!("http://{}", listener.local_addr().unwrap());
+    let tracker_server = tokio::spawn(async move { axum::serve(listener, tracker).await.unwrap() });
+    let calls = Arc::new(AtomicUsize::new(0));
+    let count = calls.clone();
+    let hermes=axum::Router::new().route("/v1/runs/run_race/approval",axum::routing::post(move || {
+        let count=count.clone(); async move {count.fetch_add(1,Ordering::SeqCst); axum::Json(serde_json::json!({"object":"hermes.run.approval_response","run_id":"run_race","request_id":"race_action","choice":"once","resolved":1}))}
+    }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let hermes_server = tokio::spawn(async move { axum::serve(listener, hermes).await.unwrap() });
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE agents SET api_port=$2 WHERE id=$1",
+        [session.primary_agent_id.into(), i32::from(port).into()],
+    ))
+    .await
+    .unwrap();
+    let actor_lock = db.begin().await.unwrap();
+    let blocker: i32 = actor_lock
+        .query_one(Statement::from_string(
+            DatabaseBackend::Postgres,
+            "SELECT pg_backend_pid() AS pid",
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get("", "pid")
+        .unwrap();
+    actor_lock
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT id FROM users WHERE id=$1 FOR UPDATE",
+            [session.user_id.into()],
+        ))
+        .await
+        .unwrap();
+    let mut config = AppConfig::default();
+    config.tracker.url = tracker_url;
+    config.tracker.instance_id = binding.tracker_instance_id;
+    config.fleet.runtime_token_secret = "isolated-race-test-secret".into();
+    let config = Arc::new(config);
+    let repo = Arc::new(repo);
+    let (events, _) = tokio::sync::broadcast::channel(32);
+    let runtime = Arc::new(infra::runtime::LocalRuntimeSupervisor::new(
+        config.clone(),
+        repo.clone(),
+        events.clone(),
+    ));
+    let (restart_tx, _) = tokio::sync::mpsc::channel(1);
+    let ctx = Arc::new(app::AppContext::new(
+        config,
+        repo.clone(),
+        Arc::new(infra::FilesystemProvisioner),
+        runtime,
+        events,
+        restart_tx,
+    ));
+    let router = axum::Router::new()
+        .route(
+            "/api/v1/sessions/{session_id}/approvals/{approval_id}/decision",
+            axum::routing::post(api::routes::approvals::decide),
+        )
+        .layer(axum::Extension(api::middleware::VerifiedHumanSession))
+        .layer(axum::Extension(api::middleware::CurrentUser {
+            id: session.user_id,
+            role: domain::SystemRole::User,
+            is_system_admin: false,
+        }))
+        .with_state(ctx);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!(
+        "http://{}/api/v1/sessions/{}/approvals/{}/decision",
+        listener.local_addr().unwrap(),
+        session.id,
+        approval.id
+    );
+    let fleet_server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+    let client = reqwest::Client::new();
+    let command = serde_json::json!({"choice":"once","idempotency_key":"race-command"});
+    let response_client = client.clone();
+    let request_url = url.clone();
+    let body = command.clone();
+    let pending = tokio::spawn(async move {
+        response_client
+            .post(request_url)
+            .bearer_auth("verified-owner-fixture")
+            .json(&body)
+            .send()
+            .await
+            .unwrap()
+    });
+    let mut waiting = false;
+    for _ in 0..100 {
+        waiting=db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))) AS waiting",[blocker.into()])).await.unwrap().unwrap().try_get("","waiting").unwrap();
+        if waiting {
+            break;
+        }
+        sleep(Duration::from_millis(20)).await;
+    }
+    assert!(waiting, "approval never waited for the actor lock");
+    assert_eq!(
+        reads.load(Ordering::SeqCst),
+        1,
+        "initial assignment was not checked before reservation"
+    );
+    changed.store(true, Ordering::SeqCst);
+    actor_lock.commit().await.unwrap();
+    let response = tokio::time::timeout(Duration::from_secs(5), pending)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(response.status(), reqwest::StatusCode::CONFLICT);
+    assert_eq!(reads.load(Ordering::SeqCst), 2);
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        0,
+        "stale assignment dispatched an approval"
+    );
+    let failed = repo
+        .approval_decision(session.id, approval.id)
+        .await
+        .unwrap();
+    assert_eq!(failed.state, domain::ApprovalDecisionState::Failed);
+    let replay = client
+        .post(&url)
+        .bearer_auth("verified-owner-fixture")
+        .json(&command)
+        .send()
+        .await
+        .unwrap()
+        .json::<domain::ApprovalDecision>()
+        .await
+        .unwrap();
+    assert_eq!(replay.id, failed.id);
+    assert_eq!(replay.state, domain::ApprovalDecisionState::Failed);
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    fleet_server.abort();
+    tracker_server.abort();
+    hermes_server.abort();
 }
 
 #[tokio::test]

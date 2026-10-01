@@ -152,6 +152,7 @@ test('directory uses server counts, concrete cursors and scoped returnTo across 
         json: { active_run_id: null, can_send: true, can_steer: false, can_stop: false },
       })
     if (url.pathname.endsWith('/runs')) return route.fulfill({ json: [] })
+    if (url.pathname.endsWith('/approvals')) return route.fulfill({ json: [] })
     if (url.pathname.endsWith('/history'))
       return route.fulfill({ json: { items: [], next_before: null } })
     if (url.pathname.endsWith('/stream'))

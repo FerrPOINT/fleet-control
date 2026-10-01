@@ -57,8 +57,22 @@ Autonomous rollout remains blocked until scoped runtime tools/readback are integ
 - Backend RBAC is authoritative. The UI hides sections using
   `/api/v1/users/me/permissions`, but every protected route still checks the
   current role.
-- SSE rechecks token validity, active user, ownership and current role while
-  replaying events. No bearer token is placed in a stream URL.
+- Session SSE rechecks token validity, active user, ownership and current role while
+  replaying events. Task-bound streams additionally recheck authoritative Tracker
+  project access and immutable binding before each emitted event. Revocation or
+  dependency failure closes the stream, including its queued events. No bearer
+  token is placed in a stream URL.
+- Task-bound detail/history/messages/participants/runs/control reads and runtime
+  stop require current project access, even for Fleet operators. Historical
+  reassignment does not erase read access; it never authorizes fresh commands.
+  Directory counts and legacy lists filter by one uncached Tracker project scope
+  before pagination. Missing scope never exposes task-bound metadata. Standalone
+  unconfigured Tracker lists show only unbound chats; configured failures fail closed.
+- Exact approval decisions revalidate project access and current PM assignment
+  after reservation lock waits, before runtime HTTP. Pre-dispatch rejection records
+  terminal `failed`; unknown HTTP acceptance remains `uncertain` and is not retried.
+  This narrows, but does not atomically eliminate, cross-service authorization races:
+  assignment replacement must also quiesce the old run before automation is enabled.
 - Human message requests cannot supply an agent author or runtime message ID.
   A scoped machine assignment protocol is still unimplemented, not a fallback
   permission granted to human or runtime clients.

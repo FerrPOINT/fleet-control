@@ -82,8 +82,8 @@ impl MigrationTrait for Migration {
              CREATE FUNCTION fleet_guard_approval_decision() RETURNS trigger AS $$
              BEGIN
                 IF (to_jsonb(NEW) - 'state' - 'delivered_at') IS DISTINCT FROM (to_jsonb(OLD) - 'state' - 'delivered_at')
-                   OR (OLD.state = 'delivered' AND NEW IS DISTINCT FROM OLD)
-                   OR (NEW.state IS DISTINCT FROM OLD.state AND NOT (OLD.state = 'uncertain' AND NEW.state = 'delivered')) THEN
+                   OR (OLD.state IN ('delivered','failed') AND NEW IS DISTINCT FROM OLD)
+                   OR (NEW.state IS DISTINCT FROM OLD.state AND NOT (OLD.state = 'uncertain' AND NEW.state IN ('delivered','failed'))) THEN
                     RAISE EXCEPTION 'approval decision is immutable' USING ERRCODE = '23514';
                 END IF;
                 RETURN NEW;

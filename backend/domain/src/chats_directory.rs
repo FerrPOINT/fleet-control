@@ -5,6 +5,12 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
+pub struct TaskProjectAccess {
+    pub tracker_instance_id: String,
+    pub project_ids: Vec<Uuid>,
+}
+
+#[derive(Debug, Clone)]
 pub struct ChatsDirectoryFilter {
     pub agent_id: Option<Uuid>,
     pub user_ids: Vec<Uuid>,
@@ -12,6 +18,8 @@ pub struct ChatsDirectoryFilter {
     pub search: String,
     pub before: Option<Uuid>,
     pub limit: u64,
+    // Server-derived scope only; absent proof never authorizes a task-bound chat.
+    pub task_project_access: Option<TaskProjectAccess>,
 }
 
 impl ChatsDirectoryFilter {
@@ -60,6 +68,7 @@ mod tests {
             search: String::new(),
             before: None,
             limit: 50,
+            task_project_access: None,
         }
     }
 

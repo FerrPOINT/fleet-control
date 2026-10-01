@@ -94,6 +94,25 @@ pub async fn decide(
         .get_session_agent_run(reserved.approval.session_run_id)
         .await?;
     let agent = ctx.repo.get_agent(reserved.approval.agent_id).await?;
+    // Reservation may have waited for a lock. Revalidate remote permissions and
+    // the exact assignment after that wait, immediately before any runtime side effect.
+    let revalidation = async {
+        if let Some(context) = access(&ctx, &user, session, &headers).await? {
+            let record = ctx
+                .repo
+                .get_pm_run(reserved.approval.session_run_id)
+                .await?;
+            ensure_current_assignment(&context, &record)?;
+        }
+        Ok::<(), AppError>(())
+    }
+    .await;
+    if let Err(error) = revalidation {
+        ctx.repo
+            .fail_undispatched_approval_decision(reserved.decision.id)
+            .await?;
+        return Err(error);
+    }
     // The runtime does not expose idempotent approval commands. Lost acceptance stays
     // uncertain; neither reconnect nor a repeated POST is permission to send again.
     if ctx

@@ -40,6 +40,7 @@ pub struct SessionListFilter {
     pub user_ids: Vec<Uuid>,
     pub leader_agent_id: Option<Uuid>,
     pub include_all_users: bool,
+    pub task_project_access: Option<domain::TaskProjectAccess>,
 }
 
 #[derive(Debug, Clone)]
@@ -118,6 +119,14 @@ pub trait FleetRepository: Send + Sync {
         ))
     }
     async fn deliver_approval_decision(
+        &self,
+        _decision_id: Uuid,
+    ) -> Result<domain::ApprovalDecision, AppError> {
+        Err(AppError::Unavailable(
+            "targeted approvals are unavailable".into(),
+        ))
+    }
+    async fn fail_undispatched_approval_decision(
         &self,
         _decision_id: Uuid,
     ) -> Result<domain::ApprovalDecision, AppError> {

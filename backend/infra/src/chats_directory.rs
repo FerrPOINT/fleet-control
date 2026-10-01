@@ -12,7 +12,10 @@ WITH scoped AS MATERIALIZED (
     FROM agent_sessions s
     JOIN agents a ON a.id=s.agent_id AND a.status <> 'archived'
     JOIN users u ON u.id=s.user_id
+    LEFT JOIN task_chat_bindings b ON b.session_id=s.id
     WHERE ($1::boolean OR s.user_id IN (SELECT value::uuid FROM jsonb_array_elements_text($2::jsonb)))
+      AND (b.session_id IS NULL OR (b.tracker_instance_id=$7::text
+           AND b.project_id IN (SELECT value::uuid FROM jsonb_array_elements_text($8::jsonb))))
       AND (s.title ILIKE $3 ESCAPE E'\\' OR COALESCE(s.task_key,'') ILIKE $3 ESCAPE E'\\'
            OR u.display_name ILIKE $3 ESCAPE E'\\')
 ), counts AS (
@@ -80,6 +83,13 @@ impl PostgresFleetRepository {
         filter: ChatsDirectoryFilter,
     ) -> Result<ChatsDirectoryPage, AppError> {
         filter.validate()?;
+        let (instance, projects) = match &filter.task_project_access {
+            Some(scope) => (
+                Some(scope.tracker_instance_id.clone()),
+                scope.project_ids.clone(),
+            ),
+            None => (None, Vec::new()),
+        };
         let row = self
             .db
             .query_one(Statement::from_sql_and_values(
@@ -92,6 +102,8 @@ impl PostgresFleetRepository {
                     filter.agent_id.into(),
                     filter.before.into(),
                     ((filter.limit + 1) as i64).into(),
+                    instance.into(),
+                    serde_json::json!(projects).into(),
                 ],
             ))
             .await
@@ -195,6 +207,7 @@ mod tests {
                 search: String::new(),
                 before: None,
                 limit: 2,
+                task_project_access: None,
             })
             .await
             .unwrap();

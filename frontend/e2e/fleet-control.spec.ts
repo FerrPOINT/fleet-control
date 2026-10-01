@@ -990,6 +990,26 @@ async function installMocks(page: Page, state: ApiState) {
         : byAgent
       return fulfill(route, byUser)
     }
+    if (pathName === '/api/v1/chats/directory') {
+      const users = url.searchParams.get('user_id')
+      const selectedUsers = users && users !== 'all' ? users.split(',') : [ids.user]
+      const scoped =
+        users === 'all'
+          ? state.sessions
+          : state.sessions.filter((session) => selectedUsers.includes(session.user_id))
+      const agents = state.agents.filter((agent) => agent.status !== 'archived')
+      const selectedAgent = url.searchParams.get('agent_id') ?? agents[0]?.id ?? null
+      return fulfill(route, {
+        agents: agents.map((agent) => ({
+          agent,
+          matching_session_count: scoped.filter((session) => session.primary_agent_id === agent.id)
+            .length,
+        })),
+        selected_agent_id: selectedAgent,
+        items: scoped.filter((session) => session.primary_agent_id === selectedAgent),
+        next_before: null,
+      })
+    }
     const chatMetadata = pathName.match(
       /^\/api\/v1\/sessions\/([^/]+)\/(task-context|chat-controls|history)$/,
     )

@@ -8,6 +8,9 @@ remaining blockers: [SDLC implementation](docs/SDLC_IMPLEMENTATION.md).
 Chat/PM work is in progress: [implementation plan](docs/CHAT_CLARIFICATION_IMPLEMENTATION_PLAN.md),
 [contract](docs/contracts/CHAT_CLARIFICATION_CONTRACT.md). Production chat controllers
 use Fleet/Tracker APIs; workflow dispatch/resume and real PM acceptance remain blocked.
+Task-bound reads enforce current Tracker project access, including directory counts
+and stream replay. See the [verification ledger](docs/CHAT_CLARIFICATION_VERIFICATION.md)
+for PostgreSQL evidence and the remaining live-integration gates.
 
 <p align="center">
   <a href="#overview"><img src="https://img.shields.io/badge/Overview-3730a3?style=for-the-badge" alt="Overview" /></a>
@@ -48,7 +51,9 @@ use Fleet/Tracker APIs; workflow dispatch/resume and real PM acceptance remain b
 | Порты | repository-local: frontend `23802`, backend `23801`; Base umbrella: frontend `7742`, API `7741` |
 | License | FerrPOINT Proprietary Source-Available Evaluation License v1.0 |
 
-Первый зарегистрированный пользователь получает `system_role = admin`.
+В standalone legacy mode первый зарегистрированный пользователь получает
+`system_role = admin`. При Central Auth локальная регистрация выключена; вход
+не повышает роль, а bootstrap admin требует явно настроенного verified subject.
 
 <a name="capabilities"></a>
 

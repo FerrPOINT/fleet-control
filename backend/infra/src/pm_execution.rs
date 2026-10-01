@@ -34,7 +34,7 @@ pub(super) async fn reserve(
     let agent = txn
         .query_one(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
-            "SELECT kind,status,sdlc_role FROM agents WHERE id=$1 FOR UPDATE",
+            "SELECT kind,status,sdlc_role FROM agents WHERE id=$1 FOR NO KEY UPDATE",
             [agent_id.into()],
         ))
         .await

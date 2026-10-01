@@ -29,6 +29,7 @@ These do not mean the complete approved plan is done.
 | Server chat search/pagination/aggregate counts | Own-database and Chromium/Firefox/WebKit fixture acceptance passed in working branch; release review and live acceptance remain |
 | Live acceptance and production screenshots | Real PM/owner/Tracker/Workflow flow, restart/denial tests; fixture screenshots stay separately labeled |
 | Targeted tool approval UI and context evidence | Exact human-only backend decisions and integrated UI have PostgreSQL/authenticated fake-runtime and three-browser fixture evidence; independent unknown-outcome reconciliation and live evidence remain |
+| Assignment replacement quiescence | Old runtime confirmed terminal/safely stopped before replacement; final authorization recheck does not replace a distributed fencing protocol |
 
 SDLC send/steer stays fail-closed until verified assignments are integrated. Do not enable
 automatic assignments or label this feature production-ready on the strength of UI fixtures.
@@ -42,7 +43,7 @@ deployment still requires comparison with the actual compatible Tracker build.
 | Native Windows Rust linker missing: `link.exe` | Local tooling limitation | Environment | Install MSVC Build Tools for native Windows cargo commands |
 | Live seven-agent acceptance not completed; standalone foundation Compose smoke passed | Product/integration blocker | Integration | Actual PM/publication/children/Rework/integration/deployment receipts; not fixture success |
 | Java Agent chat/control/config activation are phase 2; jar lifecycle retained | Accepted scope | Runtime | Required chat/control capabilities verified before SDLC admission |
-| Default-branch shared-base availability | Merge-order dependency | Platform | Merge Base #121 before Fleet #44; current Fleet CI pins compatible Base and verifies repo/container gates |
+| Scoped credential delegation availability | Merge-order dependency | Platform | Merge/deploy [Base #126](https://github.com/FerrPOINT/services-base/pull/126) before enabling real PM tools; existing UI/auth-core dependency pins do not provide the new runtime delegation API |
 | Local legacy auth retirement and machine/project scopes | Security blocker for automatic SDLC | Backend | Verified assignment identities, project scopes and audited retirement of local fallback |
 | Runtime OS/tool isolation is not implemented | Security blocker for hostile/untrusted workloads | Runtime/platform | Verified identity/container mounts, host-secret, cross-agent filesystem/network and shared-agent cross-user SessionDB denial tests |
 | Central Auth loading/error screenshots and live identity acceptance | Evidence gap | Frontend/identity | Verified SSO client, failure/loading captures and cross-service subject/access tests |

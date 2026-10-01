@@ -3,6 +3,7 @@ use app::AppContext;
 use axum::{
     Extension, Json,
     extract::{Query, State},
+    http::HeaderMap,
 };
 use domain::{ChatsDirectoryFilter, ChatsDirectoryPage};
 use serde::Deserialize;
@@ -11,6 +12,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ChatsDirectoryQuery {
     pub agent_id: Option<Uuid>,
     pub user_id: Option<String>,
@@ -56,6 +58,7 @@ fn authorized_filter(
         search: query.q.unwrap_or_default().trim().to_string(),
         before: query.before,
         limit: query.limit.unwrap_or(50),
+        task_project_access: None,
     };
     filter.validate()?;
     Ok(filter)
@@ -76,8 +79,13 @@ pub async fn directory(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<CurrentUser>,
     Query(query): Query<ChatsDirectoryQuery>,
+    headers: HeaderMap,
 ) -> Result<Json<ChatsDirectoryPage>, AppError> {
-    let filter = authorized_filter(query, &user)?;
+    let mut filter = authorized_filter(query, &user)?;
+    if !ctx.config.tracker.url.is_empty() || !ctx.config.tracker.instance_id.is_empty() {
+        filter.task_project_access =
+            Some(super::project_access::authorized_projects(&ctx, &headers).await?);
+    }
     Ok(Json(ctx.repo.list_chats_directory(filter).await?))
 }
 
@@ -213,6 +221,11 @@ mod tests {
                 StatusCode::UNPROCESSABLE_ENTITY,
             ),
             ("?user_id=all".to_string(), StatusCode::FORBIDDEN),
+            ("?project_ids=ignored".to_string(), StatusCode::BAD_REQUEST),
+            (
+                "?tracker_instance_id=ignored".to_string(),
+                StatusCode::BAD_REQUEST,
+            ),
             (
                 format!("?user_id={}", Uuid::new_v4()),
                 StatusCode::FORBIDDEN,

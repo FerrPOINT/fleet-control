@@ -2,7 +2,7 @@
 
 ## Targeted Approval Commands
 
-`runtime_approval_decisions` stores one immutable human decision per runtime approval request. It pins the session, run, actor, choice and command key; the actor/key pair is unique across requests. The initial state is `uncertain`, committed before any HTTP side effect. A verified exact acknowledgement permits the sole implemented state transition to `delivered`. The corresponding request resolution, audit entry and durable stream invalidation commit together. Replays never dispatch and never settle other pending requests. Raw runtime credentials and approval response bodies are not stored in this ledger.
+`runtime_approval_decisions` stores one immutable human decision per runtime approval request. It pins the session, run, actor, choice and command key; the actor/key pair is unique across requests. The initial state is `uncertain`, committed before any HTTP side effect. A verified exact acknowledgement permits transition to `delivered`. If final authorization fails before HTTP, the decision becomes terminal `failed` without resolving the request. Both terminal states are immutable; a failed command cannot later be delivered. Request resolution, audit and durable stream invalidation commit together. Replays never dispatch and never settle other pending requests. Raw runtime credentials and approval response bodies are not stored in this ledger.
 
 ## October Foundation Schema
 
@@ -57,8 +57,8 @@ Tables:
   session, including runtime run id, state, model/provider/options and last
   event/error timestamps.
 - `runtime_approval_requests`: Hermes approval mirror records tied to a Fleet
-  session run; details are redacted and successful approvals close pending
-  records for that run.
+  session run; details are redacted and successful targeted decisions close only
+  their exact request, never every pending request in a run.
 - `deployment_jobs`: provision/runtime update and Service Pulse product deploy/rollback
   jobs with operator-visible lifecycle state. Product jobs keep `demo`, exact SHA
   or previous Forge release ID in `detail`, a unique nullable UUID
@@ -80,8 +80,8 @@ Important constraints:
   среди legacy rows с `central_sub IS NULL`, поэтому исторический и новый
   профиль могут безопасно иметь одинаковый email.
 - `users.system_role` is `admin`, `operator` or `user`; `is_system_admin` is a
-  derived legacy alias for `admin`. В центральном режиме эти поля не
-  ограничивают людей и сохраняются только для совместимости.
+  derived legacy alias for `admin`. Verified Central Auth establishes identity;
+  the stored active user and system role still determine Fleet permissions.
 - `agents.ordinal` and `agents.name` are unique.
 - `agent_skills` is unique by `(agent_id, name)`.
 - `agents.product_role` is `leader` or `executor`.
@@ -116,7 +116,9 @@ audit-log filters and recent events/logs.
 
 ## PM Run Proof
 
-Migration 11 adds `pm_run_bindings`. Each Fleet run UUID has one immutable
+The feature's single pending migration `m20261001_000010_task_chats` adds
+`pm_run_bindings` (eleven migration files after the accepted main refresh).
+Each Fleet run UUID has one immutable
 reservation containing its task chat, concrete agent, Tracker identity,
 assignment/execution, workflow binding, dispatch operation key, checkpoint and
 fence. Reservation and technical capacity allocation commit together, before any

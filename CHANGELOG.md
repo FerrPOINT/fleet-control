@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- Recheck Tracker project access for task-bound transcript, lists/counts, runs,
+  controls and every session-stream event; retained Fleet ownership cannot bypass revocation.
+- Revalidate PM assignment after approval reservation waits; definitely undispatched
+  failures are terminal and mirror foreign keys no longer deadlock PM capacity locks.
+- Reject malformed approval lists as recoverable UI errors and synchronize the
+  complete three-browser chat/catalog/approval fixtures.
 - Add server-authorized chat directory search, aggregate counts and scoped cursors;
   keep own-user default and preserve return context without loading all transcripts.
 - Add immutable PM run reservations and authenticated fresh Hermes readback for

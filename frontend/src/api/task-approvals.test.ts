@@ -6,6 +6,7 @@ import {
   getTaskApprovalDecision,
   getTaskApprovals,
   type ApprovalDecision,
+  type RuntimeApprovalRequest,
 } from './task-approvals'
 
 vi.mock('./client', async (original) => ({
@@ -25,8 +26,41 @@ const receipt: ApprovalDecision = {
   state: 'pending',
   created_at: '2026-10-01T12:00:00Z',
 }
+const approval: RuntimeApprovalRequest = {
+  id: 'approval',
+  session_id: 'session',
+  session_run_id: 'run',
+  agent_id: 'agent',
+  runtime_run_id: 'hermes-run',
+  prompt: 'Bounded action',
+  created_at: '2026-10-01T12:00:00Z',
+  detail: {},
+  state: 'pending',
+  runtime_approval_id: 'exact-action',
+}
 
 describe('targeted approval API fixture contract', () => {
+  it('preserves a valid exact approval list', async () => {
+    vi.mocked(apiRequest).mockResolvedValue([approval])
+    expect(await getTaskApprovals('session')).toEqual([approval])
+  })
+  it.each([
+    { ...approval, created_at: 'not-a-date' },
+    { ...approval, state: 'always' },
+    { ...approval, runtime_approval_id: 42 },
+  ])('rejects unsafe rendered approval fields: %j', async (payload) => {
+    vi.mocked(apiRequest).mockResolvedValue([payload])
+    await expect(getTaskApprovals('session')).rejects.toThrow('Invalid runtime approval response')
+  })
+  it.each([{}, null, 'invalid', [null]])(
+    'rejects malformed approval lists: %j',
+    async (payload) => {
+      vi.mocked(apiRequest).mockResolvedValue(payload)
+      await expect(getTaskApprovals('session')).rejects.toThrow('Invalid runtime approval response')
+      expect(apiRequest).toHaveBeenCalledTimes(1)
+    },
+  )
+
   it('reads approvals only within the encoded session path', async () => {
     vi.mocked(apiRequest).mockResolvedValue([])
     expect(await getTaskApprovals('session/with space')).toEqual([])

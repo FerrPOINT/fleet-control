@@ -25,7 +25,9 @@ pub async fn controls(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
+    headers: HeaderMap,
 ) -> Result<Json<domain::ChatControls>, AppError> {
+    require_project_access(&ctx, &user, id, &headers).await?;
     let session = ctx.repo.get_session(id).await?;
     if session.user_id != user.id && !user.can_read_all_sessions() {
         return Err(AppError::Forbidden);
@@ -347,6 +349,17 @@ pub(super) async fn load_task_context(
     })
 }
 
+pub(super) async fn require_project_access(
+    ctx: &Arc<AppContext>,
+    user: &CurrentUser,
+    id: Uuid,
+    headers: &HeaderMap,
+) -> Result<(), AppError> {
+    // History belongs to the immutable binding, not the current assignment.
+    load_task_context(ctx, user, id, headers, false).await?;
+    Ok(())
+}
+
 #[utoipa::path(get,path="/api/v1/sessions/{session_id}/clarifications",tag="task-chats",params(("session_id"=Uuid,Path)),responses((status=200,body=domain::TrackerClarifications)))]
 pub async fn clarifications(
     State(ctx): State<Arc<AppContext>>,
@@ -552,7 +565,9 @@ pub async fn history(
     Extension(user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
     Query(query): Query<HistoryQuery>,
+    headers: HeaderMap,
 ) -> Result<Json<MessageHistoryPage>, AppError> {
+    require_project_access(&ctx, &user, id, &headers).await?;
     let session = ctx.repo.get_session(id).await?;
     if session.user_id != user.id && !user.can_read_all_sessions() {
         return Err(AppError::Forbidden);

@@ -82,7 +82,7 @@ Terminal proof cannot regress; an unknown reservation retains agent capacity.
 Hermes alias resolution is supported by pinning the acknowledged effective
 runtime session ID separately from Fleet's stable session identity.
 
-WSL workspace tests passed with 88 library tests and 19 actual PostgreSQL cases
+The earlier follow-up WSL workspace gate passed with 88 library tests and 19 actual PostgreSQL cases
 (18 SDLC foundation cases plus managed settings). These follow-up database tests
 used PostgreSQL 16.15 because the shared Docker engine was unresponsive. They do
 not replace the required PostgreSQL 17 migration/CI gate. The new cases exercise
@@ -91,12 +91,40 @@ test HTTP runtime, not a real Hermes PM/provider. The directory test is explicit
 ignored in the normal workspace suite and needs its own disposable database.
 
 The clean disposable PostgreSQL 16 database passed ten-migration up, pending
-000010 down/reapply/status before merging the refreshed main branch. Main has an
-additional accepted product-deployment migration; the final merged tree will contain
-eleven files but only one new migration in this feature PR. It requires fresh final
-verification. Previous unconsolidated eleven-file QA runs are not evidence for that
-tree. No accepted runtime database or volume was changed. Production rollback must
+000010 down/reapply/status before refreshing main. After that refresh, the final
+eleven-file schema passed clean up, pending 000010 down/reapply/status on a fresh
+PostgreSQL 17.11 database. This feature owns only one new migration. Previous
+unconsolidated schema runs do not substitute for this final-tree verification.
+No accepted runtime database or volume was changed. Production rollback must
 disable the feature rather than remove run proof.
+
+The security follow-up passed strict Clippy and the complete WSL workspace suite:
+93 library tests and 23 actual PostgreSQL 17.11 cases, including both database
+environment variables explicitly configured. Directory and runtime-approval-event
+tests remain explicit separate gates, not silently counted as normal workspace
+acceptance. The directory's updated scope acceptance separately passed PostgreSQL
+17.11. Disposable QA databases/role were removed after verifying ownership.
+
+New deterministic regressions prove: historical chats survive PM replacement;
+revoked project access denies detail, legacy lists, messages/history, participants,
+runs, controls and stop; an already-open SSE stream closes without emitting queued
+data; changed assignments during an actor lock wait dispatch zero approval HTTP
+requests; a definitely undispatched decision is terminal failed and never replayed;
+PM capacity locks remain compatible with mirror author-agent foreign keys.
+These cases use authoritative database transactions and controlled HTTP servers,
+not live Central Auth/Hermes/provider acceptance. Cross-service replacement still
+needs confirmed runtime quiescence, not just a last-moment authorization read.
+
+The refreshed frontend passed 212 unit tests. Approval response shape errors are
+surfaced as loading errors rather than crashing the transcript. Screenshot/browser
+fixtures are kept distinct from real PM acceptance.
+
+The complete refreshed browser suite passed 33 tests across Chromium, Firefox and
+WebKit, covering the fleet flows, scoped chat directory and targeted approvals.
+Nine controller fixture images were regenerated for dialogue, clarification and
+requirements at 375x812, 1920x1080 and 2560x1440. Their generated manifest and hashes
+passed verification; mobile dialogue and desktop clarification were visually
+inspected. This evidence explicitly records `liveAcceptance=false`.
 
 The PM tests cover concurrent identical reservations, payload conflict, immutable
 mapping/fence/terminal proof, unknown acceptance holding capacity, bad callback

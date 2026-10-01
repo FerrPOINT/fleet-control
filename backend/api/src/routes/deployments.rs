@@ -82,34 +82,32 @@ pub async fn cancel_deployment_job(
     if matches!(
         current.job_kind,
         DeploymentJobKind::ProductDeploy | DeploymentJobKind::ProductRollback
-    ) {
-        if let Some(deployment_id) = current
-            .detail
-            .get("forge_deployment_id")
-            .and_then(serde_json::Value::as_str)
-        {
-            let base = ctx
-                .config
-                .fleet
-                .forge_api_url
-                .as_deref()
-                .ok_or_else(|| AppError::validation("Forge API URL is not configured"))?
-                .trim_end_matches('/');
-            let token = ctx
-                .config
-                .fleet
-                .forge_api_token
-                .as_deref()
-                .unwrap_or_default();
-            reqwest::Client::new()
-                .post(format!("{base}/api/v1/deployments/{deployment_id}/cancel"))
-                .bearer_auth(token)
-                .send()
-                .await
-                .map_err(AppError::internal)?
-                .error_for_status()
-                .map_err(AppError::internal)?;
-        }
+    ) && let Some(deployment_id) = current
+        .detail
+        .get("forge_deployment_id")
+        .and_then(serde_json::Value::as_str)
+    {
+        let base = ctx
+            .config
+            .fleet
+            .forge_api_url
+            .as_deref()
+            .ok_or_else(|| AppError::validation("Forge API URL is not configured"))?
+            .trim_end_matches('/');
+        let token = ctx
+            .config
+            .fleet
+            .forge_api_token
+            .as_deref()
+            .unwrap_or_default();
+        reqwest::Client::new()
+            .post(format!("{base}/api/v1/deployments/{deployment_id}/cancel"))
+            .bearer_auth(token)
+            .send()
+            .await
+            .map_err(AppError::internal)?
+            .error_for_status()
+            .map_err(AppError::internal)?;
     }
     let job = ctx.repo.cancel_deployment_job(job_id, user.id).await?;
     ctx.repo

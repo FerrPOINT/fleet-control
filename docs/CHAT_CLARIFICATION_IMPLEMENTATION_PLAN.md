@@ -104,7 +104,11 @@ Typed response DTOs and the accepted Tracker wire contract now have source-gener
 checks. See [verification ledger](CHAT_CLARIFICATION_VERIFICATION.md) for the boundary
 between local contract evidence and the unimplemented runtime integration.
 
+The follow-up implements trusted machine-only Hermes readback and exact-request
+approval decisions. Readback has authenticated test-runtime evidence; it is not
+an implemented PM dispatch/continuation orchestrator.
+
 Remaining before release: creation saga, runtime structured tools/scoped assignment,
-Tracker outbox/Fleet inbox projection, trusted Hermes readback, PM delivery/rebind,
+Tracker outbox/Fleet inbox projection, integration of trusted readback into PM delivery/rebind,
 prerequisite verifier, live restart/negative acceptance and current production screenshots.
 Task-bound chat ordinary send/steer is deliberately blocked until these contracts are wired.

@@ -605,6 +605,12 @@ impl FleetRepository for PostgresFleetRepository {
     ) -> Result<domain::ApprovalDecision, AppError> {
         approval_decisions::deliver(self, id).await
     }
+    async fn fail_undispatched_approval_decision(
+        &self,
+        id: Uuid,
+    ) -> Result<domain::ApprovalDecision, AppError> {
+        approval_decisions::fail_undispatched(self, id).await
+    }
     async fn list_chats_directory(
         &self,
         filter: domain::ChatsDirectoryFilter,
@@ -1358,6 +1364,23 @@ impl FleetRepository for PostgresFleetRepository {
     ) -> Result<Vec<AgentSession>, AppError> {
         let mut query =
             agent_session::Entity::find().order_by_desc(agent_session::Column::UpdatedAt);
+        let (instance, projects) = match filter.task_project_access {
+            Some(scope) => (Some(scope.tracker_instance_id), scope.project_ids),
+            None => (None, Vec::new()),
+        };
+        let scope_values: [sea_orm::Value; 2] = [
+            instance.into(),
+            serde_json::to_value(projects)
+                .map_err(AppError::internal)?
+                .into(),
+        ];
+        query = query.filter(sea_orm::sea_query::Expr::cust_with_values(
+            "(NOT EXISTS(SELECT 1 FROM task_chat_bindings b WHERE b.session_id=agent_sessions.id)
+             OR EXISTS(SELECT 1 FROM task_chat_bindings b WHERE b.session_id=agent_sessions.id
+                AND b.tracker_instance_id=$1 AND b.project_id IN
+                    (SELECT value::uuid FROM jsonb_array_elements_text($2::jsonb))))",
+            scope_values,
+        ));
         if let Some(agent_id) = filter.agent_id {
             query = query.filter(agent_session::Column::AgentId.eq(agent_id));
         }
@@ -3269,20 +3292,19 @@ impl FleetRepository for PostgresFleetRepository {
             }
             redact_json(req.detail.unwrap_or_else(|| json!({})))
         };
-        if let Some(key) = req.idempotency_key {
-            if let Some(existing) = deployment_job::Entity::find()
+        if let Some(key) = req.idempotency_key
+            && let Some(existing) = deployment_job::Entity::find()
                 .filter(deployment_job::Column::IdempotencyKey.eq(key))
                 .one(&self.db)
                 .await
                 .map_err(AppError::database)?
-            {
-                if existing.job_kind != req.job_kind.as_str() || existing.detail != detail {
-                    return Err(AppError::conflict(
-                        "idempotency key belongs to another request",
-                    ));
-                }
-                return Ok(deployment_job_from_model(existing));
+        {
+            if existing.job_kind != req.job_kind.as_str() || existing.detail != detail {
+                return Err(AppError::conflict(
+                    "idempotency key belongs to another request",
+                ));
             }
+            return Ok(deployment_job_from_model(existing));
         }
         if let Some(agent_id) = req.agent_id {
             load_agent_row(&self.db, agent_id).await?;
@@ -3306,20 +3328,19 @@ impl FleetRepository for PostgresFleetRepository {
         .exec(&self.db)
         .await;
         if let Err(error) = inserted {
-            if let Some(key) = req.idempotency_key {
-                if let Some(existing) = deployment_job::Entity::find()
+            if let Some(key) = req.idempotency_key
+                && let Some(existing) = deployment_job::Entity::find()
                     .filter(deployment_job::Column::IdempotencyKey.eq(key))
                     .one(&self.db)
                     .await
                     .map_err(AppError::database)?
-                {
-                    if existing.job_kind == req.job_kind.as_str() && existing.detail == detail {
-                        return Ok(deployment_job_from_model(existing));
-                    }
-                    return Err(AppError::conflict(
-                        "idempotency key belongs to another request",
-                    ));
+            {
+                if existing.job_kind == req.job_kind.as_str() && existing.detail == detail {
+                    return Ok(deployment_job_from_model(existing));
                 }
+                return Err(AppError::conflict(
+                    "idempotency key belongs to another request",
+                ));
             }
             return Err(AppError::database(error));
         }

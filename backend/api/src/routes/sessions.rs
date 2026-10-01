@@ -39,8 +39,15 @@ pub async fn list_sessions(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<crate::middleware::CurrentUser>,
     Query(query): Query<SessionQuery>,
+    headers: HeaderMap,
 ) -> Result<Json<Vec<AgentSession>>, AppError> {
     let (user_ids, include_all_users) = parse_user_filter(query.user_id.as_deref(), &user)?;
+    let task_project_access =
+        if ctx.config.tracker.url.is_empty() && ctx.config.tracker.instance_id.is_empty() {
+            None
+        } else {
+            Some(super::project_access::authorized_projects(&ctx, &headers).await?)
+        };
     Ok(Json(
         ctx.repo
             .list_sessions(SessionListFilter {
@@ -48,6 +55,7 @@ pub async fn list_sessions(
                 user_ids,
                 leader_agent_id: query.leader_agent_id,
                 include_all_users,
+                task_project_access,
             })
             .await?,
     ))
@@ -161,7 +169,9 @@ pub async fn get_session(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<crate::middleware::CurrentUser>,
     Path(session_id): Path<Uuid>,
+    headers: HeaderMap,
 ) -> Result<Json<AgentSession>, AppError> {
+    super::task_chats::require_project_access(&ctx, &user, session_id, &headers).await?;
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_read_access(&session, &user)?;
     Ok(Json(session))
@@ -202,7 +212,9 @@ pub async fn list_session_messages(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<crate::middleware::CurrentUser>,
     Path(session_id): Path<Uuid>,
+    headers: HeaderMap,
 ) -> Result<Json<Vec<SessionMessage>>, AppError> {
+    super::task_chats::require_project_access(&ctx, &user, session_id, &headers).await?;
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_read_access(&session, &user)?;
     Ok(Json(ctx.repo.list_session_messages(session_id).await?))
@@ -272,7 +284,9 @@ pub async fn list_session_participants(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<crate::middleware::CurrentUser>,
     Path(session_id): Path<Uuid>,
+    headers: HeaderMap,
 ) -> Result<Json<Vec<SessionParticipant>>, AppError> {
+    super::task_chats::require_project_access(&ctx, &user, session_id, &headers).await?;
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_read_access(&session, &user)?;
     Ok(Json(ctx.repo.list_session_participants(session_id).await?))
@@ -346,7 +360,9 @@ pub async fn list_session_agent_runs(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<crate::middleware::CurrentUser>,
     Path(session_id): Path<Uuid>,
+    headers: HeaderMap,
 ) -> Result<Json<Vec<SessionAgentRun>>, AppError> {
+    super::task_chats::require_project_access(&ctx, &user, session_id, &headers).await?;
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_read_access(&session, &user)?;
     Ok(Json(ctx.repo.list_session_agent_runs(session_id).await?))
@@ -365,6 +381,7 @@ pub async fn stream_session(
     Query(query): Query<StreamQuery>,
     headers: HeaderMap,
 ) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, AppError> {
+    super::task_chats::require_project_access(&ctx, &user, session_id, &headers).await?;
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_read_access(&session, &user)?;
     let header_cursor = headers
@@ -397,8 +414,8 @@ pub async fn stream_session(
             .data(serde_json::json!({ "type": "snapshot", "session_id": session_id }).to_string()),
     );
     let stream = futures_util::stream::unfold(
-        (ctx, user, token, cursor, queue),
-        move |(ctx, user, token, mut cursor, mut queue)| async move {
+        (ctx, user, token, headers, cursor, queue),
+        move |(ctx, user, token, headers, mut cursor, mut queue)| async move {
             loop {
                 let valid_token = match crate::middleware::central_auth::check_token(&token).await {
                     crate::middleware::central_auth::CentralCheck::Validated(central) => {
@@ -419,10 +436,16 @@ pub async fn stream_session(
                 if session.user_id != user.id && !principal.system_role.can_read_all_sessions() {
                     return None;
                 }
+                if super::task_chats::require_project_access(&ctx, &user, session_id, &headers)
+                    .await
+                    .is_err()
+                {
+                    return None;
+                }
                 if let Some(event) = queue.pop_front() {
                     return Some((
                         Ok::<_, Infallible>(event),
-                        (ctx, user, token, cursor, queue),
+                        (ctx, user, token, headers, cursor, queue),
                     ));
                 }
                 let events = ctx
@@ -483,12 +506,14 @@ pub async fn stop_session_run(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<crate::middleware::CurrentUser>,
     Path((session_id, run_id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
 ) -> Result<Json<RuntimeRunControlResponse>, AppError> {
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_write_access(&session, &user)?;
     let run = ctx.repo.get_session_agent_run(run_id).await?;
     ensure_run_belongs_to_session(&run, session_id)?;
     let agent = ctx.repo.get_agent(run.agent_id).await?;
+    super::task_chats::require_project_access(&ctx, &user, session_id, &headers).await?;
     let response = ctx.runtime.stop_run(&agent, &run).await?;
     ctx.repo
         .insert_audit(
