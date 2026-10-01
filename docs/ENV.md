@@ -2,6 +2,14 @@
 
 Prefix: `FLEET_CONTROL_`.
 
+October additions: `FLEET_CONTROL_SECRET__<REFERENCE>` supplies secret refs used
+by config revisions; values are resolved only into per-agent managed `.env`.
+`FLEET_CONTROL_AUTH__BOOTSTRAP_ADMIN_SUB` optionally names an exact verified
+central subject for initial admin provisioning, only while no active local admin
+exists. Remove it after bootstrap; other central users retain stored local roles,
+never implicit admin. Existing runtime derivation key:
+`FLEET_CONTROL_FLEET__RUNTIME_TOKEN_SECRET`.
+
 Required production values:
 
 - `FLEET_CONTROL_DATABASE__URL`

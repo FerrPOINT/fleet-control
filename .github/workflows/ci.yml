@@ -11,6 +11,42 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  containers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: fleet-control
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: fleet-control
+      - uses: actions/checkout@v7
+        with:
+          repository: FerrPOINT/services-base
+          path: services-base
+          ref: af1bdd4746dfda331d0c32741af3f7c502fad816
+          token: ${{ secrets.SERVICES_BASE_TOKEN }}
+      - name: Disposable Compose credentials
+        run: |
+          for key in POSTGRES_PASSWORD FLEET_CONTROL_JWT_SECRET FLEET_CONTROL_FLEET__RUNTIME_TOKEN_SECRET; do
+            value=$(openssl rand -hex 32)
+            echo "::add-mask::$value"
+            echo "$key=$value" >> "$GITHUB_ENV"
+          done
+          echo "BACKEND_PORT=55491" >> "$GITHUB_ENV"
+          echo "FRONTEND_PORT=55492" >> "$GITHUB_ENV"
+      - name: Build and start clean Compose stack
+        run: docker compose -p fleet-ci up -d --build --wait --wait-timeout 120
+      - name: Authenticated container acceptance
+        run: python3 scripts/compose_smoke.py --url http://127.0.0.1:55492 --compose-project fleet-ci
+      - name: Container status
+        if: always()
+        run: docker compose -p fleet-ci ps -a
+      - name: Remove only disposable CI stack
+        if: always()
+        run: docker compose -p fleet-ci down --volumes --remove-orphans
+
   docs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -57,19 +93,31 @@ jobs:
         with:
           repository: FerrPOINT/services-base
           path: services-base
-          ref: main
+          ref: af1bdd4746dfda331d0c32741af3f7c502fad816
           token: ${{ secrets.SERVICES_BASE_TOKEN }}
-      - run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
+      - run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev postgresql-client
       - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.88
+          toolchain: stable
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: fleet-control/backend
       - run: cargo fmt --all -- --check
+      - run: cargo check --workspace --all-targets
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace -- --test-threads=1
+      - name: Clean migration up, rollback new revisions and reapply
+        env:
+          PGPASSWORD: fleet_control
+          DATABASE_URL: postgres://fleet_control:fleet_control@127.0.0.1:5432/fleet_migration_smoke
+        run: |
+          psql -h 127.0.0.1 -U fleet_control -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE fleet_migration_smoke;'
+          cargo run -p migration -- up
+          cargo run -p migration -- status
+          cargo run -p migration -- down -n 1
+          cargo run -p migration -- up
+          cargo run -p migration -- status
       - name: OpenAPI drift gate
         run: |
           mkdir -p ../openapi
@@ -78,7 +126,7 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: fleet-control/frontend
@@ -91,7 +139,7 @@ jobs:
         with:
           repository: FerrPOINT/services-base
           path: services-base
-          ref: main
+          ref: af1bdd4746dfda331d0c32741af3f7c502fad816
           token: ${{ secrets.SERVICES_BASE_TOKEN }}
       - uses: pnpm/action-setup@v6
         with:
@@ -101,10 +149,36 @@ jobs:
           node-version: 22
           cache: pnpm
           cache-dependency-path: fleet-control/frontend/pnpm-lock.yaml
-      - run: pnpm install --no-frozen-lockfile
+      - name: Install shared UI validator dependencies
+        run: pnpm --dir ../../services-base/frontend install --frozen-lockfile
+        env:
+          CI: "true"
+      - run: pnpm install --frozen-lockfile
         env:
           CI: "true"
       - run: pnpm openapi:check
+      - run: pnpm ui:check
+      - run: pnpm markdown:check
+      - run: pnpm screenshots:verify
+      - run: pnpm typecheck
       - run: pnpm test -- --run
       - run: pnpm lint
+      - run: pnpm format:check
       - run: pnpm build
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium firefox webkit
+      - name: Three-browser fixture acceptance
+        run: pnpm exec playwright test
+      - name: Capture current fixture screens
+        run: pnpm screenshots:local
+      - name: Verify generated screenshot manifest
+        run: pnpm screenshots:verify
+      - name: Preserve browser evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fleet-browser-evidence
+          path: |
+            fleet-control/frontend/test-results
+            fleet-control/docs/assets/screens
+          retention-days: 14

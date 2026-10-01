@@ -8,6 +8,48 @@ pub type Timestamp = String;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
+pub enum SdlcRole {
+    ProjectManager,
+    Analyst,
+    Architect,
+    Developer,
+    Reviewer,
+    Tester,
+    DevOps,
+}
+
+impl SdlcRole {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::ProjectManager => "project_manager",
+            Self::Analyst => "analyst",
+            Self::Architect => "architect",
+            Self::Developer => "developer",
+            Self::Reviewer => "reviewer",
+            Self::Tester => "tester",
+            Self::DevOps => "dev_ops",
+        }
+    }
+}
+
+impl FromStr for SdlcRole {
+    type Err = String;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "project_manager" => Ok(Self::ProjectManager),
+            "analyst" => Ok(Self::Analyst),
+            "architect" => Ok(Self::Architect),
+            "developer" => Ok(Self::Developer),
+            "reviewer" => Ok(Self::Reviewer),
+            "tester" => Ok(Self::Tester),
+            "dev_ops" => Ok(Self::DevOps),
+            _ => Err(format!("unknown SDLC role: {value}")),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
 pub enum SystemRole {
     Admin,
     Operator,
@@ -974,6 +1016,7 @@ pub struct Agent {
     pub kind: AgentKind,
     pub product_role: AgentProductRole,
     pub role: AgentRole,
+    pub sdlc_role: Option<SdlcRole>,
     pub status: AgentStatus,
     pub display_name: String,
     pub description: Option<String>,
@@ -995,6 +1038,35 @@ pub struct AgentConfig {
     pub soul_md: String,
     pub env_json: Value,
     pub updated_at: Timestamp,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct AgentConfigurationSnapshot {
+    pub config: UpdateAgentConfigRequest,
+    pub skills: Vec<AgentSkill>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct AgentConfigRevision {
+    pub agent_id: Uuid,
+    pub revision: i64,
+    pub state: String,
+    pub snapshot: AgentConfigurationSnapshot,
+    pub validation_errors: Vec<String>,
+    pub last_error: Option<String>,
+    pub is_desired: bool,
+    pub is_effective: bool,
+    pub draining: bool,
+    pub created_at: Timestamp,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct AgentSdlcReadiness {
+    pub agent_id: Uuid,
+    pub runtime_healthy: bool,
+    pub ready_for_sdlc: bool,
+    pub effective_revision: Option<i64>,
+    pub blockers: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -1078,6 +1150,15 @@ pub struct SessionMessage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct SessionEvent {
+    pub session_id: Uuid,
+    pub sequence: i64,
+    pub event_type: String,
+    pub payload: Value,
+    pub created_at: Timestamp,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct SessionAgentRun {
     pub id: Uuid,
     pub session_id: Uuid,
@@ -1130,6 +1211,7 @@ pub struct AgentDirectoryItem {
     pub kind: AgentKind,
     pub product_role: AgentProductRole,
     pub role: AgentRole,
+    pub sdlc_role: Option<SdlcRole>,
     pub status: AgentStatus,
     pub display_name: String,
     pub description: Option<String>,
@@ -1259,6 +1341,8 @@ pub struct CreateAgentRequest {
     #[serde(default = "default_product_role")]
     pub product_role: AgentProductRole,
     pub role: AgentRole,
+    #[serde(default)]
+    pub sdlc_role: Option<SdlcRole>,
     pub display_name: String,
     pub description: Option<String>,
     pub namespace_id: Option<String>,
@@ -1273,6 +1357,8 @@ pub struct CreateAgentRequest {
 pub struct UpdateAgentRequest {
     pub product_role: Option<AgentProductRole>,
     pub role: Option<AgentRole>,
+    #[serde(default)]
+    pub sdlc_role: Option<SdlcRole>,
     pub display_name: Option<String>,
     pub description: Option<String>,
     pub namespace_id: Option<String>,
@@ -1285,6 +1371,144 @@ pub struct UpdateAgentConfigRequest {
     pub config_json: Value,
     pub soul_md: String,
     pub env_json: Value,
+}
+
+impl UpdateAgentConfigRequest {
+    pub fn input_errors(&self) -> Vec<String> {
+        let mut errors = Vec::new();
+        if !self.config_json.is_object() {
+            errors.push("config_json must be an object".into());
+        }
+        if !self.env_json.is_object() {
+            errors.push("env_json must be an object".into());
+        }
+        if self.soul_md.trim().is_empty() {
+            errors.push("SOUL must not be empty".into());
+        }
+        if let Some(env) = self.env_json.as_object() {
+            for (key, value) in env {
+                if key.is_empty()
+                    || !key
+                        .bytes()
+                        .all(|ch| ch.is_ascii_uppercase() || ch.is_ascii_digit() || ch == b'_')
+                    || key.as_bytes()[0].is_ascii_digit()
+                {
+                    errors.push(format!("invalid environment variable name: {key}"));
+                }
+                if let Some(reference) = value.get("secret_ref").and_then(Value::as_str) {
+                    if value.as_object().is_none_or(|object| object.len() != 1)
+                        || reference.is_empty()
+                        || reference.len() > 128
+                        || !reference
+                            .bytes()
+                            .all(|ch| ch.is_ascii_uppercase() || ch.is_ascii_digit() || ch == b'_')
+                    {
+                        errors.push(format!("invalid secret_ref for {key}"));
+                    }
+                } else if !value.is_string()
+                    || value
+                        .as_str()
+                        .is_some_and(|value| value.contains(['\n', '\r', '\0']))
+                {
+                    errors.push(format!("{key} must be a string or secret_ref"));
+                } else if is_configuration_secret_name(key) && value.as_str() != Some("redacted") {
+                    errors.push(format!(
+                        "{key} must use a secret_ref; plaintext secrets are not accepted"
+                    ));
+                }
+            }
+        }
+        inspect_config_secrets(&self.config_json, &mut errors);
+        errors
+    }
+}
+
+#[cfg(test)]
+mod config_input_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn draft(env_json: Value) -> UpdateAgentConfigRequest {
+        UpdateAgentConfigRequest {
+            config_json: json!({"model": "test-model"}),
+            soul_md: "# Developer".into(),
+            env_json,
+        }
+    }
+
+    #[test]
+    fn secret_reference_accepts_only_the_reference() {
+        assert!(
+            draft(json!({"PROVIDER_API_KEY": {"secret_ref": "PROVIDER"}}))
+                .input_errors()
+                .is_empty()
+        );
+        assert!(
+            !draft(
+                json!({"PROVIDER_API_KEY": {"secret_ref": "PROVIDER", "plaintext": "credential"}})
+            )
+            .input_errors()
+            .is_empty()
+        );
+        assert!(
+            !draft(json!({"PROVIDER_API_KEY": "credential"}))
+                .input_errors()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn rejects_environment_injection_and_nested_config_secrets() {
+        for env in [
+            json!({"INVALID-NAME": "value"}),
+            json!({"1INVALID": "value"}),
+            json!({"MODEL": "safe\nAPI_SERVER_KEY=evil"}),
+            json!({"MODEL": "value\0"}),
+        ] {
+            assert!(!draft(env).input_errors().is_empty());
+        }
+        let mut request = draft(json!({}));
+        request.config_json = json!({"providers": [{"credentials": "private"}]});
+        assert!(!request.input_errors().is_empty());
+    }
+}
+
+pub fn is_configuration_secret_name(key: &str) -> bool {
+    let key = key.to_ascii_lowercase();
+    [
+        "token",
+        "secret",
+        "password",
+        "api_key",
+        "apikey",
+        "credential",
+        "private_key",
+        "access_key",
+    ]
+    .iter()
+    .any(|part| key.contains(part))
+}
+
+fn inspect_config_secrets(value: &Value, errors: &mut Vec<String>) {
+    match value {
+        Value::Object(map) => {
+            for (key, value) in map {
+                if is_configuration_secret_name(key) {
+                    errors.push(format!(
+                        "{key} must be configured through an environment secret_ref"
+                    ));
+                } else {
+                    inspect_config_secrets(value, errors);
+                }
+            }
+        }
+        Value::Array(items) => {
+            for item in items {
+                inspect_config_secrets(item, errors);
+            }
+        }
+        _ => {}
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

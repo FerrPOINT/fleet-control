@@ -2,7 +2,13 @@
 
 ## Status
 
-Accepted.
+Superseded for dependency and auth integration; retained as historical context.
+
+As of 2026-10-01, Fleet directly consumes the sibling `sdlc-telemetry`,
+`sdlc-shared` and `sdlc-auth-core` crates. The original deferred-dependency
+decision below no longer describes current code. See [Architecture](../ARCHITECTURE.md)
+and [Security](../SECURITY.md) for the implemented central identity flow and its
+remaining machine-identity gaps.
 
 ## Context
 

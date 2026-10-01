@@ -71,8 +71,8 @@ pub async fn require_auth(
             let user = find_or_link_central_user(&ctx, &central).await?;
             req.extensions_mut().insert(CurrentUser {
                 id: user.id,
-                role: SystemRole::Admin,
-                is_system_admin: true,
+                role: user.system_role,
+                is_system_admin: user.system_role.is_admin(),
             });
             return Ok(next.run(req).await);
         }
@@ -110,7 +110,7 @@ pub async fn require_auth(
     Ok(next.run(req).await)
 }
 
-/// Resolves the local user for a central identity by its verified email,
+/// Resolves the local user by the verified central subject, never by email,
 /// creating a shadow account on first login (password_hash "!" — local
 /// password verify always fails; the central server owns credentials).
 pub async fn find_or_link_central_user_public(
@@ -133,11 +133,47 @@ async fn find_or_link_central_user(
     if email.is_empty() {
         return Err(AppError::Unauthorized);
     }
-    ctx.repo
+    let user = ctx
+        .repo
         .find_or_create_central_user(
             &central.user_id,
             &email,
             email.split('@').next().unwrap_or(&email),
         )
-        .await
+        .await?;
+    if std::env::var("FLEET_CONTROL_AUTH__BOOTSTRAP_ADMIN_SUB")
+        .ok()
+        .as_deref()
+        == Some(central.user_id.as_str())
+        && !ctx
+            .repo
+            .list_users()
+            .await?
+            .iter()
+            .any(|user| user.is_active && user.system_role == SystemRole::Admin)
+    {
+        ctx.repo
+            .update_user_role(
+                user.id,
+                domain::UpdateUserRoleRequest {
+                    role: SystemRole::Admin,
+                },
+            )
+            .await?;
+        ctx.repo
+            .insert_audit(
+                Some(user.id),
+                "rbac.bootstrap",
+                "user",
+                Some(user.id.to_string()),
+                serde_json::json!({"source":"configured_central_subject"}),
+            )
+            .await?;
+        return ctx
+            .repo
+            .find_user_by_id(user.id)
+            .await?
+            .ok_or(AppError::Unauthorized);
+    }
+    Ok(user)
 }

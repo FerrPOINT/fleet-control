@@ -43,6 +43,10 @@ pub mod routes;
         routes::agents::acknowledge_fleet_alert,
         routes::agents::get_agent_config,
         routes::agents::update_agent_config,
+        routes::agents::list_config_revisions,
+        routes::agents::validate_config_revision,
+        routes::agents::activate_config_revision,
+        routes::agents::get_sdlc_readiness,
         routes::agents::list_agent_skills,
         routes::agents::update_agent_skill,
         routes::leaders::list_leaders,
@@ -98,6 +102,11 @@ pub mod routes;
         domain::AgentKind,
         domain::AgentProductRole,
         domain::AgentRole,
+        domain::SdlcRole,
+        domain::AgentConfigRevision,
+        domain::AgentConfigurationSnapshot,
+        domain::AgentSdlcReadiness,
+        domain::SessionEvent,
         domain::AgentStatus,
         domain::DesiredState,
         domain::SkillState,
@@ -267,6 +276,22 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         .route(
             "/api/v1/agents/{agent_id}/skills",
             get(routes::agents::list_agent_skills),
+        )
+        .route(
+            "/api/v1/agents/{agent_id}/config/revisions",
+            get(routes::agents::list_config_revisions),
+        )
+        .route(
+            "/api/v1/agents/{agent_id}/config/revisions/{revision}/validate",
+            post(routes::agents::validate_config_revision),
+        )
+        .route(
+            "/api/v1/agents/{agent_id}/config/revisions/{revision}/activate",
+            post(routes::agents::activate_config_revision),
+        )
+        .route(
+            "/api/v1/agents/{agent_id}/readiness",
+            get(routes::agents::get_sdlc_readiness),
         )
         .route(
             "/api/v1/agents/{agent_id}/skills/{skill_name}",
@@ -471,7 +496,10 @@ mod tests {
                     .uri("/health")
                     .header(ORIGIN, "http://localhost:23802")
                     .header(ACCESS_CONTROL_REQUEST_METHOD, "GET")
-                    .header(ACCESS_CONTROL_REQUEST_HEADERS, "authorization,content-type")
+                    .header(
+                        ACCESS_CONTROL_REQUEST_HEADERS,
+                        "authorization,content-type,last-event-id",
+                    )
                     .body(Body::empty())
                     .expect("request"),
             )
@@ -495,6 +523,7 @@ mod tests {
             .expect("allow headers value");
         assert!(allow_headers.contains("authorization"));
         assert!(allow_headers.contains("content-type"));
+        assert!(allow_headers.contains("last-event-id"));
     }
 
     #[tokio::test]

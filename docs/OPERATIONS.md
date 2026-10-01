@@ -1,5 +1,20 @@
 # Operations
 
+## SDLC Foundation Recovery
+
+Automatic SDLC is blocked; operator actions do not publish Tracker requirements
+or bypass workflow gates. See [current scope](SDLC_IMPLEMENTATION.md).
+
+Save a config draft, validate it, then explicitly activate. Desired and effective
+revisions can differ. During drain, do not force changes beneath active runs.
+If activation fails and rollback is unconfirmed, keep the drain in place and
+inspect the last error. Crash recovery/operator reconciliation is not yet a public
+API; do not edit state rows to fabricate readiness.
+
+An `uncertain` dispatch may have been accepted by Hermes. Never automatically
+re-send it or clear its capacity hold. Investigate runtime session/run IDs and
+acceptance before recovery. EOF without a terminal status remains waiting.
+
 ## Managed settings restart
 
 `POST /api/v1/settings/managed/apply` and the rollback endpoint persist the
@@ -26,8 +41,8 @@ provision for the same agent is safe when the marker belongs to the same agent.
 
 ## Runtime Lifecycle
 
-Hermes supports start, stop, restart and health. Java Agent operations are
-reserved for phase 2 and return a typed validation response.
+Hermes supports start, stop, restart and health. Existing Java jar lifecycle is
+retained; its chat/control and config activation remain phase 2.
 
 ## Agent File Purge
 

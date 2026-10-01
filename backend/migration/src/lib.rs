@@ -9,6 +9,7 @@ mod m20260914_000006_fleet_alerts;
 mod m20260918_000007_central_subject;
 mod m20260923_000008_managed_settings;
 mod m20260930_000009_product_deployments;
+mod m20261001_000009_sdlc_foundation;
 
 pub struct Migrator;
 
@@ -25,6 +26,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260918_000007_central_subject::Migration),
             Box::new(m20260923_000008_managed_settings::Migration),
             Box::new(m20260930_000009_product_deployments::Migration),
+            Box::new(m20261001_000009_sdlc_foundation::Migration),
         ]
     }
 }

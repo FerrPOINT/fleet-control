@@ -15,6 +15,7 @@ import type {
   AgentKind,
   AgentProductRole,
   AgentRole,
+  SdlcRole,
   AgentSession,
   AgentStorageReview,
   AgentStorageReviewItem,
@@ -27,6 +28,7 @@ import { Input } from '@sdlc/ui/ui'
 import { Label } from '@sdlc/ui/ui'
 import { Textarea } from '@sdlc/ui/ui'
 import { UserAvatar } from '@/shared/ui/user-avatar'
+import { sdlcRoles } from '@/shared/sdlc-roles'
 import {
   AgentIdentity,
   EmptyState,
@@ -45,7 +47,7 @@ export function AgentsPage({
   defaultProductRole?: AgentProductRole
 }) {
   const { t } = useTranslation()
-  const agents = useQuery({ queryKey: ['agents'], queryFn: listAgents })
+  const agents = useQuery({ queryKey: ['agents'], queryFn: listAgents, enabled: !createMode })
   const templates = useQuery({ queryKey: ['runtime-templates'], queryFn: listRuntimeTemplates })
   const userFilter = useSessionUserFilter()
   const sessions = useQuery({
@@ -384,6 +386,7 @@ function CreateAgentPanel({
   const queryClient = useQueryClient()
   const executors = useQuery({ queryKey: ['executors'], queryFn: listExecutors })
   const [kind, setKind] = useState<AgentKind>('hermes')
+  const [sdlcRole, setSdlcRole] = useState<SdlcRole>('developer')
   const [productRole, setProductRole] = useState<AgentProductRole>(defaultProductRole)
   const [role, setRole] = useState<AgentRole>(
     defaultProductRole === 'leader' ? 'it_lead' : 'developer',
@@ -491,6 +494,7 @@ function CreateAgentPanel({
       kind,
       product_role: productRole,
       role,
+      sdlc_role: productRole === 'executor' ? sdlcRole : null,
       display_name: displayName,
       description,
       namespace_id: namespaceId,
@@ -507,11 +511,7 @@ function CreateAgentPanel({
         <CardTitle>{t('agents.provisionWizard')}</CardTitle>
       </CardHeader>
       <CardContent>
-        <form
-          className="grid gap-4 xl:grid-cols-[1fr_1.2fr]"
-          onSubmit={submit}
-          aria-busy={mutation.isPending}
-        >
+        <form className="grid gap-5" onSubmit={submit} aria-busy={mutation.isPending}>
           <fieldset className="contents" disabled={mutation.isPending}>
             <div className="grid gap-3">
               {templates.map((template) => (
@@ -539,10 +539,32 @@ function CreateAgentPanel({
                   <p className="mt-2 text-sm text-text-muted">{template.description}</p>
                 </button>
               ))}
-              <JsonBlock value={selectedTemplate?.capabilities ?? {}} />
+              <details>
+                <summary className="base-control flex cursor-pointer items-center text-sm text-text-secondary">
+                  {t('agents.capabilities', { defaultValue: 'Диагностика возможностей' })}
+                </summary>
+                <JsonBlock value={selectedTemplate?.capabilities ?? {}} />
+              </details>
             </div>
 
             <div className="grid gap-3">
+              {productRole === 'executor' ? (
+                <div className="grid gap-2">
+                  <Label htmlFor="sdlc-role">SDLC</Label>
+                  <select
+                    id="sdlc-role"
+                    value={sdlcRole}
+                    onChange={(event) => setSdlcRole(event.target.value as SdlcRole)}
+                    className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                  >
+                    {sdlcRoles.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
               <div className="grid gap-2">
                 <Label htmlFor="product-role">{t('agents.productRole')}</Label>
                 <select

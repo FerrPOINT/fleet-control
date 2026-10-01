@@ -272,6 +272,120 @@
         }
       }
     },
+    "/api/v1/agents/{agent_id}/config/revisions": {
+      "get": {
+        "tags": [
+          "agents"
+        ],
+        "operationId": "list_config_revisions",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AgentConfigRevision"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agents/{agent_id}/config/revisions/{revision}/activate": {
+      "post": {
+        "tags": [
+          "agents"
+        ],
+        "operationId": "activate_config_revision",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentConfigRevision"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agents/{agent_id}/config/revisions/{revision}/validate": {
+      "post": {
+        "tags": [
+          "agents"
+        ],
+        "operationId": "validate_config_revision",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentConfigRevision"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/agents/{agent_id}/health": {
       "post": {
         "tags": [
@@ -368,6 +482,37 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PurgeAgentFilesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agents/{agent_id}/readiness": {
+      "get": {
+        "tags": [
+          "agents"
+        ],
+        "operationId": "get_sdlc_readiness",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSdlcReadiness"
                 }
               }
             }
@@ -1688,11 +1833,21 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Replay events after this session cursor; Last-Event-ID is also supported",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Session-scoped SSE event stream"
+            "description": "Durable session-scoped SSE event stream"
           }
         }
       }
@@ -2365,6 +2520,16 @@
               "null"
             ]
           },
+          "sdlc_role": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SdlcRole"
+              }
+            ]
+          },
           "status": {
             "$ref": "#/components/schemas/AgentStatus"
           },
@@ -2400,6 +2565,78 @@
           },
           "updated_at": {
             "$ref": "#/components/schemas/String"
+          }
+        }
+      },
+      "AgentConfigRevision": {
+        "type": "object",
+        "required": [
+          "agent_id",
+          "revision",
+          "state",
+          "snapshot",
+          "validation_errors",
+          "is_desired",
+          "is_effective",
+          "draining",
+          "created_at"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/String"
+          },
+          "draining": {
+            "type": "boolean"
+          },
+          "is_desired": {
+            "type": "boolean"
+          },
+          "is_effective": {
+            "type": "boolean"
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/AgentConfigurationSnapshot"
+          },
+          "state": {
+            "type": "string"
+          },
+          "validation_errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "AgentConfigurationSnapshot": {
+        "type": "object",
+        "required": [
+          "config",
+          "skills"
+        ],
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/UpdateAgentConfigRequest"
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentSkill"
+            }
           }
         }
       },
@@ -2469,6 +2706,16 @@
             "type": [
               "string",
               "null"
+            ]
+          },
+          "sdlc_role": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SdlcRole"
+              }
             ]
           },
           "status": {
@@ -2703,6 +2950,40 @@
                 "$ref": "#/components/schemas/String"
               }
             ]
+          }
+        }
+      },
+      "AgentSdlcReadiness": {
+        "type": "object",
+        "required": [
+          "agent_id",
+          "runtime_healthy",
+          "ready_for_sdlc",
+          "blockers"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "effective_revision": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "ready_for_sdlc": {
+            "type": "boolean"
+          },
+          "runtime_healthy": {
+            "type": "boolean"
           }
         }
       },
@@ -3405,6 +3686,16 @@
           },
           "role": {
             "$ref": "#/components/schemas/AgentRole"
+          },
+          "sdlc_role": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SdlcRole"
+              }
+            ]
           },
           "workflow_id": {
             "type": [
@@ -4517,6 +4808,18 @@
           }
         }
       },
+      "SdlcRole": {
+        "type": "string",
+        "enum": [
+          "project_manager",
+          "analyst",
+          "architect",
+          "developer",
+          "reviewer",
+          "tester",
+          "dev_ops"
+        ]
+      },
       "SessionAgentRun": {
         "type": "object",
         "required": [
@@ -4598,6 +4901,33 @@
           },
           "updated_at": {
             "$ref": "#/components/schemas/String"
+          }
+        }
+      },
+      "SessionEvent": {
+        "type": "object",
+        "required": [
+          "session_id",
+          "sequence",
+          "event_type",
+          "payload",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "$ref": "#/components/schemas/String"
+          },
+          "event_type": {
+            "type": "string"
+          },
+          "payload": {},
+          "sequence": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "session_id": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -4868,6 +5198,16 @@
               },
               {
                 "$ref": "#/components/schemas/AgentRole"
+              }
+            ]
+          },
+          "sdlc_role": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SdlcRole"
               }
             ]
           },

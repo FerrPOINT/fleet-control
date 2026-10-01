@@ -123,6 +123,39 @@ pub trait FleetRepository: Send + Sync {
     ) -> Result<Vec<LeaderExecutor>, AppError>;
 
     async fn get_agent_config(&self, agent_id: Uuid) -> Result<AgentConfig, AppError>;
+    async fn create_config_revision(
+        &self,
+        agent_id: Uuid,
+        config: UpdateAgentConfigRequest,
+        actor: Uuid,
+    ) -> Result<domain::AgentConfigRevision, AppError>;
+    async fn list_config_revisions(
+        &self,
+        agent_id: Uuid,
+    ) -> Result<Vec<domain::AgentConfigRevision>, AppError>;
+    async fn validate_config_revision(
+        &self,
+        agent_id: Uuid,
+        revision: i64,
+        errors: Vec<String>,
+    ) -> Result<domain::AgentConfigRevision, AppError>;
+    async fn request_config_activation(
+        &self,
+        agent_id: Uuid,
+        revision: i64,
+        actor: Uuid,
+    ) -> Result<domain::AgentConfigRevision, AppError>;
+    async fn claim_config_activation(
+        &self,
+    ) -> Result<Option<domain::AgentConfigRevision>, AppError>;
+    async fn finish_config_activation(
+        &self,
+        agent_id: Uuid,
+        revision: i64,
+        error: Option<String>,
+        reconciled: bool,
+    ) -> Result<(), AppError>;
+    async fn agent_is_draining(&self, agent_id: Uuid) -> Result<bool, AppError>;
     async fn update_agent_config(
         &self,
         agent_id: Uuid,
@@ -168,6 +201,25 @@ pub trait FleetRepository: Send + Sync {
         req: HandoffSessionRequest,
     ) -> Result<AgentSession, AppError>;
     async fn list_session_messages(&self, id: Uuid) -> Result<Vec<SessionMessage>, AppError>;
+    async fn list_session_events(
+        &self,
+        id: Uuid,
+        after: i64,
+    ) -> Result<Vec<domain::SessionEvent>, AppError>;
+    async fn session_event_cursor(&self, id: Uuid) -> Result<i64, AppError>;
+    async fn append_session_event(
+        &self,
+        id: Uuid,
+        event_type: &str,
+        payload: serde_json::Value,
+    ) -> Result<(), AppError>;
+    async fn claim_message_dispatch(&self) -> Result<Option<SessionMessage>, AppError>;
+    async fn finish_message_dispatch(
+        &self,
+        message_id: Uuid,
+        uncertain: bool,
+        error: Option<String>,
+    ) -> Result<(), AppError>;
     async fn list_session_participants(
         &self,
         id: Uuid,
@@ -564,6 +616,7 @@ impl AppContext {
                 kind: AgentKind::Hermes,
                 product_role: domain::AgentProductRole::Executor,
                 role: domain::AgentRole::Developer,
+                sdlc_role: Some(domain::SdlcRole::Developer),
                 display_name: "Developer Hermes".to_string(),
                 description: Some("Primary development workflow agent".to_string()),
                 namespace_id: Some("dev".to_string()),
@@ -576,6 +629,7 @@ impl AppContext {
                 kind: AgentKind::Hermes,
                 product_role: domain::AgentProductRole::Executor,
                 role: domain::AgentRole::Tester,
+                sdlc_role: Some(domain::SdlcRole::Tester),
                 display_name: "Tester Hermes".to_string(),
                 description: Some("QA and verification workflow agent".to_string()),
                 namespace_id: Some("qa".to_string()),

@@ -52,6 +52,7 @@ import {
   formatDate,
 } from '../common'
 import { cn } from '@/shared/lib/utils'
+import { ConfigRevisions } from './config-revisions'
 
 const tabs = ['overview', 'runtime', 'skills', 'config', 'workspace', 'sessions'] as const
 
@@ -454,6 +455,7 @@ function SkillsTab({ agent }: { agent: Agent }) {
               <Textarea
                 aria-label={t('agentDetail.editSkill', { title: selectedSkill.title })}
                 className="min-h-72 font-mono text-xs"
+                style={{ minHeight: 288 }}
                 value={skillDraft}
                 disabled={mutation.isPending}
                 onChange={(event) => {
@@ -501,7 +503,11 @@ function ConfigTab({ agent }: { agent: Agent }) {
 
   const mutation = useMutation({
     mutationFn: (payload: UpdateAgentConfigRequest) => updateAgentConfig(agent.id, payload),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['config', agent.id] }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['config', agent.id] })
+      await queryClient.invalidateQueries({ queryKey: ['agent-config-revisions', agent.id] })
+      await queryClient.invalidateQueries({ queryKey: ['agent-readiness', agent.id] })
+    },
   })
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -526,67 +532,73 @@ function ConfigTab({ agent }: { agent: Agent }) {
     )
 
   return (
-    <form onSubmit={submit} data-page-layout="wide">
-      {config.isError ? (
-        <RetryState message={t('agentDetail.configError')} onRetry={() => void config.refetch()} />
-      ) : null}
-      <fieldset
-        disabled={mutation.isPending}
-        className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
-      >
-        <Card>
-          <CardHeader>
-            <CardTitle>SOUL.md</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Textarea
-              aria-label="SOUL.md"
-              className="min-h-72 font-mono text-xs"
-              value={draft.soul_md}
-              onChange={(event) => {
-                mutation.reset()
-                setDraft({ ...draft, soul_md: event.target.value })
-              }}
-            />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('agentDetail.configAndEnv')}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <JsonEditor
-              label="config.json"
-              value={draft.config_json}
-              onValidityChange={(valid) => {
-                mutation.reset()
-                setConfigValid(valid)
-              }}
-              onChange={(config_json) => setDraft({ ...draft, config_json })}
-            />
-            <JsonEditor
-              label="env.json"
-              value={draft.env_json}
-              onValidityChange={(valid) => {
-                mutation.reset()
-                setEnvValid(valid)
-              }}
-              onChange={(env_json) => setDraft({ ...draft, env_json })}
-            />
-            {mutation.isError ? <ErrorState message={t('agentDetail.configSaveError')} /> : null}
-            {mutation.isSuccess ? <p role="status">{t('agentDetail.configSaved')}</p> : null}
-            <Button
-              className="min-h-10 sm:min-h-10"
-              type="submit"
-              disabled={mutation.isPending || !configValid || !envValid || config.isError}
-            >
-              <FileCode2 className="h-4 w-4" />
-              {t(mutation.isPending ? 'agentDetail.saving' : 'agentDetail.saveConfig')}
-            </Button>
-          </CardContent>
-        </Card>
-      </fieldset>
-    </form>
+    <>
+      <form onSubmit={submit} data-page-layout="wide">
+        {config.isError ? (
+          <RetryState
+            message={t('agentDetail.configError')}
+            onRetry={() => void config.refetch()}
+          />
+        ) : null}
+        <fieldset
+          disabled={mutation.isPending}
+          className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+        >
+          <Card>
+            <CardHeader>
+              <CardTitle>SOUL.md</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                aria-label="SOUL.md"
+                className="min-h-72 font-mono text-xs"
+                value={draft.soul_md}
+                onChange={(event) => {
+                  mutation.reset()
+                  setDraft({ ...draft, soul_md: event.target.value })
+                }}
+              />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('agentDetail.configAndEnv')}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <JsonEditor
+                label="config.json"
+                value={draft.config_json}
+                onValidityChange={(valid) => {
+                  mutation.reset()
+                  setConfigValid(valid)
+                }}
+                onChange={(config_json) => setDraft({ ...draft, config_json })}
+              />
+              <JsonEditor
+                label="env.json"
+                value={draft.env_json}
+                onValidityChange={(valid) => {
+                  mutation.reset()
+                  setEnvValid(valid)
+                }}
+                onChange={(env_json) => setDraft({ ...draft, env_json })}
+              />
+              {mutation.isError ? <ErrorState message={t('agentDetail.configSaveError')} /> : null}
+              {mutation.isSuccess ? <p role="status">{t('agentDetail.configSaved')}</p> : null}
+              <Button
+                className="min-h-10 sm:min-h-10"
+                type="submit"
+                disabled={mutation.isPending || !configValid || !envValid || config.isError}
+              >
+                <FileCode2 className="h-4 w-4" />
+                {t(mutation.isPending ? 'agentDetail.saving' : 'agentDetail.saveConfig')}
+              </Button>
+            </CardContent>
+          </Card>
+        </fieldset>
+      </form>
+      <ConfigRevisions agentId={agent.id} />
+    </>
   )
 }
 
@@ -921,6 +933,7 @@ function JsonEditor({
       <Textarea
         id={inputId}
         className="min-h-44 font-mono text-xs"
+        style={{ minHeight: 176 }}
         value={text}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${inputId}-error` : undefined}

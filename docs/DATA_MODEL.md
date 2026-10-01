@@ -1,5 +1,16 @@
 # Data Model
 
+## October Foundation Schema
+
+Additive migration 000009 adds `agents.sdlc_role`, `session_event_cursors`,
+`session_events`, `message_dispatch_outbox`, `agent_config_revisions` and
+`agent_config_heads`. Cursor allocation is transactional per session, not a
+global sequence; uncommitted late events cannot be skipped by committed cursors.
+Message insertion, its durable event and dispatch row commit together.
+Desired/effective config heads are separate; activation failure cannot promote
+the desired revision. Tracker task binding/assignment leases are not implemented
+here yet. See [scope and blockers](SDLC_IMPLEMENTATION.md).
+
 Tables:
 
 - `users`: локальные профили для авторов/FK, immutable `central_sub`, legacy
