@@ -57,6 +57,49 @@ credential. Reservations commit before dispatch, acknowledgement pins the
 effective Hermes session ID, and every callback probes the actual runtime.
 This callback is a prerequisite, not proof that the dispatch/resume saga is wired.
 
+### Source-Checked Hermes Dispatch Prerequisites
+
+The read-only Hermes baseline `bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3`
+implements durable run idempotency in
+`gateway/platforms/api_server_run_idempotency.py` and
+`gateway/platforms/api_server_runs.py`. This source review is not live acceptance.
+
+- Admission uses `Idempotency-Key`. The advertised
+  `features.runs_idempotency` includes `supported`, `durable` and
+  `retention_seconds`. Supported alone is insufficient: the store can fall back
+  to process memory, and retained terminal records can eventually be pruned.
+- The key is scoped to runtime authentication/profile identity. Before dispatch,
+  Fleet must persist the exact request body/hash, operation key, runtime identity
+  fingerprint and recovery horizon. Credential/profile changes or an expired
+  horizon prohibit automatic replay. Unknown acceptance must never get a new key.
+- A `202` acknowledgement contains `run_id`, `status` and `replayed`, not the
+  effective session ID. Fleet must read the authenticated run status to pin that
+  effective session; it must not invent it from the requested alias. The pinned
+  run/session mapping remains immutable even after runtime compression/rotation.
+- In this baseline, the trusted run context's `HERMES_SESSION_KEY` is the raw
+  `run_id` (`_RunLaunch.approval_session_key`), not a chat UUID. A PM plugin must
+  bind tools through this context plus its runtime credential. Tool arguments
+  cannot select owner, agent, assignment, execution, endpoints or credentials.
+- The asynchronous run can begin before Fleet finishes acknowledgement/readback
+  and Workflow bind. Pending binding is a typed retryable wait, not authorization
+  to publish questions or a reason to start another run. The gateway must require
+  the verified first workflow step before any business mutation.
+
+These are dispatch implementation and live-test requirements, not claims that
+Fleet's coordinator, external PM plugin or safe replay is already connected.
+
+### PM Draft Provenance
+
+Draft execution needs a PM-specific typed assignment contract. Tracker must own
+the persisted execution ordinal, owner-issued assignment/CAS and exact immutable
+input snapshot/hash. Fleet supplies real task-chat/runtime/config identities;
+Workflow validates its actual project/catalog mapping and versioned PM bundle.
+Chat UUIDs and display task keys cannot generate substitute execution identities.
+Delivery queue, decomposition and CI deployment fields that genuinely do not
+apply to PM Draft must use explicit typed absence in that variant, not fabricated
+receipt strings. Required inputs and runtime workspace evidence remain real.
+The general delivery assignment contract must not be weakened to admit Draft.
+
 ## Interface
 
 Tracker: /api/v1/issues/{id}/sdlc context, questions/answers, requirements revisions/detail/diff,
