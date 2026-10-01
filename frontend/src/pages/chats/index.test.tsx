@@ -87,9 +87,10 @@ describe('ChatsPage', () => {
     renderPage()
     expect(await screen.findByRole('link', { name: /Implement login/ })).toHaveAttribute(
       'href',
-      '/chats/chat-1',
+      '/chats/chat-1?returnTo=%2Fchats%3Fagent%3Ddeveloper%26users%3Downer',
     )
     expect(fleet.listSessions).toHaveBeenCalledWith(undefined, ['owner'])
+    expect(auth.listUsers).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: /Tester/ }))
     expect(screen.queryByRole('link', { name: /Implement login/ })).not.toBeInTheDocument()
     expect(screen.getByText('Сессий по выбранному фильтру нет')).toBeVisible()

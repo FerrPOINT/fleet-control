@@ -89,6 +89,37 @@ pub struct RuntimeSessionSnapshot {
 
 #[async_trait]
 pub trait FleetRepository: Send + Sync {
+    async fn has_pending_session_dispatch(&self, _session_id: Uuid) -> Result<bool, AppError> {
+        Ok(false)
+    }
+    async fn get_task_chat_binding(
+        &self,
+        _session_id: Uuid,
+    ) -> Result<Option<domain::TaskChatBinding>, AppError> {
+        Err(AppError::Unavailable(
+            "task chat repository is not available".into(),
+        ))
+    }
+    async fn bind_task_chat(
+        &self,
+        _session_id: Uuid,
+        _binding: domain::TaskChatBinding,
+        _idempotency_key: String,
+    ) -> Result<domain::TaskChatBinding, AppError> {
+        Err(AppError::Unavailable(
+            "task chat repository is not available".into(),
+        ))
+    }
+    async fn session_message_history(
+        &self,
+        _session_id: Uuid,
+        _before: Option<Uuid>,
+        _limit: u64,
+    ) -> Result<domain::MessageHistoryPage, AppError> {
+        Err(AppError::Unavailable(
+            "message history is not available".into(),
+        ))
+    }
     async fn list_runtime_templates(&self) -> Result<Vec<RuntimeTemplate>, AppError>;
     async fn ensure_runtime_templates(&self) -> Result<(), AppError>;
     async fn list_agents(&self) -> Result<Vec<Agent>, AppError>;

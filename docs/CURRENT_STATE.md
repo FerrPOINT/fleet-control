@@ -12,6 +12,26 @@ with drain/readback/rollback and fail-closed SDLC readiness.
 
 Native Windows Rust commands still require MSVC `link.exe`.
 
+## PM Clarification Work In Progress
+
+Production `/chats/:sessionId` now has dialogue/clarification/requirements controllers,
+paginated transcript, draft preservation, read-only/dependency/unknown-outcome states and
+owner exact-revision confirmation. Gateway validates immutable Tracker identity; additive
+migration 000010 prevents task-chat reassignment. Normal prompts/steer cannot bypass SDLC.
+Tracker backend and Workflow continuation are developed in separate repositories.
+
+Verified on 2026-10-01: 69 Fleet Rust library tests and strict Clippy, 11 actual PostgreSQL
+foundation tests including binding concurrency/history/runtime recovery, clean migrations
+and central-subject migration regression, 146 frontend tests, typecheck/build/lint/format,
+source/client OpenAPI drift and seven Tracker wire contracts. All 21 browser fixtures pass
+in Chromium/Firefox/WebKit, including production chat tabs at all three viewports,
+axe checks, tablet context and keyboard focus. These fixtures
+do not prove live PM delivery. Current gaps and rollout block are listed in
+[Gap Register](GAP_REGISTER.md). Existing production screenshot manifest remains historical
+until live integration acceptance; new controller captures are UI fixture evidence only.
+Nine controller screenshots have generated route/view/viewport/hash verification. See
+[verification ledger](CHAT_CLARIFICATION_VERIFICATION.md) for service boundaries and blockers.
+
 ## October Foundation Evidence
 
 Verified on 2026-10-01, separate from the historical baseline below:

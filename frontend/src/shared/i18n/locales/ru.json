@@ -637,6 +637,10 @@
     "limitNotice": "Показаны только последние {{limit}} записей; уточните фильтр для поиска."
   },
   "statuses": {
+    "open": "Открыт",
+    "answered": "Отвечен",
+    "superseded": "Заменён",
+    "clarification": "Уточнение",
     "provisioning": "Подготовка",
     "ready": "Готов",
     "starting": "Запускается",

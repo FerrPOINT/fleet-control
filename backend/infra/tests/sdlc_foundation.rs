@@ -448,3 +448,299 @@ async fn runtime_http_terminal_readback_persists_one_answer() {
 async fn runtime_http_interrupted_is_failed_without_fabricated_reply() {
     runtime_http_fixture("interrupted").await;
 }
+
+#[tokio::test]
+async fn task_binding_is_immutable_unique_and_replays_concurrent_requests() {
+    let Some((repo, _, _)) = fixture().await else {
+        return;
+    };
+    let subject = format!("pm-owner-{}", Uuid::new_v4());
+    let owner = repo
+        .find_or_create_central_user(
+            &subject,
+            &format!("{}@example.test", Uuid::new_v4()),
+            "PM owner",
+        )
+        .await
+        .unwrap()
+        .id;
+    let agent_id = agent(&repo).await;
+    let session = repo
+        .create_session(chat(agent_id, "binding-chat"), owner)
+        .await
+        .unwrap();
+    let task = Uuid::new_v4();
+    let binding = domain::TaskChatBinding {
+        tracker_instance_id: "tracker-fixture".into(),
+        project_id: Uuid::new_v4(),
+        task_id: task,
+        root_task_id: task,
+        agent_id,
+        owner_subject: subject,
+    };
+    let (first, replay) = tokio::join!(
+        repo.bind_task_chat(session.id, binding.clone(), "bind-once".into()),
+        repo.bind_task_chat(session.id, binding.clone(), "bind-once".into())
+    );
+    assert_eq!(first.unwrap(), binding);
+    assert_eq!(replay.unwrap(), binding);
+    let events = repo.list_session_events(session.id, 0).await.unwrap();
+    assert_eq!(
+        events
+            .iter()
+            .filter(|event| event.event_type == "task.bound")
+            .count(),
+        1
+    );
+    let audits = repo
+        .list_audit_log(app::AuditLogFilter {
+            action: Some("session.task.bind".into()),
+            entity_id: Some(session.id.to_string()),
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+    assert_eq!(audits.len(), 1);
+    let mut changed = binding.clone();
+    changed.root_task_id = Uuid::new_v4();
+    assert!(matches!(
+        repo.bind_task_chat(session.id, changed, "bind-once".into())
+            .await,
+        Err(shared::AppError::Conflict(_))
+    ));
+    let second = repo
+        .create_session(chat(agent_id, "binding-second"), owner)
+        .await
+        .unwrap();
+    assert!(matches!(
+        repo.bind_task_chat(second.id, binding.clone(), "second-bind".into())
+            .await,
+        Err(shared::AppError::Conflict(_))
+    ));
+    assert_eq!(
+        repo.get_task_chat_binding(session.id).await.unwrap(),
+        Some(binding)
+    );
+}
+
+#[tokio::test]
+async fn task_binding_rejects_foreign_subject_and_legacy_transcript() {
+    let Some((repo, _, _)) = fixture().await else {
+        return;
+    };
+    let subject = format!("pm-owner-{}", Uuid::new_v4());
+    let owner = repo
+        .find_or_create_central_user(
+            &subject,
+            &format!("{}@example.test", Uuid::new_v4()),
+            "PM owner",
+        )
+        .await
+        .unwrap()
+        .id;
+    let agent_id = agent(&repo).await;
+    let session = repo
+        .create_session(chat(agent_id, "foreign-subject"), owner)
+        .await
+        .unwrap();
+    let task = Uuid::new_v4();
+    let mut binding = domain::TaskChatBinding {
+        tracker_instance_id: "tracker-fixture".into(),
+        project_id: Uuid::new_v4(),
+        task_id: task,
+        root_task_id: task,
+        agent_id,
+        owner_subject: "other-subject".into(),
+    };
+    assert!(matches!(
+        repo.bind_task_chat(session.id, binding.clone(), "bind".into())
+            .await,
+        Err(shared::AppError::Forbidden)
+    ));
+    binding.owner_subject = subject;
+    repo.insert_session_message_mirror(
+        session.id,
+        Some(agent_id),
+        "Existing legacy history".into(),
+        MessageKind::AssistantMessage,
+        None,
+    )
+    .await
+    .unwrap();
+    assert!(matches!(
+        repo.bind_task_chat(session.id, binding, "bind".into())
+            .await,
+        Err(shared::AppError::Conflict(_))
+    ));
+}
+
+#[tokio::test]
+async fn task_binding_and_generic_prompt_are_mutually_exclusive_under_concurrency() {
+    let Some((repo, _, _)) = fixture().await else {
+        return;
+    };
+    let subject = format!("pm-race-{}", Uuid::new_v4());
+    let owner = repo
+        .find_or_create_central_user(
+            &subject,
+            &format!("{}@example.test", Uuid::new_v4()),
+            "Race owner",
+        )
+        .await
+        .unwrap()
+        .id;
+    let agent_id = agent(&repo).await;
+    for attempt in 0..4 {
+        let session = repo
+            .create_session(chat(agent_id, &format!("race-{attempt}")), owner)
+            .await
+            .unwrap();
+        let task = Uuid::new_v4();
+        let binding = domain::TaskChatBinding {
+            tracker_instance_id: "race-tracker".into(),
+            project_id: Uuid::new_v4(),
+            task_id: task,
+            root_task_id: task,
+            agent_id,
+            owner_subject: subject.clone(),
+        };
+        let (bound, sent) = tokio::join!(
+            repo.bind_task_chat(session.id, binding, "bind".into()),
+            repo.create_session_message(session.id, prompt("race-prompt"), owner)
+        );
+        assert_ne!(
+            bound.is_ok(),
+            sent.is_ok(),
+            "bind and prompt must not both commit"
+        );
+        if bound.is_ok() {
+            assert!(matches!(
+                repo.create_session_message(session.id, prompt("later-prompt"), owner)
+                    .await,
+                Err(shared::AppError::Conflict(_))
+            ));
+            assert!(!repo.has_pending_session_dispatch(session.id).await.unwrap());
+        }
+    }
+}
+
+#[tokio::test]
+async fn long_history_creation_replay_dispatch_and_terminal_mirror_return_exact_message() {
+    let Some((repo, owner, _)) = fixture().await else {
+        return;
+    };
+    let agent_id = agent(&repo).await;
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let session = repo
+        .create_session(chat(agent_id, "long-history"), owner)
+        .await
+        .unwrap();
+    db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "INSERT INTO session_messages(id,session_id,author_type,body,message_kind)
+            SELECT gen_random_uuid(),$1,'system','Historical ' || i,'system_event' FROM generate_series(1,505) i",
+        [session.id.into()])).await.unwrap();
+    let message = repo
+        .create_session_message(session.id, prompt("after-500"), owner)
+        .await
+        .unwrap();
+    let replay = repo
+        .create_session_message(session.id, prompt("after-500"), owner)
+        .await
+        .unwrap();
+    assert_eq!(message.id, replay.id);
+    assert!(replay.replayed);
+    db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE message_dispatch_outbox SET created_at='2000-01-01' WHERE message_id=$1",
+        [message.id.into()],
+    ))
+    .await
+    .unwrap();
+    assert_eq!(
+        repo.claim_message_dispatch().await.unwrap().unwrap().id,
+        message.id
+    );
+    let reply = repo
+        .insert_session_message_mirror(
+            session.id,
+            Some(agent_id),
+            "Final result".into(),
+            MessageKind::AssistantMessage,
+            Some("long-history-final".into()),
+        )
+        .await
+        .unwrap();
+    let duplicate = repo
+        .insert_session_message_mirror(
+            session.id,
+            Some(agent_id),
+            "Final result".into(),
+            MessageKind::AssistantMessage,
+            Some("long-history-final".into()),
+        )
+        .await
+        .unwrap();
+    assert_eq!(reply.id, duplicate.id);
+}
+
+#[tokio::test]
+async fn message_history_returns_latest_page_and_scopes_cursor() {
+    let Some((repo, owner, _)) = fixture().await else {
+        return;
+    };
+    let agent_id = agent(&repo).await;
+    let session = repo
+        .create_session(chat(agent_id, "paged-history"), owner)
+        .await
+        .unwrap();
+    for index in 0..8 {
+        repo.insert_session_message_mirror(
+            session.id,
+            Some(agent_id),
+            format!("Message {index}"),
+            MessageKind::AssistantMessage,
+            None,
+        )
+        .await
+        .unwrap();
+    }
+    let latest = repo
+        .session_message_history(session.id, None, 3)
+        .await
+        .unwrap();
+    assert_eq!(latest.items.len(), 3);
+    assert_eq!(latest.items.last().unwrap().body, "Message 7");
+    let older = repo
+        .session_message_history(session.id, latest.next_before, 3)
+        .await
+        .unwrap();
+    assert_eq!(older.items.len(), 3);
+    assert!(
+        older
+            .items
+            .iter()
+            .all(|item| latest.items.iter().all(|previous| previous.id != item.id))
+    );
+    let last = repo
+        .session_message_history(session.id, older.next_before, 3)
+        .await
+        .unwrap();
+    assert_eq!(last.items.len(), 3);
+    assert!(last.next_before.is_none());
+    let other = repo
+        .create_session(chat(agent_id, "other-history"), owner)
+        .await
+        .unwrap();
+    assert!(
+        repo.session_message_history(other.id, Some(latest.items[0].id), 3)
+            .await
+            .is_err()
+    );
+    assert!(
+        repo.session_message_history(session.id, None, 101)
+            .await
+            .is_err()
+    );
+}

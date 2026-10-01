@@ -23,9 +23,12 @@ export function groupChats(agents: AgentDirectoryItem[], sessions: AgentSession[
 export function ChatsPage() {
   const { t } = useTranslation()
   const [params, setParams] = useSearchParams()
-  const [search, setSearch] = useState('')
+  const search = params.get('q') ?? ''
   const [createOpen, setCreateOpen] = useState(false)
-  const filter = useSessionUserFilter()
+  const userScope = params.get('users')
+  const filter = useSessionUserFilter(
+    userScope === null ? undefined : userScope === 'all' ? [] : userScope.split(','),
+  )
   const agents = useQuery({ queryKey: ['agent-directory'], queryFn: listAgentDirectory })
   const sessions = useQuery({
     queryKey: ['sessions', 'chats', filter.selectedUserIds],
@@ -37,6 +40,30 @@ export function ChatsPage() {
     groups.find((group) => group.sessions.length)?.agent.id ??
     groups[0]?.agent.id
   const selected = groups.find((group) => group.agent.id === selectedId)
+  const returnParams = new URLSearchParams(params)
+  if (selectedId) returnParams.set('agent', selectedId)
+  returnParams.set('users', filter.selectedUserIds.join(',') || 'all')
+  const returnTo = `/chats?${returnParams}`
+  const setUsers = (ids: string[]) => {
+    filter.setSelectedUserIds(ids)
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current)
+        next.set('users', ids.join(',') || 'all')
+        return next
+      },
+      { replace: true },
+    )
+  }
+  const persistedFilter = {
+    ...filter,
+    addUser: (userId: string) => {
+      if (filter.isSystemAdmin) setUsers([...new Set([...filter.selectedUserIds, userId])])
+    },
+    removeUser: (userId: string) => {
+      if (filter.isSystemAdmin) setUsers(filter.selectedUserIds.filter((id) => id !== userId))
+    },
+  }
   const needle = search.trim().toLocaleLowerCase()
   const visibleSessions =
     selected?.sessions.filter((session) =>
@@ -61,7 +88,7 @@ export function ChatsPage() {
           ) : null
         }
       />
-      <SessionUserFilter filter={filter} className="mb-4" />
+      <SessionUserFilter filter={persistedFilter} className="mb-4" />
       {agents.isError || sessions.isError ? (
         <div className="mb-4 space-y-2">
           <ErrorState message={t('chats.loadError')} />
@@ -134,7 +161,17 @@ export function ChatsPage() {
                     <Search className="absolute left-3 top-3 h-4 w-4 text-text-muted" aria-hidden />
                     <Input
                       value={search}
-                      onChange={(event) => setSearch(event.target.value)}
+                      onChange={(event) =>
+                        setParams(
+                          (current) => {
+                            const next = new URLSearchParams(current)
+                            if (event.target.value) next.set('q', event.target.value)
+                            else next.delete('q')
+                            return next
+                          },
+                          { replace: true },
+                        )
+                      }
                       className="h-10 pl-9"
                       aria-label={t('chats.search')}
                       placeholder={t('chats.search')}
@@ -145,7 +182,7 @@ export function ChatsPage() {
                   {visibleSessions.map((session) => (
                     <li key={session.id}>
                       <Link
-                        to={`/chats/${session.id}`}
+                        to={`/chats/${session.id}?returnTo=${encodeURIComponent(returnTo)}`}
                         className="flex min-w-0 items-start gap-3 rounded-sm px-2 py-4 hover:bg-surface-raised focus-visible:outline-focus"
                       >
                         <UserAvatar
@@ -191,7 +228,12 @@ export function ChatsPage() {
         </div>
       )}
       {selected ? (
-        <CreatePrivateChat agent={selected.agent} open={createOpen} onOpenChange={setCreateOpen} />
+        <CreatePrivateChat
+          agent={selected.agent}
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          returnTo={returnTo}
+        />
       ) : null}
     </>
   )
@@ -201,10 +243,12 @@ function CreatePrivateChat({
   agent,
   open,
   onOpenChange,
+  returnTo,
 }: {
   agent: AgentDirectoryItem
   open: boolean
   onOpenChange: (value: boolean) => void
+  returnTo: string
 }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -224,7 +268,7 @@ function CreatePrivateChat({
       onOpenChange(false)
       setTitle('')
       setKey(crypto.randomUUID())
-      navigate(`/chats/${session.id}`)
+      navigate(`/chats/${session.id}?returnTo=${encodeURIComponent(returnTo)}`)
     },
   })
   return (

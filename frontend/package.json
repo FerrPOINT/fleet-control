@@ -22,6 +22,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "openapi:check": "node node_modules/@sdlc/ui/scripts/sdlc-openapi-check.mjs --spec ../openapi/openapi.json --schema src/api/generated.ts",
+    "chat:contract": "node scripts/verify-chat-contract.mjs && node --test scripts/verify-chat-contract.test.mjs",
+    "chat:evidence:verify": "node scripts/publish-chat-controller-evidence.mjs --verify",
     "openapi:compat": "SPEC=openapi/openapi.json SPEC_NAME=openapi/openapi.json node node_modules/@sdlc/ui/scripts/sdlc-openapi-compat.mjs",
     "postinstall": "openapi-typescript ../openapi/openapi.json -o src/api/generated.ts",
     "ui:check": "node ../../services-base/frontend/scripts/check-ui-contract.mjs --repo .. --require-installed"

@@ -9,7 +9,9 @@
 
 Реализованы transactional message outbox, сериализация concurrent idempotency,
 durable per-session stream cursor, owner checks, terminal readback после EOF,
-config revisions/drain. Task-bound uniqueness и автономный SDLC пока не реализованы.
+config revisions/drain. Реализована immutable-привязка Tracker instance/task/agent и
+production-вкладки диалога, уточнений и требований. Автономный SDLC и реальное
+продолжение PM после ответа пока не реализованы.
 Далее сохранена спецификация и аудит legacy-раздела на прежнем HEAD; её open gaps
 нельзя автоматически считать закрытыми новым UI. Текущий статус и оставшаяся работа:
 [SDLC implementation](SDLC_IMPLEMENTATION.md).
@@ -495,3 +497,25 @@ request/result refs и evidence без секретов.
 продукта перечислены в [TESTING.md](TESTING.md); успешная проверка документа
 не закрывает runtime/RBAC gaps. Общий реестр находится в
 [GAP_REGISTER.md](GAP_REGISTER.md).
+
+## 17. PM Clarification Implementation Delta
+
+As of 2026-10-01, `/chats/:sessionId` uses a production dialogue/clarification/requirements
+controller. Cursor history, server chat-control flags, authenticated stream invalidation,
+in-memory drafts, read-only/dependency states and exact owner confirmation are implemented.
+An explicit immutable binding is allowed only for the matching assigned PM/central owner
+and empty private history; legacy display task keys are not migrated. New binding audit and
+durable chat event commit together once. Generic SDLC prompt/steer, handoff and leader changes
+are rejected while verified assignment orchestration is missing. `/sessions` remains legacy.
+
+Tracker owns questions/revisions/confirmation. The Fleet fixed-origin gateway forwards the
+verified bearer; operator read-all does not authorize consent. Answer persistence does not
+imply delivery to PM. Unknown acceptance retains the same command key and freezes editable
+payload until reconciliation; a revision conflict retains the draft for explicit review.
+
+The historical CHAT-01..14 table above is a source-review baseline, not current blanket
+status: foundation closed several standalone dispatch/SSE gates, while live cross-service
+machine identity, PM delivery/checkpoint/rebind, projections and approval gaps remain.
+See [current plan](CHAT_CLARIFICATION_IMPLEMENTATION_PLAN.md) and
+[contract](contracts/CHAT_CLARIFICATION_CONTRACT.md) for this slice. Three-browser fixture
+captures are kept separate from real runtime acceptance.

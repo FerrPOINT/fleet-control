@@ -20,6 +20,9 @@ pub struct CurrentUser {
     pub is_system_admin: bool,
 }
 
+#[derive(Clone, Debug)]
+pub struct VerifiedCentralSubject(pub String);
+
 impl CurrentUser {
     pub fn can_operate_fleet(&self) -> bool {
         self.role.can_operate_fleet()
@@ -69,6 +72,8 @@ pub async fn require_auth(
                 return Err(AppError::Forbidden);
             }
             let user = find_or_link_central_user(&ctx, &central).await?;
+            req.extensions_mut()
+                .insert(VerifiedCentralSubject(central.user_id.clone()));
             req.extensions_mut().insert(CurrentUser {
                 id: user.id,
                 role: user.system_role,

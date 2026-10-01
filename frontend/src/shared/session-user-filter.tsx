@@ -10,7 +10,7 @@ import { UserAvatar } from '@/shared/ui/user-avatar'
 
 export type SessionUserFilterState = ReturnType<typeof useSessionUserFilter>
 
-export function useSessionUserFilter() {
+export function useSessionUserFilter(initialSelectedUserIds?: string[]) {
   const currentUserId = useAuthStore((state) => state.userId)
   const email = useAuthStore((state) => state.email)
   const username = useAuthStore((state) => state.username)
@@ -20,9 +20,13 @@ export function useSessionUserFilter() {
   const canReadAllSessions = useAuthStore((state) =>
     state.permissions.includes('sessions:read_all'),
   )
-  const users = useQuery({ queryKey: ['users'], queryFn: listUsers })
+  const users = useQuery({ queryKey: ['users'], queryFn: listUsers, enabled: canReadAllSessions })
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>(() =>
-    currentUserId ? [currentUserId] : [],
+    canReadAllSessions && initialSelectedUserIds !== undefined
+      ? initialSelectedUserIds
+      : currentUserId
+        ? [currentUserId]
+        : [],
   )
   const [initialized, setInitialized] = useState(Boolean(currentUserId))
 

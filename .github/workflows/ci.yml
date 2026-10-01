@@ -157,6 +157,8 @@ jobs:
         env:
           CI: "true"
       - run: pnpm openapi:check
+      - run: pnpm chat:contract
+      - run: pnpm chat:evidence:verify
       - run: pnpm ui:check
       - run: pnpm markdown:check
       - run: pnpm screenshots:verify

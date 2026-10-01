@@ -5,6 +5,10 @@
 SDLC implementation is in progress, not production accepted. Current scope and
 remaining blockers: [SDLC implementation](docs/SDLC_IMPLEMENTATION.md).
 
+Chat/PM work is in progress: [implementation plan](docs/CHAT_CLARIFICATION_IMPLEMENTATION_PLAN.md),
+[contract](docs/contracts/CHAT_CLARIFICATION_CONTRACT.md). Production chat controllers
+use Fleet/Tracker APIs; workflow dispatch/resume and real PM acceptance remain blocked.
+
 <p align="center">
   <a href="#overview"><img src="https://img.shields.io/badge/Overview-3730a3?style=for-the-badge" alt="Overview" /></a>
   <a href="#capabilities"><img src="https://img.shields.io/badge/Capabilities-4338ca?style=for-the-badge" alt="Capabilities" /></a>

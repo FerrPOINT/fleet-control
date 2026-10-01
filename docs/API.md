@@ -14,6 +14,29 @@ a credential split across frames. See [current scope](SDLC_IMPLEMENTATION.md).
 
 Base path: `/api/v1`.
 
+## PM Chat Gateway
+
+- `POST /sessions/{id}/task-binding`: explicit owner binding to assigned concrete PM.
+- `GET /sessions/{id}/task-context`: verified binding and Tracker context; unbound chat
+  returns null context, dependency failure is not an empty successful SDLC response.
+- `GET /sessions/{id}/chat-controls`: authoritative ownership/capability/dispatch gates.
+- `GET /sessions/{id}/history?before={messageUuid}&limit=50`: latest-first pages, each
+  page returned chronologically; maximum 100, cursor scoped to session.
+- `GET /sessions/{id}/clarifications`, `POST .../{questionId}/answers`.
+- `GET /sessions/{id}/requirements`, `POST .../{revision}/confirm`.
+
+Answer and confirmation forward the verified original bearer to configured Tracker,
+which revalidates human session, project membership and exact owner. Local legacy tokens
+cannot authorize these commands. Operator read-all is not proxy consent. Payload conflict
+and upstream status are retained; unknown network outcome requires same-key readback/replay.
+Questions/revisions remain Tracker-owned JSON envelopes documented by the cross-service
+contract, not a second Fleet database. OpenAPI generates the Fleet routes and response DTOs;
+the gateway rejects malformed successful responses and versions unsafe for JavaScript.
+`pnpm chat:contract` verifies seven wire shapes against the accepted Tracker v1 snapshot.
+Use `node scripts/verify-chat-contract.mjs --tracker <tracker-openapi.json>` to check the
+actual sibling build before rollout. Wire checks cover field names, required fields,
+types/nullability, UUID/date formats and enums; semantic gates have separate backend tests.
+
 Auth:
 
 При настроенном `FLEET_CONTROL_AUTH__CENTRAL_JWKS_URI` UI использует Central

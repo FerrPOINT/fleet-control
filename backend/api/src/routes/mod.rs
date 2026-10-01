@@ -9,5 +9,6 @@ pub mod leaders;
 pub mod logs;
 pub mod sessions;
 pub mod settings;
+pub mod task_chats;
 pub mod users;
 pub mod workflows;

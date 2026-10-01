@@ -177,6 +177,9 @@ pub async fn handoff_session(
     let audit_payload = serde_json::to_value(&req).map_err(AppError::internal)?;
     let before = ctx.repo.get_session(session_id).await?;
     ensure_session_write_access(&before, &user)?;
+    if ctx.repo.get_task_chat_binding(session_id).await?.is_some() {
+        return Err(AppError::conflict("task-bound chat agent is immutable"));
+    }
     let session = ctx.repo.handoff_session(session_id, req).await?;
     ctx.repo
         .insert_audit(
@@ -229,6 +232,11 @@ pub async fn create_session_message(
     });
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_write_access(&session, &user)?;
+    if ctx.repo.get_task_chat_binding(session_id).await?.is_some() {
+        return Err(AppError::conflict(
+            "task-bound messages require a verified workflow assignment; ordinary prompts cannot resume clarification",
+        ));
+    }
     let agent = ctx.repo.get_agent(session.primary_agent_id).await?;
     if agent.kind == domain::AgentKind::JavaAgent {
         return Err(AppError::validation(
@@ -310,6 +318,9 @@ pub async fn assign_session_leader(
     let audit_payload = serde_json::to_value(&req).map_err(AppError::internal)?;
     let before = ctx.repo.get_session(session_id).await?;
     ensure_session_write_access(&before, &user)?;
+    if ctx.repo.get_task_chat_binding(session_id).await?.is_some() {
+        return Err(AppError::conflict("task-bound chats cannot change leader"));
+    }
     let session = ctx
         .repo
         .assign_session_leader(session_id, req, user.id)
@@ -446,6 +457,11 @@ pub async fn steer_session_run(
 ) -> Result<Json<RuntimeRunControlResponse>, AppError> {
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_write_access(&session, &user)?;
+    if ctx.repo.get_task_chat_binding(session_id).await?.is_some() {
+        return Err(AppError::conflict(
+            "task-bound chat control requires a verified workflow assignment",
+        ));
+    }
     let run = ctx.repo.get_session_agent_run(run_id).await?;
     ensure_run_belongs_to_session(&run, session_id)?;
     let agent = ctx.repo.get_agent(run.agent_id).await?;

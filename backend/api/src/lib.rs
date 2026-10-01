@@ -67,6 +67,14 @@ pub mod routes;
         routes::sessions::steer_session_run,
         routes::sessions::stop_session_run,
         routes::sessions::resolve_session_run_approval,
+        routes::task_chats::bind_task_chat,
+        routes::task_chats::task_context,
+        routes::task_chats::clarifications,
+        routes::task_chats::answer,
+        routes::task_chats::requirements,
+        routes::task_chats::confirm,
+        routes::task_chats::history,
+        routes::task_chats::controls,
         routes::workflows::list_workflow_bindings,
         routes::workflows::get_workflow_catalog,
         routes::workflows::rebind_workflow_binding,
@@ -107,6 +115,26 @@ pub mod routes;
         domain::AgentConfigurationSnapshot,
         domain::AgentSdlcReadiness,
         domain::SessionEvent,
+        domain::TaskChatBinding,
+        domain::BindTaskChatRequest,
+        domain::SessionTaskContext,
+        domain::TrackerTaskContext,
+        domain::TrackerPermissions,
+        domain::TrackerPmAssignment,
+        domain::TrackerStage,
+        domain::TrackerQuestionMode,
+        domain::TrackerQuestionState,
+        domain::TrackerQuestionOption,
+        domain::TrackerQuestion,
+        domain::TrackerAnswer,
+        domain::TrackerRequirementsRevision,
+        domain::TrackerConfirmation,
+        domain::TrackerClarifications,
+        domain::TrackerRequirements,
+        domain::ClarificationAnswerRequest,
+        domain::ConfirmRequirementsRequest,
+        domain::MessageHistoryPage,
+        domain::ChatControls,
         domain::AgentStatus,
         domain::DesiredState,
         domain::SkillState,
@@ -316,6 +344,38 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
             "/api/v1/sessions/{session_id}/messages",
             get(routes::sessions::list_session_messages)
                 .post(routes::sessions::create_session_message),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/task-binding",
+            post(routes::task_chats::bind_task_chat),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/task-context",
+            get(routes::task_chats::task_context),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/clarifications",
+            get(routes::task_chats::clarifications),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/clarifications/{question_id}/answers",
+            post(routes::task_chats::answer),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/requirements",
+            get(routes::task_chats::requirements),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/requirements/{revision}/confirm",
+            post(routes::task_chats::confirm),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/history",
+            get(routes::task_chats::history),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/chat-controls",
+            get(routes::task_chats::controls),
         )
         .route(
             "/api/v1/sessions/{session_id}/participants",

@@ -1,5 +1,16 @@
 # Security
 
+## PM Clarification Commands
+
+Task binding and owner answers/confirmation require a verified Central Auth subject;
+missing central identity returns unauthorized, not legacy fallback. Tracker independently
+checks active human session, service grant, project membership and owner subject. Fleet
+read-all never authorizes acting for another owner. Only the fixed configured Tracker
+origin receives the original bearer; redirects/user-supplied origins are forbidden.
+Task-bound chats reject unverified prompt/steer, reassignment and leader controls.
+The PM machine and readiness-verifier identities are separate from human consent.
+Autonomous rollout remains blocked until scoped runtime tools/readback are integrated.
+
 - Central SSO uses verified ES256/JWKS and central-subject linkage. Local stored
   roles are authoritative; successful SSO does not grant admin. Standalone legacy
   authentication uses HMAC JWT access tokens and HttpOnly refresh cookies.

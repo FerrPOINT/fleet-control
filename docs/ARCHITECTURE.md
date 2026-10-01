@@ -4,6 +4,18 @@ Current SDLC scope and unimplemented gates are tracked in
 [SDLC implementation](SDLC_IMPLEMENTATION.md). Automatic SDLC remains disabled;
 legacy leaders are preserved, not part of the current delivery scope.
 
+## Chat Clarification Boundary
+
+`/chats/:sessionId` renders real Fleet history and authenticated durable runtime stream.
+Its clarification/requirements tabs use an owner-authorized, fixed-origin Tracker gateway.
+Tracker alone changes questions, answers, revisions and Backlog confirmation. Fleet never
+interprets assistant prose as a question and never stores a second requirements authority.
+Bound chats cannot run ordinary prompts or steer around the unimplemented assignment gate.
+Workflow PM continuation contract is implemented independently; Fleet orchestration,
+trusted runtime readback provider and outbox/inbox projection remain integration blockers.
+See [plan](CHAT_CLARIFICATION_IMPLEMENTATION_PLAN.md) and
+[contract](contracts/CHAT_CLARIFICATION_CONTRACT.md).
+
 Fleet Control keeps a small control-plane core:
 
 ```text

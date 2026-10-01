@@ -8,8 +8,24 @@ Additive migration 000009 adds `agents.sdlc_role`, `session_event_cursors`,
 global sequence; uncommitted late events cannot be skipped by committed cursors.
 Message insertion, its durable event and dispatch row commit together.
 Desired/effective config heads are separate; activation failure cannot promote
-the desired revision. Tracker task binding/assignment leases are not implemented
-here yet. See [scope and blockers](SDLC_IMPLEMENTATION.md).
+the desired revision. Migration 000010 adds explicit task bindings; assignment leases
+are not implemented here yet. See [scope and blockers](SDLC_IMPLEMENTATION.md).
+
+## PM Chat Bindings
+
+`task_chat_bindings` binds session ID, stable Tracker instance, immutable project/task/root
+UUIDs, concrete agent ID and verified central owner subject. Unique instance/task/agent
+prevents duplicate histories. Explicit binding requires an empty private chat, matching
+central owner and concrete assigned PM. Legacy creation system messages/pending run
+placeholders are not user history; existing prompts or observed runs reject adoption.
+Task binding is not inferred from task_key/title. A database trigger forbids changes to
+bound session owner/agent/visibility/leader. Application routes reject handoff/leader
+assignment and unverified generic prompt/steer. History uses `(created_at,id)` cursor
+ordering and validates the cursor belongs to the session.
+
+Questions, answers, immutable requirements revisions and confirmations live only in
+Tracker. Fleet currently reads them through an authorized gateway; no autonomous
+projection worker or PM assignment/resume saga is claimed by this migration.
 
 Tables:
 

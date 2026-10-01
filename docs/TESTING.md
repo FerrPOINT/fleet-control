@@ -1,5 +1,26 @@
 # Testing
 
+## PM Chat Slice
+
+Run `FLEET_TEST_DATABASE_URL` against an isolated PostgreSQL instance for the 11
+`infra/tests/sdlc_foundation.rs` tests. Without that variable the tests skip and must not
+be counted as database acceptance. Binding tests cover concurrent replay, ownership,
+duplicate task/agent pair, immutable payload, once-only audit/event, scoped pagination,
+binding/prompt races and message creation/replay/dispatch/final mirroring after 500 messages.
+`FLEET_MIGRATION_TEST_DATABASE_URL` separately enables the central-subject migration test.
+
+Frontend commands: `pnpm test -- --maxWorkers=2` and focused Playwright
+`pnpm exec playwright test e2e/fleet-control.spec.ts --grep "PM chat clarification" --workers=1`.
+The latter uses fixture APIs with production controllers and all three browsers; it is
+not live PM evidence. Publish the verified fixture images with
+`node scripts/publish-chat-controller-evidence.mjs`. Use the configured canonical browser
+origin consistently through SSO. Live tests require compatible Tracker, Workflow,
+scoped PM runtime and trusted readiness verifier; see the plan/gap register.
+
+`pnpm chat:contract` checks generated Fleet wire schemas against the pinned Tracker contract
+and runs the checker tests. `pnpm chat:evidence:verify` verifies the nine controller images,
+route/view/viewport identity and content hashes. These gates also run in frontend CI.
+
 ## SDLC Foundation Checks
 
 New regression coverage: PostgreSQL concurrent session/message idempotency and

@@ -635,6 +635,10 @@
     "limitNotice": "Only the latest {{limit}} entries are available here; refine your filter to search."
   },
   "statuses": {
+    "open": "Open",
+    "answered": "Answered",
+    "superseded": "Superseded",
+    "clarification": "Clarification",
     "provisioning": "Provisioning",
     "ready": "Ready",
     "starting": "Starting",

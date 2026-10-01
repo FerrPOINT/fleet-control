@@ -1,6 +1,7 @@
 mod config_revisions;
 pub mod entities;
 pub mod runtime;
+mod task_chats;
 
 use app::{
     AgentProvisioner, AuditLogFilter, FleetRepository, RuntimeApprovalCreate,
@@ -565,6 +566,34 @@ fn fleet_alert_to_domain(row: fleet_alerts::Model) -> domain::FleetAlert {
 
 #[async_trait]
 impl FleetRepository for PostgresFleetRepository {
+    async fn has_pending_session_dispatch(&self, id: Uuid) -> Result<bool, AppError> {
+        let row=self.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT EXISTS(SELECT 1 FROM message_dispatch_outbox o JOIN session_messages m ON m.id=o.message_id WHERE m.session_id=$1 AND o.state IN ('pending','dispatching','uncertain')) AS pending",[id.into()]))
+            .await.map_err(AppError::database)?.ok_or_else(|| AppError::internal("missing dispatch observation"))?;
+        row.try_get("", "pending").map_err(AppError::database)
+    }
+    async fn get_task_chat_binding(
+        &self,
+        session_id: Uuid,
+    ) -> Result<Option<domain::TaskChatBinding>, AppError> {
+        self.task_binding(session_id).await
+    }
+    async fn bind_task_chat(
+        &self,
+        session_id: Uuid,
+        binding: domain::TaskChatBinding,
+        key: String,
+    ) -> Result<domain::TaskChatBinding, AppError> {
+        self.persist_task_binding(session_id, binding, key).await
+    }
+    async fn session_message_history(
+        &self,
+        session_id: Uuid,
+        before: Option<Uuid>,
+        limit: u64,
+    ) -> Result<domain::MessageHistoryPage, AppError> {
+        self.paged_message_history(session_id, before, limit).await
+    }
     async fn list_runtime_templates(&self) -> Result<Vec<RuntimeTemplate>, AppError> {
         runtime_template::Entity::find()
             .order_by_asc(runtime_template::Column::Kind)
@@ -2039,12 +2068,15 @@ impl FleetRepository for PostgresFleetRepository {
             "WITH candidate AS (
                 SELECT o.message_id FROM message_dispatch_outbox o
                 JOIN agents a ON a.id = o.agent_id
+                JOIN session_messages m ON m.id = o.message_id
+                JOIN agent_sessions s ON s.id = m.session_id
                 WHERE o.state = 'pending' AND a.status = 'running' AND a.kind = 'hermes'
+                  AND NOT EXISTS (SELECT 1 FROM task_chat_bindings b WHERE b.session_id = s.id)
                   AND NOT EXISTS (SELECT 1 FROM agent_config_heads h WHERE h.agent_id = a.id AND h.draining)
                   AND NOT EXISTS (SELECT 1 FROM message_dispatch_outbox busy WHERE busy.agent_id = a.id AND busy.state IN ('dispatching','uncertain'))
                   AND NOT EXISTS (SELECT 1 FROM session_agent_runs r WHERE r.agent_id = a.id
                       AND r.state IN ('pending','running','waiting','stopping') AND r.runtime_session_id IS NOT NULL)
-                ORDER BY o.created_at, o.message_id FOR UPDATE OF a, o SKIP LOCKED LIMIT 1)
+                ORDER BY o.created_at, o.message_id FOR UPDATE OF a, o, s SKIP LOCKED LIMIT 1)
              UPDATE message_dispatch_outbox o SET state = 'dispatching', updated_at = now()
                 FROM candidate WHERE o.message_id = candidate.message_id RETURNING o.message_id".to_string()))
             .await.map_err(AppError::database)?;
@@ -2057,16 +2089,10 @@ impl FleetRepository for PostgresFleetRepository {
             .await
             .map_err(AppError::database)?
             .ok_or_else(|| AppError::not_found("session_message", id))?;
-        let mut result = self
-            .list_session_messages(message.session_id)
-            .await?
-            .into_iter()
-            .find(|message| message.id == id);
+        let mut result = self.message_by_id(id).await?;
         // Runtime dispatch receives the original prompt; public transcript reads are redacted.
-        if let Some(result) = result.as_mut() {
-            result.body = message.body;
-        }
-        Ok(result)
+        result.body = message.body;
+        Ok(Some(result))
     }
 
     async fn finish_message_dispatch(
@@ -2162,6 +2188,19 @@ impl FleetRepository for PostgresFleetRepository {
             .await
             .map_err(AppError::database)?
             .ok_or_else(|| AppError::not_found("agent_session", id))?;
+        let binding = txn
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT session_id FROM task_chat_bindings WHERE session_id=$1",
+                [id.into()],
+            ))
+            .await
+            .map_err(AppError::database)?;
+        if binding.is_some() {
+            return Err(AppError::conflict(
+                "task-bound messages require a verified workflow assignment",
+            ));
+        }
         let actor = user::Entity::find_by_id(actor_user_id)
             .one(&txn)
             .await
@@ -2185,12 +2224,7 @@ impl FleetRepository for PostgresFleetRepository {
         {
             if existing.idempotency_payload_hash == idempotency_payload_hash {
                 txn.commit().await.map_err(AppError::database)?;
-                let mut message = self
-                    .list_session_messages(id)
-                    .await?
-                    .into_iter()
-                    .find(|message| message.id == existing.id)
-                    .ok_or_else(|| AppError::not_found("session_message", existing.id))?;
+                let mut message = self.message_by_id(existing.id).await?;
                 message.replayed = true;
                 return Ok(message);
             }
@@ -2257,11 +2291,7 @@ impl FleetRepository for PostgresFleetRepository {
             .await
             .map_err(AppError::database)?;
         txn.commit().await.map_err(AppError::database)?;
-        self.list_session_messages(id)
-            .await?
-            .into_iter()
-            .find(|message| message.id == message_id)
-            .ok_or_else(|| AppError::not_found("session_message", message_id))
+        self.message_by_id(message_id).await
     }
 
     async fn list_session_agent_runs(&self, id: Uuid) -> Result<Vec<SessionAgentRun>, AppError> {
@@ -2435,12 +2465,7 @@ impl FleetRepository for PostgresFleetRepository {
             };
             if let Some(row) = existing.one(&txn).await.map_err(AppError::database)? {
                 txn.commit().await.map_err(AppError::database)?;
-                return self
-                    .list_session_messages(session_id)
-                    .await?
-                    .into_iter()
-                    .find(|message| message.id == row.id)
-                    .ok_or_else(|| AppError::not_found("session_message", row.id));
+                return self.message_by_id(row.id).await;
             }
         }
         session_message::Entity::insert(session_message::ActiveModel {
@@ -2472,11 +2497,7 @@ impl FleetRepository for PostgresFleetRepository {
         session.updated_at = Set(ts);
         session.update(&txn).await.map_err(AppError::database)?;
         txn.commit().await.map_err(AppError::database)?;
-        self.list_session_messages(session_id)
-            .await?
-            .into_iter()
-            .find(|message| message.id == id)
-            .ok_or_else(|| AppError::not_found("session_message", id))
+        self.message_by_id(id).await
     }
 
     async fn update_session_message_delivery(

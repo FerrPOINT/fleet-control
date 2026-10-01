@@ -5,6 +5,13 @@
 Automatic SDLC is blocked; operator actions do not publish Tracker requirements
 or bypass workflow gates. See [current scope](SDLC_IMPLEMENTATION.md).
 
+PM gateway recovery: verify configured Tracker instance/origin and current project membership
+before enabling dependent actions. A saved clarification answer is not proof of PM delivery.
+After an unknown HTTP outcome, inspect the question/revision snapshot and replay only the same
+intent/key; do not manufacture a new runtime run or edit confirmation rows. If requirements
+changed, retain the user's draft, review the new document and submit a new explicit intent.
+Fleet task-bound prompt/steer remains blocked until verified workflow orchestration is wired.
+
 Save a config draft, validate it, then explicitly activate. Desired and effective
 revisions can differ. During drain, do not force changes beneath active runs.
 If activation fails and rollback is unconfirmed, keep the drain in place and

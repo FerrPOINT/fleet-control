@@ -2,6 +2,13 @@
 
 Prefix: `FLEET_CONTROL_`.
 
+Optional PM gateway uses `FLEET_CONTROL_TRACKER__URL` (fixed HTTP(S) root origin;
+no credentials, query, fragment or path) and `FLEET_CONTROL_TRACKER__INSTANCE_ID`
+(stable instance identity, matching Tracker config). Redirects are refused; bearer
+credentials go only to that operator-configured origin. Configure an internal trusted
+origin/TLS as appropriate. Missing/mismatched integration disables dependent commands,
+not transcript reading. These variables do not enable autonomous PM execution.
+
 October additions: `FLEET_CONTROL_SECRET__<REFERENCE>` supplies secret refs used
 by config revisions; values are resolved only into per-agent managed `.env`.
 `FLEET_CONTROL_AUTH__BOOTSTRAP_ADMIN_SUB` optionally names an exact verified

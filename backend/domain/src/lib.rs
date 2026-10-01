@@ -4,6 +4,9 @@ use std::{fmt, str::FromStr};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+pub mod task_chats;
+pub use task_chats::*;
+
 pub type Timestamp = String;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
