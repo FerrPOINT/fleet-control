@@ -14,7 +14,7 @@ import {
   UserRoundCheck,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router'
+import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { getCurrentUserPermissions } from '@/api/auth'
@@ -27,9 +27,13 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   PageFrame,
+  PlatformHeader,
   PlatformMark,
-  ServiceSwitcher,
   ThemeToggle,
 } from '@sdlc/ui/ui'
 import { cn } from '@/shared/lib/utils'
@@ -84,7 +88,7 @@ export function AppShell() {
     queryFn: getCurrentUserPermissions,
     staleTime: 60_000,
   })
-  const operatorName = displayName ?? email ?? t('app.operator')
+  const operatorName = displayName?.trim() || email || t('app.operator')
   const pageLayout =
     location.pathname === '/settings' ||
     /\/(agents|leaders|executors)\/(new|[^/]+\/edit)$/.test(location.pathname)
@@ -109,68 +113,59 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen bg-background text-text-primary">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--shell-sidebar-compact)] flex-col border-r border-border bg-surface px-2 py-3 md:flex xl:w-[var(--shell-sidebar-expanded)] xl:px-3">
-        <div className="mb-4 flex h-10 items-center justify-center gap-3 px-1 xl:justify-start xl:px-2">
-          <PlatformMark withName={false} />
-          <div className="hidden min-w-0 xl:block">
-            <p className="truncate text-sm font-semibold text-text-primary">{t('app.name')}</p>
-            <p className="truncate text-xs text-text-muted">{t('app.subtitle')}</p>
-          </div>
-        </div>
-        <ShellNavigation items={visibleNavItems} compact />
-        <div className="mt-auto border-t border-border px-1 pt-3 xl:px-2">
-          <div
-            className="flex min-h-10 items-center justify-center gap-3 text-text-secondary xl:justify-start"
-            title={operatorName}
-          >
-            <UserRound className="h-4 w-4 shrink-0" aria-hidden />
-            <div className="hidden min-w-0 xl:block">
-              <p className="truncate text-sm font-medium text-text-primary">{operatorName}</p>
-              {displayName && email ? (
-                <p className="truncate text-xs text-text-muted">{email}</p>
-              ) : null}
-            </div>
-            <span className="sr-only xl:hidden">{operatorName}</span>
-          </div>
+      <PlatformHeader
+        currentServiceKey="fleet-control"
+        leading={
+          <>
+            <MobileNavigation items={visibleNavItems} />
+            <Link
+              to="/"
+              aria-label={t('app.name')}
+              className="hidden h-11 min-w-11 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus min-[360px]:flex md:h-10 md:min-w-10"
+            >
+              <PlatformMark size="sm" withName={false} />
+            </Link>
+          </>
+        }
+        actions={
+          <>
+            <ThemeToggle />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-11 w-11 md:h-10 md:w-10"
+                  aria-label={t('shell.account')}
+                >
+                  <UserRound className="h-5 w-5" aria-hidden />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64 max-w-[calc(100vw-2rem)]">
+                <div className="break-words px-2 py-1.5 text-sm font-medium text-text-primary">
+                  {operatorName}
+                </div>
+                {email && email !== operatorName && (
+                  <div className="break-words px-2 pb-2 text-xs text-text-muted">{email}</div>
+                )}
+                <DropdownMenuItem
+                  onSelect={handleLogout}
+                  className="min-h-11 gap-2 text-text-secondary md:min-h-10"
+                >
+                  <LogOut className="h-4 w-4" aria-hidden />
+                  <span>{t('app.signOut')}</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        }
+      />
+      <aside className="fixed bottom-0 left-0 top-[var(--shell-header-height)] z-20 hidden w-[var(--shell-sidebar-compact)] flex-col border-r border-border bg-surface md:flex xl:w-[var(--shell-sidebar-expanded)]">
+        <div className="min-h-0 flex-1 overflow-y-auto p-2 xl:p-3">
+          <ShellNavigation items={visibleNavItems} compact />
         </div>
       </aside>
-
-      <div className="min-w-0 overflow-x-hidden md:pl-[var(--shell-sidebar-compact)] xl:pl-[var(--shell-sidebar-expanded)]">
-        <header className="sticky top-0 z-20 h-[var(--shell-header-height)] border-b border-border bg-background/95 backdrop-blur">
-          <div className="flex h-full items-center gap-2 px-4 md:px-5 xl:px-6">
-            <MobileNavigation items={visibleNavItems} operatorName={operatorName} email={email} />
-            <div className="min-w-0 md:hidden">
-              <p className="truncate text-sm font-semibold text-text-primary">{t('app.name')}</p>
-              <p className="truncate text-xs text-text-muted">{t('app.subtitle')}</p>
-            </div>
-
-            <div className="ml-auto hidden min-w-0 text-right lg:block">
-              <p className="truncate text-xs font-medium text-text-primary">{operatorName}</p>
-              {displayName && email ? (
-                <p className="truncate text-xs text-text-muted">{email}</p>
-              ) : null}
-            </div>
-            <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-              <ServiceSwitcher currentKey="fleet-control" />
-              <div className="[&>button]:h-10 [&>button]:min-h-10 [&>button]:w-10 [&>button]:min-w-10">
-                <ThemeToggle />
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-10 min-h-10 w-10 min-w-10 sm:w-auto sm:px-3"
-                aria-label={t('app.signOut')}
-                title={t('app.signOut')}
-                onClick={handleLogout}
-              >
-                <LogOut className="h-4 w-4" aria-hidden />
-                <span className="hidden sm:inline">{t('app.signOut')}</span>
-              </Button>
-            </div>
-          </div>
-        </header>
-
+      <div className="min-w-0 md:pl-[var(--shell-sidebar-compact)] xl:pl-[var(--shell-sidebar-expanded)]">
         <main className="shell-main min-h-[calc(100dvh-var(--shell-header-height))]">
           <PageFrame mode={pageLayout}>
             <Outlet />
@@ -184,9 +179,11 @@ export function AppShell() {
 function ShellNavigation({
   items,
   compact = false,
+  onNavigate,
 }: {
   items: NavigationItem[]
   compact?: boolean
+  onNavigate?: () => void
 }) {
   const { t } = useTranslation()
   return (
@@ -198,11 +195,12 @@ function ShellNavigation({
             key={item.to}
             to={item.to}
             end={item.to === '/'}
+            onClick={onNavigate}
             aria-label={compact ? label : undefined}
             title={compact ? label : undefined}
             className={({ isActive }) =>
               cn(
-                'flex h-10 items-center gap-3 rounded-md px-3 text-sm text-text-secondary transition-colors hover:bg-surface-raised hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus',
+                'flex min-h-11 items-center gap-3 rounded-md px-3 text-sm text-text-secondary transition-colors hover:bg-surface-raised hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus md:min-h-10',
                 compact && 'justify-center xl:justify-start',
                 isActive && 'bg-surface-raised text-text-primary',
               )
@@ -217,17 +215,24 @@ function ShellNavigation({
   )
 }
 
-function MobileNavigation({
-  items,
-  operatorName,
-  email,
-}: {
-  items: NavigationItem[]
-  operatorName: string
-  email: string | null
-}) {
+function MobileNavigation({ items }: { items: NavigationItem[] }) {
   const { t } = useTranslation()
+  const location = useLocation()
   const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    setOpen(false)
+  }, [location.pathname])
+
+  useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 768px)')
+    const closeOnDesktop = () => {
+      if (desktop.matches) setOpen(false)
+    }
+    desktop.addEventListener('change', closeOnDesktop)
+    return () => desktop.removeEventListener('change', closeOnDesktop)
+  }, [])
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -235,14 +240,17 @@ function MobileNavigation({
           type="button"
           variant="ghost"
           size="icon"
-          className="h-10 min-h-10 w-10 min-w-10 md:hidden"
+          className="h-11 w-11 md:hidden"
           aria-label={t('shell.openNavigation')}
           title={t('shell.openNavigation')}
         >
           <Menu className="h-5 w-5" aria-hidden />
         </Button>
       </DialogTrigger>
-      <DialogContent className="!left-0 !top-0 !flex !h-dvh !max-h-dvh !w-[min(320px,calc(100%-2rem))] !max-w-none !translate-x-0 !translate-y-0 !flex-col !gap-0 !rounded-none !border-y-0 !border-l-0 !p-0 [&>button]:h-10 [&>button]:min-h-10 [&>button]:w-10 [&>button]:min-w-10">
+      <DialogContent
+        aria-describedby={undefined}
+        className="!left-0 !top-0 !flex !h-dvh !max-h-dvh !w-[min(320px,calc(100%-2rem))] !max-w-none !translate-x-0 !translate-y-0 !flex-col !gap-0 !rounded-none !border-y-0 !border-l-0 !p-0 [&>button]:h-11 [&>button]:w-11"
+      >
         <DialogHeader className="flex h-[var(--shell-header-height)] flex-row items-center gap-3 border-b border-border px-4 pr-14 text-left">
           <PlatformMark withName={false} />
           <div className="min-w-0">
@@ -250,30 +258,8 @@ function MobileNavigation({
             <p className="truncate text-xs text-text-muted">{t('app.subtitle')}</p>
           </div>
         </DialogHeader>
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-4">
-          <nav className="space-y-1" aria-label={t('navigation.sections')}>
-            {items.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === '/'}
-                onClick={() => setOpen(false)}
-                className={({ isActive }) =>
-                  cn(
-                    'flex h-10 items-center gap-3 rounded-md px-3 text-sm text-text-secondary transition-colors hover:bg-surface-raised hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus',
-                    isActive && 'bg-surface-raised text-text-primary',
-                  )
-                }
-              >
-                <item.icon className="h-4 w-4 shrink-0" aria-hidden />
-                <span>{t(item.labelKey)}</span>
-              </NavLink>
-            ))}
-          </nav>
-          <div className="mt-auto border-t border-border px-3 pt-4">
-            <p className="truncate text-sm font-medium text-text-primary">{operatorName}</p>
-            {email ? <p className="truncate text-xs text-text-muted">{email}</p> : null}
-          </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+          <ShellNavigation items={items} onNavigate={() => setOpen(false)} />
         </div>
       </DialogContent>
     </Dialog>

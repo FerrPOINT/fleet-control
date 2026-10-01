@@ -6,7 +6,8 @@
     "operator": "Оператор Fleet Control"
   },
   "shell": {
-    "openNavigation": "Открыть навигацию"
+    "openNavigation": "Открыть навигацию",
+    "account": "Аккаунт"
   },
   "navigation": {
     "dashboard": "Обзор",

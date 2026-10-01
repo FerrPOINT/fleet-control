@@ -15,6 +15,11 @@
   confirmation context available for retry.
 - Streamlined настройки Fleet (#13); локализованный/компактный dashboard (#12).
 ### Fixed
+- Fleet shell adopts the full-width shared PlatformHeader with a nav-only
+  sidebar, one bounded account menu and unchanged central logout ordering.
+  Mobile navigation is 44 px, closes after navigation/desktop resize and
+  cleans up its media listener. Dashboard localization live smoke now uses
+  the real drawer/account controls and canonical private QA session path.
 - Fleet detail layouts now use the shared Base 320 px contextual rail from
   1024 px. Agent overview/workspace and session controls stack below primary
   content on smaller screens; leader sessions precede the team editor in DOM

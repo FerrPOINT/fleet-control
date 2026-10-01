@@ -154,7 +154,17 @@ cargo run -p server
 
 ## Визуальные доказательства
 
-Представительные реальные страницы сняты на детерминированной fixture при
+### Актуальный Header (1 октября 2026)
+
+Общий Header принят на production QA image без API mocks. Sidebar содержит
+только навигацию, профиль и выход находятся в одном account menu. Три темы,
+320–2560 px, keyboard/touch и fingerprints описаны в
+[evidence](docs/assets/screens/2026-10-01-platform-header/README.md).
+
+![Fleet Header, 1920 px](docs/assets/screens/2026-10-01-platform-header/agents-dark-1920.png)
+
+Следующая трёхрежимная галерея является историческим снимком до нового Header.
+Представительные страницы были сняты на детерминированной fixture при
 `1920x1080` в default theme. Полный маршрутный набор, включая responsive QA и
 параметры пересъёмки, хранится в
 [manifest](docs/assets/screens/manifest.md).

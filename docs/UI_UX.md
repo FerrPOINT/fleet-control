@@ -70,7 +70,12 @@ Agent detail (2026-10-01):
   drafts; success appears after a successful response and clears on new edits.
 - Both JSON editors require an object; malformed JSON, arrays and scalar values
   disable config submission. File purge also requires a verified storage marker.
-- Shared header ownership remains a separate platform audit item.
+- The global header uses the Base `PlatformHeader`, above the sidebar content offset.
+  Brand and services belong to the header; the sidebar contains only navigation.
+  Identity and central sign-out appear once in the bounded account menu.
+  Mobile controls/navigation are at least 44 px; desktop controls are 40 px.
+  The drawer closes after navigation, Escape and the 768 px desktop breakpoint.
+  Existing permission filtering and page-specific create actions are preserved.
 
 Detail geometry (2026-10-01):
 

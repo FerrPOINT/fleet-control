@@ -1,0 +1,509 @@
+{
+  "mock_api": false,
+  "retries": 0,
+  "cases": [
+    {
+      "route": "/agents",
+      "theme": "light",
+      "width": 320
+    },
+    {
+      "route": "/agents",
+      "theme": "light",
+      "width": 375
+    },
+    {
+      "route": "/agents",
+      "theme": "light",
+      "width": 767
+    },
+    {
+      "route": "/agents",
+      "theme": "light",
+      "width": 768
+    },
+    {
+      "route": "/agents",
+      "theme": "light",
+      "width": 1023
+    },
+    {
+      "route": "/agents",
+      "theme": "light",
+      "width": 1024
+    },
+    {
+      "route": "/agents",
+      "theme": "light",
+      "width": 1279
+    },
+    {
+      "route": "/agents",
+      "theme": "light",
+      "width": 1280
+    },
+    {
+      "route": "/agents",
+      "theme": "light",
+      "width": 1440
+    },
+    {
+      "route": "/agents",
+      "theme": "light",
+      "width": 1920
+    },
+    {
+      "route": "/agents",
+      "theme": "light",
+      "width": 2560
+    },
+    {
+      "route": "/agents/new",
+      "theme": "light",
+      "width": 320
+    },
+    {
+      "route": "/agents/new",
+      "theme": "light",
+      "width": 375
+    },
+    {
+      "route": "/agents/new",
+      "theme": "light",
+      "width": 767
+    },
+    {
+      "route": "/agents/new",
+      "theme": "light",
+      "width": 768
+    },
+    {
+      "route": "/agents/new",
+      "theme": "light",
+      "width": 1023
+    },
+    {
+      "route": "/agents/new",
+      "theme": "light",
+      "width": 1024
+    },
+    {
+      "route": "/agents/new",
+      "theme": "light",
+      "width": 1279
+    },
+    {
+      "route": "/agents/new",
+      "theme": "light",
+      "width": 1280
+    },
+    {
+      "route": "/agents/new",
+      "theme": "light",
+      "width": 1440
+    },
+    {
+      "route": "/agents/new",
+      "theme": "light",
+      "width": 1920
+    },
+    {
+      "route": "/agents/new",
+      "theme": "light",
+      "width": 2560
+    },
+    {
+      "route": "/settings",
+      "theme": "light",
+      "width": 320
+    },
+    {
+      "route": "/settings",
+      "theme": "light",
+      "width": 375
+    },
+    {
+      "route": "/settings",
+      "theme": "light",
+      "width": 767
+    },
+    {
+      "route": "/settings",
+      "theme": "light",
+      "width": 768
+    },
+    {
+      "route": "/settings",
+      "theme": "light",
+      "width": 1023
+    },
+    {
+      "route": "/settings",
+      "theme": "light",
+      "width": 1024
+    },
+    {
+      "route": "/settings",
+      "theme": "light",
+      "width": 1279
+    },
+    {
+      "route": "/settings",
+      "theme": "light",
+      "width": 1280
+    },
+    {
+      "route": "/settings",
+      "theme": "light",
+      "width": 1440
+    },
+    {
+      "route": "/settings",
+      "theme": "light",
+      "width": 1920
+    },
+    {
+      "route": "/settings",
+      "theme": "light",
+      "width": 2560
+    },
+    {
+      "route": "/agents",
+      "theme": "gray",
+      "width": 320
+    },
+    {
+      "route": "/agents",
+      "theme": "gray",
+      "width": 375
+    },
+    {
+      "route": "/agents",
+      "theme": "gray",
+      "width": 767
+    },
+    {
+      "route": "/agents",
+      "theme": "gray",
+      "width": 768
+    },
+    {
+      "route": "/agents",
+      "theme": "gray",
+      "width": 1023
+    },
+    {
+      "route": "/agents",
+      "theme": "gray",
+      "width": 1024
+    },
+    {
+      "route": "/agents",
+      "theme": "gray",
+      "width": 1279
+    },
+    {
+      "route": "/agents",
+      "theme": "gray",
+      "width": 1280
+    },
+    {
+      "route": "/agents",
+      "theme": "gray",
+      "width": 1440
+    },
+    {
+      "route": "/agents",
+      "theme": "gray",
+      "width": 1920
+    },
+    {
+      "route": "/agents",
+      "theme": "gray",
+      "width": 2560
+    },
+    {
+      "route": "/agents/new",
+      "theme": "gray",
+      "width": 320
+    },
+    {
+      "route": "/agents/new",
+      "theme": "gray",
+      "width": 375
+    },
+    {
+      "route": "/agents/new",
+      "theme": "gray",
+      "width": 767
+    },
+    {
+      "route": "/agents/new",
+      "theme": "gray",
+      "width": 768
+    },
+    {
+      "route": "/agents/new",
+      "theme": "gray",
+      "width": 1023
+    },
+    {
+      "route": "/agents/new",
+      "theme": "gray",
+      "width": 1024
+    },
+    {
+      "route": "/agents/new",
+      "theme": "gray",
+      "width": 1279
+    },
+    {
+      "route": "/agents/new",
+      "theme": "gray",
+      "width": 1280
+    },
+    {
+      "route": "/agents/new",
+      "theme": "gray",
+      "width": 1440
+    },
+    {
+      "route": "/agents/new",
+      "theme": "gray",
+      "width": 1920
+    },
+    {
+      "route": "/agents/new",
+      "theme": "gray",
+      "width": 2560
+    },
+    {
+      "route": "/settings",
+      "theme": "gray",
+      "width": 320
+    },
+    {
+      "route": "/settings",
+      "theme": "gray",
+      "width": 375
+    },
+    {
+      "route": "/settings",
+      "theme": "gray",
+      "width": 767
+    },
+    {
+      "route": "/settings",
+      "theme": "gray",
+      "width": 768
+    },
+    {
+      "route": "/settings",
+      "theme": "gray",
+      "width": 1023
+    },
+    {
+      "route": "/settings",
+      "theme": "gray",
+      "width": 1024
+    },
+    {
+      "route": "/settings",
+      "theme": "gray",
+      "width": 1279
+    },
+    {
+      "route": "/settings",
+      "theme": "gray",
+      "width": 1280
+    },
+    {
+      "route": "/settings",
+      "theme": "gray",
+      "width": 1440
+    },
+    {
+      "route": "/settings",
+      "theme": "gray",
+      "width": 1920
+    },
+    {
+      "route": "/settings",
+      "theme": "gray",
+      "width": 2560
+    },
+    {
+      "route": "/agents",
+      "theme": "dark",
+      "width": 320
+    },
+    {
+      "route": "/agents",
+      "theme": "dark",
+      "width": 375
+    },
+    {
+      "route": "/agents",
+      "theme": "dark",
+      "width": 767
+    },
+    {
+      "route": "/agents",
+      "theme": "dark",
+      "width": 768
+    },
+    {
+      "route": "/agents",
+      "theme": "dark",
+      "width": 1023
+    },
+    {
+      "route": "/agents",
+      "theme": "dark",
+      "width": 1024
+    },
+    {
+      "route": "/agents",
+      "theme": "dark",
+      "width": 1279
+    },
+    {
+      "route": "/agents",
+      "theme": "dark",
+      "width": 1280
+    },
+    {
+      "route": "/agents",
+      "theme": "dark",
+      "width": 1440
+    },
+    {
+      "route": "/agents",
+      "theme": "dark",
+      "width": 1920
+    },
+    {
+      "route": "/agents",
+      "theme": "dark",
+      "width": 2560
+    },
+    {
+      "route": "/agents/new",
+      "theme": "dark",
+      "width": 320
+    },
+    {
+      "route": "/agents/new",
+      "theme": "dark",
+      "width": 375
+    },
+    {
+      "route": "/agents/new",
+      "theme": "dark",
+      "width": 767
+    },
+    {
+      "route": "/agents/new",
+      "theme": "dark",
+      "width": 768
+    },
+    {
+      "route": "/agents/new",
+      "theme": "dark",
+      "width": 1023
+    },
+    {
+      "route": "/agents/new",
+      "theme": "dark",
+      "width": 1024
+    },
+    {
+      "route": "/agents/new",
+      "theme": "dark",
+      "width": 1279
+    },
+    {
+      "route": "/agents/new",
+      "theme": "dark",
+      "width": 1280
+    },
+    {
+      "route": "/agents/new",
+      "theme": "dark",
+      "width": 1440
+    },
+    {
+      "route": "/agents/new",
+      "theme": "dark",
+      "width": 1920
+    },
+    {
+      "route": "/agents/new",
+      "theme": "dark",
+      "width": 2560
+    },
+    {
+      "route": "/settings",
+      "theme": "dark",
+      "width": 320
+    },
+    {
+      "route": "/settings",
+      "theme": "dark",
+      "width": 375
+    },
+    {
+      "route": "/settings",
+      "theme": "dark",
+      "width": 767
+    },
+    {
+      "route": "/settings",
+      "theme": "dark",
+      "width": 768
+    },
+    {
+      "route": "/settings",
+      "theme": "dark",
+      "width": 1023
+    },
+    {
+      "route": "/settings",
+      "theme": "dark",
+      "width": 1024
+    },
+    {
+      "route": "/settings",
+      "theme": "dark",
+      "width": 1279
+    },
+    {
+      "route": "/settings",
+      "theme": "dark",
+      "width": 1280
+    },
+    {
+      "route": "/settings",
+      "theme": "dark",
+      "width": 1440
+    },
+    {
+      "route": "/settings",
+      "theme": "dark",
+      "width": 1920
+    },
+    {
+      "route": "/settings",
+      "theme": "dark",
+      "width": 2560
+    }
+  ],
+  "runtime_errors": [],
+  "api_writes": [],
+  "interactions": [
+    "service keyboard/touch/outside/focus",
+    "drawer navigation/Escape/desktop resize",
+    "profile keyboard/focus",
+    "central logout/re-entry"
+  ]
+}

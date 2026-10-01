@@ -1,0 +1,32 @@
+{
+  "captured_date": "2026-10-01",
+  "acceptance_stage": "premerge-candidate",
+  "base_commit": "188920966463042578f2488f17334eb84c61125f",
+  "services_base_commit": "f7726b150b1d04c3ba2f96dc4900e544d8b22432",
+  "app_shell_sha256": "247b08db999f288acfecb29a7411c156e177056e534af7df676c0f52717c0a7f",
+  "pnpm_lock_sha256": "3e14d3aa93bb05736a73962bbb29500ed32102b5cc134289d0630d15d545d665",
+  "format_only_source_sha256": {
+    "login": "8d0cefae926e32caa57e662c79d7a6ee4853b517bd2cffdfea577c2704fd269a",
+    "sso_callback": "ccdf0498a4f961aa7355792714b64d7c31c50b0e9c313cbb7461ae9b5e9119a0",
+    "main": "d00521bb2c65fa265312ea68fe97e5c935d19d8e8faa76df624b2a1e84bcf40b"
+  },
+  "locale_sha256": {
+    "ru": "1fdba327a4e34b0aa07bd2d541cce2e1237b2971642ea4846f4461bf62b4ffc0",
+    "en": "abd34f51312a6c961afa3e65d11fd167c89600ef335245237cdca23eb2b09049"
+  },
+  "runtime_image": "sha256:3544f809e03ca70e9f7356478e71a779f20cc5ea16296395f29cb508a5842d37",
+  "compose_service_config_hash": "90ea0f7fd87e9eafcaec18f9a8b59168bb60e163baa218abe04d1146b732e2e0",
+  "production_js": { "file": "index-CxsFEOXl.js", "sha256": "8a35c564dda654c60e8c9da56f759a805f05d839d30fb5972cd7fd8460bb9fad" },
+  "production_css": { "file": "index-Ds5AwmV0.css", "sha256": "dfc2d4417dc8e55eab0d974736efd07b2b81775d54cd2dc83f4535a1d52efa17" },
+  "mock_api": false,
+  "browser": "Playwright 1.63.0, Chromium 153, axe-core 4.13.0",
+  "header_combinations": 99,
+  "fleet_live_gate": { "passed": 5, "failed": 0, "skipped": 0, "playwright_retries": 0, "duration_minutes": 5.7, "layout_combinations": 393, "localization_viewports": 4 },
+  "frontend_tests_passed": 117,
+  "backend_tests_passed": 60,
+  "backend_postgres_tests_executed": 2,
+  "backend_source_files_verified": 62,
+  "runtime_errors": [],
+  "api_writes_during_header_navigation": [],
+  "limitations": ["Candidate source fingerprints are not OCI revision attestations.", "Post-merge five-test Fleet plus twelve-test SSO gate is separate.", "Working sdlc-demo was not rolled out; user volumes were not reset.", "The final whole-platform release gate remains open."]
+}
