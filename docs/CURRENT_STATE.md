@@ -22,6 +22,13 @@ delivery, resume or live Backlog acceptance.
 
 ## PM Clarification Work In Progress
 
+The creation recovery follow-up adds owner/key readback for a lost initial
+acknowledgement, persisted-operation continuation without prompt resubmission,
+and a rollout-filtered strict Tracker project directory. It adds no runtime
+dispatch and does not close admission/resume/live acceptance. The new creation
+form is an isolated [design proposal](design/PM_DRAFT_CREATION_PREVIEW.md), not
+production UI; approval and controller integration remain pending.
+
 The effective-configuration follow-up verifies actual managed files against the
 active database snapshot on every readiness request. Same-size drift, missing
 files, re-enabled disabled skills, foreign markers and symlinked paths block

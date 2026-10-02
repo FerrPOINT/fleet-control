@@ -1398,6 +1398,117 @@
         }
       }
     },
+    "/api/v1/pm-drafts/operations/{operation_id}/continue": {
+      "post": {
+        "tags": [
+          "task-chats"
+        ],
+        "operationId": "continue_pm_draft_creation",
+        "parameters": [
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContinuePmDraftRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PmDraftCreationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          },
+          "422": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/v1/pm-drafts/projects": {
+      "get": {
+        "tags": [
+          "task-chats"
+        ],
+        "operationId": "pm_draft_projects",
+        "parameters": [
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PmDraftProjectDirectory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "422": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/api/v1/projects/{project_id}/pm-drafts": {
       "post": {
         "tags": [
@@ -1449,6 +1560,63 @@
             "description": ""
           },
           "409": {
+            "description": ""
+          },
+          "422": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/pm-drafts/operation": {
+      "get": {
+        "tags": [
+          "task-chats"
+        ],
+        "operationId": "read_pm_draft_creation_by_key",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "idempotency_key",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PmDraftCreationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
             "description": ""
           },
           "422": {
@@ -4535,6 +4703,10 @@
         },
         "additionalProperties": false
       },
+      "ContinuePmDraftRequest": {
+        "type": "object",
+        "additionalProperties": false
+      },
       "CreateAgentRequest": {
         "type": "object",
         "required": [
@@ -5454,6 +5626,69 @@
           "chat",
           "admission"
         ]
+      },
+      "PmDraftOperationQuery": {
+        "type": "object",
+        "required": [
+          "idempotency_key"
+        ],
+        "properties": {
+          "idempotency_key": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PmDraftProject": {
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PmDraftProjectDirectory": {
+        "type": "object",
+        "required": [
+          "enabled",
+          "tracker_instance_id",
+          "projects",
+          "next_cursor"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "projects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PmDraftProject"
+            }
+          },
+          "tracker_instance_id": {
+            "type": "string"
+          }
+        }
       },
       "PmExecutionIdentity": {
         "type": "object",

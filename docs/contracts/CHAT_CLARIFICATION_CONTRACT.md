@@ -8,6 +8,23 @@ Tracker instance + immutable issue ID identify a task; display key is not identi
 Fleet session binds one concrete agent, Tracker project/task/root IDs and central owner subject.
 Unique instance/task/agent binding never merges transcripts. Existing unbound sessions stay free.
 
+## Creation Recovery And Directory
+
+Fleet creation is an opt-in owner/key saga, not runtime dispatch. An unknown
+creation response is reconciled through project-scoped owner/key GET; only an
+authoritative `404` means no operation. A saved operation continues via strict
+`POST .../operations/{id}/continue {}` with original input and stable remote
+keys; it does not accept edits or generate a second chat/run. Historical reads
+remain available after rollout disablement, but continuation mutations do not.
+Both require verified human identity and fresh explicit Tracker project access.
+
+Project choices use Tracker contract v1 `/api/v1/sdlc/project-directory`,
+with exact fields `contract_version`, `tracker_instance_id`, `projects`
+(canonical ID/key/name only) and required nullable `next_cursor`. Fleet requests
+the default 50-row UUID-keyset page and verifies instance, order, bounds and
+cursor before applying its rollout allowlist. An empty filtered page can still
+have a next cursor; it is not the end, a total or a readiness receipt.
+
 Tracker checks explicit project membership/ownership and central subject for owner commands,
 without environment-driven admin bypass. Machine credentials are scoped to assignment, agent,
 task and execution; human payload cannot choose machine authorship. Operators may inspect

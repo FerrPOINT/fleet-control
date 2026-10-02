@@ -2,6 +2,14 @@
 
 ## PM Clarification Commands
 
+Creation recovery is owner-only even for operators/admins; key readback validates
+the current project before the indexed owner/key lookup. Continuation accepts
+only an empty JSON object and cannot replace persisted original input or agent.
+Invalid shapes are rejected before upstream calls. Project names come only from
+the strict active-central-subject Tracker directory, without a legacy/admin
+fallback. Fleet then restricts the page to its rollout allowlist; no readiness
+or runtime authorization follows from appearing in this list.
+
 Task binding and owner answers/confirmation require a verified Central Auth subject;
 missing central identity returns unauthorized, not legacy fallback. Tracker independently
 checks active human session, service grant, project membership and owner subject. Fleet

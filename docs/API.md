@@ -54,6 +54,24 @@ Base path: `/api/v1`.
   access; returns historical creation state, IDs and no original input or machine
   credentials. It is not current workflow or admission authority and never
   starts a run. Reading completed history remains possible with creation disabled.
+- `GET /projects/{project_id}/pm-drafts/operation?idempotency_key=...`: recover
+  the operation after an unknown creation response, when its UUID never reached
+  the browser. The exact owner/key lookup uses fresh project authorization;
+  another owner, project or Tracker instance cannot expose its metadata. Missing
+  operation is `404`, invalid key is `422`, invalid query shape is `400`.
+- `POST /pm-drafts/operations/{operation_id}/continue`: strict empty JSON object
+  `{}` (arrays, null, fields and nonobjects are `422`); continue the persisted
+  original operation without accepting replacement input, agent or command key.
+  Rechecks human identity, owner, current project access, rollout and namespace.
+  Returns `202` with existing incomplete/awaiting-admission state, never a run.
+- `GET /pm-drafts/projects?after={canonicalUuid}`: verified human project choices
+  from Tracker's strict `/api/v1/sdlc/project-directory`, with no legacy directory
+  fallback. Returns `enabled`, `tracker_instance_id`, `projects` (ID/key/name)
+  and required nullable `next_cursor`. Tracker page size is 50; Fleet filters
+  the page by rollout allowlist but preserves the original cursor, including an
+  empty filtered page. There is no total, readiness claim or default project.
+  Disabled creation returns `enabled=false` and an empty directory without an
+  upstream read. Creation and recovery still perform their own access checks.
 
 - `POST /sessions/{id}/task-binding`: explicit owner binding to assigned concrete PM.
 - `GET /sessions/{id}/task-context`: verified binding and Tracker context; unbound chat

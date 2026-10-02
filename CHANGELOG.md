@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- Add owner/key recovery for an unknown PM Draft creation response and strict
+  empty-object continuation using persisted original input. Add bounded strict
+  Tracker project directory choices with preserved rollout-filtered cursors.
+  Include an isolated creation/recovery design proposal and generated screenshots;
+  production form approval/integration and PM runtime admission remain pending.
+
 - Add disabled-by-default owner-driven PM Draft creation with a persisted
   operation ledger, authoritative Tracker readback/input/reservation checks and
   atomic task-bound chat. Recover lost responses with the same command keys;

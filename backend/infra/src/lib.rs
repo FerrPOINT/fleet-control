@@ -721,6 +721,13 @@ impl FleetRepository for PostgresFleetRepository {
     ) -> Result<domain::PmDraftOperation, AppError> {
         self.read_pm_creation(id, owner).await
     }
+    async fn read_pm_draft_operation_by_key(
+        &self,
+        owner: Uuid,
+        key: &str,
+    ) -> Result<domain::PmDraftOperation, AppError> {
+        self.read_pm_creation_by_key(owner, key).await
+    }
     async fn record_pm_draft_proof(
         &self,
         id: Uuid,

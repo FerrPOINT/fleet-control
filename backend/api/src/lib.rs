@@ -81,7 +81,10 @@ pub mod routes;
         routes::task_chats::history,
         routes::task_chats::controls,
         routes::pm_drafts::create,
+        routes::pm_drafts::projects,
         routes::pm_drafts::read,
+        routes::pm_drafts::read_by_key,
+        routes::pm_drafts::continue_operation,
         routes::workflows::list_workflow_bindings,
         routes::workflows::get_workflow_catalog,
         routes::workflows::rebind_workflow_binding,
@@ -128,6 +131,10 @@ pub mod routes;
         domain::SessionEvent,
         domain::TaskChatBinding,
         domain::CreatePmDraftRequest,
+        routes::pm_drafts::PmDraftOperationQuery,
+        routes::pm_drafts::ContinuePmDraftRequest,
+        routes::pm_drafts::PmDraftProjectDirectory,
+        routes::pm_drafts::PmDraftProject,
         domain::PmDraftCreationResponse,
         domain::PmDraftCreationState,
         domain::PmDraftCreationStep,
@@ -374,8 +381,20 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
             post(routes::pm_drafts::create),
         )
         .route(
+            "/api/v1/pm-drafts/projects",
+            get(routes::pm_drafts::projects),
+        )
+        .route(
             "/api/v1/pm-drafts/operations/{operation_id}",
             get(routes::pm_drafts::read),
+        )
+        .route(
+            "/api/v1/projects/{project_id}/pm-drafts/operation",
+            get(routes::pm_drafts::read_by_key),
+        )
+        .route(
+            "/api/v1/pm-drafts/operations/{operation_id}/continue",
+            post(routes::pm_drafts::continue_operation),
         )
         .route(
             "/api/v1/sessions/{session_id}/task-binding",

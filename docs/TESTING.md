@@ -1,5 +1,14 @@
 # Testing
 
+PM creation recovery tests cover persisted owner/key lookup after repository
+restart, owner versus operator/machine/local identity, fresh project revocation,
+unknown/invalid keys, strict continuation body (including array rejection before
+HTTP), and unchanged chat/run state. Directory tests cover strict wire identity,
+canonical nonnil UUIDs, sorted bounded pages, required null, foreign metadata,
+keyset cursor and rollout-filtered empty pages. Client tests distinguish 404
+from dependency/permission/conflict errors. The separate creation preview uses
+fictional data and an isolated screenshot manifest; it is not live acceptance.
+
 ## PM Chat Slice
 
 Run `FLEET_TEST_DATABASE_URL` against an isolated PostgreSQL instance for the 37

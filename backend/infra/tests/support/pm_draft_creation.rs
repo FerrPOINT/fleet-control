@@ -217,6 +217,17 @@ async fn namespace_revocation_blocks_remote_mutations_and_replayed_creation() {
     let tracker = Tracker::default();
     tracker.state.lock().await.namespace_revoked = true;
     let saved = repo.reserve_pm_draft_operation(candidate).await.unwrap();
+    let recovered = repo
+        .read_pm_draft_operation_by_key(saved.owner_user_id, &saved.request.idempotency_key)
+        .await
+        .unwrap();
+    assert_eq!(recovered.id, saved.id);
+    assert!(recovered.draft.is_none() && recovered.session_id.is_none());
+    assert!(matches!(
+        repo.read_pm_draft_operation_by_key(Uuid::new_v4(), &saved.request.idempotency_key)
+            .await,
+        Err(shared::AppError::NotFound { .. })
+    ));
     assert!(
         continue_creation(&repo, &tracker, saved.clone())
             .await
@@ -294,6 +305,12 @@ async fn lost_remote_responses_recover_without_second_draft_reservation_or_run()
             .await
             .unwrap(),
     );
+    let recovered = restarted
+        .read_pm_draft_operation_by_key(candidate.owner_user_id, &candidate.request.idempotency_key)
+        .await
+        .unwrap();
+    assert_eq!(recovered.id, operation.id);
+    assert!(recovered.draft.is_some() && recovered.reservation.is_none());
     operation = restarted
         .read_pm_draft_operation(operation.id, operation.owner_user_id)
         .await
@@ -549,6 +566,10 @@ async fn public_creation_and_readback_require_human_owner_and_fresh_project_acce
                     "created_at":"2026-10-02T00:00:00Z"}}));
             }
             assert_eq!(headers[header::AUTHORIZATION], "Bearer test-only-owner-session");
+            if uri.path() == "/api/v1/sdlc/project-directory" {
+                let projects = if revoked.load(Ordering::SeqCst) { vec![] } else { vec![serde_json::json!({"id":project,"key":"PM","name":"Owner project"})] };
+                return axum::Json(serde_json::json!({"contract_version":1,"tracker_instance_id":instance,"projects":projects,"next_cursor":null}));
+            }
             if uri.path() == "/api/v1/sdlc/project-access" {
                 let projects = if revoked.load(Ordering::SeqCst) { vec![] } else { vec![project] };
                 return axum::Json(serde_json::json!({"contract_version":1,"tracker_instance_id":instance,"project_ids":projects}));
@@ -596,12 +617,24 @@ async fn public_creation_and_readback_require_human_owner_and_fresh_project_acce
     ));
     let routes = axum::Router::new()
         .route(
+            "/api/v1/pm-drafts/projects",
+            axum::routing::get(api::routes::pm_drafts::projects),
+        )
+        .route(
             "/api/v1/projects/{project_id}/pm-drafts",
             axum::routing::post(api::routes::pm_drafts::create),
         )
         .route(
             "/api/v1/pm-drafts/operations/{operation_id}",
             axum::routing::get(api::routes::pm_drafts::read),
+        )
+        .route(
+            "/api/v1/projects/{project_id}/pm-drafts/operation",
+            axum::routing::get(api::routes::pm_drafts::read_by_key),
+        )
+        .route(
+            "/api/v1/pm-drafts/operations/{operation_id}/continue",
+            axum::routing::post(api::routes::pm_drafts::continue_operation),
         );
     let identity = CurrentUser {
         id: saved.owner_user_id,
@@ -724,6 +757,202 @@ async fn public_creation_and_readback_require_human_owner_and_fresh_project_acce
             .unwrap()
             .is_empty()
     );
+    let lookup = format!("{url}/owner/api/v1/projects/{project}/pm-drafts/operation");
+    let key = candidate.request.idempotency_key.as_str();
+    let response = client
+        .get(&lookup)
+        .query(&[("idempotency_key", key)])
+        .bearer_auth("test-only-owner-session")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    revoked.store(false, Ordering::SeqCst);
+    for (prefix, status) in [
+        ("owner", StatusCode::OK),
+        ("operator", StatusCode::NOT_FOUND),
+        ("machine", StatusCode::UNAUTHORIZED),
+        ("local", StatusCode::UNAUTHORIZED),
+    ] {
+        let response = client
+            .get(format!(
+                "{url}/{prefix}/api/v1/projects/{project}/pm-drafts/operation"
+            ))
+            .query(&[("idempotency_key", key)])
+            .bearer_auth("test-only-owner-session")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), status, "{prefix}");
+        if status == StatusCode::OK {
+            assert_eq!(response.json::<serde_json::Value>().await.unwrap(), value);
+        }
+    }
+    for (query, status) in [
+        (
+            vec![("idempotency_key", "")],
+            StatusCode::UNPROCESSABLE_ENTITY,
+        ),
+        (
+            vec![("idempotency_key", "bad key")],
+            StatusCode::UNPROCESSABLE_ENTITY,
+        ),
+        (
+            vec![("idempotency_key", key), ("unexpected", "yes")],
+            StatusCode::BAD_REQUEST,
+        ),
+    ] {
+        assert_eq!(
+            client
+                .get(&lookup)
+                .query(&query)
+                .bearer_auth("test-only-owner-session")
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            status
+        );
+    }
+    assert_eq!(
+        client
+            .get(&lookup)
+            .query(&[("idempotency_key", "missing")])
+            .bearer_auth("test-only-owner-session")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::NOT_FOUND
+    );
+    let recovered = repo
+        .read_pm_draft_operation_by_key(saved.owner_user_id, key)
+        .await
+        .unwrap();
+    assert_eq!(
+        serde_json::to_value(recovered.response()).unwrap(),
+        serde_json::to_value(result).unwrap()
+    );
+    for (prefix, status) in [
+        ("owner", StatusCode::ACCEPTED),
+        ("operator", StatusCode::NOT_FOUND),
+        ("machine", StatusCode::UNAUTHORIZED),
+        ("local", StatusCode::UNAUTHORIZED),
+    ] {
+        let response = client
+            .post(format!(
+                "{url}/{prefix}/api/v1/pm-drafts/operations/{}/continue",
+                saved.id
+            ))
+            .json(&serde_json::json!({}))
+            .bearer_auth("test-only-owner-session")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), status, "{prefix}");
+        if status == StatusCode::ACCEPTED {
+            assert_eq!(response.json::<serde_json::Value>().await.unwrap(), value);
+        }
+    }
+    let continuation = format!(
+        "{url}/owner/api/v1/pm-drafts/operations/{}/continue",
+        saved.id
+    );
+    for body in [
+        serde_json::json!({"agent_id":Uuid::new_v4()}),
+        serde_json::json!([]),
+    ] {
+        let before = calls.load(Ordering::SeqCst);
+        assert_eq!(
+            client
+                .post(&continuation)
+                .json(&body)
+                .bearer_auth("test-only-owner-session")
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+        assert_eq!(calls.load(Ordering::SeqCst), before);
+    }
+    revoked.store(true, Ordering::SeqCst);
+    assert_eq!(
+        client
+            .post(&continuation)
+            .json(&serde_json::json!({}))
+            .bearer_auth("test-only-owner-session")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+    let persisted = repo
+        .read_pm_draft_operation(saved.id, saved.owner_user_id)
+        .await
+        .unwrap();
+    assert_eq!(serde_json::to_value(persisted.response()).unwrap(), value);
+    assert!(
+        repo.list_session_agent_runs(persisted.session_id.unwrap())
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    for expected in [
+        vec![],
+        vec![serde_json::json!({"id":project,"key":"PM","name":"Owner project"})],
+    ] {
+        let response = client
+            .get(format!("{url}/owner/api/v1/pm-drafts/projects"))
+            .bearer_auth("test-only-owner-session")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let page: serde_json::Value = response.json().await.unwrap();
+        assert_eq!(page["projects"], serde_json::json!(expected));
+        assert_eq!(page["enabled"], true);
+        assert_eq!(page["next_cursor"], serde_json::Value::Null);
+        assert_eq!(page.as_object().unwrap().len(), 4);
+        revoked.store(false, Ordering::SeqCst);
+    }
+    for prefix in ["machine", "local"] {
+        let before = calls.load(Ordering::SeqCst);
+        assert_eq!(
+            client
+                .get(format!("{url}/{prefix}/api/v1/pm-drafts/projects"))
+                .bearer_auth("test-only-owner-session")
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::UNAUTHORIZED
+        );
+        assert_eq!(calls.load(Ordering::SeqCst), before);
+    }
+    for (query, status) in [
+        (
+            "after=00000000-0000-0000-0000-000000000000",
+            StatusCode::UNPROCESSABLE_ENTITY,
+        ),
+        ("after=bad", StatusCode::UNPROCESSABLE_ENTITY),
+        ("limit=500", StatusCode::BAD_REQUEST),
+        ("unexpected=yes", StatusCode::BAD_REQUEST),
+    ] {
+        let before = calls.load(Ordering::SeqCst);
+        assert_eq!(
+            client
+                .get(format!("{url}/owner/api/v1/pm-drafts/projects?{query}"))
+                .bearer_auth("test-only-owner-session")
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            status
+        );
+        assert_eq!(calls.load(Ordering::SeqCst), before);
+    }
     server.abort();
     upstream_server.abort();
     let _ = server.await;

@@ -3,6 +3,33 @@
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 
+## Creation Recovery Follow-Up (2026-10-02)
+
+Owner/key readback recovers the original creation UUID after a lost response.
+Persisted-operation continuation accepts only an empty object, rechecks current
+human/project/namespace/rollout authority and does not accept edited input or
+dispatch a run. Tracker's separate strict project directory provides UUID-keyset
+pages of actual ID/key/name metadata; Fleet retains the source cursor after its
+rollout filter, including empty pages. There is no legacy directory fallback.
+
+Fresh Cargo target, Rust 1.88.0 locked fmt/check/strict Clippy and full workspace
+tests passed: 120 library cases and 39 actual PostgreSQL 17.6 cases. Three
+separately gated directory/SSE/historical migration cases were ignored in this
+local run. The final empty-object OpenAPI schema annotation also passed a
+separate fresh-target fmt/strict API Clippy/34-case API suite and source
+generation. The generated object forbids additional properties; arrays and
+fields are rejected by the actual handler. The client was regenerated from it.
+
+Node 22.20.0/pnpm 10.28.1 typecheck, lint, format, build, OpenAPI compatibility
+and 220 unit tests passed. All 36 Chromium/Firefox/WebKit fixture cases passed;
+27 opt-in live cases were skipped, not accepted. The separate
+[creation proposal](design/PM_DRAFT_CREATION_PREVIEW.md) has 16 generated screens
+across mobile/tablet/desktop/wide sizes; mobile form and desktop recovery were
+opened for visual inspection. Capture detected no API/external requests or page
+errors and no document-level horizontal overflow. This is an unapproved design
+proposal, not live production screenshots. Browser fixtures do not close actual
+admission, assigned PM tools, checkpoint/resume or exact-revision Backlog acceptance.
+
 ## Merge Gate Review (2026-10-02)
 
 Exact-tree Linux CI [37000005352](https://github.com/FerrPOINT/fleet-control/actions/runs/37000005352)

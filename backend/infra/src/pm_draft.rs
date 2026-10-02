@@ -92,6 +92,23 @@ impl PostgresFleetRepository {
         Ok(operation)
     }
 
+    pub(crate) async fn read_pm_creation_by_key(
+        &self,
+        owner: Uuid,
+        key: &str,
+    ) -> Result<PmDraftOperation, AppError> {
+        if !domain::pm_draft::valid_key(key) {
+            return Err(AppError::validation("invalid PM creation key"));
+        }
+        let row = self.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT operation FROM pm_draft_creation_operations WHERE owner_user_id=$1 AND idempotency_key=$2",
+            [owner.into(),key.into()])).await.map_err(AppError::database)?
+            .ok_or_else(|| AppError::not_found("PM creation operation", "command"))?;
+        let operation = decode(row)?;
+        active_owner(&self.db, owner, &operation.owner_subject).await?;
+        Ok(operation)
+    }
+
     pub(crate) async fn persist_pm_creation_proof(
         &self,
         id: Uuid,

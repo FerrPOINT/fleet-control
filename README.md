@@ -11,6 +11,9 @@ use Fleet/Tracker APIs; workflow dispatch/resume and real PM acceptance remain b
 Task-bound reads enforce current Tracker project access, including directory counts
 and stream replay. See the [verification ledger](docs/CHAT_CLARIFICATION_VERIFICATION.md)
 for PostgreSQL evidence and the remaining live-integration gates.
+Creation recovery now includes owner/key lookup, persisted-operation continuation
+and strict Tracker project choices. The new [creation form proposal](docs/design/PM_DRAFT_CREATION_PREVIEW.md)
+is isolated and awaiting approval, not production UI or runtime admission.
 
 <p align="center">
   <a href="#overview"><img src="https://img.shields.io/badge/Overview-3730a3?style=for-the-badge" alt="Overview" /></a>

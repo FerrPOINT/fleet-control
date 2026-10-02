@@ -28,6 +28,11 @@ outcomes leave earlier stages intact and are reconciled with authenticated Track
 readback before any same-key write. No bearer/PAT/runtime token is stored. Original
 input is private task content and must be protected in DB/backups like transcripts.
 The ledger is not a second scheduler, business stage authority or admission proof.
+Recovery by key uses the existing unique `(owner_user_id, idempotency_key)` index;
+it does not add a migration or store another copy of the prompt. Continuation
+reads the immutable row by owner/operation ID and reuses its remote command keys.
+The project directory is a request-scoped Tracker projection, not a local project
+registry or saved authorization snapshot.
 
 Internal `create_pm_draft_chat` creates the private session, immutable Tracker
 binding, owner/primary participants, audit and durable `task.bound` event in one

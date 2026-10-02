@@ -108,6 +108,15 @@ pub trait FleetRepository: Send + Sync {
             "PM Draft creation is unavailable".into(),
         ))
     }
+    async fn read_pm_draft_operation_by_key(
+        &self,
+        _owner: Uuid,
+        _key: &str,
+    ) -> Result<domain::PmDraftOperation, AppError> {
+        Err(AppError::Unavailable(
+            "PM Draft creation is unavailable".into(),
+        ))
+    }
     async fn record_pm_draft_proof(
         &self,
         _id: Uuid,

@@ -4,15 +4,143 @@ use app::{AppContext, pm_draft::PmDraftTracker};
 use async_trait::async_trait;
 use axum::{
     Extension, Json,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
 };
 use domain::*;
-use serde::{Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use shared::AppError;
 use std::sync::Arc;
 use uuid::Uuid;
+
+#[derive(Deserialize, utoipa::IntoParams)]
+#[serde(deny_unknown_fields)]
+pub struct PmDraftProjectsQuery {
+    #[param(value_type = Option<Uuid>)]
+    pub after: Option<String>,
+}
+
+impl PmDraftProjectsQuery {
+    fn cursor(&self) -> Result<Option<Uuid>, AppError> {
+        self.after
+            .as_deref()
+            .map(|raw| {
+                let id = Uuid::parse_str(raw)
+                    .map_err(|_| AppError::validation("invalid project cursor"))?;
+                if id.is_nil() || id.to_string() != raw {
+                    return Err(AppError::validation("invalid project cursor"));
+                }
+                Ok(id)
+            })
+            .transpose()
+    }
+}
+
+#[derive(Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PmDraftProject {
+    pub id: Uuid,
+    pub key: String,
+    pub name: String,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TrackerProjectDirectory {
+    contract_version: u32,
+    tracker_instance_id: String,
+    projects: Vec<PmDraftProject>,
+    next_cursor: Option<Uuid>,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+pub struct PmDraftProjectDirectory {
+    pub enabled: bool,
+    pub tracker_instance_id: String,
+    pub projects: Vec<PmDraftProject>,
+    #[schema(required = true, nullable = true)]
+    pub next_cursor: Option<Uuid>,
+}
+
+fn project_directory(
+    value: Value,
+    instance: &str,
+    after: Option<Uuid>,
+) -> Result<TrackerProjectDirectory, AppError> {
+    let page: TrackerProjectDirectory = decode(value)?;
+    if page.contract_version != 1
+        || page.tracker_instance_id != instance
+        || page.projects.len() > 50
+        || page.projects.iter().any(|project| project.id.is_nil())
+        || page
+            .projects
+            .windows(2)
+            .any(|pair| pair[0].id >= pair[1].id)
+        || page
+            .projects
+            .first()
+            .is_some_and(|project| after.is_some_and(|id| project.id <= id))
+        || page.next_cursor.is_some_and(|cursor| {
+            page.projects.len() != 50
+                || page.projects.last().map(|project| project.id) != Some(cursor)
+        })
+    {
+        return Err(AppError::Unavailable(
+            "Tracker project directory is invalid".into(),
+        ));
+    }
+    Ok(page)
+}
+
+#[utoipa::path(get,path="/api/v1/pm-drafts/projects",tag="task-chats",operation_id="pm_draft_projects",
+    params(PmDraftProjectsQuery),responses((status=200,body=PmDraftProjectDirectory),(status=400),(status=401),(status=403),(status=422),(status=503)))]
+pub async fn projects(
+    State(ctx): State<Arc<AppContext>>,
+    subject: Option<Extension<VerifiedCentralSubject>>,
+    human: Option<Extension<VerifiedHumanSession>>,
+    headers: HeaderMap,
+    Query(query): Query<PmDraftProjectsQuery>,
+) -> Result<Json<PmDraftProjectDirectory>, AppError> {
+    let Extension(_) = human.ok_or(AppError::Unauthorized)?;
+    let Extension(_) = subject.ok_or(AppError::Unauthorized)?;
+    let after = query.cursor()?;
+    if !ctx.config.tracker.pm_draft_creation_enabled {
+        return Ok(Json(PmDraftProjectDirectory {
+            enabled: false,
+            tracker_instance_id: ctx.config.tracker.instance_id.clone(),
+            projects: vec![],
+            next_cursor: None,
+        }));
+    }
+    let gateway = TrackerGateway::configured(&ctx.config.tracker)?;
+    let cursor = after.map(|id| id.to_string());
+    let (status, value) = gateway
+        .request_path(
+            &["api", "v1", "sdlc", "project-directory"],
+            cursor.as_deref().map(|raw| ("after", raw)),
+            &headers,
+            None,
+        )
+        .await?;
+    if status != StatusCode::OK {
+        return Err(rejected(status));
+    }
+    let mut page = project_directory(value, &ctx.config.tracker.instance_id, after)?;
+    page.projects.retain(|project| {
+        ctx.config
+            .tracker
+            .pm_draft_project_ids
+            .contains(&project.id)
+    });
+    // Keep the source cursor even when this rollout-filtered page is empty.
+    Ok(Json(PmDraftProjectDirectory {
+        enabled: true,
+        tracker_instance_id: page.tracker_instance_id,
+        projects: page.projects,
+        next_cursor: page.next_cursor,
+    }))
+}
 
 struct HumanDraftGateway {
     gateway: TrackerGateway,
@@ -251,6 +379,103 @@ pub async fn read(
     Ok(Json(operation.response()))
 }
 
+#[derive(Deserialize, utoipa::ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PmDraftOperationQuery {
+    pub idempotency_key: String,
+}
+
+#[utoipa::path(get,path="/api/v1/projects/{project_id}/pm-drafts/operation",tag="task-chats",operation_id="read_pm_draft_creation_by_key",
+    params(("project_id"=Uuid,Path),("idempotency_key"=String,Query)),
+    responses((status=200,body=PmDraftCreationResponse),(status=400),(status=401),(status=403),(status=404),(status=422),(status=503)))]
+pub async fn read_by_key(
+    State(ctx): State<Arc<AppContext>>,
+    Extension(user): Extension<CurrentUser>,
+    subject: Option<Extension<VerifiedCentralSubject>>,
+    human: Option<Extension<VerifiedHumanSession>>,
+    Path(project): Path<Uuid>,
+    headers: HeaderMap,
+    Query(query): Query<PmDraftOperationQuery>,
+) -> Result<Json<PmDraftCreationResponse>, AppError> {
+    let Extension(_) = human.ok_or(AppError::Unauthorized)?;
+    let Extension(subject) = subject.ok_or(AppError::Unauthorized)?;
+    if !domain::pm_draft::valid_key(&query.idempotency_key) {
+        return Err(AppError::validation("invalid PM creation key"));
+    }
+    authorized_project(&ctx, &headers, project).await?;
+    let operation = ctx
+        .repo
+        .read_pm_draft_operation_by_key(user.id, &query.idempotency_key)
+        .await?;
+    if operation.project_id != project
+        || operation.tracker_instance_id != ctx.config.tracker.instance_id
+    {
+        return Err(AppError::not_found("PM creation operation", "command"));
+    }
+    if operation.owner_subject != subject.0 {
+        return Err(AppError::Forbidden);
+    }
+    Ok(Json(operation.response()))
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ContinuePmDraftRequest {}
+
+impl<'de> Deserialize<'de> for ContinuePmDraftRequest {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let fields =
+            std::collections::BTreeMap::<String, serde::de::IgnoredAny>::deserialize(deserializer)?;
+        if !fields.is_empty() {
+            return Err(serde::de::Error::custom("expected an empty JSON object"));
+        }
+        Ok(Self {})
+    }
+}
+
+#[utoipa::path(post,path="/api/v1/pm-drafts/operations/{operation_id}/continue",tag="task-chats",operation_id="continue_pm_draft_creation",
+    params(("operation_id"=Uuid,Path)),request_body=ContinuePmDraftRequest,
+    responses((status=202,body=PmDraftCreationResponse),(status=400),(status=401),(status=403),(status=404),(status=409),(status=422),(status=503)))]
+pub async fn continue_operation(
+    State(ctx): State<Arc<AppContext>>,
+    Extension(user): Extension<CurrentUser>,
+    subject: Option<Extension<VerifiedCentralSubject>>,
+    human: Option<Extension<VerifiedHumanSession>>,
+    Path(id): Path<Uuid>,
+    headers: HeaderMap,
+    Json(_request): Json<ContinuePmDraftRequest>,
+) -> Result<(StatusCode, Json<PmDraftCreationResponse>), AppError> {
+    let Extension(_) = human.ok_or(AppError::Unauthorized)?;
+    let Extension(subject) = subject.ok_or(AppError::Unauthorized)?;
+    let operation = ctx.repo.read_pm_draft_operation(id, user.id).await?;
+    if operation.owner_subject != subject.0
+        || operation.tracker_instance_id != ctx.config.tracker.instance_id
+    {
+        return Err(AppError::Forbidden);
+    }
+    authorized_project(&ctx, &headers, operation.project_id).await?;
+    if !ctx.config.tracker.pm_draft_creation_enabled
+        || !ctx
+            .config
+            .tracker
+            .pm_draft_project_ids
+            .contains(&operation.project_id)
+    {
+        return Err(AppError::Unavailable(
+            "PM Draft creation is not enabled for this project".into(),
+        ));
+    }
+    let gateway = HumanDraftGateway {
+        gateway: TrackerGateway::configured(&ctx.config.tracker)?,
+        headers,
+        config: ctx.config.clone(),
+    };
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(app::pm_draft::continue_creation(ctx.repo.as_ref(), &gateway, operation).await?),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -261,6 +486,75 @@ mod tests {
     const RESERVATION: &str = include_str!("../../tests/fixtures/pm-draft/reservation.json");
     const READBACK: &str = include_str!("../../tests/fixtures/pm-draft/readback.json");
     const REQUEST: &str = include_str!("../../tests/fixtures/pm-draft/reserve-request.json");
+
+    #[test]
+    fn project_pages_preserve_strict_identity_order_and_lookahead_cursor() {
+        let id = Uuid::from_u128(1);
+        let valid = serde_json::json!({"contract_version":1,"tracker_instance_id":"tracker","projects":[{"id":id,"key":"UX","name":"Portal"}],"next_cursor":null});
+        assert!(project_directory(valid.clone(), "tracker", None).is_ok());
+        for wrong in [
+            serde_json::json!({"contract_version":1,"tracker_instance_id":"tracker","projects":[]}),
+            serde_json::json!({"contract_version":1,"tracker_instance_id":"tracker","projects":[],"next_cursor":id}),
+            serde_json::json!({"contract_version":1,"tracker_instance_id":"tracker","projects":[{"id":id,"key":"UX","name":"Portal"},{"id":id,"key":"UX","name":"Portal"}],"next_cursor":null}),
+        ] {
+            assert!(project_directory(wrong, "tracker", None).is_err());
+        }
+        for (pointer, value) in [
+            ("/contract_version", serde_json::json!(2)),
+            ("/tracker_instance_id", serde_json::json!("foreign")),
+            ("/projects/0/id", serde_json::json!(Uuid::nil())),
+            (
+                "/projects/0/id",
+                serde_json::json!("AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA"),
+            ),
+            ("/next_cursor", serde_json::json!(id)),
+        ] {
+            let mut wrong = valid.clone();
+            *wrong.pointer_mut(pointer).unwrap() = value;
+            assert!(
+                project_directory(wrong, "tracker", None).is_err(),
+                "{pointer}"
+            );
+        }
+        assert!(project_directory(valid.clone(), "tracker", Some(id)).is_err());
+        let mut unknown = valid.clone();
+        unknown["projects"][0]["private_description"] = serde_json::json!("not allowed");
+        assert!(project_directory(unknown, "tracker", None).is_err());
+        let entries: Vec<_> = (1..=50)
+            .map(|id| serde_json::json!({"id":Uuid::from_u128(id),"key":"P","name":"Project"}))
+            .collect();
+        let page = serde_json::json!({"contract_version":1,"tracker_instance_id":"tracker","projects":entries,"next_cursor":Uuid::from_u128(50)});
+        assert!(project_directory(page, "tracker", None).is_ok());
+        for raw in [
+            "",
+            "00000000-0000-0000-0000-000000000000",
+            "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA",
+        ] {
+            assert!(
+                PmDraftProjectsQuery {
+                    after: Some(raw.into())
+                }
+                .cursor()
+                .is_err()
+            );
+        }
+    }
+
+    #[test]
+    fn continuation_requires_an_empty_object_not_a_struct_sequence() {
+        let spec: Value = serde_json::from_str(&crate::openapi_json()).unwrap();
+        assert_eq!(
+            spec["components"]["schemas"]["ContinuePmDraftRequest"]["additionalProperties"],
+            false
+        );
+        assert!(serde_json::from_str::<ContinuePmDraftRequest>("{}").is_ok());
+        for body in ["[]", "null", "true", "0", "\"\"", "{\"agent_id\":null}"] {
+            assert!(
+                serde_json::from_str::<ContinuePmDraftRequest>(body).is_err(),
+                "{body}"
+            );
+        }
+    }
 
     #[test]
     fn generated_openapi_operation_ids_are_unique() {
