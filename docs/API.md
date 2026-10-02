@@ -45,7 +45,11 @@ Base path: `/api/v1`.
   readback, and atomically creates a private task-bound PM chat. `202` means
   `awaiting_admission`, with `dispatch_allowed=false`, not an active PM run.
   Reuse the exact request/key after an interrupted response; changed payload is
-  `409`. Credentials are request-local and never saved for unattended retries.
+  `409`. Human credentials are request-local and never saved for unattended retries.
+  Each POST, including replay, first verifies the concrete agent's namespace via
+  fresh Workflow ownership readback with a separate server-only machine PAT.
+  Foreign project mapping is `409`; unavailable/denied/invalid ownership is `503`.
+  This is not full admission and does not enable dispatch. See [ENV](ENV.md).
 - `GET /pm-drafts/operations/{operation_id}`: owner-only, fresh human/project
   access; returns historical creation state, IDs and no original input or machine
   credentials. It is not current workflow or admission authority and never

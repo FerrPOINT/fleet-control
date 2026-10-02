@@ -57,12 +57,16 @@ fn tracker_event_credentials_are_server_only_and_redacted() {
 fn pm_config_debug_does_not_disclose_readback_credential() {
     let cfg = PmConfig {
         readback_token: "test-only-pm-readback-secret".into(),
+        namespace_read_pat: "test-only-namespace-read-secret".into(),
+        ..Default::default()
     };
     let debug = format!("{cfg:?}");
     assert!(!debug.contains(&cfg.readback_token));
+    assert!(!debug.contains(&cfg.namespace_read_pat));
     assert!(debug.contains("[REDACTED]"));
     let serialized = serde_json::to_value(&cfg).unwrap();
     assert!(serialized.get("readback_token").is_none());
+    assert!(serialized.get("namespace_read_pat").is_none());
 }
 
 #[test]

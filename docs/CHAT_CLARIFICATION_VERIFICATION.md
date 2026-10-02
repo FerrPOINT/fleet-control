@@ -3,6 +3,31 @@
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 
+## Fresh Namespace Guard (2026-10-02)
+
+The creation coordinator now requires uncached Workflow ownership readback before
+any Tracker read/write or chat continuation, including completed operation replay.
+The dedicated server PAT has no human/catalog/callback fallback and is redacted
+from config Debug/serialization. Exact issuer spelling (including explicit
+default ports), original provisioner and Tracker instance/project are checked.
+The guard creates neither ownership mapping nor admission/lease/runtime receipt.
+
+Rust 1.88.0 locked workspace tests passed 115 library and 38 actual PostgreSQL
+17.11 cases with both DB variables configured. Four client cases cover strict
+wire/authority/UUID/namespace validation, fresh reads and refusal after revocation,
+redirect/no retry, invalid/oversized/encoded bodies, chunked size limits, stalled
+body deadline and exact 128-byte multibyte instance boundary. Coordinator cases
+check actual call order: namespace denial prevents subsequent calls; recovered
+and completed replay do not repeat create/reserve POSTs; stale current assignment
+immediately after successful reserve acknowledgement prevents chat creation.
+
+These are controlled HTTP/identity fixtures and owned disposable PostgreSQL,
+not live Base/Workflow/Hermes acceptance. Three separately gated directory/SSE/
+historical migration cases were ignored in this run; earlier and CI evidence is
+recorded separately. Namespace mapping time is not lease freshness; full fenced
+predispatch admission, workspace/native readiness and first-step evidence remain
+open. No frontend composition, public API schema or migration changed.
+
 ## Accepted Base Reconciliation (2026-10-02)
 
 The candidate includes accepted Fleet main `11a22c1` and Base pin

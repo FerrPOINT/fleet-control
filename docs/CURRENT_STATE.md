@@ -29,6 +29,14 @@ Draft creation coordinator now persists an owner/key operation, reconciles Track
 creation and initial PM reservation, validates the immutable original input and
 creates that atomic chat. It ends at `awaiting_admission`, not a runtime launch.
 PM admission, initial delivery and real Backlog acceptance are not connected yet.
+The namespace follow-up now checks fresh trusted Workflow project ownership on
+every creation continuation before external writes, including completed replay.
+The dedicated read PAT stays server-only; exact issuer/provisioner/project checks,
+bounded body/deadline and no redirect/retry/proxy fallback fail closed. This is
+not a workspace/execution lease or admission receipt. The follow-up passed 115
+library and 38 actual PostgreSQL cases with both DB variables configured; three
+separately gated directory/SSE/historical tests remain ignored in this local run.
+No new UI composition, public DTO or database migration was introduced here.
 The coordinator follow-up passed 111 library tests and 37 real PostgreSQL cases;
 the separate fresh-DB migration/backfill/down-up test also passed. These are
 controlled repository/HTTP checks,

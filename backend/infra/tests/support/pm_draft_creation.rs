@@ -16,6 +16,10 @@ struct RemoteState {
     lose_reservation_response: bool,
     stale: bool,
     corrupt_input: bool,
+    namespace_revoked: bool,
+    namespace_reads: usize,
+    calls: Vec<&'static str>,
+    stale_after_reserve: bool,
 }
 
 #[derive(Default)]
@@ -25,14 +29,29 @@ struct Tracker {
 
 #[async_trait]
 impl PmDraftTracker for Tracker {
+    async fn verify_namespace(&self, op: &PmDraftOperation, agent: &Agent) -> Result<(), AppError> {
+        assert_eq!(agent.id, op.request.agent_id);
+        let mut state = self.state.lock().await;
+        state.namespace_reads += 1;
+        state.calls.push("namespace");
+        if state.namespace_revoked {
+            return Err(AppError::Unavailable(
+                "controlled namespace revocation".into(),
+            ));
+        }
+        Ok(())
+    }
     async fn find_draft(
         &self,
         _: &PmDraftOperation,
     ) -> Result<Option<TrackerCreatedDraft>, AppError> {
-        Ok(self.state.lock().await.draft.clone())
+        let mut state = self.state.lock().await;
+        state.calls.push("find");
+        Ok(state.draft.clone())
     }
     async fn create_draft(&self, op: &PmDraftOperation) -> Result<TrackerCreatedDraft, AppError> {
         let mut state = self.state.lock().await;
+        state.calls.push("create");
         if state.draft.is_none() {
             let task = Uuid::new_v4();
             state.draft = Some(TrackerCreatedDraft {
@@ -71,7 +90,8 @@ impl PmDraftTracker for Tracker {
         &self,
         _: &PmDraftOperation,
     ) -> Result<TrackerDraftInputReceipt, AppError> {
-        let state = self.state.lock().await;
+        let mut state = self.state.lock().await;
+        state.calls.push("input");
         let mut input = state.input.clone().unwrap();
         if state.corrupt_input {
             input.input.description.push_str("changed");
@@ -82,7 +102,8 @@ impl PmDraftTracker for Tracker {
         &self,
         op: &PmDraftOperation,
     ) -> Result<TrackerDraftReservationReadback, AppError> {
-        let state = self.state.lock().await;
+        let mut state = self.state.lock().await;
+        state.calls.push("read");
         let operation = state.reservation.clone().map(|result| TrackerDraftReservationOperation {
             idempotency_key: op.reservation_key(),
             request_sha256: pm_canonical_hash(&serde_json::json!({"operation":"reserve_pm_draft","payload":op.reservation_body()})),
@@ -107,6 +128,7 @@ impl PmDraftTracker for Tracker {
         op: &PmDraftOperation,
     ) -> Result<TrackerPmDraftReservation, AppError> {
         let mut state = self.state.lock().await;
+        state.calls.push("reserve");
         if state.reservation.is_none() {
             let assignment_id = Uuid::new_v4();
             let input = state.input.as_ref().unwrap().input.clone();
@@ -144,6 +166,7 @@ impl PmDraftTracker for Tracker {
                 "simulated unknown reservation acceptance".into(),
             ));
         }
+        state.stale |= state.stale_after_reserve;
         Ok(state.reservation.clone().unwrap())
     }
 }
@@ -173,7 +196,64 @@ async fn operation() -> Option<(PostgresFleetRepository, PmDraftOperation)> {
         reservation: None,
         session_id: None,
     };
+    sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap()
+        .execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE agents SET namespace_id='7' WHERE id=$1",
+            [operation.request.agent_id.into()],
+        ))
+        .await
+        .unwrap();
     Some((repo, operation))
+}
+
+#[tokio::test]
+async fn namespace_revocation_blocks_remote_mutations_and_replayed_creation() {
+    let Some((repo, candidate)) = operation().await else {
+        return;
+    };
+    let tracker = Tracker::default();
+    tracker.state.lock().await.namespace_revoked = true;
+    let saved = repo.reserve_pm_draft_operation(candidate).await.unwrap();
+    assert!(
+        continue_creation(&repo, &tracker, saved.clone())
+            .await
+            .is_err()
+    );
+    assert_eq!(tracker.state.lock().await.created, 0);
+    assert_eq!(tracker.state.lock().await.calls, ["namespace"]);
+    assert!(
+        repo.read_pm_draft_operation(saved.id, saved.owner_user_id)
+            .await
+            .unwrap()
+            .draft
+            .is_none()
+    );
+    tracker.state.lock().await.namespace_revoked = false;
+    let response = continue_creation(&repo, &tracker, saved.clone())
+        .await
+        .unwrap();
+    let replay = repo
+        .read_pm_draft_operation(saved.id, saved.owner_user_id)
+        .await
+        .unwrap();
+    let before_denial = tracker.state.lock().await.calls.len();
+    tracker.state.lock().await.namespace_revoked = true;
+    assert!(continue_creation(&repo, &tracker, replay).await.is_err());
+    let state = tracker.state.lock().await;
+    assert_eq!(
+        (state.created, state.reserved, state.namespace_reads),
+        (1, 1, 3)
+    );
+    assert_eq!(&state.calls[before_denial..], ["namespace"]);
+    assert!(
+        repo.list_session_agent_runs(response.session_id.unwrap())
+            .await
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[tokio::test]
@@ -250,6 +330,27 @@ async fn lost_remote_responses_recover_without_second_draft_reservation_or_run()
     ));
     let state = tracker.state.lock().await;
     assert_eq!((state.created, state.reserved), (1, 1));
+    assert_eq!(
+        state.calls,
+        [
+            "namespace",
+            "find",
+            "create",
+            "namespace",
+            "find",
+            "input",
+            "read",
+            "reserve",
+            "namespace",
+            "find",
+            "input",
+            "read",
+            "namespace",
+            "find",
+            "input",
+            "read",
+        ]
+    );
     drop(state);
     let session = result.session_id.unwrap();
     assert!(
@@ -379,6 +480,31 @@ async fn input_integrity_and_stale_current_assignment_block_chat_creation() {
         .await
         .is_err()
     );
+    let (repo, candidate) = operation().await.unwrap();
+    let tracker = Tracker::default();
+    tracker.state.lock().await.stale_after_reserve = true;
+    let saved = repo.reserve_pm_draft_operation(candidate).await.unwrap();
+    assert!(matches!(
+        continue_creation(&repo, &tracker, saved.clone()).await,
+        Err(AppError::Conflict(_))
+    ));
+    let proof = repo
+        .read_pm_draft_operation(saved.id, saved.owner_user_id)
+        .await
+        .unwrap();
+    assert!(proof.reservation.is_some() && proof.session_id.is_none());
+    assert_eq!(
+        tracker.state.lock().await.calls,
+        [
+            "namespace",
+            "find",
+            "create",
+            "input",
+            "read",
+            "reserve",
+            "read"
+        ]
+    );
 }
 
 #[tokio::test]
@@ -411,8 +537,18 @@ async fn public_creation_and_readback_require_human_owner_and_fresh_project_acce
         let (saved, readback, revoked, calls) = state.clone();
         let instance = instance.clone();
         async move {
-            assert_eq!(headers[header::AUTHORIZATION], "Bearer test-only-owner-session");
             calls.fetch_add(1, Ordering::SeqCst);
+            if uri.path() == "/api/pm/namespace-ownership/7" {
+                assert_eq!(headers[header::AUTHORIZATION], "Bearer sdlc_pat_test_only_namespace_read_credential");
+                assert_eq!(headers[header::CACHE_CONTROL], "no-cache, no-store");
+                return axum::Json(serde_json::json!({"ok":true,"result":{
+                    "contract_version":1,"ownership_ref":"11111111-1111-4111-8111-111111111111",
+                    "namespace_id":7,"tracker_instance_ref":instance,"tracker_project_ref":project,
+                    "authority_issuer":"http://authority.example.test",
+                    "provisioner_subject":"22222222-2222-4222-8222-222222222222",
+                    "created_at":"2026-10-02T00:00:00Z"}}));
+            }
+            assert_eq!(headers[header::AUTHORIZATION], "Bearer test-only-owner-session");
             if uri.path() == "/api/v1/sdlc/project-access" {
                 let projects = if revoked.load(Ordering::SeqCst) { vec![] } else { vec![project] };
                 return axum::Json(serde_json::json!({"contract_version":1,"tracker_instance_id":instance,"project_ids":projects}));
@@ -434,7 +570,11 @@ async fn public_creation_and_readback_require_human_owner_and_fresh_project_acce
     let upstream_server =
         tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
     let mut config = AppConfig::default();
-    config.tracker.url = url;
+    config.tracker.url = url.clone();
+    config.fleet.project_workflow_url = Some(url);
+    config.pm.namespace_read_pat = "sdlc_pat_test_only_namespace_read_credential".into();
+    config.pm.namespace_authority_issuer = "http://authority.example.test".into();
+    config.pm.namespace_provisioner_subject = "22222222-2222-4222-8222-222222222222".into();
     config.tracker.instance_id = saved.tracker_instance_id.clone();
     config.tracker.pm_draft_creation_enabled = true;
     config.tracker.pm_draft_project_ids = vec![project];
@@ -547,7 +687,7 @@ async fn public_creation_and_readback_require_human_owner_and_fresh_project_acce
     assert_eq!(value["next_step"], "admission");
     assert_eq!(value["dispatch_allowed"], false);
     assert!(value.get("description").is_none() && value.get("machine_subject").is_none());
-    assert_eq!(calls.load(Ordering::SeqCst), 4);
+    assert_eq!(calls.load(Ordering::SeqCst), 5);
     let response = client
         .get(format!(
             "{url}/owner/api/v1/pm-drafts/operations/{}",
@@ -577,7 +717,7 @@ async fn public_creation_and_readback_require_human_owner_and_fresh_project_acce
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
-    assert_eq!(calls.load(Ordering::SeqCst), 7);
+    assert_eq!(calls.load(Ordering::SeqCst), 8);
     assert!(
         repo.list_session_agent_runs(result.session_id.unwrap())
             .await

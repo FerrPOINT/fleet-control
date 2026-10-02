@@ -54,6 +54,24 @@ input provenance. Reservation operation hash is canonical JSON
 field must be present, UUID refs canonical, and historical reservation result
 equal to the fresh current assignment/owner CAS. The atomic chat primitive creates
 no prompt or run. Creation receipts do not bypass Workflow/Hermes admission.
+Before any Tracker creation/reservation/chat continuation, Fleet now reads
+`GET /api/pm/namespace-ownership/{namespace_id}` at its fixed configured Workflow
+origin with a dedicated machine read PAT. It checks the closed version-1 DTO,
+canonical namespace/UUIDs, exact Tracker instance/project, pinned authority issuer
+and original provisioner. No cache, redirect, retry, proxy-env or human/catalog
+credential fallback is allowed; the body is bounded to 16 KiB and five seconds.
+The guard runs even on creation replay and never treats a previously successful
+GET or the mapping's `created_at` as authority for execution. It does not persist
+an admission receipt or dispatch a run. Owner-only progress GET remains read-only.
+
+Full predispatch admission still requires Tracker current owner CAS and execution
+lease, Fleet actual effective config/chat/workspace receipts, Workflow execution
+claim and catalog/native first-step evidence, plus Base scoped credentials.
+Immutable namespace mapping is only one necessary prerequisite. Any future
+prepare/admit protocol must revalidate these producer receipts under fencing and
+recover unknown CAS outcomes through exact readback, without minting another
+execution/ordinal. Existing Workflow PM bind verifies a running callback after
+dispatch; it cannot be reused as a circular predispatch proof.
 Wait captures execution checkpoint. Old run must be terminal or safely stopped before new run;
 resume preserves execution, verifies Workflow rebind and rejects stale request/fencing/version.
 Unknown runtime acceptance requires readback; no blind redispatch or EOF-as-success.

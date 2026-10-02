@@ -17,8 +17,15 @@ Machine PATs and local human markers without verified central identity cannot
 create or recover the operation. Even admin/operator can only read their own
 creation ledger. Tracker rechecks the owner for every business request. Receipt
 readback exposes IDs/progress, not original content, machine identity or tokens.
-Credentials stay request-local; original input remains private DB/backup content.
+Human credentials stay request-local; original input remains private DB/backup content.
 Creation itself grants no runtime tool rights or admission capability.
+Every continuation additionally checks fresh Workflow namespace ownership with
+a dedicated server-only Base PAT. Human/session, catalog and callback credentials
+cannot substitute for that read PAT. The fixed origin, exact project/instance,
+authority issuer and original provisioner are checked; redirects, proxy-env,
+automatic retries, schema drift and unbounded bodies are refused. Errors do not
+echo upstream bodies or tokens. A saved mapping/chat is not a fenced execution
+lease. This check cannot authorize dispatch or bypass missing native readiness.
 
 - Central SSO uses verified ES256/JWKS and central-subject linkage. Local stored
   roles are authoritative; successful SSO does not grant admin. Standalone legacy

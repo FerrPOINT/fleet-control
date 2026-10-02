@@ -70,12 +70,25 @@ impl std::fmt::Debug for TrackerEventsConfig {
 pub struct PmConfig {
     #[serde(skip_serializing)]
     pub readback_token: String,
+    #[serde(skip_serializing)]
+    pub namespace_read_pat: String,
+    pub namespace_authority_issuer: String,
+    pub namespace_provisioner_subject: String,
 }
 
 impl std::fmt::Debug for PmConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PmConfig")
             .field("readback_token", &"[REDACTED]")
+            .field("namespace_read_pat", &"[REDACTED]")
+            .field(
+                "namespace_authority_issuer",
+                &self.namespace_authority_issuer,
+            )
+            .field(
+                "namespace_provisioner_subject",
+                &self.namespace_provisioner_subject,
+            )
             .finish()
     }
 }

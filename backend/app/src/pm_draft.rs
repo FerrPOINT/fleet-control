@@ -6,6 +6,12 @@ use shared::AppError;
 /// The caller supplies a freshly authorized human gateway, never persisted credentials.
 #[async_trait]
 pub trait PmDraftTracker: Send + Sync {
+    /// Fresh namespace ownership is necessary, but never authorizes Hermes dispatch.
+    async fn verify_namespace(
+        &self,
+        operation: &PmDraftOperation,
+        agent: &Agent,
+    ) -> Result<(), AppError>;
     async fn find_draft(
         &self,
         operation: &PmDraftOperation,
@@ -42,6 +48,7 @@ pub async fn continue_creation(
             "PM Draft requires a concrete non-archived Hermes PM",
         ));
     }
+    tracker.verify_namespace(&operation, &agent).await?;
     // Tracker owns idempotency. Readback is mandatory even when an earlier local write failed.
     let draft = match tracker.find_draft(&operation).await? {
         Some(draft) => draft,

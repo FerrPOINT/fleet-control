@@ -26,6 +26,25 @@ allowlist permits no creation. Tracker URL/instance and fresh verified human
 credentials are required; root/machine PATs cannot create on behalf of an owner.
 The coordinator does not persist credentials or retry without a human request.
 Disabling leaves task/chat receipts readable but rejects new continuation POSTs.
+Each continuation POST also requires a fresh namespace ownership read from the
+fixed `FLEET_CONTROL_FLEET__PROJECT_WORKFLOW_URL` root. The concrete PM agent's
+namespace must be a canonical positive decimal ID, already provisioned in
+Workflow for this exact Tracker instance/project. Configure these server values:
+
+- `FLEET_CONTROL_PM__NAMESPACE_READ_PAT`: dedicated Base PAT with
+  `project-workflow:read` and `project-workflow:namespace-owner:read:<namespace>`.
+  Do not reuse the catalog or PM callback token; never expose it to runtime/UI.
+- `FLEET_CONTROL_PM__NAMESPACE_AUTHORITY_ISSUER`: exact trusted Base issuer saved
+  in the ownership mapping (HTTP(S) root without trailing slash).
+- `FLEET_CONTROL_PM__NAMESPACE_PROVISIONER_SUBJECT`: canonical non-nil UUID of
+  the trusted original namespace provisioner, not the current reader.
+
+Workflow freshly introspects this PAT at Base. Missing/invalid config, denied
+access, redirects, outages, invalid/oversized responses and authority mismatch
+fail closed. A mapping for another Tracker project returns conflict. The
+coordinator does not provision mappings or mint PATs. Receipt GETs remain
+read-only and do not perform this continuation check. Mapping creation time is
+not an execution lease; passing this guard never grants runtime dispatch.
 Admission/native bundle/workspace readiness still must be implemented and verified
 before any PM runtime dispatch.
 

@@ -17,6 +17,7 @@ use uuid::Uuid;
 struct HumanDraftGateway {
     gateway: TrackerGateway,
     headers: HeaderMap,
+    config: Arc<shared::AppConfig>,
 }
 
 // Roundtrip equality rejects omitted explicit nulls and noncanonical UUID references.
@@ -79,6 +80,9 @@ impl HumanDraftGateway {
 
 #[async_trait]
 impl PmDraftTracker for HumanDraftGateway {
+    async fn verify_namespace(&self, op: &PmDraftOperation, agent: &Agent) -> Result<(), AppError> {
+        super::pm_namespace::verify(&self.config, op, agent).await
+    }
     async fn find_draft(
         &self,
         op: &PmDraftOperation,
@@ -202,6 +206,7 @@ pub async fn create(
     let gateway = HumanDraftGateway {
         gateway: TrackerGateway::configured(&ctx.config.tracker)?,
         headers,
+        config: ctx.config.clone(),
     };
     let operation = ctx
         .repo
@@ -480,6 +485,7 @@ mod tests {
         let gateway = HumanDraftGateway {
             gateway: TrackerGateway::configured(&config).unwrap(),
             headers,
+            config: Arc::new(shared::AppConfig::default()),
         };
         let op = PmDraftOperation {
             id: Uuid::new_v4(),

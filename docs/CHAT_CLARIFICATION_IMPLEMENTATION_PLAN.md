@@ -108,7 +108,13 @@ The follow-up implements trusted machine-only Hermes readback and exact-request
 approval decisions. Readback has authenticated test-runtime evidence; it is not
 an implemented PM dispatch/continuation orchestrator.
 
-Remaining before release: creation saga, runtime structured tools/scoped assignment,
+The owner-only Draft/input/reservation/chat creation coordinator is implemented;
+it persists stable operations and stops at `awaiting_admission`. Continuations
+now require fresh trusted Workflow namespace ownership before external writes.
+The namespace guard is not an admission receipt or a runtime readiness claim.
+
+Remaining before release: creation UI and full predispatch admission/dispatch saga,
+runtime structured tools/scoped assignment,
 live authenticated Tracker outbox acceptance, integration of trusted readback into PM delivery/rebind,
 prerequisite verifier, live restart/negative acceptance and current production screenshots.
 Task-bound chat ordinary send/steer is deliberately blocked until these contracts are wired.
