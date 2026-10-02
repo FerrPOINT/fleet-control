@@ -11,6 +11,15 @@ Task-bound chats reject unverified prompt/steer, reassignment and leader control
 The PM machine and readiness-verifier identities are separate from human consent.
 Autonomous rollout remains blocked until scoped runtime tools/readback are integrated.
 
+PM Draft creation additionally requires both fresh verified human-session and
+central-subject markers, a project allowlist and current Tracker project access.
+Machine PATs and local human markers without verified central identity cannot
+create or recover the operation. Even admin/operator can only read their own
+creation ledger. Tracker rechecks the owner for every business request. Receipt
+readback exposes IDs/progress, not original content, machine identity or tokens.
+Credentials stay request-local; original input remains private DB/backup content.
+Creation itself grants no runtime tool rights or admission capability.
+
 - Central SSO uses verified ES256/JWKS and central-subject linkage. Local stored
   roles are authoritative; successful SSO does not grant admin. Standalone legacy
   authentication uses HMAC JWT access tokens and HttpOnly refresh cookies.

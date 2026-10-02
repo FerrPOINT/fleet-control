@@ -3,6 +3,7 @@ mod chats_directory;
 mod config_revisions;
 pub mod entities;
 pub mod pm_credentials;
+mod pm_draft;
 mod pm_execution;
 pub mod runtime;
 mod task_chats;
@@ -705,6 +706,27 @@ impl FleetRepository for PostgresFleetRepository {
         owner_user_id: Uuid,
     ) -> Result<AgentSession, AppError> {
         self.persist_pm_draft_chat(command, owner_user_id).await
+    }
+    async fn reserve_pm_draft_operation(
+        &self,
+        operation: domain::PmDraftOperation,
+    ) -> Result<domain::PmDraftOperation, AppError> {
+        self.reserve_pm_creation(operation).await
+    }
+    async fn read_pm_draft_operation(
+        &self,
+        id: Uuid,
+        owner: Uuid,
+    ) -> Result<domain::PmDraftOperation, AppError> {
+        self.read_pm_creation(id, owner).await
+    }
+    async fn record_pm_draft_proof(
+        &self,
+        id: Uuid,
+        owner: Uuid,
+        proof: domain::PmDraftProof,
+    ) -> Result<domain::PmDraftOperation, AppError> {
+        self.persist_pm_creation_proof(id, owner, proof).await
     }
     async fn session_message_history(
         &self,

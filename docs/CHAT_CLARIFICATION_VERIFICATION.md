@@ -3,6 +3,35 @@
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 
+## Persisted PM Draft Creation (2026-10-02)
+
+Owner/key-unique ledger, strict Tracker creation/input/reservation readback and
+atomic private task-bound chat are implemented behind a disabled-by-default
+project allowlist. Creation returns awaiting_admission with dispatch_allowed=false;
+there is no initial prompt or Hermes run. No human credentials are persisted.
+
+The WSL workspace suite passed 111 library tests and 37 actual PostgreSQL 17.11
+cases with both DB variables configured. Four new PG cases cover lost creation
+and reservation responses, independent repository recreation, concurrent replay,
+changed payload, immutable receipts, stale current assignment, foreign-owner read
+and no generic prompt/run escape. Actual Fleet TCP HTTP handlers additionally
+reject machine/local-without-central consent, foreign-admin receipt access and
+revoked project access. Upstream Tracker and identity markers are controlled test
+fixtures in these cases, not a live Central Auth/Tracker/Hermes acceptance.
+
+Exact captured Tracker HTTP reservation/readback bytes from source
+`e8ba23b1a19c3527f4b14bd8d530f0db9870d40b` decode without hash rewriting. Tests pin
+their body digests, the reserve_pm_draft command envelope hash, explicit nulls,
+canonical UUIDs, opaque machine subjects, fixed origin/no retry/no redirect and
+safe rejection classes. The captured requests used synthetic identities.
+Generated OpenAPI operation IDs are also checked for uniqueness. Formatting,
+all-target check and strict Clippy passed; generated client/typecheck/lint/format,
+215 frontend tests, build, seven-shape contract check, 135-screen manifest and
+89-document link check passed. No production screen composition changed here;
+fixture image evidence remains separate from actual PM delivery.
+The separate fresh-DB migration/backfill/down-up test also passed; production
+down/up is not a recovery method and old preview migration records are not parity.
+
 ## History Catch-Up Follow-Up (2026-10-02)
 
 History invalidation now waits for an in-flight page without cancelling it, then
@@ -282,7 +311,8 @@ the private GitLab remote denied access. The development capabilities 503 is
 intentional fail-closed behavior, not live PM readiness. No fixture manifest or
 guessed compatibility hash may substitute for that dependency.
 
-Creation saga, scoped PM structured tools, Tracker outbox/Fleet inbox projection, live
+Admitted initial runtime delivery, scoped PM structured tools, live authenticated
+Tracker outbox/Fleet inbox projection, live
 Hermes PM verification and workflow resume/rebind, independent readiness verifier,
 live directory and restart/denial
 acceptance remain open in [GAP_REGISTER](GAP_REGISTER.md).

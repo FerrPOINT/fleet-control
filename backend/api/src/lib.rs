@@ -80,6 +80,8 @@ pub mod routes;
         routes::task_chats::confirm,
         routes::task_chats::history,
         routes::task_chats::controls,
+        routes::pm_drafts::create,
+        routes::pm_drafts::read,
         routes::workflows::list_workflow_bindings,
         routes::workflows::get_workflow_catalog,
         routes::workflows::rebind_workflow_binding,
@@ -125,6 +127,10 @@ pub mod routes;
         domain::AgentSdlcReadiness,
         domain::SessionEvent,
         domain::TaskChatBinding,
+        domain::CreatePmDraftRequest,
+        domain::PmDraftCreationResponse,
+        domain::PmDraftCreationState,
+        domain::PmDraftCreationStep,
         domain::BindTaskChatRequest,
         domain::SessionTaskContext,
         domain::TrackerTaskContext,
@@ -362,6 +368,14 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
             "/api/v1/sessions/{session_id}/messages",
             get(routes::sessions::list_session_messages)
                 .post(routes::sessions::create_session_message),
+        )
+        .route(
+            "/api/v1/projects/{project_id}/pm-drafts",
+            post(routes::pm_drafts::create),
+        )
+        .route(
+            "/api/v1/pm-drafts/operations/{operation_id}",
+            get(routes::pm_drafts::read),
         )
         .route(
             "/api/v1/sessions/{session_id}/task-binding",

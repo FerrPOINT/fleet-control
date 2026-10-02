@@ -20,6 +20,16 @@ restoring the order column or a reviewed forward migration, not blind down/up.
 
 ## SDLC Foundation Recovery
 
+PM Draft creation recovery is owner-driven: repeat the same project, agent,
+title, original description and idempotency key with a freshly verified human
+session. Do not invent a second key after a timeout. Tracker operation readback
+precedes same-key writes; unknown acceptance retains earlier local receipts.
+If ownership, original input or current assignment no longer matches, stop and
+investigate the conflict. Do not delete the creation ledger or rewrite receipts.
+GET operation readback is historical only and does not grant runtime authority.
+The completed creation response remains `awaiting_admission`; no prompt has been
+delivered. Operator/admin cannot resume as the owner or confirm their requirements.
+
 Automatic SDLC is blocked; operator actions do not publish Tracker requirements
 or bypass workflow gates. See [current scope](SDLC_IMPLEMENTATION.md).
 

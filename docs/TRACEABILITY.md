@@ -5,7 +5,7 @@
 | Requirement | Evidence / Remaining Gate |
 | --- | --- |
 | Seven independent specializations | `SdlcRole`, migration 000009, create/edit; no seven-agent live acceptance yet |
-| Agent -> own chats | `/chats/:sessionId`, immutable task binding, PostgreSQL concurrency/history tests; real PM creation saga pending |
+| Agent -> own chats | `/chats/:sessionId`, immutable task binding, owner-only persisted Draft/reservation/chat coordinator; actual admitted PM start pending |
 | No new leader orchestration | Main nav and Chats controls exclude it; legacy routes/history preserved |
 | Per-user visibility | Default backend filter, private message authorization regression, SSO stored-role tests |
 | No duplicate unknown dispatch | Transactional outbox, agent capacity regression; crashed acceptance recovery pending |
@@ -19,7 +19,7 @@
 
 | Requirement | Implementation / evidence | Remaining |
 | --- | --- | --- |
-| Immutable instance/task/concrete-agent chat | migration 000010, task_chats repository, binding concurrency and race tests | Restart-safe Draft/assignment/start saga |
+| Immutable instance/task/concrete-agent chat | migration 000010, atomic binding and owner/key creation ledger, restart/concurrency/lost-response tests | Admitted runtime dispatch and live saga acceptance |
 | Owner-only answer and exact consent | Central-subject gateway and strict Tracker SDLC commands, read-only and exact-hash UI tests | Real identity/project live denial acceptance |
 | Questions, versions, no preselection | Generated DTOs, single/multiple/text validators, stale draft tests | Structured PM tools and real question publication |
 | No unknown-command reinterpretation | Frozen message/answer payloads and keys, uncertain-steer regression | PM delivery readback/rebind |

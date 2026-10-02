@@ -24,10 +24,14 @@ delivery, resume or live Backlog acceptance.
 
 The internal PM Draft chat repository operation now commits private chat, exact
 binding, two participants and one audit/event atomically. It creates no prompt or
-runtime run; a bound chat cannot use ordinary message dispatch. The public Draft
-creation saga and admission coordinator are not connected by this operation.
-Its follow-up passed 106 library tests and 33 real PostgreSQL cases; focused
-concurrency/restart/rollback tests also passed. These are repository-level checks,
+runtime run; a bound chat cannot use ordinary message dispatch. An opt-in public
+Draft creation coordinator now persists an owner/key operation, reconciles Tracker
+creation and initial PM reservation, validates the immutable original input and
+creates that atomic chat. It ends at `awaiting_admission`, not a runtime launch.
+PM admission, initial delivery and real Backlog acceptance are not connected yet.
+The coordinator follow-up passed 111 library tests and 37 real PostgreSQL cases;
+the separate fresh-DB migration/backfill/down-up test also passed. These are
+controlled repository/HTTP checks,
 not a real human/PM/Tracker/Workflow acceptance.
 
 Production `/chats/:sessionId` now has dialogue/clarification/requirements controllers,

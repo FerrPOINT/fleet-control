@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod pm_draft;
 
 use async_trait::async_trait;
 use domain::{
@@ -90,6 +91,33 @@ pub struct RuntimeSessionSnapshot {
 
 #[async_trait]
 pub trait FleetRepository: Send + Sync {
+    async fn reserve_pm_draft_operation(
+        &self,
+        _operation: domain::PmDraftOperation,
+    ) -> Result<domain::PmDraftOperation, AppError> {
+        Err(AppError::Unavailable(
+            "PM Draft creation is unavailable".into(),
+        ))
+    }
+    async fn read_pm_draft_operation(
+        &self,
+        _id: Uuid,
+        _owner: Uuid,
+    ) -> Result<domain::PmDraftOperation, AppError> {
+        Err(AppError::Unavailable(
+            "PM Draft creation is unavailable".into(),
+        ))
+    }
+    async fn record_pm_draft_proof(
+        &self,
+        _id: Uuid,
+        _owner: Uuid,
+        _proof: domain::PmDraftProof,
+    ) -> Result<domain::PmDraftOperation, AppError> {
+        Err(AppError::Unavailable(
+            "PM Draft creation is unavailable".into(),
+        ))
+    }
     async fn list_session_approvals(
         &self,
         _session_id: Uuid,

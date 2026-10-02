@@ -10,6 +10,25 @@ origin/TLS as appropriate. Task-bound transcript reads also require current Trac
 project access; an unavailable integration cannot bypass that check. Unbound private
 transcripts remain independent. These variables do not enable autonomous PM execution.
 
+## PM Draft Creation
+
+Disabled by default. `FLEET_CONTROL_TRACKER__PM_DRAFT_CREATION_ENABLED=true`
+enables only the creation endpoint, not runtime dispatch. Also configure the
+explicit compatible test-project allowlist in the Fleet TOML configuration:
+
+```toml
+[tracker]
+pm_draft_project_ids = ["00000000-0000-4000-8000-000000000001"]
+```
+
+Replace the example with an actual authorized Tracker project UUID. An empty
+allowlist permits no creation. Tracker URL/instance and fresh verified human
+credentials are required; root/machine PATs cannot create on behalf of an owner.
+The coordinator does not persist credentials or retry without a human request.
+Disabling leaves task/chat receipts readable but rejects new continuation POSTs.
+Admission/native bundle/workspace readiness still must be implemented and verified
+before any PM runtime dispatch.
+
 ## Tracker Metadata Polling
 
 Disabled by default; configure only for a compatible test project with immutable

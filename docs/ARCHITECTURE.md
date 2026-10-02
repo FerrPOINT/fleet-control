@@ -16,6 +16,15 @@ trusted runtime readback provider and outbox/inbox projection remain integration
 See [plan](CHAT_CLARIFICATION_IMPLEMENTATION_PLAN.md) and
 [contract](contracts/CHAT_CLARIFICATION_CONTRACT.md).
 
+Opt-in PM Draft creation is a persisted request-driven coordinator, not a worker
+with saved user credentials. Tracker owns Draft/original input/initial reservation;
+Fleet stores immutable receipts and creates the exact private PM chat atomically.
+Network calls are outside DB transactions. Each retry reads authoritative Tracker
+operations and current owner CAS; stale history cannot authorize a new binding.
+Creation ends at awaiting admission, creates no runtime run and does not schedule
+business transitions. Real Workflow/native-bundle/workspace admission and initial
+Hermes delivery remain required before the approved vertical scenario is complete.
+
 Fleet Control keeps a small control-plane core:
 
 ```text

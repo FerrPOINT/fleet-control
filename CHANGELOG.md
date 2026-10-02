@@ -2,9 +2,15 @@
 
 ## [Unreleased]
 
+- Add disabled-by-default owner-driven PM Draft creation with a persisted
+  operation ledger, authoritative Tracker readback/input/reservation checks and
+  atomic task-bound chat. Recover lost responses with the same command keys;
+  reject stale/changed receipts. Creation stops at awaiting_admission and never
+  dispatches a PM runtime prompt. Generate the two public routes from Rust.
+
 - Add an internal atomic PM Draft chat/binding operation with durable replay,
   exact human owner and real Hermes PM checks. It creates no prompt or runtime
-  run; public creation saga and admission coordination remain separate work.
+  run; runtime admission and initial delivery remain separate work.
 
 - Preserve new transcript allocation order across host clock rollback without
   changing public message DTOs or UUID cursors. Merge overlapping history pages

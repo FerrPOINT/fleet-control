@@ -25,6 +25,8 @@ pub struct AppConfig {
 pub struct TrackerConfig {
     pub url: String,
     pub instance_id: String,
+    pub pm_draft_creation_enabled: bool,
+    pub pm_draft_project_ids: Vec<uuid::Uuid>,
     pub events: TrackerEventsConfig,
 }
 

@@ -1355,6 +1355,111 @@
         }
       }
     },
+    "/api/v1/pm-drafts/operations/{operation_id}": {
+      "get": {
+        "tags": [
+          "task-chats"
+        ],
+        "operationId": "read_pm_draft_creation",
+        "parameters": [
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PmDraftCreationResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/pm-drafts": {
+      "post": {
+        "tags": [
+          "task-chats"
+        ],
+        "operationId": "create_pm_draft",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePmDraftRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PmDraftCreationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          },
+          "422": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/api/v1/runtime-templates": {
       "get": {
         "tags": [
@@ -4558,6 +4663,31 @@
           }
         }
       },
+      "CreatePmDraftRequest": {
+        "type": "object",
+        "required": [
+          "agent_id",
+          "title",
+          "description",
+          "idempotency_key"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "description": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "CreateSessionDelegationRequest": {
         "type": "object",
         "required": [
@@ -5258,6 +5388,71 @@
           "tool_event",
           "system_event",
           "control"
+        ]
+      },
+      "PmDraftCreationResponse": {
+        "type": "object",
+        "required": [
+          "operation_id",
+          "project_id",
+          "agent_id",
+          "state",
+          "next_step",
+          "dispatch_allowed"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dispatch_allowed": {
+            "type": "boolean"
+          },
+          "next_step": {
+            "$ref": "#/components/schemas/PmDraftCreationStep"
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "project_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "session_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "state": {
+            "$ref": "#/components/schemas/PmDraftCreationState"
+          },
+          "task_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "PmDraftCreationState": {
+        "type": "string",
+        "enum": [
+          "incomplete",
+          "awaiting_admission"
+        ]
+      },
+      "PmDraftCreationStep": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "input",
+          "reservation",
+          "chat",
+          "admission"
         ]
       },
       "PmExecutionIdentity": {

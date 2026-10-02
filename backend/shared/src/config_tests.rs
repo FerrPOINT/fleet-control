@@ -27,6 +27,8 @@ fn tracker_configuration_defaults_and_round_trips_without_process_environment() 
     legacy.as_object_mut().unwrap().remove("tracker");
     let restored: AppConfig = serde_json::from_value(legacy).unwrap();
     assert!(restored.tracker.url.is_empty());
+    assert!(!restored.tracker.pm_draft_creation_enabled);
+    assert!(restored.tracker.pm_draft_project_ids.is_empty());
     assert!(!restored.tracker.events.enabled);
     let cfg: TrackerConfig = serde_json::from_value(serde_json::json!({
         "url":"http://tracker.example.test:8080", "instance_id":"tracker-one"

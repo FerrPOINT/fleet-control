@@ -6,6 +6,8 @@ use uuid::Uuid;
 
 pub mod task_chats;
 pub use task_chats::*;
+pub mod pm_draft;
+pub use pm_draft::*;
 pub mod pm_execution;
 pub use pm_execution::*;
 pub mod chats_directory;

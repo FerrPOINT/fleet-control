@@ -12,6 +12,11 @@ durable per-session stream cursor, owner checks, terminal readback после EO
 config revisions/drain. Реализована immutable-привязка Tracker instance/task/agent и
 production-вкладки диалога, уточнений и требований. Автономный SDLC и реальное
 продолжение PM после ответа пока не реализованы.
+Opt-in создание PM Draft теперь сохраняет операцию, сверяет исходный input и
+актуальное резервирование в Tracker и создаёт private task-bound чат атомарно.
+Результат `awaiting_admission` не означает доставку сообщения или запуск PM.
+Повтор выполняется тем же владельцем с тем же ключом; runtime admission остаётся
+отдельной незавершённой частью сценария.
 Далее сохранена спецификация и аудит legacy-раздела на прежнем HEAD; её open gaps
 нельзя автоматически считать закрытыми новым UI. Текущий статус и оставшаяся работа:
 [SDLC implementation](SDLC_IMPLEMENTATION.md).

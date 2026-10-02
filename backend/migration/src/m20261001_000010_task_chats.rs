@@ -18,6 +18,40 @@ impl MigrationTrait for Migration {
                 UNIQUE(tracker_instance_id, task_id, agent_id)
              );
              CREATE INDEX task_chat_projection_scan_idx ON task_chat_bindings(tracker_instance_id,session_id) INCLUDE(project_id);
+             CREATE TABLE pm_draft_creation_operations (
+                id uuid PRIMARY KEY,
+                owner_user_id uuid NOT NULL REFERENCES users(id),
+                idempotency_key text NOT NULL CHECK (length(idempotency_key) BETWEEN 1 AND 128),
+                operation jsonb NOT NULL,
+                created_at timestamptz NOT NULL DEFAULT now(),
+                updated_at timestamptz NOT NULL DEFAULT now(),
+                UNIQUE(owner_user_id,idempotency_key),
+                CHECK (operation->>'id' = id::text AND operation->>'owner_user_id' = owner_user_id::text
+                    AND operation->'request'->>'idempotency_key' = idempotency_key),
+                CHECK (operation->'input' = 'null'::jsonb OR operation->'draft' <> 'null'::jsonb),
+                CHECK (operation->'reservation' = 'null'::jsonb OR operation->'input' <> 'null'::jsonb),
+                CHECK (operation->'session_id' = 'null'::jsonb OR operation->'reservation' <> 'null'::jsonb)
+             );
+             CREATE FUNCTION fleet_guard_pm_creation() RETURNS trigger AS $$
+             BEGIN
+                IF TG_OP = 'DELETE'
+                   OR NEW.id IS DISTINCT FROM OLD.id
+                   OR NEW.owner_user_id IS DISTINCT FROM OLD.owner_user_id
+                   OR NEW.idempotency_key IS DISTINCT FROM OLD.idempotency_key
+                   OR NEW.created_at IS DISTINCT FROM OLD.created_at
+                   OR (NEW.operation - 'draft' - 'input' - 'reservation' - 'session_id')
+                     IS DISTINCT FROM (OLD.operation - 'draft' - 'input' - 'reservation' - 'session_id')
+                   OR (OLD.operation->'draft' <> 'null'::jsonb AND NEW.operation->'draft' IS DISTINCT FROM OLD.operation->'draft')
+                   OR (OLD.operation->'input' <> 'null'::jsonb AND NEW.operation->'input' IS DISTINCT FROM OLD.operation->'input')
+                   OR (OLD.operation->'reservation' <> 'null'::jsonb AND NEW.operation->'reservation' IS DISTINCT FROM OLD.operation->'reservation')
+                   OR (OLD.operation->'session_id' <> 'null'::jsonb AND NEW.operation->'session_id' IS DISTINCT FROM OLD.operation->'session_id') THEN
+                    RAISE EXCEPTION 'PM creation identity and receipts are immutable' USING ERRCODE = '23514';
+                END IF;
+                RETURN NEW;
+             END;
+             $$ LANGUAGE plpgsql;
+             CREATE TRIGGER fleet_pm_creation_guard BEFORE UPDATE OR DELETE ON pm_draft_creation_operations
+                FOR EACH ROW EXECUTE FUNCTION fleet_guard_pm_creation();
              CREATE TABLE tracker_event_cursors (
                 session_id uuid PRIMARY KEY REFERENCES task_chat_bindings(session_id),
                 sequence bigint NOT NULL DEFAULT 0 CHECK (sequence >= 0),
@@ -160,7 +194,8 @@ impl MigrationTrait for Migration {
         manager
             .get_connection()
             .execute_unprepared(
-                "DROP TABLE runtime_approval_decisions; DROP FUNCTION fleet_guard_approval_decision(); DROP TABLE pm_run_bindings; DROP FUNCTION fleet_guard_pm_run();
+                "DROP TABLE pm_draft_creation_operations; DROP FUNCTION fleet_guard_pm_creation();
+             DROP TABLE runtime_approval_decisions; DROP FUNCTION fleet_guard_approval_decision(); DROP TABLE pm_run_bindings; DROP FUNCTION fleet_guard_pm_run();
              DROP TABLE tracker_event_inbox; DROP FUNCTION fleet_guard_tracker_receipt(); DROP TABLE tracker_event_cursors;
              DROP FUNCTION fleet_guard_tracker_projection();
              DROP TRIGGER fleet_task_chat_identity ON agent_sessions;

@@ -65,6 +65,7 @@ for PostgreSQL evidence and the remaining live-integration gates.
 | Технические агенты | Создание, архивирование, profiles, skills, конфигурация, workspace/storage view и сессии. |
 | Runtime lifecycle | Provision, start, stop, restart, health и logs через runtime adapters. |
 | Сессии | Private-by-default task sessions, привязка к лидеру, control-message mirrors и runtime run links. |
+| PM Draft | Opt-in owner creation: Tracker Draft/reservation и private task-bound чат с восстановлением. Ожидание admission, без запуска PM. |
 | Workflows | Namespace/workflow bindings (source of truth — `project-workflow`). |
 | Deployments | Runtime templates и deployment jobs. |
 | Алерты | Fleet alerts page с bulk runtime update panel. |

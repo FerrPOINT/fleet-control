@@ -44,6 +44,16 @@ outbox and Fleet inbox use stable event IDs. Per-session durable event cursor is
 Cross-service command replay uses canonical payload hash and persisted result.
 
 Creation is a resumable Draft/binding/dispatch saga. PM starts only after links are saved.
+The implemented owner-only creation slice stops at `awaiting_admission` with
+`dispatch_allowed=false`. Fleet persists the request before calling Tracker,
+derives stable per-operation command keys, and always reads authoritative Draft
+and reservation operations before retrying writes. The original title/description
+must match the immutable Tracker input snapshot/hash; mutable issue edits are not
+input provenance. Reservation operation hash is canonical JSON
+`{"operation":"reserve_pm_draft","payload":command}`. Every nullable readback
+field must be present, UUID refs canonical, and historical reservation result
+equal to the fresh current assignment/owner CAS. The atomic chat primitive creates
+no prompt or run. Creation receipts do not bypass Workflow/Hermes admission.
 Wait captures execution checkpoint. Old run must be terminal or safely stopped before new run;
 resume preserves execution, verifies Workflow rebind and rejects stale request/fencing/version.
 Unknown runtime acceptance requires readback; no blind redispatch or EOF-as-success.

@@ -15,7 +15,7 @@ use shared::AppError;
 use std::{sync::Arc, time::Duration};
 use uuid::Uuid;
 
-struct TrackerGateway {
+pub(super) struct TrackerGateway {
     url: reqwest::Url,
     instance: String,
 }
@@ -83,7 +83,7 @@ pub async fn controls(
 }
 
 impl TrackerGateway {
-    fn configured(config: &shared::config::TrackerConfig) -> Result<Self, AppError> {
+    pub(super) fn configured(config: &shared::config::TrackerConfig) -> Result<Self, AppError> {
         if config.url.is_empty() || config.instance_id.is_empty() {
             return Err(AppError::Unavailable(
                 "Task Tracker integration is not configured".into(),
@@ -117,6 +117,18 @@ impl TrackerGateway {
         headers: &HeaderMap,
         body: Option<Value>,
     ) -> Result<(StatusCode, Value), AppError> {
+        let task = task.to_string();
+        let mut path = vec!["api", "v1", "issues", task.as_str(), "sdlc"];
+        path.extend(segments.iter().map(String::as_str));
+        self.request_path(&path, None, headers, body).await
+    }
+    pub(super) async fn request_path(
+        &self,
+        segments: &[&str],
+        query: Option<(&str, &str)>,
+        headers: &HeaderMap,
+        body: Option<Value>,
+    ) -> Result<(StatusCode, Value), AppError> {
         let token = headers
             .get(header::AUTHORIZATION)
             .and_then(|value| value.to_str().ok())
@@ -125,11 +137,15 @@ impl TrackerGateway {
         let mut url = self.url.clone();
         url.path_segments_mut()
             .map_err(|_| AppError::validation("invalid Tracker base"))?
-            .extend(["api", "v1", "issues", &task.to_string(), "sdlc"])
-            .extend(segments.iter().map(String::as_str));
+            .extend(segments.iter().copied());
+        if let Some((name, value)) = query {
+            url.query_pairs_mut().append_pair(name, value);
+        }
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(10))
             .redirect(reqwest::redirect::Policy::none())
+            .retry(reqwest::retry::never())
+            .no_proxy()
             .build()
             .map_err(AppError::internal)?;
         let request = match body {

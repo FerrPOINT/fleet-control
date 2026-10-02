@@ -17,6 +17,18 @@ are not implemented here yet. See [scope and blockers](SDLC_IMPLEMENTATION.md).
 
 ## PM Chat Bindings
 
+`pm_draft_creation_operations` is the owner/key-unique creation ledger in pending
+migration 000010. It stores immutable owner/project/agent/input and monotonically
+added Tracker Draft, original-input, reservation and atomic chat receipts.
+Operation UUIDs derive distinct stable Tracker creation/reservation and Fleet chat
+keys. Foreign owners cannot read the row; disabled or remapped local central users
+cannot advance it. Row locks serialize receipt recording, not network requests.
+Database guards prohibit changing/removing acknowledged receipts. Unknown remote
+outcomes leave earlier stages intact and are reconciled with authenticated Tracker
+readback before any same-key write. No bearer/PAT/runtime token is stored. Original
+input is private task content and must be protected in DB/backups like transcripts.
+The ledger is not a second scheduler, business stage authority or admission proof.
+
 Internal `create_pm_draft_chat` creates the private session, immutable Tracker
 binding, owner/primary participants, audit and durable `task.bound` event in one
 transaction. It is not a public creation endpoint or a Tracker authority proof;
@@ -48,7 +60,8 @@ transactional migration, avoiding synthetic transcript events for old records.
 Questions, answers, immutable requirements revisions and confirmations live only in
 Tracker. Fleet reads them through an authorized gateway and an opt-in authenticated
 metadata projection worker. Neither projection nor this migration performs a PM
-assignment/resume saga or dispatches prompts.
+resume saga or dispatches prompts. The owner-issued initial Draft reservation is
+coordinated separately by the creation ledger; runtime admission remains unwired.
 
 Tables:
 

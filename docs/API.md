@@ -27,6 +27,18 @@ Base path: `/api/v1`.
 
 ## PM Chat Gateway
 
+- `POST /projects/{project_id}/pm-drafts`: opt-in verified human owner creation;
+  accepts `agent_id`, `title`, `description`, `idempotency_key`. The operation is
+  persisted before Tracker HTTP, recovers Draft/reservation through authoritative
+  readback, and atomically creates a private task-bound PM chat. `202` means
+  `awaiting_admission`, with `dispatch_allowed=false`, not an active PM run.
+  Reuse the exact request/key after an interrupted response; changed payload is
+  `409`. Credentials are request-local and never saved for unattended retries.
+- `GET /pm-drafts/operations/{operation_id}`: owner-only, fresh human/project
+  access; returns historical creation state, IDs and no original input or machine
+  credentials. It is not current workflow or admission authority and never
+  starts a run. Reading completed history remains possible with creation disabled.
+
 - `POST /sessions/{id}/task-binding`: explicit owner binding to assigned concrete PM.
 - `GET /sessions/{id}/task-context`: verified binding and Tracker context; unbound chat
   returns null context, dependency failure is not an empty successful SDLC response.
@@ -45,6 +57,8 @@ Questions/revisions remain Tracker-owned JSON envelopes documented by the cross-
 contract, not a second Fleet database. OpenAPI generates the Fleet routes and response DTOs;
 the gateway rejects malformed successful responses and versions unsafe for JavaScript.
 `pnpm chat:contract` verifies seven wire shapes against the accepted Tracker v1 snapshot.
+The separate PM Draft boundary checks exact captured Tracker reservation/readback
+bytes, required nulls, canonical UUIDs and the canonical command envelope hash.
 Use `node scripts/verify-chat-contract.mjs --tracker <tracker-openapi.json>` to check the
 actual sibling build before rollout. Wire checks cover field names, required fields,
 types/nullability, UUID/date formats and enums; semantic gates have separate backend tests.

@@ -21,7 +21,7 @@ These do not mean the complete approved plan is done.
 
 | Gap | Exit criteria |
 | --- | --- |
-| Draft/assignment/chat/initial dispatch creation saga | Internal atomic private PM chat/binding creation is implemented without prompts or runs. Public coordinator, authoritative Tracker readback/reservation, persisted operation state and restart-safe actual PM start after admission remain open. |
+| Draft/assignment/chat/initial dispatch creation saga | Owner-only opt-in coordinator and persisted operation now reconcile authoritative Tracker Draft/input/initial reservation and create the atomic private PM chat. It stops at awaiting_admission without prompts/runs. Creation UI entrypoint, actual admission, first-step gate and restart-safe initial Hermes delivery remain open. |
 | PM structured tools and runtime-scoped machine credentials | Server-only bounded Base delegation client implemented; coordinator issuance ledger and runtime tool handoff remain. Real Hermes publishes questions/revisions through assigned machine API, no prose parsing. |
 | Tracker outbox -> Fleet inbox/mirror projection | Transactional inbox/cursor/mirror and opt-in authenticated background poller implemented. Actual PostgreSQL replay and HTTP fault tests passed; live Base/Tracker crash/reconnect acceptance remains. Projection is not PM delivery. |
 | Bounded Tracker event projection | Decoder, immutable format pins and byte-budgeted producer are implemented in separate Draft PRs. Actual Tracker HTTP snapshots verify all nine source digests; poller tests cover oversized/invalid pages without cursor progress. Live authenticated large/multibyte recovery remains. No implicit legacy conversion. |

@@ -9,6 +9,7 @@ pub mod executors;
 pub mod health;
 pub mod leaders;
 pub mod logs;
+pub mod pm_drafts;
 pub mod pm_runtime;
 pub mod project_access;
 pub mod sessions;

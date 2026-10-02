@@ -14,6 +14,9 @@ use std::sync::{
 use tokio::time::{Duration, sleep};
 use uuid::Uuid;
 
+#[path = "support/pm_draft_creation.rs"]
+mod pm_draft_creation;
+
 async fn fixture() -> Option<(PostgresFleetRepository, Uuid, Uuid)> {
     let Ok(url) = std::env::var("FLEET_TEST_DATABASE_URL") else {
         eprintln!("FLEET_TEST_DATABASE_URL not configured; PostgreSQL tests skipped");
@@ -1045,6 +1048,7 @@ async fn tracker_metadata_poller_authenticates_replays_and_keeps_failed_source_c
             read_pat: pat,
             poll_interval_seconds: 1,
         },
+        ..Default::default()
     };
     let mut disabled = config.clone();
     disabled.events.enabled = false;
