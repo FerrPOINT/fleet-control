@@ -3197,7 +3197,6 @@ name = "sdlc-shared"
 version = "0.1.0"
 dependencies = [
  "axum",
- "config",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
@@ -3582,10 +3581,8 @@ dependencies = [
 name = "shared"
 version = "0.2.0"
 dependencies = [
- "axum",
  "chrono",
  "config",
- "http",
  "proptest",
  "sdlc-shared",
  "sdlc-telemetry",
@@ -3596,7 +3593,6 @@ dependencies = [
  "tower",
  "tracing",
  "tracing-subscriber",
- "utoipa",
  "uuid",
 ]
 

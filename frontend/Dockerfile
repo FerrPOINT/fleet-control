@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM node:22-slim AS builder
+FROM node:22.20.0-bookworm-slim AS builder
 
 RUN corepack enable && corepack prepare pnpm@10.28.1 --activate
 
@@ -10,6 +10,12 @@ COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml 
 RUN pnpm install --frozen-lockfile
 
 COPY frontend/ ./
+ARG VITE_PLATFORM_BRANDING_URL=""
+ENV VITE_PLATFORM_BRANDING_URL=${VITE_PLATFORM_BRANDING_URL}
+ARG VITE_PLATFORM_SERVICES_URL=""
+ENV VITE_PLATFORM_SERVICES_URL=${VITE_PLATFORM_SERVICES_URL}
+ARG VITE_AUTH_ISSUER="http://localhost:7701"
+ENV VITE_AUTH_ISSUER=${VITE_AUTH_ISSUER}
 RUN pnpm build
 
 FROM nginx:alpine

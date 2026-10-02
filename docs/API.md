@@ -11,6 +11,18 @@
 
 These runtime requests are separate from Tracker clarification answers and exact-revision requirements confirmation.
 
+The change from legacy run-wide `200` to unconditional `409` is an intentional
+security-breaking migration, not backwards-compatible approval behavior. Clients
+must list the exact requests and submit an idempotent decision for one request;
+they must not fall back to the legacy route. The product compatibility wrapper
+exempts only that former `200` response, checks the exact replacement refusal and
+rejects any restored success response. Base still checks the route, request,
+other responses, component schemas and every other API operation. Regression
+tests prove neighboring removals and changes still fail. This exception disappears
+once the baseline includes the retired route; the security guard still rejects
+restored numeric/wildcard success responses and a missing or changed refusal.
+It is not a general drift bypass.
+
 ## October SDLC Foundation
 
 `sdlc_role` is independent from `kind` and `product_role`. Configuration `PUT`
@@ -151,8 +163,8 @@ agent authorship и различия central/legacy permissions; наличие 
 - `GET /sessions/{session_id}/runs`
 - `POST /sessions/{session_id}/runs/{run_id}/steer`
 - `POST /sessions/{session_id}/runs/{run_id}/stop`
-- `POST /sessions/{session_id}/runs/{run_id}/approval` forwards the decision to
-  Hermes and resolves pending Fleet approval mirror records for that run.
+- `POST /sessions/{session_id}/runs/{run_id}/approval` is retired and returns
+  `409` without dispatch; use the exact-request decision endpoints above.
 - `GET /workflow-bindings`
 - `GET /workflow-catalog` reads the live Project Workflow catalog via its
   read-only `/internal/runtime/catalog` bridge. Configure
@@ -261,3 +273,7 @@ The endpoint does not create assignments, dispatch a prompt or resume Workflow.
 - `GET /api/v1/fleet-alerts?state=open|acknowledged|resolved` — алерты переходов здоровья агентов (Operator+). Kinds: `agent_down` (critical, running/ready → failed/stopped/degraded), `agent_recovered` (авто-resolve открытых или подтверждённых `agent_down`/`agent_restart_loop`/`agent_heartbeat_stale` при возврате в running/ready), `agent_restart_loop` (warning: ≥3 restart-событий за 15 минут — перекрывает одиночный `agent_down`, чтобы оператор видел цикл, а не шторм), `agent_heartbeat_stale` (warning: running-агент без свежего health ≥10 минут; сканируется reconciler-циклом, дедуп по одному активному алерту на агента).
 - `POST /api/v1/fleet-alerts/{alert_id}/acknowledge` — Operator+; ack только для `open`-алертов; аудит `fleet_alert.acknowledge`.
 - Переходы пишутся в `fleet_alerts` (миграция 6) из start/stop/health операций без блокировки ответа.
+
+## Общая база
+
+Подключение версий, границы контрактов и проверки описаны в [BASE_INTEGRATION](BASE_INTEGRATION.md).

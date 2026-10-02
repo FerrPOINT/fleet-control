@@ -1,4 +1,4 @@
-import { apiRequest, jsonBody } from './client'
+import { apiRequest } from './client'
 import type { components } from './generated'
 import { ApiError } from '@sdlc/ui/lib'
 
@@ -52,7 +52,7 @@ export const decideTaskApproval = (
   approvalId: string,
   request: ApprovalDecisionRequest,
 ) =>
-  apiRequest<ApprovalDecision>(
-    `${path(sessionId)}/${encodeURIComponent(approvalId)}/decision`,
-    jsonBody({ choice: request.choice, idempotency_key: request.idempotency_key }),
-  )
+  apiRequest<ApprovalDecision>(`${path(sessionId)}/${encodeURIComponent(approvalId)}/decision`, {
+    method: 'POST',
+    body: JSON.stringify({ choice: request.choice, idempotency_key: request.idempotency_key }),
+  })

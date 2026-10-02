@@ -80,14 +80,7 @@ impl std::fmt::Debug for PmConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DatabaseConfig {
-    pub url: String,
-    pub max_connections: u32,
-    pub min_connections: u32,
-    pub connect_timeout_seconds: u64,
-    pub idle_timeout_seconds: u64,
-}
+pub use sdlc_shared::DatabaseConfig;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerConfig {
@@ -342,18 +335,6 @@ impl AppConfig {
         }
 
         Ok(cfg)
-    }
-}
-
-impl Default for DatabaseConfig {
-    fn default() -> Self {
-        Self {
-            url: String::new(),
-            max_connections: 20,
-            min_connections: 5,
-            connect_timeout_seconds: 10,
-            idle_timeout_seconds: 600,
-        }
     }
 }
 

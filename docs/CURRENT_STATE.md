@@ -1,6 +1,6 @@
 # Current State
 
-Status (2026-10-01): SDLC foundation is partially implemented. Automatic SDLC is
+Status (2026-10-02): SDLC foundation is partially implemented. Automatic SDLC is
 blocked until cross-service assignment/workflow/deployment contracts are verified.
 See [SDLC implementation](SDLC_IMPLEMENTATION.md). The baseline feature/gate lists
 below are historical, not acceptance evidence for the new SDLC plan.
@@ -33,6 +33,17 @@ The coordinator follow-up passed 111 library tests and 37 real PostgreSQL cases;
 the separate fresh-DB migration/backfill/down-up test also passed. These are
 controlled repository/HTTP checks,
 not a real human/PM/Tracker/Workflow acceptance.
+
+The working branch is reconciled with accepted Fleet main `11a22c1` and pinned
+Base `c083783a37791e277db796361203884b87828a7d`. On Rust 1.88.0,
+Node 22.20.0 and pnpm 10.28.1, 111 library/37 real PostgreSQL tests and the
+separate historical migration test passed. Frontend now has 209 passing tests
+after receiving the accepted shared-library cleanup; 36 three-browser fixture
+cases passed and 27 live cases were skipped. Nine controller captures were
+regenerated. Package-consumer, effective-theme and generated OpenAPI/client checks
+passed. The compatibility gate documents one intentional security retirement:
+legacy run-wide approval now returns 409; other contract changes remain checked.
+These checks do not complete PM admission, initial delivery or live Backlog flow.
 
 Production `/chats/:sessionId` now has dialogue/clarification/requirements controllers,
 paginated transcript, draft preservation, read-only/dependency/unknown-outcome states and
@@ -134,8 +145,9 @@ CI now includes compile, migration rollback/reapply, frontend formatting,
 route/link/screenshot gates, three-browser fixture acceptance and browser evidence
 artifacts plus disposable authenticated container acceptance. Shared Base changes are published in
 [services-base #121](https://github.com/FerrPOINT/services-base/pull/121).
-Fleet CI pins Base to `af1bdd4746dfda331d0c32741af3f7c502fad816` until the
-dependency is merged. GitHub CI status must be checked on the current PR head;
+The old CI evidence used Base `af1bdd4746dfda331d0c32741af3f7c502fad816`.
+Current CI/builds use the accepted SHA in [the Base pin](../.base-revision).
+GitHub CI status must be checked on the current PR head;
 local checks alone do not prove CI acceptance.
 
 The real seven-agent PM/requirements/decomposition/Rework/deployment scenario,

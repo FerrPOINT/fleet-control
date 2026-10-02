@@ -1,4 +1,4 @@
-import { apiRequest, jsonBody } from './client'
+import { apiRequest } from './client'
 import type { SessionMessage } from './types'
 import type { components } from './generated'
 
@@ -31,7 +31,7 @@ export const getRequirements = (id: string) =>
 export const answerClarification = (id: string, question: string, input: AnswerInput) =>
   apiRequest<Schemas['TrackerAnswer']>(
     `${path(id)}/clarifications/${encodeURIComponent(question)}/answers`,
-    jsonBody(input),
+    { method: 'POST', body: JSON.stringify(input) },
   )
 export const confirmRequirements = (
   id: string,
@@ -39,10 +39,10 @@ export const confirmRequirements = (
   contentHash: string,
   key: string,
 ) =>
-  apiRequest<Schemas['TrackerConfirmation']>(
-    `${path(id)}/requirements/${revision}/confirm`,
-    jsonBody({ content_hash: contentHash, idempotency_key: key }),
-  )
+  apiRequest<Schemas['TrackerConfirmation']>(`${path(id)}/requirements/${revision}/confirm`, {
+    method: 'POST',
+    body: JSON.stringify({ content_hash: contentHash, idempotency_key: key }),
+  })
 
 export function canSubmitAnswer(question: Question, selected: string[], text: string) {
   if (question.state !== 'open') return false

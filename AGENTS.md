@@ -51,3 +51,9 @@ For Hermes, always launch with `HERMES_HOME=agents/agentN/config` and
 - Redact secrets before storing logs or returning env data through the API.
 - Use existing frontend primitives from `src/shared/ui`.
 - Capture UI evidence for new/changed screens under `docs/assets/screens`.
+
+## Base и воспроизводимость
+
+См. [BASE_INTEGRATION](docs/BASE_INTEGRATION.md). Обязательны pinned Base SHA,
+locked/frozen зависимости и проверка актуальных checkout до сборки.
+Rust build toolchain 1.88.0, Node 22.20.0, pnpm 10.28.1; MSRV отдельно.

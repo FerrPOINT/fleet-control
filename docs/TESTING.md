@@ -145,6 +145,10 @@ Required scenarios:
 - settings UI supports user role changes
 - screenshot manifest is generated and contains the required viewports/routes
 
+## Общая база
+
+Подключение версий, границы контрактов и проверки описаны в [BASE_INTEGRATION](BASE_INTEGRATION.md).
+
 ## Agent Detail Live Acceptance
 
 From `frontend`, run against an already running QA platform:

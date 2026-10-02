@@ -3,6 +3,30 @@
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 
+## Accepted Base Reconciliation (2026-10-02)
+
+The candidate includes accepted Fleet main `11a22c1` and Base pin
+`c083783a37791e277db796361203884b87828a7d`. Frozen pnpm installation, Rust 1.88.0
+locked fmt/check/Clippy/tests and generated source/client OpenAPI checks passed.
+The rerun has 111 library tests, 37 actual PostgreSQL 17.11 cases, plus the
+separate empty-DB historical migration test. Node 22.20.0/pnpm 10.28.1 gates pass
+typecheck, 209 unit tests, lint, format and production build. Shared library
+cleanup removed the old local time tests; this count replaces the pre-reconciliation
+215 total below. Package-consumer and effective three-theme contrast checks pass.
+
+All 36 three-browser fixture scenarios passed; 27 opt-in live checks were skipped.
+Nine controller screenshots were regenerated and verified; mobile clarification
+and desktop dialogue were opened for visual inspection. The historical 135-image
+manifest still verifies, and links were checked across 90 documents.
+
+The API compatibility gate retains an explicit product security migration for the
+legacy run-wide approval `200` -> `409`; it does not pretend this is backwards
+compatible. Four wrapper regressions verify exact refusal/no numeric or wildcard
+success even after baseline retirement, while official Base comparison still
+rejects sibling removals and request/other-response/schema changes. CI's own
+temporary theme preview is terminated before the separate browser/capture gates.
+These are source/repository/fixture checks, not live PM or rollout acceptance.
+
 ## Persisted PM Draft Creation (2026-10-02)
 
 Owner/key-unique ledger, strict Tracker creation/input/reservation readback and

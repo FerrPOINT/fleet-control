@@ -24,8 +24,9 @@
     "openapi:check": "node node_modules/@sdlc/ui/scripts/sdlc-openapi-check.mjs --spec ../openapi/openapi.json --schema src/api/generated.ts",
     "chat:contract": "node scripts/verify-chat-contract.mjs && node --test scripts/verify-chat-contract.test.mjs",
     "chat:evidence:verify": "node scripts/publish-chat-controller-evidence.mjs --verify",
-    "openapi:compat": "SPEC=openapi/openapi.json SPEC_NAME=openapi/openapi.json node node_modules/@sdlc/ui/scripts/sdlc-openapi-compat.mjs",
+    "openapi:compat": "node --test scripts/base-openapi-compat.test.mjs && node scripts/base-openapi-compat.mjs",
     "postinstall": "openapi-typescript ../openapi/openapi.json -o src/api/generated.ts",
+    "theme:check": "node ../../services-base/frontend/scripts/sdlc-effective-theme-check.mjs",
     "ui:check": "node ../../services-base/frontend/scripts/check-ui-contract.mjs --repo .. --require-installed"
   },
   "dependencies": {
@@ -95,5 +96,6 @@
       "nanoid@>=3.0.0 <3.3.18": "3.3.18",
       "postcss@>=8.0.0 <8.5.23": "8.5.23"
     }
-  }
+  },
+  "packageManager": "pnpm@10.28.1"
 }

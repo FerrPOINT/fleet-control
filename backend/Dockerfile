@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM rust:1.88-slim-bookworm AS builder
+FROM rust:1.88.0-slim-bookworm AS builder
 
 RUN apt-get update && apt-get install -y pkg-config libssl-dev unzip curl && rm -rf /var/lib/apt/lists/*
 
