@@ -55,7 +55,7 @@ Java Agent:
   `/actuator/health/readiness` health. Missing jar fails validation; no fake
   successful chat/control is returned.
 
-PM continuation proof is separate from runtime health and from visible run state.
+PM continuation proof is separate from runtime health and business completion.
 The internal Workflow callback performs a fresh bounded/no-redirect HTTP probe
 against the managed agent port, with Fleet's derived per-agent credential. It
 verifies the acknowledged Hermes run and effective session identity. Queued,
@@ -63,3 +63,9 @@ running, approval-wait and stopping are non-terminal; interrupted is failed, not
 successful or safely stopped. Terminal proof is immutable. Missing acceptance
 mapping or inaccessible runtime blocks continuation; neither an SSE EOF nor a
 database status can substitute for the probe.
+
+Fresh terminal proof reconciles the matching Fleet run in the same transaction,
+releasing runtime capacity even when the event stream was lost. A delayed EOF or
+cached running/waiting event cannot reopen the old run; unknown acceptance still
+holds the agent slot. A generic terminal cache update without verified PM proof
+is rejected. Transcript finalization and Tracker stage completion remain separate.

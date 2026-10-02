@@ -2514,20 +2514,50 @@ impl FleetRepository for PostgresFleetRepository {
         state: SessionRunState,
         last_error: Option<String>,
     ) -> Result<SessionAgentRun, AppError> {
+        let txn = self.db.begin().await.map_err(AppError::database)?;
+        // Match readback's lock order; late SSE/error updates cannot regress verified PM proof.
+        let pm = pm_execution::locked(&txn, id).await?;
         let mut model = session_agent_run::Entity::find_by_id(id)
-            .one(&self.db)
+            .lock_exclusive()
+            .one(&txn)
             .await
             .map_err(AppError::database)?
             .ok_or_else(|| AppError::not_found("session_agent_run", id))?
             .into_active_model();
+        if let Some(pm) = &pm
+            && runtime_run_id
+                .as_ref()
+                .is_some_and(|id| pm.hermes_run_ref.as_ref() != Some(id))
+        {
+            return Err(AppError::conflict(
+                "PM runtime mapping must use its immutable acceptance receipt",
+            ));
+        }
+        if pm
+            .as_ref()
+            .is_some_and(|record| record.terminal_status.is_none())
+            && matches!(
+                state,
+                SessionRunState::Completed | SessionRunState::Failed | SessionRunState::Cancelled
+            )
+        {
+            return Err(AppError::conflict(
+                "PM capacity requires verified terminal proof",
+            ));
+        }
         if runtime_run_id.is_some() {
             model.runtime_run_id = Set(runtime_run_id);
         }
-        model.state = Set(state.as_str().to_string());
-        model.last_error = Set(last_error.map(|error| redact_text(&error)));
+        if let Some(terminal) = pm.and_then(|record| record.terminal_status) {
+            model.state = Set(pm_execution::visible_terminal(terminal).into());
+        } else {
+            model.state = Set(state.as_str().to_string());
+            model.last_error = Set(last_error.map(|error| redact_text(&error)));
+        }
         model.last_event_at = Set(Some(now()));
         model.updated_at = Set(now());
-        let updated = model.update(&self.db).await.map_err(AppError::database)?;
+        let updated = model.update(&txn).await.map_err(AppError::database)?;
+        txn.commit().await.map_err(AppError::database)?;
         session_run_from_model(&self.db, updated).await
     }
 

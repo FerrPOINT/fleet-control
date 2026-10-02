@@ -41,6 +41,15 @@ the PM coordinator or hand them to real runtime tools. The follow-up passed 100
 Rust library tests, format, all-target check and strict all-target Clippy.
 No new PostgreSQL or live provider acceptance is implied by that library gate.
 
+Terminal readback now reconciles the matching Fleet run atomically, releasing
+capacity without depending on a surviving SSE worker. PM cache updates cannot
+invent terminal proof, change the accepted runtime ID or reopen a verified run.
+This follow-up passed the full WSL suite with 100 library tests and 27 actual
+PostgreSQL 17.11 cases, plus focused final-tree PM regressions. The two separately
+ignored directory/approval-stream gates remain separate CI evidence. Workflow
+PR #90 is reconciled with accepted master, but real PM admission remains blocked
+until the actual pinned native-skills source and compatible build are available.
+
 Verified on the refreshed working branch on 2026-10-01: 96 Fleet Rust library tests
 and strict Clippy, 26 actual PostgreSQL 17.11 integration cases, 212 frontend tests and source/client
 OpenAPI plus seven Tracker wire contracts. Three-browser fixture checks cover the

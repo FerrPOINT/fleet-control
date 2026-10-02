@@ -130,7 +130,12 @@ effective session ID (Hermes can resolve a Fleet alias). Both are write-once;
 uniqueness is scoped to the agent, not the fleet. Authenticated readback records
 terminal proof once and rejects regression or a different terminal result. DB
 triggers also prevent reservation/mapping/terminal mutation through direct SQL.
-Proof observation alone does not free visible run capacity or advance Tracker.
+Verified terminal observation atomically updates the matching visible run state
+and frees that runtime capacity. Generic cached/SSE-error updates cannot replace
+the accepted mapping, introduce terminal state without proof, or regress verified
+terminal state. Both paths lock the PM binding before the runtime run. A mapping
+mismatch rolls back proof and run state together. This never advances Tracker;
+business completion still requires its own workflow/requirements receipts.
 
 ## Tracker Event Inbox
 

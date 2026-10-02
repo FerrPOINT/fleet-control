@@ -1,16 +1,39 @@
 use super::*;
 use domain::{PmRunRecord, PmRunReservation, PmRuntimeStatus};
 
+pub(super) async fn locked<C: ConnectionTrait>(
+    db: &C,
+    id: Uuid,
+) -> Result<Option<PmRunRecord>, AppError> {
+    let row = db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT jsonb_build_object('reservation',reservation,'hermes_run_ref',hermes_run_ref,'hermes_session_ref',hermes_session_ref,'terminal_status',terminal_status) AS record FROM pm_run_bindings WHERE session_run_id=$1 FOR UPDATE",
+        [id.into()])).await.map_err(AppError::database)?;
+    row.map(|row| {
+        let value: Value = row.try_get("", "record").map_err(AppError::database)?;
+        serde_json::from_value(value).map_err(AppError::internal)
+    })
+    .transpose()
+}
+
+pub(super) fn visible_terminal(status: PmRuntimeStatus) -> &'static str {
+    match status {
+        PmRuntimeStatus::Completed => "completed",
+        PmRuntimeStatus::Failed => "failed",
+        PmRuntimeStatus::Cancelled | PmRuntimeStatus::Stopped => "cancelled",
+        PmRuntimeStatus::Running => "running",
+    }
+}
+
 async fn load<C: ConnectionTrait>(db: &C, id: Uuid, lock: bool) -> Result<PmRunRecord, AppError> {
-    let sql = if lock {
-        "SELECT jsonb_build_object('reservation',reservation,'hermes_run_ref',hermes_run_ref,'hermes_session_ref',hermes_session_ref,'terminal_status',terminal_status) AS record FROM pm_run_bindings WHERE session_run_id=$1 FOR UPDATE"
-    } else {
-        "SELECT jsonb_build_object('reservation',reservation,'hermes_run_ref',hermes_run_ref,'hermes_session_ref',hermes_session_ref,'terminal_status',terminal_status) AS record FROM pm_run_bindings WHERE session_run_id=$1"
-    };
+    if lock {
+        return locked(db, id)
+            .await?
+            .ok_or_else(|| AppError::not_found("pm_run", id));
+    }
     let row = db
         .query_one(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
-            sql,
+            "SELECT jsonb_build_object('reservation',reservation,'hermes_run_ref',hermes_run_ref,'hermes_session_ref',hermes_session_ref,'terminal_status',terminal_status) AS record FROM pm_run_bindings WHERE session_run_id=$1",
             [id.into()],
         ))
         .await
@@ -218,6 +241,19 @@ pub(super) async fn observe(
     ))
     .await
     .map_err(AppError::database)?;
+    if status.terminal() {
+        let changed = txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "UPDATE session_agent_runs SET state=$2,updated_at=now(),last_error=CASE WHEN $2='completed' THEN NULL ELSE last_error END
+             WHERE id=$1 AND session_id=$3 AND agent_id=$4 AND runtime_session_id=$5 AND runtime_run_id=$6",
+            [id.into(), visible_terminal(status).into(), record.reservation.session_id.into(),
+                record.reservation.identity.agent_id()?.into(), record.reservation.runtime_session_id().into(), record.hermes_run_ref.clone().into()]
+        )).await.map_err(AppError::database)?;
+        if changed.rows_affected() != 1 {
+            return Err(AppError::conflict(
+                "PM terminal proof no longer matches runtime mapping",
+            ));
+        }
+    }
     if status.terminal() && record.terminal_status.is_none() {
         audit(
             &txn,

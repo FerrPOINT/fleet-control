@@ -147,6 +147,19 @@ The checker resolves schema refs and compares fields/requiredness/types/nullabil
 enums. Constraints and business permissions are checked by service tests, not by that wire
 normalizer. Rollout must compare the actual Tracker build with the same snapshot.
 
+## Terminal Proof Reconciliation (2 October 2026)
+
+The full WSL workspace suite passed with 100 library tests and 27 actual
+PostgreSQL 17.11 cases; both database variables were explicitly configured.
+The final four focused PM database cases additionally verify a mismatched runtime
+mapping rolls back both terminal proof and visible state. Completion, failure,
+cancellation and stop map to matching terminal run states. Late stream updates
+serialize under the same binding/run lock order and cannot reopen the old run or
+free the next unresolved reservation. Generic terminal cache updates without
+proof and altered runtime mappings are rejected. All-target check, strict Clippy
+and formatting passed. The separately ignored directory/SSE cases are not counted
+as new local acceptance. No schema, public API or UI changed in this follow-up.
+
 ## Release Blockers
 
 The 2026-10-02 server-only credential client follow-up passed 100 WSL Rust library
@@ -158,6 +171,14 @@ redirect/oversize/malformed/error rejection and unknown-outcome preservation.
 The HTTP issuer is controlled test code, not a live Base deployment. Public API,
 database schema, frontend and accepted runtime were unchanged in this follow-up.
 Persisted issuance operations and actual credential/tool handoff remain open.
+
+Workflow PR #90 now reconciles the feature with accepted catalog v2/master;
+it does not implement PM Draft admission. A release-compatible Workflow build
+still requires the actual native-skills Git pin
+`46eb27f70b68cbefbf53903090f0c7f0fa68b748`. The source was not found locally and
+the private GitLab remote denied access. The development capabilities 503 is
+intentional fail-closed behavior, not live PM readiness. No fixture manifest or
+guessed compatibility hash may substitute for that dependency.
 
 Creation saga, scoped PM structured tools, Tracker outbox/Fleet inbox projection, live
 Hermes PM verification and workflow resume/rebind, independent readiness verifier,

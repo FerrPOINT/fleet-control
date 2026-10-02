@@ -1354,6 +1354,16 @@ async fn pm_reservation_is_atomic_idempotent_and_holds_capacity_when_acceptance_
     let first = first.unwrap();
     assert_eq!(first.reservation, replay.unwrap().reservation);
     assert!(first.hermes_run_ref.is_none());
+    assert!(matches!(
+        repo.update_session_agent_run_dispatch(
+            request.session_run_id,
+            None,
+            SessionRunState::Completed,
+            None
+        )
+        .await,
+        Err(shared::AppError::Conflict(_))
+    ));
     assert!(
         repo.observe_pm_run(request.session_run_id, domain::PmRuntimeStatus::Completed)
             .await
@@ -1457,17 +1467,140 @@ async fn pm_reservation_is_atomic_idempotent_and_holds_capacity_when_acceptance_
         .await
         .is_err()
     );
-    // Runtime event processing owns the visible run state; proof alone cannot free capacity.
-    assert!(repo.reserve_pm_run(concurrent.clone()).await.is_err());
+    assert_eq!(
+        repo.get_session_agent_run(request.session_run_id)
+            .await
+            .unwrap()
+            .state,
+        SessionRunState::Completed
+    );
+    // A delayed stream failure must not undo fresh authenticated terminal proof.
     repo.update_session_agent_run_dispatch(
         request.session_run_id,
         None,
-        SessionRunState::Completed,
-        None,
+        SessionRunState::Waiting,
+        Some("late stream EOF".into()),
     )
     .await
     .unwrap();
+    assert_eq!(
+        repo.get_session_agent_run(request.session_run_id)
+            .await
+            .unwrap()
+            .state,
+        SessionRunState::Completed
+    );
     assert!(repo.reserve_pm_run(concurrent).await.is_ok());
+}
+
+#[tokio::test]
+async fn pm_terminal_readback_and_late_stream_updates_serialize_without_reopening_capacity() {
+    for status in [
+        domain::PmRuntimeStatus::Completed,
+        domain::PmRuntimeStatus::Failed,
+        domain::PmRuntimeStatus::Cancelled,
+        domain::PmRuntimeStatus::Stopped,
+    ] {
+        let Some((repo, request)) = pm_fixture().await else {
+            return;
+        };
+        repo.reserve_pm_run(request.clone()).await.unwrap();
+        repo.accept_pm_run(
+            request.session_run_id,
+            "run_terminal_race".into(),
+            request.runtime_session_id(),
+        )
+        .await
+        .unwrap();
+        if status == domain::PmRuntimeStatus::Completed {
+            let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+                .await
+                .unwrap();
+            db.execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "UPDATE session_agent_runs SET runtime_run_id='foreign-run' WHERE id=$1",
+                [request.session_run_id.into()],
+            ))
+            .await
+            .unwrap();
+            assert!(matches!(
+                repo.observe_pm_run(request.session_run_id, status).await,
+                Err(shared::AppError::Conflict(_))
+            ));
+            assert!(
+                repo.get_pm_run(request.session_run_id)
+                    .await
+                    .unwrap()
+                    .terminal_status
+                    .is_none()
+            );
+            assert_eq!(
+                repo.get_session_agent_run(request.session_run_id)
+                    .await
+                    .unwrap()
+                    .state,
+                SessionRunState::Running
+            );
+            db.execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "UPDATE session_agent_runs SET runtime_run_id='run_terminal_race' WHERE id=$1",
+                [request.session_run_id.into()],
+            ))
+            .await
+            .unwrap();
+        }
+        let (proof, delayed) = tokio::join!(
+            repo.observe_pm_run(request.session_run_id, status),
+            repo.update_session_agent_run_dispatch(
+                request.session_run_id,
+                Some("run_terminal_race".into()),
+                SessionRunState::Waiting,
+                Some("late EOF".into())
+            )
+        );
+        proof.unwrap();
+        delayed.unwrap();
+        let expected = match status {
+            domain::PmRuntimeStatus::Completed => SessionRunState::Completed,
+            domain::PmRuntimeStatus::Failed => SessionRunState::Failed,
+            _ => SessionRunState::Cancelled,
+        };
+        assert_eq!(
+            repo.get_session_agent_run(request.session_run_id)
+                .await
+                .unwrap()
+                .state,
+            expected
+        );
+        assert!(matches!(
+            repo.update_session_agent_run_dispatch(
+                request.session_run_id,
+                Some("wrong_runtime".into()),
+                SessionRunState::Running,
+                None
+            )
+            .await,
+            Err(shared::AppError::Conflict(_))
+        ));
+        let mut next = request.clone();
+        next.session_run_id = Uuid::new_v4();
+        next.dispatch_operation_key = "next-after-terminal".into();
+        repo.reserve_pm_run(next.clone()).await.unwrap();
+        repo.update_session_agent_run_dispatch(
+            request.session_run_id,
+            None,
+            SessionRunState::Running,
+            None,
+        )
+        .await
+        .unwrap();
+        next.session_run_id = Uuid::new_v4();
+        next.dispatch_operation_key = "third-still-held".into();
+        assert!(matches!(
+            repo.reserve_pm_run(next).await,
+            Err(shared::AppError::Conflict(_))
+        ));
+    }
 }
 
 #[tokio::test]

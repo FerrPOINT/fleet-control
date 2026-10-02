@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Reconcile verified PM terminal proof and visible runtime state atomically;
+  serialize late stream updates so they cannot reopen the old run or overwrite
+  its accepted mapping. Unknown acceptance continues to hold agent capacity.
+
 - Add a server-only Base credential delegation client with exact Tracker PM
   assignment/execution/agent/version scopes, bounded no-retry/no-redirect HTTP,
   redacted secrets and fixed-origin child authorization. Coordinator and runtime
