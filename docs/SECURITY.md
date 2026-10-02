@@ -2,6 +2,14 @@
 
 ## PM Clarification Commands
 
+The server-only delegated PM client binds its credential to the assigned task
+and permits only enumerated SDLC GET/POST operations. It denies legacy API paths,
+other tasks, owner answers/confirmation and verifier/assignment actions before
+adding Authorization. This does not constrain a bearer used outside that client:
+Tracker must independently deny assignment-scoped PM tokens on legacy APIs and
+check current assignment authority. Credential issuance/runtime handoff remains
+unwired; this restriction is not PM admission or a completed live security gate.
+
 Creation recovery is owner-only even for operators/admins; key readback validates
 the current project before the indexed owner/key lookup. Continuation accepts
 only an empty JSON object and cannot replace persisted original input or agent.

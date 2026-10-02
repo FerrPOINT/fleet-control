@@ -14,6 +14,9 @@ for PostgreSQL evidence and the remaining live-integration gates.
 Creation recovery now includes owner/key lookup, persisted-operation continuation
 and strict Tracker project choices. The new [creation form proposal](docs/design/PM_DRAFT_CREATION_PREVIEW.md)
 is isolated and awaiting approval, not production UI or runtime admission.
+The server-only delegated PM client is limited to enumerated SDLC operations for
+its assigned task. This client restriction does not replace Tracker authorization
+and does not enable credential handoff or runtime dispatch.
 
 <p align="center">
   <a href="#overview"><img src="https://img.shields.io/badge/Overview-3730a3?style=for-the-badge" alt="Overview" /></a>

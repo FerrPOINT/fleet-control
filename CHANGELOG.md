@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+- Bind server-only delegated PM credentials to enumerated operations for their
+  canonical assigned task. Reject legacy/foreign task paths and owner/verifier
+  actions before attaching the bearer. Keep the Base delegation wire unchanged;
+  receiving-service enforcement and real runtime handoff are separate gates.
+
 - Add owner/key recovery for an unknown PM Draft creation response and strict
   empty-object continuation using persisted original input. Add bounded strict
   Tracker project directory choices with preserved rollout-filtered cursors.

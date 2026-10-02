@@ -22,6 +22,14 @@ delivery, resume or live Backlog acceptance.
 
 ## PM Clarification Work In Progress
 
+The credential confinement follow-up limits the server-only delegated client to
+enumerated PM GET/POST operations on its canonical assigned task at the configured
+Tracker origin. Base's five-field delegation wire is unchanged. Tracker separately
+denies direct PM bearer use on legacy/global/owner/verifier operations and checks
+current assignment authority. Client allowlisting is not server authorization or
+runtime admission. Issuance ledger/tool handoff and actual Base/Tracker acceptance
+remain open; current verification is recorded in the ledger below.
+
 The creation recovery follow-up adds owner/key readback for a lost initial
 acknowledgement, persisted-operation continuation without prompt resubmission,
 and a rollout-filtered strict Tracker project directory. It adds no runtime

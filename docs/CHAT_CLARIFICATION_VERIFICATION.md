@@ -3,6 +3,42 @@
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 
+## Credential Confinement Follow-Up (2026-10-02, Component Verified)
+
+The local branch is reconciled with accepted main `d5697cd`; its Base pin is
+`9408802dfa978cba2f67162a49adca6f65851b01`. The client change restricts
+delegated PM credentials to enumerated operations for the canonical assigned
+task, without changing the five-field Base delegation wire. It is not connected
+to runtime handoff, admission or dispatch.
+
+Completed after environment recovery: fresh-target Rust 1.88 locked all-targets
+check and strict Clippy, format checks, full serial workspace tests, and byte-exact
+Rust OpenAPI regeneration. Passed: 121 library tests and 38 actual PostgreSQL
+17.6 cases. The central-subject migration test returned early without its separate
+DB URL; it is not included in the PostgreSQL count. Three separately gated
+directory/SSE/historical migration tests were ignored locally; CI executes them.
+The passing QA run is `credential-qa-20261002-04c0cf46`.
+
+Exact pinned Base frozen frontend passed typecheck, 220 tests, lint, format,
+source-client contract/compatibility checks and production build. Source comparison
+matched all 128 tracked frontend/OpenAPI files in the isolated consumer, excluding
+deliberately omitted env files. Base frontend has no source changes between the
+previous and new pin. README validator, its three tests and links across 91
+Markdown documents passed. No frontend composition or public schema changed.
+
+The earlier disk/daemon failure is superseded by these local gates. Old owned
+containers were confirmed absent after recovery; both successful-run containers
+were removed in the QA finally block. No runtime, shared volume, secret, snapshot
+or image prune was performed; evidence and target artifacts are retained.
+
+The previous CI run
+[37019857586](https://github.com/FerrPOINT/fleet-control/actions/runs/37019857586)
+attests only `250457540bc961ab7c07463448734593a2ecc3ab`; the follow-up requires its
+own exact-head CI. Client HTTP fixtures do not prove direct bearer enforcement
+in Tracker or genuine Base delegation/runtime handoff. The full PM slice remains
+incomplete and Draft; admission/tools/resume/verifier/live acceptance are not
+closed by this component verification.
+
 ## Creation Recovery Follow-Up (2026-10-02)
 
 Owner/key readback recovers the original creation UUID after a lost response.

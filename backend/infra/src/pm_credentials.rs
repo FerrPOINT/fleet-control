@@ -10,6 +10,8 @@ const MAX_RESPONSE_BYTES: usize = 16_384;
 
 #[derive(Clone, Serialize)]
 pub struct PmCredentialCommand {
+    #[serde(skip)]
+    task_id: Uuid,
     service: &'static str,
     label: String,
     scopes: Vec<String>,
@@ -47,6 +49,8 @@ impl PmCredentialCommand {
         ];
         scopes.sort_unstable();
         Ok(Self {
+            task_id: Uuid::parse_str(&identity.task_ref)
+                .map_err(|_| AppError::validation("invalid PM task reference"))?,
             service: "task-tracker",
             label: format!("PM assignment {}", identity.assignment_ref),
             scopes,
@@ -84,6 +88,7 @@ struct IssuedToken {
 pub struct PmDelegatedCredential {
     bearer: header::HeaderValue,
     tracker_origin: Url,
+    task_id: Uuid,
     token_id: Uuid,
     expires_at: DateTime<Utc>,
 }
@@ -120,7 +125,7 @@ impl PmDelegatedCredential {
             || !url.username().is_empty()
             || url.password().is_some()
             || url.fragment().is_some()
-            || !url.path().starts_with("/api/v1/")
+            || !permitted_task_request(request.method(), url.path(), self.task_id)
             || request.headers().contains_key(header::AUTHORIZATION)
         {
             return Err(AppError::Forbidden);
@@ -129,6 +134,53 @@ impl PmDelegatedCredential {
             .headers_mut()
             .insert(header::AUTHORIZATION, self.bearer.clone());
         Ok(request)
+    }
+}
+
+fn permitted_task_request(method: &reqwest::Method, path: &str, task_id: Uuid) -> bool {
+    let prefix = format!("/api/v1/issues/{task_id}/sdlc/");
+    let Some(operation) = path.strip_prefix(&prefix) else {
+        return false;
+    };
+    match *method {
+        reqwest::Method::GET => {
+            if matches!(
+                operation,
+                "context"
+                    | "clarifications"
+                    | "requirements"
+                    | "requirements/revisions"
+                    | "pm-draft-input"
+                    | "pm-draft-execution-lease"
+            ) {
+                return true;
+            }
+            let Some(revision) = operation.strip_prefix("requirements/") else {
+                return false;
+            };
+            let revision = revision.strip_suffix("/diff").unwrap_or(revision);
+            revision.parse::<u64>().is_ok_and(|number| {
+                (1..=9_007_199_254_740_991).contains(&number) && number.to_string() == revision
+            })
+        }
+        reqwest::Method::POST => {
+            if matches!(
+                operation,
+                "clarifications"
+                    | "requirements"
+                    | "pm-draft-execution-lease"
+                    | "pm-draft-execution-lease/heartbeat"
+            ) {
+                return true;
+            }
+            operation
+                .strip_prefix("clarifications/")
+                .and_then(|value| value.strip_suffix("/cancel"))
+                .is_some_and(|raw| {
+                    Uuid::parse_str(raw).is_ok_and(|id| !id.is_nil() && id.to_string() == raw)
+                })
+        }
+        _ => false,
     }
 }
 
@@ -236,6 +288,7 @@ impl PmCredentialIssuer {
         Ok(PmDelegatedCredential {
             bearer,
             tracker_origin: self.tracker_origin.clone(),
+            task_id: command.task_id,
             token_id: token.token_id,
             expires_at: token.expires_at,
         })
@@ -317,6 +370,8 @@ mod tests {
         let mut identity = identity();
         let request = PmCredentialCommand::tracker(&identity, "persisted-key".into(), 900).unwrap();
         let body = serde_json::to_value(&request).unwrap();
+        assert_eq!(body.as_object().unwrap().len(), 5);
+        assert!(body.get("task_id").is_none());
         assert_eq!(body["service"], "task-tracker");
         assert_eq!(body["scopes"].as_array().unwrap().len(), 3);
         assert!(request.scopes.contains(&format!(
@@ -360,6 +415,67 @@ mod tests {
         let issuer = PmCredentialIssuer::new("https://base/", "https://tracker/", PARENT).unwrap();
         assert!(!format!("{issuer:?}").contains(PARENT));
         assert!(issuer.parent.is_sensitive());
+    }
+
+    #[test]
+    fn credentials_allow_only_bound_pm_operations_not_owner_or_legacy_actions() {
+        let task = Uuid::new_v4();
+        let path = |suffix: &str| format!("/api/v1/issues/{task}/sdlc/{suffix}");
+        for operation in [
+            "context",
+            "clarifications",
+            "requirements",
+            "requirements/revisions",
+            "requirements/1",
+            "requirements/9007199254740991/diff",
+            "pm-draft-input",
+            "pm-draft-execution-lease",
+        ] {
+            assert!(permitted_task_request(
+                &reqwest::Method::GET,
+                &path(operation),
+                task
+            ));
+        }
+        let cancel = format!("clarifications/{}/cancel", Uuid::new_v4());
+        for operation in [
+            "clarifications",
+            "requirements",
+            "pm-draft-execution-lease",
+            "pm-draft-execution-lease/heartbeat",
+            &cancel,
+        ] {
+            assert!(permitted_task_request(
+                &reqwest::Method::POST,
+                &path(operation),
+                task
+            ));
+        }
+        for operation in [
+            "",
+            "context/",
+            "events",
+            "binding",
+            "assignment",
+            "evidence",
+            "requirements/0",
+            "requirements/01",
+            "requirements/+1",
+            "requirements/9007199254740992",
+            "requirements/1/confirm",
+            "clarifications/00000000-0000-0000-0000-000000000000/cancel",
+            "clarifications/11111111-ABCD-4111-8111-111111111111/cancel",
+            "clarifications/11111111-abcd-4111-8111-111111111111/answers",
+        ] {
+            for method in [reqwest::Method::GET, reqwest::Method::POST] {
+                assert!(!permitted_task_request(&method, &path(operation), task));
+            }
+        }
+        assert!(!permitted_task_request(
+            &reqwest::Method::GET,
+            &format!("/api/v1/issues/{}/sdlc/context", Uuid::new_v4()),
+            task
+        ));
     }
 
     #[derive(Clone)]
@@ -463,9 +579,11 @@ mod tests {
         let credential = issuer.issue(&request).await.unwrap();
         assert!(!format!("{credential:?}").contains(CHILD));
         assert!(credential.bearer.is_sensitive());
-        let authorized = credential
-            .authorize(Client::new().get("https://tracker/api/v1/issues"))
-            .unwrap();
+        let task_url = format!(
+            "https://tracker/api/v1/issues/{}/sdlc/context",
+            request.task_id
+        );
+        let authorized = credential.authorize(Client::new().get(&task_url)).unwrap();
         assert_eq!(
             authorized.headers()[header::AUTHORIZATION],
             format!("Bearer {CHILD}")
@@ -478,6 +596,8 @@ mod tests {
             "https://user@tracker/api/v1/issues",
             "https://tracker/auth/tokens",
             "https://tracker/api/v1/issues#x",
+            "https://tracker/api/v1/issues",
+            "https://tracker/api/v1/sdlc/project-directory",
         ] {
             assert!(
                 matches!(
@@ -487,12 +607,45 @@ mod tests {
                 "unexpected authorization result for {url}"
             );
         }
-        assert!(matches!(
-            credential.authorize(
-                Client::new()
-                    .get("https://tracker/api/v1/issues")
-                    .bearer_auth(PARENT)
+        for url in [
+            format!(
+                "https://tracker/api/v1/issues/{}/sdlc/context",
+                Uuid::new_v4()
             ),
+            format!(
+                "https://tracker/api/v1/issues/{}/sdlc/../comments",
+                request.task_id
+            ),
+            format!("{task_url}#secret"),
+            task_url.replace("https://tracker/", "https://tracker:9443/"),
+        ] {
+            assert!(matches!(
+                credential.authorize(Client::new().get(url)),
+                Err(AppError::Forbidden)
+            ));
+        }
+        let publish_url = task_url.replace("/context", "/clarifications");
+        assert!(
+            credential
+                .authorize(Client::new().post(&publish_url))
+                .is_ok()
+        );
+        assert!(matches!(
+            credential.authorize(Client::new().post(&task_url)),
+            Err(AppError::Forbidden)
+        ));
+        for method in [
+            reqwest::Method::PUT,
+            reqwest::Method::PATCH,
+            reqwest::Method::DELETE,
+        ] {
+            assert!(matches!(
+                credential.authorize(Client::new().request(method, &task_url)),
+                Err(AppError::Forbidden)
+            ));
+        }
+        assert!(matches!(
+            credential.authorize(Client::new().get(&task_url).bearer_auth(PARENT)),
             Err(AppError::Forbidden)
         ));
         state.mode.store(1, Ordering::SeqCst);
@@ -518,11 +671,12 @@ mod tests {
         let expired = PmDelegatedCredential {
             bearer: bearer(CHILD).unwrap(),
             tracker_origin: Url::parse("https://tracker/").unwrap(),
+            task_id: request.task_id,
             token_id: Uuid::new_v4(),
             expires_at: Utc::now() - ChronoDuration::seconds(1),
         };
         assert!(matches!(
-            expired.authorize(Client::new().get("https://tracker/api/v1/issues")),
+            expired.authorize(Client::new().get(&task_url)),
             Err(AppError::Unauthorized)
         ));
         server.abort();

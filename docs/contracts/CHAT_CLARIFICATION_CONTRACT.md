@@ -161,9 +161,21 @@ does not retry automatically. Expired replay is rejected, not renewed implicitly
 Successful acknowledgement must include `no-store`, the exact scopes, a non-nil
 token ID and a live bounded expiry. Its body is size-limited and redirects are
 disabled. Neither issuer nor delegated credential debug output contains a secret;
-the credential cannot be serialized and authenticates only API requests at the
-configured Tracker origin. The receiving gateway must disable redirects and
+the credential cannot be serialized. It authenticates only enumerated PM GET/POST
+operations under the canonical assigned task's SDLC path at the configured
+Tracker origin: context/questions/requirements and revision/diff reads, original
+input/lease reads, question/revision publication, question cancellation
+and lease claim/heartbeat. Legacy APIs, another task, arbitrary suffixes, owner
+answers/confirmation, assignment/binding writes and verifier evidence are denied
+before HTTP. The task restriction is derived server-side and is not an additional
+field in the Base delegation request. The receiving gateway must disable redirects and
 apply its own bounded response handling.
+
+Client confinement is not a restriction on bearer possession. Tracker must also
+reject PM assignment-scoped credentials on its legacy router and validate current
+assignment authority for allowed task-scoped reads and writes. Broad service
+read/write scopes do not confer legacy authority on the PM child. Runtime handoff
+remains disabled until this server boundary is independently accepted.
 
 This client is not yet connected to the PM creation coordinator or runtime tools.
 Root PAT configuration, persisted issuance/revocation operations, short-lived

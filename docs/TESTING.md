@@ -1,5 +1,12 @@
 # Testing
 
+Delegated PM credential tests cover canonical bound-task operation allowlisting,
+foreign/legacy paths, URL normalization and wrong method rejection, unsafe revision
+numbers, owner/verifier actions, expiry, existing Authorization, scope mismatch and
+no redirect/retry. The Base request retains its original five-field wire shape;
+the private task restriction is not serialized. Client tests do not prove that
+Tracker rejects direct bearer use; that requires separate receiving-service tests.
+
 PM creation recovery tests cover persisted owner/key lookup after repository
 restart, owner versus operator/machine/local identity, fresh project revocation,
 unknown/invalid keys, strict continuation body (including array rejection before
