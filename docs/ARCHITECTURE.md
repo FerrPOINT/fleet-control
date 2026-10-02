@@ -25,6 +25,15 @@ Creation ends at awaiting admission, creates no runtime run and does not schedul
 business transitions. Real Workflow/native-bundle/workspace admission and initial
 Hermes delivery remain required before the approved vertical scenario is complete.
 
+The filesystem provisioner also supplies a fresh read-only effective configuration
+check through its application port. Planning expected configuration no longer
+creates skill directories; only activation writes them. Readiness compares actual
+files to the database snapshot and fails closed without leaking secret material.
+It is an observation, not a claim/lease: a configuration change after observation,
+runtime-loaded state and task-specific workspace still require the fenced admission
+protocol. Hostile concurrent filesystem mutation requires the separate OS isolation
+work, not just the existing path checks.
+
 Fleet Control keeps a small control-plane core:
 
 ```text

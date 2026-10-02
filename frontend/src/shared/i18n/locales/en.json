@@ -871,6 +871,7 @@
       "workflow_assignment_protocol_not_verified": "Workflow assignment protocol is not verified",
       "sdlc_role_not_assigned": "SDLC specialization is not assigned",
       "effective_config_revision_missing": "No configuration revision has been activated",
+      "effective_configuration_readback_failed": "Runtime files do not match the active configuration",
       "configuration_draining": "Configuration activation is in progress"
     }
   }

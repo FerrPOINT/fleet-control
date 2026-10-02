@@ -22,6 +22,18 @@ delivery, resume or live Backlog acceptance.
 
 ## PM Clarification Work In Progress
 
+The effective-configuration follow-up verifies actual managed files against the
+active database snapshot on every readiness request. Same-size drift, missing
+files, disabled/unexpected skills, foreign markers and symlinked paths block
+readiness. Planning/readback is read-only; activation alone creates skill paths.
+This is not a fenced admission, a runtime-loaded-config proof or task-workspace
+claim. WSL Rust 1.88 gates passed 118 library and 39 actual PostgreSQL tests;
+the final library rerun includes oversized/non-file marker denial. Frontend
+passed 211 tests including Russian/English readback warnings, typecheck, lint,
+format and build. OpenAPI regenerated from source is unchanged. Three separate
+directory/SSE/historical tests remain ignored in this local workspace run.
+Controlled filesystem/HTTP evidence does not replace live PM acceptance.
+
 The internal PM Draft chat repository operation now commits private chat, exact
 binding, two participants and one audit/event atomically. It creates no prompt or
 runtime run; a bound chat cannot use ordinary message dispatch. An opt-in public

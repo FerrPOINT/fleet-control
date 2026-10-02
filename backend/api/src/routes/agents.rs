@@ -491,6 +491,15 @@ pub async fn get_sdlc_readiness(
     }
     if effective.is_none() {
         blockers.push("configuration_not_applied".into());
+    } else if let Some(revision) = effective
+        && ctx
+            .provisioner
+            .verify_effective_configuration(&agent, &ctx.config, revision)
+            .await
+            .is_err()
+    {
+        // Do not expose paths, resolved env values, hashes, or underlying IO errors.
+        blockers.push("effective_configuration_readback_failed".into());
     }
     if revisions.iter().any(|value| value.draining) {
         blockers.push("configuration_draining".into());

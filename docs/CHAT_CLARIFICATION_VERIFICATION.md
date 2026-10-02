@@ -343,6 +343,22 @@ as new local acceptance. No schema, public API or UI changed in this follow-up.
 
 ## Release Blockers
 
+The effective-configuration follow-up passed WSL Rust 1.88 format, all-target
+check and strict all-target Clippy, 118 library tests and 39 actual PostgreSQL
+17.11 cases with both database variables configured. Its three filesystem cases
+verify same-size drift for every managed file, absent files, disabled/unexpected
+skills, wrong snapshot/head/marker, oversized/non-file marker, missing/foreign
+workspace and Unix symlinks without repairs or secret-bearing errors. The new
+real PostgreSQL HTTP case returns a generic blocker for a database-only active
+revision and denies a regular user; identity middleware is a controlled fixture,
+not live Central Auth. The final library gate was rerun after marker hardening.
+Temporary QA database/role were removed, accepted runtime remained unchanged.
+Frontend passed 211 unit tests (including two localized blocker cases),
+typecheck/lint/format/build; regenerated source OpenAPI is unchanged and 90
+Markdown documents passed link checks. No visual composition, schema or public
+DTO changed; existing screenshot evidence was not relabeled as live.
+Config/runtime/task-workspace fencing and actual PM admission remain open.
+
 The 2026-10-02 server-only credential client follow-up passed 100 WSL Rust library
 tests, format, all-target check and strict all-target Clippy. Its four focused
 cases validate actual Tracker grant formatting and safe integer bounds,

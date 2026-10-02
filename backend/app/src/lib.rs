@@ -630,6 +630,17 @@ pub trait FleetRepository: Send + Sync {
 
 #[async_trait]
 pub trait AgentProvisioner: Send + Sync {
+    /// Fresh readback only; successful verification does not grant dispatch authority.
+    async fn verify_effective_configuration(
+        &self,
+        _agent: &Agent,
+        _config: &AppConfig,
+        _revision: &domain::AgentConfigRevision,
+    ) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "effective configuration readback is unavailable".into(),
+        ))
+    }
     async fn provision(&self, agent: &Agent, config: &AppConfig) -> Result<(), AppError>;
     async fn storage_report(
         &self,

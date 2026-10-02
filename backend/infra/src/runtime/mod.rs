@@ -217,6 +217,18 @@ impl LocalRuntimeSupervisor {
                             .map_err(AppError::internal)?;
                     }
                 } else {
+                    // Configuration planning/readback is read-only. Only activation creates paths.
+                    let parent = path
+                        .parent()
+                        .ok_or_else(|| AppError::validation("configuration path has no parent"))?;
+                    crate::reject_symlink_components(
+                        std::path::Path::new(&self.config.fleet.agents_root),
+                        path,
+                    )
+                    .await?;
+                    tokio::fs::create_dir_all(parent)
+                        .await
+                        .map_err(AppError::internal)?;
                     crate::write_configuration_file(path, body.as_bytes()).await?;
                 }
             }

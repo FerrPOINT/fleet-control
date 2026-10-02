@@ -2,7 +2,7 @@
 
 ## PM Chat Slice
 
-Run `FLEET_TEST_DATABASE_URL` against an isolated PostgreSQL instance for the 31
+Run `FLEET_TEST_DATABASE_URL` against an isolated PostgreSQL instance for the 37
 `infra/tests/sdlc_foundation.rs` tests. Without that variable the tests skip and must not
 be counted as database acceptance. Binding tests cover concurrent replay, ownership,
 duplicate task/agent pair, immutable payload, once-only audit/event, scoped pagination,
@@ -35,6 +35,16 @@ and runs the checker tests. `pnpm chat:evidence:verify` verifies the nine contro
 route/view/viewport identity and content hashes. These gates also run in frontend CI.
 
 ## SDLC Foundation Checks
+
+`cargo test -p infra --lib effective_configuration` checks actual temporary files:
+fresh success followed by same-size drift in every managed file, missing files,
+disabled/unexpected skills, wrong snapshot/revision/marker, missing or foreign
+workspace and Unix symlink denial. It also verifies that readback does not repair
+files or expose resolved secrets. These are controlled filesystem checks, not
+runtime-loaded configuration or PM admission evidence. The PostgreSQL HTTP case
+`readiness_http_does_not_trust_database_only_effective_revision` checks the real
+readiness handler with a DB-active revision but no installed files, plus operator
+access and regular-user denial. Without the database variable it skips.
 
 New regression coverage: PostgreSQL concurrent session/message idempotency and
 private authorization; configuration drain/rollback state; unknown dispatch

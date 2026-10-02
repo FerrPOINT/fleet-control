@@ -112,6 +112,11 @@ The owner-only Draft/input/reservation/chat creation coordinator is implemented;
 it persists stable operations and stops at `awaiting_admission`. Continuations
 now require fresh trusted Workflow namespace ownership before external writes.
 The namespace guard is not an admission receipt or a runtime readiness claim.
+Fresh effective configuration verification now compares the managed files and
+isolated workspace against the active database snapshot without creating files.
+It exposes only a generic readiness blocker, not secrets or a runnable admission.
+Persisted task-workspace/config claims and their fencing remain part of the next
+admission implementation.
 
 Remaining before release: creation UI and full predispatch admission/dispatch saga,
 runtime structured tools/scoped assignment,

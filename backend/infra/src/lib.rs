@@ -1,6 +1,7 @@
 mod approval_decisions;
 mod chats_directory;
 mod config_revisions;
+mod effective_configuration;
 pub mod entities;
 pub mod pm_credentials;
 mod pm_draft;
@@ -3998,6 +3999,14 @@ pub struct FilesystemProvisioner;
 
 #[async_trait]
 impl AgentProvisioner for FilesystemProvisioner {
+    async fn verify_effective_configuration(
+        &self,
+        agent: &Agent,
+        config: &AppConfig,
+        revision: &domain::AgentConfigRevision,
+    ) -> Result<(), AppError> {
+        effective_configuration::verify(agent, config, revision).await
+    }
     async fn provision(&self, agent: &Agent, config: &AppConfig) -> Result<(), AppError> {
         if !matches!(
             agent.status,
@@ -4589,9 +4598,6 @@ pub(crate) async fn configuration_files(
         }
         let dir = expected.join("skills").join(&skill.name);
         reject_symlink_components(root, &dir).await?;
-        tokio::fs::create_dir_all(&dir)
-            .await
-            .map_err(AppError::internal)?;
         let path = dir.join("SKILL.md");
         let body = if skill.state == SkillState::Enabled {
             skill
@@ -4877,6 +4883,260 @@ mod tests {
         )
         .await
         .expect("agent marker");
+    }
+
+    async fn effective_config_fixture() -> (PathBuf, Agent, AppConfig, domain::AgentConfigRevision)
+    {
+        let root = temp_purge_root();
+        let config = test_config(&root);
+        let agent = test_agent(&root, Uuid::new_v4(), AgentStatus::Running);
+        write_marker(&root.join("agent1"), agent.id, &agent.name).await;
+        tokio::fs::create_dir_all(&agent.paths.workspace)
+            .await
+            .unwrap();
+        let skill = |name: &str, state: SkillState| domain::AgentSkill {
+            id: Uuid::new_v4(),
+            agent_id: agent.id,
+            name: name.into(),
+            title: name.into(),
+            state,
+            source: "test".into(),
+            content: Some("# Test skill\n".into()),
+            updated_at: now().to_rfc3339(),
+        };
+        let revision = domain::AgentConfigRevision {
+            agent_id: agent.id,
+            revision: 1,
+            state: "active".into(),
+            snapshot: domain::AgentConfigurationSnapshot {
+                config: UpdateAgentConfigRequest {
+                    config_json: json!({"model":"test-model"}),
+                    soul_md: "# Test SOUL\n".into(),
+                    env_json: json!({"TEST_SECRET":"test-secret-never-return"}),
+                },
+                skills: vec![
+                    skill("enabled", SkillState::Enabled),
+                    skill("disabled", SkillState::Disabled),
+                ],
+            },
+            validation_errors: vec![],
+            last_error: None,
+            is_desired: true,
+            is_effective: true,
+            draining: false,
+            created_at: now().to_rfc3339(),
+        };
+        install_effective_fixture(&agent, &config, &revision).await;
+        (root, agent, config, revision)
+    }
+
+    async fn install_effective_fixture(
+        agent: &Agent,
+        config: &AppConfig,
+        revision: &domain::AgentConfigRevision,
+    ) {
+        for (path, body) in configuration_files(agent, config, revision).await.unwrap() {
+            if body.is_empty() && path.file_name().is_some_and(|name| name == "SKILL.md") {
+                continue;
+            }
+            tokio::fs::create_dir_all(path.parent().unwrap())
+                .await
+                .unwrap();
+            tokio::fs::write(path, body).await.unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn effective_configuration_readback_is_fresh_read_only_and_redacted() {
+        let (root, agent, config, revision) = effective_config_fixture().await;
+        let provisioner = FilesystemProvisioner;
+        provisioner
+            .verify_effective_configuration(&agent, &config, &revision)
+            .await
+            .unwrap();
+        assert!(
+            !Path::new(&agent.paths.config)
+                .join("skills/disabled")
+                .exists()
+        );
+        for relative in [
+            "config.yaml",
+            "SOUL.md",
+            ".env",
+            "skills/enabled/SKILL.md",
+            ".fleet-config-revision.json",
+        ] {
+            let path = Path::new(&agent.paths.config).join(relative);
+            let original = tokio::fs::read(&path).await.unwrap();
+            // Same-size mutation catches implementations that trust only metadata/marker hashes.
+            let mut changed = original.clone();
+            changed[0] ^= 1;
+            tokio::fs::write(&path, &changed).await.unwrap();
+            let error = provisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .unwrap_err();
+            assert_eq!(
+                error.to_string(),
+                AppError::conflict("effective configuration readback failed").to_string()
+            );
+            assert!(!error.to_string().contains("test-secret-never-return"));
+            assert_eq!(tokio::fs::read(&path).await.unwrap(), changed);
+            tokio::fs::write(&path, original).await.unwrap();
+            provisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .unwrap();
+        }
+        let path = Path::new(&agent.paths.config).join("SOUL.md");
+        tokio::fs::remove_file(&path).await.unwrap();
+        assert!(
+            provisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .is_err()
+        );
+        assert!(!path.exists());
+        install_effective_fixture(&agent, &config, &revision).await;
+        let disabled = Path::new(&agent.paths.config).join("skills/disabled");
+        tokio::fs::create_dir_all(&disabled).await.unwrap();
+        tokio::fs::write(disabled.join("SKILL.md"), "")
+            .await
+            .unwrap();
+        assert!(
+            provisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .is_err()
+        );
+        tokio::fs::remove_file(disabled.join("SKILL.md"))
+            .await
+            .unwrap();
+        provisioner
+            .verify_effective_configuration(&agent, &config, &revision)
+            .await
+            .unwrap();
+        let foreign = Path::new(&agent.paths.config).join("skills/foreign");
+        tokio::fs::create_dir_all(&foreign).await.unwrap();
+        tokio::fs::write(foreign.join("SKILL.md"), "foreign content preserved")
+            .await
+            .unwrap();
+        assert!(
+            provisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            tokio::fs::read_to_string(foreign.join("SKILL.md"))
+                .await
+                .unwrap(),
+            "foreign content preserved"
+        );
+        tokio::fs::remove_dir_all(root).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn effective_configuration_requires_correct_snapshot_marker_and_workspace() {
+        let (root, mut agent, config, revision) = effective_config_fixture().await;
+        for mode in 0..7 {
+            let mut changed = revision.clone();
+            match mode {
+                0 => changed.agent_id = Uuid::new_v4(),
+                1 => changed.revision += 1,
+                2 => changed.state = "validated".into(),
+                3 => changed.is_effective = false,
+                4 => changed.draining = true,
+                5 => changed.validation_errors.push("unvalidated".into()),
+                _ => changed.snapshot.config.soul_md = "different snapshot".into(),
+            }
+            assert!(
+                FilesystemProvisioner
+                    .verify_effective_configuration(&agent, &config, &changed)
+                    .await
+                    .is_err()
+            );
+        }
+        write_marker(&root.join("agent1"), Uuid::new_v4(), &agent.name).await;
+        assert!(
+            FilesystemProvisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .is_err()
+        );
+        write_marker(&root.join("agent1"), agent.id, &agent.name).await;
+        let marker = root.join("agent1/.fleet-agent.json");
+        tokio::fs::write(&marker, "x".repeat(16_385)).await.unwrap();
+        assert!(
+            FilesystemProvisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .is_err()
+        );
+        tokio::fs::remove_file(&marker).await.unwrap();
+        tokio::fs::create_dir(&marker).await.unwrap();
+        assert!(
+            FilesystemProvisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .is_err()
+        );
+        tokio::fs::remove_dir(&marker).await.unwrap();
+        write_marker(&root.join("agent1"), agent.id, &agent.name).await;
+        agent.paths.workspace = root.join("agent2/workspace").to_string_lossy().into_owned();
+        assert!(
+            FilesystemProvisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .is_err()
+        );
+        agent.paths.workspace = root.join("agent1/workspace").to_string_lossy().into_owned();
+        tokio::fs::remove_dir(&agent.paths.workspace).await.unwrap();
+        assert!(
+            FilesystemProvisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .is_err()
+        );
+        assert!(!Path::new(&agent.paths.workspace).exists());
+        tokio::fs::remove_dir_all(root).await.unwrap();
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn effective_configuration_rejects_symlinked_files_and_directories() {
+        let (root, agent, config, revision) = effective_config_fixture().await;
+        let outside = root.join("outside");
+        tokio::fs::create_dir_all(&outside).await.unwrap();
+        let soul = Path::new(&agent.paths.config).join("SOUL.md");
+        let target = outside.join("SOUL.md");
+        tokio::fs::write(&target, &revision.snapshot.config.soul_md)
+            .await
+            .unwrap();
+        tokio::fs::remove_file(&soul).await.unwrap();
+        std::os::unix::fs::symlink(&target, &soul).unwrap();
+        assert!(
+            FilesystemProvisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .is_err()
+        );
+        tokio::fs::remove_file(soul).await.unwrap();
+        install_effective_fixture(&agent, &config, &revision).await;
+        let workspace = Path::new(&agent.paths.workspace);
+        tokio::fs::remove_dir(workspace).await.unwrap();
+        std::os::unix::fs::symlink(&outside, workspace).unwrap();
+        assert!(
+            FilesystemProvisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            tokio::fs::read_to_string(target).await.unwrap(),
+            revision.snapshot.config.soul_md
+        );
+        tokio::fs::remove_dir_all(root).await.unwrap();
     }
 
     #[test]

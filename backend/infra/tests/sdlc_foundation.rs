@@ -2922,6 +2922,134 @@ async fn unknown_dispatch_holds_agent_capacity_and_terminal_mirror_is_deduplicat
 }
 
 #[tokio::test]
+async fn readiness_http_does_not_trust_database_only_effective_revision() {
+    let Some((repo, owner, _)) = fixture().await else {
+        return;
+    };
+    let mut config = AppConfig::default();
+    config.fleet.runtime_token_secret = "readiness-test-runtime-secret".into();
+    // No filesystem installation: a DB active revision must not imply successful readback.
+    let root = std::env::temp_dir().join(format!("fleet-readiness-http-{}", Uuid::new_v4()));
+    config.fleet.agents_root = root.to_string_lossy().into_owned();
+    repo.ensure_runtime_templates().await.unwrap();
+    let agent = repo
+        .create_agent(
+            CreateAgentRequest {
+                kind: AgentKind::Hermes,
+                product_role: AgentProductRole::Executor,
+                role: AgentRole::Developer,
+                sdlc_role: Some(SdlcRole::Developer),
+                display_name: "Readiness test".into(),
+                description: None,
+                namespace_id: None,
+                namespace_name: None,
+                workflow_id: None,
+                workflow_name: None,
+                executor_ids: vec![],
+            },
+            &config,
+        )
+        .await
+        .unwrap();
+    let revision = repo
+        .create_config_revision(agent.id, configuration(), owner)
+        .await
+        .unwrap();
+    repo.validate_config_revision(agent.id, revision.revision, vec![])
+        .await
+        .unwrap();
+    repo.request_config_activation(agent.id, revision.revision, owner)
+        .await
+        .unwrap();
+    assert_eq!(
+        repo.claim_config_activation()
+            .await
+            .unwrap()
+            .unwrap()
+            .agent_id,
+        agent.id
+    );
+    repo.finish_config_activation(agent.id, revision.revision, None, true)
+        .await
+        .unwrap();
+    let repo = Arc::new(repo);
+    let config = Arc::new(config);
+    let (events, _) = tokio::sync::broadcast::channel(32);
+    let runtime = Arc::new(infra::runtime::LocalRuntimeSupervisor::new(
+        config.clone(),
+        repo.clone(),
+        events.clone(),
+    ));
+    let (restart_tx, _) = tokio::sync::mpsc::channel(1);
+    let ctx = Arc::new(app::AppContext::new(
+        config,
+        repo,
+        Arc::new(infra::FilesystemProvisioner),
+        runtime,
+        events,
+        restart_tx,
+    ));
+    let endpoint = axum::Router::new().route(
+        "/agents/{id}/readiness",
+        axum::routing::get(api::routes::agents::get_sdlc_readiness),
+    );
+    let router = axum::Router::new()
+        .nest(
+            "/operator",
+            endpoint
+                .clone()
+                .layer(axum::Extension(api::middleware::CurrentUser {
+                    id: owner,
+                    role: domain::SystemRole::Operator,
+                    is_system_admin: false,
+                })),
+        )
+        .nest(
+            "/user",
+            endpoint.layer(axum::Extension(api::middleware::CurrentUser {
+                id: owner,
+                role: domain::SystemRole::User,
+                is_system_admin: false,
+            })),
+        )
+        .with_state(ctx);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+    let client = reqwest::Client::new();
+    let response = client
+        .get(format!("{base}/operator/agents/{}/readiness", agent.id))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), reqwest::StatusCode::OK);
+    let body: serde_json::Value = response.json().await.unwrap();
+    assert_eq!(body["effective_revision"], revision.revision);
+    assert_eq!(body["ready_for_sdlc"], false);
+    assert!(
+        body["blockers"]
+            .as_array()
+            .unwrap()
+            .contains(&serde_json::json!(
+                "effective_configuration_readback_failed"
+            ))
+    );
+    assert!(!body.to_string().contains(root.to_str().unwrap()));
+    assert!(!body.to_string().contains("readiness-test-runtime-secret"));
+    assert_eq!(
+        client
+            .get(format!("{base}/user/agents/{}/readiness", agent.id))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        reqwest::StatusCode::FORBIDDEN
+    );
+    assert!(!root.exists());
+    server.abort();
+}
+
+#[tokio::test]
 async fn config_revision_drains_runs_and_failed_rollback_stays_blocked() {
     let Some((repo, owner, _)) = fixture().await else {
         return;

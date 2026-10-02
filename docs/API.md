@@ -258,6 +258,15 @@ regeneration requires MSVC `link.exe`; WSL/Linux generation is supported.
 
 ## PM Runtime Readback
 
+`GET /api/v1/agents/{agent_id}/readiness` remains operator/admin-only.
+An active/effective database revision does not imply that its runtime files
+are intact. Fresh read-only filesystem verification adds
+`effective_configuration_readback_failed` when the snapshot, marker, isolated
+workspace or skills cannot be verified. Underlying paths, resolved credentials
+and file hashes are not exposed. `effective_revision` still reports the database
+head, not a successful runtime observation. Workflow admission remains a separate
+blocker; this endpoint cannot authorize PM dispatch.
+
 `GET /internal/runtime/v1/pm/runs/{session_run_id}` is a machine-only callback
 for Project Workflow, outside browser authentication. It requires the dedicated
 `FLEET_CONTROL_PM__READBACK_TOKEN`; an unset/short/reused credential fails closed.

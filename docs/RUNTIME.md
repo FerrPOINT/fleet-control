@@ -43,6 +43,14 @@ Hermes:
 - Configuration is draft/validated/activating/active/failed with desired and
   effective revisions. Activation drains runs and checks files/runtime before
   releasing the agent. Failed rollback keeps the agent drained.
+- Effective configuration readiness now reads the actual managed files on each
+  request. It compares `config.yaml`, `SOUL.md`, `.env`, enabled/disabled skills
+  and the revision marker against the persisted effective snapshot, not against
+  hashes or paths provided by a marker. Missing/changed files, unexpected skill
+  directories, foreign markers and symlink/junction paths fail closed.
+  Verification does not create or repair directories/files. Secret values and
+  hashes are not returned. This observation is not a fenced admission, proof of
+  runtime-loaded configuration, or task-specific deployment workspace receipt.
 
 Java Agent:
 
