@@ -170,6 +170,8 @@ async fn read(
         || !(32..=128).contains(&pat.len())
         || !pat.bytes().all(|byte| byte.is_ascii_graphic())
         || pat == &config.pm.readback_token
+        || pat == &config.auth.jwt_secret
+        || pat == &config.fleet.runtime_token_secret
         || config.fleet.project_workflow_catalog_token.as_ref() == Some(pat)
     {
         return Err(unavailable());

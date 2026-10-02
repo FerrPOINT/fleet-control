@@ -220,6 +220,12 @@ async fn fresh_bounded_read_uses_machine_identity_and_rejects_revocation_redirec
     config.fleet.project_workflow_catalog_token = None;
     config.pm.readback_token = config.pm.namespace_read_pat.clone();
     assert!(read(&config, &operation, 7).await.is_err());
+    config.pm.readback_token.clear();
+    config.auth.jwt_secret = config.pm.namespace_read_pat.clone();
+    assert!(read(&config, &operation, 7).await.is_err());
+    config.auth.jwt_secret.clear();
+    config.fleet.runtime_token_secret = config.pm.namespace_read_pat.clone();
+    assert!(read(&config, &operation, 7).await.is_err());
     assert_eq!(calls.load(Ordering::SeqCst), 9);
     server.abort();
     let _ = server.await;

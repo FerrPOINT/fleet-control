@@ -43,11 +43,7 @@ pub async fn readback(
     Path(id): Path<Uuid>,
     headers: HeaderMap,
 ) -> Result<Json<PmRuntimeObservation>, AppError> {
-    if ctx.config.pm.readback_token == ctx.config.fleet.runtime_token_secret
-        || ctx.config.pm.readback_token == ctx.config.auth.jwt_secret
-        || ctx.config.fleet.project_workflow_catalog_token.as_deref()
-            == Some(ctx.config.pm.readback_token.as_str())
-    {
+    if !separate_credential(&ctx.config) {
         return Err(AppError::Unavailable(
             "PM readback requires a separate credential".into(),
         ));
@@ -90,12 +86,35 @@ pub async fn readback(
     }))
 }
 
+fn separate_credential(config: &shared::AppConfig) -> bool {
+    config.pm.readback_token != config.fleet.runtime_token_secret
+        && config.pm.readback_token != config.auth.jwt_secret
+        && config.pm.readback_token != config.pm.namespace_read_pat
+        && config.fleet.project_workflow_catalog_token.as_deref()
+            != Some(config.pm.readback_token.as_str())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
     fn callback_requires_a_distinct_configured_machine_credential() {
         let secret = "readback-test-only-credential-123456789";
+        let mut config = shared::AppConfig::default();
+        config.pm.readback_token = secret.into();
+        assert!(separate_credential(&config));
+        config.pm.namespace_read_pat = secret.into();
+        assert!(!separate_credential(&config));
+        config.pm.namespace_read_pat.clear();
+        assert!(separate_credential(&config));
+        config.fleet.project_workflow_catalog_token = Some(secret.into());
+        assert!(!separate_credential(&config));
+        config.fleet.project_workflow_catalog_token = None;
+        config.auth.jwt_secret = secret.into();
+        assert!(!separate_credential(&config));
+        config.auth.jwt_secret.clear();
+        config.fleet.runtime_token_secret = secret.into();
+        assert!(!separate_credential(&config));
         let mut headers = HeaderMap::new();
         assert!(authorize(&headers, "").is_err());
         assert!(authorize(&headers, secret).is_err());

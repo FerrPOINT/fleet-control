@@ -21,7 +21,9 @@ Human credentials stay request-local; original input remains private DB/backup c
 Creation itself grants no runtime tool rights or admission capability.
 Every continuation additionally checks fresh Workflow namespace ownership with
 a dedicated server-only Base PAT. Human/session, catalog and callback credentials
-cannot substitute for that read PAT. The fixed origin, exact project/instance,
+cannot substitute for that read PAT. The PM callback also refuses reuse of the
+namespace PAT as its readback secret. Namespace reads also refuse reuse of JWT
+or runtime-signing secrets. The fixed origin, exact project/instance,
 authority issuer and original provisioner are checked; redirects, proxy-env,
 automatic retries, schema drift and unbounded bodies are refused. Errors do not
 echo upstream bodies or tokens. A saved mapping/chat is not a fenced execution

@@ -33,7 +33,7 @@ Workflow for this exact Tracker instance/project. Configure these server values:
 
 - `FLEET_CONTROL_PM__NAMESPACE_READ_PAT`: dedicated Base PAT with
   `project-workflow:read` and `project-workflow:namespace-owner:read:<namespace>`.
-  Do not reuse the catalog or PM callback token; never expose it to runtime/UI.
+  Do not reuse catalog/callback/JWT/runtime-signing secrets; never expose it to runtime/UI.
 - `FLEET_CONTROL_PM__NAMESPACE_AUTHORITY_ISSUER`: exact trusted Base issuer saved
   in the ownership mapping (HTTP(S) root without trailing slash).
 - `FLEET_CONTROL_PM__NAMESPACE_PROVISIONER_SUBJECT`: canonical non-nil UUID of

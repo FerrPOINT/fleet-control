@@ -8,7 +8,8 @@ No real PM publication/resume or live Backlog acceptance is claimed.
 The creation coordinator now requires uncached Workflow ownership readback before
 any Tracker read/write or chat continuation, including completed operation replay.
 The dedicated server PAT has no human/catalog/callback fallback and is redacted
-from config Debug/serialization. Exact issuer spelling (including explicit
+from config Debug/serialization. The callback's credential separation also
+rejects this PAT as a readback secret. Exact issuer spelling (including explicit
 default ports), original provisioner and Tracker instance/project are checked.
 The guard creates neither ownership mapping nor admission/lease/runtime receipt.
 
