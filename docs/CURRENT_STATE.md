@@ -30,7 +30,9 @@ This is not a fenced admission, a runtime-loaded-config proof or task-workspace
 claim. The preceding WSL Rust 1.88 workspace gate passed 118 library and 39 actual
 PostgreSQL tests. The corrected bundled-inventory tree passed 118 library tests,
 including oversized/non-file marker denial; its broader local rerun was
-interrupted when WSL became unavailable, so Linux CI must verify that tree. Frontend
+interrupted when WSL became unavailable. Exact-tree Linux CI subsequently passed
+all five jobs; see the [merge gate evidence](CHAT_CLARIFICATION_VERIFICATION.md).
+This does not close actual PM delivery/resume or live acceptance. Frontend
 passed 211 tests including Russian/English readback warnings, typecheck, lint,
 format and build. OpenAPI regenerated from source is unchanged. Three separate
 directory/SSE/historical tests remain ignored in this local workspace run.

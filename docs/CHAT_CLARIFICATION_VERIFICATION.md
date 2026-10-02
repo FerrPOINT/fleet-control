@@ -3,6 +3,47 @@
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 
+## Merge Gate Review (2026-10-02)
+
+Exact-tree Linux CI [37000005352](https://github.com/FerrPOINT/fleet-control/actions/runs/37000005352)
+passed all five jobs for `65c2f7469f9a4cca05e4d037cdee55c8a3cca410`,
+including backend/migrations/historical ordering, generated OpenAPI, minimum
+Rust, container smoke, frontend and three-browser fixtures/screenshot manifest.
+This closes the corrected-tree CI verification left pending by the interrupted
+local WSL run. It does not turn controlled runtime/browser fixtures into live PM
+acceptance. Documentation-only follow-ups must also pass their own CI.
+
+Tracker [37005023205](https://github.com/FerrPOINT/task-tracker/actions/runs/37005023205)
+passed all four jobs for `c09af5a0803bbeea0eb5f4e975917ce74ac2ab4d`.
+Its backend explicitly executes the isolated PostgreSQL Draft/reservation/lease
+and clarification suites. The lease is implemented, but Fleet has not consumed
+it for runtime admission: its receipt remains `dispatch_allowed=false`.
+Workflow [36969920135](https://github.com/FerrPOINT/project-workflow/actions/runs/36969920135)
+passed both jobs for `0401af1635ad8af5e7a2b32b7dcdc659c05cc65d`.
+Base's previous green result does not validate a later rebase; the updated
+delegation branch requires fresh checks against accepted main.
+
+All four PR bodies, conversation/review/inline/commit comments and review
+threads were inspected. No review comments, pending reviews or unresolved
+threads existed at this review snapshot. CI annotations were runner notices
+and existing Workflow action deprecation warnings, not failed product checks.
+
+The complete approved slice is **not merge-ready**. Remaining blocking work:
+
+1. Actual creation UI, task workspace/config/native admission and fresh fenced
+   ownership/first-step authority, not namespace or health observations alone.
+2. Durable scoped credential issuance, real initial Hermes delivery and assigned
+   structured PM tools; no duplicate run after unknown acceptance.
+3. Answer delivery with safe checkpoint/rebind and independent exact-revision
+   prerequisite verification before owner confirmation can reach Backlog.
+4. Genuine pinned native-skills source/build and live authenticated PM/owner
+   acceptance, restart/denial scenarios and production screenshot evidence.
+
+Keep the feature disabled and PRs Draft until these gates pass. An independent
+foundation may only be released as an explicitly approved separate scope;
+green CI alone cannot narrow the user's acceptance criteria. See
+[GAP_REGISTER](GAP_REGISTER.md) for exit criteria.
+
 ## Fresh Namespace Guard (2026-10-02)
 
 The creation coordinator now requires uncached Workflow ownership readback before
@@ -367,7 +408,8 @@ it does not establish actual bundled/native provenance, which remains an explici
 The corrected tree passed the 118-library and 211-frontend test gates plus
 frontend typecheck/lint/format/build. Its broader local Rust rerun was interrupted
 by WSL unavailability, not accepted as a pass. Exact-tree Linux CI remains the
-authority for remaining Rust checks; no shared runtime restart was attempted.
+authority for remaining Rust checks; the exact-tree success is recorded in the
+Merge Gate Review above. No shared runtime restart was attempted.
 
 The 2026-10-02 server-only credential client follow-up passed 100 WSL Rust library
 tests, format, all-target check and strict all-target Clippy. Its four focused
