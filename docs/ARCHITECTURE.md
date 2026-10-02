@@ -33,6 +33,9 @@ It is an observation, not a claim/lease: a configuration change after observatio
 runtime-loaded state and task-specific workspace still require the fenced admission
 protocol. Hostile concurrent filesystem mutation requires the separate OS isolation
 work, not just the existing path checks.
+Hermes runtime-owned bundled inventory is not part of the flat Fleet skill
+snapshot. It is preserved rather than interpreted as drift, but is not attested
+by this readback; inventory/native provenance readiness remains explicitly blocked.
 
 Fleet Control keeps a small control-plane core:
 

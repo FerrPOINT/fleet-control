@@ -5,8 +5,11 @@
 An operator/admin readiness response may contain
 `effective_configuration_readback_failed` even when `effective_revision` is set.
 The database head is not evidence that runtime files are intact. Inspect the
-agent marker, isolated paths and active configuration through authorized tooling;
-reconcile unexpected skills, secret references and deployment configuration.
+agent marker, isolated paths and active managed configuration through authorized
+tooling; reconcile changed managed skills, secret references and deployment
+configuration. Hermes-owned categories and `.bundled_manifest` are not removed
+by this check. `runtime_skill_inventory_not_verified` is a separate integration
+blocker, not an instruction to delete bundled skills.
 Then validate/activate the intended revision using the normal drain/rollback flow.
 Do not bypass the blocker, copy credentials between agents or treat a manual file
 repair as a Workflow admission. This check does not attest runtime-loaded state

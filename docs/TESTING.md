@@ -38,13 +38,16 @@ route/view/viewport identity and content hashes. These gates also run in fronten
 
 `cargo test -p infra --lib effective_configuration` checks actual temporary files:
 fresh success followed by same-size drift in every managed file, missing files,
-disabled/unexpected skills, wrong snapshot/revision/marker, missing or foreign
+re-enabled disabled skills, wrong snapshot/revision/marker, missing or foreign
 workspace and Unix symlink denial. It also verifies that readback does not repair
 files or expose resolved secrets. These are controlled filesystem checks, not
 runtime-loaded configuration or PM admission evidence. The PostgreSQL HTTP case
 `readiness_http_does_not_trust_database_only_effective_revision` checks the real
 readiness handler with a DB-active revision but no installed files, plus operator
 access and regular-user denial. Without the database variable it skips.
+The filesystem regression also includes Hermes-owned category directories and
+`.bundled_manifest`. These are preserved, not trusted as a provenance source;
+the unverified runtime inventory blocker is separate from managed-file drift.
 
 New regression coverage: PostgreSQL concurrent session/message idempotency and
 private authorization; configuration drain/rollback state; unknown dispatch

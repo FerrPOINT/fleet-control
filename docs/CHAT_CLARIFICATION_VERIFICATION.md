@@ -346,7 +346,7 @@ as new local acceptance. No schema, public API or UI changed in this follow-up.
 The effective-configuration follow-up passed WSL Rust 1.88 format, all-target
 check and strict all-target Clippy, 118 library tests and 39 actual PostgreSQL
 17.11 cases with both database variables configured. Its three filesystem cases
-verify same-size drift for every managed file, absent files, disabled/unexpected
+verify same-size drift for every managed file, absent files, re-enabled disabled
 skills, wrong snapshot/head/marker, oversized/non-file marker, missing/foreign
 workspace and Unix symlinks without repairs or secret-bearing errors. The new
 real PostgreSQL HTTP case returns a generic blocker for a database-only active
@@ -358,6 +358,16 @@ typecheck/lint/format/build; regenerated source OpenAPI is unchanged and 90
 Markdown documents passed link checks. No visual composition, schema or public
 DTO changed; existing screenshot evidence was not relabeled as live.
 Config/runtime/task-workspace fencing and actual PM admission remain open.
+Independent review found that Hermes writes category directories and
+`.bundled_manifest` alongside Fleet-managed skills. The corrected check only
+attests snapshot-managed files and preserves runtime-owned inventory. A
+controlled bundled-layout regression prevents a permanent false readback blocker;
+it does not establish actual bundled/native provenance, which remains an explicit
+`runtime_skill_inventory_not_verified` readiness blocker.
+The corrected tree passed the 118-library and 211-frontend test gates plus
+frontend typecheck/lint/format/build. Its broader local Rust rerun was interrupted
+by WSL unavailability, not accepted as a pass. Exact-tree Linux CI remains the
+authority for remaining Rust checks; no shared runtime restart was attempted.
 
 The 2026-10-02 server-only credential client follow-up passed 100 WSL Rust library
 tests, format, all-target check and strict all-target Clippy. Its four focused

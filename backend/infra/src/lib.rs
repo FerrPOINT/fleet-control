@@ -5016,22 +5016,29 @@ mod tests {
             .verify_effective_configuration(&agent, &config, &revision)
             .await
             .unwrap();
-        let foreign = Path::new(&agent.paths.config).join("skills/foreign");
-        tokio::fs::create_dir_all(&foreign).await.unwrap();
-        tokio::fs::write(foreign.join("SKILL.md"), "foreign content preserved")
+        // Hermes-owned inventory is separate from Fleet-managed flat skill paths.
+        let bundled = Path::new(&agent.paths.config).join("skills/category/bundled");
+        tokio::fs::create_dir_all(&bundled).await.unwrap();
+        tokio::fs::write(bundled.join("SKILL.md"), "bundled fixture preserved")
             .await
             .unwrap();
-        assert!(
-            provisioner
-                .verify_effective_configuration(&agent, &config, &revision)
-                .await
-                .is_err()
-        );
+        let manifest = Path::new(&agent.paths.config).join("skills/.bundled_manifest");
+        tokio::fs::write(&manifest, "category/bundled:test-digest\n")
+            .await
+            .unwrap();
+        provisioner
+            .verify_effective_configuration(&agent, &config, &revision)
+            .await
+            .unwrap();
         assert_eq!(
-            tokio::fs::read_to_string(foreign.join("SKILL.md"))
+            tokio::fs::read_to_string(bundled.join("SKILL.md"))
                 .await
                 .unwrap(),
-            "foreign content preserved"
+            "bundled fixture preserved"
+        );
+        assert_eq!(
+            tokio::fs::read_to_string(manifest).await.unwrap(),
+            "category/bundled:test-digest\n"
         );
         tokio::fs::remove_dir_all(root).await.unwrap();
     }

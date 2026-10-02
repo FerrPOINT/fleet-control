@@ -509,6 +509,8 @@ pub async fn get_sdlc_readiness(
     }
     // Existing workflow catalog is not proof of assignment/rebind/terminal support.
     blockers.push("workflow_assignment_protocol_not_verified".into());
+    // Readback covers Fleet-managed files, not Hermes bundled/native skill provenance.
+    blockers.push("runtime_skill_inventory_not_verified".into());
     Ok(Json(domain::AgentSdlcReadiness {
         agent_id: id,
         runtime_healthy,

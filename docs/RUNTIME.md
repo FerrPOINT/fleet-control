@@ -46,8 +46,12 @@ Hermes:
 - Effective configuration readiness now reads the actual managed files on each
   request. It compares `config.yaml`, `SOUL.md`, `.env`, enabled/disabled skills
   and the revision marker against the persisted effective snapshot, not against
-  hashes or paths provided by a marker. Missing/changed files, unexpected skill
-  directories, foreign markers and symlink/junction paths fail closed.
+  hashes or paths provided by a marker. Missing/changed managed files,
+  re-enabled disabled skills, foreign markers and symlink/junction paths fail closed.
+  Hermes-owned categories and `.bundled_manifest` are preserved and not used as
+  authority. This check does not attest extra/runtime-owned skills; the separate
+  `runtime_skill_inventory_not_verified` blocker remains until real inventory
+  and native provenance are integrated.
   Verification does not create or repair directories/files. Secret values and
   hashes are not returned. This observation is not a fenced admission, proof of
   runtime-loaded configuration, or task-specific deployment workspace receipt.

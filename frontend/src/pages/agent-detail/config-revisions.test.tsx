@@ -21,7 +21,7 @@ describe('effective configuration readiness', () => {
       runtime_healthy: true,
       ready_for_sdlc: false,
       effective_revision: 7,
-      blockers: ['effective_configuration_readback_failed'],
+      blockers: ['effective_configuration_readback_failed', 'runtime_skill_inventory_not_verified'],
     })
   })
 
@@ -39,6 +39,13 @@ describe('effective configuration readiness', () => {
         </QueryClientProvider>,
       )
       expect(await screen.findByText(text)).toBeVisible()
+      expect(
+        screen.getByText(
+          locale === 'ru'
+            ? 'Набор скиллов runtime и их происхождение не подтверждены'
+            : 'Runtime skill inventory and provenance are not verified',
+        ),
+      ).toBeVisible()
       expect(screen.queryByText('effective configuration readback failed')).not.toBeInTheDocument()
       expect(fleet.getAgentSdlcReadiness).toHaveBeenCalledWith('agent-qa')
       client.clear()

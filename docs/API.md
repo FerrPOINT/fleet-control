@@ -266,6 +266,10 @@ workspace or skills cannot be verified. Underlying paths, resolved credentials
 and file hashes are not exposed. `effective_revision` still reports the database
 head, not a successful runtime observation. Workflow admission remains a separate
 blocker; this endpoint cannot authorize PM dispatch.
+Hermes-owned skill categories and `.bundled_manifest` are not Fleet snapshot
+files. They are preserved, not certified by managed-file readback. The separate
+`runtime_skill_inventory_not_verified` blocker prevents treating intact managed
+files as proof of complete skill inventory/native provenance.
 
 `GET /internal/runtime/v1/pm/runs/{session_run_id}` is a machine-only callback
 for Project Workflow, outside browser authentication. It requires the dedicated

@@ -1,7 +1,7 @@
 use crate::{configuration_files, reject_symlink_components};
 use domain::{Agent, AgentConfigRevision, AgentKind};
 use shared::{AppConfig, AppError};
-use std::{collections::HashSet, io::ErrorKind, path::Path};
+use std::{io::ErrorKind, path::Path};
 use tokio::io::AsyncReadExt;
 
 fn mismatch() -> AppError {
@@ -87,32 +87,8 @@ pub(crate) async fn verify(
             return Err(mismatch());
         }
     }
-    let skills_root = Path::new(&agent.paths.config).join("skills");
-    reject_symlink_components(root, &skills_root)
-        .await
-        .map_err(|_| mismatch())?;
-    let known: HashSet<_> = revision
-        .snapshot
-        .skills
-        .iter()
-        .map(|skill| skill.name.as_str())
-        .collect();
-    let mut entries = match tokio::fs::read_dir(&skills_root).await {
-        Ok(entries) => entries,
-        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(()),
-        Err(_) => return Err(mismatch()),
-    };
-    while let Some(entry) = entries.next_entry().await.map_err(|_| mismatch())? {
-        let name = entry.file_name();
-        if !name.to_str().is_some_and(|name| known.contains(name)) {
-            return Err(mismatch());
-        }
-        reject_symlink_components(root, &entry.path())
-            .await
-            .map_err(|_| mismatch())?;
-        if !entry.file_type().await.map_err(|_| mismatch())?.is_dir() {
-            return Err(mismatch());
-        }
-    }
+    // Hermes syncs category directories and .bundled_manifest into this same root.
+    // Only Fleet-managed files are attested here; full runtime inventory needs
+    // native provenance/capability validation and is not inferred from this check.
     Ok(())
 }

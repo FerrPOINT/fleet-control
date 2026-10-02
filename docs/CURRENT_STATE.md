@@ -24,15 +24,21 @@ delivery, resume or live Backlog acceptance.
 
 The effective-configuration follow-up verifies actual managed files against the
 active database snapshot on every readiness request. Same-size drift, missing
-files, disabled/unexpected skills, foreign markers and symlinked paths block
+files, re-enabled disabled skills, foreign markers and symlinked paths block
 readiness. Planning/readback is read-only; activation alone creates skill paths.
 This is not a fenced admission, a runtime-loaded-config proof or task-workspace
-claim. WSL Rust 1.88 gates passed 118 library and 39 actual PostgreSQL tests;
-the final library rerun includes oversized/non-file marker denial. Frontend
+claim. The preceding WSL Rust 1.88 workspace gate passed 118 library and 39 actual
+PostgreSQL tests. The corrected bundled-inventory tree passed 118 library tests,
+including oversized/non-file marker denial; its broader local rerun was
+interrupted when WSL became unavailable, so Linux CI must verify that tree. Frontend
 passed 211 tests including Russian/English readback warnings, typecheck, lint,
 format and build. OpenAPI regenerated from source is unchanged. Three separate
 directory/SSE/historical tests remain ignored in this local workspace run.
 Controlled filesystem/HTTP evidence does not replace live PM acceptance.
+The compatibility correction preserves Hermes-owned category directories and
+`.bundled_manifest`; their presence is not managed-file drift or a native-skill
+attestation. A distinct unverified runtime inventory blocker remains. The
+controlled regression includes this layout without trusting its manifest.
 
 The internal PM Draft chat repository operation now commits private chat, exact
 binding, two participants and one audit/event atomically. It creates no prompt or
