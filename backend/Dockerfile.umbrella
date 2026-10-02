@@ -1,7 +1,7 @@
 # Umbrella build for the SDLC fleet root compose (context = /opt/dev/sdlc).
 # Stages the sibling services-base checkout so the sdlc-auth-core path
 # dependency (../../../services-base/...) resolves.
-FROM rust:1.88-slim-bookworm AS builder
+FROM rust:1.88.0-slim-bookworm AS builder
 
 RUN apt-get update && apt-get install -y pkg-config libssl-dev unzip curl unzip zip && rm -rf /var/lib/apt/lists/*
 
@@ -22,7 +22,7 @@ COPY fleet-control/backend/api ./api
 COPY fleet-control/backend/server ./server
 COPY fleet-control/backend/cli ./cli
 
-RUN cargo build --release --bin server
+RUN cargo build --locked --release --bin server
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y ca-certificates libssl3 wget && rm -rf /var/lib/apt/lists/*

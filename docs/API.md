@@ -197,3 +197,7 @@ regeneration requires MSVC `link.exe`; WSL/Linux generation is supported.
 - `GET /api/v1/fleet-alerts?state=open|acknowledged|resolved` — алерты переходов здоровья агентов (Operator+). Kinds: `agent_down` (critical, running/ready → failed/stopped/degraded), `agent_recovered` (авто-resolve открытых или подтверждённых `agent_down`/`agent_restart_loop`/`agent_heartbeat_stale` при возврате в running/ready), `agent_restart_loop` (warning: ≥3 restart-событий за 15 минут — перекрывает одиночный `agent_down`, чтобы оператор видел цикл, а не шторм), `agent_heartbeat_stale` (warning: running-агент без свежего health ≥10 минут; сканируется reconciler-циклом, дедуп по одному активному алерту на агента).
 - `POST /api/v1/fleet-alerts/{alert_id}/acknowledge` — Operator+; ack только для `open`-алертов; аудит `fleet_alert.acknowledge`.
 - Переходы пишутся в `fleet_alerts` (миграция 6) из start/stop/health операций без блокировки ответа.
+
+## Общая база
+
+Подключение версий, границы контрактов и проверки описаны в [BASE_INTEGRATION](BASE_INTEGRATION.md).

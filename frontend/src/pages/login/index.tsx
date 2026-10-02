@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Navigate, useLocation } from 'react-router'
-import { beginSso } from '@sdlc/ui/sso'
+import { beginSso, isSsoNavigationInterruption } from '@sdlc/ui/sso'
 import { Button, PlatformMark } from '@sdlc/ui/ui'
 import { ssoConfig, useAuthStore } from '@/shared/auth/store'
 
@@ -14,7 +14,9 @@ export function LoginPage() {
   const loggedOut = new URLSearchParams(location.search).has('logged_out')
   useEffect(() => {
     if (token || loggedOut) return
-    void beginSso(ssoConfig, returnTo).catch(() => setError('Central Auth временно недоступен.'))
+    void beginSso(ssoConfig, returnTo).catch((error: unknown) =>
+      setError(isSsoNavigationInterruption(error) ? null : 'Central Auth временно недоступен.'),
+    )
   }, [token, loggedOut, returnTo])
   if (token) return <Navigate to={returnTo} replace />
   return (
@@ -29,11 +31,14 @@ export function LoginPage() {
         )}
         <Button
           className="w-full"
-          onClick={() =>
-            void beginSso(ssoConfig, returnTo).catch(() =>
-              setError('Central Auth временно недоступен.'),
+          onClick={() => {
+            setError(null)
+            void beginSso(ssoConfig, returnTo, { interactive: true }).catch((error: unknown) =>
+              setError(
+                isSsoNavigationInterruption(error) ? null : 'Central Auth временно недоступен.',
+              ),
             )
-          }
+          }}
         >
           Войти через SDLC
         </Button>
