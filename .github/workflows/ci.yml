@@ -129,6 +129,13 @@ jobs:
           cargo run -p migration -- down -n 1
           cargo run -p migration -- up
           cargo run -p migration -- status
+      - name: Historical transcript migration and clock rollback
+        env:
+          PGPASSWORD: fleet_control
+          FLEET_MESSAGE_ORDER_TEST_DATABASE_URL: postgres://fleet_control:fleet_control@127.0.0.1:5432/fleet_message_order_test
+        run: |
+          psql -h 127.0.0.1 -U fleet_control -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE fleet_message_order_test;'
+          cargo test -p migration --test message_order -- --ignored --test-threads=1
       - name: OpenAPI drift gate
         run: |
           mkdir -p ../openapi

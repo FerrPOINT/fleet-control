@@ -1,5 +1,19 @@
 # Operations
 
+## Transcript Order Migration
+
+Pending migration 000010 backfills existing messages in timestamp/UUID order and
+assigns new messages immutable database identity positions. Apply with a verified
+backup and migration window: the column backfill, constraint and index creation
+can lock or scan the message table. Measure the window on representative data.
+The public cursor remains a session-scoped message UUID; do not use the internal
+allocation sequence as a commit watermark or an SSE cursor. Sequence gaps are normal.
+
+Down/reapply retains messages but reconstructs positions from timestamps, so it
+can change the order of post-upgrade messages after a clock rollback. Use this
+cycle only in disposable QA. Production recovery requires a verified backup
+restoring the order column or a reviewed forward migration, not blind down/up.
+
 ## SDLC Foundation Recovery
 
 Automatic SDLC is blocked; operator actions do not publish Tracker requirements

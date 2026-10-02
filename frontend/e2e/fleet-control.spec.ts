@@ -223,6 +223,53 @@ test('PM chat clarification preserves explicit answers and exact confirmation', 
   await expect(page).toHaveURL(/tab=clarification/)
   expect(errors).toEqual([])
 })
+test('chat history preserves server order after clock rollback and page overlap', async ({
+  page,
+}) => {
+  const state = createState()
+  await installMocks(page, state)
+  const first = {
+    ...makeMessage(ids.session, 'First appended'),
+    id: '00000000-0000-4000-8000-000000000601',
+    created_at: '2030-01-01T12:00:00Z',
+  }
+  const last = {
+    ...makeMessage(ids.session, 'Last appended after clock rollback'),
+    id: '00000000-0000-4000-8000-000000000602',
+    created_at: '2010-01-01T12:00:00Z',
+  }
+  await page.route(`**/api/v1/sessions/${ids.session}/history**`, (route) => {
+    const before = new URL(route.request().url()).searchParams.get('before')
+    return fulfill(
+      route,
+      before
+        ? {
+            items: [
+              {
+                ...first,
+                id: '00000000-0000-4000-8000-000000000600',
+                body: 'Oldest appended',
+                created_at: '2040-01-01T12:00:00Z',
+              },
+              { ...first, body: 'Outdated overlap' },
+            ],
+            next_before: null,
+          }
+        : { items: [first, last], next_before: first.id },
+    )
+  })
+  await page.goto(`/chats/${ids.session}?tab=dialogue`)
+  const messages = page.locator('.fc-chat-message > p')
+  await expect(messages).toHaveText(['First appended', 'Last appended after clock rollback'])
+  await page.getByRole('button', { name: 'Предыдущие сообщения' }).click()
+  await expect(messages).toHaveText([
+    'Oldest appended',
+    'First appended',
+    'Last appended after clock rollback',
+  ])
+  await expect(page.getByText('Outdated overlap', { exact: true })).toHaveCount(0)
+})
+
 const ids = {
   user: '00000000-0000-4000-8000-000000000001',
   reviewer: '00000000-0000-4000-8000-000000000002',

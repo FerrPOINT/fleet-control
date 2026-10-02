@@ -32,7 +32,7 @@ These do not mean the complete approved plan is done.
 | Live acceptance and production screenshots | Real PM/owner/Tracker/Workflow flow, restart/denial tests; fixture screenshots stay separately labeled |
 | Targeted tool approval UI and context evidence | Exact human-only backend decisions and integrated UI have PostgreSQL/authenticated fake-runtime and three-browser fixture evidence; independent unknown-outcome reconciliation and live evidence remain |
 | Assignment replacement quiescence | Old runtime confirmed terminal/safely stopped before replacement; final authorization recheck does not replace a distributed fencing protocol |
-| Transcript ordering under host clock rollback | History has stable timestamp/UUID pagination, not monotonic append order. Evaluate a persisted per-session message ordinal before claiming insertion-order guarantees; the pagination regression uses explicit timestamps rather than relying on WSL clock behavior. |
+| Historical transcript ordering | New messages use immutable database identity allocation order; legacy listing and paginated UI no longer sort by host timestamps. Existing records are backfilled in their former timestamp/UUID order, not reconstructed insertion order. Allocation order is not commit order or the durable SSE cursor. Historical restoration requires independent evidence. |
 
 SDLC send/steer stays fail-closed until verified assignments are integrated. Do not enable
 automatic assignments or label this feature production-ready on the strength of UI fixtures.

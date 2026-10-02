@@ -170,7 +170,12 @@ function ChatWorkspace({ id }: { id: string }) {
         'requirements',
         'task-approvals',
         'task-approval-decision',
-      ].map((key) => client.invalidateQueries({ queryKey: [key, id] })),
+      ].map((key) =>
+        client.invalidateQueries(
+          { queryKey: [key, id] },
+          { cancelRefetch: key !== 'chat-history' },
+        ),
+      ),
     )
   }
   useEffect(() => {
@@ -180,7 +185,7 @@ function ChatWorkspace({ id }: { id: string }) {
       token,
       eventTypes: ['session'],
       onOpen: () => {
-        void client.invalidateQueries({ queryKey: ['chat-history', id] })
+        void client.invalidateQueries({ queryKey: ['chat-history', id] }, { cancelRefetch: false })
       },
       onEvent: (_type, data) => {
         if (
@@ -210,18 +215,22 @@ function ChatWorkspace({ id }: { id: string }) {
             'task-approvals',
             'task-approval-decision',
           ].forEach((key) => {
-            void client.invalidateQueries({ queryKey: [key, id] })
+            void client.invalidateQueries(
+              { queryKey: [key, id] },
+              { cancelRefetch: key !== 'chat-history' },
+            )
           })
         }
       },
     })
   }, [client, id, token])
   const messageMap = new Map(
-    history.data?.pages.flatMap((page) => page.items).map((message) => [message.id, message]),
+    [...(history.data?.pages ?? [])]
+      .reverse()
+      .flatMap((page) => page.items)
+      .map((message) => [message.id, message]),
   )
-  const messages = [...messageMap.values()].sort(
-    (a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id),
-  )
+  const messages = [...messageMap.values()]
   const lastMessage = messages.at(-1)?.id
   useEffect(() => {
     if (!transcript.current) return

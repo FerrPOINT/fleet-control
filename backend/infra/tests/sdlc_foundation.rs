@@ -3176,11 +3176,11 @@ async fn message_history_returns_latest_page_and_scopes_cursor() {
             )
             .await
             .unwrap();
-        // Pagination is timestamp-based; do not make this test depend on host clock drift.
+        // Force clock rollback; history must follow database append order instead.
         db.execute(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "UPDATE session_messages SET created_at='2020-01-01T00:00:00Z'::timestamptz + $2::integer * interval '1 second' WHERE id=$1",
-            [message.id.into(), (index + 1).into()],
+            [message.id.into(), (8 - index).into()],
         ))
         .await
         .unwrap();
@@ -3191,6 +3191,17 @@ async fn message_history_returns_latest_page_and_scopes_cursor() {
         .unwrap();
     assert_eq!(latest.items.len(), 3);
     assert_eq!(latest.items.last().unwrap().body, "Message 7");
+    let all = repo.list_session_messages(session.id).await.unwrap();
+    assert_eq!(all.last().unwrap().body, "Message 7");
+    assert!(
+        db.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE session_messages SET append_sequence=append_sequence+100000 WHERE id=$1",
+            [latest.items[0].id.into()],
+        ))
+        .await
+        .is_err()
+    );
     let older = repo
         .session_message_history(session.id, latest.next_before, 3)
         .await

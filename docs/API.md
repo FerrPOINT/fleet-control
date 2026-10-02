@@ -32,7 +32,8 @@ Base path: `/api/v1`.
   returns null context, dependency failure is not an empty successful SDLC response.
 - `GET /sessions/{id}/chat-controls`: authoritative ownership/capability/dispatch gates.
 - `GET /sessions/{id}/history?before={messageUuid}&limit=50`: latest-first pages, each
-  page returned chronologically; maximum 100, cursor scoped to session.
+  page returned in server allocation order, independent of host timestamps; maximum
+  100, UUID cursor scoped to session. Internal ordering is not an SSE replay cursor.
 - `GET /sessions/{id}/clarifications`, `POST .../{questionId}/answers`.
 - `GET /sessions/{id}/requirements`, `POST .../{revision}/confirm`.
 

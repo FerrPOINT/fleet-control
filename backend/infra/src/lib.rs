@@ -2147,8 +2147,9 @@ impl FleetRepository for PostgresFleetRepository {
     async fn list_session_messages(&self, id: Uuid) -> Result<Vec<SessionMessage>, AppError> {
         let rows = session_message::Entity::find()
             .filter(session_message::Column::SessionId.eq(id))
-            .order_by_asc(session_message::Column::CreatedAt)
-            .order_by_asc(session_message::Column::Id)
+            .order_by_asc(sea_orm::sea_query::Expr::col(
+                sea_orm::sea_query::Alias::new("append_sequence"),
+            ))
             .limit(500)
             .all(&self.db)
             .await

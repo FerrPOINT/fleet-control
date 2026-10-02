@@ -192,8 +192,8 @@ impl PostgresFleetRepository {
                     WHEN 'agent' THEN COALESCE(a.display_name,'Unknown agent') ELSE 'Fleet Control' END AS author_display_name
                 FROM session_messages m LEFT JOIN users u ON u.id=m.author_user_id
                     LEFT JOIN agents a ON a.id=m.author_agent_id WHERE m.session_id=$1 AND ($2::uuid IS NULL OR
-                (m.created_at,m.id)<(SELECT created_at,id FROM session_messages WHERE id=$2 AND session_id=$1))
-                ORDER BY m.created_at DESC,m.id DESC LIMIT $3",
+                m.append_sequence<(SELECT append_sequence FROM session_messages WHERE id=$2 AND session_id=$1))
+                ORDER BY m.append_sequence DESC LIMIT $3",
             [session_id.into(), before.into(), ((limit + 1) as i64).into()]))
             .await.map_err(AppError::database)?;
         let has_more = rows.len() > limit as usize;

@@ -69,7 +69,28 @@ impl MigrationTrait for Migration {
              $$ LANGUAGE plpgsql;
              CREATE TRIGGER fleet_task_chat_identity BEFORE UPDATE ON agent_sessions
                 FOR EACH ROW EXECUTE FUNCTION fleet_guard_task_chat();
-             CREATE INDEX session_messages_history_idx ON session_messages(session_id, created_at DESC, id DESC);
+             ALTER TABLE session_messages ADD COLUMN append_sequence bigint;
+             ALTER TABLE session_messages DISABLE TRIGGER fleet_message_event;
+             WITH ordered AS (
+                SELECT id, row_number() OVER (ORDER BY created_at,id) AS sequence FROM session_messages
+             ) UPDATE session_messages m SET append_sequence=o.sequence FROM ordered o WHERE m.id=o.id;
+             ALTER TABLE session_messages ENABLE TRIGGER fleet_message_event;
+             ALTER TABLE session_messages ALTER COLUMN append_sequence SET NOT NULL;
+             ALTER TABLE session_messages ALTER COLUMN append_sequence ADD GENERATED ALWAYS AS IDENTITY;
+             SELECT setval(pg_get_serial_sequence('session_messages','append_sequence'),
+                COALESCE((SELECT max(append_sequence) FROM session_messages),0)+1,false);
+             CREATE UNIQUE INDEX session_messages_append_sequence_unique ON session_messages(append_sequence);
+             CREATE INDEX session_messages_history_idx ON session_messages(session_id, append_sequence DESC);
+             CREATE FUNCTION fleet_guard_message_order() RETURNS trigger AS $$
+             BEGIN
+                IF NEW.append_sequence IS DISTINCT FROM OLD.append_sequence THEN
+                    RAISE EXCEPTION 'message append order is immutable' USING ERRCODE = '23514';
+                END IF;
+                RETURN NEW;
+             END;
+             $$ LANGUAGE plpgsql;
+             CREATE TRIGGER fleet_message_order_guard BEFORE UPDATE ON session_messages
+                FOR EACH ROW EXECUTE FUNCTION fleet_guard_message_order();
              CREATE TABLE pm_run_bindings (
                 session_run_id uuid PRIMARY KEY REFERENCES session_agent_runs(id),
                 session_id uuid NOT NULL REFERENCES task_chat_bindings(session_id),
@@ -144,7 +165,11 @@ impl MigrationTrait for Migration {
              DROP FUNCTION fleet_guard_tracker_projection();
              DROP TRIGGER fleet_task_chat_identity ON agent_sessions;
              DROP FUNCTION fleet_guard_task_chat();
+             DROP TRIGGER fleet_message_order_guard ON session_messages;
+             DROP FUNCTION fleet_guard_message_order();
              DROP INDEX session_messages_history_idx;
+             DROP INDEX session_messages_append_sequence_unique;
+             ALTER TABLE session_messages DROP COLUMN append_sequence;
              DROP TABLE task_chat_bindings;",
             )
             .await?;

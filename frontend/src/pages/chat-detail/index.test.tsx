@@ -1,13 +1,13 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ChatDetailPage } from './index'
 import * as fleet from '@/api/fleet'
 import * as chats from '@/api/task-chats'
-import type { AgentSession } from '@/api/types'
+import type { AgentSession, SessionMessage } from '@/api/types'
 import { useAuthStore } from '@/shared/auth/store'
-import { ApiError } from '@sdlc/ui/lib'
+import { ApiError, connectAuthenticatedEventStream } from '@sdlc/ui/lib'
 import userEvent from '@testing-library/user-event'
 
 vi.mock('@/api/fleet', () => ({
@@ -170,6 +170,75 @@ beforeEach(() => {
   })
 })
 describe('production chat', () => {
+  it('does not cancel older history when the event stream reconnects', async () => {
+    useAuthStore.setState({ token: 'fixture-token' })
+    let resolveOlder!: (page: chats.HistoryPage) => void
+    vi.mocked(chats.getChatHistory)
+      .mockResolvedValueOnce({ items: [], next_before: 'older-cursor' })
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveOlder = resolve
+          }),
+      )
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: 'Предыдущие сообщения' }))
+    await waitFor(() => expect(chats.getChatHistory).toHaveBeenCalledTimes(2))
+    await act(async () => {
+      vi.mocked(connectAuthenticatedEventStream).mock.calls[0]?.[0].onOpen?.()
+      resolveOlder({ items: [], next_before: null })
+    })
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: 'Предыдущие сообщения' }),
+      ).not.toBeInTheDocument(),
+    )
+    expect(chats.getChatHistory).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps server append order across clock rollback, older pages and overlap', async () => {
+    const message = (id: string, body: string, created_at: string): SessionMessage => ({
+      id,
+      body,
+      created_at,
+      session_id: 'session1',
+      author_type: 'agent',
+      author_user_id: null,
+      author_agent_id: 'agent1',
+      author_display_name: 'PM',
+      message_kind: 'assistant_message',
+      runtime_message_id: null,
+      delivery_state: 'completed',
+      delivery_error: null,
+      replayed: false,
+    })
+    vi.mocked(chats.getChatHistory)
+      .mockResolvedValueOnce({
+        items: [
+          message('second', 'Second message', '2026-10-02T12:00:00Z'),
+          message('third', 'Third message', '2026-10-01T12:00:00Z'),
+        ],
+        next_before: 'second',
+      })
+      .mockResolvedValueOnce({
+        items: [
+          message('first', 'First message', '2026-10-03T12:00:00Z'),
+          message('second', 'Outdated overlap', '2026-10-02T12:00:00Z'),
+        ],
+        next_before: null,
+      })
+    renderPage()
+    await screen.findByText('Third message')
+    const texts = () =>
+      [...document.querySelectorAll('.fc-chat-message > p')].map((node) => node.textContent)
+    expect(texts()).toEqual(['Second message', 'Third message'])
+    await userEvent.click(screen.getByRole('button', { name: 'Предыдущие сообщения' }))
+    await waitFor(() =>
+      expect(texts()).toEqual(['First message', 'Second message', 'Third message']),
+    )
+    expect(screen.queryByText('Outdated overlap')).not.toBeInTheDocument()
+  })
+
   it('requires explicit answer and does not publish after saving it', async () => {
     renderPage('clarification')
     const choice = await screen.findByRole('radio', { name: /Участники проекта/ })

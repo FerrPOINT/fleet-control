@@ -2,12 +2,21 @@
 
 ## PM Chat Slice
 
-Run `FLEET_TEST_DATABASE_URL` against an isolated PostgreSQL instance for the 11
+Run `FLEET_TEST_DATABASE_URL` against an isolated PostgreSQL instance for the 29
 `infra/tests/sdlc_foundation.rs` tests. Without that variable the tests skip and must not
 be counted as database acceptance. Binding tests cover concurrent replay, ownership,
 duplicate task/agent pair, immutable payload, once-only audit/event, scoped pagination,
 binding/prompt races and message creation/replay/dispatch/final mirroring after 500 messages.
 `FLEET_MIGRATION_TEST_DATABASE_URL` separately enables the central-subject migration test.
+
+`FLEET_MESSAGE_ORDER_TEST_DATABASE_URL` must name a separate empty disposable
+database. Run `cargo test -p migration --test message_order -- --ignored --test-threads=1`
+to check historical backfill, backwards clock timestamps, immutable identity order
+and pending migration down/reapply without losing messages. CI creates its own
+database for this gate. Downgrade/reapply is a QA exercise, not an order-preserving
+production rollback. Foundation pagination tests also check foreign cursors and
+legacy listing order. Frontend tests cover overlapping pages and SSE reconnect
+during previous-page loading; browser fixtures are not real PM acceptance.
 
 Frontend commands: `pnpm test -- --maxWorkers=2` and focused Playwright
 `pnpm exec playwright test e2e/fleet-control.spec.ts --grep "PM chat clarification" --workers=1`.

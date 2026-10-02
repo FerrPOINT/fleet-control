@@ -24,12 +24,21 @@ central owner and concrete assigned PM. Legacy creation system messages/pending 
 placeholders are not user history; existing prompts or observed runs reject adoption.
 Task binding is not inferred from task_key/title. A database trigger forbids changes to
 bound session owner/agent/visibility/leader. Application routes reject handoff/leader
-assignment and unverified generic prompt/steer. History uses `(created_at,id)` cursor
-ordering and validates the cursor belongs to the session.
+assignment and unverified generic prompt/steer. History uses an internal immutable
+`session_messages.append_sequence` identity allocation order and validates that the
+public UUID cursor belongs to the session. The bigint is not added to message DTOs.
+Gaps are allowed: allocation order is neither transaction commit order nor an SSE
+replay cursor. Migration 000010 backfills existing records in timestamp/UUID order;
+it cannot recover historical insertion order lost before the migration. New records
+retain allocation order even when the host clock moves backwards. Identity inserts
+and a database update guard prevent reassignment of an allocated position.
+The backfill temporarily disables only the message-change trigger inside the
+transactional migration, avoiding synthetic transcript events for old records.
 
 Questions, answers, immutable requirements revisions and confirmations live only in
-Tracker. Fleet currently reads them through an authorized gateway; no autonomous
-projection worker or PM assignment/resume saga is claimed by this migration.
+Tracker. Fleet reads them through an authorized gateway and an opt-in authenticated
+metadata projection worker. Neither projection nor this migration performs a PM
+assignment/resume saga or dispatches prompts.
 
 Tables:
 

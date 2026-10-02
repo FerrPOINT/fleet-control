@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+- Preserve new transcript allocation order across host clock rollback without
+  changing public message DTOs or UUID cursors. Merge overlapping history pages
+  in server order and keep older-page loading alive during SSE reconnect.
+  Historical backfill retains the previous timestamp/UUID ordering.
+
 - Connect an opt-in authenticated Tracker metadata poller with fresh Base subject
   and exact read-only scope checks, project-scoped keyset scans, bounded HTTP and
   durable cursor replay. No PM dispatch or task transition is performed.

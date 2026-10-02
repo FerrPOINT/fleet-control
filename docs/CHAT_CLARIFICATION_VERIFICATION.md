@@ -3,6 +3,28 @@
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 
+## Transcript Ordering Follow-Up (2026-10-02)
+
+The backend now uses immutable internal database identity allocation order for
+new messages, with unchanged public UUID cursor/message wire. The WSL workspace
+gate passed 106 library and 31 actual PostgreSQL 17.11 tests; a separate empty
+database passed the historical backfill, clock rollback and down/reapply test.
+The regression checks both paginated history and the legacy message listing.
+The backfill test also verifies that existing durable events are not duplicated.
+Frontend coverage checks server page order, overlapping message deduplication and
+event-stream reconnect during previous-page loading. Browser verification uses
+fixture APIs, not a real PM run. CI independently executes the migration test.
+Final UI gates passed 214 unit tests and 36 fixture Playwright cases in Chromium,
+Firefox and WebKit; 27 opt-in live cases were skipped, not accepted. Typecheck,
+lint, format and build passed. Nine controller images were regenerated from the
+passed run, with their route/viewport/content-hash manifest; the existing full
+135-screen manifest and generated API/client drift checks also passed.
+
+Historical rows are backfilled in their previous timestamp/UUID order. Allocation
+is not commit order, and its bigint is not a durable SSE cursor. Down/reapply
+retains messages but cannot preserve the new order; production recovery needs a
+verified backup or forward migration. No accepted deployments or secrets changed.
+
 ## Metadata Inbox Follow-Up
 
 ### Authenticated Poller Follow-Up (2026-10-02)
@@ -18,7 +40,8 @@ creates neither a pending prompt nor a runtime run. Config debug/serialization
 redacts the PAT; warnings use fixed safe diagnostic codes.
 Final-tree workspace rerun passed after making the existing history pagination
 fixture's timestamps explicit. A preceding rerun exposed host clock rollback;
-the production timestamp-ordering limitation is retained in GAP_REGISTER.
+this was a limitation of that poller baseline, addressed for new messages by the
+separate transcript-order follow-up above.
 Pending migration rollback/reapply, source OpenAPI comparison and Markdown links
 also passed. The two ignored directory/SSE tests remain separate CI gates.
 
