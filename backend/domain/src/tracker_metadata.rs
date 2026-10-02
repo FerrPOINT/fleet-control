@@ -298,6 +298,32 @@ impl TrackerMetadataEvent {
 mod tests {
     use super::*;
 
+    #[test]
+    fn actual_tracker_postgres_http_snapshots_decode_without_rewriting_source_digests() {
+        let mut types = std::collections::HashSet::new();
+        for bytes in [
+            include_bytes!("../tests/fixtures/tracker-metadata-created.http.json").as_slice(),
+            include_bytes!("../tests/fixtures/tracker-metadata-all8.http.json").as_slice(),
+        ] {
+            let raw: Value = serde_json::from_slice(bytes).unwrap();
+            let event = &raw["events"][0];
+            let payload = &event["payload"];
+            let b = TaskChatBinding {
+                tracker_instance_id: payload["tracker_instance_id"].as_str().unwrap().into(),
+                project_id: serde_json::from_value(payload["project_id"].clone()).unwrap(),
+                task_id: serde_json::from_value(event["task_id"].clone()).unwrap(),
+                root_task_id: serde_json::from_value(payload["root_task_id"].clone()).unwrap(),
+                owner_subject: payload["owner_subject"].as_str().unwrap().into(),
+                agent_id: Uuid::new_v4(),
+            };
+            let page = TrackerMetadataPage::decode(bytes, &b, 0).unwrap();
+            for event in page.events {
+                types.insert(event.event_type);
+            }
+        }
+        assert_eq!(types.len(), 9);
+    }
+
     fn binding() -> TaskChatBinding {
         TaskChatBinding {
             tracker_instance_id: "tracker-test".into(),
