@@ -80,22 +80,26 @@ impl TrackerOutboxPage {
 impl TrackerOutboxEvent {
     // Transcript projections never copy an arbitrary result, answer or credential.
     pub fn summary(&self) -> Result<&'static str, AppError> {
-        match self.event_type.as_str() {
-            "task.created" => Ok("Tracker draft created."),
-            "task.bound" => Ok("Tracker task binding saved."),
-            "pm.assigned" => Ok("Project Manager assignment saved."),
-            "clarification.published" => Ok("Clarification published in Tracker."),
-            "clarification.answered" => {
-                Ok("Clarification answer saved in Tracker; PM delivery is separate.")
-            }
-            "clarification.cancelled" => Ok("Clarification cancelled in Tracker."),
-            "requirements.published" => Ok("Requirements revision published in Tracker."),
-            "requirements.evidence_recorded" => Ok("Requirements evidence recorded in Tracker."),
-            "requirements.confirmed" => Ok("Requirements revision confirmed by its owner."),
-            _ => Err(AppError::Unavailable(
-                "unsupported Tracker event type".into(),
-            )),
+        summary(&self.event_type)
+    }
+}
+
+pub(crate) fn summary(event_type: &str) -> Result<&'static str, AppError> {
+    match event_type {
+        "task.created" => Ok("Tracker draft created."),
+        "task.bound" => Ok("Tracker task binding saved."),
+        "pm.assigned" => Ok("Project Manager assignment saved."),
+        "clarification.published" => Ok("Clarification published in Tracker."),
+        "clarification.answered" => {
+            Ok("Clarification answer saved in Tracker; PM delivery is separate.")
         }
+        "clarification.cancelled" => Ok("Clarification cancelled in Tracker."),
+        "requirements.published" => Ok("Requirements revision published in Tracker."),
+        "requirements.evidence_recorded" => Ok("Requirements evidence recorded in Tracker."),
+        "requirements.confirmed" => Ok("Requirements revision confirmed by its owner."),
+        _ => Err(AppError::Unavailable(
+            "unsupported Tracker event type".into(),
+        )),
     }
 }
 

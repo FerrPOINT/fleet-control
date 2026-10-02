@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+- Add strict `metadata_v1` Tracker event decoding and immutable per-binding
+  projection/version pins, including empty pages. Validate source digests and
+  lossless decimal cursors; reject implicit legacy conversion. Polling remains
+  separate from this transactional storage contract.
+
 - Reconcile verified PM terminal proof and visible runtime state atomically;
   serialize late stream updates so they cannot reopen the old run or overwrite
   its accepted mapping. Unknown acceptance continues to hold agent capacity.

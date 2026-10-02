@@ -656,7 +656,7 @@ impl FleetRepository for PostgresFleetRepository {
         self.task_binding(session_id).await
     }
     async fn tracker_event_cursor(&self, session_id: Uuid) -> Result<i64, AppError> {
-        self.source_event_cursor(session_id).await
+        self.source_event_cursor(session_id, "legacy_full_v1").await
     }
     async fn project_tracker_events(
         &self,
@@ -666,6 +666,19 @@ impl FleetRepository for PostgresFleetRepository {
         page: domain::TrackerOutboxPage,
     ) -> Result<domain::TrackerProjectionReceipt, AppError> {
         self.persist_tracker_page(session_id, binding, after, page)
+            .await
+    }
+    async fn tracker_metadata_cursor(&self, session_id: Uuid) -> Result<i64, AppError> {
+        self.source_event_cursor(session_id, "metadata_v1").await
+    }
+    async fn project_tracker_metadata(
+        &self,
+        session_id: Uuid,
+        binding: domain::TaskChatBinding,
+        after: i64,
+        page: domain::TrackerMetadataPage,
+    ) -> Result<domain::TrackerProjectionReceipt, AppError> {
+        self.persist_tracker_metadata(session_id, binding, after, page)
             .await
     }
     async fn bind_task_chat(

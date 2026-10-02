@@ -32,6 +32,14 @@ Transactional Tracker inbox storage is now implemented: exact replay deduplicati
 immutable receipts, per-binding source cursor and safe transcript/stream projection.
 The authenticated background poller and PM answer delivery remain unwired.
 
+Fleet now implements strict bounded `metadata_v1` page decoding and transactional
+format/version pinning. It validates all nine supported resource shapes, required
+nulls, canonical non-nil UUIDs, safe versions, UTC source timestamps, source
+digests and lossless decimal bigint cursors. Empty pages pin the format; changed
+replay, stale cursors and implicit legacy conversion fail closed. The full WSL
+gate passed 102 library tests and 29 actual PostgreSQL 17.11 cases. This storage
+follow-up does not yet connect an authenticated poller or prove live PM delivery.
+
 The 2026-10-02 follow-up implements the server-only Base delegation client.
 Commands derive the actual Tracker task/assignment/execution/agent/version grant;
 responses must have exact scopes, a live bounded expiry and no-store protection.

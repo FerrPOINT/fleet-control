@@ -731,6 +731,219 @@ fn tracker_page(binding: &domain::TaskChatBinding) -> domain::TrackerOutboxPage 
     }
 }
 
+fn metadata_page(
+    binding: &domain::TaskChatBinding,
+    after: i64,
+    sequences: &[i64],
+) -> domain::TrackerMetadataPage {
+    use sha2::{Digest, Sha256};
+    let events: Vec<serde_json::Value> = sequences.iter().map(|sequence| {
+        let mut event = serde_json::json!({"sequence":sequence.to_string(),"event_id":Uuid::new_v4(),
+            "task_id":binding.task_id,"event_type":"requirements.published",
+            "created_at":"2026-10-02T00:00:00.000000000Z",
+            "payload":{"tracker_instance_id":binding.tracker_instance_id,"project_id":binding.project_id,
+                "root_task_id":binding.root_task_id,"owner_subject":binding.owner_subject,"stage":"Draft",
+                "current_requirement_revision":1,"resource":{"requirement_revision":1,"content_hash":"a".repeat(64)}}});
+        let digest = hex::encode(Sha256::digest(serde_json::to_vec(&serde_json::json!({
+            "contract_version":1,"projection":"metadata_v1","event":event
+        })).unwrap()));
+        event["metadata_sha256"] = serde_json::json!(digest);
+        event
+    }).collect();
+    let bytes = serde_json::to_vec(&serde_json::json!({"contract_version":1,"projection":"metadata_v1",
+        "after":after.to_string(),"next_after":sequences.last().copied().unwrap_or(after).to_string(),
+        "has_more":false,"events":events})).unwrap();
+    domain::TrackerMetadataPage::decode(&bytes, binding, after).unwrap()
+}
+
+#[tokio::test]
+async fn tracker_metadata_empty_page_pins_format_and_replay_is_atomic_after_restart() {
+    let Some((repo, reservation)) = pm_fixture().await else {
+        return;
+    };
+    let session = reservation.session_id;
+    let binding = repo.get_task_chat_binding(session).await.unwrap().unwrap();
+    assert_eq!(repo.tracker_metadata_cursor(session).await.unwrap(), 0);
+    let empty = metadata_page(&binding, 0, &[]);
+    assert_eq!(
+        repo.project_tracker_metadata(session, binding.clone(), 0, empty)
+            .await
+            .unwrap()
+            .projected,
+        0
+    );
+    assert!(repo.tracker_event_cursor(session).await.is_err());
+    assert!(
+        repo.project_tracker_events(session, binding.clone(), 0, tracker_page(&binding))
+            .await
+            .is_err()
+    );
+    let page = metadata_page(&binding, 0, &[7, i64::MAX]);
+    let (first, second) = tokio::join!(
+        repo.project_tracker_metadata(session, binding.clone(), 0, page.clone()),
+        repo.project_tracker_metadata(session, binding.clone(), 0, page.clone())
+    );
+    assert_eq!(first.unwrap().projected + second.unwrap().projected, 2);
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let restarted = PostgresFleetRepository::new(
+        sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+            .await
+            .unwrap(),
+    );
+    assert_eq!(
+        restarted.tracker_metadata_cursor(session).await.unwrap(),
+        i64::MAX
+    );
+    assert_eq!(
+        restarted
+            .project_tracker_metadata(session, binding.clone(), 0, page.clone())
+            .await
+            .unwrap()
+            .projected,
+        0
+    );
+    let count = restarted
+        .list_session_events(session, 0)
+        .await
+        .unwrap()
+        .len();
+    let mut changed = page.clone();
+    changed.events[1].event_id = Uuid::new_v4();
+    // A correctly hashed but changed source event must still conflict with its immutable receipt.
+    let mut raw = serde_json::to_value(&changed).unwrap();
+    raw["events"][1]
+        .as_object_mut()
+        .unwrap()
+        .remove("metadata_sha256");
+    use sha2::{Digest, Sha256};
+    let digest = hex::encode(Sha256::digest(
+        serde_json::to_vec(&serde_json::json!({
+            "contract_version":1,"projection":"metadata_v1","event":raw["events"][1]
+        }))
+        .unwrap(),
+    ));
+    raw["events"][1]["metadata_sha256"] = serde_json::json!(digest);
+    let changed =
+        domain::TrackerMetadataPage::decode(&serde_json::to_vec(&raw).unwrap(), &binding, 0)
+            .unwrap();
+    assert!(
+        restarted
+            .project_tracker_metadata(session, binding.clone(), 0, changed)
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        restarted
+            .list_session_events(session, 0)
+            .await
+            .unwrap()
+            .len(),
+        count
+    );
+    for sql in [
+        "UPDATE tracker_event_cursors SET projection='legacy_full_v1' WHERE session_id=$1",
+        "UPDATE tracker_event_cursors SET sequence=0 WHERE session_id=$1",
+        "DELETE FROM tracker_event_cursors WHERE session_id=$1",
+    ] {
+        assert!(
+            db.execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                sql,
+                [session.into()]
+            ))
+            .await
+            .is_err()
+        );
+    }
+    let events = restarted.list_session_events(session, 0).await.unwrap();
+    let projected: Vec<_> = events
+        .iter()
+        .filter(|e| e.event_type == "tracker_event")
+        .collect();
+    assert_eq!(projected.len(), 2);
+    assert_eq!(
+        projected[1].payload["source_sequence"],
+        i64::MAX.to_string()
+    );
+    assert!(!projected[1].payload.to_string().contains("content_hash"));
+}
+
+#[tokio::test]
+async fn tracker_metadata_first_page_failure_rolls_back_projection_pin_and_all_mirrors() {
+    let Some((repo, reservation)) = pm_fixture().await else {
+        return;
+    };
+    let session = reservation.session_id;
+    let binding = repo.get_task_chat_binding(session).await.unwrap().unwrap();
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let page = metadata_page(&binding, 0, &[7, 12]);
+    let events_before = repo.list_session_events(session, 0).await.unwrap().len();
+    let messages_before = repo.list_session_messages(session).await.unwrap().len();
+    let constraint = format!("metadata_qa_{}", session.simple());
+    db.execute_unprepared(&format!("ALTER TABLE tracker_event_inbox ADD CONSTRAINT {constraint} CHECK (session_id <> '{session}'::uuid OR source_sequence <> 12) NOT VALID")).await.unwrap();
+    let result = repo
+        .project_tracker_metadata(session, binding.clone(), 0, page.clone())
+        .await;
+    db.execute_unprepared(&format!(
+        "ALTER TABLE tracker_event_inbox DROP CONSTRAINT {constraint}"
+    ))
+    .await
+    .unwrap();
+    assert!(result.is_err());
+    assert_eq!(repo.tracker_event_cursor(session).await.unwrap(), 0);
+    assert_eq!(repo.tracker_metadata_cursor(session).await.unwrap(), 0);
+    assert_eq!(
+        repo.list_session_events(session, 0).await.unwrap().len(),
+        events_before
+    );
+    assert_eq!(
+        repo.list_session_messages(session).await.unwrap().len(),
+        messages_before
+    );
+    assert_eq!(
+        repo.project_tracker_metadata(session, binding.clone(), 0, page)
+            .await
+            .unwrap()
+            .projected,
+        2
+    );
+
+    let other = repo
+        .create_session(
+            chat(binding.agent_id, "legacy-pin"),
+            repo.get_session(session).await.unwrap().user_id,
+        )
+        .await
+        .unwrap();
+    let mut other_binding = binding;
+    other_binding.task_id = Uuid::new_v4();
+    repo.bind_task_chat(other.id, other_binding.clone(), "legacy-pin-bind".into())
+        .await
+        .unwrap();
+    repo.project_tracker_events(
+        other.id,
+        other_binding.clone(),
+        0,
+        domain::TrackerOutboxPage { events: vec![] },
+    )
+    .await
+    .unwrap();
+    assert!(
+        repo.project_tracker_metadata(
+            other.id,
+            other_binding.clone(),
+            0,
+            metadata_page(&other_binding, 0, &[])
+        )
+        .await
+        .is_err()
+    );
+}
+
 #[tokio::test]
 async fn tracker_inbox_projects_concurrent_replay_once_and_preserves_cursor_after_reconnect() {
     let Some((repo, reservation)) = pm_fixture().await else {

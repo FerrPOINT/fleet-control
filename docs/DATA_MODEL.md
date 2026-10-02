@@ -144,9 +144,20 @@ The same single pending migration adds `tracker_event_cursors` and
 agent-wide or user-wide feed. Tracker's sequence is global, so task-specific gaps
 are valid; Fleet's stream cursor is allocated separately per session.
 
+The cursor also pins `projection` (`legacy_full_v1` or `metadata_v1`) and
+`contract_version=1`. The first successful page, including an empty page,
+creates the pin in the same transaction as its receipts. Its trigger rejects
+deletion, identity/format changes and cursor regression. Existing legacy receipts
+cannot be interpreted as metadata digests; switching requires a separately
+specified explicit migration, not a poller option or an implicit reset.
+
 Inbox receipts are unique by `(session_id,event_id)` and
 `(session_id,source_sequence)`, and reference one mirrored system message. They
 store a canonical event hash and source metadata, not the raw answer/result.
+For metadata this is the verified Tracker `metadata_sha256`; legacy hashing is
+unchanged. Metadata source cursors are canonical decimal strings on the wire,
+converted losslessly to PostgreSQL bigint only after validation. Their safe Fleet
+stream invalidation also uses a string; legacy numeric invalidations are unchanged.
 Update/delete triggers protect receipts. One transaction commits the message,
 safe durable invalidation, receipt and source cursor. Exact concurrent replay
 adds nothing; changed payload/identity conflicts. A stale page with unseen events

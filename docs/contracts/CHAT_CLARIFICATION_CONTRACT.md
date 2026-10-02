@@ -127,6 +127,44 @@ release prerequisites. No root PAT is placed in a runtime env or tool argument.
 
 ## Interface
 
+### Bounded Event Metadata
+
+Tracker's opt-in event projection is `metadata_v1`, `contract_version=1`.
+The planned authenticated poller requests a maximum 100 events and 262144
+serialized bytes. A full requirements document is never an event resource.
+The envelope contains required `after`, `next_after` canonical decimal strings,
+`has_more`, and `events`. Each event contains decimal `sequence`, canonical
+non-nil `event_id`/`task_id`, `event_type`, a stable nanosecond UTC `created_at`,
+`metadata_sha256` and `payload`. Payload contains instance/project/root/owner,
+stage, required nullable `current_requirement_revision`, and the typed resource:
+
+- `task.created`: required nullable input snapshot reference/hash.
+- `task.bound`: empty object.
+- `pm.assigned`: assignment/execution/agent/version fence.
+- `clarification.published` / `clarification.cancelled`: question/version,
+  request/checkpoint, requirement revision, exact state and fence.
+- `clarification.answered`: answer/question/version, request/checkpoint,
+  requirement revision and the historical question's fence, never answer text.
+- `requirements.published`: requirement revision and content hash.
+- `requirements.evidence_recorded`: revision/content hash and hashed check ID.
+- `requirements.confirmed`: confirmation reference, revision/content hash.
+
+The digest is SHA256 of sorted-key compact UTF-8 JSON
+`{"contract_version":1,"projection":"metadata_v1","event":<event without metadata_sha256>}`.
+Arrays retain order and text is not normalized. This is a transport consistency
+check, not a signature or substitute for authenticated Tracker authorization.
+The page returns a contiguous task-event prefix, allowing global sequence gaps.
+Unknown/corrupt events and an unrepresentable first event block progress;
+clients never skip them or substitute an empty successful page.
+
+Fleet verifies the exact bound identity and source digest before a transaction.
+The transaction pins projection/version, including empty pages, and persists
+only the safe summary, immutable receipt and durable invalidation. Legacy full
+events retain their existing hashes and cannot share a metadata cursor without
+an explicit migration. Persisted metadata does not mean PM delivery or business
+completion. Authenticated polling and actual producer-byte acceptance remain
+separate release prerequisites.
+
 Tracker: /api/v1/issues/{id}/sdlc context, questions/answers, requirements revisions/detail/diff,
 confirmation; machine commands publish questions and revisions for an assigned PM only.
 Fleet: /api/v1/sessions/{id}/task-context and protected clarification/requirements gateway.

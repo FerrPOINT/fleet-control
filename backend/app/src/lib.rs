@@ -211,6 +211,22 @@ pub trait FleetRepository: Send + Sync {
             "Tracker inbox is not available".into(),
         ))
     }
+    async fn tracker_metadata_cursor(&self, _session_id: Uuid) -> Result<i64, AppError> {
+        Err(AppError::Unavailable(
+            "Tracker metadata inbox is not available".into(),
+        ))
+    }
+    async fn project_tracker_metadata(
+        &self,
+        _session_id: Uuid,
+        _binding: domain::TaskChatBinding,
+        _after: i64,
+        _page: domain::TrackerMetadataPage,
+    ) -> Result<domain::TrackerProjectionReceipt, AppError> {
+        Err(AppError::Unavailable(
+            "Tracker metadata inbox is not available".into(),
+        ))
+    }
     async fn session_message_history(
         &self,
         _session_id: Uuid,

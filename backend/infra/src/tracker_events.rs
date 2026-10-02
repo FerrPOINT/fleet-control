@@ -1,19 +1,48 @@
 use super::*;
-use domain::{TaskChatBinding, TrackerOutboxPage, TrackerProjectionReceipt};
+use domain::{TaskChatBinding, TrackerMetadataPage, TrackerOutboxPage, TrackerProjectionReceipt};
+
+struct ProjectionEvent {
+    sequence: i64,
+    event_id: Uuid,
+    event_type: String,
+    hash: String,
+    created_at: chrono::DateTime<chrono::Utc>,
+    stage: domain::TrackerStage,
+    revision: Option<i64>,
+    summary: &'static str,
+}
 
 impl PostgresFleetRepository {
-    pub(crate) async fn source_event_cursor(&self, session: Uuid) -> Result<i64, AppError> {
+    pub(crate) async fn source_event_cursor(
+        &self,
+        session: Uuid,
+        projection: &str,
+    ) -> Result<i64, AppError> {
         let row = self
             .db
             .query_one(Statement::from_sql_and_values(
                 DatabaseBackend::Postgres,
-                "SELECT COALESCE(c.sequence,0) AS sequence FROM task_chat_bindings b
+                "SELECT COALESCE(c.sequence,0) AS sequence,c.projection,c.contract_version FROM task_chat_bindings b
              LEFT JOIN tracker_event_cursors c ON c.session_id=b.session_id WHERE b.session_id=$1",
                 [session.into()],
             ))
             .await
             .map_err(AppError::database)?
             .ok_or_else(|| AppError::not_found("task binding", session))?;
+        let actual = row
+            .try_get::<Option<String>>("", "projection")
+            .map_err(AppError::database)?;
+        if actual.is_some()
+            && (actual.as_deref() != Some(projection)
+                || row
+                    .try_get::<i16>("", "contract_version")
+                    .map_err(AppError::database)?
+                    != 1)
+        {
+            return Err(AppError::conflict(
+                "Tracker projection requires explicit migration",
+            ));
+        }
         row.try_get("", "sequence").map_err(AppError::database)
     }
 
@@ -27,6 +56,64 @@ impl PostgresFleetRepository {
         page: TrackerOutboxPage,
     ) -> Result<TrackerProjectionReceipt, AppError> {
         page.validate(&binding, after)?;
+        let events = page
+            .events
+            .into_iter()
+            .map(|event| {
+                Ok(ProjectionEvent {
+                    hash: hex::encode(Sha256::digest(
+                        serde_json::to_vec(&event).map_err(AppError::internal)?,
+                    )),
+                    summary: event.summary()?,
+                    sequence: event.sequence,
+                    event_id: event.event_id,
+                    event_type: event.event_type,
+                    created_at: event.created_at,
+                    stage: event.payload.stage,
+                    revision: event.payload.requirement_revision,
+                })
+            })
+            .collect::<Result<Vec<_>, AppError>>()?;
+        self.persist_projection(session, binding, after, "legacy_full_v1", events)
+            .await
+    }
+
+    pub(crate) async fn persist_tracker_metadata(
+        &self,
+        session: Uuid,
+        binding: TaskChatBinding,
+        after: i64,
+        page: TrackerMetadataPage,
+    ) -> Result<TrackerProjectionReceipt, AppError> {
+        page.validate(&binding, after)?;
+        let events = page
+            .events
+            .into_iter()
+            .map(|event| {
+                Ok(ProjectionEvent {
+                    summary: event.summary()?,
+                    sequence: domain::tracker_metadata_cursor(&event.sequence)?,
+                    created_at: event.source_time()?,
+                    event_id: event.event_id,
+                    event_type: event.event_type,
+                    hash: event.metadata_sha256,
+                    stage: event.payload.stage,
+                    revision: event.payload.current_requirement_revision,
+                })
+            })
+            .collect::<Result<Vec<_>, AppError>>()?;
+        self.persist_projection(session, binding, after, "metadata_v1", events)
+            .await
+    }
+
+    async fn persist_projection(
+        &self,
+        session: Uuid,
+        binding: TaskChatBinding,
+        after: i64,
+        projection: &str,
+        events: Vec<ProjectionEvent>,
+    ) -> Result<TrackerProjectionReceipt, AppError> {
         let txn = self.db.begin().await.map_err(AppError::database)?;
         // Match the existing mirror lock order: session -> source cursor -> stream cursor.
         let row = txn
@@ -49,25 +136,36 @@ impl PostgresFleetRepository {
             return Err(AppError::conflict("Tracker projection binding changed"));
         }
         txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
-            "INSERT INTO tracker_event_cursors(session_id,sequence) VALUES($1,0) ON CONFLICT DO NOTHING",
-            [session.into()])).await.map_err(AppError::database)?;
-        let cursor = txn
+            "INSERT INTO tracker_event_cursors(session_id,sequence,projection,contract_version) VALUES($1,0,$2,1) ON CONFLICT DO NOTHING",
+            [session.into(),projection.into()])).await.map_err(AppError::database)?;
+        let cursor_row = txn
             .query_one(Statement::from_sql_and_values(
                 DatabaseBackend::Postgres,
-                "SELECT sequence FROM tracker_event_cursors WHERE session_id=$1 FOR UPDATE",
+                "SELECT sequence,projection,contract_version FROM tracker_event_cursors WHERE session_id=$1 FOR UPDATE",
                 [session.into()],
             ))
             .await
             .map_err(AppError::database)?
-            .ok_or_else(|| AppError::internal("missing Tracker event cursor"))?
+            .ok_or_else(|| AppError::internal("missing Tracker event cursor"))?;
+        if cursor_row
+            .try_get::<String>("", "projection")
+            .map_err(AppError::database)?
+            != projection
+            || cursor_row
+                .try_get::<i16>("", "contract_version")
+                .map_err(AppError::database)?
+                != 1
+        {
+            return Err(AppError::conflict(
+                "Tracker projection requires explicit migration",
+            ));
+        }
+        let cursor = cursor_row
             .try_get::<i64>("", "sequence")
             .map_err(AppError::database)?;
 
         let mut pending = Vec::new();
-        for event in page.events {
-            let hash = hex::encode(Sha256::digest(
-                serde_json::to_vec(&event).map_err(AppError::internal)?,
-            ));
+        for event in events {
             let previous = txn
                 .query_all(Statement::from_sql_and_values(
                     DatabaseBackend::Postgres,
@@ -90,12 +188,12 @@ impl PostgresFleetRepository {
                     || previous[0]
                         .try_get::<String>("", "payload_hash")
                         .map_err(AppError::database)?
-                        != hash
+                        != event.hash
                 {
                     return Err(AppError::conflict("Tracker event replay payload changed"));
                 }
             } else {
-                pending.push((event, hash));
+                pending.push(event);
             }
         }
         if !pending.is_empty() && after != cursor {
@@ -117,9 +215,9 @@ impl PostgresFleetRepository {
         }
         let projected = pending.len();
         let mut next_cursor = cursor;
-        for (event, hash) in pending {
+        for event in pending {
             let message = Uuid::new_v4();
-            let body = event.summary()?;
+            let body = event.summary;
             txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
                 "INSERT INTO session_messages(id,session_id,author_type,body,message_kind,runtime_message_id,delivery_state,created_at)
                  VALUES($1,$2,'system',$3,'system_event',$4,'mirrored',$5)",
@@ -128,12 +226,17 @@ impl PostgresFleetRepository {
             txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
                 "INSERT INTO tracker_event_inbox(session_id,event_id,source_sequence,event_type,payload_hash,message_id,source_created_at)
                  VALUES($1,$2,$3,$4,$5,$6,$7)",
-                [session.into(),event.event_id.into(),event.sequence.into(),event.event_type.clone().into(),hash.into(),message.into(),event.created_at.into()]
+                [session.into(),event.event_id.into(),event.sequence.into(),event.event_type.clone().into(),event.hash.into(),message.into(),event.created_at.into()]
             )).await.map_err(AppError::database)?;
+            let sequence = if projection == "metadata_v1" {
+                json!(event.sequence.to_string())
+            } else {
+                json!(event.sequence)
+            };
             let payload = json!({"type":"tracker_event", "session_id":session,
-                "source_event_id":event.event_id,"source_sequence":event.sequence,
-                "event_type":event.event_type,"requirement_revision":event.payload.requirement_revision,
-                "stage":event.payload.stage});
+                "source_event_id":event.event_id,"source_sequence":sequence,
+                "event_type":event.event_type,"requirement_revision":event.revision,
+                "stage":event.stage});
             txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
                 "WITH cursor AS (
                     INSERT INTO session_event_cursors(session_id,sequence) VALUES($1,1)

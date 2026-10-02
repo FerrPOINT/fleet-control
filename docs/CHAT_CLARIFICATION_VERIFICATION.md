@@ -3,6 +3,21 @@
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 
+## Metadata Inbox Follow-Up
+
+The 2026-10-02 WSL gate passed 102 library tests and 29 actual PostgreSQL 17.11
+tests with both required database variables configured. Two new domain tests
+cover all nine typed event resources, maximum bigint cursor strings, required
+nulls, noncanonical/nil IDs, hashes, unsafe versions and page forgery. Two new
+database tests cover empty-page pinning, concurrent replay, reconnect, changed
+receipts, legacy-format rejection and complete rollback on a middle-page error.
+Database triggers reject cursor deletion/regression and format changes.
+
+No public API, UI, runtime images or accepted migrations changed. The existing
+single pending task migration owns the new projection/version columns and guard.
+The authenticated poller is not connected; these synthetic contract/DB checks
+are not live Tracker publication, PM delivery or Backlog acceptance.
+
 ## Source Baseline
 
 Fleet foundation: `470f2856735bde5eff5bc969b6973a6d38044b12`.

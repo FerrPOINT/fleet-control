@@ -14,6 +14,8 @@ pub mod approval_decisions;
 pub use approval_decisions::*;
 pub mod tracker_events;
 pub use tracker_events::*;
+pub mod tracker_metadata;
+pub use tracker_metadata::*;
 
 pub type Timestamp = String;
 

@@ -19,8 +19,23 @@ impl MigrationTrait for Migration {
              );
              CREATE TABLE tracker_event_cursors (
                 session_id uuid PRIMARY KEY REFERENCES task_chat_bindings(session_id),
-                sequence bigint NOT NULL DEFAULT 0 CHECK (sequence >= 0)
+                sequence bigint NOT NULL DEFAULT 0 CHECK (sequence >= 0),
+                projection text NOT NULL DEFAULT 'legacy_full_v1' CHECK (projection IN ('legacy_full_v1','metadata_v1')),
+                contract_version smallint NOT NULL DEFAULT 1 CHECK (contract_version = 1)
              );
+             CREATE FUNCTION fleet_guard_tracker_projection() RETURNS trigger AS $$
+             BEGIN
+                IF TG_OP = 'DELETE' OR NEW.session_id IS DISTINCT FROM OLD.session_id
+                   OR NEW.projection IS DISTINCT FROM OLD.projection
+                   OR NEW.contract_version IS DISTINCT FROM OLD.contract_version
+                   OR NEW.sequence < OLD.sequence THEN
+                    RAISE EXCEPTION 'Tracker projection identity is immutable' USING ERRCODE = '23514';
+                END IF;
+                RETURN NEW;
+             END;
+             $$ LANGUAGE plpgsql;
+             CREATE TRIGGER fleet_tracker_projection_guard BEFORE UPDATE OR DELETE ON tracker_event_cursors
+                FOR EACH ROW EXECUTE FUNCTION fleet_guard_tracker_projection();
              CREATE TABLE tracker_event_inbox (
                 session_id uuid NOT NULL REFERENCES task_chat_bindings(session_id),
                 event_id uuid NOT NULL,
@@ -125,6 +140,7 @@ impl MigrationTrait for Migration {
             .execute_unprepared(
                 "DROP TABLE runtime_approval_decisions; DROP FUNCTION fleet_guard_approval_decision(); DROP TABLE pm_run_bindings; DROP FUNCTION fleet_guard_pm_run();
              DROP TABLE tracker_event_inbox; DROP FUNCTION fleet_guard_tracker_receipt(); DROP TABLE tracker_event_cursors;
+             DROP FUNCTION fleet_guard_tracker_projection();
              DROP TRIGGER fleet_task_chat_identity ON agent_sessions;
              DROP FUNCTION fleet_guard_task_chat();
              DROP INDEX session_messages_history_idx;
