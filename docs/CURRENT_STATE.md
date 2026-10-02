@@ -21,6 +21,14 @@ complete PM creation, delivery, resume or live Backlog acceptance.
 
 ## PM Clarification Work In Progress
 
+The internal PM Draft chat repository operation now commits private chat, exact
+binding, two participants and one audit/event atomically. It creates no prompt or
+runtime run; a bound chat cannot use ordinary message dispatch. The public Draft
+creation saga and admission coordinator are not connected by this operation.
+Its follow-up passed 106 library tests and 33 real PostgreSQL cases; focused
+concurrency/restart/rollback tests also passed. These are repository-level checks,
+not a real human/PM/Tracker/Workflow acceptance.
+
 Production `/chats/:sessionId` now has dialogue/clarification/requirements controllers,
 paginated transcript, draft preservation, read-only/dependency/unknown-outcome states and
 owner exact-revision confirmation. Gateway validates immutable Tracker identity; additive

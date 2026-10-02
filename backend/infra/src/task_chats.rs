@@ -3,6 +3,150 @@ use domain::{MessageHistoryPage, TaskChatBinding};
 use sea_orm::FromQueryResult;
 
 impl PostgresFleetRepository {
+    pub(crate) async fn persist_pm_draft_chat(
+        &self,
+        command: domain::CreatePmDraftChat,
+        owner: Uuid,
+    ) -> Result<AgentSession, AppError> {
+        let binding = &command.binding;
+        let valid_subject = Uuid::parse_str(&binding.owner_subject)
+            .is_ok_and(|id| !id.is_nil() && id.to_string() == binding.owner_subject);
+        if !valid_subject
+            || owner.is_nil()
+            || [
+                binding.project_id,
+                binding.task_id,
+                binding.root_task_id,
+                binding.agent_id,
+            ]
+            .iter()
+            .any(Uuid::is_nil)
+            || binding.task_id != binding.root_task_id
+            || binding.tracker_instance_id.is_empty()
+            || binding.tracker_instance_id.len() > 128
+            || binding
+                .tracker_instance_id
+                .chars()
+                .any(|c| c.is_whitespace() || c.is_control())
+            || command.title.trim().is_empty()
+            || command.title.chars().count() > 500
+            || command.title.chars().any(char::is_control)
+            || command.task_key.is_empty()
+            || command.task_key.len() > 128
+            || command
+                .task_key
+                .chars()
+                .any(|c| c.is_whitespace() || c.is_control())
+            || command.idempotency_key.is_empty()
+            || command.idempotency_key.len() > 128
+            || command
+                .idempotency_key
+                .chars()
+                .any(|c| c.is_whitespace() || c.is_control())
+        {
+            return Err(AppError::validation("invalid server-derived PM Draft chat"));
+        }
+        let hash = payload_hash(&json!({"operation":"pm_draft_chat_v1","command":command}))?;
+        let txn = self.db.begin().await.map_err(AppError::database)?;
+        // Share the actor/key lock with ordinary session creation; no free chat is committed.
+        txn.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
+            [format!("session:{owner}:{}", command.idempotency_key).into()],
+        ))
+        .await
+        .map_err(AppError::database)?;
+        let user = user::Entity::find_by_id(owner)
+            .one(&txn)
+            .await
+            .map_err(AppError::database)?
+            .ok_or(AppError::Unauthorized)?;
+        if !user.is_active || user.central_sub.as_deref() != Some(binding.owner_subject.as_str()) {
+            return Err(AppError::Forbidden);
+        }
+        if let Some(existing) = agent_session::Entity::find()
+            .filter(agent_session::Column::UserId.eq(owner))
+            .filter(agent_session::Column::IdempotencyKey.eq(&command.idempotency_key))
+            .one(&txn)
+            .await
+            .map_err(AppError::database)?
+        {
+            if existing.idempotency_payload_hash.as_deref() != Some(hash.as_str()) {
+                return Err(AppError::conflict(
+                    "session command key has a different payload",
+                ));
+            }
+            let saved = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+                "SELECT session_id FROM task_chat_bindings WHERE session_id=$1 AND tracker_instance_id=$2
+                 AND project_id=$3 AND task_id=$4 AND root_task_id=$5 AND agent_id=$6 AND owner_subject=$7",
+                [existing.id.into(),binding.tracker_instance_id.clone().into(),binding.project_id.into(),
+                 binding.task_id.into(),binding.root_task_id.into(),binding.agent_id.into(),binding.owner_subject.clone().into()]))
+                .await.map_err(AppError::database)?;
+            if saved.is_none() {
+                return Err(AppError::conflict("PM Draft binding cannot be recovered"));
+            }
+            txn.commit().await.map_err(AppError::database)?;
+            return self.get_session(existing.id).await;
+        }
+        let agent = agent::Entity::find_by_id(binding.agent_id)
+            .one(&txn)
+            .await
+            .map_err(AppError::database)?
+            .ok_or_else(|| AppError::not_found("agent", binding.agent_id))?;
+        if agent.status == "archived"
+            || agent.kind != "hermes"
+            || agent.sdlc_role.as_deref() != Some("project_manager")
+        {
+            return Err(AppError::conflict(
+                "PM Draft requires an available concrete Hermes PM agent",
+            ));
+        }
+        let id = Uuid::new_v4();
+        txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "INSERT INTO agent_sessions(id,agent_id,user_id,title,task_key,state,visibility,namespace_id,idempotency_key,idempotency_payload_hash)
+             VALUES($1,$2,$3,$4,$5,'draft','private',$6,$7,$8)",
+            [id.into(),binding.agent_id.into(),owner.into(),command.title.clone().into(),command.task_key.clone().into(),
+             agent.namespace_id.into(),command.idempotency_key.clone().into(),hash.into()])).await.map_err(AppError::database)?;
+        let inserted = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "INSERT INTO task_chat_bindings(session_id,tracker_instance_id,project_id,task_id,root_task_id,agent_id,owner_subject,idempotency_key)
+             VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(tracker_instance_id,task_id,agent_id) DO NOTHING RETURNING session_id",
+            [id.into(),binding.tracker_instance_id.clone().into(),binding.project_id.into(),binding.task_id.into(),
+             binding.root_task_id.into(),binding.agent_id.into(),binding.owner_subject.clone().into(),command.idempotency_key.into()]))
+            .await.map_err(AppError::database)?;
+        if inserted.is_none() {
+            return Err(AppError::conflict(
+                "task already has a chat for this concrete agent",
+            ));
+        }
+        txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "INSERT INTO session_participants(id,session_id,participant_type,user_id,agent_id,session_role)
+             VALUES($1,$2,'user',$3,NULL,'owner'),($4,$2,'agent',NULL,$5,'primary')",
+            [Uuid::new_v4().into(),id.into(),owner.into(),Uuid::new_v4().into(),binding.agent_id.into()]))
+            .await.map_err(AppError::database)?;
+        let event = json!({"type":"task.bound","session_id":id,"tracker_instance_id":binding.tracker_instance_id,
+            "task_id":binding.task_id,"root_task_id":binding.root_task_id,"project_id":binding.project_id,"agent_id":binding.agent_id});
+        txn.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "INSERT INTO audit_log(id,actor_user_id,action,entity_type,entity_id,payload)
+             VALUES($1,$2,'session.pm_draft.create','session',$3,$4)",
+            [
+                Uuid::new_v4().into(),
+                owner.into(),
+                id.to_string().into(),
+                event.clone().into(),
+            ],
+        ))
+        .await
+        .map_err(AppError::database)?;
+        txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "WITH cursor AS (INSERT INTO session_event_cursors(session_id,sequence) VALUES($1,1)
+                ON CONFLICT(session_id) DO UPDATE SET sequence=session_event_cursors.sequence+1 RETURNING sequence)
+             INSERT INTO session_events(session_id,sequence,event_type,payload) SELECT $1,sequence,'task.bound',$2 FROM cursor",
+            [id.into(),event.into()])).await.map_err(AppError::database)?;
+        txn.commit().await.map_err(AppError::database)?;
+        self.get_session(id).await
+    }
+
     pub(crate) async fn message_by_id(&self, id: Uuid) -> Result<SessionMessage, AppError> {
         let row = session_message::Entity::find_by_id(id)
             .one(&self.db)

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Add an internal atomic PM Draft chat/binding operation with durable replay,
+  exact human owner and real Hermes PM checks. It creates no prompt or runtime
+  run; public creation saga and admission coordination remain separate work.
+
 - Preserve new transcript allocation order across host clock rollback without
   changing public message DTOs or UUID cursors. Merge overlapping history pages
   in server order and keep older-page loading alive during SSE reconnect.

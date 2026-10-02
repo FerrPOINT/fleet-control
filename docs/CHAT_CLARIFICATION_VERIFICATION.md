@@ -3,6 +3,23 @@
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 
+## Atomic PM Draft Chat Follow-Up (2026-10-02)
+
+The internal repository operation creates private session, immutable binding,
+owner/primary participants and one audit/durable event in a single transaction.
+It does not create a system message, pending run or prompt outbox. Ordinary prompt
+dispatch is rejected on the new binding. It is not exposed as a public creation
+API and does not attest to an actual Tracker assignment or Workflow admission.
+
+WSL workspace tests passed 106 library and 33 actual PostgreSQL 17.11 cases.
+The final focused two-case rerun additionally checked distinct command-key races
+for one task/agent: one winner, no orphan free chat. Cases also cover duplicate
+actor/key replay, independent repository recreation, changed payload, duplicate
+binding rollback, exact audit/event/participants, foreign/disabled owner and
+non-PM rejection. The common PM test owner now uses a canonical central UUID.
+Strict all-target Clippy and formatting passed; public OpenAPI remains unchanged.
+No human authentication or runtime delivery is inferred from repository tests.
+
 ## Transcript Ordering Follow-Up (2026-10-02)
 
 The backend now uses immutable internal database identity allocation order for

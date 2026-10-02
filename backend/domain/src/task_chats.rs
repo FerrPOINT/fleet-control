@@ -13,6 +13,14 @@ pub struct TaskChatBinding {
     pub owner_subject: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct CreatePmDraftChat {
+    pub binding: TaskChatBinding,
+    pub title: String,
+    pub task_key: String,
+    pub idempotency_key: String,
+}
+
 #[derive(Debug, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct BindTaskChatRequest {

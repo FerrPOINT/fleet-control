@@ -195,6 +195,15 @@ pub trait FleetRepository: Send + Sync {
             "task chat repository is not available".into(),
         ))
     }
+    async fn create_pm_draft_chat(
+        &self,
+        _command: domain::CreatePmDraftChat,
+        _owner_user_id: Uuid,
+    ) -> Result<domain::AgentSession, AppError> {
+        Err(AppError::Unavailable(
+            "PM Draft chat repository is not available".into(),
+        ))
+    }
     async fn tracker_event_cursor(&self, _session_id: Uuid) -> Result<i64, AppError> {
         Err(AppError::Unavailable(
             "Tracker inbox is not available".into(),

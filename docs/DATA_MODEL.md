@@ -17,6 +17,16 @@ are not implemented here yet. See [scope and blockers](SDLC_IMPLEMENTATION.md).
 
 ## PM Chat Bindings
 
+Internal `create_pm_draft_chat` creates the private session, immutable Tracker
+binding, owner/primary participants, audit and durable `task.bound` event in one
+transaction. It is not a public creation endpoint or a Tracker authority proof;
+the coordinator must validate fresh human/project access and authoritative Draft
+and PM reservation receipts before calling it. It checks the actual local central
+owner and concrete non-archived Hermes PM, serializes actor/key replay with legacy
+session creation, and rejects changed payload or duplicate task/agent bindings.
+No unbound session is committed, and no prompt, pending run or dispatch is created.
+Runtime health and admission remain separate prerequisites.
+
 `task_chat_bindings` binds session ID, stable Tracker instance, immutable project/task/root
 UUIDs, concrete agent ID and verified central owner subject. Unique instance/task/agent
 prevents duplicate histories. Explicit binding requires an empty private chat, matching

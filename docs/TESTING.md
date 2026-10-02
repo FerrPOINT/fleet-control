@@ -2,11 +2,14 @@
 
 ## PM Chat Slice
 
-Run `FLEET_TEST_DATABASE_URL` against an isolated PostgreSQL instance for the 29
+Run `FLEET_TEST_DATABASE_URL` against an isolated PostgreSQL instance for the 31
 `infra/tests/sdlc_foundation.rs` tests. Without that variable the tests skip and must not
 be counted as database acceptance. Binding tests cover concurrent replay, ownership,
 duplicate task/agent pair, immutable payload, once-only audit/event, scoped pagination,
 binding/prompt races and message creation/replay/dispatch/final mirroring after 500 messages.
+Atomic PM Draft chat cases cover concurrent actor/key replay, repository recreation,
+payload collision, duplicate binding rollback, exact participants/audit/event,
+no prompt/run/outbox, foreign or disabled owner and non-PM agent rejection.
 `FLEET_MIGRATION_TEST_DATABASE_URL` separately enables the central-subject migration test.
 
 `FLEET_MESSAGE_ORDER_TEST_DATABASE_URL` must name a separate empty disposable

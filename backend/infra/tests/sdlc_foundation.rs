@@ -642,9 +642,205 @@ fn configuration() -> UpdateAgentConfigRequest {
     }
 }
 
+#[tokio::test]
+async fn pm_draft_chat_creation_is_atomic_idempotent_and_cannot_queue_a_prompt() {
+    let Some((repo, reservation)) = pm_fixture().await else {
+        return;
+    };
+    let original = repo.get_session(reservation.session_id).await.unwrap();
+    let mut binding = repo
+        .get_task_chat_binding(original.id)
+        .await
+        .unwrap()
+        .unwrap();
+    binding.task_id = Uuid::new_v4();
+    binding.root_task_id = binding.task_id;
+    let command = domain::CreatePmDraftChat {
+        binding: binding.clone(),
+        title: "PM Draft".into(),
+        task_key: "PM-atomic".into(),
+        idempotency_key: "atomic-pm-chat".into(),
+    };
+    let (a, b) = tokio::join!(
+        repo.create_pm_draft_chat(command.clone(), original.user_id),
+        repo.create_pm_draft_chat(command.clone(), original.user_id)
+    );
+    let session = a.unwrap();
+    assert_eq!(session.id, b.unwrap().id);
+    assert_eq!(session.visibility, domain::SessionVisibility::Private);
+    assert_eq!(session.leader_agent_id, None);
+    assert_eq!(
+        repo.get_task_chat_binding(session.id).await.unwrap(),
+        Some(binding)
+    );
+    assert!(
+        repo.list_session_agent_runs(session.id)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        repo.list_session_messages(session.id)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(!repo.has_pending_session_dispatch(session.id).await.unwrap());
+    assert!(
+        repo.create_session_message(session.id, prompt("must-not-dispatch"), original.user_id)
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        repo.list_session_participants(session.id)
+            .await
+            .unwrap()
+            .len(),
+        2
+    );
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let restarted = PostgresFleetRepository::new(
+        sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+            .await
+            .unwrap(),
+    );
+    assert_eq!(
+        restarted
+            .create_pm_draft_chat(command.clone(), original.user_id)
+            .await
+            .unwrap()
+            .id,
+        session.id
+    );
+    let mut changed = command.clone();
+    changed.title = "Changed payload".into();
+    assert!(
+        repo.create_pm_draft_chat(changed, original.user_id)
+            .await
+            .is_err()
+    );
+    let mut duplicate = command.clone();
+    duplicate.idempotency_key = "another-command-same-task".into();
+    assert!(
+        repo.create_pm_draft_chat(duplicate, original.user_id)
+            .await
+            .is_err()
+    );
+    let row = db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT (SELECT count(*) FROM agent_sessions WHERE user_id=$1 AND task_key='PM-atomic') AS sessions,
+          (SELECT count(*) FROM audit_log WHERE entity_id=$2 AND action='session.pm_draft.create') AS audits,
+          (SELECT count(*) FROM session_events WHERE session_id=$3 AND event_type='task.bound') AS events",
+        [original.user_id.into(),session.id.to_string().into(),session.id.into()])).await.unwrap().unwrap();
+    for column in ["sessions", "audits", "events"] {
+        assert_eq!(row.try_get::<i64>("", column).unwrap(), 1);
+    }
+    let mut left = command.clone();
+    left.binding.task_id = Uuid::new_v4();
+    left.binding.root_task_id = left.binding.task_id;
+    left.task_key = "PM-pair-race".into();
+    left.idempotency_key = "pair-race-left".into();
+    let mut right = left.clone();
+    right.idempotency_key = "pair-race-right".into();
+    let (a, b) = tokio::join!(
+        repo.create_pm_draft_chat(left, original.user_id),
+        repo.create_pm_draft_chat(right, original.user_id)
+    );
+    assert_ne!(a.is_ok(), b.is_ok());
+    let row = db
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT count(*) AS n FROM agent_sessions WHERE user_id=$1 AND task_key='PM-pair-race'",
+            [original.user_id.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        row.try_get::<i64>("", "n").unwrap(),
+        1,
+        "losing transaction must not leave a free chat"
+    );
+}
+
+#[tokio::test]
+async fn pm_draft_chat_rejects_foreign_owner_invalid_identity_and_non_pm_agent_without_rows() {
+    let Some((repo, reservation)) = pm_fixture().await else {
+        return;
+    };
+    let original = repo.get_session(reservation.session_id).await.unwrap();
+    let mut binding = repo
+        .get_task_chat_binding(original.id)
+        .await
+        .unwrap()
+        .unwrap();
+    binding.task_id = Uuid::new_v4();
+    binding.root_task_id = binding.task_id;
+    let command = domain::CreatePmDraftChat {
+        binding,
+        title: "PM Draft".into(),
+        task_key: "PM-rejected".into(),
+        idempotency_key: "reject-pm".into(),
+    };
+    let mut invalid = command.clone();
+    invalid.binding.owner_subject = Uuid::new_v4().to_string();
+    assert!(
+        repo.create_pm_draft_chat(invalid, original.user_id)
+            .await
+            .is_err()
+    );
+    let mut invalid = command.clone();
+    invalid.binding.tracker_instance_id = " tracker".into();
+    assert!(
+        repo.create_pm_draft_chat(invalid, original.user_id)
+            .await
+            .is_err()
+    );
+    let mut invalid = command.clone();
+    invalid.binding.root_task_id = Uuid::new_v4();
+    assert!(
+        repo.create_pm_draft_chat(invalid, original.user_id)
+            .await
+            .is_err()
+    );
+    let mut invalid = command.clone();
+    invalid.binding.agent_id = agent(&repo).await;
+    assert!(
+        repo.create_pm_draft_chat(invalid, original.user_id)
+            .await
+            .is_err()
+    );
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE users SET is_active=false WHERE id=$1",
+        [original.user_id.into()],
+    ))
+    .await
+    .unwrap();
+    assert!(
+        repo.create_pm_draft_chat(command, original.user_id)
+            .await
+            .is_err()
+    );
+    let row = db
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT count(*) AS n FROM agent_sessions WHERE user_id=$1 AND task_key='PM-rejected'",
+            [original.user_id.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(row.try_get::<i64>("", "n").unwrap(), 0);
+}
+
 async fn pm_fixture() -> Option<(PostgresFleetRepository, domain::PmRunReservation)> {
     let (repo, _, _) = fixture().await?;
-    let subject = format!("pm-owner-{}", Uuid::new_v4());
+    let subject = Uuid::new_v4().to_string();
     let owner = repo
         .find_or_create_central_user(
             &subject,

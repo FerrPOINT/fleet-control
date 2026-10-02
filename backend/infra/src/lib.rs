@@ -699,6 +699,13 @@ impl FleetRepository for PostgresFleetRepository {
     ) -> Result<domain::TaskChatBinding, AppError> {
         self.persist_task_binding(session_id, binding, key).await
     }
+    async fn create_pm_draft_chat(
+        &self,
+        command: domain::CreatePmDraftChat,
+        owner_user_id: Uuid,
+    ) -> Result<AgentSession, AppError> {
+        self.persist_pm_draft_chat(command, owner_user_id).await
+    }
     async fn session_message_history(
         &self,
         session_id: Uuid,
