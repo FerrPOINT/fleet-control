@@ -27,12 +27,28 @@ fn tracker_configuration_defaults_and_round_trips_without_process_environment() 
     legacy.as_object_mut().unwrap().remove("tracker");
     let restored: AppConfig = serde_json::from_value(legacy).unwrap();
     assert!(restored.tracker.url.is_empty());
+    assert!(!restored.tracker.events.enabled);
     let cfg: TrackerConfig = serde_json::from_value(serde_json::json!({
         "url":"http://tracker.example.test:8080", "instance_id":"tracker-one"
     }))
     .unwrap();
     assert_eq!(cfg.instance_id, "tracker-one");
     assert_eq!(cfg.url, "http://tracker.example.test:8080");
+}
+
+#[test]
+fn tracker_event_credentials_are_server_only_and_redacted() {
+    let cfg = TrackerConfig {
+        events: TrackerEventsConfig {
+            read_pat: "test-only-read-pat-secret".into(),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    assert!(!format!("{cfg:?}").contains(&cfg.events.read_pat));
+    let json = serde_json::to_value(&cfg).unwrap();
+    assert!(json["events"].get("read_pat").is_none());
+    assert_eq!(cfg.events.poll_interval_seconds, 5);
 }
 
 #[test]

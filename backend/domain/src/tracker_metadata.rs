@@ -8,6 +8,12 @@ use uuid::Uuid;
 
 pub const TRACKER_METADATA_BUDGET: usize = 262_144;
 
+#[derive(Clone)]
+pub struct TrackerProjectionTarget {
+    pub session_id: Uuid,
+    pub binding: TaskChatBinding,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TrackerMetadataPage {

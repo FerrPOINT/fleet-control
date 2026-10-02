@@ -129,7 +129,8 @@ mod tests {
             assert!(
                 endpoint(&shared::config::TrackerConfig {
                     url: url.into(),
-                    instance_id: "tracker".into()
+                    instance_id: "tracker".into(),
+                    ..Default::default()
                 })
                 .is_err()
             );
@@ -191,6 +192,7 @@ mod tests {
         let config = shared::config::TrackerConfig {
             url: format!("http://{}", listener.local_addr().unwrap()),
             instance_id: "tracker".into(),
+            ..Default::default()
         };
         let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
         let mut headers = HeaderMap::new();

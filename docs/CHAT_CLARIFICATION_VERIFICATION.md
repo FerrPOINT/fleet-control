@@ -5,6 +5,27 @@ No real PM publication/resume or live Backlog acceptance is claimed.
 
 ## Metadata Inbox Follow-Up
 
+### Authenticated Poller Follow-Up (2026-10-02)
+
+The opt-in server worker is connected, disabled by default. WSL workspace gates
+passed 106 library tests and 31 actual PostgreSQL 17.11 cases with both database
+variables configured; format, all-target check and strict Clippy passed.
+Two new PostgreSQL/HTTP cases verify exact machine identity/read scope, fresh
+project access, active owner/keyset selection, concurrent duplicate pages,
+repository recreation/replay, revoked authorization, oversized/forged pages and
+refused redirects. Failed pages preserve the durable source cursor. Projection
+creates neither a pending prompt nor a runtime run. Config debug/serialization
+redacts the PAT; warnings use fixed safe diagnostic codes.
+Final-tree workspace rerun passed after making the existing history pagination
+fixture's timestamps explicit. A preceding rerun exposed host clock rollback;
+the production timestamp-ordering limitation is retained in GAP_REGISTER.
+Pending migration rollback/reapply, source OpenAPI comparison and Markdown links
+also passed. The two ignored directory/SSE tests remain separate CI gates.
+
+Authorization endpoints in these component tests are synthetic. Actual Base/
+Tracker issuance and live PM publication/resume/Backlog acceptance remain open.
+Accepted deployments, secrets, pinned images and runtime volumes were not changed.
+
 The 2026-10-02 WSL gate passed 102 library tests and 29 actual PostgreSQL 17.11
 tests with both required database variables configured. Two new domain tests
 cover all nine typed event resources, maximum bigint cursor strings, required
@@ -15,7 +36,7 @@ Database triggers reject cursor deletion/regression and format changes.
 
 No public API, UI, runtime images or accepted migrations changed. The existing
 single pending task migration owns the new projection/version columns and guard.
-The authenticated poller is not connected; these synthetic contract/DB checks
+That storage-only follow-up did not connect the poller; its contract/DB checks
 are not live Tracker publication, PM delivery or Backlog acceptance.
 
 Two contract snapshots in `backend/domain/tests/fixtures` were captured from
@@ -27,6 +48,8 @@ wire evidence, not live PM or owner acceptance.
 The snapshot follow-up passed all 103 library tests, format and strict all-target
 Clippy. The preceding storage implementation passed all four CI jobs on
 `218af39`; that CI is not evidence for a later snapshot-test commit.
+Snapshot commit `b0b472a` subsequently passed all four CI jobs. Poller evidence
+above is a separate implementation/gate and must not inherit an older CI result.
 
 ## Source Baseline
 
@@ -146,8 +169,9 @@ Three new DB regressions prove concurrent exact replay, cursor persistence after
 reconnect, changed-payload/stale-page/foreign-binding rejection, receipt immutability
 and rollback of the entire page on an injected mid-page database failure. Hashes
 and safe metadata are stored, not arbitrary answer/result bodies. No prompt is
-queued by projection. The background gateway poller and real PM delivery are
-still remaining integration work; these tests do not prove either.
+queued by projection. At that storage-only baseline the gateway poller and real
+PM delivery remained unwired; those tests do not prove either. The newer worker
+component evidence is recorded above, independently of live PM acceptance.
 
 The refreshed frontend passed 212 unit tests. Approval response shape errors are
 surfaced as loading errors rather than crashing the transcript. Screenshot/browser

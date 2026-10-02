@@ -109,7 +109,7 @@ approval decisions. Readback has authenticated test-runtime evidence; it is not
 an implemented PM dispatch/continuation orchestrator.
 
 Remaining before release: creation saga, runtime structured tools/scoped assignment,
-authenticated Tracker outbox polling into the implemented Fleet inbox, integration of trusted readback into PM delivery/rebind,
+live authenticated Tracker outbox acceptance, integration of trusted readback into PM delivery/rebind,
 prerequisite verifier, live restart/negative acceptance and current production screenshots.
 Task-bound chat ordinary send/steer is deliberately blocked until these contracts are wired.
 
@@ -118,3 +118,8 @@ PM terminal/capacity reconciliation, strict metadata-only Tracker decoder and
 immutable projection/version pins. Producer HTTP snapshots from Tracker's own
 PostgreSQL tests cover all nine event types without rewriting source digests.
 These are foundations and contract evidence, not actual PM tools/delivery/resume.
+
+Authenticated metadata polling is implemented behind a disabled-by-default
+deployment flag. Base subject/scope and Tracker project access are rechecked each
+cycle; source cursors survive restarts. PostgreSQL and fault-injected HTTP checks
+verify this component, not live PM publication/resume or Backlog acceptance.

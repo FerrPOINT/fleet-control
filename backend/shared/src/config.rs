@@ -25,6 +25,42 @@ pub struct AppConfig {
 pub struct TrackerConfig {
     pub url: String,
     pub instance_id: String,
+    pub events: TrackerEventsConfig,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TrackerEventsConfig {
+    pub enabled: bool,
+    pub auth_url: String,
+    pub machine_subject: String,
+    #[serde(skip_serializing)]
+    pub read_pat: String,
+    pub poll_interval_seconds: u64,
+}
+
+impl Default for TrackerEventsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            auth_url: String::new(),
+            machine_subject: String::new(),
+            read_pat: String::new(),
+            poll_interval_seconds: 5,
+        }
+    }
+}
+
+impl std::fmt::Debug for TrackerEventsConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TrackerEventsConfig")
+            .field("enabled", &self.enabled)
+            .field("auth_url", &self.auth_url)
+            .field("machine_subject", &self.machine_subject)
+            .field("read_pat", &"[REDACTED]")
+            .field("poll_interval_seconds", &self.poll_interval_seconds)
+            .finish()
+    }
 }
 
 #[derive(Clone, Default, Serialize, Deserialize)]

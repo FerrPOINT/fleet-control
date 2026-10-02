@@ -23,8 +23,8 @@ These do not mean the complete approved plan is done.
 | --- | --- |
 | Draft/assignment/chat/initial dispatch creation saga | Persisted operation state and restart-safe actual PM start after links and owner checks |
 | PM structured tools and runtime-scoped machine credentials | Server-only bounded Base delegation client implemented; coordinator issuance ledger and runtime tool handoff remain. Real Hermes publishes questions/revisions through assigned machine API, no prose parsing. |
-| Tracker outbox -> Fleet inbox/mirror projection | Transactional inbox/cursor/mirror repository implemented; authenticated background poller and live crash/reconnect acceptance remain. Projection is not PM delivery. |
-| Bounded Tracker event projection | Fleet strict metadata decoder and immutable projection/version pins are implemented, including empty-page pinning, replay and PostgreSQL rollback. Tracker byte-budgeted producer is in its separate Draft PR. Authenticate and connect polling, verify actual producer bytes/digests across services and large/multibyte recovery before closing this gap. No implicit legacy conversion. |
+| Tracker outbox -> Fleet inbox/mirror projection | Transactional inbox/cursor/mirror and opt-in authenticated background poller implemented. Actual PostgreSQL replay and HTTP fault tests passed; live Base/Tracker crash/reconnect acceptance remains. Projection is not PM delivery. |
+| Bounded Tracker event projection | Decoder, immutable format pins and byte-budgeted producer are implemented in separate Draft PRs. Actual Tracker HTTP snapshots verify all nine source digests; poller tests cover oversized/invalid pages without cursor progress. Live authenticated large/multibyte recovery remains. No implicit legacy conversion. |
 | Answer delivery and workflow continuation | Readback callback implemented; wire it to actual PM dispatch/checkpoint/rebind and one new run; late replies rejected |
 | Readiness verifier integration | Trusted checklist/prerequisite receipts for exact revision/hash, no false Backlog |
 | Compatible Workflow build and native skills | Use the genuine native-skills source at the accepted catalog pin, derive real compatibility/build provenance and pass authenticated admission/readiness. GitLab access is denied and no local checkout was found; development capabilities 503 is not readiness and fixture/guessed manifests are forbidden. |
@@ -32,6 +32,7 @@ These do not mean the complete approved plan is done.
 | Live acceptance and production screenshots | Real PM/owner/Tracker/Workflow flow, restart/denial tests; fixture screenshots stay separately labeled |
 | Targeted tool approval UI and context evidence | Exact human-only backend decisions and integrated UI have PostgreSQL/authenticated fake-runtime and three-browser fixture evidence; independent unknown-outcome reconciliation and live evidence remain |
 | Assignment replacement quiescence | Old runtime confirmed terminal/safely stopped before replacement; final authorization recheck does not replace a distributed fencing protocol |
+| Transcript ordering under host clock rollback | History has stable timestamp/UUID pagination, not monotonic append order. Evaluate a persisted per-session message ordinal before claiming insertion-order guarantees; the pagination regression uses explicit timestamps rather than relying on WSL clock behavior. |
 
 SDLC send/steer stays fail-closed until verified assignments are integrated. Do not enable
 automatic assignments or label this feature production-ready on the strength of UI fixtures.

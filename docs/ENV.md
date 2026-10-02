@@ -6,8 +6,30 @@ Optional PM gateway uses `FLEET_CONTROL_TRACKER__URL` (fixed HTTP(S) root origin
 no credentials, query, fragment or path) and `FLEET_CONTROL_TRACKER__INSTANCE_ID`
 (stable instance identity, matching Tracker config). Redirects are refused; bearer
 credentials go only to that operator-configured origin. Configure an internal trusted
-origin/TLS as appropriate. Missing/mismatched integration disables dependent commands,
-not transcript reading. These variables do not enable autonomous PM execution.
+origin/TLS as appropriate. Task-bound transcript reads also require current Tracker
+project access; an unavailable integration cannot bypass that check. Unbound private
+transcripts remain independent. These variables do not enable autonomous PM execution.
+
+## Tracker Metadata Polling
+
+Disabled by default; configure only for a compatible test project with immutable
+bindings and the `metadata_v1` producer. These are deployment-owned values, not
+UI settings or agent runtime environment:
+
+- `FLEET_CONTROL_TRACKER__EVENTS__ENABLED=true`
+- `FLEET_CONTROL_TRACKER__EVENTS__AUTH_URL`: fixed root HTTP(S) Base origin.
+- `FLEET_CONTROL_TRACKER__EVENTS__MACHINE_SUBJECT`: canonical non-nil Base UUID.
+- `FLEET_CONTROL_TRACKER__EVENTS__READ_PAT`: dedicated server-only `sdlc_pat_`
+  token with exactly `task-tracker:read`. Never put it in a URL, screenshot or repo.
+- `FLEET_CONTROL_TRACKER__EVENTS__POLL_INTERVAL_SECONDS`: default 5, range 1..300.
+
+The existing Tracker URL/instance values are mandatory when enabled. The machine
+account must be active and an explicit member of relevant Tracker projects. Base
+introspection and Tracker project access are checked each cycle. A root/admin or
+PM-write PAT is not a substitute for the read-only token. Invalid enabled config
+fails startup; disabling leaves history/cursors and active runtimes intact.
+Token rotation requires an explicit deployment-secret update and Fleet restart.
+No automatic PM credential issuance, business transition or dispatch is enabled.
 
 October additions: `FLEET_CONTROL_SECRET__<REFERENCE>` supplies secret refs used
 by config revisions; values are resolved only into per-agent managed `.env`.

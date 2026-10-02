@@ -130,7 +130,7 @@ release prerequisites. No root PAT is placed in a runtime env or tool argument.
 ### Bounded Event Metadata
 
 Tracker's opt-in event projection is `metadata_v1`, `contract_version=1`.
-The planned authenticated poller requests a maximum 100 events and 262144
+The opt-in authenticated poller requests a maximum 100 events and 262144
 serialized bytes. A full requirements document is never an event resource.
 The envelope contains required `after`, `next_after` canonical decimal strings,
 `has_more`, and `events`. Each event contains decimal `sequence`, canonical
@@ -162,8 +162,19 @@ The transaction pins projection/version, including empty pages, and persists
 only the safe summary, immutable receipt and durable invalidation. Legacy full
 events retain their existing hashes and cannot share a metadata cursor without
 an explicit migration. Persisted metadata does not mean PM delivery or business
-completion. Authenticated polling and actual producer-byte acceptance remain
-separate release prerequisites.
+completion. Actual producer-byte snapshots are verified independently. Live
+authenticated cross-service polling remains a release acceptance prerequisite.
+
+Polling is disabled by default. A dedicated server-only PAT must introspect at
+the fixed Base origin as the configured canonical subject with exactly
+`task-tracker:read`; write, wildcard and duplicate scopes are rejected. Every
+cycle reads current Tracker project access, and every task fetch checks its ACL.
+Only active Fleet owners' immutable bindings in that project set are scanned,
+in keyset pages of 100 with at most two concurrent fetches. Each binding advances
+at most one bounded source page per cycle. Errors never advance its source cursor
+or skip an event. Persisted cursors, not an in-memory scan position, drive replay.
+HTTP redirects/retries are disabled and bodies are bounded before decoding.
+This worker never issues a PM credential, prompt, approval or business transition.
 
 Tracker: /api/v1/issues/{id}/sdlc context, questions/answers, requirements revisions/detail/diff,
 confirmation; machine commands publish questions and revisions for an assigned PM only.

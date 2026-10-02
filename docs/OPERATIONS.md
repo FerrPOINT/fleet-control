@@ -113,6 +113,27 @@ settings changes, skill/config edits, runtime actions, handoff and delegation.
 
 ## Recovery
 
+### Tracker Metadata Worker
+
+Enable only via the [deployment variables](ENV.md#tracker-metadata-polling).
+The dedicated machine account needs explicit project membership and exactly
+read-only Tracker scope. Do not reuse a PM or operator credential.
+
+The worker scans 100 authorized bindings per keyset page with two concurrent
+fetches and one bounded source page per binding each cycle. Persisted source
+cursors survive a restart; replay is transactional and cannot redispatch a run.
+Disabling the worker does not delete history or stop agents.
+
+Warnings use static reason codes, never remote bodies, credentials or URLs:
+`credential_revoked_or_expired`, `subject_scope_or_project_access_denied`,
+`source_or_projection_reconciliation_required`, `projection_database_unavailable`
+and `dependency_or_contract_unavailable`. Restore the correct account/scope,
+project access or dependency before retrying. A corrupt/oversized source event
+must be repaired at the source; do not skip it, reset a cursor or silently switch
+a `legacy_full_v1` binding to metadata. Format conversion needs explicit migration.
+After a deployment-secret rotation, restart Fleet and confirm replay without
+duplicate transcript entries. These checks are not proof of PM answer delivery.
+
 On backend restart, managed process handles are lost. The health action
 reconciles status by marking an untracked Hermes process as stopped.
 

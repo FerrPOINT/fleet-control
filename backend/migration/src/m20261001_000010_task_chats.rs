@@ -17,6 +17,7 @@ impl MigrationTrait for Migration {
                 created_at timestamptz NOT NULL DEFAULT now(),
                 UNIQUE(tracker_instance_id, task_id, agent_id)
              );
+             CREATE INDEX task_chat_projection_scan_idx ON task_chat_bindings(tracker_instance_id,session_id) INCLUDE(project_id);
              CREATE TABLE tracker_event_cursors (
                 session_id uuid PRIMARY KEY REFERENCES task_chat_bindings(session_id),
                 sequence bigint NOT NULL DEFAULT 0 CHECK (sequence >= 0),

@@ -13,6 +13,39 @@ struct ProjectionEvent {
 }
 
 impl PostgresFleetRepository {
+    pub(crate) async fn metadata_targets(
+        &self,
+        instance: &str,
+        projects: &[Uuid],
+        after: Option<Uuid>,
+    ) -> Result<Vec<domain::TrackerProjectionTarget>, AppError> {
+        if instance.trim().is_empty() || projects.iter().any(Uuid::is_nil) {
+            return Err(AppError::validation("invalid Tracker projection scope"));
+        }
+        let rows = self.db.query_all(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT b.session_id,to_jsonb(b)-'session_id'-'idempotency_key'-'created_at' AS binding
+             FROM task_chat_bindings b JOIN agent_sessions s ON s.id=b.session_id
+             JOIN users u ON u.id=s.user_id
+             WHERE b.tracker_instance_id=$1 AND u.is_active
+               AND b.project_id IN (SELECT value::uuid FROM jsonb_array_elements_text($2::jsonb))
+               AND ($3::uuid IS NULL OR b.session_id>$3)
+             ORDER BY b.session_id LIMIT 100",
+             [instance.into(),json!(projects).into(),after.into()]
+        )).await.map_err(AppError::database)?;
+        rows.into_iter()
+            .map(|row| {
+                Ok(domain::TrackerProjectionTarget {
+                    session_id: row.try_get("", "session_id").map_err(AppError::database)?,
+                    binding: serde_json::from_value(
+                        row.try_get::<Value>("", "binding")
+                            .map_err(AppError::database)?,
+                    )
+                    .map_err(AppError::internal)?,
+                })
+            })
+            .collect()
+    }
+
     pub(crate) async fn source_event_cursor(
         &self,
         session: Uuid,

@@ -6,6 +6,7 @@ pub mod pm_credentials;
 mod pm_execution;
 pub mod runtime;
 mod task_chats;
+pub mod tracker_event_poller;
 mod tracker_events;
 
 use app::{
@@ -670,6 +671,15 @@ impl FleetRepository for PostgresFleetRepository {
     }
     async fn tracker_metadata_cursor(&self, session_id: Uuid) -> Result<i64, AppError> {
         self.source_event_cursor(session_id, "metadata_v1").await
+    }
+    async fn tracker_projection_targets(
+        &self,
+        instance: &str,
+        project_ids: &[Uuid],
+        after_session: Option<Uuid>,
+    ) -> Result<Vec<domain::TrackerProjectionTarget>, AppError> {
+        self.metadata_targets(instance, project_ids, after_session)
+            .await
     }
     async fn project_tracker_metadata(
         &self,

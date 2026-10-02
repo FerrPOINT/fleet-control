@@ -757,6 +757,239 @@ fn metadata_page(
 }
 
 #[tokio::test]
+async fn tracker_metadata_poller_authenticates_replays_and_keeps_failed_source_cursors() {
+    use axum::{
+        Json,
+        extract::Query,
+        http::{HeaderMap, StatusCode},
+        response::IntoResponse,
+        routing::get,
+    };
+    use infra::tracker_event_poller::TrackerEventPoller;
+    use std::collections::HashMap;
+    let Some((repo, reservation)) = pm_fixture().await else {
+        return;
+    };
+    let session = reservation.session_id;
+    let binding = repo.get_task_chat_binding(session).await.unwrap().unwrap();
+    let repo = Arc::new(repo);
+    let machine = Uuid::new_v4().to_string();
+    let pat = format!("sdlc_pat_{}", "test-only-read-credential".repeat(2));
+    let expected_header = format!("Bearer {pat}");
+    let mode = Arc::new(AtomicUsize::new(0));
+    let events_called = Arc::new(AtomicUsize::new(0));
+    let leaked = Arc::new(AtomicUsize::new(0));
+    let auth_mode = mode.clone();
+    let auth_subject = machine.clone();
+    let auth_header = expected_header.clone();
+    let scope_mode = mode.clone();
+    let scope_binding = binding.clone();
+    let scope_header = expected_header.clone();
+    let event_mode = mode.clone();
+    let event_count = events_called.clone();
+    let event_binding = binding.clone();
+    let event_page = metadata_page(&binding, 0, &[7, 12]);
+    let event_header = expected_header;
+    let leak_count = leaked.clone();
+    let router = axum::Router::new()
+        .route("/auth/tokens/introspect", get(move |headers:HeaderMap| {
+            let (mode,sub,expected) = (auth_mode.clone(),auth_subject.clone(),auth_header.clone());
+            async move {
+                assert_eq!(headers["authorization"], expected);
+                match mode.load(Ordering::SeqCst) {
+                    2 => (StatusCode::UNAUTHORIZED,"denied").into_response(),
+                    3 => (StatusCode::SERVICE_UNAVAILABLE,"secret-upstream-error").into_response(),
+                    1 => Json(serde_json::json!({"sub":sub,"email":"machine@example.test","scopes":["task-tracker:read","task-tracker:write"]})).into_response(),
+                    _ => Json(serde_json::json!({"sub":sub,"email":"machine@example.test","scopes":["task-tracker:read"]})).into_response(),
+                }
+            }
+        }))
+        .route("/api/v1/sdlc/project-access",get(move |headers:HeaderMap| {
+            let (mode,binding,expected) = (scope_mode.clone(),scope_binding.clone(),scope_header.clone());
+            async move {
+                assert_eq!(headers["authorization"], expected);
+                let projects = if mode.load(Ordering::SeqCst)==5 {vec![]} else {vec![binding.project_id]};
+                let instance = if mode.load(Ordering::SeqCst)==4 {"foreign"} else {&binding.tracker_instance_id};
+                Json(serde_json::json!({"contract_version":1,"tracker_instance_id":instance,"project_ids":projects}))
+            }
+        }))
+        .route(&format!("/api/v1/issues/{}/sdlc/events",binding.task_id), get(move |headers:HeaderMap,Query(query):Query<HashMap<String,String>>| {
+            let (mode,count,binding,page,expected) = (event_mode.clone(),event_count.clone(),event_binding.clone(),event_page.clone(),event_header.clone());
+            async move {
+                assert_eq!(headers["authorization"], expected);
+                assert_eq!(query["projection"], "metadata_v1");
+                assert_eq!(query["limit"],"100");
+                assert_eq!(query["max_bytes"],"262144");
+                count.fetch_add(1,Ordering::SeqCst);
+                match mode.load(Ordering::SeqCst) {
+                    6 => (StatusCode::FORBIDDEN,"membership revoked").into_response(),
+                    7 => (StatusCode::OK,"x".repeat(domain::TRACKER_METADATA_BUDGET+1)).into_response(),
+                    8 => {
+                        let mut page = page;
+                        page.events[1].metadata_sha256="b".repeat(64);
+                        Json(page).into_response()
+                    }
+                    9 => (StatusCode::FOUND,[("location","/leak")],"").into_response(),
+                    _ if query["after"]=="0" => Json(page).into_response(),
+                    _ => Json(metadata_page(&binding,12,&[])).into_response(),
+                }
+            }
+        }))
+        .route("/leak",get(move || { let count=leak_count.clone();async move {count.fetch_add(1,Ordering::SeqCst);"must not follow"} }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+    let mut config = shared::TrackerConfig {
+        url: url.clone(),
+        instance_id: binding.tracker_instance_id.clone(),
+        events: shared::TrackerEventsConfig {
+            enabled: true,
+            auth_url: url,
+            machine_subject: machine,
+            read_pat: pat,
+            poll_interval_seconds: 1,
+        },
+    };
+    let mut disabled = config.clone();
+    disabled.events.enabled = false;
+    assert!(
+        TrackerEventPoller::configured(&disabled, repo.clone())
+            .unwrap()
+            .is_none()
+    );
+    let mut poller = TrackerEventPoller::configured(&config, repo.clone())
+        .unwrap()
+        .unwrap();
+    let before = repo.list_session_events(session, 0).await.unwrap().len();
+    let runs_before =
+        serde_json::to_value(repo.list_session_agent_runs(session).await.unwrap()).unwrap();
+    for blocked in 1..=4 {
+        mode.store(blocked, Ordering::SeqCst);
+        assert!(poller.poll_once().await.is_err());
+        assert_eq!(events_called.load(Ordering::SeqCst), 0);
+    }
+    mode.store(5, Ordering::SeqCst);
+    assert_eq!(poller.poll_once().await.unwrap().considered, 0);
+    for blocked in 6..=9 {
+        mode.store(blocked, Ordering::SeqCst);
+        let report = poller.poll_once().await.unwrap();
+        assert_eq!(
+            (report.considered, report.projected, report.blocked),
+            (1, 0, 1)
+        );
+        assert_eq!(repo.tracker_metadata_cursor(session).await.unwrap(), 0);
+        assert_eq!(
+            repo.list_session_events(session, 0).await.unwrap().len(),
+            before
+        );
+    }
+    assert_eq!(leaked.load(Ordering::SeqCst), 0);
+    mode.store(0, Ordering::SeqCst);
+    let mut other_poller = TrackerEventPoller::configured(&config, repo.clone())
+        .unwrap()
+        .unwrap();
+    let (a, b) = tokio::join!(poller.poll_once(), other_poller.poll_once());
+    assert_eq!(a.unwrap().projected + b.unwrap().projected, 2);
+    assert_eq!(repo.tracker_metadata_cursor(session).await.unwrap(), 12);
+    assert!(!repo.has_pending_session_dispatch(session).await.unwrap());
+    assert_eq!(
+        serde_json::to_value(repo.list_session_agent_runs(session).await.unwrap()).unwrap(),
+        runs_before
+    );
+    let count = repo.list_session_events(session, 0).await.unwrap().len();
+    let restarted_db =
+        sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+            .await
+            .unwrap();
+    let restarted = Arc::new(PostgresFleetRepository::new(restarted_db));
+    let mut poller = TrackerEventPoller::configured(&config, restarted)
+        .unwrap()
+        .unwrap();
+    assert_eq!(poller.poll_once().await.unwrap().projected, 0);
+    assert_eq!(
+        repo.list_session_events(session, 0).await.unwrap().len(),
+        count
+    );
+    mode.store(6, Ordering::SeqCst);
+    assert_eq!(poller.poll_once().await.unwrap().blocked, 1);
+    assert_eq!(repo.tracker_metadata_cursor(session).await.unwrap(), 12);
+    config.events.machine_subject = Uuid::new_v4().to_string();
+    let mut wrong_subject = TrackerEventPoller::configured(&config, repo.clone())
+        .unwrap()
+        .unwrap();
+    assert!(wrong_subject.poll_once().await.is_err());
+    server.abort();
+}
+
+#[tokio::test]
+async fn tracker_projection_target_scan_is_project_scoped_keyset_and_active_owner_only() {
+    let Some((repo, reservation)) = pm_fixture().await else {
+        return;
+    };
+    let binding = repo
+        .get_task_chat_binding(reservation.session_id)
+        .await
+        .unwrap()
+        .unwrap();
+    let scope = [binding.project_id];
+    let rows = repo
+        .tracker_projection_targets(&binding.tracker_instance_id, &scope, None)
+        .await
+        .unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].session_id, reservation.session_id);
+    assert!(
+        repo.tracker_projection_targets("foreign", &scope, None)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        repo.tracker_projection_targets(&binding.tracker_instance_id, &[], None)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        repo.tracker_projection_targets(&binding.tracker_instance_id, &[Uuid::new_v4()], None)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        repo.tracker_projection_targets(
+            &binding.tracker_instance_id,
+            &scope,
+            Some(reservation.session_id)
+        )
+        .await
+        .unwrap()
+        .is_empty()
+    );
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let owner = repo
+        .get_session(reservation.session_id)
+        .await
+        .unwrap()
+        .user_id;
+    db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE users SET is_active=false WHERE id=$1",
+        [owner.into()],
+    ))
+    .await
+    .unwrap();
+    assert!(
+        repo.tracker_projection_targets(&binding.tracker_instance_id, &scope, None)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
 async fn tracker_metadata_empty_page_pins_format_and_replay_is_atomic_after_restart() {
     let Some((repo, reservation)) = pm_fixture().await else {
         return;
@@ -2922,14 +3155,33 @@ async fn message_history_returns_latest_page_and_scopes_cursor() {
         .create_session(chat(agent_id, "paged-history"), owner)
         .await
         .unwrap();
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE session_messages SET created_at='2020-01-01T00:00:00Z' WHERE session_id=$1",
+        [session.id.into()],
+    ))
+    .await
+    .unwrap();
     for index in 0..8 {
-        repo.insert_session_message_mirror(
-            session.id,
-            Some(agent_id),
-            format!("Message {index}"),
-            MessageKind::AssistantMessage,
-            None,
-        )
+        let message = repo
+            .insert_session_message_mirror(
+                session.id,
+                Some(agent_id),
+                format!("Message {index}"),
+                MessageKind::AssistantMessage,
+                None,
+            )
+            .await
+            .unwrap();
+        // Pagination is timestamp-based; do not make this test depend on host clock drift.
+        db.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE session_messages SET created_at='2020-01-01T00:00:00Z'::timestamptz + $2::integer * interval '1 second' WHERE id=$1",
+            [message.id.into(), (index + 1).into()],
+        ))
         .await
         .unwrap();
     }

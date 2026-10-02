@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Connect an opt-in authenticated Tracker metadata poller with fresh Base subject
+  and exact read-only scope checks, project-scoped keyset scans, bounded HTTP and
+  durable cursor replay. No PM dispatch or task transition is performed.
+
 - Add strict `metadata_v1` Tracker event decoding and immutable per-binding
   projection/version pins, including empty pages. Validate source digests and
   lossless decimal cursors; reject implicit legacy conversion. Polling remains
@@ -17,8 +21,8 @@
   handoff remain blocked pending live integration.
 
 - Add transactional Tracker event inbox foundation with immutable replay receipts,
-  per-binding cursors and safe transcript/stream projections; background polling
-  and PM answer delivery remain separate integration work.
+  per-binding cursors and safe transcript/stream projections; PM answer delivery
+  remains separate integration work.
 
 - Recheck Tracker project access for task-bound transcript, lists/counts, runs,
   controls and every session-stream event; retained Fleet ownership cannot bypass revocation.

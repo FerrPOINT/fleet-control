@@ -30,7 +30,8 @@ lock wait is followed by fresh assignment authorization before approval dispatch
 
 Transactional Tracker inbox storage is now implemented: exact replay deduplication,
 immutable receipts, per-binding source cursor and safe transcript/stream projection.
-The authenticated background poller and PM answer delivery remain unwired.
+The authenticated background metadata poller is connected behind an explicit
+deployment flag (disabled by default). PM answer delivery remains unwired.
 
 Fleet now implements strict bounded `metadata_v1` page decoding and transactional
 format/version pinning. It validates all nine supported resource shapes, required
@@ -38,7 +39,15 @@ nulls, canonical non-nil UUIDs, safe versions, UTC source timestamps, source
 digests and lossless decimal bigint cursors. Empty pages pin the format; changed
 replay, stale cursors and implicit legacy conversion fail closed. The full WSL
 gate passed 102 library tests and 29 actual PostgreSQL 17.11 cases. This storage
-follow-up does not yet connect an authenticated poller or prove live PM delivery.
+follow-up did not itself connect a poller or prove live PM delivery.
+
+The polling follow-up checks the pinned machine subject and exact read-only
+Tracker scope through Base on every cycle, then current Tracker project access.
+Bounded GETs refuse redirects; failed or corrupt pages leave durable cursors
+unchanged. Restart/replay cannot duplicate events or create a runtime dispatch.
+The WSL gate passed 106 library tests and 31 actual PostgreSQL 17.11 cases.
+HTTP authorization/dependency fault coverage uses test endpoints, not a live
+Central issuer or PM. No accepted runtime or deployment secrets were changed.
 
 The 2026-10-02 follow-up implements the server-only Base delegation client.
 Commands derive the actual Tracker task/assignment/execution/agent/version grant;

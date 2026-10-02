@@ -216,6 +216,16 @@ pub trait FleetRepository: Send + Sync {
             "Tracker metadata inbox is not available".into(),
         ))
     }
+    async fn tracker_projection_targets(
+        &self,
+        _instance: &str,
+        _project_ids: &[Uuid],
+        _after_session: Option<Uuid>,
+    ) -> Result<Vec<domain::TrackerProjectionTarget>, AppError> {
+        Err(AppError::Unavailable(
+            "Tracker projection targets are unavailable".into(),
+        ))
+    }
     async fn project_tracker_metadata(
         &self,
         _session_id: Uuid,
