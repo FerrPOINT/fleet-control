@@ -170,48 +170,70 @@ beforeEach(() => {
   })
 })
 describe('production chat', () => {
-  it('does not cancel older history when the event stream reconnects', async () => {
-    useAuthStore.setState({ token: 'fixture-token' })
-    let resolveOlder!: (page: chats.HistoryPage) => void
-    vi.mocked(chats.getChatHistory)
-      .mockResolvedValueOnce({ items: [], next_before: 'older-cursor' })
-      .mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            resolveOlder = resolve
-          }),
-      )
-    renderPage()
-    await userEvent.click(await screen.findByRole('button', { name: 'Предыдущие сообщения' }))
-    await waitFor(() => expect(chats.getChatHistory).toHaveBeenCalledTimes(2))
-    await act(async () => {
-      vi.mocked(connectAuthenticatedEventStream).mock.calls[0]?.[0].onOpen?.()
-      resolveOlder({ items: [], next_before: null })
-    })
-    await waitFor(() =>
-      expect(
-        screen.queryByRole('button', { name: 'Предыдущие сообщения' }),
-      ).not.toBeInTheDocument(),
-    )
-    expect(chats.getChatHistory).toHaveBeenCalledTimes(2)
+  const message = (
+    id: string,
+    body: string,
+    created_at = '2026-10-02T12:00:00Z',
+  ): SessionMessage => ({
+    id,
+    body,
+    created_at,
+    session_id: 'session1',
+    author_type: 'agent',
+    author_user_id: null,
+    author_agent_id: 'agent1',
+    author_display_name: 'PM',
+    message_kind: 'assistant_message',
+    runtime_message_id: null,
+    delivery_state: 'completed',
+    delivery_error: null,
+    replayed: false,
   })
+  it.each(['reconnect', 'message event'])(
+    'keeps older loading and catches new messages after %s',
+    async (event) => {
+      useAuthStore.setState({ token: 'fixture-token' })
+      let resolveOlder!: (page: chats.HistoryPage) => void
+      vi.mocked(chats.getChatHistory)
+        .mockResolvedValueOnce({
+          items: [message('latest', 'Existing latest')],
+          next_before: 'older-cursor',
+        })
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              resolveOlder = resolve
+            }),
+        )
+        .mockResolvedValueOnce({
+          items: [message('latest', 'Existing latest'), message('new', 'Arrived while loading')],
+          next_before: 'older-cursor',
+        })
+        .mockResolvedValueOnce({ items: [message('older', 'Older history')], next_before: null })
+      renderPage()
+      await userEvent.click(await screen.findByRole('button', { name: 'Предыдущие сообщения' }))
+      await waitFor(() => expect(chats.getChatHistory).toHaveBeenCalledTimes(2))
+      await act(async () => {
+        const stream = vi.mocked(connectAuthenticatedEventStream).mock.calls[0]?.[0]
+        expect(stream).toBeDefined()
+        if (event === 'reconnect') stream?.onOpen?.()
+        else stream?.onEvent('session', { type: 'session_message_changed' })
+        resolveOlder({ items: [message('older', 'Older history')], next_before: null })
+      })
+      await waitFor(() =>
+        expect(
+          screen.queryByRole('button', { name: 'Предыдущие сообщения' }),
+        ).not.toBeInTheDocument(),
+      )
+      await screen.findByText('Arrived while loading')
+      expect(
+        [...document.querySelectorAll('.fc-chat-message > p')].map((node) => node.textContent),
+      ).toEqual(['Older history', 'Existing latest', 'Arrived while loading'])
+      expect(chats.getChatHistory).toHaveBeenCalledTimes(4)
+    },
+  )
 
   it('keeps server append order across clock rollback, older pages and overlap', async () => {
-    const message = (id: string, body: string, created_at: string): SessionMessage => ({
-      id,
-      body,
-      created_at,
-      session_id: 'session1',
-      author_type: 'agent',
-      author_user_id: null,
-      author_agent_id: 'agent1',
-      author_display_name: 'PM',
-      message_kind: 'assistant_message',
-      runtime_message_id: null,
-      delivery_state: 'completed',
-      delivery_error: null,
-      replayed: false,
-    })
     vi.mocked(chats.getChatHistory)
       .mockResolvedValueOnce({
         items: [

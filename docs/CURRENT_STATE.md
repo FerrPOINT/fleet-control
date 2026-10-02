@@ -16,8 +16,9 @@ The 2026-10-02 transcript follow-up adds immutable internal database allocation
 order to legacy listing and paginated chat history. New messages do not reorder
 when the clock moves backwards; overlapping pages preserve server order. Historical
 records retain their former timestamp/UUID order, not recovered insertion order.
-SSE reconnect no longer cancels an in-flight older-history fetch. This does not
-complete PM creation, delivery, resume or live Backlog acceptance.
+SSE reconnect no longer cancels an in-flight older-history fetch. A catch-up read
+includes messages arriving during that fetch. This does not complete PM creation,
+delivery, resume or live Backlog acceptance.
 
 ## PM Clarification Work In Progress
 

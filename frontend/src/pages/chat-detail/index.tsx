@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useBlocker, useParams, useSearchParams } from 'react-router'
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query'
 import {
   ArrowDown,
   ArrowLeft,
@@ -59,6 +65,15 @@ import './chat.css'
 
 function requestKey() {
   return crypto.randomUUID()
+}
+async function refreshHistory(client: QueryClient, id: string) {
+  const queryKey = ['chat-history', id]
+  const alreadyFetching = client.isFetching({ queryKey, exact: true }) > 0
+  await client.invalidateQueries({ queryKey, exact: true }, { cancelRefetch: false })
+  // A pending page began before this event: read again after it without cancelling it.
+  if (alreadyFetching) {
+    await client.invalidateQueries({ queryKey, exact: true }, { cancelRefetch: false })
+  }
 }
 function ReadableError({ error }: { error: unknown }) {
   return <ErrorState message={error instanceof Error ? error.message : 'Данные недоступны'} />
@@ -171,10 +186,9 @@ function ChatWorkspace({ id }: { id: string }) {
         'task-approvals',
         'task-approval-decision',
       ].map((key) =>
-        client.invalidateQueries(
-          { queryKey: [key, id] },
-          { cancelRefetch: key !== 'chat-history' },
-        ),
+        key === 'chat-history'
+          ? refreshHistory(client, id)
+          : client.invalidateQueries({ queryKey: [key, id] }),
       ),
     )
   }
@@ -185,7 +199,7 @@ function ChatWorkspace({ id }: { id: string }) {
       token,
       eventTypes: ['session'],
       onOpen: () => {
-        void client.invalidateQueries({ queryKey: ['chat-history', id] }, { cancelRefetch: false })
+        void refreshHistory(client, id)
       },
       onEvent: (_type, data) => {
         if (
@@ -215,10 +229,8 @@ function ChatWorkspace({ id }: { id: string }) {
             'task-approvals',
             'task-approval-decision',
           ].forEach((key) => {
-            void client.invalidateQueries(
-              { queryKey: [key, id] },
-              { cancelRefetch: key !== 'chat-history' },
-            )
+            if (key === 'chat-history') void refreshHistory(client, id)
+            else void client.invalidateQueries({ queryKey: [key, id] })
           })
         }
       },

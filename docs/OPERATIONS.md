@@ -6,6 +6,10 @@ Pending migration 000010 backfills existing messages in timestamp/UUID order and
 assigns new messages immutable database identity positions. Apply with a verified
 backup and migration window: the column backfill, constraint and index creation
 can lock or scan the message table. Measure the window on representative data.
+This is an unapplied pending migration. If a preview database already applied an
+earlier form of 000010, its migration-name record does not prove schema parity.
+Preserve and inspect that database; use a fresh disposable QA database or a
+reviewed forward upgrade. Never clear data or migration history to force reapply.
 The public cursor remains a session-scoped message UUID; do not use the internal
 allocation sequence as a commit watermark or an SSE cursor. Sequence gaps are normal.
 

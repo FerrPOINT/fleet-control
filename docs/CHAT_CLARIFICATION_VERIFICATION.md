@@ -3,6 +3,19 @@
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 
+## History Catch-Up Follow-Up (2026-10-02)
+
+History invalidation now waits for an in-flight page without cancelling it, then
+performs a catch-up read. Reconnect and message events arriving during older-page
+loading cannot silently lose the newly appended message until another event.
+Both deterministic component cases keep the older page and display the new
+message in server order after the subsequent read. The full frontend unit gate
+passed 215 tests; typecheck/build passed. Public API and database schema did not
+change. Lint/format and all 36 Chromium/Firefox/WebKit fixture cases also passed;
+27 opt-in live cases were skipped. The nine controller images were regenerated
+and verified from the passed run. These remain controller tests, not live PM
+delivery evidence.
+
 ## Atomic PM Draft Chat Follow-Up (2026-10-02)
 
 The internal repository operation creates private session, immutable binding,

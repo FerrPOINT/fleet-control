@@ -19,7 +19,8 @@ and pending migration down/reapply without losing messages. CI creates its own
 database for this gate. Downgrade/reapply is a QA exercise, not an order-preserving
 production rollback. Foundation pagination tests also check foreign cursors and
 legacy listing order. Frontend tests cover overlapping pages and SSE reconnect
-during previous-page loading; browser fixtures are not real PM acceptance.
+during previous-page loading, including catch-up of messages arriving mid-fetch;
+browser fixtures are not real PM acceptance.
 
 Frontend commands: `pnpm test -- --maxWorkers=2` and focused Playwright
 `pnpm exec playwright test e2e/fleet-control.spec.ts --grep "PM chat clarification" --workers=1`.
