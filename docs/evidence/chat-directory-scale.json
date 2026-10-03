@@ -1,0 +1,58 @@
+{
+  "rows": 500000,
+  "owners": 1000,
+  "agents": 20,
+  "schema_sha256": "52c6a865c94e619ee6fa63d0b6aa13b0c31615ce0415fa078451e8a6dad87cd2",
+  "source": "exact pending Fleet migrations + fixed directory query",
+  "results": {
+    "before": {
+      "query_sha256": "687cacbb988f2ddef96af41ed0f6c8037f73a01de3890ce9f7fc3f44915f3e5d",
+      "plans": {
+        "mine": {
+          "execution_ms": 143.445,
+          "session_seq_scans": 2,
+          "indexes": []
+        },
+        "multiple": {
+          "execution_ms": 188.951,
+          "session_seq_scans": 2,
+          "indexes": []
+        },
+        "all": {
+          "execution_ms": 1200.194,
+          "session_seq_scans": 2,
+          "indexes": []
+        }
+      }
+    },
+    "fixed": {
+      "query_sha256": "f3692cc8c4050ce30493bc567805f0aeef0b5bfadea16abbef7721b92d57ce79",
+      "plans": {
+        "mine": {
+          "execution_ms": 8.506,
+          "session_seq_scans": 0,
+          "indexes": [
+            "agent_sessions_pkey",
+            "agent_sessions_user_state_idx",
+            "agents_pkey"
+          ]
+        },
+        "multiple": {
+          "execution_ms": 10.234,
+          "session_seq_scans": 0,
+          "indexes": [
+            "agent_sessions_pkey",
+            "agent_sessions_user_state_idx",
+            "agents_pkey"
+          ]
+        },
+        "all": {
+          "execution_ms": 1088.834,
+          "session_seq_scans": 2,
+          "indexes": []
+        }
+      }
+    }
+  },
+  "limitation": "synthetic unbound sessions; functional PG suite separately checks bound/project ACL/cursors"
+}

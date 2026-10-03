@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Keep chat directory owner filtering on the existing user/session index by
+  converting its JSON owner list to a UUID array before membership checks.
+  Preserve all-users counts, project ACLs, search and pagination contracts.
+
 - Bind server-only delegated PM credentials to enumerated operations for their
   canonical assigned task. Reject legacy/foreign task paths and owner/verifier
   actions before attaching the bearer. Keep the Base delegation wire unchanged;
