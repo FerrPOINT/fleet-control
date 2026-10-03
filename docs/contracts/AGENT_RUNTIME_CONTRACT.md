@@ -34,3 +34,11 @@ Base-marked configuration revisions also freeze a separate
 [Workflow binding](SDLC_WORKFLOW_BINDING_V1.md). Fresh owner ID/name/profile
 verification precedes supervisor side effects. An unavailable preflight fails
 the revision without retaining drain; an unknown apply/rollback keeps drain.
+
+Terminal runtime evidence must identify the accepted run; EOF, nested child
+completion and a requested stop are not completion. The implemented Hermes
+adapter validates exact terminal names, native success flags and bounded status
+readback before ending a run. Runtime completion is separate from process-tree
+quiescence and owner-authorized business transitions. See the
+[Hermes wire contract](HERMES_ADAPTER_CONTRACT.md); this does not grant phase-2
+Java chat/control capabilities.

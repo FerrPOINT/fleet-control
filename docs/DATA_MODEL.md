@@ -198,6 +198,9 @@ the accepted mapping, introduce terminal state without proof, or regress verifie
 terminal state. Both paths lock the PM binding before the runtime run. A mapping
 mismatch rolls back proof and run state together. This never advances Tracker;
 business completion still requires its own workflow/requirements receipts.
+Success observation requires the accepted run/session identity and native
+`completed=true`, `partial=false`, `interrupted=false` flags, not just a status
+string. A contradictory partial result leaves the reservation unresolved.
 
 ## Tracker Event Inbox
 

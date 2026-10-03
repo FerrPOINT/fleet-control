@@ -76,6 +76,11 @@ Pending prompts use transactional outbox; acceptance-unknown dispatch is not ret
 Session SSE supports `Last-Event-ID` or `cursor`, and rechecks ownership/role/expiry.
 Delta events contain a redacted `text` snapshot, not a fragment that could expose
 a credential split across frames. See [current scope](SDLC_IMPLEMENTATION.md).
+Runtime mirror completion now requires the exact accepted Hermes run and native
+success flags; nested terminal names, partial results and invalid EOF status
+responses leave the run unresolved. No public route or DTO shape changes for
+this guard. A completed runtime mirror does not authorize a Tracker transition;
+see the [Hermes adapter contract](contracts/HERMES_ADAPTER_CONTRACT.md).
 
 Base path: `/api/v1`.
 

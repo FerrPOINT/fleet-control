@@ -133,6 +133,15 @@ capacity; fake Hermes HTTP EOF versus terminal readback and single response
 mirroring; split-secret stream redaction; seven specialization and Chats routing;
 SSO backend-role preservation and fail-closed permission checks.
 
+`runtime::hermes_wire` and the scoped `sdlc_foundation::runtime_http_` group
+verify exact terminal event/status identity and native completion flags. Actual
+HTTP/PostgreSQL fixtures check foreign run readback, contradictory partial output,
+subagent completion, cancellation requests and unsupported response aliases:
+none may fabricate a reply or free the waiting agent's capacity. A valid terminal
+SSE event and a valid EOF status read each persist one reply without a second
+prompt POST. These fixtures are not installed Hermes, OS process-tree stop or
+Workflow/Tracker business-completion evidence.
+
 Run database tests explicitly against isolated disposable PostgreSQL databases:
 
 ```bash

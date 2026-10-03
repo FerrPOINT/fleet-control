@@ -73,7 +73,10 @@ fn status(payload: &Value, raw_id: &str, session_id: &str) -> Result<PmRuntimeSt
         Some("queued" | "started" | "running" | "waiting_for_approval" | "stopping") => {
             Ok(PmRuntimeStatus::Running)
         }
-        Some("completed") => Ok(PmRuntimeStatus::Completed),
+        Some("completed") => {
+            hermes_wire::terminal_readback(payload, raw_id)?;
+            Ok(PmRuntimeStatus::Completed)
+        }
         Some("failed" | "interrupted") => Ok(PmRuntimeStatus::Failed),
         Some("cancelled") => Ok(PmRuntimeStatus::Cancelled),
         Some("stopped") => Ok(PmRuntimeStatus::Stopped),
@@ -87,7 +90,8 @@ fn status(payload: &Value, raw_id: &str, session_id: &str) -> Result<PmRuntimeSt
 mod tests {
     use super::*;
     fn value(state: &str) -> Value {
-        json!({"object":"hermes.run","run_id":"run_test","session_id":"fleet:test:agent","status":state})
+        json!({"object":"hermes.run","run_id":"run_test","session_id":"fleet:test:agent","status":state,
+            "completed":state == "completed","partial":false,"interrupted":state == "interrupted"})
     }
     #[test]
     fn only_runtime_terminal_status_is_proof() {
@@ -124,5 +128,21 @@ mod tests {
         missing.as_object_mut().unwrap().remove("session_id");
         assert!(status(&missing, "run_test", "fleet:test:agent").is_err());
         assert!(status(&Value::Null, "run_test", "fleet:test:agent").is_err());
+    }
+
+    #[test]
+    fn pm_completion_cannot_hide_partial_or_interrupted_output() {
+        for (field, bad) in [
+            ("completed", json!(false)),
+            ("partial", json!(true)),
+            ("interrupted", json!(true)),
+        ] {
+            let mut payload = value("completed");
+            payload[field] = bad;
+            assert!(status(&payload, "run_test", "fleet:test:agent").is_err());
+        }
+        let mut payload = value("completed");
+        payload.as_object_mut().unwrap().remove("completed");
+        assert!(status(&payload, "run_test", "fleet:test:agent").is_err());
     }
 }

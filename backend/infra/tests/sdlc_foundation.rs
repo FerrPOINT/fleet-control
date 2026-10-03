@@ -2630,7 +2630,8 @@ async fn pm_callback_requires_machine_auth_and_fresh_authenticated_runtime_proof
             reads.fetch_add(1, Ordering::SeqCst);
             let phase = state.load(Ordering::SeqCst);
             axum::Json(serde_json::json!({"object":"hermes.run","run_id":if phase == 2 {"run_foreign"} else {"run_pm_readback"},
-                "session_id":if phase == 3 { "foreign-session" } else { &session },"status":if phase == 1 {"completed"} else {"running"}}))
+                "session_id":if phase == 3 { "foreign-session" } else { &session },"status":if phase == 1 || phase == 4 {"completed"} else {"running"},
+                "completed":phase == 1 || phase == 4,"partial":phase == 4,"interrupted":false}))
         }
     }));
     let hermes_server =
@@ -2719,6 +2720,25 @@ async fn pm_callback_requires_machine_auth_and_fresh_authenticated_runtime_proof
             .unwrap()
             .status(),
         reqwest::StatusCode::SERVICE_UNAVAILABLE
+    );
+    state.store(4, Ordering::SeqCst);
+    assert_eq!(
+        client
+            .get(&url)
+            .bearer_auth(&secret)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        reqwest::StatusCode::SERVICE_UNAVAILABLE
+    );
+    assert!(
+        repo.get_pm_run(request.session_run_id)
+            .await
+            .unwrap()
+            .terminal_status
+            .is_none(),
+        "partial PM result must not create a terminal proof or release its slot"
     );
     state.store(1, Ordering::SeqCst);
     let completed = client
@@ -3495,6 +3515,27 @@ async fn runtime_task_protocol_blocks_memory_only_idempotency_before_submission(
 }
 
 async fn runtime_http_fixture(runtime_status: &'static str) {
+    let expected = match runtime_status {
+        "completed" => SessionRunState::Completed,
+        "interrupted" => SessionRunState::Failed,
+        _ => SessionRunState::Waiting,
+    };
+    runtime_http_scenario(
+        serde_json::json!({"object":"hermes.run","run_id":"fixture-run","status":runtime_status,
+            "completed":runtime_status == "completed","partial":false,"interrupted":runtime_status == "interrupted",
+            "output":"verified response"}),
+        "event: message.delta\ndata: {\"delta\":\"partial response\"}\n\n",
+        expected,
+        runtime_status == "completed",
+    ).await;
+}
+
+async fn runtime_http_scenario(
+    readback: serde_json::Value,
+    events: &'static str,
+    expected: SessionRunState,
+    expected_reply: bool,
+) {
     let Some((repo, owner, _)) = fixture().await else {
         return;
     };
@@ -3524,11 +3565,14 @@ async fn runtime_http_fixture(runtime_status: &'static str) {
                 (axum::http::StatusCode::ACCEPTED, axum::Json(serde_json::json!({"run_id": "fixture-run", "status":"started", "replayed":false})))
             }
         }))
-        .route("/v1/runs/fixture-run/events", axum::routing::get(|| async {
-            ([(axum::http::header::CONTENT_TYPE, "text/event-stream")], "event: response.delta\ndata: {\"delta\":\"partial response\"}\n\n")
+        .route("/v1/runs/fixture-run/events", axum::routing::get(move || async move {
+            ([(axum::http::header::CONTENT_TYPE, "text/event-stream")], events)
         }))
-        .route("/v1/runs/fixture-run", axum::routing::get(move || async move {
-            axum::Json(serde_json::json!({"status": runtime_status, "final_response": "verified response"}))
+        .route("/v1/runs/fixture-run", axum::routing::get(move |headers: axum::http::HeaderMap| {
+            assert_eq!(headers["accept-encoding"], "identity");
+            assert!(headers["authorization"].to_str().unwrap().starts_with("Bearer fc_"));
+            let payload = readback.clone();
+            async move { axum::Json(payload) }
         }));
     let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
     let repo = Arc::new(repo);
@@ -3544,11 +3588,6 @@ async fn runtime_http_fixture(runtime_status: &'static str) {
     repo.create_session_message(session.id, prompt("http-once"), owner)
         .await
         .unwrap();
-    let expected = match runtime_status {
-        "completed" => SessionRunState::Completed,
-        "interrupted" => SessionRunState::Failed,
-        _ => SessionRunState::Waiting,
-    };
     tokio::time::timeout(Duration::from_secs(10), async {
         loop {
             let runs = repo.list_session_agent_runs(session.id).await.unwrap();
@@ -3572,7 +3611,7 @@ async fn runtime_http_fixture(runtime_status: &'static str) {
         .into_iter()
         .filter(|message| message.message_kind == MessageKind::AssistantMessage)
         .collect::<Vec<_>>();
-    if runtime_status == "completed" {
+    if expected_reply {
         assert_eq!(replies.len(), 1);
         assert_eq!(replies[0].body, "verified response");
     } else {
@@ -3581,7 +3620,23 @@ async fn runtime_http_fixture(runtime_status: &'static str) {
             "EOF must not fabricate a completed answer"
         );
     }
+    if expected == SessionRunState::Waiting {
+        assert!(
+            matches!(
+                repo.prepare_session_agent_run(
+                    session.id,
+                    agent_id,
+                    domain::SessionRunRole::Primary,
+                    format!("fleet:{}:{agent_id}", session.id)
+                )
+                .await,
+                Err(shared::AppError::Conflict(_))
+            ),
+            "unverified terminal evidence must retain capacity"
+        );
+    }
     server.abort();
+    let _ = server.await;
 }
 
 #[tokio::test]
@@ -3597,6 +3652,72 @@ async fn runtime_http_terminal_readback_persists_one_answer() {
 #[tokio::test]
 async fn runtime_http_interrupted_is_failed_without_fabricated_reply() {
     runtime_http_fixture("interrupted").await;
+}
+
+#[tokio::test]
+async fn runtime_http_foreign_or_inconsistent_terminal_readback_retains_capacity() {
+    let good = serde_json::json!({"object":"hermes.run","run_id":"fixture-run","status":"completed",
+        "completed":true,"partial":false,"interrupted":false,"output":"verified response"});
+    for (field, value) in [
+        ("run_id", serde_json::json!("foreign-run")),
+        ("object", serde_json::json!("hermes.response")),
+        ("status", serde_json::json!("succeeded")),
+        ("partial", serde_json::json!(true)),
+    ] {
+        let mut payload = good.clone();
+        payload[field] = value;
+        runtime_http_scenario(payload, "", SessionRunState::Waiting, false).await;
+    }
+}
+
+#[tokio::test]
+async fn runtime_http_foreign_or_partial_terminal_sse_retains_capacity() {
+    for events in [
+        "event: run.completed\ndata: {\"run_id\":\"foreign-run\",\"completed\":true,\"partial\":false,\"interrupted\":false,\"output\":\"foreign\"}\n\n",
+        "event: run.completed\ndata: {\"run_id\":\"fixture-run\",\"completed\":true,\"partial\":true,\"interrupted\":false,\"output\":\"partial\"}\n\n",
+    ] {
+        runtime_http_scenario(
+            serde_json::json!({"object":"hermes.run","run_id":"fixture-run","status":"running"}),
+            events,
+            SessionRunState::Waiting,
+            false,
+        )
+        .await;
+    }
+}
+
+#[tokio::test]
+async fn runtime_http_nested_or_unknown_events_do_not_complete_the_run() {
+    for events in [
+        "event: subagent.completed\ndata: {\"run_id\":\"fixture-run\",\"completed\":true,\"partial\":false,\"interrupted\":false,\"output\":\"child\"}\n\n",
+        "event: run.cancellation_requested\ndata: {\"run_id\":\"fixture-run\"}\n\n",
+        "event: response.completed\ndata: {\"run_id\":\"fixture-run\",\"output\":\"not terminal\"}\n\n",
+        "data: {\"run_id\":\"fixture-run\",\"completed\":true,\"partial\":false,\"interrupted\":false,\"child\":{\"event\":\"run.completed\"}}\n\n",
+    ] {
+        runtime_http_scenario(
+            serde_json::json!({"object":"hermes.run","run_id":"fixture-run","status":"running"}),
+            events,
+            SessionRunState::Waiting,
+            false,
+        )
+        .await;
+    }
+}
+
+#[tokio::test]
+async fn runtime_http_exact_terminal_sse_persists_one_answer_and_ignores_late_errors() {
+    for events in [
+        "event: run.completed\ndata: {\"event\":\"run.completed\",\"run_id\":\"fixture-run\",\"completed\":true,\"partial\":false,\"interrupted\":false,\"output\":\"verified response\"}\n\nevent: run.failed\ndata: {\"run_id\":\"fixture-run\",\"error\":\"late transport diagnostic\"}\n\n",
+        "data: {\"event\":\"run.completed\",\"run_id\":\"fixture-run\",\"completed\":true,\"partial\":false,\"interrupted\":false,\"output\":\"verified response\"}\n\ndata: {\"event\":\"run.failed\",\"run_id\":\"fixture-run\",\"error\":\"late transport diagnostic\"}\n\n",
+    ] {
+        runtime_http_scenario(
+            serde_json::json!({"object":"hermes.run","run_id":"fixture-run","status":"running"}),
+            events,
+            SessionRunState::Completed,
+            true,
+        )
+        .await;
+    }
 }
 
 #[tokio::test]

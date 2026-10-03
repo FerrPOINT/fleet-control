@@ -1306,6 +1306,10 @@ impl LocalRuntimeSupervisor {
                                 &mut final_text,
                             )
                             .await?;
+                        if terminal_seen {
+                            // Stop consuming once accepted run evidence is persisted.
+                            return Ok(());
+                        }
                         data_lines.clear();
                     }
                 } else if let Some(name) = line.strip_prefix("event:") {
@@ -1329,28 +1333,26 @@ impl LocalRuntimeSupervisor {
                     &mut final_text,
                 )
                 .await?;
+            if terminal_seen {
+                return Ok(());
+            }
         }
 
         if !terminal_seen {
             let response = self
                 .client
                 .get(format!("{base}/v1/runs/{runtime_run_id}"))
+                .header(reqwest::header::ACCEPT_ENCODING, "identity")
                 .timeout(Duration::from_secs(10))
                 .bearer_auth(crate::agent_runtime_token(&self.config, agent.id)?)
                 .send()
                 .await
-                .map_err(AppError::internal)?;
-            if !response.status().is_success() {
-                return Err(AppError::Unavailable("Hermes stream ended without a terminal event; status reconciliation is required".into()));
-            }
-            let payload: Value = response.json().await.map_err(AppError::internal)?;
-            let state = pick_string(&payload, &["state", "status"]).unwrap_or_default();
-            let event = match state.as_str() {
-                "completed" | "succeeded" => "run.completed",
-                "failed" | "interrupted" => "run.failed",
-                "cancelled" | "stopped" => "run.cancelled",
-                _ => return Err(AppError::Unavailable("Hermes stream ended while run status is non-terminal; reconciliation is required".into())),
-            };
+                .map_err(|_| {
+                    AppError::Unavailable("Hermes terminal readback is unavailable".into())
+                })?;
+            let payload =
+                hermes_wire::read_json(response, reqwest::StatusCode::OK, 1024 * 1024).await?;
+            let event = hermes_wire::terminal_readback(&payload, &runtime_run_id)?;
             self.handle_hermes_event(
                 &agent,
                 &session,
@@ -1380,8 +1382,14 @@ impl LocalRuntimeSupervisor {
     ) -> Result<bool, AppError> {
         let payload = serde_json::from_str::<Value>(&data).unwrap_or(Value::String(data));
         let event_type = event_name
-            .or_else(|| pick_string(&payload, &["event", "type", "object"]))
+            .or_else(|| {
+                payload
+                    .get("event")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)
+            })
             .unwrap_or_else(|| "message".to_string());
+        let terminal_state = hermes_wire::terminal_event(&event_type, &payload, runtime_run_id)?;
 
         if event_type.contains("delta") {
             if let Some(delta) = pick_string(&payload, &["delta", "text", "output_text"]) {
@@ -1471,7 +1479,7 @@ impl LocalRuntimeSupervisor {
             return Ok(false);
         }
 
-        if event_type.contains("cancel") || event_type.contains("stopped") {
+        if terminal_state == Some(SessionRunState::Cancelled) {
             let updated = self
                 .repo
                 .update_session_agent_run_dispatch(
@@ -1485,10 +1493,7 @@ impl LocalRuntimeSupervisor {
             return Ok(true);
         }
 
-        if event_type.contains("fail")
-            || event_type.contains("error")
-            || event_type.contains("interrupted")
-        {
+        if terminal_state == Some(SessionRunState::Failed) {
             let error =
                 pick_error(&payload).unwrap_or_else(|| format!("Hermes event {event_type}"));
             self.repo
@@ -1512,7 +1517,7 @@ impl LocalRuntimeSupervisor {
             return Ok(true);
         }
 
-        if event_type.contains("completed") || event_type.contains("done") {
+        if terminal_state == Some(SessionRunState::Completed) {
             let body = pick_string(
                 &payload,
                 &[

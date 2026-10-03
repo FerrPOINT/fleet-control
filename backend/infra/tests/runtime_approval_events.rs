@@ -367,7 +367,8 @@ async fn authenticated_hermes_sse_ingests_exact_requests_and_never_response_even
     sender
         .send(event(
             "run.completed",
-            json!({"final_response": "Approval ingestion fixture complete"}),
+            json!({"run_id":RUNTIME_RUN,"completed":true,"partial":false,"interrupted":false,
+                "output": "Approval ingestion fixture complete"}),
         ))
         .unwrap();
     drop(sender);

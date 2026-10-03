@@ -82,6 +82,56 @@ pub(super) fn task_protocol(capabilities: &Value) -> Result<(), AppError> {
     Ok(())
 }
 
+pub(super) fn terminal_event(
+    event: &str,
+    payload: &Value,
+    run_id: &str,
+) -> Result<Option<SessionRunState>, AppError> {
+    let state = match event {
+        "run.completed" => SessionRunState::Completed,
+        "run.failed" | "run.interrupted" => SessionRunState::Failed,
+        "run.cancelled" | "run.stopped" => SessionRunState::Cancelled,
+        _ => return Ok(None),
+    };
+    if !crate::pm_execution::valid_hermes_ref(run_id)
+        || payload.get("run_id").and_then(Value::as_str) != Some(run_id)
+        || payload
+            .get("event")
+            .is_some_and(|name| name.as_str() != Some(event))
+        || (state == SessionRunState::Completed
+            && (payload.get("completed").and_then(Value::as_bool) != Some(true)
+                || payload.get("partial").and_then(Value::as_bool) != Some(false)
+                || payload.get("interrupted").and_then(Value::as_bool) != Some(false)))
+    {
+        return Err(AppError::Unavailable(
+            "Hermes terminal run evidence does not match".into(),
+        ));
+    }
+    Ok(Some(state))
+}
+
+pub(super) fn terminal_readback(payload: &Value, run_id: &str) -> Result<&'static str, AppError> {
+    if payload.get("object").and_then(Value::as_str) != Some("hermes.run") {
+        return Err(AppError::Unavailable(
+            "Hermes run status response does not match".into(),
+        ));
+    }
+    let event = match payload.get("status").and_then(Value::as_str) {
+        Some("completed") => "run.completed",
+        Some("failed") => "run.failed",
+        Some("interrupted") => "run.interrupted",
+        Some("cancelled") => "run.cancelled",
+        Some("stopped") => "run.stopped",
+        _ => {
+            return Err(AppError::Unavailable(
+                "Hermes run status is not terminal; reconciliation is required".into(),
+            ));
+        }
+    };
+    terminal_event(event, payload, run_id)?;
+    Ok(event)
+}
+
 fn accepted_run(payload: &Value) -> Result<String, AppError> {
     let run_id = payload.get("run_id").and_then(Value::as_str);
     let replayed = payload.get("replayed").and_then(Value::as_bool);
@@ -216,6 +266,68 @@ mod tests {
         }
         let replay = json!({"run_id":"run_original","status":"interrupted","replayed":true});
         assert_eq!(accepted_run(&replay).unwrap(), "run_original");
+    }
+
+    #[test]
+    fn terminal_evidence_requires_exact_run_event_and_completed_flags() {
+        let good = json!({"object":"hermes.run","run_id":"run_original","status":"completed",
+            "completed":true,"partial":false,"interrupted":false,"output":"result"});
+        assert_eq!(
+            terminal_readback(&good, "run_original").unwrap(),
+            "run.completed"
+        );
+        assert_eq!(
+            terminal_event("run.completed", &good, "run_original").unwrap(),
+            Some(SessionRunState::Completed)
+        );
+        for (field, value) in [
+            ("run_id", json!("run_foreign")),
+            ("object", json!("hermes.response")),
+            ("status", json!("succeeded")),
+            ("completed", json!(false)),
+            ("completed", json!("true")),
+            ("partial", json!(true)),
+            ("interrupted", json!(true)),
+        ] {
+            let mut bad = good.clone();
+            bad[field] = value;
+            assert!(terminal_readback(&bad, "run_original").is_err(), "{field}");
+        }
+        for field in [
+            "run_id",
+            "object",
+            "status",
+            "completed",
+            "partial",
+            "interrupted",
+        ] {
+            let mut bad = good.clone();
+            bad.as_object_mut().unwrap().remove(field);
+            assert!(terminal_readback(&bad, "run_original").is_err(), "{field}");
+        }
+        for event in [
+            "response.completed",
+            "message.done",
+            "run.cancellation_requested",
+            "tool.failed",
+        ] {
+            assert_eq!(terminal_event(event, &good, "run_original").unwrap(), None);
+        }
+        let mismatch = json!({"run_id":"run_original","event":"run.failed","completed":true,"partial":false,"interrupted":false});
+        assert!(terminal_event("run.completed", &mismatch, "run_original").is_err());
+        for (status, state) in [
+            ("failed", SessionRunState::Failed),
+            ("interrupted", SessionRunState::Failed),
+            ("cancelled", SessionRunState::Cancelled),
+            ("stopped", SessionRunState::Cancelled),
+        ] {
+            let payload = json!({"object":"hermes.run","run_id":"run_original","status":status});
+            let event = terminal_readback(&payload, "run_original").unwrap();
+            assert_eq!(
+                terminal_event(event, &payload, "run_original").unwrap(),
+                Some(state)
+            );
+        }
     }
 
     #[tokio::test]

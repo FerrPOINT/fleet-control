@@ -54,6 +54,16 @@ Hermes:
   unknown acceptance; lookup by idempotency key and full admission remain gaps.
 - Stream EOF is not completion. Fleet requires a terminal event or terminal
   status readback, and deduplicates the final mirror response.
+  Only exact `run.completed`, `run.failed`, `run.interrupted`, `run.cancelled`
+  or `run.stopped` events are terminal; nested/subagent events, generic `done`
+  and cancellation requests are not. Terminal payloads must identify the accepted
+  run. Success additionally requires the native `completed=true`, `partial=false`,
+  `interrupted=false` flags. After EOF the authenticated status read must be
+  HTTP 200, bounded to 1 MiB, unencoded and identify `object=hermes.run` and the
+  exact accepted `run_id`; `succeeded` is not an alias. Invalid or non-terminal
+  evidence keeps the run waiting and its capacity held, without a fabricated
+  assistant reply. This is run-state evidence, not OS/process-tree quiescence,
+  Workflow completion or authorization for a Tracker stage transition.
 - Configuration is draft/validated/activating/active/failed with desired and
   effective revisions. Activation drains runs and checks files/runtime before
   releasing the agent. Failed rollback keeps the agent drained.
@@ -102,6 +112,8 @@ running, approval-wait and stopping are non-terminal; interrupted is failed, not
 successful or safely stopped. Terminal proof is immutable. Missing acceptance
 mapping or inaccessible runtime blocks continuation; neither an SSE EOF nor a
 database status can substitute for the probe.
+PM `completed` readback also requires the native success flags above; a partial
+or interrupted payload cannot record successful proof or release PM capacity.
 
 Fresh terminal proof reconciles the matching Fleet run in the same transaction,
 releasing runtime capacity even when the event stream was lost. A delayed EOF or

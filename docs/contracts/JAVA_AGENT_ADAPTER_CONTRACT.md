@@ -32,3 +32,8 @@ automatic assignment rights; the existing lifecycle remains unchanged.
 The new [Base Workflow mapping](SDLC_WORKFLOW_BINDING_V1.md) is metadata for
 Hermes package revisions, not a Java chat/capability implementation or a reason
 to disable its existing jar lifecycle.
+
+Hermes terminal-event/EOF readback checks described in the
+[runtime contract](AGENT_RUNTIME_CONTRACT.md) do not supply Java session identity,
+completion or safe-stop evidence. The Java lifecycle and phase-2 boundary remain
+unchanged; no Hermes success alias is a Java capability.

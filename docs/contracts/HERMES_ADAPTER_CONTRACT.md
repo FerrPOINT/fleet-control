@@ -49,6 +49,18 @@ Session control:
 - Fleet creates Hermes runs with `POST /v1/runs`, `input` and
   `session_id=fleet:<session_id>:<agent_id>`.
 - Fleet mirrors events from `GET /v1/runs/{run_id}/events`.
+- Terminal names come from the explicit SSE header or root `event`, never a
+  nested tool/subagent discriminator. Only exact run terminal events can end
+  the accepted run; they must contain its `run_id`. Successful completion requires
+  `completed=true`, `partial=false`, `interrupted=false`. After durable terminal
+  persistence, Fleet stops consuming the stream instead of allowing late events
+  or transport errors to regress the state.
+- On EOF without terminal evidence, authenticated HTTP 200 status readback must
+  identify `object=hermes.run` and the accepted `run_id` with native status/flags.
+  JSON is limited to 1 MiB with identity encoding; unsupported aliases or invalid
+  proof keep the run waiting and capacity held. PM also matches the acknowledged
+  effective session. These observations do not prove process-tree quiescence or
+  successful Workflow/Tracker completion; see [runtime boundaries](../RUNTIME.md).
 - Fleet forwards run controls to `/v1/runs/{run_id}/steer`,
   `/v1/runs/{run_id}/stop` and `/v1/runs/{run_id}/approval`.
 - For executor sessions, the runtime dispatch target is the primary executor
