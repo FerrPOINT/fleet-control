@@ -52,6 +52,10 @@ This endpoint does not attest physical/bundled skill inventory or enable dispatc
 now saves a draft, not effective runtime files. New operator/admin routes:
 `GET /agents/{id}/config/revisions`, `POST /agents/{id}/config/revisions/{revision}/validate`,
 `POST .../activate`, and `GET /agents/{id}/readiness` (all under `/api/v1`).
+History remains limited to the latest 100 revisions, but readiness reads the
+effective head directly and validate/activate load the exact agent/revision.
+An older non-desired revision may validate; activation still returns 409 unless
+it is the current desired validated revision. A revision on another agent is 404.
 Human message requests cannot set agent authors/runtime IDs or non-prompt kinds.
 Pending prompts use transactional outbox; acceptance-unknown dispatch is not retried.
 Session SSE supports `Last-Event-ID` or `cursor`, and rechecks ownership/role/expiry.

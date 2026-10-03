@@ -7,9 +7,13 @@ use sha2::{Digest, Sha256};
 use shared::AppError;
 use std::{
     collections::{BTreeMap, BTreeSet},
-    io::Write,
     path::Path,
-    process::{Command, Stdio},
+    process::Stdio,
+    time::Duration,
+};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    process::Command,
 };
 use uuid::Uuid;
 
@@ -176,8 +180,63 @@ pub struct VerifiedRolePackage {
     skills: BTreeMap<String, String>,
 }
 
-fn git(checkout: &Path, args: &[&str]) -> Result<Vec<u8>, AppError> {
-    let output = Command::new("git")
+async fn bounded_output(
+    command: &mut Command,
+    input: &[u8],
+    limit: usize,
+    deadline: Duration,
+) -> Result<Vec<u8>, AppError> {
+    let mut child = command
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .kill_on_drop(true)
+        .spawn()
+        .map_err(|_| invalid())?;
+    let mut stdin = child.stdin.take().ok_or_else(invalid)?;
+    let stdout = child.stdout.take().ok_or_else(invalid)?;
+    let result = tokio::time::timeout(deadline, async {
+        let write = async {
+            stdin.write_all(input).await.map_err(|_| invalid())?;
+            drop(stdin);
+            Ok::<_, AppError>(())
+        };
+        let read = async {
+            let mut bytes = Vec::new();
+            stdout
+                .take(limit as u64 + 1)
+                .read_to_end(&mut bytes)
+                .await
+                .map_err(|_| invalid())?;
+            if bytes.len() > limit {
+                return Err(invalid());
+            }
+            Ok(bytes)
+        };
+        let (_, bytes, status) = tokio::try_join!(write, read, async {
+            child.wait().await.map_err(|_| invalid())
+        })?;
+        if !status.success() {
+            return Err(invalid());
+        }
+        Ok(bytes)
+    })
+    .await;
+    match result {
+        Ok(Ok(bytes)) => Ok(bytes),
+        _ => {
+            // Timeout/overflow may occur before exit; kill and reap without
+            // retaining an unbounded process or exposing private Git stderr.
+            let _ = child.start_kill();
+            let _ = tokio::time::timeout(Duration::from_secs(1), child.wait()).await;
+            Err(invalid())
+        }
+    }
+}
+
+async fn git(checkout: &Path, args: &[&str]) -> Result<Vec<u8>, AppError> {
+    let mut command = Command::new("git");
+    command
         .arg("--no-replace-objects")
         .arg("-c")
         .arg("core.fsmonitor=false")
@@ -185,20 +244,16 @@ fn git(checkout: &Path, args: &[&str]) -> Result<Vec<u8>, AppError> {
         .current_dir(checkout)
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_NO_LAZY_FETCH", "1")
-        .env("GIT_ALLOW_PROTOCOL", "")
-        .output()
-        .map_err(|_| invalid())?;
-    if !output.status.success() || output.stdout.len() > MAX_BLOB_BYTES {
-        return Err(invalid());
-    }
-    Ok(output.stdout)
+        .env("GIT_ALLOW_PROTOCOL", "");
+    bounded_output(&mut command, &[], MAX_BLOB_BYTES, Duration::from_secs(5)).await
 }
 
-fn blob(checkout: &Path, path: &str) -> Result<Vec<u8>, AppError> {
+async fn blob(checkout: &Path, path: &str) -> Result<Vec<u8>, AppError> {
     let tree = git(
         checkout,
         &["ls-tree", "-z", BASE_PACKAGE_COMMIT, "--", path],
-    )?;
+    )
+    .await?;
     let tree = std::str::from_utf8(&tree).map_err(|_| invalid())?;
     let (metadata, actual_path) = tree
         .strip_suffix('\0')
@@ -212,7 +267,7 @@ fn blob(checkout: &Path, path: &str) -> Result<Vec<u8>, AppError> {
     {
         return Err(invalid());
     }
-    let size = git(checkout, &["cat-file", "-s", fields[2]])?;
+    let size = git(checkout, &["cat-file", "-s", fields[2]]).await?;
     let size = std::str::from_utf8(&size)
         .map_err(|_| invalid())?
         .trim()
@@ -221,14 +276,14 @@ fn blob(checkout: &Path, path: &str) -> Result<Vec<u8>, AppError> {
     if size == 0 || size > MAX_BLOB_BYTES {
         return Err(invalid());
     }
-    let bytes = git(checkout, &["cat-file", "blob", fields[2]])?;
+    let bytes = git(checkout, &["cat-file", "blob", fields[2]]).await?;
     if bytes.len() != size {
         return Err(invalid());
     }
     Ok(bytes)
 }
 
-fn package_blobs(checkout: &Path) -> Result<BTreeMap<String, Vec<u8>>, AppError> {
+async fn package_blobs(checkout: &Path) -> Result<BTreeMap<String, Vec<u8>>, AppError> {
     let inventory = git(
         checkout,
         &[
@@ -241,7 +296,8 @@ fn package_blobs(checkout: &Path) -> Result<BTreeMap<String, Vec<u8>>, AppError>
             "agent-skills/roles",
             "agent-skills/skills",
         ],
-    )?;
+    )
+    .await?;
     let mut entries = Vec::new();
     for record in std::str::from_utf8(&inventory)
         .map_err(|_| invalid())?
@@ -267,7 +323,8 @@ fn package_blobs(checkout: &Path) -> Result<BTreeMap<String, Vec<u8>>, AppError>
         return Err(invalid());
     }
     // Git's bounded binary batch protocol avoids one process per private blob.
-    let mut child = Command::new("git")
+    let mut command = Command::new("git");
+    command
         .args([
             "--no-replace-objects",
             "-c",
@@ -278,31 +335,19 @@ fn package_blobs(checkout: &Path) -> Result<BTreeMap<String, Vec<u8>>, AppError>
         .current_dir(checkout)
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_NO_LAZY_FETCH", "1")
-        .env("GIT_ALLOW_PROTOCOL", "")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|_| invalid())?;
+        .env("GIT_ALLOW_PROTOCOL", "");
     let input = entries
         .iter()
         .map(|(_, hash, _)| format!("{hash}\n"))
         .collect::<String>();
-    let write = child
-        .stdin
-        .take()
-        .ok_or_else(invalid)?
-        .write_all(input.as_bytes());
-    if write.is_err() {
-        let _ = child.kill();
-        let _ = child.wait();
-        return Err(invalid());
-    }
-    let output = child.wait_with_output().map_err(|_| invalid())?;
-    if !output.status.success() || output.stdout.len() > 21 * (MAX_BLOB_BYTES + 100) {
-        return Err(invalid());
-    }
-    decode_batch(&entries, &output.stdout)
+    let output = bounded_output(
+        &mut command,
+        input.as_bytes(),
+        21 * (MAX_BLOB_BYTES + 100),
+        Duration::from_secs(5),
+    )
+    .await?;
+    decode_batch(&entries, &output)
 }
 
 fn decode_batch(
@@ -339,9 +384,8 @@ fn decode_batch(
 impl VerifiedRolePackage {
     /// No network, HEAD, worktree files, donor access or fallback. The operator supplies a checkout.
     pub async fn read(checkout: &Path, role: SdlcRole) -> Result<Self, AppError> {
-        let checkout = checkout.to_owned();
-        tokio::task::spawn_blocking(move || {
-            let origin = git(&checkout, &["config", "--get", "remote.origin.url"])?;
+        tokio::time::timeout(Duration::from_secs(10), async {
+            let origin = git(checkout, &["config", "--get", "remote.origin.url"]).await?;
             let origin = std::str::from_utf8(&origin).map_err(|_| invalid())?.trim();
             if !matches!(
                 origin,
@@ -349,11 +393,11 @@ impl VerifiedRolePackage {
             ) {
                 return Err(invalid());
             }
-            if git(&checkout, &["cat-file", "-t", BASE_PACKAGE_COMMIT])? != b"commit\n" {
+            if git(checkout, &["cat-file", "-t", BASE_PACKAGE_COMMIT]).await? != b"commit\n" {
                 return Err(invalid());
             }
-            let manifest = blob(&checkout, "agent-skills/manifest.json")?;
-            let files = package_blobs(&checkout)?;
+            let manifest = blob(checkout, "agent-skills/manifest.json").await?;
+            let files = package_blobs(checkout).await?;
             Self::verify(&manifest, files.keys().cloned().collect(), role, |path| {
                 files.get(path).cloned().ok_or_else(invalid)
             })

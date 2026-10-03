@@ -78,6 +78,12 @@ Backend CI checks out this exact private package into a separate cache and sets
 the test variable; these tests must not silently skip there. SDK `.base-revision`
 is independent and unchanged. Local environments must provide the same authorized
 object cache to run the actual-pin cases; mock evidence is not a replacement.
+Pinned Git reads use asynchronous subprocess IO with a five-second process
+deadline, a ten-second whole-package deadline and bounded stdout. Batch stdin is
+closed explicitly; stderr is discarded and timeout/overflow kills the child.
+Three additional scoped cases check real Git stdin/size handling, overflow and
+exit-wait timeout, and sanitization of failed process output. Process fixtures
+use only synthetic text; these tests do not prove native runtime attestation.
 
 `cargo test -p api sdlc_configuration` checks fresh Base HTTP introspection using
 controlled servers: exact subject/agent-specific scopes, revocation, broad or

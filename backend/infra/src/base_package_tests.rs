@@ -289,3 +289,58 @@ fn batch_decoder_rejects_truncated_substituted_and_surplus_data() {
         assert!(decode_batch(&entries, bad.as_bytes()).is_err());
     }
 }
+
+#[tokio::test]
+async fn bounded_git_io_closes_stdin_and_checks_success() {
+    let mut command = Command::new("git");
+    command
+        .args(["hash-object", "--stdin"])
+        .current_dir(std::env::temp_dir());
+    assert_eq!(
+        bounded_output(&mut command, b"abc", 41, Duration::from_secs(5))
+            .await
+            .unwrap(),
+        b"f2ba8f84ab5c1bce84a7b441cb1959cfc7093b7f\n"
+    );
+    let mut command = Command::new("git");
+    command
+        .args(["hash-object", "--stdin"])
+        .current_dir(std::env::temp_dir());
+    assert!(
+        bounded_output(&mut command, b"abc", 40, Duration::from_secs(5))
+            .await
+            .is_err()
+    );
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn bounded_git_io_denies_overflow_and_wait_timeout() {
+    for (script, limit) in [("exec yes", 256), ("exec 1>&-; exec sleep 30", 256)] {
+        let mut command = Command::new("sh");
+        command.args(["-c", script]);
+        let started = std::time::Instant::now();
+        assert!(
+            bounded_output(&mut command, &[], limit, Duration::from_millis(50))
+                .await
+                .is_err()
+        );
+        assert!(started.elapsed() < Duration::from_secs(2));
+    }
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn bounded_git_io_discards_stderr_and_failed_output() {
+    let mut command = Command::new("sh");
+    command.args([
+        "-c",
+        "printf 'private-path-and-role-content' >&2; printf 'partial'; exit 7",
+    ]);
+    let error = bounded_output(&mut command, &[], 256, Duration::from_secs(5))
+        .await
+        .unwrap_err();
+    assert_eq!(error.to_string(), invalid().to_string());
+    assert!(!error.to_string().contains("private-path"));
+    assert!(!error.to_string().contains("partial"));
+}

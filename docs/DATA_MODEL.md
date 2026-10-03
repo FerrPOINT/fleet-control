@@ -16,9 +16,11 @@ the desired revision. Migration 000010 adds explicit task bindings; assignment l
 are not implemented here yet. See [scope and blockers](SDLC_IMPLEMENTATION.md).
 
 Pinned Base preparation reuses these config revisions without a new migration.
-Machine configuration observation reads `agent_config_heads.effective_revision`
+Human readiness and machine configuration observation read `agent_config_heads.effective_revision`
 directly; the chronological last-100 revision list is not head authority. Exact
-pinned revision verification also uses direct lookup. The observation UUID/time
+pinned revision verification and validate/activate use direct agent/revision lookup.
+Only the desired validated revision can activate; history paging cannot override
+this rule. The observation UUID/time
 is not persisted as an assignment lease, approval or execution receipt.
 The snapshot's `config_json.fleet_sdlc_package` stores metadata only: exact Base
 commit, normalized manifest/instruction hashes, role namespace/profile/modes and

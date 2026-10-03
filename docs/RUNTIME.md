@@ -51,8 +51,10 @@ Hermes:
   and the revision marker against the persisted effective snapshot, not against
   hashes or paths provided by a marker. Missing/changed managed files,
   re-enabled disabled skills, foreign markers and symlink/junction paths fail closed.
-  Pinned Base revisions additionally verify the actual Git package/snapshot and
-  closed HOME skill inventory, including nested/unlisted skill files and special
+  Pinned Base revisions additionally verify the actual Git package/snapshot with
+  bounded async Git IO (5 s/process, 10 s/package, fixed blob/batch size ceilings);
+  failures remain sanitized and never fall back to HEAD or network. Closed HOME
+  skill inventory includes nested/unlisted skill files and special
   entries (4096 entries / 16 levels maximum). No unexpected files are removed.
   Legacy revisions keep managed-only behavior; `.bundled_manifest` is never
   authority. Plugin/project/external discovery and loaded model/tool settings
