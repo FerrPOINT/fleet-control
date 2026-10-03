@@ -52,7 +52,7 @@ owner-approved secret references, не в этом example или prompt.
 разрешён и отражён в effective readback до activation. Неизвестный effective
 output limit либо unsupported capability блокирует admission.
 
-Example содержит null для concrete IDs, model/limits и catalog commit:
+Example содержит null для concrete IDs и model/limits; catalog source уже закреплён:
 это недостающие installation inputs, не допустимые runtime defaults.
 Explicit null должен блокировать установку до заполнения owner-конфигурацией.
 
