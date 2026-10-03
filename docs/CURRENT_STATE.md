@@ -1,6 +1,6 @@
 # Current State
 
-Status (2026-10-02): SDLC foundation is partially implemented. Automatic SDLC is
+Status (2026-10-03): SDLC foundation is partially implemented. Automatic SDLC is
 blocked until cross-service assignment/workflow/deployment contracts are verified.
 See [SDLC implementation](SDLC_IMPLEMENTATION.md). The baseline feature/gate lists
 below are historical, not acceptance evidence for the new SDLC plan.
@@ -9,6 +9,12 @@ New implementation: seven specializations, agent-grouped `/chats`, read-only
 directory, persistent bearer SSE replay, transactional prompt outbox, concurrent
 idempotency, no effective-admin central bypass, versioned configuration activation
 with drain/readback/rollback and fail-closed SDLC readiness.
+
+The B-SDLC-02 source slice prepares a pinned Base package draft through the
+operator API without changing effective runtime files. Git schema/hash/inventory,
+snapshot proof/content, concurrent desired/identity and drain guards are verified
+by scoped tests. Physical/bundled inventory and general assignment dispatch are
+still blockers. Details: [scope and evidence](SDLC_IMPLEMENTATION.md#b-sdlc-02-подготовка-закреплённого-base-draft).
 
 Native Windows Rust commands still require MSVC `link.exe`.
 

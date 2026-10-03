@@ -15,6 +15,16 @@ Desired/effective config heads are separate; activation failure cannot promote
 the desired revision. Migration 000010 adds explicit task bindings; assignment leases
 are not implemented here yet. See [scope and blockers](SDLC_IMPLEMENTATION.md).
 
+Pinned Base preparation reuses these config revisions without a new migration.
+The snapshot's `config_json.fleet_sdlc_package` stores metadata only: exact Base
+commit, normalized manifest/instruction hashes, role namespace/profile/modes and
+skill hashes. Its SOUL and skill content remain in the protected snapshot, not
+in audit. Proof metadata is not trusted without pinned Git verification.
+Preparing a draft compares the desired revision under the agent row lock;
+activation verifies the current role/namespace, and agent updates check drain
+under the same lock. Effective configuration and installed skill rows do not
+change during preparation. This is not an assignment or runtime receipt.
+
 ## PM Chat Bindings
 
 `pm_draft_creation_operations` is the owner/key-unique creation ledger in pending

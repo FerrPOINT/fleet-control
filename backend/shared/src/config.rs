@@ -155,6 +155,9 @@ impl Default for RetentionConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FleetConfig {
+    /// Operator-owned local Git object cache. Empty disables Base package preparation.
+    #[serde(default)]
+    pub base_package_checkout: String,
     pub agents_root: String,
     pub hermes_source: String,
     pub hermes_command: String,
@@ -398,6 +401,7 @@ impl Default for AuthConfig {
 impl Default for FleetConfig {
     fn default() -> Self {
         Self {
+            base_package_checkout: String::new(),
             agents_root: "./data/agents".to_string(),
             hermes_source: "../прототипы/hermes".to_string(),
             hermes_command: "hermes".to_string(),

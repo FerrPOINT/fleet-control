@@ -10,6 +10,7 @@ fn defaults_are_fleet_control_specific() {
     assert_eq!(cfg.auth.jwt_audience, "sdlc");
     assert_eq!(cfg.fleet.agent_port_base, 29000);
     assert_eq!(cfg.fleet.agent_port_stride, 10);
+    assert!(cfg.fleet.base_package_checkout.is_empty());
     assert!(cfg.pm.readback_token.is_empty());
     assert!(cfg.tracker.url.is_empty());
     assert!(cfg.tracker.instance_id.is_empty());
@@ -19,6 +20,20 @@ fn defaults_are_fleet_control_specific() {
             .iter()
             .any(|origin| origin.contains("23802"))
     );
+}
+
+#[test]
+fn base_package_checkout_is_opt_in_and_preserves_legacy_config() {
+    let mut legacy = serde_json::to_value(FleetConfig::default()).unwrap();
+    legacy
+        .as_object_mut()
+        .unwrap()
+        .remove("base_package_checkout");
+    let restored: FleetConfig = serde_json::from_value(legacy.clone()).unwrap();
+    assert!(restored.base_package_checkout.is_empty());
+    legacy["base_package_checkout"] = serde_json::json!("/operator/cache");
+    let configured: FleetConfig = serde_json::from_value(legacy).unwrap();
+    assert_eq!(configured.base_package_checkout, "/operator/cache");
 }
 
 #[test]

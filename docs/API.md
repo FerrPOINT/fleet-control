@@ -25,6 +25,29 @@ It is not a general drift bypass.
 
 ## October SDLC Foundation
 
+### Pinned Base Package Draft
+
+`POST /api/v1/agents/{agent_id}/config/base-package` is an operator/admin-only
+operation with no client-controlled source path or revision. Fleet reads regular
+Git blobs at Base commit `4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58` from the
+configured operator-owned cache. It verifies schema, all seven roles, fourteen
+skills, hashes and exact inventory before preparing the concrete agent's allowlist
+and SOUL in a new configuration draft. Other enabled skills are disabled in that
+draft; installed files, active runs and the effective revision are unchanged.
+
+The response is `AgentConfigRevision`, not installation/readiness evidence.
+Missing cache, invalid package, non-Hermes runtime or mismatched role/namespace
+fails with `422`. A changed desired revision, concurrent identity change or drain
+returns `409`; unauthorized users receive `403`. No private source text or Git
+stderr is included in errors or audit. Audit contains the revision number only.
+The protected draft response contains its SOUL/skills just like existing revisions.
+
+Validation and activation of a package-marked revision recheck the immutable
+snapshot against the pinned Git source: a client-editable proof field alone is
+not trusted. Activation also checks role/namespace under the agent row lock.
+Existing legacy revisions without package metadata retain their behavior.
+This endpoint does not attest physical/bundled skill inventory or enable dispatch.
+
 `sdlc_role` is independent from `kind` and `product_role`. Configuration `PUT`
 now saves a draft, not effective runtime files. New operator/admin routes:
 `GET /agents/{id}/config/revisions`, `POST /agents/{id}/config/revisions/{revision}/validate`,

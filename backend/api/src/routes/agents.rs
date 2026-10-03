@@ -394,6 +394,26 @@ pub async fn list_config_revisions(
     Ok(Json(ctx.repo.list_config_revisions(id).await?))
 }
 
+#[utoipa::path(post, path = "/api/v1/agents/{agent_id}/config/base-package", tag = "agents", params(("agent_id" = Uuid, Path)), responses((status = 200, body = domain::AgentConfigRevision), (status = 401, description = "Authentication required"), (status = 403, description = "Operator access required"), (status = 404, description = "Agent not found"), (status = 409, description = "Configuration or agent identity changed"), (status = 422, description = "Pinned package or agent configuration is invalid")))]
+pub async fn prepare_base_package(
+    State(ctx): State<Arc<AppContext>>,
+    Extension(user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<domain::AgentConfigRevision>, AppError> {
+    require_operator(&user)?;
+    let checkout = &ctx.config.fleet.base_package_checkout;
+    if checkout.trim().is_empty() {
+        return Err(AppError::validation(
+            "Base package checkout is not configured",
+        ));
+    }
+    Ok(Json(
+        ctx.repo
+            .prepare_base_package_revision(id, checkout, user.id)
+            .await?,
+    ))
+}
+
 #[utoipa::path(post, path = "/api/v1/agents/{agent_id}/config/revisions/{revision}/validate", tag = "agents", params(("agent_id" = Uuid, Path), ("revision" = i64, Path)), responses((status = 200, body = domain::AgentConfigRevision)))]
 pub async fn validate_config_revision(
     State(ctx): State<Arc<AppContext>>,
@@ -409,6 +429,20 @@ pub async fn validate_config_revision(
         .find(|value| value.revision == revision)
         .ok_or_else(|| AppError::not_found("config_revision", revision))?;
     let mut errors = value.snapshot.config.input_errors();
+    if value
+        .snapshot
+        .config
+        .config_json
+        .get("fleet_sdlc_package")
+        .is_some()
+        && ctx
+            .repo
+            .verify_base_package_revision(id, revision, &ctx.config.fleet.base_package_checkout)
+            .await
+            .is_err()
+    {
+        errors.push("pinned_base_package_verification_failed".into());
+    }
     if value
         .snapshot
         .config
@@ -459,6 +493,24 @@ pub async fn activate_config_revision(
         return Err(AppError::validation(
             "Java Agent configuration activation is planned for phase 2",
         ));
+    }
+    let value = ctx
+        .repo
+        .list_config_revisions(id)
+        .await?
+        .into_iter()
+        .find(|value| value.revision == revision)
+        .ok_or_else(|| AppError::not_found("config_revision", revision))?;
+    if value
+        .snapshot
+        .config
+        .config_json
+        .get("fleet_sdlc_package")
+        .is_some()
+    {
+        ctx.repo
+            .verify_base_package_revision(id, revision, &ctx.config.fleet.base_package_checkout)
+            .await?;
     }
     Ok(Json(
         ctx.repo

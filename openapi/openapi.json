@@ -272,6 +272,52 @@
         }
       }
     },
+    "/api/v1/agents/{agent_id}/config/base-package": {
+      "post": {
+        "tags": [
+          "agents"
+        ],
+        "operationId": "prepare_base_package",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentConfigRevision"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Operator access required"
+          },
+          "404": {
+            "description": "Agent not found"
+          },
+          "409": {
+            "description": "Configuration or agent identity changed"
+          },
+          "422": {
+            "description": "Pinned package or agent configuration is invalid"
+          }
+        }
+      }
+    },
     "/api/v1/agents/{agent_id}/config/revisions": {
       "get": {
         "tags": [

@@ -50,6 +50,7 @@ pub mod routes;
         routes::agents::update_agent_config,
         routes::agents::list_config_revisions,
         routes::agents::validate_config_revision,
+        routes::agents::prepare_base_package,
         routes::agents::activate_config_revision,
         routes::agents::get_sdlc_readiness,
         routes::agents::list_agent_skills,
@@ -335,6 +336,10 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         .route(
             "/api/v1/agents/{agent_id}/config/revisions",
             get(routes::agents::list_config_revisions),
+        )
+        .route(
+            "/api/v1/agents/{agent_id}/config/base-package",
+            post(routes::agents::prepare_base_package),
         )
         .route(
             "/api/v1/agents/{agent_id}/config/revisions/{revision}/validate",

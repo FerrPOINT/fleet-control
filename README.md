@@ -5,6 +5,11 @@
 SDLC implementation is in progress, not production accepted. Current scope and
 remaining blockers: [SDLC implementation](docs/SDLC_IMPLEMENTATION.md).
 
+Pinned Base package preparation is available as an operator-only configuration
+draft API, with exact Git hashes and guarded revision writes. It does not install
+the package or enable automatic SDLC. See [API](docs/API.md#pinned-base-package-draft)
+and [configuration](docs/ENV.md).
+
 Chat/PM work is in progress: [implementation plan](docs/CHAT_CLARIFICATION_IMPLEMENTATION_PLAN.md),
 [contract](docs/contracts/CHAT_CLARIFICATION_CONTRACT.md). Production chat controllers
 use Fleet/Tracker APIs; workflow dispatch/resume and real PM acceptance remain blocked.

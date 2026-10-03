@@ -1,4 +1,5 @@
 mod approval_decisions;
+pub mod base_package;
 mod chats_directory;
 mod config_revisions;
 mod effective_configuration;
@@ -1089,8 +1090,34 @@ impl FleetRepository for PostgresFleetRepository {
     async fn update_agent(&self, id: Uuid, req: UpdateAgentRequest) -> Result<Agent, AppError> {
         let next_product_role = req.product_role;
         let next_executor_ids = req.executor_ids.clone();
+        let txn = self.db.begin().await.map_err(AppError::database)?;
+        txn.query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT id FROM agents WHERE id = $1 FOR UPDATE",
+            [id.into()],
+        ))
+        .await
+        .map_err(AppError::database)?
+        .ok_or_else(|| AppError::not_found("agent", id))?;
+        let draining = txn
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT draining FROM agent_config_heads WHERE agent_id = $1",
+                [id.into()],
+            ))
+            .await
+            .map_err(AppError::database)?
+            .map(|row| {
+                row.try_get::<bool>("", "draining")
+                    .map_err(AppError::database)
+            })
+            .transpose()?
+            .unwrap_or(false);
+        if draining {
+            return Err(AppError::conflict("agent configuration is draining"));
+        }
         let mut model = agent::Entity::find_by_id(id)
-            .one(&self.db)
+            .one(&txn)
             .await
             .map_err(AppError::database)?
             .ok_or_else(|| AppError::not_found("agent", id))?
@@ -1117,7 +1144,8 @@ impl FleetRepository for PostgresFleetRepository {
             model.workflow_id = Set(Some(workflow_id));
         }
         model.updated_at = Set(now());
-        model.update(&self.db).await.map_err(AppError::database)?;
+        model.update(&txn).await.map_err(AppError::database)?;
+        txn.commit().await.map_err(AppError::database)?;
         if let Some(executor_ids) = next_executor_ids {
             self.replace_leader_executors(
                 id,
@@ -1332,6 +1360,38 @@ impl FleetRepository for PostgresFleetRepository {
     ) -> Result<Vec<domain::AgentConfigRevision>, AppError> {
         config_revisions::list(self, id).await
     }
+    async fn prepare_base_package_revision(
+        &self,
+        id: Uuid,
+        checkout: &str,
+        actor: Uuid,
+    ) -> Result<domain::AgentConfigRevision, AppError> {
+        let agent = self.get_agent(id).await?;
+        let role = agent
+            .sdlc_role
+            .ok_or_else(|| AppError::validation("SDLC role is required"))?;
+        let revisions = self.list_config_revisions(id).await?;
+        let desired = revisions.into_iter().find(|revision| revision.is_desired);
+        let expected = desired.as_ref().map(|revision| revision.revision);
+        let snapshot = match desired {
+            Some(revision) => revision.snapshot,
+            None => {
+                let config = self.get_agent_config(id).await?;
+                domain::AgentConfigurationSnapshot {
+                    config: UpdateAgentConfigRequest {
+                        config_json: config.config_json,
+                        soul_md: config.soul_md,
+                        env_json: config.env_json,
+                    },
+                    skills: self.list_agent_skills(id).await?,
+                }
+            }
+        };
+        let package =
+            base_package::VerifiedRolePackage::read(std::path::Path::new(checkout), role).await?;
+        let snapshot = package.prepare_snapshot(&agent, snapshot)?;
+        config_revisions::create_snapshot(self, id, snapshot, actor, Some(expected)).await
+    }
     async fn validate_config_revision(
         &self,
         id: Uuid,
@@ -1339,6 +1399,26 @@ impl FleetRepository for PostgresFleetRepository {
         errors: Vec<String>,
     ) -> Result<domain::AgentConfigRevision, AppError> {
         config_revisions::validate(self, id, revision, errors).await
+    }
+    async fn verify_base_package_revision(
+        &self,
+        id: Uuid,
+        revision: i64,
+        checkout: &str,
+    ) -> Result<(), AppError> {
+        let agent = self.get_agent(id).await?;
+        let role = agent
+            .sdlc_role
+            .ok_or_else(|| AppError::validation("SDLC role is required"))?;
+        let revision = self
+            .list_config_revisions(id)
+            .await?
+            .into_iter()
+            .find(|value| value.revision == revision)
+            .ok_or_else(|| AppError::not_found("config_revision", revision))?;
+        let package =
+            base_package::VerifiedRolePackage::read(std::path::Path::new(checkout), role).await?;
+        package.verify_snapshot(&agent, &revision.snapshot)
     }
     async fn request_config_activation(
         &self,
@@ -4837,7 +4917,7 @@ mod tests {
         config
     }
 
-    fn test_agent(root: &Path, id: Uuid, status: AgentStatus) -> Agent {
+    pub(super) fn test_agent(root: &Path, id: Uuid, status: AgentStatus) -> Agent {
         let paths = runtime_paths(&root.to_string_lossy(), 1);
         Agent {
             id,

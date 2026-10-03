@@ -43,6 +43,31 @@ IMPLEMENTATION_PLAN и CURRENT_STATE. Они не являются приёмк�
 
 ## Контракт конфигурации
 
+### B-SDLC-02: Подготовка Закреплённого Base Draft
+
+Source slice от 2026-10-03: защищённый `POST /agents/{id}/config/base-package`
+читает Git blobs точного Base pin, проверяет regular-file inventory 7/14,
+schema/hashes, namespace/profile/modes и создаёт desired draft в существующем
+config lifecycle. `dev_ops` Fleet API остаётся совместимым; package role — `devops`.
+Путь задаёт оператор через env, не запрос клиента. HEAD и изменённые worktree
+файлы не используются, network fetch/fallback отсутствуют.
+
+В snapshot сохраняются pinned SOUL и allowlist skills; чужие enabled skills
+отключаются только в draft. Проверка/активация сверяют snapshot заново, включая
+содержимое и concrete agent ID. CAS защищает desired revision; при активации
+role/namespace проверяются под row lock. Ошибки Git не раскрывают private content.
+
+Проверено scoped Rust 1.88: 7 unit tests, включая настоящий private Git pin всех
+семи ролей, и 4 PostgreSQL 17.6/HTTP tests. Проверены tamper/schema/hash/mode,
+extra/missing/invalid UTF-8, proof/content drift, чужие skill IDs, drain и смена
+роли перед активацией, concurrent desired/identity fencing. Отдельный legacy
+config drain/rollback regression PASS; scoped infra clippy, fmt, frontend
+typecheck/OpenAPI drift и ссылки документации PASS. OpenAPI regenerates from Rust.
+Это не полный gate и не
+установка. Physical/bundled inventory, effective Hermes config precedence,
+assignment admission/prompt assembly и dispatch остаются отдельными gaps;
+readiness blockers не снимаются. Полный автономный PDLC не принят.
+
 1. `PUT /agents/{id}/config` сохраняет draft и desired snapshot, не применяет
    файлы работающему Hermes.
 2. `GET /agents/{id}/config/revisions` показывает последние 100 редакций.

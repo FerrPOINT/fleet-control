@@ -9,6 +9,32 @@ const SELECT_REVISIONS: &str = "SELECT r.*, h.desired_revision = r.revision AS i
     COALESCE(h.effective_revision = r.revision, false) AS is_effective, h.draining
     FROM agent_config_revisions r JOIN agent_config_heads h USING(agent_id)";
 
+fn verify_package_identity(row: &QueryResult, config: &serde_json::Value) -> Result<(), AppError> {
+    let Some(proof) = config.get("fleet_sdlc_package") else {
+        return Ok(());
+    };
+    let role: Option<String> = row.try_get("", "sdlc_role").map_err(AppError::database)?;
+    let role = role
+        .as_deref()
+        .map(|role| if role == "dev_ops" { "devops" } else { role });
+    let namespace: Option<String> = row
+        .try_get("", "namespace_id")
+        .map_err(AppError::database)?;
+    let kind: String = row.try_get("", "kind").map_err(AppError::database)?;
+    if kind != "hermes"
+        || role.is_none()
+        || proof["role"].as_str() != role
+        || namespace.is_none()
+        || proof["namespace"].as_str() != namespace.as_deref()
+        || proof["commit"].as_str() != Some(crate::base_package::BASE_PACKAGE_COMMIT)
+    {
+        return Err(AppError::conflict(
+            "agent identity changed during package preparation",
+        ));
+    }
+    Ok(())
+}
+
 fn from_row(row: QueryResult) -> Result<AgentConfigRevision, AppError> {
     let errors: serde_json::Value = row
         .try_get("", "validation_errors")
@@ -76,22 +102,62 @@ pub(super) async fn create(
         return Err(AppError::validation(errors.join("; ")));
     }
     let skills = repo.list_agent_skills(id).await?;
-    let snapshot = serde_json::to_value(AgentConfigurationSnapshot {
-        config: config.clone(),
-        skills,
-    })
-    .map_err(AppError::internal)?;
+    create_snapshot(
+        repo,
+        id,
+        AgentConfigurationSnapshot { config, skills },
+        actor,
+        None,
+    )
+    .await
+}
+
+pub(super) async fn create_snapshot(
+    repo: &PostgresFleetRepository,
+    id: Uuid,
+    snapshot: AgentConfigurationSnapshot,
+    actor: Uuid,
+    expected_desired_revision: Option<Option<i64>>,
+) -> Result<AgentConfigRevision, AppError> {
+    let errors = snapshot.config.input_errors();
+    if !errors.is_empty() {
+        return Err(AppError::validation(errors.join("; ")));
+    }
+    let config = snapshot.config.clone();
+    let snapshot = serde_json::to_value(snapshot).map_err(AppError::internal)?;
     let txn = repo.db.begin().await.map_err(AppError::database)?;
     let row = txn
         .query_one(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
-            "SELECT id FROM agents WHERE id = $1 AND archived_at IS NULL FOR UPDATE",
+            "SELECT id, kind, sdlc_role, namespace_id FROM agents WHERE id = $1 AND archived_at IS NULL FOR UPDATE",
             [id.into()],
         ))
         .await
         .map_err(AppError::database)?;
     if row.is_none() {
         return Err(AppError::not_found("agent", id));
+    }
+    if let Some(expected) = expected_desired_revision {
+        let current = txn
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT desired_revision FROM agent_config_heads WHERE agent_id = $1",
+                [id.into()],
+            ))
+            .await
+            .map_err(AppError::database)?
+            .map(|row| {
+                row.try_get::<i64>("", "desired_revision")
+                    .map_err(AppError::database)
+            })
+            .transpose()?;
+        if current != expected {
+            return Err(AppError::conflict(
+                "desired configuration changed during package preparation",
+            ));
+        }
+        let row = row.ok_or_else(|| AppError::not_found("agent", id))?;
+        verify_package_identity(&row, &config.config_json)?;
     }
     let draining = txn
         .query_one(Statement::from_sql_and_values(
@@ -180,13 +246,26 @@ pub(super) async fn activate(
     actor: Uuid,
 ) -> Result<AgentConfigRevision, AppError> {
     let txn = repo.db.begin().await.map_err(AppError::database)?;
-    txn.query_one(Statement::from_sql_and_values(
+    let agent = txn.query_one(Statement::from_sql_and_values(
         DatabaseBackend::Postgres,
-        "SELECT id FROM agents WHERE id = $1 FOR UPDATE",
+        "SELECT id, kind, sdlc_role, namespace_id FROM agents WHERE id = $1 AND archived_at IS NULL FOR UPDATE",
         [id.into()],
     ))
     .await
-    .map_err(AppError::database)?;
+    .map_err(AppError::database)?.ok_or_else(|| AppError::not_found("agent", id))?;
+    let snapshot = txn
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT snapshot FROM agent_config_revisions WHERE agent_id = $1 AND revision = $2",
+            [id.into(), revision.into()],
+        ))
+        .await
+        .map_err(AppError::database)?
+        .ok_or_else(|| AppError::not_found("config_revision", revision))?;
+    let snapshot: serde_json::Value = snapshot
+        .try_get("", "snapshot")
+        .map_err(AppError::database)?;
+    verify_package_identity(&agent, &snapshot["config"]["config_json"])?;
     let changed = txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "UPDATE agent_config_heads SET draining = true
          WHERE agent_id = $1 AND desired_revision = $2 AND NOT draining

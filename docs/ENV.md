@@ -89,6 +89,12 @@ Required production values:
 Important runtime values:
 
 - `FLEET_CONTROL_FLEET__AGENTS_ROOT`
+- `FLEET_CONTROL_FLEET__BASE_PACKAGE_CHECKOUT`: optional operator-owned local Git
+  object cache for the private canonical Base repository. Empty disables package
+  draft preparation. Fetch the exact package commit through normal Git auth
+  outside Fleet; mount this cache read-only. Fleet never fetches, uses worktree
+  files or changes the SDK `.base-revision`. Do not place access tokens in this
+  setting, agent environment, URL, browser or repository.
 - `FLEET_CONTROL_FLEET__HERMES_SOURCE`
 - `FLEET_CONTROL_FLEET__HERMES_COMMAND`
 - `FLEET_CONTROL_FLEET__JAVA_AGENT_SOURCE`
