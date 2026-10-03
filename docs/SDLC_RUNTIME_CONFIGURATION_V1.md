@@ -21,12 +21,17 @@ verification, closed managed HOME readback и отдельное machine observa
 proof и автоматический dispatch остаются target. Проверки файлов не заменяют эти
 доказательства. Подробности: [API](API.md#sdlc-configuration-observation).
 
-Выявлен unresolved owner mapping: manifest `namespace` — символическое имя,
-а Fleet `namespace_id` — opaque Workflow identity; `namespace_name` хранится
-отдельно в binding. Текущий package guard сравнивает ID с символом и не допускает
-настоящий numeric-ID binding. Это blocker, не допустимый alias или успешная
-namespace verification. Требуется fresh owner ID/name/workflow/profile readback
-и frozen mapping; ослаблять сравнение, подменять catalog либо fixtures нельзя.
+Manifest `namespace` — символическое имя, а Fleet `namespace_id` — отдельный
+persisted Workflow ID. Source implementation больше не приравнивает их.
+Подготовка получает fresh authenticated Workflow v3 mapping: namespace ID/name,
+workflow ID/key, role, declared profile, catalog hash и Base skills revision.
+Он сохраняется отдельно в `fleet_sdlc_workflow_binding`; ID также материализуются
+в snapshot config. Validate, activation request, supervisor apply, readiness и
+machine observation сравнивают mapping с новым owner readback. Legacy catalog
+token не является fallback. Source/DB mapping не подтверждает native-loaded
+Hermes profile и не разрешает execution: frozen assignment ACK, effective native
+configuration и counterpart receipts остаются blocker. Accepted v2 не переключён.
+Contract: [Workflow binding](contracts/SDLC_WORKFLOW_BINDING_V1.md).
 
 Потребитель требует доступ к exact Base commit. SELF в manifest — содержащий
 commit; закреплённый skills commit не равен SDK .base-revision.

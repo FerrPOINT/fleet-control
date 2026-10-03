@@ -34,6 +34,7 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 - [LIBRARIES.md](LIBRARIES.md)
 - [SERVICES_BASE.md](SERVICES_BASE.md)
 - [contracts](contracts)
+- [SDLC Workflow binding](contracts/SDLC_WORKFLOW_BINDING_V1.md)
 - [ADR.md](ADR.md)
 
 ## API And Database

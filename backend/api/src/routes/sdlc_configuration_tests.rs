@@ -79,6 +79,7 @@ async fn service(
             auth_url: format!("http://{address}"),
             configuration_reader_subject: SUBJECT.into(),
             configuration_reader_agent_ids: String::new(),
+            workflow_binding: Default::default(),
         },
         calls,
         task,
@@ -202,6 +203,7 @@ fn sdlc_configuration_authority_must_be_fixed_and_canonical() {
         auth_url: "https://auth.example.test".into(),
         configuration_reader_subject: SUBJECT.into(),
         configuration_reader_agent_ids: Uuid::new_v4().to_string(),
+        workflow_binding: Default::default(),
     };
     assert_eq!(
         authority(&config).unwrap().as_str(),

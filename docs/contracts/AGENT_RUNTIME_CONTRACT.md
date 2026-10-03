@@ -29,3 +29,8 @@ Effective heads and exact agent/revision lookups are independent of paged histor
 Pinned package reads have fixed IO/time bounds and no HEAD/network fallback;
 neither a successful read nor an older validated draft authorizes activation or
 assignment dispatch.
+
+Base-marked configuration revisions also freeze a separate
+[Workflow binding](SDLC_WORKFLOW_BINDING_V1.md). Fresh owner ID/name/profile
+verification precedes supervisor side effects. An unavailable preflight fails
+the revision without retaining drain; an unknown apply/rollback keeps drain.

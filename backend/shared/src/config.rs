@@ -29,6 +29,24 @@ pub struct SdlcConfig {
     pub auth_url: String,
     pub configuration_reader_subject: String,
     pub configuration_reader_agent_ids: String,
+    pub workflow_binding: SdlcWorkflowConfig,
+}
+
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SdlcWorkflowConfig {
+    pub url: String,
+    #[serde(skip_serializing)]
+    pub read_pat: String,
+}
+
+impl std::fmt::Debug for SdlcWorkflowConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SdlcWorkflowConfig")
+            .field("url", &self.url)
+            .field("read_pat", &"[REDACTED]")
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

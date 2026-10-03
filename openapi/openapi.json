@@ -314,6 +314,9 @@
           },
           "422": {
             "description": "Pinned package or agent configuration is invalid"
+          },
+          "503": {
+            "description": "Workflow owner binding readback unavailable"
           }
         }
       }
@@ -4788,6 +4791,7 @@
           "sdlc_role",
           "effective_revision",
           "package",
+          "workflow_binding",
           "observed_at",
           "managed_files_verified",
           "runtime_ready",
@@ -4829,6 +4833,9 @@
           },
           "sdlc_role": {
             "$ref": "#/components/schemas/SdlcRole"
+          },
+          "workflow_binding": {
+            "$ref": "#/components/schemas/SdlcWorkflowBinding"
           }
         }
       },
@@ -6315,6 +6322,65 @@
           "tester",
           "dev_ops"
         ]
+      },
+      "SdlcWorkflowBinding": {
+        "type": "object",
+        "description": "Workflow-owned persisted mapping, not a native Hermes profile attestation.",
+        "required": [
+          "schema",
+          "namespace_id",
+          "namespace_name",
+          "workflow_id",
+          "workflow_key",
+          "role_key",
+          "profile",
+          "catalog_version",
+          "catalog_sha256",
+          "skills_revision",
+          "runtime_ready"
+        ],
+        "properties": {
+          "catalog_sha256": {
+            "type": "string"
+          },
+          "catalog_version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "namespace_id": {
+            "type": "string",
+            "maxLength": 19,
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "namespace_name": {
+            "type": "string"
+          },
+          "profile": {
+            "type": "string"
+          },
+          "role_key": {
+            "type": "string"
+          },
+          "runtime_ready": {
+            "type": "boolean"
+          },
+          "schema": {
+            "type": "string"
+          },
+          "skills_revision": {
+            "type": "string"
+          },
+          "workflow_id": {
+            "type": "string",
+            "maxLength": 19,
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "workflow_key": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "SessionAgentRun": {
         "type": "object",

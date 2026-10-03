@@ -27,9 +27,18 @@ commit, normalized manifest/instruction hashes, role namespace/profile/modes and
 skill hashes. Its SOUL and skill content remain in the protected snapshot, not
 in audit. Proof metadata is not trusted without pinned Git verification.
 Preparing a draft compares the desired revision under the agent row lock;
-activation verifies the current role/namespace, and agent updates check drain
+activation verifies the current role/namespace/workflow IDs, and agent updates check drain
 under the same lock. Effective configuration and installed skill rows do not
 change during preparation. This is not an assignment or runtime receipt.
+
+`config_json.fleet_sdlc_workflow_binding` freezes Workflow-owned persisted
+namespace ID/name, workflow ID/key, role, declared profile, catalog version/hash
+and skills revision. The ID strings are canonical positive signed-64-bit decimal
+IDs from Workflow, not namespace symbols. `namespace_id` and `workflow_id` in
+the snapshot match those frozen IDs. Preparation and activation check the agent
+IDs under its row lock; public validation/activation and supervisor apply also
+compare a fresh authenticated owner readback. A source/DB declared profile is
+not the effective Hermes runtime profile. This adds no table or migration.
 
 ## PM Chat Bindings
 

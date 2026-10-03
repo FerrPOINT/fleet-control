@@ -35,6 +35,15 @@ skills, hashes and exact inventory before preparing the concrete agent's allowli
 and SOUL in a new configuration draft. Other enabled skills are disabled in that
 draft; installed files, active runs and the effective revision are unchanged.
 
+Before preparing the draft, Fleet also reads the persisted Workflow v3 binding
+with a dedicated Base service-read PAT. Numeric namespace/workflow IDs stay
+separate from namespace names, workflow keys and declared profiles; the mapping
+is frozen in the configuration. An absent/denied/unavailable owner readback is
+`503`; mismatched persisted IDs or a changed mapping is `409`. A declared profile
+that differs from the Base package is `422`. No legacy catalog-token fallback
+or automatic candidate installation is permitted. See the
+[binding contract](contracts/SDLC_WORKFLOW_BINDING_V1.md).
+
 The response is `AgentConfigRevision`, not installation/readiness evidence.
 Missing cache, invalid package, non-Hermes runtime or mismatched role/namespace
 fails with `422`. A changed desired revision, concurrent identity change or drain
@@ -44,7 +53,9 @@ The protected draft response contains its SOUL/skills just like existing revisio
 
 Validation and activation of a package-marked revision recheck the immutable
 snapshot against the pinned Git source: a client-editable proof field alone is
-not trusted. Activation also checks role/namespace under the agent row lock.
+not trusted. Fresh Workflow readback is required for validation, activation,
+supervisor apply and package configuration observation; drift blocks the action.
+Activation also checks role/namespace/workflow IDs under the agent row lock.
 Existing legacy revisions without package metadata retain their behavior.
 This endpoint does not attest physical/bundled skill inventory or enable dispatch.
 
@@ -337,7 +348,7 @@ Email is never identity authority.
 No PAT is stored by this read, and no shadow user is created.
 
 The version-1 observation exposes only agent/role, effective revision, pinned
-public package proof metadata, observation UUID/time, managed-file verification
+public package proof and frozen Workflow mapping metadata, observation UUID/time, managed-file verification
 and blockers. It never returns prompt/skill content, env values, filesystem paths
 or credentials. The effective database head is re-read after verification;
 concurrent change/drain returns `409`. Effective head and exact pinned revision

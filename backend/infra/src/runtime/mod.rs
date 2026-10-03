@@ -137,8 +137,27 @@ impl LocalRuntimeSupervisor {
                 loop {
                     match supervisor.repo.claim_config_activation().await {
                         Ok(Some(revision)) => {
-                            let result = supervisor.apply_config_revision(&revision).await;
-                            let reconciled = !matches!(&result, Err(AppError::Unavailable(_)));
+                            // Owner readback happens before any runtime/file mutation. Its
+                            // failure must not be confused with an unverified rollback.
+                            let preflight = async {
+                                let agent = supervisor.repo.get_agent(revision.agent_id).await?;
+                                app::sdlc_workflow::verify_revision_binding(
+                                    &supervisor.config.sdlc.workflow_binding,
+                                    &agent,
+                                    &revision,
+                                )
+                                .await
+                            }
+                            .await;
+                            let (result, reconciled) = match preflight {
+                                Err(error) => (Err(error), true),
+                                Ok(()) => {
+                                    let result = supervisor.apply_config_revision(&revision).await;
+                                    let reconciled =
+                                        !matches!(&result, Err(AppError::Unavailable(_)));
+                                    (result, reconciled)
+                                }
+                            };
                             let error = result
                                 .err()
                                 .map(|error| crate::redact_text(&error.to_string()));

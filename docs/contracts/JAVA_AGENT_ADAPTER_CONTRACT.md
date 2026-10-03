@@ -29,3 +29,6 @@ workflow bindings have been verified.
 The pinned Base/Hermes configuration observation does not admit Java. A Java
 lifecycle health result cannot supply Hermes package/filesystem proof or grant
 automatic assignment rights; the existing lifecycle remains unchanged.
+The new [Base Workflow mapping](SDLC_WORKFLOW_BINDING_V1.md) is metadata for
+Hermes package revisions, not a Java chat/capability implementation or a reason
+to disable its existing jar lifecycle.

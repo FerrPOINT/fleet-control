@@ -1,6 +1,7 @@
 //! Read-only pinned Base consumption. Preparation never activates files or starts a model.
 use domain::{
-    Agent, AgentConfigurationSnapshot, AgentKind, AgentSkill, AgentStatus, SdlcRole, SkillState,
+    Agent, AgentConfigurationSnapshot, AgentKind, AgentSkill, AgentStatus, SdlcRole,
+    SdlcWorkflowBinding, SkillState,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -21,6 +22,8 @@ pub const BASE_PACKAGE_COMMIT: &str = "4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58"
 #[cfg(test)]
 #[path = "base_package_tests.rs"]
 mod tests;
+#[cfg(test)]
+pub(crate) use tests::binding_fixture;
 const REPOSITORY: &str = "https://github.com/FerrPOINT/services-base.git";
 const MAX_BLOB_BYTES: usize = 262_144;
 const ROLES: [&str; 7] = [
@@ -543,20 +546,44 @@ impl VerifiedRolePackage {
         &self.proof
     }
 
+    fn verify_binding(&self, agent: &Agent, binding: &SdlcWorkflowBinding) -> Result<(), AppError> {
+        if !binding.matches_agent(agent)
+            || binding.namespace_name != self.proof.namespace
+            || binding.profile != self.proof.profile
+            || binding.skills_revision != self.proof.commit
+        {
+            return Err(invalid());
+        }
+        Ok(())
+    }
+
     /// A client-editable proof field is not evidence: compare the complete draft to Git.
     pub fn verify_snapshot(
         &self,
         agent: &Agent,
         snapshot: &AgentConfigurationSnapshot,
     ) -> Result<(), AppError> {
+        let binding: SdlcWorkflowBinding = serde_json::from_value(
+            snapshot
+                .config
+                .config_json
+                .get("fleet_sdlc_workflow_binding")
+                .cloned()
+                .ok_or_else(invalid)?,
+        )
+        .map_err(|_| invalid())?;
+        self.verify_binding(agent, &binding)?;
         if agent.kind != AgentKind::Hermes
             || agent.status == AgentStatus::Archived
             || agent
                 .sdlc_role
                 .is_none_or(|role| role_key(role) != self.proof.role)
-            || agent.namespace_id.as_deref() != Some(self.proof.namespace.as_str())
             || snapshot.config.config_json.get("fleet_sdlc_package")
                 != Some(&serde_json::to_value(&self.proof).map_err(|_| invalid())?)
+            || snapshot.config.config_json["namespace_id"].as_str()
+                != Some(binding.namespace_id.as_str())
+            || snapshot.config.config_json["workflow_id"].as_str()
+                != Some(binding.workflow_id.as_str())
             || digest(snapshot.config.soul_md.as_bytes())? != self.proof.role_instruction_sha256
         {
             return Err(invalid());
@@ -599,14 +626,15 @@ impl VerifiedRolePackage {
     pub fn prepare_snapshot(
         &self,
         agent: &Agent,
+        binding: &SdlcWorkflowBinding,
         mut snapshot: AgentConfigurationSnapshot,
     ) -> Result<AgentConfigurationSnapshot, AppError> {
+        self.verify_binding(agent, binding)?;
         if agent.kind != AgentKind::Hermes
             || agent.status == AgentStatus::Archived
             || agent
                 .sdlc_role
                 .is_none_or(|role| role_key(role) != self.proof.role)
-            || agent.namespace_id.as_deref() != Some(self.proof.namespace.as_str())
             || !snapshot.config.config_json.is_object()
         {
             return Err(invalid());
@@ -627,6 +655,10 @@ impl VerifiedRolePackage {
         snapshot.config.soul_md = self.instruction.clone();
         snapshot.config.config_json["fleet_sdlc_package"] =
             serde_json::to_value(&self.proof).map_err(|_| invalid())?;
+        snapshot.config.config_json["fleet_sdlc_workflow_binding"] =
+            serde_json::to_value(binding).map_err(|_| invalid())?;
+        snapshot.config.config_json["namespace_id"] = serde_json::json!(binding.namespace_id);
+        snapshot.config.config_json["workflow_id"] = serde_json::json!(binding.workflow_id);
         for old in &mut snapshot.skills {
             if !self.skills.contains_key(&old.name) {
                 old.state = SkillState::Disabled;

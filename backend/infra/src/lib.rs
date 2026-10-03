@@ -1396,6 +1396,7 @@ impl FleetRepository for PostgresFleetRepository {
         &self,
         id: Uuid,
         checkout: &str,
+        binding: &domain::SdlcWorkflowBinding,
         actor: Uuid,
     ) -> Result<domain::AgentConfigRevision, AppError> {
         let agent = self.get_agent(id).await?;
@@ -1421,7 +1422,7 @@ impl FleetRepository for PostgresFleetRepository {
         };
         let package =
             base_package::VerifiedRolePackage::read(std::path::Path::new(checkout), role).await?;
-        let snapshot = package.prepare_snapshot(&agent, snapshot)?;
+        let snapshot = package.prepare_snapshot(&agent, binding, snapshot)?;
         config_revisions::create_snapshot(self, id, snapshot, actor, Some(expected)).await
     }
     async fn validate_config_revision(
@@ -5166,7 +5167,8 @@ mod tests {
         let (root, mut agent, mut config, mut revision) = effective_config_fixture().await;
         config.fleet.base_package_checkout = checkout;
         agent.sdlc_role = Some(domain::SdlcRole::Developer);
-        agent.namespace_id = Some("hermes-developer".into());
+        agent.namespace_id = Some("123".into());
+        agent.workflow_id = Some("456".into());
         let package = base_package::VerifiedRolePackage::read(
             Path::new(&config.fleet.base_package_checkout),
             domain::SdlcRole::Developer,
@@ -5177,7 +5179,9 @@ mod tests {
             .await
             .unwrap();
         revision.snapshot.skills.clear();
-        revision.snapshot = package.prepare_snapshot(&agent, revision.snapshot).unwrap();
+        revision.snapshot = package
+            .prepare_snapshot(&agent, &base_package::binding_fixture(), revision.snapshot)
+            .unwrap();
         install_effective_fixture(&agent, &config, &revision).await;
         FilesystemProvisioner
             .verify_effective_configuration(&agent, &config, &revision)

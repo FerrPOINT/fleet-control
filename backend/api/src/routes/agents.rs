@@ -394,7 +394,7 @@ pub async fn list_config_revisions(
     Ok(Json(ctx.repo.list_config_revisions(id).await?))
 }
 
-#[utoipa::path(post, path = "/api/v1/agents/{agent_id}/config/base-package", tag = "agents", params(("agent_id" = Uuid, Path)), responses((status = 200, body = domain::AgentConfigRevision), (status = 401, description = "Authentication required"), (status = 403, description = "Operator access required"), (status = 404, description = "Agent not found"), (status = 409, description = "Configuration or agent identity changed"), (status = 422, description = "Pinned package or agent configuration is invalid")))]
+#[utoipa::path(post, path = "/api/v1/agents/{agent_id}/config/base-package", tag = "agents", params(("agent_id" = Uuid, Path)), responses((status = 200, body = domain::AgentConfigRevision), (status = 401, description = "Authentication required"), (status = 403, description = "Operator access required"), (status = 404, description = "Agent not found"), (status = 409, description = "Configuration or agent identity changed"), (status = 422, description = "Pinned package or agent configuration is invalid"), (status = 503, description = "Workflow owner binding readback unavailable")))]
 pub async fn prepare_base_package(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<CurrentUser>,
@@ -407,9 +407,12 @@ pub async fn prepare_base_package(
             "Base package checkout is not configured",
         ));
     }
+    let agent = ctx.repo.get_agent(id).await?;
+    let binding =
+        app::sdlc_workflow::read_binding(&ctx.config.sdlc.workflow_binding, &agent).await?;
     Ok(Json(
         ctx.repo
-            .prepare_base_package_revision(id, checkout, user.id)
+            .prepare_base_package_revision(id, checkout, &binding, user.id)
             .await?,
     ))
 }
@@ -423,6 +426,25 @@ pub async fn validate_config_revision(
     require_operator(&user)?;
     let value = ctx.repo.get_config_revision(id, revision).await?;
     let mut errors = value.snapshot.config.input_errors();
+    if value
+        .snapshot
+        .config
+        .config_json
+        .get("fleet_sdlc_package")
+        .is_some()
+    {
+        let agent = ctx.repo.get_agent(id).await?;
+        if app::sdlc_workflow::verify_revision_binding(
+            &ctx.config.sdlc.workflow_binding,
+            &agent,
+            &value,
+        )
+        .await
+        .is_err()
+        {
+            errors.push("workflow_binding_readback_failed".into());
+        }
+    }
     if value
         .snapshot
         .config
@@ -496,6 +518,12 @@ pub async fn activate_config_revision(
         .get("fleet_sdlc_package")
         .is_some()
     {
+        app::sdlc_workflow::verify_revision_binding(
+            &ctx.config.sdlc.workflow_binding,
+            &agent,
+            &value,
+        )
+        .await?;
         ctx.repo
             .verify_base_package_revision(id, revision, &ctx.config.fleet.base_package_checkout)
             .await?;
@@ -545,6 +573,17 @@ pub async fn get_sdlc_readiness(
     }
     if agent.namespace_id.is_none() || agent.workflow_id.is_none() {
         blockers.push("workflow_not_bound".into());
+    }
+    if let Some(revision) = effective.as_ref()
+        && app::sdlc_workflow::verify_revision_binding(
+            &ctx.config.sdlc.workflow_binding,
+            &agent,
+            revision,
+        )
+        .await
+        .is_err()
+    {
+        blockers.push("workflow_binding_readback_failed".into());
     }
     // Existing workflow catalog is not proof of assignment/rebind/terminal support.
     blockers.push("workflow_assignment_protocol_not_verified".into());

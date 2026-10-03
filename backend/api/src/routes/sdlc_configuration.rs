@@ -19,6 +19,7 @@ pub struct ConfigurationObservation {
     pub sdlc_role: domain::SdlcRole,
     pub effective_revision: i64,
     pub package: serde_json::Value,
+    pub workflow_binding: domain::SdlcWorkflowBinding,
     pub observed_at: String,
     pub managed_files_verified: bool,
     pub runtime_ready: bool,
@@ -189,6 +190,13 @@ pub async fn readback(
         .verify_effective_configuration(&agent, &ctx.config, &revision)
         .await
         .map_err(|_| unavailable())?;
+    app::sdlc_workflow::verify_revision_binding(
+        &ctx.config.sdlc.workflow_binding,
+        &agent,
+        &revision,
+    )
+    .await
+    .map_err(|_| unavailable())?;
     let current_agent = ctx.repo.get_agent(id).await?;
     let current = ctx.repo.get_effective_config_revision(id).await?;
     if current.as_ref().is_none_or(|value| value.draining)
@@ -219,6 +227,10 @@ pub async fn readback(
             sdlc_role: role,
             effective_revision: revision.revision,
             package: package.clone(),
+            workflow_binding: serde_json::from_value(
+                revision.snapshot.config.config_json["fleet_sdlc_workflow_binding"].clone(),
+            )
+            .map_err(|_| unavailable())?,
             observed_at: shared::now().to_rfc3339(),
             managed_files_verified: true,
             runtime_ready: false,

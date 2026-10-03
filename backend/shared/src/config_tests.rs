@@ -31,6 +31,8 @@ fn sdlc_configuration_reader_is_opt_in_and_preserves_legacy_config() {
     assert!(restored.sdlc.auth_url.is_empty());
     assert!(restored.sdlc.configuration_reader_subject.is_empty());
     assert!(restored.sdlc.configuration_reader_agent_ids.is_empty());
+    assert!(restored.sdlc.workflow_binding.url.is_empty());
+    assert!(restored.sdlc.workflow_binding.read_pat.is_empty());
     let config: SdlcConfig = serde_json::from_value(serde_json::json!({
         "configuration_readback_enabled":true,
         "auth_url":"http://auth.example.test",
@@ -43,6 +45,18 @@ fn sdlc_configuration_reader_is_opt_in_and_preserves_legacy_config() {
         config.configuration_reader_agent_ids,
         "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
     );
+}
+
+#[test]
+fn sdlc_workflow_binding_credential_is_server_only() {
+    let config = SdlcWorkflowConfig {
+        url: "http://workflow.example.test".into(),
+        read_pat: "fixture-workflow-read-pat".into(),
+    };
+    assert!(!format!("{config:?}").contains(&config.read_pat));
+    let json = serde_json::to_string(&config).unwrap();
+    assert!(!json.contains(&config.read_pat));
+    assert!(!json.contains("read_pat"));
 }
 
 #[test]

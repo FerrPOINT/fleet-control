@@ -20,12 +20,26 @@ fn verify_package_identity(row: &QueryResult, config: &serde_json::Value) -> Res
     let namespace: Option<String> = row
         .try_get("", "namespace_id")
         .map_err(AppError::database)?;
+    let workflow: Option<String> = row.try_get("", "workflow_id").map_err(AppError::database)?;
+    let binding: domain::SdlcWorkflowBinding = serde_json::from_value(
+        config
+            .get("fleet_sdlc_workflow_binding")
+            .cloned()
+            .ok_or_else(|| AppError::conflict("frozen Workflow binding is missing"))?,
+    )
+    .map_err(|_| AppError::conflict("frozen Workflow binding is invalid"))?;
     let kind: String = row.try_get("", "kind").map_err(AppError::database)?;
     if kind != "hermes"
         || role.is_none()
         || proof["role"].as_str() != role
         || namespace.is_none()
-        || proof["namespace"].as_str() != namespace.as_deref()
+        || namespace.as_deref() != Some(binding.namespace_id.as_str())
+        || workflow.as_deref() != Some(binding.workflow_id.as_str())
+        || proof["namespace"].as_str() != Some(binding.namespace_name.as_str())
+        || proof["profile"].as_str() != Some(binding.profile.as_str())
+        || role != Some(binding.role_key.as_str())
+        || config["namespace_id"].as_str() != namespace.as_deref()
+        || config["workflow_id"].as_str() != workflow.as_deref()
         || proof["commit"].as_str() != Some(crate::base_package::BASE_PACKAGE_COMMIT)
     {
         return Err(AppError::conflict(
@@ -148,7 +162,7 @@ pub(super) async fn create_snapshot(
     let row = txn
         .query_one(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
-            "SELECT id, kind, sdlc_role, namespace_id FROM agents WHERE id = $1 AND archived_at IS NULL FOR UPDATE",
+            "SELECT id, kind, sdlc_role, namespace_id, workflow_id FROM agents WHERE id = $1 AND archived_at IS NULL FOR UPDATE",
             [id.into()],
         ))
         .await
@@ -267,7 +281,7 @@ pub(super) async fn activate(
     let txn = repo.db.begin().await.map_err(AppError::database)?;
     let agent = txn.query_one(Statement::from_sql_and_values(
         DatabaseBackend::Postgres,
-        "SELECT id, kind, sdlc_role, namespace_id FROM agents WHERE id = $1 AND archived_at IS NULL FOR UPDATE",
+        "SELECT id, kind, sdlc_role, namespace_id, workflow_id FROM agents WHERE id = $1 AND archived_at IS NULL FOR UPDATE",
         [id.into()],
     ))
     .await

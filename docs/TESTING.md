@@ -92,6 +92,26 @@ Three additional scoped cases check real Git stdin/size handling, overflow and
 exit-wait timeout, and sanitization of failed process output. Process fixtures
 use only synthetic text; these tests do not prove native runtime attestation.
 
+`package_mapping_rejects_name_as_id_and_profile_workflow_or_catalog_drift` checks
+canonical numeric IDs independently from Base namespace symbols and profile
+declarations. The PostgreSQL/HTTP case
+`base_package_workflow_mapping_requires_fresh_owner_readback_and_exact_frozen_fields`
+uses controlled Workflow metadata and the actual pinned Git package to prepare a
+draft through the real API. Changed profiles create no draft and cannot activate;
+validation stores a specific blocker, restored mapping validates. Readback is
+fresh and compares catalog/profile/version/ID fields; legacy catalog credentials
+do not substitute for a missing dedicated PAT. This is source evidence, not a
+live installed v3 catalog or native runtime admission.
+
+`base_package_workflow_preflight_failure_releases_drain_without_changing_files`
+starts the real background activator after a controlled owner outage. It verifies
+failed/no-drain state, preservation of the previous DB-effective head and SOUL,
+and new draft preparation after restoring the dependency. An unverified rollback
+still remains drained in the separate config lifecycle regression. Transport
+negatives cover redirect, encoding, oversized and duplicate-field replies;
+automatic protocol retries are explicitly disabled. These tests do not attest
+the fixture's legacy effective head as a loaded native runtime.
+
 `cargo test -p api sdlc_configuration` checks fresh Base HTTP introspection using
 controlled servers: exact subject/agent-specific scopes, revocation, broad or
 duplicate grants, browser/legacy denial before IO, disabled configuration,

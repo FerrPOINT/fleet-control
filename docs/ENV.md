@@ -126,6 +126,21 @@ namespace, Tracker metadata, JWT, runtime or PM callback credentials.
 The operator-owned Base package cache and actual active files are required;
 this source-only observation does not enable scheduling or deployments.
 
+## SDLC Workflow Binding Readback
+
+- `FLEET_CONTROL_SDLC__WORKFLOW_BINDING__URL`: fixed root HTTP(S) Workflow
+  origin, no embedded credentials, path, query or fragment. Empty by default.
+- `FLEET_CONTROL_SDLC__WORKFLOW_BINDING__READ_PAT`: dedicated server-only Base
+  PAT with exactly `project-workflow:read`, whose subject is registered as the
+  Workflow Base catalog reader. It is omitted from serialized config and redacted
+  in Debug. Never send it to Hermes, browsers, logs or audit.
+
+The owner endpoint is `/internal/runtime/base/namespace-bindings/{namespace_id}`.
+Readback is fresh, bounded to five seconds/16 KiB, without proxy, redirects,
+retry, legacy catalog credentials or human authorization fallback. The owner
+must have the compatible v3 candidate actually installed; accepted v2 is not
+silently converted. Enabling these settings does not enable SDLC execution.
+
 ## PM Callback Credential
 
 - `FLEET_CONTROL_PM__READBACK_TOKEN`: dedicated machine callback secret, 32..512

@@ -130,6 +130,7 @@ pub mod routes;
         domain::AgentConfigRevision,
         domain::AgentConfigurationSnapshot,
         domain::AgentSdlcReadiness,
+        domain::SdlcWorkflowBinding,
         domain::SessionEvent,
         domain::TaskChatBinding,
         domain::CreatePmDraftRequest,

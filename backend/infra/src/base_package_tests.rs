@@ -1,6 +1,22 @@
 use super::*;
 use serde_json::{Value, json};
 
+pub(crate) fn binding_fixture() -> domain::SdlcWorkflowBinding {
+    domain::SdlcWorkflowBinding {
+        schema: "base-sdlc/workflow-binding/v1".into(),
+        namespace_id: "123".into(),
+        namespace_name: "hermes-developer".into(),
+        workflow_id: "456".into(),
+        workflow_key: "hermes-sdlc:developer".into(),
+        role_key: "developer".into(),
+        profile: "hermes-sdlc-developer".into(),
+        catalog_version: 3,
+        catalog_sha256: "a".repeat(64),
+        skills_revision: BASE_PACKAGE_COMMIT.into(),
+        runtime_ready: false,
+    }
+}
+
 // Synthetic content only: never embed private Base instructions in public tests.
 fn package() -> (Value, BTreeMap<String, Vec<u8>>) {
     let names: Vec<_> = std::iter::once("project-workflow-executor".to_owned())
@@ -192,7 +208,8 @@ fn preparation_changes_a_draft_only_and_disables_skills_outside_allowlist() {
         Uuid::new_v4(),
         AgentStatus::Stopped,
     );
-    agent.namespace_id = Some("hermes-developer".into());
+    agent.namespace_id = Some("123".into());
+    agent.workflow_id = Some("456".into());
     let old = AgentSkill {
         id: Uuid::new_v4(),
         agent_id: agent.id,
@@ -211,7 +228,9 @@ fn preparation_changes_a_draft_only_and_disables_skills_outside_allowlist() {
         },
         skills: vec![old],
     };
-    let prepared = package.prepare_snapshot(&agent, snapshot.clone()).unwrap();
+    let prepared = package
+        .prepare_snapshot(&agent, &binding_fixture(), snapshot.clone())
+        .unwrap();
     assert_eq!(snapshot.config.soul_md, "Previous SOUL");
     assert_eq!(prepared.config.config_json["model"], "test-model");
     assert_eq!(prepared.config.env_json, snapshot.config.env_json);
@@ -245,7 +264,7 @@ fn preparation_changes_a_draft_only_and_disables_skills_outside_allowlist() {
     assert!(package.verify_snapshot(&agent, &forged).is_err());
     assert_eq!(
         package
-            .prepare_snapshot(&agent, prepared.clone())
+            .prepare_snapshot(&agent, &binding_fixture(), prepared.clone())
             .unwrap()
             .skills
             .len(),
@@ -253,21 +272,95 @@ fn preparation_changes_a_draft_only_and_disables_skills_outside_allowlist() {
     );
     let mut foreign = snapshot.clone();
     foreign.skills[0].agent_id = Uuid::new_v4();
-    assert!(package.prepare_snapshot(&agent, foreign).is_err());
+    assert!(
+        package
+            .prepare_snapshot(&agent, &binding_fixture(), foreign)
+            .is_err()
+    );
     let mut duplicate = snapshot.clone();
     duplicate.skills.push(duplicate.skills[0].clone());
-    assert!(package.prepare_snapshot(&agent, duplicate).is_err());
+    assert!(
+        package
+            .prepare_snapshot(&agent, &binding_fixture(), duplicate)
+            .is_err()
+    );
     agent.kind = AgentKind::JavaAgent;
-    assert!(package.prepare_snapshot(&agent, snapshot.clone()).is_err());
+    assert!(
+        package
+            .prepare_snapshot(&agent, &binding_fixture(), snapshot.clone())
+            .is_err()
+    );
     agent.kind = AgentKind::Hermes;
     agent.sdlc_role = Some(SdlcRole::Tester);
-    assert!(package.prepare_snapshot(&agent, snapshot.clone()).is_err());
+    assert!(
+        package
+            .prepare_snapshot(&agent, &binding_fixture(), snapshot.clone())
+            .is_err()
+    );
     agent.sdlc_role = Some(SdlcRole::Developer);
     agent.namespace_id = Some("unrelated".into());
-    assert!(package.prepare_snapshot(&agent, snapshot.clone()).is_err());
-    agent.namespace_id = Some("hermes-developer".into());
+    assert!(
+        package
+            .prepare_snapshot(&agent, &binding_fixture(), snapshot.clone())
+            .is_err()
+    );
+    agent.namespace_id = Some("123".into());
     agent.status = AgentStatus::Archived;
-    assert!(package.prepare_snapshot(&agent, snapshot).is_err());
+    assert!(
+        package
+            .prepare_snapshot(&agent, &binding_fixture(), snapshot)
+            .is_err()
+    );
+}
+
+#[test]
+fn package_mapping_rejects_name_as_id_and_profile_workflow_or_catalog_drift() {
+    let (manifest, files) = package();
+    let package = verify(&manifest, &files, SdlcRole::Developer).unwrap();
+    let mut agent =
+        crate::tests::test_agent(Path::new("unused"), Uuid::new_v4(), AgentStatus::Stopped);
+    agent.namespace_id = Some("123".into());
+    agent.workflow_id = Some("456".into());
+    let snapshot = AgentConfigurationSnapshot {
+        config: domain::UpdateAgentConfigRequest {
+            config_json: json!({}),
+            soul_md: String::new(),
+            env_json: json!({}),
+        },
+        skills: vec![],
+    };
+    let valid = binding_fixture();
+    let prepared = package
+        .prepare_snapshot(&agent, &valid, snapshot.clone())
+        .unwrap();
+    for (key, value) in [
+        ("namespace_id", json!("hermes-developer")),
+        ("namespace_id", json!("0123")),
+        ("namespace_name", json!("other")),
+        ("workflow_id", json!("999")),
+        ("workflow_key", json!("hermes-sdlc:tester")),
+        ("role_key", json!("tester")),
+        ("profile", json!("other-profile")),
+        ("catalog_version", json!(2)),
+        ("catalog_sha256", json!("")),
+        ("skills_revision", json!("HEAD")),
+        ("runtime_ready", json!(true)),
+    ] {
+        let mut modified = serde_json::to_value(&valid).unwrap();
+        modified[key] = value;
+        let binding = serde_json::from_value(modified.clone()).unwrap();
+        assert!(
+            package
+                .prepare_snapshot(&agent, &binding, snapshot.clone())
+                .is_err(),
+            "{key}"
+        );
+        let mut forged = prepared.clone();
+        forged.config.config_json["fleet_sdlc_workflow_binding"] = modified;
+        assert!(package.verify_snapshot(&agent, &forged).is_err(), "{key}");
+    }
+    agent.namespace_id = Some("hermes-developer".into());
+    assert!(package.prepare_snapshot(&agent, &valid, snapshot).is_err());
 }
 
 #[test]

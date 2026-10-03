@@ -36,6 +36,12 @@ it does not certify plugin/project/external discovery, loaded model/tool setting
 or a frozen assignment. See [runtime boundaries](../RUNTIME.md). Missing native
 proof keeps `runtime_ready=false`; no fallback or extra skill deletion is used.
 
+For Base package activation, the supervisor compares the frozen
+[Workflow mapping](SDLC_WORKFLOW_BINDING_V1.md) to fresh owner metadata before
+stopping Hermes or writing files. Declared profile and numeric namespace IDs
+are not native-loaded profile proof. A readback outage before mutation releases
+drain after recording a failed revision; unverified rollback remains drained.
+
 Session control:
 
 - Fleet stores transcript/control mirrors in `session_messages`.

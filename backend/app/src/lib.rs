@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod pm_draft;
+pub mod sdlc_workflow;
 
 use async_trait::async_trait;
 use domain::{
@@ -337,6 +338,7 @@ pub trait FleetRepository: Send + Sync {
         &self,
         _agent_id: Uuid,
         _checkout: &str,
+        _binding: &domain::SdlcWorkflowBinding,
         _actor: Uuid,
     ) -> Result<domain::AgentConfigRevision, AppError> {
         Err(AppError::validation(
