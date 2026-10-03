@@ -2929,7 +2929,7 @@ async fn unknown_dispatch_holds_agent_capacity_and_terminal_mirror_is_deduplicat
 }
 
 #[tokio::test]
-async fn readiness_http_does_not_trust_database_only_effective_revision() {
+async fn config_revision_readiness_http_uses_exact_heads_without_trusting_database_only_files() {
     let Some((repo, owner, _)) = fixture().await else {
         return;
     };
@@ -2979,6 +2979,51 @@ async fn readiness_http_does_not_trust_database_only_effective_revision() {
     repo.finish_config_activation(agent.id, revision.revision, None, true)
         .await
         .unwrap();
+    for skill in repo.list_agent_skills(agent.id).await.unwrap() {
+        if skill.state == domain::SkillState::Enabled {
+            repo.update_agent_skill(
+                agent.id,
+                skill.name,
+                domain::UpdateSkillRequest {
+                    state: skill.state,
+                    content: Some("Synthetic config-history regression skill".into()),
+                },
+            )
+            .await
+            .unwrap();
+        }
+    }
+    let old_draft = repo
+        .create_config_revision(agent.id, configuration(), owner)
+        .await
+        .unwrap();
+    for _ in 0..100 {
+        repo.create_config_revision(agent.id, configuration(), owner)
+            .await
+            .unwrap();
+    }
+    assert!(
+        repo.list_config_revisions(agent.id)
+            .await
+            .unwrap()
+            .iter()
+            .all(
+                |value| value.revision != revision.revision && value.revision != old_draft.revision
+            )
+    );
+    assert_eq!(
+        repo.get_config_revision(agent.id, old_draft.revision)
+            .await
+            .unwrap()
+            .revision,
+        old_draft.revision
+    );
+    let other_agent = self::agent(&repo).await;
+    assert!(
+        repo.get_config_revision(other_agent, old_draft.revision)
+            .await
+            .is_err()
+    );
     let repo = Arc::new(repo);
     let config = Arc::new(config);
     let (events, _) = tokio::sync::broadcast::channel(32);
@@ -2996,10 +3041,19 @@ async fn readiness_http_does_not_trust_database_only_effective_revision() {
         events,
         restart_tx,
     ));
-    let endpoint = axum::Router::new().route(
-        "/agents/{id}/readiness",
-        axum::routing::get(api::routes::agents::get_sdlc_readiness),
-    );
+    let endpoint = axum::Router::new()
+        .route(
+            "/agents/{id}/readiness",
+            axum::routing::get(api::routes::agents::get_sdlc_readiness),
+        )
+        .route(
+            "/agents/{id}/config/revisions/{revision}/validate",
+            axum::routing::post(api::routes::agents::validate_config_revision),
+        )
+        .route(
+            "/agents/{id}/config/revisions/{revision}/activate",
+            axum::routing::post(api::routes::agents::activate_config_revision),
+        );
     let router = axum::Router::new()
         .nest(
             "/operator",
@@ -3043,6 +3097,65 @@ async fn readiness_http_does_not_trust_database_only_effective_revision() {
     );
     assert!(!body.to_string().contains(root.to_str().unwrap()));
     assert!(!body.to_string().contains("readiness-test-runtime-secret"));
+    let revision_url = format!(
+        "{base}/operator/agents/{}/config/revisions/{}",
+        agent.id, old_draft.revision
+    );
+    let validated = client
+        .post(format!("{revision_url}/validate"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(validated.status(), reqwest::StatusCode::OK);
+    let validated: serde_json::Value = validated.json().await.unwrap();
+    assert_eq!(validated["revision"], old_draft.revision);
+    assert_eq!(validated["state"], "validated");
+    assert_eq!(validated["validation_errors"], serde_json::json!([]));
+    assert_eq!(
+        client
+            .post(format!("{revision_url}/activate"))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        reqwest::StatusCode::CONFLICT
+    );
+    for action in ["validate", "activate"] {
+        assert_eq!(
+            client
+                .post(format!(
+                    "{base}/operator/agents/{other_agent}/config/revisions/{}/{action}",
+                    old_draft.revision
+                ))
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            reqwest::StatusCode::NOT_FOUND
+        );
+        assert_eq!(
+            client
+                .post(format!(
+                    "{base}/user/agents/{}/config/revisions/{}/{action}",
+                    agent.id, old_draft.revision
+                ))
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            reqwest::StatusCode::FORBIDDEN
+        );
+    }
+    let refreshed: serde_json::Value = client
+        .get(format!("{base}/operator/agents/{}/readiness", agent.id))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(refreshed["effective_revision"], revision.revision);
+    assert_eq!(refreshed["ready_for_sdlc"], false);
     assert_eq!(
         client
             .get(format!("{base}/user/agents/{}/readiness", agent.id))

@@ -44,7 +44,10 @@ Hermes:
   effective revisions. Activation drains runs and checks files/runtime before
   releasing the agent. Failed rollback keeps the agent drained.
 - Effective configuration readiness now reads the actual managed files on each
-  request. It compares `config.yaml`, `SOUL.md`, `.env`, enabled/disabled skills
+  request using the persisted effective head, independently of the last-100
+  configuration history page. Validate/activate also use exact agent/revision
+  lookup; only the current desired validated revision can activate. It compares
+  `config.yaml`, `SOUL.md`, `.env`, enabled/disabled skills
   and the revision marker against the persisted effective snapshot, not against
   hashes or paths provided by a marker. Missing/changed managed files,
   re-enabled disabled skills, foreign markers and symlink/junction paths fail closed.

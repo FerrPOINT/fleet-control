@@ -58,9 +58,13 @@ re-enabled disabled skills, wrong snapshot/revision/marker, missing or foreign
 workspace and Unix symlink denial. It also verifies that readback does not repair
 files or expose resolved secrets. These are controlled filesystem checks, not
 runtime-loaded configuration or PM admission evidence. The PostgreSQL HTTP case
-`readiness_http_does_not_trust_database_only_effective_revision` checks the real
-readiness handler with a DB-active revision but no installed files, plus operator
-access and regular-user denial. Without the database variable it skips.
+`config_revision_readiness_http_uses_exact_heads_without_trusting_database_only_files`
+checks the real readiness handler with a DB-active revision but no installed files.
+It creates 100 newer drafts: readiness still finds the effective head and an older
+draft can be validated by exact ID. Activation of that non-desired revision returns
+409 (not a false 404); another agent's revision is 404 and regular-user writes are
+403. Neither validation nor failed activation changes the effective head or grants
+SDLC readiness. Without the database variable it skips.
 The filesystem regression also includes Hermes-owned category directories and
 `.bundled_manifest`. These are preserved, not trusted as a provenance source;
 the unverified runtime inventory blocker is separate from managed-file drift.

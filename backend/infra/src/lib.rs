@@ -1366,6 +1366,14 @@ impl FleetRepository for PostgresFleetRepository {
     ) -> Result<Option<domain::AgentConfigRevision>, AppError> {
         config_revisions::effective(self, id).await
     }
+    async fn get_config_revision(
+        &self,
+        id: Uuid,
+        revision: i64,
+    ) -> Result<domain::AgentConfigRevision, AppError> {
+        self.get_agent(id).await?;
+        config_revisions::get(self, id, revision).await
+    }
     async fn prepare_base_package_revision(
         &self,
         id: Uuid,

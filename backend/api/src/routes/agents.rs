@@ -421,13 +421,7 @@ pub async fn validate_config_revision(
     Path((id, revision)): Path<(Uuid, i64)>,
 ) -> Result<Json<domain::AgentConfigRevision>, AppError> {
     require_operator(&user)?;
-    let value = ctx
-        .repo
-        .list_config_revisions(id)
-        .await?
-        .into_iter()
-        .find(|value| value.revision == revision)
-        .ok_or_else(|| AppError::not_found("config_revision", revision))?;
+    let value = ctx.repo.get_config_revision(id, revision).await?;
     let mut errors = value.snapshot.config.input_errors();
     if value
         .snapshot
@@ -494,13 +488,7 @@ pub async fn activate_config_revision(
             "Java Agent configuration activation is planned for phase 2",
         ));
     }
-    let value = ctx
-        .repo
-        .list_config_revisions(id)
-        .await?
-        .into_iter()
-        .find(|value| value.revision == revision)
-        .ok_or_else(|| AppError::not_found("config_revision", revision))?;
+    let value = ctx.repo.get_config_revision(id, revision).await?;
     if value
         .snapshot
         .config
@@ -527,8 +515,7 @@ pub async fn get_sdlc_readiness(
 ) -> Result<Json<domain::AgentSdlcReadiness>, AppError> {
     require_operator(&user)?;
     let agent = ctx.repo.get_agent(id).await?;
-    let revisions = ctx.repo.list_config_revisions(id).await?;
-    let effective = revisions.iter().find(|value| value.is_effective);
+    let effective = ctx.repo.get_effective_config_revision(id).await?;
     let runtime_healthy = agent.status == domain::AgentStatus::Running
         && agent.runtime.health_status.as_deref() == Some("running");
     let mut blockers = Vec::new();
@@ -543,7 +530,7 @@ pub async fn get_sdlc_readiness(
     }
     if effective.is_none() {
         blockers.push("configuration_not_applied".into());
-    } else if let Some(revision) = effective
+    } else if let Some(revision) = effective.as_ref()
         && ctx
             .provisioner
             .verify_effective_configuration(&agent, &ctx.config, revision)
@@ -553,7 +540,7 @@ pub async fn get_sdlc_readiness(
         // Do not expose paths, resolved env values, hashes, or underlying IO errors.
         blockers.push("effective_configuration_readback_failed".into());
     }
-    if revisions.iter().any(|value| value.draining) {
+    if ctx.repo.agent_is_draining(id).await? {
         blockers.push("configuration_draining".into());
     }
     if agent.namespace_id.is_none() || agent.workflow_id.is_none() {
