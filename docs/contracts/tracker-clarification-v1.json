@@ -1,0 +1,566 @@
+{
+  "TrackerTaskContext": {
+    "type": "object",
+    "required": [
+      "contract_version",
+      "owner_subject",
+      "permissions",
+      "project_id",
+      "root_task_id",
+      "stage",
+      "task_id",
+      "tracker_instance_id"
+    ],
+    "properties": {
+      "assignment": {
+        "oneOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "object",
+            "required": [
+              "agent_id",
+              "assignment_id",
+              "execution_id",
+              "machine_subject",
+              "version"
+            ],
+            "properties": {
+              "agent_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "assignment_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "execution_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "machine_subject": {
+                "type": "string"
+              },
+              "version": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          }
+        ]
+      },
+      "contract_version": {
+        "type": "integer",
+        "format": "int32"
+      },
+      "owner_subject": {
+        "type": "string"
+      },
+      "permissions": {
+        "type": "object",
+        "required": [
+          "can_answer",
+          "can_confirm"
+        ],
+        "properties": {
+          "can_answer": {
+            "type": "boolean"
+          },
+          "can_confirm": {
+            "type": "boolean"
+          }
+        }
+      },
+      "project_id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "requirement_revision": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "int64"
+      },
+      "root_task_id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "stage": {
+        "type": "string",
+        "enum": [
+          "Backlog",
+          "Clarification",
+          "Draft"
+        ]
+      },
+      "task_id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "tracker_instance_id": {
+        "type": "string"
+      },
+      "waiting_reason": {
+        "type": [
+          "null",
+          "string"
+        ]
+      }
+    }
+  },
+  "TrackerQuestion": {
+    "type": "object",
+    "required": [
+      "agent_id",
+      "assignment_id",
+      "assignment_version",
+      "author_subject",
+      "checkpoint_id",
+      "created_at",
+      "execution_id",
+      "id",
+      "mode",
+      "options",
+      "rationale",
+      "request_id",
+      "required",
+      "requirement_revision",
+      "root_task_id",
+      "state",
+      "task_id",
+      "text",
+      "version"
+    ],
+    "properties": {
+      "agent_id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "answer": {
+        "oneOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "object",
+            "required": [
+              "author_subject",
+              "created_at",
+              "id",
+              "question_id",
+              "question_version",
+              "requirement_revision",
+              "selected_option_ids"
+            ],
+            "properties": {
+              "author_subject": {
+                "type": "string"
+              },
+              "comment": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "question_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "question_version": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "requirement_revision": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "selected_option_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "text": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "assignment_id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "assignment_version": {
+        "type": "integer",
+        "format": "int64"
+      },
+      "author_subject": {
+        "type": "string"
+      },
+      "checkpoint_id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "created_at": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "execution_id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "mode": {
+        "type": "string",
+        "enum": [
+          "multiple",
+          "single",
+          "text"
+        ]
+      },
+      "options": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "consequences",
+            "id",
+            "label"
+          ],
+          "properties": {
+            "consequences": {
+              "type": "string"
+            },
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "is_custom": {
+              "type": "boolean"
+            },
+            "label": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "rationale": {
+        "type": "string"
+      },
+      "recommended_option_id": {
+        "type": [
+          "null",
+          "string"
+        ],
+        "format": "uuid"
+      },
+      "request_id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "required": {
+        "type": "boolean"
+      },
+      "requirement_reference": {
+        "type": [
+          "null",
+          "string"
+        ]
+      },
+      "requirement_revision": {
+        "type": "integer",
+        "format": "int64"
+      },
+      "root_task_id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "state": {
+        "type": "string",
+        "enum": [
+          "answered",
+          "cancelled",
+          "open",
+          "superseded"
+        ]
+      },
+      "task_id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "text": {
+        "type": "string"
+      },
+      "version": {
+        "type": "integer",
+        "format": "int64"
+      }
+    }
+  },
+  "TrackerAnswer": {
+    "type": "object",
+    "required": [
+      "author_subject",
+      "created_at",
+      "id",
+      "question_id",
+      "question_version",
+      "requirement_revision",
+      "selected_option_ids"
+    ],
+    "properties": {
+      "author_subject": {
+        "type": "string"
+      },
+      "comment": {
+        "type": [
+          "null",
+          "string"
+        ]
+      },
+      "created_at": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "question_id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "question_version": {
+        "type": "integer",
+        "format": "int64"
+      },
+      "requirement_revision": {
+        "type": "integer",
+        "format": "int64"
+      },
+      "selected_option_ids": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "text": {
+        "type": [
+          "null",
+          "string"
+        ]
+      }
+    }
+  },
+  "TrackerRequirementsRevision": {
+    "type": "object",
+    "required": [
+      "acceptance_criteria",
+      "assumptions",
+      "author_subject",
+      "checklist",
+      "constraints",
+      "content_hash",
+      "created_at",
+      "dependencies",
+      "exclusions",
+      "goal",
+      "prerequisites",
+      "revision",
+      "scenarios",
+      "scope"
+    ],
+    "properties": {
+      "acceptance_criteria": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "assumptions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "author_subject": {
+        "type": "string"
+      },
+      "checklist": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "constraints": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "content_hash": {
+        "type": "string"
+      },
+      "created_at": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "dependencies": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "exclusions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "goal": {
+        "type": "string"
+      },
+      "prerequisites": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "revision": {
+        "type": "integer",
+        "format": "int64"
+      },
+      "scenarios": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "scope": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "TrackerConfirmation": {
+    "type": "object",
+    "required": [
+      "content_hash",
+      "created_at",
+      "id",
+      "owner_subject",
+      "revision",
+      "stage",
+      "task_id"
+    ],
+    "properties": {
+      "content_hash": {
+        "type": "string"
+      },
+      "created_at": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "owner_subject": {
+        "type": "string"
+      },
+      "revision": {
+        "type": "integer",
+        "format": "int64"
+      },
+      "stage": {
+        "type": "string",
+        "enum": [
+          "Backlog",
+          "Clarification",
+          "Draft"
+        ]
+      },
+      "task_id": {
+        "type": "string",
+        "format": "uuid"
+      }
+    }
+  },
+  "ClarificationAnswerRequest": {
+    "type": "object",
+    "required": [
+      "expected_question_version",
+      "idempotency_key",
+      "requirement_revision",
+      "selected_option_ids"
+    ],
+    "properties": {
+      "comment": {
+        "type": [
+          "null",
+          "string"
+        ]
+      },
+      "expected_question_version": {
+        "type": "integer",
+        "format": "int64"
+      },
+      "idempotency_key": {
+        "type": "string"
+      },
+      "requirement_revision": {
+        "type": "integer",
+        "format": "int64"
+      },
+      "selected_option_ids": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "text": {
+        "type": [
+          "null",
+          "string"
+        ]
+      }
+    }
+  },
+  "ConfirmRequirementsRequest": {
+    "type": "object",
+    "required": [
+      "content_hash",
+      "idempotency_key"
+    ],
+    "properties": {
+      "content_hash": {
+        "type": "string"
+      },
+      "idempotency_key": {
+        "type": "string"
+      }
+    }
+  }
+}

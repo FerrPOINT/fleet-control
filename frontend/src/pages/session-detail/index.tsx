@@ -26,7 +26,6 @@ import {
   listSessionAgentRuns,
   listSessionMessages,
   listSessionParticipants,
-  resolveSessionRunApproval,
   steerSessionRun,
   stopSessionRun,
 } from '@/api/fleet'
@@ -48,6 +47,7 @@ import {
   Textarea,
 } from '@sdlc/ui/ui'
 import { UserAvatar } from '@/shared/ui/user-avatar'
+import { TaskApprovalsPanel } from '../chat-detail/approvals'
 import { EmptyState, ErrorState, PageHeader, StatusBadge, formatDate } from '../common'
 
 let fallbackRequestSequence = 0
@@ -63,6 +63,7 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
   const { sessionId } = useParams()
   const queryClient = useQueryClient()
   const token = useAuthStore((state) => state.token)
+  const userId = useAuthStore((state) => state.userId)
   const [streamText, setStreamText] = useState<Record<string, string>>({})
   const canManageAgents = useAuthStore((state) => state.permissions.includes('agents:manage'))
   const session = useQuery({
@@ -112,6 +113,8 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
       void queryClient.invalidateQueries({ queryKey: ['session-messages', sessionId] })
       void queryClient.invalidateQueries({ queryKey: ['session-runs', sessionId] })
       void queryClient.invalidateQueries({ queryKey: ['session-participants', sessionId] })
+      void queryClient.invalidateQueries({ queryKey: ['task-approvals', sessionId] })
+      void queryClient.invalidateQueries({ queryKey: ['task-approval-decision', sessionId] })
     }
     return connectAuthenticatedEventStream({
       url: `${apiBaseUrl}/api/v1/sessions/${sessionId}/stream`,
@@ -418,6 +421,10 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
             </form>
           </section>
 
+          <TaskApprovalsPanel
+            sessionId={sessionId}
+            canResolve={canManageAgents || session.data.user_id === userId}
+          />
           <section aria-labelledby="session-runs-title">
             <SectionHeading
               id="session-runs-title"
@@ -889,21 +896,8 @@ function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: st
       toast.success(t('sessionDetail.steerSuccess', { agent: run.agent_name }))
     },
   })
-  const approvalMutation = useMutation({
-    mutationFn: (choice: 'approve' | 'deny') =>
-      resolveSessionRunApproval(sessionId, run.id, { choice, resolve_all: true }),
-    onSuccess: async (_response, choice) => {
-      await queryClient.invalidateQueries({ queryKey: ['session-runs', sessionId] })
-      toast.success(
-        choice === 'approve'
-          ? t('sessionDetail.approveSuccess', { agent: run.agent_name })
-          : t('sessionDetail.denySuccess', { agent: run.agent_name }),
-      )
-    },
-  })
-  const actionPending =
-    stopMutation.isPending || steerMutation.isPending || approvalMutation.isPending
-  const actionFailed = steerMutation.isError || approvalMutation.isError
+  const actionPending = stopMutation.isPending || steerMutation.isPending
+  const actionFailed = steerMutation.isError
 
   function submitSteer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -1009,30 +1003,6 @@ function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: st
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-            {run.state === 'waiting' ? (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-10"
-                  aria-label={t('sessionDetail.approveRun', { agent: run.agent_name })}
-                  onClick={() => approvalMutation.mutate('approve')}
-                  disabled={actionPending}
-                >
-                  {t('sessionDetail.approve')}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-10"
-                  aria-label={t('sessionDetail.denyRun', { agent: run.agent_name })}
-                  onClick={() => approvalMutation.mutate('deny')}
-                  disabled={actionPending}
-                >
-                  {t('sessionDetail.deny')}
-                </Button>
-              </>
-            ) : null}
           </div>
           <form className="grid gap-2 sm:grid-cols-[1fr_auto]" onSubmit={submitSteer}>
             <Label className="sr-only" htmlFor={`steer-${run.id}`}>

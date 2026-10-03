@@ -1,9 +1,59 @@
 # Operations
 
+## Effective Configuration Readback
+
+An operator/admin readiness response may contain
+`effective_configuration_readback_failed` even when `effective_revision` is set.
+The database head is not evidence that runtime files are intact. Inspect the
+agent marker, isolated paths and active managed configuration through authorized
+tooling; reconcile changed managed skills, secret references and deployment
+configuration. Hermes-owned categories and `.bundled_manifest` are not removed
+by this check. `runtime_skill_inventory_not_verified` is a separate integration
+blocker, not an instruction to delete bundled skills.
+Then validate/activate the intended revision using the normal drain/rollback flow.
+Do not bypass the blocker, copy credentials between agents or treat a manual file
+repair as a Workflow admission. This check does not attest runtime-loaded state
+or protect against hostile concurrent host filesystem mutation.
+
+## Transcript Order Migration
+
+Pending migration 000010 backfills existing messages in timestamp/UUID order and
+assigns new messages immutable database identity positions. Apply with a verified
+backup and migration window: the column backfill, constraint and index creation
+can lock or scan the message table. Measure the window on representative data.
+This is an unapplied pending migration. If a preview database already applied an
+earlier form of 000010, its migration-name record does not prove schema parity.
+Preserve and inspect that database; use a fresh disposable QA database or a
+reviewed forward upgrade. Never clear data or migration history to force reapply.
+The public cursor remains a session-scoped message UUID; do not use the internal
+allocation sequence as a commit watermark or an SSE cursor. Sequence gaps are normal.
+
+Down/reapply retains messages but reconstructs positions from timestamps, so it
+can change the order of post-upgrade messages after a clock rollback. Use this
+cycle only in disposable QA. Production recovery requires a verified backup
+restoring the order column or a reviewed forward migration, not blind down/up.
+
 ## SDLC Foundation Recovery
+
+PM Draft creation recovery is owner-driven: repeat the same project, agent,
+title, original description and idempotency key with a freshly verified human
+session. Do not invent a second key after a timeout. Tracker operation readback
+precedes same-key writes; unknown acceptance retains earlier local receipts.
+If ownership, original input or current assignment no longer matches, stop and
+investigate the conflict. Do not delete the creation ledger or rewrite receipts.
+GET operation readback is historical only and does not grant runtime authority.
+The completed creation response remains `awaiting_admission`; no prompt has been
+delivered. Operator/admin cannot resume as the owner or confirm their requirements.
 
 Automatic SDLC is blocked; operator actions do not publish Tracker requirements
 or bypass workflow gates. See [current scope](SDLC_IMPLEMENTATION.md).
+
+PM gateway recovery: verify configured Tracker instance/origin and current project membership
+before enabling dependent actions. A saved clarification answer is not proof of PM delivery.
+After an unknown HTTP outcome, inspect the question/revision snapshot and replay only the same
+intent/key; do not manufacture a new runtime run or edit confirmation rows. If requirements
+changed, retain the user's draft, review the new document and submit a new explicit intent.
+Fleet task-bound prompt/steer remains blocked until verified workflow orchestration is wired.
 
 Save a config draft, validate it, then explicitly activate. Desired and effective
 revisions can differ. During drain, do not force changes beneath active runs.
@@ -105,6 +155,27 @@ redacted before persistence.
 settings changes, skill/config edits, runtime actions, handoff and delegation.
 
 ## Recovery
+
+### Tracker Metadata Worker
+
+Enable only via the [deployment variables](ENV.md#tracker-metadata-polling).
+The dedicated machine account needs explicit project membership and exactly
+read-only Tracker scope. Do not reuse a PM or operator credential.
+
+The worker scans 100 authorized bindings per keyset page with two concurrent
+fetches and one bounded source page per binding each cycle. Persisted source
+cursors survive a restart; replay is transactional and cannot redispatch a run.
+Disabling the worker does not delete history or stop agents.
+
+Warnings use static reason codes, never remote bodies, credentials or URLs:
+`credential_revoked_or_expired`, `subject_scope_or_project_access_denied`,
+`source_or_projection_reconciliation_required`, `projection_database_unavailable`
+and `dependency_or_contract_unavailable`. Restore the correct account/scope,
+project access or dependency before retrying. A corrupt/oversized source event
+must be repaired at the source; do not skip it, reset a cursor or silently switch
+a `legacy_full_v1` binding to metadata. Format conversion needs explicit migration.
+After a deployment-secret rotation, restart Fleet and confirm replay without
+duplicate transcript entries. These checks are not proof of PM answer delivery.
 
 On backend restart, managed process handles are lost. The health action
 reconciles status by marking an untracked Hermes process as stopped.

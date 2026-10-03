@@ -10,12 +10,63 @@ fn defaults_are_fleet_control_specific() {
     assert_eq!(cfg.auth.jwt_audience, "sdlc");
     assert_eq!(cfg.fleet.agent_port_base, 29000);
     assert_eq!(cfg.fleet.agent_port_stride, 10);
+    assert!(cfg.pm.readback_token.is_empty());
+    assert!(cfg.tracker.url.is_empty());
+    assert!(cfg.tracker.instance_id.is_empty());
     assert!(
         cfg.server
             .cors_allowed_origins
             .iter()
             .any(|origin| origin.contains("23802"))
     );
+}
+
+#[test]
+fn tracker_configuration_defaults_and_round_trips_without_process_environment() {
+    let mut legacy = serde_json::to_value(AppConfig::default()).unwrap();
+    legacy.as_object_mut().unwrap().remove("tracker");
+    let restored: AppConfig = serde_json::from_value(legacy).unwrap();
+    assert!(restored.tracker.url.is_empty());
+    assert!(!restored.tracker.pm_draft_creation_enabled);
+    assert!(restored.tracker.pm_draft_project_ids.is_empty());
+    assert!(!restored.tracker.events.enabled);
+    let cfg: TrackerConfig = serde_json::from_value(serde_json::json!({
+        "url":"http://tracker.example.test:8080", "instance_id":"tracker-one"
+    }))
+    .unwrap();
+    assert_eq!(cfg.instance_id, "tracker-one");
+    assert_eq!(cfg.url, "http://tracker.example.test:8080");
+}
+
+#[test]
+fn tracker_event_credentials_are_server_only_and_redacted() {
+    let cfg = TrackerConfig {
+        events: TrackerEventsConfig {
+            read_pat: "test-only-read-pat-secret".into(),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    assert!(!format!("{cfg:?}").contains(&cfg.events.read_pat));
+    let json = serde_json::to_value(&cfg).unwrap();
+    assert!(json["events"].get("read_pat").is_none());
+    assert_eq!(cfg.events.poll_interval_seconds, 5);
+}
+
+#[test]
+fn pm_config_debug_does_not_disclose_readback_credential() {
+    let cfg = PmConfig {
+        readback_token: "test-only-pm-readback-secret".into(),
+        namespace_read_pat: "test-only-namespace-read-secret".into(),
+        ..Default::default()
+    };
+    let debug = format!("{cfg:?}");
+    assert!(!debug.contains(&cfg.readback_token));
+    assert!(!debug.contains(&cfg.namespace_read_pat));
+    assert!(debug.contains("[REDACTED]"));
+    let serialized = serde_json::to_value(&cfg).unwrap();
+    assert!(serialized.get("readback_token").is_none());
+    assert!(serialized.get("namespace_read_pat").is_none());
 }
 
 #[test]

@@ -5,17 +5,29 @@
 | Requirement | Evidence / Remaining Gate |
 | --- | --- |
 | Seven independent specializations | `SdlcRole`, migration 000009, create/edit; no seven-agent live acceptance yet |
-| Agent -> own chats | `/chats`, Chats unit + three-browser fixture E2E; immutable task binding pending |
+| Agent -> own chats | `/chats/:sessionId`, immutable task binding, owner-only persisted Draft/reservation/chat coordinator; actual admitted PM start pending |
 | No new leader orchestration | Main nav and Chats controls exclude it; legacy routes/history preserved |
 | Per-user visibility | Default backend filter, private message authorization regression, SSO stored-role tests |
 | No duplicate unknown dispatch | Transactional outbox, agent capacity regression; crashed acceptance recovery pending |
 | No completion from EOF | Fake Hermes non-terminal/terminal readback; interrupted is failure, never a fabricated reply |
 | Durable cursor | Migration 000009, session cursor/Last-Event-ID, Base reconnect tests; expiry/reset pending |
 | Config activation/drain | Migration 000009, desired/effective snapshots, DB drain/failed rollback regression |
-| Safe automatic publication | Fail-closed readiness only; Tracker requirements and first-step workflow gate pending |
+| Safe automatic publication | Tracker exact owner/revision/hash gate implemented; trusted prerequisite verifier and real first-step PM integration pending |
 | SDLC receipt/deployment | Not implemented here; cross-service and real deploy evidence still required |
 
-The following table describes the legacy baseline, not complete SDLC acceptance.
+## PM Clarification Trace
+
+| Requirement | Implementation / evidence | Remaining |
+| --- | --- | --- |
+| Immutable instance/task/concrete-agent chat | migration 000010, atomic binding and owner/key creation ledger, restart/concurrency/lost-response tests | Admitted runtime dispatch and live saga acceptance |
+| Owner-only answer and exact consent | Central-subject gateway and strict Tracker SDLC commands, read-only and exact-hash UI tests | Real identity/project live denial acceptance |
+| Questions, versions, no preselection | Generated DTOs, single/multiple/text validators, stale draft tests | Structured PM tools and real question publication |
+| No unknown-command reinterpretation | Frozen message/answer payloads and keys, uncertain-steer regression | PM delivery readback/rebind |
+| Requirements revision changes revoke UI consent | Revision/hash form identity, full document and comparison, regression test | Trusted exact-revision prerequisite evidence |
+| Wire drift | Rust OpenAPI, generated client, seven-schema Tracker snapshot check | Compatible deployed versions and CI head verification |
+| Keyboard/mobile/desktop | Three-browser controller fixtures, axe, Escape focus and tab arrows, generated image hashes | Live production acceptance, not fixture promotion |
+
+The table below describes the legacy baseline, not complete SDLC acceptance.
 
 | Requirement               | Implementation                                                             |
 | ------------------------- | -------------------------------------------------------------------------- |

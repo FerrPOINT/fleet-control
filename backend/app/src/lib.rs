@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod pm_draft;
 
 use async_trait::async_trait;
 use domain::{
@@ -40,6 +41,7 @@ pub struct SessionListFilter {
     pub user_ids: Vec<Uuid>,
     pub leader_agent_id: Option<Uuid>,
     pub include_all_users: bool,
+    pub task_project_access: Option<domain::TaskProjectAccess>,
 }
 
 #[derive(Debug, Clone)]
@@ -89,6 +91,208 @@ pub struct RuntimeSessionSnapshot {
 
 #[async_trait]
 pub trait FleetRepository: Send + Sync {
+    async fn reserve_pm_draft_operation(
+        &self,
+        _operation: domain::PmDraftOperation,
+    ) -> Result<domain::PmDraftOperation, AppError> {
+        Err(AppError::Unavailable(
+            "PM Draft creation is unavailable".into(),
+        ))
+    }
+    async fn read_pm_draft_operation(
+        &self,
+        _id: Uuid,
+        _owner: Uuid,
+    ) -> Result<domain::PmDraftOperation, AppError> {
+        Err(AppError::Unavailable(
+            "PM Draft creation is unavailable".into(),
+        ))
+    }
+    async fn read_pm_draft_operation_by_key(
+        &self,
+        _owner: Uuid,
+        _key: &str,
+    ) -> Result<domain::PmDraftOperation, AppError> {
+        Err(AppError::Unavailable(
+            "PM Draft creation is unavailable".into(),
+        ))
+    }
+    async fn record_pm_draft_proof(
+        &self,
+        _id: Uuid,
+        _owner: Uuid,
+        _proof: domain::PmDraftProof,
+    ) -> Result<domain::PmDraftOperation, AppError> {
+        Err(AppError::Unavailable(
+            "PM Draft creation is unavailable".into(),
+        ))
+    }
+    async fn list_session_approvals(
+        &self,
+        _session_id: Uuid,
+    ) -> Result<Vec<RuntimeApprovalRequest>, AppError> {
+        Err(AppError::Unavailable(
+            "targeted approvals are unavailable".into(),
+        ))
+    }
+    async fn approval_decision(
+        &self,
+        _session_id: Uuid,
+        _approval_id: Uuid,
+    ) -> Result<domain::ApprovalDecision, AppError> {
+        Err(AppError::Unavailable(
+            "targeted approvals are unavailable".into(),
+        ))
+    }
+    async fn reserve_approval_decision(
+        &self,
+        _session_id: Uuid,
+        _approval_id: Uuid,
+        _actor: Uuid,
+        _req: domain::ApprovalDecisionRequest,
+    ) -> Result<domain::ReservedApprovalDecision, AppError> {
+        Err(AppError::Unavailable(
+            "targeted approvals are unavailable".into(),
+        ))
+    }
+    async fn deliver_approval_decision(
+        &self,
+        _decision_id: Uuid,
+    ) -> Result<domain::ApprovalDecision, AppError> {
+        Err(AppError::Unavailable(
+            "targeted approvals are unavailable".into(),
+        ))
+    }
+    async fn fail_undispatched_approval_decision(
+        &self,
+        _decision_id: Uuid,
+    ) -> Result<domain::ApprovalDecision, AppError> {
+        Err(AppError::Unavailable(
+            "targeted approvals are unavailable".into(),
+        ))
+    }
+    async fn list_chats_directory(
+        &self,
+        _filter: domain::ChatsDirectoryFilter,
+    ) -> Result<domain::ChatsDirectoryPage, AppError> {
+        Err(AppError::Unavailable(
+            "chat directory is not available".into(),
+        ))
+    }
+    async fn reserve_pm_run(
+        &self,
+        _reservation: domain::PmRunReservation,
+    ) -> Result<domain::PmRunRecord, AppError> {
+        Err(AppError::Unavailable(
+            "PM run repository is not available".into(),
+        ))
+    }
+    async fn get_pm_run(&self, _id: Uuid) -> Result<domain::PmRunRecord, AppError> {
+        Err(AppError::Unavailable(
+            "PM run repository is not available".into(),
+        ))
+    }
+    async fn accept_pm_run(
+        &self,
+        _id: Uuid,
+        _hermes_run_ref: String,
+        _hermes_session_ref: String,
+    ) -> Result<domain::PmRunRecord, AppError> {
+        Err(AppError::Unavailable(
+            "PM run repository is not available".into(),
+        ))
+    }
+    async fn observe_pm_run(
+        &self,
+        _id: Uuid,
+        _status: domain::PmRuntimeStatus,
+    ) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "PM run repository is not available".into(),
+        ))
+    }
+    async fn has_pending_session_dispatch(&self, _session_id: Uuid) -> Result<bool, AppError> {
+        Ok(false)
+    }
+    async fn get_task_chat_binding(
+        &self,
+        _session_id: Uuid,
+    ) -> Result<Option<domain::TaskChatBinding>, AppError> {
+        Err(AppError::Unavailable(
+            "task chat repository is not available".into(),
+        ))
+    }
+    async fn bind_task_chat(
+        &self,
+        _session_id: Uuid,
+        _binding: domain::TaskChatBinding,
+        _idempotency_key: String,
+    ) -> Result<domain::TaskChatBinding, AppError> {
+        Err(AppError::Unavailable(
+            "task chat repository is not available".into(),
+        ))
+    }
+    async fn create_pm_draft_chat(
+        &self,
+        _command: domain::CreatePmDraftChat,
+        _owner_user_id: Uuid,
+    ) -> Result<domain::AgentSession, AppError> {
+        Err(AppError::Unavailable(
+            "PM Draft chat repository is not available".into(),
+        ))
+    }
+    async fn tracker_event_cursor(&self, _session_id: Uuid) -> Result<i64, AppError> {
+        Err(AppError::Unavailable(
+            "Tracker inbox is not available".into(),
+        ))
+    }
+    async fn project_tracker_events(
+        &self,
+        _session_id: Uuid,
+        _binding: domain::TaskChatBinding,
+        _after: i64,
+        _page: domain::TrackerOutboxPage,
+    ) -> Result<domain::TrackerProjectionReceipt, AppError> {
+        Err(AppError::Unavailable(
+            "Tracker inbox is not available".into(),
+        ))
+    }
+    async fn tracker_metadata_cursor(&self, _session_id: Uuid) -> Result<i64, AppError> {
+        Err(AppError::Unavailable(
+            "Tracker metadata inbox is not available".into(),
+        ))
+    }
+    async fn tracker_projection_targets(
+        &self,
+        _instance: &str,
+        _project_ids: &[Uuid],
+        _after_session: Option<Uuid>,
+    ) -> Result<Vec<domain::TrackerProjectionTarget>, AppError> {
+        Err(AppError::Unavailable(
+            "Tracker projection targets are unavailable".into(),
+        ))
+    }
+    async fn project_tracker_metadata(
+        &self,
+        _session_id: Uuid,
+        _binding: domain::TaskChatBinding,
+        _after: i64,
+        _page: domain::TrackerMetadataPage,
+    ) -> Result<domain::TrackerProjectionReceipt, AppError> {
+        Err(AppError::Unavailable(
+            "Tracker metadata inbox is not available".into(),
+        ))
+    }
+    async fn session_message_history(
+        &self,
+        _session_id: Uuid,
+        _before: Option<Uuid>,
+        _limit: u64,
+    ) -> Result<domain::MessageHistoryPage, AppError> {
+        Err(AppError::Unavailable(
+            "message history is not available".into(),
+        ))
+    }
     async fn list_runtime_templates(&self) -> Result<Vec<RuntimeTemplate>, AppError>;
     async fn ensure_runtime_templates(&self) -> Result<(), AppError>;
     async fn list_agents(&self) -> Result<Vec<Agent>, AppError>;
@@ -435,6 +639,17 @@ pub trait FleetRepository: Send + Sync {
 
 #[async_trait]
 pub trait AgentProvisioner: Send + Sync {
+    /// Fresh readback only; successful verification does not grant dispatch authority.
+    async fn verify_effective_configuration(
+        &self,
+        _agent: &Agent,
+        _config: &AppConfig,
+        _revision: &domain::AgentConfigRevision,
+    ) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "effective configuration readback is unavailable".into(),
+        ))
+    }
     async fn provision(&self, agent: &Agent, config: &AppConfig) -> Result<(), AppError>;
     async fn storage_report(
         &self,
@@ -450,6 +665,26 @@ pub trait AgentProvisioner: Send + Sync {
 
 #[async_trait]
 pub trait RuntimeSupervisor: Send + Sync {
+    async fn resolve_targeted_approval(
+        &self,
+        _agent: &Agent,
+        _run: &SessionAgentRun,
+        _approval: &RuntimeApprovalRequest,
+        _choice: domain::ApprovalChoice,
+    ) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "targeted approvals are unavailable".into(),
+        ))
+    }
+    async fn probe_pm_run(
+        &self,
+        _agent: &Agent,
+        _record: &domain::PmRunRecord,
+    ) -> Result<domain::PmRuntimeStatus, AppError> {
+        Err(AppError::Unavailable(
+            "PM runtime readback is not available".into(),
+        ))
+    }
     async fn start(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError>;
     async fn stop(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError>;
     async fn restart(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError>;

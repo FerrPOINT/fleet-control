@@ -11,6 +11,7 @@ import { LeaderDetailPage, LeadersPage } from '@/pages/leaders'
 import { SessionsPage } from '@/pages/sessions'
 import { ChatsPage } from '@/pages/chats'
 import { SessionDetailPage } from '@/pages/session-detail'
+import { ChatDetailPage } from '@/pages/chat-detail'
 import { WorkflowsPage } from '@/pages/workflows'
 import { DeploymentsPage } from '@/pages/deployments'
 import { AlertsPage } from '@/pages/alerts'
@@ -239,7 +240,7 @@ export const router = createBrowserRouter([
           { path: '/sessions', element: <SessionsPage /> },
           { path: '/sessions/:sessionId', element: <SessionDetailPage /> },
           { path: '/chats', element: <ChatsPage /> },
-          { path: '/chats/:sessionId', element: <SessionDetailPage legacyControls={false} /> },
+          { path: '/chats/:sessionId', element: <ChatDetailPage /> },
           {
             path: '/workflows',
             element: (

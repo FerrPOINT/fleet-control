@@ -1,6 +1,15 @@
+mod approval_decisions;
+mod chats_directory;
 mod config_revisions;
+mod effective_configuration;
 pub mod entities;
+pub mod pm_credentials;
+mod pm_draft;
+mod pm_execution;
 pub mod runtime;
+mod task_chats;
+pub mod tracker_event_poller;
+mod tracker_events;
 
 use app::{
     AgentProvisioner, AuditLogFilter, FleetRepository, RuntimeApprovalCreate,
@@ -573,6 +582,168 @@ fn fleet_alert_to_domain(row: fleet_alerts::Model) -> domain::FleetAlert {
 
 #[async_trait]
 impl FleetRepository for PostgresFleetRepository {
+    async fn list_session_approvals(
+        &self,
+        session: Uuid,
+    ) -> Result<Vec<RuntimeApprovalRequest>, AppError> {
+        approval_decisions::list(self, session).await
+    }
+    async fn approval_decision(
+        &self,
+        session: Uuid,
+        approval: Uuid,
+    ) -> Result<domain::ApprovalDecision, AppError> {
+        approval_decisions::get(self, session, approval).await
+    }
+    async fn reserve_approval_decision(
+        &self,
+        session: Uuid,
+        approval: Uuid,
+        actor: Uuid,
+        req: domain::ApprovalDecisionRequest,
+    ) -> Result<domain::ReservedApprovalDecision, AppError> {
+        approval_decisions::reserve(self, session, approval, actor, req).await
+    }
+    async fn deliver_approval_decision(
+        &self,
+        id: Uuid,
+    ) -> Result<domain::ApprovalDecision, AppError> {
+        approval_decisions::deliver(self, id).await
+    }
+    async fn fail_undispatched_approval_decision(
+        &self,
+        id: Uuid,
+    ) -> Result<domain::ApprovalDecision, AppError> {
+        approval_decisions::fail_undispatched(self, id).await
+    }
+    async fn list_chats_directory(
+        &self,
+        filter: domain::ChatsDirectoryFilter,
+    ) -> Result<domain::ChatsDirectoryPage, AppError> {
+        self.chats_directory(filter).await
+    }
+    async fn reserve_pm_run(
+        &self,
+        reservation: domain::PmRunReservation,
+    ) -> Result<domain::PmRunRecord, AppError> {
+        pm_execution::reserve(self, reservation).await
+    }
+    async fn get_pm_run(&self, id: Uuid) -> Result<domain::PmRunRecord, AppError> {
+        pm_execution::get(self, id).await
+    }
+    async fn accept_pm_run(
+        &self,
+        id: Uuid,
+        hermes_run_ref: String,
+        hermes_session_ref: String,
+    ) -> Result<domain::PmRunRecord, AppError> {
+        pm_execution::accept(self, id, hermes_run_ref, hermes_session_ref).await
+    }
+    async fn observe_pm_run(
+        &self,
+        id: Uuid,
+        status: domain::PmRuntimeStatus,
+    ) -> Result<(), AppError> {
+        pm_execution::observe(self, id, status).await
+    }
+    async fn has_pending_session_dispatch(&self, id: Uuid) -> Result<bool, AppError> {
+        let row=self.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT EXISTS(SELECT 1 FROM message_dispatch_outbox o JOIN session_messages m ON m.id=o.message_id WHERE m.session_id=$1 AND o.state IN ('pending','dispatching','uncertain')) AS pending",[id.into()]))
+            .await.map_err(AppError::database)?.ok_or_else(|| AppError::internal("missing dispatch observation"))?;
+        row.try_get("", "pending").map_err(AppError::database)
+    }
+    async fn get_task_chat_binding(
+        &self,
+        session_id: Uuid,
+    ) -> Result<Option<domain::TaskChatBinding>, AppError> {
+        self.task_binding(session_id).await
+    }
+    async fn tracker_event_cursor(&self, session_id: Uuid) -> Result<i64, AppError> {
+        self.source_event_cursor(session_id, "legacy_full_v1").await
+    }
+    async fn project_tracker_events(
+        &self,
+        session_id: Uuid,
+        binding: domain::TaskChatBinding,
+        after: i64,
+        page: domain::TrackerOutboxPage,
+    ) -> Result<domain::TrackerProjectionReceipt, AppError> {
+        self.persist_tracker_page(session_id, binding, after, page)
+            .await
+    }
+    async fn tracker_metadata_cursor(&self, session_id: Uuid) -> Result<i64, AppError> {
+        self.source_event_cursor(session_id, "metadata_v1").await
+    }
+    async fn tracker_projection_targets(
+        &self,
+        instance: &str,
+        project_ids: &[Uuid],
+        after_session: Option<Uuid>,
+    ) -> Result<Vec<domain::TrackerProjectionTarget>, AppError> {
+        self.metadata_targets(instance, project_ids, after_session)
+            .await
+    }
+    async fn project_tracker_metadata(
+        &self,
+        session_id: Uuid,
+        binding: domain::TaskChatBinding,
+        after: i64,
+        page: domain::TrackerMetadataPage,
+    ) -> Result<domain::TrackerProjectionReceipt, AppError> {
+        self.persist_tracker_metadata(session_id, binding, after, page)
+            .await
+    }
+    async fn bind_task_chat(
+        &self,
+        session_id: Uuid,
+        binding: domain::TaskChatBinding,
+        key: String,
+    ) -> Result<domain::TaskChatBinding, AppError> {
+        self.persist_task_binding(session_id, binding, key).await
+    }
+    async fn create_pm_draft_chat(
+        &self,
+        command: domain::CreatePmDraftChat,
+        owner_user_id: Uuid,
+    ) -> Result<AgentSession, AppError> {
+        self.persist_pm_draft_chat(command, owner_user_id).await
+    }
+    async fn reserve_pm_draft_operation(
+        &self,
+        operation: domain::PmDraftOperation,
+    ) -> Result<domain::PmDraftOperation, AppError> {
+        self.reserve_pm_creation(operation).await
+    }
+    async fn read_pm_draft_operation(
+        &self,
+        id: Uuid,
+        owner: Uuid,
+    ) -> Result<domain::PmDraftOperation, AppError> {
+        self.read_pm_creation(id, owner).await
+    }
+    async fn read_pm_draft_operation_by_key(
+        &self,
+        owner: Uuid,
+        key: &str,
+    ) -> Result<domain::PmDraftOperation, AppError> {
+        self.read_pm_creation_by_key(owner, key).await
+    }
+    async fn record_pm_draft_proof(
+        &self,
+        id: Uuid,
+        owner: Uuid,
+        proof: domain::PmDraftProof,
+    ) -> Result<domain::PmDraftOperation, AppError> {
+        self.persist_pm_creation_proof(id, owner, proof).await
+    }
+    async fn session_message_history(
+        &self,
+        session_id: Uuid,
+        before: Option<Uuid>,
+        limit: u64,
+    ) -> Result<domain::MessageHistoryPage, AppError> {
+        self.paged_message_history(session_id, before, limit).await
+    }
     async fn list_runtime_templates(&self) -> Result<Vec<RuntimeTemplate>, AppError> {
         runtime_template::Entity::find()
             .order_by_asc(runtime_template::Column::Kind)
@@ -1268,6 +1439,23 @@ impl FleetRepository for PostgresFleetRepository {
     ) -> Result<Vec<AgentSession>, AppError> {
         let mut query =
             agent_session::Entity::find().order_by_desc(agent_session::Column::UpdatedAt);
+        let (instance, projects) = match filter.task_project_access {
+            Some(scope) => (Some(scope.tracker_instance_id), scope.project_ids),
+            None => (None, Vec::new()),
+        };
+        let scope_values: [sea_orm::Value; 2] = [
+            instance.into(),
+            serde_json::to_value(projects)
+                .map_err(AppError::internal)?
+                .into(),
+        ];
+        query = query.filter(sea_orm::sea_query::Expr::cust_with_values(
+            "(NOT EXISTS(SELECT 1 FROM task_chat_bindings b WHERE b.session_id=agent_sessions.id)
+             OR EXISTS(SELECT 1 FROM task_chat_bindings b WHERE b.session_id=agent_sessions.id
+                AND b.tracker_instance_id=$1 AND b.project_id IN
+                    (SELECT value::uuid FROM jsonb_array_elements_text($2::jsonb))))",
+            scope_values,
+        ));
         if let Some(agent_id) = filter.agent_id {
             query = query.filter(agent_session::Column::AgentId.eq(agent_id));
         }
@@ -1996,8 +2184,9 @@ impl FleetRepository for PostgresFleetRepository {
     async fn list_session_messages(&self, id: Uuid) -> Result<Vec<SessionMessage>, AppError> {
         let rows = session_message::Entity::find()
             .filter(session_message::Column::SessionId.eq(id))
-            .order_by_asc(session_message::Column::CreatedAt)
-            .order_by_asc(session_message::Column::Id)
+            .order_by_asc(sea_orm::sea_query::Expr::col(
+                sea_orm::sea_query::Alias::new("append_sequence"),
+            ))
             .limit(500)
             .all(&self.db)
             .await
@@ -2047,12 +2236,15 @@ impl FleetRepository for PostgresFleetRepository {
             "WITH candidate AS (
                 SELECT o.message_id FROM message_dispatch_outbox o
                 JOIN agents a ON a.id = o.agent_id
+                JOIN session_messages m ON m.id = o.message_id
+                JOIN agent_sessions s ON s.id = m.session_id
                 WHERE o.state = 'pending' AND a.status = 'running' AND a.kind = 'hermes'
+                  AND NOT EXISTS (SELECT 1 FROM task_chat_bindings b WHERE b.session_id = s.id)
                   AND NOT EXISTS (SELECT 1 FROM agent_config_heads h WHERE h.agent_id = a.id AND h.draining)
                   AND NOT EXISTS (SELECT 1 FROM message_dispatch_outbox busy WHERE busy.agent_id = a.id AND busy.state IN ('dispatching','uncertain'))
                   AND NOT EXISTS (SELECT 1 FROM session_agent_runs r WHERE r.agent_id = a.id
                       AND r.state IN ('pending','running','waiting','stopping') AND r.runtime_session_id IS NOT NULL)
-                ORDER BY o.created_at, o.message_id FOR UPDATE OF a, o SKIP LOCKED LIMIT 1)
+                ORDER BY o.created_at, o.message_id FOR UPDATE OF a, o, s SKIP LOCKED LIMIT 1)
              UPDATE message_dispatch_outbox o SET state = 'dispatching', updated_at = now()
                 FROM candidate WHERE o.message_id = candidate.message_id RETURNING o.message_id".to_string()))
             .await.map_err(AppError::database)?;
@@ -2065,16 +2257,10 @@ impl FleetRepository for PostgresFleetRepository {
             .await
             .map_err(AppError::database)?
             .ok_or_else(|| AppError::not_found("session_message", id))?;
-        let mut result = self
-            .list_session_messages(message.session_id)
-            .await?
-            .into_iter()
-            .find(|message| message.id == id);
+        let mut result = self.message_by_id(id).await?;
         // Runtime dispatch receives the original prompt; public transcript reads are redacted.
-        if let Some(result) = result.as_mut() {
-            result.body = message.body;
-        }
-        Ok(result)
+        result.body = message.body;
+        Ok(Some(result))
     }
 
     async fn finish_message_dispatch(
@@ -2170,6 +2356,19 @@ impl FleetRepository for PostgresFleetRepository {
             .await
             .map_err(AppError::database)?
             .ok_or_else(|| AppError::not_found("agent_session", id))?;
+        let binding = txn
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT session_id FROM task_chat_bindings WHERE session_id=$1",
+                [id.into()],
+            ))
+            .await
+            .map_err(AppError::database)?;
+        if binding.is_some() {
+            return Err(AppError::conflict(
+                "task-bound messages require a verified workflow assignment",
+            ));
+        }
         let actor = user::Entity::find_by_id(actor_user_id)
             .one(&txn)
             .await
@@ -2193,12 +2392,7 @@ impl FleetRepository for PostgresFleetRepository {
         {
             if existing.idempotency_payload_hash == idempotency_payload_hash {
                 txn.commit().await.map_err(AppError::database)?;
-                let mut message = self
-                    .list_session_messages(id)
-                    .await?
-                    .into_iter()
-                    .find(|message| message.id == existing.id)
-                    .ok_or_else(|| AppError::not_found("session_message", existing.id))?;
+                let mut message = self.message_by_id(existing.id).await?;
                 message.replayed = true;
                 return Ok(message);
             }
@@ -2265,11 +2459,7 @@ impl FleetRepository for PostgresFleetRepository {
             .await
             .map_err(AppError::database)?;
         txn.commit().await.map_err(AppError::database)?;
-        self.list_session_messages(id)
-            .await?
-            .into_iter()
-            .find(|message| message.id == message_id)
-            .ok_or_else(|| AppError::not_found("session_message", message_id))
+        self.message_by_id(message_id).await
     }
 
     async fn list_session_agent_runs(&self, id: Uuid) -> Result<Vec<SessionAgentRun>, AppError> {
@@ -2385,20 +2575,50 @@ impl FleetRepository for PostgresFleetRepository {
         state: SessionRunState,
         last_error: Option<String>,
     ) -> Result<SessionAgentRun, AppError> {
+        let txn = self.db.begin().await.map_err(AppError::database)?;
+        // Match readback's lock order; late SSE/error updates cannot regress verified PM proof.
+        let pm = pm_execution::locked(&txn, id).await?;
         let mut model = session_agent_run::Entity::find_by_id(id)
-            .one(&self.db)
+            .lock_exclusive()
+            .one(&txn)
             .await
             .map_err(AppError::database)?
             .ok_or_else(|| AppError::not_found("session_agent_run", id))?
             .into_active_model();
+        if let Some(pm) = &pm
+            && runtime_run_id
+                .as_ref()
+                .is_some_and(|id| pm.hermes_run_ref.as_ref() != Some(id))
+        {
+            return Err(AppError::conflict(
+                "PM runtime mapping must use its immutable acceptance receipt",
+            ));
+        }
+        if pm
+            .as_ref()
+            .is_some_and(|record| record.terminal_status.is_none())
+            && matches!(
+                state,
+                SessionRunState::Completed | SessionRunState::Failed | SessionRunState::Cancelled
+            )
+        {
+            return Err(AppError::conflict(
+                "PM capacity requires verified terminal proof",
+            ));
+        }
         if runtime_run_id.is_some() {
             model.runtime_run_id = Set(runtime_run_id);
         }
-        model.state = Set(state.as_str().to_string());
-        model.last_error = Set(last_error.map(|error| redact_text(&error)));
+        if let Some(terminal) = pm.and_then(|record| record.terminal_status) {
+            model.state = Set(pm_execution::visible_terminal(terminal).into());
+        } else {
+            model.state = Set(state.as_str().to_string());
+            model.last_error = Set(last_error.map(|error| redact_text(&error)));
+        }
         model.last_event_at = Set(Some(now()));
         model.updated_at = Set(now());
-        let updated = model.update(&self.db).await.map_err(AppError::database)?;
+        let updated = model.update(&txn).await.map_err(AppError::database)?;
+        txn.commit().await.map_err(AppError::database)?;
         session_run_from_model(&self.db, updated).await
     }
 
@@ -2443,12 +2663,7 @@ impl FleetRepository for PostgresFleetRepository {
             };
             if let Some(row) = existing.one(&txn).await.map_err(AppError::database)? {
                 txn.commit().await.map_err(AppError::database)?;
-                return self
-                    .list_session_messages(session_id)
-                    .await?
-                    .into_iter()
-                    .find(|message| message.id == row.id)
-                    .ok_or_else(|| AppError::not_found("session_message", row.id));
+                return self.message_by_id(row.id).await;
             }
         }
         session_message::Entity::insert(session_message::ActiveModel {
@@ -2480,11 +2695,7 @@ impl FleetRepository for PostgresFleetRepository {
         session.updated_at = Set(ts);
         session.update(&txn).await.map_err(AppError::database)?;
         txn.commit().await.map_err(AppError::database)?;
-        self.list_session_messages(session_id)
-            .await?
-            .into_iter()
-            .find(|message| message.id == id)
-            .ok_or_else(|| AppError::not_found("session_message", id))
+        self.message_by_id(id).await
     }
 
     async fn update_session_message_delivery(
@@ -2513,39 +2724,30 @@ impl FleetRepository for PostgresFleetRepository {
         &self,
         req: RuntimeApprovalCreate,
     ) -> Result<RuntimeApprovalRequest, AppError> {
-        if let Some(runtime_approval_id) = req.runtime_approval_id.as_ref()
-            && let Some(existing) = runtime_approval_request::Entity::find()
-                .filter(runtime_approval_request::Column::SessionRunId.eq(req.session_run_id))
-                .filter(runtime_approval_request::Column::RuntimeApprovalId.eq(runtime_approval_id))
-                .one(&self.db)
-                .await
-                .map_err(AppError::database)?
-        {
-            return Ok(runtime_approval_from_model(existing));
-        }
         let id = Uuid::new_v4();
-        runtime_approval_request::Entity::insert(runtime_approval_request::ActiveModel {
-            id: Set(id),
-            session_id: Set(req.session_id),
-            session_run_id: Set(req.session_run_id),
-            agent_id: Set(req.agent_id),
-            runtime_run_id: Set(req.runtime_run_id),
-            runtime_approval_id: Set(req.runtime_approval_id),
-            prompt: Set(req.prompt),
-            detail: Set(redact_json(req.detail)),
-            state: Set(RuntimeApprovalState::Pending.as_str().to_string()),
-            resolved_by_user_id: Set(None),
-            resolved_at: Set(None),
-            created_at: Set(now()),
-        })
-        .exec(&self.db)
-        .await
-        .map_err(AppError::database)?;
-        let row = runtime_approval_request::Entity::find_by_id(id)
+        self.db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "INSERT INTO runtime_approval_requests(id,session_id,session_run_id,agent_id,runtime_run_id,runtime_approval_id,prompt,detail,state,created_at)
+             VALUES($1,$2,$3,$4,$5,$6,$7,$8,'pending',now())
+             ON CONFLICT(session_run_id,runtime_approval_id) WHERE runtime_approval_id IS NOT NULL DO NOTHING",
+            [id.into(),req.session_id.into(),req.session_run_id.into(),req.agent_id.into(),req.runtime_run_id.clone().into(),req.runtime_approval_id.clone().into(),redact_text(&req.prompt).into(),redact_json(req.detail).into()]))
+            .await.map_err(AppError::database)?;
+        let query = match req.runtime_approval_id {
+            Some(request_id) => runtime_approval_request::Entity::find()
+                .filter(runtime_approval_request::Column::SessionRunId.eq(req.session_run_id))
+                .filter(runtime_approval_request::Column::RuntimeApprovalId.eq(request_id)),
+            None => runtime_approval_request::Entity::find_by_id(id),
+        };
+        let row = query
             .one(&self.db)
             .await
             .map_err(AppError::database)?
             .ok_or_else(|| AppError::not_found("runtime_approval_request", id))?;
+        if row.session_id != req.session_id
+            || row.agent_id != req.agent_id
+            || row.runtime_run_id != req.runtime_run_id
+        {
+            return Err(AppError::conflict("runtime approval identity changed"));
+        }
         Ok(runtime_approval_from_model(row))
     }
 
@@ -3196,20 +3398,19 @@ impl FleetRepository for PostgresFleetRepository {
             }
             redact_json(req.detail.unwrap_or_else(|| json!({})))
         };
-        if let Some(key) = req.idempotency_key {
-            if let Some(existing) = deployment_job::Entity::find()
+        if let Some(key) = req.idempotency_key
+            && let Some(existing) = deployment_job::Entity::find()
                 .filter(deployment_job::Column::IdempotencyKey.eq(key))
                 .one(&self.db)
                 .await
                 .map_err(AppError::database)?
-            {
-                if existing.job_kind != req.job_kind.as_str() || existing.detail != detail {
-                    return Err(AppError::conflict(
-                        "idempotency key belongs to another request",
-                    ));
-                }
-                return Ok(deployment_job_from_model(existing));
+        {
+            if existing.job_kind != req.job_kind.as_str() || existing.detail != detail {
+                return Err(AppError::conflict(
+                    "idempotency key belongs to another request",
+                ));
             }
+            return Ok(deployment_job_from_model(existing));
         }
         if let Some(agent_id) = req.agent_id {
             load_agent_row(&self.db, agent_id).await?;
@@ -3233,20 +3434,19 @@ impl FleetRepository for PostgresFleetRepository {
         .exec(&self.db)
         .await;
         if let Err(error) = inserted {
-            if let Some(key) = req.idempotency_key {
-                if let Some(existing) = deployment_job::Entity::find()
+            if let Some(key) = req.idempotency_key
+                && let Some(existing) = deployment_job::Entity::find()
                     .filter(deployment_job::Column::IdempotencyKey.eq(key))
                     .one(&self.db)
                     .await
                     .map_err(AppError::database)?
-                {
-                    if existing.job_kind == req.job_kind.as_str() && existing.detail == detail {
-                        return Ok(deployment_job_from_model(existing));
-                    }
-                    return Err(AppError::conflict(
-                        "idempotency key belongs to another request",
-                    ));
+            {
+                if existing.job_kind == req.job_kind.as_str() && existing.detail == detail {
+                    return Ok(deployment_job_from_model(existing));
                 }
+                return Err(AppError::conflict(
+                    "idempotency key belongs to another request",
+                ));
             }
             return Err(AppError::database(error));
         }
@@ -3806,6 +4006,14 @@ pub struct FilesystemProvisioner;
 
 #[async_trait]
 impl AgentProvisioner for FilesystemProvisioner {
+    async fn verify_effective_configuration(
+        &self,
+        agent: &Agent,
+        config: &AppConfig,
+        revision: &domain::AgentConfigRevision,
+    ) -> Result<(), AppError> {
+        effective_configuration::verify(agent, config, revision).await
+    }
     async fn provision(&self, agent: &Agent, config: &AppConfig) -> Result<(), AppError> {
         if !matches!(
             agent.status,
@@ -4397,9 +4605,6 @@ pub(crate) async fn configuration_files(
         }
         let dir = expected.join("skills").join(&skill.name);
         reject_symlink_components(root, &dir).await?;
-        tokio::fs::create_dir_all(&dir)
-            .await
-            .map_err(AppError::internal)?;
         let path = dir.join("SKILL.md");
         let body = if skill.state == SkillState::Enabled {
             skill
@@ -4685,6 +4890,267 @@ mod tests {
         )
         .await
         .expect("agent marker");
+    }
+
+    async fn effective_config_fixture() -> (PathBuf, Agent, AppConfig, domain::AgentConfigRevision)
+    {
+        let root = temp_purge_root();
+        let config = test_config(&root);
+        let agent = test_agent(&root, Uuid::new_v4(), AgentStatus::Running);
+        write_marker(&root.join("agent1"), agent.id, &agent.name).await;
+        tokio::fs::create_dir_all(&agent.paths.workspace)
+            .await
+            .unwrap();
+        let skill = |name: &str, state: SkillState| domain::AgentSkill {
+            id: Uuid::new_v4(),
+            agent_id: agent.id,
+            name: name.into(),
+            title: name.into(),
+            state,
+            source: "test".into(),
+            content: Some("# Test skill\n".into()),
+            updated_at: now().to_rfc3339(),
+        };
+        let revision = domain::AgentConfigRevision {
+            agent_id: agent.id,
+            revision: 1,
+            state: "active".into(),
+            snapshot: domain::AgentConfigurationSnapshot {
+                config: UpdateAgentConfigRequest {
+                    config_json: json!({"model":"test-model"}),
+                    soul_md: "# Test SOUL\n".into(),
+                    env_json: json!({"TEST_SECRET":"test-secret-never-return"}),
+                },
+                skills: vec![
+                    skill("enabled", SkillState::Enabled),
+                    skill("disabled", SkillState::Disabled),
+                ],
+            },
+            validation_errors: vec![],
+            last_error: None,
+            is_desired: true,
+            is_effective: true,
+            draining: false,
+            created_at: now().to_rfc3339(),
+        };
+        install_effective_fixture(&agent, &config, &revision).await;
+        (root, agent, config, revision)
+    }
+
+    async fn install_effective_fixture(
+        agent: &Agent,
+        config: &AppConfig,
+        revision: &domain::AgentConfigRevision,
+    ) {
+        for (path, body) in configuration_files(agent, config, revision).await.unwrap() {
+            if body.is_empty() && path.file_name().is_some_and(|name| name == "SKILL.md") {
+                continue;
+            }
+            tokio::fs::create_dir_all(path.parent().unwrap())
+                .await
+                .unwrap();
+            tokio::fs::write(path, body).await.unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn effective_configuration_readback_is_fresh_read_only_and_redacted() {
+        let (root, agent, config, revision) = effective_config_fixture().await;
+        let provisioner = FilesystemProvisioner;
+        provisioner
+            .verify_effective_configuration(&agent, &config, &revision)
+            .await
+            .unwrap();
+        assert!(
+            !Path::new(&agent.paths.config)
+                .join("skills/disabled")
+                .exists()
+        );
+        for relative in [
+            "config.yaml",
+            "SOUL.md",
+            ".env",
+            "skills/enabled/SKILL.md",
+            ".fleet-config-revision.json",
+        ] {
+            let path = Path::new(&agent.paths.config).join(relative);
+            let original = tokio::fs::read(&path).await.unwrap();
+            // Same-size mutation catches implementations that trust only metadata/marker hashes.
+            let mut changed = original.clone();
+            changed[0] ^= 1;
+            tokio::fs::write(&path, &changed).await.unwrap();
+            let error = provisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .unwrap_err();
+            assert_eq!(
+                error.to_string(),
+                AppError::conflict("effective configuration readback failed").to_string()
+            );
+            assert!(!error.to_string().contains("test-secret-never-return"));
+            assert_eq!(tokio::fs::read(&path).await.unwrap(), changed);
+            tokio::fs::write(&path, original).await.unwrap();
+            provisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .unwrap();
+        }
+        let path = Path::new(&agent.paths.config).join("SOUL.md");
+        tokio::fs::remove_file(&path).await.unwrap();
+        assert!(
+            provisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .is_err()
+        );
+        assert!(!path.exists());
+        install_effective_fixture(&agent, &config, &revision).await;
+        let disabled = Path::new(&agent.paths.config).join("skills/disabled");
+        tokio::fs::create_dir_all(&disabled).await.unwrap();
+        tokio::fs::write(disabled.join("SKILL.md"), "")
+            .await
+            .unwrap();
+        assert!(
+            provisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .is_err()
+        );
+        tokio::fs::remove_file(disabled.join("SKILL.md"))
+            .await
+            .unwrap();
+        provisioner
+            .verify_effective_configuration(&agent, &config, &revision)
+            .await
+            .unwrap();
+        // Hermes-owned inventory is separate from Fleet-managed flat skill paths.
+        let bundled = Path::new(&agent.paths.config).join("skills/category/bundled");
+        tokio::fs::create_dir_all(&bundled).await.unwrap();
+        tokio::fs::write(bundled.join("SKILL.md"), "bundled fixture preserved")
+            .await
+            .unwrap();
+        let manifest = Path::new(&agent.paths.config).join("skills/.bundled_manifest");
+        tokio::fs::write(&manifest, "category/bundled:test-digest\n")
+            .await
+            .unwrap();
+        provisioner
+            .verify_effective_configuration(&agent, &config, &revision)
+            .await
+            .unwrap();
+        assert_eq!(
+            tokio::fs::read_to_string(bundled.join("SKILL.md"))
+                .await
+                .unwrap(),
+            "bundled fixture preserved"
+        );
+        assert_eq!(
+            tokio::fs::read_to_string(manifest).await.unwrap(),
+            "category/bundled:test-digest\n"
+        );
+        tokio::fs::remove_dir_all(root).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn effective_configuration_requires_correct_snapshot_marker_and_workspace() {
+        let (root, mut agent, config, revision) = effective_config_fixture().await;
+        for mode in 0..7 {
+            let mut changed = revision.clone();
+            match mode {
+                0 => changed.agent_id = Uuid::new_v4(),
+                1 => changed.revision += 1,
+                2 => changed.state = "validated".into(),
+                3 => changed.is_effective = false,
+                4 => changed.draining = true,
+                5 => changed.validation_errors.push("unvalidated".into()),
+                _ => changed.snapshot.config.soul_md = "different snapshot".into(),
+            }
+            assert!(
+                FilesystemProvisioner
+                    .verify_effective_configuration(&agent, &config, &changed)
+                    .await
+                    .is_err()
+            );
+        }
+        write_marker(&root.join("agent1"), Uuid::new_v4(), &agent.name).await;
+        assert!(
+            FilesystemProvisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .is_err()
+        );
+        write_marker(&root.join("agent1"), agent.id, &agent.name).await;
+        let marker = root.join("agent1/.fleet-agent.json");
+        tokio::fs::write(&marker, "x".repeat(16_385)).await.unwrap();
+        assert!(
+            FilesystemProvisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .is_err()
+        );
+        tokio::fs::remove_file(&marker).await.unwrap();
+        tokio::fs::create_dir(&marker).await.unwrap();
+        assert!(
+            FilesystemProvisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .is_err()
+        );
+        tokio::fs::remove_dir(&marker).await.unwrap();
+        write_marker(&root.join("agent1"), agent.id, &agent.name).await;
+        agent.paths.workspace = root.join("agent2/workspace").to_string_lossy().into_owned();
+        assert!(
+            FilesystemProvisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .is_err()
+        );
+        agent.paths.workspace = root.join("agent1/workspace").to_string_lossy().into_owned();
+        tokio::fs::remove_dir(&agent.paths.workspace).await.unwrap();
+        assert!(
+            FilesystemProvisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .is_err()
+        );
+        assert!(!Path::new(&agent.paths.workspace).exists());
+        tokio::fs::remove_dir_all(root).await.unwrap();
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn effective_configuration_rejects_symlinked_files_and_directories() {
+        let (root, agent, config, revision) = effective_config_fixture().await;
+        let outside = root.join("outside");
+        tokio::fs::create_dir_all(&outside).await.unwrap();
+        let soul = Path::new(&agent.paths.config).join("SOUL.md");
+        let target = outside.join("SOUL.md");
+        tokio::fs::write(&target, &revision.snapshot.config.soul_md)
+            .await
+            .unwrap();
+        tokio::fs::remove_file(&soul).await.unwrap();
+        std::os::unix::fs::symlink(&target, &soul).unwrap();
+        assert!(
+            FilesystemProvisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .is_err()
+        );
+        tokio::fs::remove_file(soul).await.unwrap();
+        install_effective_fixture(&agent, &config, &revision).await;
+        let workspace = Path::new(&agent.paths.workspace);
+        tokio::fs::remove_dir(workspace).await.unwrap();
+        std::os::unix::fs::symlink(&outside, workspace).unwrap();
+        assert!(
+            FilesystemProvisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            tokio::fs::read_to_string(target).await.unwrap(),
+            revision.snapshot.config.soul_md
+        );
+        tokio::fs::remove_dir_all(root).await.unwrap();
     }
 
     #[test]

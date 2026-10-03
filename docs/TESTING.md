@@ -1,6 +1,69 @@
 # Testing
 
+Delegated PM credential tests cover canonical bound-task operation allowlisting,
+foreign/legacy paths, URL normalization and wrong method rejection, unsafe revision
+numbers, owner/verifier actions, expiry, existing Authorization, scope mismatch and
+no redirect/retry. The Base request retains its original five-field wire shape;
+the private task restriction is not serialized. Client tests do not prove that
+Tracker rejects direct bearer use; that requires separate receiving-service tests.
+
+PM creation recovery tests cover persisted owner/key lookup after repository
+restart, owner versus operator/machine/local identity, fresh project revocation,
+unknown/invalid keys, strict continuation body (including array rejection before
+HTTP), and unchanged chat/run state. Directory tests cover strict wire identity,
+canonical nonnil UUIDs, sorted bounded pages, required null, foreign metadata,
+keyset cursor and rollout-filtered empty pages. Client tests distinguish 404
+from dependency/permission/conflict errors. The separate creation preview uses
+fictional data and an isolated screenshot manifest; it is not live acceptance.
+
+## PM Chat Slice
+
+Run `FLEET_TEST_DATABASE_URL` against an isolated PostgreSQL instance for the 37
+`infra/tests/sdlc_foundation.rs` tests. Without that variable the tests skip and must not
+be counted as database acceptance. Binding tests cover concurrent replay, ownership,
+duplicate task/agent pair, immutable payload, once-only audit/event, scoped pagination,
+binding/prompt races and message creation/replay/dispatch/final mirroring after 500 messages.
+Atomic PM Draft chat cases cover concurrent actor/key replay, repository recreation,
+payload collision, duplicate binding rollback, exact participants/audit/event,
+no prompt/run/outbox, foreign or disabled owner and non-PM agent rejection.
+`FLEET_MIGRATION_TEST_DATABASE_URL` separately enables the central-subject migration test.
+
+`FLEET_MESSAGE_ORDER_TEST_DATABASE_URL` must name a separate empty disposable
+database. Run `cargo test -p migration --test message_order -- --ignored --test-threads=1`
+to check historical backfill, backwards clock timestamps, immutable identity order
+and pending migration down/reapply without losing messages. CI creates its own
+database for this gate. Downgrade/reapply is a QA exercise, not an order-preserving
+production rollback. Foundation pagination tests also check foreign cursors and
+legacy listing order. Frontend tests cover overlapping pages and SSE reconnect
+during previous-page loading, including catch-up of messages arriving mid-fetch;
+browser fixtures are not real PM acceptance.
+
+Frontend commands: `pnpm test -- --maxWorkers=2` and focused Playwright
+`pnpm exec playwright test e2e/fleet-control.spec.ts --grep "PM chat clarification" --workers=1`.
+The latter uses fixture APIs with production controllers and all three browsers; it is
+not live PM evidence. Publish the verified fixture images with
+`node scripts/publish-chat-controller-evidence.mjs`. Use the configured canonical browser
+origin consistently through SSO. Live tests require compatible Tracker, Workflow,
+scoped PM runtime and trusted readiness verifier; see the plan/gap register.
+
+`pnpm chat:contract` checks generated Fleet wire schemas against the pinned Tracker contract
+and runs the checker tests. `pnpm chat:evidence:verify` verifies the nine controller images,
+route/view/viewport identity and content hashes. These gates also run in frontend CI.
+
 ## SDLC Foundation Checks
+
+`cargo test -p infra --lib effective_configuration` checks actual temporary files:
+fresh success followed by same-size drift in every managed file, missing files,
+re-enabled disabled skills, wrong snapshot/revision/marker, missing or foreign
+workspace and Unix symlink denial. It also verifies that readback does not repair
+files or expose resolved secrets. These are controlled filesystem checks, not
+runtime-loaded configuration or PM admission evidence. The PostgreSQL HTTP case
+`readiness_http_does_not_trust_database_only_effective_revision` checks the real
+readiness handler with a DB-active revision but no installed files, plus operator
+access and regular-user denial. Without the database variable it skips.
+The filesystem regression also includes Hermes-owned category directories and
+`.bundled_manifest`. These are preserved, not trusted as a provenance source;
+the unverified runtime inventory blocker is separate from managed-file drift.
 
 New regression coverage: PostgreSQL concurrent session/message idempotency and
 private authorization; configuration drain/rollback state; unknown dispatch

@@ -6,6 +6,7 @@ import { ExecutorsPage } from './index'
 import * as fleet from '@/api/fleet'
 import * as auth from '@/api/auth'
 import type { Agent, AgentSession } from '@/api/types'
+import { useAuthStore } from '@/shared/auth/store'
 
 vi.mock('@/api/fleet', () => ({
   listExecutors: vi.fn(),
@@ -59,6 +60,11 @@ function renderPage() {
 describe('ExecutorsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    useAuthStore.setState({
+      userId: 'user-1',
+      systemRole: 'user',
+      permissions: ['sessions:write_own'],
+    })
     vi.mocked(fleet.listExecutors).mockResolvedValue(executors)
     vi.mocked(fleet.listSessions).mockResolvedValue(sessions)
     vi.mocked(auth.listUsers).mockResolvedValue([])
@@ -73,6 +79,7 @@ describe('ExecutorsPage', () => {
     fireEvent.click(screen.getByText('1 сессия'))
     expect(screen.getByText('Release check')).toBeVisible()
     expect(fleet.listExecutors).toHaveBeenCalledTimes(1)
+    expect(auth.listUsers).not.toHaveBeenCalled()
 
     fireEvent.change(screen.getByLabelText('Найти исполнителя'), {
       target: { value: 'beta' },
@@ -110,6 +117,7 @@ describe('ExecutorsPage', () => {
   })
 
   it('reports a user directory failure and recovers without clearing the executor list', async () => {
+    useAuthStore.setState({ systemRole: 'operator', permissions: ['sessions:read_all'] })
     vi.mocked(auth.listUsers).mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce([])
     renderPage()
     await screen.findByText('Alpha Executor')

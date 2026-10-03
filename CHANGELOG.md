@@ -2,6 +2,73 @@
 
 ## [Unreleased]
 
+- Keep chat directory owner filtering on the existing user/session index by
+  converting its JSON owner list to a UUID array before membership checks.
+  Preserve all-users counts, project ACLs, search and pagination contracts.
+
+- Bind server-only delegated PM credentials to enumerated operations for their
+  canonical assigned task. Reject legacy/foreign task paths and owner/verifier
+  actions before attaching the bearer. Keep the Base delegation wire unchanged;
+  receiving-service enforcement and real runtime handoff are separate gates.
+
+- Add owner/key recovery for an unknown PM Draft creation response and strict
+  empty-object continuation using persisted original input. Add bounded strict
+  Tracker project directory choices with preserved rollout-filtered cursors.
+  Include an isolated creation/recovery design proposal and generated screenshots;
+  production form approval/integration and PM runtime admission remain pending.
+
+- Add disabled-by-default owner-driven PM Draft creation with a persisted
+  operation ledger, authoritative Tracker readback/input/reservation checks and
+  atomic task-bound chat. Recover lost responses with the same command keys;
+  reject stale/changed receipts. Creation stops at awaiting_admission and never
+  dispatches a PM runtime prompt. Generate the two public routes from Rust.
+
+- Add an internal atomic PM Draft chat/binding operation with durable replay,
+  exact human owner and real Hermes PM checks. It creates no prompt or runtime
+  run; runtime admission and initial delivery remain separate work.
+
+- Preserve new transcript allocation order across host clock rollback without
+  changing public message DTOs or UUID cursors. Merge overlapping history pages
+  in server order and keep older-page loading alive during SSE reconnect, with
+  a catch-up read for messages arriving while the page was pending.
+  Historical backfill retains the previous timestamp/UUID ordering.
+
+- Connect an opt-in authenticated Tracker metadata poller with fresh Base subject
+  and exact read-only scope checks, project-scoped keyset scans, bounded HTTP and
+  durable cursor replay. No PM dispatch or task transition is performed.
+
+- Add strict `metadata_v1` Tracker event decoding and immutable per-binding
+  projection/version pins, including empty pages. Validate source digests and
+  lossless decimal cursors; reject implicit legacy conversion. Polling remains
+  separate from this transactional storage contract.
+
+- Reconcile verified PM terminal proof and visible runtime state atomically;
+  serialize late stream updates so they cannot reopen the old run or overwrite
+  its accepted mapping. Unknown acceptance continues to hold agent capacity.
+
+- Add a server-only Base credential delegation client with exact Tracker PM
+  assignment/execution/agent/version scopes, bounded no-retry/no-redirect HTTP,
+  redacted secrets and fixed-origin child authorization. Coordinator and runtime
+  handoff remain blocked pending live integration.
+
+- Add transactional Tracker event inbox foundation with immutable replay receipts,
+  per-binding cursors and safe transcript/stream projections; PM answer delivery
+  remains separate integration work.
+
+- Recheck Tracker project access for task-bound transcript, lists/counts, runs,
+  controls and every session-stream event; retained Fleet ownership cannot bypass revocation.
+- Revalidate PM assignment after approval reservation waits; definitely undispatched
+  failures are terminal and mirror foreign keys no longer deadlock PM capacity locks.
+- Reject malformed approval lists as recoverable UI errors and synchronize the
+  complete three-browser chat/catalog/approval fixtures.
+- Add server-authorized chat directory search, aggregate counts and scoped cursors;
+  keep own-user default and preserve return context without loading all transcripts.
+- Add immutable PM run reservations and authenticated fresh Hermes readback for
+  Workflow; unknown acceptance holds capacity and terminal proof cannot regress.
+- Integrate exact-request human tool approvals with immutable command replay,
+  stale-assignment protection and no automatic redispatch after an unknown outcome.
+  PM structured dispatch/resume and live clarification acceptance remain incomplete.
+
 - Повторный явный вход разрешён после отменённого перехода Central Auth;
   автоматический guard не отменяет logout. Отмена перехода не показывает
   ложную ошибку доступности Auth, а ошибка сервера остаётся видимой.

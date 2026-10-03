@@ -1,5 +1,28 @@
 # API
 
+## Exact Runtime Approval Decisions
+
+- `GET /api/v1/sessions/{session_id}/approvals` lists redacted requests visible to the owner or an operator/admin.
+- `GET /api/v1/sessions/{session_id}/approvals/{approval_id}/decision` reads the durable decision; `404` means no command has been reserved.
+- `POST /api/v1/sessions/{session_id}/approvals/{approval_id}/decision` accepts only `choice: once | deny` and a required `idempotency_key`. A verified human session is required; machine PATs cannot self-approve. Operator/admin approval is a runtime permission, never requirements confirmation.
+- Reservation and audit commit before HTTP. An identical replay returns the same decision without another runtime call; a changed actor, key or choice returns `409`. Hermes must acknowledge the exact run/request/choice and exactly one resolution before `delivered` is stored.
+- `uncertain` is not success or rejection. It survives process restart and blocks a new command for that request. Do not retry dispatch when the runtime outcome is unknown. Readback is safe; operator reconciliation still needs independent evidence.
+- The legacy run-wide `/runs/{run_id}/approval` route returns `409`: broad `always`, session grants and `resolve_all` are not available in Fleet. Existing transcript routes remain supported.
+
+These runtime requests are separate from Tracker clarification answers and exact-revision requirements confirmation.
+
+The change from legacy run-wide `200` to unconditional `409` is an intentional
+security-breaking migration, not backwards-compatible approval behavior. Clients
+must list the exact requests and submit an idempotent decision for one request;
+they must not fall back to the legacy route. The product compatibility wrapper
+exempts only that former `200` response, checks the exact replacement refusal and
+rejects any restored success response. Base still checks the route, request,
+other responses, component schemas and every other API operation. Regression
+tests prove neighboring removals and changes still fail. This exception disappears
+once the baseline includes the retired route; the security guard still rejects
+restored numeric/wildcard success responses and a missing or changed refusal.
+It is not a general drift bypass.
+
 ## October SDLC Foundation
 
 `sdlc_role` is independent from `kind` and `product_role`. Configuration `PUT`
@@ -13,6 +36,66 @@ Delta events contain a redacted `text` snapshot, not a fragment that could expos
 a credential split across frames. See [current scope](SDLC_IMPLEMENTATION.md).
 
 Base path: `/api/v1`.
+
+## PM Chat Gateway
+
+- `POST /projects/{project_id}/pm-drafts`: opt-in verified human owner creation;
+  accepts `agent_id`, `title`, `description`, `idempotency_key`. The operation is
+  persisted before Tracker HTTP, recovers Draft/reservation through authoritative
+  readback, and atomically creates a private task-bound PM chat. `202` means
+  `awaiting_admission`, with `dispatch_allowed=false`, not an active PM run.
+  Reuse the exact request/key after an interrupted response; changed payload is
+  `409`. Human credentials are request-local and never saved for unattended retries.
+  Each POST, including replay, first verifies the concrete agent's namespace via
+  fresh Workflow ownership readback with a separate server-only machine PAT.
+  Foreign project mapping is `409`; unavailable/denied/invalid ownership is `503`.
+  This is not full admission and does not enable dispatch. See [ENV](ENV.md).
+- `GET /pm-drafts/operations/{operation_id}`: owner-only, fresh human/project
+  access; returns historical creation state, IDs and no original input or machine
+  credentials. It is not current workflow or admission authority and never
+  starts a run. Reading completed history remains possible with creation disabled.
+- `GET /projects/{project_id}/pm-drafts/operation?idempotency_key=...`: recover
+  the operation after an unknown creation response, when its UUID never reached
+  the browser. The exact owner/key lookup uses fresh project authorization;
+  another owner, project or Tracker instance cannot expose its metadata. Missing
+  operation is `404`, invalid key is `422`, invalid query shape is `400`.
+- `POST /pm-drafts/operations/{operation_id}/continue`: strict empty JSON object
+  `{}` (arrays, null, fields and nonobjects are `422`); continue the persisted
+  original operation without accepting replacement input, agent or command key.
+  Rechecks human identity, owner, current project access, rollout and namespace.
+  Returns `202` with existing incomplete/awaiting-admission state, never a run.
+- `GET /pm-drafts/projects?after={canonicalUuid}`: verified human project choices
+  from Tracker's strict `/api/v1/sdlc/project-directory`, with no legacy directory
+  fallback. Returns `enabled`, `tracker_instance_id`, `projects` (ID/key/name)
+  and required nullable `next_cursor`. Tracker page size is 50; Fleet filters
+  the page by rollout allowlist but preserves the original cursor, including an
+  empty filtered page. There is no total, readiness claim or default project.
+  Disabled creation returns `enabled=false` and an empty directory without an
+  upstream read. Creation and recovery still perform their own access checks.
+
+- `POST /sessions/{id}/task-binding`: explicit owner binding to assigned concrete PM.
+- `GET /sessions/{id}/task-context`: verified binding and Tracker context; unbound chat
+  returns null context, dependency failure is not an empty successful SDLC response.
+- `GET /sessions/{id}/chat-controls`: authoritative ownership/capability/dispatch gates.
+- `GET /sessions/{id}/history?before={messageUuid}&limit=50`: latest-first pages, each
+  page returned in server allocation order, independent of host timestamps; maximum
+  100, UUID cursor scoped to session. Internal ordering is not an SSE replay cursor.
+- `GET /sessions/{id}/clarifications`, `POST .../{questionId}/answers`.
+- `GET /sessions/{id}/requirements`, `POST .../{revision}/confirm`.
+
+Answer and confirmation forward the verified original bearer to configured Tracker,
+which revalidates human session, project membership and exact owner. Local legacy tokens
+cannot authorize these commands. Operator read-all is not proxy consent. Payload conflict
+and upstream status are retained; unknown network outcome requires same-key readback/replay.
+Questions/revisions remain Tracker-owned JSON envelopes documented by the cross-service
+contract, not a second Fleet database. OpenAPI generates the Fleet routes and response DTOs;
+the gateway rejects malformed successful responses and versions unsafe for JavaScript.
+`pnpm chat:contract` verifies seven wire shapes against the accepted Tracker v1 snapshot.
+The separate PM Draft boundary checks exact captured Tracker reservation/readback
+bytes, required nulls, canonical UUIDs and the canonical command envelope hash.
+Use `node scripts/verify-chat-contract.mjs --tracker <tracker-openapi.json>` to check the
+actual sibling build before rollout. Wire checks cover field names, required fields,
+types/nullability, UUID/date formats and enums; semantic gates have separate backend tests.
 
 Auth:
 
@@ -102,8 +185,8 @@ agent authorship и различия central/legacy permissions; наличие 
 - `GET /sessions/{session_id}/runs`
 - `POST /sessions/{session_id}/runs/{run_id}/steer`
 - `POST /sessions/{session_id}/runs/{run_id}/stop`
-- `POST /sessions/{session_id}/runs/{run_id}/approval` forwards the decision to
-  Hermes and resolves pending Fleet approval mirror records for that run.
+- `POST /sessions/{session_id}/runs/{run_id}/approval` is retired and returns
+  `409` without dispatch; use the exact-request decision endpoints above.
 - `GET /workflow-bindings`
 - `GET /workflow-catalog` reads the live Project Workflow catalog via its
   read-only `/internal/runtime/catalog` bridge. Configure
@@ -190,6 +273,34 @@ rollback записываются в `audit_log` в одной PostgreSQL-тра
 The frontend build regenerates TypeScript types from `openapi/openapi.json`.
 The OpenAPI JSON is regenerated from Rust source before release. Native Windows
 regeneration requires MSVC `link.exe`; WSL/Linux generation is supported.
+
+## PM Runtime Readback
+
+`GET /api/v1/agents/{agent_id}/readiness` remains operator/admin-only.
+An active/effective database revision does not imply that its runtime files
+are intact. Fresh read-only filesystem verification adds
+`effective_configuration_readback_failed` when the snapshot, marker, isolated
+workspace or skills cannot be verified. Underlying paths, resolved credentials
+and file hashes are not exposed. `effective_revision` still reports the database
+head, not a successful runtime observation. Workflow admission remains a separate
+blocker; this endpoint cannot authorize PM dispatch.
+Hermes-owned skill categories and `.bundled_manifest` are not Fleet snapshot
+files. They are preserved, not certified by managed-file readback. The separate
+`runtime_skill_inventory_not_verified` blocker prevents treating intact managed
+files as proof of complete skill inventory/native provenance.
+
+`GET /internal/runtime/v1/pm/runs/{session_run_id}` is a machine-only callback
+for Project Workflow, outside browser authentication. It requires the dedicated
+`FLEET_CONTROL_PM__READBACK_TOKEN`; an unset/short/reused credential fails closed.
+The response is the flat Workflow `RuntimeObservation`, without a Fleet envelope.
+It contains immutable Tracker/assignment/execution identity, Fleet run UUID,
+binding, dispatch key, fence, checkpoint and a fresh observation UUID/status.
+
+Fleet probes the authenticated Hermes `/v1/runs/{runtime_run_id}` on every call.
+Runtime mapping mismatch, unknown status, unreachable runtime and malformed or
+oversized replies return `503`; contradiction of stored terminal proof returns
+`409`. Cached Fleet run state, EOF and a human-provided status are not proof.
+The endpoint does not create assignments, dispatch a prompt or resume Workflow.
 
 
 ## Fleet alerts (monitoring, Phase 3)

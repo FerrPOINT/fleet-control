@@ -22,6 +22,8 @@ use tokio::{
     time::sleep,
 };
 use uuid::Uuid;
+mod pm_readback;
+mod targeted_approval;
 
 const HERMES_READY_TIMEOUT: Duration = Duration::from_secs(60);
 const HERMES_READY_POLL: Duration = Duration::from_millis(500);
@@ -76,6 +78,7 @@ impl LocalRuntimeSupervisor {
             repo: repo.clone(),
             children: Arc::new(Mutex::new(HashMap::new())),
             client: reqwest::Client::builder()
+                .redirect(reqwest::redirect::Policy::none())
                 .connect_timeout(Duration::from_secs(5))
                 .build()
                 .expect("runtime HTTP client configuration"),
@@ -214,6 +217,18 @@ impl LocalRuntimeSupervisor {
                             .map_err(AppError::internal)?;
                     }
                 } else {
+                    // Configuration planning/readback is read-only. Only activation creates paths.
+                    let parent = path
+                        .parent()
+                        .ok_or_else(|| AppError::validation("configuration path has no parent"))?;
+                    crate::reject_symlink_components(
+                        std::path::Path::new(&self.config.fleet.agents_root),
+                        path,
+                    )
+                    .await?;
+                    tokio::fs::create_dir_all(parent)
+                        .await
+                        .map_err(AppError::internal)?;
                     crate::write_configuration_file(path, body.as_bytes()).await?;
                 }
             }
@@ -1374,7 +1389,10 @@ impl LocalRuntimeSupervisor {
             return Ok(false);
         }
 
-        if event_type.contains("approval") {
+        if matches!(
+            event_type.as_str(),
+            "approval.request" | "approval.requested"
+        ) {
             let prompt = pick_string(&payload, &["prompt", "description", "command", "message"])
                 .unwrap_or_else(|| "Hermes approval requested".to_string());
             let runtime_approval_id = pick_string(&payload, &["approval_id", "request_id", "id"]);
@@ -1788,6 +1806,22 @@ impl LocalRuntimeSupervisor {
 
 #[async_trait]
 impl RuntimeSupervisor for LocalRuntimeSupervisor {
+    async fn resolve_targeted_approval(
+        &self,
+        agent: &Agent,
+        run: &SessionAgentRun,
+        approval: &domain::RuntimeApprovalRequest,
+        choice: domain::ApprovalChoice,
+    ) -> Result<(), AppError> {
+        targeted_approval::resolve(self, agent, run, approval, choice).await
+    }
+    async fn probe_pm_run(
+        &self,
+        agent: &Agent,
+        record: &domain::PmRunRecord,
+    ) -> Result<domain::PmRuntimeStatus, AppError> {
+        pm_readback::probe(self, agent, record).await
+    }
     async fn start(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
         if agent.kind == AgentKind::JavaAgent {
             return self.start_java_agent(agent).await;

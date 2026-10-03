@@ -491,6 +491,15 @@ pub async fn get_sdlc_readiness(
     }
     if effective.is_none() {
         blockers.push("configuration_not_applied".into());
+    } else if let Some(revision) = effective
+        && ctx
+            .provisioner
+            .verify_effective_configuration(&agent, &ctx.config, revision)
+            .await
+            .is_err()
+    {
+        // Do not expose paths, resolved env values, hashes, or underlying IO errors.
+        blockers.push("effective_configuration_readback_failed".into());
     }
     if revisions.iter().any(|value| value.draining) {
         blockers.push("configuration_draining".into());
@@ -500,6 +509,8 @@ pub async fn get_sdlc_readiness(
     }
     // Existing workflow catalog is not proof of assignment/rebind/terminal support.
     blockers.push("workflow_assignment_protocol_not_verified".into());
+    // Readback covers Fleet-managed files, not Hermes bundled/native skill provenance.
+    blockers.push("runtime_skill_inventory_not_verified".into());
     Ok(Json(domain::AgentSdlcReadiness {
         agent_id: id,
         runtime_healthy,

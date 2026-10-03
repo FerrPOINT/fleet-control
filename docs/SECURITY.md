@@ -1,5 +1,50 @@
 # Security
 
+## PM Clarification Commands
+
+The server-only delegated PM client binds its credential to the assigned task
+and permits only enumerated SDLC GET/POST operations. It denies legacy API paths,
+other tasks, owner answers/confirmation and verifier/assignment actions before
+adding Authorization. This does not constrain a bearer used outside that client:
+Tracker must independently deny assignment-scoped PM tokens on legacy APIs and
+check current assignment authority. Credential issuance/runtime handoff remains
+unwired; this restriction is not PM admission or a completed live security gate.
+
+Creation recovery is owner-only even for operators/admins; key readback validates
+the current project before the indexed owner/key lookup. Continuation accepts
+only an empty JSON object and cannot replace persisted original input or agent.
+Invalid shapes are rejected before upstream calls. Project names come only from
+the strict active-central-subject Tracker directory, without a legacy/admin
+fallback. Fleet then restricts the page to its rollout allowlist; no readiness
+or runtime authorization follows from appearing in this list.
+
+Task binding and owner answers/confirmation require a verified Central Auth subject;
+missing central identity returns unauthorized, not legacy fallback. Tracker independently
+checks active human session, service grant, project membership and owner subject. Fleet
+read-all never authorizes acting for another owner. Only the fixed configured Tracker
+origin receives the original bearer; redirects/user-supplied origins are forbidden.
+Task-bound chats reject unverified prompt/steer, reassignment and leader controls.
+The PM machine and readiness-verifier identities are separate from human consent.
+Autonomous rollout remains blocked until scoped runtime tools/readback are integrated.
+
+PM Draft creation additionally requires both fresh verified human-session and
+central-subject markers, a project allowlist and current Tracker project access.
+Machine PATs and local human markers without verified central identity cannot
+create or recover the operation. Even admin/operator can only read their own
+creation ledger. Tracker rechecks the owner for every business request. Receipt
+readback exposes IDs/progress, not original content, machine identity or tokens.
+Human credentials stay request-local; original input remains private DB/backup content.
+Creation itself grants no runtime tool rights or admission capability.
+Every continuation additionally checks fresh Workflow namespace ownership with
+a dedicated server-only Base PAT. Human/session, catalog and callback credentials
+cannot substitute for that read PAT. The PM callback also refuses reuse of the
+namespace PAT as its readback secret. Namespace reads also refuse reuse of JWT
+or runtime-signing secrets. The fixed origin, exact project/instance,
+authority issuer and original provisioner are checked; redirects, proxy-env,
+automatic retries, schema drift and unbounded bodies are refused. Errors do not
+echo upstream bodies or tokens. A saved mapping/chat is not a fenced execution
+lease. This check cannot authorize dispatch or bypass missing native readiness.
+
 - Central SSO uses verified ES256/JWKS and central-subject linkage. Local stored
   roles are authoritative; successful SSO does not grant admin. Standalone legacy
   authentication uses HMAC JWT access tokens and HttpOnly refresh cookies.
@@ -46,8 +91,22 @@
 - Backend RBAC is authoritative. The UI hides sections using
   `/api/v1/users/me/permissions`, but every protected route still checks the
   current role.
-- SSE rechecks token validity, active user, ownership and current role while
-  replaying events. No bearer token is placed in a stream URL.
+- Session SSE rechecks token validity, active user, ownership and current role while
+  replaying events. Task-bound streams additionally recheck authoritative Tracker
+  project access and immutable binding before each emitted event. Revocation or
+  dependency failure closes the stream, including its queued events. No bearer
+  token is placed in a stream URL.
+- Task-bound detail/history/messages/participants/runs/control reads and runtime
+  stop require current project access, even for Fleet operators. Historical
+  reassignment does not erase read access; it never authorizes fresh commands.
+  Directory counts and legacy lists filter by one uncached Tracker project scope
+  before pagination. Missing scope never exposes task-bound metadata. Standalone
+  unconfigured Tracker lists show only unbound chats; configured failures fail closed.
+- Exact approval decisions revalidate project access and current PM assignment
+  after reservation lock waits, before runtime HTTP. Pre-dispatch rejection records
+  terminal `failed`; unknown HTTP acceptance remains `uncertain` and is not retried.
+  This narrows, but does not atomically eliminate, cross-service authorization races:
+  assignment replacement must also quiesce the old run before automation is enabled.
 - Human message requests cannot supply an agent author or runtime message ID.
   A scoped machine assignment protocol is still unimplemented, not a fallback
   permission granted to human or runtime clients.

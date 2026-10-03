@@ -10,12 +10,44 @@ acceptance proof, exact-SHA CI/deployment or seven-agent end-to-end acceptance.
 
 Open gaps:
 
+## PM Clarification Slice
+
+Implemented: immutable task binding, paginated Fleet history, fixed-origin Tracker gateway,
+owner-only structured answer/exact-revision confirmation UI, draft and unknown-outcome guards.
+The follow-up branch also implements immutable PM run reservation and fresh
+machine-only Workflow readback. These have PostgreSQL/test-runtime evidence,
+not actual PM dispatch or resume acceptance.
+These do not mean the complete approved plan is done.
+
+| Gap | Exit criteria |
+| --- | --- |
+| Draft/assignment/chat/initial dispatch creation saga | Owner-only opt-in coordinator and persisted operation reconcile authoritative Tracker Draft/input/initial reservation and create the atomic private PM chat. Recovery by owner/key and continuation by stored ID avoid prompt resubmission after a lost reply. The strict paginated Tracker project directory supplies rollout-filtered choices. Fresh Workflow namespace ownership is mandatory before every continuation, without credential fallback. It stops at awaiting_admission without prompts/runs. Creation UI has an isolated proposal, awaiting explicit approval and live controller integration; actual admission, first-step gate and restart-safe initial Hermes delivery remain open. |
+| Fenced predispatch admission | Fresh Fleet effective configuration filesystem verification is implemented; it is not a durable/fenced receipt or proof of runtime-loaded configuration. Tracker PR #114 now implements execution ownership lease/CAS with actual PostgreSQL tests and green exact-tree CI; Fleet consumption remains unwired and dispatch remains false. Fleet chat/task-workspace receipts, Workflow execution claim/native catalog/first-step proof and Base scoped identity must be integrated. Namespace ownership GET is not a lease or runnable admission; the existing post-dispatch running bind cannot prove predispatch readiness. Unknown authority/CAS outcome requires exact readback, not another execution or dispatch key. |
+| PM structured tools and runtime-scoped machine credentials | Server-only bounded Base delegation client confines requests to canonical assigned-task PM operations; Tracker independently rejects direct PM bearer use on legacy/global/owner/verifier paths and checks the current assignment ledger, including leases. These component boundaries are not actual Base child handoff or admission. Coordinator issuance ledger and runtime tool handoff remain. Real Hermes must publish questions/revisions through assigned machine API, no prose parsing. |
+| Tracker outbox -> Fleet inbox/mirror projection | Transactional inbox/cursor/mirror and opt-in authenticated background poller implemented. Actual PostgreSQL replay and HTTP fault tests passed; live Base/Tracker crash/reconnect acceptance remains. Projection is not PM delivery. |
+| Bounded Tracker event projection | Decoder, immutable format pins and byte-budgeted producer are implemented in separate Draft PRs. Actual Tracker HTTP snapshots verify all nine source digests; poller tests cover oversized/invalid pages without cursor progress. Live authenticated large/multibyte recovery remains. No implicit legacy conversion. |
+| Answer delivery and workflow continuation | Readback callback implemented; wire it to actual PM dispatch/checkpoint/rebind and one new run; late replies rejected |
+| Readiness verifier integration | Trusted checklist/prerequisite receipts for exact revision/hash, no false Backlog |
+| Compatible Workflow build and native skills | Use the genuine native-skills source at the accepted catalog pin, derive real compatibility/build provenance and pass authenticated admission/readiness. GitLab access is denied and no local checkout was found; development capabilities 503 is not readiness and fixture/guessed manifests are forbidden. |
+| Server chat search/pagination/aggregate counts | Own-database and Chromium/Firefox/WebKit fixture acceptance passed in working branch; release review and live acceptance remain |
+| Live acceptance and production screenshots | Real PM/owner/Tracker/Workflow flow, restart/denial tests; fixture screenshots stay separately labeled |
+| Targeted tool approval UI and context evidence | Exact human-only backend decisions and integrated UI have PostgreSQL/authenticated fake-runtime and three-browser fixture evidence; independent unknown-outcome reconciliation and live evidence remain |
+| Assignment replacement quiescence | Old runtime confirmed terminal/safely stopped before replacement; final authorization recheck does not replace a distributed fencing protocol |
+| Historical transcript ordering | New messages use immutable database identity allocation order; legacy listing and paginated UI no longer sort by host timestamps. Existing records are backfilled in their former timestamp/UUID order, not reconstructed insertion order. Allocation order is not commit order or the durable SSE cursor. Historical restoration requires independent evidence. |
+
+SDLC send/steer stays fail-closed until verified assignments are integrated. Do not enable
+automatic assignments or label this feature production-ready on the strength of UI fixtures.
+
+Locally verified contract foundation: generated Rust response DTOs, seven Tracker wire
+schema comparisons and malformed/unsafe-version rejection. CI runs the snapshot comparison;
+deployment still requires comparison with the actual compatible Tracker build.
+
 | Gap | Severity | Owner | Exit criteria |
 | --- | --- | --- | --- |
 | Native Windows Rust linker missing: `link.exe` | Local tooling limitation | Environment | Install MSVC Build Tools for native Windows cargo commands |
 | Live seven-agent acceptance not completed; standalone foundation Compose smoke passed | Product/integration blocker | Integration | Actual PM/publication/children/Rework/integration/deployment receipts; not fixture success |
 | Java Agent chat/control/config activation are phase 2; jar lifecycle retained | Accepted scope | Runtime | Required chat/control capabilities verified before SDLC admission |
-| Default-branch shared-base availability | Merge-order dependency | Platform | Merge Base #121 before Fleet #44; current Fleet CI pins compatible Base and verifies repo/container gates |
+| Scoped credential delegation availability | Merge-order dependency | Platform | Merge/deploy [Base #126](https://github.com/FerrPOINT/services-base/pull/126) before enabling real PM tools; existing UI/auth-core dependency pins do not provide the new runtime delegation API |
 | Local legacy auth retirement and machine/project scopes | Security blocker for automatic SDLC | Backend | Verified assignment identities, project scopes and audited retirement of local fallback |
 | Runtime OS/tool isolation is not implemented | Security blocker for hostile/untrusted workloads | Runtime/platform | Verified identity/container mounts, host-secret, cross-agent filesystem/network and shared-agent cross-user SessionDB denial tests |
 | Central Auth loading/error screenshots and live identity acceptance | Evidence gap | Frontend/identity | Verified SSO client, failure/loading captures and cross-service subject/access tests |

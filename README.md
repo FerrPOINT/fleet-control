@@ -5,6 +5,19 @@
 SDLC implementation is in progress, not production accepted. Current scope and
 remaining blockers: [SDLC implementation](docs/SDLC_IMPLEMENTATION.md).
 
+Chat/PM work is in progress: [implementation plan](docs/CHAT_CLARIFICATION_IMPLEMENTATION_PLAN.md),
+[contract](docs/contracts/CHAT_CLARIFICATION_CONTRACT.md). Production chat controllers
+use Fleet/Tracker APIs; workflow dispatch/resume and real PM acceptance remain blocked.
+Task-bound reads enforce current Tracker project access, including directory counts
+and stream replay. See the [verification ledger](docs/CHAT_CLARIFICATION_VERIFICATION.md)
+for PostgreSQL evidence and the remaining live-integration gates.
+Creation recovery now includes owner/key lookup, persisted-operation continuation
+and strict Tracker project choices. The new [creation form proposal](docs/design/PM_DRAFT_CREATION_PREVIEW.md)
+is isolated and awaiting approval, not production UI or runtime admission.
+The server-only delegated PM client is limited to enumerated SDLC operations for
+its assigned task. This client restriction does not replace Tracker authorization
+and does not enable credential handoff or runtime dispatch.
+
 <p align="center">
   <a href="#overview"><img src="https://img.shields.io/badge/Overview-3730a3?style=for-the-badge" alt="Overview" /></a>
   <a href="#capabilities"><img src="https://img.shields.io/badge/Capabilities-4338ca?style=for-the-badge" alt="Capabilities" /></a>
@@ -44,7 +57,9 @@ remaining blockers: [SDLC implementation](docs/SDLC_IMPLEMENTATION.md).
 | Порты | repository-local: frontend `23802`, backend `23801`; Base umbrella: frontend `7742`, API `7741` |
 | License | FerrPOINT Proprietary Source-Available Evaluation License v1.0 |
 
-Первый зарегистрированный пользователь получает `system_role = admin`.
+В standalone legacy mode первый зарегистрированный пользователь получает
+`system_role = admin`. При Central Auth локальная регистрация выключена; вход
+не повышает роль, а bootstrap admin требует явно настроенного verified subject.
 
 <a name="capabilities"></a>
 
@@ -56,6 +71,7 @@ remaining blockers: [SDLC implementation](docs/SDLC_IMPLEMENTATION.md).
 | Технические агенты | Создание, архивирование, profiles, skills, конфигурация, workspace/storage view и сессии. |
 | Runtime lifecycle | Provision, start, stop, restart, health и logs через runtime adapters. |
 | Сессии | Private-by-default task sessions, привязка к лидеру, control-message mirrors и runtime run links. |
+| PM Draft | Opt-in owner creation: Tracker Draft/reservation и private task-bound чат с восстановлением. Ожидание admission, без запуска PM. |
 | Workflows | Namespace/workflow bindings (source of truth — `project-workflow`). |
 | Deployments | Runtime templates и deployment jobs. |
 | Алерты | Fleet alerts page с bulk runtime update panel. |
