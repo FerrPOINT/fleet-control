@@ -1116,12 +1116,30 @@ impl FleetRepository for PostgresFleetRepository {
         if draining {
             return Err(AppError::conflict("agent configuration is draining"));
         }
-        let mut model = agent::Entity::find_by_id(id)
+        let current = agent::Entity::find_by_id(id)
             .one(&txn)
             .await
             .map_err(AppError::database)?
-            .ok_or_else(|| AppError::not_found("agent", id))?
-            .into_active_model();
+            .ok_or_else(|| AppError::not_found("agent", id))?;
+        if req
+            .product_role
+            .is_some_and(|value| value.as_str() != current.product_role)
+            || req.role.is_some_and(|value| value.as_str() != current.role)
+            || req
+                .sdlc_role
+                .is_some_and(|value| Some(value.as_str()) != current.sdlc_role.as_deref())
+            || req
+                .namespace_id
+                .as_deref()
+                .is_some_and(|value| Some(value) != current.namespace_id.as_deref())
+            || req
+                .workflow_id
+                .as_deref()
+                .is_some_and(|value| Some(value) != current.workflow_id.as_deref())
+        {
+            config_revisions::guard_identity_change(&txn, id).await?;
+        }
+        let mut model = current.into_active_model();
         if let Some(product_role) = next_product_role {
             model.product_role = Set(product_role.as_str().to_string());
         }
@@ -2933,14 +2951,15 @@ impl FleetRepository for PostgresFleetRepository {
     ) -> Result<WorkflowBinding, AppError> {
         let txn = self.db.begin().await.map_err(AppError::database)?;
         let timestamp = now();
-        let agent_exists = agent::Entity::find_by_id(agent_id)
-            .one(&txn)
-            .await
-            .map_err(AppError::database)?
-            .is_some();
-        if !agent_exists {
-            return Err(AppError::not_found("agent", agent_id));
-        }
+        txn.query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT id FROM agents WHERE id=$1 AND archived_at IS NULL FOR UPDATE",
+            [agent_id.into()],
+        ))
+        .await
+        .map_err(AppError::database)?
+        .ok_or_else(|| AppError::not_found("agent", agent_id))?;
+        config_revisions::guard_identity_change(&txn, agent_id).await?;
         let updated_agents = agent::Entity::update_many()
             .set(agent::ActiveModel {
                 namespace_id: Set(Some(namespace.id.clone())),

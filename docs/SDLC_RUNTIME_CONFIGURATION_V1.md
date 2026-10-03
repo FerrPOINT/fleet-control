@@ -1,7 +1,8 @@
 # Требования к конфигурации семи Hermes для SDLC Base
 
-Статус: **configuration-only target**, 2026-10-03; не installed config и не
-implemented runtime API. Дополнение к [execution contract](contracts/SDLC_EXECUTION_V1.md).
+Статус: **configuration requirements**, 2026-10-03; partial source implementation,
+не installed config и не complete native admission. Дополнение к
+[execution contract](contracts/SDLC_EXECUTION_V1.md).
 [Candidate example](examples/sdlc-runtime-requirements.v1.json) — структурированный
 requirements packet, **не** DTO существующего /agents API, config.yaml,
 Compose override или install command. Его нельзя передавать activation endpoint.
@@ -12,6 +13,20 @@ Base владеет приватными role-инструкциями, 14 skill
 Workflow — фазами/modes; Tracker — назначением/очередью; Forge — workspace.
 Fleet владеет concrete agent identity, effective config и материализацией.
 В этом пакете нет копий приватного содержимого, credentials или active settings.
+
+Реализованы source-only pinned package preparation в desired draft, Git/snapshot
+verification, closed managed HOME readback и отдельное machine observation API.
+Последнее всегда возвращает `runtime_ready=false`. Существующий config lifecycle
+используется без второго installer; native-loaded model/tools/limits, assignment
+proof и автоматический dispatch остаются target. Проверки файлов не заменяют эти
+доказательства. Подробности: [API](API.md#sdlc-configuration-observation).
+
+Выявлен unresolved owner mapping: manifest `namespace` — символическое имя,
+а Fleet `namespace_id` — opaque Workflow identity; `namespace_name` хранится
+отдельно в binding. Текущий package guard сравнивает ID с символом и не допускает
+настоящий numeric-ID binding. Это blocker, не допустимый alias или успешная
+namespace verification. Требуется fresh owner ID/name/workflow/profile readback
+и frozen mapping; ослаблять сравнение, подменять catalog либо fixtures нельзя.
 
 Потребитель требует доступ к exact Base commit. SELF в manifest — содержащий
 commit; закреплённый skills commit не равен SDK .base-revision.
@@ -66,7 +81,7 @@ Toolset name не заменяет authorization/allowed paths или OS isolati
 Context identity — least privilege; context token read-only, не terminal token.
 HOME-разделение не считается OS sandbox.
 
-## Подготовка, активация и rollback — будущая реализация
+## Подготовка, активация и rollback — полная цель
 
 Переиспользовать существующий Fleet configuration lifecycle, не второй installer:
 

@@ -43,6 +43,10 @@ Hermes:
 - Configuration is draft/validated/activating/active/failed with desired and
   effective revisions. Activation drains runs and checks files/runtime before
   releasing the agent. Failed rollback keeps the agent drained.
+  Workflow rebind and actual role/namespace/workflow identity changes share the
+  agent row lock with runtime reservations. Active/pending/stopping runs, queued
+  or unknown prompt dispatch and configuration drain reject changes with 409.
+  Metadata edits with unchanged identity remain possible outside drain.
 - Effective configuration readiness now reads the actual managed files on each
   request using the persisted effective head, independently of the last-100
   configuration history page. Validate/activate also use exact agent/revision

@@ -3252,6 +3252,167 @@ async fn config_revision_drains_runs_and_failed_rollback_stays_blocked() {
     assert!(revisions[1].is_effective);
 }
 
+#[tokio::test]
+async fn config_revision_identity_guard_fences_rebind_active_runs_and_unknown_dispatch() {
+    let Some((repo, owner, _)) = fixture().await else {
+        return;
+    };
+    let agent_id = agent(&repo).await;
+    let namespace = domain::WorkflowNamespaceCatalogEntry {
+        id: "42".into(),
+        name: "hermes-developer".into(),
+        workflow_id: "17".into(),
+    };
+    let workflow = domain::WorkflowCatalogEntry {
+        id: "17".into(),
+        name: "Developer".into(),
+    };
+    let original = repo
+        .rebind_workflow_binding(agent_id, namespace.clone(), workflow.clone())
+        .await
+        .unwrap();
+    let mut replacement = namespace.clone();
+    replacement.id = "43".into();
+    let patch: domain::UpdateAgentRequest = serde_json::from_value(serde_json::json!({
+        "sdlc_role": "tester", "namespace_id": "43", "workflow_id": "18"
+    }))
+    .unwrap();
+    let session = repo
+        .create_session(chat(agent_id, "rebind-guard"), owner)
+        .await
+        .unwrap();
+    let run = repo
+        .prepare_session_agent_run(
+            session.id,
+            agent_id,
+            SessionRunRole::Primary,
+            "fleet:rebind".into(),
+        )
+        .await
+        .unwrap();
+    for state in [
+        SessionRunState::Pending,
+        SessionRunState::Running,
+        SessionRunState::Waiting,
+        SessionRunState::Stopping,
+    ] {
+        repo.update_session_agent_run_dispatch(run.id, None, state, None)
+            .await
+            .unwrap();
+        assert!(matches!(
+            repo.rebind_workflow_binding(agent_id, replacement.clone(), workflow.clone())
+                .await,
+            Err(shared::AppError::Conflict(_))
+        ));
+        assert!(matches!(
+            repo.update_agent(agent_id, patch.clone()).await,
+            Err(shared::AppError::Conflict(_))
+        ));
+    }
+    let label: domain::UpdateAgentRequest = serde_json::from_value(serde_json::json!({
+        "display_name": "New label", "product_role": "executor", "role": "developer",
+        "sdlc_role": "developer", "namespace_id": "42", "workflow_id": "17"
+    }))
+    .unwrap();
+    repo.update_agent(agent_id, label).await.unwrap();
+    repo.update_session_agent_run_dispatch(run.id, None, SessionRunState::Cancelled, None)
+        .await
+        .unwrap();
+    let message = repo
+        .create_session_message(session.id, prompt("rebind-uncertain"), owner)
+        .await
+        .unwrap();
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    for state in ["pending", "dispatching", "uncertain"] {
+        db.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE message_dispatch_outbox SET state=$2 WHERE message_id=$1",
+            [message.id.into(), state.into()],
+        ))
+        .await
+        .unwrap();
+        assert!(matches!(
+            repo.rebind_workflow_binding(agent_id, replacement.clone(), workflow.clone())
+                .await,
+            Err(shared::AppError::Conflict(_))
+        ));
+        assert!(matches!(
+            repo.update_agent(agent_id, patch.clone()).await,
+            Err(shared::AppError::Conflict(_))
+        ));
+    }
+    db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE message_dispatch_outbox SET state='failed' WHERE message_id=$1",
+        [message.id.into()],
+    ))
+    .await
+    .unwrap();
+    let draft = repo
+        .create_config_revision(agent_id, configuration(), owner)
+        .await
+        .unwrap();
+    repo.validate_config_revision(agent_id, draft.revision, vec![])
+        .await
+        .unwrap();
+    let txn = db.begin().await.unwrap();
+    txn.query_one(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT id FROM agents WHERE id=$1 FOR UPDATE",
+        [agent_id.into()],
+    ))
+    .await
+    .unwrap();
+    let repo = Arc::new(repo);
+    let worker = repo.clone();
+    let next_namespace = replacement.clone();
+    let next_workflow = workflow.clone();
+    let (started, ready) = tokio::sync::oneshot::channel();
+    let pending = tokio::spawn(async move {
+        started.send(()).unwrap();
+        worker
+            .rebind_workflow_binding(agent_id, next_namespace, next_workflow)
+            .await
+    });
+    ready.await.unwrap();
+    sleep(Duration::from_millis(50)).await;
+    assert!(!pending.is_finished(), "rebind bypassed the agent row lock");
+    txn.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE agent_config_heads SET draining=true WHERE agent_id=$1",
+        [agent_id.into()],
+    ))
+    .await
+    .unwrap();
+    txn.commit().await.unwrap();
+    assert!(matches!(
+        tokio::time::timeout(Duration::from_secs(3), pending)
+            .await
+            .unwrap()
+            .unwrap(),
+        Err(shared::AppError::Conflict(_))
+    ));
+    assert!(matches!(
+        repo.update_agent(agent_id, patch).await,
+        Err(shared::AppError::Conflict(_))
+    ));
+    let retained = repo
+        .list_workflow_bindings()
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|value| value.agent_id == agent_id)
+        .unwrap();
+    assert_eq!(retained.namespace_id, original.namespace_id);
+    assert_eq!(retained.workflow_id, original.workflow_id);
+    assert_eq!(
+        repo.get_agent(agent_id).await.unwrap().namespace_id,
+        original.namespace_id
+    );
+}
+
 async fn runtime_http_fixture(runtime_status: &'static str) {
     let Some((repo, owner, _)) = fixture().await else {
         return;

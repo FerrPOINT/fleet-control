@@ -371,3 +371,33 @@ pub(super) async fn draining(repo: &PostgresFleetRepository, id: Uuid) -> Result
         .transpose()
         .map(|value| value.unwrap_or(false))
 }
+
+/// Caller holds the agent row lock shared by run reservations and activation.
+pub(super) async fn guard_identity_change(
+    txn: &sea_orm::DatabaseTransaction,
+    id: Uuid,
+) -> Result<(), AppError> {
+    let row = txn
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT EXISTS (SELECT 1 FROM agent_config_heads WHERE agent_id=$1 AND draining)
+                OR EXISTS (SELECT 1 FROM session_agent_runs WHERE agent_id=$1
+                    AND state IN ('pending','running','waiting','stopping'))
+                OR EXISTS (SELECT 1 FROM message_dispatch_outbox WHERE agent_id=$1 AND state='pending')
+                OR EXISTS (SELECT 1 FROM message_dispatch_outbox WHERE agent_id=$1
+                    AND state IN ('dispatching','uncertain')) AS blocked",
+            [id.into()],
+        ))
+        .await
+        .map_err(AppError::database)?
+        .ok_or_else(|| AppError::internal("missing identity mutation guard"))?;
+    if row
+        .try_get::<bool>("", "blocked")
+        .map_err(AppError::database)?
+    {
+        return Err(AppError::conflict(
+            "agent identity is pinned by configuration activation or unresolved runtime work",
+        ));
+    }
+    Ok(())
+}

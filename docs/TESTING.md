@@ -65,6 +65,13 @@ draft can be validated by exact ID. Activation of that non-desired revision retu
 409 (not a false 404); another agent's revision is 404 and regular-user writes are
 403. Neither validation nor failed activation changes the effective head or grants
 SDLC readiness. Without the database variable it skips.
+`config_revision_identity_guard_fences_rebind_active_runs_and_unknown_dispatch`
+checks the real PostgreSQL repository: pending/running/waiting/stopping runs and
+pending/dispatching/uncertain outbox entries block identity edits and workflow
+rebind. Unchanged identity plus a metadata edit is allowed outside drain. A rebind
+waiting on the agent row lock observes a newly committed drain and fails without
+changing the agent or binding. This is a source concurrency test, not a distributed
+assignment/config lease or native runtime acceptance.
 The filesystem regression also includes Hermes-owned category directories and
 `.bundled_manifest`. These are preserved, not trusted as a provenance source;
 the unverified runtime inventory blocker is separate from managed-file drift.

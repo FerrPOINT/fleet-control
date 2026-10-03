@@ -56,6 +56,10 @@ History remains limited to the latest 100 revisions, but readiness reads the
 effective head directly and validate/activate load the exact agent/revision.
 An older non-desired revision may validate; activation still returns 409 unless
 it is the current desired validated revision. A revision on another agent is 404.
+Workflow rebind and actual role/namespace/workflow identity changes return 409
+while configuration is draining, a runtime run is unresolved or accepted prompt
+dispatch is pending/dispatching/uncertain. Unchanged identity fields do not turn
+a metadata-only update into an identity mutation.
 Human message requests cannot set agent authors/runtime IDs or non-prompt kinds.
 Pending prompts use transactional outbox; acceptance-unknown dispatch is not retried.
 Session SSE supports `Last-Event-ID` or `cursor`, and rechecks ownership/role/expiry.
