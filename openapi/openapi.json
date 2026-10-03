@@ -4849,6 +4849,15 @@
           "content_hash": {
             "type": "string"
           },
+          "expected_routing_policy_version": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "maximum": 9007199254740991,
+            "minimum": 1
+          },
           "idempotency_key": {
             "type": "string"
           }
@@ -7185,7 +7194,8 @@
         "enum": [
           "Draft",
           "Clarification",
-          "Backlog"
+          "Backlog",
+          "Analysis"
         ]
       },
       "TrackerTaskContext": {

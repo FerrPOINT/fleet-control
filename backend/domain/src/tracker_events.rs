@@ -97,6 +97,12 @@ pub(crate) fn summary(event_type: &str) -> Result<&'static str, AppError> {
         "requirements.published" => Ok("Requirements revision published in Tracker."),
         "requirements.evidence_recorded" => Ok("Requirements evidence recorded in Tracker."),
         "requirements.confirmed" => Ok("Requirements revision confirmed by its owner."),
+        "analysis.intent_created" => {
+            Ok("Analysis queued in Tracker; runtime admission is separate.")
+        }
+        "analysis.assignment_reserved" => {
+            Ok("Analysis assignment reserved in Tracker; runtime dispatch is not allowed yet.")
+        }
         _ => Err(AppError::Unavailable(
             "unsupported Tracker event type".into(),
         )),

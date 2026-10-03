@@ -170,6 +170,23 @@ beforeEach(() => {
   })
 })
 describe('production chat', () => {
+  it('shows Tracker Analysis without granting prompt or confirmation actions', async () => {
+    vi.mocked(chats.getTaskContext).mockResolvedValue({
+      ...context,
+      tracker: {
+        ...context.tracker!,
+        stage: 'Analysis',
+        permissions: { can_answer: false, can_confirm: false },
+      },
+    })
+    renderPage()
+    expect((await screen.findAllByText('Analysis'))[0]).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Отправить сообщение' })).toBeDisabled()
+    await userEvent.click(screen.getByRole('tab', { name: /Требования/ }))
+    expect(await screen.findByRole('button', { name: 'Подтвердить редакцию 3' })).toBeDisabled()
+    expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+    expect(chats.confirmRequirements).not.toHaveBeenCalled()
+  })
   const message = (
     id: string,
     body: string,

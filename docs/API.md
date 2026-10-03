@@ -125,6 +125,15 @@ Base path: `/api/v1`.
 - `GET /sessions/{id}/clarifications`, `POST .../{questionId}/answers`.
 - `GET /sessions/{id}/requirements`, `POST .../{revision}/confirm`.
 
+Tracker context/confirmation may return `Analysis` as well as Draft,
+Clarification and Backlog. Confirmation optionally forwards
+`expected_routing_policy_version` (1..9007199254740991) for explicit routing
+snapshot opt-in; omission/null preserves legacy wire and never enrolls a task.
+The owner/project/exact-revision checks remain authoritative in Tracker.
+Analysis intent/reservation metadata is read-only context, not permission to
+send a prompt or bypass assignment admission. See
+[chat contract](contracts/CHAT_CLARIFICATION_CONTRACT.md#bounded-event-metadata).
+
 Answer and confirmation forward the verified original bearer to configured Tracker,
 which revalidates human session, project membership and exact owner. Local legacy tokens
 cannot authorize these commands. Operator read-all is not proxy consent. Payload conflict

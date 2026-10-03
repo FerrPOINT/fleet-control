@@ -122,6 +122,43 @@ struct ConfirmationResource {
     content_hash: String,
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AnalysisIntentResource {
+    contract_version: u8,
+    tracker_instance_id: String,
+    project_id: Uuid,
+    task_id: Uuid,
+    root_task_id: Uuid,
+    intent_id: Uuid,
+    confirmation_id: Uuid,
+    requirement_revision: i64,
+    content_hash: String,
+    stage: String,
+    status: String,
+    role: String,
+    workflow: String,
+    mode: String,
+    scope: String,
+    cycle: u8,
+    attempt: u8,
+    operation_key: String,
+    created_at: DateTime<Utc>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AnalysisReservationResource {
+    assignment_id: Uuid,
+    execution_id: Uuid,
+    workflow_task_ref: String,
+    intent_id: Uuid,
+    routing_snapshot_id: Uuid,
+    agent_id: Uuid,
+    fencing_token: i64,
+    assignment_hash: String,
+}
+
 fn invalid() -> AppError {
     AppError::Unavailable("Tracker metadata response is invalid".into())
 }
@@ -159,7 +196,8 @@ fn validate_refs(value: &Value) -> Result<(), AppError> {
             if !field.is_null() {
                 validate_refs(field)?;
             }
-        } else if name.ends_with("_id") || name == "snapshot_ref" {
+        } else if (name.ends_with("_id") && name != "tracker_instance_id") || name == "snapshot_ref"
+        {
             let raw = field.as_str().ok_or_else(invalid)?;
             let id = Uuid::parse_str(raw).map_err(|_| invalid())?;
             if id.is_nil() || id.to_string() != raw {
@@ -282,6 +320,46 @@ impl TrackerMetadataEvent {
             "requirements.confirmed" => {
                 strict::<ConfirmationResource>(resource)?;
             }
+            "analysis.intent_created" => {
+                let intent = strict::<AnalysisIntentResource>(resource)?;
+                if !matches!(self.payload.stage, TrackerStage::Analysis)
+                    || self.payload.current_requirement_revision
+                        != Some(intent.requirement_revision)
+                    || intent.contract_version != 1
+                    || intent.tracker_instance_id != self.payload.tracker_instance_id
+                    || intent.project_id != self.payload.project_id
+                    || intent.task_id != self.task_id
+                    || intent.root_task_id != self.payload.root_task_id
+                    || intent.intent_id != self.event_id
+                    || intent.stage != "Analysis"
+                    || intent.status != "Ready"
+                    || intent.role != "Analyst"
+                    || intent.workflow != "hermes-sdlc:analyst"
+                    || intent.mode != "analysis"
+                    || intent.scope != "business"
+                    || intent.cycle != 0
+                    || intent.attempt != 0
+                    || intent.operation_key != format!("analysis:{}", intent.confirmation_id)
+                {
+                    return Err(invalid());
+                }
+            }
+            "analysis.assignment_reserved" => {
+                let reservation = strict::<AnalysisReservationResource>(resource)?;
+                let ordinal = reservation
+                    .workflow_task_ref
+                    .strip_prefix("SDLC-")
+                    .ok_or_else(invalid)?;
+                let number = tracker_metadata_cursor(ordinal)?;
+                if !matches!(self.payload.stage, TrackerStage::Analysis)
+                    || self.payload.current_requirement_revision.is_none()
+                    || reservation.assignment_id != self.event_id
+                    || number == 0
+                {
+                    return Err(invalid());
+                }
+                version(reservation.fencing_token)?;
+            }
             _ => return Err(invalid()),
         }
         validate_refs(resource)?;
@@ -310,6 +388,7 @@ mod tests {
         for bytes in [
             include_bytes!("../tests/fixtures/tracker-metadata-created.http.json").as_slice(),
             include_bytes!("../tests/fixtures/tracker-metadata-all8.http.json").as_slice(),
+            include_bytes!("../tests/fixtures/tracker-analysis-metadata-v1.json").as_slice(),
         ] {
             let raw: Value = serde_json::from_slice(bytes).unwrap();
             let event = &raw["events"][0];
@@ -327,7 +406,7 @@ mod tests {
                 types.insert(event.event_type);
             }
         }
-        assert_eq!(types.len(), 9);
+        assert_eq!(types.len(), 11);
     }
 
     fn binding() -> TaskChatBinding {
@@ -365,6 +444,119 @@ mod tests {
 
     fn decode(value: &Value, binding: &TaskChatBinding) -> Result<TrackerMetadataPage, AppError> {
         TrackerMetadataPage::decode(&serde_json::to_vec(value).unwrap(), binding, 0)
+    }
+
+    fn analysis_wire(binding: &TaskChatBinding, reserved: bool) -> Value {
+        let confirmation = Uuid::new_v4();
+        let intent = Uuid::new_v4();
+        let assignment = Uuid::new_v4();
+        let (kind, id, resource) = if reserved {
+            (
+                "analysis.assignment_reserved",
+                assignment,
+                json!({
+                    "assignment_id":assignment,"execution_id":Uuid::new_v4(),
+                    "workflow_task_ref":"SDLC-123","intent_id":intent,
+                    "routing_snapshot_id":Uuid::new_v4(),"agent_id":Uuid::new_v4(),
+                    "fencing_token":1,"assignment_hash":"a".repeat(64)
+                }),
+            )
+        } else {
+            (
+                "analysis.intent_created",
+                intent,
+                json!({
+                    "contract_version":1,"tracker_instance_id":binding.tracker_instance_id,
+                    "project_id":binding.project_id,"task_id":binding.task_id,"root_task_id":binding.root_task_id,
+                    "intent_id":intent,"confirmation_id":confirmation,"requirement_revision":1,
+                    "content_hash":"a".repeat(64),"stage":"Analysis","status":"Ready",
+                    "role":"Analyst","workflow":"hermes-sdlc:analyst","mode":"analysis","scope":"business",
+                    "cycle":0,"attempt":0,"operation_key":format!("analysis:{confirmation}"),
+                    "created_at":"2026-10-03T00:00:00Z"
+                }),
+            )
+        };
+        let mut page = wire(binding, kind, resource);
+        let event = &mut page["events"][0];
+        event["event_id"] = json!(id);
+        event["payload"]["stage"] = json!("Analysis");
+        event["payload"]["current_requirement_revision"] = json!(1);
+        sign(event);
+        page
+    }
+
+    #[test]
+    fn analysis_metadata_is_context_not_runtime_admission() {
+        let b = binding();
+        for reserved in [false, true] {
+            let raw = analysis_wire(&b, reserved);
+            let page = decode(&raw, &b).unwrap();
+            assert!(matches!(
+                page.events[0].payload.stage,
+                TrackerStage::Analysis
+            ));
+            assert!(
+                page.events[0].summary().unwrap().contains("separate")
+                    || page.events[0].summary().unwrap().contains("not allowed")
+            );
+            for field in ["dispatch_allowed", "body", "api_key"] {
+                let mut changed = raw.clone();
+                changed["events"][0]["payload"]["resource"][field] = json!("private-fixture");
+                sign(&mut changed["events"][0]);
+                assert!(decode(&changed, &b).is_err());
+            }
+        }
+    }
+
+    #[test]
+    fn analysis_metadata_rejects_wrong_identity_stage_and_execution_shape() {
+        let b = binding();
+        for reserved in [false, true] {
+            let valid = analysis_wire(&b, reserved);
+            for (field, bad) in if reserved {
+                vec![
+                    ("workflow_task_ref", json!("SDLC-01")),
+                    ("workflow_task_ref", json!("SDLC-0")),
+                    ("workflow_task_ref", json!("SDLC-9223372036854775808")),
+                    ("fencing_token", json!(0)),
+                    ("fencing_token", json!(9007199254740992i64)),
+                    ("assignment_hash", json!("A".repeat(64))),
+                    ("agent_id", json!(Uuid::nil())),
+                ]
+            } else {
+                vec![
+                    ("role", json!("Developer")),
+                    ("stage", json!("Backlog")),
+                    ("status", json!("running")),
+                    ("scope", json!("delivery")),
+                    ("mode", json!("initial")),
+                    ("workflow", json!("other")),
+                    ("cycle", json!(1)),
+                    ("attempt", json!(1)),
+                    ("operation_key", json!("foreign")),
+                    ("task_id", json!(Uuid::new_v4())),
+                    ("requirement_revision", json!(2)),
+                ]
+            } {
+                let mut changed = valid.clone();
+                changed["events"][0]["payload"]["resource"][field] = bad;
+                sign(&mut changed["events"][0]);
+                assert!(decode(&changed, &b).is_err(), "{field}");
+            }
+            for mutation in 0..3 {
+                let mut changed = valid.clone();
+                match mutation {
+                    0 => changed["events"][0]["event_id"] = json!(Uuid::new_v4()),
+                    1 => changed["events"][0]["payload"]["stage"] = json!("Draft"),
+                    _ => {
+                        changed["events"][0]["payload"]["current_requirement_revision"] =
+                            Value::Null
+                    }
+                }
+                sign(&mut changed["events"][0]);
+                assert!(decode(&changed, &b).is_err());
+            }
+        }
     }
 
     #[test]

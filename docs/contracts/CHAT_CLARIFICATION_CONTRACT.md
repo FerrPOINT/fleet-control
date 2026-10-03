@@ -205,6 +205,26 @@ stage, required nullable `current_requirement_revision`, and the typed resource:
 - `requirements.published`: requirement revision and content hash.
 - `requirements.evidence_recorded`: revision/content hash and hashed check ID.
 - `requirements.confirmed`: confirmation reference, revision/content hash.
+- `analysis.intent_created`: immutable Tracker intent, exact confirmed revision,
+  initial Analyst/business routing and cycle/attempt zero. Queued is not running.
+- `analysis.assignment_reserved`: assignment/execution/intent/snapshot/agent refs,
+  canonical `SDLC-<ordinal>` workflow task reference, fence and assignment hash.
+  This compact metadata is not the full assignment envelope or dispatch authority.
+
+The Analysis extension requires a compatible Tracker/Fleet build before project
+opt-in; older consumers reject unknown events instead of skipping them. The
+source decoder supports `Analysis` context and validates new resource identities,
+stage/revision/routing shape and hashes. Tracker instance identity is opaque and
+must match the bound instance, not a local UUID. New event summaries explicitly
+separate prepared assignment from runtime admission. Existing metadata cursors
+and digests are unchanged; actual source fixtures remain distinct from live proof.
+
+Exact-revision confirmation accepts optional `expected_routing_policy_version`:
+an explicit positive JS-safe integer requests Tracker's frozen routing snapshot.
+Omitted/null remains legacy serialization without that field and does not opt in
+the task. Only Tracker's owner/project/revision gates authorize publication; a
+routing snapshot alone never means native runtime readiness. No automatic version
+selection or routing editor is introduced by this wire extension.
 
 The digest is SHA256 of sorted-key compact UTF-8 JSON
 `{"contract_version":1,"projection":"metadata_v1","event":<event without metadata_sha256>}`.

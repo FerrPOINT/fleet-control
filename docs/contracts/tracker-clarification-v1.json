@@ -90,6 +90,7 @@
       "stage": {
         "type": "string",
         "enum": [
+          "Analysis",
           "Backlog",
           "Clarification",
           "Draft"
@@ -496,6 +497,7 @@
       "stage": {
         "type": "string",
         "enum": [
+          "Analysis",
           "Backlog",
           "Clarification",
           "Draft"
@@ -557,6 +559,13 @@
     "properties": {
       "content_hash": {
         "type": "string"
+      },
+      "expected_routing_policy_version": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "int64"
       },
       "idempotency_key": {
         "type": "string"

@@ -65,6 +65,21 @@ pub struct ClarificationAnswerRequest {
 pub struct ConfirmRequirementsRequest {
     pub content_hash: String,
     pub idempotency_key: String,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "routing_version"
+    )]
+    #[schema(minimum = 1, maximum = 9007199254740991i64)]
+    pub expected_routing_policy_version: Option<i64>,
+}
+
+fn routing_version<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<i64>, D::Error> {
+    let value = Option::<i64>::deserialize(d)?;
+    if value.is_some_and(|n| !(1..=9_007_199_254_740_991).contains(&n)) {
+        return Err(serde::de::Error::custom("invalid routing policy version"));
+    }
+    Ok(value)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -72,6 +87,7 @@ pub enum TrackerStage {
     Draft,
     Clarification,
     Backlog,
+    Analysis,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -206,4 +222,40 @@ pub struct TrackerClarifications {
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct TrackerRequirements {
     pub revisions: Vec<TrackerRequirementsRevision>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn confirmation_routing_opt_in_is_explicit_and_preserves_legacy_wire() {
+        let legacy = json!({"content_hash":"a".repeat(64),"idempotency_key":"confirm-fixture"});
+        let parsed: ConfirmRequirementsRequest = serde_json::from_value(legacy.clone()).unwrap();
+        assert!(parsed.expected_routing_policy_version.is_none());
+        assert_eq!(serde_json::to_value(parsed).unwrap(), legacy);
+        for value in [
+            json!(1),
+            json!(9_007_199_254_740_991i64),
+            serde_json::Value::Null,
+        ] {
+            let mut raw = legacy.clone();
+            raw["expected_routing_policy_version"] = value.clone();
+            let parsed: ConfirmRequirementsRequest = serde_json::from_value(raw).unwrap();
+            assert_eq!(parsed.expected_routing_policy_version, value.as_i64());
+        }
+        for value in [
+            json!(0),
+            json!(-1),
+            json!(9_007_199_254_740_992i64),
+            json!("1"),
+            json!(1.0),
+            json!(true),
+        ] {
+            let mut raw = legacy.clone();
+            raw["expected_routing_policy_version"] = value;
+            assert!(serde_json::from_value::<ConfirmRequirementsRequest>(raw).is_err());
+        }
+    }
 }
