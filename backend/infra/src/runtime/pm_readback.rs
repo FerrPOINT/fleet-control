@@ -40,6 +40,7 @@ pub(super) async fn probe(
             "{}/v1/runs/{raw_id}",
             LocalRuntimeSupervisor::hermes_base_url(agent)?
         ))
+        .header(reqwest::header::ACCEPT_ENCODING, "identity")
         .timeout(Duration::from_secs(10))
         .bearer_auth(crate::agent_runtime_token(&supervisor.config, agent.id)?)
         .send()
@@ -50,20 +51,7 @@ pub(super) async fn probe(
             "Hermes PM readback did not return a run".into(),
         ));
     }
-    let mut stream = response.bytes_stream();
-    let mut body = Vec::new();
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk
-            .map_err(|_| AppError::Unavailable("Hermes PM readback was interrupted".into()))?;
-        if body.len().saturating_add(chunk.len()) > 1024 * 1024 {
-            return Err(AppError::Unavailable(
-                "Hermes PM readback exceeded its size limit".into(),
-            ));
-        }
-        body.extend_from_slice(&chunk);
-    }
-    let payload: Value = serde_json::from_slice(&body)
-        .map_err(|_| AppError::Unavailable("Hermes PM readback is malformed".into()))?;
+    let payload = hermes_wire::read_json(response, reqwest::StatusCode::OK, 1024 * 1024).await?;
     // Hermes may resolve a Fleet session alias to its own persistent UUID.
     // Dispatch pins that effective ID; later probes cannot change it.
     let effective_session = record.hermes_session_ref.as_deref().ok_or_else(|| {

@@ -21,6 +21,15 @@ verification, closed managed HOME readback и отдельное machine observa
 proof и автоматический dispatch остаются target. Проверки файлов не заменяют эти
 доказательства. Подробности: [API](API.md#sdlc-configuration-observation).
 
+Task-bound dispatch дополнительно проверяет fresh Hermes wire capabilities до
+резервирования run: authenticated server-agent, exact run endpoints и durable
+idempotency с retention 86400 секунд. При memory-only fallback prompt не
+отправляется. Принимается только bounded HTTP 202 с валидной identity/status;
+неявные HTTP retries отключены. Это необходимая проверка транспорта, не native
+configuration attestation или assignment admission. Unknown acceptance не
+переотправляется; конечный срок хранения ключа не доказывает безопасный replay.
+Подробности и лимиты: [Runtime](RUNTIME.md).
+
 Manifest `namespace` — символическое имя, а Fleet `namespace_id` — отдельный
 persisted Workflow ID. Source implementation больше не приравнивает их.
 Подготовка получает fresh authenticated Workflow v3 mapping: namespace ID/name,

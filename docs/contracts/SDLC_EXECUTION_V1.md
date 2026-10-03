@@ -73,6 +73,17 @@ ACK освобождает ресурсы. Ответ принимается о�
 rebind прежнего cursor/mode/scope/cycle. Старый ответ и stale result отклоняются.
 Approval — отдельный scoped human gate; обычное сообщение не разрешает transition.
 
+### Реализованный Wire Prerequisite
+
+Task-bound Hermes send теперь проверяет fresh authenticated durable-idempotency
+capabilities до run preparation и требует exact HTTP 202 acceptance schema.
+Scoped source evidence: четыре wire unit tests, два PM readback unit tests и
+шесть PostgreSQL runtime/callback/approval cases, clippy и fmt. HTTP fixtures не являются
+live Hermes acceptance. Эта проверка не реализует весь dispatch contract выше:
+native admission, acceptance lookup по key и frozen assignment consumption ещё
+не подтверждены. Unknown acceptance удерживается без автоматического POST.
+Фактические границы транспорта: [Runtime](../RUNTIME.md).
+
 ## Права и capabilities
 
 ### Реализованный Read-only Предшественник Admission

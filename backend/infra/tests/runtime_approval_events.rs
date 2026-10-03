@@ -58,11 +58,14 @@ async fn start_run(
     State(fake): State<Arc<FakeHermes>>,
     headers: HeaderMap,
     Json(body): Json<Value>,
-) -> Result<Json<Value>, StatusCode> {
+) -> Result<(StatusCode, Json<Value>), StatusCode> {
     fake.authenticate(&headers)?;
     assert_eq!(headers["Idempotency-Key"], fake.message_id.to_string());
     assert_eq!(body["input"], "Exercise exact runtime approval requests");
-    Ok(Json(json!({"run_id": RUNTIME_RUN})))
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(json!({"run_id": RUNTIME_RUN, "status":"started", "replayed":false})),
+    ))
 }
 
 async fn events(
@@ -381,6 +384,6 @@ async fn authenticated_hermes_sse_ingests_exact_requests_and_never_response_even
         2
     );
     println!(
-        "actual PostgreSQL: 10 migrations; authenticated production SSE: 2 pending request IDs; responded: 0 new rows; concurrent/replayed upserts: stable IDs"
+        "actual PostgreSQL: 11 migrations; authenticated production SSE: 2 pending request IDs; responded: 0 new rows; concurrent/replayed upserts: stable IDs"
     );
 }

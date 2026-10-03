@@ -38,6 +38,20 @@ Hermes:
   process with an unhealthy API remains degraded and is probed again.
 - Prompt outbox is transactional. Unknown POST acceptance is not automatically
   retried; the agent remains occupied pending reconciliation.
+- The managed HTTP client disables implicit retries, redirects and environment
+  proxies. Run submission accepts only HTTP 202 with a safe opaque `run_id`, a
+  boolean `replayed` and a known `status`; a new run must say `started`. A replay
+  preserves the original run identity, not a successful stage result. Rejection
+  bodies and transport diagnostics are not exposed as dispatch errors.
+  Capability JSON is bounded to 256 KiB, acceptance JSON to 16 KiB and PM status
+  readback to 1 MiB, including streamed bodies; encoded responses are rejected.
+- Before preparing a task-bound run, Fleet freshly verifies the concrete agent
+  binding and the authenticated server-agent capability contract: exact run
+  endpoints and durable idempotency with the pinned 86400-second retention.
+  Memory-only fallback is refused before run preparation or prompt submission.
+  This necessary wire prerequisite does not attest native skills/configuration
+  or admit an assignment. The finite retention is not permission to redispatch
+  unknown acceptance; lookup by idempotency key and full admission remain gaps.
 - Stream EOF is not completion. Fleet requires a terminal event or terminal
   status readback, and deduplicates the final mirror response.
 - Configuration is draft/validated/activating/active/failed with desired and

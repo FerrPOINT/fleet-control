@@ -11,7 +11,7 @@ use domain::{
     SteerSessionRunRequest,
 };
 use futures_util::StreamExt;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::{Value, json};
 use shared::{AppConfig, AppError, FleetEvent};
 use std::{collections::HashMap, process::Stdio, sync::Arc, time::Duration};
@@ -22,6 +22,7 @@ use tokio::{
     time::sleep,
 };
 use uuid::Uuid;
+mod hermes_wire;
 mod pm_readback;
 mod targeted_approval;
 
@@ -51,11 +52,6 @@ struct HermesRunStartRequest {
     model_options: Option<Value>,
 }
 
-#[derive(Debug, Deserialize)]
-struct HermesRunStartResponse {
-    run_id: String,
-}
-
 #[derive(Debug, Serialize)]
 struct HermesSteerRequest {
     input: String,
@@ -79,6 +75,8 @@ impl LocalRuntimeSupervisor {
             children: Arc::new(Mutex::new(HashMap::new())),
             client: reqwest::Client::builder()
                 .redirect(reqwest::redirect::Policy::none())
+                .retry(reqwest::retry::never())
+                .no_proxy()
                 .connect_timeout(Duration::from_secs(5))
                 .build()
                 .expect("runtime HTTP client configuration"),
@@ -1085,6 +1083,7 @@ impl LocalRuntimeSupervisor {
         let capabilities = self
             .client
             .get(format!("{base}/v1/capabilities"))
+            .header(reqwest::header::ACCEPT_ENCODING, "identity")
             .timeout(Duration::from_secs(3))
             .bearer_auth(token)
             .send()
@@ -1096,7 +1095,8 @@ impl LocalRuntimeSupervisor {
                 capabilities.status()
             )));
         }
-        let capabilities: Value = capabilities.json().await.map_err(AppError::internal)?;
+        let capabilities =
+            hermes_wire::read_json(capabilities, reqwest::StatusCode::OK, 262_144).await?;
         for feature in ["run_status", "run_events_sse", "run_stop"] {
             if capabilities
                 .get("features")
@@ -1134,6 +1134,15 @@ impl LocalRuntimeSupervisor {
         session: &AgentSession,
         message: &SessionMessage,
     ) -> Result<(SessionAgentRun, String), AppError> {
+        if let Some(binding) = self.repo.get_task_chat_binding(session.id).await? {
+            if binding.agent_id != agent.id || agent.id != session.primary_agent_id {
+                return Err(AppError::conflict(
+                    "task runtime identity does not match binding",
+                ));
+            }
+            let capabilities = self.probe_hermes(agent).await?;
+            hermes_wire::task_protocol(&capabilities)?;
+        }
         let runtime_session_id = Self::runtime_session_id(session, agent);
         let run = self
             .repo
@@ -1148,36 +1157,25 @@ impl LocalRuntimeSupervisor {
         let token = crate::agent_runtime_token(&self.config, agent.id)?;
         let model_options = (!matches!(&run.model_options, Value::Object(map) if map.is_empty()))
             .then_some(run.model_options.clone());
-        let response = self
-            .client
-            .post(format!("{base}/v1/runs"))
-            .bearer_auth(token)
-            .header("Idempotency-Key", message.id.to_string())
-            .timeout(Duration::from_secs(30))
-            .json(&HermesRunStartRequest {
+        let runtime_run_id = hermes_wire::submit(
+            &self.client,
+            &base,
+            &token,
+            message.id,
+            &HermesRunStartRequest {
                 input: Self::runtime_input(agent, session, message),
                 session_id: runtime_session_id,
                 model: run.model.clone(),
                 provider: run.provider.clone(),
                 model_options,
-            })
-            .send()
-            .await
-            .map_err(AppError::internal)?;
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            return Err(AppError::validation(format!(
-                "Hermes /v1/runs rejected dispatch with {status}: {}",
-                crate::redact_text(&body)
-            )));
-        }
-        let accepted: HermesRunStartResponse = response.json().await.map_err(AppError::internal)?;
+            },
+        )
+        .await?;
         let run = self
             .repo
             .update_session_agent_run_dispatch(
                 run.id,
-                Some(accepted.run_id.clone()),
+                Some(runtime_run_id.clone()),
                 SessionRunState::Running,
                 None,
             )
@@ -1186,7 +1184,7 @@ impl LocalRuntimeSupervisor {
             .update_session_message_delivery(
                 message.id,
                 MessageDeliveryState::Dispatched,
-                Some(accepted.run_id.clone()),
+                Some(runtime_run_id.clone()),
                 None,
             )
             .await?;
@@ -1196,7 +1194,7 @@ impl LocalRuntimeSupervisor {
             message_id: message.id.to_string(),
             event: "message.dispatched".to_string(),
         });
-        Ok((run, accepted.run_id))
+        Ok((run, runtime_run_id))
     }
 
     fn spawn_hermes_event_worker(

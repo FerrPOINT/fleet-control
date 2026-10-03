@@ -3413,6 +3413,87 @@ async fn config_revision_identity_guard_fences_rebind_active_runs_and_unknown_di
     );
 }
 
+#[tokio::test]
+async fn runtime_task_protocol_blocks_memory_only_idempotency_before_submission() {
+    let Some((repo, reservation)) = pm_fixture().await else {
+        return;
+    };
+    let session = repo.get_session(reservation.session_id).await.unwrap();
+    let agent_id = reservation.identity.agent_id().unwrap();
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let message_id = Uuid::new_v4();
+    db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "INSERT INTO session_messages(id,session_id,author_type,author_user_id,body,message_kind,delivery_state)
+         VALUES($1,$2,'user',$3,'protocol gate fixture','user_prompt','pending')",
+        [message_id.into(), session.id.into(), session.user_id.into()])).await.unwrap();
+    let message = repo
+        .list_session_messages(session.id)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|item| item.id == message_id)
+        .unwrap();
+    let runs_before =
+        serde_json::to_value(repo.list_session_agent_runs(session.id).await.unwrap()).unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE agents SET api_port=$2 WHERE id=$1",
+        [agent_id.into(), i32::from(port).into()],
+    ))
+    .await
+    .unwrap();
+    let count = Arc::new(AtomicUsize::new(0));
+    let calls = count.clone();
+    let mut config = AppConfig::default();
+    config.fleet.runtime_token_secret = "protocol-gate-fixture-only".into();
+    let bearer = format!(
+        "Bearer {}",
+        infra::agent_runtime_token(&config, agent_id).unwrap()
+    );
+    let router = axum::Router::new()
+        .route("/health", axum::routing::get(|| async { axum::Json(serde_json::json!({"status":"ok"})) }))
+        .route("/v1/capabilities", axum::routing::get(move |headers: axum::http::HeaderMap| {
+            assert_eq!(headers["authorization"], bearer);
+            async { axum::Json(serde_json::json!({
+                "object":"hermes.api_server.capabilities", "platform":"hermes-agent",
+                "auth":{"type":"bearer","required":true},
+                "runtime":{"mode":"server_agent","tool_execution":"server","split_runtime":false},
+                "features":{"run_submission":true,"run_status":true,"run_events_sse":true,"run_stop":true,
+                    "runs_idempotency":{"supported":true,"durable":false,"retention_seconds":86400}},
+                "endpoints":{"runs":{"method":"POST","path":"/v1/runs"},
+                    "run_status":{"method":"GET","path":"/v1/runs/{run_id}"},
+                    "run_events":{"method":"GET","path":"/v1/runs/{run_id}/events"},
+                    "run_stop":{"method":"POST","path":"/v1/runs/{run_id}/stop"}}
+            })) }
+        }))
+        .route("/v1/runs", axum::routing::post(move || {
+            calls.fetch_add(1, Ordering::SeqCst);
+            async { axum::http::StatusCode::INTERNAL_SERVER_ERROR }
+        }));
+    let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+    let agent = repo.get_agent(agent_id).await.unwrap();
+    let repo = Arc::new(repo);
+    let (events, _) = tokio::sync::broadcast::channel(32);
+    let runtime =
+        infra::runtime::LocalRuntimeSupervisor::new(Arc::new(config), repo.clone(), events);
+    let response = app::RuntimeSupervisor::send_message(&runtime, &agent, &session, &message)
+        .await
+        .unwrap();
+    assert_eq!(response.status, AgentStatus::Failed);
+    assert!(response.message.contains("durable task protocol"));
+    assert_eq!(count.load(Ordering::SeqCst), 0);
+    assert_eq!(
+        serde_json::to_value(repo.list_session_agent_runs(session.id).await.unwrap()).unwrap(),
+        runs_before
+    );
+    server.abort();
+    let _ = server.await;
+}
+
 async fn runtime_http_fixture(runtime_status: &'static str) {
     let Some((repo, owner, _)) = fixture().await else {
         return;
@@ -3440,7 +3521,7 @@ async fn runtime_http_fixture(runtime_status: &'static str) {
                 assert!(headers.contains_key("idempotency-key"));
                 assert!(body["session_id"].as_str().unwrap().starts_with("fleet:"));
                 calls.fetch_add(1, Ordering::SeqCst);
-                axum::Json(serde_json::json!({"run_id": "fixture-run"}))
+                (axum::http::StatusCode::ACCEPTED, axum::Json(serde_json::json!({"run_id": "fixture-run", "status":"started", "replayed":false})))
             }
         }))
         .route("/v1/runs/fixture-run/events", axum::routing::get(|| async {
