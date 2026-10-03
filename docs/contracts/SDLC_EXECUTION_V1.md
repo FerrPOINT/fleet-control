@@ -75,6 +75,15 @@ Approval — отдельный scoped human gate; обычное сообщен
 
 ## Права и capabilities
 
+Канонические role-инструкции/skills и декларативный manifest принадлежат Base
+(`services-base/agent-skills/`). Fleet materializes только pinned allowlist и
+roleInstruction, проверяет hashes и хранит effective config с model/provider,
+limits и concrete identity. Редактируемой копии пакета во Fleet нет; отсутствие
+доступа к приватному Base pin является blocker, не fallback на старые файлы.
+Будущий prompt assembly соединяет pinned roleInstruction, backend assignment,
+текущую фазу Workflow и разрешённые skills после admission. Этот контракт
+не реализует installation или сборку промпта и не меняет runtime.
+
 | Capability | Разрешение | Текущий статус / работа |
 | --- | --- | --- |
 | Project context read | Все роли, assigned project | Нужен end-to-end machine-scoped contract; context token read-only |
