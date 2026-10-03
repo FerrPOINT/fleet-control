@@ -30,6 +30,12 @@ Lifecycle:
 - readiness: `/health` plus `/v1/capabilities` containing `run_status`,
   `run_events_sse` and `run_stop`
 
+These lifecycle checks are not SDLC admission. Pinned Base effective readback
+verifies the immutable Git snapshot and a bounded closed HOME skill-file tree;
+it does not certify plugin/project/external discovery, loaded model/tool settings
+or a frozen assignment. See [runtime boundaries](../RUNTIME.md). Missing native
+proof keeps `runtime_ready=false`; no fallback or extra skill deletion is used.
+
 Session control:
 
 - Fleet stores transcript/control mirrors in `session_messages`.

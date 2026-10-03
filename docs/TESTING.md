@@ -65,6 +65,27 @@ The filesystem regression also includes Hermes-owned category directories and
 `.bundled_manifest`. These are preserved, not trusted as a provenance source;
 the unverified runtime inventory blocker is separate from managed-file drift.
 
+`cargo test -p infra --lib base_package` also covers pinned effective readback
+against the real local Git object cache (`FLEET_TEST_BASE_PACKAGE_CHECKOUT`),
+extra native HOME skill denial, forged proof with matching disk files and missing
+cache. `effective_configuration` checks bounded depth, unlisted/nested/case-aliased
+files, symlinks and Unix sockets. Legacy extra categories remain preserved.
+
+`cargo test -p api sdlc_configuration` checks fresh Base HTTP introspection using
+controlled servers: exact subject/agent-specific scopes, revocation, broad or
+duplicate grants, browser/legacy denial before IO, disabled configuration,
+redirect/encoding/malformed/oversized response denial and sanitized errors.
+These are source contract tests, not live Base acceptance or native admission.
+The OpenAPI regression checks global operation-ID uniqueness, including the
+configuration read and the distinct existing PM runtime callback.
+The PostgreSQL case
+`base_package_machine_readback_denies_database_only_effective_config_and_human_fallback`
+calls the real machine route with a pinned DB-active revision but no installed
+files: local admin cannot substitute for the PAT, another agent is forbidden,
+and metadata alone returns `503` without leaking paths/content/credentials.
+It creates 100 newer drafts and verifies that direct effective-head/pinned-revision
+lookup still finds the active revision outside the bounded history window.
+
 New regression coverage: PostgreSQL concurrent session/message idempotency and
 private authorization; configuration drain/rollback state; unknown dispatch
 capacity; fake Hermes HTTP EOF versus terminal readback and single response

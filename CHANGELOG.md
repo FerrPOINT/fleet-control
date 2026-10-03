@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Revalidate pinned Base effective snapshots against Git and a bounded closed
+  HOME skill-file inventory. Add opt-in agent-scoped, freshly introspected Base
+  PAT configuration observation with metadata only and no runtime admission.
+
 - Bind server-only delegated PM credentials to enumerated operations for their
   canonical assigned task. Reject legacy/foreign task paths and owner/verifier
   actions before attaching the bearer. Keep the Base delegation wire unchanged;

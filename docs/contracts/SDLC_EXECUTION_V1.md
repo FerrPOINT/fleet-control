@@ -75,6 +75,21 @@ Approval — отдельный scoped human gate; обычное сообщен
 
 ## Права и capabilities
 
+### Реализованный Read-only Предшественник Admission
+
+Source-only конфигурационное наблюдение описано в
+[API](../API.md#sdlc-configuration-observation). Оно читает конкретного агента
+после fresh Base introspection: exact dedicated subject, только
+`fleet-control:read`, deployment-owned agent UUID allowlist. Такую service-read
+credential можно выпустить штатным Base PAT API; составные несуществующие
+resource scopes не требуются. Browser/local-admin контекст не заменяет её.
+
+Ответ подтверждает только pinned snapshot/managed HOME files на время чтения,
+повторно проверяет effective DB head и всегда содержит `runtime_ready=false`.
+Это не `BaseAdmission`, config hash lease, native-loaded attestation или durable
+assignment ACK. Queue consumer обязан оставаться blocked до реализации остальных
+owner contracts. Email, observation UUID и editable package proof прав не дают.
+
 Требования к семи concrete Hermes, effective model/tools/limits, source-only
 example и validate/drain/activate/readback/recovery описаны в
 [runtime configuration v1](../SDLC_RUNTIME_CONFIGURATION_V1.md).

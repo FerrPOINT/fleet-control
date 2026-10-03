@@ -1,5 +1,21 @@
 # Security
 
+## SDLC Configuration Observation
+
+The opt-in machine read requires fresh bounded Base PAT introspection at a fixed
+trusted origin, the exact registered subject, only `fleet-control:read`, and a
+deployment-owned concrete-agent UUID allowlist. Local/browser admin identity,
+email, wildcard or broader PAT grants never substitute. No shadow user is created
+and no PAT is persisted. Redirects, proxy-env, automatic retry, encoded/oversized
+responses and schema drift fail closed; errors do not echo upstream content.
+
+The response contains verified public pin metadata, not prompts, skill contents,
+paths or secrets, and uses `Cache-Control: no-store`. Fresh Git/snapshot/HOME-file
+checks and a repeated effective-head read are not a filesystem lock, OS sandbox,
+native-loaded attestation or lease. `runtime_ready=false` prevents using this
+observation as assignment acceptance. No runtime/Workflow/Forge or business
+mutation rights follow from configuration read access.
+
 ## PM Clarification Commands
 
 The server-only delegated PM client binds its credential to the assigned task

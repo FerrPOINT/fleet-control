@@ -23,6 +23,29 @@ fn defaults_are_fleet_control_specific() {
 }
 
 #[test]
+fn sdlc_configuration_reader_is_opt_in_and_preserves_legacy_config() {
+    let mut legacy = serde_json::to_value(AppConfig::default()).unwrap();
+    legacy.as_object_mut().unwrap().remove("sdlc");
+    let restored: AppConfig = serde_json::from_value(legacy).unwrap();
+    assert!(!restored.sdlc.configuration_readback_enabled);
+    assert!(restored.sdlc.auth_url.is_empty());
+    assert!(restored.sdlc.configuration_reader_subject.is_empty());
+    assert!(restored.sdlc.configuration_reader_agent_ids.is_empty());
+    let config: SdlcConfig = serde_json::from_value(serde_json::json!({
+        "configuration_readback_enabled":true,
+        "auth_url":"http://auth.example.test",
+        "configuration_reader_subject":"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+        "configuration_reader_agent_ids":"dddddddd-dddd-4ddd-8ddd-dddddddddddd"
+    }))
+    .unwrap();
+    assert!(config.configuration_readback_enabled);
+    assert_eq!(
+        config.configuration_reader_agent_ids,
+        "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
+    );
+}
+
+#[test]
 fn base_package_checkout_is_opt_in_and_preserves_legacy_config() {
     let mut legacy = serde_json::to_value(FleetConfig::default()).unwrap();
     legacy

@@ -25,3 +25,7 @@ Unimplemented chat/control/stream/approval operations return typed
 `not_implemented`. The generic phase-2 label must not disable the working jar
 lifecycle. Java is not ready for automatic SDLC until required capabilities and
 workflow bindings have been verified.
+
+The pinned Base/Hermes configuration observation does not admit Java. A Java
+lifecycle health result cannot supply Hermes package/filesystem proof or grant
+automatic assignment rights; the existing lifecycle remains unchanged.

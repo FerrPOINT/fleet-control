@@ -48,8 +48,12 @@ Hermes:
   and the revision marker against the persisted effective snapshot, not against
   hashes or paths provided by a marker. Missing/changed managed files,
   re-enabled disabled skills, foreign markers and symlink/junction paths fail closed.
-  Hermes-owned categories and `.bundled_manifest` are preserved and not used as
-  authority. This check does not attest extra/runtime-owned skills; the separate
+  Pinned Base revisions additionally verify the actual Git package/snapshot and
+  closed HOME skill inventory, including nested/unlisted skill files and special
+  entries (4096 entries / 16 levels maximum). No unexpected files are removed.
+  Legacy revisions keep managed-only behavior; `.bundled_manifest` is never
+  authority. Plugin/project/external discovery and loaded model/tool settings
+  remain outside this observation; the separate
   `runtime_skill_inventory_not_verified` blocker remains until real inventory
   and native provenance are integrated.
   Verification does not create or repair directories/files. Secret values and

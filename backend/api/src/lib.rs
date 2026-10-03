@@ -17,6 +17,7 @@ pub mod routes;
     paths(
         routes::health::health,
         routes::pm_runtime::readback,
+        routes::sdlc_configuration::readback,
         routes::chats_directory::directory,
         routes::approvals::list,
         routes::approvals::read,
@@ -572,6 +573,10 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         .route(
             "/internal/runtime/v1/pm/runs/{session_run_id}",
             get(routes::pm_runtime::readback),
+        )
+        .route(
+            "/internal/runtime/v1/agents/{agent_id}/configuration",
+            get(routes::sdlc_configuration::readback),
         )
         .route("/api/v1/auth/register", post(routes::auth::register))
         .route("/api/v1/auth/login", post(routes::auth::login))

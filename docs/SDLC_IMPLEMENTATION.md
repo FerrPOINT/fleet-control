@@ -1,6 +1,6 @@
 # SDLC: реализация и оставшаяся приёмка
 
-Дата: 1 октября 2026. Статус: частичная реализация foundation; автоматический
+Дата: 3 октября 2026. Статус: частичная реализация foundation; автоматический
 SDLC не включён. Этот документ уточняет исторические отметки `done` в
 IMPLEMENTATION_PLAN и CURRENT_STATE. Они не являются приёмкой нового SDLC.
 
@@ -67,6 +67,20 @@ typecheck/OpenAPI drift и ссылки документации PASS. OpenAPI r
 установка. Physical/bundled inventory, effective Hermes config precedence,
 assignment admission/prompt assembly и dispatch остаются отдельными gaps;
 readiness blockers не снимаются. Полный автономный PDLC не принят.
+
+Дополнительный source cut: effective readback сверяет snapshot с Git pin и
+ограниченно обходит HOME skills, запрещая unlisted/nested/case-aliased `SKILL.md`,
+symlink/junction и special files. Проверка read-only: чужие файлы не удаляются.
+Legacy snapshot сохраняет прежнее поведение. Реальные Git blobs и matching-disk
+подделка proof проверяются regression; native discovery вне HOME не сертифицирован.
+
+Машинное чтение `/internal/runtime/v1/agents/{agent_id}/configuration` использует
+fresh bounded Base PAT introspection, отдельно зарегистрированный subject и
+точные read-only scopes конкретного агента. После файловой проверки повторно
+читается effective head; ответ содержит только metadata и `runtime_ready=false`.
+Observation не является config lease, assignment ACK или runtime receipt.
+Проверки и env contract: [API](API.md#sdlc-configuration-observation),
+[настройки](ENV.md#sdlc-configuration-observation), [тесты](TESTING.md#sdlc-foundation-checks).
 
 1. `PUT /agents/{id}/config` сохраняет draft и desired snapshot, не применяет
    файлы работающему Hermes.

@@ -13,8 +13,20 @@ with drain/readback/rollback and fail-closed SDLC readiness.
 The B-SDLC-02 source slice prepares a pinned Base package draft through the
 operator API without changing effective runtime files. Git schema/hash/inventory,
 snapshot proof/content, concurrent desired/identity and drain guards are verified
-by scoped tests. Physical/bundled inventory and general assignment dispatch are
-still blockers. Details: [scope and evidence](SDLC_IMPLEMENTATION.md#b-sdlc-02-подготовка-закреплённого-base-draft).
+by scoped tests. Pinned effective readback additionally rechecks Git provenance
+and a bounded closed HOME skill-file inventory; an opt-in agent-scoped Base PAT
+read exposes metadata only, never dispatch rights. Runtime/plugin/external
+inventory, loaded settings and general assignment dispatch remain blockers.
+Details: [scope and evidence](SDLC_IMPLEMENTATION.md#b-sdlc-02-подготовка-закреплённого-base-draft).
+
+The configuration-observation follow-up passed 28 distinct scoped Rust 1.88 cases
+(31 executions, including repeated inventory checks):
+11 pinned-package/filesystem unit, 5 PostgreSQL/HTTP, 3 effective-file regression,
+1 drain/rollback, 2 config compatibility and 6 machine-auth/OpenAPI cases.
+Scoped infra/API/integration clippy and fmt passed; regenerated OpenAPI/client,
+frontend typecheck/drift and documentation links passed. This is not a full
+integrated gate or installed-runtime acceptance. Native admission/dispatch remain
+blocked, and no accepted images, volumes or skills pins were changed.
 
 Native Windows Rust commands still require MSVC `link.exe`.
 

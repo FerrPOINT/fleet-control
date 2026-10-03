@@ -18,6 +18,165 @@ async fn bind_namespace(repo: &PostgresFleetRepository, id: Uuid) {
     .unwrap();
 }
 
+#[tokio::test]
+async fn base_package_machine_readback_denies_database_only_effective_config_and_human_fallback() {
+    let Ok(checkout) = std::env::var("FLEET_TEST_BASE_PACKAGE_CHECKOUT") else {
+        return;
+    };
+    let Some((repo, owner, _)) = fixture().await else {
+        return;
+    };
+    let mut config = AppConfig::default();
+    config.fleet.base_package_checkout = checkout.clone();
+    let root = std::env::temp_dir().join(format!("fleet-machine-readback-{}", Uuid::new_v4()));
+    config.fleet.agents_root = root.to_string_lossy().into_owned();
+    let id = agent_with_config(&repo, &config).await;
+    bind_namespace(&repo, id).await;
+    repo.create_config_revision(id, configuration(), owner)
+        .await
+        .unwrap();
+    let revision = repo
+        .prepare_base_package_revision(id, &checkout, owner)
+        .await
+        .unwrap();
+    repo.validate_config_revision(id, revision.revision, vec![])
+        .await
+        .unwrap();
+    repo.request_config_activation(id, revision.revision, owner)
+        .await
+        .unwrap();
+    assert_eq!(
+        repo.claim_config_activation()
+            .await
+            .unwrap()
+            .unwrap()
+            .agent_id,
+        id
+    );
+    repo.finish_config_activation(id, revision.revision, None, true)
+        .await
+        .unwrap();
+    // The chronological history window is not the authority for effective head.
+    for _ in 0..100 {
+        repo.create_config_revision(id, configuration(), owner)
+            .await
+            .unwrap();
+    }
+    assert!(
+        repo.list_config_revisions(id)
+            .await
+            .unwrap()
+            .iter()
+            .all(|value| !value.is_effective)
+    );
+    assert_eq!(
+        repo.get_effective_config_revision(id)
+            .await
+            .unwrap()
+            .unwrap()
+            .revision,
+        revision.revision
+    );
+    repo.verify_base_package_revision(id, revision.revision, &checkout)
+        .await
+        .unwrap();
+
+    let subject = Uuid::new_v4();
+    let introspections = Arc::new(AtomicUsize::new(0));
+    let counter = introspections.clone();
+    let authority = axum::Router::new().route(
+        "/auth/tokens/introspect",
+        axum::routing::get(move || {
+            counter.fetch_add(1, Ordering::SeqCst);
+            async move {
+                axum::Json(
+                    serde_json::json!({"sub":subject, "email":"machine@example.test",
+            "scopes":["fleet-control:read"]}),
+                )
+            }
+        }),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    config.sdlc.configuration_readback_enabled = true;
+    config.sdlc.auth_url = format!("http://{}", listener.local_addr().unwrap());
+    config.sdlc.configuration_reader_subject = subject.to_string();
+    config.sdlc.configuration_reader_agent_ids = id.to_string();
+    let authority_server =
+        tokio::spawn(async move { axum::serve(listener, authority).await.unwrap() });
+    let repo = Arc::new(repo);
+    let config = Arc::new(config);
+    let (events, _) = tokio::sync::broadcast::channel(16);
+    let runtime = Arc::new(infra::runtime::LocalRuntimeSupervisor::new(
+        config.clone(),
+        repo.clone(),
+        events.clone(),
+    ));
+    let (restart_tx, _) = tokio::sync::mpsc::channel(1);
+    let ctx = Arc::new(app::AppContext::new(
+        config,
+        repo,
+        Arc::new(infra::FilesystemProvisioner),
+        runtime,
+        events,
+        restart_tx,
+    ));
+    let router = axum::Router::new()
+        .route(
+            "/configuration/{id}",
+            axum::routing::get(api::routes::sdlc_configuration::readback),
+        )
+        .with_state(ctx)
+        .layer(axum::Extension(api::middleware::CurrentUser {
+            id: owner,
+            role: domain::SystemRole::Admin,
+            is_system_admin: true,
+        }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+    let client = reqwest::Client::new();
+    for (token, agent_id, expected) in [
+        (None, id, axum::http::StatusCode::UNAUTHORIZED),
+        (
+            Some("local-browser-admin"),
+            id,
+            axum::http::StatusCode::UNAUTHORIZED,
+        ),
+        (
+            Some("sdlc_pat_test-only-configuration-reader-credential"),
+            Uuid::new_v4(),
+            axum::http::StatusCode::FORBIDDEN,
+        ),
+        (
+            Some("sdlc_pat_test-only-configuration-reader-credential"),
+            id,
+            axum::http::StatusCode::SERVICE_UNAVAILABLE,
+        ),
+    ] {
+        let mut request = client.get(format!("{base}/configuration/{agent_id}"));
+        if let Some(token) = token {
+            request = request.header("Authorization", format!("Bearer {token}"));
+        }
+        let response = request.send().await.unwrap();
+        assert_eq!(response.status(), expected);
+        let text = response.text().await.unwrap();
+        for forbidden in [
+            root.to_str().unwrap(),
+            "fleet_sdlc_package",
+            "SOUL.md",
+            "reader-credential",
+        ] {
+            assert!(!text.contains(forbidden));
+        }
+    }
+    assert_eq!(introspections.load(Ordering::SeqCst), 2);
+    assert!(!root.exists());
+    authority_server.abort();
+    let _ = authority_server.await;
+    server.abort();
+    let _ = server.await;
+}
+
 async fn wait_for_preparation_lock(db: &sea_orm::DatabaseConnection, count: i64) {
     for _ in 0..200 {
         let row = db.query_one(Statement::from_string(DatabaseBackend::Postgres,

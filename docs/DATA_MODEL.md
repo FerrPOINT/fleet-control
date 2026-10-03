@@ -16,6 +16,10 @@ the desired revision. Migration 000010 adds explicit task bindings; assignment l
 are not implemented here yet. See [scope and blockers](SDLC_IMPLEMENTATION.md).
 
 Pinned Base preparation reuses these config revisions without a new migration.
+Machine configuration observation reads `agent_config_heads.effective_revision`
+directly; the chronological last-100 revision list is not head authority. Exact
+pinned revision verification also uses direct lookup. The observation UUID/time
+is not persisted as an assignment lease, approval or execution receipt.
 The snapshot's `config_json.fleet_sdlc_package` stores metadata only: exact Base
 commit, normalized manifest/instruction hashes, role namespace/profile/modes and
 skill hashes. Its SOUL and skill content remain in the protected snapshot, not

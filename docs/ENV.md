@@ -104,7 +104,29 @@ Important runtime values:
 | `FLEET_CONTROL_FLEET__RETENTION__STALE_ARCHIVED_DAYS` | 30 | Stale threshold (days) for archived agent folders |
 | `FLEET_CONTROL_FLEET__RETENTION__REVIEW_INTERVAL_SECS` | 3600 | Scheduled stale-folder review period (seconds) |
 
-## PM Readback
+## SDLC Configuration Observation
+
+Disabled by default, with no automatic runtime admission:
+
+- `FLEET_CONTROL_SDLC__CONFIGURATION_READBACK_ENABLED=true`
+- `FLEET_CONTROL_SDLC__AUTH_URL`: fixed root HTTP(S) Base origin, no credentials,
+  path, query or redirect. Private network/TLS boundaries remain deployment-owned.
+- `FLEET_CONTROL_SDLC__CONFIGURATION_READER_SUBJECT`: exact canonical non-nil
+  Base subject registered for the machine reader, not a browser administrator.
+- `FLEET_CONTROL_SDLC__CONFIGURATION_READER_AGENT_IDS`: comma-separated canonical
+  non-nil UUIDs, without spaces, duplicates or wildcards (4096 bytes maximum).
+  This server-owned allowlist binds the reader to concrete agents, not a role.
+
+The caller supplies a dedicated Base PAT with exactly `fleet-control:read`.
+Its registered subject and the server-side agent allowlist are both mandatory.
+Introspection is fresh, bounded to
+16 KiB and five seconds, without proxy/redirect/retry or human auth fallback.
+The PAT is not stored in Fleet settings or passed into Hermes. Never reuse
+namespace, Tracker metadata, JWT, runtime or PM callback credentials.
+The operator-owned Base package cache and actual active files are required;
+this source-only observation does not enable scheduling or deployments.
+
+## PM Callback Credential
 
 - `FLEET_CONTROL_PM__READBACK_TOKEN`: dedicated machine callback secret, 32..512
   ASCII graphic bytes without whitespace; unset by default. Must differ from JWT signing,

@@ -3268,6 +3268,52 @@
         }
       }
     },
+    "/internal/runtime/v1/agents/{agent_id}/configuration": {
+      "get": {
+        "tags": [
+          "sdlc-runtime"
+        ],
+        "operationId": "read_sdlc_configuration",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationObservation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/internal/runtime/v1/pm/runs/{session_run_id}": {
       "get": {
         "tags": [
@@ -4732,6 +4778,59 @@
           }
         },
         "additionalProperties": false
+      },
+      "ConfigurationObservation": {
+        "type": "object",
+        "required": [
+          "contract_version",
+          "observation_ref",
+          "agent_id",
+          "sdlc_role",
+          "effective_revision",
+          "package",
+          "observed_at",
+          "managed_files_verified",
+          "runtime_ready",
+          "blockers"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "contract_version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "effective_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "managed_files_verified": {
+            "type": "boolean"
+          },
+          "observation_ref": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "observed_at": {
+            "type": "string"
+          },
+          "package": {},
+          "runtime_ready": {
+            "type": "boolean"
+          },
+          "sdlc_role": {
+            "$ref": "#/components/schemas/SdlcRole"
+          }
+        }
       },
       "ConfirmRequirementsRequest": {
         "type": "object",

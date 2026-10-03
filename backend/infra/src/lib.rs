@@ -1360,6 +1360,12 @@ impl FleetRepository for PostgresFleetRepository {
     ) -> Result<Vec<domain::AgentConfigRevision>, AppError> {
         config_revisions::list(self, id).await
     }
+    async fn get_effective_config_revision(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<domain::AgentConfigRevision>, AppError> {
+        config_revisions::effective(self, id).await
+    }
     async fn prepare_base_package_revision(
         &self,
         id: Uuid,
@@ -1410,12 +1416,7 @@ impl FleetRepository for PostgresFleetRepository {
         let role = agent
             .sdlc_role
             .ok_or_else(|| AppError::validation("SDLC role is required"))?;
-        let revision = self
-            .list_config_revisions(id)
-            .await?
-            .into_iter()
-            .find(|value| value.revision == revision)
-            .ok_or_else(|| AppError::not_found("config_revision", revision))?;
+        let revision = config_revisions::get(self, id, revision).await?;
         let package =
             base_package::VerifiedRolePackage::read(std::path::Path::new(checkout), role).await?;
         package.verify_snapshot(&agent, &revision.snapshot)
@@ -5126,6 +5127,70 @@ mod tests {
         assert_eq!(
             tokio::fs::read_to_string(manifest).await.unwrap(),
             "category/bundled:test-digest\n"
+        );
+        tokio::fs::remove_dir_all(root).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn base_package_effective_readback_uses_git_pin_and_closed_home_inventory() {
+        let Ok(checkout) = std::env::var("FLEET_TEST_BASE_PACKAGE_CHECKOUT") else {
+            return;
+        };
+        let (root, mut agent, mut config, mut revision) = effective_config_fixture().await;
+        config.fleet.base_package_checkout = checkout;
+        agent.sdlc_role = Some(domain::SdlcRole::Developer);
+        agent.namespace_id = Some("hermes-developer".into());
+        let package = base_package::VerifiedRolePackage::read(
+            Path::new(&config.fleet.base_package_checkout),
+            domain::SdlcRole::Developer,
+        )
+        .await
+        .unwrap();
+        tokio::fs::remove_dir_all(Path::new(&agent.paths.config).join("skills"))
+            .await
+            .unwrap();
+        revision.snapshot.skills.clear();
+        revision.snapshot = package.prepare_snapshot(&agent, revision.snapshot).unwrap();
+        install_effective_fixture(&agent, &config, &revision).await;
+        FilesystemProvisioner
+            .verify_effective_configuration(&agent, &config, &revision)
+            .await
+            .unwrap();
+
+        let extra = Path::new(&agent.paths.config).join("skills/category/native/SKILL.md");
+        tokio::fs::create_dir_all(extra.parent().unwrap())
+            .await
+            .unwrap();
+        tokio::fs::write(&extra, "native skill not in Base allowlist")
+            .await
+            .unwrap();
+        assert!(
+            FilesystemProvisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .is_err()
+        );
+        assert!(extra.exists());
+        tokio::fs::remove_file(extra).await.unwrap();
+
+        // A matching disk snapshot and client-editable proof still cannot replace Git provenance.
+        let mut forged = revision.clone();
+        forged.snapshot.config.config_json["fleet_sdlc_package"]["manifestSha256"] =
+            json!("a".repeat(64));
+        install_effective_fixture(&agent, &config, &forged).await;
+        assert!(
+            FilesystemProvisioner
+                .verify_effective_configuration(&agent, &config, &forged)
+                .await
+                .is_err()
+        );
+        install_effective_fixture(&agent, &config, &revision).await;
+        config.fleet.base_package_checkout.clear();
+        assert!(
+            FilesystemProvisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .is_err()
         );
         tokio::fs::remove_dir_all(root).await.unwrap();
     }

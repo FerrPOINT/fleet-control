@@ -347,6 +347,14 @@ pub trait FleetRepository: Send + Sync {
         &self,
         agent_id: Uuid,
     ) -> Result<Vec<domain::AgentConfigRevision>, AppError>;
+    async fn get_effective_config_revision(
+        &self,
+        _agent_id: Uuid,
+    ) -> Result<Option<domain::AgentConfigRevision>, AppError> {
+        Err(AppError::Unavailable(
+            "effective configuration head lookup is unavailable".into(),
+        ))
+    }
     async fn verify_base_package_revision(
         &self,
         _agent_id: Uuid,

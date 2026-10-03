@@ -18,6 +18,17 @@ pub struct AppConfig {
     pub pm: PmConfig,
     #[serde(default)]
     pub tracker: TrackerConfig,
+    #[serde(default)]
+    pub sdlc: SdlcConfig,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SdlcConfig {
+    pub configuration_readback_enabled: bool,
+    pub auth_url: String,
+    pub configuration_reader_subject: String,
+    pub configuration_reader_agent_ids: String,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

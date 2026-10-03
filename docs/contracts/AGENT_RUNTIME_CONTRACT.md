@@ -19,3 +19,9 @@ agentN/config
 agentN/workspace
 agentN/logs
 ```
+
+SDLC configuration observation is a separate, read-only owner interface;
+see [the API contract](../API.md#sdlc-configuration-observation).
+Fresh Base PAT authorization and concrete-agent allowlisting do not authorize
+dispatch. Managed-file verification, loaded-runtime admission and terminal
+execution evidence are distinct. The current observation is not runtime-ready.

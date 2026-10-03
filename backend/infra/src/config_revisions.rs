@@ -74,7 +74,26 @@ pub(super) async fn list(
         .collect()
 }
 
-async fn get(
+pub(super) async fn effective(
+    repo: &PostgresFleetRepository,
+    id: Uuid,
+) -> Result<Option<AgentConfigRevision>, AppError> {
+    repo.get_agent(id).await?;
+    repo.db
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            format!(
+                "{SELECT_REVISIONS} WHERE r.agent_id = $1 AND r.revision = h.effective_revision"
+            ),
+            [id.into()],
+        ))
+        .await
+        .map_err(AppError::database)?
+        .map(from_row)
+        .transpose()
+}
+
+pub(super) async fn get(
     repo: &PostgresFleetRepository,
     id: Uuid,
     revision: i64,

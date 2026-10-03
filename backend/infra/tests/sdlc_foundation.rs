@@ -46,6 +46,10 @@ async fn fixture() -> Option<(PostgresFleetRepository, Uuid, Uuid)> {
 }
 
 async fn agent(repo: &PostgresFleetRepository) -> Uuid {
+    agent_with_config(repo, &AppConfig::default()).await
+}
+
+async fn agent_with_config(repo: &PostgresFleetRepository, config: &AppConfig) -> Uuid {
     repo.ensure_runtime_templates().await.unwrap();
     let result = repo
         .create_agent(
@@ -62,7 +66,7 @@ async fn agent(repo: &PostgresFleetRepository) -> Uuid {
                 workflow_name: None,
                 executor_ids: vec![],
             },
-            &AppConfig::default(),
+            config,
         )
         .await
         .unwrap();

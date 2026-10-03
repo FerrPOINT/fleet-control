@@ -307,10 +307,41 @@ workspace or skills cannot be verified. Underlying paths, resolved credentials
 and file hashes are not exposed. `effective_revision` still reports the database
 head, not a successful runtime observation. Workflow admission remains a separate
 blocker; this endpoint cannot authorize PM dispatch.
-Hermes-owned skill categories and `.bundled_manifest` are not Fleet snapshot
-files. They are preserved, not certified by managed-file readback. The separate
+For a pinned Base snapshot, readback also revalidates Git provenance and the
+role allowlist, then scans HOME skills (maximum 4096 entries / 16 levels).
+Unlisted/nested/case-aliased skill files, links, special files and missing allowed
+skills fail closed without deleting them. Legacy non-package snapshots preserve
+the previous managed-only verification. `.bundled_manifest` never supplies proof.
+Project/external/plugin discovery and runtime-loaded settings are not attested. The separate
 `runtime_skill_inventory_not_verified` blocker prevents treating intact managed
 files as proof of complete skill inventory/native provenance.
+
+### SDLC Configuration Observation
+
+`GET /internal/runtime/v1/agents/{agent_id}/configuration` is an opt-in machine
+read, outside browser/local admin authentication. Base freshly introspects a
+dedicated PAT at the configured fixed origin. Its canonical subject must equal
+the registered configuration reader, its scopes must be exactly
+`fleet-control:read` (no wildcard, duplicates or write scope), and the concrete
+agent UUID must be in Fleet's deployment-owned reader allowlist. This uses Base's
+existing service read/write PAT issuance, not an unissuable compound grant.
+Email is never identity authority.
+No PAT is stored by this read, and no shadow user is created.
+
+The version-1 observation exposes only agent/role, effective revision, pinned
+public package proof metadata, observation UUID/time, managed-file verification
+and blockers. It never returns prompt/skill content, env values, filesystem paths
+or credentials. The effective database head is re-read after verification;
+concurrent change/drain returns `409`. Effective head and exact pinned revision
+are read directly, independently of the latest-100 history window.
+Missing package/effective revision also
+returns `409`; invalid/disabled dependency configuration or failed file/provenance
+checks return `503`; missing/invalid/revoked PAT `401`, wrong subject/scopes `403`.
+
+`runtime_ready` is deliberately `false`: this is a read-only observation, not a
+lease, config activation, assignment acceptance/ACK, admission token or run
+receipt. Tracker must not dispatch using its observation UUID. Native effective
+settings/inventory and the frozen assignment/workflow protocol remain gates.
 
 `GET /internal/runtime/v1/pm/runs/{session_run_id}` is a machine-only callback
 for Project Workflow, outside browser authentication. It requires the dedicated
