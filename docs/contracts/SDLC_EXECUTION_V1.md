@@ -75,6 +75,11 @@ Approval — отдельный scoped human gate; обычное сообщен
 
 ## Права и capabilities
 
+Требования к семи concrete Hermes, effective model/tools/limits, source-only
+example и validate/drain/activate/readback/recovery описаны в
+[runtime configuration v1](../SDLC_RUNTIME_CONFIGURATION_V1.md).
+Это дополнение B-SDLC-02, не установка и не изменение существующего API.
+
 Канонические role-инструкции/skills и декларативный manifest принадлежат Base
 (`services-base/agent-skills/`). Fleet materializes только pinned allowlist и
 roleInstruction, проверяет hashes и хранит effective config с model/provider,
