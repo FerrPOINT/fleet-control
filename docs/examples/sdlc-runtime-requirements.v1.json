@@ -1,0 +1,173 @@
+{
+  "schema": "fleet-sdlc-runtime-requirements/v1",
+  "status": "candidate-not-installable",
+  "installable": false,
+  "runtimeApiSchema": false,
+  "description": "Requirements example only; not Fleet API DTO, Hermes config or activation input.",
+  "skillsSource": {
+    "repository": "https://github.com/FerrPOINT/services-base.git",
+    "revision": "4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58",
+    "manifestPath": "agent-skills/manifest.json",
+    "privateAccessRequired": true,
+    "localFallback": false
+  },
+  "workflowSource": {
+    "repository": "https://github.com/FerrPOINT/project-workflow.git",
+    "revision": "ed1653a0fe68d4f8950a48aa9839732c277eb505",
+    "path": "project_workflow/references/base_sdlc_catalog_v1.json",
+    "activate": false
+  },
+  "selectionAuthority": {
+    "assignment": "Task Tracker",
+    "effectiveConfiguration": "Fleet Control",
+    "workflow": "Project Workflow",
+    "workspace": "Forge CI/CD",
+    "modelMaySelectRoleModeWorkspace": false
+  },
+  "runtimeInputs": {
+    "modelProviderRef": null,
+    "modelRef": null,
+    "fallbackPolicyRef": null,
+    "contextLength": null,
+    "outputLimit": null,
+    "maxTurns": null,
+    "terminalTimeout": null,
+    "maxForegroundTimeout": null,
+    "secretReferences": null,
+    "effectivePrecedenceReceipt": null
+  },
+  "requiredBehavior": {
+    "separateConcreteAgentIds": true,
+    "separateHomes": true,
+    "physicalManifestAllowlistOnly": true,
+    "readPinnedGitCommit": true,
+    "admissionBeforeModel": true,
+    "conflictingLimitsBlockActivation": true,
+    "validateDrainActivateReadbackRecovery": true,
+    "contextTokenReadOnly": true
+  },
+  "roles": {
+    "project_manager": {
+      "namespace": "hermes-project-manager",
+      "profile": "hermes-sdlc-project-manager",
+      "concreteAgentId": null,
+      "home": null,
+      "skillsDirectory": null,
+      "roleInstructionRef": "roles/project_manager.md",
+      "physicalSkillsRef": "#/roles/project_manager/physicalSkills",
+      "workflowBindingRef": "hermes-sdlc:project_manager",
+      "requiredToolsets": [
+        "terminal",
+        "skills"
+      ],
+      "additionalToolsetsPolicy": "deny-unless-explicitly-approved-and-capability-verified"
+    },
+    "analyst": {
+      "namespace": "hermes-analyst",
+      "profile": "hermes-sdlc-analyst",
+      "concreteAgentId": null,
+      "home": null,
+      "skillsDirectory": null,
+      "roleInstructionRef": "roles/analyst.md",
+      "physicalSkillsRef": "#/roles/analyst/physicalSkills",
+      "workflowBindingRef": "hermes-sdlc:analyst",
+      "requiredToolsets": [
+        "terminal",
+        "skills"
+      ],
+      "additionalToolsetsPolicy": "deny-unless-explicitly-approved-and-capability-verified"
+    },
+    "architect": {
+      "namespace": "hermes-architect",
+      "profile": "hermes-sdlc-architect",
+      "concreteAgentId": null,
+      "home": null,
+      "skillsDirectory": null,
+      "roleInstructionRef": "roles/architect.md",
+      "physicalSkillsRef": "#/roles/architect/physicalSkills",
+      "workflowBindingRef": "hermes-sdlc:architect",
+      "requiredToolsets": [
+        "terminal",
+        "skills"
+      ],
+      "additionalToolsetsPolicy": "deny-unless-explicitly-approved-and-capability-verified"
+    },
+    "developer": {
+      "namespace": "hermes-developer",
+      "profile": "hermes-sdlc-developer",
+      "concreteAgentId": null,
+      "home": null,
+      "skillsDirectory": null,
+      "roleInstructionRef": "roles/developer.md",
+      "physicalSkillsRef": "#/roles/developer/physicalSkills",
+      "workflowBindingRef": "hermes-sdlc:developer",
+      "requiredToolsets": [
+        "terminal",
+        "skills"
+      ],
+      "additionalToolsetsPolicy": "deny-unless-explicitly-approved-and-capability-verified"
+    },
+    "reviewer": {
+      "namespace": "hermes-reviewer",
+      "profile": "hermes-sdlc-reviewer",
+      "concreteAgentId": null,
+      "home": null,
+      "skillsDirectory": null,
+      "roleInstructionRef": "roles/reviewer.md",
+      "physicalSkillsRef": "#/roles/reviewer/physicalSkills",
+      "workflowBindingRef": "hermes-sdlc:reviewer",
+      "requiredToolsets": [
+        "terminal",
+        "skills"
+      ],
+      "additionalToolsetsPolicy": "deny-unless-explicitly-approved-and-capability-verified"
+    },
+    "tester": {
+      "namespace": "hermes-tester",
+      "profile": "hermes-sdlc-quality",
+      "concreteAgentId": null,
+      "home": null,
+      "skillsDirectory": null,
+      "roleInstructionRef": "roles/tester.md",
+      "physicalSkillsRef": "#/roles/tester/physicalSkills",
+      "workflowBindingRef": "hermes-sdlc:tester",
+      "requiredToolsets": [
+        "terminal",
+        "skills"
+      ],
+      "additionalToolsetsPolicy": "deny-unless-explicitly-approved-and-capability-verified"
+    },
+    "devops": {
+      "namespace": "hermes-devops",
+      "profile": "hermes-sdlc-operations",
+      "concreteAgentId": null,
+      "home": null,
+      "skillsDirectory": null,
+      "roleInstructionRef": "roles/devops.md",
+      "physicalSkillsRef": "#/roles/devops/physicalSkills",
+      "workflowBindingRef": "hermes-sdlc:devops",
+      "requiredToolsets": [
+        "terminal",
+        "skills"
+      ],
+      "additionalToolsetsPolicy": "deny-unless-explicitly-approved-and-capability-verified"
+    }
+  },
+  "forbiddenMaterial": [
+    "credentialValues",
+    "adminToken",
+    "sharedPAT",
+    "dockerSocket",
+    "sshPrivateKey",
+    "legacyOverrides",
+    "legacySourceCode"
+  ],
+  "futureAcceptance": [
+    "hash-and-role-validation",
+    "effective-YAML-environment-CLI-readback",
+    "atomic-snapshot-failure-recovery",
+    "unknown-activation-reconcile",
+    "restart-and-stale-fence",
+    "least-privilege-tools-and-context"
+  ]
+}

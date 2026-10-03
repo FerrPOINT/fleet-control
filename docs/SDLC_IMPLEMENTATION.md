@@ -116,7 +116,14 @@ Rework, Deployment. Completion основной задачи требует Depl
 11 режимов: `pm_draft`, `analyst_analysis`, `architect_decomposition`,
 `developer_initial`, `developer_rework`, `reviewer_delivery`, `reviewer_integration`,
 `tester_delivery`, `tester_integration`, `devops_delivery`, `devops_integration`.
-Это target contract, не опубликованные/работающие workflow definitions.
+Это составные display identifiers `role_mode`, не дополнительные mode keys.
+Ключи Developer строго `initial/rework`, scope приходит независимо.
+Канонический candidate-пакет находится в приватном
+[Base agent-skills](https://github.com/FerrPOINT/services-base/tree/docs/base-sdlc-transfer-20261002/agent-skills).
+Fleet потребляет exact Base commit; локальной редактируемой копии и fallback нет.
+Нужен авторизованный доступ к pinned commit, credentials в product docs не входят.
+Пакет не установлен и не включает автоматический SDLC. Versioned target contract:
+[SDLC execution v1](contracts/SDLC_EXECUTION_V1.md).
 
 Execution `SDLC-<ordinal>` не равен chat UUID и display task key. Envelope содержит
 contract version, central owner subject, project/task/root IDs, requirement revision,
