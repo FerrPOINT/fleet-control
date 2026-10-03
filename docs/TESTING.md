@@ -70,6 +70,10 @@ against the real local Git object cache (`FLEET_TEST_BASE_PACKAGE_CHECKOUT`),
 extra native HOME skill denial, forged proof with matching disk files and missing
 cache. `effective_configuration` checks bounded depth, unlisted/nested/case-aliased
 files, symlinks and Unix sockets. Legacy extra categories remain preserved.
+Backend CI checks out this exact private package into a separate cache and sets
+the test variable; these tests must not silently skip there. SDK `.base-revision`
+is independent and unchanged. Local environments must provide the same authorized
+object cache to run the actual-pin cases; mock evidence is not a replacement.
 
 `cargo test -p api sdlc_configuration` checks fresh Base HTTP introspection using
 controlled servers: exact subject/agent-specific scopes, revocation, broad or
