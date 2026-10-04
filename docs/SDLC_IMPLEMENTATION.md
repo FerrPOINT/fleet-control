@@ -35,7 +35,7 @@ IMPLEMENTATION_PLAN и CURRENT_STATE. Они не являются приёмк�
 | Redaction | Известные env secrets и derived token; stream snapshots удерживают split-secret suffix | Unit regression; произвольный неизвестный секрет не гарантированно обнаруживается |
 | Legacy config | Secret-поля старого DB-конфига маскируются при чтении, валидные `secret_ref` сохраняются | Regression проверяет nested/array credentials и обычный task key |
 | Config | Immutable snapshot config+skills, draft/validated/activating/active/failed | Desired/effective разные; activation drain, readback, tracked-runtime restart, rollback |
-| Failed rollback | Агент остаётся drained, effective revision не меняется | PostgreSQL regression; recovery после crash требует дальнейшей реализации |
+| Failed rollback | Агент остаётся drained, effective revision не меняется; до file/runtime effects сохраняется защищённый дисковый activation journal | PostgreSQL regression + journal unit checks; автоматическое recovery после crash и operator API требуют дальнейшей реализации |
 | Filesystem | Не присваивать непустую чужую папку, проверять marker и symlink/junction components | Guard действует на managed writes; защита от внешнего TOCTOU требует OS isolation |
 | Provisioning | Существующий effective `.env` сохраняется; активный runtime не переподготавливается | Exclusive create и Unix `0600`; три regression tests |
 | Readiness | Runtime health отдельно от readiness SDLC | `workflow_assignment_protocol_not_verified` блокирует весь автоматический SDLC |

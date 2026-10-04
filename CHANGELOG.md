@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+- Persist protected, exclusive configuration activation backups before runtime
+  or file changes; verify restored bytes on rollback and retain the journal until
+  the database result commits. Interrupted/unknown journals block another apply;
+  automatic crash reconciliation remains a separate gate.
+
 - Revalidate pinned Base effective snapshots against Git and a bounded closed
   HOME skill-file inventory. Add opt-in agent-scoped, freshly introspected Base
   PAT configuration observation with metadata only and no runtime admission.

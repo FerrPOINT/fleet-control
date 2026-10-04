@@ -1,5 +1,12 @@
 # Agent Runtime Contract
 
+Hermes configuration activation persists an exclusive local backup journal before
+stop/file effects. Only the exact journal can be acknowledged after the database
+activation result commits and rollback/application is verified. Existing, partial
+or changed journals hold further activation; no automatic crash takeover follows.
+Journal content is sensitive local recovery data, never a public runtime receipt.
+See [operations](../OPERATIONS.md#sdlc-foundation-recovery).
+
 Every runtime adapter must provide:
 
 - runtime kind

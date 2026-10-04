@@ -1,5 +1,9 @@
 # Java Agent Adapter Contract
 
+The protected activation journal introduced for Hermes does not add Java
+configuration activation or chat admission. Java keeps its existing typed
+unsupported configuration behavior; no Hermes journal is written for Java.
+
 Java Agent is modeled alongside Hermes. Existing local jar provisioning layout,
 start/stop/restart and readiness checks are implemented and retained. Chat/control,
 configuration activation and automatic SDLC admission remain phase 2.

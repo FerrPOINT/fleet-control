@@ -1,5 +1,17 @@
 # Security
 
+## Activation Journal
+
+The managed configuration journal is local recovery material, not public evidence.
+It contains previous runtime files, including resolved credentials in hexadecimal
+(not encryption), and is created exclusively with Unix mode 0600. No Debug/API
+representation is provided. Path guards reject links/junctions, foreign/duplicate/
+traversal paths and non-regular backup files; reads and total size are bounded.
+Partial/existing journals are preserved rather than overwritten. Acknowledgement
+requires byte-identical readback after the database result commits. This protects
+cooperative managed writes, not hostile host TOCTOU or cross-agent OS access;
+physical/runtime isolation and operator reconciliation remain separate gates.
+
 ## SDLC Configuration Observation
 
 The opt-in machine read requires fresh bounded Base PAT introspection at a fixed

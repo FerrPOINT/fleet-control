@@ -57,9 +57,24 @@ Fleet task-bound prompt/steer remains blocked until verified workflow orchestrat
 
 Save a config draft, validate it, then explicitly activate. Desired and effective
 revisions can differ. During drain, do not force changes beneath active runs.
+Before stopping a tracked runtime or changing managed files, activation creates
+`config/.fleet-activation-journal.json` exclusively, persists previous bytes,
+expected file hashes, agent/revision identity and prior running state, and fsyncs
+the file (and parent directory on Linux). An existing or incomplete journal
+blocks another activation; it is not overwritten. Backups are limited to 8 MiB
+total, 128 files and a 24 MiB serialized journal. Successful application or verified
+rollback removes only the identical journal after the activation result commits
+in the database. Failed commit/rollback or process interruption preserves it.
+Rollback now reads back every restored file, including originally absent files.
+The journal contains resolved env secrets encoded as hex, not encrypted/redacted:
+keep it private like runtime `.env` (Unix mode 0600); never attach it to a PR,
+logs, screenshots or support reports. Do not delete it to bypass a blocked agent.
 If activation fails and rollback is unconfirmed, keep the drain in place and
 inspect the last error. Crash recovery/operator reconciliation is not yet a public
 API; do not edit state rows to fabricate readiness.
+This slice preserves restart recovery evidence; it does not automatically reclaim
+an interrupted activation or prove OS process-tree quiescence. Windows has file
+sync but no directory-sync guarantee here; Linux is the durability gate.
 
 An `uncertain` dispatch may have been accepted by Hermes. Never automatically
 re-send it or clear its capacity hold. Investigate runtime session/run IDs and

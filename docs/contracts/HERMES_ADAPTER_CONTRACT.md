@@ -1,5 +1,12 @@
 # Hermes Adapter Contract
 
+Activation reserves `config/.fleet-activation-journal.json` before stopping a
+tracked Hermes or changing files. Previous bytes, expected hashes and exact
+agent/revision are protected and size-bounded. Rollback verifies every old file;
+unknown outcomes preserve journal/drain. Cleanup follows the committed DB result,
+not an HTTP success or EOF. This is not automatic restart reconciliation or proof
+that all descendant OS processes stopped.
+
 Hermes is the first implemented runtime.
 
 Environment:

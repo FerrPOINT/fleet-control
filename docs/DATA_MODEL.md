@@ -1,5 +1,16 @@
 # Data Model
 
+## Local Configuration Recovery Material
+
+Hermes activation writes an exclusive, size-bounded, sensitive local
+`config/.fleet-activation-journal.json` before stop/file mutation. It records
+contract version, agent/revision, prior runtime state, relative managed paths,
+previous bytes (hex) and expected hashes/absence. It is not a DB migration,
+new source of configuration authority or runtime/Workflow completion receipt.
+The existing revision/head transaction remains authoritative; only after its
+verified result commits can the byte-identical journal be removed. Interrupted
+operations keep recovery material without automatic claim takeover.
+
 ## Targeted Approval Commands
 
 `runtime_approval_decisions` stores one immutable human decision per runtime approval request. It pins the session, run, actor, choice and command key; the actor/key pair is unique across requests. The initial state is `uncertain`, committed before any HTTP side effect. A verified exact acknowledgement permits transition to `delivered`. If final authorization fails before HTTP, the decision becomes terminal `failed` without resolving the request. Both terminal states are immutable; a failed command cannot later be delivered. Request resolution, audit and durable stream invalidation commit together. Replays never dispatch and never settle other pending requests. Raw runtime credentials and approval response bodies are not stored in this ledger.

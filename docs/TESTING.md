@@ -1,5 +1,16 @@
 # Testing
 
+## Configuration Activation Journal
+
+Scoped Linux checks: `cargo test --locked -p infra --lib runtime::activation_journal`
+and `cargo test --locked -p infra --test sdlc_foundation config_revision_`.
+Journal tests cover exclusive reservation, backup/expected hashes, protected mode,
+drop/partial-file retention, exact acknowledgement, foreign/duplicate/traversal
+paths, links, non-regular files, bounded reads and absent/disabled-skill semantics.
+Existing PostgreSQL tests cover draining, failed rollback hold, identity fencing
+and exact effective-head readiness. These are not process-kill fault injection
+or an installed-runtime restart recovery acceptance; both remain required.
+
 Delegated PM credential tests cover canonical bound-task operation allowlisting,
 foreign/legacy paths, URL normalization and wrong method rejection, unsafe revision
 numbers, owner/verifier actions, expiry, existing Authorization, scope mismatch and

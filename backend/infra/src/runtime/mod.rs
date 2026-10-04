@@ -22,6 +22,7 @@ use tokio::{
     time::sleep,
 };
 use uuid::Uuid;
+mod activation_journal;
 mod hermes_wire;
 mod pm_readback;
 mod targeted_approval;
@@ -147,10 +148,13 @@ impl LocalRuntimeSupervisor {
                                 .await
                             }
                             .await;
+                            let mut journal = None;
                             let (result, reconciled) = match preflight {
                                 Err(error) => (Err(error), true),
                                 Ok(()) => {
-                                    let result = supervisor.apply_config_revision(&revision).await;
+                                    let result = supervisor
+                                        .apply_config_revision(&revision, &mut journal)
+                                        .await;
                                     let reconciled =
                                         !matches!(&result, Err(AppError::Unavailable(_)));
                                     (result, reconciled)
@@ -159,7 +163,7 @@ impl LocalRuntimeSupervisor {
                             let error = result
                                 .err()
                                 .map(|error| crate::redact_text(&error.to_string()));
-                            if let Err(error) = supervisor
+                            let finished = supervisor
                                 .repo
                                 .finish_config_activation(
                                     revision.agent_id,
@@ -167,11 +171,15 @@ impl LocalRuntimeSupervisor {
                                     error,
                                     reconciled,
                                 )
-                                .await
-                            {
+                                .await;
+                            if let Err(error) = finished {
                                 tracing::error!(
                                     "configuration activation requires reconciliation: {error}"
                                 );
+                            } else if reconciled && let Some(journal) = journal {
+                                if let Err(error) = journal.acknowledge().await {
+                                    tracing::error!("configuration journal retained: {error}");
+                                }
                             }
                         }
                         Ok(None) => sleep(Duration::from_secs(1)).await,
@@ -188,6 +196,7 @@ impl LocalRuntimeSupervisor {
     async fn apply_config_revision(
         &self,
         revision: &domain::AgentConfigRevision,
+        journal: &mut Option<activation_journal::ActivationJournal>,
     ) -> Result<(), AppError> {
         let agent = self.repo.get_agent(revision.agent_id).await?;
         if agent.kind != AgentKind::Hermes {
@@ -212,13 +221,25 @@ impl LocalRuntimeSupervisor {
         let files = crate::configuration_files(&agent, &self.config, revision).await?;
         let mut backups = Vec::new();
         for (path, _) in &files {
-            let old = match tokio::fs::read(path).await {
-                Ok(content) => Some(content),
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
-                Err(error) => return Err(AppError::internal(error)),
-            };
+            let old = activation_journal::read_backup(
+                std::path::Path::new(&self.config.fleet.agents_root),
+                path,
+            )
+            .await?;
             backups.push((path.clone(), old));
         }
+        *journal = Some(
+            activation_journal::ActivationJournal::prepare(
+                std::path::Path::new(&self.config.fleet.agents_root),
+                std::path::Path::new(&agent.paths.config),
+                agent.id,
+                revision.revision,
+                running,
+                &files,
+                &backups,
+            )
+            .await?,
+        );
         if running {
             self.stop(&agent).await?;
         }
@@ -278,11 +299,16 @@ impl LocalRuntimeSupervisor {
                 let _ = self.stop(&agent).await;
             }
             let rollback = async {
-                for (path, old) in backups {
+                for (path, old) in &backups {
+                    crate::reject_symlink_components(
+                        std::path::Path::new(&self.config.fleet.agents_root),
+                        path,
+                    )
+                    .await?;
                     match old {
-                        Some(content) => crate::write_configuration_file(&path, &content).await?,
+                        Some(content) => crate::write_configuration_file(path, content).await?,
                         None => {
-                            if tokio::fs::try_exists(&path)
+                            if tokio::fs::try_exists(path)
                                 .await
                                 .map_err(AppError::internal)?
                             {
@@ -291,6 +317,20 @@ impl LocalRuntimeSupervisor {
                                     .map_err(AppError::internal)?;
                             }
                         }
+                    }
+                }
+                for (path, old) in &backups {
+                    if activation_journal::read_backup(
+                        std::path::Path::new(&self.config.fleet.agents_root),
+                        path,
+                    )
+                    .await?
+                    .as_ref()
+                        != old.as_ref()
+                    {
+                        return Err(AppError::Unavailable(
+                            "configuration rollback readback failed".into(),
+                        ));
                     }
                 }
                 if running && self.start(&agent).await?.status != AgentStatus::Running {

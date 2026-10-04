@@ -1,5 +1,11 @@
 # API
 
+Hermes config activation now persists a protected local journal before runtime
+and file changes and retains it on unknown outcomes. No new endpoint or response
+field is added; backups, resolved secret bytes and paths are never API data.
+Public operator crash reconciliation remains unavailable. See
+[operations](OPERATIONS.md#sdlc-foundation-recovery) before attempting recovery.
+
 ## Exact Runtime Approval Decisions
 
 - `GET /api/v1/sessions/{session_id}/approvals` lists redacted requests visible to the owner or an operator/admin.
