@@ -3,6 +3,30 @@
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 
+## Directory Query Review Follow-Up (2026-10-03)
+
+Owner IDs retain their existing JSON SQL parameter, but membership converts
+the list to a UUID array once and uses `user_id = ANY(...)`. This avoids the
+set-subquery estimate that selected two full session scans for the normal
+owner scope. No dependency feature, HTTP field or database index changed.
+
+Rust 1.88.0 with the exact pinned Base `9408802` passed fmt, strict workspace
+Clippy, locked workspace tests and the separate real PostgreSQL directory/SSE
+gates. Directory regression covers mine, multiple owners, read-all, literal
+search, count consistency, cursor pagination and fresh project ACL changes.
+
+A disposable PostgreSQL 17.6 database copied the actual 11-migration schema
+and inserted 500000 synthetic unbound sessions, 1000 owners and 20 agents.
+The exact fixed query used the existing user/session index and page PK lookups
+with zero session Seq Scans for mine and multiple-owner cases. Before/after:
+143.445/8.506 ms for mine and 188.951/10.234 ms for multiple owners.
+All-users count retained its full-scope scans. These are controlled query-plan
+measurements, not production endpoint latency or live bound-task acceptance.
+See [plan summary](evidence/chat-directory-scale.json).
+
+The full feature remains Draft. This component fix does not close PM
+admission, runtime handoff, resume or owner-confirmation acceptance.
+
 ## Credential Confinement Follow-Up (2026-10-02, Component Verified)
 
 The local branch is reconciled with accepted main `d5697cd`; its Base pin is

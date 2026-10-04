@@ -13,7 +13,7 @@ WITH scoped AS MATERIALIZED (
     JOIN agents a ON a.id=s.agent_id AND a.status <> 'archived'
     JOIN users u ON u.id=s.user_id
     LEFT JOIN task_chat_bindings b ON b.session_id=s.id
-    WHERE ($1::boolean OR s.user_id IN (SELECT value::uuid FROM jsonb_array_elements_text($2::jsonb)))
+    WHERE ($1::boolean OR s.user_id = ANY(ARRAY(SELECT value::uuid FROM jsonb_array_elements_text($2::jsonb))))
       AND (b.session_id IS NULL OR (b.tracker_instance_id=$7::text
            AND b.project_id IN (SELECT value::uuid FROM jsonb_array_elements_text($8::jsonb))))
       AND (s.title ILIKE $3 ESCAPE E'\\' OR COALESCE(s.task_key,'') ILIKE $3 ESCAPE E'\\'

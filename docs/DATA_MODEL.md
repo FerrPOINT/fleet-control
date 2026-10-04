@@ -176,6 +176,14 @@ session lists, leader-scoped session lists, participants, message ordering,
 runtime runs, task-key lookup, workflow namespace lookup, deployment job state,
 audit-log filters and recent events/logs.
 
+Chat directory counts, cursor validation and the page share one scoped SQL
+snapshot. The owner IDs arrive as JSON and are converted once into a UUID array
+for `user_id = ANY(...)`, so PostgreSQL can use the existing user/session index
+for the normal owner scope. A JSON set subquery in `IN (...)` substantially
+overestimates matching sessions and can make both scope selection and page
+hydration scan all owners' history. The explicit all-users scope still counts
+its full visible history; project ACL predicates apply in either mode.
+
 ## PM Run Proof
 
 The feature's single pending migration `m20261001_000010_task_chats` adds
