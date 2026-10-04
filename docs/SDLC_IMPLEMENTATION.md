@@ -1,6 +1,6 @@
 # SDLC: реализация и оставшаяся приёмка
 
-Дата: 3 октября 2026. Статус: частичная реализация foundation; автоматический
+Дата: 4 октября 2026. Статус: частичная реализация foundation; автоматический
 SDLC не включён. Этот документ уточняет исторические отметки `done` в
 IMPLEMENTATION_PLAN и CURRENT_STATE. Они не являются приёмкой нового SDLC.
 
@@ -23,7 +23,7 @@ IMPLEMENTATION_PLAN и CURRENT_STATE. Они не являются приёмк�
 | --- | --- | --- |
 | Специализации | Семь `SdlcRole`, поле `sdlc_role`, формы создания/редактирования | Миграция 000009; developer/tester backfill только для executors |
 | Каталог | `/agents`: управление для operator/admin, read-only directory для user | Секреты и runtime paths не запрашиваются read-only страницей |
-| Чаты | `/chats`: конкретный агент → его сессии, поиск, аватар владельца, private create | Отдельные агенты не смешивают transcript; task binding ещё не реализован |
+| Чаты | `/chats`: конкретный агент → его сессии, поиск, аватар владельца, private create; immutable task/agent binding | Свободные legacy sessions не превращаются в SDLC автоматически; task chat creation ожидает admission |
 | Доступ | Central subject сохраняет локальную роль, не получает effective-admin | Bootstrap admin только по явно настроенному проверенному subject |
 | Messages | Авторизация owner/operator; человеческий API не позволяет выдавать себя за агента | PostgreSQL regression test; отдельная machine identity ещё не реализована |
 | Idempotency | Session key сериализуется transactional advisory lock; message key — session row lock | Concurrent replay и payload conflict проверены на PostgreSQL |
@@ -35,6 +35,8 @@ IMPLEMENTATION_PLAN и CURRENT_STATE. Они не являются приёмк�
 | Redaction | Известные env secrets и derived token; stream snapshots удерживают split-secret suffix | Unit regression; произвольный неизвестный секрет не гарантированно обнаруживается |
 | Legacy config | Secret-поля старого DB-конфига маскируются при чтении, валидные `secret_ref` сохраняются | Regression проверяет nested/array credentials и обычный task key |
 | Config | Immutable snapshot config+skills, draft/validated/activating/active/failed | Desired/effective разные; activation drain, readback, tracked-runtime restart, rollback |
+| Lifecycle | Per-agent supervisor lock для start/stop/restart/health и всей apply/rollback фазы; bounded parent kill/wait | Fresh state/drain checks, failed metadata commit удерживает journal/drain; cross-instance и descendant quiescence не реализованы |
+| Readiness IO | Java headers/body 3 s / 16 KiB; Java/Hermes startup 60 s wall-clock | TCP/PG negative fixtures, не native configuration attestation или успешный SDLC |
 | Failed rollback | Агент остаётся drained, effective revision не меняется; до file/runtime effects сохраняется защищённый дисковый activation journal | PostgreSQL regression + journal unit checks; автоматическое recovery после crash и operator API требуют дальнейшей реализации |
 | Filesystem | Не присваивать непустую чужую папку, проверять marker и symlink/junction components | Guard действует на managed writes; защита от внешнего TOCTOU требует OS isolation |
 | Provisioning | Существующий effective `.env` сохраняется; активный runtime не переподготавливается | Exclusive create и Unix `0600`; три regression tests |

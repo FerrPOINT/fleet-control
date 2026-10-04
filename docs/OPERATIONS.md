@@ -35,6 +35,25 @@ restoring the order column or a reviewed forward migration, not blind down/up.
 
 ## SDLC Foundation Recovery
 
+Runtime stop/restart returns unavailable if an active runtime has no owned Child
+handle, or tracked kill/wait cannot confirm exit within ten seconds. Its PID and
+running metadata are not cleared to manufacture success. Do not signal a recorded
+PID blindly: it can belong to a different process after reuse. Reconcile actual
+runtime ownership before replacement. Parent-process exit does not prove that
+all tools/descendants ended; assignment release still requires trusted quiescence.
+
+Lifecycle operations and configuration apply/rollback are serialized per agent
+inside one supervisor. Requests waiting behind activation recheck drain; do not
+retry them under another key to bypass an activation hold. A failed HTTP health
+probe preserves unconfirmed ownership and desired state. Java readiness headers
+and body have a three-second bound and 16 KiB ceiling; startup readiness for both
+runtime types has a 60-second total deadline, including all probes and sleeps.
+Rollback refuses to restore files until any owned replacement process has been
+confirmed stopped. None of these local guards implements distributed ownership.
+Physical purge also propagates a failed stop before deleting the marked folder
+or recording success. This refusal is not an atomic distributed purge lease;
+archive/start/health coordination and descendant quiescence remain release gates.
+
 PM Draft creation recovery is owner-driven: repeat the same project, agent,
 title, original description and idempotency key with a freshly verified human
 session. Do not invent a second key after a timeout. Tracker operation readback

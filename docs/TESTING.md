@@ -1,5 +1,42 @@
 # Testing
 
+## Tracked Runtime Stop
+
+`cargo test --locked -p infra --lib runtime::process_stop` covers actual Linux
+child termination/wait, repeated stop and already exited children. The PostgreSQL
+`runtime_stop_untracked_never_fabricates_stopped_or_releases_run_capacity` case
+calls production stop/restart for untracked running/starting/degraded runtimes:
+errors leave PID/status/desired state and the pending run/capacity hold intact.
+It does not prove descendant/container termination or cross-instance reconciliation.
+
+With `FLEET_TEST_DATABASE_URL` pointing to disposable PostgreSQL,
+`cargo test --locked -p infra --lib runtime::lifecycle_tests` proves delayed start
+rechecks drain after lock acquisition and actual configuration writes/readback
+remain serialized until event persistence completes. The latter test holds a
+real PostgreSQL table lock after file changes; a competing start must wait, then
+return conflict without spawning a child. Seed skills are explicitly disabled in
+this filesystem fixture, not accepted as installed skills with missing content.
+The Java missing-jar regression verifies two failed starts leave the ready agent
+and its intent/PID/timestamps unchanged; command validation precedes publishing
+starting state, so a known pre-spawn rejection cannot create an ownership hold.
+The Linux stopped-child/failed-DB-update case injects a PostgreSQL trigger error
+after actual child termination: old SOUL bytes, recorded PID, journal and drain
+remain held rather than treating the metadata failure as reconciled activation.
+
+The `runtime_purge_http_` PostgreSQL/HTTP cases call the real purge handler and
+supervisor: untracked archived PID returns `503`, drain returns `409`; marker and
+files, archived runtime metadata and absence of purge success event/audit are
+verified. Atomic purge ownership and descendant quiescence are not proved.
+
+`cargo test --locked -p infra --lib runtime::readiness` covers hung/slow probes,
+absolute deadlines including polling sleeps, immediate success, elapsed deadline
+and redacted diagnostics. The integration filter `runtime_readiness_java_`
+uses actual TCP and PostgreSQL: hung headers/body with concurrent stop, oversized
+Content-Length/chunked bodies, malformed/non-UP JSON and ordinary UP. HTTP UP
+alone remains degraded/untracked; tests verify preserved PID/intent/timestamps
+and capabilities. `runtime_health_failure_` separately checks the Hermes failure
+path. These transport/lifecycle fixtures do not prove native SDLC admission.
+
 ## Configuration Activation Journal
 
 Scoped Linux checks: `cargo test --locked -p infra --lib runtime::activation_journal`

@@ -20,6 +20,12 @@ mod pm_draft_creation;
 #[path = "support/base_package.rs"]
 mod base_package;
 
+#[path = "support/runtime_readiness.rs"]
+mod runtime_readiness;
+
+#[path = "support/runtime_purge.rs"]
+mod runtime_purge;
+
 async fn fixture() -> Option<(PostgresFleetRepository, Uuid, Uuid)> {
     let Ok(url) = std::env::var("FLEET_TEST_DATABASE_URL") else {
         eprintln!("FLEET_TEST_DATABASE_URL not configured; PostgreSQL tests skipped");
@@ -47,6 +53,172 @@ async fn fixture() -> Option<(PostgresFleetRepository, Uuid, Uuid)> {
 
 async fn agent(repo: &PostgresFleetRepository) -> Uuid {
     agent_with_config(repo, &AppConfig::default()).await
+}
+
+#[tokio::test]
+async fn runtime_stop_untracked_never_fabricates_stopped_or_releases_run_capacity() {
+    use app::{RuntimeStatePatch, RuntimeSupervisor};
+    use domain::DesiredState;
+    let Some((repo, owner, _)) = fixture().await else {
+        return;
+    };
+    let id = agent(&repo).await;
+    let session = repo
+        .create_session(chat(id, "untracked-stop"), owner)
+        .await
+        .unwrap();
+    let run = repo
+        .prepare_session_agent_run(
+            session.id,
+            id,
+            SessionRunRole::Primary,
+            format!("fleet:{}:{id}", session.id),
+        )
+        .await
+        .unwrap();
+    let repo = Arc::new(repo);
+    let (events, _) = tokio::sync::broadcast::channel(32);
+    let runtime = infra::runtime::LocalRuntimeSupervisor::new(
+        Arc::new(AppConfig::default()),
+        repo.clone(),
+        events,
+    );
+    for status in [
+        AgentStatus::Running,
+        AgentStatus::Starting,
+        AgentStatus::Degraded,
+    ] {
+        let agent = repo
+            .update_runtime_state(
+                id,
+                RuntimeStatePatch {
+                    status,
+                    desired_state: DesiredState::Running,
+                    pid: Some(12345),
+                    health_status: Some("untracked".into()),
+                    health_detail: Some("test-only untracked process".into()),
+                    last_capabilities_json: None,
+                    startup_command_redacted: None,
+                    started_at: None,
+                    stopped_at: None,
+                },
+            )
+            .await
+            .unwrap();
+        assert!(matches!(
+            runtime.stop(&agent).await,
+            Err(shared::AppError::Unavailable(_))
+        ));
+        assert!(matches!(
+            runtime.restart(&agent).await,
+            Err(shared::AppError::Unavailable(_))
+        ));
+        let mut stale = agent.clone();
+        stale.status = AgentStatus::Ready;
+        stale.runtime.pid = None;
+        stale.runtime.desired_state = DesiredState::Stopped;
+        assert!(matches!(
+            runtime.stop(&stale).await,
+            Err(shared::AppError::Unavailable(_))
+        ));
+        assert!(matches!(
+            runtime.start(&stale).await,
+            Err(shared::AppError::Unavailable(_))
+        ));
+        let observed = repo.get_agent(id).await.unwrap();
+        assert_eq!(observed.status, status);
+        assert_eq!(observed.runtime.pid, Some(12345));
+        assert_eq!(observed.runtime.desired_state, DesiredState::Running);
+        let runs = repo.list_session_agent_runs(session.id).await.unwrap();
+        assert!(
+            runs.iter()
+                .any(|item| item.id == run.id && item.state == SessionRunState::Pending)
+        );
+        assert!(
+            repo.prepare_session_agent_run(
+                session.id,
+                id,
+                SessionRunRole::Primary,
+                format!("fleet:{}:{id}", session.id)
+            )
+            .await
+            .is_err()
+        );
+    }
+}
+
+#[tokio::test]
+async fn runtime_health_failure_does_not_attest_untracked_process_death() {
+    use app::{RuntimeStatePatch, RuntimeSupervisor};
+    use domain::DesiredState;
+    let Some((repo, _, _)) = fixture().await else {
+        return;
+    };
+    let id = agent(&repo).await;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server = tokio::spawn(async move {
+        axum::serve(
+            listener,
+            axum::Router::new().route(
+                "/health",
+                axum::routing::get(|| async { axum::http::StatusCode::SERVICE_UNAVAILABLE }),
+            ),
+        )
+        .await
+        .unwrap();
+    });
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE agents SET api_port=$2 WHERE id=$1",
+        [id.into(), i32::from(port).into()],
+    ))
+    .await
+    .unwrap();
+    let before = repo
+        .update_runtime_state(
+            id,
+            RuntimeStatePatch {
+                status: AgentStatus::Running,
+                desired_state: DesiredState::Running,
+                pid: Some(12345),
+                health_status: None,
+                health_detail: None,
+                last_capabilities_json: None,
+                startup_command_redacted: None,
+                started_at: None,
+                stopped_at: None,
+            },
+        )
+        .await
+        .unwrap();
+    let repo = Arc::new(repo);
+    let (events, _) = tokio::sync::broadcast::channel(32);
+    let mut config = AppConfig::default();
+    config.fleet.runtime_token_secret = "health-proof-test-only".into();
+    let runtime =
+        infra::runtime::LocalRuntimeSupervisor::new(Arc::new(config), repo.clone(), events);
+    assert_eq!(
+        runtime.health(&before).await.unwrap().status,
+        AgentStatus::Degraded
+    );
+    let after = repo.get_agent(id).await.unwrap();
+    assert_eq!(after.runtime.pid, Some(12345));
+    assert_eq!(after.runtime.desired_state, DesiredState::Running);
+    assert!(after.runtime.stopped_at.is_none());
+    assert!(matches!(
+        runtime.start(&after).await,
+        Err(shared::AppError::Unavailable(_))
+    ));
+    assert!(matches!(
+        runtime.stop(&after).await,
+        Err(shared::AppError::Unavailable(_))
+    ));
+    server.abort();
+    let _ = server.await;
 }
 
 async fn agent_with_config(repo: &PostgresFleetRepository, config: &AppConfig) -> Uuid {

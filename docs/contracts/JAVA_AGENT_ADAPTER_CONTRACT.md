@@ -1,5 +1,14 @@
 # Java Agent Adapter Contract
 
+Existing Java process lifecycle shares bounded tracked-process stop/wait. An
+untracked active runtime is not labelled stopped or restarted without proof;
+this does not implement Java chat/control or automatic SDLC admission.
+
+The actuator readiness request and body share a three-second deadline; JSON is
+limited to 16 KiB with identity encoding. Hung headers/bodies cannot indefinitely
+hold the agent lifecycle mutex. Startup has a 60-second wall-clock readiness
+deadline. Health observation preserves desired state and unconfirmed recorded PID.
+
 The protected activation journal introduced for Hermes does not add Java
 configuration activation or chat admission. Java keeps its existing typed
 unsupported configuration behavior; no Hermes journal is written for Java.

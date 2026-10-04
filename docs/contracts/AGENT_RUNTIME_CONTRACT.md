@@ -18,6 +18,28 @@ Every runtime adapter must provide:
 - log capture policy
 - secret redaction policy
 
+Supervisor stop acknowledges a tracked process only after bounded kill/wait or
+confirmed natural exit. Kill/wait failure preserves the tracked handle and does
+not publish stopped/PID-null state. Untracked starting/running/degraded state,
+a recorded PID or desired running state returns dependency-unavailable; no
+PID-only signal or guessed success is performed. Restart fails at that same gate.
+This is parent-process termination, not descendant/container quiescence or a
+Tracker assignment-release receipt.
+
+Within one supervisor, a per-agent lifecycle mutex serializes start/stop/restart,
+health readback and the entire configuration apply/rollback phase. Each operation
+reloads current agent state; public mutations recheck drain after acquiring the
+mutex. Activation uses locked internal helpers so restarting a revised runtime
+does not recursively acquire the mutex. Failed-start cleanup verifies the owned
+Child PID before kill/wait. Cross-instance ownership fencing is still required.
+Command validation precedes publishing starting state: a missing Java jar or
+invalid Hermes token configuration is a known pre-spawn failure, not an unknown
+process that may be replaced or marked running.
+An HTTP probe failure degrades an unconfirmed active runtime without clearing its
+PID or desired state; an old request snapshot cannot overwrite a newer stop.
+Readiness uses an absolute 60-second deadline including probes and sleeps, not
+poll-count accounting. Individual HTTP probes are bounded to three seconds.
+
 All adapters use the common agent layout:
 
 ```text

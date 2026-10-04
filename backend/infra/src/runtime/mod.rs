@@ -24,18 +24,32 @@ use tokio::{
 use uuid::Uuid;
 mod activation_journal;
 mod hermes_wire;
+#[cfg(test)]
+mod lifecycle_tests;
 mod pm_readback;
+mod process_stop;
+mod readiness;
 mod targeted_approval;
 
 const HERMES_READY_TIMEOUT: Duration = Duration::from_secs(60);
 const HERMES_READY_POLL: Duration = Duration::from_millis(500);
 const RECONCILE_INTERVAL: Duration = Duration::from_secs(30);
 
+fn unconfirmed_runtime(agent: &Agent) -> bool {
+    agent.runtime.pid.is_some()
+        || agent.runtime.desired_state == DesiredState::Running
+        || matches!(
+            agent.status,
+            AgentStatus::Running | AgentStatus::Starting | AgentStatus::Degraded
+        )
+}
+
 #[derive(Clone)]
 pub struct LocalRuntimeSupervisor {
     config: Arc<AppConfig>,
     repo: Arc<dyn FleetRepository>,
     children: Arc<Mutex<HashMap<Uuid, Child>>>,
+    lifecycle_locks: Arc<Mutex<HashMap<Uuid, Arc<Mutex<()>>>>>,
     client: reqwest::Client,
     events: broadcast::Sender<FleetEvent>,
     alerts: Arc<app::RepositoryAlertService>,
@@ -74,6 +88,7 @@ impl LocalRuntimeSupervisor {
             config,
             repo: repo.clone(),
             children: Arc::new(Mutex::new(HashMap::new())),
+            lifecycle_locks: Arc::new(Mutex::new(HashMap::new())),
             client: reqwest::Client::builder()
                 .redirect(reqwest::redirect::Policy::none())
                 .retry(reqwest::retry::never())
@@ -90,6 +105,32 @@ impl LocalRuntimeSupervisor {
         supervisor.spawn_message_dispatcher();
         supervisor.spawn_config_activator();
         supervisor
+    }
+
+    async fn lifecycle_lock(&self, id: Uuid) -> Arc<Mutex<()>> {
+        self.lifecycle_locks
+            .lock()
+            .await
+            .entry(id)
+            .or_insert_with(|| Arc::new(Mutex::new(())))
+            .clone()
+    }
+
+    async fn stop_starting_process(&self, id: Uuid, pid: Option<i32>) -> Result<(), AppError> {
+        let mut children = self.children.lock().await;
+        let child = children.get_mut(&id).ok_or_else(|| {
+            AppError::Unavailable(
+                "startup process ownership changed; reconciliation is required".into(),
+            )
+        })?;
+        if pid.is_none() || child.id().map(|value| value as i32) != pid {
+            return Err(AppError::Unavailable(
+                "startup process ownership changed; reconciliation is required".into(),
+            ));
+        }
+        process_stop::terminate(child).await?;
+        children.remove(&id);
+        Ok(())
     }
 
     fn spawn_message_dispatcher(&self) {
@@ -198,6 +239,8 @@ impl LocalRuntimeSupervisor {
         revision: &domain::AgentConfigRevision,
         journal: &mut Option<activation_journal::ActivationJournal>,
     ) -> Result<(), AppError> {
+        let lock = self.lifecycle_lock(revision.agent_id).await;
+        let _guard = lock.lock().await;
         let agent = self.repo.get_agent(revision.agent_id).await?;
         if agent.kind != AgentKind::Hermes {
             return Err(AppError::validation(
@@ -216,6 +259,11 @@ impl LocalRuntimeSupervisor {
         if running && !self.children.lock().await.contains_key(&agent.id) {
             return Err(AppError::conflict(
                 "untracked runtime must be reconciled before configuration activation",
+            ));
+        }
+        if !running && unconfirmed_runtime(&agent) {
+            return Err(AppError::Unavailable(
+                "configuration activation requires reconciled runtime ownership".into(),
             ));
         }
         let files = crate::configuration_files(&agent, &self.config, revision).await?;
@@ -241,7 +289,9 @@ impl LocalRuntimeSupervisor {
             .await?,
         );
         if running {
-            self.stop(&agent).await?;
+            self.stop_locked(&agent).await.map_err(|_| AppError::Unavailable(
+                "configuration stop and runtime metadata require reconciliation; agent remains drained".into()
+            ))?;
         }
         let applied = async {
             for (path, body) in &files {
@@ -286,7 +336,7 @@ impl LocalRuntimeSupervisor {
                     ));
                 }
             }
-            if running && self.start(&agent).await?.status != AgentStatus::Running {
+            if running && self.start_locked(&agent).await?.status != AgentStatus::Running {
                 return Err(AppError::validation(
                     "runtime did not pass readiness with the new configuration",
                 ));
@@ -296,7 +346,9 @@ impl LocalRuntimeSupervisor {
         .await;
         if let Err(error) = applied {
             if running {
-                let _ = self.stop(&agent).await;
+                self.stop_locked(&agent).await.map_err(|_| AppError::Unavailable(
+                    "configuration rollback requires confirmed runtime termination; agent remains drained".into()
+                ))?;
             }
             let rollback = async {
                 for (path, old) in &backups {
@@ -333,7 +385,7 @@ impl LocalRuntimeSupervisor {
                         ));
                     }
                 }
-                if running && self.start(&agent).await?.status != AgentStatus::Running {
+                if running && self.start_locked(&agent).await?.status != AgentStatus::Running {
                     return Err(AppError::Unavailable(
                         "configuration rollback restored files but runtime readiness failed".into(),
                     ));
@@ -1002,6 +1054,8 @@ impl LocalRuntimeSupervisor {
         let readiness = self
             .client
             .get(format!("{base}/actuator/health/readiness"))
+            .header(reqwest::header::ACCEPT_ENCODING, "identity")
+            .timeout(Duration::from_secs(3))
             .send()
             .await
             .map_err(AppError::internal)?;
@@ -1011,7 +1065,13 @@ impl LocalRuntimeSupervisor {
                 readiness.status()
             )));
         }
-        let readiness: Value = readiness.json().await.map_err(AppError::internal)?;
+        let readiness = hermes_wire::read_json(readiness, reqwest::StatusCode::OK, 16_384)
+            .await
+            .map_err(|_| {
+                AppError::Unavailable(
+                    "Java readiness response is invalid, interrupted or exceeds its bounds".into(),
+                )
+            })?;
         if readiness.get("status").and_then(Value::as_str) != Some("UP") {
             return Err(AppError::validation(
                 "java agent readiness status is not UP",
@@ -1021,19 +1081,13 @@ impl LocalRuntimeSupervisor {
     }
 
     async fn wait_for_java_agent_ready(&self, agent: &Agent) -> Result<Value, AppError> {
-        let mut elapsed = Duration::ZERO;
-        let mut last_error = "java agent readiness probe did not run".to_string();
-        while elapsed < HERMES_READY_TIMEOUT {
-            match self.probe_java_agent(agent).await {
-                Ok(health) => return Ok(health),
-                Err(err) => last_error = err.to_string(),
-            }
-            sleep(HERMES_READY_POLL).await;
-            elapsed += HERMES_READY_POLL;
-        }
-        Err(AppError::validation(format!(
-            "java agent did not become ready: {last_error}"
-        )))
+        readiness::wait(
+            "Java Agent",
+            HERMES_READY_TIMEOUT,
+            HERMES_READY_POLL,
+            || self.probe_java_agent(agent),
+        )
+        .await
     }
 
     async fn spawn_log_reader<R>(&self, agent_id: Uuid, stream: &'static str, reader: R)
@@ -1153,19 +1207,10 @@ impl LocalRuntimeSupervisor {
     }
 
     async fn wait_for_hermes_ready(&self, agent: &Agent) -> Result<Value, AppError> {
-        let mut elapsed = Duration::ZERO;
-        let mut last_error = "Hermes readiness probe did not run".to_string();
-        while elapsed < HERMES_READY_TIMEOUT {
-            match self.probe_hermes(agent).await {
-                Ok(capabilities) => return Ok(capabilities),
-                Err(err) => last_error = err.to_string(),
-            }
-            sleep(HERMES_READY_POLL).await;
-            elapsed += HERMES_READY_POLL;
-        }
-        Err(AppError::validation(format!(
-            "Hermes did not become ready: {last_error}"
-        )))
+        readiness::wait("Hermes", HERMES_READY_TIMEOUT, HERMES_READY_POLL, || {
+            self.probe_hermes(agent)
+        })
+        .await
     }
 
     async fn start_hermes_run(
@@ -1721,31 +1766,7 @@ fn pick_error(value: &Value) -> Option<String> {
 impl LocalRuntimeSupervisor {
     /// Launches the provisioned java agent jar and waits for actuator UP.
     async fn start_java_agent(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
-        if self.children.lock().await.contains_key(&agent.id) {
-            let updated = self
-                .repo
-                .update_runtime_state(
-                    agent.id,
-                    RuntimeStatePatch {
-                        status: AgentStatus::Running,
-                        desired_state: DesiredState::Running,
-                        pid: agent.runtime.pid,
-                        health_status: Some("running".to_string()),
-                        health_detail: Some("process is already tracked".to_string()),
-                        last_capabilities_json: None,
-                        startup_command_redacted: Some(self.command_preview(agent)),
-                        started_at: parse_domain_ts(&agent.runtime.started_at),
-                        stopped_at: None,
-                    },
-                )
-                .await?;
-            return Ok(RuntimeOperationResponse {
-                agent_id: updated.id,
-                status: updated.status,
-                message: "java agent is already running".to_string(),
-            });
-        }
-
+        let mut command = self.java_agent_command(agent)?;
         let starting = self
             .repo
             .update_runtime_state(
@@ -1768,7 +1789,6 @@ impl LocalRuntimeSupervisor {
             .insert_log(starting.id, "system", "java agent start requested")
             .await;
 
-        let mut command = self.java_agent_command(&starting)?;
         let mut child = match command.spawn() {
             Ok(child) => child,
             Err(err) => {
@@ -1834,9 +1854,7 @@ impl LocalRuntimeSupervisor {
                 })
             }
             Err(err) => {
-                if let Some(mut child) = self.children.lock().await.remove(&starting.id) {
-                    let _ = child.kill().await;
-                }
+                self.stop_starting_process(starting.id, pid).await?;
                 let detail = crate::redact_text(&err.to_string());
                 let updated = self
                     .repo
@@ -1866,53 +1884,37 @@ impl LocalRuntimeSupervisor {
     }
 }
 
-#[async_trait]
-impl RuntimeSupervisor for LocalRuntimeSupervisor {
-    async fn resolve_targeted_approval(
-        &self,
-        agent: &Agent,
-        run: &SessionAgentRun,
-        approval: &domain::RuntimeApprovalRequest,
-        choice: domain::ApprovalChoice,
-    ) -> Result<(), AppError> {
-        targeted_approval::resolve(self, agent, run, approval, choice).await
-    }
-    async fn probe_pm_run(
-        &self,
-        agent: &Agent,
-        record: &domain::PmRunRecord,
-    ) -> Result<domain::PmRuntimeStatus, AppError> {
-        pm_readback::probe(self, agent, record).await
-    }
-    async fn start(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
+impl LocalRuntimeSupervisor {
+    // Caller holds the per-agent lifecycle lock across configuration/file effects.
+    async fn start_locked(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
+        let fresh = self.repo.get_agent(agent.id).await?;
+        let agent = &fresh;
+        if !self.children.lock().await.contains_key(&agent.id)
+            && (agent.runtime.pid.is_some()
+                || agent.runtime.desired_state == DesiredState::Running
+                || matches!(
+                    agent.status,
+                    AgentStatus::Running | AgentStatus::Starting | AgentStatus::Degraded
+                ))
+        {
+            return Err(AppError::Unavailable(
+                "untracked runtime must be reconciled before replacement".into(),
+            ));
+        }
+        if self.children.lock().await.contains_key(&agent.id) {
+            let observed = self.health_locked(agent).await?;
+            if observed.status != AgentStatus::Running {
+                return Err(AppError::Unavailable(
+                    "tracked runtime has not passed fresh readiness".into(),
+                ));
+            }
+            return Ok(observed);
+        }
         if agent.kind == AgentKind::JavaAgent {
             return self.start_java_agent(agent).await;
         }
-        if self.children.lock().await.contains_key(&agent.id) {
-            let updated = self
-                .repo
-                .update_runtime_state(
-                    agent.id,
-                    RuntimeStatePatch {
-                        status: AgentStatus::Running,
-                        desired_state: DesiredState::Running,
-                        pid: agent.runtime.pid,
-                        health_status: Some("running".to_string()),
-                        health_detail: Some("process is already tracked".to_string()),
-                        last_capabilities_json: None,
-                        startup_command_redacted: Some(self.command_preview(agent)),
-                        started_at: parse_domain_ts(&agent.runtime.started_at),
-                        stopped_at: None,
-                    },
-                )
-                .await?;
-            return Ok(RuntimeOperationResponse {
-                agent_id: updated.id,
-                status: updated.status,
-                message: "agent is already running".to_string(),
-            });
-        }
 
+        let mut command = self.hermes_command(agent)?;
         let starting = self
             .repo
             .update_runtime_state(
@@ -1935,7 +1937,6 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
             .insert_log(starting.id, "system", "Hermes start requested")
             .await;
 
-        let mut command = self.hermes_command(&starting)?;
         let mut child = match command.spawn() {
             Ok(child) => child,
             Err(err) => {
@@ -2007,9 +2008,7 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
                 })
             }
             Err(err) => {
-                if let Some(mut child) = self.children.lock().await.remove(&starting.id) {
-                    let _ = child.kill().await;
-                }
+                self.stop_starting_process(starting.id, pid).await?;
                 let detail = crate::redact_text(&err.to_string());
                 let updated = self
                     .repo
@@ -2038,10 +2037,23 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
         }
     }
 
-    async fn stop(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
+    async fn stop_locked(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
+        let fresh = self.repo.get_agent(agent.id).await?;
+        let agent = &fresh;
         let mut children = self.children.lock().await;
-        if let Some(mut child) = children.remove(&agent.id) {
-            let _ = child.kill().await;
+        if let Some(child) = children.get_mut(&agent.id) {
+            process_stop::terminate(child).await?;
+            children.remove(&agent.id);
+        } else if agent.runtime.pid.is_some()
+            || agent.runtime.desired_state == DesiredState::Running
+            || matches!(
+                agent.status,
+                AgentStatus::Running | AgentStatus::Starting | AgentStatus::Degraded
+            )
+        {
+            return Err(AppError::Unavailable(
+                "untracked runtime termination is unconfirmed; reconciliation is required".into(),
+            ));
         }
         drop(children);
         let updated = self
@@ -2072,13 +2084,9 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
         })
     }
 
-    async fn restart(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
-        self.stop(agent).await?;
-        let refreshed = self.repo.get_agent(agent.id).await?;
-        self.start(&refreshed).await
-    }
-
-    async fn health(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
+    async fn health_locked(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
+        let fresh = self.repo.get_agent(agent.id).await?;
+        let agent = &fresh;
         let mut children = self.children.lock().await;
         let finished = match children.get_mut(&agent.id) {
             Some(child) => child.try_wait().map_err(AppError::internal)?,
@@ -2088,6 +2096,10 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
             children.remove(&agent.id);
         }
         let tracked = children.contains_key(&agent.id);
+        let tracked_pid = children
+            .get(&agent.id)
+            .and_then(Child::id)
+            .map(|id| id as i32);
         drop(children);
 
         if let Some(exit) = finished {
@@ -2137,8 +2149,8 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
                             agent.id,
                             RuntimeStatePatch {
                                 status,
-                                desired_state: DesiredState::Running,
-                                pid: if tracked { agent.runtime.pid } else { None },
+                                desired_state: agent.runtime.desired_state,
+                                pid: tracked_pid.or(agent.runtime.pid),
                                 health_status: Some("healthy".to_string()),
                                 health_detail: Some(detail.clone()),
                                 last_capabilities_json: Some(health),
@@ -2161,13 +2173,13 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
                         .update_runtime_state(
                             agent.id,
                             RuntimeStatePatch {
-                                status: if tracked {
+                                status: if tracked || unconfirmed_runtime(agent) {
                                     AgentStatus::Degraded
                                 } else {
                                     AgentStatus::Stopped
                                 },
                                 desired_state: agent.runtime.desired_state,
-                                pid: agent.runtime.pid,
+                                pid: tracked_pid.or(agent.runtime.pid),
                                 health_status: Some("unhealthy".to_string()),
                                 health_detail: Some(detail.clone()),
                                 last_capabilities_json: None,
@@ -2203,8 +2215,8 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
                         agent.id,
                         RuntimeStatePatch {
                             status,
-                            desired_state: DesiredState::Running,
-                            pid: if tracked { agent.runtime.pid } else { None },
+                            desired_state: agent.runtime.desired_state,
+                            pid: tracked_pid.or(agent.runtime.pid),
                             health_status: Some("healthy".to_string()),
                             health_detail: Some(detail.clone()),
                             last_capabilities_json: Some(capabilities),
@@ -2222,17 +2234,11 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
             }
             Err(err) => {
                 let detail = crate::redact_text(&err.to_string());
-                // Preserve desired_state, but allow the reconciler to restart
-                // an absent process after Fleet itself was restarted.
-                let status = if tracked {
+                // An HTTP failure does not prove that an untracked process stopped.
+                let status = if tracked || unconfirmed_runtime(agent) {
                     AgentStatus::Degraded
                 } else {
                     AgentStatus::Stopped
-                };
-                let desired_state = if tracked {
-                    DesiredState::Running
-                } else {
-                    agent.runtime.desired_state
                 };
                 let updated = self
                     .repo
@@ -2240,8 +2246,8 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
                         agent.id,
                         RuntimeStatePatch {
                             status,
-                            desired_state,
-                            pid: if tracked { agent.runtime.pid } else { None },
+                            desired_state: agent.runtime.desired_state,
+                            pid: tracked_pid.or(agent.runtime.pid),
                             health_status: Some("unhealthy".to_string()),
                             health_detail: Some(detail.clone()),
                             last_capabilities_json: None,
@@ -2258,6 +2264,61 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
                 })
             }
         }
+    }
+}
+
+#[async_trait]
+impl RuntimeSupervisor for LocalRuntimeSupervisor {
+    async fn resolve_targeted_approval(
+        &self,
+        agent: &Agent,
+        run: &SessionAgentRun,
+        approval: &domain::RuntimeApprovalRequest,
+        choice: domain::ApprovalChoice,
+    ) -> Result<(), AppError> {
+        targeted_approval::resolve(self, agent, run, approval, choice).await
+    }
+
+    async fn probe_pm_run(
+        &self,
+        agent: &Agent,
+        record: &domain::PmRunRecord,
+    ) -> Result<domain::PmRuntimeStatus, AppError> {
+        pm_readback::probe(self, agent, record).await
+    }
+
+    async fn start(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
+        let lock = self.lifecycle_lock(agent.id).await;
+        let _guard = lock.lock().await;
+        if self.repo.agent_is_draining(agent.id).await? {
+            return Err(AppError::conflict("agent configuration is draining"));
+        }
+        self.start_locked(agent).await
+    }
+
+    async fn stop(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
+        let lock = self.lifecycle_lock(agent.id).await;
+        let _guard = lock.lock().await;
+        if self.repo.agent_is_draining(agent.id).await? {
+            return Err(AppError::conflict("agent configuration is draining"));
+        }
+        self.stop_locked(agent).await
+    }
+
+    async fn restart(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
+        let lock = self.lifecycle_lock(agent.id).await;
+        let _guard = lock.lock().await;
+        if self.repo.agent_is_draining(agent.id).await? {
+            return Err(AppError::conflict("agent configuration is draining"));
+        }
+        self.stop_locked(agent).await?;
+        self.start_locked(agent).await
+    }
+
+    async fn health(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
+        let lock = self.lifecycle_lock(agent.id).await;
+        let _guard = lock.lock().await;
+        self.health_locked(agent).await
     }
 
     async fn send_message(

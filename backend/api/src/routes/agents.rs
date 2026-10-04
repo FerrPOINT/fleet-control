@@ -155,7 +155,7 @@ pub async fn get_agent_storage(
     ))
 }
 
-#[utoipa::path(post, path = "/api/v1/agents/{agent_id}/purge-files", tag = "agents", params(("agent_id" = Uuid, Path)), request_body = PurgeAgentFilesRequest, responses((status = 200, body = PurgeAgentFilesResponse)))]
+#[utoipa::path(post, path = "/api/v1/agents/{agent_id}/purge-files", tag = "agents", params(("agent_id" = Uuid, Path)), request_body = PurgeAgentFilesRequest, responses((status = 200, body = PurgeAgentFilesResponse), (status = 401, description = "Authentication required"), (status = 403, description = "Operator access required"), (status = 404, description = "Agent not found"), (status = 409, description = "Agent configuration is draining"), (status = 422, description = "Archived agent and exact confirmation required"), (status = 503, description = "Runtime termination is unconfirmed; files retained")))]
 pub async fn purge_agent_files(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<CurrentUser>,
@@ -175,7 +175,7 @@ pub async fn purge_agent_files(
             "agent files can only be purged after the agent is archived",
         ));
     }
-    let _ = ctx.runtime.stop(&agent).await;
+    ctx.runtime.stop(&agent).await?;
     ctx.repo
         .update_agent_status(agent_id, AgentStatus::Archived)
         .await?;
@@ -242,7 +242,7 @@ pub async fn provision_agent(
     Ok(Json(agent))
 }
 
-#[utoipa::path(post, path = "/api/v1/agents/{agent_id}/start", tag = "agents", params(("agent_id" = Uuid, Path)), responses((status = 200, body = RuntimeOperationResponse)))]
+#[utoipa::path(post, path = "/api/v1/agents/{agent_id}/start", tag = "agents", params(("agent_id" = Uuid, Path)), responses((status = 200, body = RuntimeOperationResponse), (status = 401, description = "Authentication required"), (status = 403, description = "Operator access required"), (status = 404, description = "Agent not found"), (status = 409, description = "Agent configuration is draining"), (status = 503, description = "Runtime ownership or readiness is unconfirmed")))]
 pub async fn start_agent(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<CurrentUser>,
@@ -277,7 +277,7 @@ pub async fn start_agent(
     Ok(Json(response))
 }
 
-#[utoipa::path(post, path = "/api/v1/agents/{agent_id}/stop", tag = "agents", params(("agent_id" = Uuid, Path)), responses((status = 200, body = RuntimeOperationResponse)))]
+#[utoipa::path(post, path = "/api/v1/agents/{agent_id}/stop", tag = "agents", params(("agent_id" = Uuid, Path)), responses((status = 200, body = RuntimeOperationResponse), (status = 401, description = "Authentication required"), (status = 403, description = "Operator access required"), (status = 404, description = "Agent not found"), (status = 409, description = "Agent configuration is draining"), (status = 503, description = "Runtime termination is unconfirmed")))]
 pub async fn stop_agent(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<CurrentUser>,
@@ -308,7 +308,7 @@ pub async fn stop_agent(
     Ok(Json(response))
 }
 
-#[utoipa::path(post, path = "/api/v1/agents/{agent_id}/restart", tag = "agents", params(("agent_id" = Uuid, Path)), responses((status = 200, body = RuntimeOperationResponse)))]
+#[utoipa::path(post, path = "/api/v1/agents/{agent_id}/restart", tag = "agents", params(("agent_id" = Uuid, Path)), responses((status = 200, body = RuntimeOperationResponse), (status = 401, description = "Authentication required"), (status = 403, description = "Operator access required"), (status = 404, description = "Agent not found"), (status = 409, description = "Agent configuration is draining"), (status = 503, description = "Runtime termination, ownership or readiness is unconfirmed")))]
 pub async fn restart_agent(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<CurrentUser>,

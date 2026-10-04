@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+- Require bounded tracked-process kill/wait before acknowledging runtime stop;
+  preserve ownership on failure and refuse untracked active stop/restart rather
+  than clearing PID/state without proof. Process-tree release remains separate.
+- Serialize configuration application/rollback with runtime lifecycle actions;
+  recheck drain after waiting, preserve unconfirmed health ownership and enforce
+  bounded Java readiness plus wall-clock startup deadlines for both runtimes.
+- Refuse physical folder purge when runtime stop is unconfirmed; do not emit a
+  purge success event or audit entry after a failed stop.
+- Validate delegated credentials against acknowledgement-time TTL after Base
+  lock waits; retain exact scope/expiry bounds and disable environment proxies.
+
 - Persist protected, exclusive configuration activation backups before runtime
   or file changes; verify restored bytes on rollback and retain the journal until
   the database result commits. Interrupted/unknown journals block another apply;

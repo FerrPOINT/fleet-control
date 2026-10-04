@@ -534,6 +534,24 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Operator access required"
+          },
+          "404": {
+            "description": "Agent not found"
+          },
+          "409": {
+            "description": "Agent configuration is draining"
+          },
+          "422": {
+            "description": "Archived agent and exact confirmation required"
+          },
+          "503": {
+            "description": "Runtime termination is unconfirmed; files retained"
           }
         }
       }
@@ -596,6 +614,21 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Operator access required"
+          },
+          "404": {
+            "description": "Agent not found"
+          },
+          "409": {
+            "description": "Agent configuration is draining"
+          },
+          "503": {
+            "description": "Runtime termination, ownership or readiness is unconfirmed"
           }
         }
       }
@@ -710,6 +743,21 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Operator access required"
+          },
+          "404": {
+            "description": "Agent not found"
+          },
+          "409": {
+            "description": "Agent configuration is draining"
+          },
+          "503": {
+            "description": "Runtime ownership or readiness is unconfirmed"
           }
         }
       }
@@ -741,6 +789,21 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Operator access required"
+          },
+          "404": {
+            "description": "Agent not found"
+          },
+          "409": {
+            "description": "Agent configuration is draining"
+          },
+          "503": {
+            "description": "Runtime termination is unconfirmed"
           }
         }
       }

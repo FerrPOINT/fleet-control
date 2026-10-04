@@ -1,5 +1,14 @@
 # API
 
+Runtime stop/restart can return `503` for untracked active processes or unconfirmed
+kill/wait. No stopped state or cleared PID is then acknowledged. Success confirms
+only tracked parent-process exit, not descendant quiescence or task completion.
+Start also rejects untracked active replacement with `503`; public start/stop/
+restart recheck drain after the supervisor lock and return `409` during activation.
+These responses are generated from Rust operation annotations in OpenAPI.
+Physical purge propagates stop failure before filesystem deletion or success
+event/audit writes; `503` retains the folder, while drain returns `409`.
+
 Hermes config activation now persists a protected local journal before runtime
 and file changes and retains it on unknown outcomes. No new endpoint or response
 field is added; backups, resolved secret bytes and paths are never API data.

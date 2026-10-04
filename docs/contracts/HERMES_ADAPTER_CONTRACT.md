@@ -1,5 +1,10 @@
 # Hermes Adapter Contract
 
+Supervisor stop retains process ownership until kill/wait confirms exit. Unknown
+untracked/recorded-running state is not converted to stopped, and restart cannot
+spawn a replacement through that error. A Hermes `run.cancelled` event remains
+distinct from process wait and complete process-tree quiescence.
+
 Activation reserves `config/.fleet-activation-journal.json` before stopping a
 tracked Hermes or changing files. Previous bytes, expected hashes and exact
 agent/revision are protected and size-bounded. Rollback verifies every old file;
