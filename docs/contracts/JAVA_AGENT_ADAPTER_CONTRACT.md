@@ -1,5 +1,8 @@
 # Java Agent Adapter Contract
 
+The [Hermes native original-key extension](HERMES_RECOVERY_V1.md) does not
+extend Java lifecycle/chat capabilities or bypass its phase-2 execution gate.
+
 Hermes-only atomic terminal/pinned recovery does not extend Java chat/control
 capabilities. Existing Java lifecycle and phase-2 boundaries remain unchanged;
 see [the common runtime contract](AGENT_RUNTIME_CONTRACT.md).

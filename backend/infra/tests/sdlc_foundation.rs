@@ -35,6 +35,12 @@ mod runtime_terminal;
 #[path = "support/runtime_pinned_recovery.rs"]
 mod runtime_pinned_recovery;
 
+#[path = "support/runtime_unknown_recovery.rs"]
+mod runtime_unknown_recovery;
+
+#[path = "support/runtime_recovery_races.rs"]
+mod runtime_recovery_races;
+
 #[path = "support/hermes_dispatch_journal.rs"]
 mod hermes_dispatch_journal;
 

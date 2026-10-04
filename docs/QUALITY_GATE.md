@@ -28,6 +28,11 @@ Additional gates:
 
 - clean DB migration up/status
 - OpenAPI regenerate and diff
+- opt-in recovery source gate: original journal/scope/epoch and DB-lock expiry
+  races; Base plugin Linux SQLite/auth/boundary suite; actual pinned native
+  `scripts/hermes_protocol_live/run.py --scenario recovery` with an explicitly
+  supplied compatible plugin source and existing image. These component gates
+  do not enable installed runtime or replace managed Fleet/native acceptance.
 - standalone release Docker builds with sibling Base named contexts and locked
   dependencies; fresh Compose health plus `scripts/compose_smoke.py` acceptance
   (auth/RBAC, privacy, idempotency, proxied session SSE and restart persistence)

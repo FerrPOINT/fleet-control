@@ -10,6 +10,16 @@ against direct privileged SQL. Task-bound/PM records use their separate model.
 
 ## Hermes Dispatch Journal
 
+Optional closed `capabilities.fleet_recovery` freezes the source-pinned native
+store epoch/default-profile scope and non-dispatch endpoint before the original
+submission. It is private metadata, not an arbitrary upstream object or secret.
+Existing immutable JSON/bytes guards apply; no new migration or legacy backfill.
+`recovery_allowed` is an internal DB-clock query projection, not stored authority.
+Recovered acceptance rechecks original facts and deadline under the journal lock
+and at its atomic mapping update. The producer's witness tables live only in the
+native run-idempotency store, not Fleet's DB or Hermes SessionDB. See
+[recovery v1](contracts/HERMES_RECOVERY_V1.md).
+
 Additive `m20261004_000012_hermes_dispatch_journal` adds the private
 `hermes_dispatch_journal` ledger. A transaction reserves the concrete primary
 free-chat run and records the original message/run/session/agent, requested

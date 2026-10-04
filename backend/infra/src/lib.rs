@@ -2819,7 +2819,24 @@ impl FleetRepository for PostgresFleetRepository {
         run_id: Uuid,
         runtime_run_id: String,
     ) -> Result<SessionAgentRun, AppError> {
-        runtime_acceptance::accept(self, message_id, run_id, runtime_run_id).await
+        runtime_acceptance::accept(self, message_id, run_id, runtime_run_id, None).await
+    }
+
+    async fn accept_recovered_hermes_run(
+        &self,
+        message_id: Uuid,
+        run_id: Uuid,
+        runtime_run_id: String,
+        original_capabilities: Value,
+    ) -> Result<SessionAgentRun, AppError> {
+        runtime_acceptance::accept(
+            self,
+            message_id,
+            run_id,
+            runtime_run_id,
+            Some(original_capabilities),
+        )
+        .await
     }
 
     async fn pin_hermes_run_session(
@@ -2852,13 +2869,17 @@ impl FleetRepository for PostgresFleetRepository {
     ) -> Result<Vec<(SessionMessage, SessionAgentRun)>, AppError> {
         let rows = self.db.query_all(Statement::from_sql_and_values(DatabaseBackend::Postgres,
             "SELECT r.id AS run_id,m.id AS message_id FROM session_agent_runs r
-             JOIN session_messages m ON m.session_id=r.session_id AND m.runtime_message_id=r.runtime_run_id
+             JOIN session_messages m ON m.session_id=r.session_id
              JOIN agent_sessions s ON s.id=r.session_id AND s.agent_id=r.agent_id
              JOIN agents a ON a.id=r.agent_id
+             LEFT JOIN hermes_dispatch_journal j ON j.message_id=m.id AND j.run_id=r.id
              WHERE r.state IN ('pending','running','waiting','stopping')
-               AND r.runtime_run_id IS NOT NULL AND a.kind='hermes'
+               AND a.kind='hermes'
                AND m.author_type IN ('user','agent') AND m.message_kind IN ('user_prompt','control')
-               AND m.delivery_state='dispatched'
+               AND ((r.runtime_run_id IS NOT NULL AND m.runtime_message_id=r.runtime_run_id AND m.delivery_state='dispatched')
+                 OR (r.runtime_run_id IS NULL AND r.state='pending' AND m.runtime_message_id IS NULL
+                     AND m.delivery_state='pending' AND j.state='submitted'
+                     AND jsonb_typeof(j.capabilities->'fleet_recovery')='object'))
                AND NOT EXISTS(SELECT 1 FROM task_chat_bindings b WHERE b.session_id=r.session_id)
                AND NOT EXISTS(SELECT 1 FROM pm_run_bindings p WHERE p.session_run_id=r.id OR p.session_id=r.session_id)
                AND ($1::uuid IS NULL OR r.id>$1)

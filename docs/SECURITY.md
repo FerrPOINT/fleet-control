@@ -1,5 +1,13 @@
 # Security
 
+Unknown-key recovery requires the original closed native store/scope/source facts,
+exact bytes/hash/key/origin/credential context and DB-clock horizon. The opt-in
+producer verifies native auth before metadata/body and writes only reservation
+witness metadata in its own runs-idempotency DB, never SessionDB. Native POST is
+epoch guarded; no recovery path repeats it. Witness integrity is not protection
+against privileged host/DB tampering or proof of agent OS isolation. See
+[recovery v1](contracts/HERMES_RECOVERY_V1.md) for read bounds and rollout guards.
+
 Known pinned Hermes free-chat recovery requires the original accepted journal,
 origin and credential context before HTTP. It performs GET only; neither a
 missing/invalid status nor an expired horizon grants redispatch. Terminal mirror

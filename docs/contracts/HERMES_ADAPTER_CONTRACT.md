@@ -1,5 +1,12 @@
 # Hermes Adapter Contract
 
+Opt-in original-key recovery uses [extension v1](HERMES_RECOVERY_V1.md).
+Verified facts are frozen before the first POST; epoch header guards original
+native admission. Lookup only restores the witnessed original run ID and does
+not supply terminal/session/admission evidence. DB-clock expiry is checked at
+the atomic mapping update; missing/changed facts retain capacity with no POST
+replay. Legacy records are not backfilled; default flag is false.
+
 Configuration renderer version is part of the frozen snapshot. New Hermes
 drafts use 2 and persist the native API listener plus protected dotenv values;
 legacy/absent version 1 retains old bytes/hash interpretation. Unknown versions

@@ -29,7 +29,8 @@ IMPLEMENTATION_PLAN и CURRENT_STATE. Они не являются приёмк�
 | Idempotency | Session key сериализуется transactional advisory lock; message key — session row lock | Concurrent replay и payload conflict проверены на PostgreSQL |
 | Dispatch | Prompt и outbox создаются одной транзакцией через trigger | Claim блокирует agent row; capacity 1; pending не отправляется при drain |
 | Unknown acceptance | Нет автоматического redispatch после неопределённой отправки | `uncertain` удерживает слот; recovery operator API ещё отсутствует |
-| Dispatch journal | Миграция 000012: atomic concrete run + immutable request bytes/hash/key/origin/default-profile fingerprint/protocol facts, одноразовый permit до POST; ACK/run/message/outbox/journal атомарны | Unknown ACK остаётся pending с ошибкой; known-ID GET требует original context. Legacy без journal не probe-ится; native non-dispatch key lookup/store continuity, prepared-intent recovery и operator API ещё отсутствуют |
+| Dispatch journal | Миграция 000012: atomic concrete run + immutable request bytes/hash/key/origin/default-profile fingerprint/protocol facts, одноразовый permit до POST; ACK/run/message/outbox/journal атомарны | Known-ID GET требует original context. Opt-in recovery фиксирует native store epoch до POST; legacy без journal не probe-ится. Prepared-intent recovery и operator API ещё отсутствуют |
+| Original-key recovery | Base native plugin сохраняет immutable witness в reservation transaction; Fleet использует non-dispatch lookup только с исходными scope/bytes/epoch/horizon | 326 Fleet, 56 Linux plugin и два actual native component cases PASS отдельно; managed Fleet/native acceptance ещё нет. Negative/expiry/reset не разрешают redispatch. Default false; no historical backfill |
 | Runs | Новые попытки сохраняют отдельные runtime run records; free-chat terminal packet атомарно сохраняет run, prompt delivery, optional assistant и durable events | Exact replay не меняет timestamps/cursor; task/PM не получают admission. Empty terminal не фабрикует ответ |
 | Pinned recovery | Known accepted pending/running/waiting/stopping обходятся bounded keyset; pinned native terminal проверяется GET-only с original journal context | Нет второго POST/SSE worker; unknown/foreign/expired status удерживает capacity. Missed tool/approval history не реконструируется |
 | EOF | EOF без terminal event требует status readback | Non-terminal/error оставляет waiting, а не ложный completed |
@@ -124,9 +125,13 @@ concurrent replay, process restart и interrupted inference без повтор�
 exact session/transcript, SSE/status и credential rotation. Это не capabilities
 установленного агента и не полный gateway lifecycle. Evidence и границы:
 [verification ledger](CHAT_CLARIFICATION_VERIFICATION.md#native-hermes-protocol-acceptance-4-october-2026).
-Перед автоматическим Fleet recovery ещё нужны immutable exact request/scope/
-horizon journal, runtime provenance и consumer integration. До этого unknown
-dispatch не повторяется. Raw `serve` у этого pin запускает dashboard; нынешний
+Fleet теперь сохраняет immutable exact request/scope/horizon journal и optional
+closed recovery capability до первоначального POST. Base opt-in native producer
+и Fleet consumer проверены компонентно: positive original-key lookup без нового
+run, prune/tombstone/reset и DB-lock expiry. Это не managed gateway acceptance;
+installed rollout остаётся закрытым. Negative/uncertain proof не разрешает repeat.
+Контракт и evidence: [Recovery v1](contracts/HERMES_RECOVERY_V1.md).
+Raw `serve` у этого pin запускает dashboard; нынешний
 Fleet argv требует Base compatibility wrapper, см. [runtime](RUNTIME.md).
 Terminal `interrupted` трактуется как failed, без fabricated assistant reply;
 это проверено отдельным fake Hermes HTTP regression.

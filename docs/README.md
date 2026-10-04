@@ -14,6 +14,8 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 - [Hermes original request journal ADR](adr/0016-hermes-original-request-journal.md)
 - [Versioned native Hermes renderer ADR](adr/0017-versioned-native-hermes-renderer.md)
 - [Atomic terminal and pinned recovery ADR](adr/0018-atomic-terminal-pinned-recovery.md)
+- [Native original-key recovery ADR](adr/0019-native-original-key-recovery.md)
+- [Hermes recovery extension v1](contracts/HERMES_RECOVERY_V1.md)
 - [Actual credential interoperability harness](../scripts/pm_credentials_live/README.md)
 - [Native Hermes protocol acceptance harness](../scripts/hermes_protocol_live/README.md)
 - [SDLC_IMPLEMENTATION.md](SDLC_IMPLEMENTATION.md) — реализация нового SDLC, границы и оставшаяся приёмка.

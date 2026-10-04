@@ -1,5 +1,11 @@
 # API
 
+Hermes original-key recovery adds no public Fleet API route or DTO. Private
+adapter [recovery v1](contracts/HERMES_RECOVERY_V1.md) freezes verified facts
+before original POST and uses authenticated non-dispatch native lookup. A found
+ID is not completion, readiness or a permission to dispatch task/PM work. Unknown
+or legacy context stays held; browser payload cannot supply a lookup witness.
+
 `AgentConfigurationSnapshot.renderer_version` is an additive, server-selected
 response field: omitted legacy/1 or native Hermes renderer 2. New Hermes drafts
 use 2; existing snapshots are not rewritten. Config-edit requests are unchanged.

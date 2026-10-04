@@ -2,6 +2,12 @@
 
 ## October SDLC Scope
 
+Original-key recovery candidate: [ADR 0019](adr/0019-native-original-key-recovery.md),
+[wire v1](contracts/HERMES_RECOVERY_V1.md), source `recovery_wire` and atomic
+`accept_recovered_hermes_run`, PG/HTTP `runtime_unknown_recovery`/`recovery_race`
+and actual pinned native recovery harness. Installed end-to-end, native config/
+OS/process-tree proof, prepared-intent restart and task/PM admission remain gates.
+
 | Requirement | Evidence / Remaining Gate |
 | --- | --- |
 | Seven independent specializations | `SdlcRole`, migration 000009, create/edit; no seven-agent live acceptance yet |

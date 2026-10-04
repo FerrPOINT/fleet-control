@@ -2,6 +2,19 @@
 
 Prefix: `FLEET_CONTROL_`.
 
+## Hermes Original-Key Recovery
+
+`FLEET_CONTROL_FLEET__HERMES_RECOVERY_EXTENSION_ENABLED` defaults to `false`.
+Explicit `true` requires the opt-in Base `fleet-hermes-recovery` plugin and its
+source-pinned authenticated capability before a new free-chat dispatch. Missing
+capability fails closed; no fallback POST. Freeze those facts before dispatch;
+legacy intents are not upgraded. Plugin files shipped in an image do not enable
+it: use an explicitly validated/activated config revision with
+`plugins.enabled: [fleet-hermes-recovery]` only after installed acceptance.
+Original submission carries the verified store epoch header, not a new secret.
+This flag does not grant task/PM admission, model permissions or Java chat.
+See [the contract](contracts/HERMES_RECOVERY_V1.md).
+
 Hermes renderer 2 persists managed `API_SERVER_HOST=127.0.0.1`, assigned
 `API_SERVER_PORT`, derived `API_SERVER_KEY`, HOME, native API enablement and CORS
 into private files, because native dotenv/config loading can override launcher

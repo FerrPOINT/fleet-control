@@ -1,5 +1,20 @@
 # Testing
 
+## Original-Key Recovery
+
+`runtime::recovery_wire` unit HTTP cases verify closed facts/receipts, original
+scope/epoch/deadline denial and zero native submissions during lookup. Disposable
+PostgreSQL `runtime_unknown_recovery` verifies original epoch header and bytes
+before the first POST, lost acknowledgement recovery, atomic mapping/mirror and
+expired/changed context denial. `recovery_race` adds actual lock barriers for
+concurrent ACK/lookup acceptance and deadline expiry while waiting on the journal.
+Run with `FLEET_TEST_DATABASE_URL` using `--test-threads=1`; no env means skip,
+not PostgreSQL evidence. The separate native
+[recovery harness](../scripts/hermes_protocol_live/README.md) uses real pinned
+hook/API/AIAgent/SQLite and a deterministic loopback model, not fake Hermes.
+Base's 56 stdlib store/boundary tests include Linux symlink checks. These scopes
+do not prove installed managed gateway/Fleet end-to-end or PM admission.
+
 ## Atomic Terminal And Pinned Recovery
 
 With disposable `FLEET_TEST_DATABASE_URL`, run these serial PostgreSQL targets:

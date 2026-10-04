@@ -79,6 +79,71 @@ class HarnessSafetyTests(unittest.TestCase):
             runner.main()
         docker.assert_not_called()
 
+    def test_recovery_requires_complete_explicit_plugin_before_docker(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'plugin.py').write_bytes(b'host-fixture-only')
+            for extra in [
+                ['--scenario', 'recovery'],
+                ['--scenario', 'recovery', '--recovery-plugin-root', directory],
+                ['--recovery-plugin-root', directory],
+            ]:
+                with self.subTest(arguments=extra), \
+                     patch.object(sys, 'argv', ['run.py', '--hermes', directory, '--image', 'fixture', *extra]), \
+                     patch.object(runner.subprocess, 'check_output') as docker, self.assertRaises(SystemExit):
+                    runner.main()
+                docker.assert_not_called()
+
+    def test_recovery_snapshots_module_hashes_and_native_helper_read_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            plugin = Path(directory) / 'explicit-plugin'
+            plugin.mkdir()
+            hashes = {}
+            for name in ('__init__.py', 'plugin.py', 'store.py', 'plugin.yaml'):
+                payload = ('host-fixture-only:' + name + '\n').encode()
+                (plugin / name).write_bytes(payload)
+                hashes[name] = hashlib.sha256(payload).hexdigest()
+            metadata = [{'Id': 'sha256:host-fixture-only', 'Config': {
+                'Labels': {'sdlc.hermes.revision': runner.PIN},
+            }}]
+
+            def command(argv, **_kwargs):
+                compose = Path(argv[argv.index('-f') + 1])
+                action = argv[argv.index(str(compose)) + 1]
+                if action == 'up':
+                    document = json.loads(compose.read_text())
+                    service = document['services']['probe']
+                    self.assertTrue(service['read_only'])
+                    self.assertNotIn('user', service)
+                    self.assertNotIn('ports', service)
+                    self.assertTrue(document['networks']['qa']['internal'])
+                    mount = next(v for v in service['volumes'] if v['target'] == '/qa/probe')
+                    self.assertTrue(mount['read_only'])
+                    for name, digest in hashes.items():
+                        copied = Path(mount['source']) / 'plugin' / name
+                        self.assertEqual(hashlib.sha256(copied.read_bytes()).hexdigest(), digest)
+                    copied_helper = Path(mount['source']) / 'native_protocol.py'
+                    self.assertEqual(copied_helper.read_bytes(), Path(probe.__file__).read_bytes())
+                    (compose.parent / 'output/native-result.json').write_text(json.dumps({
+                        'native_source_sha': runner.PIN, 'cases': ['host-fixture-only'] * 2,
+                    }), encoding='utf-8')
+                return subprocess.CompletedProcess(argv, 0, stdout=b'[]' if action == 'ps' else b'fixture log')
+
+            with patch.object(runner.subprocess, 'check_output', return_value=json.dumps(metadata).encode()), \
+                 patch.object(runner.subprocess, 'run', side_effect=command), \
+                 patch.object(runner, 'snapshot', return_value='host-fixture-source'), \
+                 patch.object(sys, 'argv', [
+                     'run.py', '--hermes', directory, '--image', 'fixture', '--artifacts', directory,
+                     '--scenario', 'recovery', '--recovery-plugin-root', str(plugin),
+                 ]):
+                runner.main()
+            evidence = json.loads(next(Path(directory).glob('*/evidence.json')).read_text())
+            self.assertEqual(evidence['result'], 'passed')
+            self.assertEqual(evidence['plugin_sha256'], hashes)
+            self.assertEqual(evidence['native_helper_sha256'], hashlib.sha256(Path(probe.__file__).read_bytes()).hexdigest())
+            self.assertEqual(evidence['cleanup_exit_code'], 0)
+            self.assertTrue(evidence['post_cleanup_ps_empty'])
+
     def test_sse_comments_and_multiline_crlf(self):
         payload = b': keepalive\r\n\r\ndata: {"run_id":"run_test",\r\ndata: "event":"run.completed"}\r\n\r\n'
         self.assertEqual(probe.parse_sse(payload), [{"run_id": "run_test", "event": "run.completed"}])

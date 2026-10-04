@@ -145,16 +145,32 @@ journal now reserves the concrete free-chat run atomically and consumes one
 submission permit before HTTP. ACK and journal progress commit together.
 Known-ID recovery requires its accepted journal and original context; legacy
 records without that proof remain held without HTTP. Unknown acceptance remains
-pending with an error and no repeated POST. This is not task admission, a
-prepared-intent recovery worker or unknown-key reconciliation. The native
-baseline has no non-dispatch HTTP key lookup/store epoch; durable=true and a
-retention deadline cannot prove SQLite continuity. Recovery after the pin-to-worker
+pending with an error and no repeated POST unless its original intent contains
+the verified opt-in recovery extension facts described below. This is not task
+admission or a prepared-intent recovery worker. The unextended native baseline
+has no non-dispatch HTTP key lookup/store epoch; durable=true and a retention
+deadline cannot prove SQLite continuity. Recovery after the pin-to-worker
 gap now uses original-context GET only for pinned active free chats. Validated
 terminal run/prompt/optional assistant and durable events commit atomically;
 empty output creates no synthetic response. Old stream writes cannot reopen the
 terminal packet. Task/PM runs remain excluded. Authentic Fleet/native runtime
-acceptance, unknown-ID lookup and full admission remain gates; see
+acceptance and full admission remain gates; see
 [ADR 0018](../adr/0018-atomic-terminal-pinned-recovery.md).
+
+The Base opt-in native extension and Fleet consumer now implement
+[Recovery v1](HERMES_RECOVERY_V1.md). A witness commits in the original native
+reservation transaction before inference, with immutable scope/key/fingerprint/
+run and store incarnation. Before initial dispatch Fleet freezes the closed
+capability facts and sends the original epoch header. Unknown acceptance may
+perform a bounded non-dispatch lookup with those original facts/bytes/key and a
+live DB-clock horizon; mapping acceptance rechecks the horizon atomically.
+Only a positive exact witness restores the original ID. It still requires native
+GET for effective session/terminal proof. Missing/conflict/reset/rotation/expiry
+never authorize replacement, a new key or capacity release. Legacy intents are
+not backfilled, and task/PM records remain excluded. Component/native gates have
+passed; managed Fleet/native acceptance and explicit config rollout have not.
+See [ADR 0019](../adr/0019-native-original-key-recovery.md) and
+[current evidence](../CHAT_CLARIFICATION_VERIFICATION.md#original-key-non-dispatch-recovery-4-october-2026).
 
 The independent native protocol gate now verifies the pinned API/AIAgent/SQLite
 mechanism with a local model: actual dropped 202, concurrent same-key replay,

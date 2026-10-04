@@ -1,5 +1,12 @@
 # Agent Runtime Contract
 
+Hermes original-key recovery is an explicit source-pinned
+[extension](HERMES_RECOVERY_V1.md), not a common runtime capability. Original
+scope/store facts are frozen before admission; non-dispatch lookup can restore
+only that original run ID within the DB-clock horizon. Native status remains
+required for session pin/terminal outcome. No legacy backfill, reset/negative
+lookup redispatch, task/PM authority or Java behavior is introduced.
+
 Hermes configuration activation persists an exclusive local backup journal before
 stop/file effects. Only the exact journal can be acknowledged after the database
 activation result commits and rollback/application is verified. Existing, partial

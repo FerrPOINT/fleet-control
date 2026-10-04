@@ -1,5 +1,15 @@
 # Operations
 
+Original-key recovery is an [explicit opt-in](contracts/HERMES_RECOVERY_V1.md),
+not an installed default. Ship verified plugin files, validate/activate a new
+Hermes config revision through normal drain, and enable the separate Fleet flag
+only after managed native/Fleet acceptance. Do not rewrite legacy journal facts,
+copy a SQLite store into another HOME, purge witness tombstones or rotate keys to
+escape uncertain acceptance. Missing/conflict/reset/expiry/status unavailable
+retains capacity for reconciliation. Saturation forbids new admissions while
+existing lookup remains readable. No public operator reconciliation endpoint or
+automatic safe-stop/process-tree proof is introduced by this candidate.
+
 For existing Hermes agents, activate a new renderer-2 configuration through
 draft/validate/drain/activate/readback. Do not edit historical snapshot versions,
 file hashes or private dotenv in place. A still-active/unknown run must finish or

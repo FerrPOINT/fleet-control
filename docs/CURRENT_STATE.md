@@ -64,8 +64,8 @@ Free-chat verified acceptance now commits run/prompt/outbox atomically before
 status GET. Accepted-but-unpinned pending runs recover effective session identity
 by GET only after restart, with one concurrent stream-start winner and immutable
 runtime mapping. The subsequent atomic-terminal follow-up below handles pinned
-restart recovery; unknown run IDs, assignment admission and native configuration
-attestation remain open. See
+restart recovery; opt-in unknown-ID recovery is described below. Assignment
+admission and native configuration attestation remain open. See
 [ADR 0015](adr/0015-accepted-run-session-readback.md) and the verification ledger.
 
 The atomic-terminal follow-up now commits optional assistant, prompt delivery,
@@ -79,7 +79,7 @@ Independent review closed the FK lock inversion and fixture setup races.
 No migration, public API, installed runtime or producer changed. See
 [ADR 0018](adr/0018-atomic-terminal-pinned-recovery.md) and
 [current evidence](CHAT_CLARIFICATION_VERIFICATION.md#atomic-terminal-and-pinned-recovery-4-october-2026).
-Unknown-ID/store continuity, missed native tool/approval replay, stream frame/
+Installed unknown-ID/store continuity acceptance, missed native tool/approval replay, stream frame/
 multibyte bounds, OS isolation, admission/PM resume and exact-head release CI
 remain open. These component results are not full SDLC acceptance.
 
@@ -130,8 +130,25 @@ lock, so a stale prepared read cannot erase a concurrent submission. Known-ID
 restart recovery now requires accepted original journal context; legacy history
 is preserved but cannot be attested with current credentials. Migration 000012
 refuses nonempty downgrade. See [ADR 0016](adr/0016-hermes-original-request-journal.md).
-Automatic prepared-intent recovery, unknown-key non-dispatch lookup, missed
-native tool/approval replay and full live admission/deployment remain open.
+Automatic prepared-intent recovery, installed unknown-key recovery acceptance,
+missed native tool/approval replay and full live admission/deployment remain open.
+
+The opt-in original-key extension now has a Base native producer and Fleet
+consumer. A native SQLite witness commits with the original reservation before
+inference and survives pruning; epoch, source, scope, request and DB-clock horizon
+must match. Positive non-dispatch lookup restores only the original run ID;
+negative/conflicting/expired/reset proof never repeats POST or frees capacity.
+The feature defaults off and cannot backfill historical intents. The Linux Fleet
+gate passes 195 library +127 PG/HTTP +1 approval SSE +3 migration cases (326
+distinct); two actual pinned native cases and 56 Linux plugin cases pass
+separately. Race tests prove concurrent recovered/normal ACK convergence and full
+rollback when the horizon expires while waiting for a journal lock.
+No new migration/public API, installed config, image or dependency pin changed.
+The Base producer is [PR #140](https://github.com/FerrPOINT/services-base/pull/140),
+ready for review with six green exact-head CI jobs, not merged;
+Fleet release ordering and managed Fleet/native acceptance remain required.
+See [ADR 0019](adr/0019-native-original-key-recovery.md) and the
+[verification ledger](CHAT_CLARIFICATION_VERIFICATION.md#original-key-non-dispatch-recovery-4-october-2026).
 
 Its final Linux/Rust 1.88/PostgreSQL 17.6 gate passed 179 workspace library,
 102 foundation PG/HTTP, one authenticated approval SSE and three isolated

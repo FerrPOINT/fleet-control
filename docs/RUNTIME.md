@@ -1,5 +1,19 @@
 # Runtime
 
+## Original-Key Recovery Candidate
+
+The opt-in [Base native extension](contracts/HERMES_RECOVERY_V1.md) records the
+original reservation witness in the same SQLite transaction, not SessionDB.
+Fleet freezes verified scope/store epoch facts in its existing private dispatch
+journal and requires the epoch header on the original POST. A submitted unknown
+acceptance can only use non-dispatch lookup, then atomically commit that original
+ID within the DB-clock horizon. Native GET pins the actual session and supplies
+terminal evidence. No recovery path submits another run or uses negative lookup,
+expiry, reset or EOF as permission to release capacity. Legacy intents remain
+held; installed enablement, task admission and prepared restart dispatch remain
+independent gates. [ADR 0019](adr/0019-native-original-key-recovery.md) records
+the boundary. This protocol change adds no public Fleet route or migration.
+
 New Hermes snapshots use [renderer 2](adr/0017-versioned-native-hermes-renderer.md):
 native `platforms.api_server.enabled`, loopback host/assigned port in config and
 protected host/port/credential/HOME/CORS in dotenv. Launcher env alone is not

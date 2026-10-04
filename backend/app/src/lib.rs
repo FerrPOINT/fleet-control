@@ -118,6 +118,8 @@ pub struct HermesDispatchIntent {
     pub submission_attempted: bool,
     pub submitted_at: Option<shared::Timestamp>,
     pub recovery_deadline: shared::Timestamp,
+    /// Database-clock observation; a recovered mapping rechecks under the journal lock.
+    pub recovery_allowed: bool,
 }
 
 /// Internal terminal proof; never a public request or permission to dispatch.
@@ -563,6 +565,18 @@ pub trait FleetRepository: Send + Sync {
         run_id: Uuid,
         runtime_run_id: String,
     ) -> Result<SessionAgentRun, AppError>;
+    /// Persist a non-dispatch lookup proof against the original immutable journal.
+    async fn accept_recovered_hermes_run(
+        &self,
+        _message_id: Uuid,
+        _run_id: Uuid,
+        _runtime_run_id: String,
+        _original_capabilities: serde_json::Value,
+    ) -> Result<SessionAgentRun, AppError> {
+        Err(AppError::Unavailable(
+            "Hermes recovery commit is unavailable".into(),
+        ))
+    }
     async fn pin_hermes_run_session(
         &self,
         run_id: Uuid,

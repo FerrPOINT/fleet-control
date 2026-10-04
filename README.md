@@ -25,6 +25,13 @@ intent/ACK metadata and checks fresh Base/Tracker authorization. This preparatio
 does not enable credential handoff, lease admission or runtime dispatch; see the
 [credential evidence](docs/CHAT_CLARIFICATION_VERIFICATION.md#persisted-credential-preparation-4-october-2026).
 
+Opt-in original-key Hermes recovery now has a component-verified native producer
+and Fleet consumer. Unknown acceptance can restore only the witnessed original
+run, never resend a prompt on negative/expired/reset proof. Default off, no
+historical backfill or task/PM admission. See
+[Recovery v1](docs/contracts/HERMES_RECOVERY_V1.md) and
+[evidence](docs/CHAT_CLARIFICATION_VERIFICATION.md#original-key-non-dispatch-recovery-4-october-2026).
+
 <p align="center">
   <a href="#overview"><img src="https://img.shields.io/badge/Overview-3730a3?style=for-the-badge" alt="Overview" /></a>
   <a href="#capabilities"><img src="https://img.shields.io/badge/Capabilities-4338ca?style=for-the-badge" alt="Capabilities" /></a>

@@ -931,3 +931,97 @@ Fleet/Base; Forge belongs to the independent second task. Publication still need
 Fleet 000010/000011 before 000012 and at most one new migration per task PR.
 Old remote PR47 checks do not prove this local packet. Nothing was pushed,
 merged, installed or designated 100% by this gate.
+
+## Original-Key Non-Dispatch Recovery (4 October 2026)
+
+Fleet's default-off consumer freezes the native extension's store UUID, pinned
+source, default-profile scope and closed lookup contract before the original
+POST. The journal already owns exact bytes/hash/key/origin/credential/horizon;
+there is no new migration or public DTO. Initial POST carries the frozen epoch
+header. The recovery worker performs bounded authenticated non-dispatch lookup
+only for submitted unknown-ID free chats with original proof. Positive acceptance
+commits the original ID/run/message/outbox/journal atomically and then uses native
+GET for session/terminal proof. Negative/reset/rotation/expired/invalid proof holds
+capacity; no recovery POST run or new key is issued. Task/PM remain excluded.
+
+The Base native plugin uses the supported platform-handler hook on the same
+listener. An AFTER INSERT witness commits in native reservation SQLite before
+inference, survives native pruning and tombstones the original key. Historical
+rows are not backfilled; missing/foreign/linked/partial/incompatible stores are
+not adopted. Epoch, canonical path/inode, closed schema/triggers and native module
+hashes are checked. This does not defend against privileged host/DB modification
+or prove OS isolation. Saturation rejects new admissions, not existing reads.
+Independent review found and fixed this read/admission distinction. The publisher
+is Base [PR #140](https://github.com/FerrPOINT/services-base/pull/140), exact
+head `177edb889e3429b18f12affa35f7034623f11523`; original implementation commit
+`3a56e5e0f8f2433fa213742f723f8ee3c5f0e31f` has identical task blobs. Existing
+dependency PR #126 is untouched. SDK/auth/package/runtime pins are unchanged.
+
+Final Fleet exec91381 exit0: Linux/Rust1.88/PostgreSQL17.6, 195 workspace library
++127 foundation PG/HTTP +1 authenticated approval SSE +3 isolated migrations
+=326 distinct PASS; targeted repeated subsets are not counted again. All-target
+check/strict Clippy/fmt and regenerated Rust OpenAPI equality pass. Two new HTTP/
+PG cases cover the real production epoch submit, malformed ACK, original-ID
+recovery and exactly one original POST. Two deterministic PG races observe actual
+blocked backends: ordinary/recovered ACK converge to one immutable mapping, and
+a journal-lock wait that crosses the DB-clock horizon rolls back every changed
+run/message/outbox/journal/session/event field. No deadline waiver is introduced.
+Earlier failed fixture runs remain separate logs, not PASS. Final log
+`.local/pdlc-implementation/recovery-sdlc-qa-fleet-original-key-8c5219928304.log`
+SHA256 `f6b83bce66ad4a5f5080863b3456a1a30845f9d644c55256746ed79adf9bb940`.
+Exact `sdlc-qa-fleet-original-key-8c5219928304` finally cleanup and independent
+Compose ps pass; no containers remain and shared caches are preserved.
+
+Separate Linux plugin exec76323 exit0: 56 stdlib SQLite/auth/boundary cases,
+no skip, including linked paths. Log SHA256
+`bfcd8bf79dd9b9414ceeafa697c98d193633191b064f941fafbc646c219a5700`.
+Exact `sdlc-qa-recovery-plugin-d0e052a00db7` cleanup/independent ps pass. Base
+README/hub and scoped launch/cache checks pass. All six exact publisher
+[CI jobs](https://github.com/FerrPOINT/services-base/actions/runs/37213900238)
+pass on `177edb889e3429b18f12affa35f7034623f11523`: recovery, Python CLI,
+README/hub/Compose, backend PostgreSQL/OTLP, SDK MSRV and frontend/Chromium
+viewport regression. No GitHub review threads exist at this observation; no
+full SDLC or installed image acceptance is inferred from producer PR checks.
+The PR is ready for review, CLEAN and not merged; checks remain green after the
+Draft-to-ready transition. The target-main template headings/comments/checklist
+are preserved, with the unchanged-UI item explicitly not applicable.
+
+Actual pinned native exec65750 exit0 uses clean source
+`bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3` and unchanged dependency image
+`sha256:aeb97055b0f5aee433e29998eeafd8065b81e70d1fcb69345c520c2bfbf23777`.
+Two real API/AIAgent/SQLite cases pass: dropped202/process restart/eight parallel
+non-dispatch lookups restore the original ID with one inference; native pruning
+retains the witness/tombstone and database reset rejects the old epoch without
+new inference. Only the model is deterministic-local. Native helper/probe are
+copied into disposable HOME; plugin discovery occurs only with explicit opt-in.
+No installed gateway/config/image/volume or upstream Hermes source was changed.
+Exact `sdlc-qa-hermes-protocol-bc4ccbbda982` cleanup and independent ps pass.
+Log SHA256 `120bbd5e0ae6ae998770dad464731d98156615eec30d5ad4a081900eb446ea8d`;
+probe `b27cafffc6555b9eb88ca05dfc7648f50d28c12b2f1d934de4b9bcce49712c7d`;
+runner `d700e0d08cf3459554bdbdabad00ba0cb59bb48df5a5420c98995808e785512c`;
+archive `571fba4903d9094ade7f6d0ef5dfcee8c068e50f62e65f46611ec3ad65697e02`;
+native helper `4abff4b993a24494450f15f90312eaaa71fc485f2c3864da34e35b8b9603fb8e`.
+The four runtime module hashes match exact Base publisher Git blobs:
+
+| Module | SHA256 |
+| --- | --- |
+| `__init__.py` | `3834f23e1ccba41dd3aed4632393cb90a253d17bab9d9261d2b4993cb6238a52` |
+| `plugin.py` | `ca7c1ce3e6727741dd33514cbe523a87ad3bd12ac8fe55e8523ab775f245da6c` |
+| `store.py` | `bff0da47840a78b677d42cad8d5a7d8645b821c19d7b02fc416494afcf195359` |
+| `plugin.yaml` | `43290436e93490f26e9b1bc279feb19eb77175fab474d696f98a4bf049513aea` |
+
+Fifteen host harness safety tests pass, including recovery source preflight,
+read-only snapshots/hashes and exact cleanup evidence without starting Docker.
+Production UI is unchanged; existing
+fixture screenshots are not live acceptance and are not recaptured by this
+runtime packet. Frontend typecheck/OpenAPI drift, README and 103 Markdown files
+pass; 135 screenshot and nine controller hashes verify without recapture. Staged
+heuristic scan of38 task files has no findings, not DLP/history certification.
+The staged native helper/runner/probe hashes match the recorded native evidence.
+Fresh Docker audit: complete=true, desktop35 containers,
+runners0/0, violations=[]. Installed Fleet/native lost-ACK end-to-end, prepared
+intent delivery, missed native tools/approval history, bounded SSE, safe process
+quiescence/loaded config, assignment/first-step/PM tools/resume, compatible Forge
+handoff/live deployment, live screenshots and release ordering remain required.
+Fleet 000010/000011 must precede 000012, one new migration per task PR. No full
+SDLC success, automatic rollout or merge readiness is inferred from these gates.

@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import secrets
 import signal
+import shutil
 import socket
 import sqlite3
 import subprocess
@@ -26,13 +27,15 @@ MODEL = "fleet-native-protocol-fixture"
 MAX_BODY = 1024 * 1024
 
 
-def request(port, path, *, token=None, body=None, key=None, timeout=30):
+def request(port, path, *, token=None, body=None, key=None, store_id=None, timeout=30):
     deadline = time.monotonic() + timeout
     headers = {"Accept": "application/json"}
     if token is not None:
         headers["Authorization"] = "Bearer " + token
     if key is not None:
         headers["Idempotency-Key"] = key
+    if store_id is not None:
+        headers["X-Fleet-Recovery-Store-Id"] = store_id
     if body is not None:
         headers["Content-Type"] = "application/json"
         body = json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
@@ -156,7 +159,8 @@ class LostAckHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         status, payload = request(self.server.upstream_port, "/v1/runs",
-                                  token=self.server.token, body=body, key=self.headers["Idempotency-Key"])
+                                  token=self.server.token, body=body, key=self.headers["Idempotency-Key"],
+                                  store_id=self.headers.get("X-Fleet-Recovery-Store-Id"))
         self.server.upstream_status = status
         self.server.accepted = json.loads(payload) if status == 202 else None
         self.server.forwarded.set()
@@ -170,6 +174,9 @@ async def serve(home, port):
     from gateway.platforms.api_server import APIServerAdapter
     import gateway.platforms.api_server as native_api
     import run_agent
+    if json.loads((home / "config.yaml").read_text()).get("plugins", {}).get("enabled"):
+        from hermes_cli.plugins import discover_plugins
+        discover_plugins()
     source = Path(os.environ["PYTHONPATH"]).resolve()
     if any(not Path(module.__file__).resolve().is_relative_to(source) for module in [native_api, run_agent]):
         raise RuntimeError("native code was not imported from the pinned source snapshot")
@@ -188,7 +195,7 @@ async def serve(home, port):
 
 
 class NativeProcess:
-    def __init__(self, home, model_port):
+    def __init__(self, home, model_port, *, recovery_plugin=None):
         self.home = home
         home.mkdir()
         self.token = secrets.token_hex(32)
@@ -206,6 +213,12 @@ class NativeProcess:
             "telemetry": {"shared_metrics": {"enabled": False}},
             "agent": {"max_turns": 2},
         }
+        if recovery_plugin is not None:
+            plugin = home / "plugins" / "fleet-hermes-recovery"
+            plugin.mkdir(parents=True)
+            for name in ("__init__.py", "plugin.py", "store.py", "plugin.yaml"):
+                shutil.copyfile(recovery_plugin / name, plugin / name)
+            config["plugins"] = {"enabled": ["fleet-hermes-recovery"]}
         (home / "config.yaml").write_text(json.dumps(config), encoding="utf-8")
         (home / "SOUL.md").write_text("Answer the fixture prompt without using tools.\n", encoding="utf-8")
         self.workspace = home / "workspace"

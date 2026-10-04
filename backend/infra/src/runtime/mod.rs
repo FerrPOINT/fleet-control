@@ -30,6 +30,7 @@ mod lifecycle_tests;
 mod pm_readback;
 mod process_stop;
 mod readiness;
+pub(crate) mod recovery_wire;
 mod targeted_approval;
 
 const HERMES_READY_TIMEOUT: Duration = Duration::from_secs(60);
@@ -1227,9 +1228,13 @@ impl LocalRuntimeSupervisor {
             ));
         }
         let capabilities = self.probe_hermes(agent).await?;
-        let capabilities = hermes_wire::dispatch_capabilities(&capabilities)?;
+        let mut capabilities = hermes_wire::dispatch_capabilities(&capabilities)?;
         let base = Self::hermes_base_url(agent)?;
         let token = crate::agent_runtime_token(&self.config, agent.id)?;
+        if self.config.fleet.hermes_recovery_extension_enabled {
+            capabilities["fleet_recovery"] =
+                recovery_wire::capabilities(&self.client, &base, &token).await?;
+        }
         let fingerprint = hermes_wire::credential_fingerprint(&token);
         self.repo
             .prepare_hermes_dispatch(app::HermesDispatchDraft {
@@ -1270,6 +1275,7 @@ impl LocalRuntimeSupervisor {
             &token,
             message.id,
             &claimed.request_body,
+            recovery_wire::store_id(&claimed.capabilities)?.as_deref(),
         )
         .await?;
         let run = self
