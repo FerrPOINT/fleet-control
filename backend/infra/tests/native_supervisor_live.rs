@@ -15,6 +15,7 @@ use domain::{
 use infra::{FilesystemProvisioner, PostgresFleetRepository, runtime::LocalRuntimeSupervisor};
 use sea_orm::{ConnectionTrait, DatabaseBackend, Statement};
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 use shared::{AppConfig, DatabaseConfig};
 use std::os::unix::fs::MetadataExt;
 use std::{collections::HashMap, path::Path, sync::Arc};
@@ -426,21 +427,7 @@ async fn scenario(
 #[tokio::test]
 #[ignore = "requires exact native Hermes image and disposable PostgreSQL/agent roots"]
 async fn managed_native_gateway_isolates_home_soul_messages_and_restart_history() {
-    assert_eq!(
-        std::env::var("FLEET_NATIVE_SUPERVISOR_TEST").as_deref(),
-        Ok("1")
-    );
-    let url =
-        std::env::var("FLEET_TEST_DATABASE_URL").expect("owned native test PostgreSQL is required");
-    let database = DatabaseConfig {
-        url,
-        max_connections: 10,
-        min_connections: 1,
-        connect_timeout_seconds: 10,
-        idle_timeout_seconds: 60,
-    };
-    infra::run_migrations(database.clone()).await.unwrap();
-    let db = infra::connect_database(database).await.unwrap();
+    let db = native_database().await;
     let owner = Uuid::new_v4();
     db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "INSERT INTO users(id,email,username,display_name,password_hash,is_system_admin,system_role)
@@ -495,5 +482,420 @@ async fn managed_native_gateway_isolates_home_soul_messages_and_restart_history(
     assert_eq!(model.requests.lock().await.len(), 2);
     println!(
         "Managed native gateway cases passed: two homes/SOUL/models, cross-token denial, idempotent messages, terminal mirrors, restart readback, tracked parent stop. No task/PM or process-tree attestation."
+    );
+}
+
+async fn native_database() -> sea_orm::DatabaseConnection {
+    assert_eq!(
+        std::env::var("FLEET_NATIVE_SUPERVISOR_TEST").as_deref(),
+        Ok("1")
+    );
+    let url =
+        std::env::var("FLEET_TEST_DATABASE_URL").expect("owned native test PostgreSQL is required");
+    let database = DatabaseConfig {
+        url,
+        max_connections: 10,
+        min_connections: 1,
+        connect_timeout_seconds: 10,
+        idle_timeout_seconds: 60,
+    };
+    infra::run_migrations(database.clone()).await.unwrap();
+    infra::connect_database(database).await.unwrap()
+}
+
+fn recovery_configuration(secret: String) -> Arc<AppConfig> {
+    let mut config = AppConfig::default();
+    config.fleet.agents_root = "/tmp/fleet-native-supervisor/recovery/agents".into();
+    config.fleet.hermes_source = "/opt/hermes".into();
+    config.fleet.hermes_command = "/opt/fleet-hermes/bin/hermes".into();
+    config.fleet.runtime_token_secret = secret;
+    config.fleet.agent_port_base = 29200;
+    config.fleet.agent_port_stride = 5;
+    config.fleet.project_workflow_url = None;
+    config.fleet.hermes_recovery_extension_enabled = true;
+    Arc::new(config)
+}
+
+async fn native_observations(root: &Path) -> Vec<Value> {
+    match tokio::fs::read_to_string(root.join("native-events.jsonl")).await {
+        Ok(body) => body
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect(),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => vec![],
+        Err(error) => panic!("native observation failed: {error}"),
+    }
+}
+
+fn dispatch_snapshot(intent: &app::HermesDispatchIntent) -> Value {
+    assert_eq!(
+        format!("{:x}", Sha256::digest(intent.request_body.as_bytes())),
+        intent.request_hash
+    );
+    json!({"message_id":intent.message_id, "run_id":intent.run.id,
+        "session_id":intent.run.session_id,"agent_id":intent.run.agent_id,
+        "key":intent.idempotency_key,"sha256":intent.request_hash,
+        "origin":intent.origin,"credential_fingerprint":intent.credential_fingerprint,
+        "capabilities":intent.capabilities,"submitted_at":intent.submitted_at,
+        "recovery_deadline":intent.recovery_deadline})
+}
+
+async fn recovery_driver(phase: &str) {
+    let root = std::path::PathBuf::from(std::env::var("FLEET_NATIVE_FAULT_ROOT").unwrap());
+    let repo = Arc::new(PostgresFleetRepository::new(native_database().await));
+    let config = recovery_configuration(std::env::var("FLEET_NATIVE_RECOVERY_SECRET").unwrap());
+    let agent_id = std::env::var("FLEET_NATIVE_RECOVERY_AGENT")
+        .unwrap()
+        .parse()
+        .unwrap();
+    let agent = repo.get_agent(agent_id).await.unwrap();
+    let (events, _) = tokio::sync::broadcast::channel(32);
+    let _runtime = LocalRuntimeSupervisor::new(config.clone(), repo.clone(), events);
+    if phase == "dispatch" {
+        let owner = std::env::var("FLEET_NATIVE_RECOVERY_OWNER")
+            .unwrap()
+            .parse()
+            .unwrap();
+        let port = std::env::var("FLEET_NATIVE_RECOVERY_MODEL_PORT")
+            .unwrap()
+            .parse()
+            .unwrap();
+        let prompt = std::env::var("FLEET_NATIVE_RECOVERY_PROMPT").unwrap();
+        let mut desired = configuration(port, "FLEET_NATIVE_RECOVERY_SOUL");
+        desired.config_json["plugins"] =
+            json!({"enabled":["fleet-hermes-recovery","fleet-native-discard-ack"]});
+        desired.env_json["FLEET_NATIVE_SUPERVISOR_TEST"] = json!("1");
+        desired.env_json["FLEET_NATIVE_FAULT_ROOT"] = json!(root.to_str().unwrap());
+        activate(&repo, agent.id, owner, desired).await;
+        assert_eq!(
+            _runtime.start(&agent).await.unwrap().status,
+            AgentStatus::Running
+        );
+        let session = repo
+            .create_session(
+                CreateSessionRequest {
+                    primary_agent_id: Some(agent.id),
+                    agent_id: None,
+                    title: "Native lost acknowledgement".into(),
+                    task_key: None,
+                    leader_agent_id: None,
+                    parent_session_id: None,
+                    namespace_id: None,
+                    idempotency_key: Some(Uuid::new_v4().to_string()),
+                },
+                owner,
+            )
+            .await
+            .unwrap();
+        let message = repo
+            .create_session_message(
+                session.id,
+                CreateSessionMessageRequest {
+                    body: prompt,
+                    author_agent_id: None,
+                    message_kind: Some(MessageKind::UserPrompt),
+                    runtime_message_id: None,
+                    idempotency_key: Some(Uuid::new_v4().to_string()),
+                },
+                owner,
+            )
+            .await
+            .unwrap();
+        let state = timeout(Duration::from_secs(90), async {
+            loop {
+                if let Some(intent) = repo.get_hermes_dispatch_intent(message.id).await.unwrap() {
+                    let observations = native_observations(&root).await;
+                    let accepted = observations
+                        .iter()
+                        .find(|event| event["kind"] == "accepted");
+                    let held = observations
+                        .iter()
+                        .any(|event| event["kind"] == "lookup" && event["blocked"] == true);
+                    if let Some(accepted) = accepted.filter(|_| held) {
+                        assert_eq!(intent.state, "submitted");
+                        assert!(intent.submission_attempted);
+                        assert!(intent.run.runtime_run_id.is_none());
+                        assert_eq!(intent.run.state, SessionRunState::Pending);
+                        assert_eq!(accepted["key"], intent.idempotency_key);
+                        assert_eq!(accepted["sha256"], intent.request_hash);
+                        assert_eq!(
+                            repo.list_session_agent_runs(session.id)
+                                .await
+                                .unwrap()
+                                .len(),
+                            1
+                        );
+                        let messages = repo.list_session_messages(session.id).await.unwrap();
+                        assert_eq!(messages.len(), 2);
+                        assert_eq!(
+                            messages
+                                .iter()
+                                .filter(|m| m.message_kind == MessageKind::UserPrompt)
+                                .count(),
+                            1
+                        );
+                        assert_eq!(
+                            messages
+                                .iter()
+                                .filter(|m| m.message_kind == MessageKind::SystemEvent)
+                                .count(),
+                            1
+                        );
+                        assert!(
+                            !messages
+                                .iter()
+                                .any(|m| m.message_kind == MessageKind::AssistantMessage)
+                        );
+                        assert_eq!(
+                            messages
+                                .iter()
+                                .find(|m| m.id == message.id)
+                                .unwrap()
+                                .delivery_state,
+                            domain::MessageDeliveryState::Pending
+                        );
+                        return json!({"dispatch":dispatch_snapshot(&intent),
+                            "native_run_id":accepted["run_id"], "pid":std::process::id()});
+                    }
+                }
+                sleep(Duration::from_millis(100)).await;
+            }
+        })
+        .await
+        .expect("native lost-ACK submission/lookup hold was not observed");
+        tokio::fs::write(
+            root.join("fleet-state.json"),
+            serde_json::to_vec(&state).unwrap(),
+        )
+        .await
+        .unwrap();
+    } else {
+        assert_eq!(phase, "recover");
+        let state: Value = serde_json::from_slice(
+            &tokio::fs::read(root.join("fleet-state.json"))
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        let session = state["dispatch"]["session_id"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        let message = state["dispatch"]["message_id"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        let run = terminal(&repo, session).await;
+        assert_eq!(
+            run.runtime_run_id.as_deref(),
+            state["native_run_id"].as_str()
+        );
+        sleep(Duration::from_secs(6)).await;
+        let intent = repo
+            .get_hermes_dispatch_intent(message)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(intent.state, "accepted");
+        assert!(intent.submission_attempted);
+        assert_eq!(dispatch_snapshot(&intent), state["dispatch"]);
+        assert_eq!(
+            repo.list_session_agent_runs(session).await.unwrap().len(),
+            1
+        );
+        let answers = repo
+            .list_session_messages(session)
+            .await
+            .unwrap()
+            .into_iter()
+            .filter(|m| m.message_kind == MessageKind::AssistantMessage)
+            .collect::<Vec<_>>();
+        assert_eq!(answers.len(), 1);
+        assert_eq!(
+            answers[0].body,
+            format!(
+                "Managed native answer: {}",
+                std::env::var("FLEET_NATIVE_RECOVERY_PROMPT").unwrap()
+            )
+        );
+        tokio::fs::write(root.join("recovered.json"), serde_json::to_vec(&json!({
+            "pid":std::process::id(),"native_run_id":run.runtime_run_id,"dispatch":dispatch_snapshot(&intent)
+        })).unwrap()).await.unwrap();
+    }
+    // Simulate Fleet exit without Rust destructors stopping the owned native gateway.
+    // Only the disposable Compose namespace is allowed to reap its orphan descendants.
+    std::process::exit(0);
+}
+
+async fn fleet_child(
+    phase: &str,
+    agent: &Agent,
+    owner: Uuid,
+    port: u16,
+    secret: &str,
+    prompt: &str,
+) {
+    let mut child = tokio::process::Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--ignored",
+            "--exact",
+            "managed_native_lost_ack_recovers_original_run_across_fleet_processes",
+            "--test-threads=1",
+            "--nocapture",
+        ])
+        .env("FLEET_NATIVE_RECOVERY_PHASE", phase)
+        .env("FLEET_NATIVE_RECOVERY_AGENT", agent.id.to_string())
+        .env("FLEET_NATIVE_RECOVERY_OWNER", owner.to_string())
+        .env("FLEET_NATIVE_RECOVERY_MODEL_PORT", port.to_string())
+        .env("FLEET_NATIVE_RECOVERY_SECRET", secret)
+        .env("FLEET_NATIVE_RECOVERY_PROMPT", prompt)
+        .kill_on_drop(true)
+        .spawn()
+        .unwrap();
+    let result = timeout(Duration::from_secs(210), child.wait())
+        .await
+        .expect("Fleet native driver deadline expired")
+        .unwrap();
+    assert!(result.success(), "Fleet native driver failed: {phase}");
+}
+
+#[tokio::test]
+#[ignore = "requires exact native Hermes/plugin bytes and disposable owned process namespace"]
+async fn managed_native_lost_ack_recovers_original_run_across_fleet_processes() {
+    if let Ok(phase) = std::env::var("FLEET_NATIVE_RECOVERY_PHASE") {
+        recovery_driver(&phase).await;
+        unreachable!();
+    }
+    let db = native_database().await;
+    let owner = Uuid::new_v4();
+    db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "INSERT INTO users(id,email,username,display_name,password_hash,is_system_admin,system_role)
+         VALUES($1,$2,$3,'Native recovery owner','disabled',false,'user')",
+        [owner.into(),format!("{owner}@example.test").into(),owner.to_string().into()])).await.unwrap();
+    let repo = Arc::new(PostgresFleetRepository::new(db));
+    repo.ensure_runtime_templates().await.unwrap();
+    let secret = format!("owned-native-recovery-{}", Uuid::new_v4());
+    let config = recovery_configuration(secret.clone());
+    let agent = create_agent(&repo, &config, "Native recovery agent").await;
+    let root = std::path::PathBuf::from(std::env::var("FLEET_NATIVE_FAULT_ROOT").unwrap());
+    assert_eq!(
+        root,
+        Path::new("/tmp/fleet-native-supervisor/recovery-fault")
+    );
+    tokio::fs::create_dir(&root).await.unwrap();
+    tokio::fs::write(root.join("hold-lookup"), b"owned QA hold")
+        .await
+        .unwrap();
+    let plugins = Path::new(&agent.paths.config).join("plugins");
+    let recovery = plugins.join("fleet-hermes-recovery");
+    tokio::fs::create_dir_all(&recovery).await.unwrap();
+    for name in ["__init__.py", "plugin.py", "store.py", "plugin.yaml"] {
+        tokio::fs::copy(
+            Path::new("/qa/recovery-plugin").join(name),
+            recovery.join(name),
+        )
+        .await
+        .unwrap();
+    }
+    let fault = plugins.join("fleet-native-discard-ack");
+    tokio::fs::create_dir(&fault).await.unwrap();
+    tokio::fs::write(
+        fault.join("__init__.py"),
+        include_str!("../../../scripts/native_supervisor_live/discard_ack_plugin.py"),
+    )
+    .await
+    .unwrap();
+    tokio::fs::write(fault.join("plugin.yaml"), b"name: fleet-native-discard-ack\nversion: 1.0.0\nkind: platform\nplatforms:\n  - api_server\n").await.unwrap();
+    let model = Arc::new(Model::default());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let router = Router::new().route("/v1/chat/completions", post(inference))
+        .route("/v1/models", get(|| async { Json(json!({"object":"list","data":[{"id":"fleet-managed-local-model","object":"model"}]})) }))
+        .with_state(model.clone());
+    let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+    let prompt = format!("managed-native-lost-ack-{}", Uuid::new_v4());
+    fleet_child("dispatch", &agent, owner, port, &secret, &prompt).await;
+    let state: Value = serde_json::from_slice(
+        &tokio::fs::read(root.join("fleet-state.json"))
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let client = reqwest::Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(5))
+        .build()
+        .unwrap();
+    // Recovery is deliberately released only after native terminal readback, so it
+    // must not open an SSE consumer when restoring the original accepted mapping.
+    timeout(Duration::from_secs(60), async {
+        loop {
+            let status: Value = client
+                .get(format!(
+                    "http://127.0.0.1:{}/v1/runs/{}",
+                    agent.api_port.unwrap(),
+                    state["native_run_id"].as_str().unwrap()
+                ))
+                .bearer_auth(infra::agent_runtime_token(&config, agent.id).unwrap())
+                .send()
+                .await
+                .unwrap()
+                .error_for_status()
+                .unwrap()
+                .json()
+                .await
+                .unwrap();
+            if status["status"] == "completed" {
+                break;
+            }
+            assert!(!matches!(
+                status["status"].as_str(),
+                Some("failed" | "cancelled")
+            ));
+            sleep(Duration::from_millis(100)).await;
+        }
+    })
+    .await
+    .expect("native lost-ACK run did not finish");
+    tokio::fs::remove_file(root.join("hold-lookup"))
+        .await
+        .unwrap();
+    fleet_child("recover", &agent, owner, port, &secret, &prompt).await;
+    let recovered: Value =
+        serde_json::from_slice(&tokio::fs::read(root.join("recovered.json")).await.unwrap())
+            .unwrap();
+    assert_ne!(state["pid"], recovered["pid"]);
+    assert_ne!(state["pid"], std::process::id());
+    assert_ne!(recovered["pid"], std::process::id());
+    assert_eq!(state["native_run_id"], recovered["native_run_id"]);
+    let observations = native_observations(&root).await;
+    for kind in ["post", "accepted"] {
+        assert_eq!(
+            observations
+                .iter()
+                .filter(|event| event["kind"] == kind)
+                .count(),
+            1
+        );
+    }
+    assert!(!observations.iter().any(|event| event["kind"] == "events"));
+    assert!(
+        observations
+            .iter()
+            .any(|event| event["kind"] == "lookup" && event["blocked"] == false)
+    );
+    let seen = model.requests.lock().await;
+    assert_eq!(seen.len(), 1);
+    let inference = seen.get(&prompt).unwrap();
+    assert_eq!(inference.len(), 1);
+    assert!(inference[0].contains("FLEET_NATIVE_RECOVERY_SOUL"));
+    drop(seen);
+    server.abort();
+    let _ = server.await;
+    println!(
+        "Managed native lost-ACK recovery passed: Fleet PIDs {} -> {}, native run {}, one POST/inference/assistant, immutable journal, original-key lookup, no SSE or redispatch. Orphan gateway cleanup is Compose-owned, not safe-stop attestation. No task/PM admission.",
+        state["pid"], recovered["pid"], state["native_run_id"]
     );
 }

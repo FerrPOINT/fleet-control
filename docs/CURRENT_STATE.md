@@ -25,9 +25,19 @@ distinct loaded SOUL and restart-preserved run/transcript identity. Every13770
 tracked source file matches the pinned archive; temporary QA source image and
 containers are cleaned up. Two host-bind readiness failures remain failed
 evidence, not PASS. No production readiness deadline or installed image changed.
-Managed lost-ACK recovery, native tools/approvals, complete config/plugin inventory,
+Native tools/approvals, complete config/plugin inventory,
 descendant quiescence, HTTP auth/UI and task/PM admission still remain gates.
 See [scope and exact evidence](CHAT_CLARIFICATION_VERIFICATION.md#managed-native-supervisor-4-october-2026).
+
+Managed lost-ACK recovery now passes a separate opt-in native case. A QA-only
+platform plugin discards the real accepted response after Hermes reservation;
+the first Fleet subprocess exits with a submitted journal and unknown run ID.
+A different Fleet subprocess restores the original already-terminal run through
+the exact committed Base witness plugin and authenticated GET, without a second
+POST/inference or native SSE consumer. The original request/context/horizon remain
+unchanged and one assistant mirror is stored. This is disposable source QA, not
+installed rollout, native crash/running recovery, safe orphan stop or task/PM
+admission. See [exact evidence and boundaries](CHAT_CLARIFICATION_VERIFICATION.md#managed-native-lost-ack-recovery-4-october-2026).
 
 New implementation: seven specializations, agent-grouped `/chats`, read-only
 directory, persistent bearer SSE replay, transactional prompt outbox, concurrent

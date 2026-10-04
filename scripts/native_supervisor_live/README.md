@@ -6,14 +6,43 @@ the real pinned Hermes gateway CLI/API/AIAgent. Only the model is a deterministi
 loopback OpenAI fixture. No fake Hermes HTTP server, model credentials, paid
 inference, installed Fleet process or accepted runtime HOME is used.
 
-The ignored `infra/tests/native_supervisor_live.rs` target creates two concrete
+The default `lifecycle` case in the ignored `infra/tests/native_supervisor_live.rs`
+target creates two concrete
 agents with installed skill content and separately activated renderer-2 revisions.
 It verifies separate HOME/workspace/ports, loaded distinct SOUL, cross-token
 denial, original run/transcript identity, exact-once prompt replay, one assistant
 mirror, preserved native status after process restart and tracked parent stop.
 The test runs as the dependency image's non-root user; root override is forbidden.
 It checks private mode-0600 dotenv ownership. These are not OS/tool isolation,
-descendant quiescence, unknown-ACK recovery or task/PM admission proofs.
+descendant quiescence or task/PM admission proofs. Unknown-ACK recovery is a
+separate `recovery` case below, not a claim made by the lifecycle case.
+
+## Lost Acknowledgement And Fleet Process Restart
+
+Pass `--scenario recovery` to select only
+`managed_native_lost_ack_recovers_original_run_across_fleet_processes`.
+The harness copies the four recovery plugin files from the exact committed Base
+revision and verifies their byte hashes before startup. A separate QA-only platform
+plugin closes the connection after the real native handler returned `202`; it
+never invents an accepted run, rewrites the request, or replaces Hermes inference.
+Authentication precedes its lookup hold, observations and fault injection.
+
+The first Fleet subprocess activates the agent and dispatches through its real
+prompt outbox. A QA lookup barrier keeps the submitted journal without a native
+ID and capacity held. That Fleet process exits without destructors. The parent
+owns only the local model and test coordination, never a runtime supervisor;
+it verifies native completion via authenticated GET before removing the barrier.
+A distinct Fleet subprocess then restores the original mapping using the actual
+Base witness lookup and terminal GET. The test requires unchanged original
+request hash/key/origin/credential context/capabilities/horizon, one native POST,
+one inference, one run and one assistant mirror, with no native SSE request.
+
+This case covers recovery of an already-terminal run after Fleet exits, not a
+running/approval recovery or native gateway crash. Orphan gateway cleanup belongs
+to the disposable Compose namespace, not to a proven safe-stop ownership transfer.
+Secrets and the synthetic prompt remain inside QA tmpfs; observations contain
+only operation kind, hashes/IDs and lookup hold state. The fault plugin is not
+installed in any accepted runtime or Base production plugin.
 
 ## Prerequisites
 
@@ -28,6 +57,8 @@ descendant quiescence, unknown-ACK recovery or task/PM admission proofs.
 - A clean Base SDK checkout matching Fleet `.base-revision` for offline compilation.
 - A Base Git checkout supplying `deploy/fleet-hermes-launch.py`; the launcher is
   copied from its exact committed Git blob, not mutable worktree content.
+- For `recovery`, that same committed revision must include the complete
+  `deploy/hermes-recovery-plugin` inventory. Missing files fail before Docker starts.
 - An already-built Base Hermes dependency image with the matching revision label
   and non-root default user. The harness builds only the owned QA source layer;
   it never installs or retags accepted runtime images.
@@ -47,7 +78,8 @@ python scripts/native_supervisor_live/run.py `
 
 The build service uses Rust1.88, locked/offline dependencies, fmt/all-target check
 and strict native-test Clippy. Compiler JSON supplies exactly one executable; the
-native service hashes and runs that binary. The final gate requires one named
+native service hashes and runs that binary with the selected exact test name.
+The final gate requires one named
 test passed, no failures/ignored tests and the complete source preflight; a zero
 exit with zero tests is rejected. PostgreSQL17.6 and both HOME directories are
 disposable tmpfs. Services share only the owned internal network, publish no host
@@ -79,7 +111,7 @@ Host-only CI tests:
 python3 -B -m unittest discover -s scripts/native_supervisor_live -p test_harness.py -v
 ```
 
-Managed lost-ACK/original-key recovery, native tool/approval replay, complete
+Native running/approval recovery, tool/approval replay, complete
 loaded-config/plugin inventory, process-tree safe stop, real Fleet HTTP auth/UI,
 assignment/first-step/PM continuation and full SDLC/deployment remain separate
 acceptance requirements. A completed chat run is not a Tracker stage receipt.

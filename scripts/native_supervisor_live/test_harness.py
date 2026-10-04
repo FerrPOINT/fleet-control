@@ -2,10 +2,14 @@
 import hashlib
 import importlib.util
 import io
+import json
+import os
 from pathlib import Path
 import tarfile
 import tempfile
 import unittest
+from unittest.mock import patch
+from types import SimpleNamespace
 
 
 def module(name):
@@ -17,6 +21,7 @@ def module(name):
 
 runner = module('run')
 preflight = module('preflight')
+fault_plugin = module('discard_ack_plugin')
 
 
 def archive(name, symlink=False):
@@ -35,6 +40,24 @@ def archive(name, symlink=False):
 
 
 class SafetyTests(unittest.TestCase):
+    def test_scenarios_select_distinct_exact_tests(self):
+        self.assertEqual(set(runner.TEST_NAMES), {'lifecycle', 'recovery'})
+        self.assertEqual(len(set(runner.TEST_NAMES.values())), 2)
+        self.assertTrue(all(name.startswith('managed_native_') for name in runner.TEST_NAMES.values()))
+
+    def test_recovery_requires_complete_committed_inventory(self):
+        output = io.BytesIO()
+        with tarfile.open(fileobj=output, mode='w') as tar:
+            for name in runner.PLUGIN_FILES:
+                member = tarfile.TarInfo('deploy/hermes-recovery-plugin/'+name)
+                member.size = 5
+                tar.addfile(member, io.BytesIO(b'owned'))
+        with patch.object(runner, 'git', return_value=output.getvalue()) as git:
+            self.assertEqual(set(runner.recovery_files('repo', 'exact-head')), set(runner.PLUGIN_FILES))
+            self.assertEqual(git.call_args.args[2:4], ('--format=tar', 'exact-head'))
+        with patch.object(runner, 'git', return_value=archive('deploy/hermes-recovery-plugin/plugin.py')):
+            with self.assertRaises(RuntimeError): runner.recovery_files('repo', 'exact-head')
+
     def test_source_archive_preserves_original_bytes(self):
         self.assertEqual(runner.archive_files(archive('gateway/native.py')),
                          {'gateway/native.py':b'owned-native-source\n'})
@@ -96,6 +119,86 @@ class SafetyTests(unittest.TestCase):
                 with self.subTest(path=path),self.assertRaises(RuntimeError):
                     preflight.verify(Path(directory),{path:'a'*64})
             with self.assertRaises(RuntimeError): preflight.verify(Path(directory),{'module.py':'invalid'})
+
+
+class FaultFixtureTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        # Host unit tests check middleware ordering, not Linux filesystem flags.
+        if not hasattr(os, 'O_NOFOLLOW'):
+            self.flags = patch.object(os, 'O_NOFOLLOW', 0, create=True)
+            self.flags.start()
+            self.addCleanup(self.flags.stop)
+
+    def install(self, root, denied=None, opt_in='1'):
+        app = SimpleNamespace(middlewares=[])
+        response = lambda body, status: SimpleNamespace(body=json.dumps(body).encode(), status=status)
+        web = SimpleNamespace(middleware=lambda function: function, json_response=response)
+        handlers = []
+        fault_plugin.register(SimpleNamespace(register_platform_handler=lambda name, wire: handlers.append((name, wire))))
+        self.assertEqual(handlers[0][0], 'api_server')
+        with patch.dict('sys.modules', {'aiohttp':SimpleNamespace(web=web)}), patch.dict(os.environ, {
+            'FLEET_NATIVE_SUPERVISOR_TEST':opt_in, 'FLEET_NATIVE_FAULT_ROOT':str(root),
+        }):
+            handlers[0][1](app, SimpleNamespace(_check_auth=lambda request: denied))
+        return app.middlewares[0]
+
+    def request(self, path='/v1/runs', method='POST', order=None):
+        async def read(): return b'{"input":"synthetic QA prompt"}'
+        return SimpleNamespace(path=path, method=method, headers={'Idempotency-Key':'original-key'},
+                               read=read, transport=SimpleNamespace(close=lambda: order.append('closed')))
+
+    async def test_disconnect_only_after_real_handler_acceptance(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fault = self.install(root)
+            order = []
+            response = SimpleNamespace(status=202, body=b'{"run_id":"observed-native-id"}')
+            async def handler(request):
+                order.append('accepted')
+                return response
+            self.assertIs(await fault(self.request(order=order), handler), response)
+            self.assertEqual(order, ['accepted', 'closed'])
+            observations = [json.loads(line) for line in (root/'native-events.jsonl').read_text().splitlines()]
+            self.assertEqual([event['kind'] for event in observations], ['post','accepted'])
+            self.assertEqual(observations[1]['run_id'], 'observed-native-id')
+            self.assertEqual(observations[0]['sha256'], observations[1]['sha256'])
+            self.assertNotIn('synthetic QA prompt', (root/'native-events.jsonl').read_text())
+
+    async def test_auth_denial_has_no_handler_or_observation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            denied = object()
+            fault = self.install(root, denied=denied)
+            async def handler(request): self.fail('auth denial must precede handler')
+            self.assertIs(await fault(self.request(), handler), denied)
+            self.assertFalse((root/'native-events.jsonl').exists())
+
+    async def test_held_lookup_does_not_invoke_native_handler(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root/'hold-lookup').touch()
+            fault = self.install(root)
+            async def handler(request): self.fail('held lookup must not reach native handler')
+            result = await fault(self.request('/fleet/v1/recovery/lookup'), handler)
+            self.assertEqual(result.status, 503)
+            observation = json.loads((root/'native-events.jsonl').read_text())
+            self.assertEqual(observation, {'kind':'lookup', 'blocked':True})
+
+    async def test_non_accepted_response_is_not_disconnected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fault = self.install(Path(directory))
+            order = []
+            response = SimpleNamespace(status=409, body=b'{}')
+            async def handler(request): return response
+            self.assertIs(await fault(self.request(order=order), handler), response)
+            self.assertEqual(order, [])
+
+    def test_fixture_requires_opt_in_and_existing_absolute_root(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for root, opt_in in [(Path(directory), '0'), (Path('relative'), '1'),
+                                 (Path(directory)/'missing', '1')]:
+                with self.subTest(root=root, opt_in=opt_in), self.assertRaises(RuntimeError):
+                    self.install(root, opt_in=opt_in)
 
 
 if __name__ == '__main__':

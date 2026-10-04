@@ -1245,3 +1245,112 @@ loaded config/plugin attestation, task/first-step/PM tools/resume, compatible
 Forge handoff/deployment, live UI and seven-agent SDLC. Resource retirement does
 not close those gates. Migration10/11 before12 and exact-head release CI remain
 mandatory; PR47/main and Base publisher PR140 are not changed by this packet.
+
+## Managed Native Lost-ACK Recovery (4 October 2026)
+
+Final recovery exec22937 exited0, owned project
+`sdlc-qa-fleet-native-b9fbf9a6626a`: one exact named test PASS20.57s, zero
+failed/ignored. This is the actual Fleet provisioner/renderer-2 activation,
+supervisor/outbox/journal/readback against real Hermes gateway CLI/API/AIAgent,
+with a deterministic loopback model only. Base recovery plugin bytes come from
+committed `5f86c1fc4367f3fee5466cd0b9dc7155a3cefefc`, not mutable worktree files.
+
+A separate QA platform middleware authenticates first, observes exact request
+hash/key, invokes the real native handler and closes the connection only after
+its actual202. No response ID or inference is manufactured. A lookup barrier
+keeps the first Fleet process's journal submitted, native ID unknown, run pending
+and capacity held. The transcript contains one prompt and the normal session
+creation system event, not an assistant response. Fleet PID27 exits without Rust
+destructors. The parent test has no supervisor: it owns only the local model and
+coordination, verifies native terminal GET and releases the lookup barrier.
+Fleet PID64 starts a new supervisor and restores the same
+`run_f9334662044e47b3a9571a6343bae891` through real Base witness lookup and GET.
+
+Assertions require unchanged exact request body hash, original key, Fleet IDs,
+origin, credential fingerprint, capabilities, submission timestamp and recovery
+horizon; one native POST/reservation/inference, one Fleet run and one final
+assistant mirror. No native SSE request occurs, because this test deliberately
+recovers an already-terminal run. A further6s observation retains the same mirror
+and IDs. This is a real Fleet OS-process restart, not two supervisor objects in
+one process; it is still a test executable, not installed Fleet HTTP/auth/UI.
+
+Final lifecycle exec2451 exited0, owned project
+`sdlc-qa-fleet-native-bb04111b8f6a`: the other exact named test PASS49.82s,
+zero failed/ignored. It rechecks two homes/ports/SOUL, private non-root dotenv,
+cross-token401, one prompt/assistant, native gateway restart identity and tracked
+parent stop. Both gates use the same compiled binary SHA256
+`866959839bb56e09cee90d1db6bab20d74047a0bde600049bd942f20ba3adb1b`.
+Rust1.88 fmt, locked/offline workspace all-target check and strict native-target
+Clippy pass in each build. The earlier348-case component regression is not rerun
+or counted as new evidence: this packet changes only native tests/harness/docs,
+not production Rust/API/schema. These are two distinct native cases, not three
+cases from the recovery driver's nested test banners.
+
+Common inputs: clean Hermes `bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3`,
+all13770 tracked source byte hashes verified before inference; archive SHA256
+`571fba4903d9094ade7f6d0ef5dfcee8c068e50f62e65f46611ec3ad65697e02`;
+SDK `9408802dfa978cba2f67162a49adca6f65851b01`;
+unchanged non-root dependency image `sha256:aeb97055b0f5aee433e29998eeafd8065b81e70d1fcb69345c520c2bfbf23777`;
+launcher `75ad258e5901df8dc7eecff892f3f2d054a6b21fc49e4dc66755c5dc24fbf3d8`.
+Recovery preflight additionally verifies exactly four committed plugin files:
+
+| Source | SHA256 |
+| --- | --- |
+| `native_supervisor_live.rs` | `e7377d129aedfcde0e4a9d8b20e03dc3a1442536aab518fd461c799a86581856` |
+| `run.py` | `631861a868cb923aeb52fd0d1fcf37ac853548c35876774d47596b2651d04aa3` |
+| `build.sh` | `90ba8ff898b1d6f54b1b0bd3c60b037026ed01f0d767964c511f854d6c0fbaaf` |
+| `native.sh` | `ae3ae3fe0ce4f6c41946191e6e442547b1344eaad084db18d6f090429e0cd233` |
+| `preflight.py` | `966550676d1f220853fe24d5d6345cb8d9998aea851c46c4d1882bc89c38c4bf` |
+| QA `discard_ack_plugin.py` | `b3a44db060e88e4148683df1335c4ee7f26646ca31ad3812e5b93456645ef1d4` |
+| host `test_harness.py` | `4c47572e45c8d13eadd8e14ed4ea3daf2f6ac9d73bc1367a0330638d87138362` |
+| Base `__init__.py` | `985ef5ef48b1c3e6b6232055ffb77ee360ca854f1a4400e565dff04fe4f7ad63` |
+| Base `plugin.py` | `cd9115db0949c00c2671e0ebc5e98f4860303456ec1f60d699d801f712d7f9dc` |
+| Base `store.py` | `ef45cf58f2dc71f3ed262e3b584a4d2c0991988537895954915dc4d43d53bd0f` |
+| Base `plugin.yaml` | `494a102a86b86308303e43c416d36b99372a9af2e6111f8ef5b7bed555e63b7f` |
+
+Ignored evidence directories are
+`tmp/native-supervisor-live/sdlc-qa-fleet-native-b9fbf9a6626a-ezast_jz/` and
+`tmp/native-supervisor-live/sdlc-qa-fleet-native-bb04111b8f6a-cloz09ad/`.
+Recovery native/build/evidence JSON SHA256 respectively:
+`4beb4ed81f5d9c479e8ea339fa5380a9916c1147555ac49cd9009d416b72cd24`,
+`40aef8ca765d15c8c3b9ab443451e7e8cdedb17844ab22f39aef7f12bf0dbadf`,
+`4c8428ff40a3ce27cf54cb67b425074c191d03e227008aff5a1f002b7f96275e`.
+Lifecycle native/build/evidence JSON SHA256 respectively:
+`1e21735c1a21e9f1fa3305076ca0c04732951e9234b898d5dedbb4dced6152c4`,
+`d6a149dc7930c58ae762e2527ba2685f33779ad00c79bb943c69f01bece75335`,
+`7a0b1cb57b5fa16e96e2cb8f47239a46ec1f8ae64bfd933baab43cc5d13f3bb4`.
+
+Reproduce via the native supervisor README command, explicitly selecting
+`--scenario recovery` or `--scenario lifecycle`, exact clean source/SDK, committed
+Base plugin/launcher and existing external cache names. Both finally cleanups
+exit0; independent ps is empty and unique QA source/dependency tags are removed.
+Orphan gateway descendants are reaped by the disposable Compose namespace. This
+is not a safe-stop ownership-transfer or production OS isolation attestation.
+Accepted images/HOMEs/volumes/secrets/caches and SDK/package pins are preserved.
+
+Initial recovery exec97687/project8389fd184e97 failed an incorrect fixture
+expectation of one transcript row: session creation already stores a system
+event. It is not PASS (native log SHA256
+`17b50a7e69a7cc190fc719afa4c4d5aaf42d85d12c3ce0dce4a006f5eec46a51`).
+The corrected final case explicitly checks one prompt, one creation event and no
+assistant before recovery. Initial host fault tests lacked the Windows-only
+stub for Linux `O_NOFOLLOW`; unit-only flag emulation fixes host ordering tests,
+not Linux path guarantees. All16 final harness/fault unit tests and15 earlier
+protocol host tests pass. Frontend Node22 typecheck/API drift and135/nine fixture
+screenshots hashes pass without recapture or live UI promotion.
+README validation/three validator tests and105 Markdown link checks pass.
+Fresh Docker audit is complete: desktop35, both runners0, violations=[];
+only the exact owned QA projects/tags were cleaned, not other tasks' resources.
+All seven staged test/harness blobs match the recorded executed source hashes.
+The14-file scoped heuristic scan has zero findings, not DLP/history certification.
+
+No public DTO/route, new migration, production control handler, accepted runtime
+or Base plugin source changes. Remaining requirements include installed rollout,
+running/waiting/native-crash recovery, prune/reset in the managed Fleet path,
+missed tools/approvals and control outcome readback, safe process-tree stop,
+loaded config/plugin attestation, task/first-step/PM tools/resume, Forge handoff,
+live UI and seven-agent SDLC. Tracker source af6ed1e and Workflow2d79461 are
+unchanged read-only prerequisites; reserved assignments still forbid dispatch.
+Fleet PR47 remains Draft938b4ed; Base PR140 ready177edb8 has six successful CI
+checks but is not merged/installed. Migration/release order and exact-head CI
+remain gates; dirty candidate source evidence is not release certification.

@@ -27,11 +27,19 @@ readback and tracked parent stop. Native source files are compared with exact
 Git archive hashes before inference; compiler JSON pins the executed test binary.
 
 This ignored target must explicitly run one named test. Ordinary workspace tests
-do not execute it. Host CI runs nine harness-safety tests without Docker;
+do not execute it. Host CI runs sixteen harness/QA-fault unit tests without Docker;
 these are not native acceptance. Build/native logs, exact hashes and independent
 post-cleanup container readback are saved under ignored `tmp/`. There are no
 installed runtime, accepted image, migration, Base SDK pin or production UI changes.
-Managed unknown-ACK recovery, tools/approvals, complete loaded-config inventory,
+The separate `--scenario recovery` case uses two actual Fleet subprocesses and a
+QA platform plugin that drops only the real native `202` acknowledgement. Lookup
+is held until the first Fleet process exits and native terminal GET succeeds.
+The second process must restore the same run through the committed Base witness
+plugin, retaining request bytes/hash/key/context/horizon and one assistant mirror.
+Native observations require one POST/inference and no SSE. This does not certify
+native gateway crash, running/approval recovery or orphan safe-stop transfer.
+Exact bytes/logs and the initial fixture failure are in the verification ledger.
+Tools/approvals, complete loaded-config inventory,
 descendant quiescence, Fleet HTTP auth/UI and task/PM admission remain distinct
 gates. Never substitute this chat happy path for a Workflow stage receipt.
 

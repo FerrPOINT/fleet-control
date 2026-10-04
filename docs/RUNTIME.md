@@ -24,8 +24,13 @@ after restart. Private dotenv ownership is checked under a non-root QA identity.
 This is not the installed runtime, complete native config/plugin attestation,
 OS isolation or descendant safe-stop certification. Successful HTTP readiness,
 tracked parent stop and terminal free-chat output do not grant task/PM admission.
-Unknown-ACK recovery and native control/approval failure scenarios require their
-own managed acceptance. The ignored test is not run by ordinary cargo tests.
+The separate `recovery` scenario now verifies a real lost `202` followed by exit
+of the dispatching Fleet process and recovery in a distinct Fleet process. The
+actual Base witness lookup restores the original already-terminal run; request
+context stays immutable and native observations require one POST/inference and
+no SSE subscription. See the [verification ledger](CHAT_CLARIFICATION_VERIFICATION.md#managed-native-lost-ack-recovery-4-october-2026).
+Running/tool/approval recovery and safe orphan ownership transfer remain separate
+gates. These ignored tests are not run by ordinary cargo tests.
 
 ## Original-Key Recovery Candidate
 
