@@ -19,6 +19,13 @@ machine-only Workflow readback. These have PostgreSQL/test-runtime evidence,
 not actual PM dispatch or resume acceptance.
 These do not mean the complete approved plan is done.
 
+Managed free-chat happy-path evidence is now available through the
+[native supervisor harness](../scripts/native_supervisor_live/README.md): two
+actual gateways, Fleet activation/dispatch/mirror and native restart readback.
+This narrows the lifecycle compatibility gap, not unknown-ACK recovery or the
+fenced admission, loaded inventory, process-tree and PM continuation gaps below.
+No installed runtime or production UI acceptance is inferred.
+
 | Gap | Exit criteria |
 | --- | --- |
 | Draft/assignment/chat/initial dispatch creation saga | Owner-only opt-in coordinator and persisted operation reconcile authoritative Tracker Draft/input/initial reservation and create the atomic private PM chat. Recovery by owner/key and continuation by stored ID avoid prompt resubmission after a lost reply. The strict paginated Tracker project directory supplies rollout-filtered choices. Fresh Workflow namespace ownership is mandatory before every continuation, without credential fallback. It stops at awaiting_admission without prompts/runs. Creation UI has an isolated proposal, awaiting explicit approval and live controller integration; actual admission, first-step gate and restart-safe initial Hermes delivery remain open. |

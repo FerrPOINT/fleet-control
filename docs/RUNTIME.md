@@ -1,5 +1,20 @@
 # Runtime
 
+## Managed Native Acceptance Scope
+
+The opt-in [native supervisor gate](../scripts/native_supervisor_live/README.md)
+exercises real Fleet provisioning, renderer-2 activation, prompt dispatch and
+transcript persistence with the Base launcher and two pinned native gateways.
+Only model inference is a deterministic local fixture. It observes each loaded
+SOUL, process HOME/cwd, assigned port, token boundary and persisted run identity
+after restart. Private dotenv ownership is checked under a non-root QA identity.
+
+This is not the installed runtime, complete native config/plugin attestation,
+OS isolation or descendant safe-stop certification. Successful HTTP readiness,
+tracked parent stop and terminal free-chat output do not grant task/PM admission.
+Unknown-ACK recovery and native control/approval failure scenarios require their
+own managed acceptance. The ignored test is not run by ordinary cargo tests.
+
 ## Original-Key Recovery Candidate
 
 The opt-in [Base native extension](contracts/HERMES_RECOVERY_V1.md) records the

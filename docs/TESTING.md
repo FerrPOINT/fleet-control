@@ -1,5 +1,26 @@
 # Testing
 
+## Managed Native Supervisor
+
+The opt-in [owned Compose harness](../scripts/native_supervisor_live/README.md)
+runs `infra/tests/native_supervisor_live.rs` against two real pinned Hermes
+gateway CLI/API/AIAgent processes, disposable PostgreSQL and a deterministic
+loopback model. It uses Fleet's provisioner, installed skill content, versioned
+configuration activation, supervisor and prompt outbox, not a fake Hermes server.
+Assertions cover distinct HOME/workspace/ports/SOUL, non-root private dotenv,
+foreign-token denial, one original prompt/assistant mirror, native restart
+readback and tracked parent stop. Native source files are compared with exact
+Git archive hashes before inference; compiler JSON pins the executed test binary.
+
+This ignored target must explicitly run one named test. Ordinary workspace tests
+do not execute it. Host CI runs nine harness-safety tests without Docker;
+these are not native acceptance. Build/native logs, exact hashes and independent
+post-cleanup container readback are saved under ignored `tmp/`. There are no
+installed runtime, accepted image, migration, Base SDK pin or production UI changes.
+Managed unknown-ACK recovery, tools/approvals, complete loaded-config inventory,
+descendant quiescence, Fleet HTTP auth/UI and task/PM admission remain distinct
+gates. Never substitute this chat happy path for a Workflow stage receipt.
+
 Prepared restart recovery coverage lives in
 `backend/infra/tests/support/runtime_prepared_recovery.rs`: two fresh supervisors,
 one original body/model/options/key/run, atomic uncertain-outbox permit, unknown

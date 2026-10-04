@@ -5,6 +5,17 @@ blocked until cross-service assignment/workflow/deployment contracts are verifie
 See [SDLC implementation](SDLC_IMPLEMENTATION.md). The baseline feature/gate lists
 below are historical, not acceptance evidence for the new SDLC plan.
 
+The managed native supervisor happy path now passes one explicit opt-in Linux
+test: two real Hermes gateway CLI/API/AIAgent processes, actual Fleet activation
+and prompt outbox, a deterministic loopback model, private per-agent dotenv,
+distinct loaded SOUL and restart-preserved run/transcript identity. Every13770
+tracked source file matches the pinned archive; temporary QA source image and
+containers are cleaned up. Two host-bind readiness failures remain failed
+evidence, not PASS. No production readiness deadline or installed image changed.
+Managed lost-ACK recovery, native tools/approvals, complete config/plugin inventory,
+descendant quiescence, HTTP auth/UI and task/PM admission still remain gates.
+See [scope and exact evidence](CHAT_CLARIFICATION_VERIFICATION.md#managed-native-supervisor-4-october-2026).
+
 New implementation: seven specializations, agent-grouped `/chats`, read-only
 directory, persistent bearer SSE replay, transactional prompt outbox, concurrent
 idempotency, no effective-admin central bypass, versioned configuration activation

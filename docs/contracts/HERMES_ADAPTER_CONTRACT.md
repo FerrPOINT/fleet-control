@@ -1,5 +1,12 @@
 # Hermes Adapter Contract
 
+The opt-in [managed native gate](../../scripts/native_supervisor_live/README.md)
+tests the actual Base launcher, Fleet lifecycle/activation/dispatcher and two
+native gateway processes. Its local-model happy path checks separate HOME/cwd,
+ports/SOUL/token, prompt replay and native run status after restart. It changes
+no public protocol. Tracked parent exit is not process-tree quiescence; managed
+lost-ACK recovery, tools/approvals and task/PM admission remain separate gates.
+
 Prepared journals may recover the one original POST through their still-unused
 transactional permit, with exact saved bytes/key/context and fresh protocol
 facts. This is not POST replay for submitted/unknown acceptance. Readback paths

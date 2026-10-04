@@ -1073,3 +1073,78 @@ screenshots and exact-head release CI. Fleet10/11 must release before12, one new
 migration per task PR. PR47 remains Draft on its older remote source; its green
 checks do not certify the accumulated local integration packet. No full SDLC
 success, installed rollout or merge readiness is inferred from this component gate.
+
+## Managed Native Supervisor (4 October 2026)
+
+Final exec85937 exit0, project `sdlc-qa-fleet-native-3cd0c16348a2`: one explicitly
+executed ignored Rust target passed in71.65s, zero failures/ignored cases. It runs
+actual Fleet provisioning, enabled-skill content installation, renderer-2 draft
+activation, supervisor, prompt outbox/adapter, terminal mirror and native restart
+against two real gateway CLI/API/AIAgent processes. Only OpenAI model inference
+is a deterministic loopback fixture. Owner rows use the real disposable database,
+not Fleet HTTP auth; task binding/admission is deliberately absent.
+
+Checks cover separate HOME/cwd/ports, non-root mode0600 dotenv, actual distinct
+SOUL in inference, cross-agent token401, one inference/assistant per original
+prompt, identical message-key replay, native run/session identity after restart,
+no duplicate dispatch from a fresh observer supervisor and tracked parent stop.
+This is not process-tree quiescence or cross-instance process-ownership proof.
+
+Clean native source is `bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3`, archive SHA256
+`571fba4903d9094ade7f6d0ef5dfcee8c068e50f62e65f46611ec3ad65697e02`.
+All13770 tracked bytes verify before inference. The unchanged dependency image is
+`sha256:aeb97055b0f5aee433e29998eeafd8065b81e70d1fcb69345c520c2bfbf23777`.
+An owned BuildKit source-only layer stages the clean archive on Linux filesystem,
+preserving every dependency layer/venv and the `fleet-control` non-root user.
+QA image ID `sha256:05b1fc3a7df12a0fe22dcd7e79c85a1a8b73694f4226e9b25d886699bbbe13b6`
+is not an installed runtime. Base SDK is clean exact `9408802dfa978cba2f67162a49adca6f65851b01`;
+launcher comes from committed Base `082f25675009b061bb0ba16e3d6828b3029c9481`,
+SHA256 `75ad258e5901df8dc7eecff892f3f2d054a6b21fc49e4dc66755c5dc24fbf3d8`.
+
+The Fleet parent was `74436fe6b02a700fbffb98b9a16a9c735e45e7d6` with a dirty
+task-owned candidate, recorded honestly rather than as exact-head CI. Test source
+SHA256 `96f01ef2c4f4d329f3f6ee4490bcb5930334c43553842c2eb2cb35a1391d5ee7`;
+executed binary `c7235aa60960364887392b13b30554cbff002d51b5b48dc7f06ee26e4318a627`.
+Harness hashes:
+
+| File | SHA256 |
+| --- | --- |
+| `run.py` | `aa2486bb271e4df3a510d48e46d2bc8b3b3d5853e5dedce1c39b1c176b63a938` |
+| `build.sh` | `90ba8ff898b1d6f54b1b0bd3c60b037026ed01f0d767964c511f854d6c0fbaaf` |
+| `native.sh` | `866b9f6b9395f0515e5d9341dfbde182b822e2186c0db236deeba37a6a988bd4` |
+| `preflight.py` | `34623a4309e1fe494a3fab7cea555bf57823e0a08009552ac7fc8fd8b72919cf` |
+
+Evidence directory: ignored `tmp/native-supervisor-live/sdlc-qa-fleet-native-3cd0c16348a2-d3gir5l0/`.
+Native log SHA256 `1fec30dec363b57656a3402acab687cf5d0a8f566c0c3e153bc9b220e735567c`;
+build log `4a6493343ee24e28e22d6080a80c7a931284f86a7acdb570b8b76e38319a9e3d`;
+evidence JSON `1c35c51956a8cdf71602ffecc9255dc3052cf27892d07a4d378f9472aa54386a`.
+Rust1.88 fmt, all-target locked/offline check, strict native-target Clippy and
+exact executable compilation pass. This is one opt-in native case, not another
+331-case workspace regression run. Nine new host harness tests and15 existing
+native-protocol safety cases pass separately, without Docker or live credentials.
+
+Earlier owned projects `bbc3f32955cb`/`9abbf2a5d353` failed the unchanged60s
+readiness deadline with Windows source bind mounts. A live observation in the
+second run saw the gateway in D-state `p9_cli` wait. This supports a host-source
+IO diagnosis, not complete cold-start performance proof. A first source-layer
+build `0635880a1b63` failed because BuildKit interpreted a bare config image ID as
+a registry tag; the runner now creates/verifies/removes a unique owned local alias
+and verifies inherited layers. All these failures remain failure evidence, not
+passing tests. The production timeout was not relaxed and no root override used.
+
+Final exact Compose cleanup/independent ps are empty; both unique source/dependency
+QA tags are removed and the accepted dependency image ID remains unchanged.
+No published ports, accepted HOME/volumes/secrets/SDK pins or sibling product code
+were changed. Production UI remains unchanged;135 screenshot/nine controller
+hashes, TypeScript/API drift and Markdown links verify without live promotion.
+README structural checks and three validator tests pass; Markdown verifier checks
+104 files. The18-file scoped heuristic scan has zero findings, not full DLP or
+history certification. Fresh Docker audit is complete: desktop52 containers,
+sdlc1 runner1, sdlc2 runner0, violations=[]. Other tasks' resources are untouched.
+
+Remaining: managed lost202/original-key recovery, missed tools/approvals and
+offline controls, full native loaded-config/plugin inventory, safe descendants,
+Fleet HTTP auth/UI, assignment/fencing/first-step, PM structured tools/delivery/
+checkpoint/rebind, compatible Forge handoff/deployment and seven-agent SDLC.
+Release ordering and exact-head CI remain mandatory; no full merge-ready or
+installed runtime claim follows from this happy-path proof.
