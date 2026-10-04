@@ -147,7 +147,7 @@ Known-ID recovery requires its accepted journal and original context; legacy
 records without that proof remain held without HTTP. Unknown acceptance remains
 pending with an error and no repeated POST unless its original intent contains
 the verified opt-in recovery extension facts described below. This is not task
-admission or a prepared-intent recovery worker. The unextended native baseline
+admission. The unextended native baseline
 has no non-dispatch HTTP key lookup/store epoch; durable=true and a retention
 deadline cannot prove SQLite continuity. Recovery after the pin-to-worker
 gap now uses original-context GET only for pinned active free chats. Validated
@@ -171,6 +171,15 @@ not backfilled, and task/PM records remain excluded. Component/native gates have
 passed; managed Fleet/native acceptance and explicit config rollout have not.
 See [ADR 0019](../adr/0019-native-original-key-recovery.md) and
 [current evidence](../CHAT_CLARIFICATION_VERIFICATION.md#original-key-non-dispatch-recovery-4-october-2026).
+
+Prepared-intent restart delivery now has a separate bounded free-chat worker.
+It verifies fresh health/protocol and immutable original context before the
+existing atomic single-submission claim. Only an unconsumed prepared intent may
+make its initial original POST; a prepared uncertain outbox changes only in that
+same permit transaction. Submitted unknown acceptance is never reset or replayed.
+This does not admit task/PM runs, renew a horizon or reconstruct prompts from
+current state. Component tests are not managed native/Fleet acceptance. See
+[ADR 0020](../adr/0020-prepared-dispatch-restart-recovery.md).
 
 The independent native protocol gate now verifies the pinned API/AIAgent/SQLite
 mechanism with a local model: actual dropped 202, concurrent same-key replay,

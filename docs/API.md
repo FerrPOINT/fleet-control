@@ -1,5 +1,10 @@
 # API
 
+Prepared Hermes restart delivery is internal, not a public retry endpoint. Only
+the original unconsumed journal permit can submit once; submitted/legacy/task
+records cannot use it. Public OpenAPI/client and authorization do not change.
+See [ADR 0020](adr/0020-prepared-dispatch-restart-recovery.md).
+
 Hermes original-key recovery adds no public Fleet API route or DTO. Private
 adapter [recovery v1](contracts/HERMES_RECOVERY_V1.md) freezes verified facts
 before original POST and uses authenticated non-dispatch native lookup. A found

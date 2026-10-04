@@ -1,5 +1,9 @@
 # Java Agent Adapter Contract
 
+Hermes prepared-dispatch restart recovery is exclusive to its exact free-chat
+journals and native protocol. It adds no Java admission, chat/control, config
+activation or recovery operations; existing Java lifecycle remains unchanged.
+
 The [Hermes native original-key extension](HERMES_RECOVERY_V1.md) does not
 extend Java lifecycle/chat capabilities or bypass its phase-2 execution gate.
 

@@ -1,5 +1,11 @@
 # Hermes Adapter Contract
 
+Prepared journals may recover the one original POST through their still-unused
+transactional permit, with exact saved bytes/key/context and fresh protocol
+facts. This is not POST replay for submitted/unknown acceptance. Readback paths
+remain non-dispatch; task/PM records require their independent admission.
+See [ADR 0020](../adr/0020-prepared-dispatch-restart-recovery.md).
+
 Opt-in original-key recovery uses [extension v1](HERMES_RECOVERY_V1.md).
 Verified facts are frozen before the first POST; epoch header guards original
 native admission. Lookup only restores the witnessed original run ID and does

@@ -130,8 +130,9 @@ lock, so a stale prepared read cannot erase a concurrent submission. Known-ID
 restart recovery now requires accepted original journal context; legacy history
 is preserved but cannot be attested with current credentials. Migration 000012
 refuses nonempty downgrade. See [ADR 0016](adr/0016-hermes-original-request-journal.md).
-Automatic prepared-intent recovery, installed unknown-key recovery acceptance,
-missed native tool/approval replay and full live admission/deployment remain open.
+Prepared initial delivery is implemented by the follow-up below. Installed
+unknown-key recovery acceptance, missed native tool/approval replay and full live
+admission/deployment remain open.
 
 The opt-in original-key extension now has a Base native producer and Fleet
 consumer. A native SQLite witness commits with the original reservation before
@@ -149,6 +150,19 @@ ready for review with six green exact-head CI jobs, not merged;
 Fleet release ordering and managed Fleet/native acceptance remain required.
 See [ADR 0019](adr/0019-native-original-key-recovery.md) and the
 [verification ledger](CHAT_CLARIFICATION_VERIFICATION.md#original-key-non-dispatch-recovery-4-october-2026).
+
+The prepared-dispatch follow-up resumes only exact unconsumed free-chat journals,
+using bounded keyset scans and fresh health/protocol checks. The atomic claim
+rechecks identity, drain, capacity and original DB deadline; its sole winner
+submits the frozen original bytes/key through the normal ACK/readback path.
+Prepared uncertain outboxes reset only inside that successful permit transaction.
+Submitted unknown outcomes never reset or re-send. The final Linux/Rust1.88/PG17.6
+gate passed 195 library +132 foundation +1 approval SSE +3 migration cases
+(331 distinct), all-target check/strict Clippy/fmt and Rust OpenAPI equality.
+No new schema/public route, runtime installation, dependency pin or task/PM
+authority is introduced. Managed native/Fleet acceptance and the remaining
+SDLC gates stay open. See [ADR 0020](adr/0020-prepared-dispatch-restart-recovery.md)
+and [evidence](CHAT_CLARIFICATION_VERIFICATION.md#prepared-dispatch-restart-recovery-4-october-2026).
 
 Its final Linux/Rust 1.88/PostgreSQL 17.6 gate passed 179 workspace library,
 102 foundation PG/HTTP, one authenticated approval SSE and three isolated

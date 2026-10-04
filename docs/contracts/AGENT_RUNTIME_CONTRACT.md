@@ -1,5 +1,11 @@
 # Agent Runtime Contract
 
+Prepared initial-delivery recovery is separate from accepted/unknown readback.
+It can consume the original free-chat permit once after current identity/drain/
+protocol/deadline checks; it cannot repeat submitted, failed or legacy work.
+No task/PM admission or Java capability is added; see
+[ADR 0020](../adr/0020-prepared-dispatch-restart-recovery.md).
+
 Hermes original-key recovery is an explicit source-pinned
 [extension](HERMES_RECOVERY_V1.md), not a common runtime capability. Original
 scope/store facts are frozen before admission; non-dispatch lookup can restore

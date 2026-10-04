@@ -174,7 +174,7 @@ pub(super) async fn claim(
             != Some(format!("fleet:{}:{}", session.id, agent.id).as_str())
         || message.runtime_message_id.is_some()
         || message.delivery_state != "pending"
-        || outbox != "dispatching"
+        || !matches!(outbox.as_str(), "dispatching" | "uncertain")
     {
         return Err(AppError::conflict(
             "Hermes submission requires the exact pending claimed dispatch",
@@ -187,6 +187,17 @@ pub(super) async fn claim(
     let result = claimed
         .map(|row| intent(row, run, agent.name))
         .transpose()?;
+    if result.is_some() && outbox == "uncertain" {
+        // Prepared proves no submission permit was consumed. Do not reset submitted receipts.
+        txn.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE message_dispatch_outbox SET state='dispatching',updated_at=clock_timestamp()
+             WHERE message_id=$1 AND state='uncertain'",
+            [message_id.into()],
+        ))
+        .await
+        .map_err(database_error)?;
+    }
     txn.commit().await.map_err(database_error)?;
     Ok(result)
 }

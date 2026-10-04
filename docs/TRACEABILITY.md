@@ -6,7 +6,10 @@ Original-key recovery candidate: [ADR 0019](adr/0019-native-original-key-recover
 [wire v1](contracts/HERMES_RECOVERY_V1.md), source `recovery_wire` and atomic
 `accept_recovered_hermes_run`, PG/HTTP `runtime_unknown_recovery`/`recovery_race`
 and actual pinned native recovery harness. Installed end-to-end, native config/
-OS/process-tree proof, prepared-intent restart and task/PM admission remain gates.
+OS/process-tree proof and task/PM admission remain gates. Prepared initial delivery
+now has bounded restart recovery; see [ADR 0020](adr/0020-prepared-dispatch-restart-recovery.md)
+and `runtime_prepared_recovery` PostgreSQL/HTTP tests. Managed native/Fleet recovery
+acceptance remains separate.
 
 | Requirement | Evidence / Remaining Gate |
 | --- | --- |
@@ -14,7 +17,8 @@ OS/process-tree proof, prepared-intent restart and task/PM admission remain gate
 | Agent -> own chats | `/chats/:sessionId`, immutable task binding, owner-only persisted Draft/reservation/chat coordinator; actual admitted PM start pending |
 | No new leader orchestration | Main nav and Chats controls exclude it; legacy routes/history preserved |
 | Per-user visibility | Default backend filter, private message authorization regression, SSO stored-role tests |
-| No duplicate unknown dispatch | Immutable exact-request journal (000012), single durable submission permit, atomic ACK, message-lock late-error classification and controlled HTTP zero-second-POST regression; unknown-ID and prepared-intent recovery still pending |
+| No duplicate unknown dispatch | Immutable exact-request journal (000012), single durable submission permit, atomic ACK, original-key positive readback and late-error classification; submitted unknown outcomes never reset. Managed native/Fleet acceptance remains required |
+| Prepared initial delivery after restart | `prepared_dispatch` bounded scan, fresh protocol and shared submission path; `runtime_prepared_recovery` concurrent supervisor/uncertain-claim/malformed-ACK/stale-context/exclusion tests. No task/PM authority or public operator repair |
 | No completion from EOF | Fake Hermes non-terminal/terminal readback; interrupted is failure, never a fabricated reply |
 | Atomic free-chat terminal and pin-to-worker recovery | `runtime_terminal` PG rollback/concurrency/late-event guards; `runtime_pinned_recovery` fresh-supervisor GET-only fixtures; native/PM live acceptance remains separate |
 | Durable cursor | Migration 000009, session cursor/Last-Event-ID, Base reconnect tests; expiry/reset pending |

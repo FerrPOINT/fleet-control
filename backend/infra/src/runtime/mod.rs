@@ -28,6 +28,7 @@ mod hermes_wire;
 #[cfg(test)]
 mod lifecycle_tests;
 mod pm_readback;
+mod prepared_dispatch;
 mod process_stop;
 mod readiness;
 pub(crate) mod recovery_wire;
@@ -94,6 +95,7 @@ impl LocalRuntimeSupervisor {
         supervisor.spawn_reconciler();
         supervisor.spawn_message_dispatcher();
         supervisor.spawn_acceptance_readback();
+        supervisor.spawn_prepared_dispatch();
         supervisor.spawn_config_activator();
         supervisor
     }
@@ -1260,7 +1262,24 @@ impl LocalRuntimeSupervisor {
                     "Hermes submission was already attempted; reconciliation is required".into(),
                 )
             })?;
-        if claimed.message_id != message.id
+        self.submit_hermes_intent(agent, session, message, &claimed, &token)
+            .await
+    }
+
+    async fn submit_hermes_intent(
+        &self,
+        agent: &Agent,
+        session: &AgentSession,
+        message: &SessionMessage,
+        claimed: &app::HermesDispatchIntent,
+        token: &str,
+    ) -> Result<(SessionAgentRun, String), AppError> {
+        let base = Self::hermes_base_url(agent)?;
+        if claimed.state != "submitted"
+            || !claimed.submission_attempted
+            || claimed.run.runtime_run_id.is_some()
+            || message.session_id != session.id
+            || claimed.message_id != message.id
             || claimed.run.agent_id != agent.id
             || claimed.run.session_id != session.id
         {
@@ -1268,11 +1287,11 @@ impl LocalRuntimeSupervisor {
                 "Hermes submission journal scope does not match",
             ));
         }
-        hermes_wire::verify_intent(&claimed, &base, &token)?;
+        hermes_wire::verify_intent(claimed, &base, token)?;
         let runtime_run_id = hermes_wire::submit(
             &self.client,
             &base,
-            &token,
+            token,
             message.id,
             &claimed.request_body,
             recovery_wire::store_id(&claimed.capabilities)?.as_deref(),

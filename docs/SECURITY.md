@@ -1,5 +1,13 @@
 # Security
 
+Prepared restart recovery grants only the original unconsumed free-chat
+submission permit. Fresh protocol proof and transactional current identity,
+drain/capacity/deadline checks precede the one frozen original POST. No worker
+resets submitted history, adopts legacy/task/PM intent or extends an expired
+horizon. Queue diagnostics expose a run UUID, never request bytes or credentials.
+This is not runtime/config/OS attestation; see
+[ADR 0020](adr/0020-prepared-dispatch-restart-recovery.md).
+
 Unknown-key recovery requires the original closed native store/scope/source facts,
 exact bytes/hash/key/origin/credential context and DB-clock horizon. The opt-in
 producer verifies native auth before metadata/body and writes only reservation

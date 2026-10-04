@@ -478,14 +478,14 @@ async fn journal_requires_exact_durable_capability_snapshot_for_free_chat() {
 }
 
 #[tokio::test]
-async fn journal_claim_rejects_uncertain_drain_port_change_and_changed_native_delivery() {
+async fn journal_claim_rejects_failed_drain_port_change_and_changed_native_delivery() {
     let Some(p) = setup().await else {
         return;
     };
     let intent = prepare(&p).await.unwrap();
     sql(
         &p,
-        "UPDATE message_dispatch_outbox SET state='uncertain' WHERE message_id=$1",
+        "UPDATE message_dispatch_outbox SET state='failed' WHERE message_id=$1",
         vec![p.draft.message_id.into()],
     )
     .await;

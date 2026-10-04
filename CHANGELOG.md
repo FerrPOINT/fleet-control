@@ -2,11 +2,22 @@
 
 ## [Unreleased]
 
+- Recover unconsumed prepared Hermes free-chat dispatch after restart using
+  fresh protocol checks, bounded scans and the original atomic submission permit.
+  Reuse frozen request bytes/key and normal ACK/readback; never reset submitted
+  unknown acceptance or grant task/PM admission. Managed native/Fleet acceptance
+  remains a release gate.
+
+- Add opt-in Base original-key witness recovery: freeze native epoch/scope facts
+  before submission and restore only a positively proven original ID through
+  non-dispatch lookup. Negative/reset/expired proof never authorizes a repeat.
+  No installed runtime or dependency pin is changed.
+
 - Commit verified Hermes terminal outcomes atomically with prompt delivery,
   optional assistant and durable events. Recover accepted pinned free-chat runs
   by original-context GET after restart without a second POST/SSE worker; reject
   late progress/tool/approval writes and never fabricate an empty final response.
-  Task/PM admission and unknown native-ID recovery remain gated.
+  Task/PM admission and managed native/Fleet recovery acceptance remain gated.
 
 - Version Hermes configuration rendering: preserve legacy output/history, select
   native renderer 2 for new revisions, seal API host/port and derived env, and

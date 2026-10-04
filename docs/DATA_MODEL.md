@@ -1,5 +1,11 @@
 # Data Model
 
+Prepared restart recovery uses the existing immutable dispatch journal and outbox,
+not a new queue/schema. Its bounded keyset excludes consumed permits, legacy and
+task/PM records. Claiming a prepared uncertain record changes its outbox to
+dispatching in the same transaction as the one-way journal permit; request/key/
+run/horizon are not renewed. See [ADR 0020](adr/0020-prepared-dispatch-restart-recovery.md).
+
 Free-chat run acceptance continues to use existing columns:
 `runtime_run_id`/message `runtime_message_id` and outbox dispatched commit
 atomically after a verified 202. Pending plus a run ID means accepted but awaiting

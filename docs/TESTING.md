@@ -1,5 +1,12 @@
 # Testing
 
+Prepared restart recovery coverage lives in
+`backend/infra/tests/support/runtime_prepared_recovery.rs`: two fresh supervisors,
+one original body/model/options/key/run, atomic uncertain-outbox permit, unknown
+ACK hold without resend, changed credential/protocol denial and queue exclusion
+for drain/task/failed/expired/submitted records. Native/Fleet managed acceptance
+remains separate from these PostgreSQL/HTTP fixtures.
+
 ## Original-Key Recovery
 
 `runtime::recovery_wire` unit HTTP cases verify closed facts/receipts, original

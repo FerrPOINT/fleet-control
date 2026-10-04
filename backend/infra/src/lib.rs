@@ -2748,6 +2748,38 @@ impl FleetRepository for PostgresFleetRepository {
         hermes_dispatch_journal::get(self, message_id).await
     }
 
+    async fn list_prepared_hermes_dispatches(
+        &self,
+        after: Option<Uuid>,
+    ) -> Result<Vec<(SessionMessage, app::HermesDispatchIntent)>, AppError> {
+        let rows = self.db.query_all(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT j.message_id FROM hermes_dispatch_journal j
+             JOIN session_agent_runs r ON r.id=j.run_id AND r.session_id=j.session_id AND r.agent_id=j.agent_id
+             JOIN session_messages m ON m.id=j.message_id AND m.session_id=j.session_id
+             JOIN message_dispatch_outbox o ON o.message_id=m.id AND o.agent_id=j.agent_id
+             JOIN agent_sessions s ON s.id=j.session_id AND s.agent_id=j.agent_id
+             JOIN agents a ON a.id=j.agent_id
+             WHERE j.state='prepared' AND j.submitted_at IS NULL AND j.recovery_deadline>clock_timestamp()
+               AND r.state='pending' AND r.runtime_run_id IS NULL AND r.runtime_session_id=j.requested_session_id
+               AND m.delivery_state='pending' AND m.runtime_message_id IS NULL
+               AND m.author_type IN ('user','agent') AND m.message_kind IN ('user_prompt','control')
+               AND o.state IN ('dispatching','uncertain')
+               AND a.kind='hermes' AND a.status='running' AND a.archived_at IS NULL
+               AND NOT EXISTS(SELECT 1 FROM agent_config_heads h WHERE h.agent_id=a.id AND h.draining)
+               AND NOT EXISTS(SELECT 1 FROM task_chat_bindings b WHERE b.session_id=s.id)
+               AND NOT EXISTS(SELECT 1 FROM pm_run_bindings p WHERE p.session_id=s.id OR p.session_run_id=r.id)
+               AND ($1::uuid IS NULL OR r.id>$1)
+             ORDER BY r.id LIMIT 20", [after.into()])).await.map_err(AppError::database)?;
+        let mut result = Vec::with_capacity(rows.len());
+        for row in rows {
+            let id = row.try_get("", "message_id").map_err(AppError::database)?;
+            if let Some(intent) = hermes_dispatch_journal::get(self, id).await? {
+                result.push((self.message_by_id(id).await?, intent));
+            }
+        }
+        Ok(result)
+    }
+
     async fn update_session_agent_run_dispatch(
         &self,
         id: Uuid,

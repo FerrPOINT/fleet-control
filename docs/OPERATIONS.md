@@ -126,9 +126,11 @@ This slice preserves restart recovery evidence; it does not automatically reclai
 an interrupted activation or prove OS process-tree quiescence. Windows has file
 sync but no directory-sync guarantee here; Linux is the durability gate.
 
-An `uncertain` dispatch may have been accepted by Hermes. Never automatically
-re-send it or clear its capacity hold. Investigate runtime session/run IDs and
-acceptance before recovery. EOF without a terminal status remains waiting.
+An `uncertain` dispatch with a consumed submission permit may have been accepted
+by Hermes. Never re-send it or clear its capacity hold. Investigate runtime
+session/run IDs and acceptance before recovery. EOF without a terminal status
+remains waiting. A journal still prepared has not consumed that permit; only the
+guarded worker described below may perform its one initial submission.
 
 The private `hermes_dispatch_journal` distinguishes prepared intent from a
 consumed submission permit and accepted ACK. Do not copy its original prompt,
@@ -138,9 +140,21 @@ workaround or downgrade a nonempty journal. Existing tokens need no DB backfill.
 Known accepted pending and pinned active recovery uses GET only after original-context checks;
 missing legacy journal or changed port/token retains history and capacity without
 HTTP. Unknown acceptance keeps pending delivery plus an error, not confirmed
-failure. Prepared-intent recovery and public operator reconciliation are not
-implemented yet. A retention margin, durable=true, 401/404 or an empty/reset
-runtime store never authorizes another POST under this or a new key.
+failure. Public operator reconciliation is not implemented yet. A retention
+margin, durable=true, 401/404 or an empty/reset runtime store never authorizes
+another POST under this or a new key.
+
+Prepared restart recovery scans at most20 records per five-second keyset cycle.
+It verifies original bytes/key/origin/credential, fresh health/protocol and the
+original optional recovery epoch before the transactional submission claim.
+The claim rechecks current identity, drain, capacity and DB deadline; one winner
+may submit original bytes, and only that transaction may move a prepared
+uncertain outbox to dispatching. A changed/unavailable prerequisite leaves the
+permit untouched and records only a generic warning. Submitted/accepted/legacy,
+failed, expired, archived, drained and task/PM records are not adopted. Do not
+edit journal rows to manufacture a prepared state or renew a horizon. A crash
+after permit commit but before HTTP remains unknown, not permission to retry.
+See [ADR 0020](adr/0020-prepared-dispatch-restart-recovery.md).
 
 After pin-to-worker crash, the recovery loop reads the original native run; it
 does not open a replacement event stream. A valid terminal GET atomically settles

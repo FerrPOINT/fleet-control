@@ -10,8 +10,8 @@ acceptance can only use non-dispatch lookup, then atomically commit that origina
 ID within the DB-clock horizon. Native GET pins the actual session and supplies
 terminal evidence. No recovery path submits another run or uses negative lookup,
 expiry, reset or EOF as permission to release capacity. Legacy intents remain
-held; installed enablement, task admission and prepared restart dispatch remain
-independent gates. [ADR 0019](adr/0019-native-original-key-recovery.md) records
+held; installed enablement and task admission remain independent gates.
+[ADR 0019](adr/0019-native-original-key-recovery.md) records
 the boundary. This protocol change adds no public Fleet route or migration.
 
 New Hermes snapshots use [renderer 2](adr/0017-versioned-native-hermes-renderer.md):
@@ -68,8 +68,15 @@ Hermes:
   together, then a one-winner submission permit commits before HTTP. The client
   sends saved bytes, not reconstructed prompt/model/options. An unknown response
   keeps pending delivery with an error; neither the original key nor the fixed
-  recovery horizon permits another POST. Prepared-intent recovery, unknown-key
-  positive lookup and operator reconciliation still require implementation.
+  recovery horizon permits another POST. An independent prepared-intent worker
+  recovers only an unconsumed original permit, never a submitted/legacy record.
+  It verifies frozen request/context and fresh protocol facts, then claims the
+  existing run under drain/capacity/deadline locks. A prepared uncertain outbox
+  becomes dispatching only with that permit. Concurrent workers have one winner;
+  a crash after permit consumption remains unknown, not permission to resend.
+  [ADR 0020](adr/0020-prepared-dispatch-restart-recovery.md) defines the boundary.
+  Compatible positive original-key lookup is separate; operator reconciliation
+  and managed runtime acceptance still remain release requirements.
 - A verified HTTP 202 in a free chat now commits the run ID, prompt delivery and
   outbox acceptance together before any status GET. The run remains `pending`
   until an authenticated, bounded status read identifies its effective Hermes

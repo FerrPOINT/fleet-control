@@ -161,6 +161,13 @@ pub trait FleetRepository: Send + Sync {
             "Hermes dispatch journal is unavailable".into(),
         ))
     }
+    /// Initial submissions only; submitted/legacy/task records must never enter this queue.
+    async fn list_prepared_hermes_dispatches(
+        &self,
+        _after: Option<Uuid>,
+    ) -> Result<Vec<(SessionMessage, HermesDispatchIntent)>, AppError> {
+        Ok(Vec::new())
+    }
     async fn reserve_pm_draft_operation(
         &self,
         _operation: domain::PmDraftOperation,

@@ -1025,3 +1025,51 @@ quiescence/loaded config, assignment/first-step/PM tools/resume, compatible Forg
 handoff/live deployment, live screenshots and release ordering remain required.
 Fleet 000010/000011 must precede 000012, one new migration per task PR. No full
 SDLC success, automatic rollout or merge readiness is inferred from these gates.
+
+## Prepared Dispatch Restart Recovery (4 October 2026)
+
+The new `prepared_dispatch` worker covers the crash window between immutable
+journal commit and consumption of the submission permit. It scans at most20
+records per five-second UUID-keyset cycle, excluding submitted/accepted/legacy,
+failed/expired/drained/archived/task/PM records. Fresh health/protocol, original
+origin/default-profile fingerprint/request hash and optional store epoch precede
+the shared transactional claim. Its sole winner sends frozen original bytes/key
+through the same ACK/session-readback helper as ordinary dispatch. A prepared
+uncertain outbox changes only atomically with that claim; consumed permits never
+reset. A post-permit unknown outcome retains pending delivery and capacity.
+
+Final exec97351 exit0, Linux/Rust1.88/PostgreSQL17.6: 195 workspace library
++132 foundation PG/HTTP +1 authenticated approval SSE +3 isolated migrations
+=331 distinct PASS. The repeated targeted five prepared tests and existing
+claim-denial case are not counted twice. All-target check/strict Clippy/fmt and
+regenerated Rust OpenAPI equality pass. The optional native renderer fixture
+exporter remains ignored; previous actual native evidence is separate. The first
+attempt failed to compile an incomplete test DTO fixture, was corrected and
+cleaned up, and is not reported as PASS.
+
+The five new tests prove: two fresh supervisors send one original body/key/run
+and persist one terminal assistant without a second SSE; concurrent prepared
+uncertain claims have one atomic winner; malformed202 followed by another
+supervisor never repeats POST; rotated credentials or invalid fresh capability
+leave the original permit/deadline untouched; drain/task/failed/expired/submitted
+records are not selected or allowed a new submission. Tests use actual PostgreSQL
+and controlled HTTP, not a managed native gateway/model. This packet creates no
+new schema, public route, migration, dependency pin or Java execution capability.
+
+Final log `.local/pdlc-implementation/sdlc-qa-fleet-prepared-d29bd5afdd06.log`
+SHA256 `df7648f73c1fc75472eb1a50d1dea249ce335b43fd4c3f9b5eb67d48c7413632`.
+Exact `sdlc-qa-fleet-prepared-d29bd5afdd06` finally cleanup and independent
+container listing pass, preserving shared caches/accepted runtime resources.
+Fresh Docker audit is complete: desktop56 containers, runners0/0, violations=[].
+Frontend production sources are unchanged; typecheck/OpenAPI drift and135
+screenshot/nine controller fixture hashes verify without recapture or promotion
+to live evidence. README and104 Markdown files pass. The26-file task heuristic
+scan has one exact unchanged committed-parent synthetic redaction-test literal
+and zero new findings; it is not DLP/history certification. Remaining gates
+include managed Fleet/native recovery,
+missed native tools/approvals, bounded streams, safe process/config attestation,
+assignment/first-step/PM tools/resume, Forge handoff/live deployment, production
+screenshots and exact-head release CI. Fleet10/11 must release before12, one new
+migration per task PR. PR47 remains Draft on its older remote source; its green
+checks do not certify the accumulated local integration packet. No full SDLC
+success, installed rollout or merge readiness is inferred from this component gate.
