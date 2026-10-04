@@ -12,6 +12,11 @@ durable per-session stream cursor, owner checks, terminal readback после EO
 config revisions/drain. Реализована immutable-привязка Tracker instance/task/agent и
 production-вкладки диалога, уточнений и требований. Автономный SDLC и реальное
 продолжение PM после ответа пока не реализованы.
+Native Hermes stream теперь имеет отдельный
+[bounded consumer profile](contracts/HERMES_EVENT_STREAM_V1.md): strict UTF-8/JSON,
+обязательный original run ID, лимиты кадров/текста/traffic/deadlines. Частичный EOF
+не создаёт terminal; ошибка удерживает capacity до независимого readback.
+Это не replay upstream approvals/tools, safe stop или истёкший Fleet cursor.
 Opt-in создание PM Draft теперь сохраняет операцию, сверяет исходный input и
 актуальное резервирование в Tracker и создаёт private task-bound чат атомарно.
 Результат `awaiting_admission` не означает доставку сообщения или запуск PM.

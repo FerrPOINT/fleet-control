@@ -1,5 +1,11 @@
 # Agent Runtime Contract
 
+Hermes stream parsing has a separate bounded
+[consumer profile](HERMES_EVENT_STREAM_V1.md). Failure retains accepted identity
+and capacity; partial EOF does not dispatch a terminal event. This adds no Java
+capability, cross-service lease or stage receipt. Decoder limits are not safe-stop
+or native durable event-replay guarantees.
+
 Prepared initial-delivery recovery is separate from accepted/unknown readback.
 It can consume the original free-chat permit once after current identity/drain/
 protocol/deadline checks; it cannot repeat submitted, failed or legacy work.

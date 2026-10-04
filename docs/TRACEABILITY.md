@@ -20,6 +20,7 @@ acceptance remains separate.
 | No duplicate unknown dispatch | Immutable exact-request journal (000012), single durable submission permit, atomic ACK, original-key positive readback and late-error classification; submitted unknown outcomes never reset. Managed native/Fleet acceptance remains required |
 | Prepared initial delivery after restart | `prepared_dispatch` bounded scan, fresh protocol and shared submission path; `runtime_prepared_recovery` concurrent supervisor/uncertain-claim/malformed-ACK/stale-context/exclusion tests. No task/PM authority or public operator repair |
 | No completion from EOF | Fake Hermes non-terminal/terminal readback; interrupted is failure, never a fabricated reply |
+| Bounded native stream without false release | `sse_wire` incremental byte framing, strict JSON/run identity, traffic/frame/text/snapshot/deadline limits; `runtime_stream_bounds` PG/HTTP failures retain capacity. See consumer profile and verification ledger; upstream missed-event replay remains open |
 | Atomic free-chat terminal and pin-to-worker recovery | `runtime_terminal` PG rollback/concurrency/late-event guards; `runtime_pinned_recovery` fresh-supervisor GET-only fixtures; native/PM live acceptance remains separate |
 | Durable cursor | Migration 000009, session cursor/Last-Event-ID, Base reconnect tests; expiry/reset pending |
 | Config activation/drain | Migration 000009, desired/effective snapshots, DB drain/failed rollback regression |

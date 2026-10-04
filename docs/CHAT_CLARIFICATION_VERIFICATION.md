@@ -1148,3 +1148,100 @@ Fleet HTTP auth/UI, assignment/fencing/first-step, PM structured tools/delivery/
 checkpoint/rebind, compatible Forge handoff/deployment and seven-agent SDLC.
 Release ordering and exact-head CI remain mandatory; no full merge-ready or
 installed runtime claim follows from this happy-path proof.
+
+## Bounded Native Stream Consumer (4 October 2026)
+
+The [consumer profile](contracts/HERMES_EVENT_STREAM_V1.md) is Fleet policy,
+not a new Hermes capability or upstream durable cursor. Production code rejects
+wrong HTTP/MIME/encoding, malformed UTF-8/JSON, missing/non-string/foreign run
+IDs and conflicting event/session identity before mirror writes. The pinned
+Hermes `gateway/platforms/api_server_runs.py::_run_event` emits run identity on
+every data event; valid approval fixtures now follow that real envelope.
+
+Incremental byte framing preserves split Unicode, BOM, LF/CRLF/CR, comments,
+one colon-space and multiline data. Empty frames reset event names; partial EOF
+never dispatches data. CRLF bytes within a frame count toward1MiB; its blank-CR
+delimiter's optional LF is ignored only after dispatch. Budgets cap input32MiB,
+8192 data frames, transcript1MiB and cumulative full-text snapshot text16MiB.
+Idle60s, partial assembly30s and lifetime30min cannot be extended by keepalive
+traffic; empty transport chunks do not extend idle time. Snapshot text accounting
+is not a whole database quota. Failure retains original pin and capacity;
+authenticated GET-only recovery independently proves terminal state, without
+another POST/SSE consumer or automatic cancellation/config activation.
+
+Final compiled source hashes, printed before the final regression commands:
+
+| File under `backend/infra/` | SHA256 |
+| --- | --- |
+| `src/runtime/sse_wire.rs` | `2272325b2d4d8185d4b886aa0a70a67c63358a2eb243092b22cd9c1cd5c24c02` |
+| `src/runtime/mod.rs` | `bf4cc3efcc3245fa9fcdccf0893b679ec8247280675b11e7bf9308c1cbb2eb3a` |
+| `src/runtime/acceptance_readback.rs` | `67977aabc789d1c6471903103cb196f3fa38fa4628b9c43117f117c8667c5dc9` |
+| `tests/sdlc_foundation.rs` | `5791ebaa3fc19a16672f76197bc21c32406960466589d311e97312e7e57103e9` |
+| `tests/support/runtime_stream_bounds.rs` | `4ac7a17789384a7b786eaf5843c95df9c9c665fcd19a9ba250f52815c7373849` |
+| `tests/runtime_approval_events.rs` | `7d13f5715c921bb275c76ae728fbf27f8919f177754a51e5fb731bac6f82e952` |
+
+The new10 source units cover byte/counter/transcript/snapshot limits, framing
+and independent deadlines, including empty chunks. Seven PostgreSQL/HTTP cases
+use actual30s/60s timers, original-key replay/one POST, held capacity and exact
+run/session pins. They exercise malformed/unbound/foreign delta/tool/approval,
+split Unicode, truncated terminal, wrong transport and oversized frame/text;
+rejected control events cannot leave an approval, tool mirror or delta.
+
+Final regression exec56274 exit0, project
+`sdlc-qa-fleet-stream-final-5800407eb471`: Linux/Rust1.88/PostgreSQL17.6,
+205 workspace library +139 foundation PG/HTTP +1 authenticated approval SSE
++3 isolated migration upgrade/down/up cases =348 distinct PASS. No targeted
+repeats are counted twice. The native-renderer fixture exporter remains ignored;
+it is not another passing case. All-target locked/offline check, strict workspace
+Clippy, fmt and source-generated OpenAPI equality pass. No Rust source changed
+after this hash-pinned run. Log SHA256
+`12e09c8a20eb0fde41a8e4395e398f17c0ea397ef5ecc8f15c4fbf95d2bc6f1b`,
+ignored `.local/pdlc-implementation/sdlc-qa-fleet-stream-final-5800407eb471.log`.
+Exact finally cleanup and independent ps are empty; external caches and accepted
+resources are preserved. Fresh Docker audit is complete: desktop37 containers,
+runner0/0, violations=[].
+
+Node22 frontend typecheck/API drift,135 screenshot/nine controller hashes pass
+without recapture/live promotion. README validation/three validator tests,
+105 Markdown files, nine native-supervisor and15 protocol host safety tests
+pass separately. The21-file scoped heuristic scan has zero findings, not DLP
+or whole-history certification. Neither browser/live UI nor full Base gates
+were rerun for this Fleet runtime-only change; Base source/plugin is unchanged.
+
+Final native compatibility exec88348 exit0, project
+`sdlc-qa-fleet-native-8c2e9beb04f9`: one named managed native test PASS in104.37s,
+zero failed/ignored. Actual Fleet activation/supervisor/outbox/mirror and two
+real gateway CLI/API/AIAgent processes run against a deterministic loopback model.
+Every13770 Hermes tracked bytes match clean `bbaf7af5`; archive, SDK9408802,
+unchanged dependency image aeb97055, non-root user and launcher bytes match the
+preceding native gate. Launcher is read from Base Git `76fc0952f1bf8d7ae1c18ee6eee598957cf8ecd8`,
+SHA256 `75ad258e5901df8dc7eecff892f3f2d054a6b21fc49e4dc66755c5dc24fbf3d8`.
+The source-only QA image `sha256:a2125a0e293cbdfc26d2ee11116de1b137cf9130cee2a49e34d6f2608c78f6b6`
+and unique dependency alias are removed after exact Compose cleanup and empty ps.
+
+Native evidence directory: ignored
+`tmp/native-supervisor-live/sdlc-qa-fleet-native-8c2e9beb04f9-cgt_f6dl/`.
+Binary SHA256 `e1ccdc78ea629dd5eccead604ca8be566166ff8e1ada276160a7714f717bd646`;
+native log `f93abae671e58e98fa3a30b5ce06bc61192bb482bab2e78af074ae63d7a390db`;
+build log `6e5cd5cfe402286527974d85fa10811a8b3d7ac5ff1b6f2d241623a552a6d186`;
+evidence JSON `c3d46321f4fcf68a7f376574c406bf57c69a15c1afe4d7d721ca60fbd2ae8ef2`.
+The unchanged test/harness hashes are listed in the preceding section. Native
+fmt/all-target check/native-target Clippy pass. Parent Fleet source is a9613a1
+with a dirty task candidate, not exact-head CI or installed runtime acceptance.
+
+Preliminary `sdlc-qa-fleet-stream-07a30b182863` failed strict Clippy on an
+Option-returning test helper after passing component tests; this is not PASS.
+`sdlc-qa-fleet-stream-e10836897070` passed its initial regression, but the empty
+chunk guard and two new negative payload variants were added after its test
+executables compiled. It is not final-source regression evidence. A first
+native run `7eb35370f66a` passed64.72s before that guard; final evidence above
+supersedes it. All preliminary projects cleaned up their own resources.
+
+No public Fleet DTO/route, schema/migration, SDK/package pin, Java capability,
+accepted runtime image/HOME or UI source changed. Remaining requirements include
+missed native tools/approvals, offline control outcome reconciliation, durable
+upstream replay, expired Fleet-cursor snapshots, safe process-tree stop, complete
+loaded config/plugin attestation, task/first-step/PM tools/resume, compatible
+Forge handoff/deployment, live UI and seven-agent SDLC. Resource retirement does
+not close those gates. Migration10/11 before12 and exact-head release CI remain
+mandatory; PR47/main and Base publisher PR140 are not changed by this packet.

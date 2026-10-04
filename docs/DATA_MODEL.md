@@ -1,5 +1,12 @@
 # Data Model
 
+Hermes stream resource accounting is per worker and adds no schema or migration.
+The [consumer profile](contracts/HERMES_EVENT_STREAM_V1.md) bounds received
+frames, text and emitted full-text delta snapshots before the next write.
+It is not a persistent storage quota or native history-replay receipt. A failed
+consumer leaves the original run/session/dispatch journal and capacity held;
+existing GET-only recovery may commit an independently verified terminal result.
+
 Prepared restart recovery uses the existing immutable dispatch journal and outbox,
 not a new queue/schema. Its bounded keyset excludes consumed permits, legacy and
 task/PM records. Claiming a prepared uncertain record changes its outbox to

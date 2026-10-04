@@ -1,5 +1,12 @@
 # Hermes Adapter Contract
 
+Fleet consumes SSE through the bounded
+[event-stream profile](HERMES_EVENT_STREAM_V1.md): strict HTTP/MIME/unencoded JSON,
+incremental UTF-8, completed frame delimiters, original identity and independent
+frame/text/snapshot/connection budgets. Invalid/expired input keeps the accepted
+run and capacity held; EOF requires original-run status proof, never frame flush.
+Worker retirement is not run stop, upstream event replay or task admission.
+
 The opt-in [managed native gate](../../scripts/native_supervisor_live/README.md)
 tests the actual Base launcher, Fleet lifecycle/activation/dispatcher and two
 native gateway processes. Its local-model happy path checks separate HOME/cwd,

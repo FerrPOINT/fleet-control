@@ -1,5 +1,19 @@
 # Testing
 
+## Bounded Native Stream Profile
+
+`runtime::sse_wire` exercises incremental UTF-8, BOM, LF/CRLF/CR, empty event
+reset, incomplete EOF, malformed bytes, frame/input/event counters, transcript/
+snapshot budgets and deadlines that traffic cannot extend. The PostgreSQL/HTTP
+`runtime_stream_bounds` group covers wrong MIME/encoding, malformed/foreign
+control payloads, chunk-split Unicode, truncated terminal frames, oversized
+frames/text and actual30s partial/60s idle timers. Assertions retain one original
+run/session/key and held capacity, never a fabricated reply or another POST.
+With no owned `FLEET_TEST_DATABASE_URL`, these tests skip rather than prove PG.
+Full regression, native compatibility and release evidence are kept separately.
+The [profile](contracts/HERMES_EVENT_STREAM_V1.md) lists limits and recovery scope;
+native missed tools/approvals and upstream durable replay remain open.
+
 ## Managed Native Supervisor
 
 The opt-in [owned Compose harness](../scripts/native_supervisor_live/README.md)

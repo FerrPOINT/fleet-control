@@ -5,6 +5,19 @@ blocked until cross-service assignment/workflow/deployment contracts are verifie
 See [SDLC implementation](SDLC_IMPLEMENTATION.md). The baseline feature/gate lists
 below are historical, not acceptance evidence for the new SDLC plan.
 
+The native Hermes stream consumer now has bounded incremental byte framing,
+strict JSON and original run identity, fixed assembly/idle/lifetime deadlines,
+traffic/text/snapshot budgets and no incomplete EOF dispatch. Empty transport
+chunks cannot extend idle time. Consumer failure preserves accepted identity
+and capacity for independent GET-only recovery; it is not safe stop, upstream
+tool/approval replay or a stage receipt. The
+[consumer profile](contracts/HERMES_EVENT_STREAM_V1.md) and verification ledger
+separate source/component/native evidence from release and remaining gates.
+The final source passes348 distinct Linux/PG component cases and one separately
+executed managed native compatibility case. Exact source/log/binary hashes,
+preliminary failures and remaining acceptance scope are recorded in the
+[bounded stream evidence](CHAT_CLARIFICATION_VERIFICATION.md#bounded-native-stream-consumer-4-october-2026).
+
 The managed native supervisor happy path now passes one explicit opt-in Linux
 test: two real Hermes gateway CLI/API/AIAgent processes, actual Fleet activation
 and prompt outbox, a deterministic loopback model, private per-agent dotenv,

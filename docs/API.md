@@ -1,5 +1,12 @@
 # API
 
+The internal Hermes stream consumer now enforces the
+[bounded event profile](contracts/HERMES_EVENT_STREAM_V1.md). Every JSON data
+event must name the original accepted run. Stream retirement retains capacity
+and never grants retry, cancellation, config activation or task admission.
+Public Fleet SSE routes/DTOs and generated OpenAPI remain unchanged; this does
+not implement expired-cursor snapshots or missed native approval replay.
+
 Prepared Hermes restart delivery is internal, not a public retry endpoint. Only
 the original unconsumed journal permit can submit once; submitted/legacy/task
 records cannot use it. Public OpenAPI/client and authorization do not change.

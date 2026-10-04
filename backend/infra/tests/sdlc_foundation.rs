@@ -44,6 +44,9 @@ mod runtime_recovery_races;
 #[path = "support/runtime_prepared_recovery.rs"]
 mod runtime_prepared_recovery;
 
+#[path = "support/runtime_stream_bounds.rs"]
+mod runtime_stream_bounds;
+
 #[path = "support/hermes_dispatch_journal.rs"]
 mod hermes_dispatch_journal;
 
@@ -3808,21 +3811,34 @@ async fn runtime_http_fixture(runtime_status: &'static str) {
         serde_json::json!({"object":"hermes.run","run_id":"fixture-run","status":runtime_status,
             "completed":runtime_status == "completed","partial":false,"interrupted":runtime_status == "interrupted",
             "output":"verified response"}),
-        "event: message.delta\ndata: {\"delta\":\"partial response\"}\n\n",
+        "event: message.delta\ndata: {\"run_id\":\"fixture-run\",\"delta\":\"partial response\"}\n\n",
         expected,
         runtime_status == "completed",
     ).await;
 }
 
 async fn runtime_http_scenario(
-    mut readback: serde_json::Value,
+    readback: serde_json::Value,
     events: &'static str,
     expected: SessionRunState,
     expected_reply: bool,
 ) {
-    let Some((repo, owner, _)) = fixture().await else {
-        return;
-    };
+    runtime_http_events_scenario(
+        readback,
+        runtime_stream_bounds::EventResponse::body(vec![events.as_bytes().to_vec()]),
+        expected,
+        expected_reply,
+    )
+    .await;
+}
+
+async fn runtime_http_events_scenario(
+    mut readback: serde_json::Value,
+    events: runtime_stream_bounds::EventResponse,
+    expected: SessionRunState,
+    expected_reply: bool,
+) -> Option<(Arc<PostgresFleetRepository>, Uuid)> {
+    let (repo, owner, _) = fixture().await?;
     let agent_id = agent(&repo).await;
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
@@ -3848,6 +3864,7 @@ async fn runtime_http_scenario(
         infra::agent_runtime_token(&config, agent_id).unwrap()
     );
     let reads = Arc::new(AtomicUsize::new(0));
+    let settlement_timeout = events.settlement_timeout();
     let router = axum::Router::new()
         .route("/v1/runs", axum::routing::post(move |headers: axum::http::HeaderMap, axum::Json(body): axum::Json<serde_json::Value>| {
             let calls = calls.clone();
@@ -3859,8 +3876,11 @@ async fn runtime_http_scenario(
                 (axum::http::StatusCode::ACCEPTED, axum::Json(serde_json::json!({"run_id": "fixture-run", "status":"started", "replayed":false})))
             }
         }))
-        .route("/v1/runs/fixture-run/events", axum::routing::get(move || async move {
-            ([(axum::http::header::CONTENT_TYPE, "text/event-stream")], events)
+        .route("/v1/runs/fixture-run/events", axum::routing::get(move |headers: axum::http::HeaderMap| {
+            assert_eq!(headers["accept"], "text/event-stream");
+            assert_eq!(headers["accept-encoding"], "identity");
+            let events = events.clone();
+            async move { events.response() }
         }))
         .route("/v1/runs/fixture-run", axum::routing::get(move |headers: axum::http::HeaderMap| {
             assert_eq!(headers["accept-encoding"], "identity");
@@ -3923,7 +3943,7 @@ async fn runtime_http_scenario(
             .await
             .unwrap();
     assert_ne!(dispatch.status, AgentStatus::Failed, "{}", dispatch.message);
-    tokio::time::timeout(Duration::from_secs(10), async {
+    tokio::time::timeout(settlement_timeout, async {
         loop {
             let runs = repo.list_session_agent_runs(session.id).await.unwrap();
             if runs.iter().any(|run| run.state == expected) {
@@ -3972,6 +3992,7 @@ async fn runtime_http_scenario(
     }
     server.abort();
     let _ = server.await;
+    Some((repo, session.id))
 }
 
 #[tokio::test]

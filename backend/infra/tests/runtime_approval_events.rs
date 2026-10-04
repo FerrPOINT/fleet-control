@@ -108,7 +108,9 @@ impl Drop for TestServer {
     }
 }
 
-fn event(name: &str, payload: Value) -> Event {
+fn event(name: &str, mut payload: Value) -> Event {
+    payload["run_id"] = json!(RUNTIME_RUN);
+    payload["event"] = json!(name);
     Event::default().event(name).json_data(payload).unwrap()
 }
 

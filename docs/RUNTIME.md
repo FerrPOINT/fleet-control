@@ -1,5 +1,17 @@
 # Runtime
 
+## Bounded Hermes Stream
+
+The [event-stream consumer profile](contracts/HERMES_EVENT_STREAM_V1.md) defines
+strict authenticated HTTP/MIME/identity framing and resource/deadline budgets.
+UTF-8 is decoded at complete lines, not individual network chunks. Unfinished
+frames are not flushed at EOF, empty frames cannot leak an event name and invalid
+JSON never becomes a tool/approval mirror. Frame, total input, event count,
+transcript and cumulative delta snapshots are bounded. A limit retires only the
+consumer; it does not stop the native run or release capacity. Independent
+authenticated GET terminal proof remains necessary. Native event replay/control
+reconciliation and task admission are separate gates, not supplied by the codec.
+
 ## Managed Native Acceptance Scope
 
 The opt-in [native supervisor gate](../scripts/native_supervisor_live/README.md)

@@ -140,7 +140,7 @@ impl LocalRuntimeSupervisor {
                 &runtime_run_id,
                 Some(event.to_owned()),
                 payload.to_string(),
-                &mut String::new(),
+                &mut sse_wire::Transcript::default(),
             )
             .await?;
             return self.repo.get_session_agent_run(pinned.id).await;

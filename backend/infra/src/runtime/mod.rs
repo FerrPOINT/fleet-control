@@ -32,6 +32,7 @@ mod prepared_dispatch;
 mod process_stop;
 mod readiness;
 pub(crate) mod recovery_wire;
+mod sse_wire;
 mod targeted_approval;
 
 const HERMES_READY_TIMEOUT: Duration = Duration::from_secs(60);
@@ -1399,30 +1400,28 @@ impl LocalRuntimeSupervisor {
             Duration::from_secs(10),
             self.client
                 .get(format!("{base}/v1/runs/{runtime_run_id}/events"))
+                .header(reqwest::header::ACCEPT, "text/event-stream")
+                .header(reqwest::header::ACCEPT_ENCODING, "identity")
                 .bearer_auth(token)
                 .send(),
         )
         .await
         .map_err(|_| AppError::Unavailable("Hermes stream headers timed out".into()))?
         .map_err(AppError::internal)?;
-        if !response.status().is_success() {
-            return Err(AppError::validation(format!(
-                "Hermes run events returned {}",
-                response.status()
-            )));
-        }
+        sse_wire::verify_headers(&response)?;
 
         let mut stream = response.bytes_stream();
-        let mut buffer = String::new();
-        let mut event_name: Option<String> = None;
-        let mut data_lines: Vec<String> = Vec::new();
-        let mut final_text = String::new();
-        let mut terminal_seen = false;
+        let mut decoder = sse_wire::Decoder::default();
+        let mut budget = sse_wire::Budget::new(tokio::time::Instant::now());
+        let mut transcript = sse_wire::Transcript::default();
         let mut terminal_watch = tokio::time::interval(Duration::from_secs(5));
 
         loop {
             let chunk = tokio::select! {
                 chunk = stream.next() => chunk,
+                _ = tokio::time::sleep_until(budget.deadline()) => {
+                    return Err(AppError::Unavailable("Hermes event stream deadline elapsed".into()));
+                }
                 _ = terminal_watch.tick() => {
                     let current = self.repo.get_session_agent_run(run.id).await?;
                     if matches!(current.state, SessionRunState::Completed | SessionRunState::Failed | SessionRunState::Cancelled) {
@@ -1434,94 +1433,65 @@ impl LocalRuntimeSupervisor {
             let Some(chunk) = chunk else {
                 break;
             };
-            let chunk = chunk.map_err(AppError::internal)?;
-            buffer.push_str(&String::from_utf8_lossy(&chunk));
-            while let Some(pos) = buffer.find('\n') {
-                let mut line = buffer[..pos].to_string();
-                if line.ends_with('\r') {
-                    line.pop();
-                }
-                buffer = buffer[pos + 1..].to_string();
-                if line.is_empty() {
-                    if !data_lines.is_empty() {
-                        terminal_seen |= self
-                            .handle_hermes_event(
-                                &agent,
-                                &session,
-                                &message,
-                                &run,
-                                &runtime_run_id,
-                                event_name.take(),
-                                data_lines.join("\n"),
-                                &mut final_text,
-                            )
-                            .await?;
-                        if terminal_seen {
-                            // Stop consuming once accepted run evidence is persisted.
-                            return Ok(());
-                        }
-                        data_lines.clear();
+            let chunk = chunk
+                .map_err(|_| AppError::Unavailable("Hermes event stream was interrupted".into()))?;
+            let now = tokio::time::Instant::now();
+            budget.receive(chunk.len(), now)?;
+            for &byte in &chunk {
+                let event = decoder.push(byte)?;
+                budget.frame(decoder.pending(), now);
+                if let Some(event) = event {
+                    budget.event()?;
+                    if self
+                        .handle_hermes_event(
+                            &agent,
+                            &session,
+                            &message,
+                            &run,
+                            &runtime_run_id,
+                            event.name,
+                            event.data,
+                            &mut transcript,
+                        )
+                        .await?
+                    {
+                        return Ok(());
                     }
-                } else if let Some(name) = line.strip_prefix("event:") {
-                    event_name = Some(name.trim().to_string());
-                } else if let Some(data) = line.strip_prefix("data:") {
-                    data_lines.push(data.trim_start().to_string());
                 }
             }
         }
 
-        if !data_lines.is_empty() {
-            terminal_seen |= self
-                .handle_hermes_event(
-                    &agent,
-                    &session,
-                    &message,
-                    &run,
-                    &runtime_run_id,
-                    event_name,
-                    data_lines.join("\n"),
-                    &mut final_text,
-                )
-                .await?;
-            if terminal_seen {
-                return Ok(());
-            }
+        // An incomplete final frame is never dispatched. EOF requires independent status proof.
+        let response = self
+            .client
+            .get(format!("{base}/v1/runs/{runtime_run_id}"))
+            .header(reqwest::header::ACCEPT_ENCODING, "identity")
+            .timeout(Duration::from_secs(10))
+            .bearer_auth(crate::agent_runtime_token(&self.config, agent.id)?)
+            .send()
+            .await
+            .map_err(|_| AppError::Unavailable("Hermes terminal readback is unavailable".into()))?;
+        let payload =
+            hermes_wire::read_json(response, reqwest::StatusCode::OK, 1024 * 1024).await?;
+        if hermes_wire::effective_session(&payload, &runtime_run_id)?
+            != run.runtime_session_id.as_deref().unwrap_or_default()
+        {
+            return Err(AppError::Unavailable(
+                "Hermes terminal session identity changed".into(),
+            ));
         }
-
-        if !terminal_seen {
-            let response = self
-                .client
-                .get(format!("{base}/v1/runs/{runtime_run_id}"))
-                .header(reqwest::header::ACCEPT_ENCODING, "identity")
-                .timeout(Duration::from_secs(10))
-                .bearer_auth(crate::agent_runtime_token(&self.config, agent.id)?)
-                .send()
-                .await
-                .map_err(|_| {
-                    AppError::Unavailable("Hermes terminal readback is unavailable".into())
-                })?;
-            let payload =
-                hermes_wire::read_json(response, reqwest::StatusCode::OK, 1024 * 1024).await?;
-            if hermes_wire::effective_session(&payload, &runtime_run_id)?
-                != run.runtime_session_id.as_deref().unwrap_or_default()
-            {
-                return Err(AppError::Unavailable(
-                    "Hermes terminal session identity changed".into(),
-                ));
-            }
-            let event = hermes_wire::terminal_readback(&payload, &runtime_run_id)?;
-            self.handle_hermes_event(
-                &agent,
-                &session,
-                &message,
-                &run,
-                &runtime_run_id,
-                Some(event.to_string()),
-                payload.to_string(),
-                &mut final_text,
-            )
-            .await?;
-        }
+        let event = hermes_wire::terminal_readback(&payload, &runtime_run_id)?;
+        self.handle_hermes_event(
+            &agent,
+            &session,
+            &message,
+            &run,
+            &runtime_run_id,
+            Some(event.to_string()),
+            payload.to_string(),
+            &mut transcript,
+        )
+        .await?;
         Ok(())
     }
 
@@ -1535,9 +1505,26 @@ impl LocalRuntimeSupervisor {
         runtime_run_id: &str,
         event_name: Option<String>,
         data: String,
-        final_text: &mut String,
+        transcript: &mut sse_wire::Transcript,
     ) -> Result<bool, AppError> {
-        let payload = serde_json::from_str::<Value>(&data).unwrap_or(Value::String(data));
+        let payload: Value = serde_json::from_str(&data)
+            .map_err(|_| AppError::Unavailable("Hermes event JSON is malformed".into()))?;
+        if !payload.is_object()
+            || payload.get("run_id").and_then(Value::as_str) != Some(runtime_run_id)
+            || payload
+                .get("session_id")
+                .is_some_and(|id| id.as_str() != run.runtime_session_id.as_deref())
+            || payload.get("event").is_some_and(|name| {
+                name.as_str().is_none()
+                    || event_name
+                        .as_ref()
+                        .is_some_and(|expected| name.as_str() != Some(expected.as_str()))
+            })
+        {
+            return Err(AppError::Unavailable(
+                "Hermes event identity does not match".into(),
+            ));
+        }
         let event_type = event_name
             .or_else(|| {
                 payload
@@ -1547,16 +1534,6 @@ impl LocalRuntimeSupervisor {
             })
             .unwrap_or_else(|| "message".to_string());
         let terminal_state = hermes_wire::terminal_event(&event_type, &payload, runtime_run_id)?;
-        if terminal_state.is_some()
-            && payload
-                .get("session_id")
-                .is_some_and(|id| id.as_str() != run.runtime_session_id.as_deref())
-        {
-            return Err(AppError::Unavailable(
-                "Hermes terminal session identity changed".into(),
-            ));
-        }
-
         if terminal_state.is_none() {
             let current = self.repo.get_session_agent_run(run.id).await?;
             if matches!(
@@ -1569,13 +1546,14 @@ impl LocalRuntimeSupervisor {
 
         if event_type.contains("delta") {
             if let Some(delta) = pick_string(&payload, &["delta", "text", "output_text"]) {
-                final_text.push_str(&delta);
+                transcript.append(&delta)?;
                 let mut secrets: Vec<String> = std::env::vars()
                     .filter(|(name, _)| name.starts_with("FLEET_CONTROL_SECRET__"))
                     .map(|(_, value)| value)
                     .collect();
                 secrets.push(crate::agent_runtime_token(&self.config, agent.id)?);
-                let text = crate::redact_stream_text(final_text, &secrets);
+                let text = crate::redact_stream_text(&transcript.text, &secrets);
+                transcript.mirror(&text)?;
                 self.repo
                     .append_session_event(
                         session.id,
@@ -1668,7 +1646,7 @@ impl LocalRuntimeSupervisor {
                 ]
                 .into_iter()
                 .find_map(|key| payload.get(key).and_then(Value::as_str).map(str::to_owned))
-                .or_else(|| (!final_text.trim().is_empty()).then(|| final_text.clone()))
+                .or_else(|| (!transcript.text.trim().is_empty()).then(|| transcript.text.clone()))
             } else {
                 None
             };
