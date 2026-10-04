@@ -115,10 +115,16 @@ Read-only source review: Hermes HEAD `bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3`.
 `features.runs_idempotency` объявляет supported/durable/retention_seconds; при
 недоступной SQLite durable становится false. Fleet не пишет в эту SQLite.
 
-Это подтверждает наличие механизма в исходниках, но не доказывает capabilities
-установленного агента или прохождение Hermes tests в текущем окружении. Перед
-автоматическим recovery нужны pinned/runtime version, проверка durable capability
-и acceptance/replay integration. До этого unknown dispatch не повторяется.
+Отдельный opt-in native gate теперь проверяет настоящие API/AIAgent/SQLite
+на этом clean pin с локальной детерминированной моделью: dropped 202,
+concurrent replay, process restart и interrupted inference без повторного run,
+exact session/transcript, SSE/status и credential rotation. Это не capabilities
+установленного агента и не полный gateway lifecycle. Evidence и границы:
+[verification ledger](CHAT_CLARIFICATION_VERIFICATION.md#native-hermes-protocol-acceptance-4-october-2026).
+Перед автоматическим Fleet recovery ещё нужны immutable exact request/scope/
+horizon journal, runtime provenance и consumer integration. До этого unknown
+dispatch не повторяется. Raw `serve` у этого pin запускает dashboard; нынешний
+Fleet argv требует Base compatibility wrapper, см. [runtime](RUNTIME.md).
 Terminal `interrupted` трактуется как failed, без fabricated assistant reply;
 это проверено отдельным fake Hermes HTTP regression.
 

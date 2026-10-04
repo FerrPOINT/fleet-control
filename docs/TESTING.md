@@ -344,6 +344,31 @@ Required scenarios:
 
 Подключение версий, границы контрактов и проверки описаны в [BASE_INTEGRATION](BASE_INTEGRATION.md).
 
+## Native Hermes Protocol Gate
+
+The opt-in [native acceptance harness](../scripts/hermes_protocol_live/README.md)
+runs the pinned upstream API adapter and real AIAgent in separate processes,
+with its native auth/profile middleware and SQLite. Only the upstream model is
+a deterministic local fixture; the Hermes HTTP server is not mocked. No paid
+provider, installed agent, runtime snapshot or persistent volume is used.
+
+```powershell
+python -B -m unittest discover -s scripts/hermes_protocol_live -p test_harness.py -v
+python -B scripts/hermes_protocol_live/run.py `
+  --hermes C:/git/azhukov/sdlc/прототипы/hermes `
+  --image sdlc-fleet-canonical-runtime:20261003-r1
+```
+
+Host safety tests are independent of Docker and run in the docs CI job. Native
+acceptance additionally requires the exact clean Hermes source and an existing
+Base-packaged dependency image for its pinned lockfile. Source/image/log/harness
+hashes and exact cleanup results are saved under ignored `tmp/`. A failed or
+timed-out run is not acceptance. Native protocol evidence does not prove Fleet
+unknown-acceptance journaling, managed gateway CLI lifecycle, model-provider
+quality, tool approval, native configuration attestation, PM admission/resume,
+OS quiescence or autonomous SDLC. Current results belong in CURRENT_STATE and
+the clarification verification ledger, not in fixture screenshot manifests.
+
 ## Agent Detail Live Acceptance
 
 From `frontend`, run against an already running QA platform:

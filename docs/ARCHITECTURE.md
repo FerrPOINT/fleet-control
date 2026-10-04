@@ -141,15 +141,27 @@ payloads return `409 conflict`.
 
 ## Hermes Launch
 
-Managed Hermes agents run with isolated `HERMES_HOME` and cwd. Fleet starts the
-headless control-plane surface with:
+Managed Hermes agents сохраняют изолированные `HERMES_HOME` и cwd. Текущий
+Fleet argv требует Base compatibility wrapper, установленного в packaged image
+как `/opt/fleet-hermes/bin/hermes`:
 
 ```text
-hermes serve --host 127.0.0.1 --port <agent.api_port>
+/opt/fleet-hermes/bin/hermes serve --host 127.0.0.1 --port <agent.api_port>
 ```
 
-The dashboard port remains metadata for UI links, while programmatic chat
-control is attached to the Hermes serve/JSON-RPC contract.
+`FLEET_CONTROL_FLEET__HERMES_COMMAND` должен выбирать этот wrapper, а не raw
+upstream CLI. Для pinned Hermes `bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3`
+raw `serve` означает dashboard/headless web server. Base
+`services-base/deploy/fleet-hermes-launch.py` преобразует Fleet `serve` в
+`gateway run`, передавая host/port через `API_SERVER_HOST` / `API_SERVER_PORT`.
+Программный chat/control использует gateway HTTP API, не dashboard JSON-RPC;
+dashboard port остаётся metadata для UI links.
+
+Dotenv override host/port остаётся открытым gap: launch env не доказывает native
+loaded configuration. Прямой gateway запуск требует versioned renderer без
+перезаписи исторических effective snapshots и отдельного native acceptance.
+Это не разрешение SDLC admission. Подробности:
+[runtime](RUNTIME.md), [контракт адаптера](contracts/HERMES_ADAPTER_CONTRACT.md).
 
 ## Jobs And Settings
 

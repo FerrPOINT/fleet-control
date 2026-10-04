@@ -32,6 +32,28 @@ cd frontend
 pnpm dev --host 127.0.0.1
 ```
 
+## Managed Hermes command
+
+Запуск backend/frontend не делает raw Hermes CLI совместимым с Fleet. Для
+pinned Hermes `bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3` raw `hermes serve`
+запускает dashboard/headless web server, не gateway API. Текущий Fleet launch
+требует Base `services-base/deploy/fleet-hermes-launch.py`, который переводит
+`serve --host ... --port ...` в `gateway run` через `API_SERVER_HOST` /
+`API_SERVER_PORT`.
+
+В packaged image managed command задан как
+`FLEET_CONTROL_FLEET__HERMES_COMMAND=/opt/fleet-hermes/bin/hermes`.
+При host запуске настройка должна указывать на deployment-provisioned
+совместимый wrapper; этот container path не означает, что wrapper установлен
+на host. Default имя `hermes` в PATH не гарантирует wrapper: raw upstream CLI
+не подходит для текущего argv.
+
+Dotenv может переопределить host/port после wrapper; versioned renderer и
+native acceptance остаются отдельными gaps. Не переписывать старые effective
+snapshots для перехода на новые defaults. См.
+[runtime](RUNTIME.md) и [контракт адаптера](contracts/HERMES_ADAPTER_CONTRACT.md).
+Эта настройка не включает native-ready admission или автоматический SDLC.
+
 Local URLs:
 
 - frontend: http://localhost:23802

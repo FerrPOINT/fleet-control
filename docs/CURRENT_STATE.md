@@ -80,6 +80,25 @@ acceptance; this gate does not prove unknown POST recovery, PM admission/resume,
 process-tree quiescence, release build, remaining integration targets or UI/live
 screenshots. Accepted-but-unpinned controls remain temporarily unavailable.
 
+The separate native protocol gate now passed against clean pinned Hermes
+`bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3`: four actual API/AIAgent/SQLite
+scenarios with a deterministic local model, plus eight host harness safety
+tests. It proves dropped-202 original-key replay, eight concurrent replays,
+terminal and in-flight process-crash recovery without reexecution, exact session/
+native transcript, parsed SSE success flags and token isolation across two homes.
+Credential rotation demonstrably creates a different idempotency scope; Fleet
+must journal and guard the original scope before enabling recovery. Unknown
+profile rejection is not multiplex isolation. Managed gateway CLI lifecycle,
+native tools/config attestation, Fleet journal and PM admission/resume remain
+open. Exact hashes/cleanup are in the
+[verification ledger](CHAT_CLARIFICATION_VERIFICATION.md#native-hermes-protocol-acceptance-4-october-2026).
+
+Frontend revalidation on unchanged production sources passed 229 tests,
+typecheck, lint, format, build, API drift/compatibility and seven chat wire
+contracts. The 135 screenshot and nine controller-image manifest/hash verifiers
+passed; no images were regenerated or relabeled as live. Vite still reports a
+large production chunk warning; this is not a completed performance gate.
+
 The creation recovery follow-up adds owner/key readback for a lost initial
 acknowledgement, persisted-operation continuation without prompt resubmission,
 and a rollout-filtered strict Tracker project directory. It adds no runtime

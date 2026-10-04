@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- Add an opt-in native Hermes API/AIAgent/SQLite protocol gate with a local model:
+  lost 202, concurrent replay, process crash, durable readback and credential-scope
+  isolation. Add harness deadline/cleanup safety checks to docs CI. Clarify that
+  Fleet's `serve` argv requires the Base gateway compatibility wrapper; raw
+  upstream `serve` is a dashboard, not the managed API.
+
 - Atomically preserve free-chat Hermes run/prompt/outbox acceptance before
   effective-session status readback. GET-only restart recovery, immutable native
   mappings and delivery CAS retain capacity without resubmitting the prompt;

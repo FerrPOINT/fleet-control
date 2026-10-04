@@ -65,6 +65,9 @@ jobs:
       - name: README structural validation
         working-directory: fleet-control
         run: python3 scripts/verify_readme.py
+      - name: Native protocol harness safety tests (no runtime or Docker)
+        working-directory: fleet-control
+        run: python3 -B -m unittest discover -s scripts/hermes_protocol_live -p test_harness.py -v
 
   backend:
     runs-on: ubuntu-latest

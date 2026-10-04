@@ -23,7 +23,8 @@ Hermes:
 - Env: `HERMES_HOME=<agents_root>/agentN/config`,
   `API_SERVER_ENABLED=true`, derived per-agent `API_SERVER_KEY`.
 - Cwd: `<agents_root>/agentN/workspace`.
-- Programmatic surface: `hermes serve --host 127.0.0.1 --port <api_port>`.
+- Managed launch: Base compatibility wrapper with
+  `serve --host 127.0.0.1 --port <api_port>`; not the raw upstream CLI.
 - Readiness requires `/health` and `/v1/capabilities` with `run_status`,
   `run_events_sse` and `run_stop`.
 - Message dispatch uses `POST /v1/runs`, Fleet session ids formatted as
@@ -116,7 +117,41 @@ Hermes:
   hashes are not returned. This observation is not a fenced admission, proof of
   runtime-loaded configuration, or task-specific deployment workspace receipt.
 
-Java Agent:
+## Контракт запуска Hermes
+
+Для pinned Hermes `bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3` исходная команда
+`hermes serve` запускает dashboard/headless web server, а не gateway API
+`/v1/runs`. Текущий Fleet argv совместим только с Base wrapper
+`services-base/deploy/fleet-hermes-launch.py`, установленным в packaged image
+как `/opt/fleet-hermes/bin/hermes`. Managed setting
+`FLEET_CONTROL_FLEET__HERMES_COMMAND` должен указывать на этот wrapper;
+имя `hermes` в PATH само по себе не доказывает совместимость.
+
+Wrapper проверяет `--host=127.0.0.1` и порт `1024..65535`, задаёт
+`API_SERVER_HOST` / `API_SERVER_PORT` и запускает
+`/opt/hermes/.venv/bin/hermes gateway run`. Остальные команды передаются
+исходному CLI без преобразования. `HERMES_SERVE_HEADLESS` остаётся частью
+текущего Fleet env, но не превращает raw `serve` в gateway API.
+
+Открытый gap: Hermes `hermes_cli/env_loader.py` читает агентский `.env` с
+`override=True`, поэтому значения host/port могут заменить env wrapper.
+Текущий Fleet renderer не защищает `API_SERVER_HOST` / `API_SERVER_PORT`
+от значений `env_json` и не фиксирует их как managed defaults. Проверка
+wrapper до запуска не является доказательством фактически загруженной native
+конфигурации. Для прямого native gateway запуска нужен versioned renderer
+с защищёнными host/port и отдельной проверкой загрузки. Старые immutable
+snapshots, revision markers и ожидаемые managed bytes сохраняются: их нельзя
+молча переписать или пересчитать по новым defaults. Этот документ не закрывает
+native acceptance, `runtime_ready` или SDLC admission.
+См. [контракт адаптера](contracts/HERMES_ADAPTER_CONTRACT.md).
+
+Отдельный [native protocol gate](../scripts/hermes_protocol_live/README.md)
+проверяет настоящий API adapter/AIAgent/SQLite с локальной моделью, dropped ACK
+и process crash. Он не запускает этот wrapper или полный gateway runner и не
+закрывает dotenv precedence, managed lifecycle, native config/tool attestation
+или Fleet unknown-dispatch journal.
+
+## Java Agent
 
 - Existing externally provisioned Java jar lifecycle is retained. Chat/control
   and configuration activation are phase 2 and cannot enter automatic SDLC.

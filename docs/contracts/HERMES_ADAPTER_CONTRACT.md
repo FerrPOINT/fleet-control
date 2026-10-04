@@ -14,12 +14,36 @@ that all descendant OS processes stopped.
 
 Hermes is the first implemented runtime.
 
+## Совместимый запуск
+
+На pinned Hermes `bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3` raw
+`hermes serve` запускает dashboard/headless web server, не gateway API
+`/v1/runs`. Текущий Fleet argv требует Base compatibility wrapper из
+`services-base/deploy/fleet-hermes-launch.py`. В packaged image он установлен
+как `/opt/fleet-hermes/bin/hermes`; именно его должен выбирать managed setting
+`FLEET_CONTROL_FLEET__HERMES_COMMAND`. Raw CLI с тем же именем несовместим
+с текущим launch contract.
+
+Wrapper принимает Fleet `serve --host 127.0.0.1 --port <api_port>`, проверяет
+loopback и порт `1024..65535`, экспортирует `API_SERVER_HOST` /
+`API_SERVER_PORT` и выполняет `/opt/hermes/.venv/bin/hermes gateway run`.
+Не-`serve` команды передаются исходному CLI без преобразования.
+
 Environment:
 
 - `HERMES_HOME=agentN/config`
 - `API_SERVER_ENABLED=true`
 - `API_SERVER_KEY=<derived per-agent token>`
 - `HERMES_SERVE_HEADLESS=1`
+
+`API_SERVER_HOST` / `API_SERVER_PORT` сейчас задаёт wrapper, не Fleet renderer.
+Hermes загружает агентский `.env` с `override=True`; текущий renderer допускает
+эти ключи из `env_json`. Следовательно, первоначальные env/argv не доказывают
+фактический native bind. Нужен versioned renderer с защищёнными host/port
+и проверкой native loaded configuration. Исторические immutable snapshots,
+markers и ожидаемые managed bytes сохраняются без молчаливой перезаписи.
+`HERMES_SERVE_HEADLESS` в Fleet env не меняет назначение raw CLI команды.
+Ни wrapper, ни эта документация не закрывают native acceptance или admission.
 
 Working directory:
 
@@ -35,7 +59,8 @@ Managed files:
 
 Lifecycle:
 
-- start: configured Hermes command with `serve --host 127.0.0.1 --port <api_port>`
+- start: configured Base compatibility wrapper with
+  `serve --host 127.0.0.1 --port <api_port>`
 - stop: terminate tracked process
 - restart: stop then start
 - health: reconcile tracked process state through `/health`
@@ -78,6 +103,7 @@ Session control:
 - For executor sessions, the runtime dispatch target is the primary executor
   even when the mirrored message author is the selected leader.
 - Fleet must not write directly into Hermes SessionDB.
-- Hermes serve/JSON-RPC is the intended programmatic chat surface.
+- Programmatic chat/control uses the native gateway HTTP API reached through
+  the compatibility wrapper, not raw Hermes serve/dashboard JSON-RPC.
 - Dashboard remains a separate UI surface and is not the source of truth for
   Fleet message writes.

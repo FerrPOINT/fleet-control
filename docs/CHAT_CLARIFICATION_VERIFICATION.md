@@ -671,3 +671,67 @@ exact-request/fingerprint/horizon journal, post-pin stream recovery, offline
 controls, process-tree safe stop, PM admission/tools/resume, full release/CI gate
 and current production screenshots remain required. No accepted runtime was
 installed or updated; no PR was pushed or marked ready by this gate.
+
+## Native Hermes Protocol Acceptance (4 October 2026)
+
+The [opt-in harness](../scripts/hermes_protocol_live/README.md) now executes
+the actual pinned Hermes API adapter, real AIAgent, native middleware and SQLite
+in separate Python processes. Only model inference is a deterministic local
+OpenAI fixture. Hermes HTTP and durable storage are not mocked or rewritten.
+Clean source `bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3` was extracted from Git;
+native module paths are checked against that read-only snapshot. The existing
+Base dependency image resolves to
+`sha256:aeb97055b0f5aee433e29998eeafd8065b81e70d1fcb69345c520c2bfbf23777`;
+its revision label and exact `uv.lock`/`pyproject.toml` are checked. It is not
+installed or promoted as a new Fleet runtime.
+
+Four native cases passed:
+
+- Parsed native SSE identifies the accepted run and has one completed event
+  with `completed=true`, `partial=false`, `interrupted=false`. Authenticated
+  status, native message API and an independent read-only SQLite session row
+  match the exact requested session. Two distinct processes/homes reject foreign
+  credentials and foreign run lookup; an unknown profile prefix is denied.
+- A loopback fault proxy forwards the real POST, consumes its 202, then closes
+  without acknowledging the caller. Eight concurrent exact-key replays preserve
+  its original run ID and one model execution; changed input conflicts. Killing
+  and restarting the process with the same HOME/store/token preserves terminal
+  output and session. SSE is unavailable after restart; status GET is authoritative.
+- A model barrier holds real inference after the lost ACK. The native process
+  is killed/reaped before replay or completion. Restart and original-key replay
+  preserve that ID as `interrupted`, with no completed output or second inference.
+- A rotated API credential cannot authenticate the old run; its new scope can
+  accept the same key as a different run. This proves why Fleet recovery needs
+  the original credential/profile fingerprint and must not blindly replay.
+
+Eight host safety cases passed, including corrupt SSE rejection, exact clean
+pin, traversal/link refusal, a real keepalive deadline and retained failed
+evidence when Compose down/ps time out. These host cases are added to docs CI;
+the native gate is opt-in and requires the explicit dependency image. HTTP IO
+has an absolute shutdown/remaining-time budget and the Compose runner a 600 s
+watchdog. Lazy installs, auto-titling, background review and memory are disabled
+through upstream settings, not patched native code. Expected model-peer
+BrokenPipe after the deliberate kill is diagnostic noise, not a successful run.
+
+Final exec session 20490 exited zero. Project
+`sdlc-qa-hermes-protocol-6c243df9a9b8` used an internal network, no published
+ports/host credentials/runtime folders/persistent volumes, read-only source/root
+and disposable tmpfs. Exact finally cleanup exited zero; independent Compose ps
+was empty. Docker audit subsequently reported complete=true, 47 desktop
+containers, zero runner containers and no violations. Other owners' resources
+were not changed. Earlier failed attempts remain separate evidence.
+
+Evidence under ignored `tmp/hermes-protocol-live/`:
+
+- native log SHA256: `28cf86678b0d1195ed5a193c795adf62f4eef01bf7315a7a272708db0487f401`;
+- probe SHA256: `50877923aff410016d60c0e77d9a605728ab68dd223d23aa07b7990874052573`;
+- runner SHA256: `efde005f9f9410a558f7dc7a7fdd1941e9e79a72d663288bd4202af2c73c4da6`;
+- Git archive SHA256: `571fba4903d9094ade7f6d0ef5dfcee8c068e50f62e65f46611ec3ad65697e02`.
+
+This is authentic native protocol evidence, not full `gateway run` startup,
+Base wrapper/dotenv precedence, compression/rotation, multiplex, positive native
+stop/steer/tool approval, OS quiescence, Fleet lost-ACK recovery or the paid-model
+PM lifecycle. Exact request/scope/horizon journaling, pin-to-worker recovery,
+assignment admission/heartbeat/first step, structured PM tools/resume and Forge
+pipeline/deployment/acceptance remain required. Nothing was installed, pushed,
+merged or designated merge-ready by this component gate.

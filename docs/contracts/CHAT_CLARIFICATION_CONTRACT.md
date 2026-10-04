@@ -143,6 +143,15 @@ not bypass admission or authorize tools. An unknown run ID is never POSTed again
 Exact request/fingerprint/horizon journaling, recovery after the pin-to-worker
 gap and authentic runtime acceptance remain separate implementation requirements.
 
+The independent native protocol gate now verifies the pinned API/AIAgent/SQLite
+mechanism with a local model: actual dropped 202, concurrent same-key replay,
+terminal and in-flight process crash, parsed SSE/status/transcript identity and
+credential rotation. Rotation proves that a new credential can accept the old
+key as a new run; consumer identity guards cannot be omitted. This does not
+implement Fleet's unknown-acceptance journal or prove managed gateway lifecycle,
+native tool/approval behavior, retention expiry, multiplex/compression or PM
+admission. See the [native evidence](../CHAT_CLARIFICATION_VERIFICATION.md#native-hermes-protocol-acceptance-4-october-2026).
+
 ### Current PM Producer Boundary (4 October 2026)
 
 Read-only source inspection: Tracker `af6ed1ee26f6d26534a0dd1526e3b4d168962160`
