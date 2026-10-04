@@ -1,5 +1,9 @@
 # Java Agent Adapter Contract
 
+Hermes-only atomic terminal/pinned recovery does not extend Java chat/control
+capabilities. Existing Java lifecycle and phase-2 boundaries remain unchanged;
+see [the common runtime contract](AGENT_RUNTIME_CONTRACT.md).
+
 Existing Java process lifecycle shares bounded tracked-process stop/wait. An
 untracked active runtime is not labelled stopped or restarted without proof;
 this does not implement Java chat/control or automatic SDLC admission.

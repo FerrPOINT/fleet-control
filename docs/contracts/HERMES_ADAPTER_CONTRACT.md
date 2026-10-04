@@ -42,11 +42,11 @@ Environment:
 - `API_SERVER_KEY=<derived per-agent token>`
 - `HERMES_SERVE_HEADLESS=1`
 
-`API_SERVER_HOST` / `API_SERVER_PORT` сейчас задаёт wrapper, не Fleet renderer.
-Hermes загружает агентский `.env` с `override=True`; текущий renderer допускает
-эти ключи из `env_json`. Следовательно, первоначальные env/argv не доказывают
-фактический native bind. Нужен versioned renderer с защищёнными host/port
-и проверкой native loaded configuration. Исторические immutable snapshots,
+Новый renderer v2 также закрепляет `API_SERVER_HOST` / `API_SERVER_PORT` в
+защищённом dotenv и native YAML. Исторический v1 допускает эти ключи из
+`env_json`; Hermes загружает `.env` с `override=True`. Поэтому старые env/argv
+не доказывают native bind, а renderer v2 сам по себе не доказывает loaded config
+работающего процесса. Исторические immutable snapshots,
 markers и ожидаемые managed bytes сохраняются без молчаливой перезаписи.
 `HERMES_SERVE_HEADLESS` в Fleet env не меняет назначение raw CLI команды.
 Ни wrapper, ни эта документация не закрывают native acceptance или admission.
@@ -98,7 +98,7 @@ Session control:
   the journal bytes without reconstructing input/model/options. Free chats also
   require fresh durable 86400-second idempotency and matching wire endpoints.
 - A verified ACK commits native ID, prompt/outbox and journal `accepted` together.
-  Pending pin recovery compares original origin/fingerprint before GET; no
+  Pending and pinned recovery compare original origin/fingerprint before GET; no
   journal, changed token or moved port requires reconciliation without HTTP.
   Legacy history stays readable, but credentials are not backfilled.
 - Unknown POST acceptance holds capacity and pending delivery with an error.
@@ -108,6 +108,14 @@ Session control:
   positive lookup is required to recover the original native ID safely;
   negative lookup/404/expiry must never authorize resend.
 - Fleet mirrors events from `GET /v1/runs/{run_id}/events`.
+- After a pin-to-worker crash, recovery observes the existing run by GET only.
+  It does not reattach an SSE queue or resend a prompt. Pinned session identity
+  stays immutable; a nonterminal, missing or invalid status retains capacity.
+  Terminal run/prompt/optional assistant and durable events commit in one
+  transaction; exact replay performs no writes, contradictory evidence conflicts.
+  Empty successful output creates no fabricated assistant. Old stream progress
+  cannot append delta/tool/approval effects after terminal commit. Details:
+  [ADR 0018](../adr/0018-atomic-terminal-pinned-recovery.md).
 - Terminal names come from the explicit SSE header or root `event`, never a
   nested tool/subagent discriminator. Only exact run terminal events can end
   the accepted run; they must contain its `run_id`. Successful completion requires

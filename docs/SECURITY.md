@@ -1,5 +1,13 @@
 # Security
 
+Known pinned Hermes free-chat recovery requires the original accepted journal,
+origin and credential context before HTTP. It performs GET only; neither a
+missing/invalid status nor an expired horizon grants redispatch. Terminal mirror
+state/delivery/output and durable invalidations commit under the same row locks;
+late delta/tool/approval effects are denied after completion. This grants no
+task/PM authority or process-tree isolation. See
+[ADR 0018](adr/0018-atomic-terminal-pinned-recovery.md).
+
 ## Native Hermes Configuration Rendering
 
 Renderer v2 seals the native API loopback address, assigned port, enablement,

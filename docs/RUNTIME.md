@@ -61,7 +61,7 @@ Hermes:
   until an authenticated, bounded status read identifies its effective Hermes
   session; the requested `fleet:<session>:<agent>` alias is not that proof.
   Readback failure retains this ACK and agent capacity. A bounded keyset worker
-  retries only GET for journal-backed accepted-but-unpinned runs, including after
+  retries only GET for journal-backed pending and already pinned active runs after
   Fleet restart; original origin/fingerprint must match before HTTP. Legacy ACKs
   without that proof retain history/capacity but are not automatically probed.
   It never submits a prompt. The first transactional session pin starts the
@@ -77,9 +77,13 @@ Hermes:
   still needed to safely stop a known accepted run during such an outage.
   Task-bound/PM runs retain their separate authority and are not admitted by
   this free-chat recovery path. Source tests and live acceptance are recorded
-  separately in the verification ledger. A crash before ACK commit, after pin
-  but before stream startup, or an unknown run ID still needs further durable
-  recovery. The journal preserves evidence without implementing unknown-key
+  separately in the verification ledger. A pin-to-worker crash now recovers by
+  status GET without another SSE attachment. Validated terminal run, prompt
+  delivery, optional assistant and durable events commit atomically. Exact replay
+  changes no timestamps/cursor; empty output creates no synthetic reply. Old
+  SSE workers observe persisted terminal state; late delta/tool/approval writes
+  are guarded under row locks. A crash before ACK commit or an unknown run ID
+  still needs further durable recovery. The journal preserves evidence without implementing unknown-key
   recovery, retention-safe redispatch or process-tree quiescence. Native caps
   have no store epoch and even a new empty SQLite can advertise durable=true;
   a missing record/404 is not permission to recreate a run.

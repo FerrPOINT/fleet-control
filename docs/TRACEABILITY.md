@@ -10,6 +10,7 @@
 | Per-user visibility | Default backend filter, private message authorization regression, SSO stored-role tests |
 | No duplicate unknown dispatch | Immutable exact-request journal (000012), single durable submission permit, atomic ACK, message-lock late-error classification and controlled HTTP zero-second-POST regression; unknown-ID and prepared-intent recovery still pending |
 | No completion from EOF | Fake Hermes non-terminal/terminal readback; interrupted is failure, never a fabricated reply |
+| Atomic free-chat terminal and pin-to-worker recovery | `runtime_terminal` PG rollback/concurrency/late-event guards; `runtime_pinned_recovery` fresh-supervisor GET-only fixtures; native/PM live acceptance remains separate |
 | Durable cursor | Migration 000009, session cursor/Last-Event-ID, Base reconnect tests; expiry/reset pending |
 | Config activation/drain | Migration 000009, desired/effective snapshots, DB drain/failed rollback regression |
 | Native Hermes listener rendering | Server-selected snapshot renderer v2 seals listener/env/CORS; v1 history remains reproducible. Native loader and installed-runtime attestation are separate gates; see ADR 0017 |

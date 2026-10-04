@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- Commit verified Hermes terminal outcomes atomically with prompt delivery,
+  optional assistant and durable events. Recover accepted pinned free-chat runs
+  by original-context GET after restart without a second POST/SSE worker; reject
+  late progress/tool/approval writes and never fabricate an empty final response.
+  Task/PM admission and unknown native-ID recovery remain gated.
+
 - Version Hermes configuration rendering: preserve legacy output/history, select
   native renderer 2 for new revisions, seal API host/port and derived env, and
   create native provisioning files only when missing. Add an opt-in native loader

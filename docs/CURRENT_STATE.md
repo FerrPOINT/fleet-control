@@ -63,9 +63,25 @@ integration targets, release build or end-to-end runtime acceptance.
 Free-chat verified acceptance now commits run/prompt/outbox atomically before
 status GET. Accepted-but-unpinned pending runs recover effective session identity
 by GET only after restart, with one concurrent stream-start winner and immutable
-runtime mapping. This does not recover unknown run IDs or the pin-to-worker crash
-gap, admit assignments, or attest native Hermes configuration. See
+runtime mapping. The subsequent atomic-terminal follow-up below handles pinned
+restart recovery; unknown run IDs, assignment admission and native configuration
+attestation remain open. See
 [ADR 0015](adr/0015-accepted-run-session-readback.md) and the verification ledger.
+
+The atomic-terminal follow-up now commits optional assistant, prompt delivery,
+run outcome and durable events together. Accepted pinned free-chat runs recover
+after restart by authenticated original-context GET, with no second POST/SSE
+worker. Late delta/tool/approval writes are fenced by the committed terminal
+state; empty output creates no fabricated reply. Its Linux/Rust1.88/PostgreSQL17.6
+gate passed 192 library +123 foundation +1 approval SSE +3 migration cases
+(319 distinct tests), all-target check/strict Clippy/fmt and Rust OpenAPI equality.
+Independent review closed the FK lock inversion and fixture setup races.
+No migration, public API, installed runtime or producer changed. See
+[ADR 0018](adr/0018-atomic-terminal-pinned-recovery.md) and
+[current evidence](CHAT_CLARIFICATION_VERIFICATION.md#atomic-terminal-and-pinned-recovery-4-october-2026).
+Unknown-ID/store continuity, missed native tool/approval replay, stream frame/
+multibyte bounds, OS isolation, admission/PM resume and exact-head release CI
+remain open. These component results are not full SDLC acceptance.
 
 The final acceptance-readback source gate passed on Linux/Rust 1.88/PostgreSQL
 17.6: all 176 workspace library tests, all 85 foundation PG/HTTP cases and the
@@ -114,8 +130,8 @@ lock, so a stale prepared read cannot erase a concurrent submission. Known-ID
 restart recovery now requires accepted original journal context; legacy history
 is preserved but cannot be attested with current credentials. Migration 000012
 refuses nonempty downgrade. See [ADR 0016](adr/0016-hermes-original-request-journal.md).
-Automatic prepared-intent recovery, unknown-key non-dispatch lookup, post-pin
-stream recovery and full live admission/deployment remain open.
+Automatic prepared-intent recovery, unknown-key non-dispatch lookup, missed
+native tool/approval replay and full live admission/deployment remain open.
 
 Its final Linux/Rust 1.88/PostgreSQL 17.6 gate passed 179 workspace library,
 102 foundation PG/HTTP, one authenticated approval SSE and three isolated

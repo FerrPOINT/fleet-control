@@ -34,7 +34,22 @@ and holds capacity; pending prompt plus delivery error is not definitive rejecti
 Known accepted-but-unpinned recovery requires its original journal context.
 Legacy ACKs lacking that proof remain readable and held, without automatic HTTP.
 The deadline never renews and is a rejection guard, not SQLite continuity proof.
-Unknown-key lookup, post-pin recovery and operator reconciliation remain open.
+Unknown-key lookup and operator reconciliation remain open. Known pinned active
+runs now use GET-only recovery with the same accepted journal/origin/credential.
+
+## Atomic Hermes Terminal Packet
+
+The private repository command uses existing run/message/outbox/journal columns;
+there is no new migration. Agent/session/run/prompt/outbox/journal row locking
+validates exact acceptance and effective native pin before writing. One transaction
+stores the redacted assistant when nonempty, preview, delivery and terminal run
+timestamps/state. Existing triggers allocate durable invalidations in that same
+transaction. Fault rollback leaves transcript/cursor and capacity unchanged.
+Journal/outbox acceptance remains immutable; exact replay updates no rows.
+Session locking permits one assistant per accepted native run, reusing only an
+identical historical partial mirror. Empty completed, failed and cancelled
+packets create no synthetic assistant. Late delta/tool/approval writes serialize
+with terminal state. See [ADR 0018](adr/0018-atomic-terminal-pinned-recovery.md).
 
 ## Local Configuration Recovery Material
 

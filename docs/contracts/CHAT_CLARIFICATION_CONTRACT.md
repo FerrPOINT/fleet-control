@@ -149,7 +149,12 @@ pending with an error and no repeated POST. This is not task admission, a
 prepared-intent recovery worker or unknown-key reconciliation. The native
 baseline has no non-dispatch HTTP key lookup/store epoch; durable=true and a
 retention deadline cannot prove SQLite continuity. Recovery after the pin-to-worker
-gap and authentic Fleet/native runtime acceptance remain implementation gates.
+gap now uses original-context GET only for pinned active free chats. Validated
+terminal run/prompt/optional assistant and durable events commit atomically;
+empty output creates no synthetic response. Old stream writes cannot reopen the
+terminal packet. Task/PM runs remain excluded. Authentic Fleet/native runtime
+acceptance, unknown-ID lookup and full admission remain gates; see
+[ADR 0018](../adr/0018-atomic-terminal-pinned-recovery.md).
 
 The independent native protocol gate now verifies the pinned API/AIAgent/SQLite
 mechanism with a local model: actual dropped 202, concurrent same-key replay,

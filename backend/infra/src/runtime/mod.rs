@@ -1349,13 +1349,37 @@ impl LocalRuntimeSupervisor {
     ) -> Result<(), AppError> {
         let base = Self::hermes_base_url(&agent)?;
         let token = crate::agent_runtime_token(&self.config, agent.id)?;
-        let response = self
-            .client
-            .get(format!("{base}/v1/runs/{runtime_run_id}/events"))
-            .bearer_auth(token)
-            .send()
-            .await
-            .map_err(AppError::internal)?;
+        let intent = self
+            .repo
+            .get_hermes_dispatch_intent(message.id)
+            .await?
+            .ok_or_else(|| {
+                AppError::Unavailable("Hermes stream has no original dispatch context".into())
+            })?;
+        if intent.state != "accepted"
+            || intent.run.id != run.id
+            || intent.run.runtime_run_id.as_deref() != Some(runtime_run_id.as_str())
+            || intent.run.runtime_session_id != run.runtime_session_id
+        {
+            return Err(AppError::conflict("Hermes stream identity changed"));
+        }
+        hermes_wire::verify_intent(&intent, &base, &token)?;
+        if matches!(
+            intent.run.state,
+            SessionRunState::Completed | SessionRunState::Failed | SessionRunState::Cancelled
+        ) {
+            return Ok(());
+        }
+        let response = tokio::time::timeout(
+            Duration::from_secs(10),
+            self.client
+                .get(format!("{base}/v1/runs/{runtime_run_id}/events"))
+                .bearer_auth(token)
+                .send(),
+        )
+        .await
+        .map_err(|_| AppError::Unavailable("Hermes stream headers timed out".into()))?
+        .map_err(AppError::internal)?;
         if !response.status().is_success() {
             return Err(AppError::validation(format!(
                 "Hermes run events returned {}",
@@ -1369,8 +1393,22 @@ impl LocalRuntimeSupervisor {
         let mut data_lines: Vec<String> = Vec::new();
         let mut final_text = String::new();
         let mut terminal_seen = false;
+        let mut terminal_watch = tokio::time::interval(Duration::from_secs(5));
 
-        while let Some(chunk) = stream.next().await {
+        loop {
+            let chunk = tokio::select! {
+                chunk = stream.next() => chunk,
+                _ = terminal_watch.tick() => {
+                    let current = self.repo.get_session_agent_run(run.id).await?;
+                    if matches!(current.state, SessionRunState::Completed | SessionRunState::Failed | SessionRunState::Cancelled) {
+                        return Ok(());
+                    }
+                    continue;
+                }
+            };
+            let Some(chunk) = chunk else {
+                break;
+            };
             let chunk = chunk.map_err(AppError::internal)?;
             buffer.push_str(&String::from_utf8_lossy(&chunk));
             while let Some(pos) = buffer.find('\n') {
@@ -1484,6 +1522,25 @@ impl LocalRuntimeSupervisor {
             })
             .unwrap_or_else(|| "message".to_string());
         let terminal_state = hermes_wire::terminal_event(&event_type, &payload, runtime_run_id)?;
+        if terminal_state.is_some()
+            && payload
+                .get("session_id")
+                .is_some_and(|id| id.as_str() != run.runtime_session_id.as_deref())
+        {
+            return Err(AppError::Unavailable(
+                "Hermes terminal session identity changed".into(),
+            ));
+        }
+
+        if terminal_state.is_none() {
+            let current = self.repo.get_session_agent_run(run.id).await?;
+            if matches!(
+                current.state,
+                SessionRunState::Completed | SessionRunState::Failed | SessionRunState::Cancelled
+            ) {
+                return Ok(true);
+            }
+        }
 
         if event_type.contains("delta") {
             if let Some(delta) = pick_string(&payload, &["delta", "text", "output_text"]) {
@@ -1573,48 +1630,9 @@ impl LocalRuntimeSupervisor {
             return Ok(false);
         }
 
-        if terminal_state == Some(SessionRunState::Cancelled) {
-            let updated = self
-                .repo
-                .update_session_agent_run_dispatch(
-                    run.id,
-                    Some(runtime_run_id.to_string()),
-                    SessionRunState::Cancelled,
-                    None,
-                )
-                .await?;
-            self.emit_run(&updated);
-            return Ok(true);
-        }
-
-        if terminal_state == Some(SessionRunState::Failed) {
-            let error =
-                pick_error(&payload).unwrap_or_else(|| format!("Hermes event {event_type}"));
-            self.repo
-                .update_session_message_delivery(
-                    message.id,
-                    MessageDeliveryState::Failed,
-                    Some(runtime_run_id.to_string()),
-                    Some(error.clone()),
-                )
-                .await?;
-            let updated = self
-                .repo
-                .update_session_agent_run_dispatch(
-                    run.id,
-                    Some(runtime_run_id.to_string()),
-                    SessionRunState::Failed,
-                    Some(error),
-                )
-                .await?;
-            self.emit_run(&updated);
-            return Ok(true);
-        }
-
-        if terminal_state == Some(SessionRunState::Completed) {
-            let body = pick_string(
-                &payload,
-                &[
+        if let Some(state) = terminal_state {
+            let body = if state == SessionRunState::Completed {
+                [
                     "final_response",
                     "output",
                     "output_text",
@@ -1622,66 +1640,44 @@ impl LocalRuntimeSupervisor {
                     "response",
                     "message",
                     "text",
-                ],
-            )
-            .unwrap_or_else(|| {
-                if final_text.trim().is_empty() {
-                    "Hermes run completed".to_string()
-                } else {
-                    final_text.clone()
-                }
+                ]
+                .into_iter()
+                .find_map(|key| payload.get(key).and_then(Value::as_str).map(str::to_owned))
+                .or_else(|| (!final_text.trim().is_empty()).then(|| final_text.clone()))
+            } else {
+                None
+            };
+            let error = (state == SessionRunState::Failed).then(|| {
+                pick_error(&payload).unwrap_or_else(|| format!("Hermes event {event_type}"))
             });
-            self.persist_assistant_completion(agent, session, message, run, runtime_run_id, body)
+            let (updated, assistant, first) = self
+                .repo
+                .commit_hermes_terminal(app::HermesTerminalCommit {
+                    message_id: message.id,
+                    run_id: run.id,
+                    runtime_run_id: runtime_run_id.to_owned(),
+                    runtime_session_id: run.runtime_session_id.clone().ok_or_else(|| {
+                        AppError::Unavailable("Hermes effective session is not pinned".into())
+                    })?,
+                    state,
+                    body,
+                    error,
+                })
                 .await?;
+            if first {
+                self.emit_run(&updated);
+                if let Some(assistant) = assistant {
+                    let _ = self.events.send(FleetEvent::SessionMessageChanged {
+                        session_id: session.id.to_string(),
+                        message_id: assistant.id.to_string(),
+                        event: "message.completed".to_string(),
+                    });
+                }
+            }
             return Ok(true);
         }
 
         Ok(false)
-    }
-
-    async fn persist_assistant_completion(
-        &self,
-        agent: &Agent,
-        session: &AgentSession,
-        message: &SessionMessage,
-        run: &SessionAgentRun,
-        runtime_run_id: &str,
-        body: String,
-    ) -> Result<(), AppError> {
-        let assistant = self
-            .repo
-            .insert_session_message_mirror(
-                session.id,
-                Some(agent.id),
-                body,
-                MessageKind::AssistantMessage,
-                Some(runtime_run_id.to_string()),
-            )
-            .await?;
-        self.repo
-            .update_session_message_delivery(
-                message.id,
-                MessageDeliveryState::Completed,
-                Some(runtime_run_id.to_string()),
-                None,
-            )
-            .await?;
-        let updated = self
-            .repo
-            .update_session_agent_run_dispatch(
-                run.id,
-                Some(runtime_run_id.to_string()),
-                SessionRunState::Completed,
-                None,
-            )
-            .await?;
-        self.emit_run(&updated);
-        let _ = self.events.send(FleetEvent::SessionMessageChanged {
-            session_id: session.id.to_string(),
-            message_id: assistant.id.to_string(),
-            event: "message.completed".to_string(),
-        });
-        Ok(())
     }
 
     fn emit_run(&self, run: &SessionAgentRun) {

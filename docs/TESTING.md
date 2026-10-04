@@ -1,5 +1,36 @@
 # Testing
 
+## Atomic Terminal And Pinned Recovery
+
+With disposable `FLEET_TEST_DATABASE_URL`, run these serial PostgreSQL targets:
+
+```bash
+cargo test --locked -p infra --test sdlc_foundation runtime_terminal -- --test-threads=1
+cargo test --locked -p infra --test sdlc_foundation runtime_pinned_recovery -- --test-threads=1
+```
+
+Terminal tests cover concurrent first commit/replay, immutable identity/outcome,
+assistant/prompt/run database faults with full event-cursor rollback, historical
+partial mirrors, empty output, failed/cancelled, drain and task/PM boundaries.
+Late delta/tool/approval tests verify no writes after terminal state. Pinned
+recovery starts fresh production supervisors after the journal/ACK/pin commit,
+with actual PostgreSQL and controlled authenticated HTTP: zero POST/SSE, held
+capacity on invalid status, subsequent terminal readback and UUID-keyset fairness.
+These are source fixtures, not authentic Hermes or PM admission acceptance.
+Results are recorded separately in the verification ledger.
+
+Three deterministic PostgreSQL blocking barriers cover run/prompt progress and
+the actual approval reservation FK path while terminal commit waits. Root-only
+terminal output is tested against absent/empty/whitespace responses with nested
+tool metadata. Recovery fixtures enumerate all bounded keyset pages and use
+fresh ordered UUID ranges; the full shared-database suite must pass after the
+targeted subsets, not just when each test starts with an empty database.
+The SSE/status fixture reserves only its own pending prompt while its agent is
+Ready, restores Running and calls production `send_message` once. Exact bearer
+checks protect all run routes before counters. Background dequeue is covered by
+the separate production dispatch and journal HTTP scenarios; no terminal,
+capacity or ten-second SSE-state assertion is removed by this setup isolation.
+
 ## Versioned Native Hermes Renderer
 
 `configuration_snapshot_tests` preserve omitted/explicit v1 serialization,

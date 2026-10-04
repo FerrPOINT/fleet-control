@@ -864,3 +864,70 @@ acceptance, live screenshots and exact-head release CI remain required. SDLC
 dispatch stays fail-closed. Publication still needs migration release ordering;
 the old remote Draft PR CI does not verify these local changes. Nothing is
 merged/installed or designated full merge-ready by this component gate.
+
+## Atomic Terminal And Pinned Recovery (4 October 2026)
+
+Known accepted pending/running/waiting/stopping free-chat runs use the bounded
+UUID-keyset recovery queue. Original accepted request/journal, origin, credential
+and horizon are checked before HTTP. Pinned recovery performs authenticated GET
+only: no second POST or SSE worker. A native terminal packet commits the optional
+redacted assistant, preview, prompt delivery, run state/error/timestamps and
+trigger-owned durable events in one PostgreSQL transaction. Exact replay does
+not change timestamps/cursor; contradictory identity/outcome is rejected.
+Empty output does not fabricate an assistant or use nested tool metadata.
+Late delta/tool/approval paths serialize with terminal persistence.
+
+Review found a real FK lock inversion in exclusive session serialization. The
+fix uses NO KEY UPDATE, compatible with progress FK KEY SHARE checks. Three
+deterministic blocking-barrier regressions exercise actual run progress, prompt
+progress and approval reservation writes. Independent counter-review found no
+remaining actionable P1/P2 in this packet. Fourteen atomic-terminal and five
+fresh-supervisor pinned-recovery cases cover rollback, concurrent replay,
+historical partial mirrors, empty/failed/cancelled outcomes, drain, original
+context, task/PM denial and keyset fairness. Controlled HTTP proves zero POST/SSE
+for pinned recovery and root-only final body extraction.
+
+Final exec81673 exited0 on Linux/Rust1.88/PostgreSQL17.6: 192 workspace library
++123 foundation PG/HTTP +1 authenticated approval SSE +3 isolated migration
+cases =319 distinct PASS. Repeated targeted subsets (8 HTTP, 14 terminal,
+5 pinned recovery, 5 acceptance readback) are not counted again. The optional
+ignored native-renderer exporter was not rerun; its prior evidence stays separate.
+All-target check, strict all-target Clippy, fmt and regenerated Rust OpenAPI
+equality passed. This is not all release/integration targets or installed runtime.
+
+The full shared-database gate initially exposed first-page-only ACK assertions
+and reused deterministic UUIDs; both were corrected without weakening identity
+checks. A later HTTP/SSE timeout prompted strict fixture isolation: Ready before
+prompt, claim only its pending outbox, Running then one production send, exact
+bearer middleware before counters. Background dequeue remains covered by separate
+production-dispatch/journal HTTP cases. The ten-second state, no-false-completion
+and held-capacity assertions remain. The setup race was independently reviewed
+and corrected. Earlier failed and intentionally aborted runs remain separate
+logs and are not PASS evidence.
+
+Final log `.local/pdlc-implementation/terminal-scoped.log` SHA256:
+`c4fe83db77fcb790eb3a16fa7879bba3938fcce2d6d02f0646683b5fa21777ff`.
+Exact `sdlc-qa-fleet-terminal-b1da956f0f98` was removed in finally; independent
+Compose ps is empty. External caches, accepted images/volumes and secrets were
+preserved. Final Docker audit: complete=true, desktop39 containers, runners0/0,
+violations=[]. No new migration, public wire, dependency/runtime/package pin or
+producer source change is included. Read-only producers remain Tracker `af6ed1e`
+and Workflow `2d79461`; task/PM dispatch stays fail-closed.
+
+The unchanged frontend retains its 230-test/typecheck/lint/format/build gate.
+Typecheck and API drift were repeated; 135 screenshot and nine controller-image
+hash verifiers passed without recapture or live promotion. README and 101 Markdown
+files pass; Base README/hub validators pass. Vite's existing large-chunk limitation
+remains. Heuristic task scanning reports one exact unchanged parent redaction-test
+literal and no new finding; it is not full DLP/history certification.
+
+Known pinned terminal recovery and atomic persistence are closed at this source
+scope. Unknown-ID positive authenticated non-dispatch lookup/store continuity,
+prepared-intent recovery, missed native tool/approval history, independent offline
+controls, SSE frame/multibyte bounds, native loaded-config/process-tree proof,
+predispatch admission/first-step, PM tools/resume, Forge handoff/live deployment,
+live screenshots and exact-head release CI remain required. The current chat owns
+Fleet/Base; Forge belongs to the independent second task. Publication still needs
+Fleet 000010/000011 before 000012 and at most one new migration per task PR.
+Old remote PR47 checks do not prove this local packet. Nothing was pushed,
+merged, installed or designated 100% by this gate.

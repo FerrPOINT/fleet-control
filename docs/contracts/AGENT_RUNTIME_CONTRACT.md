@@ -30,6 +30,11 @@ single-send permit before HTTP. Verified ACK progress commits atomically with
 run/message/outbox. Unknown acceptance holds capacity, without POST replay.
 Only journal-backed original-context ACKs can recover effective-session GET;
 legacy history is preserved without retrospective credential attestation.
+Known pinned free-chat runs also recover by authenticated GET, without another
+POST or SSE consumer. Validated terminal state, optional assistant mirror and
+prompt delivery commit atomically with durable events; exact replay changes no
+timestamps/cursor. Late progress cannot reopen terminal state. Missing/invalid
+proof retains capacity. See [ADR 0018](../adr/0018-atomic-terminal-pinned-recovery.md).
 This adds no task/PM admission authority or Java capability. See the
 [journal model](../DATA_MODEL.md#hermes-dispatch-journal).
 

@@ -120,6 +120,17 @@ pub struct HermesDispatchIntent {
     pub recovery_deadline: shared::Timestamp,
 }
 
+/// Internal terminal proof; never a public request or permission to dispatch.
+pub struct HermesTerminalCommit {
+    pub message_id: Uuid,
+    pub run_id: Uuid,
+    pub runtime_run_id: String,
+    pub runtime_session_id: String,
+    pub state: SessionRunState,
+    pub body: Option<String>,
+    pub error: Option<String>,
+}
+
 #[async_trait]
 pub trait FleetRepository: Send + Sync {
     async fn prepare_hermes_dispatch(
@@ -559,7 +570,12 @@ pub trait FleetRepository: Send + Sync {
         requested_session_id: String,
         effective_session_id: String,
     ) -> Result<(SessionAgentRun, bool), AppError>;
-    async fn list_pending_hermes_acceptances(
+    /// Commit mirror, delivery and terminal capacity release together; bool means first commit.
+    async fn commit_hermes_terminal(
+        &self,
+        command: HermesTerminalCommit,
+    ) -> Result<(SessionAgentRun, Option<SessionMessage>, bool), AppError>;
+    async fn list_recoverable_hermes_acceptances(
         &self,
         after: Option<Uuid>,
     ) -> Result<Vec<(SessionMessage, SessionAgentRun)>, AppError>;

@@ -116,6 +116,11 @@ success flags; nested terminal names, partial results and invalid EOF status
 responses leave the run unresolved. No public route or DTO shape changes for
 this guard. A completed runtime mirror does not authorize a Tracker transition;
 see the [Hermes adapter contract](contracts/HERMES_ADAPTER_CONTRACT.md).
+Known pinned free-chat runs recover through original-context status GET without
+resubmitting or opening a replacement SSE consumer. Terminal state, delivery,
+optional assistant and durable invalidations commit together; exact replay does
+not advance the cursor. Empty output is not replaced by a synthetic reply.
+No public endpoint/schema changes are introduced; task/PM admission is unchanged.
 
 Base path: `/api/v1`.
 

@@ -7,11 +7,11 @@ impl LocalRuntimeSupervisor {
             handle.spawn(async move {
                 let mut after = None;
                 loop {
-                    match supervisor.repo.list_pending_hermes_acceptances(after).await {
+                    match supervisor.repo.list_recoverable_hermes_acceptances(after).await {
                         Ok(records) => {
                             if records.is_empty() { after = None; }
                             for (message, run) in records {
-                                // Invalid old ACKs must not starve later pending readbacks.
+                                // Invalid old ACKs must not starve later pending or pinned readbacks.
                                 after = Some(run.id);
                                 let result = async {
                                     let session = supervisor.repo.get_session(run.session_id).await?;
@@ -66,18 +66,32 @@ impl LocalRuntimeSupervisor {
             ));
         }
         hermes_wire::verify_intent(&intent, &base, &token)?;
+        if matches!(
+            intent.run.state,
+            SessionRunState::Completed | SessionRunState::Failed | SessionRunState::Cancelled
+        ) {
+            return Ok(intent.run);
+        }
         let payload =
             hermes_wire::read_accepted_run(&self.client, &base, &token, runtime_run_id).await?;
         let effective = hermes_wire::effective_session(&payload, runtime_run_id)?;
-        let (pinned, first) = self
-            .repo
-            .pin_hermes_run_session(
-                run.id,
-                runtime_run_id.to_owned(),
-                Self::runtime_session_id(session, agent),
-                effective,
-            )
-            .await?;
+        let (pinned, first) = if intent.run.state == SessionRunState::Pending {
+            self.repo
+                .pin_hermes_run_session(
+                    run.id,
+                    runtime_run_id.to_owned(),
+                    Self::runtime_session_id(session, agent),
+                    effective,
+                )
+                .await?
+        } else {
+            if intent.run.runtime_session_id.as_deref() != Some(effective.as_str()) {
+                return Err(AppError::Unavailable(
+                    "Hermes terminal session identity changed".into(),
+                ));
+            }
+            (intent.run, false)
+        };
         if first {
             self.emit_run(&pinned);
             let _ = self.events.send(FleetEvent::SessionMessageChanged {
@@ -85,6 +99,26 @@ impl LocalRuntimeSupervisor {
                 message_id: message.id.to_string(),
                 event: "message.dispatched".to_string(),
             });
+        }
+        if matches!(
+            payload.get("status").and_then(Value::as_str),
+            Some("completed" | "failed" | "cancelled" | "interrupted" | "stopped")
+        ) {
+            let event = hermes_wire::terminal_readback(&payload, runtime_run_id)?;
+            self.handle_hermes_event(
+                agent,
+                session,
+                message,
+                &pinned,
+                runtime_run_id,
+                Some(event.to_owned()),
+                payload.to_string(),
+                &mut String::new(),
+            )
+            .await?;
+            return self.repo.get_session_agent_run(pinned.id).await;
+        }
+        if first {
             self.spawn_hermes_event_worker(
                 agent.clone(),
                 session.clone(),

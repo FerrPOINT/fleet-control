@@ -1,5 +1,5 @@
 use super::*;
-use domain::{MessageDeliveryState, SessionAgentRun};
+use domain::{MessageDeliveryState, SessionAgentRun, SessionMessage};
 use sea_orm::DatabaseConnection;
 use serde_json::Value;
 use shared::AppError;
@@ -20,6 +20,26 @@ async fn database() -> DatabaseConnection {
     sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
         .await
         .unwrap()
+}
+
+async fn queued_run(
+    repo: &PostgresFleetRepository,
+    id: Uuid,
+) -> Option<(SessionMessage, SessionAgentRun)> {
+    let mut after = None;
+    loop {
+        let page = repo
+            .list_recoverable_hermes_acceptances(after)
+            .await
+            .unwrap();
+        let next = page.last().map(|(_, run)| run.id);
+        if let Some(pair) = page.into_iter().find(|(_, run)| run.id == id) {
+            return Some(pair);
+        }
+        let next = next?;
+        assert!(after.is_none_or(|previous| next > previous));
+        after = Some(next);
+    }
 }
 
 async fn prepared() -> Option<Prepared> {
@@ -719,9 +739,9 @@ async fn acceptance_postcommit_agent_read_failure_keeps_ack_recoverable_without_
         limited_repo.update_session_message_delivery(p.message_id, MessageDeliveryState::Failed,
             None, Some("post-commit result read failed".into())).await.unwrap();
         assert_eq!(snapshot(&p).await, durable);
-        let queued = p.repo.list_pending_hermes_acceptances(None).await.unwrap();
-        assert!(queued.iter().any(|(message, run)| message.id == p.message_id && run.id == p.run.id
-            && run.runtime_run_id.as_deref() == Some("run_postcommit_fault")));
+        let (message, run) = queued_run(&p.repo, p.run.id).await.unwrap();
+        assert_eq!(message.id, p.message_id);
+        assert_eq!(run.runtime_run_id.as_deref(), Some("run_postcommit_fault"));
         assert!(p.repo.prepare_session_agent_run(p.session_id, p.agent_id, SessionRunRole::Primary,
             p.requested.clone()).await.is_err());
         // Recovery uses only the existing native ID, never prepares/submits another run.
@@ -732,8 +752,7 @@ async fn acceptance_postcommit_agent_read_failure_keeps_ack_recoverable_without_
         let runs = p.repo.list_session_agent_runs(p.session_id).await.unwrap();
         assert_eq!(runs.len(), 1);
         assert_eq!(runs[0].id, p.run.id);
-        assert!(p.repo.list_pending_hermes_acceptances(None).await.unwrap().iter()
-            .all(|(_, run)| run.id != p.run.id));
+        assert_eq!(queued_run(&p.repo, p.run.id).await.unwrap().1.state, SessionRunState::Running);
     }).catch_unwind().await;
     let mut reset = Ok(());
     let mut closed = Ok(());

@@ -125,12 +125,19 @@ consumed submission permit and accepted ACK. Do not copy its original prompt,
 request bytes/hash or credential fingerprint into support reports. Do not
 change state/key/origin/deadline, delete rows, rotate credentials as a retry
 workaround or downgrade a nonempty journal. Existing tokens need no DB backfill.
-Known accepted-but-unpinned recovery uses GET only after original-context checks;
+Known accepted pending and pinned active recovery uses GET only after original-context checks;
 missing legacy journal or changed port/token retains history and capacity without
 HTTP. Unknown acceptance keeps pending delivery plus an error, not confirmed
 failure. Prepared-intent recovery and public operator reconciliation are not
 implemented yet. A retention margin, durable=true, 401/404 or an empty/reset
 runtime store never authorizes another POST under this or a new key.
+
+After pin-to-worker crash, the recovery loop reads the original native run; it
+does not open a replacement event stream. A valid terminal GET atomically settles
+run/delivery/optional assistant. Running/waiting/stopping, including drained
+agents, remain observed; invalid status or lost runtime retains capacity. Missing
+native tool/approval history is not reconstructed. Runtime completion is not a
+safe process-tree stop or a Tracker stage receipt.
 
 ## Managed settings restart
 
