@@ -2748,6 +2748,13 @@ impl FleetRepository for PostgresFleetRepository {
         hermes_dispatch_journal::get(self, message_id).await
     }
 
+    async fn get_hermes_dispatch_intent_for_run(
+        &self,
+        run_id: Uuid,
+    ) -> Result<Option<app::HermesDispatchIntent>, AppError> {
+        hermes_dispatch_journal::get_for_run(self, run_id).await
+    }
+
     async fn list_prepared_hermes_dispatches(
         &self,
         after: Option<Uuid>,

@@ -155,8 +155,11 @@ Session control:
   proof keep the run waiting and capacity held. PM also matches the acknowledged
   effective session. These observations do not prove process-tree quiescence or
   successful Workflow/Tracker completion; see [runtime boundaries](../RUNTIME.md).
-- Fleet forwards run controls to `/v1/runs/{run_id}/steer`,
-  `/v1/runs/{run_id}/stop` and `/v1/runs/{run_id}/approval`.
+- Fleet forwards verified controls to `/v1/runs/{run_id}/steer` and
+  `/v1/runs/{run_id}/stop` under the [bounded consumer profile](HERMES_RUN_CONTROL_V1.md).
+  Original accepted journal and pinned native status are mandatory; ACK is not
+  terminal or safe-stop proof. The retired run-wide approval adapter method fails
+  closed. Only exact targeted human decisions use `/v1/runs/{run_id}/approval`.
 - For executor sessions, the runtime dispatch target is the primary executor
   even when the mirrored message author is the selected leader.
 - Fleet must not write directly into Hermes SessionDB.

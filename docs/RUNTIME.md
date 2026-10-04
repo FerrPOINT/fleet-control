@@ -1,5 +1,17 @@
 # Runtime
 
+## Native Run Controls
+
+The [control profile](contracts/HERMES_RUN_CONTROL_V1.md) separates acknowledgement
+from terminal proof. Stop/steer require fresh Fleet/native identity, original
+accepted journal/origin/credential context and advertised native capabilities.
+HTTP200 JSON acknowledgements are bounded to64KiB/ten seconds; invalid/unknown
+outcomes never retry or release capacity. Steer does not write running over a
+concurrent state; stop ACK only sets stopping. A terminal race leaves final
+mirror/commit to readback. Run-wide approval is retired inside the adapter too;
+exact human decisions remain a separate flow. Command receipt/reconciliation,
+native approval/replay and safe process-tree stop remain release gates.
+
 ## Bounded Hermes Stream
 
 The [event-stream consumer profile](contracts/HERMES_EVENT_STREAM_V1.md) defines

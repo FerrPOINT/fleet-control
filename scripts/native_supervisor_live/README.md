@@ -44,6 +44,16 @@ Secrets and the synthetic prompt remain inside QA tmpfs; observations contain
 only operation kind, hashes/IDs and lookup hold state. The fault plugin is not
 installed in any accepted runtime or Base production plugin.
 
+## Native Run Controls
+
+`--scenario controls` selects the real AIAgent steer/stop case. A loopback model
+barrier keeps one original inference active while Fleet verifies native
+capabilities/run/session and sends steer, then stop. Native status must record
+the steer; interrupt ACK cannot become completed or an assistant result. After
+the barrier releases, native terminal readback must retain the original journal
+and run, with one inference and rejected late steer. This is not approval/tool
+replay, per-command recovery, a task stage receipt or OS-descendant safe stop.
+
 ## Prerequisites
 
 - Clean Hermes source at `bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3`.

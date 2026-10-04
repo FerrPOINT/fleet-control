@@ -41,8 +41,8 @@ def archive(name, symlink=False):
 
 class SafetyTests(unittest.TestCase):
     def test_scenarios_select_distinct_exact_tests(self):
-        self.assertEqual(set(runner.TEST_NAMES), {'lifecycle', 'recovery'})
-        self.assertEqual(len(set(runner.TEST_NAMES.values())), 2)
+        self.assertEqual(set(runner.TEST_NAMES), {'lifecycle', 'recovery', 'controls'})
+        self.assertEqual(len(set(runner.TEST_NAMES.values())), 3)
         self.assertTrue(all(name.startswith('managed_native_') for name in runner.TEST_NAMES.values()))
 
     def test_recovery_requires_complete_committed_inventory(self):

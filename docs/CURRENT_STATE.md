@@ -5,6 +5,15 @@ blocked until cross-service assignment/workflow/deployment contracts are verifie
 See [SDLC implementation](SDLC_IMPLEMENTATION.md). The baseline feature/gate lists
 below are historical, not acceptance evidence for the new SDLC plan.
 
+Hermes free-chat steer/stop now require original accepted journal context, fresh
+capabilities and pinned native GET before a bounded exact ACK. Guidance does not
+reset concurrent run state; interrupt only requests stopping. Legacy run-wide
+approval is denied at the adapter too. Linux/PG358 component cases and a separate
+real AIAgent control case pass; see the
+[control profile](contracts/HERMES_RUN_CONTROL_V1.md). Durable control-command
+receipts/readback, task admission, native approval acceptance and safe OS
+descendant stop remain unverified release requirements.
+
 The native Hermes stream consumer now has bounded incremental byte framing,
 strict JSON and original run identity, fixed assembly/idle/lifetime deadlines,
 traffic/text/snapshot budgets and no incomplete EOF dispatch. Empty transport

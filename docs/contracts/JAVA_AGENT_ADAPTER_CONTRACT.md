@@ -1,5 +1,10 @@
 # Java Agent Adapter Contract
 
+The [Hermes control profile](HERMES_RUN_CONTROL_V1.md) introduces no Java
+chat/control capability. Java lifecycle remains available; its run steer/stop
+remain typed phase-2 failures. The retired run-wide approval path is rejected
+for every runtime; only separately supported exact request decisions apply.
+
 Hermes prepared-dispatch restart recovery is exclusive to its exact free-chat
 journals and native protocol. It adds no Java admission, chat/control, config
 activation or recovery operations; existing Java lifecycle remains unchanged.

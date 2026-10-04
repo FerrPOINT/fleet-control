@@ -47,6 +47,9 @@ mod runtime_prepared_recovery;
 #[path = "support/runtime_stream_bounds.rs"]
 mod runtime_stream_bounds;
 
+#[path = "support/runtime_run_control.rs"]
+mod runtime_run_control;
+
 #[path = "support/hermes_dispatch_journal.rs"]
 mod hermes_dispatch_journal;
 

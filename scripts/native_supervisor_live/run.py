@@ -18,6 +18,7 @@ TASK = 'fleet-native-supervisor'
 TEST_NAMES = {
     'lifecycle':'managed_native_gateway_isolates_home_soul_messages_and_restart_history',
     'recovery':'managed_native_lost_ack_recovers_original_run_across_fleet_processes',
+    'controls':'managed_native_run_steer_and_stop_require_native_ack_and_terminal_readback',
 }
 PLUGIN_FILES = ('__init__.py', 'plugin.py', 'store.py', 'plugin.yaml')
 

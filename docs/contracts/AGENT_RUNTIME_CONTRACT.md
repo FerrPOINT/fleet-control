@@ -1,5 +1,13 @@
 # Agent Runtime Contract
 
+Hermes steer/stop use the original accepted dispatch context, fresh capabilities
+and pinned native status under the [control profile](HERMES_RUN_CONTROL_V1.md).
+Only an exact bounded ACK is accepted. Guidance never resets local run state;
+interrupt ACK can mark stopping, not terminal success or capacity release.
+Task-bound control admission and durable command-outcome reconciliation remain
+separate gates. Legacy run-wide approval is denied inside the adapter as well
+as HTTP; exact human request decisions remain the only approval path.
+
 Hermes stream parsing has a separate bounded
 [consumer profile](HERMES_EVENT_STREAM_V1.md). Failure retains accepted identity
 and capacity; partial EOF does not dispatch a terminal event. This adds no Java

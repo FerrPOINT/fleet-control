@@ -161,6 +161,14 @@ pub trait FleetRepository: Send + Sync {
             "Hermes dispatch journal is unavailable".into(),
         ))
     }
+    async fn get_hermes_dispatch_intent_for_run(
+        &self,
+        _run_id: Uuid,
+    ) -> Result<Option<HermesDispatchIntent>, AppError> {
+        Err(AppError::Unavailable(
+            "Hermes dispatch journal is unavailable".into(),
+        ))
+    }
     /// Initial submissions only; submitted/legacy/task records must never enter this queue.
     async fn list_prepared_hermes_dispatches(
         &self,

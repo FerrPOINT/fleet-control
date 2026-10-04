@@ -28,6 +28,7 @@ use uuid::Uuid;
 #[derive(Default)]
 struct Model {
     requests: Mutex<HashMap<String, Vec<String>>>,
+    control_release: tokio::sync::Notify,
 }
 
 async fn inference(State(model): State<Arc<Model>>, Json(body): Json<Value>) -> Response {
@@ -53,6 +54,9 @@ async fn inference(State(model): State<Arc<Model>>, Json(body): Json<Value>) -> 
         .entry(prompt.clone())
         .or_default()
         .push(system);
+    if prompt.starts_with("managed-control-prompt-") {
+        model.control_release.notified().await;
+    }
     if body["stream"] == true {
         let chunk = json!({"id":"chatcmpl-managed-local","object":"chat.completion.chunk",
             "created":1,"model":"fleet-managed-local-model","choices":[{"index":0,
@@ -897,5 +901,205 @@ async fn managed_native_lost_ack_recovers_original_run_across_fleet_processes() 
     println!(
         "Managed native lost-ACK recovery passed: Fleet PIDs {} -> {}, native run {}, one POST/inference/assistant, immutable journal, original-key lookup, no SSE or redispatch. Orphan gateway cleanup is Compose-owned, not safe-stop attestation. No task/PM admission.",
         state["pid"], recovered["pid"], state["native_run_id"]
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires exact native Hermes image and disposable owned PostgreSQL/agent roots"]
+async fn managed_native_run_steer_and_stop_require_native_ack_and_terminal_readback() {
+    let db = native_database().await;
+    let owner = Uuid::new_v4();
+    db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "INSERT INTO users(id,email,username,display_name,password_hash,is_system_admin,system_role)
+         VALUES($1,$2,$3,'Native controls owner','disabled',false,'user')",
+        [owner.into(),format!("{owner}@example.test").into(),owner.to_string().into()])).await.unwrap();
+    let repo = Arc::new(PostgresFleetRepository::new(db));
+    repo.ensure_runtime_templates().await.unwrap();
+    let model = Arc::new(Model::default());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let router = Router::new().route("/v1/chat/completions",post(inference))
+        .route("/v1/models",get(|| async { Json(json!({"object":"list","data":[{"id":"fleet-managed-local-model","object":"model"}]})) }))
+        .with_state(model.clone());
+    let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+    let mut config = AppConfig::default();
+    config.fleet.agents_root = "/tmp/fleet-native-supervisor/control-agents".into();
+    config.fleet.hermes_source = "/opt/hermes".into();
+    config.fleet.hermes_command = "/opt/fleet-hermes/bin/hermes".into();
+    config.fleet.runtime_token_secret = format!("owned-native-controls-{}", Uuid::new_v4());
+    config.fleet.agent_port_base = 29300;
+    config.fleet.agent_port_stride = 5;
+    config.fleet.project_workflow_url = None;
+    let config = Arc::new(config);
+    let (events, _) = tokio::sync::broadcast::channel(32);
+    let runtime = LocalRuntimeSupervisor::new(config.clone(), repo.clone(), events);
+    let agent = create_agent(&repo, &config, "Native control agent").await;
+    activate(
+        &repo,
+        agent.id,
+        owner,
+        configuration(port, "FLEET_NATIVE_CONTROL_SOUL"),
+    )
+    .await;
+    assert_eq!(
+        runtime.start(&agent).await.unwrap().status,
+        AgentStatus::Running
+    );
+    let prompt = format!("managed-control-prompt-{}", Uuid::new_v4());
+    let session = repo
+        .create_session(
+            CreateSessionRequest {
+                primary_agent_id: Some(agent.id),
+                agent_id: None,
+                title: "Native controls".into(),
+                task_key: None,
+                leader_agent_id: None,
+                parent_session_id: None,
+                namespace_id: None,
+                idempotency_key: Some(Uuid::new_v4().to_string()),
+            },
+            owner,
+        )
+        .await
+        .unwrap();
+    let message = repo
+        .create_session_message(
+            session.id,
+            CreateSessionMessageRequest {
+                body: prompt.clone(),
+                author_agent_id: None,
+                message_kind: Some(MessageKind::UserPrompt),
+                runtime_message_id: None,
+                idempotency_key: Some(Uuid::new_v4().to_string()),
+            },
+            owner,
+        )
+        .await
+        .unwrap();
+    let run = timeout(Duration::from_secs(90), async {
+        loop {
+            let runs = repo.list_session_agent_runs(session.id).await.unwrap();
+            assert_eq!(runs.len(), 1);
+            if runs[0].state == SessionRunState::Running
+                && model.requests.lock().await.contains_key(&prompt)
+            {
+                break runs[0].clone();
+            }
+            assert!(!matches!(
+                runs[0].state,
+                SessionRunState::Completed | SessionRunState::Failed | SessionRunState::Cancelled
+            ));
+            sleep(Duration::from_millis(100)).await;
+        }
+    })
+    .await
+    .expect("native model barrier/pinned running run not observed");
+    let before = repo
+        .get_hermes_dispatch_intent(message.id)
+        .await
+        .unwrap()
+        .unwrap();
+    let steered = runtime
+        .steer_run(
+            &agent,
+            &run,
+            domain::SteerSessionRunRequest {
+                input: "Keep this synthetic QA scope.".into(),
+            },
+        )
+        .await
+        .unwrap();
+    assert!(steered.accepted);
+    assert_eq!(steered.state, SessionRunState::Running);
+    let client = reqwest::Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(5))
+        .build()
+        .unwrap();
+    let status: Value = client
+        .get(format!(
+            "http://127.0.0.1:{}/v1/runs/{}",
+            agent.api_port.unwrap(),
+            run.runtime_run_id.as_deref().unwrap()
+        ))
+        .bearer_auth(infra::agent_runtime_token(&config, agent.id).unwrap())
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(status["last_event"], "run.steered");
+    assert_eq!(
+        status["session_id"],
+        run.runtime_session_id.as_deref().unwrap()
+    );
+    let stopped = runtime.stop_run(&agent, &run).await.unwrap();
+    assert!(stopped.accepted);
+    assert_ne!(stopped.state, SessionRunState::Completed);
+    assert!(
+        repo.list_session_messages(session.id)
+            .await
+            .unwrap()
+            .iter()
+            .all(|m| m.message_kind != MessageKind::AssistantMessage)
+    );
+    model.control_release.notify_one();
+    let finished = timeout(Duration::from_secs(90), async {
+        loop {
+            let current = repo.get_session_agent_run(run.id).await.unwrap();
+            assert_ne!(
+                current.state,
+                SessionRunState::Completed,
+                "interrupted native run cannot complete SDLC"
+            );
+            if matches!(
+                current.state,
+                SessionRunState::Failed | SessionRunState::Cancelled
+            ) {
+                break current;
+            }
+            sleep(Duration::from_millis(100)).await;
+        }
+    })
+    .await
+    .expect("native stop terminal readback did not finish");
+    assert_eq!(finished.runtime_run_id, run.runtime_run_id);
+    let after = repo
+        .get_hermes_dispatch_intent(message.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(dispatch_snapshot(&after), dispatch_snapshot(&before));
+    assert_eq!(
+        repo.list_session_agent_runs(session.id)
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(model.requests.lock().await.get(&prompt).unwrap().len(), 1);
+    assert!(
+        runtime
+            .steer_run(
+                &agent,
+                &run,
+                domain::SteerSessionRunRequest {
+                    input: "late guidance must fail".into()
+                }
+            )
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        runtime.stop(&agent).await.unwrap().status,
+        AgentStatus::Stopped
+    );
+    server.abort();
+    let _ = server.await;
+    println!(
+        "Managed native controls passed: real AIAgent steer ACK/status, interrupt ACK separated from terminal, same journal/run, one inference, no false completed state, late steer denied. No approval, OS-descendant safe-stop or task/PM admission proof."
     );
 }

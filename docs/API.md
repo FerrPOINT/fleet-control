@@ -1,5 +1,14 @@
 # API
 
+Hermes free-chat stop/steer now require current pinned identity, original accepted
+journal/context, fresh exact capabilities and native status readback before POST.
+Pending/terminal/stale/legacy context does not authorize control; task controls
+remain fail-closed until admission is integrated. ACK requires bounded HTTP200
+JSON and the original native run. A stop ACK means only interrupt requested;
+steer ACK cannot reset a concurrent waiting/stopping/terminal state. Invalid or
+unknown acceptance returns an error without retry or capacity release. There is
+no new public DTO/route/migration; see [consumer profile](contracts/HERMES_RUN_CONTROL_V1.md).
+
 The internal Hermes stream consumer now enforces the
 [bounded event profile](contracts/HERMES_EVENT_STREAM_V1.md). Every JSON data
 event must name the original accepted run. Stream retirement retains capacity
@@ -61,6 +70,8 @@ History remains readable. No operator "retry unknown" API is available; see
 - Reservation and audit commit before HTTP. An identical replay returns the same decision without another runtime call; a changed actor, key or choice returns `409`. Hermes must acknowledge the exact run/request/choice and exactly one resolution before `delivered` is stored.
 - `uncertain` is not success or rejection. It survives process restart and blocks a new command for that request. Do not retry dispatch when the runtime outcome is unknown. Readback is safe; operator reconciliation still needs independent evidence.
 - The legacy run-wide `/runs/{run_id}/approval` route returns `409`: broad `always`, session grants and `resolve_all` are not available in Fleet. Existing transcript routes remain supported.
+- The runtime adapter also rejects the retired run-wide approval method; internal
+  callers cannot bypass the exact-request decision flow.
 
 These runtime requests are separate from Tracker clarification answers and exact-revision requirements confirmation.
 

@@ -1354,3 +1354,126 @@ unchanged read-only prerequisites; reserved assignments still forbid dispatch.
 Fleet PR47 remains Draft938b4ed; Base PR140 ready177edb8 has six successful CI
 checks but is not merged/installed. Migration/release order and exact-head CI
 remain gates; dirty candidate source evidence is not release certification.
+
+## Native Run Control Hardening (4 October 2026)
+
+Production steer/stop no longer accept arbitrary2xx/JSON or a caller-only run
+context. `run_control` observes the original accepted journal by its indexed
+unique run ID, verifies original bytes/key/origin/credential fingerprint and the
+live native session, probes exact advertised capabilities and performs bounded
+GET before POST. ACK requires HTTP200/JSON/identity encoding, at most64KiB and a
+ten-second request/body deadline. No automatic retry or arbitrary upstream body
+is exposed. Task-bound controls fail closed until verified control admission.
+
+Steer reads current Fleet state after ACK and never writes running over a
+concurrent waiting/stopping/terminal transition. Stop ACK may persist stopping,
+not completion or capacity release. A full native terminal race ACK requires the
+original run/session and validated flags; independent terminal mirror commit is
+still required. Run-wide approval is now denied inside the adapter too, not only
+the public route. Exact human request decisions retain their separate flow.
+See [consumer profile](contracts/HERMES_RUN_CONTROL_V1.md).
+
+Component exec78862 exited0, owned project
+`sdlc-qa-fleet-controls-724c553b33bc`, Linux/Rust1.88/PostgreSQL17.6:
+208 workspace lib cases,146 foundation cases, one authenticated approval SSE
+case and three migration cases =358 distinct PASS. The ignored renderer case is
+not counted. All-target check, strict workspace/all-target Clippy, fmt and Rust
+OpenAPI byte equality pass. No public DTO/client/new migration changed.
+Log `C:/git/azhukov/sdlc/.local/pdlc-implementation/sdlc-qa-fleet-controls-724c553b33bc.log`
+SHA256 `67797fac28e5e7430c640023f4165057b3050ee476a10e9ad3a237cf14a9167e`.
+The own Compose project was removed in finally without deleting shared caches.
+
+Seven new PG/HTTP scenarios cover concurrent waiting after steer, stop-only
+stopping/capacity hold, invalid ACK identity/MIME/encoding/202/oversize, actual
+timeout without retry, foreign native session/stale original context before POST,
+full terminal stop race without invented mirror, and legacy run-wide approval
+denial before HTTP. Three unit cases separately validate ACK shapes and flags.
+Fake-runtime tests prove consumer failures, not native behavior.
+
+The seven executed component source hashes are:
+
+| Source | SHA256 |
+| --- | --- |
+| `backend/app/src/lib.rs` | `fbf21c78ad3f02eb68ade2fe1b2eb1cc71cd9baac205b08ebe60865101f66340` |
+| `backend/infra/src/lib.rs` | `e1e822622d7f7420c9015d7f28c06674de46fb3572b8bfc64566217765e71656` |
+| `hermes_dispatch_journal.rs` | `d5bf1c9edbdab480a8949a2fd1419c8c24fe467b4d9d36be698abcb2ee77438c` |
+| `runtime/mod.rs` | `632d0fe68f9e322cd64f6cc1a085e67e62c63ee3a8339becc12e507000b2de57` |
+| `runtime/run_control.rs` | `a73c3ab54908df7da5b1d636f1412a3b0e191fe3a22bbfc1c4ad383851303dd7` |
+| `sdlc_foundation.rs` | `2e2ef77186c08b8212f262990d2973d67a738128de553fe7f6c590ba50e687d3` |
+| `support/runtime_run_control.rs` | `2d31b7e37228d086233ac29177a58d2d4acfa505b5017a10ce29deedbfd1bd97` |
+
+Native exec60198 exited0, `sdlc-qa-fleet-native-9063c06ac6f8`: one exact named
+real-AIAgent steer/stop test PASS16.34s, zero failed/ignored. Actual Fleet
+configuration activation, supervisor and prompt outbox dispatch one run; only
+the loopback model is deterministic. A model barrier holds inference while
+authenticated native status records the real steer. Interrupt ACK is distinct
+from terminal outcome; after release, the same run ends failed/cancelled, never
+completed. Original journal and single inference remain, late steer is denied.
+This is not a targeted approval, guidance-consumption/model-quality, safe OS
+descendant stop or task/PM admission test.
+
+Evidence directory:
+`tmp/native-supervisor-live/sdlc-qa-fleet-native-9063c06ac6f8-nqbojlgp/`.
+Native log SHA256 `20fd6aa6b39b0def552494c91974ec3478400bb641cdcb8e7f604828ab44fbb4`;
+build log `69ab0fb39531d622b90a03d1b8bc5975e1a847d9bbc70bc7cf5d4508ba15733b`;
+evidence JSON `65ce9d9ad32062814435aa22454b0c5d03fd061572d4b7ab940e133f2b3a3cfd`.
+Binary `fa31bba2df225fc3d48359056933f7d38d68dd6c4ed8bb3707216ded22bc0ed8`;
+native test source `de89d8134ab31a48edf2aadd16cb4a80a9b730a0239bf2762b3670c8b5c79f60`;
+runner `56ae2f2fc4ad2995842f90259abf4abfeb0f3d9333758f16db067aa59d9d08eb`.
+The existing build/native/preflight/fault fixture hashes are unchanged from the
+previous section. Build gates include native-target strict Clippy and all-target
+check. Cleanup0, independent post-cleanup ps empty, both unique QA tags removed.
+
+Clean Hermes bbaf7af5,13770 source byte hashes/archive571fba49, non-root dependency
+image aeb97055, SDK9408802 and committed Base launcher/plugin bytes are unchanged.
+The launcher is read from Base10f2a428 Git, not worktree files. Reproduce the
+native supervisor README command with `--scenario controls`. Dirty worktree
+source evidence does not certify a published exact head or installed runtime.
+
+Durable control-command idempotency/receipts, unknown control acceptance readback,
+missed tools/approvals, running/native-crash recovery, safe descendants, complete
+loaded inventory, task first-step admission/PM tools/resume, Forge handoff and
+seven-agent SDLC remain requirements. Tracker af6ed1e and Workflow2d79461 remain
+read-only producers with dispatchfalse. PR47 remains Draft938b4ed; PR140 remains
+ready177edb8 with six successful CI checks, not merged/installed. Migration10/11
+before12, release partition and exact-head CI remain gates. Component/native
+success does not make the full task merge-ready.
+
+Final sibling native executions use the same binary/source/runner hashes above:
+
+| Scenario | Exact execution / result | Native / build / evidence JSON SHA256 |
+| --- | --- | --- |
+| Lifecycle | exec67340, project `sdlc-qa-fleet-native-bb91f91cbeb0`, one case PASS51.03s | `223d177006a482c66cc23153bd228bbf457cefb28db1759199cb9ac94bbaed9f` / `d28a60f8849cfc8c464360c0b21e4faf1f4a2503ca8e1fc07ef75eae24e4d9c5` / `cb13b22c7894382c69c045d4a0748293d4dbb84f14032d8227e91b9800a1a77e` |
+| Lost-ACK recovery | exec94323, project `sdlc-qa-fleet-native-5fba8e950267`, one case PASS28.73s | `4b470d015a084e39cec80aa192d110ba402ba0fcfe264fc52ceb41ee5ac9be71` / `9ac5ff1b1b47615b669f17c811e7ec8aedfb967d4d7e80b7c767d9226f259e8b` / `ff06b10e8166955885040bfc0db8ea5aac60023f9f07d8f353b8559b0582d891` |
+
+Evidence directories end `bb91f91cbeb0-2pthn5l_` and `5fba8e950267-zd5dixar`
+under the native supervisor artifacts root. Both execs exit0, zero failed/ignored,
+verify13770 source files and finally cleanup0/empty ps/own QA tags absent. Recovery
+also verifies exactly four Base plugin files and restores
+`run_523f3751637045d0b009f578e69ecf20` across Fleet PID27 ->64, one original
+POST/inference/assistant without native SSE. Nested child test banners are not
+extra cases. These are three distinct native cases including controls, not
+installed HTTP/auth/UI or running/native-crash recovery acceptance.
+
+Final Node22 typecheck/OpenAPI drift,135 screenshot manifest hashes and nine
+controller fixture hashes PASS, without UI changes or recapture. Sixteen native
+harness,15 protocol harness and three README validator unit cases PASS;
+README validation and106 Markdown links PASS. Fresh Docker audit is complete:
+desktop77, both runners0, violations=[]. Other tasks' containers/caches and
+accepted volumes/images/secrets remain untouched.
+
+The24-file scoped heuristic secret scan returns one generic-secret match in
+`backend/infra/src/lib.rs`, inside the existing
+`streaming_redaction_withholds_split_credentials` unit test. Its literal exists
+unchanged in HEAD fa91b77; the current lib diff only adds the repository method.
+This is a reviewed baseline synthetic redaction fixture, not a new credential.
+No scan rule/allowlist or fixture bytes were weakened to obtain zero. The raw
+scanner exit1 is retained; this disposition is not a zero-findings scan or
+DLP/history certification. Production source hashes therefore remain exactly
+those exercised by the358-case gate.
+
+All seven staged component blobs and staged native test/runner match the executed
+hashes above. Final host test source SHA256 is
+`91cbaa79dd3d95e63e209d7f363b301bff4dbc37fe225c8f506836aa34ebdfc3`.
+This byte comparison prevents CRLF normalization from silently publishing
+different code; it does not substitute for exact published-head CI.

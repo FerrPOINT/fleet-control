@@ -1,5 +1,12 @@
 # Data Model
 
+Native free-chat stop/steer read the existing accepted dispatch journal by concrete
+Fleet run ID; the receipt/live run are observed together. This adds no table,
+migration, public DTO or key renewal. Control ACK is not a new terminal proof or
+capacity release. Steer preserves current state; stopping remains nonterminal.
+Legacy run-wide approval has no adapter bypass. See the
+[run-control profile](contracts/HERMES_RUN_CONTROL_V1.md).
+
 Hermes stream resource accounting is per worker and adds no schema or migration.
 The [consumer profile](contracts/HERMES_EVENT_STREAM_V1.md) bounds received
 frames, text and emitted full-text delta snapshots before the next write.
