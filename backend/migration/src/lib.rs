@@ -12,6 +12,7 @@ mod m20260930_000009_product_deployments;
 mod m20261001_000009_sdlc_foundation;
 mod m20261001_000010_task_chats;
 mod m20261004_000011_pm_credentials;
+mod m20261004_000012_hermes_dispatch_journal;
 
 pub struct Migrator;
 
@@ -31,6 +32,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261001_000009_sdlc_foundation::Migration),
             Box::new(m20261001_000010_task_chats::Migration),
             Box::new(m20261004_000011_pm_credentials::Migration),
+            Box::new(m20261004_000012_hermes_dispatch_journal::Migration),
         ]
     }
 }

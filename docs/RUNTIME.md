@@ -33,19 +33,30 @@ Hermes:
 - Runtime controls use `/steer`, `/stop` and `/approval` endpoints when the
   capability matrix allows them.
 - Dashboard is an operator link, not the write channel for messages.
-- When the Hermes API is unreachable and this supervisor has no tracked child,
-  health marks the runtime stopped while retaining its desired state. An agent
-  whose desired state is running is then restarted by the reconciler. A tracked
-  process with an unhealthy API remains degraded and is probed again.
+- An unavailable API does not prove an untracked runtime exited. Tracked or
+  unconfirmed active/PID/desired-running state remains degraded with ownership
+  metadata preserved. Stop/restart cannot replace it without proof. Only an
+  already inactive observation can remain stopped; HTTP health is not quiescence.
 - Prompt outbox is transactional. Unknown POST acceptance is not automatically
   retried; the agent remains occupied pending reconciliation.
+- Free-chat submission now requires fresh durable wire capabilities and the
+  private immutable journal described in the
+  [data model](DATA_MODEL.md#hermes-dispatch-journal). Concrete run reservation
+  and exact request/key/origin/default-profile credential fingerprint commit
+  together, then a one-winner submission permit commits before HTTP. The client
+  sends saved bytes, not reconstructed prompt/model/options. An unknown response
+  keeps pending delivery with an error; neither the original key nor the fixed
+  recovery horizon permits another POST. Prepared-intent recovery, unknown-key
+  positive lookup and operator reconciliation still require implementation.
 - A verified HTTP 202 in a free chat now commits the run ID, prompt delivery and
   outbox acceptance together before any status GET. The run remains `pending`
   until an authenticated, bounded status read identifies its effective Hermes
   session; the requested `fleet:<session>:<agent>` alias is not that proof.
   Readback failure retains this ACK and agent capacity. A bounded keyset worker
-  retries only GET for accepted-but-unpinned runs, including after Fleet restart;
-  it never submits a prompt. The first transactional session pin starts the
+  retries only GET for journal-backed accepted-but-unpinned runs, including after
+  Fleet restart; original origin/fingerprint must match before HTTP. Legacy ACKs
+  without that proof retain history/capacity but are not automatically probed.
+  It never submits a prompt. The first transactional session pin starts the
   stream; identical concurrent pins do not start another worker. Effective
   session and runtime run IDs are immutable, and late generic updates cannot
   regress a terminal state. EOF status must also match that pinned session.
@@ -60,8 +71,10 @@ Hermes:
   this free-chat recovery path. Source tests and live acceptance are recorded
   separately in the verification ledger. A crash before ACK commit, after pin
   but before stream startup, or an unknown run ID still needs further durable
-  recovery; this change does not implement exact-request/fingerprint journaling,
-  retention-safe redispatch or process-tree quiescence.
+  recovery. The journal preserves evidence without implementing unknown-key
+  recovery, retention-safe redispatch or process-tree quiescence. Native caps
+  have no store epoch and even a new empty SQLite can advertise durable=true;
+  a missing record/404 is not permission to recreate a run.
 - The managed HTTP client disables implicit retries, redirects and environment
   proxies. Run submission accepts only HTTP 202 with a safe opaque `run_id`, a
   boolean `replayed` and a known `status`; a new run must say `started`. A replay
@@ -149,7 +162,7 @@ native acceptance, `runtime_ready` или SDLC admission.
 проверяет настоящий API adapter/AIAgent/SQLite с локальной моделью, dropped ACK
 и process crash. Он не запускает этот wrapper или полный gateway runner и не
 закрывает dotenv precedence, managed lifecycle, native config/tool attestation
-или Fleet unknown-dispatch journal.
+или production Fleet journal/unknown-acceptance recovery.
 
 ## Java Agent
 

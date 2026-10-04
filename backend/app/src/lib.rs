@@ -90,8 +90,64 @@ pub struct RuntimeSessionSnapshot {
     pub updated_at: Option<chrono::DateTime<chrono::FixedOffset>>,
 }
 
+/// Private dispatcher input; prompt and credential fingerprint must not enter public/log DTOs.
+#[derive(Clone)]
+pub struct HermesDispatchDraft {
+    pub message_id: Uuid,
+    pub session_id: Uuid,
+    pub agent_id: Uuid,
+    pub run_role: SessionRunRole,
+    pub requested_session_id: String,
+    pub input: String,
+    pub origin: String,
+    pub credential_fingerprint: String,
+    pub capabilities: serde_json::Value,
+}
+
+/// Original exact request, not permission to retry a submitted or accepted POST.
+pub struct HermesDispatchIntent {
+    pub message_id: Uuid,
+    pub run: SessionAgentRun,
+    pub request_body: String,
+    pub request_hash: String,
+    pub idempotency_key: String,
+    pub origin: String,
+    pub credential_fingerprint: String,
+    pub capabilities: serde_json::Value,
+    pub state: String,
+    pub submission_attempted: bool,
+    pub submitted_at: Option<shared::Timestamp>,
+    pub recovery_deadline: shared::Timestamp,
+}
+
 #[async_trait]
 pub trait FleetRepository: Send + Sync {
+    async fn prepare_hermes_dispatch(
+        &self,
+        _draft: HermesDispatchDraft,
+    ) -> Result<HermesDispatchIntent, AppError> {
+        Err(AppError::Unavailable(
+            "Hermes dispatch journal is unavailable".into(),
+        ))
+    }
+    async fn claim_hermes_submission(
+        &self,
+        _message_id: Uuid,
+        _origin: String,
+        _credential_fingerprint: String,
+    ) -> Result<Option<HermesDispatchIntent>, AppError> {
+        Err(AppError::Unavailable(
+            "Hermes dispatch journal is unavailable".into(),
+        ))
+    }
+    async fn get_hermes_dispatch_intent(
+        &self,
+        _message_id: Uuid,
+    ) -> Result<Option<HermesDispatchIntent>, AppError> {
+        Err(AppError::Unavailable(
+            "Hermes dispatch journal is unavailable".into(),
+        ))
+    }
     async fn reserve_pm_draft_operation(
         &self,
         _operation: domain::PmDraftOperation,

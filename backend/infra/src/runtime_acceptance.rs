@@ -19,6 +19,28 @@ pub(super) async fn accept(
         .ok_or_else(|| AppError::not_found("session_message", message_id))?;
     let outbox = locked_outbox(&txn, message_id).await?;
     validate_message(&run, &message, &outbox)?;
+    let intent = txn
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT run_id,state FROM hermes_dispatch_journal WHERE message_id=$1 FOR UPDATE",
+            [message_id.into()],
+        ))
+        .await
+        .map_err(|_| AppError::Database("Hermes acceptance journal is unavailable".into()))?;
+    if let Some(intent) = &intent {
+        let journal_run: Uuid = intent.try_get("", "run_id").map_err(AppError::database)?;
+        let state: String = intent.try_get("", "state").map_err(AppError::database)?;
+        let expected = if run.runtime_run_id.is_some() {
+            "accepted"
+        } else {
+            "submitted"
+        };
+        if journal_run != run_id || state != expected {
+            return Err(AppError::conflict(
+                "Hermes ACK does not match its submission journal",
+            ));
+        }
+    }
     if let Some(previous) = &run.runtime_run_id {
         if previous != &runtime_run_id
             || message.runtime_message_id.as_deref() != Some(runtime_run_id.as_str())
@@ -74,6 +96,11 @@ pub(super) async fn accept(
     txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "UPDATE message_dispatch_outbox SET state='dispatched',last_error=NULL,updated_at=now() WHERE message_id=$1",
         [message_id.into()])).await.map_err(AppError::database)?;
+    if intent.is_some() {
+        txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "UPDATE hermes_dispatch_journal SET state='accepted',accepted_at=clock_timestamp() WHERE message_id=$1",
+            [message_id.into()])).await.map_err(|_| AppError::Database("Hermes acceptance journal update failed".into()))?;
+    }
     txn.commit().await.map_err(AppError::database)?;
     session_run_from_model(&repo.db, updated).await
 }

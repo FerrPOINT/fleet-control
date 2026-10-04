@@ -140,8 +140,16 @@ authenticated GET only. The requested alias is replaced once by the actual
 status document's session ID; concurrent identical pins have one stream-start
 winner. Task-bound and PM execution records are excluded, so this recovery does
 not bypass admission or authorize tools. An unknown run ID is never POSTed again.
-Exact request/fingerprint/horizon journaling, recovery after the pin-to-worker
-gap and authentic runtime acceptance remain separate implementation requirements.
+The additive private request/key/origin/default-profile fingerprint/horizon
+journal now reserves the concrete free-chat run atomically and consumes one
+submission permit before HTTP. ACK and journal progress commit together.
+Known-ID recovery requires its accepted journal and original context; legacy
+records without that proof remain held without HTTP. Unknown acceptance remains
+pending with an error and no repeated POST. This is not task admission, a
+prepared-intent recovery worker or unknown-key reconciliation. The native
+baseline has no non-dispatch HTTP key lookup/store epoch; durable=true and a
+retention deadline cannot prove SQLite continuity. Recovery after the pin-to-worker
+gap and authentic Fleet/native runtime acceptance remain implementation gates.
 
 The independent native protocol gate now verifies the pinned API/AIAgent/SQLite
 mechanism with a local model: actual dropped 202, concurrent same-key replay,

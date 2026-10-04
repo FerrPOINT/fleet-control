@@ -53,13 +53,21 @@ impl LocalRuntimeSupervisor {
             .runtime_run_id
             .as_deref()
             .ok_or_else(|| AppError::Unavailable("Hermes acceptance is unknown".into()))?;
-        let payload = hermes_wire::read_accepted_run(
-            &self.client,
-            &Self::hermes_base_url(agent)?,
-            &crate::agent_runtime_token(&self.config, agent.id)?,
-            runtime_run_id,
-        )
-        .await?;
+        let base = Self::hermes_base_url(agent)?;
+        let token = crate::agent_runtime_token(&self.config, agent.id)?;
+        let intent = self.repo.get_hermes_dispatch_intent(message.id).await?
+            .ok_or_else(|| AppError::Unavailable("Legacy Hermes acceptance has no original dispatch context; reconciliation is required".into()))?;
+        if intent.run.id != run.id
+            || intent.run.runtime_run_id.as_deref() != Some(runtime_run_id)
+            || intent.state != "accepted"
+        {
+            return Err(AppError::conflict(
+                "Hermes journal acceptance does not match",
+            ));
+        }
+        hermes_wire::verify_intent(&intent, &base, &token)?;
+        let payload =
+            hermes_wire::read_accepted_run(&self.client, &base, &token, runtime_run_id).await?;
         let effective = hermes_wire::effective_session(&payload, runtime_run_id)?;
         let (pinned, first) = self
             .repo

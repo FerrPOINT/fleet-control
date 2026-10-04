@@ -114,6 +114,18 @@ An `uncertain` dispatch may have been accepted by Hermes. Never automatically
 re-send it or clear its capacity hold. Investigate runtime session/run IDs and
 acceptance before recovery. EOF without a terminal status remains waiting.
 
+The private `hermes_dispatch_journal` distinguishes prepared intent from a
+consumed submission permit and accepted ACK. Do not copy its original prompt,
+request bytes/hash or credential fingerprint into support reports. Do not
+change state/key/origin/deadline, delete rows, rotate credentials as a retry
+workaround or downgrade a nonempty journal. Existing tokens need no DB backfill.
+Known accepted-but-unpinned recovery uses GET only after original-context checks;
+missing legacy journal or changed port/token retains history and capacity without
+HTTP. Unknown acceptance keeps pending delivery plus an error, not confirmed
+failure. Prepared-intent recovery and public operator reconciliation are not
+implemented yet. A retention margin, durable=true, 401/404 or an empty/reset
+runtime store never authorizes another POST under this or a new key.
+
 ## Managed settings restart
 
 `POST /api/v1/settings/managed/apply` and the rollback endpoint persist the

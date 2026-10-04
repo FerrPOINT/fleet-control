@@ -735,3 +735,68 @@ PM lifecycle. Exact request/scope/horizon journaling, pin-to-worker recovery,
 assignment admission/heartbeat/first step, structured PM tools/resume and Forge
 pipeline/deployment/acceptance remain required. Nothing was installed, pushed,
 merged or designated merge-ready by this component gate.
+
+## Original Hermes Dispatch Journal (4 October 2026)
+
+The production free-chat sender now atomically prepares immutable original bytes,
+SHA256, UUID idempotency key, concrete run/alias, loopback origin, default-profile
+credential fingerprint, bounded verified capabilities and a DB-clock retention
+horizon. A durable single-winner submission permit commits before HTTP. Verified
+ACK commits journal/run/message/outbox in the same transaction. Known-ID restart
+GET requires accepted original journal context; legacy or rotated/moved context
+does not initiate HTTP. Neither timeout nor unknown acceptance permits another POST.
+
+Final exec 46140 exited zero on Linux/Rust 1.88/PostgreSQL 17.6: 179 workspace
+library + 102 foundation PG/HTTP + one authenticated approval SSE + three
+isolated migration cases = 285 distinct PASS. All-target check/strict Clippy,
+fmt and Rust-generated OpenAPI equality passed. Migration 000012 is additive;
+pending, accepted-unpinned and completed legacy runs/messages/outboxes remain
+byte-equivalent across upgrade/empty downgrade/reapply. Nonempty journal
+downgrade is refused. Older migration regressions now locate their own migration
+by name instead of assuming that it is the newest one.
+
+Fifteen new journal PG cases cover concurrent prepare/one-winner claim, exact
+model/options bytes, rollback, scope/payload conflicts, capability/drain/capacity/
+task-PM denial, horizon/tamper/delete guards, legacy leader envelopes, terminal
+ACK replay and sanitized SQL diagnostics. Independent source review found a
+late-error race: prepared classification could precede a concurrent submitted
+commit. Classification now reads current journal under message lock; the stale
+sender read is removed. The regression commits submitted before late Failed,
+keeps delivery pending, accepts the actual ACK and preserves it after another
+late error. Counter-review found no remaining actionable P1/P2 in this correction.
+
+Controlled HTTP inspects the committed journal before POST and loses a valid
+acceptance shape; another send cannot submit again. Existing post-commit ACK
+fault now uses the journal and a restricted database role with deliberate final
+agent-read denial. The first attempted gate failed before that fault because
+fixture privileges lacked the new table; it is retained separately and not counted
+as PASS. Privileges/assertions were corrected and the full gate repeated.
+
+Evidence log `.local/pdlc-implementation/dispatch-journal-scoped.log` SHA256:
+`f66ee87feab72c98017238f6ca609a661cf2b9e315f20cb10adb3787467f4c25`.
+Exact final project `sdlc-qa-fleet-journal-1bbb0d625694` was removed in finally;
+independent Compose ps exited zero with no containers. External caches stayed
+unchanged. Earlier attempt and before-review logs remain separate evidence.
+
+Node22 frontend: 230 tests, typecheck/lint/format/build, API drift/compatibility,
+seven generated chat contracts and their verifier tests passed. A new component
+case verifies pending delivery error and disabled parallel-send UI after reload.
+README and 99 Markdown files passed; 135 fixture screenshots and nine controller
+hashes were verified, not regenerated or promoted to live evidence. Existing Vite
+large-chunk warning remains. No production visual change was made by this packet.
+Heuristic secret scanning covered all 40 changed/new task files. Its one finding
+is the unchanged synthetic redaction-test literal already present at the parent
+head; no new finding was introduced. This is not full DLP/history certification.
+CI YAML parsing confirms the explicit isolated journal migration target.
+
+This closes original request preservation/single submission and the reviewed
+late-error race, not unknown-ID recovery or native store continuity. The pinned
+Hermes HTTP API still has no authenticated non-dispatch key lookup or store epoch;
+negative/expired/reset storage cannot authorize POST replay. Prepared-intent
+restart recovery, pin-to-worker recovery, independent offline controls, native
+configuration/process-tree proof, predispatch admission, PM tools/resume, Forge
+candidate/pipeline/deployment/acceptance, full release/CI and live screenshots
+remain required. Producer heads stayed Tracker `af6ed1e` and Workflow `2d79461`.
+No producer, installed runtime, dependency pin or historical migration was changed.
+Publication still requires the documented per-task migration release ordering;
+the old remote Draft PR head/checks do not prove this local packet.

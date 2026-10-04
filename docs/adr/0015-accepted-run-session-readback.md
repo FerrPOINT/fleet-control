@@ -4,6 +4,9 @@
 
 Accepted source design for free chats. Task-bound/PM admission and native live
 acceptance remain separate gates; see the verification ledger.
+Original-context recovery now additionally requires the private journal in
+[ADR 0016](0016-hermes-original-request-journal.md). Legacy history compatibility
+does not authorize automatic probing with current credentials.
 
 ## Context
 

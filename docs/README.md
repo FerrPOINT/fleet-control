@@ -11,6 +11,7 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 - [PM clarification owner gateway ADR](adr/0013-pm-clarification-owner-gateway.md)
 - [Persisted PM credential preparation ADR](adr/0014-persisted-pm-credential-preparation.md)
 - [Accepted run session readback ADR](adr/0015-accepted-run-session-readback.md)
+- [Hermes original request journal ADR](adr/0016-hermes-original-request-journal.md)
 - [Actual credential interoperability harness](../scripts/pm_credentials_live/README.md)
 - [Native Hermes protocol acceptance harness](../scripts/hermes_protocol_live/README.md)
 - [SDLC_IMPLEMENTATION.md](SDLC_IMPLEMENTATION.md) — реализация нового SDLC, границы и оставшаяся приёмка.

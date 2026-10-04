@@ -57,18 +57,6 @@ pub struct LocalRuntimeSupervisor {
 }
 
 #[derive(Debug, Serialize)]
-struct HermesRunStartRequest {
-    input: String,
-    session_id: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    model: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    provider: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    model_options: Option<Value>,
-}
-
-#[derive(Debug, Serialize)]
 struct HermesSteerRequest {
     input: String,
 }
@@ -1233,37 +1221,55 @@ impl LocalRuntimeSupervisor {
                 "task runtime admission is not yet verified".into(),
             ));
         }
-        let runtime_session_id = Self::runtime_session_id(session, agent);
-        let run = self
-            .repo
-            .prepare_session_agent_run(
-                session.id,
-                agent.id,
-                Self::run_role(session, agent),
-                runtime_session_id.clone(),
-            )
-            .await?;
+        let capabilities = self.probe_hermes(agent).await?;
+        let capabilities = hermes_wire::dispatch_capabilities(&capabilities)?;
         let base = Self::hermes_base_url(agent)?;
         let token = crate::agent_runtime_token(&self.config, agent.id)?;
-        let model_options = (!matches!(&run.model_options, Value::Object(map) if map.is_empty()))
-            .then_some(run.model_options.clone());
+        let fingerprint = hermes_wire::credential_fingerprint(&token);
+        self.repo
+            .prepare_hermes_dispatch(app::HermesDispatchDraft {
+                message_id: message.id,
+                session_id: session.id,
+                agent_id: agent.id,
+                run_role: Self::run_role(session, agent),
+                requested_session_id: Self::runtime_session_id(session, agent),
+                input: Self::runtime_input(agent, session, message),
+                origin: base.clone(),
+                credential_fingerprint: fingerprint.clone(),
+                capabilities,
+            })
+            .await?;
+        // Consume the durable permit before any network side effect. An unknown POST
+        // may not be repeated merely because the native idempotency key was saved.
+        let claimed = self
+            .repo
+            .claim_hermes_submission(message.id, base.clone(), fingerprint)
+            .await?
+            .ok_or_else(|| {
+                AppError::Unavailable(
+                    "Hermes submission was already attempted; reconciliation is required".into(),
+                )
+            })?;
+        if claimed.message_id != message.id
+            || claimed.run.agent_id != agent.id
+            || claimed.run.session_id != session.id
+        {
+            return Err(AppError::conflict(
+                "Hermes submission journal scope does not match",
+            ));
+        }
+        hermes_wire::verify_intent(&claimed, &base, &token)?;
         let runtime_run_id = hermes_wire::submit(
             &self.client,
             &base,
             &token,
             message.id,
-            &HermesRunStartRequest {
-                input: Self::runtime_input(agent, session, message),
-                session_id: runtime_session_id,
-                model: run.model.clone(),
-                provider: run.provider.clone(),
-                model_options,
-            },
+            &claimed.request_body,
         )
         .await?;
         let run = self
             .repo
-            .accept_hermes_run(message.id, run.id, runtime_run_id.clone())
+            .accept_hermes_run(message.id, claimed.run.id, runtime_run_id.clone())
             .await?;
         // ACK is durable even if HTTP readback fails. The recovery worker only reads this run.
         let run = self

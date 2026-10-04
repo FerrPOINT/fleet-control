@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+- Persist an immutable exact-request Hermes dispatch journal before free-chat
+  submission, with original credential/origin, bounded capabilities and DB-clock
+  retention horizon. A single durable permit prevents a second POST; verified ACK
+  commits journal/run/prompt/outbox together. Classify late errors under the message
+  lock and require original journal context for known-ID restart readback. Add
+  migration 000012 and regression coverage; unknown-ID recovery remains open.
+
 - Add an opt-in native Hermes API/AIAgent/SQLite protocol gate with a local model:
   lost 202, concurrent replay, process crash, durable readback and credential-scope
   isolation. Add harness deadline/cleanup safety checks to docs CI. Clarify that

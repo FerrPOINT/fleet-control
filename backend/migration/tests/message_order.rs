@@ -86,7 +86,13 @@ async fn historical_backfill_and_clock_rollback_keep_order_without_changing_wire
           (gen_random_uuid(),'cccccccc-cccc-4ccc-8ccc-cccccccccccc','system','Forbidden','system_event',100);"
     ).await.is_err());
     // Preserve this regression's task-chat migration rollback after newer additive migrations.
-    Migrator::down(&db, Some(2)).await.unwrap();
+    let target = Migrator::migrations()
+        .iter()
+        .position(|migration| migration.name() == "m20261001_000010_task_chats")
+        .expect("task-chat migration must remain registered");
+    Migrator::down(&db, Some((Migrator::migrations().len() - target) as u32))
+        .await
+        .unwrap();
     Migrator::up(&db, None).await.unwrap();
     let row = db.query_one(Statement::from_string(DatabaseBackend::Postgres,
         "SELECT count(*) AS n,count(DISTINCT append_sequence) AS unique_n FROM session_messages".to_string()))

@@ -12,6 +12,23 @@ requires byte-identical readback after the database result commits. This protect
 cooperative managed writes, not hostile host TOCTOU or cross-agent OS access;
 physical/runtime isolation and operator reconciliation remain separate gates.
 
+## Hermes Dispatch Journal
+
+Original request bytes are private database/backup material, not public runtime
+metadata. The intent has no Debug/Serialize representation, public endpoint or
+audit payload. Raw bearer credentials are not persisted: the default-profile
+fingerprint binds the original credential context but is not authentication,
+encryption or proof of native store continuity. Bound verified capabilities omit
+arbitrary upstream metadata; journal SQL errors expose only static diagnostics.
+
+Single submission and ACK persistence share message locks. A late preflight error
+cannot mark a submitted prompt failed and reject its real ACK. Recovery checks
+original origin/fingerprint before known-ID GET; legacy records are not backfilled
+from present credentials. Unknown IDs retain capacity and cannot trigger another
+POST after timeout, token rotation, negative lookup or storage loss. Recovery and
+operator reconciliation are still separate gates. A populated journal blocks
+downgrade; database privileges/backups must protect its original evidence.
+
 ## SDLC Configuration Observation
 
 The opt-in machine read requires fresh bounded Base PAT introspection at a fixed

@@ -85,6 +85,22 @@ Session control:
 - Fleet dispatches through the runtime supervisor boundary.
 - Fleet creates Hermes runs with `POST /v1/runs`, `input` and
   `session_id=fleet:<session_id>:<agent_id>`.
+- Before POST, Fleet atomically reserves the concrete run and immutable exact
+  request journal, then consumes a single-send permit under row locks. The
+  fixed unprefixed endpoint uses native `default` profile and no session-key
+  override header; the credential fingerprint includes that context. HTTP sends
+  the journal bytes without reconstructing input/model/options. Free chats also
+  require fresh durable 86400-second idempotency and matching wire endpoints.
+- A verified ACK commits native ID, prompt/outbox and journal `accepted` together.
+  Pending pin recovery compares original origin/fingerprint before GET; no
+  journal, changed token or moved port requires reconciliation without HTTP.
+  Legacy history stays readable, but credentials are not backfilled.
+- Unknown POST acceptance holds capacity and pending delivery with an error.
+  Neither an identical key nor a recovery deadline permits automatic replay:
+  this native baseline exposes no non-dispatch HTTP key lookup or store epoch,
+  and a reset SQLite can still advertise durable storage. An owner-supported
+  positive lookup is required to recover the original native ID safely;
+  negative lookup/404/expiry must never authorize resend.
 - Fleet mirrors events from `GET /v1/runs/{run_id}/events`.
 - Terminal names come from the explicit SSE header or root `event`, never a
   nested tool/subagent discriminator. Only exact run terminal events can end

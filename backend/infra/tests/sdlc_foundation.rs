@@ -29,8 +29,14 @@ mod runtime_readiness;
 #[path = "support/runtime_acceptance.rs"]
 mod runtime_acceptance;
 
+#[path = "support/hermes_dispatch_journal.rs"]
+mod hermes_dispatch_journal;
+
 #[path = "support/runtime_acceptance_readback_http.rs"]
 mod runtime_acceptance_readback_http;
+
+#[path = "support/hermes_protocol_fixture.rs"]
+mod hermes_protocol_fixture;
 
 #[path = "support/runtime_purge.rs"]
 mod runtime_purge;
@@ -3776,6 +3782,7 @@ async fn runtime_http_scenario(
             };
             async move { axum::Json(payload) }
         }));
+    let router = hermes_protocol_fixture::preflight(router);
     let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
     let repo = Arc::new(repo);
     let session = repo

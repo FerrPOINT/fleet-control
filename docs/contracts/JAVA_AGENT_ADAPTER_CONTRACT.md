@@ -12,6 +12,8 @@ deadline. Health observation preserves desired state and unconfirmed recorded PI
 The protected activation journal introduced for Hermes does not add Java
 configuration activation or chat admission. Java keeps its existing typed
 unsupported configuration behavior; no Hermes journal is written for Java.
+The Hermes database dispatch journal and single-send permit also confer no Java
+chat/control capability; Java cannot use that free-chat path.
 
 Java Agent is modeled alongside Hermes. Existing local jar provisioning layout,
 start/stop/restart and readiness checks are implemented and retained. Chat/control,

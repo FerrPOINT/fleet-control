@@ -206,6 +206,39 @@ describe('production chat', () => {
     delivery_error: null,
     replayed: false,
   })
+  it('shows unresolved delivery without permitting a second prompt after a fresh load', async () => {
+    vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      can_send: false,
+      can_steer: false,
+      can_stop: false,
+      active_run_id: null,
+      blocked_reason: 'dispatch_pending_or_uncertain',
+    })
+    vi.mocked(chats.getChatHistory).mockResolvedValue({
+      items: [
+        {
+          ...message('original', 'Original saved prompt'),
+          author_type: 'user',
+          author_user_id: 'owner',
+          author_agent_id: null,
+          author_display_name: 'Owner',
+          message_kind: 'user_prompt',
+          delivery_state: 'pending',
+          delivery_error: 'Hermes run acceptance is unknown',
+        },
+      ],
+      next_before: null,
+    })
+    renderPage()
+    expect(await screen.findByText('Original saved prompt')).toBeVisible()
+    expect(screen.getByRole('alert')).toHaveTextContent('Hermes run acceptance is unknown')
+    expect(screen.getByText('Доставка ожидается или требует сверки')).toBeVisible()
+    expect(screen.getByLabelText('Сообщение агенту')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Отправить сообщение' })).toBeDisabled()
+    expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+    expect(fleet.steerSessionRun).not.toHaveBeenCalled()
+  })
   it.each(['reconnect', 'message event'])(
     'keeps older loading and catches new messages after %s',
     async (event) => {

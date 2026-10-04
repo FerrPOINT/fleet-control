@@ -33,6 +33,9 @@ use uuid::Uuid;
 
 const RUNTIME_RUN: &str = "run_approval_events_fixture";
 
+#[path = "support/hermes_protocol_fixture.rs"]
+mod hermes_protocol_fixture;
+
 struct FakeHermes {
     bearer: String,
     message_id: Uuid,
@@ -167,8 +170,8 @@ async fn authenticated_hermes_sse_ingests_exact_requests_and_never_response_even
         .try_get::<i64>("", "count")
         .unwrap();
     assert_eq!(
-        migrations, 12,
-        "fixture must include accepted deployment, task-chat and PM credential migrations"
+        migrations, 13,
+        "fixture must include accepted deployment, task-chat, PM credential and dispatch journal migrations"
     );
     let owner = Uuid::new_v4();
     db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
@@ -269,6 +272,7 @@ async fn authenticated_hermes_sse_ingests_exact_requests_and_never_response_even
         .route(&format!("/v1/runs/{RUNTIME_RUN}"), get(status))
         .route(&format!("/v1/runs/{RUNTIME_RUN}/events"), get(events))
         .with_state(fake.clone());
+    let router = hermes_protocol_fixture::preflight(router);
     let _server = TestServer(tokio::spawn(async move {
         axum::serve(listener, router).await.unwrap()
     }));

@@ -8,7 +8,7 @@
 | Agent -> own chats | `/chats/:sessionId`, immutable task binding, owner-only persisted Draft/reservation/chat coordinator; actual admitted PM start pending |
 | No new leader orchestration | Main nav and Chats controls exclude it; legacy routes/history preserved |
 | Per-user visibility | Default backend filter, private message authorization regression, SSO stored-role tests |
-| No duplicate unknown dispatch | Transactional outbox, agent capacity regression; crashed acceptance recovery pending |
+| No duplicate unknown dispatch | Immutable exact-request journal (000012), single durable submission permit, atomic ACK, message-lock late-error classification and controlled HTTP zero-second-POST regression; unknown-ID and prepared-intent recovery still pending |
 | No completion from EOF | Fake Hermes non-terminal/terminal readback; interrupted is failure, never a fabricated reply |
 | Durable cursor | Migration 000009, session cursor/Last-Event-ID, Base reconnect tests; expiry/reset pending |
 | Config activation/drain | Migration 000009, desired/effective snapshots, DB drain/failed rollback regression |

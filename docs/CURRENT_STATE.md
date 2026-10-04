@@ -87,11 +87,35 @@ tests. It proves dropped-202 original-key replay, eight concurrent replays,
 terminal and in-flight process-crash recovery without reexecution, exact session/
 native transcript, parsed SSE success flags and token isolation across two homes.
 Credential rotation demonstrably creates a different idempotency scope; Fleet
-must journal and guard the original scope before enabling recovery. Unknown
+must preserve and verify the original scope before enabling recovery. Unknown
 profile rejection is not multiplex isolation. Managed gateway CLI lifecycle,
-native tools/config attestation, Fleet journal and PM admission/resume remain
+native tools/config attestation, unknown-ID recovery and PM admission/resume remain
 open. Exact hashes/cleanup are in the
 [verification ledger](CHAT_CLARIFICATION_VERIFICATION.md#native-hermes-protocol-acceptance-4-october-2026).
+
+The new source journal atomically reserves an exact free-chat run/request before
+POST. It freezes bytes/hash/key, original origin/default-profile credential
+fingerprint, bounded verified protocol facts and DB-clock recovery horizon.
+One durable submission permit precedes IO; native ACK commits journal/run/message/
+outbox together. Error classification observes current journal under the message
+lock, so a stale prepared read cannot erase a concurrent submission. Known-ID
+restart recovery now requires accepted original journal context; legacy history
+is preserved but cannot be attested with current credentials. Migration 000012
+refuses nonempty downgrade. See [ADR 0016](adr/0016-hermes-original-request-journal.md).
+Automatic prepared-intent recovery, unknown-key non-dispatch lookup, post-pin
+stream recovery and full live admission/deployment remain open.
+
+Its final Linux/Rust 1.88/PostgreSQL 17.6 gate passed 179 workspace library,
+102 foundation PG/HTTP, one authenticated approval SSE and three isolated
+migration cases (285 distinct tests), all-target check/strict Clippy/fmt and
+exact Rust OpenAPI equality. The new late prepared-error race and populated
+accepted/terminal migration history pass. Node22 frontend passed 230 tests,
+typecheck/lint/format/build, API compatibility and seven chat wire contracts;
+135 screenshot and nine controller-image fixture verifiers passed without
+recapture. README and 99 Markdown files passed. The exact Compose project was
+removed; no accepted runtime, producer source or pins were changed. This is
+not full release/CI or actual Fleet/native/PM acceptance. See the
+[journal evidence](CHAT_CLARIFICATION_VERIFICATION.md#original-hermes-dispatch-journal-4-october-2026).
 
 Frontend revalidation on unchanged production sources passed 229 tests,
 typecheck, lint, format, build, API drift/compatibility and seven chat wire

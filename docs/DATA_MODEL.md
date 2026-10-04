@@ -1,12 +1,40 @@
 # Data Model
 
-Free-chat run acceptance uses existing columns, without a new migration:
+Free-chat run acceptance continues to use existing columns:
 `runtime_run_id`/message `runtime_message_id` and outbox dispatched commit
 atomically after a verified 202. Pending plus a run ID means accepted but awaiting
 effective-session GET. The first session pin replaces the requested alias and
 sets running under row locks; replay preserves terminal state and timestamps.
 These application guards do not retrospectively attest legacy rows or protect
 against direct privileged SQL. Task-bound/PM records use their separate model.
+
+## Hermes Dispatch Journal
+
+Additive `m20261004_000012_hermes_dispatch_journal` adds the private
+`hermes_dispatch_journal` ledger. A transaction reserves the concrete primary
+free-chat run and records the original message/run/session/agent, requested
+alias, exact serialized request bytes and SHA256, UUID idempotency key,
+loopback origin, default-profile credential fingerprint and bounded verified
+protocol facts. Raw runtime tokens, arbitrary capabilities metadata and journal
+contents are not public API/log/audit DTOs. Prompt bytes are sensitive, as are
+the original messages; database access and backup protection still apply.
+
+The DB clock sets the immutable creation time and conservative recovery
+deadline (86400-second advertised retention minus 60 seconds). State is
+`prepared -> submitted -> accepted`. A row-locked single-send permit commits
+`submitted` before HTTP; concurrent callers cannot acquire a second permit.
+Verified ACK commits the run/message/outbox and `accepted` together. Database
+guards reject rewritten bytes/hash/key/scope/timestamps, backwards progress,
+deletion and downgrade with any journal rows. Migration does not invent intent
+or credentials for historical records.
+
+`prepared` proves no submission permit was consumed, not that an automatic
+recovery worker exists. `submitted` without a known native ID remains unresolved
+and holds capacity; pending prompt plus delivery error is not definitive rejection.
+Known accepted-but-unpinned recovery requires its original journal context.
+Legacy ACKs lacking that proof remain readable and held, without automatic HTTP.
+The deadline never renews and is a rejection guard, not SQLite continuity proof.
+Unknown-key lookup, post-pin recovery and operator reconciliation remain open.
 
 ## Local Configuration Recovery Material
 

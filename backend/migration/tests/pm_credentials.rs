@@ -8,9 +8,11 @@ async fn credentials_additive_upgrade_preserves_legacy_operation_and_empty_downg
         return;
     };
     let db = Database::connect(&url).await.unwrap();
-    Migrator::up(&db, Some((Migrator::migrations().len() - 1) as u32))
-        .await
-        .unwrap();
+    let target = Migrator::migrations()
+        .iter()
+        .position(|migration| migration.name() == "m20261004_000011_pm_credentials")
+        .expect("credential migration must remain registered");
+    Migrator::up(&db, Some(target as u32)).await.unwrap();
     db.execute_unprepared(
         "INSERT INTO users(id,email,username,display_name,password_hash)
          VALUES('11111111-1111-4111-8111-111111111111','migration@example.test','credentials-migration','Migration','disabled');
@@ -45,7 +47,9 @@ async fn credentials_additive_upgrade_preserves_legacy_operation_and_empty_downg
     assert!(current.get("credentials").is_none());
     db.execute_unprepared("UPDATE pm_draft_creation_operations SET updated_at=now() WHERE id='22222222-2222-4222-8222-222222222222'").await.unwrap();
     assert!(db.execute_unprepared("UPDATE pm_draft_creation_operations SET operation=jsonb_set(operation,'{request,title}','\"Changed\"')").await.is_err());
-    Migrator::down(&db, Some(1)).await.unwrap();
+    Migrator::down(&db, Some((Migrator::migrations().len() - target) as u32))
+        .await
+        .unwrap();
     let restored: Value = db
         .query_one(read())
         .await

@@ -15,6 +15,15 @@ field is added; backups, resolved secret bytes and paths are never API data.
 Public operator crash reconciliation remains unavailable. See
 [operations](OPERATIONS.md#sdlc-foundation-recovery) before attempting recovery.
 
+Hermes free-chat dispatch now requires the verified durable `/v1/runs` protocol
+and a private pre-POST journal/single-send permit. There is no public journal
+endpoint or new OpenAPI response field. An unknown ACK retains pending delivery
+with an error and the agent's run capacity; it is not definitive rejection or
+permission to retry. Accepted-but-unpinned recovery requires original origin and
+credential/profile context; legacy records without it are not probed automatically.
+History remains readable. No operator "retry unknown" API is available; see
+[the data model](DATA_MODEL.md#hermes-dispatch-journal).
+
 ## Exact Runtime Approval Decisions
 
 - `GET /api/v1/sessions/{session_id}/approvals` lists redacted requests visible to the owner or an operator/admin.

@@ -4,6 +4,7 @@ mod chats_directory;
 mod config_revisions;
 mod effective_configuration;
 pub mod entities;
+mod hermes_dispatch_journal;
 pub mod pm_credentials;
 mod pm_draft;
 mod pm_execution;
@@ -2677,6 +2678,29 @@ impl FleetRepository for PostgresFleetRepository {
         session_run_from_model(&self.db, row).await
     }
 
+    async fn prepare_hermes_dispatch(
+        &self,
+        draft: app::HermesDispatchDraft,
+    ) -> Result<app::HermesDispatchIntent, AppError> {
+        hermes_dispatch_journal::prepare(self, draft).await
+    }
+
+    async fn claim_hermes_submission(
+        &self,
+        message_id: Uuid,
+        origin: String,
+        credential_fingerprint: String,
+    ) -> Result<Option<app::HermesDispatchIntent>, AppError> {
+        hermes_dispatch_journal::claim(self, message_id, origin, credential_fingerprint).await
+    }
+
+    async fn get_hermes_dispatch_intent(
+        &self,
+        message_id: Uuid,
+    ) -> Result<Option<app::HermesDispatchIntent>, AppError> {
+        hermes_dispatch_journal::get(self, message_id).await
+    }
+
     async fn update_session_agent_run_dispatch(
         &self,
         id: Uuid,
@@ -2907,6 +2931,32 @@ impl FleetRepository for PostgresFleetRepository {
                 ));
             }
         }
+        // Submission also locks this message before advancing the journal. Classify
+        // an unacknowledged error here, not from a stale pre-transaction read.
+        let delivery_state = if delivery_state == MessageDeliveryState::Failed
+            && runtime_message_id.is_none()
+        {
+            let journal = txn
+                .query_one(Statement::from_sql_and_values(
+                    DatabaseBackend::Postgres,
+                    "SELECT state FROM hermes_dispatch_journal WHERE message_id=$1",
+                    [id.into()],
+                ))
+                .await
+                .map_err(|_| AppError::Database("Hermes delivery classification failed".into()))?;
+            let submitted = journal
+                .map(|row| row.try_get::<String>("", "state"))
+                .transpose()
+                .map_err(|_| AppError::Database("Hermes delivery classification failed".into()))?
+                .is_some_and(|state| matches!(state.as_str(), "submitted" | "accepted"));
+            if submitted {
+                MessageDeliveryState::Pending
+            } else {
+                delivery_state
+            }
+        } else {
+            delivery_state
+        };
         let mut model = row.into_active_model();
         model.delivery_state = Set(delivery_state.as_str().to_string());
         if runtime_message_id.is_some() {

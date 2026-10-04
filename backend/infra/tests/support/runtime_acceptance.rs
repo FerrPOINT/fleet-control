@@ -67,6 +67,7 @@ async fn prepared() -> Option<Prepared> {
 async fn snapshot(p: &Prepared) -> Value {
     p.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "SELECT jsonb_build_object('run',to_jsonb(r),'message',to_jsonb(m),'outbox',to_jsonb(o),
+            'journal',(SELECT to_jsonb(j) FROM hermes_dispatch_journal j WHERE j.run_id=r.id),
             'cursor',(SELECT sequence FROM session_event_cursors WHERE session_id=r.session_id),
             'events',(SELECT count(*) FROM session_events WHERE session_id=r.session_id)) AS snapshot
          FROM session_agent_runs r,session_messages m,message_dispatch_outbox o
@@ -625,6 +626,43 @@ async fn acceptance_postcommit_agent_read_failure_keeps_ack_recoverable_without_
     let Some(p) = prepared().await else {
         return;
     };
+    // This fault now includes the production request journal, not a legacy unattested ACK.
+    p.db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE session_agent_runs SET runtime_session_id=NULL WHERE id=$1",
+        [p.run.id.into()],
+    ))
+    .await
+    .unwrap();
+    let agent = p.repo.get_agent(p.agent_id).await.unwrap();
+    let message = p
+        .repo
+        .list_session_messages(p.session_id)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|message| message.id == p.message_id)
+        .unwrap();
+    let origin = format!("http://127.0.0.1:{}", agent.api_port.unwrap());
+    p.repo
+        .prepare_hermes_dispatch(app::HermesDispatchDraft {
+            message_id: p.message_id,
+            session_id: p.session_id,
+            agent_id: p.agent_id,
+            run_role: SessionRunRole::Primary,
+            requested_session_id: p.requested.clone(),
+            input: message.body,
+            origin: origin.clone(),
+            credential_fingerprint: "a".repeat(64),
+            capabilities: hermes_protocol_fixture::capabilities(),
+        })
+        .await
+        .unwrap();
+    p.repo
+        .claim_hermes_submission(p.message_id, origin, "a".repeat(64))
+        .await
+        .unwrap()
+        .unwrap();
     let role = format!("acceptance_read_fault_{}", Uuid::new_v4().simple());
     p.db.execute_unprepared(&format!("CREATE ROLE {role} NOLOGIN NOINHERIT"))
         .await
@@ -635,7 +673,7 @@ async fn acceptance_postcommit_agent_read_failure_keeps_ack_recoverable_without_
         p.db.execute_unprepared(&format!(
             "GRANT USAGE ON SCHEMA public TO {role};
              GRANT SELECT,INSERT,UPDATE,DELETE ON agent_sessions,session_agent_runs,session_messages,
-                message_dispatch_outbox,task_chat_bindings,pm_run_bindings,
+                message_dispatch_outbox,hermes_dispatch_journal,task_chat_bindings,pm_run_bindings,
                 session_event_cursors,session_events TO {role};
              GRANT SELECT(id,kind),UPDATE(kind) ON agents TO {role}"
         )).await.unwrap();
@@ -667,13 +705,16 @@ async fn acceptance_postcommit_agent_read_failure_keeps_ack_recoverable_without_
         let limited_repo = PostgresFleetRepository::new(db);
         let result = limited_repo.accept_hermes_run(p.message_id, p.run.id, "run_postcommit_fault".into()).await;
         assert!(matches!(result, Err(AppError::Database(_))));
-        // This is a real post-commit failure: all three ACK rows survived the denied full read.
+        // Real post-commit failure: native mapping, delivery, outbox and journal all survived.
         let durable = snapshot(&p).await;
         assert_eq!(durable["run"]["state"], "pending");
         assert_eq!(durable["run"]["runtime_run_id"], "run_postcommit_fault");
         assert_eq!(durable["message"]["runtime_message_id"], "run_postcommit_fault");
         assert_eq!(durable["message"]["delivery_state"], "dispatched");
         assert_eq!(durable["outbox"]["state"], "dispatched");
+        assert_eq!(durable["journal"]["state"], "accepted");
+        assert!(durable["journal"]["submitted_at"].is_string());
+        assert!(durable["journal"]["accepted_at"].is_string());
         // Reproduce send_message's late error path using the same restricted connection.
         limited_repo.update_session_message_delivery(p.message_id, MessageDeliveryState::Failed,
             None, Some("post-commit result read failed".into())).await.unwrap();

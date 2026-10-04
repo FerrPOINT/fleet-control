@@ -29,6 +29,7 @@ IMPLEMENTATION_PLAN и CURRENT_STATE. Они не являются приёмк�
 | Idempotency | Session key сериализуется transactional advisory lock; message key — session row lock | Concurrent replay и payload conflict проверены на PostgreSQL |
 | Dispatch | Prompt и outbox создаются одной транзакцией через trigger | Claim блокирует agent row; capacity 1; pending не отправляется при drain |
 | Unknown acceptance | Нет автоматического redispatch после неопределённой отправки | `uncertain` удерживает слот; recovery operator API ещё отсутствует |
+| Dispatch journal | Миграция 000012: atomic concrete run + immutable request bytes/hash/key/origin/default-profile fingerprint/protocol facts, одноразовый permit до POST; ACK/run/message/outbox/journal атомарны | Unknown ACK остаётся pending с ошибкой; known-ID GET требует original context. Legacy без journal не probe-ится; native non-dispatch key lookup/store continuity, prepared-intent recovery и operator API ещё отсутствуют |
 | Runs | Новые попытки сохраняют отдельные runtime run records | Completion mirror дедуплицируется по runtime ID под session row lock |
 | EOF | EOF без terminal event требует status readback | Non-terminal/error оставляет waiting, а не ложный completed |
 | Stream | PostgreSQL events и per-session cursor; `Last-Event-ID`; проверка доступа на каждом poll | Durable replay; retention/expired-cursor snapshot ещё не реализованы |

@@ -1,6 +1,31 @@
 //! Bounded Hermes HTTP wire checks; these do not attest native config or admit an assignment.
 use super::*;
 use reqwest::{Response, StatusCode, header};
+use sha2::{Digest, Sha256};
+
+pub(super) fn credential_fingerprint(token: &str) -> String {
+    let mut hash = Sha256::new();
+    hash.update(b"fleet-hermes-default-profile-v1\0");
+    hash.update(token.as_bytes());
+    format!("{:x}", hash.finalize())
+}
+
+pub(super) fn verify_intent(
+    intent: &app::HermesDispatchIntent,
+    origin: &str,
+    token: &str,
+) -> Result<(), AppError> {
+    if intent.origin != origin
+        || intent.credential_fingerprint != credential_fingerprint(token)
+        || intent.idempotency_key != intent.message_id.to_string()
+        || intent.request_hash != format!("{:x}", Sha256::digest(intent.request_body.as_bytes()))
+    {
+        return Err(AppError::Unavailable(
+            "Hermes original dispatch identity is not verified".into(),
+        ));
+    }
+    Ok(())
+}
 
 pub(super) async fn read_json(
     mut response: Response,
@@ -80,6 +105,33 @@ pub(super) fn task_protocol(capabilities: &Value) -> Result<(), AppError> {
         }
     }
     Ok(())
+}
+
+pub(super) fn dispatch_capabilities(capabilities: &Value) -> Result<Value, AppError> {
+    task_protocol(capabilities)?;
+    // Persist only the verified wire facts, never arbitrary upstream metadata/secrets.
+    let mut features = json!({"runs_idempotency": {
+        "supported":true,"durable":true,"retention_seconds":86400
+    }});
+    let mut endpoints = json!({});
+    for (feature, endpoint) in [
+        ("run_submission", "runs"),
+        ("run_status", "run_status"),
+        ("run_events_sse", "run_events"),
+        ("run_stop", "run_stop"),
+    ] {
+        features[feature] = Value::Bool(true);
+        endpoints[endpoint] = json!({
+            "method":capabilities["endpoints"][endpoint]["method"],
+            "path":capabilities["endpoints"][endpoint]["path"]
+        });
+    }
+    Ok(json!({
+        "object":"hermes.api_server.capabilities","platform":"hermes-agent",
+        "auth":{"type":"bearer","required":true},
+        "runtime":{"mode":"server_agent","tool_execution":"server","split_runtime":false},
+        "features":features,"endpoints":endpoints
+    }))
 }
 
 pub(super) fn terminal_event(
@@ -223,7 +275,7 @@ pub(super) async fn submit(
     base: &str,
     token: &str,
     message_id: Uuid,
-    body: &HermesRunStartRequest,
+    body: &str,
 ) -> Result<String, AppError> {
     let response = client
         .post(format!("{base}/v1/runs"))
@@ -231,7 +283,8 @@ pub(super) async fn submit(
         .header("Idempotency-Key", message_id.to_string())
         .header(header::ACCEPT_ENCODING, "identity")
         .timeout(Duration::from_secs(30))
-        .json(body)
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(body.to_owned())
         .send()
         .await
         .map_err(|_| AppError::Unavailable("Hermes run acceptance is unknown".into()))?;
@@ -418,13 +471,7 @@ mod tests {
                 &base,
                 "wire-fixture-only",
                 id,
-                &HermesRunStartRequest {
-                    input: "fixture".into(),
-                    session_id: "fleet:fixture:agent".into(),
-                    model: None,
-                    provider: None,
-                    model_options: None,
-                },
+                r#"{"input":"fixture","session_id":"fleet:fixture:agent"}"#,
             )
             .await;
             assert_eq!(result.is_ok(), status == StatusCode::ACCEPTED);
@@ -477,6 +524,72 @@ mod tests {
         let partial = json!({"object":"hermes.run","run_id":"run_original",
             "session_id":"native-session","status":"completed","completed":true,"partial":true,"interrupted":false});
         assert!(effective_session(&partial, "run_original").is_err());
+    }
+
+    #[test]
+    fn credential_fingerprint_is_stable_profile_scoped_and_not_the_token() {
+        let original = credential_fingerprint("wire-fixture-only");
+        assert_eq!(original.len(), 64);
+        assert_eq!(original, credential_fingerprint("wire-fixture-only"));
+        assert_ne!(original, credential_fingerprint("rotated-fixture-only"));
+        assert_ne!(
+            original,
+            format!("{:x}", Sha256::digest(b"wire-fixture-only"))
+        );
+        assert!(!original.contains("wire-fixture-only"));
+    }
+
+    #[test]
+    fn journal_capabilities_exclude_untrusted_metadata_and_pin_verified_protocol_only() {
+        let mut upstream = capabilities();
+        upstream["diagnostic"] = json!({"token":"fixture-upstream-private"});
+        upstream["auth"]["private"] = json!("fixture-upstream-private");
+        upstream["endpoints"]["runs"]["private"] = json!("fixture-upstream-private");
+        let pinned = dispatch_capabilities(&upstream).unwrap();
+        assert_eq!(pinned, capabilities());
+        assert!(!pinned.to_string().contains("fixture-upstream-private"));
+        upstream["features"]["runs_idempotency"]["durable"] = json!(false);
+        assert!(dispatch_capabilities(&upstream).is_err());
+    }
+
+    #[tokio::test]
+    async fn submit_preserves_journal_bytes_instead_of_reserializing_mutable_input() {
+        let expected =
+            "{\n  \"input\":\"immutable fixture\", \"session_id\":\"fleet:fixture:agent\"\n}";
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let id = Uuid::new_v4();
+        let router = axum::Router::new().route(
+            "/v1/runs",
+            axum::routing::post(
+                move |headers: axum::http::HeaderMap, body: axum::body::Bytes| async move {
+                    assert_eq!(headers["content-type"], "application/json");
+                    assert_eq!(headers["idempotency-key"], id.to_string());
+                    assert_eq!(body.as_ref(), expected.as_bytes());
+                    (
+                        StatusCode::ACCEPTED,
+                        axum::Json(
+                            json!({"run_id":"run_exact_bytes","status":"started","replayed":false}),
+                        ),
+                    )
+                },
+            ),
+        );
+        let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+        let client = reqwest::Client::builder()
+            .retry(reqwest::retry::never())
+            .redirect(reqwest::redirect::Policy::none())
+            .no_proxy()
+            .build()
+            .unwrap();
+        assert_eq!(
+            submit(&client, &base, "wire-fixture-only", id, expected)
+                .await
+                .unwrap(),
+            "run_exact_bytes"
+        );
+        server.abort();
+        let _ = server.await;
     }
 
     #[tokio::test]

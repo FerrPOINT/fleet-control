@@ -245,6 +245,25 @@ export FLEET_MIGRATION_TEST_DATABASE_URL=postgres://USER:PASSWORD@HOST:PORT/flee
 cargo test --workspace -- --test-threads=1
 ```
 
+The `sdlc_foundation::hermes_dispatch_journal` group exercises exact model/options
+bytes, atomic reservation/fault rollback, concurrent one-winner submission,
+immutability, finite horizon, original scope, drain/capacity/task-PM denials and
+sanitized SQL diagnostics. Its late-error regression observes prepared, commits
+submitted, then applies the stale failed update: delivery stays pending and the
+real ACK can still atomically commit. A still later error cannot erase that ACK.
+The production-adapter HTTP regression inspects the submitted journal before
+receiving POST, corrupts 202 and verifies that another send creates no second POST.
+Known-ID worker fixtures require original journal; legacy, changed origin and
+rotated credentials perform no status HTTP. These are controlled HTTP producers,
+not native Fleet/model/PM acceptance.
+
+Migration target `hermes_dispatch_journal` requires a separate empty disposable
+database via `FLEET_DISPATCH_JOURNAL_MIGRATION_TEST_DATABASE_URL`. It snapshots
+pending, accepted-unpinned and completed legacy runs/messages/outboxes across
+upgrade, empty downgrade and reapply; a populated journal refuses downgrade.
+CI creates this database and explicitly executes the target. This does not
+prove unknown-key lookup or store continuity in native Hermes.
+
 Without these variables, database test functions return early; a green unit run
 alone is not PostgreSQL evidence. The central-subject migration fixture uses a
 fresh database. Fixture Playwright cases run on Chromium, Firefox and WebKit;

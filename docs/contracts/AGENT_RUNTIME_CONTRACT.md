@@ -18,6 +18,14 @@ Every runtime adapter must provide:
 - log capture policy
 - secret redaction policy
 
+Hermes free-chat dispatch reserves an immutable request journal and consumes a
+single-send permit before HTTP. Verified ACK progress commits atomically with
+run/message/outbox. Unknown acceptance holds capacity, without POST replay.
+Only journal-backed original-context ACKs can recover effective-session GET;
+legacy history is preserved without retrospective credential attestation.
+This adds no task/PM admission authority or Java capability. See the
+[journal model](../DATA_MODEL.md#hermes-dispatch-journal).
+
 Supervisor stop acknowledges a tracked process only after bounded kill/wait or
 confirmed natural exit. Kill/wait failure preserves the tracked handle and does
 not publish stopped/PID-null state. Untracked starting/running/degraded state,
