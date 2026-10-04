@@ -133,6 +133,45 @@ implements durable run idempotency in
 These are dispatch implementation and live-test requirements, not claims that
 Fleet's coordinator, external PM plugin or safe replay is already connected.
 
+The free-chat adapter now atomically persists a verified 202 ACK before GET:
+accepted run ID, prompt delivery and outbox result commit together. Pending
+accepted runs can recover effective-session readback after restart through
+authenticated GET only. The requested alias is replaced once by the actual
+status document's session ID; concurrent identical pins have one stream-start
+winner. Task-bound and PM execution records are excluded, so this recovery does
+not bypass admission or authorize tools. An unknown run ID is never POSTed again.
+Exact request/fingerprint/horizon journaling, recovery after the pin-to-worker
+gap and authentic runtime acceptance remain separate implementation requirements.
+
+### Current PM Producer Boundary (4 October 2026)
+
+Read-only source inspection: Tracker `af6ed1ee26f6d26534a0dd1526e3b4d168962160`
+and Workflow `2d794612cea6dccb4f2806c664512a05b562fed1` expose different
+prerequisites, not one runnable admission.
+Tracker supplies task-scoped `/pm-draft-execution-lease` POST/GET and POST
+`/pm-draft-execution-lease/heartbeat` under the assigned task's SDLC prefix.
+The delegated PM child is permitted to use those operations and `/context`,
+not owner reservation readback. Commands bind expected owner version, assignment/
+execution/agent/version fence and stable idempotency key; heartbeat also binds
+lease ID/version. Exact replay returns the original receipt, not a renewed TTL.
+The receipt has TTL 30 seconds, heartbeat 10 seconds and `dispatch_allowed=false`.
+An expired prior lease cannot currently be released/reacquired through this API.
+
+Tracker still keeps this execution reserved and rejects PM business mutations;
+the lease alone cannot promote it. Workflow's current PM bind requires an already
+running Fleet observation and finalized binding, so it cannot authorize the first
+model POST. Its PM enrollment accepts catalog v2, not the new v3 Base profile.
+Neither namespace ownership nor the execution step route supplies a substitute
+predispatch first-step receipt. Required producer work is an explicit Tracker
+admission transition and non-circular Workflow predispatch authority for the exact
+frozen Fleet config/chat/workspace and assignment fence. Producer owners implement
+these in their own repositories; Fleet remains fail-closed until integration.
+
+Do not automatically claim a short-lived PM lease during Draft creation while
+those gates are unavailable: expiry would strand the reserved execution. Fleet
+lease consumption/restart reconciliation is still implementation work, and any
+positive lease test must remain distinct from model dispatch or SDLC completion.
+
 ### PM Draft Provenance
 
 Draft execution needs a PM-specific typed assignment contract. Tracker must own

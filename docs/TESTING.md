@@ -50,6 +50,20 @@ or an installed-runtime restart recovery acceptance; both remain required.
 
 ## Credential Acknowledgement Timing
 
+For actual producer interoperability, use the opt-in
+[locked Base/Tracker harness](../scripts/pm_credentials_live/README.md).
+It runs a separate ignored target against real service binaries; it does not
+replace the persisted coordinator/fault-injection suite below or native PM
+acceptance. Exact refs, hashes, cleanup and limits are in the verification ledger.
+
+With disposable `FLEET_TEST_DATABASE_URL`, acceptance recovery is covered by
+`cargo test --locked -p infra --test sdlc_foundation runtime_acceptance -- --test-threads=1`.
+These cases require actual PostgreSQL plus controlled HTTP runtimes: atomic ACK
+rollback/replay, immutable session pin, one concurrent winner, held capacity,
+task/PM boundary, restart GET-only recovery and advancement past over 20 rejected
+ACK readbacks. `runtime_task_protocol` also rejects an unadmitted task despite
+valid durable capabilities before prepare/POST. They are not live Hermes tests.
+
 With disposable `FLEET_TEST_DATABASE_URL`, run
 `cargo test --locked -p infra --test sdlc_foundation pm_credentials_pg_ -- --test-threads=1`.
 The audit-failure regression injects failures at both intent and ACK audit

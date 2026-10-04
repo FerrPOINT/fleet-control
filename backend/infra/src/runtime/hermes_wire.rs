@@ -162,6 +162,62 @@ fn accepted_run(payload: &Value) -> Result<String, AppError> {
     Ok(run_id.expect("validated run ID").into())
 }
 
+pub(super) fn effective_session(payload: &Value, run_id: &str) -> Result<String, AppError> {
+    let session_id = payload.get("session_id").and_then(Value::as_str);
+    if payload.get("object").and_then(Value::as_str) != Some("hermes.run")
+        || payload.get("run_id").and_then(Value::as_str) != Some(run_id)
+        || session_id.is_none_or(|id| !domain::valid_ref(id, 512))
+        || !matches!(
+            payload.get("status").and_then(Value::as_str),
+            Some(
+                "queued"
+                    | "started"
+                    | "running"
+                    | "waiting_for_approval"
+                    | "stopping"
+                    | "completed"
+                    | "failed"
+                    | "cancelled"
+                    | "interrupted"
+                    | "stopped"
+            )
+        )
+    {
+        return Err(AppError::Unavailable(
+            "Hermes accepted run readback does not match".into(),
+        ));
+    }
+    // Completion cannot be inferred from an incomplete or inconsistent status document.
+    if payload.get("status").and_then(Value::as_str) == Some("completed") {
+        terminal_readback(payload, run_id)?;
+    }
+    Ok(session_id.expect("validated effective session").to_owned())
+}
+
+pub(super) async fn read_accepted_run(
+    client: &reqwest::Client,
+    base: &str,
+    token: &str,
+    run_id: &str,
+) -> Result<Value, AppError> {
+    if !crate::pm_execution::valid_hermes_ref(run_id) {
+        return Err(AppError::Unavailable(
+            "Hermes accepted run reference is invalid".into(),
+        ));
+    }
+    let response = client
+        .get(format!("{base}/v1/runs/{run_id}"))
+        .bearer_auth(token)
+        .header(header::ACCEPT_ENCODING, "identity")
+        .timeout(Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|_| AppError::Unavailable("Hermes accepted run readback is unavailable".into()))?;
+    let payload = read_json(response, StatusCode::OK, 1024 * 1024).await?;
+    effective_session(&payload, run_id)?;
+    Ok(payload)
+}
+
 pub(super) async fn submit(
     client: &reqwest::Client,
     base: &str,
@@ -375,6 +431,91 @@ mod tests {
             if let Err(error) = result {
                 assert!(!error.to_string().contains("wire-fixture-private"));
             }
+            assert_eq!(calls.load(Ordering::SeqCst), 1);
+            server.abort();
+            let _ = server.await;
+        }
+    }
+
+    #[test]
+    fn accepted_session_is_native_readback_not_the_requested_alias() {
+        for state in [
+            "queued",
+            "started",
+            "running",
+            "waiting_for_approval",
+            "stopping",
+            "completed",
+            "failed",
+            "cancelled",
+            "interrupted",
+            "stopped",
+        ] {
+            let payload = json!({"object":"hermes.run","run_id":"run_original",
+                "session_id":"native-session","status":state,
+                "completed":state == "completed","partial":false,"interrupted":state == "interrupted"});
+            assert_eq!(
+                effective_session(&payload, "run_original").unwrap(),
+                "native-session"
+            );
+        }
+        let good = json!({"object":"hermes.run","run_id":"run_original",
+            "session_id":"native-session","status":"running"});
+        for (field, value) in [
+            ("object", json!("hermes.response")),
+            ("run_id", json!("foreign")),
+            ("session_id", Value::Null),
+            ("session_id", json!("")),
+            ("session_id", json!("has space")),
+            ("session_id", json!("x".repeat(513))),
+            ("status", json!("succeeded")),
+        ] {
+            let mut bad = good.clone();
+            bad[field] = value;
+            assert!(effective_session(&bad, "run_original").is_err(), "{field}");
+        }
+        let partial = json!({"object":"hermes.run","run_id":"run_original",
+            "session_id":"native-session","status":"completed","completed":true,"partial":true,"interrupted":false});
+        assert!(effective_session(&partial, "run_original").is_err());
+    }
+
+    #[tokio::test]
+    async fn accepted_readback_is_get_only_bounded_and_authenticated() {
+        for code in [
+            StatusCode::OK,
+            StatusCode::NOT_FOUND,
+            StatusCode::FOUND,
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ] {
+            let calls = Arc::new(AtomicUsize::new(0));
+            let count = calls.clone();
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let base = format!("http://{}", listener.local_addr().unwrap());
+            let router = axum::Router::new().route("/v1/runs/run_fixture", axum::routing::get(move |headers: axum::http::HeaderMap| {
+                count.fetch_add(1, Ordering::SeqCst);
+                assert_eq!(headers["authorization"], "Bearer readback-fixture-only");
+                assert_eq!(headers["accept-encoding"], "identity");
+                async move { (code, axum::Json(json!({"object":"hermes.run","run_id":"run_fixture",
+                    "session_id":"native-session","status":"running","private":"fixture-body-private"}))) }
+            }));
+            let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+            let client = reqwest::Client::builder()
+                .retry(reqwest::retry::never())
+                .redirect(reqwest::redirect::Policy::none())
+                .no_proxy()
+                .build()
+                .unwrap();
+            let result =
+                read_accepted_run(&client, &base, "readback-fixture-only", "run_fixture").await;
+            assert_eq!(result.is_ok(), code == StatusCode::OK);
+            if let Err(error) = result {
+                assert!(!error.to_string().contains("fixture-body-private"));
+            }
+            assert!(
+                read_accepted_run(&client, &base, "readback-fixture-only", "../bad")
+                    .await
+                    .is_err()
+            );
             assert_eq!(calls.load(Ordering::SeqCst), 1);
             server.abort();
             let _ = server.await;

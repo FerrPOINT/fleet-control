@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+- Atomically preserve free-chat Hermes run/prompt/outbox acceptance before
+  effective-session status readback. GET-only restart recovery, immutable native
+  mappings and delivery CAS retain capacity without resubmitting the prompt;
+  task-bound dispatch still requires authoritative admission.
+
+- Add an opt-in locked actual Base/Tracker credential interoperability harness:
+  issuance/replay/current assignment, distinct central/local identities, scoped
+  denials and parent revocation. This does not admit or dispatch a PM run.
+
 - Correct configuration-reader test initialization for strict all-target Clippy;
   rerun library, PostgreSQL foundation and frontend regression gates.
 

@@ -1,5 +1,13 @@
 # Data Model
 
+Free-chat run acceptance uses existing columns, without a new migration:
+`runtime_run_id`/message `runtime_message_id` and outbox dispatched commit
+atomically after a verified 202. Pending plus a run ID means accepted but awaiting
+effective-session GET. The first session pin replaces the requested alias and
+sets running under row locks; replay preserves terminal state and timestamps.
+These application guards do not retrospectively attest legacy rows or protect
+against direct privileged SQL. Task-bound/PM records use their separate model.
+
 ## Local Configuration Recovery Material
 
 Hermes activation writes an exclusive, size-bounded, sensitive local

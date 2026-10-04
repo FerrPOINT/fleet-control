@@ -26,6 +26,12 @@ mod base_package;
 #[path = "support/runtime_readiness.rs"]
 mod runtime_readiness;
 
+#[path = "support/runtime_acceptance.rs"]
+mod runtime_acceptance;
+
+#[path = "support/runtime_acceptance_readback_http.rs"]
+mod runtime_acceptance_readback_http;
+
 #[path = "support/runtime_purge.rs"]
 mod runtime_purge;
 
@@ -3610,6 +3616,15 @@ async fn config_revision_identity_guard_fences_rebind_active_runs_and_unknown_di
 
 #[tokio::test]
 async fn runtime_task_protocol_blocks_memory_only_idempotency_before_submission() {
+    runtime_task_protocol_case(false).await;
+}
+
+#[tokio::test]
+async fn runtime_task_protocol_durable_capabilities_do_not_bypass_admission() {
+    runtime_task_protocol_case(true).await;
+}
+
+async fn runtime_task_protocol_case(durable: bool) {
     let Some((repo, reservation)) = pm_fixture().await else {
         return;
     };
@@ -3653,12 +3668,12 @@ async fn runtime_task_protocol_blocks_memory_only_idempotency_before_submission(
         .route("/health", axum::routing::get(|| async { axum::Json(serde_json::json!({"status":"ok"})) }))
         .route("/v1/capabilities", axum::routing::get(move |headers: axum::http::HeaderMap| {
             assert_eq!(headers["authorization"], bearer);
-            async { axum::Json(serde_json::json!({
+            async move { axum::Json(serde_json::json!({
                 "object":"hermes.api_server.capabilities", "platform":"hermes-agent",
                 "auth":{"type":"bearer","required":true},
                 "runtime":{"mode":"server_agent","tool_execution":"server","split_runtime":false},
                 "features":{"run_submission":true,"run_status":true,"run_events_sse":true,"run_stop":true,
-                    "runs_idempotency":{"supported":true,"durable":false,"retention_seconds":86400}},
+                    "runs_idempotency":{"supported":true,"durable":durable,"retention_seconds":86400}},
                 "endpoints":{"runs":{"method":"POST","path":"/v1/runs"},
                     "run_status":{"method":"GET","path":"/v1/runs/{run_id}"},
                     "run_events":{"method":"GET","path":"/v1/runs/{run_id}/events"},
@@ -3679,7 +3694,11 @@ async fn runtime_task_protocol_blocks_memory_only_idempotency_before_submission(
         .await
         .unwrap();
     assert_eq!(response.status, AgentStatus::Failed);
-    assert!(response.message.contains("durable task protocol"));
+    assert!(response.message.contains(if durable {
+        "admission is not yet verified"
+    } else {
+        "durable task protocol"
+    }));
     assert_eq!(count.load(Ordering::SeqCst), 0);
     assert_eq!(
         serde_json::to_value(repo.list_session_agent_runs(session.id).await.unwrap()).unwrap(),
@@ -3706,7 +3725,7 @@ async fn runtime_http_fixture(runtime_status: &'static str) {
 }
 
 async fn runtime_http_scenario(
-    readback: serde_json::Value,
+    mut readback: serde_json::Value,
     events: &'static str,
     expected: SessionRunState,
     expected_reply: bool,
@@ -3729,6 +3748,10 @@ async fn runtime_http_scenario(
     .unwrap();
     let count = Arc::new(AtomicUsize::new(0));
     let calls = count.clone();
+    if readback.get("session_id").is_none() {
+        readback["session_id"] = serde_json::json!("native-fixture-session");
+    }
+    let reads = Arc::new(AtomicUsize::new(0));
     let router = axum::Router::new()
         .route("/v1/runs", axum::routing::post(move |headers: axum::http::HeaderMap, axum::Json(body): axum::Json<serde_json::Value>| {
             let calls = calls.clone();
@@ -3746,7 +3769,11 @@ async fn runtime_http_scenario(
         .route("/v1/runs/fixture-run", axum::routing::get(move |headers: axum::http::HeaderMap| {
             assert_eq!(headers["accept-encoding"], "identity");
             assert!(headers["authorization"].to_str().unwrap().starts_with("Bearer fc_"));
-            let payload = readback.clone();
+            let payload = if reads.fetch_add(1, Ordering::SeqCst) == 0 {
+                serde_json::json!({"object":"hermes.run","run_id":"fixture-run","session_id":"native-fixture-session","status":"running"})
+            } else {
+                readback.clone()
+            };
             async move { axum::Json(payload) }
         }));
     let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });

@@ -489,6 +489,24 @@ pub trait FleetRepository: Send + Sync {
         state: SessionRunState,
         last_error: Option<String>,
     ) -> Result<SessionAgentRun, AppError>;
+    /// Persist a verified ACK before readback; this never authorizes task dispatch.
+    async fn accept_hermes_run(
+        &self,
+        message_id: Uuid,
+        run_id: Uuid,
+        runtime_run_id: String,
+    ) -> Result<SessionAgentRun, AppError>;
+    async fn pin_hermes_run_session(
+        &self,
+        run_id: Uuid,
+        runtime_run_id: String,
+        requested_session_id: String,
+        effective_session_id: String,
+    ) -> Result<(SessionAgentRun, bool), AppError>;
+    async fn list_pending_hermes_acceptances(
+        &self,
+        after: Option<Uuid>,
+    ) -> Result<Vec<(SessionMessage, SessionAgentRun)>, AppError>;
     async fn insert_session_message_mirror(
         &self,
         session_id: Uuid,

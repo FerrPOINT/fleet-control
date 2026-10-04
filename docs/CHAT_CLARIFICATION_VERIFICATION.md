@@ -592,3 +592,82 @@ format. Manifest/hash verifiers passed for 135 fixture screenshots and nine
 chat-controller fixture images; images were not regenerated or relabeled live.
 The opt-in real-producer credential target was compiled by all-target checks,
 not executed by this library/foundation run.
+
+### Actual Base And Tracker Credential Interoperability
+
+The opt-in `pm_credentials_live` integration target now executed against actual
+locked Base and Tracker binaries and their separate disposable PostgreSQL
+databases. Base producer `ddfb436bf2b3253561672c92b2dbc06803cabf90`, Tracker
+producer `af6ed1ee26f6d26534a0dd1526e3b4d168962160`, Fleet library snapshot
+`605e19b1556278fb7acef5b917ab047856053a7f` and SDK
+`9408802dfa978cba2f67162a49adca6f65851b01` are frozen in the harness evidence.
+The test SHA256 is
+`80fff1364630049ea736910361bc104b16a340eec51002e958510d8221db8fba`.
+
+One actual test passed on Linux/Rust 1.88/PostgreSQL 17.6, with scoped Clippy and
+format checks. It uses the production issuer/command, real owner Draft and PM
+assignment APIs, exact child replay/expiry/lineage and current context readback.
+Tracker local UUIDs differ from verified central subjects. Foreign task, legacy
+API, owner reservation readback and owner-only confirmation are denied by the
+real server. Authenticated parent revocation invalidates child introspection,
+Tracker access and further issuance. No synthetic issuer ACK is involved.
+
+Actual exec session 34009 exited zero. Preserved log
+`tmp/pm-credentials-live-run-3.log` SHA256:
+`1b013d075248f137d995d256fda191e6489588fe90c15cb05f54a3cdf67726a5`.
+Project `sdlc-qa-pm-live-af76a8a560fd` was removed by exact Compose finally;
+independent inspection found no containers/network. Private fixture was deleted
+and caches retained. The [harness](../scripts/pm_credentials_live/README.md)
+requires explicit registry-download consent if its locked build cache is cold.
+
+This closes issuer-to-current-context interoperability, not the persisted Fleet
+creation coordinator's complete live saga. Its journal/fault-injection tests
+remain separate evidence. Workflow admission, runtime credential handoff/tools,
+renewal policy and genuine PM question/answer/resume acceptance remain open.
+
+## Accepted Free-Chat Run Recovery (4 October 2026)
+
+The source commits verified Hermes HTTP 202 acceptance atomically across the
+run, prompt delivery and outbox, before effective-session GET. A pending run
+with a durable native ID holds capacity; the keyset worker only reads that ID.
+Authenticated bounded readback pins the actual session once, not the requested
+Fleet alias. Concurrent recoverers have one stream-start winner. Task-bound/PM
+records remain excluded even when durable capabilities are valid.
+
+Final Linux/Rust 1.88/PostgreSQL 17.6 source gate: 176 workspace library cases,
+85 foundation PG/HTTP cases and one separately enabled approval SSE case passed
+(262 distinct cases). All-target check and strict Clippy, formatting and exact
+Rust-generated OpenAPI comparison passed. Existing Base Git blobs were copied
+unchanged from the read-only package mount to a disposable Linux layer with the
+same HEAD, avoiding Windows-mounted Git IO; no source pin or production timeout
+was changed. README validation and all 98 Markdown link files passed.
+
+Eleven atomic repository cases include outbox-trigger rollback, concurrent ACK/
+pin, identity reuse, task/PM denial and terminal replay. A restricted PostgreSQL
+role injects a real full-agent read failure after ACK commit; subsequent
+`Failed(None)` cannot erase delivery and the original run remains recoverable.
+Three production-adapter HTTP cases cover initial GET outage, foreign identity,
+restart, unchanged single submission and queue progress past 21 rejected ACKs.
+Forged running snapshots cannot issue stop/steer while the persisted run awaits
+pin. Existing EOF/terminal negatives and authenticated approval ingestion pass;
+the fixture requires one POST/one SSE and authenticated native status readback.
+
+Two source-review findings are closed by those guards and regressions; the
+independent re-review found no additional actionable issue in their corrections.
+Heuristic scanning of all 21 changed/new files reported one unchanged synthetic
+redaction-test literal already present at the parent head; review found no new
+secret. This is not a whole-repository DLP or entropy/history certification.
+
+Final exec session 40810 exited zero. Evidence log
+`.local/pdlc-implementation/acceptance-readback-scoped.log` SHA256:
+`a0bbf74d0be168f9221634d7f769d0ea4d115efbee936ab425a77bfd4c6723f4`.
+Exact project `sdlc-qa-fleet-acceptance-f7274d0f5ecd` was removed by finally;
+independent Compose inspection found no remaining containers. External caches
+were preserved. Earlier failing attempts remain separate logs, not passing gates.
+
+These are controlled Hermes HTTP producers with real Fleet persistence/runtime
+paths. Authentic Hermes gateway/model acceptance, unknown run-ID recovery,
+exact-request/fingerprint/horizon journal, post-pin stream recovery, offline
+controls, process-tree safe stop, PM admission/tools/resume, full release/CI gate
+and current production screenshots remain required. No accepted runtime was
+installed or updated; no PR was pushed or marked ready by this gate.

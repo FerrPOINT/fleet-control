@@ -48,15 +48,37 @@ current assignment authority. Client allowlisting is not server authorization or
 runtime admission. Opt-in creation now persists original command/parent/origin
 intent before Base POST and immutable ACK metadata before fresh child/context
 readback. Audit and journal updates are atomic; replay cannot rotate identity or
-renew an expired child. The 33-case Linux/PostgreSQL component gate passed; actual
-Base/Tracker interoperability, renewal/revocation administration, admission and
-runtime tool handoff remain open. See the
+renew an expired child. The 33-case Linux/PostgreSQL component gate passed.
+A separate actual Base/Tracker issuer-to-context test now verifies exact replay,
+scoped denials and parent revocation with distinct central/local IDs. The complete
+persisted creation saga, renewal administration, admission and runtime tool
+handoff remain open. See the
 [current credential evidence](CHAT_CLARIFICATION_VERIFICATION.md#persisted-credential-preparation-4-october-2026).
 The broader Linux regression passed 174 workspace library and 70 foundation
 PostgreSQL/HTTP tests, all-target check/strict Clippy and formatting. Node22
 frontend passed 229 tests, lint and format; fixture screenshot manifests verify.
 These checks do not include the opt-in real-producer credential run, all other
 integration targets, release build or end-to-end runtime acceptance.
+
+Free-chat verified acceptance now commits run/prompt/outbox atomically before
+status GET. Accepted-but-unpinned pending runs recover effective session identity
+by GET only after restart, with one concurrent stream-start winner and immutable
+runtime mapping. This does not recover unknown run IDs or the pin-to-worker crash
+gap, admit assignments, or attest native Hermes configuration. See
+[ADR 0015](adr/0015-accepted-run-session-readback.md) and the verification ledger.
+
+The final acceptance-readback source gate passed on Linux/Rust 1.88/PostgreSQL
+17.6: all 176 workspace library tests, all 85 foundation PG/HTTP cases and the
+separate authenticated approval SSE test (262 distinct cases). All-target check,
+strict all-target Clippy, formatting and regenerated OpenAPI equality passed.
+The 98-file Markdown link check and README validation passed. These include a
+real post-commit database permission fault, concurrent ACK/pin/delivery races,
+GET outage/foreign identity/restart recovery, a 22-ACK keyset and stale control
+snapshot denial. The final Compose project was removed with caches preserved.
+Hermes HTTP producers here are controlled fixtures, not authentic gateway/model
+acceptance; this gate does not prove unknown POST recovery, PM admission/resume,
+process-tree quiescence, release build, remaining integration targets or UI/live
+screenshots. Accepted-but-unpinned controls remain temporarily unavailable.
 
 The creation recovery follow-up adds owner/key readback for a lost initial
 acknowledgement, persisted-operation continuation without prompt resubmission,

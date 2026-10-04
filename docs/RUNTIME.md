@@ -38,6 +38,29 @@ Hermes:
   process with an unhealthy API remains degraded and is probed again.
 - Prompt outbox is transactional. Unknown POST acceptance is not automatically
   retried; the agent remains occupied pending reconciliation.
+- A verified HTTP 202 in a free chat now commits the run ID, prompt delivery and
+  outbox acceptance together before any status GET. The run remains `pending`
+  until an authenticated, bounded status read identifies its effective Hermes
+  session; the requested `fleet:<session>:<agent>` alias is not that proof.
+  Readback failure retains this ACK and agent capacity. A bounded keyset worker
+  retries only GET for accepted-but-unpinned runs, including after Fleet restart;
+  it never submits a prompt. The first transactional session pin starts the
+  stream; identical concurrent pins do not start another worker. Effective
+  session and runtime run IDs are immutable, and late generic updates cannot
+  regress a terminal state. EOF status must also match that pinned session.
+  Delivery updates serialize under a message row lock: an error with no native
+  ID cannot erase a committed ACK, conflicting IDs fail, and terminal deliveries
+  do not reopen. Controls reload the current run identity before HTTP; a pending
+  session pin rejects stop/steer/approval even when a caller holds an old running
+  snapshot. This is an explicit temporary limitation during readback outages,
+  not confirmed cancellation. Independent acceptance/pin/control journaling is
+  still needed to safely stop a known accepted run during such an outage.
+  Task-bound/PM runs retain their separate authority and are not admitted by
+  this free-chat recovery path. Source tests and live acceptance are recorded
+  separately in the verification ledger. A crash before ACK commit, after pin
+  but before stream startup, or an unknown run ID still needs further durable
+  recovery; this change does not implement exact-request/fingerprint journaling,
+  retention-safe redispatch or process-tree quiescence.
 - The managed HTTP client disables implicit retries, redirects and environment
   proxies. Run submission accepts only HTTP 202 with a safe opaque `run_id`, a
   boolean `replayed` and a known `status`; a new run must say `started`. A replay

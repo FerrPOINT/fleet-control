@@ -22,6 +22,7 @@ use tokio::{
     time::sleep,
 };
 use uuid::Uuid;
+mod acceptance_readback;
 mod activation_journal;
 mod hermes_wire;
 #[cfg(test)]
@@ -103,6 +104,7 @@ impl LocalRuntimeSupervisor {
         };
         supervisor.spawn_reconciler();
         supervisor.spawn_message_dispatcher();
+        supervisor.spawn_acceptance_readback();
         supervisor.spawn_config_activator();
         supervisor
     }
@@ -1227,6 +1229,9 @@ impl LocalRuntimeSupervisor {
             }
             let capabilities = self.probe_hermes(agent).await?;
             hermes_wire::task_protocol(&capabilities)?;
+            return Err(AppError::Unavailable(
+                "task runtime admission is not yet verified".into(),
+            ));
         }
         let runtime_session_id = Self::runtime_session_id(session, agent);
         let run = self
@@ -1258,27 +1263,13 @@ impl LocalRuntimeSupervisor {
         .await?;
         let run = self
             .repo
-            .update_session_agent_run_dispatch(
-                run.id,
-                Some(runtime_run_id.clone()),
-                SessionRunState::Running,
-                None,
-            )
+            .accept_hermes_run(message.id, run.id, runtime_run_id.clone())
             .await?;
-        self.repo
-            .update_session_message_delivery(
-                message.id,
-                MessageDeliveryState::Dispatched,
-                Some(runtime_run_id.clone()),
-                None,
-            )
-            .await?;
-        self.emit_run(&run);
-        let _ = self.events.send(FleetEvent::SessionMessageChanged {
-            session_id: session.id.to_string(),
-            message_id: message.id.to_string(),
-            event: "message.dispatched".to_string(),
-        });
+        // ACK is durable even if HTTP readback fails. The recovery worker only reads this run.
+        let run = self
+            .finish_acceptance_readback(agent, session, message, &run)
+            .await
+            .unwrap_or(run);
         Ok((run, runtime_run_id))
     }
 
@@ -1437,6 +1428,13 @@ impl LocalRuntimeSupervisor {
                 })?;
             let payload =
                 hermes_wire::read_json(response, reqwest::StatusCode::OK, 1024 * 1024).await?;
+            if hermes_wire::effective_session(&payload, &runtime_run_id)?
+                != run.runtime_session_id.as_deref().unwrap_or_default()
+            {
+                return Err(AppError::Unavailable(
+                    "Hermes terminal session identity changed".into(),
+                ));
+            }
             let event = hermes_wire::terminal_readback(&payload, &runtime_run_id)?;
             self.handle_hermes_event(
                 &agent,
@@ -1691,6 +1689,18 @@ impl LocalRuntimeSupervisor {
         path: &str,
         body: Option<&T>,
     ) -> Result<Value, AppError> {
+        let current = self.repo.get_session_agent_run(run.id).await?;
+        if current.agent_id != agent.id
+            || current.session_id != run.session_id
+            || current.runtime_run_id != run.runtime_run_id
+        {
+            return Err(AppError::conflict("runtime control identity changed"));
+        }
+        if current.state == SessionRunState::Pending {
+            return Err(AppError::conflict(
+                "runtime session readback must finish before control",
+            ));
+        }
         let runtime_run_id = run
             .runtime_run_id
             .as_ref()
@@ -2345,13 +2355,6 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
 
         match self.start_hermes_run(agent, session, message).await {
             Ok((run, runtime_run_id)) => {
-                self.spawn_hermes_event_worker(
-                    agent.clone(),
-                    session.clone(),
-                    message.clone(),
-                    run,
-                    runtime_run_id.clone(),
-                );
                 let _ = self
                     .repo
                     .insert_log(
@@ -2366,7 +2369,12 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
                 Ok(RuntimeOperationResponse {
                     agent_id: agent.id,
                     status: AgentStatus::Running,
-                    message: "Hermes run started".to_string(),
+                    message: if run.state == SessionRunState::Pending {
+                        "Hermes accepted the run; session readback is pending"
+                    } else {
+                        "Hermes run started"
+                    }
+                    .to_string(),
                 })
             }
             Err(err) => {

@@ -37,7 +37,9 @@ struct FakeHermes {
     bearer: String,
     message_id: Uuid,
     events: Mutex<Option<mpsc::UnboundedReceiver<Event>>>,
-    authenticated_calls: AtomicUsize,
+    submissions: AtomicUsize,
+    streams: AtomicUsize,
+    status_reads: AtomicUsize,
 }
 
 impl FakeHermes {
@@ -49,7 +51,6 @@ impl FakeHermes {
         {
             return Err(StatusCode::UNAUTHORIZED);
         }
-        self.authenticated_calls.fetch_add(1, Ordering::SeqCst);
         Ok(())
     }
 }
@@ -60,6 +61,7 @@ async fn start_run(
     Json(body): Json<Value>,
 ) -> Result<(StatusCode, Json<Value>), StatusCode> {
     fake.authenticate(&headers)?;
+    fake.submissions.fetch_add(1, Ordering::SeqCst);
     assert_eq!(headers["Idempotency-Key"], fake.message_id.to_string());
     assert_eq!(body["input"], "Exercise exact runtime approval requests");
     Ok((
@@ -73,6 +75,7 @@ async fn events(
     headers: HeaderMap,
 ) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, StatusCode> {
     fake.authenticate(&headers)?;
+    fake.streams.fetch_add(1, Ordering::SeqCst);
     let receiver = fake
         .events
         .lock()
@@ -82,6 +85,16 @@ async fn events(
     Ok(Sse::new(stream::unfold(receiver, |mut receiver| async {
         receiver.recv().await.map(|event| (Ok(event), receiver))
     })))
+}
+
+async fn status(
+    State(fake): State<Arc<FakeHermes>>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, StatusCode> {
+    fake.authenticate(&headers)?;
+    fake.status_reads.fetch_add(1, Ordering::SeqCst);
+    Ok(Json(json!({"object":"hermes.run","run_id":RUNTIME_RUN,
+        "session_id":"native-approval-events-session","status":"running"})))
 }
 
 struct TestServer(JoinHandle<()>);
@@ -154,8 +167,8 @@ async fn authenticated_hermes_sse_ingests_exact_requests_and_never_response_even
         .try_get::<i64>("", "count")
         .unwrap();
     assert_eq!(
-        migrations, 11,
-        "fixture must include accepted deployment and pending task-chat migrations"
+        migrations, 12,
+        "fixture must include accepted deployment, task-chat and PM credential migrations"
     );
     let owner = Uuid::new_v4();
     db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
@@ -222,6 +235,13 @@ async fn authenticated_hermes_sse_ingests_exact_requests_and_never_response_even
         )
         .await
         .unwrap();
+    db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE message_dispatch_outbox SET state='dispatching' WHERE message_id=$1",
+        [message.id.into()],
+    ))
+    .await
+    .unwrap();
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
     db.execute(Statement::from_sql_and_values(
@@ -240,10 +260,13 @@ async fn authenticated_hermes_sse_ingests_exact_requests_and_never_response_even
         ),
         message_id: message.id,
         events: Mutex::new(Some(receiver)),
-        authenticated_calls: AtomicUsize::new(0),
+        submissions: AtomicUsize::new(0),
+        streams: AtomicUsize::new(0),
+        status_reads: AtomicUsize::new(0),
     });
     let router = Router::new()
         .route("/v1/runs", post(start_run))
+        .route(&format!("/v1/runs/{RUNTIME_RUN}"), get(status))
         .route(&format!("/v1/runs/{RUNTIME_RUN}/events"), get(events))
         .with_state(fake.clone());
     let _server = TestServer(tokio::spawn(async move {
@@ -315,7 +338,9 @@ async fn authenticated_hermes_sse_ingests_exact_requests_and_never_response_even
         repo.get_session_agent_run(run.id).await.unwrap().state,
         SessionRunState::Waiting
     );
-    assert_eq!(fake.authenticated_calls.load(Ordering::SeqCst), 2);
+    assert_eq!(fake.submissions.load(Ordering::SeqCst), 1);
+    assert_eq!(fake.streams.load(Ordering::SeqCst), 1);
+    assert!(fake.status_reads.load(Ordering::SeqCst) >= 1);
 
     for _ in 0..8 {
         sender
@@ -385,6 +410,6 @@ async fn authenticated_hermes_sse_ingests_exact_requests_and_never_response_even
         2
     );
     println!(
-        "actual PostgreSQL: 11 migrations; authenticated production SSE: 2 pending request IDs; responded: 0 new rows; concurrent/replayed upserts: stable IDs"
+        "actual PostgreSQL: 12 migrations; authenticated production SSE: 2 pending request IDs; responded: 0 new rows; concurrent/replayed upserts: stable IDs"
     );
 }
