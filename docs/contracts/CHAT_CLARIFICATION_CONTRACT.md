@@ -181,10 +181,28 @@ assignment authority for allowed task-scoped reads and writes. Broad service
 read/write scopes do not confer legacy authority on the PM child. Runtime handoff
 remains disabled until this server boundary is independently accepted.
 
-This client is not yet connected to the PM creation coordinator or runtime tools.
-Root PAT configuration, persisted issuance/revocation operations, short-lived
-child handoff, parent identity pinning and actual Base/Tracker acceptance remain
-release prerequisites. No root PAT is placed in a runtime env or tool argument.
+PM creation/continuation now optionally connects this client after the immutable
+chat receipt commits. The deployment flag defaults to disabled. Before POST the
+owner operation stores the exact command/hash/key/TTL, normalized Base/Tracker
+origins, canonical machine subject and a SHA256 fingerprint of the original
+high-entropy parent bearer. A changed parent, origin or TTL conflicts before HTTP.
+Fresh parent introspection requires that subject and exactly Tracker read/write.
+The ACK stores only child token ID, scopes and expiry; the secret stays in memory.
+Child introspection and `GET .../sdlc/context` then verify exact assignment and
+original human owner. That GET is permitted; PM children cannot read the
+owner reservation operation or legacy/global APIs. Failed readback retains ACK;
+recovery replays the original Base command and repeats fresh authorization.
+Expired receipts are not implicitly renewed. Intent/ACK audit commits once,
+without bearer, parent fingerprint or upstream body in audit/public responses.
+
+Additive Fleet migration 000011 permits absent journal -> immutable intent ->
+immutable ACK, preserving historical 000010 and old operation bytes. Down refuses
+any retained journal. This is preparation, not lease claim or admission: creation
+still returns `awaiting_admission`, `dispatch_allowed=false`. Scoped PG/HTTP
+fixtures do not prove real Base-issued child interoperability with real Tracker.
+Runtime tool handoff, durable revocation/recovery administration, subsequent-run
+credential renewal policy and actual Base/Tracker acceptance remain release
+prerequisites. No root PAT is placed in runtime env or tool arguments.
 
 ## Interface
 

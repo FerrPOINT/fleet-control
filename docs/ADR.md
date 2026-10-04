@@ -12,6 +12,8 @@
 - [0010-agent-chats-and-sdlc-ownership.md](adr/0010-agent-chats-and-sdlc-ownership.md)
 - [0011-durable-dispatch-and-terminal-evidence.md](adr/0011-durable-dispatch-and-terminal-evidence.md)
 - [0012-configuration-revisions-and-drain.md](adr/0012-configuration-revisions-and-drain.md)
+- [0013-pm-clarification-owner-gateway.md](adr/0013-pm-clarification-owner-gateway.md)
+- [0014-persisted-pm-credential-preparation.md](adr/0014-persisted-pm-credential-preparation.md)
 
 Records 0008 and 0009 describe historical migration stages. Their status notes
 point to the current shared dependency and central identity architecture.

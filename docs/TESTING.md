@@ -50,6 +50,29 @@ or an installed-runtime restart recovery acceptance; both remain required.
 
 ## Credential Acknowledgement Timing
 
+With disposable `FLEET_TEST_DATABASE_URL`, run
+`cargo test --locked -p infra --test sdlc_foundation pm_credentials_pg_ -- --test-threads=1`.
+The audit-failure regression injects failures at both intent and ACK audit
+INSERTs: the same transaction must roll back the corresponding journal update.
+After ACK failure, original-key replay must recover the same issued child and
+commit exactly one intent and one acknowledgement audit event.
+Tests call the production optional creation port/coordinator, persist real PG
+intent/ACK/audit and use actual HTTP fixtures for Base/Tracker. They cover lost
+ACK and coordinator recreation, partial success, concurrency, original-parent/
+origin/TTL conflict, stale/foreign/noncanonical context, revoked parent/child,
+real short TTL expiry, first-write strict SQL shapes, immutable records, once-only
+redacted audit and refused downgrade. No model/run/lease/Workflow mutation occurs.
+They do not run real Base/Tracker servers or prove native admission/tool handoff.
+
+`FLEET_CREDENTIAL_MIGRATION_TEST_DATABASE_URL` names a separate empty disposable
+database for `cargo test --locked -p migration --test pm_credentials`:
+predecessor up, populated legacy operation, additive up, unchanged bytes,
+empty-journal down and reapply. CI explicitly creates that database and runs the
+test. Historical transcript regression now rolls back two migrations to retain
+its original 000010 coverage; neither test is production downgrade guidance.
+Without the corresponding DB variables these cases return early and are not
+PostgreSQL evidence.
+
 `cargo test --locked -p infra --lib pm_credentials::tests` includes an actual
 HTTP acknowledgement delayed six seconds before issuance. A legitimate requested
 TTL remains accepted even though it exceeds request-start + TTL + skew; an

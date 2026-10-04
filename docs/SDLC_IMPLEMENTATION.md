@@ -42,6 +42,7 @@ IMPLEMENTATION_PLAN и CURRENT_STATE. Они не являются приёмк�
 | Provisioning | Существующий effective `.env` сохраняется; активный runtime не переподготавливается | Exclusive create и Unix `0600`; три regression tests |
 | Readiness | Runtime health отдельно от readiness SDLC | `workflow_assignment_protocol_not_verified` блокирует весь автоматический SDLC |
 | Shared UI | Совместимое расширение bearer SSE utility в Base | Cursor сохраняется при reconnect, credentials только в header |
+| PM credentials | Opt-in выдача в creation continuation: immutable command/parent/origins journal, child ACK, fresh Base introspection и Tracker context, once-only audit | Миграция 000011 additive; default disabled; выдача не является admission, runtime handoff или live Base/Tracker acceptance |
 
 ## Контракт конфигурации
 

@@ -1,5 +1,7 @@
 # Changelog
 
+- PM creation supports opt-in durable assignment credential preparation, original-parent replay, fresh Base/Tracker checks and redacted once-only audit. Additive migration 000011 preserves historical operations and refuses journal-discarding downgrade; native admission/tool handoff remain gated.
+
 ## [Unreleased]
 
 - Require bounded tracked-process kill/wait before acknowledging runtime stop;

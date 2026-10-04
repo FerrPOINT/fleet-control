@@ -20,6 +20,7 @@ struct RemoteState {
     namespace_reads: usize,
     calls: Vec<&'static str>,
     stale_after_reserve: bool,
+    machine_subject: Option<String>,
 }
 
 #[derive(Default)]
@@ -145,7 +146,10 @@ impl PmDraftTracker for Tracker {
                     execution_id: Uuid::new_v4(),
                     agent_id: op.request.agent_id,
                     version: 1,
-                    machine_subject: "fleet-test-orchestrator".into(),
+                    machine_subject: state
+                        .machine_subject
+                        .clone()
+                        .unwrap_or_else(|| "fleet-test-orchestrator".into()),
                 },
                 execution: TrackerDraftExecution {
                     ordinal: "41".into(),
@@ -195,6 +199,7 @@ async fn operation() -> Option<(PostgresFleetRepository, PmDraftOperation)> {
         input: None,
         reservation: None,
         session_id: None,
+        credentials: None,
     };
     sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
         .await
@@ -207,6 +212,39 @@ async fn operation() -> Option<(PostgresFleetRepository, PmDraftOperation)> {
         .await
         .unwrap();
     Some((repo, operation))
+}
+
+pub(super) async fn credential_fixture()
+-> Option<(PostgresFleetRepository, PmDraftOperation, String)> {
+    let (repo, candidate) = operation().await?;
+    let subject = Uuid::new_v4().to_string();
+    let tracker = Tracker::default();
+    tracker.state.lock().await.machine_subject = Some(subject.clone());
+    let operation = repo.reserve_pm_draft_operation(candidate).await.unwrap();
+    continue_creation(&repo, &tracker, operation.clone())
+        .await
+        .unwrap();
+    let operation = repo
+        .read_pm_draft_operation(operation.id, operation.owner_user_id)
+        .await
+        .unwrap();
+    Some((repo, operation, subject))
+}
+
+pub(super) async fn continue_with_credentials(
+    repo: &PostgresFleetRepository,
+    op: PmDraftOperation,
+    credentials: &dyn app::pm_draft::PmDraftCredentials,
+) -> Result<PmDraftCreationResponse, AppError> {
+    let tracker = Tracker {
+        state: Mutex::new(RemoteState {
+            draft: op.draft.clone(),
+            input: op.input.clone(),
+            reservation: op.reservation.clone(),
+            ..Default::default()
+        }),
+    };
+    app::pm_draft::continue_creation_with_credentials(repo, &tracker, op, Some(credentials)).await
 }
 
 #[tokio::test]

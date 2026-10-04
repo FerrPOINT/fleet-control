@@ -761,6 +761,7 @@ pub struct AppContext {
     pub runtime: Arc<dyn RuntimeSupervisor>,
     pub auth: auth::AuthService,
     pub events: broadcast::Sender<FleetEvent>,
+    pub pm_credentials: Option<Arc<dyn pm_draft::PmDraftCredentials>>,
     restart_tx: mpsc::Sender<()>,
 }
 
@@ -818,6 +819,7 @@ impl AppContext {
             runtime,
             auth,
             events,
+            pm_credentials: None,
             restart_tx,
         }
     }

@@ -119,7 +119,7 @@ Persisted task-workspace/config claims and their fencing remain part of the next
 admission implementation.
 
 Remaining before release: creation UI and full predispatch admission/dispatch saga,
-runtime structured tools/scoped assignment,
+runtime structured tools/scoped assignment handoff,
 live authenticated Tracker outbox acceptance, integration of trusted readback into PM delivery/rebind,
 prerequisite verifier, live restart/negative acceptance and current production screenshots.
 Task-bound chat ordinary send/steer is deliberately blocked until these contracts are wired.
@@ -129,6 +129,15 @@ PM terminal/capacity reconciliation, strict metadata-only Tracker decoder and
 immutable projection/version pins. Producer HTTP snapshots from Tracker's own
 PostgreSQL tests cover all nine event types without rewriting source digests.
 These are foundations and contract evidence, not actual PM tools/delivery/resume.
+
+PM creation now has opt-in persisted scoped credential preparation after the
+chat receipt: immutable original command/parent/origin pin, Base ACK metadata,
+fresh parent/child introspection and assigned-task Tracker context. Additive
+migration 000011 preserves historical 000010 and old operations; intent/receipt
+cannot be removed or replaced. Readback failure retains partial success for the
+original-key continuation. Expiry never silently creates a replacement credential.
+No lease, model run or Workflow side effect follows from credential preparation.
+Real Base/Tracker interoperability and runtime tool handoff remain acceptance gaps.
 
 Authenticated metadata polling is implemented behind a disabled-by-default
 deployment flag. Base subject/scope and Tracker project access are rechecked each

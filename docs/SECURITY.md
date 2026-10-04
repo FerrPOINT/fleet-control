@@ -35,13 +35,27 @@ and permits only enumerated SDLC GET/POST operations. It denies legacy API paths
 other tasks, owner answers/confirmation and verifier/assignment actions before
 adding Authorization. This does not constrain a bearer used outside that client:
 Tracker must independently deny assignment-scoped PM tokens on legacy APIs and
-check current assignment authority. Credential issuance/runtime handoff remains
-unwired; this restriction is not PM admission or a completed live security gate.
+check current assignment authority. Issuance is connected to opt-in creation
+continuation; runtime handoff remains unwired. Preparation is not PM admission
+or a completed live security gate.
 The issuer disables redirects, automatic retries and environment proxies. It
 validates TTL against acknowledgement time (Base issues after its database locks),
 with five seconds of skew, while independently rejecting expired or overlong
 credentials. Waiting for the issuer does not permit scope expansion or renewal
 under a new key.
+
+Before any Base mutation, Fleet pins the original parent fingerprint, exact
+command/TTL/hash/key and fixed origins in the owner-only creation ledger. Both
+parent and child pass fresh Base introspection; the subject must equal Tracker's
+frozen machine UUID. The child has exactly Tracker read/write plus that assignment
+grant. Its authenticated task context must match original human owner, instance,
+project/task/root and all assignment fields, without human answer/confirm rights.
+An ACK persists before Tracker readback; revoked/expired/stale authorization never
+erases it or mints a replacement. Parent secrets are omitted from config JSON/Debug;
+child secrets are memory-only, absent from journal, audit and public API. A parent
+fingerprint is recovery metadata, not authority, encryption or a credential.
+Operator rotation requires explicit reconciliation, not a new parent replay.
+SQL shape/monotonicity guards and downgrade refusal protect recovery records.
 
 Creation recovery is owner-only even for operators/admins; key readback validates
 the current project before the indexed owner/key lookup. Continuation accepts

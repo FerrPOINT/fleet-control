@@ -1,64 +1,17 @@
 //! Server-only, assignment-scoped credentials. Never expose the parent PAT to a runtime.
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use reqwest::{Client, RequestBuilder, StatusCode, Url, header};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use shared::AppError;
 use std::time::Duration;
 use uuid::Uuid;
 
 const MAX_RESPONSE_BYTES: usize = 16_384;
 
-#[derive(Clone, Serialize)]
-pub struct PmCredentialCommand {
-    #[serde(skip)]
-    task_id: Uuid,
-    service: &'static str,
-    label: String,
-    scopes: Vec<String>,
-    idempotency_key: String,
-    expires_in_seconds: i64,
-}
+pub use domain::PmCredentialCommand;
 
-impl PmCredentialCommand {
-    /// Identity and operation key must come from the persisted assignment, not model arguments.
-    pub fn tracker(
-        identity: &domain::PmExecutionIdentity,
-        operation_key: String,
-        ttl_seconds: i64,
-    ) -> Result<Self, AppError> {
-        identity.validate()?;
-        if identity.assignment_revision > 9_007_199_254_740_991
-            || operation_key.is_empty()
-            || operation_key.len() > 128
-            || !operation_key.bytes().all(|c| c.is_ascii_graphic())
-            || !(1..=1800).contains(&ttl_seconds)
-        {
-            return Err(AppError::validation("invalid PM credential command"));
-        }
-        let mut scopes = vec![
-            "task-tracker:read".into(),
-            "task-tracker:write".into(),
-            format!(
-                "task-tracker:sdlc:pm:{}:{}:{}:{}:{}",
-                identity.task_ref,
-                identity.assignment_ref,
-                identity.execution_ref,
-                identity.agent_ref,
-                identity.assignment_revision,
-            ),
-        ];
-        scopes.sort_unstable();
-        Ok(Self {
-            task_id: Uuid::parse_str(&identity.task_ref)
-                .map_err(|_| AppError::validation("invalid PM task reference"))?,
-            service: "task-tracker",
-            label: format!("PM assignment {}", identity.assignment_ref),
-            scopes,
-            idempotency_key: operation_key,
-            expires_in_seconds: ttl_seconds,
-        })
-    }
-}
+mod coordinator;
+pub use coordinator::PmCredentialCoordinator;
 
 pub struct PmCredentialIssuer {
     origin: Url,
@@ -276,10 +229,9 @@ impl PmCredentialIssuer {
         let token: IssuedToken = serde_json::from_slice(&bytes)
             .map_err(|_| AppError::Unavailable("credential acknowledgement is invalid".into()))?;
         if token.token_id.is_nil()
-            || token.scopes != command.scopes
+            || token.scopes != command.scopes()
             || token.expires_at <= Utc::now()
-            || token.expires_at
-                > acknowledged + ChronoDuration::seconds(command.expires_in_seconds + 5)
+            || token.expires_at > acknowledged + ChronoDuration::seconds(command.ttl_seconds() + 5)
         {
             return Err(AppError::Unavailable(
                 "credential acknowledgement scope or expiry mismatch".into(),
@@ -291,7 +243,7 @@ impl PmCredentialIssuer {
         Ok(PmDelegatedCredential {
             bearer,
             tracker_origin: self.tracker_origin.clone(),
-            task_id: command.task_id,
+            task_id: command.task_id(),
             token_id: token.token_id,
             expires_at: token.expires_at,
         })
@@ -377,7 +329,7 @@ mod tests {
         assert!(body.get("task_id").is_none());
         assert_eq!(body["service"], "task-tracker");
         assert_eq!(body["scopes"].as_array().unwrap().len(), 3);
-        assert!(request.scopes.contains(&format!(
+        assert!(request.scopes().contains(&format!(
             "task-tracker:sdlc:pm:{}:{}:{}:{}:1",
             identity.task_ref, identity.assignment_ref, identity.execution_ref, identity.agent_ref,
         )));
@@ -595,7 +547,7 @@ mod tests {
         assert!(credential.bearer.is_sensitive());
         let task_url = format!(
             "https://tracker/api/v1/issues/{}/sdlc/context",
-            request.task_id
+            request.task_id()
         );
         let authorized = credential.authorize(Client::new().get(&task_url)).unwrap();
         assert_eq!(
@@ -628,7 +580,7 @@ mod tests {
             ),
             format!(
                 "https://tracker/api/v1/issues/{}/sdlc/../comments",
-                request.task_id
+                request.task_id()
             ),
             format!("{task_url}#secret"),
             task_url.replace("https://tracker/", "https://tracker:9443/"),
@@ -685,7 +637,7 @@ mod tests {
         let expired = PmDelegatedCredential {
             bearer: bearer(CHILD).unwrap(),
             tracker_origin: Url::parse("https://tracker/").unwrap(),
-            task_id: request.task_id,
+            task_id: request.task_id(),
             token_id: Uuid::new_v4(),
             expires_at: Utc::now() - ChronoDuration::seconds(1),
         };

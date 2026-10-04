@@ -103,6 +103,42 @@ pub struct PmConfig {
     pub namespace_read_pat: String,
     pub namespace_authority_issuer: String,
     pub namespace_provisioner_subject: String,
+    pub credentials: PmCredentialsConfig,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PmCredentialsConfig {
+    pub enabled: bool,
+    pub auth_url: String,
+    pub machine_subject: String,
+    #[serde(skip_serializing)]
+    pub parent_pat: String,
+    pub ttl_seconds: i64,
+}
+
+impl Default for PmCredentialsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            auth_url: String::new(),
+            machine_subject: String::new(),
+            parent_pat: String::new(),
+            ttl_seconds: 300,
+        }
+    }
+}
+
+impl std::fmt::Debug for PmCredentialsConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PmCredentialsConfig")
+            .field("enabled", &self.enabled)
+            .field("auth_url", &self.auth_url)
+            .field("machine_subject", &self.machine_subject)
+            .field("parent_pat", &"[REDACTED]")
+            .field("ttl_seconds", &self.ttl_seconds)
+            .finish()
+    }
 }
 
 impl std::fmt::Debug for PmConfig {
@@ -118,6 +154,7 @@ impl std::fmt::Debug for PmConfig {
                 "namespace_provisioner_subject",
                 &self.namespace_provisioner_subject,
             )
+            .field("credentials", &self.credentials)
             .finish()
     }
 }

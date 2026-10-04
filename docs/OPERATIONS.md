@@ -1,5 +1,20 @@
 # Operations
 
+## PM Credential Recovery
+
+Credential preparation is opt-in and still ends before admission/dispatch.
+Unknown issuance leaves an immutable intent; acknowledged issuance followed by
+Tracker failure keeps the child receipt. Use the owner-only original creation
+continuation after restoring dependencies. The same command under the same
+original parent is replayed, then fresh child/Tracker authorization is checked.
+Do not rotate parent, change TTL/origins or invent a new key to clear a blocker.
+An expired/revoked child remains historical; renewal/handoff recovery requires a
+separate reviewed operation, not editing the journal. Audit shows once-only intent
+and ACK, never parent fingerprints, bearer secrets or source response bodies.
+Migration 000011 preserves legacy operations and historical 000010. Its downgrade
+refuses any retained journal, including pending intent; use reviewed forward
+recovery rather than removing records or disabling triggers in a live database.
+
 ## Effective Configuration Readback
 
 An operator/admin readiness response may contain

@@ -53,6 +53,21 @@ not the effective Hermes runtime profile. This adds no table or migration.
 
 ## PM Chat Bindings
 
+Additive migration `m20261004_000011_pm_credentials` extends the creation guard;
+historical 000010 is unchanged. An optional private `credentials` journal inside
+the existing operation JSON stores the exact Base command, canonical payload
+hash, original parent fingerprint, fixed integration origins and machine subject.
+The absent field preserves legacy serialization; it is not populated by migration.
+The only progress is absent -> intent -> acknowledged child metadata. Intent and
+receipt are immutable, including after expiry/revocation; secrets are never stored.
+The child receipt contains token UUID, scopes and expiry, not proof of admission.
+ACK persists before fresh child/Tracker readback, so Tracker failure does not erase
+successful issuance. Row locking and Base's original-parent/key replay serialize
+concurrent duplicates without a second child. First intent/ACK audit rows commit
+with their operation update; replay produces no new audit rows. Downgrade refuses
+any journal and never discards recovery material. No new table/index/scheduler is
+needed; owner/operation and owner/key lookups retain their existing indexes.
+
 `pm_draft_creation_operations` is the owner/key-unique creation ledger in pending
 migration 000010. It stores immutable owner/project/agent/input and monotonically
 added Tracker Draft, original-input, reservation and atomic chat receipts.

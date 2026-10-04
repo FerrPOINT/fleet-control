@@ -506,7 +506,9 @@ origin/pre-authorized-request denial, root/child debug redaction, revocation,
 redirect/oversize/malformed/error rejection and unknown-outcome preservation.
 The HTTP issuer is controlled test code, not a live Base deployment. Public API,
 database schema, frontend and accepted runtime were unchanged in this follow-up.
-Persisted issuance operations and actual credential/tool handoff remain open.
+At that client-only baseline, persisted issuance and actual credential/tool
+handoff remained open. The persisted preparation evidence below closes only
+the former component gap; it does not establish admission or tool handoff.
 
 Workflow PR #90 now reconciles the feature with accepted catalog v2/master;
 it does not implement PM Draft admission. A release-compatible Workflow build
@@ -514,7 +516,10 @@ still requires the actual native-skills Git pin
 `46eb27f70b68cbefbf53903090f0c7f0fa68b748`. The source was not found locally and
 the private GitLab remote denied access. The development capabilities 503 is
 intentional fail-closed behavior, not live PM readiness. No fixture manifest or
-guessed compatibility hash may substitute for that dependency.
+guessed compatibility hash may substitute for that dependency. This was a
+historical source-access blocker: the authorized canonical Base package is now
+available at the exact pin in [GAP_REGISTER](GAP_REGISTER.md). Native attestation
+and the compatible installed build remain unverified.
 
 Admitted initial runtime delivery, scoped PM structured tools, live authenticated
 Tracker outbox/Fleet inbox projection, live
@@ -525,3 +530,43 @@ acceptance remain open in [GAP_REGISTER](GAP_REGISTER.md).
 Task-bound ordinary prompts and steer are intentionally rejected. The answer receipt means
 Tracker saved an answer, not PM received it. No deployment switch, merge or production-ready
 claim should bypass these gaps. Fixture images remain outside the live screenshot manifest.
+
+## Persisted Credential Preparation (4 October 2026)
+
+The opt-in creation continuation now records an immutable credential intent
+before the Base command, retains ACK metadata before Tracker context readback,
+and recovers through the same parent/origins/key/payload. It performs fresh
+parent and child introspection and verifies the assigned task's original human
+owner and exact PM assignment. Secrets remain memory-only; public responses and
+audit never contain the journal's parent fingerprint or remote bodies. Expired
+credentials are not renewed by replay. Creation still stops at
+`awaiting_admission`, with `dispatch_allowed=false` and no runtime run.
+
+Exact-tree scoped Linux/Rust 1.88/PostgreSQL 17.6 evidence: 33 distinct tests
+passed (two migration regressions, seven infrastructure unit/HTTP cases, two
+configuration unit cases, ten credential PostgreSQL/HTTP cases, five existing
+creation PostgreSQL cases and seven API cases). Audit INSERT failure injection
+proves intent/ACK journal changes roll back atomically; replay after a failed ACK
+audit recovers the same child rather than minting another. Timestamp negatives
+include invalid dates, hour/offset 24, excess fractional precision and leap
+seconds. Additive migration 000011 preserves predecessor operations unchanged,
+retains historical 000010 and refuses downgrade while any journal exists.
+
+Scoped infra/API/server/migration Clippy with warnings denied and format checks
+passed. Rust-generated OpenAPI is unchanged by the private journal. Node 22.20
+checks passed: API drift/compatibility, TypeScript, seven wire contracts with two
+checker regressions, and 97 Markdown link files. Changed-file heuristic secret
+scan passed; it is not a whole-repository DLP or final release gate.
+
+Evidence log: `.local/pdlc-implementation/credential-creation-scoped.log`.
+Final QA project `sdlc-qa-fleet-credential-creation-cf7b2a32240e` was removed
+with exact Compose finally cleanup, preserving external caches. The preceding
+exact-tree project `sdlc-qa-fleet-credential-creation-52ee6c112bed` also passed
+and was removed. Source review findings on the legacy creation guard and
+unreadable first-write JSON/timestamps are fixed and covered by regressions.
+
+These tests use real Fleet persistence/coordinator/application code with
+controlled Base/Tracker HTTP producers. Actual Base-issued child interoperability
+with real Tracker, admission, credential renewal/revocation administration,
+runtime structured tools and live PM resume remain unverified. No UI composition,
+screenshots, accepted runtime, package pin or deployment was changed here.

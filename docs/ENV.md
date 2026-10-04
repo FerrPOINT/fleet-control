@@ -24,7 +24,7 @@ pm_draft_project_ids = ["00000000-0000-4000-8000-000000000001"]
 Replace the example with an actual authorized Tracker project UUID. An empty
 allowlist permits no creation. Tracker URL/instance and fresh verified human
 credentials are required; root/machine PATs cannot create on behalf of an owner.
-The coordinator does not persist credentials or retry without a human request.
+The coordinator does not persist bearer secrets or retry without a human request.
 Disabling leaves task/chat receipts readable but rejects new continuation POSTs.
 Each continuation POST also requires a fresh namespace ownership read from the
 fixed `FLEET_CONTROL_FLEET__PROJECT_WORKFLOW_URL` root. The concrete PM agent's
@@ -42,11 +42,35 @@ Workflow for this exact Tracker instance/project. Configure these server values:
 Workflow freshly introspects this PAT at Base. Missing/invalid config, denied
 access, redirects, outages, invalid/oversized responses and authority mismatch
 fail closed. A mapping for another Tracker project returns conflict. The
-coordinator does not provision mappings or mint PATs. Receipt GETs remain
+namespace guard does not provision mappings or mint PATs. Receipt GETs remain
 read-only and do not perform this continuation check. Mapping creation time is
 not an execution lease; passing this guard never grants runtime dispatch.
 Admission/native bundle/workspace readiness still must be implemented and verified
 before any PM runtime dispatch.
+
+## PM Credential Preparation
+
+Disabled by default, independently of Draft creation. Enable only on compatible
+source versions with Base delegation policy and Tracker's receiving-service PM
+grant restriction; SDK pins alone do not install those server endpoints.
+
+- `FLEET_CONTROL_PM__CREDENTIALS__ENABLED`: default `false`.
+- `FLEET_CONTROL_PM__CREDENTIALS__AUTH_URL`: fixed root HTTP(S) Base origin.
+- `FLEET_CONTROL_PM__CREDENTIALS__MACHINE_SUBJECT`: canonical non-nil central UUID
+  matching the frozen PM assignment, with active Tracker user/project membership.
+- `FLEET_CONTROL_PM__CREDENTIALS__PARENT_PAT`: server-only root PAT with exactly
+  `task-tracker:read` and `task-tracker:write`; never an agent env/UI setting.
+- `FLEET_CONTROL_PM__CREDENTIALS__TTL_SECONDS`: default 300, permitted 1..1800.
+
+Use the configured Tracker root origin. Base must opt in exact machine delegation
+of the `task-tracker:sdlc:pm:` prefix. The coordinator persists original command,
+parent fingerprint and origins before mutation, then rechecks parent/child and
+Tracker context on every continuation. Rotated parent, changed origin or changed
+TTL conflicts with an existing journal. Expiry/revocation needs explicit recovery;
+it does not silently change key or renew a child. ACK metadata survives Tracker
+failure; raw secrets are neither serialized nor persisted. Preparation does not
+claim a lease, hand secrets to Hermes or enable model dispatch. Disabling prevents
+new credential preparation while historical creation reads remain available.
 
 ## Tracker Metadata Polling
 
