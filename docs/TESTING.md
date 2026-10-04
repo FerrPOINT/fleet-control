@@ -11,6 +11,16 @@ Existing PostgreSQL tests cover draining, failed rollback hold, identity fencing
 and exact effective-head readiness. These are not process-kill fault injection
 or an installed-runtime restart recovery acceptance; both remain required.
 
+## Credential Acknowledgement Timing
+
+`cargo test --locked -p infra --lib pm_credentials::tests` includes an actual
+HTTP acknowledgement delayed six seconds before issuance. A legitimate requested
+TTL remains accepted even though it exceeds request-start + TTL + skew; an
+overlong acknowledgement after the same delay remains rejected. Each command
+issues one HTTP POST only. Existing tests retain exact scopes, replay/revocation,
+expiry, invalid payload, no-store, redirect refusal and secret-safe diagnostics.
+The mock issuer is transport regression evidence, not live Base runtime handoff.
+
 Delegated PM credential tests cover canonical bound-task operation allowlisting,
 foreign/legacy paths, URL normalization and wrong method rejection, unsafe revision
 numbers, owner/verifier actions, expiry, existing Authorization, scope mismatch and

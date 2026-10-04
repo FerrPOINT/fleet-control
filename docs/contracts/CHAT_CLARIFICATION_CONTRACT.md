@@ -160,7 +160,11 @@ same parent, never a new operation key or a rotated parent. The HTTP client
 does not retry automatically. Expired replay is rejected, not renewed implicitly.
 Successful acknowledgement must include `no-store`, the exact scopes, a non-nil
 token ID and a live bounded expiry. Its body is size-limited and redirects are
-disabled. Neither issuer nor delegated credential debug output contains a secret;
+disabled, as are environment proxy inheritance and automatic retries. The expiry
+ceiling is receipt time + requested TTL + five seconds of clock skew: Base starts
+TTL after blocking database locks, not at Fleet's request start. An already
+expired acknowledgement or excessive remaining lifetime is still rejected.
+Neither issuer nor delegated credential debug output contains a secret;
 the credential cannot be serialized. It authenticates only enumerated PM GET/POST
 operations under the canonical assigned task's SDLC path at the configured
 Tracker origin: context/questions/requirements and revision/diff reads, original

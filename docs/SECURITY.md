@@ -37,6 +37,11 @@ adding Authorization. This does not constrain a bearer used outside that client:
 Tracker must independently deny assignment-scoped PM tokens on legacy APIs and
 check current assignment authority. Credential issuance/runtime handoff remains
 unwired; this restriction is not PM admission or a completed live security gate.
+The issuer disables redirects, automatic retries and environment proxies. It
+validates TTL against acknowledgement time (Base issues after its database locks),
+with five seconds of skew, while independently rejecting expired or overlong
+credentials. Waiting for the issuer does not permit scope expansion or renewal
+under a new key.
 
 Creation recovery is owner-only even for operators/admins; key readback validates
 the current project before the indexed owner/key lookup. Continuation accepts

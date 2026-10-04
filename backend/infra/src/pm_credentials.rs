@@ -210,6 +210,7 @@ impl PmCredentialIssuer {
                 .timeout(Duration::from_secs(10))
                 .redirect(reqwest::redirect::Policy::none())
                 .retry(reqwest::retry::never())
+                .no_proxy()
                 .build()
                 .map_err(|_| AppError::Unavailable("credential issuer is unavailable".into()))?,
         })
@@ -222,7 +223,6 @@ impl PmCredentialIssuer {
     ) -> Result<PmDelegatedCredential, AppError> {
         let mut url = self.origin.clone();
         url.set_path("/auth/tokens/delegate");
-        let started = Utc::now();
         let mut response = self
             .client
             .post(url)
@@ -235,6 +235,8 @@ impl PmCredentialIssuer {
                     "credential issue outcome is unknown; reconcile the original key".into(),
                 )
             })?;
+        // Base starts the lifetime after its database locks, not at HTTP request start.
+        let acknowledged = Utc::now();
         match response.status() {
             StatusCode::OK | StatusCode::CREATED => (),
             StatusCode::UNAUTHORIZED => return Err(AppError::Unauthorized),
@@ -276,7 +278,8 @@ impl PmCredentialIssuer {
         if token.token_id.is_nil()
             || token.scopes != command.scopes
             || token.expires_at <= Utc::now()
-            || token.expires_at > started + ChronoDuration::seconds(command.expires_in_seconds + 5)
+            || token.expires_at
+                > acknowledged + ChronoDuration::seconds(command.expires_in_seconds + 5)
         {
             return Err(AppError::Unavailable(
                 "credential acknowledgement scope or expiry mismatch".into(),
@@ -497,6 +500,9 @@ mod tests {
         let mut headers = HeaderMap::new();
         headers.insert(header::CACHE_CONTROL, "private, no-store".parse().unwrap());
         let mode = state.mode.load(Ordering::SeqCst);
+        if mode == 17 || mode == 18 {
+            tokio::time::sleep(Duration::from_secs(6)).await;
+        }
         let mut token = json!({"secret":CHILD,"token_id":state.token_id,"expires_at":Utc::now()+ChronoDuration::seconds(100),"scopes":body["scopes"]});
         let mut status = StatusCode::CREATED;
         match mode {
@@ -526,6 +532,14 @@ mod tests {
                     "task-tracker:sdlc:pm:other",
                     "task-tracker:write"
                 ])
+            }
+            18 => {
+                token["expires_at"] = json!(
+                    Utc::now()
+                        + ChronoDuration::seconds(
+                            body["expires_in_seconds"].as_i64().unwrap() + 60
+                        )
+                )
             }
             _ => (),
         }
@@ -679,6 +693,42 @@ mod tests {
             expired.authorize(Client::new().get(&task_url)),
             Err(AppError::Unauthorized)
         ));
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn issuer_lock_delay_preserves_bounded_ttl_and_one_attempt() {
+        let state = TestState {
+            mode: Arc::new(AtomicUsize::new(17)),
+            calls: Arc::new(AtomicUsize::new(0)),
+            redirected: Arc::new(AtomicUsize::new(0)),
+            token_id: Uuid::new_v4(),
+        };
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let issuer = PmCredentialIssuer::new(
+            &format!("http://{}", listener.local_addr().unwrap()),
+            "https://tracker/",
+            PARENT,
+        )
+        .unwrap();
+        let router = Router::new()
+            .route("/auth/tokens/delegate", post(issue))
+            .with_state(state.clone());
+        let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+        let command =
+            PmCredentialCommand::tracker(&identity(), "persisted-key".into(), 100).unwrap();
+        let started = Utc::now();
+        let credential = issuer.issue(&command).await.unwrap();
+        assert!(credential.expires_at() > started + ChronoDuration::seconds(105));
+        assert!(credential.expires_at() <= Utc::now() + ChronoDuration::seconds(105));
+        assert_eq!(credential.token_id(), state.token_id);
+        assert_eq!(state.calls.load(Ordering::SeqCst), 1);
+        state.mode.store(18, Ordering::SeqCst);
+        assert!(matches!(
+            issuer.issue(&command).await,
+            Err(AppError::Unavailable(_))
+        ));
+        assert_eq!(state.calls.load(Ordering::SeqCst), 2);
         server.abort();
     }
 
