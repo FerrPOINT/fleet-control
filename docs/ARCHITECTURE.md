@@ -158,6 +158,13 @@ can inspect, cancel and audit long-running actions. Runtime roots, runtime
 sources, port ranges, integrations and auth settings are stored as typed
 redacted control settings.
 
+Managed-settings confirmation keeps its typed diff and apply/rollback commands
+in Fleet. Base AlertDialog supplies the modal and keyboard primitives; Fleet
+owns pending/error state and returns close focus to the actual successful-preview
+initiator through the existing close-focus hook. A fresh confirmation resets
+previous mutation errors, while retry preserves its preview and optimistic
+version. [Production UI evidence](assets/screens/settings-confirmation-2026-10-04/README.md).
+
 Agent storage reporting is computed on demand by the filesystem provisioner. It
 reuses the same `agents_root/agentN` guard as purge/provisioning, scans only the
 managed runtime/config/workspace/logs areas, and reports marker validity before

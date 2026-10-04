@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- Clear previous apply/rollback errors when a new managed-settings confirmation
+  opens or a completed attempt is cancelled. Preserve same-dialog retry, drafts,
+  optimistic version checks, local roles and restart confirmation semantics.
+  Restore keyboard focus to the actual preview/rollback initiator after the
+  controlled confirmation dialog closes.
+
 - Keep chat directory owner filtering on the existing user/session index by
   converting its JSON owner list to a UUID array before membership checks.
   Preserve all-users counts, project ACLs, search and pagination contracts.
