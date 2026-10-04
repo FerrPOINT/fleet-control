@@ -38,6 +38,14 @@ Unknown-key lookup, post-pin recovery and operator reconciliation remain open.
 
 ## Local Configuration Recovery Material
 
+Configuration snapshots now have optional `renderer_version`: absent/1 uses the
+historical renderer and retains its previous serialized snapshot/file/hash shape.
+New server-created Hermes revisions store 2, while Java revisions retain 1.
+Existing rows are not backfilled. Unknown versions fail validation/rendering;
+the config-edit request has no renderer selector. Version 2 adds its version to
+the file marker and derives native listener fields/protected env from agent
+identity. It does not change desired configuration JSON or grant runtime admission.
+
 Hermes activation writes an exclusive, size-bounded, sensitive local
 `config/.fleet-activation-journal.json` before stop/file mutation. It records
 contract version, agent/revision, prior runtime state, relative managed paths,

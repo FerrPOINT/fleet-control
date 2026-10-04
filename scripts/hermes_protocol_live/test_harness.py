@@ -1,5 +1,6 @@
 """Host-side safety tests; no Docker, runtime credentials or native imports."""
 import importlib.util
+import hashlib
 import io
 import json
 from pathlib import Path
@@ -23,6 +24,7 @@ def load(name, file):
 
 probe = load("hermes_native_probe", "probe.py")
 runner = load("hermes_native_runner", "run.py")
+renderer = load("hermes_renderer_probe", "renderer_probe.py")
 
 
 def archive(name, *, symlink=False):
@@ -41,6 +43,42 @@ def archive(name, *, symlink=False):
 
 
 class HarnessSafetyTests(unittest.TestCase):
+    def test_native_yaml_exception_is_not_hidden_by_env_fallback(self):
+        def failing_loader(_home, _data):
+            raise TypeError('synthetic malformed native extra')
+        with self.assertRaises(TypeError), patch.object(renderer, 'ROOT', Path('/renderer-evidence')):
+            renderer.yaml_only_config(Path('/renderer-evidence/config'), failing_loader,
+                                      lambda _data: self.fail('fallback constructor invoked'), 'api_server')
+
+    def test_renderer_paths_cannot_escape_owned_root(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(renderer, 'ROOT', Path(directory)):
+            for path in [Path(directory) / '..' / 'outside', Path('relative'), Path(directory).parent / 'outside']:
+                with self.assertRaises(RuntimeError):
+                    renderer.guarded(path)
+
+    def test_renderer_inventory_and_tampered_bytes_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(renderer, 'ROOT', Path(directory)):
+            home = Path(directory) / 'config'
+            home.mkdir()
+            hashes = {}
+            for name in renderer.FILES:
+                payload = ('fixture ' + name).encode()
+                (home / name).write_bytes(payload)
+                hashes[name] = hashlib.sha256(payload).hexdigest()
+            agent = {'home':str(home), 'hashes':hashes}
+            renderer.verify_files(agent)
+            with self.assertRaises(RuntimeError):
+                renderer.verify_files({'home':str(home), 'hashes':{'.env':hashes['.env']}})
+            (home / '.env').write_bytes(b'tampered fixture')
+            with self.assertRaises(RuntimeError):
+                renderer.verify_files(agent)
+
+    def test_renderer_scenario_requires_owned_evidence_before_docker(self):
+        with patch.object(sys, 'argv', ['run.py', '--hermes','fixture', '--image','fixture', '--scenario','renderer']), \
+             patch.object(runner.subprocess, 'check_output') as docker, self.assertRaises(SystemExit):
+            runner.main()
+        docker.assert_not_called()
+
     def test_sse_comments_and_multiline_crlf(self):
         payload = b': keepalive\r\n\r\ndata: {"run_id":"run_test",\r\ndata: "event":"run.completed"}\r\n\r\n'
         self.assertEqual(probe.parse_sse(payload), [{"run_id": "run_test", "event": "run.completed"}])
@@ -118,6 +156,7 @@ class HarnessSafetyTests(unittest.TestCase):
                     compose = Path(argv[argv.index("-f") + 1])
                     action = argv[argv.index(str(compose)) + 1]
                     if action == "up":
+                        self.assertNotIn('user', json.loads(compose.read_text())['services']['probe'])
                         (compose.parent / "output/native-result.json").write_text(json.dumps({
                             "native_source_sha": runner.PIN, "cases": ["fixture"] * 4,
                         }), encoding="utf-8")
@@ -137,6 +176,38 @@ class HarnessSafetyTests(unittest.TestCase):
                 self.assertEqual(result["result"], "cleanup_failed")
                 field = "cleanup_error" if failing_action == "down" else "post_cleanup_ps_error"
                 self.assertEqual(result[field], "TimeoutExpired")
+
+    def test_renderer_fixture_owner_override_is_read_only_and_scenario_specific(self):
+        with tempfile.TemporaryDirectory() as directory:
+            metadata = [{"Id": "sha256:host-fixture-only", "Config": {
+                "Labels": {"sdlc.hermes.revision": runner.PIN},
+            }}]
+            def command(argv, **_kwargs):
+                compose = Path(argv[argv.index('-f') + 1])
+                action = argv[argv.index(str(compose)) + 1]
+                if action == 'up':
+                    service = json.loads(compose.read_text())['services']['probe']
+                    self.assertEqual(service['user'], '0:0')
+                    self.assertEqual(service['cap_drop'], ['ALL'])
+                    self.assertEqual(service['security_opt'], ['no-new-privileges:true'])
+                    self.assertTrue(service['read_only'])
+                    mount = next(v for v in service['volumes'] if v['target'] == '/renderer-evidence')
+                    self.assertTrue(mount['read_only'])
+                    self.assertNotIn('ports', service)
+                    (compose.parent / 'output/native-result.json').write_text(json.dumps({
+                        'native_source_sha': runner.PIN, 'cases': ['synthetic-renderer-case'],
+                    }), encoding='utf-8')
+                return subprocess.CompletedProcess(argv, 0, stdout=b'[]' if action == 'ps' else b'fixture log')
+            with patch.object(runner.subprocess, 'check_output', return_value=json.dumps(metadata).encode()), \
+                 patch.object(runner.subprocess, 'run', side_effect=command), \
+                 patch.object(runner, 'snapshot', return_value='host-fixture-source'), \
+                 patch.object(sys, 'argv', [
+                     'run.py', '--hermes', directory, '--image', 'fixture', '--artifacts', directory,
+                     '--scenario', 'renderer', '--renderer-evidence-root', directory,
+                 ]):
+                runner.main()
+            evidence = json.loads(next(Path(directory).glob('*/evidence.json')).read_text())
+            self.assertEqual(evidence['result'], 'passed')
 
 
 if __name__ == "__main__":

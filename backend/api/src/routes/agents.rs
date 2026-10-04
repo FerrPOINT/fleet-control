@@ -425,7 +425,7 @@ pub async fn validate_config_revision(
 ) -> Result<Json<domain::AgentConfigRevision>, AppError> {
     require_operator(&user)?;
     let value = ctx.repo.get_config_revision(id, revision).await?;
-    let mut errors = value.snapshot.config.input_errors();
+    let mut errors = value.snapshot.input_errors();
     if value
         .snapshot
         .config

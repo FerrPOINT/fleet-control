@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+- Version Hermes configuration rendering: preserve legacy output/history, select
+  native renderer 2 for new revisions, seal API host/port and derived env, and
+  create native provisioning files only when missing. Add an opt-in native loader
+  gate consuming actual Rust-rendered fixtures, without installed runtime changes.
+
 - Persist an immutable exact-request Hermes dispatch journal before free-chat
   submission, with original credential/origin, bounded capabilities and DB-clock
   retention horizon. A single durable permit prevents a second POST; verified ACK

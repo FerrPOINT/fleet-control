@@ -1,5 +1,13 @@
 # Runtime
 
+New Hermes snapshots use [renderer 2](adr/0017-versioned-native-hermes-renderer.md):
+native `platforms.api_server.enabled`, loopback host/assigned port in config and
+protected host/port/credential/HOME/CORS in dotenv. Launcher env alone is not
+authoritative after Hermes dotenv loading. Version 1 preserves historical
+config/env/marker bytes; existing files are never upgraded during provisioning.
+Use normal drain/activation/rollback for a new revision. Native loader evidence
+does not substitute for tracked-process/effective-revision/assignment attestation.
+
 Runtime health is not SDLC readiness. Fleet returns
 `workflow_assignment_protocol_not_verified` until the assignment, workflow
 step/rebind and receipt protocols are verified. See

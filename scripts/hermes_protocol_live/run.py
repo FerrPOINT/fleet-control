@@ -49,7 +49,15 @@ def main():
     parser.add_argument("--hermes", type=Path, required=True)
     parser.add_argument("--image", required=True, help="existing Base-packaged Hermes dependency image; never installed")
     parser.add_argument("--artifacts", type=Path, default=ROOT / "tmp" / "hermes-protocol-live")
+    parser.add_argument("--scenario", choices=("protocol", "renderer"), default="protocol")
+    parser.add_argument("--renderer-evidence-root", type=Path)
     args = parser.parse_args()
+    if args.scenario == "renderer":
+        if args.renderer_evidence_root is None or not args.renderer_evidence_root.is_dir() or args.renderer_evidence_root.is_symlink():
+            parser.error("renderer scenario requires an owned non-linked evidence directory")
+    elif args.renderer_evidence_root is not None:
+        parser.error("renderer evidence is only valid for the renderer scenario")
+    probe_path = Path(__file__).with_name("renderer_probe.py" if args.scenario == "renderer" else "probe.py")
     args.artifacts.mkdir(parents=True, exist_ok=True)
     metadata = json.loads(subprocess.check_output(["docker", "image", "inspect", args.image]))[0]
     if metadata["Config"].get("Labels", {}).get("sdlc.hermes.revision") != PIN:
@@ -59,7 +67,8 @@ def main():
     compose_path = directory / "compose.json"
     log_path = directory / "run.log"
     report = {"project": project, "native_source_sha": PIN, "image_id": metadata["Id"],
-              "result": "failed", "probe_sha256": hashlib.sha256(Path(__file__).with_name("probe.py").read_bytes()).hexdigest(),
+              "scenario":args.scenario,
+              "result": "failed", "probe_sha256": hashlib.sha256(probe_path.read_bytes()).hexdigest(),
               "runner_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
 
     def dc(*arguments, capture=False, timeout=90):
@@ -73,7 +82,7 @@ def main():
         report["source_archive_sha256"] = snapshot(args.hermes, source)
         probe = directory / "probe"
         probe.mkdir()
-        shutil.copyfile(Path(__file__).with_name("probe.py"), probe / "probe.py")
+        shutil.copyfile(probe_path, probe / "probe.py")
         output = directory / "output"
         output.mkdir()
         def bind(path, target, readonly=True):
@@ -90,6 +99,13 @@ def main():
             "tmpfs": ["/tmp:rw,size=512m,mode=1777"], "networks": ["qa"],
             "cpus": 2, "mem_limit": "2g", "pids_limit": 128,
         }}, "networks": {"qa": {"internal": True}}}
+        if args.scenario == "renderer":
+            compose["services"]["probe"]["labels"]["sdlc.purpose"] = "native-config-loader-actual-rust-renderer"
+            # Rust QA owns its mode-0600 fixture as root; do not relax secret-file modes.
+            # Loader-only identity, never applied to the protocol or installed runtime.
+            compose["services"]["probe"].update(user="0:0", cap_drop=["ALL"],
+                                                security_opt=["no-new-privileges:true"])
+            compose["services"]["probe"]["volumes"].append(bind(args.renderer_evidence_root.resolve(), "/renderer-evidence"))
         compose_path.write_text(json.dumps(compose, indent=2) + "\n", encoding="utf-8")
         try:
             result = dc("up", "--abort-on-container-exit", "--exit-code-from", "probe", capture=True, timeout=600)
@@ -104,7 +120,8 @@ def main():
         if result.returncode:
             raise RuntimeError("native acceptance failed; sanitized diagnostics are in the run log")
         native = json.loads((output / "native-result.json").read_text())
-        if len(native.get("cases", [])) != 4 or native.get("native_source_sha") != PIN:
+        expected_cases = 1 if args.scenario == "renderer" else 4
+        if len(native.get("cases", [])) != expected_cases or native.get("native_source_sha") != PIN:
             raise RuntimeError("native evidence is incomplete")
         report["native_evidence"] = native
         report["result"] = "passed"

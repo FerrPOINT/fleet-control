@@ -1,5 +1,16 @@
 # API
 
+`AgentConfigurationSnapshot.renderer_version` is an additive, server-selected
+response field: omitted legacy/1 or native Hermes renderer 2. New Hermes drafts
+use 2; existing snapshots are not rewritten. Config-edit requests are unchanged.
+Validation refuses unsupported versions and malformed v2 native platform objects.
+V2 accepts API settings only under `platforms.api_server`; root and gateway API
+aliases are rejected, including null. Gateway/platform maps, blocks and optional
+extra fields must be objects. These restrictions do not reinterpret legacy v1.
+Optional `extra` on direct gateway object sections also must be an object,
+including dynamic plugin sections; unrelated scalar settings stay unchanged.
+Derived listener/credentials are private rendered values, not public config JSON.
+
 Runtime stop/restart can return `503` for untracked active processes or unconfirmed
 kill/wait. No stopped state or cleared PID is then acknowledged. Success confirms
 only tracked parent-process exit, not descendant quiescence or task completion.

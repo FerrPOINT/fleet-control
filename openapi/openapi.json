@@ -3616,6 +3616,12 @@
           "config": {
             "$ref": "#/components/schemas/UpdateAgentConfigRequest"
           },
+          "renderer_version": {
+            "type": "integer",
+            "format": "int32",
+            "default": 1,
+            "minimum": 0
+          },
           "skills": {
             "type": "array",
             "items": {

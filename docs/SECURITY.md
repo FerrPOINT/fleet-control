@@ -1,5 +1,20 @@
 # Security
 
+## Native Hermes Configuration Rendering
+
+Renderer v2 seals the native API loopback address, assigned port, enablement,
+derived credential, HOME and configured CORS. An explicit YAML CORS list is
+required even when empty: native dotenv treats an empty value as no override.
+Alternative native API aliases and malformed platform structures are rejected
+before activation rather than allowing later merge/fallback to replace policy.
+The runtime key exists only in private rendered files/launch environment; it is
+not added to public configuration snapshots. Legacy v1 output/history are not
+rewritten or silently upgraded. An upgrade uses validated drain/activation.
+
+Native loader evidence on synthetic Rust-rendered files is not an attestation of
+an installed runtime's effective revision, plugin inventory or model credentials.
+Loaded-config proof, OS/tool isolation and assignment fencing remain required.
+
 ## Activation Journal
 
 The managed configuration journal is local recovery material, not public evidence.

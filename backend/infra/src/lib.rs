@@ -2,6 +2,7 @@ mod approval_decisions;
 pub mod base_package;
 mod chats_directory;
 mod config_revisions;
+mod configuration_renderer;
 mod effective_configuration;
 pub mod entities;
 mod hermes_dispatch_journal;
@@ -1413,6 +1414,7 @@ impl FleetRepository for PostgresFleetRepository {
             None => {
                 let config = self.get_agent_config(id).await?;
                 domain::AgentConfigurationSnapshot {
+                    renderer_version: 1,
                     config: UpdateAgentConfigRequest {
                         config_json: config.config_json,
                         soul_md: config.soul_md,
@@ -4680,7 +4682,6 @@ fn retention_hint(
 async fn provision_hermes(agent: &Agent, config: &AppConfig) -> Result<(), AppError> {
     let config_path = PathBuf::from(&agent.paths.config);
     let runtime_path = PathBuf::from(&agent.paths.runtime);
-    let token = agent_runtime_token(config, agent.id)?;
     for file in ["config.yaml", "SOUL.md", ".env", "skills", "sessions"] {
         reject_symlink_components(
             Path::new(&config.fleet.agents_root),
@@ -4694,16 +4695,13 @@ async fn provision_hermes(agent: &Agent, config: &AppConfig) -> Result<(), AppEr
     tokio::fs::create_dir_all(config_path.join("sessions"))
         .await
         .map_err(AppError::internal)?;
+    let mut content = json!({"profile":agent.name,"runtime":"hermes",
+        "terminal":{"cwd":agent.paths.workspace},"fleet_control":{"agent_id":agent.id,
+            "api_port":agent.api_port,"dashboard_port":agent.dashboard_port}});
+    configuration_renderer::native_listener(agent, config, &mut content)?;
     write_if_missing(
         config_path.join("config.yaml"),
-        format!(
-            "profile: {}\nruntime: hermes\nterminal:\n  cwd: {}\nfleet_control:\n  agent_id: {}\n  api_port: {}\n  dashboard_port: {}\n",
-            agent.name,
-            agent.paths.workspace.replace('\\', "/"),
-            agent.id,
-            agent.api_port.unwrap_or_default(),
-            agent.dashboard_port.unwrap_or_default()
-        ),
+        serde_json::to_string_pretty(&content).map_err(AppError::internal)?,
     )
     .await?;
     write_if_missing(
@@ -4716,12 +4714,7 @@ async fn provision_hermes(agent: &Agent, config: &AppConfig) -> Result<(), AppEr
     .await?;
     write_if_missing(
         config_path.join(".env"),
-        format!(
-            "# Managed by Fleet Control. Secrets are redacted in API responses.\nHERMES_HOME={}\nHERMES_SERVE_HEADLESS=1\nAPI_SERVER_ENABLED=true\nAPI_SERVER_KEY={}\nAPI_SERVER_CORS_ORIGINS={}\n",
-            agent.paths.config.replace('\\', "/"),
-            token,
-            config.server.cors_allowed_origins.join(",")
-        ),
+        configuration_renderer::env(agent, config)?,
     )
     .await?;
     write_if_missing(
@@ -4774,6 +4767,18 @@ pub(crate) async fn configuration_files(
     config: &AppConfig,
     revision: &domain::AgentConfigRevision,
 ) -> Result<Vec<(PathBuf, String)>, AppError> {
+    let renderer = revision.snapshot.renderer_version;
+    if !matches!(renderer, 1 | 2) || (renderer == 2 && agent.kind != AgentKind::Hermes) {
+        return Err(AppError::validation(
+            "unsupported configuration renderer version",
+        ));
+    }
+    if renderer == 2 {
+        let errors = revision.snapshot.input_errors();
+        if !errors.is_empty() {
+            return Err(AppError::validation(errors.join("; ")));
+        }
+    }
     let root = Path::new(&config.fleet.agents_root);
     let agent_root = safe_agent_root(root, &agent.name)?;
     reject_symlink_components(root, &agent_root).await?;
@@ -4799,17 +4804,29 @@ pub(crate) async fn configuration_files(
         ));
     }
     content["terminal"]["cwd"] = json!(agent.paths.workspace);
-    let mut env = format!(
-        "HERMES_HOME={}\nHERMES_SERVE_HEADLESS=1\nAPI_SERVER_ENABLED=true\nAPI_SERVER_KEY={}\n",
-        serde_json::to_string(&agent.paths.config).map_err(AppError::internal)?,
-        agent_runtime_token(config, agent.id)?
-    );
+    if renderer == 2 {
+        configuration_renderer::native_listener(agent, config, &mut content)?;
+    }
+    let mut env = if renderer == 2 {
+        configuration_renderer::env(agent, config)?
+    } else {
+        format!(
+            "HERMES_HOME={}\nHERMES_SERVE_HEADLESS=1\nAPI_SERVER_ENABLED=true\nAPI_SERVER_KEY={}\n",
+            serde_json::to_string(&agent.paths.config).map_err(AppError::internal)?,
+            agent_runtime_token(config, agent.id)?
+        )
+    };
     if let Some(values) = revision.snapshot.config.env_json.as_object() {
         for (key, value) in values {
-            if matches!(
-                key.as_str(),
-                "HERMES_HOME" | "HERMES_SERVE_HEADLESS" | "API_SERVER_ENABLED" | "API_SERVER_KEY"
-            ) {
+            if (renderer == 2 && configuration_renderer::managed_env_key(key))
+                || matches!(
+                    key.as_str(),
+                    "HERMES_HOME"
+                        | "HERMES_SERVE_HEADLESS"
+                        | "API_SERVER_ENABLED"
+                        | "API_SERVER_KEY"
+                )
+            {
                 continue;
             }
             let value = if let Some(reference) = value.get("secret_ref").and_then(Value::as_str) {
@@ -4887,10 +4904,14 @@ pub(crate) async fn configuration_files(
             )
         })
         .collect();
+    let mut marker =
+        serde_json::json!({"agent_id":agent.id,"revision":revision.revision,"hashes":hashes});
+    if renderer == 2 {
+        marker["renderer_version"] = json!(renderer);
+    }
     files.push((
         expected.join(".fleet-config-revision.json"),
-        serde_json::json!({"agent_id":agent.id,"revision":revision.revision,"hashes":hashes})
-            .to_string(),
+        marker.to_string(),
     ));
     for (path, _) in &files {
         reject_symlink_components(root, path).await?;
@@ -5165,6 +5186,7 @@ mod tests {
             revision: 1,
             state: "active".into(),
             snapshot: domain::AgentConfigurationSnapshot {
+                renderer_version: 1,
                 config: UpdateAgentConfigRequest {
                     config_json: json!({"model":"test-model"}),
                     soul_md: "# Test SOUL\n".into(),
@@ -5200,6 +5222,161 @@ mod tests {
                 .unwrap();
             tokio::fs::write(path, body).await.unwrap();
         }
+    }
+
+    #[tokio::test]
+    async fn versioned_renderer_keeps_legacy_bytes_and_seals_native_listener_env() {
+        let (root, agent, config, revision) = effective_config_fixture().await;
+        let legacy = configuration_files(&agent, &config, &revision)
+            .await
+            .unwrap();
+        let mut next = revision.clone();
+        next.revision = 2;
+        next.snapshot.renderer_version = 2;
+        next.snapshot.config.config_json["platforms"] = json!({"api_server":{"enabled":false,
+            "extra":{"host":"0.0.0.0","port":80,"direct_model_requests":true}}});
+        next.snapshot.config.env_json["API_SERVER_HOST"] = json!("0.0.0.0");
+        next.snapshot.config.env_json["API_SERVER_PORT"] = json!("80");
+        next.snapshot.config.env_json["API_SERVER_KEY"] = json!("redacted");
+        next.snapshot.config.env_json["API_SERVER_CORS_ORIGINS"] = json!("untrusted-fixture");
+        // Legacy fixture contains a plaintext secret; a new revision must not preserve it.
+        next.snapshot
+            .config
+            .env_json
+            .as_object_mut()
+            .unwrap()
+            .remove("TEST_SECRET");
+        let rendered = configuration_files(&agent, &config, &next).await.unwrap();
+        for (path, expected) in &legacy {
+            if !expected.is_empty() {
+                assert_eq!(tokio::fs::read(path).await.unwrap(), expected.as_bytes());
+            }
+        }
+        assert_eq!(
+            legacy,
+            configuration_files(&agent, &config, &revision)
+                .await
+                .unwrap()
+        );
+        let body = |name: &str| {
+            rendered
+                .iter()
+                .find(|(path, _)| path.file_name().is_some_and(|v| v == name))
+                .unwrap()
+                .1
+                .clone()
+        };
+        let content: Value = serde_json::from_str(&body("config.yaml")).unwrap();
+        assert_eq!(content["platforms"]["api_server"]["extra"]["port"], 29002);
+        assert_eq!(
+            content["platforms"]["api_server"]["extra"]["host"],
+            "127.0.0.1"
+        );
+        assert_eq!(
+            content["platforms"]["api_server"]["extra"]["direct_model_requests"],
+            true
+        );
+        let env = body(".env");
+        assert!(env.contains("API_SERVER_HOST=\"127.0.0.1\"\n"));
+        assert!(env.contains("API_SERVER_PORT=\"29002\"\n"));
+        assert!(env.contains(&format!(
+            "API_SERVER_KEY=\"{}\"\n",
+            agent_runtime_token(&config, agent.id).unwrap()
+        )));
+        assert!(!env.contains("untrusted-fixture"));
+        assert_eq!(env.matches("API_SERVER_PORT=").count(), 1);
+        let marker: Value = serde_json::from_str(&body(".fleet-config-revision.json")).unwrap();
+        assert_eq!(marker["renderer_version"], 2);
+        assert_eq!(
+            marker["hashes"][".env"],
+            hex::encode(Sha256::digest(env.as_bytes()))
+        );
+        install_effective_fixture(&agent, &config, &next).await;
+        FilesystemProvisioner
+            .verify_effective_configuration(&agent, &config, &next)
+            .await
+            .unwrap();
+        next.snapshot.renderer_version = 3;
+        assert!(configuration_files(&agent, &config, &next).await.is_err());
+        assert_eq!(
+            tokio::fs::read_to_string(Path::new(&agent.paths.config).join(".env"))
+                .await
+                .unwrap(),
+            env
+        );
+        tokio::fs::remove_dir_all(root).await.unwrap();
+    }
+
+    #[tokio::test]
+    #[ignore = "exports private synthetic files only for the explicitly configured native renderer gate"]
+    async fn versioned_renderer_export_native_fixture() {
+        let evidence = PathBuf::from(
+            std::env::var("FLEET_RENDERER_EVIDENCE_ROOT").expect("owned QA root required"),
+        );
+        assert_eq!(evidence, PathBuf::from("/renderer-evidence"));
+        reject_symlink_components(&evidence, &evidence)
+            .await
+            .unwrap();
+        let root = evidence.join(Uuid::new_v4().to_string()).join("agents");
+        let config = test_config(&root);
+        let mut observations = Vec::new();
+        for ordinal in [1, 2] {
+            let mut agent = test_agent(&root, Uuid::new_v4(), AgentStatus::Ready);
+            agent.ordinal = ordinal;
+            agent.name = format!("agent{ordinal}");
+            agent.paths = runtime_paths(&config.fleet.agents_root, ordinal);
+            agent.api_port = Some(29001 + ordinal);
+            FilesystemProvisioner
+                .provision(&agent, &config)
+                .await
+                .unwrap();
+            let revision = domain::AgentConfigRevision {
+                agent_id: agent.id,
+                revision: 1,
+                state: "active".into(),
+                snapshot: domain::AgentConfigurationSnapshot {
+                    renderer_version: 2,
+                    config: UpdateAgentConfigRequest {
+                        config_json: json!({"platforms":{"api_server":{"enabled":false,
+                            "extra":{"host":"0.0.0.0","port":80}}}}),
+                        soul_md: "# Synthetic renderer fixture\n".into(),
+                        env_json: json!({"API_SERVER_HOST":"0.0.0.0","API_SERVER_PORT":"80"}),
+                    },
+                    skills: vec![],
+                },
+                validation_errors: vec![],
+                last_error: None,
+                is_desired: true,
+                is_effective: true,
+                draining: false,
+                created_at: now().to_rfc3339(),
+            };
+            let files = configuration_files(&agent, &config, &revision)
+                .await
+                .unwrap();
+            let mut hashes = serde_json::Map::new();
+            for (path, body) in files {
+                write_configuration_file(&path, body.as_bytes())
+                    .await
+                    .unwrap();
+                hashes.insert(
+                    path.file_name().unwrap().to_str().unwrap().into(),
+                    json!(hex::encode(Sha256::digest(body.as_bytes()))),
+                );
+            }
+            observations.push(json!({"agent_id":agent.id,"home":agent.paths.config,
+                "workspace":agent.paths.workspace,"port":agent.api_port,"hashes":hashes,
+                "cors_origins":config.server.cors_allowed_origins,
+                "credential_sha256":hex::encode(Sha256::digest(agent_runtime_token(&config, agent.id).unwrap().as_bytes()))}));
+        }
+        write_configuration_file(
+            &evidence.join("fixture.json"),
+            serde_json::to_vec(&json!({"renderer_version":2,"agents":observations}))
+                .unwrap()
+                .as_slice(),
+        )
+        .await
+        .unwrap();
     }
 
     #[tokio::test]

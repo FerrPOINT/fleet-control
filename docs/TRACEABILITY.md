@@ -12,6 +12,7 @@
 | No completion from EOF | Fake Hermes non-terminal/terminal readback; interrupted is failure, never a fabricated reply |
 | Durable cursor | Migration 000009, session cursor/Last-Event-ID, Base reconnect tests; expiry/reset pending |
 | Config activation/drain | Migration 000009, desired/effective snapshots, DB drain/failed rollback regression |
+| Native Hermes listener rendering | Server-selected snapshot renderer v2 seals listener/env/CORS; v1 history remains reproducible. Native loader and installed-runtime attestation are separate gates; see ADR 0017 |
 | Safe automatic publication | Tracker exact owner/revision/hash gate implemented; trusted prerequisite verifier and real first-step PM integration pending |
 | SDLC receipt/deployment | Not implemented here; cross-service and real deploy evidence still required |
 

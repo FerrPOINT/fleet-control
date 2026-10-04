@@ -138,7 +138,11 @@ pub(super) async fn create(
     create_snapshot(
         repo,
         id,
-        AgentConfigurationSnapshot { config, skills },
+        AgentConfigurationSnapshot {
+            renderer_version: 1,
+            config,
+            skills,
+        },
         actor,
         None,
     )
@@ -148,16 +152,11 @@ pub(super) async fn create(
 pub(super) async fn create_snapshot(
     repo: &PostgresFleetRepository,
     id: Uuid,
-    snapshot: AgentConfigurationSnapshot,
+    mut snapshot: AgentConfigurationSnapshot,
     actor: Uuid,
     expected_desired_revision: Option<Option<i64>>,
 ) -> Result<AgentConfigRevision, AppError> {
-    let errors = snapshot.config.input_errors();
-    if !errors.is_empty() {
-        return Err(AppError::validation(errors.join("; ")));
-    }
     let config = snapshot.config.clone();
-    let snapshot = serde_json::to_value(snapshot).map_err(AppError::internal)?;
     let txn = repo.db.begin().await.map_err(AppError::database)?;
     let row = txn
         .query_one(Statement::from_sql_and_values(
@@ -166,10 +165,8 @@ pub(super) async fn create_snapshot(
             [id.into()],
         ))
         .await
-        .map_err(AppError::database)?;
-    if row.is_none() {
-        return Err(AppError::not_found("agent", id));
-    }
+        .map_err(AppError::database)?
+        .ok_or_else(|| AppError::not_found("agent", id))?;
     if let Some(expected) = expected_desired_revision {
         let current = txn
             .query_one(Statement::from_sql_and_values(
@@ -189,7 +186,6 @@ pub(super) async fn create_snapshot(
                 "desired configuration changed during package preparation",
             ));
         }
-        let row = row.ok_or_else(|| AppError::not_found("agent", id))?;
         verify_package_identity(&row, &config.config_json)?;
     }
     let draining = txn
@@ -211,6 +207,17 @@ pub(super) async fn create_snapshot(
             "configuration activation is already in progress",
         ));
     }
+    let kind: String = row.try_get("", "kind").map_err(AppError::database)?;
+    snapshot.renderer_version = match kind.as_str() {
+        "hermes" => 2,
+        "java_agent" => 1,
+        _ => return Err(AppError::internal("unsupported configuration agent kind")),
+    };
+    let errors = snapshot.input_errors();
+    if !errors.is_empty() {
+        return Err(AppError::validation(errors.join("; ")));
+    }
+    let snapshot = serde_json::to_value(snapshot).map_err(AppError::internal)?;
     let row = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "INSERT INTO agent_config_revisions(agent_id, revision, state, snapshot, created_by_user_id)
          SELECT $1, COALESCE(MAX(revision), 0) + 1, 'draft', $2, $3 FROM agent_config_revisions WHERE agent_id = $1

@@ -2,6 +2,13 @@
 
 Prefix: `FLEET_CONTROL_`.
 
+Hermes renderer 2 persists managed `API_SERVER_HOST=127.0.0.1`, assigned
+`API_SERVER_PORT`, derived `API_SERVER_KEY`, HOME, native API enablement and CORS
+into private files, because native dotenv/config loading can override launcher
+env. Config env inputs cannot replace these fields. No new Fleet env variable
+is needed. Legacy snapshots retain renderer 1; upgrade through an explicit
+configuration revision, never by rewriting effective files or hashes.
+
 Optional PM gateway uses `FLEET_CONTROL_TRACKER__URL` (fixed HTTP(S) root origin;
 no credentials, query, fragment or path) and `FLEET_CONTROL_TRACKER__INSTANCE_ID`
 (stable instance identity, matching Tracker config). Redirects are refused; bearer

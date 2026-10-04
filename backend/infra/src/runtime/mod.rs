@@ -485,6 +485,11 @@ impl LocalRuntimeSupervisor {
             .env("HERMES_HOME", &agent.paths.config)
             .env("HERMES_SERVE_HEADLESS", "1")
             .env("API_SERVER_ENABLED", "true")
+            .env("API_SERVER_HOST", "127.0.0.1")
+            .env(
+                "API_SERVER_PORT",
+                agent.api_port.unwrap_or_default().to_string(),
+            )
             .env("API_SERVER_KEY", token)
             .env(
                 "API_SERVER_CORS_ORIGINS",

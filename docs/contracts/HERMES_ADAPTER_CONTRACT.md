@@ -1,5 +1,11 @@
 # Hermes Adapter Contract
 
+Configuration renderer version is part of the frozen snapshot. New Hermes
+drafts use 2 and persist the native API listener plus protected dotenv values;
+legacy/absent version 1 retains old bytes/hash interpretation. Unknown versions
+are refused without fallback. Provisioning creates only missing files, never
+rewrites effective history. Native loader equality is not loaded-runtime admission.
+
 Supervisor stop retains process ownership until kill/wait confirms exit. Unknown
 untracked/recorded-running state is not converted to stopped, and restart cannot
 spawn a replacement through that error. A Hermes `run.cancelled` event remains

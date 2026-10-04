@@ -93,6 +93,18 @@ native tools/config attestation, unknown-ID recovery and PM admission/resume rem
 open. Exact hashes/cleanup are in the
 [verification ledger](CHAT_CLARIFICATION_VERIFICATION.md#native-hermes-protocol-acceptance-4-october-2026).
 
+The versioned native renderer is now source-verified: new Hermes snapshots use
+v2; missing/1 keeps historical config/env/marker bytes and serialization. V2 seals
+native loopback host, assigned port, enablement, derived key, HOME and CORS and
+rejects conflicting API aliases/malformed platform extra. An actual pinned Hermes
+loader read two Rust-exported homes, checking the YAML layer without fallback,
+then dotenv/config precedence against stale shell settings. No model or listener
+was started, and no installed runtime was upgraded. The scoped final Linux gate
+passed 300 tests, all-target check/strict Clippy/fmt/OpenAPI; 13 host harness tests
+and the native loader case passed. Loaded effective revision, plugins, process
+ownership and SDLC admission remain open. See [ADR 0017](adr/0017-versioned-native-hermes-renderer.md)
+and [renderer evidence](CHAT_CLARIFICATION_VERIFICATION.md#versioned-native-hermes-renderer-4-october-2026).
+
 The new source journal atomically reserves an exact free-chat run/request before
 POST. It freezes bytes/hash/key, original origin/default-profile credential
 fingerprint, bounded verified protocol facts and DB-clock recovery horizon.

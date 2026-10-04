@@ -18,6 +18,13 @@ Every runtime adapter must provide:
 - log capture policy
 - secret redaction policy
 
+Configuration snapshots freeze their renderer semantics: absent/1 retains the
+legacy output; server-created Hermes revisions use 2 and Java uses 1. V2 seals
+native listener/HOME/key/CORS and rejects alternative API aliases or malformed
+platform objects. Explicit draft/validate/drain/activation is required to upgrade
+an existing agent. File/hash verification alone does not attest loaded runtime
+settings. See [ADR 0017](../adr/0017-versioned-native-hermes-renderer.md).
+
 Hermes free-chat dispatch reserves an immutable request journal and consumes a
 single-send permit before HTTP. Verified ACK progress commits atomically with
 run/message/outbox. Unknown acceptance holds capacity, without POST replay.

@@ -1061,8 +1061,345 @@ pub struct AgentConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct AgentConfigurationSnapshot {
+    #[serde(
+        default = "legacy_renderer_version",
+        skip_serializing_if = "is_legacy_renderer_version"
+    )]
+    #[schema(required = false, default = 1)]
+    pub renderer_version: u32,
     pub config: UpdateAgentConfigRequest,
     pub skills: Vec<AgentSkill>,
+}
+
+impl AgentConfigurationSnapshot {
+    pub fn input_errors(&self) -> Vec<String> {
+        let mut errors = self.config.input_errors();
+        if !matches!(self.renderer_version, 1 | 2) {
+            errors.push("unsupported configuration renderer version".into());
+        }
+        if self.renderer_version == 2 {
+            for path in ["/terminal", "/platforms", "/gateway", "/gateway/platforms"] {
+                if self
+                    .config
+                    .config_json
+                    .pointer(path)
+                    .is_some_and(|value| !value.is_object())
+                {
+                    errors.push(format!("config_json{path} must be an object"));
+                }
+            }
+            for path in [
+                "/api_server",
+                "/gateway/api_server",
+                "/gateway/platforms/api_server",
+            ] {
+                if self.config.config_json.pointer(path).is_some() {
+                    errors.push(format!(
+                        "config_json{path} is not supported; use /platforms/api_server"
+                    ));
+                }
+            }
+            for path in ["/platforms", "/gateway/platforms"] {
+                if let Some(platforms) = self
+                    .config
+                    .config_json
+                    .pointer(path)
+                    .and_then(Value::as_object)
+                {
+                    for (name, block) in platforms {
+                        if !block.is_object() {
+                            errors.push(format!("config_json{path}/{name} must be an object"));
+                        } else if block.get("extra").is_some_and(|extra| !extra.is_object()) {
+                            errors
+                                .push(format!("config_json{path}/{name}/extra must be an object"));
+                        }
+                    }
+                }
+            }
+            // Every direct gateway object section uses an object-only optional extra,
+            // including dynamic plugins; scalar settings remain unrestricted here.
+            if let Some(gateway) = self
+                .config
+                .config_json
+                .get("gateway")
+                .and_then(Value::as_object)
+            {
+                for (name, section) in gateway {
+                    if name == "platforms" {
+                        continue;
+                    }
+                    if section
+                        .as_object()
+                        .and_then(|section| section.get("extra"))
+                        .is_some_and(|extra| !extra.is_object())
+                    {
+                        errors.push(format!(
+                            "config_json/gateway/{name}/extra must be an object"
+                        ));
+                    }
+                }
+            }
+        }
+        errors
+    }
+}
+
+fn legacy_renderer_version() -> u32 {
+    1
+}
+
+fn is_legacy_renderer_version(version: &u32) -> bool {
+    *version == legacy_renderer_version()
+}
+
+#[cfg(test)]
+mod configuration_snapshot_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn legacy_snapshot() -> Value {
+        json!({
+            "config": {
+                "config_json": {"model": "test-model"},
+                "soul_md": "# Developer",
+                "env_json": {}
+            },
+            "skills": []
+        })
+    }
+
+    #[test]
+    fn legacy_snapshot_round_trip_preserves_public_shape() {
+        let original = legacy_snapshot();
+        let snapshot: AgentConfigurationSnapshot =
+            serde_json::from_value(original.clone()).unwrap();
+        assert_eq!(snapshot.renderer_version, 1);
+        assert_eq!(serde_json::to_value(snapshot).unwrap(), original);
+
+        let mut explicit = original.clone();
+        explicit["renderer_version"] = json!(1);
+        let snapshot: AgentConfigurationSnapshot = serde_json::from_value(explicit).unwrap();
+        assert_eq!(serde_json::to_value(snapshot).unwrap(), original);
+    }
+
+    #[test]
+    fn version_two_snapshot_round_trip_preserves_version() {
+        let mut original = legacy_snapshot();
+        original["renderer_version"] = json!(2);
+        let snapshot: AgentConfigurationSnapshot =
+            serde_json::from_value(original.clone()).unwrap();
+        assert_eq!(snapshot.renderer_version, 2);
+        assert_eq!(serde_json::to_value(snapshot).unwrap(), original);
+    }
+
+    #[test]
+    fn unsupported_renderer_versions_do_not_fall_back_to_legacy() {
+        // Keep unknown versions visible so the renderer can reject them before filesystem access.
+        for version in [0, 3, u32::MAX] {
+            let mut original = legacy_snapshot();
+            original["renderer_version"] = json!(version);
+            let snapshot: AgentConfigurationSnapshot =
+                serde_json::from_value(original.clone()).unwrap();
+            assert_eq!(snapshot.renderer_version, version);
+            assert_eq!(
+                snapshot.input_errors(),
+                vec!["unsupported configuration renderer version"]
+            );
+            assert_eq!(serde_json::to_value(snapshot).unwrap(), original);
+        }
+    }
+
+    #[test]
+    fn renderer_version_rejects_invalid_unsigned_integer_values() {
+        for version in [
+            json!(null),
+            json!("2"),
+            json!(-1),
+            json!(1.5),
+            json!(4294967296_u64),
+        ] {
+            let mut original = legacy_snapshot();
+            original["renderer_version"] = version;
+            assert!(serde_json::from_value::<AgentConfigurationSnapshot>(original).is_err());
+        }
+    }
+
+    #[test]
+    fn snapshot_validation_delegates_configuration_validation() {
+        let mut snapshot: AgentConfigurationSnapshot =
+            serde_json::from_value(legacy_snapshot()).unwrap();
+        snapshot.config.soul_md.clear();
+        snapshot.config.env_json = json!({"INVALID-NAME": "value"});
+        let expected = snapshot.config.input_errors();
+        assert!(!expected.is_empty());
+        for version in [1, 2] {
+            snapshot.renderer_version = version;
+            assert_eq!(snapshot.input_errors(), expected);
+        }
+    }
+
+    #[test]
+    fn version_two_requires_object_structures_without_changing_legacy_validation() {
+        let mut snapshot: AgentConfigurationSnapshot =
+            serde_json::from_value(legacy_snapshot()).unwrap();
+        for config in [
+            json!({"terminal": null}),
+            json!({"terminal": "workspace"}),
+            json!({"platforms": null}),
+            json!({"platforms": []}),
+            json!({"platforms": {"api_server": null}}),
+            json!({"platforms": {"api_server": false}}),
+            json!({"platforms": {"api_server": {"extra": null}}}),
+            json!({"platforms": {"api_server": {"extra": 1}}}),
+            json!({"gateway": null}),
+            json!({"gateway": false}),
+            json!({"gateway": {"platforms": null}}),
+            json!({"gateway": {"platforms": []}}),
+        ] {
+            snapshot.config.config_json = config;
+            snapshot.renderer_version = 1;
+            assert!(snapshot.input_errors().is_empty());
+            snapshot.renderer_version = 2;
+            assert_eq!(snapshot.input_errors().len(), 1);
+        }
+        for config in [
+            json!({}),
+            json!({"terminal": {}}),
+            json!({"platforms": {}}),
+            json!({"platforms": {"api_server": {}}}),
+            json!({"terminal": {}, "platforms": {"api_server": {"extra": {}}}}),
+            json!({"gateway": {}}),
+            json!({"gateway": {"platforms": {}}}),
+        ] {
+            snapshot.config.config_json = config;
+            assert!(snapshot.input_errors().is_empty());
+        }
+    }
+
+    #[test]
+    fn version_two_rejects_native_api_aliases_including_null() {
+        let mut snapshot: AgentConfigurationSnapshot =
+            serde_json::from_value(legacy_snapshot()).unwrap();
+        for (config, path) in [
+            (json!({"api_server": null}), "/api_server"),
+            (json!({"api_server": {"enabled": false}}), "/api_server"),
+            (
+                json!({"gateway": {"api_server": null}}),
+                "/gateway/api_server",
+            ),
+            (
+                json!({"gateway": {"api_server": {"enabled": false}}}),
+                "/gateway/api_server",
+            ),
+            (
+                json!({"gateway": {"platforms": {"api_server": null}}}),
+                "/gateway/platforms/api_server",
+            ),
+            (
+                json!({"gateway": {"platforms": {"api_server": {"enabled": false}}}}),
+                "/gateway/platforms/api_server",
+            ),
+        ] {
+            snapshot.config.config_json = config;
+            snapshot.renderer_version = 1;
+            assert!(snapshot.input_errors().is_empty());
+            snapshot.renderer_version = 2;
+            assert!(snapshot.input_errors().contains(&format!(
+                "config_json{path} is not supported; use /platforms/api_server"
+            )));
+        }
+    }
+
+    #[test]
+    fn version_two_validates_other_platform_blocks_and_optional_extra() {
+        let mut snapshot: AgentConfigurationSnapshot =
+            serde_json::from_value(legacy_snapshot()).unwrap();
+        for path in ["/platforms", "/gateway/platforms"] {
+            for block in [
+                json!(null),
+                json!([]),
+                json!("telegram"),
+                json!({"extra": null}),
+                json!({"extra": []}),
+                json!({"extra": false}),
+            ] {
+                let mut config = if path == "/platforms" {
+                    json!({"platforms": {}})
+                } else {
+                    json!({"gateway": {"platforms": {}}})
+                };
+                config.pointer_mut(path).unwrap()["telegram"] = block;
+                snapshot.config.config_json = config;
+                snapshot.renderer_version = 1;
+                assert!(snapshot.input_errors().is_empty());
+                snapshot.renderer_version = 2;
+                assert_eq!(snapshot.input_errors().len(), 1);
+                assert!(
+                    snapshot.input_errors()[0].starts_with(&format!("config_json{path}/telegram"))
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn version_two_preserves_unrelated_gateway_settings_and_valid_platforms() {
+        let mut snapshot: AgentConfigurationSnapshot =
+            serde_json::from_value(legacy_snapshot()).unwrap();
+        snapshot.renderer_version = 2;
+        snapshot.config.config_json = json!({
+            "platforms": {
+                "api_server": {"extra": {}},
+                "telegram": {"enabled": false, "extra": {"require_mention": true}}
+            },
+            "gateway": {
+                "max_concurrent_runs": 2,
+                "session_reset": {"mode": "idle", "minutes": 60},
+                "extra": null,
+                "platforms": {"discord": {"enabled": false, "extra": {}}}
+            }
+        });
+        assert!(snapshot.input_errors().is_empty());
+    }
+
+    #[test]
+    fn version_two_validates_direct_gateway_optional_extra_without_plugin_enum() {
+        let mut snapshot: AgentConfigurationSnapshot =
+            serde_json::from_value(legacy_snapshot()).unwrap();
+        for name in ["telegram", "custom-plugin"] {
+            for extra in [
+                json!(null),
+                json!([]),
+                json!(false),
+                json!(1),
+                json!("extra"),
+            ] {
+                let mut config = json!({"gateway": {}});
+                config["gateway"][name] = json!({"extra": extra});
+                snapshot.config.config_json = config;
+                snapshot.renderer_version = 1;
+                assert!(snapshot.input_errors().is_empty());
+                snapshot.renderer_version = 2;
+                assert_eq!(
+                    snapshot.input_errors(),
+                    vec![format!(
+                        "config_json/gateway/{name}/extra must be an object"
+                    )]
+                );
+            }
+            for section in [
+                json!({"extra": {}}),
+                json!({"enabled": false}),
+                json!({"settings": {"extra": null}}),
+                json!(false),
+                json!(null),
+            ] {
+                let mut config = json!({"gateway": {"max_concurrent_runs": 2}});
+                config["gateway"][name] = section;
+                snapshot.config.config_json = config;
+                assert!(snapshot.input_errors().is_empty());
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

@@ -221,6 +221,7 @@ fn preparation_changes_a_draft_only_and_disables_skills_outside_allowlist() {
         updated_at: agent.updated_at.clone(),
     };
     let snapshot = AgentConfigurationSnapshot {
+        renderer_version: 1,
         config: domain::UpdateAgentConfigRequest {
             config_json: json!({"model": "test-model"}),
             soul_md: "Previous SOUL".into(),
@@ -322,6 +323,7 @@ fn package_mapping_rejects_name_as_id_and_profile_workflow_or_catalog_drift() {
     agent.namespace_id = Some("123".into());
     agent.workflow_id = Some("456".into());
     let snapshot = AgentConfigurationSnapshot {
+        renderer_version: 1,
         config: domain::UpdateAgentConfigRequest {
             config_json: json!({}),
             soul_md: String::new(),

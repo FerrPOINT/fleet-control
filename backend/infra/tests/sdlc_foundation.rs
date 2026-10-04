@@ -3377,6 +3377,75 @@ async fn config_revision_readiness_http_uses_exact_heads_without_trusting_databa
 }
 
 #[tokio::test]
+async fn config_renderer_versions_are_server_selected_without_rewriting_legacy_history() {
+    let Some((repo, owner, _)) = fixture().await else {
+        return;
+    };
+    let id = agent(&repo).await;
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let request = || UpdateAgentConfigRequest {
+        config_json: serde_json::json!({}),
+        soul_md: "# Renderer fixture".into(),
+        env_json: serde_json::json!({}),
+    };
+    let first = repo
+        .create_config_revision(id, request(), owner)
+        .await
+        .unwrap();
+    assert_eq!(first.snapshot.renderer_version, 2);
+    // Fixture-only historical row, in the wire shape used before renderer versioning.
+    db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "UPDATE agent_config_revisions SET snapshot=snapshot-'renderer_version' WHERE agent_id=$1 AND revision=$2",
+        [id.into(), first.revision.into()])).await.unwrap();
+    let legacy = repo.get_config_revision(id, first.revision).await.unwrap();
+    assert_eq!(legacy.snapshot.renderer_version, 1);
+    assert!(
+        serde_json::to_value(&legacy.snapshot)
+            .unwrap()
+            .get("renderer_version")
+            .is_none()
+    );
+    let before: serde_json::Value = db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT to_jsonb(r) AS value FROM agent_config_revisions r WHERE agent_id=$1 AND revision=$2",
+        [id.into(), first.revision.into()])).await.unwrap().unwrap().try_get("", "value").unwrap();
+    let next = repo
+        .create_config_revision(id, request(), owner)
+        .await
+        .unwrap();
+    assert_eq!(next.snapshot.renderer_version, 2);
+    let after: serde_json::Value = db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT to_jsonb(r) AS value FROM agent_config_revisions r WHERE agent_id=$1 AND revision=$2",
+        [id.into(), first.revision.into()])).await.unwrap().unwrap().try_get("", "value").unwrap();
+    assert_eq!(before, after);
+    let mut invalid = request();
+    invalid.config_json = serde_json::json!({"platforms":{"api_server":{"extra":null}}});
+    assert!(
+        repo.create_config_revision(id, invalid, owner)
+            .await
+            .is_err()
+    );
+    assert_eq!(repo.list_config_revisions(id).await.unwrap().len(), 2);
+    let java = agent(&repo).await;
+    db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE agents SET kind='java_agent' WHERE id=$1",
+        [java.into()],
+    ))
+    .await
+    .unwrap();
+    assert_eq!(
+        repo.create_config_revision(java, request(), owner)
+            .await
+            .unwrap()
+            .snapshot
+            .renderer_version,
+        1
+    );
+}
+
+#[tokio::test]
 async fn config_revision_drains_runs_and_failed_rollback_stays_blocked() {
     let Some((repo, owner, _)) = fixture().await else {
         return;

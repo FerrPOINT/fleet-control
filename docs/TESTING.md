@@ -1,5 +1,21 @@
 # Testing
 
+## Versioned Native Hermes Renderer
+
+`configuration_snapshot_tests` preserve omitted/explicit v1 serialization,
+reject unknown versions, malformed native objects and conflicting API aliases,
+without changing legacy validation. Infra verifies legacy bytes/readback remain
+unchanged while v2 seals API/env/CORS and writes versioned hash markers. The
+PostgreSQL foundation case proves server-selected Hermes2/Java1 and immutable
+historical snapshot shape, including failed-draft validation.
+
+For an actual native loader check, explicitly run the ignored Rust exporter and
+the [renderer scenario](../scripts/hermes_protocol_live/README.md#actual-rust-renderer-scenario).
+It consumes real generated files in two independent native processes; no installed
+runtime is touched and no inference is performed. Host tests prove YAML-layer
+exceptions cannot silently become an env-fallback PASS. This is narrower than
+loaded effective-config attestation, gateway lifecycle or automatic SDLC acceptance.
+
 ## Tracked Runtime Stop
 
 `cargo test --locked -p infra --lib runtime::process_stop` covers actual Linux

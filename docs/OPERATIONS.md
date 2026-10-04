@@ -1,5 +1,11 @@
 # Operations
 
+For existing Hermes agents, activate a new renderer-2 configuration through
+draft/validate/drain/activate/readback. Do not edit historical snapshot versions,
+file hashes or private dotenv in place. A still-active/unknown run must finish or
+be safely stopped before activation. Provisioning does not overwrite old files;
+the Base `serve -> gateway run` wrapper is still required for managed launch.
+
 ## PM Credential Recovery
 
 Credential preparation is opt-in and still ends before admission/dispatch.
