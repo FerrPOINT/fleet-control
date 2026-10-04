@@ -570,3 +570,25 @@ controlled Base/Tracker HTTP producers. Actual Base-issued child interoperabilit
 with real Tracker, admission, credential renewal/revocation administration,
 runtime structured tools and live PM resume remain unverified. No UI composition,
 screenshots, accepted runtime, package pin or deployment was changed here.
+
+### Broader Credential Regression
+
+After the component gate, the Linux/Rust 1.88/PostgreSQL 17.6 regression run
+passed all 174 workspace library tests and all 70 `sdlc_foundation` tests with
+the real database and explicit pinned-package checkout configured. Workspace
+all-target check and strict all-target Clippy passed. A pre-existing
+`field_reassign_with_default` warning in the configuration-reader allowlist test
+was corrected without suppressing the lint or changing its assertions; the
+entire library/foundation/check/Clippy run was repeated successfully afterward.
+Formatting passed. Other integration targets, release build and live acceptance
+are not included in these counts.
+
+Evidence: `.local/pdlc-implementation/credential-regression-scoped.log`, final
+project `sdlc-qa-fleet-credential-regression-1c527db0f006`; exact finally cleanup
+removed its containers/network and preserved caches. The earlier warning-failed
+project `sdlc-qa-fleet-credential-regression-b8ed8e9bf5c7` was also cleaned up and
+is not counted as a passing gate. Node 22.20 frontend passed 229 tests, lint and
+format. Manifest/hash verifiers passed for 135 fixture screenshots and nine
+chat-controller fixture images; images were not regenerated or relabeled live.
+The opt-in real-producer credential target was compiled by all-target checks,
+not executed by this library/foundation run.

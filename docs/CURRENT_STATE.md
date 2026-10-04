@@ -1,6 +1,6 @@
 # Current State
 
-Status (2026-10-03): SDLC foundation is partially implemented. Automatic SDLC is
+Status (2026-10-04): SDLC foundation is partially implemented. Automatic SDLC is
 blocked until cross-service assignment/workflow/deployment contracts are verified.
 See [SDLC implementation](SDLC_IMPLEMENTATION.md). The baseline feature/gate lists
 below are historical, not acceptance evidence for the new SDLC plan.
@@ -45,8 +45,18 @@ enumerated PM GET/POST operations on its canonical assigned task at the configur
 Tracker origin. Base's five-field delegation wire is unchanged. Tracker separately
 denies direct PM bearer use on legacy/global/owner/verifier operations and checks
 current assignment authority. Client allowlisting is not server authorization or
-runtime admission. Issuance ledger/tool handoff and actual Base/Tracker acceptance
-remain open; current verification is recorded in the ledger below.
+runtime admission. Opt-in creation now persists original command/parent/origin
+intent before Base POST and immutable ACK metadata before fresh child/context
+readback. Audit and journal updates are atomic; replay cannot rotate identity or
+renew an expired child. The 33-case Linux/PostgreSQL component gate passed; actual
+Base/Tracker interoperability, renewal/revocation administration, admission and
+runtime tool handoff remain open. See the
+[current credential evidence](CHAT_CLARIFICATION_VERIFICATION.md#persisted-credential-preparation-4-october-2026).
+The broader Linux regression passed 174 workspace library and 70 foundation
+PostgreSQL/HTTP tests, all-target check/strict Clippy and formatting. Node22
+frontend passed 229 tests, lint and format; fixture screenshot manifests verify.
+These checks do not include the opt-in real-producer credential run, all other
+integration targets, release build or end-to-end runtime acceptance.
 
 The creation recovery follow-up adds owner/key readback for a lost initial
 acknowledgement, persisted-operation continuation without prompt resubmission,

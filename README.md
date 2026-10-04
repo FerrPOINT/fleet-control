@@ -20,8 +20,10 @@ Creation recovery now includes owner/key lookup, persisted-operation continuatio
 and strict Tracker project choices. The new [creation form proposal](docs/design/PM_DRAFT_CREATION_PREVIEW.md)
 is isolated and awaiting approval, not production UI or runtime admission.
 The server-only delegated PM client is limited to enumerated SDLC operations for
-its assigned task. This client restriction does not replace Tracker authorization
-and does not enable credential handoff or runtime dispatch.
+its assigned task. Opt-in creation continuation persists original-key issuance
+intent/ACK metadata and checks fresh Base/Tracker authorization. This preparation
+does not enable credential handoff, lease admission or runtime dispatch; see the
+[credential evidence](docs/CHAT_CLARIFICATION_VERIFICATION.md#persisted-credential-preparation-4-october-2026).
 
 <p align="center">
   <a href="#overview"><img src="https://img.shields.io/badge/Overview-3730a3?style=for-the-badge" alt="Overview" /></a>

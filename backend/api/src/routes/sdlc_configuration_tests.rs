@@ -238,8 +238,10 @@ fn sdlc_configuration_authority_must_be_fixed_and_canonical() {
 fn sdlc_configuration_resource_allowlist_is_closed_bounded_and_explicit() {
     let first = Uuid::new_v4();
     let second = Uuid::new_v4();
-    let mut config = SdlcConfig::default();
-    config.configuration_reader_agent_ids = format!("{first},{second}");
+    let mut config = SdlcConfig {
+        configuration_reader_agent_ids: format!("{first},{second}"),
+        ..Default::default()
+    };
     assert_eq!(
         registered_agents(&config).unwrap(),
         BTreeSet::from([first, second])

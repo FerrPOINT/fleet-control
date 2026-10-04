@@ -1,8 +1,11 @@
 # Changelog
 
-- PM creation supports opt-in durable assignment credential preparation, original-parent replay, fresh Base/Tracker checks and redacted once-only audit. Additive migration 000011 preserves historical operations and refuses journal-discarding downgrade; native admission/tool handoff remain gated.
-
 ## [Unreleased]
+
+- Correct configuration-reader test initialization for strict all-target Clippy;
+  rerun library, PostgreSQL foundation and frontend regression gates.
+
+- PM creation supports opt-in durable assignment credential preparation, original-parent replay, fresh Base/Tracker checks and redacted once-only audit. Additive migration 000011 preserves historical operations and refuses journal-discarding downgrade; native admission/tool handoff remain gated.
 
 - Require bounded tracked-process kill/wait before acknowledging runtime stop;
   preserve ownership on failure and refuse untracked active stop/restart rather
