@@ -21,6 +21,13 @@
 - Revalidate pinned Base effective snapshots against Git and a bounded closed
   HOME skill-file inventory. Add opt-in agent-scoped, freshly introspected Base
   PAT configuration observation with metadata only and no runtime admission.
+
+- Clear previous apply/rollback errors when a new managed-settings confirmation
+  opens or a completed attempt is cancelled. Preserve same-dialog retry, drafts,
+  optimistic version checks, local roles and restart confirmation semantics.
+  Restore keyboard focus to the actual preview/rollback initiator after the
+  controlled confirmation dialog closes.
+
 - Keep chat directory owner filtering on the existing user/session index by
   converting its JSON owner list to a UUID array before membership checks.
   Preserve all-users counts, project ACLs, search and pagination contracts.

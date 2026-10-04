@@ -1,0 +1,557 @@
+{
+  "scope": "Fleet settings UI confirmation only; actual SSO/API/disposable owned DB; no successful apply/rollback/restart and no route mocks; this is not full PM/native/Pulse acceptance",
+  "base": "9408802dfa978cba2f67162a49adca6f65851b01",
+  "tested_git_tree": "0846ea8e963f6c984eb6763f19dff0e4ba00f571",
+  "tested_image_id": "sha256:1e9e99cbf81b2734782d7f1c8259e461a47f744d78d525014c84539b3baa8495",
+  "playwright": "1.61.1",
+  "actual_cases": 13,
+  "apply_matrix_cases": 12,
+  "rollback_cases": 1,
+  "viewports": [
+    375,
+    768,
+    1920,
+    2560
+  ],
+  "themes": [
+    "dark",
+    "gray",
+    "light"
+  ],
+  "frontend_tests": 228,
+  "settings_unit_tests": 18,
+  "browser_fixture_regressions": {
+    "passed": 36,
+    "skipped_opt_in_live": 27,
+    "engines": [
+      "chromium",
+      "firefox",
+      "webkit"
+    ]
+  },
+  "checks": [
+    "actual409 conflict before restart",
+    "new preview200 has no stale error",
+    "same-workspace apply/rollback error ownership",
+    "Cancel/Escape return to actual preview/history-row initiator",
+    "actual SQL lock exposes pending state",
+    "Cancel disabled and Escape guarded during pending",
+    "Tab remains within dialog",
+    "viewport geometry and theme readback"
+  ],
+  "screenshots": {
+    "settings-new-preview-375-dark.png": "f0052401adeef56a087d39565c46ef4725cf751bf68fe9ef1fdfbd592e7d4777",
+    "settings-new-preview-1920-light.png": "4377876ce3704fe08602f622b5843c9a886193154c850304cfff06cb9c798c0f",
+    "settings-new-rollback-preview-375-dark.png": "33329027fe4f2ea9934277e9527a29cdb286115af89bdc06f12e56fa5a8ec752"
+  },
+  "actual_error_observations": [
+    {
+      "actualApplyStatus": 409,
+      "firstErrorCount": 1,
+      "newPreviewStatus": 200,
+      "staleErrorCount": 0,
+      "noRouteMocks": true,
+      "noSuccessfulApplyOrRestart": true,
+      "initialNonOperatorDenied403": false,
+      "ownOperatorFixtureRows": 0,
+      "verifiedOwnLocalOperatorRows": 1
+    },
+    {
+      "actualApplyStatus": 409,
+      "firstErrorCount": 1,
+      "newPreviewStatus": 200,
+      "staleErrorCount": 0,
+      "noRouteMocks": true,
+      "noSuccessfulApplyOrRestart": true,
+      "initialNonOperatorDenied403": false,
+      "ownOperatorFixtureRows": 0,
+      "verifiedOwnLocalOperatorRows": 1
+    },
+    {
+      "actualApplyStatus": 409,
+      "firstErrorCount": 1,
+      "newPreviewStatus": 200,
+      "staleErrorCount": 0,
+      "noRouteMocks": true,
+      "noSuccessfulApplyOrRestart": true,
+      "initialNonOperatorDenied403": false,
+      "ownOperatorFixtureRows": 0,
+      "verifiedOwnLocalOperatorRows": 1
+    },
+    {
+      "actualApplyStatus": 409,
+      "firstErrorCount": 1,
+      "newPreviewStatus": 200,
+      "staleErrorCount": 0,
+      "noRouteMocks": true,
+      "noSuccessfulApplyOrRestart": true,
+      "initialNonOperatorDenied403": false,
+      "ownOperatorFixtureRows": 0,
+      "verifiedOwnLocalOperatorRows": 1
+    },
+    {
+      "actualApplyStatus": 409,
+      "firstErrorCount": 1,
+      "newPreviewStatus": 200,
+      "staleErrorCount": 0,
+      "noRouteMocks": true,
+      "noSuccessfulApplyOrRestart": true,
+      "initialNonOperatorDenied403": false,
+      "ownOperatorFixtureRows": 0,
+      "verifiedOwnLocalOperatorRows": 1
+    },
+    {
+      "actualApplyStatus": 409,
+      "firstErrorCount": 1,
+      "newPreviewStatus": 200,
+      "staleErrorCount": 0,
+      "noRouteMocks": true,
+      "noSuccessfulApplyOrRestart": true,
+      "initialNonOperatorDenied403": false,
+      "ownOperatorFixtureRows": 0,
+      "verifiedOwnLocalOperatorRows": 1
+    },
+    {
+      "actualApplyStatus": 409,
+      "firstErrorCount": 1,
+      "newPreviewStatus": 200,
+      "staleErrorCount": 0,
+      "noRouteMocks": true,
+      "noSuccessfulApplyOrRestart": true,
+      "initialNonOperatorDenied403": true,
+      "ownOperatorFixtureRows": 1,
+      "verifiedOwnLocalOperatorRows": 1
+    },
+    {
+      "actualApplyStatus": 409,
+      "firstErrorCount": 1,
+      "newPreviewStatus": 200,
+      "staleErrorCount": 0,
+      "noRouteMocks": true,
+      "noSuccessfulApplyOrRestart": true,
+      "initialNonOperatorDenied403": false,
+      "ownOperatorFixtureRows": 0,
+      "verifiedOwnLocalOperatorRows": 1
+    },
+    {
+      "actualApplyStatus": 409,
+      "firstErrorCount": 1,
+      "newPreviewStatus": 200,
+      "staleErrorCount": 0,
+      "noRouteMocks": true,
+      "noSuccessfulApplyOrRestart": true,
+      "initialNonOperatorDenied403": false,
+      "ownOperatorFixtureRows": 0,
+      "verifiedOwnLocalOperatorRows": 1
+    },
+    {
+      "actualApplyStatus": 409,
+      "firstErrorCount": 1,
+      "newPreviewStatus": 200,
+      "staleErrorCount": 0,
+      "noRouteMocks": true,
+      "noSuccessfulApplyOrRestart": true,
+      "initialNonOperatorDenied403": false,
+      "ownOperatorFixtureRows": 0,
+      "verifiedOwnLocalOperatorRows": 1
+    },
+    {
+      "actualApplyStatus": 409,
+      "firstErrorCount": 1,
+      "newPreviewStatus": 200,
+      "staleErrorCount": 0,
+      "noRouteMocks": true,
+      "noSuccessfulApplyOrRestart": true,
+      "initialNonOperatorDenied403": false,
+      "ownOperatorFixtureRows": 0,
+      "verifiedOwnLocalOperatorRows": 1
+    },
+    {
+      "actualApplyStatus": 409,
+      "firstErrorCount": 1,
+      "newPreviewStatus": 200,
+      "staleErrorCount": 0,
+      "noRouteMocks": true,
+      "noSuccessfulApplyOrRestart": true,
+      "initialNonOperatorDenied403": false,
+      "ownOperatorFixtureRows": 0,
+      "verifiedOwnLocalOperatorRows": 1
+    },
+    {
+      "actualRollbackStatus": 409,
+      "firstErrorCount": 1,
+      "newPreviewStatus": 200,
+      "staleErrorCount": 0,
+      "noRouteMocks": true,
+      "noSuccessfulApplyOrRestart": true
+    }
+  ],
+  "actual_focus_observations": [
+    {
+      "width": 1920,
+      "theme": "dark",
+      "geometry": {
+        "left": 704,
+        "right": 1216,
+        "top": 408,
+        "bottom": 672,
+        "scrollWidth": 1920,
+        "viewportWidth": 1920,
+        "viewportHeight": 1080
+      },
+      "keyboardTrap": true,
+      "actualPendingReadLock": true,
+      "pendingEscapeGuard": true,
+      "cancelFocus": {
+        "tag": "BUTTON",
+        "text": "Проверить изменения",
+        "id": ""
+      },
+      "escapeFocus": {
+        "tag": "BUTTON",
+        "text": "Проверить изменения",
+        "id": ""
+      },
+      "actualApply409": true,
+      "actualPreview200": true,
+      "noRouteMocks": true
+    },
+    {
+      "width": 1920,
+      "theme": "gray",
+      "geometry": {
+        "left": 704,
+        "right": 1216,
+        "top": 408,
+        "bottom": 672,
+        "scrollWidth": 1920,
+        "viewportWidth": 1920,
+        "viewportHeight": 1080
+      },
+      "keyboardTrap": true,
+      "actualPendingReadLock": true,
+      "pendingEscapeGuard": true,
+      "cancelFocus": {
+        "tag": "BUTTON",
+        "text": "Проверить изменения",
+        "id": ""
+      },
+      "escapeFocus": {
+        "tag": "BUTTON",
+        "text": "Проверить изменения",
+        "id": ""
+      },
+      "actualApply409": true,
+      "actualPreview200": true,
+      "noRouteMocks": true
+    },
+    {
+      "width": 1920,
+      "theme": "light",
+      "geometry": {
+        "left": 704,
+        "right": 1216,
+        "top": 408,
+        "bottom": 672,
+        "scrollWidth": 1920,
+        "viewportWidth": 1920,
+        "viewportHeight": 1080
+      },
+      "keyboardTrap": true,
+      "actualPendingReadLock": true,
+      "pendingEscapeGuard": true,
+      "cancelFocus": {
+        "tag": "BUTTON",
+        "text": "Проверить изменения",
+        "id": ""
+      },
+      "escapeFocus": {
+        "tag": "BUTTON",
+        "text": "Проверить изменения",
+        "id": ""
+      },
+      "actualApply409": true,
+      "actualPreview200": true,
+      "noRouteMocks": true
+    },
+    {
+      "width": 2560,
+      "theme": "dark",
+      "geometry": {
+        "left": 1024,
+        "right": 1536,
+        "top": 408,
+        "bottom": 672,
+        "scrollWidth": 2560,
+        "viewportWidth": 2560,
+        "viewportHeight": 1080
+      },
+      "keyboardTrap": true,
+      "actualPendingReadLock": true,
+      "pendingEscapeGuard": true,
+      "cancelFocus": {
+        "tag": "BUTTON",
+        "text": "Проверить изменения",
+        "id": ""
+      },
+      "escapeFocus": {
+        "tag": "BUTTON",
+        "text": "Проверить изменения",
+        "id": ""
+      },
+      "actualApply409": true,
+      "actualPreview200": true,
+      "noRouteMocks": true
+    },
+    {
+      "width": 2560,
+      "theme": "gray",
+      "geometry": {
+        "left": 1024,
+        "right": 1536,
+        "top": 408,
+        "bottom": 672,
+        "scrollWidth": 2560,
+        "viewportWidth": 2560,
+        "viewportHeight": 1080
+      },
+      "keyboardTrap": true,
+      "actualPendingReadLock": true,
+      "pendingEscapeGuard": true,
+      "cancelFocus": {
+        "tag": "BUTTON",
+        "text": "Проверить изменения",
+        "id": ""
+      },
+      "escapeFocus": {
+        "tag": "BUTTON",
+        "text": "Проверить изменения",
+        "id": ""
+      },
+      "actualApply409": true,
+      "actualPreview200": true,
+      "noRouteMocks": true
+    },
+    {
+      "width": 2560,
+      "theme": "light",
+      "geometry": {
+        "left": 1024,
+        "right": 1536,
+        "top": 408,
+        "bottom": 672,
+        "scrollWidth": 2560,
+        "viewportWidth": 2560,
+        "viewportHeight": 1080
+      },
+      "keyboardTrap": true,
+      "actualPendingReadLock": true,
+      "pendingEscapeGuard": true,
+      "cancelFocus": {
+        "tag": "BUTTON",
+        "text": "Проверить изменения",
+        "id": ""
+      },
+      "escapeFocus": {
+        "tag": "BUTTON",
+        "text": "Проверить изменения",
+        "id": ""
+      },
+      "actualApply409": true,
+      "actualPreview200": true,
+      "noRouteMocks": true
+    },
+    {
+      "width": 375,
+      "theme": "dark",
+      "geometry": {
+        "left": 16,
+        "right": 359,
+        "top": 226,
+        "bottom": 586,
+        "scrollWidth": 375,
+        "viewportWidth": 375,
+        "viewportHeight": 812
+      },
+      "keyboardTrap": true,
+      "actualPendingReadLock": true,
+      "pendingEscapeGuard": true,
+      "cancelFocus": {
+        "tag": "BUTTON",
+        "text": "Проверить изменения",
+        "id": ""
+      },
+      "escapeFocus": {
+        "tag": "BUTTON",
+        "text": "Проверить изменения",
+        "id": ""
+      },
+      "actualApply409": true,
+      "actualPreview200": true,
+      "noRouteMocks": true
+    },
+    {
+      "width": 375,
+      "theme": "gray",
+      "geometry": {
+        "left": 16,
+        "right": 359,
+        "top": 226,
+        "bottom": 586,
+        "scrollWidth": 375,
+        "viewportWidth": 375,
+        "viewportHeight": 812
+      },
+      "keyboardTrap": true,
+      "actualPendingReadLock": true,
+      "pendingEscapeGuard": true,
+      "cancelFocus": {
+        "tag": "BUTTON",
+        "text": "Проверить изменения",
+        "id": ""
+      },
+      "escapeFocus": {
+        "tag": "BUTTON",
+        "text": "Проверить изменения",
+        "id": ""
+      },
+      "actualApply409": true,
+      "actualPreview200": true,
+      "noRouteMocks": true
+    },
+    {
+      "width": 375,
+      "theme": "light",
+      "geometry": {
+        "left": 16,
+        "right": 359,
+        "top": 226,
+        "bottom": 586,
+        "scrollWidth": 375,
+        "viewportWidth": 375,
+        "viewportHeight": 812
+      },
+      "keyboardTrap": true,
+      "actualPendingReadLock": true,
+      "pendingEscapeGuard": true,
+      "cancelFocus": {
+        "tag": "BUTTON",
+        "text": "Проверить изменения",
+        "id": ""
+      },
+      "escapeFocus": {
+        "tag": "BUTTON",
+        "text": "Проверить изменения",
+        "id": ""
+      },
+      "actualApply409": true,
+      "actualPreview200": true,
+      "noRouteMocks": true
+    },
+    {
+      "width": 768,
+      "theme": "dark",
+      "geometry": {
+        "left": 128,
+        "right": 640,
+        "top": 274,
+        "bottom": 538,
+        "scrollWidth": 768,
+        "viewportWidth": 768,
+        "viewportHeight": 812
+      },
+      "keyboardTrap": true,
+      "actualPendingReadLock": true,
+      "pendingEscapeGuard": true,
+      "cancelFocus": {
+        "tag": "BUTTON",
+        "text": "Проверить изменения",
+        "id": ""
+      },
+      "escapeFocus": {
+        "tag": "BUTTON",
+        "text": "Проверить изменения",
+        "id": ""
+      },
+      "actualApply409": true,
+      "actualPreview200": true,
+      "noRouteMocks": true
+    },
+    {
+      "width": 768,
+      "theme": "gray",
+      "geometry": {
+        "left": 128,
+        "right": 640,
+        "top": 274,
+        "bottom": 538,
+        "scrollWidth": 768,
+        "viewportWidth": 768,
+        "viewportHeight": 812
+      },
+      "keyboardTrap": true,
+      "actualPendingReadLock": true,
+      "pendingEscapeGuard": true,
+      "cancelFocus": {
+        "tag": "BUTTON",
+        "text": "Проверить изменения",
+        "id": ""
+      },
+      "escapeFocus": {
+        "tag": "BUTTON",
+        "text": "Проверить изменения",
+        "id": ""
+      },
+      "actualApply409": true,
+      "actualPreview200": true,
+      "noRouteMocks": true
+    },
+    {
+      "width": 768,
+      "theme": "light",
+      "geometry": {
+        "left": 128,
+        "right": 640,
+        "top": 274,
+        "bottom": 538,
+        "scrollWidth": 768,
+        "viewportWidth": 768,
+        "viewportHeight": 812
+      },
+      "keyboardTrap": true,
+      "actualPendingReadLock": true,
+      "pendingEscapeGuard": true,
+      "cancelFocus": {
+        "tag": "BUTTON",
+        "text": "Проверить изменения",
+        "id": ""
+      },
+      "escapeFocus": {
+        "tag": "BUTTON",
+        "text": "Проверить изменения",
+        "id": ""
+      },
+      "actualApply409": true,
+      "actualPreview200": true,
+      "noRouteMocks": true
+    },
+    {
+      "operation": "rollback",
+      "width": 375,
+      "theme": "dark",
+      "geometry": {
+        "pageWidth": 375,
+        "dialogWidth": 343
+      },
+      "keyboardCancelFocus": true,
+      "escapeReturnsHistoricalTrigger": true,
+      "cancelReturnsHistoricalTrigger": true,
+      "actualPendingReadLock": true,
+      "pendingEscapeGuard": true,
+      "noRouteMocks": true
+    }
+  ],
+  "cleanup_exit": 0,
+  "full_task_complete": false,
+  "full_clean_review_cycles": 0
+}

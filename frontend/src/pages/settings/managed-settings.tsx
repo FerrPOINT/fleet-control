@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { History, RotateCcw, Save } from 'lucide-react'
@@ -57,6 +57,7 @@ export function ManagedSettingsWorkspace({ tab }: { tab: ManagedSettingsTab }) {
   const [previewContext, setPreviewContext] = useState<PreviewContext | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  const returnFocus = useRef<HTMLButtonElement | null>(null)
 
   const dirty = useMemo(
     () =>
@@ -76,13 +77,17 @@ export function ManagedSettingsWorkspace({ tab }: { tab: ManagedSettingsTab }) {
     mutationFn: async (input: {
       snapshot: ManagedSettingsSnapshot
       target?: ManagedSettingsVersion
+      trigger: HTMLButtonElement
     }) => ({ result: await previewManagedSettings(input.snapshot), target: input.target }),
-    onSuccess: ({ result, target }) => {
+    onSuccess: ({ result, target }, { trigger }) => {
       if (result.changes.length === 0) {
         setNotice(t('settings.noChanges'))
         return
       }
       setNotice(null)
+      returnFocus.current = trigger
+      apply.reset()
+      rollback.reset()
       setPreviewContext(
         target ? { kind: 'rollback', preview: result, target } : { kind: 'apply', preview: result },
       )
@@ -171,7 +176,7 @@ export function ManagedSettingsWorkspace({ tab }: { tab: ManagedSettingsTab }) {
               type="button"
               className="h-10"
               disabled={!dirty || busy}
-              onClick={() => preview.mutate({ snapshot: draft })}
+              onClick={(event) => preview.mutate({ snapshot: draft, trigger: event.currentTarget })}
             >
               <Save className="h-4 w-4" aria-hidden />
               {preview.isPending ? t('settings.previewing') : t('settings.preview')}
@@ -199,7 +204,9 @@ export function ManagedSettingsWorkspace({ tab }: { tab: ManagedSettingsTab }) {
           query={history}
           activeVersion={state.data.active_version}
           busy={busy}
-          onRollback={(target) => preview.mutate({ snapshot: target.snapshot, target })}
+          onRollback={(target, trigger) =>
+            preview.mutate({ snapshot: target.snapshot, target, trigger })
+          }
         />
       ) : (
         <SettingsForm tab={tab} draft={draft} disabled={busy} updateSection={updateSection} />
@@ -210,8 +217,17 @@ export function ManagedSettingsWorkspace({ tab }: { tab: ManagedSettingsTab }) {
         context={previewContext}
         pending={apply.isPending || rollback.isPending}
         error={apply.error?.message ?? rollback.error?.message ?? null}
+        onReturnFocus={() => {
+          if (returnFocus.current?.isConnected) returnFocus.current.focus()
+        }}
         onOpenChange={(open) => {
-          if (!busy) setDialogOpen(open)
+          if (!busy) {
+            setDialogOpen(open)
+            if (!open) {
+              apply.reset()
+              rollback.reset()
+            }
+          }
         }}
         onConfirm={() => {
           if (previewContext?.kind === 'rollback') rollback.mutate()
@@ -587,7 +603,7 @@ function SettingsHistory({
   query: ReturnType<typeof useQuery<ManagedSettingsVersion[], Error>>
   activeVersion: number | null
   busy: boolean
-  onRollback: (version: ManagedSettingsVersion) => void
+  onRollback: (version: ManagedSettingsVersion, trigger: HTMLButtonElement) => void
 }) {
   const { t, i18n } = useTranslation()
   if (query.isError && !query.data)
@@ -629,7 +645,7 @@ function SettingsHistory({
                 variant="outline"
                 className="h-10"
                 disabled={busy}
-                onClick={() => onRollback(version)}
+                onClick={(event) => onRollback(version, event.currentTarget)}
               >
                 <RotateCcw className="h-4 w-4" aria-hidden />
                 {t('settings.rollback')}
@@ -652,6 +668,7 @@ function SettingsConfirmationDialog({
   error,
   onOpenChange,
   onConfirm,
+  onReturnFocus,
 }: {
   open: boolean
   context: PreviewContext | null
@@ -659,11 +676,19 @@ function SettingsConfirmationDialog({
   error: string | null
   onOpenChange: (open: boolean) => void
   onConfirm: () => void
+  onReturnFocus: () => void
 }) {
   const { t } = useTranslation()
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent aria-busy={pending} className="max-h-[min(85vh,44rem)] overflow-y-auto">
+      <AlertDialogContent
+        aria-busy={pending}
+        className="max-h-[min(85vh,44rem)] overflow-y-auto"
+        onCloseAutoFocus={(event) => {
+          event.preventDefault()
+          onReturnFocus()
+        }}
+      >
         <AlertDialogHeader>
           <AlertDialogTitle>
             {context?.kind === 'rollback'

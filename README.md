@@ -257,6 +257,8 @@ flowchart TD
 | README contract | `python3 scripts/verify_readme.py` |
 | CI | GitHub Actions: docs, backend, OpenAPI drift и frontend gates |
 
+[Production-проверка подтверждения настроек](docs/assets/screens/settings-confirmation-2026-10-04/README.md): ошибки, pending, keyboard/focus, темы и размеры экрана.
+
 ## Карта проекта
 
 ```text
