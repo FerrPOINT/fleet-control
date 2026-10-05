@@ -49,6 +49,8 @@ mod runtime_stream_bounds;
 
 #[path = "support/runtime_run_control.rs"]
 mod runtime_run_control;
+#[path = "support/runtime_targeted_approval.rs"]
+mod runtime_targeted_approval;
 
 #[path = "support/hermes_dispatch_journal.rs"]
 mod hermes_dispatch_journal;
@@ -466,19 +468,15 @@ async fn targeted_approval_http_requires_human_and_unknown_ack_is_not_repeated()
     let Some((repo, owner, _)) = fixture().await else {
         return;
     };
-    let (session, run, approval) = approval_fixture(&repo, owner, "approval-http").await;
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
-    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
-        .await
-        .unwrap();
-    db.execute(Statement::from_sql_and_values(
-        DatabaseBackend::Postgres,
-        "UPDATE agents SET api_port=$2 WHERE id=$1",
-        [run.agent_id.into(), i32::from(port).into()],
-    ))
-    .await
-    .unwrap();
+    let mut config = AppConfig::default();
+    config.fleet.runtime_token_secret = "approval-isolated-test-secret".into();
+    let (session, run, approval) =
+        runtime_targeted_approval::accepted_approval(&repo, owner, "approval-http", port, &config)
+            .await;
+    let pending_request = Arc::new(std::sync::Mutex::new("request_one".to_string()));
+    let pending = pending_request.clone();
     let calls = Arc::new(AtomicUsize::new(0));
     let counter = calls.clone();
     let runtime=axum::Router::new().route("/v1/runs/run_approval_test/approval",axum::routing::post(move |headers:axum::http::HeaderMap,axum::Json(body):axum::Json<serde_json::Value>| {let counter=counter.clone();async move {
@@ -488,11 +486,15 @@ async fn targeted_approval_http_requires_human_and_unknown_ack_is_not_repeated()
         counter.fetch_add(1,Ordering::SeqCst);
         // Success transport but wrong action identity is unknown, never delivered.
         axum::Json(serde_json::json!({"object":"hermes.run.approval_response","run_id":"run_approval_test","request_id":if body["request_id"]=="request_one" {"foreign"} else {"request_two"},"choice":"once","resolved":1}))
-    }}));
+    }}))
+        .route("/health",axum::routing::get(|| async {axum::Json(serde_json::json!({"status":"ok"}))}))
+        .route("/v1/capabilities",axum::routing::get(|| async {axum::Json(runtime_targeted_approval::capabilities())}))
+        .route("/v1/runs/run_approval_test",axum::routing::get(move || {
+            let request = pending.lock().unwrap().clone();
+            async move {axum::Json(runtime_targeted_approval::pending_status(&request))}
+        }));
     let hermes = tokio::spawn(async move { axum::serve(listener, runtime).await.unwrap() });
     let repo = Arc::new(repo);
-    let mut config = AppConfig::default();
-    config.fleet.runtime_token_secret = "approval-isolated-test-secret".into();
     let config = Arc::new(config);
     let (events, _) = tokio::sync::broadcast::channel(32);
     let runtime = Arc::new(infra::runtime::LocalRuntimeSupervisor::new(
@@ -608,6 +610,7 @@ async fn targeted_approval_http_requires_human_and_unknown_ack_is_not_repeated()
         })
         .await
         .unwrap();
+    *pending_request.lock().unwrap() = "request_two".into();
     let second_url = format!(
         "{base}/human/api/v1/sessions/{}/approvals/{}/decision",
         session.id, second.id

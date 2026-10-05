@@ -109,15 +109,8 @@ async fn prepare(
     run: &SessionAgentRun,
     operation: Operation,
 ) -> Result<PreparedControl, AppError> {
-    let current = supervisor.repo.get_session_agent_run(run.id).await?;
-    if agent.kind != AgentKind::Hermes
-        || current.agent_id != agent.id
-        || current.session_id != run.session_id
-        || current.runtime_run_id != run.runtime_run_id
-        || current.runtime_session_id != run.runtime_session_id
-    {
-        return Err(AppError::conflict("runtime control identity changed"));
-    }
+    let context = native_context::accepted(supervisor, agent, run).await?;
+    let current = context.run;
     if !matches!(
         current.state,
         SessionRunState::Running | SessionRunState::Waiting | SessionRunState::Stopping
@@ -125,18 +118,6 @@ async fn prepare(
     {
         return Err(AppError::conflict(
             "runtime run is not accepting this control",
-        ));
-    }
-    let session = supervisor.repo.get_session(current.session_id).await?;
-    if session.primary_agent_id != agent.id
-        || supervisor
-            .repo
-            .get_task_chat_binding(session.id)
-            .await?
-            .is_some()
-    {
-        return Err(AppError::Unavailable(
-            "task control admission is not verified".into(),
         ));
     }
     let run_id = current
@@ -149,28 +130,8 @@ async fn prepare(
         .as_deref()
         .filter(|id| domain::valid_ref(id, 512))
         .ok_or_else(|| AppError::conflict("verified native session identity is required"))?;
-    let base = LocalRuntimeSupervisor::hermes_base_url(agent)?;
-    let token = crate::agent_runtime_token(&supervisor.config, agent.id)?;
-    let intent = supervisor
-        .repo
-        .get_hermes_dispatch_intent_for_run(run.id)
-        .await?
-        .ok_or_else(|| {
-            AppError::Unavailable("legacy run has no original control context".into())
-        })?;
-    hermes_wire::verify_intent(&intent, &base, &token)?;
-    if intent.state != "accepted"
-        || !intent.submission_attempted
-        || intent.run.id != current.id
-        || intent.run.agent_id != current.agent_id
-        || intent.run.session_id != current.session_id
-        || intent.run.runtime_run_id != current.runtime_run_id
-        || intent.run.runtime_session_id != current.runtime_session_id
-    {
-        return Err(AppError::conflict(
-            "original runtime control context changed",
-        ));
-    }
+    let base = context.base;
+    let token = context.token;
     let capabilities = supervisor.probe_hermes(agent).await?;
     capability(&capabilities, operation)?;
     let status = hermes_wire::read_accepted_run(&supervisor.client, &base, &token, run_id).await?;

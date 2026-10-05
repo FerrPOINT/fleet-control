@@ -106,6 +106,17 @@ History remains readable. No operator "retry unknown" API is available; see
 - The legacy run-wide `/runs/{run_id}/approval` route returns `409`: broad `always`, session grants and `resolve_all` are not available in Fleet. Existing transcript routes remain supported.
 - The runtime adapter also rejects the retired run-wide approval method; internal
   callers cannot bypass the exact-request decision flow.
+- Exact decisions additionally require the original accepted free-chat dispatch
+  journal, current agent/origin and original derived-credential fingerprint.
+  Fresh authenticated capabilities must expose `run_approval_response`,
+  `approval_events` and the exact POST endpoint. Native GET must match the pinned
+  run/session and its current `waiting_for_approval` event/request ID before POST.
+  Legacy unjournaled and task-bound decisions fail closed; PM reservation/context
+  alone is not control admission. Historical receipt reads/replays remain available.
+- Require exact HTTP200, JSON MIME, identity encoding and at most64KiB for the
+  exact ACK. Reservation is already durable before preflight; a preflight failure
+  conservatively retains `uncertain` without a POST, not a successful decision.
+  Restoring capabilities or repeating the key cannot dispatch that command later.
 
 These runtime requests are separate from Tracker clarification answers and exact-revision requirements confirmation.
 

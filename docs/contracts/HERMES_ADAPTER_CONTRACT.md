@@ -166,6 +166,11 @@ Session control:
   controls GET exposes scoped readback without raw input, keys or credentials.
   The retired run-wide approval adapter method fails
   closed. Only exact targeted human decisions use `/v1/runs/{run_id}/approval`.
+  They require the same original accepted free-chat context, fresh exact native
+  capabilities and the pending request in its pinned native session. Unjournaled
+  and task/PM context cannot authorize the POST. ACK requires exact200/JSON/
+  identity encoding/64KiB bounds; preflight failure retains the reserved hold
+  without retry. This is not native configuration-generation attestation.
 - For executor sessions, the runtime dispatch target is the primary executor
   even when the mirrored message author is the selected leader.
 - Fleet must not write directly into Hermes SessionDB.

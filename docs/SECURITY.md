@@ -24,6 +24,16 @@ mode. Central session proof is supplied by the existing auth middleware, not
 inferred from a local user ID, email, role or caller JSON. Live central identity
 and assignment-scoped machine control acceptance remain separate gates.
 
+Approval now shares the original accepted free-chat context guard with steer/stop:
+fresh Fleet run/agent/session, immutable original origin/hash/credential pin and
+no unadmitted task binding. Fresh native capabilities and GET must identify the
+currently waiting exact request before the one POST; arbitrary request IDs,
+legacy runtime records and PM reservations cannot substitute for admission.
+Exact HTTP200/unencoded bounded JSON is required for ACK. A preflight failure
+after reservation is conservatively held uncertain without retry, not approval.
+This checks identity/wire, not native loaded revision, distributed fencing or
+OS isolation. Safe config-generation control admission remains a release gate.
+
 Prepared restart recovery grants only the original unconsumed free-chat
 submission permit. Fresh protocol proof and transactional current identity,
 drain/capacity/deadline checks precede the one frozen original POST. No worker

@@ -76,5 +76,22 @@ Run-wide approval is retired at both public API and adapter boundary. Never use
 `always`, session grants or `resolve_all` as a substitute for an exact human
 decision. [Targeted approval](../API.md) keeps its separate durable request and
 decision flow; native approval/replay acceptance is not established by stop/steer.
+
+Targeted decisions share the original accepted free-chat context check: current
+concrete agent/primary session/native run/native session and original request
+hash/origin/derived-credential fingerprint. Legacy and task-bound context fails
+closed before POST; PM reservation is not a fallback. Fresh capabilities require
+`run_approval_response=true`, `approval_events=true` and
+`run_approval={method:POST,path:/v1/runs/{run_id}/approval}`. Authenticated GET must
+match the pinned session and `status=waiting_for_approval`, with nested
+`approval.event=approval.request`, original run ID and the exact request ID.
+
+The action sends only once/deny, exact request_id and resolve_all=false. The same
+HTTP200/MIME/identity/64KiB/ten-second bounds apply to the exact native ACK.
+The decision ledger is already uncertain before preflight; a failure preserves
+that receipt without a decision POST/retry. Future availability or terminal run status cannot
+retroactively authorize a resend or convert uncertainty into delivery. This
+profile does not attest loaded config generation or recover a waiting approval
+after a Fleet crash. Native/component evidence and remaining gates stay separate.
 Java chat/control remains phase2. Native run controls do not terminate the gateway
 or attest operating-system isolation and safe stop.

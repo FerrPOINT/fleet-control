@@ -1,5 +1,12 @@
 # Data Model
 
+Delivery updates serialize on their session with `FOR NO KEY UPDATE` before
+locking the message. This matches dispatch/terminal session-before-child ordering
+and avoids a message/event-trigger FK cycle with a session-owning journal writer.
+Session event/cursor generation stays transactional; unknown acceptance still
+keeps delivery pending and does not release dispatch capacity. No migration is
+needed for this repository-level locking correction.
+
 Native free-chat stop/steer read the existing accepted dispatch journal by concrete
 Fleet run ID; the receipt/live run are observed together. Control ACK is not a new terminal proof or
 capacity release. Steer preserves current state; stopping remains nonterminal.
@@ -126,6 +133,13 @@ operations keep recovery material without automatic claim takeover.
 ## Targeted Approval Commands
 
 `runtime_approval_decisions` stores one immutable human decision per runtime approval request. It pins the session, run, actor, choice and command key; the actor/key pair is unique across requests. The initial state is `uncertain`, committed before any HTTP side effect. A verified exact acknowledgement permits transition to `delivered`. If final authorization fails before HTTP, the decision becomes terminal `failed` without resolving the request. Both terminal states are immutable; a failed command cannot later be delivered. Request resolution, audit and durable stream invalidation commit together. Replays never dispatch and never settle other pending requests. Raw runtime credentials and approval response bodies are not stored in this ledger.
+
+Approval preflight reuses the original accepted dispatch journal by concrete run;
+it does not backfill legacy requests, renew keys or create another permit. Current
+native GET verifies the waiting exact request and pinned session. If preflight
+fails after decision reservation, that existing uncertain receipt stays held;
+the API does not infer a delivered/failed native effect or resend after recovery.
+No new column/migration or config-generation attestation is introduced here.
 
 ## October Foundation Schema
 

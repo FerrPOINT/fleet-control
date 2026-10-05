@@ -133,6 +133,10 @@ def main():
               'fleet_test_sources_sha256':{name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest()
                   for name in ['backend/infra/tests/native_supervisor_live.rs',
                                'backend/infra/tests/support/native_approvals.rs']},
+              'fleet_runtime_sources_sha256':{name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest()
+                  for name in ['backend/infra/src/lib.rs', 'backend/infra/src/hermes_dispatch_journal.rs',
+                               'backend/infra/src/runtime/mod.rs', 'backend/infra/src/runtime/native_context.rs',
+                               'backend/infra/src/runtime/run_control.rs', 'backend/infra/src/runtime/targeted_approval.rs']},
               'harness_sha256':{name:hashlib.sha256((scripts/name).read_bytes()).hexdigest() for name in ['run.py','build.sh','native.sh','preflight.py','discard_ack_plugin.py','approval_fault_plugin.py']}}
     if plugin is not None:
         plugin_dir = directory/'recovery-plugin'

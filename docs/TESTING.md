@@ -1,5 +1,22 @@
 # Testing
 
+## Exact Approval Context And Delivery Lock Order
+
+`runtime_targeted_approval` uses journaled accepted runs, authenticated bounded
+native status/capability fixtures and actual local JWT middleware. It checks
+changed origin/credential/run/session context, legacy or terminal runs, unavailable
+approval capability, foreign pending requests and exact HTTP200 JSON ACKs. An
+uncertain durable decision cannot send again after capabilities recover. These
+are component checks, not machine/task or loaded-generation admission.
+
+`runtime_acceptance_readback_http::delivery_failure_locks_session_before_message`
+uses an explicit PostgreSQL session-row holder and `pg_blocking_pids`, not elapsed
+time as a concurrency barrier. While delivery actually waits for that session,
+the holder must still lock its message with NOWAIT. The pre-fix candidate failed
+with55P03; session-first delivery removes the inversion without retries or relaxed
+unknown-acceptance assertions. The unknown acceptance HTTP test separately
+requires one submission, immutable original journal and pending held capacity.
+
 ## Durable Runtime Controls
 
 `runtime_run_control` PostgreSQL/HTTP tests exercise identical concurrent/restarted

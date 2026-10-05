@@ -14,7 +14,13 @@ reserves/claims commands before effects, replays identical keys without a second
 POST and preserves submitted/uncertain holds across supervisor restart. ACK and
 stopping commit with audit and durable events. Reconciliation observes only an
 independent terminal mirror, never inferring unknown guidance acceptance.
-Native approval/replay and safe process-tree stop remain release gates.
+Targeted approval now shares the original accepted free-chat context guard;
+fresh capabilities and GET verify the waiting exact request in the pinned native
+session before POST. Legacy/task context cannot substitute for admission.
+ACK requires exact200, JSON MIME, identity encoding and64KiB/ten-second bounds.
+A reserved preflight hold stays uncertain without automatic resend. This does
+not attest loaded configuration generation. Waiting-approval crash/outcome
+recovery, installed approval acceptance and safe process-tree stop remain gates.
 
 ## Bounded Hermes Stream
 

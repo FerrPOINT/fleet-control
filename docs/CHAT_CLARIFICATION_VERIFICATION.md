@@ -1808,3 +1808,118 @@ browser run or new screenshot capture is claimed. Final grouping audit checks54
 Desktop containers without violations, but both registered runner endpoints are
 unavailable:complete=false/exit1. Own cleanup is independently empty and does not
 turn the incomplete full-group audit green. Earlier VM clock observations remain.
+
+## Exact Approval Context And Delivery Lock Order (5 October2026)
+
+Targeted approvals now reuse the same original accepted free-chat context guard
+as stop/steer. Current Fleet run, concrete agent/origin, primary session, native
+IDs, exact original journal hash and derived-credential fingerprint must agree.
+Fresh authenticated capabilities must expose the exact approval endpoint;
+authenticated bounded GET must report the pinned session and the currently
+waiting exact request. The one decision POST requires exact HTTP200, JSON MIME,
+identity encoding and a64KiB/ten-second bounded ACK identifying one action.
+Legacy/task-bound effects fail closed: PM reservation is not admission. Durable
+preflight failures retain uncertain without POST and cannot be retried after
+availability improves. This is not native configuration-generation attestation,
+distributed authorization/fencing or unknown-decision outcome recovery.
+
+Four new journaled PG/HTTP cases cover native capability/request/run/session
+denial, changed origin/credential/legacy/terminal context, bounded exact ACKs and
+actual local JWT HTTP preflight hold/replay. Existing human approval HTTP tests
+now use original accepted journal fixtures rather than unproven run flags.
+
+The preliminary broad run exec54678 failed, not PASS: project
+`sdlc-qa-fleet-approval-context-ad3efc58274a`, log
+`b9d46ee17619e9e16e5c14e4ee3e4ad1221806a1a64c2285ae6ce5bb860e5609`.
+It passed373 distinct cases and failed unknown-acceptance replay with PostgreSQL
+deadlock40P01; the three supplemental cases and migration CLI did not run.
+Clock watcher observed21-22second regressions, but they do not prove the cause
+of the deadlock. Preliminary native exec32051 passed17.81s on pre-lock-fix source;
+its log96e36920/binaryc4a64fe0 does not certify the later repository changes.
+
+An explicit PG holder/barrier reproduced message-before-session inversion,
+without relying on timing or PG's choice of deadlock victim. Before the fix,
+delivery held message while its UPDATE/event FK waited for the held session;
+session-owning dispatch could not acquire message with NOWAIT, code55P03.
+Exec63651 failed on project `sdlc-qa-fleet-delivery-lock-848b2b184413`:
+test log `796a9a9592c72b407771b09ef14f92b82379d43924bd8a52c8657e7aa3bc62fe`,
+PG log `25535d5316c67e072d37e9a941fbd71e6dfafabe2ca40016cf971c03e186c2ae`.
+Delivery now locks session with NO KEY UPDATE before message and verifies the
+identity after waiting. Event/cursor updates remain atomic; unknown acceptance
+stays pending/held. No migration, retry or weakened dispatch assertion is added.
+The same test then passes exec25037/projecte55b711c5ad1 in0.45s, completion log
+`cd435a50bd5d77f7e9efddc7da15ba3f585b9f04d9afc2d0ef5a17309cc06605`.
+Both exact finally cleanup operations complete; later QA saves PG logs before
+down. The regression prevents the identified inversion, not all possible DB
+deadlocks or proof that Docker VM clocks are fixed.
+
+Final production bytes pass two separate opt-in actual native scenarios:
+exec92194/project `sdlc-qa-fleet-native-8a69944f6fa1`, approvals10.91s;
+exec93493/project `sdlc-qa-fleet-native-03bdcf5eabdf`, controls9.45s.
+Each executes one named ignored case, one PASS/zero failed/zero ignored.
+Both use binary `8d5a29128c39d1119563be6048b7f20aba59a9d4b392a96aafc2567819c52f32`;
+approval log `f9ca6645649f8e7c69f12bd8ea47d01f63ca7838d17b50e0fa9e77b640a0c701`,
+control log `f48fe9a4e25ff750fee0e7ec9c7aa0318f32b4480e8dff06f0ba4e11dab2a5aa`.
+They exercise real Hermes gateway/AIAgent/terminal behavior with a loopback model,
+not PM/Tracker/Workflow, central JWKS, OS descendants or installed runtime.
+
+Rust1.88 locked/offline fmt/all-target checks/native-target Clippy/build PASS.
+Every13770 native source file matches pinned archive571fba49; SDK9408802,
+Base launcher55d52eb/blob75ad258e, non-root dependency imageaeb97055 stay fixed.
+Own source images/internal Compose networks/tmpfs use no host ports; both down
+exit0, unique source/dependency tags are removed and independent ps is empty.
+Report now fingerprints delivery/journal and context/control/approval source,
+not just the native test. Generated credentials are never exported from tmpfs.
+
+| Executed source | SHA256 |
+| --- | --- |
+| Repository delivery | `185d55b547b16bf0715ba21e89c6e5fbab953485949e8b22d1348f74ef2531ae` |
+| Original journal (unchanged) | `d5bf1c9edbdab480a8949a2fd1419c8c24fe467b4d9d36be698abcb2ee77438c` |
+| Runtime module | `1fcd9654eb364870baedc95114f0e79bfcebc6dd9a6caeec3324aa99e4f55742` |
+| Shared accepted context | `9ad933a3c2f20b0093cc49e1661e85bc8ddafecd815bea6ecb398819c89fa6d9` |
+| Stop/steer adapter | `ccd03e207d27c4f39258ce82506df3508e5ab9328fa3202eee0ce9b6a9cd7a55` |
+| Approval adapter | `6f6bdc63f1201eaa1b0e1069d7a1c5624c84d3c663e66ca7fe2aae7ecdaa3eb2` |
+| Foundation test module | `2a2dd4f61245e22f14a5e10e5adc115c4d1da9979d52fbfd46fab43498cbda6d` |
+| Approval component cases | `dd486e07e04bd8aedf5ae1f31c4f908987218cc3f4a42d39af6dbca92bc50c45` |
+| Acceptance/lock regression | `3e498c292c2a575cf6857e0a3c763591c82234638ccde0a58127deca06cfd4d6` |
+| Native harness entry | `0aecd5341ee0909bea3c7560aca150cc64ffc0672713e7120388a1232ab0c140` |
+
+Executed source is a dirty candidate atop1f94824, not a release-head CI result.
+No DTO, API schema, migration, Base SDK pin or production UI changes here.
+Unknown control/decision outcome lookup, waiting-approval restart/replay,
+loaded generation/config inventory, safe descendants, task first-step/PM tools/
+delivery/rebind, compatible producers/Forge, seven-agent flow and release order
+10/11 ->12 ->13 remain. Read-only producers, Forge task2, other-worker PR47 and
+Base PR140/main are preserved. This packet does not finish the complete goal.
+
+Final broad exec55106 exits0 on owned
+`sdlc-qa-fleet-approval-context-255620f98b1f`:210 library +160 foundation +1 isolated
+approval stream +4 isolated migrations +3 supplemental cases =378 distinct PASS.
+The single renderer export remains ignored; the two opt-in native cases above
+are separately executed, never silently counted by normal cargo test. All-target
+check, strict workspace Clippy, fmt, generated OpenAPI byte equality and clean
+DB CLI up/status/down-one/up/status pass across14 registered migration versions.
+Workspace doc tests run successfully with zero executable examples. The new
+lock regression and original unknown-acceptance replay both pass in this run.
+
+Completion log `a8f3cf680bde3cf2fb038aac24ceff9a51745eeaf11f018a18b19679650c3eca`;
+owned PG log `e964f73992d55fdbe8827dcc88852f3d58e1bc49b06f7c7040880da95c18cd6e`;
+own launcher `a6a4bdc26a353dab7eed50a20f73514681092d39d78c5e0f3a97e1ec31165393`;
+own Compose descriptor `5e40dda27143f2b167d895bbe6a2ff0870b1029eaa614e4832873f3e17aa1044`.
+PG logs remain ignored owned-fixture diagnostics, not exported transcripts or
+tracked trigger statements; deliberate rollback/constraint errors are expected.
+No deadlock40P01 is recorded in the final PG log. Watcher still observes20-22second
+backwards VM-clock jumps. Exact finally down completes and independent ps is
+empty; no caches/accepted volumes/images/other projects are deleted.
+
+Host21 harness safety cases, Node22 typecheck/generated API equality, README and
+107 Markdown links PASS. Existing135/9/3 fixture PNG hashes reverify, not new live
+captures or visual acceptance. UI is unchanged; full Vitest/browser suite is
+not rerun in this packet. Docker audit desktop41 and sdlc2-runner0 have no
+violations, but sdlc1-runner is unavailable:complete=false/exit1. Partial audit
+is not full infrastructure acceptance. Base only changes its source ledger;
+its README/hub/diff checks pass, not a new full Base Rust/frontend/plugin gate.
+
+Before publication, all nine changed Rust/harness blobs in the Git index match
+the executed worktree bytes; every native runtime source hash above is rechecked.
+Source provenance does not turn local candidate QA into release-head CI.

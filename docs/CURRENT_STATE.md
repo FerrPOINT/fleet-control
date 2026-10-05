@@ -5,6 +5,20 @@ blocked until cross-service assignment/workflow/deployment contracts are verifie
 See [SDLC implementation](SDLC_IMPLEMENTATION.md). The baseline feature/gate lists
 below are historical, not acceptance evidence for the new SDLC plan.
 
+Targeted approval now requires original accepted free-chat journal context,
+fresh native capabilities and the pinned currently waiting exact request. Legacy
+or unadmitted task context cannot authorize the POST; bounded exact HTTP200 JSON
+ACKs are mandatory. Steer/stop share that context guard. Separate actual native
+approval and control runs pass with real Hermes and a loopback model. A PostgreSQL
+delivery lock-order regression first failed and then passed after session-first
+locking; unknown acceptance remains pending and is never redispatched. See
+[current scope/evidence](CHAT_CLARIFICATION_VERIFICATION.md#exact-approval-context-and-delivery-lock-order-5-october2026).
+Loaded config generation, task/PM admission, central identity, unknown-decision
+lookup and safe OS descendants are not certified by these checks.
+The final candidate passes378 distinct Linux/PG component cases, strict
+all-target checks/Clippy/fmt, OpenAPI equality and migration CLI. VM-clock jumps
+and incomplete runner audit remain recorded; local QA is not release-head CI.
+
 Hermes free-chat steer/stop now require original accepted journal context, fresh
 capabilities and pinned native GET before a bounded exact ACK. Guidance does not
 reset concurrent run state; interrupt only requests stopping. Legacy run-wide

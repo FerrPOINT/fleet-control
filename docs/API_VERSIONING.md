@@ -42,6 +42,16 @@ remains a separate blocked contract until admission is implemented. This is an
 authorization security retirement without a DTO change, not a claim that every
 existing token/client remains compatible or that schema checks prove identity.
 
+Exact approval decisions also retire unjournaled/legacy runtime effects. They
+require the original accepted free-chat dispatch context, fresh native approval
+capability and the currently waiting exact request in the pinned native session.
+Task/PM records alone cannot grant that permission; fenced admission is still
+required. A preflight failure retains the reserved uncertain receipt without
+POST, never a later implicit retry. Historical reads/replays remain supported.
+This is a runtime authorization/protocol security change without a new DTO or
+schema-compatibility exemption. Native loaded configuration generation is not
+attested by an origin or credential fingerprint; that remains a separate gate.
+
 Clients must freeze one key with the original run/operation/payload and read the
 durable receipt after an unknown result. A changed payload needs a distinct new
 intent only when no unresolved control holds the run; never rotate the key to

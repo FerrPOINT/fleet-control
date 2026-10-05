@@ -3087,12 +3087,30 @@ impl FleetRepository for PostgresFleetRepository {
         delivery_error: Option<String>,
     ) -> Result<(), AppError> {
         let txn = self.db.begin().await.map_err(AppError::database)?;
+        // Delivery's event trigger takes the session cursor/FK locks. Serialize
+        // with dispatch/terminal writers before locking their child message.
+        let session_id: Uuid = txn
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT s.id FROM agent_sessions s
+                 JOIN session_messages m ON m.session_id=s.id
+                 WHERE m.id=$1 FOR NO KEY UPDATE OF s",
+                [id.into()],
+            ))
+            .await
+            .map_err(AppError::database)?
+            .ok_or_else(|| AppError::not_found("session_message", id))?
+            .try_get("", "id")
+            .map_err(AppError::database)?;
         let row = session_message::Entity::find_by_id(id)
             .lock_exclusive()
             .one(&txn)
             .await
             .map_err(AppError::database)?
             .ok_or_else(|| AppError::not_found("session_message", id))?;
+        if row.session_id != session_id {
+            return Err(AppError::conflict("message session identity changed"));
+        }
         if let Some(previous) = &row.runtime_message_id {
             if runtime_message_id
                 .as_ref()

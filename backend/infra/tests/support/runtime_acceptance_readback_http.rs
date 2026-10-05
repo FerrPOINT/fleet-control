@@ -94,6 +94,95 @@ async fn prepared_journal(
 }
 
 #[tokio::test]
+async fn delivery_failure_locks_session_before_message() {
+    let Some((repo, owner, _)) = fixture().await else {
+        return;
+    };
+    let repo = Arc::new(repo);
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let agent_id = agent(&repo).await;
+    let session = repo
+        .create_session(chat(agent_id, "delivery-lock-order"), owner)
+        .await
+        .unwrap();
+    let message = repo
+        .create_session_message(session.id, prompt("delivery-lock-order"), owner)
+        .await
+        .unwrap();
+    let holder = db.begin().await.unwrap();
+    let holder_pid: i32 = holder
+        .query_one(Statement::from_string(
+            DatabaseBackend::Postgres,
+            "SELECT pg_backend_pid() AS pid".to_string(),
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get("", "pid")
+        .unwrap();
+    holder
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT id FROM agent_sessions WHERE id=$1 FOR UPDATE",
+            [session.id.into()],
+        ))
+        .await
+        .unwrap();
+    let updater = repo.clone();
+    let delivery = tokio::spawn(async move {
+        updater
+            .update_session_message_delivery(
+                message.id,
+                MessageDeliveryState::Failed,
+                None,
+                Some("fixture unknown delivery".into()),
+            )
+            .await
+    });
+    let blocked = timeout(Duration::from_secs(10), async {
+        loop {
+            let row = db
+                .query_one(Statement::from_sql_and_values(
+                    DatabaseBackend::Postgres,
+                    "SELECT query FROM pg_stat_activity
+                     WHERE datname=current_database() AND $1=ANY(pg_blocking_pids(pid))
+                     ORDER BY pid LIMIT 1",
+                    [holder_pid.into()],
+                ))
+                .await
+                .unwrap();
+            if let Some(row) = row {
+                break row.try_get::<String>("", "query").unwrap();
+            }
+            sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await;
+    // A session-owning dispatch must still be able to lock its message. NOWAIT
+    // exposes inversion deterministically without waiting for PG's deadlock victim.
+    let message_lock = holder
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT id FROM session_messages WHERE id=$1 FOR UPDATE NOWAIT",
+            [message.id.into()],
+        ))
+        .await;
+    holder.rollback().await.unwrap();
+    timeout(Duration::from_secs(10), delivery)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    assert!(blocked.is_ok(), "actual PG wait was not observed");
+    assert!(
+        message_lock.is_ok(),
+        "delivery held message before waiting for session: {blocked:?}; {message_lock:?}"
+    );
+}
+
+#[tokio::test]
 async fn unknown_acceptance_has_a_durable_original_request_and_never_sends_a_second_post() {
     let Some((repo, owner, _)) = fixture().await else {
         return;

@@ -27,6 +27,7 @@ mod activation_journal;
 mod hermes_wire;
 #[cfg(test)]
 mod lifecycle_tests;
+mod native_context;
 mod pm_readback;
 mod prepared_dispatch;
 mod process_stop;
