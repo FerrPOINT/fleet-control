@@ -84,7 +84,7 @@ pub(super) async fn resolve(
     validate_ack(&payload, &approval.runtime_run_id, request_id, choice)
 }
 
-fn verify_capability(payload: &Value) -> Result<(), AppError> {
+pub(super) fn verify_capability(payload: &Value) -> Result<(), AppError> {
     hermes_wire::task_protocol(payload)?;
     if payload["features"]["run_approval_response"] != true
         || payload["features"]["approval_events"] != true

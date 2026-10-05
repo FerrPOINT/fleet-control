@@ -73,3 +73,7 @@ Hermes terminal-event/EOF readback checks described in the
 [runtime contract](AGENT_RUNTIME_CONTRACT.md) do not supply Java session identity,
 completion or safe-stop evidence. The Java lifecycle and phase-2 boundary remain
 unchanged; no Hermes success alias is a Java capability.
+
+Hermes current-approval snapshot recovery also does not supply Java approval or
+chat recovery capabilities. Java jar lifecycle remains unchanged; its chat and
+control implementation still requires independent phase-2 acceptance.

@@ -125,3 +125,8 @@ readback before ending a run. Runtime completion is separate from process-tree
 quiescence and owner-authorized business transitions. See the
 [Hermes wire contract](HERMES_ADAPTER_CONTRACT.md); this does not grant phase-2
 Java chat/control capabilities.
+
+Hermes known-ID recovery can also restore the current pending native approval
+with its original accepted identity. It commits request/Waiting atomically and
+keeps capacity on invalid readback. This does not resume PM, replay a historical
+approval queue, authorize wider grants or attest safe OS-descendant termination.

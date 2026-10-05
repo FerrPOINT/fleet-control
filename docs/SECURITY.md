@@ -263,3 +263,11 @@ lease. This check cannot authorize dispatch or bypass missing native readiness.
 - Idempotency keys protect session and message creation from duplicate browser
   submits or retry storms. Reusing a key with a different payload returns
   conflict.
+
+Recovered current approvals require the original accepted free-chat journal,
+current primary agent, pinned native identities, fresh capabilities and derived
+credential context. Redaction happens before persistence/durable emission.
+Recovery only reads runtime state; it does not authorize a decision, widen grants
+or enable task/PM side effects. Existing resolved requests remain resolved.
+Actual owner decision checks still apply. Agent path guards and parent process
+wait do not prove descendant containment or cross-user tool/filesystem isolation.

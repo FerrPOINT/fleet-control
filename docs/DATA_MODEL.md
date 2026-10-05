@@ -60,6 +60,14 @@ against direct privileged SQL. Task-bound/PM records use their separate model.
 
 ## Hermes Dispatch Journal
 
+Additive `m20261005_000014_hermes_journal_time_order` follows 000013. Its
+BEFORE UPDATE trigger runs after the unchanged original identity/ACK/expiry
+guard and floors only new submitted/accepted timestamps to prior progress.
+Creation/deadline, identity/key/hash and consumed send permit are unchanged.
+These timestamps represent logical progress, not reliable elapsed wall time.
+Nonempty downgrade is refused. Clock integrity and horizon authority remain
+separate requirements; see [ADR 0023](adr/0023-logical-journal-progress-time.md).
+
 Optional closed `capabilities.fleet_recovery` freezes the source-pinned native
 store epoch/default-profile scope and non-dispatch endpoint before the original
 submission. It is private metadata, not an arbitrary upstream object or secret.
@@ -388,6 +396,18 @@ safe durable invalidation, receipt and source cursor. Exact concurrent replay
 adds nothing; changed payload/identity conflicts. A stale page with unseen events
 must be fetched again from the persisted cursor, never merged speculatively.
 
-This repository foundation is implemented. The authenticated background poller
-and answer-to-PM continuation are not yet wired; a projection receipt is not a
+This repository foundation and disabled-by-default authenticated background poller
+are implemented. Live producer acceptance and answer-to-PM continuation remain;
+a projection receipt is not a
 runtime delivery receipt and does not transition Tracker business state.
+
+## Recovered Current Approval
+
+No schema or migration is added. `runtime_approval_requests` retains its unique
+`(session_run_id,runtime_approval_id)` identity. Recovery locks agent, primary
+session and run in that order, verifies the original accepted free-chat journal,
+then commits the redacted pending request and running-to-waiting transition
+together. Existing content must match on replay; prior decisions are retained.
+Existing database triggers create durable approval/run events. No transcript
+message is fabricated from the snapshot and repeat reads do not advance cursors.
+The native GET is evidence for its current request, not a historical event inbox.

@@ -1,5 +1,11 @@
 # Traceability
 
+Journal clock-order repair: [ADR 0023](adr/0023-logical-journal-progress-time.md),
+additive migration 000014, deterministic clock-regression PG test and isolated
+upgrade/down/reapply. Current approval readback: [ADR 0022](adr/0022-current-native-approval-snapshot.md)
+and native two-Fleet-process scenario. Logical timestamps do not attest clocks;
+current snapshot recovery does not supply complete approval/tool history.
+
 ## October SDLC Scope
 
 Original-key recovery candidate: [ADR 0019](adr/0019-native-original-key-recovery.md),
@@ -71,3 +77,4 @@ The table below describes the legacy baseline, not complete SDLC acceptance.
 | Operator audit            | `audit_log` writes for mutating agent/session/runtime/config/skill actions |
 | Screenshots               | generated 135-file three-viewport fixture screenshot manifest               |
 | Full SDLC docs            | docs index, contracts, ADRs and pre-development gate docs                  |
+| Current native approval recovery | `approval_snapshot`, atomic `hermes_approval_recovery`, six PG cases, real two-Fleet-process native gate; not historical queue or unknown decision recovery |

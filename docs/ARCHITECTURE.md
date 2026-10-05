@@ -187,6 +187,15 @@ technical inventory and does not persist or repair filesystem state.
 
 ## Evidence Gate
 
+Current approval snapshot restoration belongs to the authenticated Hermes
+adapter/readback path, not a second chat queue. The repository commits a redacted
+exact request plus waiting state under agent/session/run locks. It never infers
+task completion, historical events or a new dispatch permit from GET; see
+[ADR0022](adr/0022-current-native-approval-snapshot.md). Journal logical progress
+is ordered separately from observed wall-clock time by additive000014, with
+unchanged identity/ACK/expiry guards; see
+[ADR0023](adr/0023-logical-journal-progress-time.md).
+
 The shared-header ownership and acceptance boundary are documented in
 [Fleet Platform Header](plan/2026-10-01-platform-header.md).
 

@@ -31,6 +31,13 @@ Additional gates:
 - clean DB migration up/status
 - additive control-ledger 000013 upgrade, empty down/re-up and nonempty refusal
   on its own database; release only after the 000012 prerequisite
+- additive journal-time 000014 upgrade/down/reapply with original guard/history
+  equality and deterministic clock-regression/nonempty-downgrade tests; provide
+  `FLEET_HERMES_TIME_MIGRATION_TEST_DATABASE_URL` for its separate empty database
+- actual managed native `scripts/native_supervisor_live/run.py` scenarios
+  `lifecycle`, `recovery`, `controls`, `approvals`, `approval-recovery`; preserve
+  exact source/binary hashes and verify owned Compose cleanup. A GET snapshot
+  is not complete historical replay or unknown decision acceptance proof
 - OpenAPI regenerate and diff
 - opt-in recovery source gate: original journal/scope/epoch and DB-lock expiry
   races; Base plugin Linux SQLite/auth/boundary suite; actual pinned native

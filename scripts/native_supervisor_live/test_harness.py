@@ -42,8 +42,8 @@ def archive(name, symlink=False):
 
 class SafetyTests(unittest.TestCase):
     def test_scenarios_select_distinct_exact_tests(self):
-        self.assertEqual(set(runner.TEST_NAMES), {'lifecycle', 'recovery', 'controls', 'approvals'})
-        self.assertEqual(len(set(runner.TEST_NAMES.values())), 4)
+        self.assertEqual(set(runner.TEST_NAMES), {'lifecycle', 'recovery', 'controls', 'approvals', 'approval-recovery'})
+        self.assertEqual(len(set(runner.TEST_NAMES.values())), 5)
         self.assertTrue(all(name.rsplit('::', 1)[-1].startswith('managed_native_')
                             for name in runner.TEST_NAMES.values()))
 
@@ -206,9 +206,10 @@ class FaultFixtureTests(unittest.IsolatedAsyncioTestCase):
 class ApprovalFaultFixtureTests(unittest.IsolatedAsyncioTestCase):
     setUp = FaultFixtureTests.setUp
 
-    def install(self, root, denied=None, opt_in='1', map_linux_root=True):
+    def install(self, root, denied=None, opt_in='1', map_linux_root=True, recovery='0'):
         app = SimpleNamespace(middlewares=[])
-        web = SimpleNamespace(middleware=lambda function: function)
+        web = SimpleNamespace(middleware=lambda function: function,
+                              Response=lambda status: SimpleNamespace(status=status))
         handlers = []
         approval_plugin.register(SimpleNamespace(
             register_platform_handler=lambda name, wire: handlers.append((name, wire))))
@@ -218,6 +219,7 @@ class ApprovalFaultFixtureTests(unittest.IsolatedAsyncioTestCase):
             return root if value == '/tmp/fleet-native-supervisor/approval-fault' else Path(value)
         with patch.dict('sys.modules', {'aiohttp':SimpleNamespace(web=web)}), patch.dict(os.environ, {
             'FLEET_NATIVE_SUPERVISOR_TEST':opt_in, 'FLEET_NATIVE_APPROVAL_FAULT_ROOT':str(root),
+            'FLEET_NATIVE_APPROVAL_RECOVERY_TEST':recovery,
         }), patch.object(approval_plugin, 'Path', path if map_linux_root else Path):
             handlers[0][1](app, SimpleNamespace(_check_auth=lambda request: denied))
         return app.middlewares[0]
@@ -310,6 +312,71 @@ class ApprovalFaultFixtureTests(unittest.IsolatedAsyncioTestCase):
                 with self.subTest(opt_in=opt_in, mapped=mapped), self.assertRaises(RuntimeError):
                     self.install(root, opt_in=opt_in, map_linux_root=mapped)
             with self.assertRaises(RuntimeError): self.install(root/'missing')
+
+    async def test_recovery_denied_get_never_observes_or_calls_handler(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            denied = object()
+            observer = self.install(root, denied=denied, recovery='1')
+            request = self.request([], '/v1/runs/native-run')
+            request.method = 'GET'
+            async def handler(request): self.fail('auth must precede recovery')
+            self.assertIs(await observer(request, handler), denied)
+            self.assertFalse((root/'native-events.jsonl').exists())
+
+    async def test_recovery_sse_fault_is_not_a_fake_native_event_stream(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            observer = self.install(root, recovery='1')
+            request = self.request([], '/v1/runs/native-run/events')
+            request.method = 'GET'
+            async def handler(request): self.fail('owned SSE fault cannot attach handler')
+            self.assertEqual((await observer(request, handler)).status, 503)
+            self.assertEqual(json.loads((root/'native-events.jsonl').read_text()),
+                             {'kind':'events_held', 'run_id':'native-run'})
+
+    async def test_recovery_drops_only_real_current_waiting_snapshot_after_handler(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            marker = root/'hold-approval-readback'
+            marker.touch()
+            observer = self.install(root, recovery='1')
+            order = []
+            request = self.request(order, '/v1/runs/native-run')
+            request.method = 'GET'
+            body = {'object':'hermes.run', 'run_id':'native-run', 'session_id':'native-session',
+                    'status':'waiting_for_approval', 'approval':{'event':'approval.request',
+                    'run_id':'native-run', 'request_id':'native-request', 'command':'never record this secret'}}
+            response = SimpleNamespace(status=200, body=json.dumps(body).encode())
+            async def handler(request):
+                order.append('handler')
+                return response
+            self.assertIs(await observer(request, handler), response)
+            self.assertEqual(order, ['handler', 'closed'])
+            marker.unlink()
+            order.clear()
+            self.assertIs(await observer(request, handler), response)
+            self.assertEqual(order, ['handler'])
+            raw = (root/'native-events.jsonl').read_text()
+            events = [json.loads(line) for line in raw.splitlines()]
+            self.assertEqual([row['kind'] for row in events], ['waiting_held', 'status_read'])
+            self.assertNotIn('never record', raw)
+            self.assertNotIn('command', raw)
+
+    async def test_recovery_running_or_error_snapshot_is_not_disconnected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root/'hold-approval-readback').touch()
+            observer = self.install(root, recovery='1')
+            for status, body in [(404, {}), (200, {'object':'hermes.run', 'run_id':'native-run',
+                                                    'status':'running', 'session_id':'native-session'})]:
+                order = []
+                request = self.request(order, '/v1/runs/native-run')
+                request.method = 'GET'
+                response = SimpleNamespace(status=status, body=json.dumps(body).encode())
+                async def handler(request): return response
+                self.assertIs(await observer(request, handler), response)
+                self.assertEqual(order, [])
 
 
 if __name__ == '__main__':

@@ -24,6 +24,7 @@ use tokio::{
 use uuid::Uuid;
 mod acceptance_readback;
 mod activation_journal;
+mod approval_snapshot;
 mod hermes_wire;
 #[cfg(test)]
 mod lifecycle_tests;

@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+- Restore the current exact native approval after Fleet restart by authenticated
+  original-context GET, without a second run/SSE/decision. Atomically preserve
+  request identity, redaction and resolved/stopping/terminal state; verify with
+  two Fleet OS processes and the real Hermes terminal guard/tool.
+- Add migration000014 for logical journal submission/ACK time ordering under
+  backwards clock jumps, preserving the original guard, deadline/key and send
+  permit. Test additive upgrade/down/reapply and nonempty downgrade refusal.
+  Host clock integrity and ordered exact-head release remain required.
+
 - Recover unconsumed prepared Hermes free-chat dispatch after restart using
   fresh protocol checks, bounded scans and the original atomic submission permit.
   Reuse frozen request bytes/key and normal ACK/readback; never reset submitted

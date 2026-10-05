@@ -5,6 +5,7 @@ mod config_revisions;
 mod configuration_renderer;
 mod effective_configuration;
 pub mod entities;
+mod hermes_approval_recovery;
 mod hermes_dispatch_journal;
 pub mod pm_credentials;
 mod pm_draft;
@@ -3222,6 +3223,23 @@ impl FleetRepository for PostgresFleetRepository {
         }
         txn.commit().await.map_err(AppError::database)?;
         Ok(runtime_approval_from_model(row))
+    }
+
+    async fn recover_hermes_approval(
+        &self,
+        req: RuntimeApprovalCreate,
+        native_session_id: String,
+        origin: String,
+        credential_fingerprint: String,
+    ) -> Result<(RuntimeApprovalRequest, bool), AppError> {
+        hermes_approval_recovery::record(
+            self,
+            req,
+            native_session_id,
+            origin,
+            credential_fingerprint,
+        )
+        .await
     }
 
     async fn resolve_runtime_approval_request(

@@ -23,6 +23,9 @@ enum Reply {
     InterruptedSuccess,
     MissingFlags,
     WrongObject,
+    WaitingApproval,
+    ForeignApproval,
+    MissingApproval,
 }
 
 struct NativeRun {
@@ -66,6 +69,7 @@ impl NativeRun {
 struct HttpState {
     runs: Mutex<HashMap<String, Arc<NativeRun>>>,
     posts: AtomicUsize,
+    approval_caps: std::sync::atomic::AtomicBool,
 }
 
 async fn status(
@@ -87,7 +91,8 @@ async fn status(
         "status":"completed", "completed":true, "partial":false, "interrupted":false,
         "output":"Recovered pinned reply"
     });
-    match *native.reply.lock().unwrap() {
+    let reply = *native.reply.lock().unwrap();
+    match reply {
         Reply::Completed => {}
         Reply::Running => {
             payload["status"] = json!("running");
@@ -103,6 +108,17 @@ async fn status(
             payload.as_object_mut().unwrap().remove("completed");
         }
         Reply::WrongObject => payload["object"] = json!("foreign.run"),
+        Reply::WaitingApproval | Reply::ForeignApproval | Reply::MissingApproval => {
+            payload["status"] = json!("waiting_for_approval");
+            payload["approval"] = json!({"event":"approval.request","run_id":id,
+                "request_id":"request_recovered","description":"Review this exact action",
+                "command":format!("echo fc_{}", "a".repeat(64)),"choices":["once","deny"]});
+            match reply {
+                Reply::ForeignApproval => payload["approval"]["run_id"] = json!("run_foreign"),
+                Reply::MissingApproval => payload["approval"] = Value::Null,
+                _ => {}
+            }
+        }
     }
     (StatusCode::OK, Json(payload))
 }
@@ -143,13 +159,30 @@ async fn submit(
 }
 
 fn router(http: Arc<HttpState>) -> Router {
-    hermes_protocol_fixture::preflight(
-        Router::new()
-            .route("/v1/runs", post(submit))
-            .route("/v1/runs/{run_id}", get(status))
-            .route("/v1/runs/{run_id}/events", get(events))
-            .with_state(http),
-    )
+    Router::new()
+        .route("/health", get(|| async { Json(json!({"status":"ok"})) }))
+        .route(
+            "/v1/capabilities",
+            get(
+                |State(http): State<Arc<HttpState>>, headers: HeaderMap| async move {
+                    assert!(
+                        headers["authorization"]
+                            .to_str()
+                            .unwrap()
+                            .starts_with("Bearer fc_")
+                    );
+                    Json(if http.approval_caps.load(Ordering::SeqCst) {
+                        runtime_targeted_approval::capabilities()
+                    } else {
+                        hermes_protocol_fixture::capabilities()
+                    })
+                },
+            ),
+        )
+        .route("/v1/runs", post(submit))
+        .route("/v1/runs/{run_id}", get(status))
+        .route("/v1/runs/{run_id}/events", get(events))
+        .with_state(http)
 }
 
 struct Server(tokio::task::JoinHandle<()>);
@@ -725,5 +758,399 @@ async fn pinned_recovery_keyset_reaches_valid_terminal_after_twenty_invalid_pinn
     );
     for p in &pinned {
         f.assert_persistence(p, false).await;
+    }
+}
+
+#[tokio::test]
+async fn pinned_approval_recovery_concurrent_supervisors_restore_once_by_get() {
+    let Some(f) = Fixture::new().await else {
+        return;
+    };
+    f.http.approval_caps.store(true, Ordering::SeqCst);
+    let p = f
+        .seed(
+            Reply::WaitingApproval,
+            SessionRunState::Running,
+            false,
+            false,
+        )
+        .await;
+    let transcript_before =
+        serde_json::to_value(f.repo.list_session_messages(p.session_id).await.unwrap()).unwrap();
+    let _one = f.restart();
+    let _two = f.restart();
+    timeout(Duration::from_secs(45), async {
+        loop {
+            let rows = f.repo.list_session_approvals(p.session_id).await.unwrap();
+            let run = f.repo.get_session_agent_run(p.run.id).await.unwrap();
+            if rows.len() == 1 && run.state == SessionRunState::Waiting {
+                break;
+            }
+            sleep(Duration::from_millis(25)).await;
+        }
+    })
+    .await
+    .expect("pending snapshot was not recovered");
+    let before = f
+        .repo
+        .list_session_approvals(p.session_id)
+        .await
+        .unwrap()
+        .pop()
+        .unwrap();
+    assert_eq!(
+        before.runtime_approval_id.as_deref(),
+        Some("request_recovered")
+    );
+    assert!(!before.detail.to_string().contains(&"a".repeat(64)));
+    let cursor = f.repo.session_event_cursor(p.session_id).await.unwrap();
+    let reads = p.native.reads.load(Ordering::SeqCst);
+    // Recovery scans retained invalid pins in bounded 20-row keyset pages.
+    timeout(Duration::from_secs(45), async {
+        while p.native.reads.load(Ordering::SeqCst) < reads + 2 {
+            sleep(Duration::from_millis(25)).await;
+        }
+    })
+    .await
+    .unwrap();
+    sleep(Duration::from_millis(100)).await;
+    let after = f.repo.list_session_approvals(p.session_id).await.unwrap();
+    assert_eq!(serde_json::to_value(&after).unwrap(), json!([before]));
+    assert_eq!(
+        f.repo.session_event_cursor(p.session_id).await.unwrap(),
+        cursor
+    );
+    assert_eq!(
+        serde_json::to_value(f.repo.list_session_messages(p.session_id).await.unwrap()).unwrap(),
+        transcript_before
+    );
+    f.assert_persistence(&p, false).await;
+}
+
+fn recovery_request(p: &Pinned) -> app::RuntimeApprovalCreate {
+    app::RuntimeApprovalCreate {
+        session_id: p.session_id,
+        session_run_id: p.run.id,
+        agent_id: p.agent_id,
+        runtime_run_id: p.native_id.clone(),
+        runtime_approval_id: Some("request_recovered".into()),
+        prompt: "Review this exact action".into(),
+        detail: json!({"event":"approval.request",
+            "run_id":p.native_id,"request_id":"request_recovered","description":"Review this exact action",
+            "choices":["once","deny"]}),
+    }
+}
+
+async fn record(
+    f: &Fixture,
+    p: &Pinned,
+    req: app::RuntimeApprovalCreate,
+) -> Result<(domain::RuntimeApprovalRequest, bool), shared::AppError> {
+    let intent = f
+        .repo
+        .get_hermes_dispatch_intent(p.message_id)
+        .await
+        .unwrap()
+        .unwrap();
+    f.repo
+        .recover_hermes_approval(
+            req,
+            p.native.effective.clone(),
+            intent.origin,
+            intent.credential_fingerprint,
+        )
+        .await
+}
+
+#[tokio::test]
+async fn pinned_approval_recovery_rolls_back_request_and_waiting_when_event_commit_fails() {
+    let Some(f) = Fixture::new().await else {
+        return;
+    };
+    let p = f
+        .seed(Reply::Running, SessionRunState::Running, false, false)
+        .await;
+    let name = format!("approval_recovery_fail_{}", p.run.id.simple());
+    f.sql(&format!("CREATE FUNCTION {name}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+        IF NEW.id='{id}'::uuid AND NEW.state='waiting' THEN RAISE EXCEPTION 'owned approval recovery failure';
+        END IF; RETURN NEW; END $$",id=p.run.id),vec![]).await;
+    f.sql(&format!("CREATE TRIGGER {name} BEFORE UPDATE ON session_agent_runs FOR EACH ROW EXECUTE FUNCTION {name}()"),vec![]).await;
+    let cursor = f.repo.session_event_cursor(p.session_id).await.unwrap();
+    assert!(record(&f, &p, recovery_request(&p)).await.is_err());
+    assert!(
+        f.repo
+            .list_session_approvals(p.session_id)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(
+        f.repo.session_event_cursor(p.session_id).await.unwrap(),
+        cursor
+    );
+    assert_eq!(
+        f.repo.get_session_agent_run(p.run.id).await.unwrap().state,
+        SessionRunState::Running
+    );
+    f.sql(
+        &format!("DROP TRIGGER {name} ON session_agent_runs"),
+        vec![],
+    )
+    .await;
+    f.sql(&format!("DROP FUNCTION {name}()"), vec![]).await;
+    assert!(record(&f, &p, recovery_request(&p)).await.unwrap().1);
+    assert!(!record(&f, &p, recovery_request(&p)).await.unwrap().1);
+    f.assert_persistence(&p, false).await;
+}
+
+#[tokio::test]
+async fn pinned_approval_recovery_preserves_stop_and_rejects_changed_snapshot_or_context() {
+    let Some(f) = Fixture::new().await else {
+        return;
+    };
+    let p = f
+        .seed(Reply::Running, SessionRunState::Stopping, false, false)
+        .await;
+    assert!(record(&f, &p, recovery_request(&p)).await.unwrap().1);
+    let cursor = f.repo.session_event_cursor(p.session_id).await.unwrap();
+    assert_eq!(
+        f.repo.get_session_agent_run(p.run.id).await.unwrap().state,
+        SessionRunState::Stopping
+    );
+    let mut changed = recovery_request(&p);
+    changed.prompt = "Another action".into();
+    assert!(record(&f, &p, changed).await.is_err());
+    let intent = f
+        .repo
+        .get_hermes_dispatch_intent(p.message_id)
+        .await
+        .unwrap()
+        .unwrap();
+    for (session, origin, fp) in [
+        (
+            "foreign".into(),
+            intent.origin.clone(),
+            intent.credential_fingerprint.clone(),
+        ),
+        (
+            p.native.effective.clone(),
+            "http://127.0.0.1:1".into(),
+            intent.credential_fingerprint.clone(),
+        ),
+        (
+            p.native.effective.clone(),
+            intent.origin.clone(),
+            "b".repeat(64),
+        ),
+    ] {
+        assert!(
+            f.repo
+                .recover_hermes_approval(recovery_request(&p), session, origin, fp)
+                .await
+                .is_err()
+        );
+    }
+    assert_eq!(
+        f.repo.session_event_cursor(p.session_id).await.unwrap(),
+        cursor
+    );
+    assert_eq!(
+        f.repo
+            .list_session_approvals(p.session_id)
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+    f.assert_persistence(&p, false).await;
+}
+
+#[tokio::test]
+async fn pinned_approval_recovery_missing_capability_or_foreign_snapshot_retains_capacity() {
+    let Some(f) = Fixture::new().await else {
+        return;
+    };
+    let pending = f
+        .seed(
+            Reply::WaitingApproval,
+            SessionRunState::Running,
+            false,
+            false,
+        )
+        .await;
+    let _runtime = f.restart();
+    f.wait_reads(std::slice::from_ref(&pending)).await;
+    assert!(
+        f.repo
+            .list_session_approvals(pending.session_id)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    f.http.approval_caps.store(true, Ordering::SeqCst);
+    let foreign = f
+        .seed(
+            Reply::ForeignApproval,
+            SessionRunState::Running,
+            false,
+            false,
+        )
+        .await;
+    let missing = f
+        .seed(
+            Reply::MissingApproval,
+            SessionRunState::Running,
+            false,
+            false,
+        )
+        .await;
+    let invalid = [foreign, missing];
+    f.wait_reads(&invalid).await;
+    for p in &invalid {
+        assert!(
+            f.repo
+                .list_session_approvals(p.session_id)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        f.assert_persistence(p, false).await;
+    }
+    // Pending now has a valid capability; it may recover, but malformed records may not.
+    for session in f
+        .repo
+        .list_session_agent_runs(pending.session_id)
+        .await
+        .unwrap()
+    {
+        assert_eq!(session.id, pending.run.id);
+    }
+    assert_eq!(f.http.posts.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn pinned_approval_recovery_never_reopens_a_resolved_request() {
+    let Some(f) = Fixture::new().await else {
+        return;
+    };
+    for state in ["approved", "denied", "cancelled"] {
+        let p = f
+            .seed(Reply::Running, SessionRunState::Running, false, false)
+            .await;
+        let (approval, _) = record(&f, &p, recovery_request(&p)).await.unwrap();
+        f.sql("UPDATE runtime_approval_requests SET state=$2,resolved_at=clock_timestamp(),resolved_by_user_id=$3 WHERE id=$1",
+            vec![approval.id.into(), state.into(), f.owner.into()]).await;
+        f.sql(
+            "UPDATE session_agent_runs SET state='running' WHERE id=$1",
+            vec![p.run.id.into()],
+        )
+        .await;
+        let before = f.repo.list_session_approvals(p.session_id).await.unwrap();
+        let cursor = f.repo.session_event_cursor(p.session_id).await.unwrap();
+        let (replayed, created) = record(&f, &p, recovery_request(&p)).await.unwrap();
+        assert!(!created);
+        assert_eq!(
+            serde_json::to_value(&replayed).unwrap(),
+            serde_json::to_value(&before[0]).unwrap()
+        );
+        assert_eq!(
+            f.repo.get_session_agent_run(p.run.id).await.unwrap().state,
+            SessionRunState::Running
+        );
+        assert_eq!(
+            f.repo.session_event_cursor(p.session_id).await.unwrap(),
+            cursor
+        );
+        f.assert_persistence(&p, false).await;
+    }
+}
+
+#[tokio::test]
+async fn pinned_approval_recovery_denies_terminal_legacy_task_pm_and_archived_contexts() {
+    let Some(f) = Fixture::new().await else {
+        return;
+    };
+    for mode in [
+        "terminal",
+        "legacy",
+        "task",
+        "pm",
+        "archived",
+        "other-primary",
+    ] {
+        let p = f
+            .seed(
+                Reply::Running,
+                SessionRunState::Running,
+                mode == "legacy",
+                false,
+            )
+            .await;
+        match mode {
+            "terminal" => {
+                f.sql(
+                    "UPDATE session_agent_runs SET state='completed' WHERE id=$1",
+                    vec![p.run.id.into()],
+                )
+                .await
+            }
+            "task" => f.bind_task(&p).await,
+            "pm" => {
+                f.bind_task(&p).await;
+                f.sql("INSERT INTO pm_run_bindings(session_run_id,session_id,agent_id,reservation,dispatch_operation_key,runtime_session_id)
+                 VALUES($1,$2,$3,'{}'::jsonb,$4,$5)",
+                vec![p.run.id.into(),p.session_id.into(),p.agent_id.into(),Uuid::new_v4().to_string().into(),p.native.effective.clone().into()]).await;
+            }
+            "archived" => {
+                f.sql(
+                    "UPDATE agents SET archived_at=clock_timestamp() WHERE id=$1",
+                    vec![p.agent_id.into()],
+                )
+                .await
+            }
+            "other-primary" => {
+                let other = agent(&f.repo).await;
+                f.sql(
+                    "UPDATE agent_sessions SET agent_id=$2 WHERE id=$1",
+                    vec![p.session_id.into(), other.into()],
+                )
+                .await;
+            }
+            _ => {}
+        }
+        let cursor = f.repo.session_event_cursor(p.session_id).await.unwrap();
+        let before = f.repo.get_session_agent_run(p.run.id).await.unwrap();
+        let result = if mode == "legacy" {
+            f.repo
+                .recover_hermes_approval(
+                    recovery_request(&p),
+                    p.native.effective.clone(),
+                    format!("http://127.0.0.1:{}", f.port),
+                    "a".repeat(64),
+                )
+                .await
+        } else {
+            record(&f, &p, recovery_request(&p)).await
+        };
+        assert!(result.is_err(), "{mode}");
+        assert!(
+            f.repo
+                .list_session_approvals(p.session_id)
+                .await
+                .unwrap()
+                .is_empty(),
+            "{mode}"
+        );
+        assert_eq!(
+            f.repo.session_event_cursor(p.session_id).await.unwrap(),
+            cursor,
+            "{mode}"
+        );
+        assert_eq!(
+            serde_json::to_value(f.repo.get_session_agent_run(p.run.id).await.unwrap()).unwrap(),
+            serde_json::to_value(before).unwrap(),
+            "{mode}"
+        );
+        p.native.assert_get_only();
     }
 }

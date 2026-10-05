@@ -1,0 +1,135 @@
+use super::*;
+
+pub(super) async fn record(
+    repo: &PostgresFleetRepository,
+    req: RuntimeApprovalCreate,
+    native_session_id: String,
+    origin: String,
+    credential_fingerprint: String,
+) -> Result<(RuntimeApprovalRequest, bool), AppError> {
+    let request_id = req
+        .runtime_approval_id
+        .as_deref()
+        .filter(|id| domain::valid_ref(id, 256))
+        .ok_or_else(|| AppError::validation("exact approval request identity is required"))?;
+    if !domain::valid_ref(&native_session_id, 512)
+        || req.detail["event"] != "approval.request"
+        || req.detail["run_id"].as_str() != Some(req.runtime_run_id.as_str())
+        || req.detail["request_id"].as_str() != Some(request_id)
+        || req.prompt.is_empty()
+        || req.prompt.len() > 16_384
+        || serde_json::to_vec(&req.detail)
+            .map_err(AppError::internal)?
+            .len()
+            > 65_536
+    {
+        return Err(AppError::validation("invalid bounded approval snapshot"));
+    }
+    let txn = repo.db.begin().await.map_err(AppError::database)?;
+    txn.query_one(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT id FROM agents WHERE id=$1 FOR NO KEY UPDATE",
+        [req.agent_id.into()],
+    ))
+    .await
+    .map_err(AppError::database)?
+    .ok_or_else(|| AppError::not_found("agent", req.agent_id))?;
+    let agent = agent::Entity::find_by_id(req.agent_id)
+        .one(&txn)
+        .await
+        .map_err(AppError::database)?
+        .ok_or_else(|| AppError::not_found("agent", req.agent_id))?;
+    txn.query_one(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT id FROM agent_sessions WHERE id=$1 FOR NO KEY UPDATE",
+        [req.session_id.into()],
+    ))
+    .await
+    .map_err(AppError::database)?
+    .ok_or_else(|| AppError::not_found("agent_session", req.session_id))?;
+    let session = agent_session::Entity::find_by_id(req.session_id)
+        .one(&txn)
+        .await
+        .map_err(AppError::database)?
+        .ok_or_else(|| AppError::not_found("agent_session", req.session_id))?;
+    let run = session_agent_run::Entity::find_by_id(req.session_run_id)
+        .lock_exclusive()
+        .one(&txn)
+        .await
+        .map_err(AppError::database)?
+        .ok_or_else(|| AppError::not_found("session_agent_run", req.session_run_id))?;
+    if agent.kind != "hermes"
+        || agent.archived_at.is_some()
+        || session.agent_id != req.agent_id
+        || run.session_id != req.session_id
+        || run.agent_id != req.agent_id
+        || run.runtime_run_id.as_deref() != Some(req.runtime_run_id.as_str())
+        || run.runtime_session_id.as_deref() != Some(native_session_id.as_str())
+        || !matches!(run.state.as_str(), "running" | "waiting" | "stopping")
+        || agent
+            .api_port
+            .map(|port| format!("http://127.0.0.1:{port}"))
+            != Some(origin.clone())
+    {
+        return Err(AppError::conflict(
+            "approval snapshot current identity changed",
+        ));
+    }
+    let accepted = txn
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT 1 FROM hermes_dispatch_journal j
+         WHERE j.run_id=$1 AND j.session_id=$2 AND j.agent_id=$3 AND j.state='accepted'
+           AND j.origin=$4 AND j.credential_fingerprint=$5
+           AND NOT EXISTS(SELECT 1 FROM task_chat_bindings b WHERE b.session_id=$2)
+           AND NOT EXISTS(SELECT 1 FROM pm_run_bindings b WHERE b.session_run_id=$1)",
+            [
+                run.id.into(),
+                req.session_id.into(),
+                req.agent_id.into(),
+                origin.into(),
+                credential_fingerprint.into(),
+            ],
+        ))
+        .await
+        .map_err(AppError::database)?;
+    if accepted.is_none() {
+        return Err(AppError::Unavailable(
+            "approval snapshot has no accepted free-chat context".into(),
+        ));
+    }
+    let id = Uuid::new_v4();
+    let prompt = redact_text(&req.prompt);
+    let detail = redact_json(req.detail);
+    txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "INSERT INTO runtime_approval_requests(id,session_id,session_run_id,agent_id,runtime_run_id,runtime_approval_id,prompt,detail,state,created_at)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,'pending',clock_timestamp())
+         ON CONFLICT(session_run_id,runtime_approval_id) WHERE runtime_approval_id IS NOT NULL DO NOTHING",
+        [id.into(),req.session_id.into(),run.id.into(),req.agent_id.into(),req.runtime_run_id.clone().into(),
+         request_id.into(),prompt.clone().into(),detail.clone().into()])).await.map_err(AppError::database)?;
+    let row = runtime_approval_request::Entity::find()
+        .filter(runtime_approval_request::Column::SessionRunId.eq(run.id))
+        .filter(runtime_approval_request::Column::RuntimeApprovalId.eq(request_id))
+        .one(&txn)
+        .await
+        .map_err(AppError::database)?
+        .ok_or_else(|| AppError::internal("missing recovered approval snapshot"))?;
+    if row.session_id != req.session_id
+        || row.agent_id != req.agent_id
+        || row.runtime_run_id != req.runtime_run_id
+        || row.prompt != prompt
+        || row.detail != detail
+    {
+        return Err(AppError::conflict("approval snapshot content changed"));
+    }
+    // A prior decision and stopping/terminal state are never reopened by readback.
+    if row.state == "pending" && run.state == "running" {
+        let mut updated = run.into_active_model();
+        updated.state = Set("waiting".into());
+        updated.updated_at = Set(now());
+        updated.update(&txn).await.map_err(AppError::database)?;
+    }
+    let created = row.id == id;
+    txn.commit().await.map_err(AppError::database)?;
+    Ok((runtime_approval_from_model(row), created))
+}

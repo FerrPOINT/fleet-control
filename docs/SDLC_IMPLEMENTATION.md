@@ -208,3 +208,9 @@ Clarification и approval разные сущности; поздний отве
 unit redaction/path guards, frontend Chats/nav, shared SSE reconnect tests.
 Актуальные результаты команд записываются в CURRENT_STATE после выполнения.
 Ни текущий интерфейс, ни отсутствие ошибки HTTP не означают «100% SDLC готов».
+
+Current approval recovery: authenticated pinned free-chat GET restores only the
+native status document's current exact request. Two Fleet OS processes against
+real Hermes verify no duplicate run/SSE/decision or assistant mirror. Historical
+approval/tool replay, unknown decision outcomes, fenced task admission, PM
+tools/continuation and descendant-safe stop remain independent prerequisites.

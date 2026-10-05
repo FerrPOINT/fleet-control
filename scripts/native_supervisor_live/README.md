@@ -148,7 +148,18 @@ Host-only CI tests:
 python3 -B -m unittest discover -s scripts/native_supervisor_live -p test_harness.py -v
 ```
 
-Native running/approval crash recovery, missed tool/approval replay, complete
+The `approval-recovery` scenario uses two distinct Fleet OS processes and one
+surviving real Hermes gateway. A loopback model waits until original run/session
+pinning; an opt-in QA observer then loses actual waiting GET responses and rejects
+the original SSE request. The first Fleet process exits before storing an
+approval. The second restores that exact current request by GET, sends one owner
+HTTP once decision, observes the real chmod effect and stores one final answer.
+The observer never manufactures native approval/status/tool events. Only the
+owned Compose namespace reaps the orphan gateway; this is not a safe-stop proof.
+Run with `--scenario approval-recovery`; gate results belong to the exact source
+hashes and binary in evidence, not an older PR's CI or an installed runtime.
+
+Missed historical tool/approval replay, unknown decision outcome lookup, complete
 loaded-config/plugin inventory, process-tree safe stop, central Fleet auth/UI,
 assignment/first-step/PM continuation and full SDLC/deployment remain separate
 acceptance requirements. A completed chat run is not a Tracker stage receipt.

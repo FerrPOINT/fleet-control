@@ -298,7 +298,23 @@ After a deployment-secret rotation, restart Fleet and confirm replay without
 duplicate transcript entries. These checks are not proof of PM answer delivery.
 
 On backend restart, managed process handles are lost. The health action
-reconciles status by marking an untracked Hermes process as stopped.
+marks an untracked responsive Hermes runtime degraded, not tracked/runnable.
+An HTTP failure does not prove process death; a previously running/unconfirmed
+runtime remains degraded and replacement/config activation must wait for
+reconciliation. PID visibility and parent exit are not descendant quiescence.
+
+GET-only accepted free-chat recovery can restore the current exact pending
+approval after Fleet restart. It requires original journal/origin/credential,
+native run/session pins and fresh capabilities. The owner decides through the
+normal exact-request API; do not create a replacement run or rewrite native
+SQLite. Missing capabilities/context and unknown decision ACKs retain their hold.
+Historical approvals/tool events are not reconstructed from the status snapshot.
+
+Migration000014 preserves logical journal timestamp order across wall-clock
+regressions; it does not correct clocks or renew retention. Keep the original
+deadline/key, investigate clock synchronization and do not remove the guard or
+renew a submitted permit. Nonempty downgrade requires explicit reconciliation.
+See [clock evidence](CHAT_CLARIFICATION_VERIFICATION.md#journal-clock-order-repair).
 
 Use idempotency keys when retrying session/message create calls. If the previous
 payload differs, the API returns `409` and the operator should create a new

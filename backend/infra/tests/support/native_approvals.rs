@@ -2,10 +2,14 @@ use super::*;
 use domain::{ApprovalChoice, ApprovalDecision, ApprovalDecisionState};
 use std::os::unix::fs::PermissionsExt;
 
+#[path = "native_approval_recovery.rs"]
+mod native_approval_recovery;
+
 #[derive(Default)]
 struct ApprovalModel {
     files: Mutex<HashMap<String, String>>,
     calls: Mutex<HashMap<String, usize>>,
+    first_gate: Mutex<Option<Arc<tokio::sync::Notify>>>,
 }
 
 async fn approval_inference(
@@ -23,6 +27,12 @@ async fn approval_inference(
     let filename = model.files.lock().await.get(prompt).cloned().unwrap();
     *model.calls.lock().await.entry(prompt.into()).or_default() += 1;
     let tool_returned = messages.iter().any(|m| m["role"] == "tool");
+    if !tool_returned {
+        let gate = model.first_gate.lock().await.clone();
+        if let Some(gate) = gate {
+            gate.notified().await;
+        }
+    }
     let (message, finish) = if tool_returned {
         (
             json!({"role":"assistant","content":"Native tool decision observed; no SDLC success claimed."}),

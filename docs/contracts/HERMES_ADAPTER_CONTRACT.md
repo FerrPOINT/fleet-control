@@ -1,5 +1,12 @@
 # Hermes Adapter Contract
 
+Current pending approval readback is GET-only and limited to the original
+accepted pinned free chat; historical/tool replay and unknown decision recovery
+are not implied. See [ADR0022](../adr/0022-current-native-approval-snapshot.md).
+Additive000014 floors logical journal progress after the existing guard while
+preserving original horizon/key/permit. It is not native retention or trusted
+clock proof; see [ADR0023](../adr/0023-logical-journal-progress-time.md).
+
 Fleet consumes SSE through the bounded
 [event-stream profile](HERMES_EVENT_STREAM_V1.md): strict HTTP/MIME/unencoded JSON,
 incremental UTF-8, completed frame delimiters, original identity and independent
@@ -178,3 +185,12 @@ Session control:
   the compatibility wrapper, not raw Hermes serve/dashboard JSON-RPC.
 - Dashboard remains a separate UI surface and is not the source of truth for
   Fleet message writes.
+
+Current waiting approval recovery uses only the authenticated pinned run status
+GET plus fresh capabilities. The nested event must identify the exact run and
+nonempty request ID (maximum256 bytes), expose once/deny and a bounded action
+description; an optional native session reference must match. The original
+accepted free-chat journal and current primary agent are rechecked atomically.
+Replays preserve resolved/stopping/terminal state and do not generate transcript
+messages or another SSE. Only the currently visible native request is recoverable;
+historical approvals/tool events and unknown decision ACK recovery remain open.

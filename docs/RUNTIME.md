@@ -278,3 +278,19 @@ releasing runtime capacity even when the event stream was lost. A delayed EOF or
 cached running/waiting event cannot reopen the old run; unknown acceptance still
 holds the agent slot. A generic terminal cache update without verified PM proof
 is rejected. Transcript finalization and Tracker stage completion remain separate.
+
+## Current Approval Snapshot Recovery
+
+For an originally accepted, pinned free-chat run, authenticated status GET can
+restore the currently visible `approval.request` after Fleet loses its stream.
+Fresh targeted-approval capabilities, exact native run/session/request identities
+and the original origin/derived credential are required. Unknown, malformed,
+oversized or foreign snapshots keep capacity held without a new prompt or SSE.
+
+One transaction rechecks the current agent, primary session and accepted journal,
+inserts the redacted request once and promotes running to waiting. Replays do not
+insert transcript messages/events or reopen resolved decisions, stopping or
+terminal runs. Task/PM bindings remain denied without fenced admission. This
+recovers only the native status document's current request, not missed historical
+questions, tool events or an unknown approval decision's outcome. Approval ACK
+loss still remains uncertain. Process-tree quiescence is a separate open gate.

@@ -5,6 +5,21 @@ blocked until cross-service assignment/workflow/deployment contracts are verifie
 See [SDLC implementation](SDLC_IMPLEMENTATION.md). The baseline feature/gate lists
 below are historical, not acceptance evidence for the new SDLC plan.
 
+Current pending approval recovery is implemented for accepted pinned free chats.
+Actual Hermes acceptance uses two distinct Fleet processes and one surviving
+gateway: GET-only request restore, exact owner decision, one tool effect and one
+final answer. This does not recover historical questions or unknown decision
+outcomes. See [current evidence](CHAT_CLARIFICATION_VERIFICATION.md#current-approval-snapshot-recovery).
+
+Additive000014 now protects logical journal submission/ACK order against observed
+clock regression without renewing deadline/key/permit. The deterministic test
+fails on the old schema and passes on the new; isolated upgrade/down/reapply
+preserves history/original guard. The current candidate passes389 Linux/PG cases,
+strict all-target Clippy/check/fmt, OpenAPI equality and clean migration CLI;
+Node22 frontend gates pass235 tests and build. Clock integrity,
+ordered release and exact-head CI remain prerequisites. See
+[clock evidence](CHAT_CLARIFICATION_VERIFICATION.md#journal-clock-order-repair).
+
 Targeted approval now requires original accepted free-chat journal context,
 fresh native capabilities and the pinned currently waiting exact request. Legacy
 or unadmitted task context cannot authorize the POST; bounded exact HTTP200 JSON
@@ -15,7 +30,7 @@ locking; unknown acceptance remains pending and is never redispatched. See
 [current scope/evidence](CHAT_CLARIFICATION_VERIFICATION.md#exact-approval-context-and-delivery-lock-order-5-october2026).
 Loaded config generation, task/PM admission, central identity, unknown-decision
 lookup and safe OS descendants are not certified by these checks.
-The final candidate passes378 distinct Linux/PG component cases, strict
+The preceding approval/lock-order packet passed378 Linux/PG component cases, strict
 all-target checks/Clippy/fmt, OpenAPI equality and migration CLI. VM-clock jumps
 and incomplete runner audit remain recorded; local QA is not release-head CI.
 
@@ -33,7 +48,7 @@ evidence is recorded separately in the verification ledger; the broad backend
 component gate now passes367 distinct Linux/PG tests, all-target check, strict
 workspace Clippy, fmt and OpenAPI equality. Previous failed attempts and ongoing
 VM clock-regression observations remain recorded, not reclassified as successes.
-Task admission, waiting-approval crash recovery and installed approval acceptance,
+Task admission, historical approval replay and installed approval acceptance,
 safe OS descendant stop, release partition and exact-head CI remain requirements.
 
 Human free-chat stop/steer now require `VerifiedHumanSession` before lookup,

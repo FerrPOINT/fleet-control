@@ -606,3 +606,28 @@ order on overview, workspace, leader detail and session detail at
 375/768/1023/1024/1279/1280/1920 px, in all three themes (84 combinations).
 It also runs axe and checks document overflow. DOM unit tests check semantic
 landmarks and primary-before-rail order; they are not CSS geometry evidence.
+
+## Current Approval Recovery
+
+`runtime_pinned_recovery` covers concurrent supervisors, stable request/event
+replay, transaction rollback, redaction, resolved/stopping/terminal preservation,
+missing capability, foreign identity and legacy/task/PM denials. The GET snapshot
+parser has three bounded/exact-shape units. Native `--scenario approval-recovery`
+uses two distinct Fleet processes, one real gateway and its real terminal approval,
+with only the model loopback fixture and explicit transport loss. It verifies
+original run/session/request, one owner POST/tool effect and one final answer.
+See [execution and limits](CHAT_CLARIFICATION_VERIFICATION.md#current-approval-snapshot-recovery).
+This is not complete historical replay, unknown decision resolution, central auth,
+PM publication/resume, OS-descendant or seven-agent acceptance.
+
+## Journal Clock Ordering
+
+`journal_clock_regression_keeps_logical_progress_without_renewing_horizon`
+injects a persisted future creation time with the original recovery horizon.
+Submission/ACK must preserve logical order, exact replay and a single run/permit;
+nonempty downgrade must fail without removing the journal or trigger.
+Migration target `hermes_journal_time_order` requires its own empty database via
+`FLEET_HERMES_TIME_MIGRATION_TEST_DATABASE_URL`. It verifies original history/
+guard preservation, actual trigger order and empty down/reapply. Running without
+that variable is not PostgreSQL migration evidence. These checks do not certify
+host clock stability or safe unknown redispatch.

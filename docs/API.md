@@ -513,3 +513,14 @@ The endpoint does not create assignments, dispatch a prompt or resume Workflow.
 ## Общая база
 
 Подключение версий, границы контрактов и проверки описаны в [BASE_INTEGRATION](BASE_INTEGRATION.md).
+
+## Current Native Approval Recovery
+
+No new public route is added. Existing approval listing and durable session
+events include an exact pending request restored by the background known-ID GET
+worker. It uses fresh native capabilities and the original accepted free-chat
+context; recovery never sends a prompt, decision or another SSE request. The
+existing owner decision endpoint remains exact once/deny only. Resolved requests
+are not reopened. Native status contains only the current waiting request;
+historical replay and unknown decision outcome lookup remain unimplemented.
+See [runtime recovery boundaries](RUNTIME.md#current-approval-snapshot-recovery).

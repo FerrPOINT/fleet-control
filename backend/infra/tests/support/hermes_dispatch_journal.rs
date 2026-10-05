@@ -1,6 +1,7 @@
 use super::*;
 use app::{HermesDispatchDraft, HermesDispatchIntent};
 use domain::MessageDeliveryState;
+use migration::MigratorTrait;
 use sea_orm::{DatabaseConnection, sea_query::Value as SqlValue};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -93,6 +94,98 @@ async fn claim(p: &JournalFixture) -> Result<Option<HermesDispatchIntent>, AppEr
             p.draft.credential_fingerprint.clone(),
         )
         .await
+}
+
+#[tokio::test]
+async fn journal_clock_regression_keeps_logical_progress_without_renewing_horizon() {
+    let Some(p) = setup().await else { return };
+    let name = format!("a_owned_clock_{}", Uuid::new_v4().simple());
+    p.db.execute_unprepared(&format!("CREATE FUNCTION {name}() RETURNS trigger AS $$ BEGIN
+        IF NEW.message_id='{id}'::uuid THEN
+            NEW.created_at := clock_timestamp()+interval '30 seconds';
+            NEW.recovery_deadline := NEW.created_at+interval '86340 seconds';
+        END IF; RETURN NEW; END $$ LANGUAGE plpgsql;
+        CREATE TRIGGER {name} BEFORE INSERT ON hermes_dispatch_journal FOR EACH ROW EXECUTE FUNCTION {name}()",id=p.draft.message_id)).await.unwrap();
+    let prepared = prepare(&p).await.unwrap();
+    p.db.execute_unprepared(&format!(
+        "DROP TRIGGER {name} ON hermes_dispatch_journal; DROP FUNCTION {name}()"
+    ))
+    .await
+    .unwrap();
+    let claimed = claim(&p).await.unwrap().unwrap();
+    assert_eq!(claimed.recovery_deadline, prepared.recovery_deadline);
+    let accepted = p
+        .repo
+        .accept_hermes_run(p.draft.message_id, claimed.run.id, "run_clock_order".into())
+        .await
+        .unwrap();
+    assert_eq!(accepted.runtime_run_id.as_deref(), Some("run_clock_order"));
+    let facts = p.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT created_at>clock_timestamp() AS regressed,submitted_at>=created_at AS submission_order,
+            accepted_at>=submitted_at AS acceptance_order,
+            recovery_deadline=created_at+interval '86340 seconds' AS original_horizon,
+            to_jsonb(j) AS journal FROM hermes_dispatch_journal j WHERE message_id=$1",
+        [p.draft.message_id.into()])).await.unwrap().unwrap();
+    for fact in [
+        "regressed",
+        "submission_order",
+        "acceptance_order",
+        "original_horizon",
+    ] {
+        assert!(facts.try_get::<bool>("", fact).unwrap(), "{fact}");
+    }
+    let before: Value = facts.try_get("", "journal").unwrap();
+    p.repo
+        .accept_hermes_run(p.draft.message_id, claimed.run.id, "run_clock_order".into())
+        .await
+        .unwrap();
+    let after: Value =
+        p.db.query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT to_jsonb(j) AS journal FROM hermes_dispatch_journal j WHERE message_id=$1",
+            [p.draft.message_id.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get("", "journal")
+        .unwrap();
+    assert_eq!(after, before);
+    assert_eq!(
+        p.repo
+            .list_session_agent_runs(p.draft.session_id)
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+    assert!(claim(&p).await.unwrap().is_none());
+    let downgrade = migration::Migrator::down(&p.db, Some(1)).await;
+    assert!(downgrade.is_err(), "retained journal must block downgrade");
+    let retained =
+        p.db.query_one(Statement::from_string(
+            DatabaseBackend::Postgres,
+            "SELECT to_regprocedure('fleet_order_hermes_dispatch_time()') IS NOT NULL AS retained",
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get::<bool>("", "retained")
+        .unwrap();
+    assert!(retained);
+    assert_eq!(
+        p.db.query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT to_jsonb(j) AS journal FROM hermes_dispatch_journal j WHERE message_id=$1",
+            [p.draft.message_id.into()]
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get::<Value>("", "journal")
+        .unwrap(),
+        before
+    );
 }
 
 #[tokio::test]

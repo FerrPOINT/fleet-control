@@ -684,6 +684,18 @@ pub trait FleetRepository: Send + Sync {
         &self,
         req: RuntimeApprovalCreate,
     ) -> Result<RuntimeApprovalRequest, AppError>;
+    /// Observe an exact pending native snapshot, not permission to dispatch a decision.
+    async fn recover_hermes_approval(
+        &self,
+        _req: RuntimeApprovalCreate,
+        _native_session_id: String,
+        _origin: String,
+        _credential_fingerprint: String,
+    ) -> Result<(RuntimeApprovalRequest, bool), AppError> {
+        Err(AppError::Unavailable(
+            "Hermes approval recovery is not implemented".into(),
+        ))
+    }
     async fn resolve_runtime_approval_request(
         &self,
         id: Uuid,

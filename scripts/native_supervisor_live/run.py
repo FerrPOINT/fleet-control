@@ -20,6 +20,7 @@ TEST_NAMES = {
     'recovery':'managed_native_lost_ack_recovers_original_run_across_fleet_processes',
     'controls':'managed_native_run_steer_and_stop_require_native_ack_and_terminal_readback',
     'approvals':'native_approvals::managed_native_approval_decisions_are_exact_once_and_unknown_ack_is_held',
+    'approval-recovery':'native_approvals::native_approval_recovery::managed_native_waiting_approval_recovers_across_fleet_processes',
 }
 PLUGIN_FILES = ('__init__.py', 'plugin.py', 'store.py', 'plugin.yaml')
 
@@ -132,11 +133,18 @@ def main():
               'fleet_test_source_sha256':hashlib.sha256((ROOT/'backend/infra/tests/native_supervisor_live.rs').read_bytes()).hexdigest(),
               'fleet_test_sources_sha256':{name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest()
                   for name in ['backend/infra/tests/native_supervisor_live.rs',
-                               'backend/infra/tests/support/native_approvals.rs']},
+                               'backend/infra/tests/support/native_approvals.rs',
+                               'backend/infra/tests/support/native_approval_recovery.rs']},
               'fleet_runtime_sources_sha256':{name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest()
-                  for name in ['backend/infra/src/lib.rs', 'backend/infra/src/hermes_dispatch_journal.rs',
+                  for name in ['backend/app/src/lib.rs', 'backend/infra/src/lib.rs',
+                               'backend/infra/src/hermes_dispatch_journal.rs', 'backend/infra/src/hermes_approval_recovery.rs',
+                               'backend/infra/src/runtime/approval_snapshot.rs', 'backend/infra/src/runtime/acceptance_readback.rs',
                                'backend/infra/src/runtime/mod.rs', 'backend/infra/src/runtime/native_context.rs',
-                               'backend/infra/src/runtime/run_control.rs', 'backend/infra/src/runtime/targeted_approval.rs']},
+                               'backend/infra/src/runtime/run_control.rs', 'backend/infra/src/runtime/targeted_approval.rs',
+                               'backend/migration/src/lib.rs',
+                               'backend/migration/src/m20261004_000012_hermes_dispatch_journal.rs',
+                               'backend/migration/src/m20261005_000013_runtime_controls.rs',
+                               'backend/migration/src/m20261005_000014_hermes_journal_time_order.rs']},
               'harness_sha256':{name:hashlib.sha256((scripts/name).read_bytes()).hexdigest() for name in ['run.py','build.sh','native.sh','preflight.py','discard_ack_plugin.py','approval_fault_plugin.py']}}
     if plugin is not None:
         plugin_dir = directory/'recovery-plugin'

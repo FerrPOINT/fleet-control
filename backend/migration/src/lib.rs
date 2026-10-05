@@ -14,6 +14,7 @@ mod m20261001_000010_task_chats;
 mod m20261004_000011_pm_credentials;
 mod m20261004_000012_hermes_dispatch_journal;
 mod m20261005_000013_runtime_controls;
+mod m20261005_000014_hermes_journal_time_order;
 
 pub struct Migrator;
 
@@ -35,6 +36,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261004_000011_pm_credentials::Migration),
             Box::new(m20261004_000012_hermes_dispatch_journal::Migration),
             Box::new(m20261005_000013_runtime_controls::Migration),
+            Box::new(m20261005_000014_hermes_journal_time_order::Migration),
         ]
     }
 }

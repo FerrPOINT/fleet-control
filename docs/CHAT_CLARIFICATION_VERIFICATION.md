@@ -1923,3 +1923,153 @@ its README/hub/diff checks pass, not a new full Base Rust/frontend/plugin gate.
 Before publication, all nine changed Rust/harness blobs in the Git index match
 the executed worktree bytes; every native runtime source hash above is rechecked.
 Source provenance does not turn local candidate QA into release-head CI.
+
+## Current Approval Snapshot Recovery
+
+Implemented: authenticated GET-only restoration of the currently visible native
+approval for an originally accepted pinned free-chat run. Fresh capabilities,
+exact run/session/request and bounded action/detail are checked. One transaction
+locks agent -> primary session -> run, rechecks journal/origin/credential and
+commits redacted pending request plus running-to-waiting. Replay produces no
+mirror message/event and does not reopen resolved/stopping/terminal state.
+Task/PM, foreign identity and missing capabilities remain fail-closed.
+
+Actual native exec36015 exit0/project6177e860ea8d PASS32.52s. Two distinct Fleet
+OS processes, one surviving real Hermes gateway/AIAgent/terminal and loopback
+model: first process loses real waiting GET and its only SSE, then exits before
+mirroring the request. New Fleet restores the original request by GET, delivers
+one local-JWT owner once decision, observes600 ->666 permissions on the owned
+file and stores one final answer. Exactly one run POST, one original SSE attempt,
+one approval POST, two model calls, unchanged dispatch snapshot and same gateway
+PID/native IDs. Replay never repeats the decision or transcript. No fake native
+approval/status/tool result is emitted by the observer.
+
+Binary `3669f0747e4babdab3c9815a5f86637fd32ff0a9bb75e75be097af9594e10206`;
+native log `ac62aca94d168b1d2896fe5e7c19669b2e51bc704b8919d9cf2add86c964f997`.
+SDK9408802, Hermes bbaf7af/13770 source files/archive571fba49, dependencyaeb97055,
+committed launcher Base414f68a/blob75ad258e are verified. Exact runtime/parser/
+repository/test/observer hashes are saved in the owned ignored evidence report.
+Cleanup exit0, both unique image aliases removed and independent ps empty.
+The owned Compose namespace reaps the orphan gateway, not Fleet safe-stop.
+
+Host25 safety tests PASS; final full Linux/PG regression is being rerun and is
+not yet claimed here. Preliminary full run4f50a3acf24d FAILED: one existing
+activation file-readback timeout, then three new test faults (15s global keyset
+rescan assumption, PM FK without task binding, two DROP commands in a prepared
+statement). Focused25aa807fd7ad then5PASS/1FAIL revealed an incorrect one-message
+assumption; replay now compares the complete original transcript, including the
+existing queue event. Isolated activationb83f5ce6feef PASS0.59s without code or
+timeout changes. Preliminary failures remain failures, not final gate evidence.
+
+Only the current request is recovered. Historical approval/tool replay, unknown
+decision outcome lookup, task first-step/PM tools/resume, central identity,
+loaded-generation/descendant quiescence, seven-agent acceptance and release
+partition/exact-pin/head CI remain open. Approval recovery itself changes no
+schema; the independent additive migration 000014 below repairs journal time
+ordering. No API DTO, installed image, SDK pin, read-only source or Forge task2
+changes. UI is unchanged; fixture hashes
+or older release PR checks are not live UI or exact integration-head acceptance.
+
+After migration000014, native exec34768/project56a2fe922775 PASS37.23s on
+binary `2ce10fc5a68649b58f596e2a334d9fadc7e51681e1bfaec6d8313357a6f35a2f`;
+log `3731ec70ce5710eabb29d9ee0fb05240c7bf2a064b982f439612a79f9ede64f2`.
+The same two-process assertions pass with the registered additive schema.
+Report fingerprints23 runtime/migration/test/harness files, rechecked against
+current bytes, including the unchanged000012/000013 migration sources. Launcher
+Base414f68a/blob75ad258e and SDK9408802 stay fixed. Exact cleanup0, both unique
+aliases removed and post-cleanup ps empty. This is dirty-candidate source QA,
+not release-head CI or installed acceptance.
+
+## Journal Clock Order Repair
+
+Second broad approval run exec2138/projectda34f8b771b9 FAILED:213 library,
+165 foundation, one approval and four migration cases PASS (383 distinct);
+one existing control case failed in fixture journal acceptance, before its HTTP
+assertions. Completion log
+`a3a76029ae5012d8ce2f433247b8b6275f58365fc16f73acc4bb1cbc60b9e6f7`;
+PG diagnostic log
+`c0f306550f27c6a173692333287446f9eff47107582a5dcf9d3eda0ce5a9796f`.
+Primary error is journal check4: observed accepted time08:17:02.598558 precedes
+submitted08:17:23.477559. This is a clock-order defect, not an HTTP retry or
+deadlock. All six new approval recovery cases passed. Supplemental cases were
+not executed after this failure. Raw private fixture rows remain ignored.
+
+Deterministic exec19509/project244bfbd4bb23 before migration registration FAILED
+check3 on submission. An owned insert trigger models persisted creation30s ahead
+of the current clock with the unchanged86340s horizon. Test log
+`c60a84ccbb3a7e6a360b98bf38bfd7532c7d3680b9d11dd4633ae976d4e905e4`.
+The same regression after additive migration000014, exec9786/projectb44e767148c2,
+PASS0.84s, log
+`430783a10815c483fc10a421ba28db6bed096c8fc86a0778a6fef1e098547edf`.
+It verifies logical submission/ACK order, original deadline, immutable replay,
+one run/permit and refusal of nonempty downgrade without losing the trigger/row.
+
+Isolated migration exec93232/projectda5157570db3 PASS0.59s, log
+`6626b2a86d26a8243d9e91824e9cdd2a6aad715e9dfb1dba147ddd37229efb72`:
+fresh prior schema, legacy user history and original guard are preserved;
+actual trigger order, empty down and reapply are checked on their own database.
+Both finally down operations exit0. Applied000012/000013 bytes are unchanged.
+
+The added trigger follows the original identity/ACK/expiry guard and only floors
+new submitted/accepted timestamps to prior progress. Creation, deadline, key,
+exact request/hash and submission permit are unchanged. This supplies logical
+progress time, not wall-clock stability, a trusted retention clock or native store
+continuity. No automatic unknown redispatch is granted. Release000014 follows13
+in a separate ordered migration packet. Pre-migration binary3669f074 remains
+historical evidence, not the new binary.
+
+Final broad exec89810/project5e5ce216eb45 exits0:213 library+167 foundation+
+1 isolated approval+5 isolated migration+3 supplemental=389 distinct PASS.
+All-target check, strict workspace Clippy, fmt and generated OpenAPI equality
+PASS; clean DB CLI up/status/down-one/up/status PASS across15 registered versions.
+Doc tests execute zero examples, not additional cases. Completion log
+`f894ca6e126e3a8dea8c1fc118efc67dd32b3b7df34d2cc4a43f231d4cb9668c`;
+owned PG diagnostic log
+`9dfa7cd2e930ffca0b308c360a6dde422597407f76102126a9bbe0cf812b8078`.
+All six approval recovery cases and the previously failing control ACK fixture
+pass. Finally down exits0. Clock watcher still observes20-22s backwards jumps;
+the passing gate does not repair VM clock synchronization. Isolated earlier
+failures remain failures, never retroactively counted as PASS.
+
+Node22/pnpm10.28.1 typecheck/lint/format,235 tests across31 files and build PASS.
+Vite retains its >500KiB chunk warning. README/109 Markdown links, generated
+client equality and135+9+3 fixture PNG hashes PASS. No production UI change or
+new browser/live screenshot acceptance is claimed. New CI YAML wires migration14
+to its own empty PG database; local YAML/step verification is not an actual
+GitHub run. Ordered release/exact Base pin/head CI, task/PM/producers/Forge,
+central identity, loaded generation/safe descendants and full SDLC remain open.
+
+All five managed native scenarios pass on the same binary2ce10fc5, original
+SDK9408802/Base launcher414f68a and exact Hermes bbaf7af archive. Exec29207 exits0
+after the four supplemental scenarios; exec34768 covers approval recovery above.
+Each runs its exact named ignored test, one PASS/zero failed/zero ignored, with
+13770 native files verified; lost-ACK recovery also verifies the four committed
+Base extension files. These are real gateway/AIAgent/tool executions with a
+deterministic loopback model, not a live provider, central auth or PM workflow.
+
+| Native scenario | Owned project suffix | Duration | Completion log SHA256 |
+| --- | --- | --- | --- |
+| Current approval recovery | 56a2fe922775 |37.23s| `3731ec70ce5710eabb29d9ee0fb05240c7bf2a064b982f439612a79f9ede64f2` |
+| Once/deny/lost real approval ACK |90c7174e0780|15.66s| `49ff593dd382649f955ef8879625ef57ce4894d82141120b3fa3f1d77ca80b59` |
+| Steer/interrupt/terminal readback |046d42ba44ee|13.20s| `4e1d467a1c07757065d89154f3c4a0f79629c92e5577344ece97d8234dcac51d` |
+| Original-key lost-ACK recovery |93412b0c20e9|18.93s| `efea7a1fc174d12cc1e43fdcddc5f3af84301d7dfe3d9a6689ade26185c1a41c` |
+| Two-home lifecycle/restart history |481e16d4e58d|43.86s| `d16aeb8b16017cc95e30c41e7ceb1e34fae151a082254c96edbb287a23a52755` |
+
+Every report's23 executed source/test/harness hashes match current bytes.
+Approval repository `5b68fb56ec6e6bcb35ba029d968f0d1a8cd5ac544165cb31ceeb22be7b574d63`,
+snapshot parser `78b842f5635feba0c89509770c0e927df95fd3da7d9ca6b166b23cfd04b13f5f`,
+readback `ad8c5123d672074e2a26f212d41ccb298dc6d44355738cb6e5ae22706e5f4bdf`,
+migration14 `5172b6f5a22cd90c18ebc8925eb24ac890cf1de96539f728b42059a72721bce1`.
+All exact-project cleanups exit0, unique source/dependency aliases removed and
+post-cleanup ps empty. Independent broad-QA ps is also empty. Shared caches,
+accepted images/volumes/secrets and other workers' resources are preserved.
+Docker groups audit: desktop58 and sdlc2-runner0 checked, violations empty;
+sdlc1-runner unavailable, complete=false/exit1. This remains a partial audit.
+
+Production UI is unchanged. Existing durable approval events invalidate the
+production task-approval queries, but no new authenticated browser acceptance
+of the recovered request is claimed. No read-only Tracker/Workflow/Hermes/Forge
+sources, Base core/pins/launcher/plugin or accepted runtime are changed. PR47
+Draft5240107/main and Base PR140 ready177edb8/main checks belong to those heads,
+not the integration candidate. Release partition and exact-pin/head checks
+remain blockers; neither this packet nor its fixture evidence completes SDLC.

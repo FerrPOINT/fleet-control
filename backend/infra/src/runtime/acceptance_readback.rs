@@ -148,6 +148,30 @@ impl LocalRuntimeSupervisor {
             .await?;
             return self.repo.get_session_agent_run(pinned.id).await;
         }
+        if payload["status"] == "waiting_for_approval" {
+            let caps = self.probe_hermes(agent).await?;
+            targeted_approval::verify_capability(&caps)?;
+            let request = approval_snapshot::request(&payload, &pinned)?;
+            let (approval, created) = self
+                .repo
+                .recover_hermes_approval(
+                    request,
+                    pinned
+                        .runtime_session_id
+                        .clone()
+                        .ok_or_else(|| AppError::conflict("missing pinned native session"))?,
+                    base,
+                    hermes_wire::credential_fingerprint(&token),
+                )
+                .await?;
+            if created {
+                let _ = self.events.send(FleetEvent::RuntimeApprovalRequested {
+                    session_id: session.id.to_string(),
+                    run_id: pinned.id.to_string(),
+                    approval_id: approval.id.to_string(),
+                });
+            }
+        }
         if first {
             self.spawn_hermes_event_worker(
                 agent.clone(),
@@ -157,6 +181,6 @@ impl LocalRuntimeSupervisor {
                 runtime_run_id.to_owned(),
             );
         }
-        Ok(pinned)
+        self.repo.get_session_agent_run(pinned.id).await
     }
 }
