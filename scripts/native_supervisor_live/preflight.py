@@ -7,6 +7,13 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 
 
+def control_plugin_required(test_name):
+    return test_name in {
+        'managed_native_original_control_outcomes_recover_lost_http_ack',
+        'native_control_restart::managed_native_control_outcomes_survive_fleet_process_death',
+    }
+
+
 def verify(root, hashes):
     if not isinstance(hashes, dict) or not hashes:
         raise RuntimeError('Native source inventory is missing')
@@ -38,7 +45,7 @@ if __name__ == '__main__':
             raise RuntimeError('Recovery plugin inventory differs from committed files')
         verify(Path('/qa/recovery-plugin'), plugin)
         print('Exact committed recovery plugin verified: 4 files', flush=True)
-    if os.environ.get('FLEET_NATIVE_TEST_NAME') == 'managed_native_original_control_outcomes_recover_lost_http_ack':
+    if control_plugin_required(os.environ.get('FLEET_NATIVE_TEST_NAME')):
         plugin = json.loads(Path('/qa/control-hashes.json').read_text())
         if set(plugin) != {'__init__.py','plugin.py','store.py','plugin.yaml'}:
             raise RuntimeError('Control plugin inventory differs from committed files')

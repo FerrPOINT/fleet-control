@@ -34,6 +34,16 @@ requires the named case to pass. Do not delete history or weaken timeouts to
 make the shared suite pass. The actual native `control-outcomes` scenario and
 its cleanup/source hashes are recorded separately in the verification ledger.
 
+`scripts/native_supervisor_live/run.py --scenario control-restart` is the
+separate real-Hermes gate for persisted control outcomes after Fleet process
+death. It SIGKILLs the first two of three Fleet processes after real steer/stop
+ACK loss; the next process must recover by GET only. It validates the actual
+model barrier, original contexts/dispatch, one POST and audit per command,
+same gateway PID and late stop ACK without rewriting terminal history. Run it
+only in the harness's owned disposable Compose namespace; see
+[process-death evidence](CHAT_CLARIFICATION_VERIFICATION.md#control-outcomes-after-fleet-sigkill-5-october-2026).
+An ignored case or a PASS without plugin preflight/cleanup is not acceptance.
+
 `runtime_run_control` PostgreSQL/HTTP tests exercise identical concurrent/restarted
 replay with one native POST, semantic conflicts, unknown ACK hold, one submitted
 claim, current actor revocation, foreign-session readback, atomic ACK/audit rollback

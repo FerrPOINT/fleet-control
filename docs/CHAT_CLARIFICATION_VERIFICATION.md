@@ -3,6 +3,72 @@
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 
+## Control Outcomes After Fleet SIGKILL (5 October 2026)
+
+Parent Fleet b525f9fac7e3fb85b2d97fdac41c280070af227e and committed Base
+0b13102dec14d2447cb91f4b005b4c2d8d1a5270 identify this test/evidence-only packet.
+Runtime code, public API, migrations, SDK9408802 and accepted pins are unchanged.
+The new canonical `--scenario control-restart` uses three Fleet OS processes,
+two SIGKILL exits checked as signal9, and one surviving real Hermes gateway.
+No supervisor clone or graceful shutdown substitutes for process death.
+
+The first process reaches an actual model-request barrier, dispatches steer,
+loses the real native HTTP200 ACK, persists original context and is killed.
+The second replays that key while lookup is held without sending another POST,
+restores steer through GET, dispatches stop, loses its real ACK and is killed.
+The third independently reads the interrupted native terminal state before
+lookup is released, then restores the late stop ACK without changing terminal
+receipt state/timestamp. Each command has one POST, one real ACK and one audit.
+All private contexts and dispatch identity remain unchanged; the gateway PID,
+native run/session and single loopback inference survive, with no false assistant.
+Approvals, OS-descendant containment, central identity/task admission and complete
+SDLC are not attested by this case.
+
+Final exec88140/projectcbc280c0aa37: 1 named native PASS, 0 failures/ignored,
+20.95s, with exact source preflight13770 files and committed control plugin4 files.
+Binary SHA256 `dc297749ca40766f1ee0a1eaceefa9aefc3d6ccd556224902767c1171ed3ed92`.
+Native log `1082669ce9b5487c090f564ea06c718444beb67f6734d94dcc450e699441d2f2`;
+build log `0fab2380047cbb418eccd0c83b72337bfe6cdcb68446f5e5bfae04809b7fc020`.
+New Rust test source `f4c101fc8c17a18563ac3a7390c3cffc45140b7ca04f7d426759487045ac5bb8`.
+Recorded runtime/test/harness fingerprints match executed worktree bytes.
+Linux Rust1.88 fmt, locked/offline workspace all-target check and strict native
+test Clippy pass. Host harness34 PASS; README validator passes. Previous430
+component cases are unchanged baseline evidence, not re-run or counted here.
+
+Preliminary executions are retained, not acceptance:
+- exec14269/project3e47f71f1e45 failed compile: SeaORM connection is not Clone in
+  the test's feature set. A separate connection now reads the audit.
+  Build log `aeb52fd1d7661968e243aeea1753d2901ced7ab6b43dfd7a4bd6c6ffb25d7125`.
+- exec26773/projectb76fc7d48255 failed its inference assertion before the parent
+  observed the actual model request. The explicit observed-model barrier fixes
+  synchronization without changing deadlines or acceptance requirements.
+  Native log `6bacc06b763d1c761bdca7954a3c9031ec8a0b85d49a98ac09199c5e430969bb`.
+- exec88978/projecte43454ca4f43 timed out in Compose PG preparation even after
+  healthy output; no Rust/native acceptance ran. Timeout log
+  `4bea26fbe3c0b038864a489446619a3401ba84c489df925c6a34200cad48547b`.
+- exec35740/projectfb6a678909bf passed its native assertions but the final gate
+  rejected missing control-plugin preflight for the new scenario. The selector
+  now includes both outcome scenarios and has a host regression. This run is
+  not accepted. Log `bfd63c689397d237ea5456ec41df43d57b3c05e74190d497f3336759a399f30c`.
+
+All five exact projects report cleanup0, independent ps empty and own QA image
+aliases removed. Shared caches, source dependency image and accepted resources
+remain. PR47/main5240107 and PR140/main177edb8 are unchanged; this is not
+release-head CI or permission to enable the control plugin on installed agents.
+
+Renewed regression exec30404 uses the same current Rust/test/harness bytes and
+binarydc297749: legacy `controls` projecta589cccffb67 PASS13.43s, log
+`0975849c4233a4dd08a4dd242d7dd4fd545dd2976addf3bf9b73fdbe9b4614bf`;
+`control-outcomes` project7192fe5af2fa PASS25.82s, log
+`f29fd74b0c8803b26864798f5119f4363a0c9869258d65d16c02370ca03c62e6`.
+Both cleanup0/independent ps empty/own aliases removed. All three current native
+reports and their log/test/runtime/harness hashes have been checked against
+the final executed bytes. The preceding six-scenario baseline below remains
+historical: the other four scenarios are not re-run in this test-only packet.
+111 Markdown files, README and existing135 screenshots/9 chat fixture/3 control
+fixture hashes pass; no new browser capture or frontend test/build is claimed.
+
+
 ## Original Control Outcome Consumer (5 October 2026)
 
 Parent Fleet b753c5f7f137adcd612eedb5f5e02ee675d9b597, unchanged Base launcher/

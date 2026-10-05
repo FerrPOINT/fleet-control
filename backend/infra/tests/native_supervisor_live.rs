@@ -28,6 +28,9 @@ use uuid::Uuid;
 #[path = "support/native_approvals.rs"]
 mod native_approvals;
 
+#[path = "support/native_control_restart.rs"]
+mod native_control_restart;
+
 #[derive(Default)]
 struct Model {
     requests: Mutex<HashMap<String, Vec<String>>>,

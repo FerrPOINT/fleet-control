@@ -43,8 +43,8 @@ def archive(name, symlink=False):
 
 class SafetyTests(unittest.TestCase):
     def test_scenarios_select_distinct_exact_tests(self):
-        self.assertEqual(set(runner.TEST_NAMES), {'lifecycle', 'recovery', 'controls', 'control-outcomes', 'approvals', 'approval-recovery'})
-        self.assertEqual(len(set(runner.TEST_NAMES.values())), 6)
+        self.assertEqual(set(runner.TEST_NAMES), {'lifecycle', 'recovery', 'controls', 'control-outcomes', 'control-restart', 'approvals', 'approval-recovery'})
+        self.assertEqual(len(set(runner.TEST_NAMES.values())), 7)
         self.assertTrue(all(name.rsplit('::', 1)[-1].startswith('managed_native_')
                             for name in runner.TEST_NAMES.values()))
 
@@ -60,6 +60,12 @@ class SafetyTests(unittest.TestCase):
             self.assertEqual(git.call_args.args[2:4], ('--format=tar', 'exact-head'))
         with patch.object(runner, 'git', return_value=archive('deploy/hermes-recovery-plugin/plugin.py')):
             with self.assertRaises(RuntimeError): runner.recovery_files('repo', 'exact-head')
+
+    def test_both_control_outcome_scenarios_require_plugin_preflight(self):
+        for scenario, name in runner.TEST_NAMES.items():
+            with self.subTest(scenario=scenario):
+                self.assertEqual(preflight.control_plugin_required(name),
+                                 scenario in {'control-outcomes', 'control-restart'})
 
     def test_control_outcome_requires_its_own_complete_committed_inventory(self):
         output = io.BytesIO()
@@ -240,6 +246,7 @@ class ControlFaultFixtureTests(unittest.IsolatedAsyncioTestCase):
             order.append('body')
             return b'{"input":"never record this guidance"}'
         return SimpleNamespace(path=path, method=method, headers={'Idempotency-Key':'original-command'},
+            query={'command_id':'original-command'},
             read=read, transport=SimpleNamespace(close=lambda: order.append('closed')))
 
     async def test_denied_control_never_reads_calls_or_records(self):
@@ -295,7 +302,21 @@ class ControlFaultFixtureTests(unittest.IsolatedAsyncioTestCase):
             async def handler(request): self.fail('held lookup cannot reach handler')
             response = await observer(self.request([], '/fleet/v1/controls/lookup', 'GET'), handler)
             self.assertEqual(response.status, 503)
-            self.assertEqual(json.loads((root/'control-events.jsonl').read_text()), {'kind':'lookup','held':True})
+            self.assertEqual(json.loads((root/'control-events.jsonl').read_text()),
+                             {'kind':'lookup','held':True,'key':'original-command'})
+
+    async def test_original_lookup_witness_records_key_without_guidance_or_credentials(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            observer = self.install(root)
+            request = self.request([], '/fleet/v1/controls/lookup', 'GET')
+            request.query.update(token='never record', input='never record')
+            response = object()
+            async def handler(request): return response
+            self.assertIs(await observer(request, handler), response)
+            raw = (root/'control-events.jsonl').read_text()
+            self.assertEqual(json.loads(raw), {'kind':'lookup','held':False,'key':'original-command'})
+            self.assertNotIn('never record', raw)
 
     def test_control_fault_requires_opt_in_and_owned_existing_absolute_root(self):
         with tempfile.TemporaryDirectory() as directory:

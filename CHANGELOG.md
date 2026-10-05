@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- Add real native stop/steer recovery acceptance across three Fleet OS processes
+  and two verified SIGKILLs: one POST per command, saved-context GET-only recovery,
+  same gateway/dispatch and late ACK without rewriting terminal history. Require
+  committed plugin preflight for both outcome scenarios; approval decisions and
+  installed/release acceptance remain separate gates.
+
 - Connect opt-in Hermes original stop/steer outcomes to the supervisor: atomic
   original context/claim, one exact-byte UUID/epoch POST, closed ACK and bounded
   saved-context GET recovery after HTTP/DB failure. Disabled by default, no

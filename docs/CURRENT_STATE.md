@@ -5,6 +5,18 @@ blocked until cross-service assignment/workflow/deployment contracts are verifie
 See [SDLC implementation](SDLC_IMPLEMENTATION.md). The baseline feature/gate lists
 below are historical, not acceptance evidence for the new SDLC plan.
 
+The original stop/steer consumer now has actual Fleet OS-process-death evidence:
+three separate Fleet PIDs, two verified SIGKILLs, one surviving native gateway,
+real lost steer/stop HTTP ACKs and GET-only recovery from PostgreSQL. A late stop
+ACK preserves the independently observed terminal state/timestamp. The canonical
+`control-restart` harness verifies the pinned Hermes source and all four committed
+Base control plugin files before execution, then checks exact cleanup. This is a
+new native acceptance case, not a replacement or recount of the previous 430
+component cases. Production code, public API, migrations and runtime pins are
+unchanged in this test/evidence packet. Approval decision recovery, combined
+extensions, safe descendants, task/PM admission and ordered release remain open.
+See [SIGKILL verification](CHAT_CLARIFICATION_VERIFICATION.md#control-outcomes-after-fleet-sigkill-5-october-2026).
+
 Base now has an opt-in native control-outcome producer with durable single-send
 reservations and GET-only exact ACK lookup. Two real API/AIAgent cases verify
 lost steer/interrupt replies, gateway restart and unknown-command hold;21 Linux

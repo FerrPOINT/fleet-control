@@ -31,7 +31,7 @@ def register(ctx):
                 return denied
             if request.path == '/fleet/v1/controls/lookup':
                 held = (root / 'hold-lookup').exists()
-                record('lookup', held=held)
+                record('lookup', held=held, key=request.query.get('command_id'))
                 if held:
                     return web.json_response({'error': 'owned_qa_control_hold'}, status=503)
             operation = request.path.rsplit('/', 1)[-1]

@@ -73,6 +73,26 @@ the original run/journal and single inference remain unchanged. This is not a
 Fleet OS-process restart, approval decision recovery, loaded-generation admission,
 task/PM proof or safe descendant stop. The legacy `controls` case remains separate.
 
+## Control Outcomes Across Fleet Process Death
+
+`--scenario control-restart` selects
+`native_control_restart::managed_native_control_outcomes_survive_fleet_process_death`.
+It uses three distinct Fleet OS processes and one surviving real Hermes gateway.
+The first sends steer, loses the real ACK, saves its durable context and is killed
+with SIGKILL. The second replays without POST while lookup is held, recovers steer
+by the original-key GET, sends stop, loses its real ACK and is also SIGKILLed.
+The third reads the interrupted native run, records independent terminal state,
+then recovers the late stop ACK by GET without changing the terminal timestamp.
+
+The parent observes the actual loopback inference barrier before the first
+control, not just a running DB state. The test asserts one POST/real native ACK
+per command, one ACK audit entry, unchanged private contexts and dispatch identity,
+the same gateway PID, one inference and no false assistant completion. It checks
+both SIGKILL exit statuses, not a second supervisor object or graceful shutdown.
+Preflight verifies every pinned Hermes source file and all four committed control
+plugin files before starting. This does not attest approval decision recovery,
+task authority, central-auth integration, combined extensions or safe OS descendants.
+
 ## Native Exact-Action Approvals
 
 `--scenario approvals` selects
@@ -110,7 +130,7 @@ admission, recovery of a waiting approval after a Fleet crash or safe OS stop.
   copied from its exact committed Git blob, not mutable worktree content.
 - For `recovery`, that same committed revision must include the complete
   `deploy/hermes-recovery-plugin` inventory. Missing files fail before Docker starts.
-- For `control-outcomes`, it must include the complete four-file
+- For `control-outcomes` and `control-restart`, it must include the complete four-file
   `deploy/hermes-control-plugin` inventory. The fault observer stays in QA and is
   never copied into accepted runtime agents.
 - An already-built Base Hermes dependency image with the matching revision label
