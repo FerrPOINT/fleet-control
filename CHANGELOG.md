@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+- Central profiles use the confirmed current name from the same JWT/PAT
+  activity check. Same-sub ID, local roles and historical same-email users are
+  preserved; missing names fail closed and unchanged profiles avoid a write.
+- Restore compatibility with the historical 13-step split migration ledger
+  alongside the canonical 10-step registry without rewriting applied versions;
+  unknown or mixed histories are rejected.
+
 - Повторный явный вход разрешён после отменённого перехода Central Auth;
   автоматический guard не отменяет logout. Отмена перехода не показывает
   ложную ошибку доступности Auth, а ошибка сервера остаётся видимой.

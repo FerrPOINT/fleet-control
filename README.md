@@ -46,6 +46,12 @@ remaining blockers: [SDLC implementation](docs/SDLC_IMPLEMENTATION.md).
 
 Первый зарегистрированный пользователь получает `system_role = admin`.
 
+В central mode локальный профиль связывается с проверенным `sub`, а актуальное
+имя берётся из той же проверки активности JWT/PAT. Переименование не меняет
+ID/роль и не объединяет исторических пользователей по email; после обновления
+страницы новое имя видно в меню. Статус узкой интеграционной приёмки и отдельные
+незакрытые release gates: [Current state](docs/CURRENT_STATE.md).
+
 <a name="capabilities"></a>
 
 ## Возможности

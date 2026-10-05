@@ -12,6 +12,49 @@ with drain/readback/rollback and fail-closed SDLC readiness.
 
 Native Windows Rust commands still require MSVC `link.exe`.
 
+## October 5 Profile Integration Candidate
+
+This isolated candidate joins the main-based profile-name fix with historical
+migration compatibility. It pins the published Base source commit
+`cbb4e99230420dc2659431b1c9fb5090e5c940f0` from
+[Base #142](https://github.com/FerrPOINT/services-base/pull/142), which remains
+draft/unmerged. A post-Base-merge gate and installed-platform acceptance are
+still required; a published branch is not a completed dependency release.
+
+Local source-bound Rust 1.88 gates passed: 90 workspace tests, including 18
+real PostgreSQL tests, with no failed or ignored tests; formatting, strict
+Clippy, release build and semantic OpenAPI equality. The three profile tests
+verify same-sub identity/role and historical same-email preservation, inactive
+profile rejection without reactivation, and unchanged-profile reads without
+waiting on a user-row write lock. Eight lineage tests separately cover the
+canonical and split migration registries.
+
+The tested backend/Base manifest has 164 files, SHA-256
+`690b085c6baa23f8a6bcc95c9e375b2a37169a4ed07cd274fc335f57dc2a987d`.
+The declared Base pin matched a clean checkout and the published branch.
+Disposable Compose resources were removed and permanent runtime metadata was
+unchanged.
+
+The combined production candidate passed two starts over the actual previous
+image's disposable split schema: all 13 versions/applied timestamps, schema,
+historical user and deployment job were preserved. Fleet frontend frozen
+install/codegen/lint/typecheck/OpenAPI compatibility/build and 121 tests passed;
+the unchanged pinned Base UI passed 83 tests.
+
+One uninterrupted no-mock production-image profile run passed 11 scenarios and
+45 page/menu cases at 375/768/1280/1920/2560 in light/gray/dark, with no console
+errors, overflow or serious/critical axe violations. Admin rename, unchanged
+JWT/PAT identity/roles, historical same-email profile, real SMTP/password setup,
+missing-name fail-closed, Auth outage/recovery, token revoke, browser logout
+without PAT revoke, and central user disable were verified. The real Admin
+directory requires [Base #143](https://github.com/FerrPOINT/services-base/pull/143)
+for its total header; this is an Auth runtime dependency, not a change to the
+Fleet SDK pin. Binary/config/source receipt verification also passed.
+
+This is profile/lineage acceptance, not permission-policy or full-platform
+release acceptance. Base review/merge and post-merge consumer gates remain
+open. No permanent runtime was updated during the QA freeze.
+
 ## October Foundation Evidence
 
 Verified on 2026-10-01, separate from the historical baseline below:
