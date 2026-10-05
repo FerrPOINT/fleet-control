@@ -13,6 +13,16 @@ def control_plugin_required(test_name):
         'native_control_restart::managed_native_control_outcomes_survive_fleet_process_death',
         'native_approvals::managed_native_original_approval_outcomes_recover_lost_http_ack',
         'native_approvals::native_approval_restart::managed_native_approval_outcomes_survive_fleet_process_death',
+        'native_approvals::native_approval_restart::managed_native_combined_run_and_approval_outcomes_survive_fleet_process_death',
+        'native_control_restart::managed_native_combined_run_and_control_outcomes_survive_fleet_process_death',
+    }
+
+
+def recovery_plugin_required(test_name):
+    return test_name in {
+        'managed_native_lost_ack_recovers_original_run_across_fleet_processes',
+        'native_approvals::native_approval_restart::managed_native_combined_run_and_approval_outcomes_survive_fleet_process_death',
+        'native_control_restart::managed_native_combined_run_and_control_outcomes_survive_fleet_process_death',
     }
 
 
@@ -41,7 +51,7 @@ if __name__ == '__main__':
     hashes = json.loads(Path('/qa/source-hashes.json').read_text())
     verify(Path('/opt/hermes'), hashes)
     print('Exact pinned native tracked source verified: ' + str(len(hashes)) + ' files', flush=True)
-    if os.environ.get('FLEET_NATIVE_TEST_NAME') == 'managed_native_lost_ack_recovers_original_run_across_fleet_processes':
+    if recovery_plugin_required(os.environ.get('FLEET_NATIVE_TEST_NAME')):
         plugin = json.loads(Path('/qa/recovery-hashes.json').read_text())
         if set(plugin) != {'__init__.py','plugin.py','store.py','plugin.yaml'}:
             raise RuntimeError('Recovery plugin inventory differs from committed files')

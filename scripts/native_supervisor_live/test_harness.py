@@ -43,8 +43,8 @@ def archive(name, symlink=False):
 
 class SafetyTests(unittest.TestCase):
     def test_scenarios_select_distinct_exact_tests(self):
-        self.assertEqual(set(runner.TEST_NAMES), {'lifecycle', 'recovery', 'controls', 'control-outcomes', 'control-restart', 'approvals', 'approval-recovery', 'approval-outcomes', 'approval-restart'})
-        self.assertEqual(len(set(runner.TEST_NAMES.values())), 9)
+        self.assertEqual(set(runner.TEST_NAMES), {'lifecycle', 'recovery', 'controls', 'control-outcomes', 'control-restart', 'approvals', 'approval-recovery', 'approval-outcomes', 'approval-restart', 'combined-recovery', 'combined-controls'})
+        self.assertEqual(len(set(runner.TEST_NAMES.values())), 11)
         self.assertTrue(all(name.rsplit('::', 1)[-1].startswith('managed_native_')
                             for name in runner.TEST_NAMES.values()))
 
@@ -65,7 +65,13 @@ class SafetyTests(unittest.TestCase):
         for scenario, name in runner.TEST_NAMES.items():
             with self.subTest(scenario=scenario):
                 self.assertEqual(preflight.control_plugin_required(name),
-                                 scenario in {'control-outcomes', 'control-restart', 'approval-outcomes', 'approval-restart'})
+                                 scenario in {'control-outcomes', 'control-restart', 'approval-outcomes', 'approval-restart', 'combined-recovery', 'combined-controls'})
+                self.assertEqual(preflight.recovery_plugin_required(name),
+                                 scenario in {'recovery', 'combined-recovery', 'combined-controls'})
+                expected = tuple(kind for kind, required in [
+                    ('control', preflight.control_plugin_required(name)),
+                    ('recovery', preflight.recovery_plugin_required(name))] if required)
+                self.assertEqual(runner.scenario_plugins(scenario), expected)
 
     def test_control_outcome_requires_its_own_complete_committed_inventory(self):
         output = io.BytesIO()

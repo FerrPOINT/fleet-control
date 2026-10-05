@@ -1,15 +1,17 @@
 use super::*;
 
 const TEST: &str = "native_approvals::native_approval_restart::managed_native_approval_outcomes_survive_fleet_process_death";
+const COMBINED_TEST: &str = "native_approvals::native_approval_restart::managed_native_combined_run_and_approval_outcomes_survive_fleet_process_death";
 const ROOT: &str = "/tmp/fleet-native-supervisor/approval-fault";
 
-fn config(secret: String) -> Arc<AppConfig> {
+fn config(secret: String, combined: bool) -> Arc<AppConfig> {
     let mut config = AppConfig::default();
     config.fleet.agents_root = "/tmp/fleet-native-supervisor/approval-process-agents".into();
     config.fleet.hermes_source = "/opt/hermes".into();
     config.fleet.hermes_command = "/opt/fleet-hermes/bin/hermes".into();
     config.fleet.runtime_token_secret = secret;
     config.fleet.hermes_control_outcome_enabled = true;
+    config.fleet.hermes_recovery_extension_enabled = combined;
     config.fleet.agent_port_base = 29800;
     config.fleet.agent_port_stride = 5;
     config.fleet.project_workflow_url = None;
@@ -77,9 +79,12 @@ async fn owner_api(
     (client, token, url)
 }
 
-async fn driver(phase: &str) {
+async fn driver(phase: &str, combined: bool) {
     let repo = Arc::new(PostgresFleetRepository::new(native_database().await));
-    let config = config(std::env::var("FLEET_NATIVE_APPROVAL_PROCESS_SECRET").unwrap());
+    let config = config(
+        std::env::var("FLEET_NATIVE_APPROVAL_PROCESS_SECRET").unwrap(),
+        combined,
+    );
     let agent_id = std::env::var("FLEET_NATIVE_APPROVAL_PROCESS_AGENT")
         .unwrap()
         .parse()
@@ -111,6 +116,11 @@ async fn driver(phase: &str) {
         desired.env_json["FLEET_NATIVE_SUPERVISOR_TEST"] = json!("1");
         desired.env_json["FLEET_NATIVE_APPROVAL_RECOVERY_TEST"] = json!("1");
         desired.env_json["FLEET_NATIVE_APPROVAL_FAULT_ROOT"] = json!(ROOT);
+        if combined {
+            desired.config_json["plugins"] = json!({"enabled":["fleet-hermes-recovery","fleet-hermes-controls",
+                "fleet-native-discard-ack","fleet-native-approval-observer"]});
+            desired.env_json["FLEET_NATIVE_FAULT_ROOT"] = json!(ROOT);
+        }
         activate(&repo, agent.id, owner, desired).await;
         assert_eq!(
             runtime.start(&agent).await.unwrap().status,
@@ -380,12 +390,13 @@ fn child(
     port: u16,
     secret: &str,
     prompt: &str,
+    combined: bool,
 ) -> tokio::process::Child {
     tokio::process::Command::new(std::env::current_exe().unwrap())
         .args([
             "--ignored",
             "--exact",
-            TEST,
+            if combined { COMBINED_TEST } else { TEST },
             "--test-threads=1",
             "--nocapture",
         ])
@@ -427,8 +438,18 @@ async fn kill(child: &mut tokio::process::Child) {
 #[tokio::test]
 #[ignore = "requires committed Base control plugin, exact native Hermes and owned process namespace"]
 async fn managed_native_approval_outcomes_survive_fleet_process_death() {
+    scenario(false).await;
+}
+
+#[tokio::test]
+#[ignore = "requires both committed Base plugins, exact native Hermes and owned process namespace"]
+async fn managed_native_combined_run_and_approval_outcomes_survive_fleet_process_death() {
+    scenario(true).await;
+}
+
+async fn scenario(combined: bool) {
     if let Ok(phase) = std::env::var("FLEET_NATIVE_APPROVAL_PROCESS_PHASE") {
-        driver(&phase).await;
+        driver(&phase, combined).await;
     }
     let db = native_database().await;
     let owner = Uuid::new_v4();
@@ -442,7 +463,7 @@ async fn managed_native_approval_outcomes_survive_fleet_process_death() {
     let repo = Arc::new(PostgresFleetRepository::new(db));
     repo.ensure_runtime_templates().await.unwrap();
     let secret = format!("owned-native-approval-process-{}", Uuid::new_v4());
-    let config = config(secret.clone());
+    let config = config(secret.clone(), combined);
     let agent = create_agent(&repo, &config, "Native approval process recovery").await;
     let root = Path::new(ROOT);
     tokio::fs::create_dir(root).await.unwrap();
@@ -461,6 +482,27 @@ async fn managed_native_approval_outcomes_survive_fleet_process_death() {
         )
         .await
         .unwrap();
+    }
+    if combined {
+        let recovery = plugins.join("fleet-hermes-recovery");
+        tokio::fs::create_dir_all(&recovery).await.unwrap();
+        for name in ["__init__.py", "plugin.py", "store.py", "plugin.yaml"] {
+            tokio::fs::copy(
+                Path::new("/qa/recovery-plugin").join(name),
+                recovery.join(name),
+            )
+            .await
+            .unwrap();
+        }
+        let fault = plugins.join("fleet-native-discard-ack");
+        tokio::fs::create_dir_all(&fault).await.unwrap();
+        tokio::fs::write(
+            fault.join("__init__.py"),
+            include_str!("../../../../scripts/native_supervisor_live/discard_ack_plugin.py"),
+        )
+        .await
+        .unwrap();
+        tokio::fs::write(fault.join("plugin.yaml"), b"name: fleet-native-discard-ack\nversion: 1.0.0\nkind: platform\nplatforms:\n  - api_server\n").await.unwrap();
     }
     let observer = plugins.join("fleet-native-approval-observer");
     tokio::fs::create_dir_all(&observer).await.unwrap();
@@ -496,7 +538,7 @@ async fn managed_native_approval_outcomes_survive_fleet_process_death() {
         .route("/v1/models", get(|| async { Json(json!({"object":"list","data":[{"id":"fleet-managed-local-model","object":"model"}]})) }))
         .with_state(model.clone());
     let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
-    let mut first = child("dispatch", &agent, owner, port, &secret, &prompt);
+    let mut first = child("dispatch", &agent, owner, port, &secret, &prompt, combined);
     ready(&mut first, "pin-ready.json").await;
     first_gate.notify_one();
     ready(&mut first, "decision-ready.json").await;
@@ -539,7 +581,7 @@ async fn managed_native_approval_outcomes_survive_fleet_process_death() {
         })
         .count();
     save("replay-baseline.json", json!({"held_lookups":held_lookups})).await;
-    let mut second = child("replay", &agent, owner, port, &secret, &prompt);
+    let mut second = child("replay", &agent, owner, port, &secret, &prompt, combined);
     ready(&mut second, "replay-ready.json").await;
     let replayed = read("replay-ready.json").await;
     assert_eq!(replayed["pid"], second.id().unwrap());
@@ -575,7 +617,7 @@ async fn managed_native_approval_outcomes_survive_fleet_process_death() {
     })
     .await
     .expect("native tool response did not reach terminal after Fleet deaths");
-    let mut third = child("recover", &agent, owner, port, &secret, &prompt);
+    let mut third = child("recover", &agent, owner, port, &secret, &prompt, combined);
     ready(&mut third, "terminal-ready.json").await;
     tokio::fs::remove_file(root.join("hold-outcome-lookup"))
         .await
@@ -592,6 +634,21 @@ async fn managed_native_approval_outcomes_survive_fleet_process_death() {
     assert_ne!(recovered["pid"], replayed["pid"]);
     assert_eq!(recovered["gateway_pid"], state["gateway_pid"]);
     let rows = native_observations(root).await;
+    if combined {
+        assert!(state["dispatch"]["capabilities"]["fleet_recovery"].is_object());
+        for kind in ["post", "accepted"] {
+            assert_eq!(rows.iter().filter(|row| row["kind"] == kind).count(), 1);
+        }
+        let submitted = rows.iter().find(|row| row["kind"] == "post").unwrap();
+        assert_eq!(submitted["key"], state["dispatch"]["key"]);
+        assert_eq!(submitted["sha256"], state["dispatch"]["sha256"]);
+        let accepted = rows.iter().find(|row| row["kind"] == "accepted").unwrap();
+        assert_eq!(accepted["run_id"], state["native_run_id"]);
+        assert!(
+            rows.iter()
+                .any(|row| row["kind"] == "lookup" && row["blocked"] == false)
+        );
+    }
     assert_eq!(
         rows.iter().filter(|row| row["kind"] == "run_post").count(),
         1
@@ -651,7 +708,13 @@ async fn managed_native_approval_outcomes_survive_fleet_process_death() {
     assert_eq!(repo.list_session_approvals(session).await.unwrap().len(), 1);
     assert_eq!(model.calls.lock().await.get(&prompt), Some(&2));
     server.abort();
-    println!(
-        "Actual native approval outcome survived two Fleet SIGKILLs and three PIDs: one decision POST/native ACK/audit, original GET-only recovery, same gateway/context/dispatch, one tool effect and assistant, late ACK preserves terminal history. No combined extensions, task/PM or safe descendants claimed."
-    );
+    if combined {
+        println!(
+            "Combined native run/approval recovery passed with both committed plugins: lost real initial202 and decision ACKs, original read-only POST run lookup and GET approval recovery, two Fleet SIGKILLs/three PIDs, one gateway/run/decision POST/native ACK/audit, immutable dispatch/decision context/terminal history and one assistant. No safe descendants, task/PM or installed acceptance claimed."
+        );
+    } else {
+        println!(
+            "Actual native approval outcome survived two Fleet SIGKILLs and three PIDs: one decision POST/native ACK/audit, original GET-only recovery, same gateway/context/dispatch, one tool effect and assistant, late ACK preserves terminal history. No combined extensions, task/PM or safe descendants claimed."
+        );
+    }
 }

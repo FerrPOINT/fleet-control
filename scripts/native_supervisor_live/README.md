@@ -153,6 +153,25 @@ approval, native effect or witness. Cleanup reaps the orphan gateway only in its
 owned Compose namespace; this is not safe OS stop, combined extensions or task/PM
 acceptance. Preserve exact-source/binary/log evidence after execution.
 
+## Combined Run And Command Recovery
+
+`--scenario combined-controls` and `--scenario combined-recovery` select distinct
+tests with both committed Base plugins. Preflight verifies each complete four-file
+inventory; neither a single plugin nor its metadata substitutes for the other.
+The real initial run202 is lost before steer/stop or approval ACK loss. Fleet must
+recover the original native run through read-only `POST /fleet/v1/recovery/lookup`,
+then recover each command through `GET /fleet/v1/controls/lookup`. Recovery never
+resubmits `/v1/runs` or the original action. These wire methods are different.
+
+The controls scenario keeps independent run and command observation roots so
+holding a control witness cannot accidentally block initial run recovery. Local
+Running and actual model-barrier assertions still precede steer. Both scenarios
+retain two verified SIGKILLs, three Fleet PIDs, one surviving gateway and original
+request/context/terminal-history checks. Exact evidence belongs to the
+[verification ledger](../../docs/CHAT_CLARIFICATION_VERIFICATION.md), not the
+existence of these tests. No installed flag, task/PM admission, loaded-generation
+or safe-descendant proof follows from this QA acceptance.
+
 ## Prerequisites
 
 - Clean Hermes source at `bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3`.

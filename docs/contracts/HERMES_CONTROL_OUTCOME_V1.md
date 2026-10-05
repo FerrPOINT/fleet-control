@@ -3,7 +3,8 @@
 Status: Base producer, stop/steer supervisor dispatch/GET recovery and Fleet
 OS-death recovery verified. Original approval journal/sender/GET recovery implemented;
 native once/deny/lost-ACK GET recovery and separate two-SIGKILL/three-Fleet-process
-approval recovery verified. Combined extensions and installed rollout remain gates. This is not
+approval recovery verified. Combined native run recovery plus controls/approval
+recovery is verified with both committed plugins; installed rollout remains a gate. This is not
 task admission, safe OS stop, Workflow completion or a replacement for
 [human control authorization](HERMES_RUN_CONTROL_V1.md).
 
@@ -170,7 +171,10 @@ settlement, including two Fleet SIGKILLs. The `control-outcomes` scenario
 now passes actual Fleet sender/worker, transport loss and gateway PID restart
 with one native POST per command and preserved terminal history. The model is
 loopback and agents are disposable. Separate `control-restart` verifies two
-Fleet SIGKILLs for controls. Combined extensions and installed enablement are not certified. No live central
+Fleet SIGKILLs for controls. Separate `combined-controls` and `combined-recovery`
+verify initial run202 loss plus action ACK loss with both committed plugins,
+read-only POST run lookup and GET command settlement. Installed enablement remains
+unverified. No live central
 identity, loaded-generation/OS isolation, accepted image install or full SDLC
 acceptance is inferred. Exact hashes and limits are in the
 [verification ledger](../CHAT_CLARIFICATION_VERIFICATION.md).

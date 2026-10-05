@@ -9,8 +9,10 @@ Original approval context/claim/ACK persistence now connects to the opt-in API,
 exact-byte single-send supervisor and original-context GET-only recovery. The
 default-off flag and legacy history are unchanged. Actual native once/deny and
 lost-ACK GET recovery now pass in disposable QA, including three Fleet processes
-and two verified SIGKILLs with one surviving native gateway. Combined extensions
-and installed release acceptance remain required. See
+and two verified SIGKILLs with one surviving native gateway. Combined run recovery
+plus steer/stop or approval recovery now passes on one exact native test binary;
+run lookup is read-only POST, command lookup GET, with no repeated dispatch.
+Installed release acceptance remains required. See
 [approval journal ADR](docs/adr/0025-original-approval-outcome-journal.md).
 
 Pinned Base package preparation is available as an operator-only configuration

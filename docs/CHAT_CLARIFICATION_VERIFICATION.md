@@ -1,5 +1,95 @@
 # Chat Clarification Verification
 
+## Combined Native Recovery Extensions (5 October 2026)
+
+Baseline Fleet d310b430ce6f73a57591ba1b75958dc5982fe343 is fetched and matches
+its remote integration branch. This packet changes tests/harness/docs only,
+not runtime code, public API, migrations, Base SDK9408802 or installed flags.
+Base cee96da617492e943ce1eb9b51f34b075f30c66d supplies the exact committed
+launcher and both four-file plugins. Producer/launcher bytes are unchanged.
+PR47/main remains Draft5240107, dependency PR140/main remains177edb8; their
+older CI does not certify this integration head. Read-only producer PR1148c80a41
+and PR90e4fba60 remain unchanged and incompatible with full admission.
+
+Both final native cases pass on binary SHA256
+`24fe62959ee049e5e79ab64aadb2005ee261d71869c29a99b7e7e4e0d0248ecc`:
+
+| Scenario | Owned project suffix | Duration | Native log SHA256 |
+| --- | --- | --- | --- |
+| `combined-controls` | `e103cf635886` | 43.63s | `43c78fb868bf249d58cbbd928235a6018b5afebf75debbe0d17e9d12f782eb23` |
+| `combined-recovery` | `cf05be15f9cb` | 41.14s | `bb0a468123a713ad397c640486210708fd22f7fd7183e023a123b0e17e5565f3` |
+
+Each verifies13770 exact Hermes source files plus both committed four-file plugin
+inventories before execution. The real native initial202 transport is lost; the
+same original key/raw request hash recovers the native run through read-only
+`POST /fleet/v1/recovery/lookup`, never a second `POST /v1/runs`. Subsequent real
+steer/stop or approval ACK loss recovers through `GET /fleet/v1/controls/lookup`.
+Read-only run lookup is POST; command outcome lookup is GET. No synthetic Hermes
+handler, approval request or witness substitutes for either. Only the model is
+loopback. Three distinct Fleet OS processes and two verified SIGKILLs preserve
+one actual gateway, original dispatch/context and terminal history. One native
+run/control or decision POST/ACK/audit and one inference/final assistant where
+applicable are asserted; controls never become false assistant completion.
+
+Controls require accepted/pinned local Running and actual inference observation
+before steer. Their run-observation root is separate from the held control GET
+root. Preliminary projectaa8422e1962f FAILED103.20s because the new combined
+test accidentally used one `hold-lookup` marker for both independent recovery
+channels. Initial run recovery was blocked before steer. The correction separates
+the QA roots; no production behavior, deadline or Running assertion is weakened.
+Failed native log SHA256:
+`eebc14b753cb25d3380a14aee812a86001e61d5ef82ebc889c2d9fa40ea4eb4c`.
+Its exact finally cleanup0 and independently empty Compose ps are verified.
+An earlier preliminary combined-approval pass used different source and is not
+counted as final-source acceptance.
+
+Final focused project5981f85bb9c9 PASS: Rust fmt/all-target check and10 HTTP/PG
+consumer cases72.98s; one separate keyset target is ignored, not accepted here.
+Log SHA256 `278fc3dc18daa4e91273dcb57f4747f84a2295b6ee744e35d67ac75c6b1483f5`.
+This is not a rerun or recount of the previously published450-case broad gate.
+Both final native builds pass fmt/all-target check/strict native-target Clippy.
+Reports are verified against current raw runtime/test/harness bytes, exact native
+log hashes and the same binary. Own cleanup0, independent empty Compose ps and
+both own image aliases removed are verified; shared caches and accepted images,
+data, runtime HOME and pins remain intact.
+
+Three separate final-source regressions also pass on that same binary, each with
+raw source/log verification, cleanup0, independent empty Compose ps and removed
+own aliases:
+
+| Scenario | Owned project suffix | Duration | Native log SHA256 |
+| --- | --- | --- | --- |
+| `control-restart` | `aa330833f0aa` | 39.44s | `e7880dcd60a5f6a2a25b7b8455743c322d372934d4ef8c74d323d2f4689e2bbd` |
+| `approval-restart` | `18ac1f602aab` | 34.71s | `415891ed03334d19a798ee101de61a5e8a9a1153f1bc1d6f68e99a2498607cc6` |
+| `recovery` | `fbac54196071` | 22.41s | `45ebdf5641fc12486ef0538b25340d02b635bb4f95e46237ed3fca93a84b99b4` |
+
+Host36 harness/selector/plugin-matrix cases,3 README cases and README validation
+pass. Markdown links cover113 documents including the new proposal. Existing135
+three-viewport screenshot hashes and9/3 fixture manifests pass; there are no new
+UI captures. Post-cleanup Docker audit checks desktop63 and sdlc2-runner0 with no
+violations, but sdlc1-runner is unavailable: complete=false/exit1, not a global
+Docker PASS. Own exact cleanup is verified independently. No foreign resources
+are removed. The recorded VM clock discrepancy remains an infrastructure risk.
+
+Final raw source SHA256:
+
+| Path | SHA256 |
+| --- | --- |
+| `backend/infra/tests/support/native_control_restart.rs` | `e7c6bc1ae63053a8d982f926c44a6ac495d1520f6788a6ae4620e64978396c3a` |
+| `backend/infra/tests/support/native_approval_restart.rs` | `487db4d98be6cf3c19146d48a9e86fd9bf55bf9f1702eca891d5a3bf95cd9f9c` |
+| `scripts/native_supervisor_live/run.py` | `7ce454a6fb1402f5f66d0724f78ac1cc97b4ee39364bc8eed8292555c422cce4` |
+| `scripts/native_supervisor_live/preflight.py` | `50edfacb5c35beca0856aea29f378b208de240cde744bc2192816b4a943a4657` |
+| `scripts/native_supervisor_live/test_harness.py` | `e6448259d7ce5a9ade593c09ebd91147b26b6e65202fe86ca59afd79867536c8` |
+
+This closes combined free-chat run/command plugin compatibility under these
+faults, not installed rollout, safe descendants, native loaded generation,
+fenced task admission, PM tools/resume, production Chats/Forge, ordered migration
+release/exact-head CI or seven-agent SDLC. The
+[containment proposal](design/RUNTIME_CONTAINMENT_PROPOSAL.md) is proposed only;
+no boundary has been implemented by this test packet. Historical sections below
+retain their earlier scope. No new UI screenshots or live browser acceptance
+are claimed for this backend test-only change.
+
 ## Approval Outcomes After Fleet SIGKILL (5 October 2026)
 
 Baseline Fleet f7bbfe61ff3978fc65ff842f8cb2a34a3dcede77 is fetched and matches

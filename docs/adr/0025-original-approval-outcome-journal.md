@@ -5,7 +5,8 @@
 Implemented internal journal and opt-in approval HTTP sender/GET worker. Actual
 native once/deny/lost-ACK GET recovery verified through the control plugin.
 Separate native approval recovery after two SIGKILLs/three Fleet PIDs is verified.
-Combined extensions and installed release remain pending.
+Combined native run/approval and run/steer/stop recovery with both committed
+plugins is verified. Installed release remains pending; this is not task admission.
 
 ## Context
 

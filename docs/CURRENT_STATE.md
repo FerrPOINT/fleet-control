@@ -19,8 +19,11 @@ The separate `approval-restart` case now verifies three Fleet OS processes,
 two SIGKILLs and one surviving Hermes: lost real decision ACK, new GET in the
 second process, terminal readback in the third, then original GET-only settlement.
 One decision POST/ACK/audit, immutable context/dispatch/terminal history and one
-assistant are asserted. Combined extensions and whole-SDLC merge readiness remain
-unproven. See [process-death evidence](CHAT_CLARIFICATION_VERIFICATION.md#approval-outcomes-after-fleet-sigkill-5-october-2026).
+assistant are asserted. Combined run + steer/stop and run + approval recovery now
+passes on one exact binary with both committed plugins and the same OS-death
+checks. Original run lookup uses read-only POST, action outcome lookup GET;
+neither resends the original effect. Whole-SDLC merge readiness remains unproven.
+See [combined evidence](CHAT_CLARIFICATION_VERIFICATION.md#combined-native-recovery-extensions-5-october-2026).
 See [approval journal ADR](adr/0025-original-approval-outcome-journal.md).
 
 Historical SIGKILL-only packet `04df310` has actual Fleet OS-process-death evidence:

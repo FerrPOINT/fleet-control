@@ -2,16 +2,19 @@ use super::*;
 
 const TEST: &str =
     "native_control_restart::managed_native_control_outcomes_survive_fleet_process_death";
+const COMBINED_TEST: &str = "native_control_restart::managed_native_combined_run_and_control_outcomes_survive_fleet_process_death";
 const ROOT: &str = "/tmp/fleet-native-supervisor/control-process-fault";
+const DISPATCH_ROOT: &str = "/tmp/fleet-native-supervisor/control-process-fault/dispatch";
 const GUIDANCE: &str = "Stay within the owned synthetic native restart task.";
 
-fn config(secret: String) -> Arc<AppConfig> {
+fn config(secret: String, combined: bool) -> Arc<AppConfig> {
     let mut config = AppConfig::default();
     config.fleet.agents_root = "/tmp/fleet-native-supervisor/control-process-agents".into();
     config.fleet.hermes_source = "/opt/hermes".into();
     config.fleet.hermes_command = "/opt/fleet-hermes/bin/hermes".into();
     config.fleet.runtime_token_secret = secret;
     config.fleet.hermes_control_outcome_enabled = true;
+    config.fleet.hermes_recovery_extension_enabled = combined;
     config.fleet.agent_port_base = 29700;
     config.fleet.agent_port_stride = 5;
     config.fleet.project_workflow_url = None;
@@ -37,9 +40,12 @@ async fn hold() {
         .unwrap();
 }
 
-async fn driver(phase: &str) {
+async fn driver(phase: &str, combined: bool) {
     let repo = Arc::new(PostgresFleetRepository::new(native_database().await));
-    let config = config(std::env::var("FLEET_NATIVE_CONTROL_PROCESS_SECRET").unwrap());
+    let config = config(
+        std::env::var("FLEET_NATIVE_CONTROL_PROCESS_SECRET").unwrap(),
+        combined,
+    );
     let agent_id = std::env::var("FLEET_NATIVE_CONTROL_PROCESS_AGENT")
         .unwrap()
         .parse()
@@ -61,6 +67,11 @@ async fn driver(phase: &str) {
             json!({"enabled":["fleet-hermes-controls","fleet-native-discard-control-ack"]});
         desired.env_json["FLEET_NATIVE_SUPERVISOR_TEST"] = json!("1");
         desired.env_json["FLEET_NATIVE_CONTROL_FAULT_ROOT"] = json!(ROOT);
+        if combined {
+            desired.config_json["plugins"] = json!({"enabled":["fleet-hermes-recovery","fleet-hermes-controls",
+                "fleet-native-discard-ack","fleet-native-discard-control-ack"]});
+            desired.env_json["FLEET_NATIVE_FAULT_ROOT"] = json!(DISPATCH_ROOT);
+        }
         activate(&repo, agent.id, owner, desired).await;
         assert_eq!(
             runtime.start(&agent).await.unwrap().status,
@@ -341,12 +352,13 @@ fn child(
     port: u16,
     secret: &str,
     prompt: &str,
+    combined: bool,
 ) -> tokio::process::Child {
     tokio::process::Command::new(std::env::current_exe().unwrap())
         .args([
             "--ignored",
             "--exact",
-            TEST,
+            if combined { COMBINED_TEST } else { TEST },
             "--test-threads=1",
             "--nocapture",
         ])
@@ -388,8 +400,18 @@ async fn kill(child: &mut tokio::process::Child) {
 #[tokio::test]
 #[ignore = "requires committed Base control plugin, exact native Hermes and owned process namespace"]
 async fn managed_native_control_outcomes_survive_fleet_process_death() {
+    scenario(false).await;
+}
+
+#[tokio::test]
+#[ignore = "requires both committed Base plugins, exact native Hermes and owned process namespace"]
+async fn managed_native_combined_run_and_control_outcomes_survive_fleet_process_death() {
+    scenario(true).await;
+}
+
+async fn scenario(combined: bool) {
     if let Ok(phase) = std::env::var("FLEET_NATIVE_CONTROL_PROCESS_PHASE") {
-        driver(&phase).await;
+        driver(&phase, combined).await;
     }
     let db = native_database().await;
     let owner = Uuid::new_v4();
@@ -401,7 +423,7 @@ async fn managed_native_control_outcomes_survive_fleet_process_death() {
     let repo = Arc::new(PostgresFleetRepository::new(db));
     repo.ensure_runtime_templates().await.unwrap();
     let secret = format!("owned-native-control-process-{}", Uuid::new_v4());
-    let config = config(secret.clone());
+    let config = config(secret.clone(), combined);
     let agent = create_agent(&repo, &config, "Native control process recovery").await;
     tokio::fs::create_dir_all(ROOT).await.unwrap();
     hold().await;
@@ -417,6 +439,29 @@ async fn managed_native_control_outcomes_survive_fleet_process_death() {
         .unwrap();
     }
     let fault = plugins.join("fleet-native-discard-control-ack");
+    if combined {
+        // Run recovery remains available while the independent control lookup is held.
+        tokio::fs::create_dir_all(DISPATCH_ROOT).await.unwrap();
+        let recovery = plugins.join("fleet-hermes-recovery");
+        tokio::fs::create_dir_all(&recovery).await.unwrap();
+        for name in ["__init__.py", "plugin.py", "store.py", "plugin.yaml"] {
+            tokio::fs::copy(
+                Path::new("/qa/recovery-plugin").join(name),
+                recovery.join(name),
+            )
+            .await
+            .unwrap();
+        }
+        let discard = plugins.join("fleet-native-discard-ack");
+        tokio::fs::create_dir_all(&discard).await.unwrap();
+        tokio::fs::write(
+            discard.join("__init__.py"),
+            include_str!("../../../../scripts/native_supervisor_live/discard_ack_plugin.py"),
+        )
+        .await
+        .unwrap();
+        tokio::fs::write(discard.join("plugin.yaml"), b"name: fleet-native-discard-ack\nversion: 1.0.0\nkind: platform\nplatforms:\n  - api_server\n").await.unwrap();
+    }
     tokio::fs::create_dir_all(&fault).await.unwrap();
     tokio::fs::write(
         fault.join("__init__.py"),
@@ -433,7 +478,7 @@ async fn managed_native_control_outcomes_survive_fleet_process_death() {
         .with_state(model.clone());
     let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
     let prompt = format!("managed-control-prompt-{}", Uuid::new_v4());
-    let mut first = child("steer", &agent, owner, port, &secret, &prompt);
+    let mut first = child("steer", &agent, owner, port, &secret, &prompt, combined);
     ready(&mut first, "run-ready.json").await;
     timeout(Duration::from_secs(90), async {
         while !model.requests.lock().await.contains_key(&prompt) {
@@ -453,7 +498,7 @@ async fn managed_native_control_outcomes_survive_fleet_process_death() {
     kill(&mut first).await;
     let steer = read("steer-ready.json").await;
     assert_eq!(model.requests.lock().await.get(&prompt).unwrap().len(), 1);
-    let mut second = child("stop", &agent, owner, port, &secret, &prompt);
+    let mut second = child("stop", &agent, owner, port, &secret, &prompt, combined);
     ready(&mut second, "steer-recovery-ready.json").await;
     tokio::fs::remove_file(Path::new(ROOT).join("hold-lookup"))
         .await
@@ -473,7 +518,7 @@ async fn managed_native_control_outcomes_survive_fleet_process_death() {
             .is_none()
     );
     model.control_release.notify_one();
-    let mut third = child("recover", &agent, owner, port, &secret, &prompt);
+    let mut third = child("recover", &agent, owner, port, &secret, &prompt, combined);
     ready(&mut third, "terminal-ready.json").await;
     tokio::fs::remove_file(Path::new(ROOT).join("hold-lookup"))
         .await
@@ -497,6 +542,24 @@ async fn managed_native_control_outcomes_survive_fleet_process_death() {
         .lines()
         .map(|line| serde_json::from_str(line).unwrap())
         .collect();
+    if combined {
+        assert!(steer["dispatch"]["capabilities"]["fleet_recovery"].is_object());
+        let native = native_observations(Path::new(DISPATCH_ROOT)).await;
+        for kind in ["post", "accepted"] {
+            assert_eq!(native.iter().filter(|row| row["kind"] == kind).count(), 1);
+        }
+        let submitted = native.iter().find(|row| row["kind"] == "post").unwrap();
+        assert_eq!(submitted["key"], steer["dispatch"]["key"]);
+        assert_eq!(submitted["sha256"], steer["dispatch"]["sha256"]);
+        let accepted = native.iter().find(|row| row["kind"] == "accepted").unwrap();
+        assert_eq!(accepted["key"], steer["dispatch"]["key"]);
+        assert_eq!(accepted["run_id"], steer["steer_context"]["run_id"]);
+        assert!(
+            native
+                .iter()
+                .any(|row| row["kind"] == "lookup" && row["blocked"] == false)
+        );
+    }
     for (operation, field, context) in [
         ("steer", "steer_id", &steer["steer_context"]),
         ("stop", "stop_id", &stop["stop_context"]),
@@ -532,7 +595,13 @@ async fn managed_native_control_outcomes_survive_fleet_process_death() {
         2
     );
     server.abort();
-    println!(
-        "Actual native control outcomes survived two Fleet SIGKILLs and three distinct PIDs: one steer/stop POST each, original-key GET recovery, same gateway/context/journal, late stop ACK preserves terminal history. No approval decision or OS-descendant safe-stop proof."
-    );
+    if combined {
+        println!(
+            "Combined native run/steer/stop recovery passed with both committed plugins: lost real initial202 and control ACKs, original read-only POST run lookup and GET control recovery, two Fleet SIGKILLs/three PIDs, one gateway/run/steer/stop POST/native ACK/audit, immutable contexts/dispatch/terminal history and one inference. No approval decision, safe descendants, task/PM or installed acceptance claimed."
+        );
+    } else {
+        println!(
+            "Actual native control outcomes survived two Fleet SIGKILLs and three distinct PIDs: one steer/stop POST each, original-key GET recovery, same gateway/context/journal, late stop ACK preserves terminal history. No approval decision or OS-descendant safe-stop proof."
+        );
+    }
 }

@@ -25,8 +25,19 @@ TEST_NAMES = {
     'approval-recovery':'native_approvals::native_approval_recovery::managed_native_waiting_approval_recovers_across_fleet_processes',
     'approval-outcomes':'native_approvals::managed_native_original_approval_outcomes_recover_lost_http_ack',
     'approval-restart':'native_approvals::native_approval_restart::managed_native_approval_outcomes_survive_fleet_process_death',
+    'combined-recovery':'native_approvals::native_approval_restart::managed_native_combined_run_and_approval_outcomes_survive_fleet_process_death',
+    'combined-controls':'native_control_restart::managed_native_combined_run_and_control_outcomes_survive_fleet_process_death',
 }
 PLUGIN_FILES = ('__init__.py', 'plugin.py', 'store.py', 'plugin.yaml')
+
+
+def scenario_plugins(scenario):
+    kinds = []
+    if scenario in {'control-outcomes', 'control-restart', 'approval-outcomes', 'approval-restart', 'combined-recovery', 'combined-controls'}:
+        kinds.append('control')
+    if scenario in {'recovery', 'combined-recovery', 'combined-controls'}:
+        kinds.append('recovery')
+    return tuple(kinds)
 
 
 def git(repo, *args):
@@ -106,8 +117,8 @@ def main():
         raise RuntimeError('Base SDK must match Fleet .base-revision exactly')
     base_head = git(args.base_checkout, 'rev-parse','HEAD').decode().strip()
     launcher = archive_files(git(args.base_checkout,'archive','--format=tar',base_head,'deploy/fleet-hermes-launch.py'))['deploy/fleet-hermes-launch.py']
-    plugin_kind = 'control' if args.scenario in {'control-outcomes','control-restart','approval-outcomes','approval-restart'} else 'recovery'
-    plugin = recovery_files(args.base_checkout, base_head, controls=plugin_kind == 'control') if args.scenario in {'recovery','control-outcomes','control-restart','approval-outcomes','approval-restart'} else None
+    plugins = {kind:recovery_files(args.base_checkout, base_head, controls=kind == 'control')
+               for kind in scenario_plugins(args.scenario)}
     image = json.loads(subprocess.check_output(['docker','image','inspect',args.image]))[0]
     if image['Config'].get('Labels',{}).get('sdlc.hermes.revision') != PIN:
         raise RuntimeError('Dependency image revision label is incompatible')
@@ -162,7 +173,7 @@ def main():
                                'backend/migration/src/m20261005_000015_runtime_control_outcomes.rs',
                                'backend/migration/src/m20261005_000016_runtime_approval_outcomes.rs']},
               'harness_sha256':{name:hashlib.sha256((scripts/name).read_bytes()).hexdigest() for name in ['run.py','build.sh','native.sh','preflight.py','discard_ack_plugin.py','approval_fault_plugin.py','control_fault_plugin.py']}}
-    if plugin is not None:
+    for plugin_kind, plugin in plugins.items():
         plugin_dir = directory/(plugin_kind+'-plugin')
         plugin_dir.mkdir()
         for name, body in plugin.items():
@@ -191,7 +202,8 @@ def main():
             'PYTHONDONTWRITEBYTECODE':'1','PYTHONUNBUFFERED':'1'},
         volumes=['target:/cache:ro',bind(scripts/'native.sh','/qa/native.sh'),bind(scripts/'preflight.py','/qa/preflight.py'),
             bind(directory/'source-hashes.json','/qa/source-hashes.json'),bind(directory/'hermes','/opt/fleet-hermes/bin/hermes')])
-    if plugin is not None:
+    for plugin_kind in plugins:
+        plugin_dir = directory/(plugin_kind+'-plugin')
         if plugin_kind == 'recovery':
             native['environment']['FLEET_NATIVE_FAULT_ROOT'] = '/tmp/fleet-native-supervisor/recovery-fault'
         native['volumes'].extend([bind(plugin_dir,'/qa/'+plugin_kind+'-plugin'),
@@ -241,8 +253,9 @@ def main():
                 or TEST_NAMES[args.scenario].encode() not in result.stdout
                 or ('Exact pinned native tracked source verified: '+str(len(hashes))+' files').encode() not in result.stdout):
             raise RuntimeError('Native evidence is incomplete or no test ran')
-        if plugin is not None and ('Exact committed '+plugin_kind+' plugin verified: 4 files').encode() not in result.stdout:
-            raise RuntimeError('Native runtime plugin preflight is missing')
+        for plugin_kind in plugins:
+            if ('Exact committed '+plugin_kind+' plugin verified: 4 files').encode() not in result.stdout:
+                raise RuntimeError('Native runtime plugin preflight is missing')
         report['result'] = 'passed'
     except subprocess.TimeoutExpired as error:
         (directory/'timeout.log').write_bytes(error.output or b'')

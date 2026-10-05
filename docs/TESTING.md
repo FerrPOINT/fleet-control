@@ -48,6 +48,18 @@ same gateway and immutable context/dispatch/terminal timestamps, one assistant,
 owner replay and payload conflict. This is not safe descendant termination,
 combined extensions, task admission or a PM/stage receipt.
 
+## Combined Native Recovery Extensions
+
+The separate `combined-controls` and `combined-recovery` scenarios install and
+attest both committed Base plugins, lose the actual initial202 before control or
+approval ACK loss, and retain three Fleet PIDs/two SIGKILLs/one gateway. Run lookup
+is read-only POST; action outcome lookup GET. The controls QA roots are separate
+so holding action lookup cannot block initial run recovery. One run POST and
+original key/hash/native ID remain mandatory. Run `control-restart`,
+`approval-restart` and `recovery` separately after changing their shared helpers
+or the multi-plugin mounter. See the verification ledger for actual-source proof;
+these tests do not enable task admission or installed flags.
+
 ## Exact Approval Context And Delivery Lock Order
 
 `runtime_targeted_approval` uses journaled accepted runs, authenticated bounded

@@ -13,8 +13,10 @@ native recovery; separate native `approval-outcomes` verifies real once/deny,
 lost ACK held through terminal, original GET settlement, exact bytes/UUID/epoch,
 one POST/ACK/audit and immutable history. Separate `approval-restart` verifies
 two SIGKILLs/three Fleet PIDs, new original GET after restart and late settlement
-without changing terminal history. Combined extensions/installed release remain
-gates; see the verification ledger.
+without changing terminal history. Native `combined-controls` and
+`combined-recovery` add both committed plugins, lost real initial202, original
+read-only POST run lookup then GET action settlement and the same OS-death checks.
+Installed release remains a gate; see the verification ledger.
 
 Native control-outcome GET: [contract v1](contracts/HERMES_CONTROL_OUTCOME_V1.md),
 `runtime/control_outcome_wire` and eleven protocol tests cover saved raw bytes,
@@ -79,7 +81,7 @@ case; running/approval/native-crash and installed recovery remain gates.
 | Requirements revision changes revoke UI consent | Revision/hash form identity, full document and comparison, regression test | Trusted exact-revision prerequisite evidence |
 | Wire drift | Rust OpenAPI, generated client, seven-schema Tracker snapshot check | Compatible deployed versions and CI head verification |
 | Human-only stop/steer, private command receipts | VerifiedHumanSession gate before lookup; actual local JWT HTTP owner/replay/revocation, foreign session/run denial and operator/admin reads; sessionless admin denied without native POST | Live central session/PAT identity, assignment-scoped machine control and release CI |
-| Exact-action approvals without duplicate effect | Native `approvals`, `approval-recovery`, `approval-outcomes` and `approval-restart`: real Hermes terminal guard/request/effect, owner HTTP once/deny, one POST, current waiting GET recovery, original decision witness and recovery after two SIGKILLs/three Fleet PIDs without rewriting terminal history | Combined extensions, loaded config/task admission, central identity and installed/live UI |
+| Exact-action approvals without duplicate effect | Native `approvals`, `approval-recovery`, `approval-outcomes`, `approval-restart` and `combined-recovery`: real Hermes terminal guard/request/effect, owner HTTP once/deny, one POST, current waiting GET recovery, original decision witness and recovery after two SIGKILLs/three Fleet PIDs without rewriting terminal history; mixed case also loses initial202 and verifies original run lookup with both plugins | Loaded config/task admission, central identity and installed/live UI |
 | Approval targets original current context | Shared accepted journal/run/session/origin/credential guard, fresh native approval capabilities and waiting exact request readback; bounded HTTP200 JSON ACK. Four journaled component cases and renewed actual native approval/control checks | Loaded configuration generation, fresh distributed authorization/fencing and task admission remain |
 | Unknown delivery avoids session/message lock inversion | Explicit PG holder, pg_blocking_pids barrier and message NOWAIT regression: fails before session-first delivery and passes after; unknown acceptance HTTP still requires one POST and held pending capacity | No claim that all DB deadlocks or Docker VM clock regressions are fixed |
 | Keyboard/mobile/desktop | Three-browser controller fixtures, axe, Escape focus and tab arrows, generated image hashes | Live production acceptance, not fixture promotion |

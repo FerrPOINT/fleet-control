@@ -49,6 +49,7 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 - [DATA_MODEL.md](DATA_MODEL.md)
 - [WORKFLOW.md](WORKFLOW.md)
 - [RUNTIME.md](RUNTIME.md)
+- [Runtime containment proposal](design/RUNTIME_CONTAINMENT_PROPOSAL.md) - proposed boundary, not implemented or accepted.
 - [EVENTS.md](EVENTS.md)
 - [ROUTING.md](ROUTING.md)
 - [LIBRARIES.md](LIBRARIES.md)
