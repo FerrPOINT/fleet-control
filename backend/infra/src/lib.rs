@@ -2996,8 +2996,19 @@ impl FleetRepository for PostgresFleetRepository {
         email: &str,
         display_name: &str,
     ) -> Result<app::auth::UserRecord, AppError> {
-        if sub.trim().is_empty() || email.trim().is_empty() {
+        if sub.trim().is_empty() || email.trim().is_empty() || display_name.trim().is_empty() {
             return Err(AppError::Unauthorized);
+        }
+        // Verified, unchanged profiles must not queue behind user write locks.
+        if let Some(model) = user::Entity::find()
+            .filter(user::Column::CentralSub.eq(sub.trim()))
+            .one(&self.db)
+            .await
+            .map_err(AppError::database)?
+            && model.is_active
+            && model.display_name == display_name.trim()
+        {
+            return Ok(user_record(model));
         }
         let id = Uuid::new_v4();
         self.db
@@ -3006,7 +3017,9 @@ impl FleetRepository for PostgresFleetRepository {
                 "INSERT INTO users (id, email, username, display_name, password_hash, central_sub, \
                system_role, is_system_admin, is_active, created_at, updated_at) \
              VALUES ($1, $2, $3, $4, '!', $5, 'user', false, true, now(), now()) \
-             ON CONFLICT (central_sub) WHERE central_sub IS NOT NULL DO NOTHING",
+             ON CONFLICT (central_sub) WHERE central_sub IS NOT NULL DO UPDATE \
+             SET display_name = EXCLUDED.display_name, updated_at = now() \
+             WHERE users.is_active AND users.display_name IS DISTINCT FROM EXCLUDED.display_name",
                 [
                     id.into(),
                     email.trim().to_lowercase().into(),

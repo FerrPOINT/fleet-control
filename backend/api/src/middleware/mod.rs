@@ -64,11 +64,11 @@ pub async fn require_auth(
     // Central fleet auth-server first (ES256 via JWKS); legacy HS256 access
     // tokens remain valid during the migration window.
     match central_auth::check_token(token).await {
-        central_auth::CentralCheck::Validated(central) => {
+        central_auth::CentralCheck::Validated(central, display_name) => {
             if !central.allows_service("fleet-control", req.method().as_str()) {
                 return Err(AppError::Forbidden);
             }
-            let user = find_or_link_central_user(&ctx, &central).await?;
+            let user = find_or_link_central_user(&ctx, &central, &display_name).await?;
             req.extensions_mut().insert(CurrentUser {
                 id: user.id,
                 role: user.system_role,
@@ -116,14 +116,21 @@ pub async fn require_auth(
 pub async fn find_or_link_central_user_public(
     ctx: &Arc<AppContext>,
     central: &sdlc_auth_core::AuthContext,
+    display_name: &str,
 ) -> Result<app::auth::UserRecord, AppError> {
-    find_or_link_central_user(ctx, central).await
+    find_or_link_central_user(ctx, central, display_name).await
 }
 
 async fn find_or_link_central_user(
     ctx: &Arc<AppContext>,
     central: &sdlc_auth_core::AuthContext,
+    display_name: &str,
 ) -> Result<app::auth::UserRecord, AppError> {
+    if display_name.trim().is_empty() {
+        return Err(AppError::Unavailable(
+            "Central Auth profile is unavailable".into(),
+        ));
+    }
     let email = central
         .email
         .as_deref()
@@ -135,11 +142,7 @@ async fn find_or_link_central_user(
     }
     let user = ctx
         .repo
-        .find_or_create_central_user(
-            &central.user_id,
-            &email,
-            email.split('@').next().unwrap_or(&email),
-        )
+        .find_or_create_central_user(&central.user_id, &email, display_name)
         .await?;
     if std::env::var("FLEET_CONTROL_AUTH__BOOTSTRAP_ADMIN_SUB")
         .ok()
