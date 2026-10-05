@@ -1,6 +1,6 @@
 # Hermes Control Outcome v1
 
-Status: Base producer and native QA implemented; production Fleet consumer,
+Status: Base producer, GET wire-consumer and native producer QA implemented; production Fleet journal integration,
 positive native approval and installed rollout remain unverified. This is not
 task admission, safe OS stop, Workflow completion or a replacement for
 [human control authorization](HERMES_RUN_CONTROL_V1.md).
@@ -55,7 +55,30 @@ completion, descendant termination, task acceptance or success of a stage.
 
 ## Required Fleet Consumer Packet
 
-Production Fleet does not yet send these headers or consume this extension.
+Fleet now has a strict Rust GET wire-consumer in
+`backend/infra/src/runtime/control_outcome_wire.rs`. Preparation validates a
+closed version1 capability packet, default-profile credential scope, canonical
+store epoch and pinned native source. It serializes the exact action once,
+including empty bytes for stop, and returns an opaque original context without
+raw token or Debug implementation. Deserialization alone grants no authority.
+
+Lookup revalidates origin/credential/body hash and the saved facts before GET;
+it sends exactly the original five query fields, never a request body or POST.
+HTTP200/JSON/identity encoding, ten-second and64KiB budgets are mandatory.
+Closed response/ACK types reject duplicate, unknown and missing fields and
+verify command/run/operation/epoch/scope/hash plus exact approval ID/choice.
+The only positive outcomes are guidance queued, stopping requested or one
+decision resolved. Uncertain has no dispatch meaning. No current capability
+snapshot or terminal run replaces the original witness.
+
+This adapter is not yet called by the production supervisor. It has no POST
+operation and does not mutate commands, approvals, capacity or business state.
+Its prepare result must still be persisted atomically with a single-use permit;
+its lookup result must still commit into the existing journal/audit/event
+transaction. Component GET tests are not actual Fleet/native recovery acceptance.
+
+Production Fleet does not yet send the producer headers or consume the
+extension from its command/decision lifecycle.
 Do not enable its plugin on an installed agent. Existing command/decision
 history cannot be given an epoch or witness after dispatch.
 
@@ -77,6 +100,25 @@ crash after effect but before durable ACK cannot be recovered as acknowledged.
 That permanent hold requires explicit future operator reconciliation, not a
 negative-lookup retry. Producer storage loss/rotation is likewise not absence
 of prior effects. Fenced task/machine controls remain a separate admission.
+
+The next journal packet must explicitly cover these existing-state interactions:
+
+1. Persist context before consuming the command permit or approval dispatch
+   right, under the existing actor/session/native-identity checks. A producer
+   epoch observed after submission is not a historical witness. The public
+   actor idempotency key remains separate from the producer command UUID.
+2. Existing command guards forbid uncertain-to-acknowledged updates and retire
+   terminal mirrors as `terminal_observed`. Use an additive reviewed transition
+   or separate outcome record that preserves both facts; do not rewrite applied
+   migration000013, clear the observed terminal fact or reopen the native run.
+3. An approval can become cancelled by terminal mirroring before a lost decision
+   ACK is read back. Persist witnessed decision delivery independently of that
+   request lifecycle, without manufacturing another pending question, changing
+   the choice or calling the decision endpoint again.
+4. Before enabling the worker, test row-lock order, concurrent normal ACK and
+   GET recovery, audit/event rollback, actor revocation, stale context, missing
+   store and actual Fleet/gateway restarts. A lookup error remains a hold, not
+   a new dispatch path. Old intents stay outside the extension.
 
 ## Evidence
 

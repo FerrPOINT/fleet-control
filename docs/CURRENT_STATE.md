@@ -8,7 +8,9 @@ below are historical, not acceptance evidence for the new SDLC plan.
 Base now has an opt-in native control-outcome producer with durable single-send
 reservations and GET-only exact ACK lookup. Two real API/AIAgent cases verify
 lost steer/interrupt replies, gateway restart and unknown-command hold;21 Linux
-component cases pass. Production Fleet does not yet persist/send its epoch/raw
+component cases pass. A strict Rust GET wire-consumer now validates saved
+epoch/scope/origin/body identity and exact action ACKs, but is not yet wired
+into the supervisor or command journal. Production Fleet does not yet persist/send its epoch/raw
 command context or reconcile these receipts. Keep this plugin disabled on
 installed agents. See [outcome contract](contracts/HERMES_CONTROL_OUTCOME_V1.md)
 and the verification ledger; producer-only evidence is not consumer acceptance.

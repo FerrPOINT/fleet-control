@@ -1,5 +1,11 @@
 # Data Model
 
+The [control outcome wire-consumer](contracts/HERMES_CONTROL_OUTCOME_V1.md)
+currently adds no database migration. Its original epoch/body/capability context
+has a strict serialization contract, but durable command/decision integration
+still requires a separately reviewed additive schema and atomic permit/ACK
+updates. Existing historical receipts are not backfilled with a producer epoch.
+
 Delivery updates serialize on their session with `FOR NO KEY UPDATE` before
 locking the message. This matches dispatch/terminal session-before-child ordering
 and avoids a message/event-trigger FK cycle with a session-owning journal writer.

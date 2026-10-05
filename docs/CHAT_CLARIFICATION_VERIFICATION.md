@@ -3,6 +3,78 @@
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 
+## Original Control Outcome GET Wire (5 October 2026)
+
+Fleet parent49fddedf2511cc54ca247347ee66b135b82616ae and Base producer
+a48e53ee37a5a38b189f8a9cce84686d18fc5c83 matched their remote branches before
+this packet. Own Fleet source changes only the new control-outcome wire module,
+its tests and module declaration; no supervisor call, API DTO, schema, SDK pin,
+accepted runtime, Base source or read-only producer checkout was changed.
+
+The wire module prepares exact serialized action bytes and a closed original
+capability/epoch/origin/credential context. GET revalidates that saved context,
+sends five exact query parameters without body and rejects malformed/foreign
+witnesses. Eleven tests cover all three ACK types, uncertain hold, immutable raw
+body roundtrip, duplicate JSON fields, version/scope/epoch/source drift, exact
+command UUID identity, missing/error/redirect/MIME/encoding responses,
+truncated/chunked bounds and encoded request size. Python record-separator
+whitespace semantics are included; stop is empty bytes, not an empty JSON object.
+Fixtures are loopback HTTP packets, not a real production Fleet recovery worker.
+
+Final exec69253/project`sdlc-qa-control-outcome-wire-61c5bf77f6e8` exit0:
+232 library cases (41 API,21 app,26 domain,132 infra,12 shared), including all11
+new wire cases; strict locked/offline workspace all-target Clippy and fmt PASS.
+The five lifecycle unit cases used the project's own disposable PostgreSQL.
+One native renderer export is ignored, not counted. Completion log SHA256:
+`6054d20ab49d5fab4528538a9b65a679d6edad21df06242ea682060270400196`.
+
+Broad exec41134/project`sdlc-qa-fleet-approval-context-93fe21be9996` exit0:
+167 foundation PG/HTTP cases,1 isolated approval event,5 additive migration
+cases and3 supplemental PG cases PASS, clean migration CLI up/status/down-one/
+up/status on15 registered versions, all-target check/strict Clippy/fmt and
+generated OpenAPI equality. Its earlier library run preceded the final new-wire
+whitespace/encoded-bound refinements; final232 libraries above verify those
+current bytes. Together these cover408 distinct component cases, not408 new
+cases or a single final-source native/installed acceptance run.
+Broad completion log `e8b629379cb98b5a7f53991d0b4c3add3e9998195dd01b4f5aa225b50cead2b6`;
+PG diagnostics `3f62c65392ae7ba4e6770cc85e5517fd5c3bbe3f0816fc3a8f37881b21211543`.
+Repeated20-22second VM clock regressions remain an open infrastructure gap.
+
+Failure history remains explicit: project0422bcae7f0f failed Compose validation
+before creation (missing inherited postgres definition); project66be64124ed4
+failed test compilation (mixed borrowed/owned streamed chunks); both corrected.
+Project0845e58a3fcc passed the earlier11-case wire/Clippy scope. Projectc08eba2c441b
+attempted the library scope without starting its declared PG service: five lifecycle
+tests failed DB DNS,127 infra cases including all11 new cases passed; Cargo
+stopped before the shared library suite. The final
+61c5bf77f6e8 run starts a separate fresh PG and passes all232 without skips for
+those failures. No failed run is counted green and no assertion was removed.
+All own projects reached exact finally down; independent ps checks are empty.
+
+Final source SHA256:
+
+- `control_outcome_wire.rs`: `946e2f04c41511e05d66f67e0738e60499cc5880f0a25deae3363b347220490c`.
+- `control_outcome_wire_tests.rs`: `c9e94f6c6ddaf4b6eaeb2470a5294905966e180d49917399e50d82106933cde7`.
+- `runtime/mod.rs`: `224b37aade34065501ddcda20db5dcf7a646d3ed8cff5bc3206f4c2b91658360`.
+
+Node22/pnpm10.28.1 exec39053 exit0: typecheck/lint/format,235 Vitest cases,
+build and generated client equality PASS. Existing135 production-page fixtures,
+nine chat-controller fixtures and three control fixtures retain verified hashes;
+nine screenshot-verifier negative cases and111 Markdown file links PASS. No UI
+change, new browser capture or live screenshot acceptance is claimed. The
+706.74KiB Vite chunk warning remains.
+
+PR47 is still Draft/main5240107 with five SUCCESS; Base PR140/main177edb8 and
+the unchanged producer/source branch are separate packets. Their CI cannot be
+attributed to this integration branch. Tracker PR114/main8c80a41, Workflow
+PR90/mastere4fba60 and Forge task2 have no new compatible release/handoff in this
+audit. The full goal remains incomplete: durable command/decision context and
+single-use permit binding, atomic GET ACK/audit/event recovery without losing
+terminal history, actual combined native approvals/Fleet restart acceptance,
+safe descendants/config generation, first-step/PM producers and seven-agent
+flow, ordered release/exact-head CI. See the
+[consumer integration requirements](contracts/HERMES_CONTROL_OUTCOME_V1.md).
+
 ## Directory Query Review Follow-Up (2026-10-03)
 
 Owner IDs retain their existing JSON SQL parameter, but membership converts

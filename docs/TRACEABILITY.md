@@ -1,5 +1,11 @@
 # Traceability
 
+Native control-outcome GET: [contract v1](contracts/HERMES_CONTROL_OUTCOME_V1.md),
+`runtime/control_outcome_wire` and eleven protocol tests cover saved raw bytes,
+epoch/scope/origin, closed capabilities/JSON, exact targeted ACKs and bounded
+GET-only failures. This is wire-consumer evidence, not production journal,
+positive native approval, safe-stop or full SDLC acceptance.
+
 Journal clock-order repair: [ADR 0023](adr/0023-logical-journal-progress-time.md),
 additive migration 000014, deterministic clock-regression PG test and isolated
 upgrade/down/reapply. Current approval readback: [ADR 0022](adr/0022-current-native-approval-snapshot.md)

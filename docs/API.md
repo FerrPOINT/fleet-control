@@ -1,5 +1,9 @@
 # API
 
+The internal [control outcome GET wire-consumer](contracts/HERMES_CONTROL_OUTCOME_V1.md)
+adds no Fleet HTTP route or OpenAPI DTO. It is not yet connected to the public
+command/decision lifecycle; public receipts do not expose its private context.
+
 Hermes free-chat stop/steer now require current pinned identity, original accepted
 journal/context, fresh exact capabilities and native status readback before POST.
 Pending/terminal/stale/legacy context does not authorize control; task controls

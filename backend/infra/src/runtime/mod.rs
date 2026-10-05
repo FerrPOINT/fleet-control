@@ -25,6 +25,8 @@ use uuid::Uuid;
 mod acceptance_readback;
 mod activation_journal;
 mod approval_snapshot;
+#[doc(hidden)]
+pub mod control_outcome_wire;
 mod hermes_wire;
 #[cfg(test)]
 mod lifecycle_tests;

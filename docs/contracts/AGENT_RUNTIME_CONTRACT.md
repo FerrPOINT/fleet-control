@@ -1,5 +1,10 @@
 # Agent Runtime Contract
 
+The [control outcome wire-consumer](HERMES_CONTROL_OUTCOME_V1.md) is implemented
+as preparation and original-context GET only. Production journal integration
+remains pending: these functions grant no permit, perform no POST, change no
+runtime state and cannot prove a task stage or safe descendant termination.
+
 Hermes steer/stop use the original accepted dispatch context, fresh capabilities
 and pinned native status under the [control profile](HERMES_RUN_CONTROL_V1.md).
 Only an exact bounded ACK is accepted. Guidance never resets local run state;

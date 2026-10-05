@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- Add a strict Rust preparation/original-context GET wire-consumer for native
+  control outcomes: pinned source/scope/epoch, immutable serialized action bytes,
+  bounded closed JSON and exact steer/stop/approval ACK matching. No POST,
+  supervisor journal mutation or installed enablement is introduced; durable
+  production command/decision recovery remains pending.
+
 - Add native protocol QA for the opt-in Base control-outcome producer: real
   steer/interrupt ACK transport loss, original-key GET and gateway restart.
   Document the producer contract; production Fleet consumer remains pending.

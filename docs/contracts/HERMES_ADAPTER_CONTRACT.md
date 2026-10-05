@@ -1,5 +1,10 @@
 # Hermes Adapter Contract
 
+The [control outcome extension](HERMES_CONTROL_OUTCOME_V1.md) now has a Rust
+GET-only wire-consumer with closed capability/context/ACK validation. It is not
+yet connected to supervisor command/decision journals; no producer POST header,
+recovery state mutation, automatic enablement or task authority is added.
+
 Current pending approval readback is GET-only and limited to the original
 accepted pinned free chat; historical/tool replay and unknown decision recovery
 are not implied. See [ADR0022](../adr/0022-current-native-approval-snapshot.md).
