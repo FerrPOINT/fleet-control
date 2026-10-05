@@ -47,6 +47,8 @@ mod runtime_prepared_recovery;
 #[path = "support/runtime_stream_bounds.rs"]
 mod runtime_stream_bounds;
 
+#[path = "support/runtime_control_outcomes.rs"]
+mod runtime_control_outcomes;
 #[path = "support/runtime_run_control.rs"]
 mod runtime_run_control;
 #[path = "support/runtime_targeted_approval.rs"]

@@ -1700,6 +1700,9 @@ fn control_message(command: &domain::RuntimeControlReceipt) -> &'static str {
             "Runtime acknowledged the command; terminal readback is independent"
         }
         domain::RuntimeControlState::Rejected => "Command was not dispatched",
+        domain::RuntimeControlState::TerminalObserved if command.acknowledgement.is_some() => {
+            "Run terminal observed; runtime also acknowledged the original command"
+        }
         domain::RuntimeControlState::TerminalObserved => {
             "Run terminal observed; command acceptance remains unknown"
         }
@@ -2411,7 +2414,7 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
             session_id: run.session_id,
             run_id: run.id,
             runtime_run_id: run.runtime_run_id.clone(),
-            accepted: command.state == domain::RuntimeControlState::Acknowledged,
+            accepted: command.acknowledgement.is_some(),
             state: updated.state,
             message: control_message(&command).to_string(),
             command: Some(command),
@@ -2445,7 +2448,7 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
             session_id: run.session_id,
             run_id: run.id,
             runtime_run_id: run.runtime_run_id.clone(),
-            accepted: command.state == domain::RuntimeControlState::Acknowledged,
+            accepted: command.acknowledgement.is_some(),
             state: updated.state,
             message: control_message(&command).to_string(),
             command: Some(command),

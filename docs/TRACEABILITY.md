@@ -3,7 +3,10 @@
 Native control-outcome GET: [contract v1](contracts/HERMES_CONTROL_OUTCOME_V1.md),
 `runtime/control_outcome_wire` and eleven protocol tests cover saved raw bytes,
 epoch/scope/origin, closed capabilities/JSON, exact targeted ACKs and bounded
-GET-only failures. This is wire-consumer evidence, not production journal,
+GET-only failures. Additive000015 and `runtime_controls` implement the internal
+single-use context/ACK journal; seven PostgreSQL cases and isolated migration
+upgrade/down/reapply/history-loss denial verify that boundary. Supervisor
+dispatch/recovery remains unwired. This is not installed consumer,
 positive native approval, safe-stop or full SDLC acceptance.
 
 Journal clock-order repair: [ADR 0023](adr/0023-logical-journal-progress-time.md),

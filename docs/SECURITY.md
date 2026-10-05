@@ -1,5 +1,14 @@
 # Security
 
+The additive000015 outcome context is private transcript-class data: it contains
+exact steer input, but no bearer token, and must not enter public receipts,
+Debug logs, audit or event payloads. Protect database backups accordingly. The
+row is immutable; retention/deletion is not implemented by a hidden reset.
+Internal ACK completion records a verified prior effect, not fresh authority
+for a revoked actor. Public mutation gates still recheck the current human.
+Supervisor witness dispatch/recovery remains unwired; do not enable the producer
+plugin until consumer/native acceptance. See [outcome v1](contracts/HERMES_CONTROL_OUTCOME_V1.md).
+
 ## Durable Authenticated Runtime Commands
 
 Steer/stop actor is derived from authenticated `CurrentUser`, never JSON. The

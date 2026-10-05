@@ -1,6 +1,6 @@
 # Hermes Control Outcome v1
 
-Status: Base producer, GET wire-consumer and native producer QA implemented; production Fleet journal integration,
+Status: Base producer, GET wire-consumer, internal stop/steer journal and native producer QA implemented; supervisor dispatch/recovery,
 positive native approval and installed rollout remain unverified. This is not
 task admission, safe OS stop, Workflow completion or a replacement for
 [human control authorization](HERMES_RUN_CONTROL_V1.md).
@@ -73,9 +73,21 @@ snapshot or terminal run replaces the original witness.
 
 This adapter is not yet called by the production supervisor. It has no POST
 operation and does not mutate commands, approvals, capacity or business state.
-Its prepare result must still be persisted atomically with a single-use permit;
-its lookup result must still commit into the existing journal/audit/event
-transaction. Component GET tests are not actual Fleet/native recovery acceptance.
+An internal repository now supports atomic preparation-context/claim and
+ACK/audit/event commits through additive migration000015. It is not wired to
+supervisor HTTP dispatch/recovery. Component GET/PG tests are not actual
+Fleet/native recovery acceptance.
+
+The stop/steer outcome row preserves exact bytes/capabilities, never adopts a
+fresh epoch and has no dispatch-reset or delete operation. Claim rechecks the
+actor and accepted free-chat journal before consuming the permit. Context,
+operation and semantic payload must match the original command. ACK commits
+revalidate accepted dispatch/native pins and exact saved context. The internal
+completion method records an already witnessed effect; it does not authorize
+a new effect after actor revocation. Public mutations still require current
+human authorization. Deferred DB guards bind required context and ACK/receipt
+atomically, including audit failure rollback. Positive ACK after a terminal
+mirror preserves terminal history and adds the independent outcome fact only.
 
 Production Fleet does not yet send the producer headers or consume the
 extension from its command/decision lifecycle.
@@ -101,16 +113,17 @@ That permanent hold requires explicit future operator reconciliation, not a
 negative-lookup retry. Producer storage loss/rotation is likewise not absence
 of prior effects. Fenced task/machine controls remain a separate admission.
 
-The next journal packet must explicitly cover these existing-state interactions:
+These journal/consumer interactions remain explicit rollout requirements:
 
-1. Persist context before consuming the command permit or approval dispatch
-   right, under the existing actor/session/native-identity checks. A producer
+1. Stop/steer repository context/claim is implemented; wire the supervisor to
+   that transaction before POST. Approval dispatch-context persistence remains
+   separate. A producer
    epoch observed after submission is not a historical witness. The public
    actor idempotency key remains separate from the producer command UUID.
-2. Existing command guards forbid uncertain-to-acknowledged updates and retire
-   terminal mirrors as `terminal_observed`. Use an additive reviewed transition
-   or separate outcome record that preserves both facts; do not rewrite applied
-   migration000013, clear the observed terminal fact or reopen the native run.
+2. Additive000015 allows witnessed uncertain-to-acknowledged and separately
+   preserves terminal mirrors as `terminal_observed` plus projected ACK. Applied
+   migration000013 is unchanged. Verify the supervisor/native races without
+   clearing the observed terminal fact or reopening the native run.
 3. An approval can become cancelled by terminal mirroring before a lost decision
    ACK is read back. Persist witnessed decision delivery independently of that
    request lifecycle, without manufacturing another pending question, changing

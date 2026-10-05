@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+- Add internal original stop/steer outcome journal (additive000015): atomic
+  context/single-use claim, exact payload/epoch binding, positive ACK/audit/event
+  commit and independent terminal history. Reject legacy backfill, context
+  tampering, split ACK and nonempty rollback. Supervisor sending/GET recovery,
+  approval outcome integration and installed rollout remain pending.
+- Serialize generic run progress on its session before PM/run locks to avoid
+  a dispatch-journal/session-event FK deadlock. Add a deterministic PostgreSQL
+  fail-before/pass-after regression without changing runtime retry/deadlines.
+
 - Add a strict Rust preparation/original-context GET wire-consumer for native
   control outcomes: pinned source/scope/epoch, immutable serialized action bytes,
   bounded closed JSON and exact steer/stop/approval ACK matching. No POST,

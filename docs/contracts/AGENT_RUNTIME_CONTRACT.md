@@ -1,5 +1,12 @@
 # Agent Runtime Contract
 
+The internal stop/steer outcome journal now stores original context with a
+single-use claim and commits positive ACK/audit/events without losing a terminal
+observation. This is a repository capability, not a connected supervisor worker
+or approval-decision recovery. See [outcome v1](HERMES_CONTROL_OUTCOME_V1.md);
+keep its producer plugin disabled on installed agents until native consumer
+acceptance. Runtime ACK never proves task completion or safe descendant stop.
+
 The [control outcome wire-consumer](HERMES_CONTROL_OUTCOME_V1.md) is implemented
 as preparation and original-context GET only. Production journal integration
 remains pending: these functions grant no permit, perform no POST, change no

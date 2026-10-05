@@ -1,10 +1,35 @@
 # Data Model
 
-The [control outcome wire-consumer](contracts/HERMES_CONTROL_OUTCOME_V1.md)
-currently adds no database migration. Its original epoch/body/capability context
-has a strict serialization contract, but durable command/decision integration
-still requires a separately reviewed additive schema and atomic permit/ACK
-updates. Existing historical receipts are not backfilled with a producer epoch.
+The [control outcome contract](contracts/HERMES_CONTROL_OUTCOME_V1.md) now has
+an internal stop/steer journal in additive migration `000015`. Supervisor
+dispatch/GET recovery and the separate approval decision consumer remain pending.
+Existing historical receipts are not backfilled with a producer epoch.
+
+## Runtime Control Outcomes
+
+`runtime_control_outcomes.command_id` is a one-to-one FK to the immutable
+command. Its private, bounded JSON context preserves exact serialized request
+bytes/hash, original command/run, origin, credential fingerprint and producer
+capabilities/store epoch. It contains raw guidance, not a runtime bearer token;
+it is never a public DTO or logged Debug value.
+
+`runtime_control_commands.outcome_required` defaults false for legacy commands.
+Only reserved -> submitted may activate it, in the same transaction as the
+original context. A deferred guard prohibits committing a required context
+without its row; it cannot be enabled or disabled after submission. Context
+identity is immutable; no delete, backfill, expiry, negative-lookup reset or
+new dispatch permit exists. The pending scan is UUID keyset-paginated at 100
+rows with a partial pending index.
+
+An exact positive witness atomically commits outcome ACK, command receipt,
+nonterminal stopping state if applicable, audit and durable event. Submitted
+or uncertain commands can become acknowledged only with that original context.
+Deferred guards reject an ACK without its matching receipt. If independently
+observed terminal history already exists, it stays `terminal_observed` with its
+original observed state/timestamp: the public receipt projects the independent
+ACK from the outcome row. Neither run nor transcript is reopened or rewritten.
+Duplicate identical ACK commits return the same receipt without another event;
+changed epoch/context/ACK conflicts. Nonempty downgrade refuses history loss.
 
 Delivery updates serialize on their session with `FOR NO KEY UPDATE` before
 locking the message. This matches dispatch/terminal session-before-child ordering
@@ -12,6 +37,12 @@ and avoids a message/event-trigger FK cycle with a session-owning journal writer
 Session event/cursor generation stays transactional; unknown acceptance still
 keeps delivery pending and does not release dispatch capacity. No migration is
 needed for this repository-level locking correction.
+
+Generic run progress now likewise reads its immutable scope, locks the session
+`FOR NO KEY UPDATE`, then locks PM proof/run and rechecks the scope. This avoids
+the run/event-FK cycle with the original dispatch journal's exclusive session
+lock. A real PG deadlock and deterministic fail-before/pass-after regression
+verify this correction; no applied migration or timeout policy is changed.
 
 Native free-chat stop/steer read the existing accepted dispatch journal by concrete
 Fleet run ID; the receipt/live run are observed together. Control ACK is not a new terminal proof or

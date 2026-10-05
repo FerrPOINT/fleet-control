@@ -9,9 +9,11 @@ authorize another effect. Production Fleet consumer integration is still
 required. Do not enable the plugin on installed agents or retrofit old receipts.
 
 The Rust GET wire-consumer prepares an opaque original context and validates
-bounded exact ACK readback; it contains no POST or state mutation. Supervisor
-journal persistence, single-use permit binding and atomic receipt/audit/event
-recovery remain unwired. A deserialized context is revalidated before HTTP and
+bounded exact ACK readback; the wire module contains no POST or state mutation.
+The internal repository now binds original stop/steer context to the single-use
+claim and commits positive ACK/receipt/audit/event atomically (migration000015).
+The supervisor does not yet call that path or run GET outcome recovery, and
+approval decision integration remains pending. A deserialized context is revalidated before HTTP and
 is not a human/machine authorization proof. See the outcome contract above.
 
 The [control profile](contracts/HERMES_RUN_CONTROL_V1.md) separates acknowledgement

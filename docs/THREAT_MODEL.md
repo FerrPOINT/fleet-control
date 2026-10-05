@@ -6,6 +6,12 @@ automatic SDLC or hostile-code isolation. See [Security](SECURITY.md) and
 
 Primary risks:
 
+- exposing exact guidance from private outcome contexts or database backups;
+  context has no public DTO/Debug and audit/events carry IDs only
+- assigning a new witness to an already submitted legacy command, or using a
+  completed run as proof of control acceptance; immutable claim context and an
+  independent outcome fact prevent these substitutions at the repository boundary
+
 - accidental sharing of one `HERMES_HOME` between agents
 - path traversal from workspace/config inputs
 - leaking model/API tokens through env previews or logs

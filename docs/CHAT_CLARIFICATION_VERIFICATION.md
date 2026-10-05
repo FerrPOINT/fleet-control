@@ -3,6 +3,107 @@
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 
+## Original Control Outcome Journal (5 October 2026)
+
+Parent Fleet71eb9d6a758f66d326d2d0a359398a2130161c13 and unchanged Base
+a48e53ee37a5a38b189f8a9cce84686d18fc5c83 identify this internal journal packet.
+No source-pinned runtime is enabled, no POST/GET worker is added and no approval
+decision recovery or task admission is claimed. SDK pin9408802 is unchanged;
+applied migrations000013/000014 and read-only sibling services are untouched.
+
+Additive000015 stores an immutable one-to-one original stop/steer context with
+the submitted permit in one transaction. Claim revalidates actor, accepted
+free-chat dispatch/native pins and exact semantic payload; the saved context
+retains raw action bytes/hash and epoch/capabilities, not a bearer token. It
+has no Debug/public DTO. Legacy submitted commands cannot be retrofitted.
+Exact witnessed ACK commits outcome/receipt/stopping/audit/durable event
+atomically. A late ACK preserves an independently observed terminal receipt,
+run and transcript; it does not reopen execution. Deferred guards deny missing
+required context or split ACK/receipt, identity changes and history deletion.
+
+Seven actual PostgreSQL cases PASS: concurrent single-use claim/new repository,
+closed context and original payload/identity, actor revocation and no legacy
+backfill, exact idempotent ACK while capacity stays held, late terminal ACK,
+audit-failure rollback and direct database guard denials. Isolated migration
+upgrade/down/reapply preserves legacy users/commands and restored transition
+logic; nonempty outcome downgrade fails without losing the version/history.
+These are repository tests, not production Fleet/native recovery acceptance.
+
+Failure history: owned project6ac7a7bda5b0 failed all-target test compilation
+(DatabaseConnection is not Clone); new-repository test now opens a real fresh
+connection. Project96932cfb2709 compiled but its seven setup attempts failed
+the existing accepted-context guard because the fixture's explicit origin did
+not match the agent port. Correct the fixture port, not the guard/assertions.
+Both reached finally down and independent empty ps. The corrected target run
+1a05e785e6bc passes all seven cases plus the isolated migration case.
+Final exec77063/project`sdlc-qa-control-outcome-journal-cbceeaa01951` exit0:
+417 distinct component cases PASS (232 libraries,175 foundation,1 isolated
+approval,6 isolated migrations,3 supplemental PostgreSQL cases). The seven
+targeted journal cases were repeated by the foundation suite, not counted
+twice; one native renderer export remains ignored and is not counted. Locked
+offline all-target check, strict workspace Clippy, fmt and generated OpenAPI
+equality PASS. Clean migration CLI up/status/down-one/up/status covers all16
+registered versions; doc-test commands pass with zero examples. Exact finally
+down and independent empty ps confirm disposal; shared caches are retained.
+Completion/PG diagnostics SHA256:
+`a991b62d7f7c6301d2b07564163f71738fc6ad7d83c0253746dc071878c166ce`,
+`99336f5171cc4fd9b2a30d13606f6f90b9bf99c37420ade2fa3f8f22c718a718`.
+
+Node22.20/pnpm10.28.1 typecheck and generated-client equality PASS;111 Markdown
+files, README and existing135 screen/9 chat/3 control fixture hashes verify.
+No frontend source changed, no new browser/native capture ran and the previous
+235 Vitest cases/build were not repeated for this repository-only packet.
+Docker grouping audit is incomplete, not green: desktop40 and sdlc2-runner0
+containers have no violations; sdlc1-runner access fails. Repeated VM clock
+regressions also remain open infrastructure evidence. Base, SDK pin, old
+migrations, public generated API, accepted resources and sibling trees are
+unchanged. The integration branch has no release PR; PR47 and dependency PR140
+remain untouched. Current local gates are not evidence of release-head CI.
+
+The first broad run1a05e785e6bc is FAILED, not green:232 library cases,
+173 of174 foundation cases, the isolated approval case, all six migration cases,
+all-target check/strict Clippy/fmt and OpenAPI equality passed. Invalid/foreign
+SSE settlement timed out. Its PostgreSQL log identifies a real session/run FK
+deadlock, not an assumed clock artifact: run progress holds its row while its
+event FK waits for the journal's exclusive session holder; that holder waits
+for the run. The supplemental/clean-CLI stages did not run after this failure.
+The isolated unchanged stream case2be2b34cf62f passes but does not resolve the
+race. New deterministic case2321fad60c4e fails on old progress locking with
+`deadlock detected`; after session-before-PM/run ordering,26db6d8929f2 passes.
+No deadline/assertion was weakened and no retry was added to the runtime.
+The seed scope is rechecked under the run lock; existing PM proof ordering and
+native pins stay intact. All four owned projects reached exact cleanup/empty ps.
+
+Pre-fix regression completion/PG log SHA256:
+`2fc6c675fcdcab726dde558a5d215468aaa8ddaf7579ad0b897a74908e3fafda`,
+`b730ad54b4129d3b71ccd8410335d1f2aa062e70fc2b950cdb0be22a62f17b37`.
+Post-fix regression completion/PG log SHA256:
+`71e3a714c603db914fa4468a61441f1d511a3a741bf2499a7f8ba6769d48d292`,
+`d774b5138084c0597fd4faac0b8e87874da31672ed585370a337fe8c8e8b4b7d`.
+
+Final journal source SHA256 (raw working-tree bytes after formatting):
+
+- `backend/infra/src/lib.rs`:
+  `ec68e2a10f76407d8ac1d6137d05ad402b3fe7606725ba9373202fda326bfb5c`
+- `backend/infra/src/runtime_controls.rs`:
+  `f12278e4193b596cbdaf5aa902e86c36240e7ad0f83c2816635322848eca12f8`
+- `backend/infra/src/runtime/control_outcome_wire.rs`:
+  `b4ef19f1e8b5fbe41772aa29bc38ab0fe5ace63cf0db65041a5b1868666ae5a5`
+- `backend/infra/tests/support/runtime_control_outcomes.rs`:
+  `91d9d1077eabc8e3f77e1b7a54a0589616d08141c3ee1481b93a17e1d46b4b8a`
+- `backend/migration/src/m20261005_000015_runtime_control_outcomes.rs`:
+  `322ae3c2ce4e980faeea4e023e0a46155627d2198f34223a4af4084356c7fe81`
+- `backend/migration/tests/runtime_control_outcomes.rs`:
+  `914ca9c7e5f9b072b8c229c8174bf53a590050d7826642a231d5484ab784f02f`
+
+Remaining: connect supervisor exact-byte POST/producer headers and bounded
+original-context GET worker to this journal; implement approval delivery fact
+separately, including terminal-cancelled requests; prove concurrent normal ACK
+and recovery plus actual native/Fleet/gateway restarts and combined extensions.
+Keep the plugin disabled on installed agents. First-step/PM admission producers,
+safe descendants, loaded generation, Forge handoff, seven-agent acceptance and
+ordered exact-head release remain gates.
+
 ## Original Control Outcome GET Wire (5 October 2026)
 
 Fleet parent49fddedf2511cc54ca247347ee66b135b82616ae and Base producer

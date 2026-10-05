@@ -1,8 +1,11 @@
 # API
 
-The internal [control outcome GET wire-consumer](contracts/HERMES_CONTROL_OUTCOME_V1.md)
-adds no Fleet HTTP route or OpenAPI DTO. It is not yet connected to the public
-command/decision lifecycle; public receipts do not expose its private context.
+The internal [control outcome journal](contracts/HERMES_CONTROL_OUTCOME_V1.md)
+adds no Fleet HTTP route or OpenAPI DTO. The production supervisor is not yet
+connected to this journal or its GET witness; public receipts never expose the
+private original context. A `terminal_observed` receipt can independently
+carry a witnessed acknowledgement without changing the terminal observation.
+`accepted` reflects that known ACK, never task completion or safe process stop.
 
 Hermes free-chat stop/steer now require current pinned identity, original accepted
 journal/context, fresh exact capabilities and native status readback before POST.

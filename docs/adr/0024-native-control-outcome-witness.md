@@ -2,7 +2,8 @@
 
 ## Status
 
-Producer/native protocol implemented and tested. Fleet consumer, native positive
+Producer/native protocol, Fleet GET wire and internal stop/steer journal
+implemented and component-tested. Supervisor consumer, native positive
 approval and installed rollout pending; automatic task controls remain denied.
 
 ## Context
@@ -20,8 +21,12 @@ validated native ACK before returning HTTP. Separate authenticated GET observes
 the original epoch and command without dispatch. Producer storage has private
 file ownership, SQLite durability, continuity checks and immutable history.
 Missing/uncertain replies never grant retry. No backfill for legacy commands.
-Fleet must preserve original producer context transactionally before submission
-and reconcile only after exact GET validation; this consumer packet is pending.
+Fleet preserves original producer context transactionally with a single-use
+claim through additive000015. The independent outcome row keeps witnessed ACK
+separate from an already observed terminal run, without modifying applied000013
+or reopening the run. ACK, receipt, applicable stopping state, audit and durable
+event are atomic; legacy submitted commands cannot acquire context later.
+Supervisor dispatch/GET recovery and the approval decision journal remain pending.
 
 ## Consequences
 

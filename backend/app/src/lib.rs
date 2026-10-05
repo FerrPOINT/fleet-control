@@ -122,6 +122,12 @@ pub struct HermesDispatchIntent {
     pub recovery_allowed: bool,
 }
 
+/// Private original control context. Raw guidance must not enter logs or public receipts.
+pub struct RuntimeControlOutcomeIntent {
+    pub receipt: domain::RuntimeControlReceipt,
+    pub context: serde_json::Value,
+}
+
 /// Internal terminal proof; never a public request or permission to dispatch.
 pub struct HermesTerminalCommit {
     pub message_id: Uuid,
@@ -183,6 +189,41 @@ pub trait FleetRepository: Send + Sync {
     async fn claim_runtime_control(&self, _id: Uuid) -> Result<bool, AppError> {
         Err(AppError::Unavailable(
             "runtime control journal is unavailable".into(),
+        ))
+    }
+    async fn claim_runtime_control_outcome(
+        &self,
+        _id: Uuid,
+        _context: serde_json::Value,
+    ) -> Result<bool, AppError> {
+        Err(AppError::Unavailable(
+            "runtime control outcome journal is unavailable".into(),
+        ))
+    }
+    async fn get_runtime_control_outcome(
+        &self,
+        _id: Uuid,
+    ) -> Result<Option<RuntimeControlOutcomeIntent>, AppError> {
+        Err(AppError::Unavailable(
+            "runtime control outcome journal is unavailable".into(),
+        ))
+    }
+    async fn list_runtime_control_outcomes(
+        &self,
+        _after: Option<Uuid>,
+    ) -> Result<Vec<RuntimeControlOutcomeIntent>, AppError> {
+        Err(AppError::Unavailable(
+            "runtime control outcome journal is unavailable".into(),
+        ))
+    }
+    async fn finish_runtime_control_outcome(
+        &self,
+        _id: Uuid,
+        _context: serde_json::Value,
+        _acknowledgement: &str,
+    ) -> Result<domain::RuntimeControlReceipt, AppError> {
+        Err(AppError::Unavailable(
+            "runtime control outcome journal is unavailable".into(),
         ))
     }
     async fn finish_runtime_control(

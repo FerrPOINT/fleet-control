@@ -18,7 +18,9 @@ fn database_error(error: sea_orm::DbErr) -> AppError {
 
 const RECORD: &str = "jsonb_build_object('id',c.id,'session_id',c.session_id,
     'session_run_id',c.session_run_id,'agent_id',c.agent_id,'actor_user_id',c.actor_user_id,
-    'operation',c.operation,'state',c.state,'acknowledgement',c.acknowledgement,
+    'operation',c.operation,'state',c.state,'acknowledgement',COALESCE(c.acknowledgement,
+        (SELECT o.acknowledgement FROM runtime_control_outcomes o
+            WHERE o.command_id=c.id AND o.state='acknowledged')),
     'observed_run_state',c.observed_run_state,'created_at',c.created_at,'updated_at',c.updated_at)";
 
 fn receipt(row: &QueryResult) -> Result<RuntimeControlReceipt, AppError> {
@@ -31,7 +33,7 @@ async fn row<C: ConnectionTrait>(db: &C, id: Uuid, lock: bool) -> Result<QueryRe
         DatabaseBackend::Postgres,
         format!(
             "SELECT {RECORD} AS record,c.idempotency_key,c.payload_sha256,c.runtime_run_id,
-            c.runtime_session_id,c.original_request_sha256,c.api_origin,c.credential_fingerprint
+            c.runtime_session_id,c.original_request_sha256,c.api_origin,c.credential_fingerprint,c.outcome_required
             FROM runtime_control_commands c WHERE c.id=$1 {}",
             if lock { "FOR UPDATE" } else { "" }
         ),
@@ -281,6 +283,42 @@ pub(super) async fn reserve(
 }
 
 pub(super) async fn claim(repo: &PostgresFleetRepository, id: Uuid) -> Result<bool, AppError> {
+    claim_inner(repo, id, None).await
+}
+
+pub(super) async fn claim_outcome(
+    repo: &PostgresFleetRepository,
+    id: Uuid,
+    context: Value,
+) -> Result<bool, AppError> {
+    claim_inner(repo, id, Some(context)).await
+}
+
+fn verify_outcome_context(record: &QueryResult, context: &Value) -> Result<(), AppError> {
+    let parsed: runtime::control_outcome_wire::Context = serde_json::from_value(context.clone())
+        .map_err(|_| AppError::validation("invalid original control outcome context"))?;
+    parsed.verify_control(
+        &receipt(record)?,
+        &record
+            .try_get::<String>("", "runtime_run_id")
+            .map_err(database_error)?,
+        &record
+            .try_get::<String>("", "api_origin")
+            .map_err(database_error)?,
+        &record
+            .try_get::<String>("", "credential_fingerprint")
+            .map_err(database_error)?,
+        &record
+            .try_get::<String>("", "payload_sha256")
+            .map_err(database_error)?,
+    )
+}
+
+async fn claim_inner(
+    repo: &PostgresFleetRepository,
+    id: Uuid,
+    context: Option<Value>,
+) -> Result<bool, AppError> {
     let seed = receipt(&row(&repo.db, id, false).await?)?;
     let txn = repo.db.begin().await.map_err(database_error)?;
     authorize(&txn, seed.actor_user_id, seed.session_id).await?;
@@ -324,13 +362,25 @@ pub(super) async fn claim(repo: &PostgresFleetRepository, id: Uuid) -> Result<bo
     {
         return Err(AppError::conflict("runtime control native pin changed"));
     }
+    if let Some(context) = &context {
+        verify_outcome_context(&record, context)?;
+    }
     txn.execute(Statement::from_sql_and_values(
         DatabaseBackend::Postgres,
-        "UPDATE runtime_control_commands SET state='submitted',updated_at=now() WHERE id=$1",
-        [id.into()],
+        "UPDATE runtime_control_commands SET state='submitted',outcome_required=$2,updated_at=now() WHERE id=$1",
+        [id.into(), context.is_some().into()],
     ))
     .await
     .map_err(database_error)?;
+    if let Some(context) = context {
+        txn.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "INSERT INTO runtime_control_outcomes(command_id,context) VALUES($1,$2)",
+            [id.into(), context.into()],
+        ))
+        .await
+        .map_err(database_error)?;
+    }
     audit(&txn, &prior, "runtime_control.submitted").await?;
     txn.commit().await.map_err(database_error)?;
     Ok(true)
@@ -340,6 +390,24 @@ pub(super) async fn finish(
     repo: &PostgresFleetRepository,
     id: Uuid,
     ack: &str,
+) -> Result<RuntimeControlReceipt, AppError> {
+    finish_inner(repo, id, ack, None).await
+}
+
+pub(super) async fn finish_outcome(
+    repo: &PostgresFleetRepository,
+    id: Uuid,
+    context: Value,
+    ack: &str,
+) -> Result<RuntimeControlReceipt, AppError> {
+    finish_inner(repo, id, ack, Some(context)).await
+}
+
+async fn finish_inner(
+    repo: &PostgresFleetRepository,
+    id: Uuid,
+    ack: &str,
+    context: Option<Value>,
 ) -> Result<RuntimeControlReceipt, AppError> {
     let seed = receipt(&row(&repo.db, id, false).await?)?;
     if !matches!(
@@ -377,13 +445,32 @@ pub(super) async fn finish(
         .ok_or_else(|| AppError::not_found("session_agent_run", seed.session_run_id))?;
     let record = row(&txn, id, true).await?;
     let prior = receipt(&record)?;
-    if prior.state == RuntimeControlState::Acknowledged
-        && prior.acknowledgement.as_deref() == Some(ack)
+    if record
+        .try_get::<bool>("", "outcome_required")
+        .map_err(database_error)?
+        != context.is_some()
     {
-        return Ok(prior);
+        return Err(AppError::conflict(
+            "runtime control outcome mode does not match",
+        ));
     }
-    if prior.state != RuntimeControlState::Submitted {
-        return Err(AppError::conflict("runtime control is not awaiting an ACK"));
+    if let Some(context) = &context {
+        verify_outcome_context(&record, context)?;
+        let witness = txn.query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT context,state,acknowledgement FROM runtime_control_outcomes WHERE command_id=$1 FOR UPDATE",
+            [id.into()],
+        )).await.map_err(database_error)?.ok_or_else(|| AppError::conflict("original control outcome is missing"))?;
+        if witness
+            .try_get::<Value>("", "context")
+            .map_err(database_error)?
+            != *context
+            || ack == "already_terminal"
+        {
+            return Err(AppError::conflict(
+                "original control outcome context or ACK changed",
+            ));
+        }
     }
     if run.session_id != seed.session_id
         || run.agent_id != seed.agent_id
@@ -406,6 +493,69 @@ pub(super) async fn finish(
             "runtime control changed before ACK commit",
         ));
     }
+    let journal = txn
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT state,session_id,agent_id,request_hash,origin,credential_fingerprint
+            FROM hermes_dispatch_journal WHERE run_id=$1",
+            [seed.session_run_id.into()],
+        ))
+        .await
+        .map_err(database_error)?
+        .ok_or_else(|| AppError::conflict("original control dispatch is missing"))?;
+    if journal
+        .try_get::<String>("", "state")
+        .map_err(database_error)?
+        != "accepted"
+        || journal
+            .try_get::<Uuid>("", "session_id")
+            .map_err(database_error)?
+            != seed.session_id
+        || journal
+            .try_get::<Uuid>("", "agent_id")
+            .map_err(database_error)?
+            != seed.agent_id
+    {
+        return Err(AppError::conflict("original control dispatch changed"));
+    }
+    for (field, jfield) in [
+        ("original_request_sha256", "request_hash"),
+        ("api_origin", "origin"),
+        ("credential_fingerprint", "credential_fingerprint"),
+    ] {
+        if record
+            .try_get::<String>("", field)
+            .map_err(database_error)?
+            != journal
+                .try_get::<String>("", jfield)
+                .map_err(database_error)?
+        {
+            return Err(AppError::conflict("original control dispatch changed"));
+        }
+    }
+    if matches!(
+        prior.state,
+        RuntimeControlState::Acknowledged | RuntimeControlState::TerminalObserved
+    ) && prior.acknowledgement.as_deref() == Some(ack)
+    {
+        return Ok(prior);
+    }
+    let recoverable = context.is_some()
+        && matches!(
+            prior.state,
+            RuntimeControlState::Uncertain | RuntimeControlState::TerminalObserved
+        );
+    if prior.state != RuntimeControlState::Submitted && !recoverable {
+        return Err(AppError::conflict("runtime control is not awaiting an ACK"));
+    }
+    if context.is_some() {
+        txn.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE runtime_control_outcomes SET state='acknowledged',acknowledgement=$2,acknowledged_at=now()
+                WHERE command_id=$1 AND state='submitted'",
+            [id.into(), ack.into()],
+        )).await.map_err(database_error)?;
+    }
     if ack == "stopping" && matches!(run.state.as_str(), "running" | "waiting" | "stopping") {
         txn.execute(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
@@ -415,13 +565,65 @@ pub(super) async fn finish(
         .await
         .map_err(database_error)?;
     }
-    txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
-        "UPDATE runtime_control_commands SET state='acknowledged',acknowledgement=$2,updated_at=now() WHERE id=$1",
-        [id.into(),ack.into()])).await.map_err(database_error)?;
+    // Run completion and control acceptance are independent facts. Preserve the terminal receipt.
+    if prior.state != RuntimeControlState::TerminalObserved {
+        txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "UPDATE runtime_control_commands SET state='acknowledged',acknowledgement=$2,updated_at=now() WHERE id=$1",
+            [id.into(),ack.into()])).await.map_err(database_error)?;
+    }
     audit(&txn, &prior, "runtime_control.acknowledged").await?;
     let result = receipt(&row(&txn, id, false).await?)?;
     txn.commit().await.map_err(database_error)?;
     Ok(result)
+}
+
+pub(super) async fn get_outcome(
+    repo: &PostgresFleetRepository,
+    id: Uuid,
+) -> Result<Option<app::RuntimeControlOutcomeIntent>, AppError> {
+    let rows = repo
+        .db
+        .query_all(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            format!(
+                "SELECT {RECORD} AS record,o.context FROM runtime_control_commands c
+            JOIN runtime_control_outcomes o ON o.command_id=c.id WHERE c.id=$1"
+            ),
+            [id.into()],
+        ))
+        .await
+        .map_err(database_error)?;
+    rows.first().map(outcome_intent).transpose()
+}
+
+pub(super) async fn list_outcomes(
+    repo: &PostgresFleetRepository,
+    after: Option<Uuid>,
+) -> Result<Vec<app::RuntimeControlOutcomeIntent>, AppError> {
+    repo.db
+        .query_all(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            format!(
+                "SELECT {RECORD} AS record,o.context FROM runtime_control_commands c
+            JOIN runtime_control_outcomes o ON o.command_id=c.id
+            WHERE o.state='submitted' AND c.outcome_required
+                AND c.state IN ('submitted','uncertain','terminal_observed')
+                AND ($1::uuid IS NULL OR c.id>$1) ORDER BY c.id LIMIT 100"
+            ),
+            [after.into()],
+        ))
+        .await
+        .map_err(database_error)?
+        .iter()
+        .map(outcome_intent)
+        .collect()
+}
+
+fn outcome_intent(row: &QueryResult) -> Result<app::RuntimeControlOutcomeIntent, AppError> {
+    Ok(app::RuntimeControlOutcomeIntent {
+        receipt: receipt(row)?,
+        context: row.try_get("", "context").map_err(database_error)?,
+    })
 }
 
 pub(super) async fn retire(

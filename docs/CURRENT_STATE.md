@@ -8,17 +8,30 @@ below are historical, not acceptance evidence for the new SDLC plan.
 Base now has an opt-in native control-outcome producer with durable single-send
 reservations and GET-only exact ACK lookup. Two real API/AIAgent cases verify
 lost steer/interrupt replies, gateway restart and unknown-command hold;21 Linux
-component cases pass. A strict Rust GET wire-consumer now validates saved
-epoch/scope/origin/body identity and exact action ACKs, but is not yet wired
-into the supervisor or command journal. Production Fleet does not yet persist/send its epoch/raw
-command context or reconcile these receipts. Keep this plugin disabled on
+component cases pass. A strict Rust GET wire-consumer validates saved
+epoch/scope/origin/body identity and exact action ACKs. Additive000015 and an
+internal repository now persist original stop/steer context atomically with
+claim and commit witnessed ACK/audit/events without losing terminal history.
+The production supervisor does not yet call this journal, send its headers or
+run original-context GET recovery. Approval outcome integration is separate.
+Keep this plugin disabled on
 installed agents. See [outcome contract](contracts/HERMES_CONTROL_OUTCOME_V1.md)
 and the verification ledger; producer-only evidence is not consumer acceptance.
+
+The first broad gate exposed a run-progress/event FK deadlock against the
+original journal's session lock. A deterministic regression fails before the
+session-first progress fix and passes afterwards. The corrected final gate
+passes417 distinct Linux/PG component cases, strict all-target check/Clippy/fmt,
+OpenAPI equality and clean migration CLI on16 registered versions. Node
+typecheck/API and111 Markdown links plus existing fixture hashes also pass;
+no new browser/native capture or frontend test/build run is claimed. See the
+[journal verification](CHAT_CLARIFICATION_VERIFICATION.md#original-control-outcome-journal-5-october-2026);
+supervisor integration and release-head CI are still required.
 
 Managed configuration apply/rollback now persist Linux directory entries after
 rename/unlink and new ancestors before acknowledging an effective revision.
 Injected persistence failure retains activation journal/drain without spawning
-a runtime. The current candidate passes397 Linux/PG component cases, strict
+a runtime. That preceding candidate passed397 Linux/PG component cases, strict
 all-target checks, migration CLI and OpenAPI equality;235 frontend cases and
 five actual Hermes scenarios pass. Native source/test/harness fingerprints match
 the current bytes. Windows durability, physical power loss, loaded generation

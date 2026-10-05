@@ -2769,6 +2769,33 @@ impl FleetRepository for PostgresFleetRepository {
     async fn claim_runtime_control(&self, id: Uuid) -> Result<bool, AppError> {
         runtime_controls::claim(self, id).await
     }
+    async fn claim_runtime_control_outcome(
+        &self,
+        id: Uuid,
+        context: Value,
+    ) -> Result<bool, AppError> {
+        runtime_controls::claim_outcome(self, id, context).await
+    }
+    async fn get_runtime_control_outcome(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<app::RuntimeControlOutcomeIntent>, AppError> {
+        runtime_controls::get_outcome(self, id).await
+    }
+    async fn list_runtime_control_outcomes(
+        &self,
+        after: Option<Uuid>,
+    ) -> Result<Vec<app::RuntimeControlOutcomeIntent>, AppError> {
+        runtime_controls::list_outcomes(self, after).await
+    }
+    async fn finish_runtime_control_outcome(
+        &self,
+        id: Uuid,
+        context: Value,
+        acknowledgement: &str,
+    ) -> Result<domain::RuntimeControlReceipt, AppError> {
+        runtime_controls::finish_outcome(self, id, context, acknowledgement).await
+    }
     async fn finish_runtime_control(
         &self,
         id: Uuid,
@@ -2841,6 +2868,20 @@ impl FleetRepository for PostgresFleetRepository {
         last_error: Option<String>,
     ) -> Result<SessionAgentRun, AppError> {
         let txn = self.db.begin().await.map_err(AppError::database)?;
+        let seed = session_agent_run::Entity::find_by_id(id)
+            .one(&txn)
+            .await
+            .map_err(AppError::database)?
+            .ok_or_else(|| AppError::not_found("session_agent_run", id))?;
+        // A run update appends a session event. Match journal session-before-run locking.
+        txn.query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT id FROM agent_sessions WHERE id=$1 FOR NO KEY UPDATE",
+            [seed.session_id.into()],
+        ))
+        .await
+        .map_err(AppError::database)?
+        .ok_or_else(|| AppError::not_found("agent_session", seed.session_id))?;
         // Match readback's lock order; late SSE/error updates cannot regress verified PM proof.
         let pm = pm_execution::locked(&txn, id).await?;
         let row = session_agent_run::Entity::find_by_id(id)
@@ -2849,6 +2890,11 @@ impl FleetRepository for PostgresFleetRepository {
             .await
             .map_err(AppError::database)?
             .ok_or_else(|| AppError::not_found("session_agent_run", id))?;
+        if row.session_id != seed.session_id || row.agent_id != seed.agent_id {
+            return Err(AppError::conflict(
+                "runtime run scope changed before progress update",
+            ));
+        }
         if row
             .runtime_run_id
             .as_ref()

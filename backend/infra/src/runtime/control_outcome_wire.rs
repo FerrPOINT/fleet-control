@@ -78,12 +78,11 @@ struct Capabilities {
 }
 
 impl Capabilities {
-    fn validate(&self, token: &str) -> Result<(), AppError> {
-        if token.is_empty()
-            || self.object != "fleet.hermes.controls.capabilities"
+    fn validate_structure(&self) -> Result<(), AppError> {
+        if self.object != "fleet.hermes.controls.capabilities"
             || self.contract_version != 1
             || !canonical_uuid(&self.store_id)
-            || self.scope_fingerprint != scope(token)
+            || !hex_digest(&self.scope_fingerprint)
             || self.profile != "default"
             || self.native_source_revision != SOURCE
             || !self.single_send
@@ -95,6 +94,14 @@ impl Capabilities {
                 .iter()
                 .any(|op| self.operations.iter().filter(|v| v.as_str() == *op).count() != 1)
         {
+            return Err(unavailable());
+        }
+        Ok(())
+    }
+
+    fn validate(&self, token: &str) -> Result<(), AppError> {
+        self.validate_structure()?;
+        if token.is_empty() || self.scope_fingerprint != scope(token) {
             return Err(unavailable());
         }
         Ok(())
@@ -117,11 +124,10 @@ pub struct Context {
 }
 
 impl Context {
-    fn validate(&self, origin: &str, token: &str) -> Result<(), AppError> {
-        validate_origin(origin)?;
-        self.capabilities.validate(token)?;
-        if self.origin != origin
-            || self.credential_fingerprint != hermes_wire::credential_fingerprint(token)
+    fn validate_structure(&self) -> Result<(), AppError> {
+        validate_origin(&self.origin)?;
+        self.capabilities.validate_structure()?;
+        if !hex_digest(&self.credential_fingerprint)
             || self.command_id.is_nil()
             || !native_run(&self.run_id)
             || self.request_body.len() > MAX_BODY
@@ -146,6 +152,52 @@ impl Context {
                     return Err(unavailable());
                 }
             }
+        }
+        Ok(())
+    }
+
+    fn validate(&self, origin: &str, token: &str) -> Result<(), AppError> {
+        self.validate_structure()?;
+        self.capabilities.validate(token)?;
+        if self.origin != origin
+            || self.credential_fingerprint != hermes_wire::credential_fingerprint(token)
+        {
+            return Err(unavailable());
+        }
+        Ok(())
+    }
+
+    /// Persistence validates identity/payload, not bearer authority or permission to POST.
+    pub(crate) fn verify_control(
+        &self,
+        receipt: &domain::RuntimeControlReceipt,
+        native_run: &str,
+        origin: &str,
+        credential_fingerprint: &str,
+        payload_sha256: &str,
+    ) -> Result<(), AppError> {
+        self.validate_structure()?;
+        let input = match self.operation {
+            Operation::Steer => Some(
+                serde_json::from_str::<SteerBody>(&self.request_body)
+                    .map_err(|_| unavailable())?
+                    .input,
+            ),
+            Operation::Stop => None,
+            Operation::Approval => return Err(unavailable()),
+        };
+        let payload = serde_json::to_vec(&serde_json::json!({
+            "operation":receipt.operation,"input":input
+        }))
+        .map_err(|_| unavailable())?;
+        if self.command_id != receipt.id
+            || self.run_id != native_run
+            || self.operation.as_str() != receipt.operation.as_str()
+            || self.origin != origin
+            || self.credential_fingerprint != credential_fingerprint
+            || digest(&payload) != payload_sha256
+        {
+            return Err(unavailable());
         }
         Ok(())
     }
@@ -311,6 +363,13 @@ fn validate_origin(origin: &str) -> Result<(), AppError> {
 
 fn digest(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
+}
+
+fn hex_digest(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
 fn scope(token: &str) -> String {

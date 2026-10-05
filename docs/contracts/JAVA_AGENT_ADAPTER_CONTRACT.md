@@ -1,5 +1,9 @@
 # Java Agent Adapter Contract
 
+The additive000015 original control-outcome journal is Hermes-only. It adds no
+Java dispatch permit, recovery witness or chat/control capability; Java cannot
+claim its context or finish an outcome. Existing Java lifecycle remains unchanged.
+
 The [Hermes control profile](HERMES_RUN_CONTROL_V1.md) introduces no Java
 chat/control capability. Java lifecycle remains available; its run steer/stop
 remain typed phase-2 failures. The retired run-wide approval path is rejected
