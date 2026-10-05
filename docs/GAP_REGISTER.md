@@ -12,9 +12,12 @@ Open gaps:
 
 The [runtime containment proposal](design/RUNTIME_CONTAINMENT_PROPOSAL.md)
 records the recommended per-agent container boundary and delegated-cgroup
-alternative. Base standalone original-ID stop/readback is implemented and
-adversarial namespace QA passes at exact source `e6dcb3c`; the linked proposal
-records evidence and trust limits. Fleet lifecycle has not integrated it:
+alternative. Base standalone original-ID stop/readback is implemented. The
+main-based [Base PR144](https://github.com/FerrPOINT/services-base/pull/144),
+head `dd2d0755266ef9081528702767006ba08e32d841`, adds pre-exec registration and
+single-start/crash holds with actual namespace acceptance and44 Linux tests.
+The linked proposal records exact fingerprints, release status and trust limits.
+This candidate is not installed and Fleet lifecycle has not integrated it:
 pre-exec registry/persistence, generation fencing, drain, activation/rollback and
 receipt commit/recovery remain. No accepted Compose/image/readiness policy or SDK
 pin has changed. Safe Fleet descendant stop and loaded-generation acceptance

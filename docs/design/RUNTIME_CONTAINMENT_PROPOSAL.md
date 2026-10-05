@@ -35,6 +35,31 @@ dependency pin is changed; safe Fleet descendant stop remains unverified.
 
 ## Evidence And Required Boundary
 
+### Pre-Exec Base Release Candidate: 6 October 2026
+
+[Base PR144](https://github.com/FerrPOINT/services-base/pull/144), exact head
+`dd2d0755266ef9081528702767006ba08e32d841`, isolates the host utility from
+auth delegation/plugins/migrations on main. Its
+[contract](https://github.com/FerrPOINT/services-base/blob/dd2d0755266ef9081528702767006ba08e32d841/docs/platform/RUNTIME_BOUNDARY.md)
+now includes private pre-exec registration and one committed-claim Compose
+start. Unknown start ACK/controller death holds the original resource without
+adopting a fresh PID or issuing another start. Single-service specs prohibit
+lifecycle hooks/build/external dependencies; original never-started state is
+rechecked before the claim. Complete expected first-start inventory is sealed
+in advance, not accepted from arbitrary observed post-start configuration.
+
+The [release packet](https://github.com/FerrPOINT/services-base/blob/dd2d0755266ef9081528702767006ba08e32d841/docs/plans/runtime-boundary-bootstrap.md)
+records actual four-resource registration/start/controller-crash acceptance,
+separate process-tree stop acceptance,44 Linux boundary/bootstrap tests and
+main-based Rust/frontend gates. The release is not merged/installed; exact-head
+CI/review must still be checked. This is offline namespace evidence, not an
+online Hermes/model, task admission or SDLC receipt.
+
+Fleet does not yet consume this registry: its DB binding before start,
+trusted host transport, immutable effective configuration/boot generation,
+atomic drain/receipt/activation/rollback and unknown-start operator recovery
+remain required. Existing SDK/runtime pins and accepted Compose are unchanged.
+
 The current `runtime/process_stop` kills and waits for the owned gateway child.
 It cannot prove descendant termination. Process-group signals, process snapshots,
 run terminal status and an HTTP stop ACK do not fix that gap: a child can daemonize
