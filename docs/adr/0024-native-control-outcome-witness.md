@@ -3,8 +3,10 @@
 ## Status
 
 Producer/native protocol, Fleet GET wire and internal stop/steer journal
-implemented and component-tested. Supervisor consumer, native positive
-approval and installed rollout pending; automatic task controls remain denied.
+implemented and component-tested; opt-in stop/steer supervisor connected and
+verified against actual managed Hermes with a loopback model. Positive approval
+outcomes, Fleet OS-restart controls, combined plugins and installed rollout
+remain pending; automatic task controls remain denied.
 
 ## Context
 
@@ -26,7 +28,10 @@ claim through additive000015. The independent outcome row keeps witnessed ACK
 separate from an already observed terminal run, without modifying applied000013
 or reopening the run. ACK, receipt, applicable stopping state, audit and durable
 event are atomic; legacy submitted commands cannot acquire context later.
-Supervisor dispatch/GET recovery and the approval decision journal remain pending.
+Supervisor dispatch uses exact saved bytes/epoch/UUID only after claim; a
+separate bounded UUID-keyset GET worker commits original-context witnesses.
+The default-false flag starts no worker when disabled and never backfills old
+submitted commands. Approval decision journaling remains pending.
 
 ## Consequences
 
@@ -35,7 +40,9 @@ Crash between effect and ACK remains a permanent unknown hold because native
 in-memory effects and SQLite do not share a transaction. Operator reconciliation,
 store restore/rotation and OS containment remain mandatory separate work.
 ACK is not tool completion, safe process stop or success of an SDLC stage.
-The plugin must remain disabled until a compatible Fleet consumer is verified.
+The plugin stays disabled on accepted installations until ordered release,
+exact-head CI and installed compatibility are verified. Local native acceptance
+does not replace those release gates.
 
 ## Alternatives
 

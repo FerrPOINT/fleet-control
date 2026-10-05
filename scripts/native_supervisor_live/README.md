@@ -54,6 +54,25 @@ the barrier releases, native terminal readback must retain the original journal
 and run, with one inference and rejected late steer. This is not approval/tool
 replay, per-command recovery, a task stage receipt or OS-descendant safe stop.
 
+## Original Control Outcome Recovery
+
+`--scenario control-outcomes` selects
+`managed_native_original_control_outcomes_recover_lost_http_ack`. It enables the
+Fleet outcome consumer only in its disposable agent. The harness copies all four
+control plugin files from the exact committed Base revision and checks their
+hashes. A separate QA-only observer loses actual steer/stop HTTP200 responses
+after the native handler applies the action; it never fabricates an ACK or
+modifies the witness store. Authentication precedes all fault observations.
+
+The test holds GET lookup until the caller receives unknown acceptance, then
+requires original-key GET recovery without another POST. Stop recovery follows
+independent terminal observation and an actual gateway PID restart with the same
+HOME. The late ACK must preserve terminal receipt state/timestamp and the original
+private context. Each command must have one POST and one real native ACK, while
+the original run/journal and single inference remain unchanged. This is not a
+Fleet OS-process restart, approval decision recovery, loaded-generation admission,
+task/PM proof or safe descendant stop. The legacy `controls` case remains separate.
+
 ## Native Exact-Action Approvals
 
 `--scenario approvals` selects
@@ -91,6 +110,9 @@ admission, recovery of a waiting approval after a Fleet crash or safe OS stop.
   copied from its exact committed Git blob, not mutable worktree content.
 - For `recovery`, that same committed revision must include the complete
   `deploy/hermes-recovery-plugin` inventory. Missing files fail before Docker starts.
+- For `control-outcomes`, it must include the complete four-file
+  `deploy/hermes-control-plugin` inventory. The fault observer stays in QA and is
+  never copied into accepted runtime agents.
 - An already-built Base Hermes dependency image with the matching revision label
   and non-root default user. The harness builds only the owned QA source layer;
   it never installs or retags accepted runtime images.

@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+- Connect opt-in Hermes original stop/steer outcomes to the supervisor: atomic
+  original context/claim, one exact-byte UUID/epoch POST, closed ACK and bounded
+  saved-context GET recovery after HTTP/DB failure. Disabled by default, no
+  legacy backfill, approval decision recovery, task authority or epoch adoption.
+- Add managed native control-outcome QA with real lost ACKs, original-key GET,
+  gateway restart and preserved terminal history; execution evidence is separate
+  from component fixtures and installed/release acceptance.
+
 - Add internal original stop/steer outcome journal (additive000015): atomic
   context/single-use claim, exact payload/epoch binding, positive ACK/audit/event
   commit and independent terminal history. Reject legacy backfill, context

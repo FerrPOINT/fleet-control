@@ -6,8 +6,13 @@ Debug logs, audit or event payloads. Protect database backups accordingly. The
 row is immutable; retention/deletion is not implemented by a hidden reset.
 Internal ACK completion records a verified prior effect, not fresh authority
 for a revoked actor. Public mutation gates still recheck the current human.
-Supervisor witness dispatch/recovery remains unwired; do not enable the producer
-plugin until consumer/native acceptance. See [outcome v1](contracts/HERMES_CONTROL_OUTCOME_V1.md).
+Supervisor witness dispatch/GET recovery is explicitly default-false. Before
+POST it requires the original free-chat context, native status/capabilities and
+fresh claim-time actor authorization; saved-context GET records a prior effect,
+not new mutation authority after actor revocation. It cannot dispatch task/PM,
+adopt rotated credentials/epoch, backfill legacy receipts or recover approval
+decisions. Keep the producer disabled on installed agents until release/native
+acceptance. See [outcome v1](contracts/HERMES_CONTROL_OUTCOME_V1.md).
 
 ## Durable Authenticated Runtime Commands
 

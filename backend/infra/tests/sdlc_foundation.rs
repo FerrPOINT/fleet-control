@@ -47,6 +47,8 @@ mod runtime_prepared_recovery;
 #[path = "support/runtime_stream_bounds.rs"]
 mod runtime_stream_bounds;
 
+#[path = "support/runtime_control_outcome_http.rs"]
+mod runtime_control_outcome_http;
 #[path = "support/runtime_control_outcomes.rs"]
 mod runtime_control_outcomes;
 #[path = "support/runtime_run_control.rs"]
@@ -71,6 +73,10 @@ async fn fixture() -> Option<(PostgresFleetRepository, Uuid, Uuid)> {
         eprintln!("FLEET_TEST_DATABASE_URL not configured; PostgreSQL tests skipped");
         return None;
     };
+    Some(fixture_at(url).await)
+}
+
+async fn fixture_at(url: String) -> (PostgresFleetRepository, Uuid, Uuid) {
     let config = DatabaseConfig {
         url,
         max_connections: 10,
@@ -88,7 +94,7 @@ async fn fixture() -> Option<(PostgresFleetRepository, Uuid, Uuid)> {
              VALUES ($1,$2,$3,'SDLC test','disabled',false,'user')",
             [id.into(), format!("{id}@example.test").into(), id.to_string().into()])).await.unwrap();
     }
-    Some((PostgresFleetRepository::new(db), owner, stranger))
+    (PostgresFleetRepository::new(db), owner, stranger)
 }
 
 async fn agent(repo: &PostgresFleetRepository) -> Uuid {

@@ -16,6 +16,18 @@ is terminal, not that the command was accepted. It is not OS-descendant quiescen
 assignment release or a successful SDLC receipt. There is no public blind-reset
 repair endpoint. Targeted tool approvals remain a distinct protocol.
 
+`FLEET_CONTROL_FLEET__HERMES_CONTROL_OUTCOME_ENABLED` defaults to false. Enabling
+it requires the reviewed compatible Base control plugin and a normal validated
+config activation, not an in-place HOME change. Original context is saved with
+the single-send claim before POST. Only matching authenticated GET witnesses can
+restore an unknown ACK. Missing/conflicting/foreign epoch or rotated credentials
+retain the original receipt; do not rotate a command key, reset a store or
+backfill legacy commands. The worker paginates retained contexts by UUID and
+repeats readback, not the original POST. Actor revocation denies new commands but
+does not erase an already applied historical effect. Approval decision outcomes
+are not covered by this flag. Keep it disabled on accepted installations until
+the ordered release and exact-head acceptance complete.
+
 Migration 000013 must follow the released 000012 journal; that release order is
 not yet completed. Its dedicated PostgreSQL gate verifies empty down/re-up,
 preserved legacy rows and nonempty refusal. Nonempty command history deliberately

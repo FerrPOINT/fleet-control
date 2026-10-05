@@ -1,7 +1,8 @@
 # Hermes Control Outcome v1
 
-Status: Base producer, GET wire-consumer, internal stop/steer journal and native producer QA implemented; supervisor dispatch/recovery,
-positive native approval and installed rollout remain unverified. This is not
+Status: Base producer, stop/steer supervisor dispatch/GET recovery, internal
+journal and native producer QA implemented; native consumer verification,
+positive native approval and installed rollout remain gates. This is not
 task admission, safe OS stop, Workflow completion or a replacement for
 [human control authorization](HERMES_RUN_CONTROL_V1.md).
 
@@ -55,7 +56,7 @@ completion, descendant termination, task acceptance or success of a stage.
 
 ## Required Fleet Consumer Packet
 
-Fleet now has a strict Rust GET wire-consumer in
+Fleet has a strict Rust original-context wire-consumer in
 `backend/infra/src/runtime/control_outcome_wire.rs`. Preparation validates a
 closed version1 capability packet, default-profile credential scope, canonical
 store epoch and pinned native source. It serializes the exact action once,
@@ -71,12 +72,23 @@ The only positive outcomes are guidance queued, stopping requested or one
 decision resolved. Uncertain has no dispatch meaning. No current capability
 snapshot or terminal run replaces the original witness.
 
-This adapter is not yet called by the production supervisor. It has no POST
-operation and does not mutate commands, approvals, capacity or business state.
-An internal repository now supports atomic preparation-context/claim and
-ACK/audit/event commits through additive migration000015. It is not wired to
-supervisor HTTP dispatch/recovery. Component GET/PG tests are not actual
-Fleet/native recovery acceptance.
+With `FLEET_CONTROL_FLEET__HERMES_CONTROL_OUTCOME_ENABLED=true`, the supervisor
+prepares this context after its existing human/accepted free-chat/native
+preflight, persists context and single-use claim through additive000015, then
+sends the saved bytes/UUID/store headers once. Strict closed native HTTP200 ACK
+commits the witnessed outcome atomically. An unknown HTTP or database ACK leaves
+the submitted/uncertain receipt recoverable, without a second POST. Capability
+failure before claim rejects the command; it never falls back to legacy sending.
+
+The separate background worker scans at most100 UUID-keyset records per page,
+advancing past invalid contexts and resetting only after an empty page. Between
+pages it waits five seconds; each HTTP read is bounded to ten seconds/64KiB.
+It checks the current accepted free-chat dispatch, agent/run/native pins and
+original credential/origin, then uses only saved-context GET. It adopts no fresh
+capability or store epoch, does not restore actor mutation rights, and cannot
+backfill old submitted commands. Disabled flag starts no outcome worker. Approval
+wire preparation/lookup exists, but this supervisor sender/journal excludes
+approval; its separate decision-delivery lifecycle remains pending.
 
 The stop/steer outcome row preserves exact bytes/capabilities, never adopts a
 fresh epoch and has no dispatch-reset or delete operation. Claim rechecks the
@@ -89,9 +101,8 @@ human authorization. Deferred DB guards bind required context and ACK/receipt
 atomically, including audit failure rollback. Positive ACK after a terminal
 mirror preserves terminal history and adds the independent outcome fact only.
 
-Production Fleet does not yet send the producer headers or consume the
-extension from its command/decision lifecycle.
-Do not enable its plugin on an installed agent. Existing command/decision
+Do not enable its plugin on an installed agent before release/native/combined
+acceptance. Existing command/decision
 history cannot be given an epoch or witness after dispatch.
 
 Consumer implementation must preserve the current authoritative human/owner
@@ -115,9 +126,8 @@ of prior effects. Fenced task/machine controls remain a separate admission.
 
 These journal/consumer interactions remain explicit rollout requirements:
 
-1. Stop/steer repository context/claim is implemented; wire the supervisor to
-   that transaction before POST. Approval dispatch-context persistence remains
-   separate. A producer
+1. Stop/steer supervisor context/claim before POST and GET-only worker are
+   implemented. Approval dispatch-context persistence remains separate. A producer
    epoch observed after submission is not a historical witness. The public
    actor idempotency key remains separate from the producer command UUID.
 2. Additive000015 allows witnessed uncertain-to-acknowledged and separately
@@ -140,7 +150,11 @@ scenario verifies real APIServerAdapter/AIAgent steer and interrupt, actual
 HTTP reply loss, original-key readback and gateway restart, one inference and
 uncertain rejected command hold. Model is deterministic loopback.
 Component tests cover exact-action approval ACKs, not a positive native tool
-approval through this extension. No production Fleet recovery, live central
-identity, loaded-generation/OS isolation, image build/install or full SDLC
+approval through this extension. The managed native `control-outcomes` scenario
+now passes actual Fleet sender/worker, transport loss and gateway PID restart
+with one native POST per command and preserved terminal history. The model is
+loopback and agents are disposable. Fleet OS-restart recovery for controls,
+combined extensions and installed enablement are not certified. No live central
+identity, loaded-generation/OS isolation, accepted image install or full SDLC
 acceptance is inferred. Exact hashes and limits are in the
 [verification ledger](../CHAT_CLARIFICATION_VERIFICATION.md).

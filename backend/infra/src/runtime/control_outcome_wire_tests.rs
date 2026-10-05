@@ -1,5 +1,11 @@
 use super::*;
-use axum::{Router, body::Bytes, http::HeaderMap, response::IntoResponse, routing::get};
+use axum::{
+    Router,
+    body::Bytes,
+    http::HeaderMap,
+    response::IntoResponse,
+    routing::{get, post},
+};
 use serde_json::{Value, json};
 use std::sync::{
     Arc,
@@ -297,6 +303,137 @@ async fn server(router: Router) -> (String, tokio::task::JoinHandle<()>) {
     let origin = format!("http://{}", listener.local_addr().unwrap());
     let task = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
     (origin, task)
+}
+
+#[tokio::test]
+async fn send_keeps_saved_bytes_original_uuid_epoch_and_empty_stop_body() {
+    for op in [Operation::Steer, Operation::Stop] {
+        let mut original = context(op);
+        let expected_body = original.request_body.clone();
+        let expected_id = original.command_id.to_string();
+        let expected_epoch = original.capabilities.store_id.clone();
+        let ack = acknowledged(&original)["ack"].clone();
+        let calls = Arc::new(AtomicUsize::new(0));
+        let observed = calls.clone();
+        let router = Router::new().route(
+            &format!("/v1/runs/{RUN}/{}", op.as_str()),
+            post(move |headers: HeaderMap, bytes: Bytes| {
+                assert_eq!(headers["authorization"], format!("Bearer {TOKEN}"));
+                assert_eq!(headers["accept-encoding"], "identity");
+                assert_eq!(headers["idempotency-key"], expected_id);
+                assert_eq!(headers["x-fleet-control-store-id"], expected_epoch);
+                assert_eq!(bytes.as_ref(), expected_body.as_bytes());
+                observed.fetch_add(1, Ordering::SeqCst);
+                let ack = ack.clone();
+                async { axum::Json(ack) }
+            }),
+        );
+        let (origin, task) = server(router).await;
+        original.origin = origin.clone();
+        let restored: Context =
+            serde_json::from_value(serde_json::to_value(&original).unwrap()).unwrap();
+        assert!(
+            send(&client(), &restored, &origin, "rotated-fixture-only")
+                .await
+                .is_err()
+        );
+        assert!(
+            send(&client(), &restored, "http://127.0.0.1:23900", TOKEN)
+                .await
+                .is_err()
+        );
+        let ack = send(&client(), &restored, &origin, TOKEN).await.unwrap();
+        assert_eq!(
+            ack,
+            if op == Operation::Steer {
+                Acknowledgement::Steered
+            } else {
+                Acknowledgement::Stopping
+            }
+        );
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+        task.abort();
+        let _ = task.await;
+    }
+    let approval = context(Operation::Approval);
+    assert!(
+        send(&client(), &approval, &approval.origin, TOKEN)
+            .await
+            .is_err()
+    );
+}
+
+#[tokio::test]
+async fn send_unknown_negative_duplicate_or_terminal_ack_never_retries() {
+    for (code, mime, encoding, body) in [
+        (
+            StatusCode::CONFLICT,
+            "application/json",
+            "identity",
+            r#"{"run_id":"run_0123456789abcdef0123456789abcdef","status":"stopping"}"#.to_owned(),
+        ),
+        (StatusCode::OK, "text/plain", "identity", "{}".to_owned()),
+        (StatusCode::OK, "application/json", "gzip", "{}".to_owned()),
+        (
+            StatusCode::OK,
+            "application/json",
+            "identity",
+            format!(r#"{{"run_id":"{RUN}","status":"stopping","status":"stopping"}}"#),
+        ),
+        (
+            StatusCode::OK,
+            "application/json",
+            "identity",
+            format!(r#"{{"run_id":"{RUN}","status":"stopping","unexpected":true}}"#),
+        ),
+        (
+            StatusCode::OK,
+            "application/json",
+            "identity",
+            format!(
+                r#"{{"object":"hermes.run","run_id":"{RUN}","status":"completed","completed":true,"partial":false,"interrupted":false}}"#
+            ),
+        ),
+        (
+            StatusCode::OK,
+            "application/json",
+            "identity",
+            r#"{"run_id":"run_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","status":"stopping"}"#.to_string(),
+        ),
+        (
+            StatusCode::OK,
+            "application/json",
+            "identity",
+            "x".repeat(MAX_BODY + 1),
+        ),
+    ] {
+        let mut original = context(Operation::Stop);
+        let calls = Arc::new(AtomicUsize::new(0));
+        let observed = calls.clone();
+        let router = Router::new().route(
+            &format!("/v1/runs/{RUN}/stop"),
+            post(move || {
+                observed.fetch_add(1, Ordering::SeqCst);
+                let body = body.clone();
+                async move {
+                    (
+                        code,
+                        [
+                            (header::CONTENT_TYPE, mime),
+                            (header::CONTENT_ENCODING, encoding),
+                        ],
+                        body,
+                    )
+                }
+            }),
+        );
+        let (origin, task) = server(router).await;
+        original.origin = origin.clone();
+        assert!(send(&client(), &original, &origin, TOKEN).await.is_err());
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+        task.abort();
+        let _ = task.await;
+    }
 }
 
 #[tokio::test]

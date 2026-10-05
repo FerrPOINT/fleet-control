@@ -1,4 +1,4 @@
-//! Original-context GET witness. This module grants no dispatch permit or runtime authority.
+//! Original-context control wire. This module grants no dispatch permit or runtime authority.
 use super::hermes_wire;
 use domain::ApprovalChoice;
 use reqwest::{Client, Response, StatusCode, header};
@@ -177,6 +177,7 @@ impl Context {
         payload_sha256: &str,
     ) -> Result<(), AppError> {
         self.validate_structure()?;
+        self.verify_receipt(receipt, native_run)?;
         let input = match self.operation {
             Operation::Steer => Some(
                 serde_json::from_str::<SteerBody>(&self.request_body)
@@ -190,12 +191,23 @@ impl Context {
             "operation":receipt.operation,"input":input
         }))
         .map_err(|_| unavailable())?;
+        if self.origin != origin
+            || self.credential_fingerprint != credential_fingerprint
+            || digest(&payload) != payload_sha256
+        {
+            return Err(unavailable());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn verify_receipt(
+        &self,
+        receipt: &domain::RuntimeControlReceipt,
+        native_run: &str,
+    ) -> Result<(), AppError> {
         if self.command_id != receipt.id
             || self.run_id != native_run
             || self.operation.as_str() != receipt.operation.as_str()
-            || self.origin != origin
-            || self.credential_fingerprint != credential_fingerprint
-            || digest(&payload) != payload_sha256
         {
             return Err(unavailable());
         }
@@ -208,6 +220,16 @@ pub enum Acknowledgement {
     Steered,
     Stopping,
     ApprovalResolved,
+}
+
+impl Acknowledgement {
+    pub(crate) fn control_ack(&self) -> Result<&'static str, AppError> {
+        match self {
+            Self::Steered => Ok("steered"),
+            Self::Stopping => Ok("stopping"),
+            Self::ApprovalResolved => Err(unavailable()),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -285,7 +307,11 @@ fn outcome(bytes: &[u8], context: &Context) -> Result<Outcome, AppError> {
     if found.state != "acknowledged" {
         return Err(unavailable());
     }
-    let ack = match (context.operation, found.ack) {
+    Ok(Outcome::Acknowledged(acknowledgement(found.ack, context)?))
+}
+
+fn acknowledgement(ack: Option<Ack>, context: &Context) -> Result<Acknowledgement, AppError> {
+    let ack = match (context.operation, ack) {
         (Operation::Steer, Some(Ack::Steer(ack)))
             if ack.object == "hermes.run.steer" && ack.run_id == context.run_id && ack.accepted =>
         {
@@ -311,7 +337,7 @@ fn outcome(bytes: &[u8], context: &Context) -> Result<Outcome, AppError> {
         }
         _ => return Err(unavailable()),
     };
-    Ok(Outcome::Acknowledged(ack))
+    Ok(ack)
 }
 
 fn unavailable() -> AppError {
@@ -394,7 +420,7 @@ async fn json_bytes(response: Response) -> Result<Vec<u8>, AppError> {
         .map_err(|_| unavailable())
 }
 
-/// GET only. The caller must use the supervisor's no-proxy/no-redirect/no-retry client.
+/// Preparation is GET only. Use the supervisor's no-proxy/no-redirect/no-retry client.
 /// A returned context is not authorization: persist it with a single-use permit before POST.
 pub async fn prepare(
     client: &Client,
@@ -480,6 +506,40 @@ pub async fn lookup(
         .await
         .map_err(|_| unavailable())?;
     outcome(&json_bytes(response).await?, context)
+}
+
+/// Single POST after the caller commits the original context and single-use permit.
+/// Any transport/ACK failure is unknown; this function never retries or reserializes the action.
+pub(crate) async fn send(
+    client: &Client,
+    context: &Context,
+    origin: &str,
+    token: &str,
+) -> Result<Acknowledgement, AppError> {
+    context.validate(origin, token)?;
+    // Approval decision persistence is a separate lifecycle, not this stop/steer journal.
+    if context.operation == Operation::Approval {
+        return Err(unavailable());
+    }
+    let response = client
+        .post(format!(
+            "{origin}/v1/runs/{}/{}",
+            context.run_id,
+            context.operation.as_str()
+        ))
+        .bearer_auth(token)
+        .header(header::ACCEPT_ENCODING, "identity")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header("Idempotency-Key", context.command_id.to_string())
+        .header("X-Fleet-Control-Store-Id", &context.capabilities.store_id)
+        .body(context.request_body.clone())
+        .timeout(Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|_| unavailable())?;
+    let ack: Ack =
+        serde_json::from_slice(&json_bytes(response).await?).map_err(|_| unavailable())?;
+    acknowledgement(Some(ack), context)
 }
 
 #[cfg(test)]

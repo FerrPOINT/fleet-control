@@ -910,6 +910,16 @@ async fn managed_native_lost_ack_recovers_original_run_across_fleet_processes() 
 #[tokio::test]
 #[ignore = "requires exact native Hermes image and disposable owned PostgreSQL/agent roots"]
 async fn managed_native_run_steer_and_stop_require_native_ack_and_terminal_readback() {
+    native_control_scenario(false).await;
+}
+
+#[tokio::test]
+#[ignore = "requires committed Base control plugin, pinned Hermes and owned PostgreSQL/process namespace"]
+async fn managed_native_original_control_outcomes_recover_lost_http_ack() {
+    native_control_scenario(true).await;
+}
+
+async fn native_control_scenario(outcomes: bool) {
     let db = native_database().await;
     let owner = Uuid::new_v4();
     db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
@@ -930,6 +940,7 @@ async fn managed_native_run_steer_and_stop_require_native_ack_and_terminal_readb
     config.fleet.hermes_source = "/opt/hermes".into();
     config.fleet.hermes_command = "/opt/fleet-hermes/bin/hermes".into();
     config.fleet.runtime_token_secret = format!("owned-native-controls-{}", Uuid::new_v4());
+    config.fleet.hermes_control_outcome_enabled = outcomes;
     config.fleet.agent_port_base = 29300;
     config.fleet.agent_port_stride = 5;
     config.fleet.project_workflow_url = None;
@@ -937,17 +948,63 @@ async fn managed_native_run_steer_and_stop_require_native_ack_and_terminal_readb
     let (events, _) = tokio::sync::broadcast::channel(32);
     let runtime = LocalRuntimeSupervisor::new(config.clone(), repo.clone(), events);
     let agent = create_agent(&repo, &config, "Native control agent").await;
-    activate(
-        &repo,
-        agent.id,
-        owner,
-        configuration(port, "FLEET_NATIVE_CONTROL_SOUL"),
-    )
-    .await;
+    let mut desired = configuration(port, "FLEET_NATIVE_CONTROL_SOUL");
+    let fault_root = Path::new(&agent.paths.workspace).join("control-outcome-fault");
+    if outcomes {
+        tokio::fs::create_dir_all(&fault_root).await.unwrap();
+        tokio::fs::write(fault_root.join("hold-lookup"), b"owned QA hold")
+            .await
+            .unwrap();
+        let plugins = Path::new(&agent.paths.config).join("plugins");
+        let controls = plugins.join("fleet-hermes-controls");
+        tokio::fs::create_dir_all(&controls).await.unwrap();
+        for name in ["__init__.py", "plugin.py", "store.py", "plugin.yaml"] {
+            tokio::fs::copy(
+                Path::new("/qa/control-plugin").join(name),
+                controls.join(name),
+            )
+            .await
+            .unwrap();
+        }
+        let fault = plugins.join("fleet-native-discard-control-ack");
+        tokio::fs::create_dir_all(&fault).await.unwrap();
+        tokio::fs::write(
+            fault.join("__init__.py"),
+            include_str!("../../../scripts/native_supervisor_live/control_fault_plugin.py"),
+        )
+        .await
+        .unwrap();
+        tokio::fs::write(fault.join("plugin.yaml"), b"name: fleet-native-discard-control-ack\nversion: 1.0.0\nkind: platform\nplatforms:\n  - api_server\n").await.unwrap();
+        desired.config_json["plugins"] =
+            json!({"enabled":["fleet-hermes-controls","fleet-native-discard-control-ack"]});
+        desired.env_json["FLEET_NATIVE_SUPERVISOR_TEST"] = json!("1");
+        desired.env_json["FLEET_NATIVE_CONTROL_FAULT_ROOT"] = json!(fault_root);
+    }
+    activate(&repo, agent.id, owner, desired).await;
     assert_eq!(
         runtime.start(&agent).await.unwrap().status,
         AgentStatus::Running
     );
+    if outcomes {
+        let held = reqwest::Client::builder()
+            .no_proxy()
+            .timeout(Duration::from_secs(5))
+            .build()
+            .unwrap()
+            .get(format!(
+                "http://127.0.0.1:{}/fleet/v1/controls/lookup",
+                agent.api_port.unwrap()
+            ))
+            .bearer_auth(infra::agent_runtime_token(&config, agent.id).unwrap())
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(held.status(), reqwest::StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(
+            held.json::<Value>().await.unwrap()["error"],
+            "owned_qa_control_hold"
+        );
+    }
     let prompt = format!("managed-control-prompt-{}", Uuid::new_v4());
     let session = repo
         .create_session(
@@ -1006,7 +1063,7 @@ async fn managed_native_run_steer_and_stop_require_native_ack_and_terminal_readb
         user_id: owner,
         idempotency_key: Uuid::new_v4().to_string(),
     };
-    let steered = runtime
+    let mut steered = runtime
         .steer_run(
             &agent,
             &run,
@@ -1017,6 +1074,31 @@ async fn managed_native_run_steer_and_stop_require_native_ack_and_terminal_readb
         )
         .await
         .unwrap();
+    if outcomes {
+        assert!(!steered.accepted);
+        let id = steered.command.as_ref().unwrap().id;
+        assert!(
+            repo.get_runtime_control_outcome(id)
+                .await
+                .unwrap()
+                .is_some()
+        );
+        tokio::fs::remove_file(fault_root.join("hold-lookup"))
+            .await
+            .unwrap();
+        await_native_control_ack(&repo, session.id, id).await;
+        steered = runtime
+            .steer_run(
+                &agent,
+                &run,
+                domain::SteerSessionRunRequest {
+                    input: "Keep this synthetic QA scope.".into(),
+                },
+                steer_actor.clone(),
+            )
+            .await
+            .unwrap();
+    }
     assert!(steered.accepted);
     assert_eq!(steered.state, SessionRunState::Running);
     let steer_receipt = steered.command.as_ref().unwrap();
@@ -1073,17 +1155,24 @@ async fn managed_native_run_steer_and_stop_require_native_ack_and_terminal_readb
         user_id: owner,
         idempotency_key: Uuid::new_v4().to_string(),
     };
+    if outcomes {
+        tokio::fs::write(fault_root.join("hold-lookup"), b"owned QA hold")
+            .await
+            .unwrap();
+    }
     let stopped = runtime
         .stop_run(&agent, &run, stop_actor.clone())
         .await
         .unwrap();
-    assert!(stopped.accepted);
+    assert_eq!(stopped.accepted, !outcomes);
     assert_ne!(stopped.state, SessionRunState::Completed);
     let stop_receipt = stopped.command.as_ref().unwrap();
-    assert_eq!(
-        stop_receipt.state,
-        domain::RuntimeControlState::Acknowledged
-    );
+    if !outcomes {
+        assert_eq!(
+            stop_receipt.state,
+            domain::RuntimeControlState::Acknowledged
+        );
+    }
     assert_eq!(
         runtime
             .stop_run(&agent, &run, stop_actor.clone())
@@ -1122,6 +1211,79 @@ async fn managed_native_run_steer_and_stop_require_native_ack_and_terminal_readb
     .await
     .expect("native stop terminal readback did not finish");
     assert_eq!(finished.runtime_run_id, run.runtime_run_id);
+    if outcomes {
+        repo.reconcile_runtime_controls().await.unwrap();
+        let original = repo
+            .get_runtime_control_outcome(stop_receipt.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .context;
+        let terminal_receipt = repo
+            .get_runtime_control(session.id, stop_receipt.id)
+            .await
+            .unwrap();
+        assert_eq!(
+            terminal_receipt.state,
+            domain::RuntimeControlState::TerminalObserved
+        );
+        let pid = repo.get_agent(agent.id).await.unwrap().runtime.pid;
+        assert_eq!(
+            runtime.restart(&agent).await.unwrap().status,
+            AgentStatus::Running
+        );
+        assert_ne!(repo.get_agent(agent.id).await.unwrap().runtime.pid, pid);
+        tokio::fs::remove_file(fault_root.join("hold-lookup"))
+            .await
+            .unwrap();
+        await_native_control_ack(&repo, session.id, stop_receipt.id).await;
+        let witnessed = repo
+            .get_runtime_control(session.id, stop_receipt.id)
+            .await
+            .unwrap();
+        assert_eq!(witnessed.state, terminal_receipt.state);
+        assert_eq!(witnessed.updated_at, terminal_receipt.updated_at);
+        assert_eq!(witnessed.acknowledgement.as_deref(), Some("stopping"));
+        assert_eq!(
+            repo.get_runtime_control_outcome(stop_receipt.id)
+                .await
+                .unwrap()
+                .unwrap()
+                .context,
+            original
+        );
+        let observations = tokio::fs::read_to_string(fault_root.join("control-events.jsonl"))
+            .await
+            .unwrap();
+        let rows: Vec<Value> = observations
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        for (operation, receipt) in [("steer", steer_receipt), ("stop", stop_receipt)] {
+            let saved = repo
+                .get_runtime_control_outcome(receipt.id)
+                .await
+                .unwrap()
+                .unwrap();
+            let calls: Vec<_> = rows
+                .iter()
+                .filter(|row| row["kind"] == "post" && row["operation"] == operation)
+                .collect();
+            assert_eq!(calls.len(), 1);
+            assert_eq!(calls[0]["key"], receipt.id.to_string());
+            assert_eq!(calls[0]["sha256"], saved.context["request_sha256"]);
+            assert_eq!(
+                rows.iter()
+                    .filter(|row| row["kind"] == "native_ack" && row["operation"] == operation)
+                    .count(),
+                1
+            );
+        }
+        assert!(
+            rows.iter()
+                .any(|row| row["kind"] == "lookup" && row["held"] == false)
+        );
+    }
     assert_eq!(
         runtime
             .stop_run(&agent, &run, stop_actor)
@@ -1178,4 +1340,28 @@ async fn managed_native_run_steer_and_stop_require_native_ack_and_terminal_readb
     println!(
         "Managed native controls passed: real AIAgent steer ACK/status, interrupt ACK separated from terminal, same journal/run, one inference, no false completed state, late steer denied. No approval, OS-descendant safe-stop or task/PM admission proof."
     );
+    if outcomes {
+        println!(
+            "Original control outcomes verified: actual native steer/stop ACK transport loss, one POST per UUID, GET-only recovery, gateway PID restart with unchanged store epoch, terminal history preserved. No Fleet OS restart, approval decision recovery or safe descendants claimed."
+        );
+    }
+}
+
+async fn await_native_control_ack(repo: &PostgresFleetRepository, session: Uuid, id: Uuid) {
+    timeout(Duration::from_secs(90), async {
+        loop {
+            if repo
+                .get_runtime_control(session, id)
+                .await
+                .unwrap()
+                .acknowledgement
+                .is_some()
+            {
+                break;
+            }
+            sleep(Duration::from_millis(100)).await;
+        }
+    })
+    .await
+    .expect("original native control ACK was not recovered");
 }

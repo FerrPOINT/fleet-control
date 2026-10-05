@@ -35,6 +35,7 @@ struct PreparedControl {
     token: String,
     run_id: String,
     session_id: String,
+    outcome: Option<control_outcome_wire::Context>,
 }
 
 pub(super) async fn send<T: Serialize + ?Sized>(
@@ -57,7 +58,7 @@ pub(super) async fn send<T: Serialize + ?Sized>(
     if !reservation.dispatch {
         return Ok(reservation.receipt);
     }
-    let prepared = match prepare(supervisor, agent, run, operation).await {
+    let prepared = match prepare(supervisor, agent, run, operation, id, input).await {
         Ok(prepared) => prepared,
         Err(error) => {
             let receipt = supervisor.repo.retire_runtime_control(id, false).await?;
@@ -67,7 +68,22 @@ pub(super) async fn send<T: Serialize + ?Sized>(
             return Err(error);
         }
     };
-    let claimed = match supervisor.repo.claim_runtime_control(id).await {
+    let outcome = prepared
+        .outcome
+        .as_ref()
+        .map(serde_json::to_value)
+        .transpose()
+        .map_err(AppError::internal)?;
+    let claim = match &outcome {
+        Some(context) => {
+            supervisor
+                .repo
+                .claim_runtime_control_outcome(id, context.clone())
+                .await
+        }
+        None => supervisor.repo.claim_runtime_control(id).await,
+    };
+    let claimed = match claim {
         Ok(claimed) => claimed,
         Err(error) => {
             // A concurrent claimant may already own the effect; never reset its submitted state.
@@ -84,20 +100,39 @@ pub(super) async fn send<T: Serialize + ?Sized>(
             .get_runtime_control(run.session_id, id)
             .await;
     }
-    let ack = post(supervisor, &prepared, operation, body).await;
+    let ack = if let Some(context) = &prepared.outcome {
+        control_outcome_wire::send(&supervisor.client, context, &prepared.base, &prepared.token)
+            .await
+            .and_then(|ack| match ack {
+                control_outcome_wire::Acknowledgement::Steered => Ok(Acknowledgement::Steered),
+                control_outcome_wire::Acknowledgement::Stopping => Ok(Acknowledgement::Stopping),
+                control_outcome_wire::Acknowledgement::ApprovalResolved => {
+                    Err(AppError::conflict("unexpected control ACK"))
+                }
+            })
+    } else {
+        post(supervisor, &prepared, operation, body).await
+    };
     match ack {
         Ok(ack) => {
-            supervisor
-                .repo
-                .finish_runtime_control(
-                    id,
-                    match ack {
-                        Acknowledgement::Steered => "steered",
-                        Acknowledgement::Stopping => "stopping",
-                        Acknowledgement::AlreadyTerminal => "already_terminal",
-                    },
-                )
-                .await
+            let ack = match ack {
+                Acknowledgement::Steered => "steered",
+                Acknowledgement::Stopping => "stopping",
+                Acknowledgement::AlreadyTerminal => "already_terminal",
+            };
+            if let Some(context) = outcome {
+                match supervisor
+                    .repo
+                    .finish_runtime_control_outcome(id, context, ack)
+                    .await
+                {
+                    Ok(receipt) => Ok(receipt),
+                    // A failed DB ACK commit must not turn into another POST on caller retry.
+                    Err(_) => supervisor.repo.retire_runtime_control(id, true).await,
+                }
+            } else {
+                supervisor.repo.finish_runtime_control(id, ack).await
+            }
         }
         Err(_) => supervisor.repo.retire_runtime_control(id, true).await,
     }
@@ -108,6 +143,8 @@ async fn prepare(
     agent: &Agent,
     run: &SessionAgentRun,
     operation: Operation,
+    command_id: Uuid,
+    input: Option<&str>,
 ) -> Result<PreparedControl, AppError> {
     let context = native_context::accepted(supervisor, agent, run).await?;
     let current = context.run;
@@ -152,11 +189,33 @@ async fn prepare(
             "native run is no longer accepting this control; await readback",
         ));
     }
+    let outcome = if supervisor.config.fleet.hermes_control_outcome_enabled {
+        let request = match operation {
+            Operation::Steer => control_outcome_wire::Request::Steer(
+                input.ok_or_else(|| AppError::validation("steer input is required"))?,
+            ),
+            Operation::Stop => control_outcome_wire::Request::Stop,
+        };
+        Some(
+            control_outcome_wire::prepare(
+                &supervisor.client,
+                &base,
+                &token,
+                command_id,
+                run_id,
+                request,
+            )
+            .await?,
+        )
+    } else {
+        None
+    };
     Ok(PreparedControl {
         base,
         token,
         run_id: run_id.to_owned(),
         session_id: session_id.to_owned(),
+        outcome,
     })
 }
 

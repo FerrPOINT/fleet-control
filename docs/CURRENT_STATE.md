@@ -12,13 +12,24 @@ component cases pass. A strict Rust GET wire-consumer validates saved
 epoch/scope/origin/body identity and exact action ACKs. Additive000015 and an
 internal repository now persist original stop/steer context atomically with
 claim and commit witnessed ACK/audit/events without losing terminal history.
-The production supervisor does not yet call this journal, send its headers or
-run original-context GET recovery. Approval outcome integration is separate.
+The production supervisor now calls this journal, sends original saved bytes
+and UUID/store headers once and runs saved-context GET recovery behind
+`FLEET_CONTROL_FLEET__HERMES_CONTROL_OUTCOME_ENABLED` (default false). HTTP/PG
+consumer fixtures cover lost ACK, rollback, replay, actor revocation, terminal
+history and a separate 101-record keyset database. The final component gate
+passes 430 distinct Linux/PG cases, strict all-target checks/Clippy/fmt, OpenAPI
+equality and clean migration CLI. Actual managed Hermes now verifies lost
+steer/stop ACKs, original-key GET recovery and gateway PID restart without a
+second POST or erased terminal history. Its model is loopback, not paid inference.
+All six managed native scenarios re-run and pass on one exact binary, including
+legacy controls, lifecycle and both separate run/current-approval recovery cases.
+This is not installed-runtime or release-head CI evidence. Approval outcome
+integration is separate. See the [consumer verification](CHAT_CLARIFICATION_VERIFICATION.md#original-control-outcome-consumer-5-october-2026).
 Keep this plugin disabled on
 installed agents. See [outcome contract](contracts/HERMES_CONTROL_OUTCOME_V1.md)
 and the verification ledger; producer-only evidence is not consumer acceptance.
 
-The first broad gate exposed a run-progress/event FK deadlock against the
+The preceding journal-only broad gate exposed a run-progress/event FK deadlock against the
 original journal's session lock. A deterministic regression fails before the
 session-first progress fix and passes afterwards. The corrected final gate
 passes417 distinct Linux/PG component cases, strict all-target check/Clippy/fmt,
@@ -26,7 +37,8 @@ OpenAPI equality and clean migration CLI on16 registered versions. Node
 typecheck/API and111 Markdown links plus existing fixture hashes also pass;
 no new browser/native capture or frontend test/build run is claimed. See the
 [journal verification](CHAT_CLARIFICATION_VERIFICATION.md#original-control-outcome-journal-5-october-2026);
-supervisor integration and release-head CI are still required.
+that journal-only gate is historical, not the new consumer's acceptance.
+Release-head CI and ordered rollout are still required.
 
 Managed configuration apply/rollback now persist Linux directory entries after
 rename/unlink and new ancestors before acknowledging an effective revision.
@@ -34,7 +46,7 @@ Injected persistence failure retains activation journal/drain without spawning
 a runtime. That preceding candidate passed397 Linux/PG component cases, strict
 all-target checks, migration CLI and OpenAPI equality;235 frontend cases and
 five actual Hermes scenarios pass. Native source/test/harness fingerprints match
-the current bytes. Windows durability, physical power loss, loaded generation
+that recorded candidate's bytes. Windows durability, physical power loss, loaded generation
 and safe descendants are not certified. Exact remote Tracker schemas and
 Workflow predispatch authority remain incompatible/unavailable; local snapshot
 parity is not producer release acceptance. See

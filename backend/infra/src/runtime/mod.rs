@@ -25,6 +25,7 @@ use uuid::Uuid;
 mod acceptance_readback;
 mod activation_journal;
 mod approval_snapshot;
+mod control_outcome_readback;
 #[doc(hidden)]
 pub mod control_outcome_wire;
 mod hermes_wire;
@@ -95,6 +96,7 @@ impl LocalRuntimeSupervisor {
         supervisor.spawn_reconciler();
         supervisor.spawn_message_dispatcher();
         supervisor.spawn_acceptance_readback();
+        supervisor.spawn_control_outcome_readback();
         supervisor.spawn_prepared_dispatch();
         supervisor.spawn_config_activator();
         supervisor

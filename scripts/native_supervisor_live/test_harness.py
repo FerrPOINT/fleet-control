@@ -23,6 +23,7 @@ runner = module('run')
 preflight = module('preflight')
 fault_plugin = module('discard_ack_plugin')
 approval_plugin = module('approval_fault_plugin')
+control_plugin = module('control_fault_plugin')
 
 
 def archive(name, symlink=False):
@@ -42,8 +43,8 @@ def archive(name, symlink=False):
 
 class SafetyTests(unittest.TestCase):
     def test_scenarios_select_distinct_exact_tests(self):
-        self.assertEqual(set(runner.TEST_NAMES), {'lifecycle', 'recovery', 'controls', 'approvals', 'approval-recovery'})
-        self.assertEqual(len(set(runner.TEST_NAMES.values())), 5)
+        self.assertEqual(set(runner.TEST_NAMES), {'lifecycle', 'recovery', 'controls', 'control-outcomes', 'approvals', 'approval-recovery'})
+        self.assertEqual(len(set(runner.TEST_NAMES.values())), 6)
         self.assertTrue(all(name.rsplit('::', 1)[-1].startswith('managed_native_')
                             for name in runner.TEST_NAMES.values()))
 
@@ -59,6 +60,19 @@ class SafetyTests(unittest.TestCase):
             self.assertEqual(git.call_args.args[2:4], ('--format=tar', 'exact-head'))
         with patch.object(runner, 'git', return_value=archive('deploy/hermes-recovery-plugin/plugin.py')):
             with self.assertRaises(RuntimeError): runner.recovery_files('repo', 'exact-head')
+
+    def test_control_outcome_requires_its_own_complete_committed_inventory(self):
+        output = io.BytesIO()
+        with tarfile.open(fileobj=output, mode='w') as tar:
+            for name in runner.PLUGIN_FILES:
+                member = tarfile.TarInfo('deploy/hermes-control-plugin/'+name)
+                member.size = 5
+                tar.addfile(member, io.BytesIO(b'owned'))
+        with patch.object(runner, 'git', return_value=output.getvalue()) as git:
+            self.assertEqual(set(runner.recovery_files('repo','exact-head',controls=True)),set(runner.PLUGIN_FILES))
+            self.assertTrue(all(name.startswith('deploy/hermes-control-plugin/') for name in git.call_args.args[4:]))
+        with patch.object(runner, 'git', return_value=archive('deploy/hermes-recovery-plugin/plugin.py')):
+            with self.assertRaises(RuntimeError): runner.recovery_files('repo','exact-head',controls=True)
 
     def test_source_archive_preserves_original_bytes(self):
         self.assertEqual(runner.archive_files(archive('gateway/native.py')),
@@ -199,6 +213,93 @@ class FaultFixtureTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as directory:
             for root, opt_in in [(Path(directory), '0'), (Path('relative'), '1'),
                                  (Path(directory)/'missing', '1')]:
+                with self.subTest(root=root, opt_in=opt_in), self.assertRaises(RuntimeError):
+                    self.install(root, opt_in=opt_in)
+
+
+class ControlFaultFixtureTests(unittest.IsolatedAsyncioTestCase):
+    setUp = FaultFixtureTests.setUp
+
+    def install(self, root, denied=None, opt_in='1', preceding=()):
+        app = SimpleNamespace(middlewares=list(preceding))
+        web = SimpleNamespace(middleware=lambda function: function,
+            json_response=lambda body, status: SimpleNamespace(status=status, body=json.dumps(body).encode()))
+        handlers = []
+        control_plugin.register(SimpleNamespace(
+            register_platform_handler=lambda name, wire: handlers.append((name, wire))))
+        self.assertEqual(handlers[0][0], 'api_server')
+        with patch.dict('sys.modules', {'aiohttp':SimpleNamespace(web=web)}), patch.dict(os.environ, {
+            'FLEET_NATIVE_SUPERVISOR_TEST':opt_in, 'FLEET_NATIVE_CONTROL_FAULT_ROOT':str(root),
+        }):
+            handlers[0][1](app, SimpleNamespace(_check_auth=lambda request: denied))
+        self.assertEqual(app.middlewares[:-1], list(preceding))
+        return app.middlewares[-1]
+
+    def request(self, order, path='/v1/runs/native-run/steer', method='POST'):
+        async def read():
+            order.append('body')
+            return b'{"input":"never record this guidance"}'
+        return SimpleNamespace(path=path, method=method, headers={'Idempotency-Key':'original-command'},
+            read=read, transport=SimpleNamespace(close=lambda: order.append('closed')))
+
+    async def test_denied_control_never_reads_calls_or_records(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            denied = object()
+            observer = self.install(root, denied=denied)
+            order = []
+            async def handler(request): self.fail('denied command cannot reach native handler')
+            self.assertIs(await observer(self.request(order), handler), denied)
+            self.assertEqual(order, [])
+            self.assertFalse((root/'control-events.jsonl').exists())
+
+    def test_control_observer_follows_existing_bounded_request_wrapper(self):
+        with tempfile.TemporaryDirectory() as directory:
+            wrapper = object()
+            self.assertTrue(callable(self.install(Path(directory), preceding=[wrapper])))
+
+    async def test_disconnect_follows_real_control_handler_and_records_no_input(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            observer = self.install(root)
+            order = []
+            response = SimpleNamespace(status=200, body=b'{"run_id":"native-run","accepted":true}')
+            async def handler(request):
+                order.append('effect')
+                return response
+            self.assertIs(await observer(self.request(order), handler), response)
+            self.assertEqual(order, ['body', 'effect', 'closed'])
+            raw = (root/'control-events.jsonl').read_text()
+            rows = [json.loads(line) for line in raw.splitlines()]
+            self.assertEqual([row['kind'] for row in rows], ['post', 'native_ack'])
+            self.assertEqual(rows[0]['key'], 'original-command')
+            self.assertEqual(rows[0]['sha256'], hashlib.sha256(b'{"input":"never record this guidance"}').hexdigest())
+            self.assertNotIn('never record', raw)
+
+    async def test_error_control_ack_is_not_disconnected_or_reported_as_applied(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            observer = self.install(root)
+            order = []
+            response = SimpleNamespace(status=409, body=b'{}')
+            async def handler(request): return response
+            self.assertIs(await observer(self.request(order), handler), response)
+            self.assertEqual(order, ['body'])
+            self.assertEqual(json.loads((root/'control-events.jsonl').read_text())['kind'], 'post')
+
+    async def test_held_original_lookup_does_not_call_native_handler(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root/'hold-lookup').touch()
+            observer = self.install(root)
+            async def handler(request): self.fail('held lookup cannot reach handler')
+            response = await observer(self.request([], '/fleet/v1/controls/lookup', 'GET'), handler)
+            self.assertEqual(response.status, 503)
+            self.assertEqual(json.loads((root/'control-events.jsonl').read_text()), {'kind':'lookup','held':True})
+
+    def test_control_fault_requires_opt_in_and_owned_existing_absolute_root(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for root, opt_in in [(Path(directory), '0'), (Path('relative'), '1'), (Path(directory)/'missing', '1')]:
                 with self.subTest(root=root, opt_in=opt_in), self.assertRaises(RuntimeError):
                     self.install(root, opt_in=opt_in)
 

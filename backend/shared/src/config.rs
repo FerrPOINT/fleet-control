@@ -230,6 +230,9 @@ pub struct FleetConfig {
     /// Require the opt-in, source-pinned original-key recovery extension.
     #[serde(default)]
     pub hermes_recovery_extension_enabled: bool,
+    /// Require durable original stop/steer outcomes. Never backfill legacy commands.
+    #[serde(default)]
+    pub hermes_control_outcome_enabled: bool,
     pub java_agent_source: String,
     pub java_agent_command: String,
     pub runtime_token_secret: String,
@@ -326,6 +329,7 @@ impl AppConfig {
             .set_default("fleet.hermes_source", "../прототипы/hermes")?
             .set_default("fleet.hermes_command", "hermes")?
             .set_default("fleet.hermes_recovery_extension_enabled", false)?
+            .set_default("fleet.hermes_control_outcome_enabled", false)?
             .set_default("fleet.java_agent_source", "../java-agent")?
             .set_default("fleet.java_agent_command", "java")?
             .set_default("fleet.runtime_token_secret", "[CHANGE_ME]")?
@@ -476,6 +480,7 @@ impl Default for FleetConfig {
             hermes_source: "../прототипы/hermes".to_string(),
             hermes_command: "hermes".to_string(),
             hermes_recovery_extension_enabled: false,
+            hermes_control_outcome_enabled: false,
             java_agent_source: "../java-agent".to_string(),
             java_agent_command: "java".to_string(),
             forge_api_url: None,
@@ -496,5 +501,25 @@ impl Default for FleetConfig {
 impl Default for MetricsConfig {
     fn default() -> Self {
         Self { public: true }
+    }
+}
+
+#[cfg(test)]
+mod control_outcome_tests {
+    use super::*;
+
+    #[test]
+    fn control_outcome_is_opt_in_for_defaults_and_legacy_config() {
+        assert!(!FleetConfig::default().hermes_control_outcome_enabled);
+        let mut legacy = serde_json::to_value(FleetConfig::default()).unwrap();
+        legacy
+            .as_object_mut()
+            .unwrap()
+            .remove("hermes_control_outcome_enabled");
+        assert!(
+            !serde_json::from_value::<FleetConfig>(legacy)
+                .unwrap()
+                .hermes_control_outcome_enabled
+        );
     }
 }

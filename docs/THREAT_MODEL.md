@@ -11,6 +11,12 @@ Primary risks:
 - assigning a new witness to an already submitted legacy command, or using a
   completed run as proof of control acceptance; immutable claim context and an
   independent outcome fact prevent these substitutions at the repository boundary
+- recovering against a rotated origin/token/store epoch or taking fresh
+  capabilities as a replacement for original command context; the opt-in worker
+  checks the saved identity before GET and never grants a second POST permit
+- using actor revocation or independently observed terminal state to erase an
+  already applied action; a matching historical witness can record its ACK but
+  cannot authorize a new mutation or reopen the run
 
 - accidental sharing of one `HERMES_HOME` between agents
 - path traversal from workspace/config inputs

@@ -19,6 +19,7 @@ TEST_NAMES = {
     'lifecycle':'managed_native_gateway_isolates_home_soul_messages_and_restart_history',
     'recovery':'managed_native_lost_ack_recovers_original_run_across_fleet_processes',
     'controls':'managed_native_run_steer_and_stop_require_native_ack_and_terminal_readback',
+    'control-outcomes':'managed_native_original_control_outcomes_recover_lost_http_ack',
     'approvals':'native_approvals::managed_native_approval_decisions_are_exact_once_and_unknown_ack_is_held',
     'approval-recovery':'native_approvals::native_approval_recovery::managed_native_waiting_approval_recovers_across_fleet_processes',
 }
@@ -69,12 +70,12 @@ def service(purpose):
             'cpus':2, 'mem_limit':'3g', 'pids_limit':256}
 
 
-def recovery_files(repo, revision):
-    prefix = 'deploy/hermes-recovery-plugin/'
+def recovery_files(repo, revision, controls=False):
+    prefix = 'deploy/hermes-control-plugin/' if controls else 'deploy/hermes-recovery-plugin/'
     entries = archive_files(git(repo, 'archive', '--format=tar', revision,
                                 *[prefix+name for name in PLUGIN_FILES]))
     if set(entries) != {prefix+name for name in PLUGIN_FILES}:
-        raise RuntimeError('Committed recovery plugin inventory is incomplete')
+        raise RuntimeError('Committed runtime plugin inventory is incomplete')
     return {name:entries[prefix+name] for name in PLUGIN_FILES}
 
 
@@ -102,7 +103,8 @@ def main():
         raise RuntimeError('Base SDK must match Fleet .base-revision exactly')
     base_head = git(args.base_checkout, 'rev-parse','HEAD').decode().strip()
     launcher = archive_files(git(args.base_checkout,'archive','--format=tar',base_head,'deploy/fleet-hermes-launch.py'))['deploy/fleet-hermes-launch.py']
-    plugin = recovery_files(args.base_checkout, base_head) if args.scenario == 'recovery' else None
+    plugin_kind = 'control' if args.scenario == 'control-outcomes' else 'recovery'
+    plugin = recovery_files(args.base_checkout, base_head, controls=plugin_kind == 'control') if args.scenario in {'recovery','control-outcomes'} else None
     image = json.loads(subprocess.check_output(['docker','image','inspect',args.image]))[0]
     if image['Config'].get('Labels',{}).get('sdlc.hermes.revision') != PIN:
         raise RuntimeError('Dependency image revision label is incompatible')
@@ -144,20 +146,23 @@ def main():
                                'backend/infra/src/runtime/approval_snapshot.rs', 'backend/infra/src/runtime/acceptance_readback.rs',
                                'backend/infra/src/runtime/mod.rs', 'backend/infra/src/runtime/native_context.rs',
                                'backend/infra/src/runtime/run_control.rs', 'backend/infra/src/runtime/targeted_approval.rs',
+                               'backend/infra/src/runtime/control_outcome_wire.rs', 'backend/infra/src/runtime/control_outcome_readback.rs',
+                               'backend/infra/src/runtime_controls.rs', 'backend/shared/src/config.rs',
                                'backend/migration/src/lib.rs',
                                'backend/migration/src/m20261004_000012_hermes_dispatch_journal.rs',
                                'backend/migration/src/m20261005_000013_runtime_controls.rs',
-                               'backend/migration/src/m20261005_000014_hermes_journal_time_order.rs']},
-              'harness_sha256':{name:hashlib.sha256((scripts/name).read_bytes()).hexdigest() for name in ['run.py','build.sh','native.sh','preflight.py','discard_ack_plugin.py','approval_fault_plugin.py']}}
+                               'backend/migration/src/m20261005_000014_hermes_journal_time_order.rs',
+                               'backend/migration/src/m20261005_000015_runtime_control_outcomes.rs']},
+              'harness_sha256':{name:hashlib.sha256((scripts/name).read_bytes()).hexdigest() for name in ['run.py','build.sh','native.sh','preflight.py','discard_ack_plugin.py','approval_fault_plugin.py','control_fault_plugin.py']}}
     if plugin is not None:
-        plugin_dir = directory/'recovery-plugin'
+        plugin_dir = directory/(plugin_kind+'-plugin')
         plugin_dir.mkdir()
         for name, body in plugin.items():
             (plugin_dir/name).write_bytes(body)
         plugin_hashes = {name:hashlib.sha256(body).hexdigest() for name,body in plugin.items()}
-        (directory/'recovery-hashes.json').write_text(json.dumps(plugin_hashes)+'\n',encoding='utf-8')
-        report['recovery_plugin_base_sha'] = base_head
-        report['recovery_plugin_hashes'] = plugin_hashes
+        (directory/(plugin_kind+'-hashes.json')).write_text(json.dumps(plugin_hashes)+'\n',encoding='utf-8')
+        report[plugin_kind+'_plugin_base_sha'] = base_head
+        report[plugin_kind+'_plugin_hashes'] = plugin_hashes
     postgres = service('disposable-native-postgresql')
     postgres.update(image='postgres:17.6-alpine',tmpfs=['/var/lib/postgresql/data:rw,size=512m'],
         environment={'POSTGRES_USER':'native_qa','POSTGRES_DB':'fleet_native_test','POSTGRES_HOST_AUTH_METHOD':'trust'},
@@ -179,9 +184,10 @@ def main():
         volumes=['target:/cache:ro',bind(scripts/'native.sh','/qa/native.sh'),bind(scripts/'preflight.py','/qa/preflight.py'),
             bind(directory/'source-hashes.json','/qa/source-hashes.json'),bind(directory/'hermes','/opt/fleet-hermes/bin/hermes')])
     if plugin is not None:
-        native['environment']['FLEET_NATIVE_FAULT_ROOT'] = '/tmp/fleet-native-supervisor/recovery-fault'
-        native['volumes'].extend([bind(plugin_dir,'/qa/recovery-plugin'),
-            bind(directory/'recovery-hashes.json','/qa/recovery-hashes.json')])
+        if plugin_kind == 'recovery':
+            native['environment']['FLEET_NATIVE_FAULT_ROOT'] = '/tmp/fleet-native-supervisor/recovery-fault'
+        native['volumes'].extend([bind(plugin_dir,'/qa/'+plugin_kind+'-plugin'),
+            bind(directory/(plugin_kind+'-hashes.json'),'/qa/'+plugin_kind+'-hashes.json')])
     compose = {'services':{'postgres':postgres,'build':build,'native':native},'networks':{'qa':{'internal':True}},
         'volumes':{key:{'external':True,'name':name} for key,name in [('target',args.target_cache),('cargo',args.cargo_cache),('rustup',args.rustup_cache)]}}
     def save():
@@ -227,8 +233,8 @@ def main():
                 or TEST_NAMES[args.scenario].encode() not in result.stdout
                 or ('Exact pinned native tracked source verified: '+str(len(hashes))+' files').encode() not in result.stdout):
             raise RuntimeError('Native evidence is incomplete or no test ran')
-        if plugin is not None and b'Exact committed recovery plugin verified: 4 files' not in result.stdout:
-            raise RuntimeError('Native recovery plugin preflight is missing')
+        if plugin is not None and ('Exact committed '+plugin_kind+' plugin verified: 4 files').encode() not in result.stdout:
+            raise RuntimeError('Native runtime plugin preflight is missing')
         report['result'] = 'passed'
     except subprocess.TimeoutExpired as error:
         (directory/'timeout.log').write_bytes(error.output or b'')

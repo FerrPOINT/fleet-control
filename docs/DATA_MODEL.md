@@ -1,8 +1,10 @@
 # Data Model
 
 The [control outcome contract](contracts/HERMES_CONTROL_OUTCOME_V1.md) now has
-an internal stop/steer journal in additive migration `000015`. Supervisor
-dispatch/GET recovery and the separate approval decision consumer remain pending.
+an internal stop/steer journal in additive migration `000015`. The opt-in
+supervisor persists it before POST and consumes saved-context GET outcomes;
+the separate approval decision consumer remains pending. This packet adds no
+new migration and never rewrites applied000013/000014/000015.
 Existing historical receipts are not backfilled with a producer epoch.
 
 ## Runtime Control Outcomes

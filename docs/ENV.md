@@ -4,6 +4,18 @@ Prefix: `FLEET_CONTROL_`.
 
 ## Hermes Original-Key Recovery
 
+Stop/steer outcome recovery has its own default-false flag:
+`FLEET_CONTROL_FLEET__HERMES_CONTROL_OUTCOME_ENABLED`. Explicit `true` requires
+the committed Base `fleet-hermes-controls` plugin and pinned default-profile
+capabilities at command preparation. It uses exact saved bytes and original
+UUID/store headers only after atomic claim; background recovery is GET only.
+Missing/uncertain/foreign context never falls back, resets a key or releases
+capacity. Old submitted commands have no backfilled context. This flag enables
+no approval-decision recovery, task admission, Java chat or safe OS stop. It is
+read at Fleet startup; shipping plugin files is not enabling them. Keep installed
+enablement off until native/release acceptance. See
+[control outcome contract](contracts/HERMES_CONTROL_OUTCOME_V1.md).
+
 `FLEET_CONTROL_FLEET__HERMES_RECOVERY_EXTENSION_ENABLED` defaults to `false`.
 Explicit `true` requires the opt-in Base `fleet-hermes-recovery` plugin and its
 source-pinned authenticated capability before a new free-chat dispatch. Missing

@@ -3,6 +3,154 @@
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 
+## Original Control Outcome Consumer (5 October 2026)
+
+Parent Fleet b753c5f7f137adcd612eedb5f5e02ee675d9b597, unchanged Base launcher/
+control producer a48e53ee37a5a38b189f8a9cce84686d18fc5c83 and SDK9408802
+identify this supervisor packet. Applied migrations000013/14/15, generated
+public API and sibling services are unchanged. The startup flag defaults false;
+accepted agents/images/pins have not been modified or enabled.
+
+After authoritative human/accepted free-chat/native preflight, context and the
+single-use permit commit before one saved-byte POST. Original UUID/store headers
+and exact closed HTTP200 ACK are required. HTTP/DB ACK failure retains unknown
+acceptance; caller replay cannot POST again. The separate five-second worker
+scans UUID-keyset pages of100, checks current native pins/original credentials
+and adopts only a matching saved-context GET witness. It never refreshes the
+original epoch, backfills legacy commands, grants actor mutation rights or
+reopens terminal execution. ACK/outcome/audit/events commit atomically. Approval
+decision outcomes and fenced task/PM controls are outside this sender's scope.
+
+Failure history, not passing evidence:
+
+- Owned projectdbf70527ecb7 failed test compilation because receipt has no
+  PartialEq. The test compares its complete serialized value without changing
+  the domain type. Target projectedeab7b2a272 then passed13 wire and9 HTTP/PG cases.
+- Project82053a7106fb failed two timed HTTP fixtures after the 101-record test
+  left100 intentionally invalid immutable contexts in their shared database.
+  The keyset case itself passed; it now has its own empty disposable DB and a
+  required isolated CI invocation, without deleting history or relaxing timers.
+- Projectec578ca03e00 passed targeted13 wire,9 regular HTTP and the isolated
+  keyset case, but broad foundation failed1 of184 cases. The held normal ACK
+  waited for global queue traversal beyond the original10s HTTP deadline.
+  Keyed authenticated GET now synchronizes DB/normal-ACK settlement directly;
+  the separate worker recovery assertions remain intact. Strict Clippy also
+  rejected one needless format call; it is removed, not suppressed. A fmt check
+  caught the newly edited test before formatting. Supplemental gates did not run.
+
+All those owned projects reached exact finally down and independent empty ps.
+Fresh supervisors/repository connections in component cases are not a Fleet
+OS-process restart. The native `control-outcomes` scenario is separate: only
+actual execution, matching source hashes and cleanup can certify its result.
+32 host harness safety tests pass, including fault authentication, exact real
+handler ordering, unknown/error preservation and observation redaction. Host
+units do not constitute native runtime acceptance.
+
+Final component exec1851/project `sdlc-qa-control-outcome-consumer-51205b478016`
+exits 0. All 430 distinct cases PASS: 235 libraries, 184 foundation, 1 isolated
+keyset, 1 isolated approval, 6 isolated migrations and 3 supplemental PG cases.
+Targeted13 wire/9 HTTP cases were repeated by broad suites, not counted twice.
+The keyset case is ignored in the shared suite but actually passes on its own
+empty DB. One native renderer export remains ignored and is not counted.
+Locked/offline all-target check, strict workspace Clippy, fmt, generated OpenAPI
+equality and clean migration CLI up/status/down-one/up/status on16 registered
+versions PASS. Doc-test commands run zero examples. Exact finally down and
+independent empty ps pass; shared caches and accepted resources are preserved.
+Completion/PG diagnostics SHA256:
+`737cc1478b10c5631619b211c61b76a7b7d7f367ccf10b8174fd13e675c106d5`,
+`0680cd2928ca80bdffeae554cf94a572ccc0e0f7874b57787e8fda30a8cfdecf`.
+
+Node22.20 typecheck/generated-client equality, README and111 Markdown links
+PASS; existing135 screen/9 chat/3 control fixture hashes verify. There is no
+frontend source change, new browser capture or repeated235 Vitest/build claim
+for this backend packet. VM clock regressions remain an infrastructure gap.
+
+Native attempt `sdlc-qa-fleet-native-34150db88db4` FAILED, not acceptance: the
+QA fault opt-in existed only in the parent process and was correctly removed
+by Fleet's sealed child environment. Its hook therefore did not install and
+the real steer ACK was not lost. The disposable config now explicitly supplies
+that opt-in, and an authenticated held-lookup check proves fault installation
+before any model/control action. Production environment sealing and failure
+assertions are unchanged. Exact cleanup, removed own image aliases and empty
+ps passed. Failed native log SHA256:
+`0be1ed8cea2952e79bd3bb39ffe66c741af48dbfff4c3831c9970e1682b1249a`.
+Only the native test setup changed after the 430-case gate; production/test
+component source is unchanged. The renewed harness must compile/check all
+targets, fmt and strict native-test Clippy against the revised setup.
+
+Native attempt `sdlc-qa-fleet-native-5150fb2a8f50` also FAILED: the fault hook
+installed, but its outer observer read the body before the control wrapper's
+bounded request clone and no original ACK was recovered within the unchanged
+90-second test budget. The observer now follows that wrapper and uses its
+cached body; a host regression prevents inserting it before existing middleware.
+Neither producer guards nor recovery criteria/timeouts were weakened. Exact
+cleanup and empty ps passed. Failed native log SHA256:
+`a80f7552aa1ef4ee8749e5e5f30548df7167b7304a51a75eab48f740cf5fd7db`.
+This failed attempt is not native acceptance.
+
+Renewed actual managed `control-outcomes` projectc0ddba5857b4 PASS: 1 named native
+case, zero failures/ignored, real Hermes CLI/API/AIAgent and loopback model.
+The fault observes the real bounded wrapper/native handler; HTTP replies are
+lost, not invented. Original GET restores steer ACK and late stop ACK after a
+real gateway PID restart. One POST per UUID/body hash, one inference/run,
+unchanged original context/epoch and preserved terminal state/timestamp are
+asserted. Legacy `controls` project69905fb0784d separately PASS with the flag
+off. Both use binary SHA256
+`94f5bea77e118e6f37bd3929ffb21f9c3da0101280f52a98f6c9a6ec0dc21de0`.
+Hermes bbaf7af archive571fba49/13770 tracked file hashes, SDK9408802,
+Base a48e53ee launcher75ad258e and complete four-file committed control plugin
+inventory are verified. Every runtime/test/harness source hash is in the reports;
+there is no mutable Hermes mount or accepted-image replacement.
+
+Native completion log SHA256 (outcomes, legacy controls):
+`ce9a9e0a16e47da42b82bbcd832d1182177674162da53aba5fce6e79798e6d94`,
+`28fe67293dd9a422865c23571b89d2aad2dfb49bd337968f51668a1e437d1afb`.
+Both exact cleanup/empty ps and removal of their own image aliases PASS; shared
+caches/dependency image remain. This is not Fleet OS-process restart for control
+outcomes, approval decision recovery, combined extensions, central identity,
+loaded config generation, task/PM admission, safe descendants or installed
+enablement. Current local candidate evidence is not release-head CI.
+
+All four preceding native scenarios also re-run and PASS on that same binary:
+`lifecycle` (623172fa7e58), `recovery` (ffe69e33c2a0), `approvals` (f4bfeeb41fdb)
+and `approval-recovery` (4e97ba3675fb). Together with both control cases this is
+six current actual managed scenarios, separately counted from the 430 component
+cases. Recovery uses two Fleet OS processes for prompt mapping; approval-recovery
+uses two Fleet processes for the currently waiting request. Neither proves
+Fleet OS-restart recovery for the new control-outcome journal. Existing approval
+cases do not enable the control plugin or certify combined extensions.
+Every report verifies exact source hashes, zero failures/ignored tests,
+cleanup/empty ps and removal of its own QA image aliases. Their completion logs:
+
+| Scenario | SHA256 |
+| --- | --- |
+| lifecycle | `de00468d226200562d37e22a7b1fa910b24462da84a81ba2702daca10be38d4d` |
+| recovery | `660a4ec88bff0825ea884386c5155281b20a9f81060b2568613e1b4e0301dcbc` |
+| approvals | `576e2ae2871ba4e32fb469fda88ef254d1bcd7a1bbf7855e8ba331db6d58019a` |
+| approval-recovery | `6e62ab950b554f8c4de8628d4d19cd721ff3fd5db07618ee71d3fc9ef7972128` |
+
+Current raw source SHA256:
+
+| Source | SHA256 |
+| --- | --- |
+| `runtime/control_outcome_wire.rs` | `44855833421d7192e818ce7d7a821f97c78f32e552b1af4bd72175fd0529de31` |
+| `runtime/control_outcome_readback.rs` | `652597340b69614a6b49788ae2d7609ce9b15d1a17b9e930421ac34722e4dac3` |
+| `runtime/run_control.rs` | `bf3cfe80d202181a57b9aea6b703ac5fbd974794b62c6844028fbdb6cc6ffddc` |
+| `tests/support/runtime_control_outcome_http.rs` | `cd2ee33b00f5ec7a6b740536e8e12a00bb3345873c768ff13ad367e7f70acd09` |
+| `tests/native_supervisor_live.rs` | `d811551d323de67d2883f0774587fd38b5d36ef7e7392f7223dcfeddeff03e7e` |
+| `shared/src/config.rs` | `26567cf245b21688d249cbf76632102138b79db2e9f98cfad6b8ed28700dd74e` |
+| `control_fault_plugin.py` | `e2ff97ff3f9fec5c103e0777fbce77880c19576beb07d1b4842b5e833188b913` |
+
+Final Docker grouping audit remains incomplete (exit1), not green: desktop35
+and sdlc2-runner0 containers checked without violations; sdlc1-runner unavailable.
+PR47/main5240107, dependency Base PR140/main177edb8 and both accepted main branches
+are unchanged. The integration branch has no release PR. SDK/package pins,
+applied migration bytes, sibling services, installed HOME/images/secrets/data
+are preserved. Ordered one-migration release packets, exact-head CI/reviews,
+approval outcome/combined compatibility, Fleet OS control recovery, config
+generation/safe descendants and producer first-step/PM/Forge/live Chats acceptance
+remain required before full merge readiness. No 100% readiness is claimed.
+
 ## Original Control Outcome Journal (5 October 2026)
 
 Parent Fleet71eb9d6a758f66d326d2d0a359398a2130161c13 and unchanged Base

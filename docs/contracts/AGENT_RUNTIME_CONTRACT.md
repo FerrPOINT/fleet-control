@@ -2,15 +2,18 @@
 
 The internal stop/steer outcome journal now stores original context with a
 single-use claim and commits positive ACK/audit/events without losing a terminal
-observation. This is a repository capability, not a connected supervisor worker
-or approval-decision recovery. See [outcome v1](HERMES_CONTROL_OUTCOME_V1.md);
-keep its producer plugin disabled on installed agents until native consumer
-acceptance. Runtime ACK never proves task completion or safe descendant stop.
+observation. The default-false Hermes supervisor consumes it through exact-byte
+single POST and original-context GET recovery, not approval-decision recovery.
+See [outcome v1](HERMES_CONTROL_OUTCOME_V1.md);
+keep its producer plugin disabled on installed agents until ordered release and
+installed compatibility. Local native free-chat stop/steer recovery passes;
+runtime ACK never proves task completion or safe descendant stop.
 
 The [control outcome wire-consumer](HERMES_CONTROL_OUTCOME_V1.md) is implemented
-as preparation and original-context GET only. Production journal integration
-remains pending: these functions grant no permit, perform no POST, change no
-runtime state and cannot prove a task stage or safe descendant termination.
+with preparation, exact-byte stop/steer sending and original-context GET. Wire
+functions grant no permit: the journal must first commit the single-use claim.
+Neither control ACK nor terminal observation proves a task stage or safe
+descendant termination. Old submitted controls are never backfilled.
 
 Hermes steer/stop use the original accepted dispatch context, fresh capabilities
 and pinned native status under the [control profile](HERMES_RUN_CONTROL_V1.md).

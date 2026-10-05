@@ -6,8 +6,12 @@ epoch/scope/origin, closed capabilities/JSON, exact targeted ACKs and bounded
 GET-only failures. Additive000015 and `runtime_controls` implement the internal
 single-use context/ACK journal; seven PostgreSQL cases and isolated migration
 upgrade/down/reapply/history-loss denial verify that boundary. Supervisor
-dispatch/recovery remains unwired. This is not installed consumer,
-positive native approval, safe-stop or full SDLC acceptance.
+dispatch/recovery is connected behind the default-false flag;
+`runtime_control_outcome_http` exercises exact POST, original GET, race/rollback,
+revocation/epoch/credential denial and bounded keyset behavior. The managed native
+transport-loss/gateway-restart consumer case passes with real Hermes and a
+loopback model. This is not installed consumer, positive native approval,
+safe-stop or full SDLC acceptance.
 
 Journal clock-order repair: [ADR 0023](adr/0023-logical-journal-progress-time.md),
 additive migration 000014, deterministic clock-regression PG test and isolated
@@ -42,7 +46,7 @@ case; running/approval/native-crash and installed recovery remain gates.
 | Durable cursor | Migration 000009, session cursor/Last-Event-ID, Base reconnect tests; expiry/reset pending |
 | Config activation/drain | Migration 000009, desired/effective snapshots, DB drain/failed rollback regression |
 | Durable managed-file apply/rollback | `configuration_disk` Linux parent fsync for rename/unlink/new directory ancestors; test-only post-rename barrier failure retains journal/drain without effective head or runtime spawn. Power-loss/crash takeover and Windows directory durability remain unverified |
-| Native control outcome witness | Base `hermes-control-plugin`; Fleet protocol `controls` native producer QA verifies actual lost steer/stop ACK, GET-only restart and unknown hold. Production consumer, positive native approval, combined plugins and installed acceptance remain required |
+| Native control outcome witness | Base `hermes-control-plugin`; Fleet `run_control` and `control_outcome_readback` use original context/claim/GET only. PG/HTTP and wire fixtures cover failure/race/bounds. Managed `control-outcomes` passes actual native consumer transport loss and gateway restart with one POST/inference and preserved history; see the exact-source verification ledger. Positive native approval, Fleet OS restart for control recovery, combined plugins and installed acceptance remain gates |
 | Managed native free-chat lifecycle | `native_supervisor_live` explicit opt-in cases: actual Fleet activation/outbox, two native gateways, loaded SOUL/token isolation, idempotent mirrors and restart identity. Separate lost-ACK recovery uses the real Base witness plugin and distinct Fleet processes; separate steer/stop uses a real AIAgent and terminal readback. Model is local; installed/control-command recovery/approvals/process-tree/PM gates remain |
 | Native Hermes listener rendering | Server-selected snapshot renderer v2 seals listener/env/CORS; v1 history remains reproducible. Native loader and installed-runtime attestation are separate gates; see ADR 0017 |
 | Safe automatic publication | Tracker exact owner/revision/hash gate implemented; trusted prerequisite verifier and real first-step PM integration pending |

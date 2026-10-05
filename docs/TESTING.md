@@ -19,6 +19,21 @@ requires one submission, immutable original journal and pending held capacity.
 
 ## Durable Runtime Controls
 
+`runtime_control_outcome_http` exercises the opt-in actual supervisor sender and
+GET worker against PostgreSQL and a bounded fake native server. It asserts that
+context is committed before an effect, one POST survives caller replay, lost ACK
+and DB commit failure recover by GET only, unknown/foreign/rotated context cannot
+be adopted, and late ACK preserves terminal history after actor revocation.
+These component cases do not certify real Hermes or Fleet OS-process restart.
+
+The 101-record keyset case deliberately retains 100 invalid immutable contexts.
+Run it separately with `--ignored` and its own empty disposable database via
+`FLEET_CONTROL_OUTCOME_KEYSET_TEST_DATABASE_URL`; sharing a DB with timed HTTP
+fixtures can delay unrelated workers. CI creates that database explicitly and
+requires the named case to pass. Do not delete history or weaken timeouts to
+make the shared suite pass. The actual native `control-outcomes` scenario and
+its cleanup/source hashes are recorded separately in the verification ledger.
+
 `runtime_run_control` PostgreSQL/HTTP tests exercise identical concurrent/restarted
 replay with one native POST, semantic conflicts, unknown ACK hold, one submitted
 claim, current actor revocation, foreign-session readback, atomic ACK/audit rollback
