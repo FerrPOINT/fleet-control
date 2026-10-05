@@ -28,6 +28,11 @@ pnpm markdown:check
 
 Additional gates:
 
+- Linux managed-file directory barriers for rename/unlink/new ancestors;
+  injected post-rename failure must retain journal/drain and never advance head
+- compare the accepted seven-schema chat snapshot against exact release Tracker
+  Git blobs, not a divergent local checkout. PR114 head8c80a41 fails three
+  schemas; PR90 heade4fba60 lacks predispatch Base admission. Full rollout stays closed
 - clean DB migration up/status
 - additive control-ledger 000013 upgrade, empty down/re-up and nonempty refusal
   on its own database; release only after the 000012 prerequisite

@@ -230,7 +230,26 @@ Existing PostgreSQL tests cover draining, failed rollback hold, identity fencing
 and exact effective-head readiness. These are not process-kill fault injection
 or an installed-runtime restart recovery acceptance; both remain required.
 
+`cargo test --locked -p infra --lib configuration_disk::tests` covers nested
+directory creation, replacement/deletion, Unix0600, missing paths, non-files,
+outside-root and symlink denials. Task-local test-only fsync failure injection
+checks that visible rename/unlink still returns unavailable when the directory
+barrier fails. The PG lifecycle case
+`failed_directory_barrier_preserves_activation_drain_journal_and_effective_head`
+injects failure after visible config rename, then verifies retained journal/drain,
+no effective head, no runtime spawn and no second activation claim. These are
+component failures, not a physical power-loss simulation or OS-safe-stop proof.
+
 ## Credential Acknowledgement Timing
+
+The delayed issuer test measures its six-second wait with `Instant`, then
+compares the returned expiry to the fixture's exact post-delay issuance/expiry.
+It does not infer elapsed time by subtracting two Docker VM wall-clock samples.
+The extracted production expiry predicate preserves the same receipt-time +
+requested TTL +5s ceiling and fresh expired-token denial. A deterministic UTC
+boundary test checks the exact ceiling, +1ns rejection, expired/equal rejection
+and that using request-start rather than receipt time incorrectly rejects the
+delayed valid ACK. No expiry/clock-security policy or retry is relaxed.
 
 For actual producer interoperability, use the opt-in
 [locked Base/Tracker harness](../scripts/pm_credentials_live/README.md).

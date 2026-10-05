@@ -2073,3 +2073,106 @@ sources, Base core/pins/launcher/plugin or accepted runtime are changed. PR47
 Draft5240107/main and Base PR140 ready177edb8/main checks belong to those heads,
 not the integration candidate. Release partition and exact-pin/head checks
 remain blockers; neither this packet nor its fixture evidence completes SDLC.
+
+## Linux Managed Configuration Persistence: 5 October 2026
+
+The activation journal was already fsynced before effects, but managed file
+rename/unlink and newly created directory entries were not all persisted before
+effective-head acknowledgement. `configuration_disk` now fsyncs files before
+rename and parents after rename/unlink, synchronizing new ancestors leaf-to-root
+under the existing guarded agents root. Apply and rollback use the same barriers.
+Persistence failure is unavailable, not an active revision. Private staging
+files can survive interruption; they are not public receipts or adoption proof.
+
+Six filesystem component cases cover nested creation, replacement, unlink,
+Unix0600, missing/foreign/non-file paths, symlink aliases and test-only failure
+after visible rename/unlink. The actual PG lifecycle regression injects a
+post-rename directory barrier failure and verifies retained journal/drain, no
+effective head, no runtime spawn and no second activation claim. Injection is
+task-local and absent from production builds. It is not a physical power-loss
+test, interrupted-activation takeover, loaded-config attestation or descendant
+quiescence proof. Windows directory durability remains unverified.
+
+Preliminary exec86163/project6ef3a4ad74db FAILED: the delayed issuer fixture
+compared expiry against pre-request wall time, and later formatting changes were
+not yet normalized. All seven new persistence regressions and167 foundation
+cases passed, but the overall gate is not green; supplemental cases did not run.
+Clock watcher observed20-22s backwards jumps. Cargo additionally waited in
+`jbd2_log_wait_commit`; disk free space remained adequate. This was a live IO
+wait, not permission to restart Docker/delete shared caches or duplicate a test.
+Finally down exited0 and independent ps was empty. Completion log
+`95cff11f6d5bf962f33f9970c4ee8b50716168251b6c7d28b783899e9090d25b`;
+PG diagnostics `4280b7926cd12d2584242fedde690d890cf0e9cb533ebd0e753c10436a81fe2f`.
+
+The issuer delay test now uses monotonic elapsed time plus exact fixture
+post-delay issuance/expiry, not two VM wall-clock samples. The production
+predicate is unchanged: fresh nonexpired credential and receipt time + requested
+TTL +5s ceiling. Deterministic UTC vectors test the exact ceiling, +1ns/expired
+rejections and why using request-start wrongly rejects a delayed valid receipt.
+This improves test evidence; it does not repair host clock security/retention.
+
+### Final Candidate Verification
+
+Final broad exec52692/projectf4ee8b3e7b20 exits0:221 library+167 foundation+
+1 isolated approval+5 isolated migration+3 supplemental=397 distinct PASS.
+All-target check, strict workspace Clippy, fmt and generated OpenAPI equality
+PASS. Clean PG migration CLI up/status/down-one/up/status passes across15
+registered versions; doc tests execute zero examples. Completion log SHA256
+`8cc87aae5b15c8ec0de6d1d499a77d7b140d0f185657b1ae208ee7194c2e21a4`;
+owned PG diagnostic log
+`d5ec0f4055d2ca21dd28538147ec68a67ab63e52225b7d9f9312f7cc8c8611fe`.
+Finally down exits0 and independent exact-project ps is empty. The preliminary
+failure above remains failed evidence; VM clock integrity is still unverified.
+
+Node22.20.0/pnpm10.28.1 typecheck/lint/semantic/format,235 tests in31 files,
+build and generated client equality PASS. The seven-schema recorded Tracker
+snapshot and its two Node cases pass; this is not exact remote producer parity
+(see below). Screenshot checks pass135 general+9 chat+3 control fixture PNGs
+and nine manifest cases. README,109 Markdown links and25 host native harness
+cases pass. No production UI changed and no new live browser/screenshots are
+claimed; Vite's >500KiB chunk warning remains.
+
+All five managed native cases pass with exact executable SHA256
+`5be030234f70dade504d581686acd681d3357237af8f75d6b92c8fb62c93a56a`,
+SDK9408802, Base launcher88b9519 (unchanged launcher blob75ad258e) and pinned
+Hermes bbaf7af archive571fba49. Each verifies13770 native tracked files and
+26 current source/test/harness fingerprints. The deterministic model runs on
+loopback; these are real gateway/AIAgent/tool executions, not live provider,
+central authentication, PM workflow or safe OS process-tree acceptance.
+
+| Native scenario | Owned project suffix | Duration | Completion log SHA256 |
+| --- | --- | --- | --- |
+| Two-home lifecycle/restart history |18f90f9804a8|40.93s| `2a782a737054b692953604bdf8795461af71690b5c83e29f46e388ffee4016e3` |
+| Original-key lost-ACK recovery |315bd8da3e98|17.06s| `a8c95568a560eac1d8429bc9a1ea77901bbd902aebb7496727e999ca75344073` |
+| Steer/interrupt/terminal readback |c9889222edb0|13.35s| `e7a685719b14ce5a12fb129eb2372186e16c69a66886f6c4faacdfcec80a9469` |
+| Once/deny/lost real approval ACK |597375bc2841|14.37s| `8d514ad9b779a352b1126b39f3593962e7ebf5b68bff519ec466e2e3bb8f43cc` |
+| Current approval recovery |d6104cddeda8|31.51s| `69ad79e0eec21ab4b662ad1c9e491e229a481025ee7d82115d065ee4abf7c338` |
+
+Every report has cleanup exit0, removed disposable image aliases and empty
+post-cleanup ps, independently rechecked. Shared caches, accepted images,
+volumes/secrets and other workers' resources are unchanged. Executed new
+configuration disk source hash
+`4f7e249078e8a7a7191f53b874a763785c9bcac6d6417f067aba8b1b7be31815`;
+credential source
+`329f6c1da84551a040b0d77a3e6075ddf3b11d75c352fd99cedaa6bf4640c341`.
+No migrations, producer sources, Base pins/plugins or accepted runtime changed.
+Integration-branch evidence is not PR47/head5240107 or Base PR140/head177edb8
+CI, release partition, installed-agent rollout or full SDLC acceptance.
+
+### Exact Producer Release Audit
+
+Fresh GitHub PR list/read and Git fetch confirm the only open Tracker PR114 head
+`8c80a41fae3bf1c10439ddb7e536b05bf320340d` and Workflow PR90 head
+`e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37`, both Draft against their approved
+main/master bases. Tracker's exact committed OpenAPI differs in three of seven
+accepted schemas: TrackerTaskContext, TrackerConfirmation and
+ConfirmRequirementsRequest. Current Stage excludes Analysis; ConfirmCommand
+has only content_hash/key and rejects the optional routing extension. The
+divergent local Analysis/routing modules are not this release producer.
+
+Workflow's exact remote excludes local Base admission/binding modules. Its PM
+contract still binds a running callback after dispatch, not predispatch first-step
+authority. Sources are read-only; snapshots were not overwritten to mask drift.
+Fleet snapshot parity alone is not cross-service release compatibility. Actual
+admission/structured tools/answer delivery/checkpoint/rebind and SDLC rollout
+remain closed until compatible producer heads and live integration are verified.

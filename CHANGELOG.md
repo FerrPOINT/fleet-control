@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+- Persist Linux managed-file directory changes before acknowledging config
+  apply/rollback: rename/unlink parent barriers and new directory ancestors.
+  Failed persistence retains private journal/drain and cannot promote effective
+  head. Add post-rename/unlink fault injection and PostgreSQL hold regression.
+- Make the delayed PM issuer test use monotonic wait evidence and exact issuer
+  timestamps; preserve production expiry bounds with deterministic UTC tests.
+  Record incompatible exact Tracker/Workflow release heads instead of treating
+  divergent local producer extensions as rollout authority.
+
 - Restore the current exact native approval after Fleet restart by authenticated
   original-context GET, without a second run/SSE/decision. Atomically preserve
   request identity, redaction and resolved/stopping/terminal state; verify with

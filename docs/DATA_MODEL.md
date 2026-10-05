@@ -137,6 +137,10 @@ new source of configuration authority or runtime/Workflow completion receipt.
 The existing revision/head transaction remains authoritative; only after its
 verified result commits can the byte-identical journal be removed. Interrupted
 operations keep recovery material without automatic claim takeover.
+No new schema/renderer version is needed for Linux directory durability. Managed
+file rename/unlink and new ancestor directory entries must be synchronized before
+the existing head transaction may acknowledge application or rollback. Failed
+barriers retain an unconfirmed activation and drain, not an active revision.
 
 ## Targeted Approval Commands
 

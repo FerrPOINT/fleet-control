@@ -138,6 +138,13 @@ total, 128 files and a 24 MiB serialized journal. Successful application or veri
 rollback removes only the identical journal after the activation result commits
 in the database. Failed commit/rollback or process interruption preserves it.
 Rollback now reads back every restored file, including originally absent files.
+On Linux, application and rollback also fsync each managed file's parent after
+rename/unlink. Newly created skill directories are synchronized leaf-to-root
+under the guarded agents root. File readback alone cannot acknowledge those
+directory changes. A failed barrier is dependency-unavailable: effective head
+must not advance, and journal/drain remain held if persistence cannot be verified.
+Interrupted writes can leave private `.fleet-next-*` files; do not publish them
+or remove recovery material to bypass activation. They do not authorize adoption.
 The journal contains resolved env secrets encoded as hex, not encrypted/redacted:
 keep it private like runtime `.env` (Unix mode 0600); never attach it to a PR,
 logs, screenshots or support reports. Do not delete it to bypass a blocked agent.

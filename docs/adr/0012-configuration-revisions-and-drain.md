@@ -21,6 +21,10 @@ facts. Failed activation must not silently expose a partly applied revision.
   when restarting a previously tracked process.
 - On failure, restore the previous files and runtime. If rollback cannot be
   verified, keep the agent drained and retain the previous effective revision.
+- Persist a protected exclusive backup journal before runtime/file effects.
+  On Linux, fsync files before rename and directories after rename/unlink; persist
+  new directory ancestors before effective-head acknowledgement. Unconfirmed
+  persistence keeps journal/drain, even if current file readback matches.
 - Resolve secret references only into managed runtime files. Do not return raw
   secrets or inherit Fleet credentials into the agent environment.
 - Repeated provisioning preserves existing effective `.env`; new managed files
@@ -35,7 +39,9 @@ project access must be verified before automatic assignments can be enabled.
 - Saving settings does not mutate a running Hermes immediately.
 - Operators can inspect desired/effective drift and failed activation.
 - A failed rollback blocks new work instead of claiming readiness.
-- A disk activation journal and reconciliation API are still needed for crashes.
+- The disk activation journal is implemented; automatic recovery and public
+  operator reconciliation remain needed for crashes. Directory barriers do not
+  prove power-loss recovery, loaded runtime revision or descendant quiescence.
 - Skill edits require a new snapshot; automatic skill revision UX remains pending.
 - Java config activation is phase 2; existing Java lifecycle is preserved.
 

@@ -287,14 +287,11 @@ impl LocalRuntimeSupervisor {
         let applied = async {
             for (path, body) in &files {
                 if body.is_empty() && path.file_name().is_some_and(|name| name == "SKILL.md") {
-                    if tokio::fs::try_exists(path)
-                        .await
-                        .map_err(AppError::internal)?
-                    {
-                        tokio::fs::remove_file(path)
-                            .await
-                            .map_err(AppError::internal)?;
-                    }
+                    crate::configuration_disk::remove(
+                        std::path::Path::new(&self.config.fleet.agents_root),
+                        path,
+                    )
+                    .await?;
                 } else {
                     // Configuration planning/readback is read-only. Only activation creates paths.
                     let parent = path
@@ -305,9 +302,11 @@ impl LocalRuntimeSupervisor {
                         path,
                     )
                     .await?;
-                    tokio::fs::create_dir_all(parent)
-                        .await
-                        .map_err(AppError::internal)?;
+                    crate::configuration_disk::create_directory(
+                        std::path::Path::new(&self.config.fleet.agents_root),
+                        parent,
+                    )
+                    .await?;
                     crate::write_configuration_file(path, body.as_bytes()).await?;
                 }
             }
@@ -351,14 +350,11 @@ impl LocalRuntimeSupervisor {
                     match old {
                         Some(content) => crate::write_configuration_file(path, content).await?,
                         None => {
-                            if tokio::fs::try_exists(path)
-                                .await
-                                .map_err(AppError::internal)?
-                            {
-                                tokio::fs::remove_file(path)
-                                    .await
-                                    .map_err(AppError::internal)?;
-                            }
+                            crate::configuration_disk::remove(
+                                std::path::Path::new(&self.config.fleet.agents_root),
+                                path,
+                            )
+                            .await?;
                         }
                     }
                 }

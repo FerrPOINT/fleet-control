@@ -137,6 +137,9 @@ def main():
                                'backend/infra/tests/support/native_approval_recovery.rs']},
               'fleet_runtime_sources_sha256':{name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest()
                   for name in ['backend/app/src/lib.rs', 'backend/infra/src/lib.rs',
+                               'backend/infra/src/configuration_disk.rs',
+                               'backend/infra/src/pm_credentials.rs',
+                               'backend/infra/src/runtime/activation_journal.rs',
                                'backend/infra/src/hermes_dispatch_journal.rs', 'backend/infra/src/hermes_approval_recovery.rs',
                                'backend/infra/src/runtime/approval_snapshot.rs', 'backend/infra/src/runtime/acceptance_readback.rs',
                                'backend/infra/src/runtime/mod.rs', 'backend/infra/src/runtime/native_context.rs',

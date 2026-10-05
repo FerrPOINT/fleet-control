@@ -2,6 +2,7 @@ mod approval_decisions;
 pub mod base_package;
 mod chats_directory;
 mod config_revisions;
+mod configuration_disk;
 mod configuration_renderer;
 mod effective_configuration;
 pub mod entities;
@@ -5161,19 +5162,7 @@ pub(crate) async fn configuration_files(
 }
 
 pub(crate) async fn write_configuration_file(path: &Path, body: &[u8]) -> Result<(), AppError> {
-    use tokio::io::AsyncWriteExt;
-    let temporary = path.with_file_name(format!(".fleet-next-{}", Uuid::new_v4()));
-    let mut options = tokio::fs::OpenOptions::new();
-    options.write(true).create_new(true);
-    #[cfg(unix)]
-    options.mode(0o600);
-    let mut file = options.open(&temporary).await.map_err(AppError::internal)?;
-    file.write_all(body).await.map_err(AppError::internal)?;
-    file.sync_all().await.map_err(AppError::internal)?;
-    drop(file);
-    tokio::fs::rename(&temporary, path)
-        .await
-        .map_err(AppError::internal)
+    configuration_disk::write(path, body).await
 }
 
 async fn write_if_missing(path: PathBuf, content: String) -> Result<(), AppError> {

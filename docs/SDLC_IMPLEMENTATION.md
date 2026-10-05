@@ -48,6 +48,7 @@ IMPLEMENTATION_PLAN и CURRENT_STATE. Они не являются приёмк�
 | Delivery lock order | Session NO KEY UPDATE перед message; deterministic PG blocker/NOWAIT regression сначала FAILED, после исправления PASS | Unknown dispatch остаётся pending/held, event cursor атомарный; не общий DB/VM-clock fix |
 | Readiness IO | Java headers/body 3 s / 16 KiB; Java/Hermes startup 60 s wall-clock | TCP/PG negative fixtures, не native configuration attestation или успешный SDLC |
 | Failed rollback | Агент остаётся drained, effective revision не меняется; до file/runtime effects сохраняется защищённый дисковый activation journal | PostgreSQL regression + journal unit checks; автоматическое recovery после crash и operator API требуют дальнейшей реализации |
+| Managed file durability | Linux fsync parent после rename/unlink; new skill directories синхронизируются leaf-to-root. Ошибка barrier удерживает journal/drain до подтверждённого восстановления | Component fault injection после visible rename, no effective head/spawn/second claim. Не power-loss simulation, Windows directory guarantee или native loaded-config attestation |
 | Filesystem | Не присваивать непустую чужую папку, проверять marker и symlink/junction components | Guard действует на managed writes; защита от внешнего TOCTOU требует OS isolation |
 | Provisioning | Существующий effective `.env` сохраняется; активный runtime не переподготавливается | Exclusive create и Unix `0600`; три regression tests |
 | Readiness | Runtime health отдельно от readiness SDLC | `workflow_assignment_protocol_not_verified` блокирует весь автоматический SDLC |
@@ -143,6 +144,13 @@ Terminal `interrupted` трактуется как failed, без fabricated ass
 это проверено отдельным fake Hermes HTTP regression.
 
 ## Оставшиеся блокеры по этапам
+
+Fresh producer release audit (5 October): Tracker PR114 head8c80a41 differs
+from the accepted Fleet snapshot in three of seven generated chat schemas and
+does not include local Analysis/routing extensions. Workflow PR90 heade4fba60
+does not include local Base admission/binding; its PM bind remains post-dispatch.
+Neither local producer worktree nor healthy runtime may stand in for those
+release contracts. See [exact compatibility boundary](contracts/CHAT_CLARIFICATION_CONTRACT.md#producer-release-compatibility-5-october-2026).
 
 | Этап | Обязательная работа | Владелец |
 | --- | --- | --- |

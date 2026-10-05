@@ -8,6 +8,15 @@ use uuid::Uuid;
 
 const MAX_RESPONSE_BYTES: usize = 16_384;
 
+fn acknowledgement_expiry_valid(
+    expires_at: DateTime<Utc>,
+    acknowledged: DateTime<Utc>,
+    checked_at: DateTime<Utc>,
+    ttl_seconds: i64,
+) -> bool {
+    expires_at > checked_at && expires_at <= acknowledged + ChronoDuration::seconds(ttl_seconds + 5)
+}
+
 pub use domain::PmCredentialCommand;
 
 mod coordinator;
@@ -230,8 +239,12 @@ impl PmCredentialIssuer {
             .map_err(|_| AppError::Unavailable("credential acknowledgement is invalid".into()))?;
         if token.token_id.is_nil()
             || token.scopes != command.scopes()
-            || token.expires_at <= Utc::now()
-            || token.expires_at > acknowledged + ChronoDuration::seconds(command.ttl_seconds() + 5)
+            || !acknowledgement_expiry_valid(
+                token.expires_at,
+                acknowledged,
+                Utc::now(),
+                command.ttl_seconds(),
+            )
         {
             return Err(AppError::Unavailable(
                 "credential acknowledgement scope or expiry mismatch".into(),
@@ -433,12 +446,19 @@ mod tests {
         ));
     }
 
+    #[derive(Clone, Copy)]
+    struct IssuedTimes {
+        issued_at: DateTime<Utc>,
+        expires_at: DateTime<Utc>,
+    }
+
     #[derive(Clone)]
     struct TestState {
         mode: Arc<AtomicUsize>,
         calls: Arc<AtomicUsize>,
         redirected: Arc<AtomicUsize>,
         token_id: Uuid,
+        issued_times: Arc<std::sync::Mutex<Option<IssuedTimes>>>,
     }
 
     async fn issue(
@@ -455,7 +475,8 @@ mod tests {
         if mode == 17 || mode == 18 {
             tokio::time::sleep(Duration::from_secs(6)).await;
         }
-        let mut token = json!({"secret":CHILD,"token_id":state.token_id,"expires_at":Utc::now()+ChronoDuration::seconds(100),"scopes":body["scopes"]});
+        let issued_at = Utc::now();
+        let mut token = json!({"secret":CHILD,"token_id":state.token_id,"expires_at":issued_at+ChronoDuration::seconds(100),"scopes":body["scopes"]});
         let mut status = StatusCode::CREATED;
         match mode {
             1 => status = StatusCode::OK,
@@ -495,6 +516,10 @@ mod tests {
             }
             _ => (),
         }
+        *state.issued_times.lock().unwrap() = Some(IssuedTimes {
+            issued_at,
+            expires_at: serde_json::from_value(token["expires_at"].clone()).unwrap(),
+        });
         (status, headers, token.to_string())
     }
 
@@ -505,6 +530,7 @@ mod tests {
             calls: Arc::new(AtomicUsize::new(0)),
             redirected: Arc::new(AtomicUsize::new(0)),
             token_id: Uuid::new_v4(),
+            issued_times: Arc::new(std::sync::Mutex::new(None)),
         };
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let issuer = PmCredentialIssuer::new(
@@ -655,6 +681,7 @@ mod tests {
             calls: Arc::new(AtomicUsize::new(0)),
             redirected: Arc::new(AtomicUsize::new(0)),
             token_id: Uuid::new_v4(),
+            issued_times: Arc::new(std::sync::Mutex::new(None)),
         };
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let issuer = PmCredentialIssuer::new(
@@ -669,10 +696,15 @@ mod tests {
         let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
         let command =
             PmCredentialCommand::tracker(&identity(), "persisted-key".into(), 100).unwrap();
-        let started = Utc::now();
+        let started = std::time::Instant::now();
         let credential = issuer.issue(&command).await.unwrap();
-        assert!(credential.expires_at() > started + ChronoDuration::seconds(105));
-        assert!(credential.expires_at() <= Utc::now() + ChronoDuration::seconds(105));
+        assert!(started.elapsed() >= Duration::from_secs(6));
+        let IssuedTimes {
+            issued_at,
+            expires_at,
+        } = state.issued_times.lock().unwrap().unwrap();
+        assert_eq!(expires_at - issued_at, ChronoDuration::seconds(100));
+        assert_eq!(credential.expires_at(), expires_at);
         assert_eq!(credential.token_id(), state.token_id);
         assert_eq!(state.calls.load(Ordering::SeqCst), 1);
         state.mode.store(18, Ordering::SeqCst);
@@ -682,6 +714,50 @@ mod tests {
         ));
         assert_eq!(state.calls.load(Ordering::SeqCst), 2);
         server.abort();
+    }
+
+    #[test]
+    fn acknowledgement_expiry_bounds_are_exact_and_do_not_spend_issuer_lock_delay() {
+        let started = DateTime::<Utc>::from_timestamp(1_000_000, 0).unwrap();
+        let acknowledged = started + ChronoDuration::seconds(6);
+        let expires_at = acknowledged + ChronoDuration::seconds(100);
+        assert!(acknowledgement_expiry_valid(
+            expires_at,
+            acknowledged,
+            acknowledged,
+            100
+        ));
+        assert!(!acknowledgement_expiry_valid(
+            expires_at,
+            started,
+            acknowledged,
+            100
+        ));
+        let ceiling = acknowledged + ChronoDuration::seconds(105);
+        assert!(acknowledgement_expiry_valid(
+            ceiling,
+            acknowledged,
+            acknowledged,
+            100
+        ));
+        assert!(!acknowledgement_expiry_valid(
+            ceiling + ChronoDuration::nanoseconds(1),
+            acknowledged,
+            acknowledged,
+            100
+        ));
+        assert!(!acknowledgement_expiry_valid(
+            acknowledged,
+            acknowledged,
+            acknowledged,
+            100
+        ));
+        assert!(!acknowledgement_expiry_valid(
+            expires_at,
+            acknowledged,
+            expires_at,
+            100
+        ));
     }
 
     #[tokio::test]

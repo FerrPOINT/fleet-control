@@ -241,6 +241,63 @@ async fn activation_keeps_lifecycle_lock_through_file_readback_and_event_persist
 }
 
 #[tokio::test]
+async fn failed_directory_barrier_preserves_activation_drain_journal_and_effective_head() {
+    let Some((repo, agent, owner, config, root)) = fixture(AgentKind::Hermes).await else {
+        return;
+    };
+    let revision = revision(&repo, &agent, owner).await;
+    repo.request_config_activation(agent.id, revision.revision, owner)
+        .await
+        .unwrap();
+    let claimed = repo.claim_config_activation().await.unwrap().unwrap();
+    assert_eq!(claimed.agent_id, agent.id);
+    let supervisor = supervisor(config, repo.clone());
+    let mut journal = None;
+    let result = crate::configuration_disk::SYNC_FAILURE
+        .scope(
+            (PathBuf::from(&agent.paths.config), std::cell::Cell::new(2)),
+            supervisor.apply_config_revision(&claimed, &mut journal),
+        )
+        .await;
+    assert!(matches!(result, Err(AppError::Unavailable(_))));
+    assert!(journal.is_some());
+    assert!(
+        PathBuf::from(&agent.paths.config)
+            .join("config.yaml")
+            .is_file()
+    );
+    repo.finish_config_activation(
+        agent.id,
+        claimed.revision,
+        Some(crate::redact_text(&result.unwrap_err().to_string())),
+        false,
+    )
+    .await
+    .unwrap();
+    assert!(repo.agent_is_draining(agent.id).await.unwrap());
+    assert!(
+        repo.get_effective_config_revision(agent.id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    let observed = repo
+        .get_config_revision(agent.id, claimed.revision)
+        .await
+        .unwrap();
+    assert_ne!(observed.state, "active");
+    assert!(!supervisor.children.lock().await.contains_key(&agent.id));
+    drop(journal);
+    assert!(
+        PathBuf::from(&agent.paths.config)
+            .join(".fleet-activation-journal.json")
+            .is_file()
+    );
+    assert!(repo.claim_config_activation().await.unwrap().is_none());
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[tokio::test]
 async fn missing_java_jar_does_not_publish_an_untracked_starting_runtime() {
     let Some((repo, agent, _, config, root)) = fixture(AgentKind::JavaAgent).await else {
         return;

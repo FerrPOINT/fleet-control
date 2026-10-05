@@ -4,6 +4,25 @@ Status: agreed target contract; deployment compatibility must be verified.
 
 ## Identity And Ownership
 
+### Producer Release Compatibility: 5 October 2026
+
+Fresh fetched Tracker PR114 head `8c80a41fae3bf1c10439ddb7e536b05bf320340d`
+does not contain the local unpublished Analysis/routing/reservation extension.
+Exact Git-blob OpenAPI comparison fails three of the seven accepted Fleet
+schemas: `TrackerTaskContext`, `TrackerConfirmation`, `ConfirmRequirementsRequest`.
+Its confirmation command has only content_hash/idempotency_key and rejects
+unknown fields; the optional routing opt-in below must not be sent to that build.
+The existing legacy omission remains compatible behavior, not full-schema parity.
+Do not overwrite the extension snapshot or claim deployment readiness from a
+passing comparison against the divergent local Tracker checkout.
+
+Workflow PR90 head `e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37` likewise excludes
+the local unpublished Base admission/binding modules. Its PM minimal handshake
+still finalizes bind from an already-running Fleet callback. It is not
+predispatch first-step authority. Runtime/config/file health cannot replace the
+missing producer admission. Both repositories remain read-only here; actual
+compatible release heads and live acceptance are required before opt-in.
+
 Tracker instance + immutable issue ID identify a task; display key is not identity.
 Fleet session binds one concrete agent, Tracker project/task/root IDs and central owner subject.
 Unique instance/task/agent binding never merges transcripts. Existing unbound sessions stay free.

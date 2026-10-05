@@ -39,6 +39,8 @@ chat/control capability; Java cannot use that free-chat path.
 Java Agent is modeled alongside Hermes. Existing local jar provisioning layout,
 start/stop/restart and readiness checks are implemented and retained. Chat/control,
 configuration activation and automatic SDLC admission remain phase 2.
+Hermes managed-file directory barriers do not enable Java configuration activation
+or change Java lifecycle capabilities.
 
 Current launch: `java -jar agentN/runtime/backend.jar --spring.profiles.active=noop`.
 The jar is supplied externally; a missing jar is a validation error. Readiness

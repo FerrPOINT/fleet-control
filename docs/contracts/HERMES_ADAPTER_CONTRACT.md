@@ -51,6 +51,10 @@ agent/revision are protected and size-bounded. Rollback verifies every old file;
 unknown outcomes preserve journal/drain. Cleanup follows the committed DB result,
 not an HTTP success or EOF. This is not automatic restart reconciliation or proof
 that all descendant OS processes stopped.
+Managed apply/rollback now require Linux parent-directory fsync after rename and
+unlink, plus leaf-to-root synchronization of newly created directory entries.
+Unconfirmed persistence retains journal/drain and does not promote effective head.
+Protected temporary files may survive interruption; they are not authority.
 
 Hermes is the first implemented runtime.
 

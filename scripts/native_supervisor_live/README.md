@@ -128,9 +128,9 @@ tmpfs and are not exported. Diagnostic startup logs come from Fleet redaction,
 with the known synthetic/derived keys additionally masked. Previous failed
 attempts remain failures and must not be counted as passing acceptance.
 
-The report also fingerprints the repository delivery/journal and runtime
-context/control/approval source files. These hashes bind the executed candidate
-behavior to source bytes; they do not certify complete configuration generation,
+The report also fingerprints the repository delivery/journal, managed-file
+persistence and runtime context/control/approval source files. These hashes bind
+the executed candidate behavior to source bytes; they do not certify complete configuration generation,
 task admission or release-head dependency compatibility.
 
 The runner always issues exact-project `down --remove-orphans`, removes only its

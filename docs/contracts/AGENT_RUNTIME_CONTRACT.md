@@ -39,6 +39,10 @@ stop/file effects. Only the exact journal can be acknowledged after the database
 activation result commits and rollback/application is verified. Existing, partial
 or changed journals hold further activation; no automatic crash takeover follows.
 Journal content is sensitive local recovery data, never a public runtime receipt.
+Linux apply/rollback persist parent directory entries after file rename/unlink,
+including every new skill-directory ancestor. A failed barrier holds journal/drain
+instead of acknowledging effective state. This does not certify Windows directory
+durability, host power-loss behavior or native loaded configuration.
 See [operations](../OPERATIONS.md#sdlc-foundation-recovery).
 
 Every runtime adapter must provide:

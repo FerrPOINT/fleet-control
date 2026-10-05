@@ -84,6 +84,9 @@ event/audit writes; `503` retains the folder, while drain returns `409`.
 Hermes config activation now persists a protected local journal before runtime
 and file changes and retains it on unknown outcomes. No new endpoint or response
 field is added; backups, resolved secret bytes and paths are never API data.
+The asynchronous result cannot promote effective revision until Linux directory
+barriers for apply/rollback succeed. An unconfirmed filesystem outcome retains
+drain and the private journal; accepting the activation request is not completion.
 Public operator crash reconciliation remains unavailable. See
 [operations](OPERATIONS.md#sdlc-foundation-recovery) before attempting recovery.
 

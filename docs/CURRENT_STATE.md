@@ -5,6 +5,18 @@ blocked until cross-service assignment/workflow/deployment contracts are verifie
 See [SDLC implementation](SDLC_IMPLEMENTATION.md). The baseline feature/gate lists
 below are historical, not acceptance evidence for the new SDLC plan.
 
+Managed configuration apply/rollback now persist Linux directory entries after
+rename/unlink and new ancestors before acknowledging an effective revision.
+Injected persistence failure retains activation journal/drain without spawning
+a runtime. The current candidate passes397 Linux/PG component cases, strict
+all-target checks, migration CLI and OpenAPI equality;235 frontend cases and
+five actual Hermes scenarios pass. Native source/test/harness fingerprints match
+the current bytes. Windows durability, physical power loss, loaded generation
+and safe descendants are not certified. Exact remote Tracker schemas and
+Workflow predispatch authority remain incompatible/unavailable; local snapshot
+parity is not producer release acceptance. See
+[persistence evidence](CHAT_CLARIFICATION_VERIFICATION.md#linux-managed-configuration-persistence-5-october-2026).
+
 Current pending approval recovery is implemented for accepted pinned free chats.
 Actual Hermes acceptance uses two distinct Fleet processes and one surviving
 gateway: GET-only request restore, exact owner decision, one tool effect and one
@@ -14,7 +26,7 @@ outcomes. See [current evidence](CHAT_CLARIFICATION_VERIFICATION.md#current-appr
 Additive000014 now protects logical journal submission/ACK order against observed
 clock regression without renewing deadline/key/permit. The deterministic test
 fails on the old schema and passes on the new; isolated upgrade/down/reapply
-preserves history/original guard. The current candidate passes389 Linux/PG cases,
+preserves history/original guard. The preceding candidate passed389 Linux/PG cases,
 strict all-target Clippy/check/fmt, OpenAPI equality and clean migration CLI;
 Node22 frontend gates pass235 tests and build. Clock integrity,
 ordered release and exact-head CI remain prerequisites. See
