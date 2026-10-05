@@ -1,7 +1,7 @@
 use super::*;
 use domain::{ApprovalDecision, ApprovalDecisionRequest, ReservedApprovalDecision};
 
-async fn load<C: ConnectionTrait>(
+pub(super) async fn load<C: ConnectionTrait>(
     db: &C,
     session: Uuid,
     approval: Uuid,
@@ -55,6 +55,7 @@ pub(super) async fn reserve(
     approval_id: Uuid,
     actor: Uuid,
     req: ApprovalDecisionRequest,
+    outcome_required: bool,
 ) -> Result<ReservedApprovalDecision, AppError> {
     req.validate()?;
     let txn = repo.db.begin().await.map_err(AppError::database)?;
@@ -71,7 +72,7 @@ pub(super) async fn reserve(
     let owner = txn
         .query_one(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
-            "SELECT user_id FROM agent_sessions WHERE id=$1",
+            "SELECT user_id FROM agent_sessions WHERE id=$1 FOR NO KEY UPDATE",
             [session.into()],
         ))
         .await
@@ -154,8 +155,8 @@ pub(super) async fn reserve(
     let id = Uuid::new_v4();
     // Unknown acceptance is durable BEFORE HTTP. A replay never dispatches again.
     txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
-        "INSERT INTO runtime_approval_decisions(id,session_id,approval_id,session_run_id,actor_user_id,choice,idempotency_key,state)
-          VALUES($1,$2,$3,$4,$5,$6,$7,'uncertain')", [id.into(),session.into(),approval_id.into(),approval.session_run_id.into(),actor.into(),req.choice.as_str().into(),req.idempotency_key.into()]))
+        "INSERT INTO runtime_approval_decisions(id,session_id,approval_id,session_run_id,actor_user_id,choice,idempotency_key,state,outcome_required)
+          VALUES($1,$2,$3,$4,$5,$6,$7,'uncertain',$8)", [id.into(),session.into(),approval_id.into(),approval.session_run_id.into(),actor.into(),req.choice.as_str().into(),req.idempotency_key.into(),outcome_required.into()]))
         .await.map_err(AppError::database)?;
     audit(&txn, actor, id, "approval.decision_reserved", json!({"approval_id":approval_id,"session_id":session,"run_id":approval.session_run_id,"choice":req.choice})).await?;
     let decision = load(&txn, session, approval_id).await?;
@@ -185,6 +186,13 @@ pub(super) async fn deliver(
     let approval: Uuid = refs
         .try_get("", "approval_id")
         .map_err(AppError::database)?;
+    txn.query_one(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT id FROM agent_sessions WHERE id=$1 FOR NO KEY UPDATE",
+        [session.into()],
+    ))
+    .await
+    .map_err(AppError::database)?;
     let row = runtime_approval_request::Entity::find_by_id(approval)
         .lock_exclusive()
         .one(&txn)
@@ -227,14 +235,28 @@ pub(super) async fn fail_undispatched(
     let row = txn
         .query_one(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
-            "SELECT session_id,approval_id FROM runtime_approval_decisions WHERE id=$1 FOR UPDATE",
+            "SELECT session_id,approval_id FROM runtime_approval_decisions WHERE id=$1",
             [id.into()],
         ))
         .await
         .map_err(AppError::database)?
         .ok_or_else(|| AppError::not_found("approval_decision", id))?;
-    let session = row.try_get("", "session_id").map_err(AppError::database)?;
-    let approval = row.try_get("", "approval_id").map_err(AppError::database)?;
+    let session: Uuid = row.try_get("", "session_id").map_err(AppError::database)?;
+    let approval: Uuid = row.try_get("", "approval_id").map_err(AppError::database)?;
+    txn.query_one(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT id FROM agent_sessions WHERE id=$1 FOR NO KEY UPDATE",
+        [session.into()],
+    ))
+    .await
+    .map_err(AppError::database)?;
+    txn.query_one(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT id FROM runtime_approval_decisions WHERE id=$1 FOR UPDATE",
+        [id.into()],
+    ))
+    .await
+    .map_err(AppError::database)?;
     let previous = load(&txn, session, approval).await?;
     if previous.state == domain::ApprovalDecisionState::Failed {
         return Ok(previous);
@@ -264,7 +286,7 @@ pub(super) async fn fail_undispatched(
     Ok(result)
 }
 
-async fn audit<C: ConnectionTrait>(
+pub(super) async fn audit<C: ConnectionTrait>(
     db: &C,
     actor: Uuid,
     id: Uuid,

@@ -21,6 +21,7 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 - [Hermes run-control consumer profile v1](contracts/HERMES_RUN_CONTROL_V1.md)
 - [Hermes control-outcome producer v1](contracts/HERMES_CONTROL_OUTCOME_V1.md)
 - [ADR: native control outcome witness](adr/0024-native-control-outcome-witness.md)
+- [ADR: original approval outcome journal](adr/0025-original-approval-outcome-journal.md)
 - [Durable runtime command ADR](adr/0021-durable-runtime-control-commands.md)
 - [Current native approval snapshot ADR](adr/0022-current-native-approval-snapshot.md)
 - [Logical journal progress time ADR](adr/0023-logical-journal-progress-time.md)

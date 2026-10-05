@@ -128,6 +128,13 @@ pub struct RuntimeControlOutcomeIntent {
     pub context: serde_json::Value,
 }
 
+/// Private delivery witness; not a public DTO, dispatch permission or debug payload.
+pub struct ApprovalOutcomeIntent {
+    pub decision: domain::ApprovalDecision,
+    pub approval: RuntimeApprovalRequest,
+    pub context: serde_json::Value,
+}
+
 /// Internal terminal proof; never a public request or permission to dispatch.
 pub struct HermesTerminalCommit {
     pub message_id: Uuid,
@@ -344,6 +351,51 @@ pub trait FleetRepository: Send + Sync {
     ) -> Result<domain::ApprovalDecision, AppError> {
         Err(AppError::Unavailable(
             "targeted approvals are unavailable".into(),
+        ))
+    }
+    async fn reserve_original_approval_decision(
+        &self,
+        _session: Uuid,
+        _approval: Uuid,
+        _actor: Uuid,
+        _req: domain::ApprovalDecisionRequest,
+    ) -> Result<domain::ReservedApprovalDecision, AppError> {
+        Err(AppError::Unavailable(
+            "approval outcome journal is unavailable".into(),
+        ))
+    }
+    async fn claim_approval_outcome(
+        &self,
+        _id: Uuid,
+        _context: serde_json::Value,
+    ) -> Result<bool, AppError> {
+        Err(AppError::Unavailable(
+            "approval outcome journal is unavailable".into(),
+        ))
+    }
+    async fn get_approval_outcome(
+        &self,
+        _id: Uuid,
+    ) -> Result<Option<ApprovalOutcomeIntent>, AppError> {
+        Err(AppError::Unavailable(
+            "approval outcome journal is unavailable".into(),
+        ))
+    }
+    async fn list_approval_outcomes(
+        &self,
+        _after: Option<Uuid>,
+    ) -> Result<Vec<ApprovalOutcomeIntent>, AppError> {
+        Err(AppError::Unavailable(
+            "approval outcome journal is unavailable".into(),
+        ))
+    }
+    async fn finish_approval_outcome(
+        &self,
+        _id: Uuid,
+        _context: serde_json::Value,
+    ) -> Result<domain::ApprovalDecision, AppError> {
+        Err(AppError::Unavailable(
+            "approval outcome journal is unavailable".into(),
         ))
     }
     async fn fail_undispatched_approval_decision(

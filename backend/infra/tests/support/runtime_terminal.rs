@@ -1069,7 +1069,7 @@ async fn terminal_session_serialization_allows_prompt_progress_event_fk_before_c
 }
 
 #[tokio::test]
-async fn terminal_session_serialization_allows_actual_approval_reservation_fk_before_commit() {
+async fn terminal_session_serialization_waits_for_approval_reservation_session_before_run() {
     let Some(p) = setup(true, true, SessionRunRole::Primary).await else {
         return;
     };
@@ -1104,7 +1104,7 @@ async fn terminal_session_serialization_allows_actual_approval_reservation_fk_be
         .await
         .unwrap();
     let name = format!("terminal_reservation_{}", Uuid::new_v4().simple());
-    // Pause this fixture's actual reserve port after its run lock, before the decision's session FK.
+    // Pause the actual reservation after session/run locks, before its decision FK/event.
     p.db.execute_unprepared(&format!(
         "CREATE FUNCTION {name}() RETURNS trigger AS $$ BEGIN
          IF NEW.session_run_id='{}'::uuid THEN PERFORM pg_advisory_xact_lock({key}::bigint); END IF;
@@ -1122,7 +1122,9 @@ async fn terminal_session_serialization_allows_actual_approval_reservation_fk_be
         ready.send(()).map_err(|_| {
             sea_orm::DbErr::Custom("terminal lock regression receiver closed".into())
         })?;
-        blocked_pid(&monitor, reservation_pid, "session_agent_runs").await?;
+        // Reservation now owns the session before the run. Terminal must wait there,
+        // so its run lock cannot invert with the reservation's FK/event write.
+        blocked_pid(&monitor, reservation_pid, "agent_sessions").await?;
         barrier.commit().await?;
         Ok::<(), sea_orm::DbErr>(())
     };

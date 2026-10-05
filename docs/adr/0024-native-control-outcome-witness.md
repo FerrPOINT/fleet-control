@@ -5,7 +5,7 @@
 Producer/native protocol, Fleet GET wire and internal stop/steer journal
 implemented and component-tested; opt-in stop/steer supervisor connected and
 verified against actual managed Hermes with a loopback model. Positive approval
-outcomes, Fleet OS-restart controls, combined plugins and installed rollout
+outcomes, combined plugins and installed rollout
 remain pending; automatic task controls remain denied.
 
 ## Context
@@ -31,7 +31,9 @@ event are atomic; legacy submitted commands cannot acquire context later.
 Supervisor dispatch uses exact saved bytes/epoch/UUID only after claim; a
 separate bounded UUID-keyset GET worker commits original-context witnesses.
 The default-false flag starts no worker when disabled and never backfills old
-submitted commands. Approval decision journaling remains pending.
+submitted commands. Approval decision journaling is now additive000016;
+its sender/GET worker remains pending. Fleet OS-death stop/steer recovery is
+verified separately in the [ledger](../CHAT_CLARIFICATION_VERIFICATION.md).
 
 ## Consequences
 

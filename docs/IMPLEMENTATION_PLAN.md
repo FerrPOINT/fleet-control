@@ -7,6 +7,13 @@ Current implementation, boundaries, blockers and acceptance are maintained in
 [SDLC_IMPLEMENTATION.md](SDLC_IMPLEMENTATION.md). Leaders are deferred. Java lifecycle
 exists, but runtime chat/control still returns phase-2 errors and cannot run SDLC.
 
+Original approval journal000016 is implemented independently of its consumer.
+Next runtime acceptance must connect original-mode HTTP reservation, exact-byte
+approval POST and bounded GET-only recovery, then prove positive/unknown native
+decision outcomes across Fleet restart and combined plugins. Journal component
+checks do not close those gates or enable installed runtime flags. Ordered
+one-migration release packets and exact-head CI/reviews still precede rollout.
+
 Phase 0: pre-development hardening.
 
 - RBAC and permissions endpoint. — done: `SystemRole = admin|operator|user` c бэкенд-энфорсментом (middleware + `GET /users/{id}/permissions`, `PATCH /users/{id}/role`), legacy `is_system_admin` alias; см. docs/AUTHORIZATION.md.

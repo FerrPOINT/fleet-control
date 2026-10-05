@@ -1,5 +1,14 @@
 # Operations
 
+Original approval outcomes now have internal immutable storage (000016), but no
+public repair/reset/delete endpoint or connected approval recovery worker yet.
+Do not manually give legacy uncertainty a context or release a claimed decision
+as failed. A late witnessed receipt preserves cancelled request/run history;
+it does not permit a new action. Database backups include private contexts.
+Empty rollback is tested; any original decision history prevents downgrade.
+Installed flags/plugins remain unchanged pending ordered release and native
+approval/combined-extension acceptance.
+
 ## Runtime Control Reconciliation
 
 Steer/stop requires a stable authenticated actor-scoped `Idempotency-Key`. Read commands through

@@ -195,13 +195,19 @@ jobs:
           cargo test --locked -p migration --test hermes_journal_time_order -- --test-threads=1
 
       - name: Runtime control outcome migration upgrade and guarded rollback
-        working-directory: backend
         env:
           PGPASSWORD: fleet_control
           FLEET_RUNTIME_OUTCOME_MIGRATION_TEST_DATABASE_URL: postgres://fleet_control:fleet_control@127.0.0.1:5432/fleet_runtime_outcome_migration_test
         run: |
           psql -h 127.0.0.1 -U fleet_control -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE fleet_runtime_outcome_migration_test;'
           cargo test --locked -p migration --test runtime_control_outcomes -- --test-threads=1
+      - name: Runtime approval outcome migration and legacy preservation
+        env:
+          PGPASSWORD: fleet_control
+          FLEET_APPROVAL_OUTCOME_MIGRATION_TEST_DATABASE_URL: postgres://fleet_control:fleet_control@127.0.0.1:5432/fleet_approval_outcome_migration_test
+        run: |
+          psql -h 127.0.0.1 -U fleet_control -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE fleet_approval_outcome_migration_test;'
+          cargo test --locked -p migration --test runtime_approval_outcomes -- --test-threads=1
       - name: OpenAPI drift gate
         run: |
           mkdir -p ../openapi

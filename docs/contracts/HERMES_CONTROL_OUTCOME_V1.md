@@ -1,8 +1,8 @@
 # Hermes Control Outcome v1
 
-Status: Base producer, stop/steer supervisor dispatch/GET recovery, internal
-journal and native producer QA implemented; native consumer verification,
-positive native approval and installed rollout remain gates. This is not
+Status: Base producer, stop/steer supervisor dispatch/GET recovery and Fleet
+OS-death recovery verified. Original approval journal implemented; approval
+sender/GET recovery, positive native approval and installed rollout remain gates. This is not
 task admission, safe OS stop, Workflow completion or a replacement for
 [human control authorization](HERMES_RUN_CONTROL_V1.md).
 
@@ -87,8 +87,20 @@ It checks the current accepted free-chat dispatch, agent/run/native pins and
 original credential/origin, then uses only saved-context GET. It adopts no fresh
 capability or store epoch, does not restore actor mutation rights, and cannot
 backfill old submitted commands. Disabled flag starts no outcome worker. Approval
-wire preparation/lookup exists, but this supervisor sender/journal excludes
-approval; its separate decision-delivery lifecycle remains pending.
+wire preparation/lookup exists, but this supervisor sender excludes approval.
+Its separate journal is now implemented through additive000016; the approval
+HTTP handler and worker remain legacy/unconnected in this packet.
+
+Original approval reservation fixes `outcome_required=true` at INSERT. Claim
+atomically persists immutable context and consumes `submission_claimed` once;
+it requires the same owner/operator authority, active accepted free chat, exact
+request/choice and closed source-pinned context. Legacy uncertain decisions
+cannot be upgraded. Deferred guards bind claim/context and ACK/delivered/audit.
+Completion records only an already verified prior effect; pending becomes
+approved/denied, while cancelled requests and terminal runs are not reopened.
+Unknown claimed decisions cannot become failed, receive another permit or be
+deleted. Sender selection and native outcome verification must be connected and
+accepted before this journal can recover actual HTTP approval decisions.
 
 The stop/steer outcome row preserves exact bytes/capabilities, never adopts a
 fresh epoch and has no dispatch-reset or delete operation. Claim rechecks the
@@ -127,7 +139,8 @@ of prior effects. Fenced task/machine controls remain a separate admission.
 These journal/consumer interactions remain explicit rollout requirements:
 
 1. Stop/steer supervisor context/claim before POST and GET-only worker are
-   implemented. Approval dispatch-context persistence remains separate. A producer
+   implemented. Approval context persistence is additive000016; its sender and
+   GET worker remain separate. A producer
    epoch observed after submission is not a historical witness. The public
    actor idempotency key remains separate from the producer command UUID.
 2. Additive000015 allows witnessed uncertain-to-acknowledged and separately

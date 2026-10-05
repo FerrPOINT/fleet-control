@@ -1,5 +1,12 @@
 # Security
 
+Original approval context in additive000016 is likewise private: no Debug or
+public serialization, token, raw context in audit, or legacy backfill. The journal
+rechecks current actor and original active free-chat authority at claim. Historical
+ACK completion may record an already witnessed effect after revocation, without
+granting another POST or reopening a cancelled request. It is not an agent/task
+machine approval API and does not replace native witness verification.
+
 The additive000015 outcome context is private transcript-class data: it contains
 exact steer input, but no bearer token, and must not enter public receipts,
 Debug logs, audit or event payloads. Protect database backups accordingly. The

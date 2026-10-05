@@ -1,4 +1,5 @@
 mod approval_decisions;
+mod approval_outcomes;
 pub mod base_package;
 mod chats_directory;
 mod config_revisions;
@@ -609,7 +610,38 @@ impl FleetRepository for PostgresFleetRepository {
         actor: Uuid,
         req: domain::ApprovalDecisionRequest,
     ) -> Result<domain::ReservedApprovalDecision, AppError> {
-        approval_decisions::reserve(self, session, approval, actor, req).await
+        approval_decisions::reserve(self, session, approval, actor, req, false).await
+    }
+    async fn reserve_original_approval_decision(
+        &self,
+        session: Uuid,
+        approval: Uuid,
+        actor: Uuid,
+        req: domain::ApprovalDecisionRequest,
+    ) -> Result<domain::ReservedApprovalDecision, AppError> {
+        approval_decisions::reserve(self, session, approval, actor, req, true).await
+    }
+    async fn claim_approval_outcome(&self, id: Uuid, context: Value) -> Result<bool, AppError> {
+        approval_outcomes::claim(self, id, context).await
+    }
+    async fn get_approval_outcome(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<app::ApprovalOutcomeIntent>, AppError> {
+        approval_outcomes::get(self, id).await
+    }
+    async fn list_approval_outcomes(
+        &self,
+        after: Option<Uuid>,
+    ) -> Result<Vec<app::ApprovalOutcomeIntent>, AppError> {
+        approval_outcomes::list(self, after).await
+    }
+    async fn finish_approval_outcome(
+        &self,
+        id: Uuid,
+        context: Value,
+    ) -> Result<domain::ApprovalDecision, AppError> {
+        approval_outcomes::finish(self, id, context).await
     }
     async fn deliver_approval_decision(
         &self,

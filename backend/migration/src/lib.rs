@@ -16,6 +16,7 @@ mod m20261004_000012_hermes_dispatch_journal;
 mod m20261005_000013_runtime_controls;
 mod m20261005_000014_hermes_journal_time_order;
 mod m20261005_000015_runtime_control_outcomes;
+mod m20261005_000016_runtime_approval_outcomes;
 
 pub struct Migrator;
 
@@ -39,6 +40,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261005_000013_runtime_controls::Migration),
             Box::new(m20261005_000014_hermes_journal_time_order::Migration),
             Box::new(m20261005_000015_runtime_control_outcomes::Migration),
+            Box::new(m20261005_000016_runtime_approval_outcomes::Migration),
         ]
     }
 }

@@ -3,9 +3,34 @@
 The [control outcome contract](contracts/HERMES_CONTROL_OUTCOME_V1.md) now has
 an internal stop/steer journal in additive migration `000015`. The opt-in
 supervisor persists it before POST and consumes saved-context GET outcomes;
-the separate approval decision consumer remains pending. This packet adds no
-new migration and never rewrites applied000013/000014/000015.
+the separate approval decision sender remains pending. Additive000016 adds its
+private journal without rewriting applied000013/000014/000015.
 Existing historical receipts are not backfilled with a producer epoch.
+
+## Runtime Approval Outcomes
+
+`runtime_approval_decisions.outcome_required` is immutable from reservation and
+defaults false for legacy decisions. `submission_claimed` changes false -> true
+only once, while the original-mode decision is uncertain, atomically with its
+`runtime_approval_outcomes` row. Context contains the exact closed once/deny
+request bytes/hash, decision UUID, native run, original origin/credential
+fingerprint and source-pinned store capabilities. It is private, not a DTO.
+
+Fresh claim rechecks active actor/ownership, concrete primary Hermes agent,
+pending request, active run/native session and accepted dispatch journal.
+Task/PM bindings are refused without their separate admission. A replay never
+grants another permit; legacy uncertainty cannot acquire context later.
+
+Outcome state submitted -> acknowledged is one-way. Completion atomically
+records delivered decision, audit and existing durable session events. A pending
+request becomes approved/denied, but an already cancelled/settled request and
+terminal run history remain unchanged. This method records a separately verified
+prior ACK, not fresh authority; it is not connected to the HTTP sender yet.
+Deferred constraints reject split claim/context and split ACK/receipt/audit.
+Claimed uncertainty cannot become failed. UUID-keyset recovery pages hold at most
+100 entries, including historical cancelled requests with unresolved decisions.
+Empty downgrade restores the predecessor guard; any original decision history,
+even an undispatched failed decision, blocks downgrade/deletion.
 
 ## Runtime Control Outcomes
 

@@ -1,5 +1,80 @@
 # Chat Clarification Verification
 
+## Original Approval Outcome Journal (5 October 2026)
+
+Baseline Fleet integration HEAD04df3107c07203a7060ef2f4506428f222455f39,
+remote/main d752a041 and SDK9408802 were rechecked before this packet. PR47
+remains Draft/main on5240107; its existing CI is not this integration tree.
+Base integration a1aeaec and dependency PR140/main177edb8 are unchanged.
+Tracker PR114/main8c80a41 and Workflow PR90/mastere4fba60 are unchanged and
+remain read-only; their admission/release incompatibilities stay open.
+
+Implemented: additive000016 fixes original mode at reservation, persists exact
+closed once/deny action context with one claim, and atomically commits witnessed
+delivery/audit/events. Legacy uncertainty cannot be backfilled. Fresh claim
+rechecks actor/owner, accepted concrete primary Hermes and active free-chat scope.
+Late ACK preserves cancelled request and terminal run history. A claimed unknown
+decision cannot become failed or be removed. Private context has no public DTO,
+Debug, token or audit payload. Sender/GET-worker wiring is not part of this
+journal packet; existing HTTP approval behavior and installed flags are unchanged.
+
+Final Linux Rust1.88/PG17.6 gate exec41989/project
+`sdlc-qa-approval-outcome-journal-6dd13c1522e2` exit0:438 distinct component PASS
+(235 library,191 foundation,1 separate keyset,1 approval SSE,7 isolated migration,
+3 supplemental PG). The preliminary seven approval cases and corrected lock
+case repeat the foundation cases; they are not additional counts. Synthetic
+renderer export remains ignored; native supervisor scenarios were not rerun or
+recounted. Format/all-target check/strict Clippy, source-generated OpenAPI equality,
+clean migration CLI up/status/down-one/up/status on17 versions and doc-test
+invocations PASS. Empty/legacy up/down/reapply and nonempty downgrade denial are
+verified for000016 in its own disposable database. Exact cleanup exits0 and a
+separate Compose ps is empty; shared caches and accepted runtime resources remain.
+Final full log SHA256:
+`1a8d7047c0b779755dd8f9a9c7d8efc59c1e33b1e16b9e3f3259018307ec4a1f`.
+
+Preliminary projects cc5270700154,0aeb8a5fb33b,a00ce420866f failed on a test method
+name, a fixture incorrectly assuming terminal commit cancels requests, and an
+omitted fixture resolve_all field. Actual repository cancellation is now exercised
+separately. First full project10f3b87ccdc8 found the old lock test waiting for a run
+blocker after reservation became session-first:190/191 foundation PASS, gateFAIL.
+Its log SHA256 `5418099458ae0ab0ac5b2f5986eea31d516188bde76a7c770bd5d98419128889`.
+The corrected test observes terminal waiting on the reservation's actual session
+lock through pg_blocking_pids, with unchanged deadlines and outcome/event/replay
+assertions. It passes both its separate run and the final whole foundation gate.
+All four failed projects also have finally cleanup and independently empty ps;
+their logs are retained locally, not represented as accepted runs.
+
+Host:34 native-harness safety cases and3 README tests PASS; README,112 Markdown
+links, CI YAML isolated migration target validation, existing135 screenshot hashes
+and9/3 fixture manifests PASS. No production UI capture or browser acceptance is
+claimed for this backend packet. The CI source now explicitly creates the approval
+migration database and removes an incorrect backend-only directory override from
+the prior outcome migration step; remote integration CI remains outstanding.
+Observed20-22s VM clock regressions remain an infrastructure risk, not an excuse
+for weakened assertions. Global Docker audit is recorded separately from own
+cleanup and must not be described as green when a runner is unavailable.
+Post-cleanup audit: desktop-linux39 and sdlc2-runner0 checked, no violations;
+sdlc1-runner unavailable, complete=false/exit1. An earlier foreign rootless QA
+project lacked its job journal reference; it is absent in this final inventory.
+No foreign resources were removed by this packet.
+
+Exact raw SHA256 of the final source files (paths relative to `backend/`):
+
+| Path | SHA256 |
+| --- | --- |
+| `infra/src/approval_outcomes.rs` | `ba7936c4da1dbcb59df7395d18fed175e27f61a45e60e505e327779978e5b9a8` |
+| `infra/tests/support/runtime_approval_outcomes.rs` | `6930e11649f9b137d8fd0d061164e70ea14b8277968443971f6e7b04cef1abea` |
+| `migration/src/m20261005_000016_runtime_approval_outcomes.rs` | `511c035a267de883c61f39552b0739e884b5f3becf0a7021718d2369e6842e59` |
+| `migration/tests/runtime_approval_outcomes.rs` | `3347268362b73bbfbd84e5105249155ab1b8c55f927e1df8739a353c84b77f0a` |
+| `infra/tests/support/runtime_terminal.rs` | `aac094c3e40607caf50228f5c2e6aa50f1f2a5034008f5fba166a264895d3a70` |
+
+Applied predecessor bytes, generated public API, SDK/lockfile pins, Base producer,
+runtime HOME/images/data and sibling working changes are preserved. Original
+approval sender/GET recovery, positive/lost-ACK/Fleet-restart native decisions,
+combined extensions, loaded generation/safe descendants, fenced admission/PM/
+production Chats/Forge and ordered one-migration PR release remain requirements
+of the full goal. This packet does not claim whole-SDLC merge readiness.
+
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 

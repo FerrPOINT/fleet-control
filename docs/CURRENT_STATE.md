@@ -5,7 +5,16 @@ blocked until cross-service assignment/workflow/deployment contracts are verifie
 See [SDLC implementation](SDLC_IMPLEMENTATION.md). The baseline feature/gate lists
 below are historical, not acceptance evidence for the new SDLC plan.
 
-The original stop/steer consumer now has actual Fleet OS-process-death evidence:
+Original approval decisions now have internal additive000016 context/claim/ACK
+storage. Mode is fixed at reservation; legacy uncertainty is not backfilled.
+Late witnessed delivery preserves cancelled request and terminal run history;
+audit failure rolls back the whole receipt. Seven PostgreSQL cases and an
+isolated migration verify the journal boundary. Approval HTTP sender/GET worker
+are not connected yet; public behavior and installed flags are unchanged. This
+is not native decision recovery or a merge-ready claim for the whole SDLC.
+See [approval journal ADR](adr/0025-original-approval-outcome-journal.md).
+
+Historical SIGKILL-only packet `04df310` has actual Fleet OS-process-death evidence:
 three separate Fleet PIDs, two verified SIGKILLs, one surviving native gateway,
 real lost steer/stop HTTP ACKs and GET-only recovery from PostgreSQL. A late stop
 ACK preserves the independently observed terminal state/timestamp. The canonical

@@ -1,5 +1,11 @@
 # Agent Runtime Contract
 
+Original approval decisions now have a private additive000016 journal, single-use
+claim and atomic witnessed receipt/audit. The HTTP approval sender/GET worker is
+not connected yet. Legacy decisions remain unchanged and cannot be backfilled;
+late ACK preserves cancelled requests and terminal runs. No new Java capability,
+task admission, machine authority or installed plugin enablement is implied.
+
 The internal stop/steer outcome journal now stores original context with a
 single-use claim and commits positive ACK/audit/events without losing a terminal
 observation. The default-false Hermes supervisor consumes it through exact-byte

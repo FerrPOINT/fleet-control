@@ -1,5 +1,12 @@
 # API
 
+Additive000016 introduces internal original approval reservation/claim/readback/
+completion methods only. No Fleet route, OpenAPI schema or public approval
+behavior changes in this packet. Existing HTTP decisions still use the legacy
+delivery path; they do not receive original context after dispatch. Public DTOs
+exclude context, exact action bytes and credential/store fingerprints. A future
+sender/GET worker must verify the native witness before internal completion.
+
 The internal [control outcome journal](contracts/HERMES_CONTROL_OUTCOME_V1.md)
 adds no Fleet HTTP route or OpenAPI DTO. The default-false supervisor consumer
 connects this journal to exact-byte POST and original-context GET recovery;

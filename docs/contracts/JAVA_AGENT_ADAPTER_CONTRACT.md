@@ -1,5 +1,9 @@
 # Java Agent Adapter Contract
 
+The original approval journal (000016) likewise adds no Java chat/control or
+machine admission. Its claim requires an accepted concrete Hermes free chat;
+Java lifecycle and typed unsupported execution remain unchanged.
+
 The additive000015 original control-outcome journal is Hermes-only. It adds no
 Java dispatch permit, recovery witness or chat/control capability; Java cannot
 claim its context or finish an outcome. Existing Java lifecycle remains unchanged.

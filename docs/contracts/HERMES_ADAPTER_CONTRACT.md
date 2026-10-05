@@ -1,5 +1,12 @@
 # Hermes Adapter Contract
 
+Additive000016 implements original approval context/claim and atomic historical
+ACK completion, separate from the legacy pending-request lifecycle. Context is
+fixed before a possible effect; old uncertain decisions never acquire it later.
+The adapter does not yet call these methods for approval POST/GET recovery.
+No public behavior or installed enablement changes; native approval recovery
+remains a required acceptance gate.
+
 The [control outcome extension](HERMES_CONTROL_OUTCOME_V1.md) now has a Rust
 wire-consumer with closed capability/context/ACK validation and an
 internal additive000015 stop/steer context/ACK journal. The default-false

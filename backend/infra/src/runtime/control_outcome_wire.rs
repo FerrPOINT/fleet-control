@@ -213,6 +213,35 @@ impl Context {
         }
         Ok(())
     }
+
+    pub(crate) fn verify_approval(
+        &self,
+        decision: &domain::ApprovalDecision,
+        approval: &domain::RuntimeApprovalRequest,
+        origin: &str,
+        fingerprint: &str,
+    ) -> Result<(), AppError> {
+        self.validate_structure()?;
+        if self.command_id != decision.id
+            || self.operation != Operation::Approval
+            || self.run_id != approval.runtime_run_id
+            || self.origin != origin
+            || self.credential_fingerprint != fingerprint
+            || approval.id != decision.approval_id
+            || approval.session_id != decision.session_id
+            || approval.session_run_id != decision.session_run_id
+        {
+            return Err(unavailable());
+        }
+        let body: ApprovalBody =
+            serde_json::from_str(&self.request_body).map_err(|_| unavailable())?;
+        if body.choice != decision.choice
+            || Some(body.request_id.as_str()) != approval.runtime_approval_id.as_deref()
+        {
+            return Err(unavailable());
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]

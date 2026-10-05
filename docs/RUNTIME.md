@@ -1,5 +1,13 @@
 # Runtime
 
+The separate approval decision journal is now implemented through additive000016:
+original mode is fixed at reservation, context/claim commit before any permitted
+effect, and ACK/receipt/audit commit together. Late completion preserves cancelled
+request and terminal run history. This packet does not connect approval POST or
+the outcome GET worker: existing HTTP approval behavior is unchanged. Native
+positive/lost-ACK/OS-restart approval and combined-extension acceptance remain.
+See [approval journal ADR](adr/0025-original-approval-outcome-journal.md).
+
 ## Native Run Controls
 
 The new opt-in Base [control outcome producer](contracts/HERMES_CONTROL_OUTCOME_V1.md)

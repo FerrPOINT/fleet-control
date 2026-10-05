@@ -1,5 +1,20 @@
 # Testing
 
+## Original Approval Journal
+
+`runtime_approval_outcomes` in `sdlc_foundation` requires actual PostgreSQL via
+`FLEET_TEST_DATABASE_URL`. Its seven cases cover concurrent single-use claim,
+new repository readback, closed original/action matching, legacy denial, actor/
+primary/terminal checks, direct SQL split-transaction/history denials, once/deny
+concurrent completion, late cancelled history after revocation and injected
+audit failure rollback. These are journal component tests, not native approval
+sender/recovery acceptance. Existing targeted HTTP approval tests stay unchanged.
+
+`migration --test runtime_approval_outcomes` requires a separate empty disposable
+database through `FLEET_APPROVAL_OUTCOME_MIGRATION_TEST_DATABASE_URL`. It checks
+predecessor history/guard, up/down/reapply and refused nonempty downgrade. CI
+explicitly creates that database; a missing URL/early return is not PG acceptance.
+
 ## Exact Approval Context And Delivery Lock Order
 
 `runtime_targeted_approval` uses journaled accepted runs, authenticated bounded
