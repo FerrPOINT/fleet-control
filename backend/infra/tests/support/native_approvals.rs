@@ -5,11 +5,15 @@ use std::os::unix::fs::PermissionsExt;
 #[path = "native_approval_recovery.rs"]
 mod native_approval_recovery;
 
+#[path = "native_approval_restart.rs"]
+mod native_approval_restart;
+
 #[derive(Default)]
 struct ApprovalModel {
     files: Mutex<HashMap<String, String>>,
     calls: Mutex<HashMap<String, usize>>,
     first_gate: Mutex<Option<Arc<tokio::sync::Notify>>>,
+    tool_gate: Mutex<Option<Arc<tokio::sync::Notify>>>,
 }
 
 async fn approval_inference(
@@ -29,6 +33,11 @@ async fn approval_inference(
     let tool_returned = messages.iter().any(|m| m["role"] == "tool");
     if !tool_returned {
         let gate = model.first_gate.lock().await.clone();
+        if let Some(gate) = gate {
+            gate.notified().await;
+        }
+    } else {
+        let gate = model.tool_gate.lock().await.clone();
         if let Some(gate) = gate {
             gate.notified().await;
         }

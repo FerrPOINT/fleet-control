@@ -9,8 +9,9 @@ exists, but runtime chat/control still returns phase-2 errors and cannot run SDL
 
 Original approval journal000016 and its opt-in consumer are implemented.
 Original-mode HTTP reservation, exact-byte approval POST and bounded GET-only
-recovery require their recorded component gates, followed by positive/unknown native
-decision outcomes across Fleet restart and combined plugins. Journal component
+recovery require their recorded component gates. Native positive/unknown decision
+outcomes and separate Fleet SIGKILL recovery are verified; combined plugins remain.
+Journal component
 checks do not close those gates or enable installed runtime flags. Ordered
 one-migration release packets and exact-head CI/reviews still precede rollout.
 

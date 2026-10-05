@@ -134,6 +134,25 @@ Fleet OS-process death, combined recovery extensions, task/PM admission or safe
 descendant stop. Preserve actual evidence after running it; source alone is not
 accepted runtime behavior.
 
+## Approval Outcomes After Fleet SIGKILL
+
+`--scenario approval-restart` selects
+`native_approvals::native_approval_restart::managed_native_approval_outcomes_survive_fleet_process_death`.
+It uses three real Fleet OS processes, two verified SIGKILLs and one surviving
+native gateway with the committed control plugin. The real once decision loses
+its actual HTTP ACK. Its terminal tool executes before the first death while
+the second model response is held until both deaths. Original GET is held through
+terminal mirroring in the third process, then released to settle the decision.
+
+The second process must make a new held GET after restart; historical observations
+cannot satisfy that barrier. Assertions require distinct Fleet PIDs, same gateway,
+one run/decision POST/native ACK/audit, exact UUID/store epoch/request hash, unchanged
+original context/dispatch/terminal history and one final assistant. Owner HTTP replay
+returns the same receipt; changed payload conflicts. The observer never invents an
+approval, native effect or witness. Cleanup reaps the orphan gateway only in its
+owned Compose namespace; this is not safe OS stop, combined extensions or task/PM
+acceptance. Preserve exact-source/binary/log evidence after execution.
+
 ## Prerequisites
 
 - Clean Hermes source at `bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3`.
@@ -149,7 +168,7 @@ accepted runtime behavior.
   copied from its exact committed Git blob, not mutable worktree content.
 - For `recovery`, that same committed revision must include the complete
   `deploy/hermes-recovery-plugin` inventory. Missing files fail before Docker starts.
-- For `control-outcomes`, `control-restart` and `approval-outcomes`, it must include the complete four-file
+- For `control-outcomes`, `control-restart`, `approval-outcomes` and `approval-restart`, it must include the complete four-file
   `deploy/hermes-control-plugin` inventory. The fault observer stays in QA and is
   never copied into accepted runtime agents.
 - An already-built Base Hermes dependency image with the matching revision label
@@ -220,7 +239,7 @@ owned Compose namespace reaps the orphan gateway; this is not a safe-stop proof.
 Run with `--scenario approval-recovery`; gate results belong to the exact source
 hashes and binary in evidence, not an older PR's CI or an installed runtime.
 
-Missed historical tool/approval replay, unknown decision outcome lookup, complete
+Missed historical tool/approval replay, combined recovery extensions, complete
 loaded-config/plugin inventory, process-tree safe stop, central Fleet auth/UI,
 assignment/first-step/PM continuation and full SDLC/deployment remain separate
 acceptance requirements. A completed chat run is not a Tracker stage receipt.

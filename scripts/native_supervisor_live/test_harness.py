@@ -43,8 +43,8 @@ def archive(name, symlink=False):
 
 class SafetyTests(unittest.TestCase):
     def test_scenarios_select_distinct_exact_tests(self):
-        self.assertEqual(set(runner.TEST_NAMES), {'lifecycle', 'recovery', 'controls', 'control-outcomes', 'control-restart', 'approvals', 'approval-recovery', 'approval-outcomes'})
-        self.assertEqual(len(set(runner.TEST_NAMES.values())), 8)
+        self.assertEqual(set(runner.TEST_NAMES), {'lifecycle', 'recovery', 'controls', 'control-outcomes', 'control-restart', 'approvals', 'approval-recovery', 'approval-outcomes', 'approval-restart'})
+        self.assertEqual(len(set(runner.TEST_NAMES.values())), 9)
         self.assertTrue(all(name.rsplit('::', 1)[-1].startswith('managed_native_')
                             for name in runner.TEST_NAMES.values()))
 
@@ -65,7 +65,7 @@ class SafetyTests(unittest.TestCase):
         for scenario, name in runner.TEST_NAMES.items():
             with self.subTest(scenario=scenario):
                 self.assertEqual(preflight.control_plugin_required(name),
-                                 scenario in {'control-outcomes', 'control-restart', 'approval-outcomes'})
+                                 scenario in {'control-outcomes', 'control-restart', 'approval-outcomes', 'approval-restart'})
 
     def test_control_outcome_requires_its_own_complete_committed_inventory(self):
         output = io.BytesIO()

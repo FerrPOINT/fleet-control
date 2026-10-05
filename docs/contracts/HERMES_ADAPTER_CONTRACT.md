@@ -6,8 +6,9 @@ fixed before a possible effect; old uncertain decisions never acquire it later.
 The opt-in adapter now calls these methods for exact-byte approval POST and
 original-context GET recovery. Legacy behavior and installed flags are unchanged.
 The native `approval-outcomes` case verifies once/deny and lost-ACK GET recovery
-through the committed control plugin. Approval Fleet OS-death, combined extensions
-and installed release remain required acceptance gates.
+through the committed control plugin. Separate `approval-restart` verifies two
+SIGKILLs/three Fleet PIDs with one surviving gateway and original GET-only decision
+settlement. Combined extensions and installed release remain acceptance gates.
 
 The [control outcome extension](HERMES_CONTROL_OUTCOME_V1.md) now has a Rust
 wire-consumer with closed capability/context/ACK validation and an
@@ -215,4 +216,7 @@ description; an optional native session reference must match. The original
 accepted free-chat journal and current primary agent are rechecked atomically.
 Replays preserve resolved/stopping/terminal state and do not generate transcript
 messages or another SSE. Only the currently visible native request is recoverable;
-historical approvals/tool events and unknown decision ACK recovery remain open.
+historical approvals/tool events remain open. Unknown decision ACK recovery is
+separate: original-mode durable contexts settle through verified native witnesses,
+including the native `approval-outcomes`/`approval-restart` evidence above. Current
+pending snapshots do not prove those decisions or backfill legacy uncertainty.

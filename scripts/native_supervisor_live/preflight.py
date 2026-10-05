@@ -12,6 +12,7 @@ def control_plugin_required(test_name):
         'managed_native_original_control_outcomes_recover_lost_http_ack',
         'native_control_restart::managed_native_control_outcomes_survive_fleet_process_death',
         'native_approvals::managed_native_original_approval_outcomes_recover_lost_http_ack',
+        'native_approvals::native_approval_restart::managed_native_approval_outcomes_survive_fleet_process_death',
     }
 
 

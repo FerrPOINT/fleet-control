@@ -15,8 +15,12 @@ fallback, new epoch or repeated POST is permitted. Installed flags stay unchange
 Consumer evidence is recorded separately. The new native `approval-outcomes`
 case verifies real terminal once/deny, lost HTTP ACK held through terminal then
 original GET recovery, one POST/native ACK/audit and unchanged context/history.
-Fleet OS-death approval, combined extensions and whole-SDLC merge readiness
-remain unproven until their acceptance gates pass.
+The separate `approval-restart` case now verifies three Fleet OS processes,
+two SIGKILLs and one surviving Hermes: lost real decision ACK, new GET in the
+second process, terminal readback in the third, then original GET-only settlement.
+One decision POST/ACK/audit, immutable context/dispatch/terminal history and one
+assistant are asserted. Combined extensions and whole-SDLC merge readiness remain
+unproven. See [process-death evidence](CHAT_CLARIFICATION_VERIFICATION.md#approval-outcomes-after-fleet-sigkill-5-october-2026).
 See [approval journal ADR](adr/0025-original-approval-outcome-journal.md).
 
 Historical SIGKILL-only packet `04df310` has actual Fleet OS-process-death evidence:

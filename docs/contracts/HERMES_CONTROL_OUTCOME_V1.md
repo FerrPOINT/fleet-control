@@ -2,8 +2,8 @@
 
 Status: Base producer, stop/steer supervisor dispatch/GET recovery and Fleet
 OS-death recovery verified. Original approval journal/sender/GET recovery implemented;
-native once/deny/lost-ACK GET recovery verified separately. Approval Fleet OS-death,
-combined extensions and installed rollout remain gates. This is not
+native once/deny/lost-ACK GET recovery and separate two-SIGKILL/three-Fleet-process
+approval recovery verified. Combined extensions and installed rollout remain gates. This is not
 task admission, safe OS stop, Workflow completion or a replacement for
 [human control authorization](HERMES_RUN_CONTROL_V1.md).
 
@@ -164,12 +164,13 @@ These journal/consumer interactions remain explicit rollout requirements:
 scenario verifies real APIServerAdapter/AIAgent steer and interrupt, actual
 HTTP reply loss, original-key readback and gateway restart, one inference and
 uncertain rejected command hold. Model is deterministic loopback.
-Component tests cover exact-action approval ACKs, not a positive native tool
-approval through this extension. The managed native `control-outcomes` scenario
+Component tests alone do not prove native approval. Separate managed native
+`approval-outcomes` and `approval-restart` cover real decisions and original GET
+settlement, including two Fleet SIGKILLs. The `control-outcomes` scenario
 now passes actual Fleet sender/worker, transport loss and gateway PID restart
 with one native POST per command and preserved terminal history. The model is
-loopback and agents are disposable. Fleet OS-restart recovery for controls,
-combined extensions and installed enablement are not certified. No live central
+loopback and agents are disposable. Separate `control-restart` verifies two
+Fleet SIGKILLs for controls. Combined extensions and installed enablement are not certified. No live central
 identity, loaded-generation/OS isolation, accepted image install or full SDLC
 acceptance is inferred. Exact hashes and limits are in the
 [verification ledger](../CHAT_CLARIFICATION_VERIFICATION.md).

@@ -39,6 +39,15 @@ Run legacy `approvals`, current `approval-recovery` and `control-restart` separa
 as regressions when changing the common native observer/test helper. Exact
 source/binary/log/cleanup evidence belongs in the verification ledger.
 
+`--scenario approval-restart` runs three distinct Fleet OS processes with two
+verified SIGKILLs and one surviving native gateway. The real tool effect pauses
+at the model until both deaths; the second process must make a new original GET,
+not use an old observation. The third mirrors terminal completion before the
+held original witness is released. Assertions require one POST/native ACK/audit,
+same gateway and immutable context/dispatch/terminal timestamps, one assistant,
+owner replay and payload conflict. This is not safe descendant termination,
+combined extensions, task admission or a PM/stage receipt.
+
 ## Exact Approval Context And Delivery Lock Order
 
 `runtime_targeted_approval` uses journaled accepted runs, authenticated bounded

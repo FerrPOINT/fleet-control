@@ -24,6 +24,7 @@ TEST_NAMES = {
     'approvals':'native_approvals::managed_native_approval_decisions_are_exact_once_and_unknown_ack_is_held',
     'approval-recovery':'native_approvals::native_approval_recovery::managed_native_waiting_approval_recovers_across_fleet_processes',
     'approval-outcomes':'native_approvals::managed_native_original_approval_outcomes_recover_lost_http_ack',
+    'approval-restart':'native_approvals::native_approval_restart::managed_native_approval_outcomes_survive_fleet_process_death',
 }
 PLUGIN_FILES = ('__init__.py', 'plugin.py', 'store.py', 'plugin.yaml')
 
@@ -105,8 +106,8 @@ def main():
         raise RuntimeError('Base SDK must match Fleet .base-revision exactly')
     base_head = git(args.base_checkout, 'rev-parse','HEAD').decode().strip()
     launcher = archive_files(git(args.base_checkout,'archive','--format=tar',base_head,'deploy/fleet-hermes-launch.py'))['deploy/fleet-hermes-launch.py']
-    plugin_kind = 'control' if args.scenario in {'control-outcomes','control-restart','approval-outcomes'} else 'recovery'
-    plugin = recovery_files(args.base_checkout, base_head, controls=plugin_kind == 'control') if args.scenario in {'recovery','control-outcomes','control-restart','approval-outcomes'} else None
+    plugin_kind = 'control' if args.scenario in {'control-outcomes','control-restart','approval-outcomes','approval-restart'} else 'recovery'
+    plugin = recovery_files(args.base_checkout, base_head, controls=plugin_kind == 'control') if args.scenario in {'recovery','control-outcomes','control-restart','approval-outcomes','approval-restart'} else None
     image = json.loads(subprocess.check_output(['docker','image','inspect',args.image]))[0]
     if image['Config'].get('Labels',{}).get('sdlc.hermes.revision') != PIN:
         raise RuntimeError('Dependency image revision label is incompatible')
@@ -139,6 +140,7 @@ def main():
                   for name in ['backend/infra/tests/native_supervisor_live.rs',
                                'backend/infra/tests/support/native_approvals.rs',
                                'backend/infra/tests/support/native_control_restart.rs',
+                               'backend/infra/tests/support/native_approval_restart.rs',
                                'backend/infra/tests/support/native_approval_recovery.rs']},
               'fleet_runtime_sources_sha256':{name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest()
                   for name in ['backend/api/src/routes/approvals.rs',

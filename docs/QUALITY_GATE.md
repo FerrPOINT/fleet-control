@@ -50,11 +50,11 @@ Additional gates:
   historical contexts must not starve a later original GET witness
 - actual managed native `scripts/native_supervisor_live/run.py` scenarios
   `lifecycle`, `recovery`, `controls`, `control-outcomes`, `control-restart`,
-  `approvals`, `approval-recovery`, `approval-outcomes`; preserve
+  `approvals`, `approval-recovery`, `approval-outcomes`, `approval-restart`; preserve
   exact source/binary hashes and verify owned Compose cleanup. A GET snapshot
   is not complete historical replay or unknown decision acceptance proof.
   Original approval component tests do not replace the separate native
-  decision ACK acceptance or still-pending approval Fleet-process-death gate
+  decision ACK acceptance or separate approval Fleet-process-death gate
 - OpenAPI regenerate and diff
 - opt-in recovery source gate: original journal/scope/epoch and DB-lock expiry
   races; Base plugin Linux SQLite/auth/boundary suite; actual pinned native

@@ -1,5 +1,86 @@
 # Chat Clarification Verification
 
+## Approval Outcomes After Fleet SIGKILL (5 October 2026)
+
+Baseline Fleet f7bbfe61ff3978fc65ff842f8cb2a34a3dcede77 is fetched and matches
+the remote integration head. This packet adds native tests/harness/evidence only;
+runtime code, public API, migrations, Base SDK9408802, producer and accepted flags
+are unchanged. PR47/main remains Draft5240107 and dependency PR140/main remains
+177edb8. Their older green checks do not certify this integration candidate.
+
+Canonical `approval-restart` projectea8cbb20dbb5 PASS37.97s: three distinct
+Fleet OS processes, two verified SIGKILLs and one surviving actual Hermes gateway.
+The owner HTTP once decision executes a real terminal chmod and loses its actual
+ACK transport. A loopback model holds the second inference until both deaths;
+it is not a Hermes handler/tool/approval/witness substitute. The second Fleet
+process replays the same durable uncertain receipt and must perform a new
+original GET, measured after the first process died. The third first mirrors
+native terminal completion, then settles the decision through released original
+GET. One POST/native ACK/audit, original UUID/store epoch/raw hash, same gateway,
+immutable context/dispatch/terminal timestamps, one prompt/assistant/run/request,
+owner replay and changed-payload409 are asserted. No destructor-only recovery
+or second decision/run dispatch is accepted.
+
+Source preflight verifies all13770 exact Hermes files and4 committed Base control
+files from e514f5a6510cb98776547b58d2dfb6cffa62ee8c. Producer/launcher bytes match
+the previous packet; SDK9408802 is unchanged. Native binary SHA256:
+`51533c920430ead59b65976f81bbdac40363cb4a6453acd325865b630883e962`.
+Native log SHA256:
+`5aa8d31127d0f0772a7cf3a86ff9f60e464587d86b8b6bef995162a84b3b8499`.
+Build fmt/all-target check/strict native-test Clippy PASS. Exact finally cleanup0,
+independent empty Compose ps and removal of both own QA aliases are verified;
+accepted images/data/HOME and shared caches remain intact.
+
+Separate same-binary `approval-outcomes` regression projecte8979ba4373b also
+PASS25.96s with exact cleanup0/independent empty ps/own aliases removed. Log SHA256:
+`36d3974ec498613bacfc5055b5a8188105469672fd227309733326f05f9f6625`.
+
+Two further same-binary regressions PASS: legacy `approvals` project7ff1fa5ffc3e
+13.38s and current waiting `approval-recovery` projectfd90821eb59c31.74s.
+Both have cleanup0/independent empty ps/own aliases removed. Native log SHA256:
+
+| Scenario | SHA256 |
+| --- | --- |
+| `approvals` | `f0020e576ba8479b714b7f7ed63d8755e60bdb97c5f93fc7f5feace92ded69f4` |
+| `approval-recovery` | `e745bf328814ef9bebbbff31e3c27a4324f84b9e0791c69dbc322df107094702` |
+
+All four reports are checked against current raw test/runtime/harness bytes,
+native log hashes and the same binary, not merely report status. Host36 harness
+and3 README cases, README/112 Markdown links, existing135 three-viewport screenshot
+hashes and9/3 fixture manifests PASS. No new UI captures or live browser acceptance
+are claimed for this backend test-only packet. Post-cleanup Docker audit checks
+desktop41/sdlc2-runner0 with no violations; sdlc1-runner is unavailable and the
+global audit remains complete=false/exit1. Own exact cleanup is verified separately.
+
+Preliminary focused projectsaf2bbb8bcb8a and a4b8a60909f0 fail compilation for a
+wrong event type and ambiguous UUID type in the new helper. Corrected types retain
+all assertions and deadlines. Both failed projects have finally cleanup0 and
+independently empty ps. Failed log SHA256 respectively:
+`280ddaec7116910e30d2e2bb13d4cc409faf1a7c53f657d439d7eb0d244871d2`,
+`c8ddf6a0f42ebc776209104c45c24de2c6be41814b886d91045b90da1cf16050`.
+Focused projectecfc794674ad passes10 HTTP/PG cases67.32s, then the test barrier is
+strengthened to require a new GET after real process death. Final focused
+project602817e2da4a passes fmt/all-target check and the same10 cases71.31s,
+with cleanup0/independent empty ps. Its log SHA256:
+`5ac6dfbfa8d3d110277d08987e76bbde692807d0bfa4881ead2aa16a8334138a`.
+Repeated cases are not added to the previously published450-case component gate.
+
+Final raw test/harness SHA256:
+
+| Path | SHA256 |
+| --- | --- |
+| `backend/infra/tests/support/native_approval_restart.rs` | `1a34d91f0df4d76e1b73f4c0921958660aae5592a74478dfe76eab79be49d8ab` |
+| `backend/infra/tests/support/native_approvals.rs` | `e432eec67924895eaeaf74ef9444194973eb9524e403f555f8e718ee86f6fb58` |
+| `scripts/native_supervisor_live/run.py` | `3a0bed30b5387bc04275cb9f73de0db6762b90236979e5b1f3268a7c27df4aa4` |
+| `scripts/native_supervisor_live/preflight.py` | `81140e07da9c6b65413cf9d2e6dedc98dd0ea80dbb06388fbc3f5c136d5bf7fc` |
+| `scripts/native_supervisor_live/test_harness.py` | `46399820329c7287222b7154a7e9cfd6bf04ff91c2dbde14814d105759cad510` |
+
+This closes the separate approval OS-process-death acceptance, not combined
+extensions, loaded generation/safe descendants, task/PM/production Chats/Forge,
+ordered release/exact-head CI or seven-agent SDLC. Orphan gateway cleanup belongs
+only to the disposable Compose namespace, not a safe-stop proof. Historical
+sections below retain the limits of their earlier packets.
+
 ## Native Original Approval Outcomes (5 October 2026)
 
 Published Fleet consumer baseline

@@ -11,8 +11,10 @@ lost ACK/new repository, bad preflight/legacy, unknown/foreign witness, DB rollb
 terminal/revocation and disabled/rotated contexts. Component cases do not prove
 native recovery; separate native `approval-outcomes` verifies real once/deny,
 lost ACK held through terminal, original GET settlement, exact bytes/UUID/epoch,
-one POST/ACK/audit and immutable history. Approval Fleet OS-death/combined
-extensions/installed release remain gates; see the verification ledger.
+one POST/ACK/audit and immutable history. Separate `approval-restart` verifies
+two SIGKILLs/three Fleet PIDs, new original GET after restart and late settlement
+without changing terminal history. Combined extensions/installed release remain
+gates; see the verification ledger.
 
 Native control-outcome GET: [contract v1](contracts/HERMES_CONTROL_OUTCOME_V1.md),
 `runtime/control_outcome_wire` and eleven protocol tests cover saved raw bytes,
@@ -60,7 +62,7 @@ case; running/approval/native-crash and installed recovery remain gates.
 | Durable cursor | Migration 000009, session cursor/Last-Event-ID, Base reconnect tests; expiry/reset pending |
 | Config activation/drain | Migration 000009, desired/effective snapshots, DB drain/failed rollback regression |
 | Durable managed-file apply/rollback | `configuration_disk` Linux parent fsync for rename/unlink/new directory ancestors; test-only post-rename barrier failure retains journal/drain without effective head or runtime spawn. Power-loss/crash takeover and Windows directory durability remain unverified |
-| Native control outcome witness | Base `hermes-control-plugin`; Fleet `run_control` and `control_outcome_readback` use original context/claim/GET only. PG/HTTP and wire fixtures cover failure/race/bounds. Managed `control-outcomes` passes actual native consumer transport loss and gateway restart with one POST/inference and preserved history; see the exact-source verification ledger. Positive native approval, Fleet OS restart for control recovery, combined plugins and installed acceptance remain gates |
+| Native control outcome witness | Base `hermes-control-plugin`; Fleet `run_control` and `control_outcome_readback` use original context/claim/GET only. PG/HTTP and wire fixtures cover failure/race/bounds. Native `control-outcomes`/`control-restart` and separate `approval-outcomes`/`approval-restart` verify actual transport loss, original GET recovery and OS-process deaths without second POST/history change; see the exact-source verification ledger. Combined plugins and installed acceptance remain gates |
 | Managed native free-chat lifecycle | `native_supervisor_live` explicit opt-in cases: actual Fleet activation/outbox, two native gateways, loaded SOUL/token isolation, idempotent mirrors and restart identity. Separate lost-ACK recovery uses the real Base witness plugin and distinct Fleet processes; separate steer/stop uses a real AIAgent and terminal readback. Model is local; installed/control-command recovery/approvals/process-tree/PM gates remain |
 | Native Hermes listener rendering | Server-selected snapshot renderer v2 seals listener/env/CORS; v1 history remains reproducible. Native loader and installed-runtime attestation are separate gates; see ADR 0017 |
 | Safe automatic publication | Tracker exact owner/revision/hash gate implemented; trusted prerequisite verifier and real first-step PM integration pending |
@@ -77,7 +79,7 @@ case; running/approval/native-crash and installed recovery remain gates.
 | Requirements revision changes revoke UI consent | Revision/hash form identity, full document and comparison, regression test | Trusted exact-revision prerequisite evidence |
 | Wire drift | Rust OpenAPI, generated client, seven-schema Tracker snapshot check | Compatible deployed versions and CI head verification |
 | Human-only stop/steer, private command receipts | VerifiedHumanSession gate before lookup; actual local JWT HTTP owner/replay/revocation, foreign session/run denial and operator/admin reads; sessionless admin denied without native POST | Live central session/PAT identity, assignment-scoped machine control and release CI |
-| Exact-action approvals without duplicate effect | Native `approvals` case: real Hermes terminal guard/request/effect, actual local JWT owner HTTP once/deny, one POST, unchanged transcript replay and lost real ACK held uncertain after terminal;21 host safety cases | Native unknown-decision lookup, crash while waiting, current config/task admission, central identity and installed/live UI |
+| Exact-action approvals without duplicate effect | Native `approvals`, `approval-recovery`, `approval-outcomes` and `approval-restart`: real Hermes terminal guard/request/effect, owner HTTP once/deny, one POST, current waiting GET recovery, original decision witness and recovery after two SIGKILLs/three Fleet PIDs without rewriting terminal history | Combined extensions, loaded config/task admission, central identity and installed/live UI |
 | Approval targets original current context | Shared accepted journal/run/session/origin/credential guard, fresh native approval capabilities and waiting exact request readback; bounded HTTP200 JSON ACK. Four journaled component cases and renewed actual native approval/control checks | Loaded configuration generation, fresh distributed authorization/fencing and task admission remain |
 | Unknown delivery avoids session/message lock inversion | Explicit PG holder, pg_blocking_pids barrier and message NOWAIT regression: fails before session-first delivery and passes after; unknown acceptance HTTP still requires one POST and held pending capacity | No claim that all DB deadlocks or Docker VM clock regressions are fixed |
 | Keyboard/mobile/desktop | Three-browser controller fixtures, axe, Escape focus and tab arrows, generated image hashes | Live production acceptance, not fixture promotion |
