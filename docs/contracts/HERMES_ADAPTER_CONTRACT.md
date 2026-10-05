@@ -158,7 +158,13 @@ Session control:
 - Fleet forwards verified controls to `/v1/runs/{run_id}/steer` and
   `/v1/runs/{run_id}/stop` under the [bounded consumer profile](HERMES_RUN_CONTROL_V1.md).
   Original accepted journal and pinned native status are mandatory; ACK is not
-  terminal or safe-stop proof. The retired run-wide approval adapter method fails
+  terminal or safe-stop proof. Fleet requires an authenticated server-derived actor and bounded
+  `Idempotency-Key`, persists immutable control context and consumes a durable
+  single-send permit. Unknown POST/ACK remains `uncertain`; exact replay returns
+  that receipt without native POST. A verified terminal mirror only resolves the
+  hold as `terminal_observed`, without claiming command acceptance. Session/run
+  controls GET exposes scoped readback without raw input, keys or credentials.
+  The retired run-wide approval adapter method fails
   closed. Only exact targeted human decisions use `/v1/runs/{run_id}/approval`.
 - For executor sessions, the runtime dispatch target is the primary executor
   even when the mirrored message author is the selected leader.

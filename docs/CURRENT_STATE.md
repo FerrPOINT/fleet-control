@@ -1,6 +1,6 @@
 # Current State
 
-Status (2026-10-04): SDLC foundation is partially implemented. Automatic SDLC is
+Status (2026-10-05): SDLC foundation is partially implemented. Automatic SDLC is
 blocked until cross-service assignment/workflow/deployment contracts are verified.
 See [SDLC implementation](SDLC_IMPLEMENTATION.md). The baseline feature/gate lists
 below are historical, not acceptance evidence for the new SDLC plan.
@@ -10,9 +10,17 @@ capabilities and pinned native GET before a bounded exact ACK. Guidance does not
 reset concurrent run state; interrupt only requests stopping. Legacy run-wide
 approval is denied at the adapter too. Linux/PG358 component cases and a separate
 real AIAgent control case pass; see the
-[control profile](contracts/HERMES_RUN_CONTROL_V1.md). Durable control-command
-receipts/readback, task admission, native approval acceptance and safe OS
-descendant stop remain unverified release requirements.
+[control profile](contracts/HERMES_RUN_CONTROL_V1.md). The new migration 000013
+adds durable authenticated actor/key command receipts, a single-send claim, scoped history,
+atomic ACK/audit/events and terminal-only reconciliation of unknown outcomes.
+Production chat/legacy controls preserve input and keys, hold unknown effects
+after reload and distinguish ACK from terminal state. New component/native/UI
+evidence is recorded separately in the verification ledger; the broad backend
+component gate now passes367 distinct Linux/PG tests, all-target check, strict
+workspace Clippy, fmt and OpenAPI equality. Previous failed attempts and ongoing
+VM clock-regression observations remain recorded, not reclassified as successes.
+Task admission, native approval acceptance,
+safe OS descendant stop, release partition and exact-head CI remain requirements.
 
 The native Hermes stream consumer now has bounded incremental byte framing,
 strict JSON and original run identity, fixed assembly/idle/lifetime deadlines,

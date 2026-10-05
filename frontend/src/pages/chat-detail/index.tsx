@@ -61,6 +61,11 @@ import { useAuthStore } from '@/shared/auth/store'
 import { TaskApprovalsPanel } from './approvals'
 import { UserAvatar } from '@/shared/ui/user-avatar'
 import { EmptyState, ErrorState, StatusBadge, formatDate } from '../common'
+import {
+  RuntimeControlHistory,
+  isUnresolvedControl,
+  useRuntimeControls,
+} from '../runtime-control-history'
 import './chat.css'
 
 function requestKey() {
@@ -106,6 +111,15 @@ function ChatWorkspace({ id }: { id: string }) {
     queryFn: () => listSessionAgentRuns(id),
     refetchInterval: 10000,
   })
+  const controlRunId =
+    controls.data?.active_run_id ??
+    [...(runs.data ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at))[0]?.id
+  const runtimeCommands = useRuntimeControls(id, controlRunId)
+  const controlHeld =
+    Boolean(controls.data?.active_run_id) &&
+    (runtimeCommands.isPending ||
+      runtimeCommands.isError ||
+      runtimeCommands.data?.some(isUnresolvedControl))
   const history = useInfiniteQuery({
     queryKey: ['chat-history', id],
     queryFn: ({ pageParam }) => getChatHistory(id, pageParam),
@@ -185,6 +199,7 @@ function ChatWorkspace({ id }: { id: string }) {
         'requirements',
         'task-approvals',
         'task-approval-decision',
+        'runtime-controls',
       ].map((key) =>
         key === 'chat-history'
           ? refreshHistory(client, id)
@@ -228,6 +243,7 @@ function ChatWorkspace({ id }: { id: string }) {
             'requirements',
             'task-approvals',
             'task-approval-decision',
+            'runtime-controls',
           ].forEach((key) => {
             if (key === 'chat-history') void refreshHistory(client, id)
             else void client.invalidateQueries({ queryKey: [key, id] })
@@ -252,13 +268,18 @@ function ChatWorkspace({ id }: { id: string }) {
   const message = useMutation({
     mutationFn: async (
       command:
-        | { kind: 'steer'; runId: string; input: string }
+        | { kind: 'steer'; runId: string; input: string; key: string }
         | { kind: 'prompt'; input: string; key: string },
     ) =>
       command.kind === 'steer'
-        ? steerSessionRun(id, command.runId, { input: command.input })
+        ? steerSessionRun(id, command.runId, { input: command.input }, command.key)
         : createSessionMessage(id, { body: command.input, idempotency_key: command.key }),
     onSuccess: async (result) => {
+      if ('accepted' in result && !result.accepted) {
+        setReceipt('Исход команды неизвестен. Проверяется сохранённая запись.')
+        await invalidate()
+        return
+      }
       setBody('')
       setMessageKey(requestKey())
       setReceipt(
@@ -286,20 +307,24 @@ function ChatWorkspace({ id }: { id: string }) {
       void task.refetch()
     },
   })
+  const stopKeys = useRef(new Map<string, string>())
   const stop = useMutation({
-    mutationFn: () => stopSessionRun(id, controls.data!.active_run_id!),
+    mutationFn: (command: { runId: string; key: string }) =>
+      stopSessionRun(id, command.runId, command.key),
     onSuccess: invalidate,
   })
   const answerUncertain =
     answer.isError && (!(answer.error instanceof ApiError) || answer.error.status >= 500)
   const messageUncertain =
-    message.isError && (!(message.error instanceof ApiError) || message.error.status >= 500)
+    (message.isError && (!(message.error instanceof ApiError) || message.error.status >= 500)) ||
+    (message.isSuccess && 'accepted' in message.data && !message.data.accepted)
   const uncertainSteer = messageUncertain && message.variables?.kind === 'steer'
   const canSubmitMessage =
     owner &&
     !controls.isError &&
     !message.isPending &&
     !uncertainSteer &&
+    !controlHeld &&
     Boolean(body.trim()) &&
     (messageUncertain || controls.data?.can_send || controls.data?.can_steer)
   const submitMessage = () => {
@@ -310,7 +335,7 @@ function ChatWorkspace({ id }: { id: string }) {
     }
     message.mutate(
       controls.data?.can_steer && controls.data.active_run_id
-        ? { kind: 'steer', runId: controls.data.active_run_id, input: body.trim() }
+        ? { kind: 'steer', runId: controls.data.active_run_id, input: body.trim(), key: messageKey }
         : { kind: 'prompt', input: body.trim(), key: messageKey },
     )
   }
@@ -342,6 +367,7 @@ function ChatWorkspace({ id }: { id: string }) {
   const contextContent = (
     <>
       <h2>Контекст задачи</h2>
+      {controlRunId && <RuntimeControlHistory sessionId={id} runId={controlRunId} />}
       <dl className="fc-chat-fields">
         <div>
           <dt>Задача</dt>
@@ -604,8 +630,14 @@ function ChatWorkspace({ id }: { id: string }) {
                       variant="outline"
                       aria-label="Остановить запуск"
                       title="Остановить запуск"
-                      disabled={stop.isPending}
-                      onClick={() => stop.mutate()}
+                      disabled={stop.isPending || Boolean(controlHeld)}
+                      onClick={() => {
+                        const runId = controls.data?.active_run_id
+                        if (!runId) return
+                        const key = stopKeys.current.get(runId) ?? requestKey()
+                        stopKeys.current.set(runId, key)
+                        stop.mutate({ runId, key })
+                      }}
                     >
                       <Square size={15} />
                     </Button>

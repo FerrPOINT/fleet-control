@@ -1,5 +1,15 @@
 # Events
 
+## Durable Runtime Control Events
+
+Migration 000013 controls persist `runtime_control.changed` in the existing
+per-session cursor transaction. SSE payload type is `runtime_control_changed`
+with `command_id`, `run_id` and action only. Reservation, submitted permit,
+ACK/rejection/uncertainty and terminal reconciliation are audited in that same
+transaction. It contains no guidance/key/token. Clients invalidate scoped command
+history on the event; the event itself does not assert acceptance or completion.
+ACK replay and completed reconciliation create no duplicate cursor/event.
+
 Fleet Control emits events for:
 
 - agent create/update/archive

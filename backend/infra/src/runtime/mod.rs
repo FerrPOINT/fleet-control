@@ -1694,6 +1694,19 @@ fn parse_domain_ts(value: &Option<domain::Timestamp>) -> Option<shared::Timestam
         .and_then(|timestamp| chrono::DateTime::parse_from_rfc3339(timestamp).ok())
 }
 
+fn control_message(command: &domain::RuntimeControlReceipt) -> &'static str {
+    match command.state {
+        domain::RuntimeControlState::Acknowledged => {
+            "Runtime acknowledged the command; terminal readback is independent"
+        }
+        domain::RuntimeControlState::Rejected => "Command was not dispatched",
+        domain::RuntimeControlState::TerminalObserved => {
+            "Run terminal observed; command acceptance remains unknown"
+        }
+        _ => "Command acceptance is unknown; do not resend with a new key",
+    }
+}
+
 fn pick_string(value: &Value, keys: &[&str]) -> Option<String> {
     if let Value::String(text) = value {
         return Some(text.clone());
@@ -2370,6 +2383,7 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
         agent: &Agent,
         run: &SessionAgentRun,
         req: SteerSessionRunRequest,
+        actor: domain::RuntimeControlActor,
     ) -> Result<RuntimeRunControlResponse, AppError> {
         if agent.kind == AgentKind::JavaAgent {
             return Err(AppError::validation(
@@ -2379,7 +2393,7 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
         if req.input.trim().is_empty() {
             return Err(AppError::validation("steer input is required"));
         }
-        run_control::send(
+        let command = run_control::send(
             self,
             agent,
             run,
@@ -2387,6 +2401,8 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
             Some(&HermesSteerRequest {
                 input: req.input.trim().to_string(),
             }),
+            &actor,
+            Some(req.input.trim()),
         )
         .await?;
         // Guidance acknowledgement cannot regress a concurrent waiting/stopping/terminal run.
@@ -2395,9 +2411,10 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
             session_id: run.session_id,
             run_id: run.id,
             runtime_run_id: run.runtime_run_id.clone(),
-            accepted: true,
+            accepted: command.state == domain::RuntimeControlState::Acknowledged,
             state: updated.state,
-            message: "Hermes run steer accepted".to_string(),
+            message: control_message(&command).to_string(),
+            command: Some(command),
         })
     }
 
@@ -2405,40 +2422,33 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
         &self,
         agent: &Agent,
         run: &SessionAgentRun,
+        actor: domain::RuntimeControlActor,
     ) -> Result<RuntimeRunControlResponse, AppError> {
         if agent.kind == AgentKind::JavaAgent {
             return Err(AppError::validation(
                 "Java Agent runtime stop is planned for phase 2",
             ));
         }
-        let acknowledgement =
-            run_control::send::<Value>(self, agent, run, run_control::Operation::Stop, None)
-                .await?;
-        let updated = if acknowledgement == run_control::Acknowledgement::Stopping {
-            self.repo
-                .update_session_agent_run_dispatch(
-                    run.id,
-                    run.runtime_run_id.clone(),
-                    SessionRunState::Stopping,
-                    None,
-                )
-                .await?
-        } else {
-            self.repo.get_session_agent_run(run.id).await?
-        };
+        let command = run_control::send::<Value>(
+            self,
+            agent,
+            run,
+            run_control::Operation::Stop,
+            None,
+            &actor,
+            None,
+        )
+        .await?;
+        let updated = self.repo.get_session_agent_run(run.id).await?;
         self.emit_run(&updated);
         Ok(RuntimeRunControlResponse {
             session_id: run.session_id,
             run_id: run.id,
             runtime_run_id: run.runtime_run_id.clone(),
-            accepted: true,
+            accepted: command.state == domain::RuntimeControlState::Acknowledged,
             state: updated.state,
-            message: if acknowledgement == run_control::Acknowledgement::Stopping {
-                "Hermes interrupt requested; terminal readback is still required"
-            } else {
-                "Hermes run was already terminal; mirror readback is still required"
-            }
-            .to_string(),
+            message: control_message(&command).to_string(),
+            command: Some(command),
         })
     }
 

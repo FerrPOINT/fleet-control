@@ -5,6 +5,11 @@ chat/control capability. Java lifecycle remains available; its run steer/stop
 remain typed phase-2 failures. The retired run-wide approval path is rejected
 for every runtime; only separately supported exact request decisions apply.
 
+Fleet's migration 000013 and command receipts apply only to accepted Hermes
+free-chat runs. Java cannot reserve/claim these permits or obtain an ACK through
+the Hermes control history. Its existing lifecycle and typed unsupported chat/
+control behavior remain unchanged; an empty history is not a Java capability.
+
 Hermes prepared-dispatch restart recovery is exclusive to its exact free-chat
 journals and native protocol. It adds no Java admission, chat/control, config
 activation or recovery operations; existing Java lifecycle remains unchanged.

@@ -169,6 +169,63 @@ pub trait FleetRepository: Send + Sync {
             "Hermes dispatch journal is unavailable".into(),
         ))
     }
+    async fn reserve_runtime_control(
+        &self,
+        _run: &SessionAgentRun,
+        _actor: &domain::RuntimeControlActor,
+        _operation: domain::RuntimeControlOperation,
+        _input: Option<&str>,
+    ) -> Result<domain::RuntimeControlReservation, AppError> {
+        Err(AppError::Unavailable(
+            "runtime control journal is unavailable".into(),
+        ))
+    }
+    async fn claim_runtime_control(&self, _id: Uuid) -> Result<bool, AppError> {
+        Err(AppError::Unavailable(
+            "runtime control journal is unavailable".into(),
+        ))
+    }
+    async fn finish_runtime_control(
+        &self,
+        _id: Uuid,
+        _acknowledgement: &str,
+    ) -> Result<domain::RuntimeControlReceipt, AppError> {
+        Err(AppError::Unavailable(
+            "runtime control journal is unavailable".into(),
+        ))
+    }
+    async fn retire_runtime_control(
+        &self,
+        _id: Uuid,
+        _submitted: bool,
+    ) -> Result<domain::RuntimeControlReceipt, AppError> {
+        Err(AppError::Unavailable(
+            "runtime control journal is unavailable".into(),
+        ))
+    }
+    async fn get_runtime_control(
+        &self,
+        _session: Uuid,
+        _id: Uuid,
+    ) -> Result<domain::RuntimeControlReceipt, AppError> {
+        Err(AppError::Unavailable(
+            "runtime control journal is unavailable".into(),
+        ))
+    }
+    async fn list_runtime_controls(
+        &self,
+        _session: Uuid,
+        _run: Uuid,
+    ) -> Result<Vec<domain::RuntimeControlReceipt>, AppError> {
+        Err(AppError::Unavailable(
+            "runtime control journal is unavailable".into(),
+        ))
+    }
+    async fn reconcile_runtime_controls(&self) -> Result<u64, AppError> {
+        Err(AppError::Unavailable(
+            "runtime control journal is unavailable".into(),
+        ))
+    }
     /// Initial submissions only; submitted/legacy/task records must never enter this queue.
     async fn list_prepared_hermes_dispatches(
         &self,
@@ -858,11 +915,13 @@ pub trait RuntimeSupervisor: Send + Sync {
         agent: &Agent,
         run: &SessionAgentRun,
         req: SteerSessionRunRequest,
+        actor: domain::RuntimeControlActor,
     ) -> Result<RuntimeRunControlResponse, AppError>;
     async fn stop_run(
         &self,
         agent: &Agent,
         run: &SessionAgentRun,
+        actor: domain::RuntimeControlActor,
     ) -> Result<RuntimeRunControlResponse, AppError>;
     async fn resolve_approval(
         &self,

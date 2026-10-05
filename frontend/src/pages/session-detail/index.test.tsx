@@ -24,13 +24,14 @@ vi.mock('@/api/fleet', () => ({
   listAgentDirectory: vi.fn(),
   listLeaderExecutors: vi.fn(),
   listSessionAgentRuns: vi.fn(),
+  listRuntimeControls: vi.fn(),
   listSessionMessages: vi.fn(),
   listSessionParticipants: vi.fn(),
   resolveSessionRunApproval: vi.fn(),
   steerSessionRun: vi.fn(),
   stopSessionRun: vi.fn(),
 }))
-vi.mock('sonner', () => ({ toast: { success: vi.fn() } }))
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), warning: vi.fn() } }))
 
 const executor = {
   id: 'executor-1',
@@ -171,6 +172,7 @@ describe('SessionDetailPage', () => {
     vi.mocked(fleet.listLeaderExecutors).mockResolvedValue([teamExecutor])
     vi.mocked(fleet.listSessionMessages).mockResolvedValue([])
     vi.mocked(fleet.listSessionAgentRuns).mockResolvedValue([])
+    vi.mocked(fleet.listRuntimeControls).mockResolvedValue([])
     vi.mocked(fleet.listSessionParticipants).mockResolvedValue([])
     vi.mocked(fleet.assignSessionLeader).mockResolvedValue(session)
     vi.mocked(fleet.handoffSession).mockResolvedValue(session)
@@ -295,9 +297,14 @@ describe('SessionDetailPage', () => {
     await waitFor(() =>
       expect(toast.success).toHaveBeenCalledWith('Уточнение для Agent Alpha отправлено'),
     )
-    expect(fleet.steerSessionRun).toHaveBeenCalledWith(session.id, runAlpha.id, {
-      input: 'Continue carefully',
-    })
+    expect(fleet.steerSessionRun).toHaveBeenCalledWith(
+      session.id,
+      runAlpha.id,
+      {
+        input: 'Continue carefully',
+      },
+      expect.any(String),
+    )
   })
 
   it('keeps stop confirmation open while pending and allows retry after an error', async () => {
@@ -311,6 +318,7 @@ describe('SessionDetailPage', () => {
     const stopAlpha = await screen.findByRole('button', {
       name: 'Остановить запуск Agent Alpha',
     })
+    await waitFor(() => expect(stopAlpha).toBeEnabled())
     fireEvent.click(stopAlpha)
     let dialog = await screen.findByRole('alertdialog')
     expect(dialog).toHaveTextContent('Агент Agent Alpha прекратит текущую работу')
@@ -333,7 +341,29 @@ describe('SessionDetailPage', () => {
 
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     expect(fleet.stopSessionRun).toHaveBeenCalledTimes(2)
-    expect(fleet.stopSessionRun).toHaveBeenLastCalledWith(session.id, runAlpha.id)
+    expect(fleet.stopSessionRun).toHaveBeenLastCalledWith(
+      session.id,
+      runAlpha.id,
+      expect.any(String),
+    )
+    expect(vi.mocked(fleet.stopSessionRun).mock.calls[1]?.[2]).toBe(
+      vi.mocked(fleet.stopSessionRun).mock.calls[0]?.[2],
+    )
     expect(toast.success).toHaveBeenCalledWith('Остановка запуска Agent Alpha запрошена')
+  })
+
+  it('keeps uncertain steer input and never reports success', async () => {
+    vi.mocked(fleet.listSessionAgentRuns).mockResolvedValue([runAlpha])
+    vi.mocked(fleet.steerSessionRun).mockResolvedValue({ ...controlResponse, accepted: false })
+    renderPage()
+    const input = await screen.findByLabelText('Уточнение для Agent Alpha')
+    await waitFor(() => expect(input).toBeEnabled())
+    fireEvent.change(input, { target: { value: 'Preserve this guidance' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Направить уточнение для Agent Alpha' }))
+    await waitFor(() => expect(toast.warning).toHaveBeenCalled())
+    expect(toast.success).not.toHaveBeenCalled()
+    expect(input).toHaveValue('Preserve this guidance')
+    expect(input).toBeDisabled()
+    expect(fleet.steerSessionRun).toHaveBeenCalledTimes(1)
   })
 })

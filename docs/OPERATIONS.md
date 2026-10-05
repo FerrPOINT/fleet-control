@@ -1,5 +1,27 @@
 # Operations
 
+## Runtime Control Reconciliation
+
+Steer/stop requires a stable authenticated actor-scoped `Idempotency-Key`. Read commands through
+the session/run controls GET before deciding what happened. Identical replay
+returns the stored receipt; changed payload/key scope conflicts. Never rotate a
+key to retry an unknown effect. `reserved`, `submitted` and `uncertain` hold new
+controls for that run. A process restart does not resend them. A preflight failure
+known to precede POST records `rejected`; any unknown POST/ACK remains held.
+
+`acknowledged/stopping` is a request to interrupt, not completion. The periodic
+reconciler may retire a held command only against independently persisted accepted
+run, prompt delivery and terminal mirror proof. `terminal_observed` means the run
+is terminal, not that the command was accepted. It is not OS-descendant quiescence,
+assignment release or a successful SDLC receipt. There is no public blind-reset
+repair endpoint. Targeted tool approvals remain a distinct protocol.
+
+Migration 000013 must follow the released 000012 journal; that release order is
+not yet completed. Its dedicated PostgreSQL gate verifies empty down/re-up,
+preserved legacy rows and nonempty refusal. Nonempty command history deliberately
+blocks downgrade. Preserve history during rollback and use forward fixes rather
+than deleting receipts.
+
 Original-key recovery is an [explicit opt-in](contracts/HERMES_RECOVERY_V1.md),
 not an installed default. Ship verified plugin files, validate/activate a new
 Hermes config revision through normal drain, and enable the separate Fleet flag

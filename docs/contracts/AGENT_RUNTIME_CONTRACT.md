@@ -4,8 +4,12 @@ Hermes steer/stop use the original accepted dispatch context, fresh capabilities
 and pinned native status under the [control profile](HERMES_RUN_CONTROL_V1.md).
 Only an exact bounded ACK is accepted. Guidance never resets local run state;
 interrupt ACK can mark stopping, not terminal success or capacity release.
-Task-bound control admission and durable command-outcome reconciliation remain
-separate gates. Legacy run-wide approval is denied inside the adapter as well
+Free-chat controls now reserve a durable actor/key/payload-hash command before
+native IO and claim its single-send permit before POST. Readback and replay never
+resend submitted/uncertain controls. ACK persistence, stopping state, audit and
+Fleet events commit atomically. Independent terminal mirror proof can retire an
+unresolved command as `terminal_observed`, not fabricate its ACK. Task-bound
+control admission remains a separate gate. Legacy run-wide approval is denied inside the adapter as well
 as HTTP; exact human request decisions remain the only approval path.
 
 Hermes stream parsing has a separate bounded

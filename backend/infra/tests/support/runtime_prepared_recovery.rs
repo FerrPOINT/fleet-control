@@ -138,28 +138,42 @@ struct Native {
 }
 
 impl Native {
-    fn auth(&self, headers: &HeaderMap) {
-        assert_eq!(headers["authorization"], format!("Bearer {}", self.token));
+    fn auth(&self, headers: &HeaderMap) -> Result<(), (StatusCode, Json<Value>)> {
+        // A reused loopback port may receive a stale fixture's read; reject like native HTTP.
+        if headers
+            .get("authorization")
+            .and_then(|value| value.to_str().ok())
+            != Some(format!("Bearer {}", self.token).as_str())
+        {
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                Json(json!({"error":"unauthorized"})),
+            ));
+        }
         assert_eq!(headers["accept-encoding"], "identity");
+        Ok(())
     }
 }
 
-async fn capabilities(State(native): State<Arc<Native>>, headers: HeaderMap) -> Json<Value> {
-    native.auth(&headers);
+async fn capabilities(
+    State(native): State<Arc<Native>>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    native.auth(&headers)?;
     native.probes.fetch_add(1, Ordering::SeqCst);
     let mut caps = hermes_protocol_fixture::capabilities();
     if native.invalid_capabilities {
         caps["features"]["runs_idempotency"]["durable"] = json!(false);
     }
-    Json(caps)
+    Ok(Json(caps))
 }
 
 async fn submit(
     State(native): State<Arc<Native>>,
     headers: HeaderMap,
     body: axum::body::Bytes,
-) -> (StatusCode, Json<Value>) {
-    native.auth(&headers);
+) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    native.auth(&headers)?;
     native.posts.fetch_add(1, Ordering::SeqCst);
     let journal = native
         .repo
@@ -172,22 +186,25 @@ async fn submit(
     assert_eq!(headers["idempotency-key"], native.message_id.to_string());
     assert_eq!(body.as_ref(), native.original_body.as_bytes());
     assert!(headers.get("x-fleet-recovery-store-id").is_none());
-    (
+    Ok((
         StatusCode::ACCEPTED,
         Json(if native.malformed_ack {
             json!({"status":"started","replayed":false})
         } else {
             json!({"run_id":"run_prepared_original","status":"started","replayed":false})
         }),
-    )
+    ))
 }
 
-async fn status(State(native): State<Arc<Native>>, headers: HeaderMap) -> Json<Value> {
-    native.auth(&headers);
-    Json(
+async fn status(
+    State(native): State<Arc<Native>>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    native.auth(&headers)?;
+    Ok(Json(
         json!({"object":"hermes.run","run_id":"run_prepared_original","session_id":"native:prepared",
         "status":"completed","completed":true,"partial":false,"interrupted":false,"output":"Prepared original answer"}),
-    )
+    ))
 }
 
 async fn events(State(native): State<Arc<Native>>) -> StatusCode {
@@ -237,6 +254,47 @@ fn server(
 fn supervisor(p: &Prepared, config: AppConfig) -> infra::runtime::LocalRuntimeSupervisor {
     let (events, _) = tokio::sync::broadcast::channel(32);
     infra::runtime::LocalRuntimeSupervisor::new(Arc::new(config), p.repo.clone(), events)
+}
+
+#[tokio::test]
+async fn prepared_native_fixture_rejects_foreign_token_before_effect_or_probe() {
+    let Some(mut p) = setup().await else {
+        return;
+    };
+    let (native, _server) = server(&mut p, false, false);
+    let client = reqwest::Client::new();
+    for request in [
+        client.get(format!("{}/v1/capabilities", p.intent.origin)),
+        client
+            .post(format!("{}/v1/runs", p.intent.origin))
+            .body("foreign prompt"),
+        client.get(format!("{}/v1/runs/run_prepared_original", p.intent.origin)),
+    ] {
+        let response = request
+            .bearer_auth("foreign-fixture-token")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
+        assert_eq!(
+            response.json::<Value>().await.unwrap(),
+            json!({"error":"unauthorized"})
+        );
+    }
+    assert_eq!(native.probes.load(Ordering::SeqCst), 0);
+    assert_eq!(native.posts.load(Ordering::SeqCst), 0);
+    assert!(
+        !p.repo
+            .get_hermes_dispatch_intent(p.message.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .submission_attempted
+    );
+    p.repo
+        .update_agent_status(p.intent.run.agent_id, AgentStatus::Ready)
+        .await
+        .unwrap();
 }
 
 async fn deadline(p: &Prepared) -> Duration {

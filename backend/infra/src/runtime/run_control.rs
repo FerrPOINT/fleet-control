@@ -15,6 +15,12 @@ impl Operation {
             Self::Stop => "stop",
         }
     }
+    fn domain(self) -> domain::RuntimeControlOperation {
+        match self {
+            Self::Steer => domain::RuntimeControlOperation::Steer,
+            Self::Stop => domain::RuntimeControlOperation::Stop,
+        }
+    }
 }
 
 #[derive(PartialEq, Eq, Debug)]
@@ -24,13 +30,85 @@ pub(super) enum Acknowledgement {
     AlreadyTerminal,
 }
 
+struct PreparedControl {
+    base: String,
+    token: String,
+    run_id: String,
+    session_id: String,
+}
+
 pub(super) async fn send<T: Serialize + ?Sized>(
     supervisor: &LocalRuntimeSupervisor,
     agent: &Agent,
     run: &SessionAgentRun,
     operation: Operation,
     body: Option<&T>,
-) -> Result<Acknowledgement, AppError> {
+    actor: &domain::RuntimeControlActor,
+    input: Option<&str>,
+) -> Result<domain::RuntimeControlReceipt, AppError> {
+    if agent.kind != AgentKind::Hermes || agent.id != run.agent_id {
+        return Err(AppError::conflict("runtime control agent changed"));
+    }
+    let reservation = supervisor
+        .repo
+        .reserve_runtime_control(run, actor, operation.domain(), input)
+        .await?;
+    let id = reservation.receipt.id;
+    if !reservation.dispatch {
+        return Ok(reservation.receipt);
+    }
+    let prepared = match prepare(supervisor, agent, run, operation).await {
+        Ok(prepared) => prepared,
+        Err(error) => {
+            let receipt = supervisor.repo.retire_runtime_control(id, false).await?;
+            if receipt.state != domain::RuntimeControlState::Rejected {
+                return Ok(receipt);
+            }
+            return Err(error);
+        }
+    };
+    let claimed = match supervisor.repo.claim_runtime_control(id).await {
+        Ok(claimed) => claimed,
+        Err(error) => {
+            // A concurrent claimant may already own the effect; never reset its submitted state.
+            let receipt = supervisor.repo.retire_runtime_control(id, false).await?;
+            if receipt.state != domain::RuntimeControlState::Rejected {
+                return Ok(receipt);
+            }
+            return Err(error);
+        }
+    };
+    if !claimed {
+        return supervisor
+            .repo
+            .get_runtime_control(run.session_id, id)
+            .await;
+    }
+    let ack = post(supervisor, &prepared, operation, body).await;
+    match ack {
+        Ok(ack) => {
+            supervisor
+                .repo
+                .finish_runtime_control(
+                    id,
+                    match ack {
+                        Acknowledgement::Steered => "steered",
+                        Acknowledgement::Stopping => "stopping",
+                        Acknowledgement::AlreadyTerminal => "already_terminal",
+                    },
+                )
+                .await
+        }
+        Err(_) => supervisor.repo.retire_runtime_control(id, true).await,
+    }
+}
+
+async fn prepare(
+    supervisor: &LocalRuntimeSupervisor,
+    agent: &Agent,
+    run: &SessionAgentRun,
+    operation: Operation,
+) -> Result<PreparedControl, AppError> {
     let current = supervisor.repo.get_session_agent_run(run.id).await?;
     if agent.kind != AgentKind::Hermes
         || current.agent_id != agent.id
@@ -113,11 +191,30 @@ pub(super) async fn send<T: Serialize + ?Sized>(
             "native run is no longer accepting this control; await readback",
         ));
     }
+    Ok(PreparedControl {
+        base,
+        token,
+        run_id: run_id.to_owned(),
+        session_id: session_id.to_owned(),
+    })
+}
+
+async fn post<T: Serialize + ?Sized>(
+    supervisor: &LocalRuntimeSupervisor,
+    prepared: &PreparedControl,
+    operation: Operation,
+    body: Option<&T>,
+) -> Result<Acknowledgement, AppError> {
     // No retry: a lost acknowledgement may already have applied the guidance/interrupt.
     let mut request = supervisor
         .client
-        .post(format!("{base}/v1/runs/{run_id}/{}", operation.endpoint()))
-        .bearer_auth(&token)
+        .post(format!(
+            "{}/v1/runs/{}/{}",
+            prepared.base,
+            prepared.run_id,
+            operation.endpoint()
+        ))
+        .bearer_auth(&prepared.token)
         .header(header::ACCEPT_ENCODING, "identity")
         .timeout(Duration::from_secs(10));
     if let Some(body) = body {
@@ -143,7 +240,7 @@ pub(super) async fn send<T: Serialize + ?Sized>(
         ));
     }
     let payload = hermes_wire::read_json(response, StatusCode::OK, 64 * 1024).await?;
-    validate_ack(&payload, run_id, session_id, operation)
+    validate_ack(&payload, &prepared.run_id, &prepared.session_id, operation)
 }
 
 fn capability(payload: &Value, operation: Operation) -> Result<(), AppError> {

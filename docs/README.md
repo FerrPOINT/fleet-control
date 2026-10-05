@@ -19,6 +19,8 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 - [Hermes recovery extension v1](contracts/HERMES_RECOVERY_V1.md)
 - [Bounded Hermes event-stream profile v1](contracts/HERMES_EVENT_STREAM_V1.md)
 - [Hermes run-control consumer profile v1](contracts/HERMES_RUN_CONTROL_V1.md)
+- [Durable runtime command ADR](adr/0021-durable-runtime-control-commands.md)
+- [Runtime command UI fixture manifest](assets/design/runtime-controls/manifest.json)
 - [Actual credential interoperability harness](../scripts/pm_credentials_live/README.md)
 - [Native Hermes protocol acceptance harness](../scripts/hermes_protocol_live/README.md)
 - [Managed native supervisor acceptance harness](../scripts/native_supervisor_live/README.md)

@@ -454,7 +454,17 @@ async fn pm_credentials_pg_database_guards_monotonic_journal_and_single_redacted
                 && !bytes.contains("parent_fingerprint")
         );
     }
-    assert!(migration::Migrator::down(&db, Some(1)).await.is_err());
+    let migrations = migration::Migrator::migrations();
+    let credentials = migrations
+        .iter()
+        .find(|m| m.name() == "m20261004_000011_pm_credentials")
+        .unwrap();
+    assert!(
+        credentials
+            .down(&migration::SchemaManager::new(&db))
+            .await
+            .is_err()
+    );
     assert_eq!(fixture.operation().await.credentials, saved.credentials);
 }
 

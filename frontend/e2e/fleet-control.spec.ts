@@ -4,6 +4,109 @@ import AxeBuilder from '@axe-core/playwright'
 
 const now = '2026-09-01T10:00:00+03:00'
 
+test('durable runtime controls hold unknown commands after reload', async ({ page }, testInfo) => {
+  test.setTimeout(90000)
+  const state = createState()
+  const run = { ...makeRun(ids.session, state.agents[0]), state: 'running' }
+  state.runsBySession[ids.session] = [run]
+  await installMocks(page, state)
+  const command = {
+    id: '00000000-0000-4000-8000-000000000901',
+    session_id: ids.session,
+    session_run_id: run.id,
+    agent_id: ids.dev,
+    actor_user_id: ids.user,
+    operation: 'steer',
+    state: 'uncertain',
+    acknowledgement: null,
+    observed_run_state: null,
+    created_at: now,
+    updated_at: now,
+  }
+  let submitted = false
+  const keys: string[] = []
+  await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    if (path.endsWith('/chat-controls'))
+      return fulfill(route, {
+        can_send: false,
+        can_steer: true,
+        can_stop: true,
+        active_run_id: run.id,
+        blocked_reason: null,
+      })
+    if (path.endsWith('/controls')) return fulfill(route, submitted ? [command] : [])
+    if (path.endsWith('/steer') && request.method() === 'POST') {
+      const key = request.headers()['idempotency-key']
+      expect(key).toBeTruthy()
+      keys.push(key)
+      expect(request.postDataJSON()).toEqual({ input: 'Keep the original guidance' })
+      submitted = true
+      return fulfill(route, {
+        session_id: ids.session,
+        run_id: run.id,
+        runtime_run_id: 'native-fixture',
+        accepted: false,
+        state: 'running',
+        message: 'control outcome unknown',
+        command,
+      })
+    }
+    return route.fallback()
+  })
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  await page.goto(`/chats/${ids.session}?tab=dialogue`)
+  const input = page.getByLabel('Уточнение активному запуску', { exact: true })
+  await expect(input).toBeEnabled()
+  await input.fill('Keep the original guidance')
+  const send = page.getByRole('button', { name: 'Передать уточнение запуску', exact: true })
+  await expect(send).toBeEnabled()
+  await send.click()
+  await expect(
+    page.getByText('Исход команды неизвестен. Проверяется сохранённая запись.'),
+  ).toBeVisible()
+  await expect(input).toHaveValue('Keep the original guidance')
+  await expect(send).toBeDisabled()
+  expect(keys).toHaveLength(1)
+  await page.reload()
+  await expect(send).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Остановить запуск', exact: true })).toBeDisabled()
+  for (const viewport of [
+    { width: 375, height: 812 },
+    { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+  ]) {
+    await page.setViewportSize(viewport)
+    const context = page.getByRole('button', { name: 'Контекст задачи', exact: true })
+    if (viewport.width === 375) await context.click()
+    const visibleContext =
+      viewport.width === 375
+        ? page.getByRole('dialog', { name: 'Контекст задачи' })
+        : page.locator('.fc-chat-context')
+    const outcome = visibleContext.getByText('Исход неизвестен, повторная отправка запрещена')
+    await expect(outcome).toBeVisible()
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
+    ).toBe(true)
+    const a11y = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+    expect(
+      a11y.violations.filter((issue) => ['serious', 'critical'].includes(issue.impact ?? '')),
+    ).toEqual([])
+    await page.screenshot({
+      path: testInfo.outputPath(`runtime-controls-${viewport.width}.png`),
+      fullPage: true,
+      animations: 'disabled',
+    })
+    if (viewport.width === 375) await page.keyboard.press('Escape')
+  }
+  expect(keys).toHaveLength(1)
+  expect(errors).toEqual([])
+})
+
 test('PM chat clarification preserves explicit answers and exact confirmation', async ({
   page,
 }, testInfo) => {
@@ -724,7 +827,8 @@ async function installMocks(page: Page, state: ApiState) {
         headers: {
           'access-control-allow-origin': '*',
           'access-control-allow-methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-          'access-control-allow-headers': 'Authorization, Content-Type, Last-Event-ID',
+          'access-control-allow-headers':
+            'Authorization, Content-Type, Last-Event-ID, Idempotency-Key',
         },
       })
     }
@@ -1138,6 +1242,8 @@ async function installMocks(page: Page, state: ApiState) {
     if (sessionRunsMatch) {
       return fulfill(route, state.runsBySession[sessionRunsMatch[1]] ?? [])
     }
+    if (/^\/api\/v1\/sessions\/[^/]+\/runs\/[^/]+\/controls$/.test(pathName))
+      return fulfill(route, [])
     const sessionLeaderMatch = pathName.match(/^\/api\/v1\/sessions\/([^/]+)\/leader$/)
     if (sessionLeaderMatch && method === 'PUT') {
       const body = (await request.postDataJSON()) as { leader_agent_id: string | null }

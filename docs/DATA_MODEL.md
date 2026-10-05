@@ -1,11 +1,34 @@
 # Data Model
 
 Native free-chat stop/steer read the existing accepted dispatch journal by concrete
-Fleet run ID; the receipt/live run are observed together. This adds no table,
-migration, public DTO or key renewal. Control ACK is not a new terminal proof or
+Fleet run ID; the receipt/live run are observed together. Control ACK is not a new terminal proof or
 capacity release. Steer preserves current state; stopping remains nonterminal.
 Legacy run-wide approval has no adapter bypass. See the
 [run-control profile](contracts/HERMES_RUN_CONTROL_V1.md).
+
+## Runtime Control Commands
+
+Additive `m20261005_000013_runtime_controls` follows dispatch journal 000012;
+historical migration bytes and legacy transcripts are unchanged. A command stores
+immutable Fleet session/run/agent/actor, actor-scoped key, semantic payload hash,
+native run/session pins and original request hash/origin/credential fingerprint.
+It does not store raw guidance, token or arbitrary upstream response. The public
+receipt omits the key and private context. Foreign keys bind the concrete run to
+the dispatch journal; backend rechecks accepted state, primary agent and permissions.
+
+States: reserved -> submitted -> acknowledged or uncertain. Known no-dispatch
+preflight rejection is reserved -> rejected. Independently committed terminal
+mirror permits submitted/uncertain -> terminal_observed or reserved -> rejected.
+Database triggers protect identity and prohibit rewinding/overwriting final states.
+Unique actor/key supports replay; a partial unique run index holds one unresolved
+command. History and bounded reconciliation have dedicated indexes. Nonempty
+downgrade refuses removal; empty downgrade/reapply is tested on a disposable DB.
+
+ACK, stopping state, audit and durable session cursor/event share one transaction.
+Reconciliation requires accepted original journal, pinned native message ID,
+terminal run with last-event observation and completed/failed original prompt
+delivery. A raw terminal state update is insufficient. Terminal observation
+never invents the unknown command's acknowledgement or resends its native POST.
 
 Hermes stream resource accounting is per worker and adds no schema or migration.
 The [consumer profile](contracts/HERMES_EVENT_STREAM_V1.md) bounds received

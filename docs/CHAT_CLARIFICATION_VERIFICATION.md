@@ -1455,8 +1455,11 @@ POST/inference/assistant without native SSE. Nested child test banners are not
 extra cases. These are three distinct native cases including controls, not
 installed HTTP/auth/UI or running/native-crash recovery acceptance.
 
-Final Node22 typecheck/OpenAPI drift,135 screenshot manifest hashes and nine
-controller fixture hashes PASS, without UI changes or recapture. Sixteen native
+Final Node22 typecheck/OpenAPI drift,135 screenshot presence/count/header checks
+and nine controller fixture hashes PASS, without UI changes or recapture. The
+old full-screen verifier did not check hashes; the earlier wording overstated
+this evidence. Generated full-screen SHA-256 proof is added in the next section.
+Sixteen native
 harness,15 protocol harness and three README validator unit cases PASS;
 README validation and106 Markdown links PASS. Fresh Docker audit is complete:
 desktop77, both runners0, violations=[]. Other tasks' containers/caches and
@@ -1477,3 +1480,165 @@ hashes above. Final host test source SHA256 is
 `91cbaa79dd3d95e63e209d7f363b301bff4dbc37fe225c8f506836aa34ebdfc3`.
 This byte comparison prevents CRLF normalization from silently publishing
 different code; it does not substitute for exact published-head CI.
+
+## Durable Runtime Control Journal (5 October 2026)
+
+Candidate migration000013 follows000012 without modifying historical migration
+bytes. It stores immutable actor/key/payload hash and original native context,
+one submitted claim, ACK/audit/durable-event transaction and bounded scoped
+history. Identical retries read the same receipt without another native POST;
+changed payload or scope conflicts. Unknown effects retain the run control hold.
+Only independently committed accepted journal/prompt/terminal mirror proof can
+mark `terminal_observed`; that state is not command ACK or safe OS quiescence.
+Task/PM controls remain blocked. Java chat/control remains phase2.
+
+The actor is derived from authenticated `CurrentUser`, not JSON. This alone is
+not `VerifiedHumanSession` proof. Actual HTTP authorization denial acceptance,
+generic control identity retirement and multi-instance/native unknown-command
+recovery remain gaps; repository/unit evidence must not be promoted to these.
+The API requires a bounded actor-scoped `Idempotency-Key`; receipts exclude raw
+input/key/token. No blind-reset, automated resend or OS-stop proof is introduced.
+
+### Failed Gates And Current Regression
+
+Initial broad executions failed, and their passing subsets are not full gates:
+
+- The credential fixture assumed migration11 was the latest. It now explicitly
+  invokes the unchanged migration11 nonempty downgrade guard.
+- A QA bare clone lost canonical Base origin metadata. The harness now restores
+  the verified origin after cloning and rechecks the exact existing package pin;
+  production provenance checks were not bypassed.
+- A prepared-runtime fixture panicked on foreign authentication. It now returns
+  HTTP401 before probes/effects; an additional PG/TCP case verifies zero counters.
+- A PostgreSQL Hermes journal timestamp check failed after the VM wall clock moved
+  backwards. The watcher independently observed repeated9-11second regressions.
+  Historical immutable timestamps/guards remain unchanged. A separate earlier ACK
+  failure lacks its primary diagnostic and is not attributed to clock drift.
+- Exec64401/project `sdlc-qa-fleet-control-ledger-b37b4b15194e` passed209 library,
+  153 foundation and four migration tests but failed the isolated approval fixture
+  (old count13 vs actual14) and strict Clippy format arguments. Its exit1 and exact
+  finally cleanup are retained. The approval fixture now compares exact applied
+  version names to the registered migrator, not another hard-coded count.
+
+Final component regression exec78899, own project
+`sdlc-qa-fleet-control-ledger-121eb661400f`, exits0:209 workspace library tests,
+153 foundation tests, one isolated authenticated approval SSE case and four
+dedicated migration tests =367 distinct PASS. The ignored renderer export is not
+counted. All-target check, strict workspace/all-target Clippy, fmt and Rust OpenAPI
+byte equality pass. This scoped aggregate does not run every ignored integration
+target, real-producer PM credentials or all native scenarios. The QA aggregates
+independent outcomes, retains clock observations and cleans only its own Compose
+services/network, preserving external caches. Component log SHA256 is
+`d647935c052854df3c1ddd6778bc3e678f573b67c983ec606f8c23840f658086`.
+
+The executed candidate sources have these hashes:
+
+| Source | SHA256 |
+| --- | --- |
+| `backend/domain/src/runtime_controls.rs` | `10c02a93f8d93650e6dee8e3494de640e3a82a697affa2bd246b59e2bb42f156` |
+| `backend/infra/src/runtime_controls.rs` | `95b9b7da5573e0f02afc7ffd6ac8ff1e729c4a8c864199d157574a123d05c488` |
+| `backend/infra/src/runtime/run_control.rs` | `1d3c7509f4b8cce460d475fa2d5171dbddf1562c45c9b430fcf07c355ef95a94` |
+| `backend/infra/src/runtime/mod.rs` | `7c23757edeac9a314dc864a9d7ee3324fa835253ab9f1f3ab168f66d353a86cd` |
+| `backend/infra/src/runtime/acceptance_readback.rs` | `97ed6137b386aca158fba972ec11f4007c005d19d9666ebb94bc1cad151da633` |
+| `backend/migration/src/m20261005_000013_runtime_controls.rs` | `9f91a0c79d4ec6bcbfd54b4290abb656ab6045967553d92c8789089bc4e7920a` |
+| `backend/migration/tests/runtime_controls.rs` | `5c0175d7013acde9ed1d8a7a3a408d8b120980f822aaa5492ee4c08374ca68c0` |
+| `backend/infra/tests/runtime_approval_events.rs` | `b40529467b3d7b1443e4a9005b2290f18d3642a7c8626d33c76eec75b06b86fd` |
+| `backend/infra/tests/support/runtime_run_control.rs` | `856ee3bb45dddadd38c063bf46aa0307c1fd9d6f91fe8e16b512bcd1a9d2f65e` |
+| `backend/infra/tests/support/runtime_prepared_recovery.rs` | `79a45055081f8dce66e375de89e01ecd5d841d3d6c3744781272b174dde27326` |
+
+Supplementary project `sdlc-qa-fleet-controls-extra-ae43408a56ea` completed three
+additional distinct PG cases: managed settings, scoped chat directory and central
+subject coexistence. Clean migration CLI up/status/down-one/up/status succeeds
+for all14 registered versions. Workspace doc tests succeed with zero executable
+examples; they are not additional test cases. Together with the component suite,
+370 distinct Rust/PG cases pass on this source. Supplement log SHA256 is
+`b916fc4b9dc519bf7fbde53c260f568f1238758442fbc5b4c868af9cc5be231c`.
+The tool was interrupted during observation; terminal log and independent empty
+Compose ps confirm completion/cleanup. The earlier interrupted project3f770ea9
+never reached QA execution and was removed by its exact Compose command before
+retry. No missing process handle alone was counted as PASS.
+
+### Native And Browser Evidence
+
+Native exec75512/project `sdlc-qa-fleet-native-91e2f74ad7de` exited0: one exact
+`managed_native_run_steer_and_stop_require_native_ack_and_terminal_readback` case
+PASS22.19s, zero failed/ignored, two filtered. Real AIAgent guidance/status and
+interrupt ACK use the same command receipts on replay; history persists through
+terminal readback. Only the model is deterministic. Fake PG/TCP tests prove one
+native POST under concurrent retries; the native case does not independently
+count control POSTs. No native approvals, unknown-control acceptance, task first
+step or process-tree ownership-transfer proof follows.
+
+Evidence directory is
+`tmp/native-supervisor-live/sdlc-qa-fleet-native-91e2f74ad7de-_er3pv75/`:
+
+| Artifact | SHA256 |
+| --- | --- |
+| Native log | `1466ef2a7c0a1d10e4aa630c4e0be05839c13355b9808ca510d8c216d22bd7b4` |
+| Build log | `416aa44aff9263946042200883be75570a56d8b0884cf6a8e5fb99579a15e329` |
+| Evidence JSON | `7e823fb1b459b771f0a03ceb14967d7fae8cb8f08750f615a8a9863a3a8a8396` |
+| Compiled test binary | `9f6c55871f2f4a349434eeaa4796508ae59324c82bb6d0d3bf7d326026a48d26` |
+| Native test source | `2d6c4d35638f7fa1dde9b89018be66b33c40059306957990f58480a7798bfd51` |
+
+Clean Hermes `bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3`,13770 tracked byte
+hashes/archive571fba49, SDK9408802 and non-root dependency imageaeb97055 are
+verified. Launcher comes from committed Basee0d091a, hash75ad258e; runtime/package
+pins and accepted resources are unchanged. Own cleanup exit0, independent empty
+ps and removed own QA tags are recorded. This is dirty-source disposable QA, not
+published-head CI, installed rollout or complete source inventory attestation.
+Later test-only approval/format fixes do not change the native test or runtime
+implementation; no later native rerun is claimed.
+
+Node22 frontend controller tests passed235 cases. Exec1109 passed six fixture
+Playwright cases (control unknown/reload and PM dialogue/clarification/requirements
+across Chromium/Firefox/WebKit), not the entire E2E suite. Frozen client command
+body/key live only in memory; reload reads server receipts and preserves the hold,
+not a browser draft or recoverable secret key. Three control screenshots and nine
+PM controller screenshots have separate hashes and `liveAcceptance=false`.
+
+Full-screen capture previously returned0 despite missing chat mock endpoints;
+visual inspection found an error banner. The capture now rejects every unhandled
+mock API before saving a screen. The strict run next found missing workflow
+catalog; the fixture was corrected, not silently accepted as404. Final exec75142
+captures135 current pages at375x812/1920x1080/2560x1440 with linked JSON/Markdown
+route/viewport/PNG-size/SHA256 evidence. Nine verifier negative tests pass. Current
+mobile/desktop private chat and mobile unknown-control drawer were opened and
+inspected; no mock error banner or incoherent overlap was present. This is fixture
+UI evidence, not actual runtime/identity or all-page visual acceptance.
+
+| Fixture manifest | SHA256 |
+| --- | --- |
+|135 full-page screens JSON | `20c7e3ee8613783b0c3ac98efaa1e1fe60d334a4192099f4176118893a2a8a9a` |
+|9 PM controller screens | `72fc752300485f0b2d9d8ef4a3fc1540a6c353785e1f67edfb3c0a6b7aeb8557` |
+|3 unknown-control screens | `8faa74146ff77fb18276b03fb9572ee40400e6c5db218f64b8c637c8a31c6494` |
+
+Frontend lint/semantic/format, regenerated API equality, README and107 Markdown
+links pass independently. The unchanged Base compatibility checker initially
+rejects the two new required headers, correctly identifying a breaking change.
+Fleet's explicit closed security-migration wrapper now checks their exact required
+string shape on steer/stop only; eight wrapper tests deny weakened keys and other
+breaking changes. API_VERSIONING documents unsupported legacy unkeyed clients.
+This is a deliberate security migration, not ordinary backwards compatibility.
+The existing706.74KiB main bundle warning remains,
+not a performance-gate pass. The scoped heuristic scan retains one unchanged
+synthetic redaction fixture in infra/lib; raw exit1 is reviewed, not zero findings
+or DLP/history certification. No scanner rule or fixture secret was weakened.
+
+All40 staged code/schema/script/CI files match the verified worktree bytes.
+Three legacy `.mjs` files initially differed only through Git line-ending
+normalization; they were formatted to LF and all17 compatibility/verifier tests
+rerun successfully. Formatting and API compatibility pass on the normalized
+files; no source or fixture rule was skipped to obtain equality.
+Independent Compose ps is empty for the exact component and supplemental QA
+projects. Final Docker grouping audit observes56 Desktop containers with no
+violations, but cannot reach either registered runner endpoint: `complete=false`,
+exit1. The earlier complete audit does not override this final observation.
+Accepted/shared resources and other tasks' projects are not changed to repair
+the unrelated runner availability. Full fleet grouping acceptance remains open.
+
+Remaining: fresh HTTP route denial/live identity, native unknown-control/approval,
+expired stream snapshot, loaded config/plugin inventory, safe descendants,
+fenced task first-step admission, PM tools/delivery/rebind, compatible Forge and
+seven-agent acceptance. Migration release order10/11 ->12 ->13, one new migration
+per release PR and exact-head CI remain gates. PR47 stays Draft938b4ed; publisher
+PR140 remains ready177edb8, not merged/installed. This packet does not close them.

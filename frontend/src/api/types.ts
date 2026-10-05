@@ -432,7 +432,10 @@ export interface RuntimeRunControlResponse {
   accepted: boolean
   state: SessionRunState
   message: string
+  command?: RuntimeControlReceipt | null
 }
+
+export type RuntimeControlReceipt = components['schemas']['RuntimeControlReceipt']
 
 export interface UpdateLeaderExecutorsRequest {
   executor_ids: string[]
@@ -614,3 +617,4 @@ export interface ApplyManagedSettingsResponse {
   version: ManagedSettingsVersion | null
   restart_scheduled: boolean
 }
+import type { components } from './generated'

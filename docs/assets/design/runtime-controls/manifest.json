@@ -1,0 +1,55 @@
+{
+  "evidence": "production-controller-with-fixture-api",
+  "liveAcceptance": false,
+  "browsersVerified": [
+    "chromium",
+    "firefox",
+    "webkit"
+  ],
+  "command": "pnpm exec playwright test e2e/fleet-control.spec.ts --grep \"durable runtime controls\" --workers=1",
+  "count": 3,
+  "screenshots": [
+    {
+      "file": "runtime-controls-375.png",
+      "view": "unknown-control-readback",
+      "route": "/chats/00000000-0000-4000-8000-000000000201",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "size": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "98c8f24a7cb1cb53d84452d4dd304ecb3357aeaf6b41a76f2fe02d71dba33075"
+    },
+    {
+      "file": "runtime-controls-1920.png",
+      "view": "unknown-control-readback",
+      "route": "/chats/00000000-0000-4000-8000-000000000201",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "3a22a2c06bd61aad57c21709afea07f14e6b758e19e78598f5d5a6107aa3ff61"
+    },
+    {
+      "file": "runtime-controls-2560.png",
+      "view": "unknown-control-readback",
+      "route": "/chats/00000000-0000-4000-8000-000000000201",
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      },
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "ce1de6d5cdb25150a36aaff31af2c27b447b5144c5cda48e66755728fbcf5019"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 import { chromium } from '@playwright/test'
-import { generateKeyPairSync, sign } from 'node:crypto'
+import { createHash, generateKeyPairSync, sign } from 'node:crypto'
 import { mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -744,6 +744,7 @@ async function mockSso(context) {
 }
 
 async function mockApi(context) {
+  const unhandled = new Set()
   await context.route('**/api/v1/**', async (route) => {
     const request = route.request()
     const url = new URL(request.url())
@@ -969,6 +970,53 @@ async function mockApi(context) {
       }
     }
 
+    if (pathName === '/api/v1/chats/directory') {
+      const users = url.searchParams.get('user_id')
+      const userIds = users && users !== 'all' ? users.split(',') : [ids.admin]
+      const search = (url.searchParams.get('q') ?? '').toLowerCase()
+      const scoped = sessions.filter(
+        (session) =>
+          (users === 'all' || userIds.includes(session.user_id)) &&
+          `${session.title} ${session.task_key ?? ''}`.toLowerCase().includes(search),
+      )
+      const directory = agents.filter((item) => item.status !== 'archived')
+      const selectedAgent = url.searchParams.get('agent_id') ?? directory[0]?.id ?? null
+      return json(route, {
+        agents: directory.map((item) => ({
+          agent: agentDirectoryItem(item),
+          matching_session_count: scoped.filter((session) => session.primary_agent_id === item.id)
+            .length,
+        })),
+        selected_agent_id: selectedAgent,
+        items: scoped.filter((session) => session.primary_agent_id === selectedAgent),
+        next_before: null,
+      })
+    }
+    const chatMetadata = pathName.match(
+      /^\/api\/v1\/sessions\/([^/]+)\/(task-context|chat-controls|history|stream)$/,
+    )
+    if (chatMetadata) {
+      const sessionId = chatMetadata[1]
+      if (chatMetadata[2] === 'task-context') return json(route, { binding: null, tracker: null })
+      if (chatMetadata[2] === 'history')
+        return json(route, { items: sessionMessages[sessionId] ?? [], next_before: null })
+      if (chatMetadata[2] === 'stream')
+        return route.fulfill({
+          status: 200,
+          contentType: 'text/event-stream',
+          body: ': screenshot fixture\n\n',
+        })
+      const active = (sessionRuns[sessionId] ?? []).find((run) =>
+        ['pending', 'running', 'waiting', 'stopping', 'uncertain'].includes(run.state),
+      )
+      return json(route, {
+        can_send: !active,
+        can_steer: false,
+        can_stop: false,
+        active_run_id: active?.id ?? null,
+        blocked_reason: active ? 'runtime_capability_required' : null,
+      })
+    }
     if (pathName === '/api/v1/sessions') {
       const agentId = url.searchParams.get('agent_id')
       const userFilter = url.searchParams.get('user_id')
@@ -1002,6 +1050,7 @@ async function mockApi(context) {
     if (sessionRunsMatch) {
       return json(route, sessionRuns[sessionRunsMatch[1]] ?? [])
     }
+    if (/^\/api\/v1\/sessions\/[^/]+\/runs\/[^/]+\/controls$/.test(pathName)) return json(route, [])
     const sessionLeaderMatch = pathName.match(/^\/api\/v1\/sessions\/([^/]+)\/leader$/)
     if (sessionLeaderMatch) {
       const session = sessions.find((item) => item.id === sessionLeaderMatch[1]) ?? sessions[0]
@@ -1017,6 +1066,18 @@ async function mockApi(context) {
       )
     }
 
+    if (pathName === '/api/v1/workflow-catalog')
+      return json(route, {
+        namespaces: workflowBindings.map((binding) => ({
+          id: binding.namespace_id,
+          name: binding.namespace_name,
+          workflow_id: binding.workflow_id,
+        })),
+        workflows: workflowBindings.map((binding) => ({
+          id: binding.workflow_id,
+          name: binding.workflow_name,
+        })),
+      })
     if (pathName === '/api/v1/workflow-bindings') return json(route, workflowBindings)
     if (pathName === '/api/v1/logs') {
       const agentId = url.searchParams.get('agent_id')
@@ -1059,8 +1120,10 @@ async function mockApi(context) {
     }
     if (pathName === '/api/v1/health') return json(route, { status: 'ok' })
 
+    unhandled.add(`${method} ${pathName}`)
     return json(route, { error: `Unhandled screenshot mock route: ${pathName}` }, 404)
   })
+  return unhandled
 }
 
 const coreScreens = [
@@ -1127,7 +1190,7 @@ try {
       deviceScaleFactor: 1,
     })
     await mockSso(context)
-    await mockApi(context)
+    const unhandled = await mockApi(context)
 
     const page = await context.newPage()
     const outputDir = path.join(outputRoot, viewport.name)
@@ -1157,12 +1220,22 @@ try {
         throw new Error(`Screenshot route ${urlPath} escaped to Central Auth: ${page.url()}`)
       }
       await page.waitForTimeout(1000)
-      await page.screenshot({
+      if (unhandled.size)
+        throw new Error(`Unhandled screenshot API requests: ${[...unhandled].join(', ')}`)
+      if (await page.getByText(/Unhandled screenshot mock route/).count())
+        throw new Error(`Screenshot ${urlPath} contains a fixture API error`)
+      const png = await page.screenshot({
         path: path.join(outputDir, fileName),
         fullPage: true,
         animations: 'disabled',
       })
-      captured.push({ viewport: viewport.name, fileName, route: urlPath })
+      captured.push({
+        viewport: viewport.name,
+        fileName,
+        route: urlPath,
+        size: { width: png.readUInt32BE(16), height: png.readUInt32BE(20) },
+        sha256: createHash('sha256').update(png).digest('hex'),
+      })
       console.log(`${viewport.name}/${fileName}`)
     }
 
@@ -1189,3 +1262,19 @@ const manifest = [
 ].join('\n')
 
 writeFileSync(path.join(outputRoot, 'manifest.md'), manifest)
+writeFileSync(
+  path.join(outputRoot, 'manifest.json'),
+  JSON.stringify(
+    {
+      evidence: 'production-pages-with-fixture-api',
+      liveAcceptance: false,
+      count: captured.length,
+      screenshots: captured.map(({ fileName, ...entry }) => ({
+        ...entry,
+        filePath: `docs/assets/screens/${entry.viewport}/${fileName}`,
+      })),
+    },
+    null,
+    2,
+  ) + '\n',
+)

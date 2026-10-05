@@ -1,5 +1,38 @@
 # Testing
 
+## Durable Runtime Controls
+
+`runtime_run_control` PostgreSQL/HTTP tests exercise identical concurrent/restarted
+replay with one native POST, semantic conflicts, unknown ACK hold, one submitted
+claim, current actor revocation, foreign-session readback, atomic ACK/audit rollback
+and terminal-only reconciliation. A raw run flag is insufficient proof. The
+isolated migration `runtime_controls` test needs its own empty disposable DB via
+`FLEET_RUNTIME_CONTROL_MIGRATION_TEST_DATABASE_URL`; without it no PG evidence is
+provided. It exercises additive upgrade, preserved legacy rows, empty down/re-up,
+nonempty refusal and immutable identity/state guards.
+
+The opt-in actual native `controls` case verifies real AIAgent ACK/status/interrupt,
+stable command receipt replay/history and terminal readback. It is not native
+per-command unknown acceptance, targeted approval, process-tree or PM evidence.
+Playwright's unknown-control/reload scenario runs Chromium/Firefox/WebKit; its
+three screenshots are published by `publish-runtime-control-evidence.mjs` and
+verified with `pnpm controls:evidence:verify`. Fixtures never count as live runtime
+acceptance. PM controller nine-image evidence stays separate.
+
+The full 135-screen capture rejects unhandled mock API requests before saving an
+image. JSON/Markdown manifests must agree on fixture scope, count, route, CSS
+viewport, actual PNG size and SHA-256. Structural/hash verification does not
+replace visual inspection; the earlier capture exposed missing chat endpoints
+despite passing the former count-only verifier. See the verification ledger for
+failed broad gates, clock observations and current exact-source evidence.
+
+`pnpm screenshots:verify` also runs nine isolated Node tests: valid inventory,
+changed bytes/hash/dimensions, duplicate paths, count drift, false live scope,
+missing mobile route and path traversal. Their synthetic PNG headers test the
+verifier only; they are not captured images or browser acceptance. Every required
+route must exist at each required viewport. Temporary fixture directories are
+removed after each test.
+
 ## Bounded Native Stream Profile
 
 `runtime::sse_wire` exercises incremental UTF-8, BOM, LF/CRLF/CR, empty event

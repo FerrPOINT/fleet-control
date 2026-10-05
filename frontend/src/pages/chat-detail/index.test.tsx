@@ -14,6 +14,7 @@ vi.mock('@/api/fleet', () => ({
   getSession: vi.fn(),
   listAgentDirectory: vi.fn(),
   listSessionAgentRuns: vi.fn(),
+  listRuntimeControls: vi.fn(),
   createSessionMessage: vi.fn(),
   steerSessionRun: vi.fn(),
   stopSessionRun: vi.fn(),
@@ -137,6 +138,7 @@ beforeEach(() => {
   } as AgentSession)
   vi.mocked(fleet.listAgentDirectory).mockResolvedValue([])
   vi.mocked(fleet.listSessionAgentRuns).mockResolvedValue([])
+  vi.mocked(fleet.listRuntimeControls).mockResolvedValue([])
   vi.mocked(chats.getTaskContext).mockResolvedValue(context)
   vi.mocked(chats.getChatControls).mockResolvedValue({
     can_send: false,

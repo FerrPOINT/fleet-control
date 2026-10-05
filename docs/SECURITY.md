@@ -1,5 +1,24 @@
 # Security
 
+## Durable Authenticated Runtime Commands
+
+Steer/stop actor is derived from authenticated `CurrentUser`, never JSON. The
+repository rechecks current active user and owner/operator/admin authority before
+reservation and claim. Keys are bounded and unique per actor; replay compares the
+session/run/agent, operation and semantic payload hash. Native pins, origin,
+credential fingerprint and accepted request hash are immutable. Raw guidance,
+keys and credentials are not exposed in public receipts or control audit/events.
+These records are not a second transcript or a runtime credential store.
+
+History GET uses the same session/project authorization as run reads, includes
+actor IDs and never authorizes an effect. Database permits prevent a second
+unknown effect; native unknown-command readback and distributed task fencing are
+still separate requirements. Task/PM commands remain denied without admission;
+terminal mirror proof does not grant process-tree or business authority.
+`CurrentUser` is authenticated identity, not by itself proof of a browser human
+session. Approval/PM owner actions retain their distinct verified-human gate;
+generic free-chat control HTTP identity acceptance remains an explicit gap.
+
 Prepared restart recovery grants only the original unconsumed free-chat
 submission permit. Fresh protocol proof and transactional current identity,
 drain/capacity/deadline checks precede the one frozen original POST. No worker

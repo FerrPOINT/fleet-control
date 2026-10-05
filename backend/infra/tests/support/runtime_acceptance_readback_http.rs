@@ -503,7 +503,16 @@ async fn scenario(restarted: bool) {
     let mut stale = run.clone();
     stale.state = SessionRunState::Running;
     assert!(matches!(
-        runtime.stop_run(&agent, &stale).await,
+        runtime
+            .stop_run(
+                &agent,
+                &stale,
+                domain::RuntimeControlActor {
+                    user_id: session.user_id,
+                    idempotency_key: Uuid::new_v4().to_string()
+                }
+            )
+            .await,
         Err(shared::AppError::Conflict(_))
     ));
     assert!(matches!(
@@ -513,6 +522,10 @@ async fn scenario(restarted: bool) {
                 &stale,
                 domain::SteerSessionRunRequest {
                     input: "must wait for pin".into(),
+                },
+                domain::RuntimeControlActor {
+                    user_id: session.user_id,
+                    idempotency_key: Uuid::new_v4().to_string()
                 }
             )
             .await,

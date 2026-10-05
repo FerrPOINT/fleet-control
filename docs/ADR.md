@@ -17,6 +17,7 @@
 - [0015-accepted-run-session-readback.md](adr/0015-accepted-run-session-readback.md)
 - [0016-hermes-original-request-journal.md](adr/0016-hermes-original-request-journal.md)
 - [0017-versioned-native-hermes-renderer.md](adr/0017-versioned-native-hermes-renderer.md)
+- [0021-durable-runtime-control-commands.md](adr/0021-durable-runtime-control-commands.md)
 
 Records 0008 and 0009 describe historical migration stages. Their status notes
 point to the current shared dependency and central identity architecture.

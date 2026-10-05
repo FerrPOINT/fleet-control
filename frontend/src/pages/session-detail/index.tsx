@@ -49,6 +49,11 @@ import {
 import { UserAvatar } from '@/shared/ui/user-avatar'
 import { TaskApprovalsPanel } from '../chat-detail/approvals'
 import { EmptyState, ErrorState, PageHeader, StatusBadge, formatDate } from '../common'
+import {
+  RuntimeControlHistory,
+  isUnresolvedControl,
+  useRuntimeControls,
+} from '../runtime-control-history'
 
 let fallbackRequestSequence = 0
 
@@ -112,6 +117,7 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
       void queryClient.invalidateQueries({ queryKey: ['session', sessionId] })
       void queryClient.invalidateQueries({ queryKey: ['session-messages', sessionId] })
       void queryClient.invalidateQueries({ queryKey: ['session-runs', sessionId] })
+      void queryClient.invalidateQueries({ queryKey: ['runtime-controls', sessionId] })
       void queryClient.invalidateQueries({ queryKey: ['session-participants', sessionId] })
       void queryClient.invalidateQueries({ queryKey: ['task-approvals', sessionId] })
       void queryClient.invalidateQueries({ queryKey: ['task-approval-decision', sessionId] })
@@ -145,14 +151,18 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
 
   const activeRun = [...(runs.data ?? [])]
     .reverse()
-    .find(
-      (run) => (run.state === 'running' || run.state === 'waiting') && Boolean(run.runtime_run_id),
-    )
+    .find((run) => ['pending', 'running', 'waiting', 'stopping', 'uncertain'].includes(run.state))
 
   const [targetAgentId, setTargetAgentId] = useState('')
   const [leaderId, setLeaderId] = useState('')
   const [messageBody, setMessageBody] = useState('')
   const [messageRequestKey, setMessageRequestKey] = useState(newIdempotencyKey)
+  const runtimeCommands = useRuntimeControls(sessionId ?? '', activeRun?.id)
+  const controlHeld =
+    Boolean(activeRun) &&
+    (runtimeCommands.isPending ||
+      runtimeCommands.isError ||
+      runtimeCommands.data?.some(isUnresolvedControl))
   const [authorMode, setAuthorMode] = useState<'user' | 'leader'>('user')
   const [delegationExecutorId, setDelegationExecutorId] = useState('')
   const [delegationTitle, setDelegationTitle] = useState(() => t('sessionDetail.delegationDefault'))
@@ -227,19 +237,31 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
     },
   })
   const messageMutation = useMutation({
-    mutationFn: async () => {
-      if (activeRun)
-        return await steerSessionRun(sessionId!, activeRun.id, { input: messageBody.trim() })
+    mutationFn: async (command: {
+      runId: string | null
+      body: string
+      key: string
+      authorAgentId: string | null
+    }) => {
+      if (command.runId)
+        return await steerSessionRun(
+          sessionId!,
+          command.runId,
+          { input: command.body },
+          command.key,
+        )
       return await createSessionMessage(sessionId!, {
-        body: messageBody.trim(),
-        author_agent_id:
-          authorMode === 'leader' && session.data?.leader_agent_id
-            ? session.data.leader_agent_id
-            : null,
-        idempotency_key: messageRequestKey,
+        body: command.body,
+        author_agent_id: command.authorAgentId,
+        idempotency_key: command.key,
       })
     },
-    onSuccess: async () => {
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: ['runtime-controls', sessionId] })
+      if ('accepted' in result && !result.accepted) {
+        toast.warning('Исход команды неизвестен. Проверьте сохранённую запись.')
+        return
+      }
       setMessageBody('')
       setMessageRequestKey(newIdempotencyKey())
       await Promise.all([
@@ -251,6 +273,16 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
       toast.success(t('sessionDetail.messageSuccess'))
     },
   })
+  const messageUncertain =
+    messageMutation.isError ||
+    (messageMutation.isSuccess &&
+      'accepted' in messageMutation.data &&
+      !messageMutation.data.accepted)
+  const messageBlocked =
+    messageMutation.isPending ||
+    Boolean(controlHeld) ||
+    (messageUncertain && Boolean(messageMutation.variables?.runId)) ||
+    Boolean(activeRun && activeRun.state !== 'running')
   const delegationMutation = useMutation({
     mutationFn: () =>
       createSessionDelegation(sessionId!, {
@@ -272,6 +304,7 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
   })
 
   function changeMessageBody(value: string) {
+    if (messageUncertain) return
     setMessageBody(value)
     messageMutation.reset()
     setMessageRequestKey(newIdempotencyKey())
@@ -294,7 +327,17 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
 
   function submitMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (messageBody.trim() && !messageMutation.isPending) messageMutation.mutate()
+    if (!messageBody.trim() || messageBlocked) return
+    messageMutation.mutate(
+      messageUncertain && messageMutation.variables
+        ? messageMutation.variables
+        : {
+            runId: activeRun?.id ?? null,
+            body: messageBody.trim(),
+            key: messageRequestKey,
+            authorAgentId: authorMode === 'leader' ? (session.data?.leader_agent_id ?? null) : null,
+          },
+    )
   }
 
   function submitDelegation(event: FormEvent<HTMLFormElement>) {
@@ -378,7 +421,7 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
                 <select
                   id="session-message-author"
                   value={authorMode}
-                  disabled={messageMutation.isPending}
+                  disabled={messageBlocked || messageUncertain}
                   onChange={(event) => {
                     setAuthorMode(event.target.value as 'user' | 'leader')
                     messageMutation.reset()
@@ -398,7 +441,7 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
                   id="session-message-body"
                   className="min-h-24"
                   value={messageBody}
-                  disabled={messageMutation.isPending}
+                  disabled={messageBlocked || messageUncertain}
                   onChange={(event) => changeMessageBody(event.target.value)}
                   placeholder={t('sessionDetail.messagePlaceholder')}
                 />
@@ -410,7 +453,7 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
                 <Button
                   type="submit"
                   className="h-10"
-                  disabled={messageMutation.isPending || !messageBody.trim()}
+                  disabled={messageBlocked || !messageBody.trim()}
                 >
                   <Send className="h-4 w-4" />
                   {messageMutation.isPending
@@ -879,29 +922,57 @@ function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: st
   const queryClient = useQueryClient()
   const [steerDraft, setSteerDraft] = useState('')
   const [stopDialogOpen, setStopDialogOpen] = useState(false)
-  const canControl = run.state === 'running' || run.state === 'waiting'
+  const [stopKey] = useState(newIdempotencyKey)
+  const [steerKey, setSteerKey] = useState(newIdempotencyKey)
+  const canControl = ['running', 'waiting', 'stopping'].includes(run.state)
+  const commands = useRuntimeControls(sessionId, canControl ? run.id : undefined)
+  const controlHeld =
+    canControl &&
+    (commands.isPending || commands.isError || commands.data?.some(isUnresolvedControl))
   const stopMutation = useMutation({
-    mutationFn: () => stopSessionRun(sessionId, run.id),
-    onSuccess: async () => {
+    mutationFn: () => stopSessionRun(sessionId, run.id, stopKey),
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: ['runtime-controls', sessionId, run.id] })
+      if (!result.accepted) {
+        toast.warning('Исход остановки неизвестен. Выполнение ещё проверяется.')
+        return
+      }
       setStopDialogOpen(false)
       await queryClient.invalidateQueries({ queryKey: ['session-runs', sessionId] })
       toast.success(t('sessionDetail.stopSuccess', { agent: run.agent_name }))
     },
   })
   const steerMutation = useMutation({
-    mutationFn: () => steerSessionRun(sessionId, run.id, { input: steerDraft.trim() }),
-    onSuccess: async () => {
+    mutationFn: (command: { input: string; key: string }) =>
+      steerSessionRun(sessionId, run.id, { input: command.input }, command.key),
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: ['runtime-controls', sessionId, run.id] })
+      if (!result.accepted) {
+        toast.warning('Исход команды неизвестен. Проверьте сохранённую запись.')
+        return
+      }
       setSteerDraft('')
+      setSteerKey(newIdempotencyKey())
       await queryClient.invalidateQueries({ queryKey: ['session-runs', sessionId] })
       toast.success(t('sessionDetail.steerSuccess', { agent: run.agent_name }))
     },
   })
-  const actionPending = stopMutation.isPending || steerMutation.isPending
+  const actionPending =
+    stopMutation.isPending ||
+    steerMutation.isPending ||
+    Boolean(controlHeld) ||
+    (stopMutation.isSuccess && !stopMutation.data.accepted) ||
+    (steerMutation.isSuccess && !steerMutation.data.accepted)
   const actionFailed = steerMutation.isError
 
   function submitSteer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (steerDraft.trim() && !actionPending) steerMutation.mutate()
+    if (steerDraft.trim() && !actionPending)
+      steerMutation.mutate(
+        steerMutation.isError && steerMutation.variables
+          ? steerMutation.variables
+          : { input: steerDraft.trim(), key: steerKey },
+      )
   }
 
   return (
@@ -1012,8 +1083,9 @@ function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: st
               id={`steer-${run.id}`}
               className="h-10 min-w-0"
               value={steerDraft}
-              disabled={actionPending}
+              disabled={actionPending || run.state !== 'running' || steerMutation.isError}
               onChange={(event) => {
+                if (steerMutation.isError) return
                 setSteerDraft(event.target.value)
                 steerMutation.reset()
               }}
@@ -1024,7 +1096,7 @@ function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: st
               variant="outline"
               className="h-10"
               aria-label={t('sessionDetail.steerRun', { agent: run.agent_name })}
-              disabled={actionPending || !steerDraft.trim()}
+              disabled={actionPending || run.state !== 'running' || !steerDraft.trim()}
             >
               {steerMutation.isPending ? t('sessionDetail.sending') : t('sessionDetail.steer')}
             </Button>
@@ -1032,6 +1104,7 @@ function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: st
           {actionFailed ? <ErrorState message={t('sessionDetail.runActionError')} /> : null}
         </div>
       ) : null}
+      {canControl && <RuntimeControlHistory sessionId={sessionId} runId={run.id} />}
     </li>
   )
 }

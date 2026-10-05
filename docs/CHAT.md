@@ -1,5 +1,19 @@
 # Чаты и сессии Fleet Control
 
+## Команды запуска: 5 октября 2026
+
+В `/chats` и legacy `/sessions` есть readback истории steer/stop: автор, операция,
+время, идентификатор и сохранённый исход. Unknown/submitted/reserved блокируют новую
+команду; reload не разрешает повторную отправку. При отправке ввод и исходный ключ
+фиксируются в памяти клиента. После reload сохраняется серверный receipt/hold,
+не текст черновика или доступный браузеру исходный ключ. ACK stopping отделён от terminal и не означает
+успех SDLC. Terminal-observed не выдаётся за принятие потерянной команды.
+На mobile история находится сверху контекста. Три новых скрина и generated
+[manifest](assets/design/runtime-controls/manifest.json) проверяют production
+controller с fixture API; это не live UI/runtime acceptance. PM clarification и
+tool approvals остаются отдельными сущностями. Runtime control текста не хранится
+как отдельный transcript; receipts не раскрывают input или idempotency key.
+
 ## Актуализация 1 октября 2026
 
 Новый основной маршрут `/chats`: реальные агенты и внутри их отдельные сессии.

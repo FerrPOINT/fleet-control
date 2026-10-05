@@ -999,6 +999,10 @@ async fn managed_native_run_steer_and_stop_require_native_ack_and_terminal_readb
         .await
         .unwrap()
         .unwrap();
+    let steer_actor = domain::RuntimeControlActor {
+        user_id: owner,
+        idempotency_key: Uuid::new_v4().to_string(),
+    };
     let steered = runtime
         .steer_run(
             &agent,
@@ -1006,11 +1010,37 @@ async fn managed_native_run_steer_and_stop_require_native_ack_and_terminal_readb
             domain::SteerSessionRunRequest {
                 input: "Keep this synthetic QA scope.".into(),
             },
+            steer_actor.clone(),
         )
         .await
         .unwrap();
     assert!(steered.accepted);
     assert_eq!(steered.state, SessionRunState::Running);
+    let steer_receipt = steered.command.as_ref().unwrap();
+    assert_eq!(
+        steer_receipt.state,
+        domain::RuntimeControlState::Acknowledged
+    );
+    let replay = runtime
+        .steer_run(
+            &agent,
+            &run,
+            domain::SteerSessionRunRequest {
+                input: "Keep this synthetic QA scope.".into(),
+            },
+            steer_actor,
+        )
+        .await
+        .unwrap();
+    assert!(replay.accepted);
+    assert_eq!(replay.command.unwrap().id, steer_receipt.id);
+    assert_eq!(
+        repo.list_runtime_controls(session.id, run.id)
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
     let client = reqwest::Client::builder()
         .no_proxy()
         .timeout(Duration::from_secs(5))
@@ -1036,9 +1066,31 @@ async fn managed_native_run_steer_and_stop_require_native_ack_and_terminal_readb
         status["session_id"],
         run.runtime_session_id.as_deref().unwrap()
     );
-    let stopped = runtime.stop_run(&agent, &run).await.unwrap();
+    let stop_actor = domain::RuntimeControlActor {
+        user_id: owner,
+        idempotency_key: Uuid::new_v4().to_string(),
+    };
+    let stopped = runtime
+        .stop_run(&agent, &run, stop_actor.clone())
+        .await
+        .unwrap();
     assert!(stopped.accepted);
     assert_ne!(stopped.state, SessionRunState::Completed);
+    let stop_receipt = stopped.command.as_ref().unwrap();
+    assert_eq!(
+        stop_receipt.state,
+        domain::RuntimeControlState::Acknowledged
+    );
+    assert_eq!(
+        runtime
+            .stop_run(&agent, &run, stop_actor.clone())
+            .await
+            .unwrap()
+            .command
+            .unwrap()
+            .id,
+        stop_receipt.id
+    );
     assert!(
         repo.list_session_messages(session.id)
             .await
@@ -1067,6 +1119,23 @@ async fn managed_native_run_steer_and_stop_require_native_ack_and_terminal_readb
     .await
     .expect("native stop terminal readback did not finish");
     assert_eq!(finished.runtime_run_id, run.runtime_run_id);
+    assert_eq!(
+        runtime
+            .stop_run(&agent, &run, stop_actor)
+            .await
+            .unwrap()
+            .command
+            .unwrap()
+            .id,
+        stop_receipt.id
+    );
+    assert_eq!(
+        repo.list_runtime_controls(session.id, run.id)
+            .await
+            .unwrap()
+            .len(),
+        2
+    );
     let after = repo
         .get_hermes_dispatch_intent(message.id)
         .await
@@ -1088,6 +1157,10 @@ async fn managed_native_run_steer_and_stop_require_native_ack_and_terminal_readb
                 &run,
                 domain::SteerSessionRunRequest {
                     input: "late guidance must fail".into()
+                },
+                domain::RuntimeControlActor {
+                    user_id: owner,
+                    idempotency_key: Uuid::new_v4().to_string()
                 }
             )
             .await

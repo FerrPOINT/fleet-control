@@ -22,6 +22,8 @@ pub mod tracker_metadata;
 pub use tracker_metadata::*;
 pub mod sdlc_workflow;
 pub use sdlc_workflow::*;
+pub mod runtime_controls;
+pub use runtime_controls::*;
 
 pub type Timestamp = String;
 
@@ -1933,6 +1935,8 @@ pub struct RuntimeRunControlResponse {
     pub accepted: bool,
     pub state: SessionRunState,
     pub message: String,
+    #[serde(default)]
+    pub command: Option<RuntimeControlReceipt>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

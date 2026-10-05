@@ -1,0 +1,1357 @@
+{
+  "evidence": "production-pages-with-fixture-api",
+  "liveAcceptance": false,
+  "count": 135,
+  "screenshots": [
+    {
+      "viewport": "375x812",
+      "route": "/chats",
+      "size": {
+        "width": 375,
+        "height": 944
+      },
+      "sha256": "56796afc57597a6c20d22e3b8f127615b17ecff85b824e8ab2c324c408c88d54",
+      "filePath": "docs/assets/screens/375x812/44-chats.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/chats/00000000-0000-4000-8000-000000000201",
+      "size": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "dc88d7bafa191ca24fc2dd39c52d35aa7b61db62cf2fab642dd1aa153c3d2fe7",
+      "filePath": "docs/assets/screens/375x812/45-chat-private-detail.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/",
+      "size": {
+        "width": 375,
+        "height": 1175
+      },
+      "sha256": "bd7e9352cc76138e3a2187f710a37c852078bcbaff675933076b7a039c95f987",
+      "filePath": "docs/assets/screens/375x812/03-dashboard.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/leaders",
+      "size": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "111ea980fed3d8cbc8357da5ce9e6bb137ee3ed44c6c1ad11b56872359e1f51f",
+      "filePath": "docs/assets/screens/375x812/04-leaders.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/leaders/new",
+      "size": {
+        "width": 375,
+        "height": 1476
+      },
+      "sha256": "502e0af292ccf9c9bc3bbdf7ca9e82a7e37028804b6a1e8175d14b93b21a23b4",
+      "filePath": "docs/assets/screens/375x812/05-leader-new.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/leaders/00000000-0000-4000-8000-000000000103",
+      "size": {
+        "width": 375,
+        "height": 896
+      },
+      "sha256": "06faed06a63bdcccbe863878c0729afed149db6c11079b6c5605352d3876713e",
+      "filePath": "docs/assets/screens/375x812/06-leader-detail.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/leaders/00000000-0000-4000-8000-000000000103/edit",
+      "size": {
+        "width": 375,
+        "height": 1336
+      },
+      "sha256": "ade6a282d32c09e50b0f5caf0b096c1eb2f23657bde9740610f5024b7dcd5eb7",
+      "filePath": "docs/assets/screens/375x812/07-leader-edit.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/executors",
+      "size": {
+        "width": 375,
+        "height": 905
+      },
+      "sha256": "0f09664a3b65259219e21a40f031390c7e5df0611465e7d5e96ef3a1f7c5b317",
+      "filePath": "docs/assets/screens/375x812/08-executors.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/executors/new",
+      "size": {
+        "width": 375,
+        "height": 2316
+      },
+      "sha256": "fab80dbf2cd70f44270a91c11224c7e4031760baf685a6dbbfda303836ddd750",
+      "filePath": "docs/assets/screens/375x812/09-executor-new.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/executors/00000000-0000-4000-8000-000000000101",
+      "size": {
+        "width": 375,
+        "height": 1308
+      },
+      "sha256": "e89622bfb18f61df33d19e0c7d665f4d5016489d7490824c3571b8d7eab9e2d9",
+      "filePath": "docs/assets/screens/375x812/10-executor-detail.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/executors/00000000-0000-4000-8000-000000000101/edit",
+      "size": {
+        "width": 375,
+        "height": 1182
+      },
+      "sha256": "59f437311c587d98f6f4362179d3658f862b124ef8117c8f6cd380a0649f86f6",
+      "filePath": "docs/assets/screens/375x812/11-executor-edit.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/agents",
+      "size": {
+        "width": 375,
+        "height": 2029
+      },
+      "sha256": "ef91832ebcc936cef1a42822390ca716031e75d562eb55983fb4570a7bdefcdc",
+      "filePath": "docs/assets/screens/375x812/12-agents.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/agents/new",
+      "size": {
+        "width": 375,
+        "height": 2354
+      },
+      "sha256": "e3879469c98943fbcb44e1a6b43f4d96a94b257d406a11c7a35ca6998edbdea7",
+      "filePath": "docs/assets/screens/375x812/13-agent-create.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/agents/00000000-0000-4000-8000-000000000101",
+      "size": {
+        "width": 375,
+        "height": 1308
+      },
+      "sha256": "e89622bfb18f61df33d19e0c7d665f4d5016489d7490824c3571b8d7eab9e2d9",
+      "filePath": "docs/assets/screens/375x812/14-agent-overview.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/agents/00000000-0000-4000-8000-000000000101/edit",
+      "size": {
+        "width": 375,
+        "height": 1182
+      },
+      "sha256": "59f437311c587d98f6f4362179d3658f862b124ef8117c8f6cd380a0649f86f6",
+      "filePath": "docs/assets/screens/375x812/15-agent-edit.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/agents/00000000-0000-4000-8000-000000000101/runtime",
+      "size": {
+        "width": 375,
+        "height": 1438
+      },
+      "sha256": "94fd92b39615d0bba39fe184608fbbda5ce12038672a779000d7354a07d1c33f",
+      "filePath": "docs/assets/screens/375x812/16-agent-runtime.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/agents/00000000-0000-4000-8000-000000000101/skills",
+      "size": {
+        "width": 375,
+        "height": 1308
+      },
+      "sha256": "fb962f9aa6c332e15aa098d98fbb456731c8c26ed3899134c2194883360627ed",
+      "filePath": "docs/assets/screens/375x812/17-agent-skills.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/agents/00000000-0000-4000-8000-000000000101/config",
+      "size": {
+        "width": 375,
+        "height": 1262
+      },
+      "sha256": "ebad44dc38a4d876062edb043a6151cc2d115a2ec0ce1a0164aa04b622d93ac7",
+      "filePath": "docs/assets/screens/375x812/18-agent-config.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/agents/00000000-0000-4000-8000-000000000101/workspace",
+      "size": {
+        "width": 375,
+        "height": 1904
+      },
+      "sha256": "2d43ca70d77e3667ac4378281998309b066f110c0e453ede5a499fcf6d8da1df",
+      "filePath": "docs/assets/screens/375x812/19-agent-workspace.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/agents/00000000-0000-4000-8000-000000000101/sessions",
+      "size": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "5f627fe235a4b538cc5997eb4384c7ea820d9ec364f495e9c9fd0e7f3c51140d",
+      "filePath": "docs/assets/screens/375x812/20-agent-sessions.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/executors/00000000-0000-4000-8000-000000000101/runtime",
+      "size": {
+        "width": 375,
+        "height": 1438
+      },
+      "sha256": "94fd92b39615d0bba39fe184608fbbda5ce12038672a779000d7354a07d1c33f",
+      "filePath": "docs/assets/screens/375x812/21-executor-runtime.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/executors/00000000-0000-4000-8000-000000000101/skills",
+      "size": {
+        "width": 375,
+        "height": 1308
+      },
+      "sha256": "fb962f9aa6c332e15aa098d98fbb456731c8c26ed3899134c2194883360627ed",
+      "filePath": "docs/assets/screens/375x812/22-executor-skills.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/executors/00000000-0000-4000-8000-000000000101/config",
+      "size": {
+        "width": 375,
+        "height": 1262
+      },
+      "sha256": "ebad44dc38a4d876062edb043a6151cc2d115a2ec0ce1a0164aa04b622d93ac7",
+      "filePath": "docs/assets/screens/375x812/23-executor-config.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/executors/00000000-0000-4000-8000-000000000101/workspace",
+      "size": {
+        "width": 375,
+        "height": 1904
+      },
+      "sha256": "2d43ca70d77e3667ac4378281998309b066f110c0e453ede5a499fcf6d8da1df",
+      "filePath": "docs/assets/screens/375x812/24-executor-workspace.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/executors/00000000-0000-4000-8000-000000000101/sessions",
+      "size": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "5f627fe235a4b538cc5997eb4384c7ea820d9ec364f495e9c9fd0e7f3c51140d",
+      "filePath": "docs/assets/screens/375x812/25-executor-sessions.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/sessions",
+      "size": {
+        "width": 375,
+        "height": 1092
+      },
+      "sha256": "a000789415cc531f457c0ff01201595c7c5bd0e41068ce196982384ae5e2ce89",
+      "filePath": "docs/assets/screens/375x812/26-sessions.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/sessions/00000000-0000-4000-8000-000000000201",
+      "size": {
+        "width": 375,
+        "height": 2879
+      },
+      "sha256": "d81819704530ef26e7945f5c5958eb69a1a4095fc894261264570fb7db5375c0",
+      "filePath": "docs/assets/screens/375x812/27-session-private-detail.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/sessions/00000000-0000-4000-8000-000000000202",
+      "size": {
+        "width": 375,
+        "height": 3093
+      },
+      "sha256": "2b4c813daaca7e93548d4db008c0b4eb936bf695fb81b296e81b7cdb550695d5",
+      "filePath": "docs/assets/screens/375x812/28-session-leader-detail.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/workflows",
+      "size": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "cce645016fded01dfe3fe716ed19c4a8548ec189a65df5154cf037acd485f4ca",
+      "filePath": "docs/assets/screens/375x812/29-workflows.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/deployments",
+      "size": {
+        "width": 375,
+        "height": 993
+      },
+      "sha256": "9ae8f5d2fa1530061b578a98f64a5ae7549ee99b078ba5691c56e2995957f890",
+      "filePath": "docs/assets/screens/375x812/30-deployments.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/deployments?tab=jobs",
+      "size": {
+        "width": 375,
+        "height": 1336
+      },
+      "sha256": "3cd752a20a44ec95541d7d5634facc7e50eb389042d5a10ca66bf42befc9dcc5",
+      "filePath": "docs/assets/screens/375x812/31-deployments-jobs.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/deployments?tab=detail",
+      "size": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "2da6b0061c8071716734dfd6bc8d20574a881b26ca52237df12c8e75b62c7bab",
+      "filePath": "docs/assets/screens/375x812/32-deployments-job-detail.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/logs",
+      "size": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "cf2c5748cd6f780b3cc3922150b5ba4904fa23be20a9aaa7f5843cfc169c2de9",
+      "filePath": "docs/assets/screens/375x812/33-logs.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/logs?tab=events",
+      "size": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "054afff91156885ea5a3cc79cdc019bdf1f4ce3665d6da3cde1b01b9ce24d6bb",
+      "filePath": "docs/assets/screens/375x812/34-logs-events.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/logs?tab=audit",
+      "size": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "45ffae197870bfeafb3f279a3bb9047df71402b45429ba4c26dc0f91850a69e7",
+      "filePath": "docs/assets/screens/375x812/35-logs-audit.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/settings",
+      "size": {
+        "width": 375,
+        "height": 955
+      },
+      "sha256": "cf6e9bd4132c65f311111da740ed785fc64c4bf9de5aa33d8b2e152290e42f97",
+      "filePath": "docs/assets/screens/375x812/36-settings.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/settings?tab=ports",
+      "size": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "a18aadb2030562b2a9de2ae02872f318bb5e55a34c449c27544f3329d477782a",
+      "filePath": "docs/assets/screens/375x812/37-settings-ports.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/settings?tab=integrations",
+      "size": {
+        "width": 375,
+        "height": 849
+      },
+      "sha256": "480aa8a0a3a9d14552a0df8c8e2c15b96e96cb64d246b0db53285799816eb638",
+      "filePath": "docs/assets/screens/375x812/38-settings-integrations.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/settings?tab=auth",
+      "size": {
+        "width": 375,
+        "height": 1403
+      },
+      "sha256": "1fdf0217f015fe7bd3b9c9d09491363ac98f4ed31f7b66c2a96dfe0d36612c66",
+      "filePath": "docs/assets/screens/375x812/39-settings-auth.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/settings?tab=retention",
+      "size": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "674367432e535d1d20a178566463258f8c29b013003b06bb7f6fda93ceab718a",
+      "filePath": "docs/assets/screens/375x812/39a-settings-retention.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/settings?tab=history",
+      "size": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "34abbaa1eb4a6eb30b92ce2dff83d1d8ea01626f1749a11fd73465bad6b954a4",
+      "filePath": "docs/assets/screens/375x812/39b-settings-history.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/settings?tab=users",
+      "size": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "73dae4ed46b8539c4242a12903d33f5371e20063baf605928a541784ee771572",
+      "filePath": "docs/assets/screens/375x812/40-settings-users.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/alerts",
+      "size": {
+        "width": 375,
+        "height": 877
+      },
+      "sha256": "69e8c46fb6d5c69309fad5275060afe105c7e41d88755bcee6a40d08cc51b1b7",
+      "filePath": "docs/assets/screens/375x812/41-alerts.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/access-denied",
+      "size": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "37f0b989622c06946de3a7d0ae69cb18d3852c3f48a49ce6d3dfbfc3c5c15834",
+      "filePath": "docs/assets/screens/375x812/42-access-denied.png"
+    },
+    {
+      "viewport": "375x812",
+      "route": "/not-a-fleet-route",
+      "size": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "8984e206553dfec52bdde5b825a3baeb6edbefb741c13dab94433b6e6770f7a2",
+      "filePath": "docs/assets/screens/375x812/43-not-found.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/chats",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "bd0f83d4fc3f49f2e1afab7d66e48aeb765f002e00b85621fbe0f70aa590bdbe",
+      "filePath": "docs/assets/screens/1920x1080/44-chats.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/chats/00000000-0000-4000-8000-000000000201",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "68ffd9b5723d69fa1459c3acfa1ffc4de652d59f5cc02017525603dcf4db5e89",
+      "filePath": "docs/assets/screens/1920x1080/45-chat-private-detail.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "9728a2322c7e7b67657b4a41d715b9477bd1356db841710ec590adb8f67ec22b",
+      "filePath": "docs/assets/screens/1920x1080/03-dashboard.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/leaders",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "70be89240dcffe44e2b5a5f75f7ce12caff583cc892c85a99f759affee28e243",
+      "filePath": "docs/assets/screens/1920x1080/04-leaders.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/leaders/new",
+      "size": {
+        "width": 1920,
+        "height": 1272
+      },
+      "sha256": "3852bce6a03fb075b8fa1db46f7203d70c8151021c7f8093b8a8741c089ce40e",
+      "filePath": "docs/assets/screens/1920x1080/05-leader-new.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/leaders/00000000-0000-4000-8000-000000000103",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "cb649a27863a1dc6dce629d783ee4c2744e5601d4d596357934647a533f8215a",
+      "filePath": "docs/assets/screens/1920x1080/06-leader-detail.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/leaders/00000000-0000-4000-8000-000000000103/edit",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "ada3d6a9d7e146a4e073040a839442ea8955cb642e0cb583d5924ce63226f0ec",
+      "filePath": "docs/assets/screens/1920x1080/07-leader-edit.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/executors",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "13e8c2c75b388bb4a77b9a71404eb25cf9357faee7ab590ed953464b3e6ce4e6",
+      "filePath": "docs/assets/screens/1920x1080/08-executors.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/executors/new",
+      "size": {
+        "width": 1920,
+        "height": 1724
+      },
+      "sha256": "f126c5a051829d1c3f9b4beb287a0b73952e939c710243eb75e54df94fb556af",
+      "filePath": "docs/assets/screens/1920x1080/09-executor-new.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/executors/00000000-0000-4000-8000-000000000101",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "5c922ae89461599ee3f1bbf364dbae706ffbb014cdc16081d9605efb5b5d067c",
+      "filePath": "docs/assets/screens/1920x1080/10-executor-detail.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/executors/00000000-0000-4000-8000-000000000101/edit",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "ac84676f5509aee09a18b50525c092cd2b93cb52e728e074d478b9242df58429",
+      "filePath": "docs/assets/screens/1920x1080/11-executor-edit.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/agents",
+      "size": {
+        "width": 1920,
+        "height": 1265
+      },
+      "sha256": "c3c9f6e6069a021239cc683ebb642f2a27d47a2076d3be6dd3cfd00ba3221f7d",
+      "filePath": "docs/assets/screens/1920x1080/12-agents.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/agents/new",
+      "size": {
+        "width": 1920,
+        "height": 1762
+      },
+      "sha256": "b1c8259fcad98559097ba54a6736e04db793b63d86fd9d90042fe904aea31a17",
+      "filePath": "docs/assets/screens/1920x1080/13-agent-create.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/agents/00000000-0000-4000-8000-000000000101",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "3c2b97732f2ddc53bb19b94d3124e801fbd3e2ea93a6a62644e60f5db1a523a5",
+      "filePath": "docs/assets/screens/1920x1080/14-agent-overview.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/agents/00000000-0000-4000-8000-000000000101/edit",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "f41542b4402e46200739ec2cd93163b9e9feb779c930653fa2af9523bd900876",
+      "filePath": "docs/assets/screens/1920x1080/15-agent-edit.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/agents/00000000-0000-4000-8000-000000000101/runtime",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "47c1c9d437b84a9cf584f9b67d3089cc19bb0aa98298acea6d75cdf6fa77b634",
+      "filePath": "docs/assets/screens/1920x1080/16-agent-runtime.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/agents/00000000-0000-4000-8000-000000000101/skills",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "0f8b27725be50ddf06b39c7f4d9df95089a00f0a90db37058eae507e3108e130",
+      "filePath": "docs/assets/screens/1920x1080/17-agent-skills.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/agents/00000000-0000-4000-8000-000000000101/config",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "ec1dd688bb83dd5f59237943233c6d1621c30391263785ed08428045fe13ff1e",
+      "filePath": "docs/assets/screens/1920x1080/18-agent-config.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/agents/00000000-0000-4000-8000-000000000101/workspace",
+      "size": {
+        "width": 1920,
+        "height": 1368
+      },
+      "sha256": "25c6b4bc13a3fb51dfe3d4f57ca0ea6e6565f2fbea974cf8ba40701d3e067948",
+      "filePath": "docs/assets/screens/1920x1080/19-agent-workspace.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/agents/00000000-0000-4000-8000-000000000101/sessions",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "d2ed91d194c0159312cbac183302915c6c60faa00054b79b0925928bf878b2ef",
+      "filePath": "docs/assets/screens/1920x1080/20-agent-sessions.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/executors/00000000-0000-4000-8000-000000000101/runtime",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "7f47cb34d31454c740dca9827bad7a03d20a0f06e1d3d9cc81574fcbd609ce74",
+      "filePath": "docs/assets/screens/1920x1080/21-executor-runtime.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/executors/00000000-0000-4000-8000-000000000101/skills",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "db8d55ef7477d0985a6b7dea647cecfb3d0708aed0826a70942c210761efbced",
+      "filePath": "docs/assets/screens/1920x1080/22-executor-skills.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/executors/00000000-0000-4000-8000-000000000101/config",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "87d5de5f0575a7d864c41b1997b871694b522add8bc55b782b298c55d3c9f2b8",
+      "filePath": "docs/assets/screens/1920x1080/23-executor-config.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/executors/00000000-0000-4000-8000-000000000101/workspace",
+      "size": {
+        "width": 1920,
+        "height": 1368
+      },
+      "sha256": "3b6f4c08e9b9d58d90c2a443486b163793605dc4cc2f645a52b071113f88591a",
+      "filePath": "docs/assets/screens/1920x1080/24-executor-workspace.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/executors/00000000-0000-4000-8000-000000000101/sessions",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "2bdcc34c7e0ef6d00983da03eb4e89d0ab0025879dd35de44f000bc56406c433",
+      "filePath": "docs/assets/screens/1920x1080/25-executor-sessions.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/sessions",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "5565cd249a615226dd35485d6be15aa8488469234e1a156273c745c89a2bf4f2",
+      "filePath": "docs/assets/screens/1920x1080/26-sessions.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/sessions/00000000-0000-4000-8000-000000000201",
+      "size": {
+        "width": 1920,
+        "height": 1524
+      },
+      "sha256": "ad4405d6b6d2724607bdf581c5bc4c377048e65b443e4b57ca090fa15d6ffd3c",
+      "filePath": "docs/assets/screens/1920x1080/27-session-private-detail.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/sessions/00000000-0000-4000-8000-000000000202",
+      "size": {
+        "width": 1920,
+        "height": 1573
+      },
+      "sha256": "ce086b0944d8f82ddaecadd028dbb81f781ba6ac9d8115dba09db6270fb6f17f",
+      "filePath": "docs/assets/screens/1920x1080/28-session-leader-detail.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/workflows",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "87fab0b2ac6e86416f1110d03a864592bbac1fe5e293e4fcaf105bf100c89547",
+      "filePath": "docs/assets/screens/1920x1080/29-workflows.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/deployments",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "b9efc844401205b1513876d4998023467d891e706975829ab76c8b08c590dbbe",
+      "filePath": "docs/assets/screens/1920x1080/30-deployments.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/deployments?tab=jobs",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "db6b334dcef15c380473b067653988f3760bd9eeaab94ab5082cebc4f2916baf",
+      "filePath": "docs/assets/screens/1920x1080/31-deployments-jobs.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/deployments?tab=detail",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "b4e42c794afa225e07c1cc4a5bc4970b9f42581222dfbc4bee3b64c546c41c03",
+      "filePath": "docs/assets/screens/1920x1080/32-deployments-job-detail.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/logs",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "36de7ad841ca413df16f512b26ad9575147a6845b5ae80e60d8436b9a3eb8860",
+      "filePath": "docs/assets/screens/1920x1080/33-logs.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/logs?tab=events",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "38b52b2c0896d34c3f60f146b74ff6d6ed09d55cf539158064b36c3abcf0b711",
+      "filePath": "docs/assets/screens/1920x1080/34-logs-events.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/logs?tab=audit",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "0fac5f1e27a23650e45bf60532a4eb9ef3f10686b56b4185c98be2f0c5a48e50",
+      "filePath": "docs/assets/screens/1920x1080/35-logs-audit.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/settings",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "d5109623f6de166a6164ecb2bbf40d9fa1ef118b337502d854eef78708eef0e9",
+      "filePath": "docs/assets/screens/1920x1080/36-settings.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/settings?tab=ports",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "682af54ec7b2753d49af1c67733a20e3a61adb8b927a93dca809bffab5e10f10",
+      "filePath": "docs/assets/screens/1920x1080/37-settings-ports.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/settings?tab=integrations",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "c5b9a22651b7aa0fd29c91e64fdb6b4d79f4d0cb3e483c212a0432cbc2b853c7",
+      "filePath": "docs/assets/screens/1920x1080/38-settings-integrations.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/settings?tab=auth",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "03813648e8bf05beff125dbf5dd8663693028ff3627646adc3180529a1bd73f5",
+      "filePath": "docs/assets/screens/1920x1080/39-settings-auth.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/settings?tab=retention",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "e936e7149e9f3ef3b0793c947f46ab507a4c1a145d7b6072aac160a321e0de14",
+      "filePath": "docs/assets/screens/1920x1080/39a-settings-retention.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/settings?tab=history",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "d40364987d9c7568b599682d525d1c21319ce5341e144882cdc16c1b587c724c",
+      "filePath": "docs/assets/screens/1920x1080/39b-settings-history.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/settings?tab=users",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "d096c06bdbb9c45832150731a5894a25c8c2cb204566fc0ebc852b611f3adcf5",
+      "filePath": "docs/assets/screens/1920x1080/40-settings-users.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/alerts",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "f82c66fda111c36865cf6f383e1e22ae3a3e3fd69b96a8c24725183e0e81a994",
+      "filePath": "docs/assets/screens/1920x1080/41-alerts.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/access-denied",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "93a9b62c77d16ee750d9c03b91f3eb97e80ae566b389a1b1c35c907ece49da9f",
+      "filePath": "docs/assets/screens/1920x1080/42-access-denied.png"
+    },
+    {
+      "viewport": "1920x1080",
+      "route": "/not-a-fleet-route",
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "35a58fb555c6479be69c00dafff562a9f9804063f18553fa45ae72787464e33e",
+      "filePath": "docs/assets/screens/1920x1080/43-not-found.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/chats",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "35f5f2e3a2f591ed88ffc058eb2ec3c112a2f7e125ae42c62c06e38f1b07ab00",
+      "filePath": "docs/assets/screens/2560x1440/44-chats.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/chats/00000000-0000-4000-8000-000000000201",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "12229338d679e45c967e44d0e6d360aa7ff9194cfcb3824ce10033e8b3ec716b",
+      "filePath": "docs/assets/screens/2560x1440/45-chat-private-detail.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "8ed1cf315ac88a218e9c4e89959854a8aa5b34fb543874546138bd8dbab6a02d",
+      "filePath": "docs/assets/screens/2560x1440/03-dashboard.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/leaders",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "1b8244cffdaea7a0b177fd3bb6483cab2494531bc9ffeb14c83b3e9f80d37614",
+      "filePath": "docs/assets/screens/2560x1440/04-leaders.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/leaders/new",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "db30405b8d8ede5ca224087c20a64085012e3dc2f8412f5cbacece0f435ce42f",
+      "filePath": "docs/assets/screens/2560x1440/05-leader-new.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/leaders/00000000-0000-4000-8000-000000000103",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "c567803879ac0f33c779a284cd47f3515b49ba8e7d1e1f041e49f6200bce3df0",
+      "filePath": "docs/assets/screens/2560x1440/06-leader-detail.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/leaders/00000000-0000-4000-8000-000000000103/edit",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "379ff47743209c951c3abed39e75c776fdf74b209fe393668521778ab29d1a65",
+      "filePath": "docs/assets/screens/2560x1440/07-leader-edit.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/executors",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "bfffdef5431f7d9a927b1cda0a78eee3e87a6c2f5bfeef25e764eda23e95392b",
+      "filePath": "docs/assets/screens/2560x1440/08-executors.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/executors/new",
+      "size": {
+        "width": 2560,
+        "height": 1724
+      },
+      "sha256": "6c9defde3288fd140153d6039ac370c45d616e0c48373b9b7f418eac01898543",
+      "filePath": "docs/assets/screens/2560x1440/09-executor-new.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/executors/00000000-0000-4000-8000-000000000101",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "8ab0d4ec788117e3de17dea78451fdb6e84b2d20b52623241c6c135267ac9fd0",
+      "filePath": "docs/assets/screens/2560x1440/10-executor-detail.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/executors/00000000-0000-4000-8000-000000000101/edit",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "2aecd62fd66a2b4a13fc5492e8425884eef80b8c25737f58612d567a6d4ba65d",
+      "filePath": "docs/assets/screens/2560x1440/11-executor-edit.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/agents",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "dd0096ef6067cce7a47a985a00846e578023d0aad527afe25adba5ad5f74b0de",
+      "filePath": "docs/assets/screens/2560x1440/12-agents.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/agents/new",
+      "size": {
+        "width": 2560,
+        "height": 1762
+      },
+      "sha256": "519363258c27547802939dff19326c6c6deb0e5c7085ff6921aa3164c0f51604",
+      "filePath": "docs/assets/screens/2560x1440/13-agent-create.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/agents/00000000-0000-4000-8000-000000000101",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "a2f37ec9e828e819d335dd0fae50d63b1377c9d05ae50a6df708c3b4395fe6f6",
+      "filePath": "docs/assets/screens/2560x1440/14-agent-overview.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/agents/00000000-0000-4000-8000-000000000101/edit",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "c2c7937e1ba0103d9cd44f9c24f780a1373519c51573b8f76973c31e6730e665",
+      "filePath": "docs/assets/screens/2560x1440/15-agent-edit.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/agents/00000000-0000-4000-8000-000000000101/runtime",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "17155e9ad6051dee3ffd436b9ca7dc2767ef76ce6874728e5ad874c84ab48e6e",
+      "filePath": "docs/assets/screens/2560x1440/16-agent-runtime.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/agents/00000000-0000-4000-8000-000000000101/skills",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "c373e0ae8e6ac2109d5c0c21f718b6b11283ff3b98009661bc1652f9d0adfb70",
+      "filePath": "docs/assets/screens/2560x1440/17-agent-skills.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/agents/00000000-0000-4000-8000-000000000101/config",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "3a2efab44eb77d893513dd17a01cbd833170615dab3ee441aadf09a50d31b360",
+      "filePath": "docs/assets/screens/2560x1440/18-agent-config.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/agents/00000000-0000-4000-8000-000000000101/workspace",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "6fdd6d79da8e22fcc57bed15e498e3e8e4ad9f62626be9047ca2f8a6d9fd60a7",
+      "filePath": "docs/assets/screens/2560x1440/19-agent-workspace.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/agents/00000000-0000-4000-8000-000000000101/sessions",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "61cdf4a978b3439e192e0177dbec9b9c85335e96ec3ad970cc963fffb923ac4c",
+      "filePath": "docs/assets/screens/2560x1440/20-agent-sessions.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/executors/00000000-0000-4000-8000-000000000101/runtime",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "cc41dcd3302cfd754e5021531bf199f0cf4d4b759e24db4bbd9b4f538190dff9",
+      "filePath": "docs/assets/screens/2560x1440/21-executor-runtime.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/executors/00000000-0000-4000-8000-000000000101/skills",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "06dd15308d7d3d6043e9a3d03c518148d74bcbaec9bc67a9a872275a3485398d",
+      "filePath": "docs/assets/screens/2560x1440/22-executor-skills.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/executors/00000000-0000-4000-8000-000000000101/config",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "74d683a95fd7014d059b1ad538a2f620bedc95dd4c9edd9d09e3fa66e33e4da8",
+      "filePath": "docs/assets/screens/2560x1440/23-executor-config.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/executors/00000000-0000-4000-8000-000000000101/workspace",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "9024d4b80be1f26779af6959a162356e88007d4f36e7d63b80b0030004722ceb",
+      "filePath": "docs/assets/screens/2560x1440/24-executor-workspace.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/executors/00000000-0000-4000-8000-000000000101/sessions",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "a30fad679f335d5f11e5f82c5d8c0609c9518c7fdec9b37ab825f52f5e9c42ec",
+      "filePath": "docs/assets/screens/2560x1440/25-executor-sessions.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/sessions",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "2a42b25091a53f8f5a7e629a2fd3f0b57903aa19420e546bce5a51977de97596",
+      "filePath": "docs/assets/screens/2560x1440/26-sessions.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/sessions/00000000-0000-4000-8000-000000000201",
+      "size": {
+        "width": 2560,
+        "height": 1524
+      },
+      "sha256": "22366bb037ebebdfcf9948251340cfac53571176fa288805e59c30d2b36de72d",
+      "filePath": "docs/assets/screens/2560x1440/27-session-private-detail.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/sessions/00000000-0000-4000-8000-000000000202",
+      "size": {
+        "width": 2560,
+        "height": 1573
+      },
+      "sha256": "c2939cd56a2fcc5071867c5c26f782585509644c72b11aec32f0cd22c0fbe442",
+      "filePath": "docs/assets/screens/2560x1440/28-session-leader-detail.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/workflows",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "6698e8ac772d3bebff37b919d976049c1435b637c4bed6b3f233f7c6b2f6d5fd",
+      "filePath": "docs/assets/screens/2560x1440/29-workflows.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/deployments",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "3fff0a3a09ec7378ee9257d7d500d4a5f5bad1e03474ceb75a99980a5393cab1",
+      "filePath": "docs/assets/screens/2560x1440/30-deployments.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/deployments?tab=jobs",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "7b2ffd06aee5f86ec02483ad4c8218a6014c3b58e4742ec69cdbc570b3755816",
+      "filePath": "docs/assets/screens/2560x1440/31-deployments-jobs.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/deployments?tab=detail",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "88e92364060410261eea3bd0ada7c4d8aec69cdfcd1e80f3de84a593b44eeab1",
+      "filePath": "docs/assets/screens/2560x1440/32-deployments-job-detail.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/logs",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "4585c082bfc0c77bf34afdd74c6cbbd4c5f561cd2dbeac867752a46a7aed1a8c",
+      "filePath": "docs/assets/screens/2560x1440/33-logs.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/logs?tab=events",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "0b2c7d40aeb29aa518d1b40dd6efadc11329d53c5413fab9d652f4c01f482fbc",
+      "filePath": "docs/assets/screens/2560x1440/34-logs-events.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/logs?tab=audit",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "81c38dc180b4973d4f760167fed7479d18c98d6b02f20a037a7e05215b89a8ca",
+      "filePath": "docs/assets/screens/2560x1440/35-logs-audit.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/settings",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "06ecb18373077ad9142638afb5dc5b6111bf51d00359b1f1760ff0be41e1424e",
+      "filePath": "docs/assets/screens/2560x1440/36-settings.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/settings?tab=ports",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "ae17f2112cc9b6648716bb74586b2a3a7c831c7936f7ef8297cab78e064324e4",
+      "filePath": "docs/assets/screens/2560x1440/37-settings-ports.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/settings?tab=integrations",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "80eae0e2f3be9dff405c7bb038e7a901e0a3894a06c5aa75573437df1110e09d",
+      "filePath": "docs/assets/screens/2560x1440/38-settings-integrations.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/settings?tab=auth",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "8456dcb21295a937d694dbc21690cda471b067b139cb7a8d5a4e5cdda2b65b8a",
+      "filePath": "docs/assets/screens/2560x1440/39-settings-auth.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/settings?tab=retention",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "018735906f02d28ff309169a80ae1207a017d6e23b07c3b27c33227dbda79aae",
+      "filePath": "docs/assets/screens/2560x1440/39a-settings-retention.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/settings?tab=history",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "17704fd80fdfc64aeb172d08f07166004eba78e3f6eb5c272a2cb1790bfccc16",
+      "filePath": "docs/assets/screens/2560x1440/39b-settings-history.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/settings?tab=users",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "e07dcc1fc4d31578339193597c2f665a9c7a68325338d0b2cab070bb2d9dd81e",
+      "filePath": "docs/assets/screens/2560x1440/40-settings-users.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/alerts",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "d521708a5417bec339de3f4fb7d46e27f0ebfd502e90e8b800d3c4560ffd2839",
+      "filePath": "docs/assets/screens/2560x1440/41-alerts.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/access-denied",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "17a7f9bfedb3ec66f9f9e3fc79e63dd6461345d3a988abf56f0d7fef35db2348",
+      "filePath": "docs/assets/screens/2560x1440/42-access-denied.png"
+    },
+    {
+      "viewport": "2560x1440",
+      "route": "/not-a-fleet-route",
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "d2568f350fac9de5f9160644656848e0ce265bac8ffc9134a4fd46534e2edff3",
+      "filePath": "docs/assets/screens/2560x1440/43-not-found.png"
+    }
+  ]
+}

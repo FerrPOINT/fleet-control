@@ -176,6 +176,13 @@ jobs:
         run: |
           psql -h 127.0.0.1 -U fleet_control -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE fleet_dispatch_journal_migration_test;'
           cargo test --locked -p migration --test hermes_dispatch_journal -- --test-threads=1
+      - name: Additive runtime control ledger and immutable history guard
+        env:
+          PGPASSWORD: fleet_control
+          FLEET_RUNTIME_CONTROL_MIGRATION_TEST_DATABASE_URL: postgres://fleet_control:fleet_control@127.0.0.1:5432/fleet_runtime_control_migration_test
+        run: |
+          psql -h 127.0.0.1 -U fleet_control -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE fleet_runtime_control_migration_test;'
+          cargo test --locked -p migration --test runtime_controls -- --test-threads=1
       - name: OpenAPI drift gate
         run: |
           mkdir -p ../openapi
@@ -220,6 +227,7 @@ jobs:
       - run: pnpm openapi:check
       - run: pnpm chat:contract
       - run: pnpm chat:evidence:verify
+      - run: pnpm controls:evidence:verify
       - name: Install shared UI validator dependencies
         run: pnpm --dir ../../services-base/frontend install --frozen-lockfile
         env:

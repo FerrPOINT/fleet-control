@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, statSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -23,6 +24,18 @@ const entries = lines
   }))
 
 const expectedTotal = Number(totalMatch[1])
+const evidence = JSON.parse(
+  readFileSync(path.join(repoRoot, 'docs/assets/screens/manifest.json'), 'utf8'),
+)
+if (
+  evidence.evidence !== 'production-pages-with-fixture-api' ||
+  evidence.liveAcceptance !== false ||
+  evidence.count !== expectedTotal ||
+  evidence.screenshots.length !== expectedTotal
+)
+  throw new Error('Screenshot JSON evidence does not match its declared fixture scope/count.')
+const proofs = new Map(evidence.screenshots.map((entry) => [entry.filePath, entry]))
+if (proofs.size !== expectedTotal) throw new Error('Screenshot JSON evidence contains duplicates.')
 
 if (entries.length !== expectedTotal) {
   throw new Error(
@@ -66,16 +79,25 @@ const requiredRoutes = [
 ]
 
 for (const route of requiredRoutes) {
-  if (!entries.some((entry) => entry.route === route)) {
-    throw new Error(`Screenshot manifest is missing required route ${route}.`)
+  for (const viewport of requiredViewports) {
+    if (!entries.some((entry) => entry.route === route && entry.viewport === viewport)) {
+      throw new Error(`Screenshot manifest is missing required route ${route} at ${viewport}.`)
+    }
   }
 }
 
-const pngMagic = Buffer.from([0x89, 0x50, 0x4e, 0x47])
+const pngMagic = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
 const seen = new Set()
+const screensRoot = path.join(repoRoot, 'docs/assets/screens')
 
 for (const entry of entries) {
-  const absolutePath = path.join(repoRoot, entry.filePath)
+  const absolutePath = path.resolve(repoRoot, entry.filePath)
+  if (!absolutePath.startsWith(screensRoot + path.sep)) {
+    throw new Error(`Screenshot path must stay within the screenshot directory: ${entry.filePath}.`)
+  }
+  if (!requiredViewports.has(entry.viewport)) {
+    throw new Error(`Screenshot manifest contains an unsupported viewport ${entry.viewport}.`)
+  }
   if (seen.has(entry.filePath)) {
     throw new Error(`Screenshot manifest contains duplicate file ${entry.filePath}.`)
   }
@@ -90,10 +112,23 @@ for (const entry of entries) {
     throw new Error(`Screenshot file is too small to be a useful capture: ${entry.filePath}.`)
   }
 
-  const header = readFileSync(absolutePath, { encoding: null, length: 4 })
-  if (!header.subarray(0, 4).equals(pngMagic)) {
+  const header = readFileSync(absolutePath)
+  if (!header.subarray(0, 8).equals(pngMagic)) {
     throw new Error(`Screenshot file is not a PNG: ${entry.filePath}.`)
   }
+  const proof = proofs.get(entry.filePath)
+  const [width, height] = entry.viewport.split('x').map(Number)
+  if (
+    !proof ||
+    proof.viewport !== entry.viewport ||
+    proof.route !== entry.route ||
+    proof.sha256 !== createHash('sha256').update(header).digest('hex') ||
+    proof.size.width !== header.readUInt32BE(16) ||
+    proof.size.height !== header.readUInt32BE(20) ||
+    proof.size.width !== width ||
+    proof.size.height < height
+  )
+    throw new Error(`Screenshot content/route/viewport proof mismatch: ${entry.filePath}.`)
 }
 
 console.log(`Verified ${entries.length} screenshots across ${foundViewports.size} viewports.`)

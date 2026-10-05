@@ -9,8 +9,12 @@ HTTP200 JSON acknowledgements are bounded to64KiB/ten seconds; invalid/unknown
 outcomes never retry or release capacity. Steer does not write running over a
 concurrent state; stop ACK only sets stopping. A terminal race leaves final
 mirror/commit to readback. Run-wide approval is retired inside the adapter too;
-exact human decisions remain a separate flow. Command receipt/reconciliation,
-native approval/replay and safe process-tree stop remain release gates.
+exact human decisions remain a separate flow. The additive control ledger now
+reserves/claims commands before effects, replays identical keys without a second
+POST and preserves submitted/uncertain holds across supervisor restart. ACK and
+stopping commit with audit and durable events. Reconciliation observes only an
+independent terminal mirror, never inferring unknown guidance acceptance.
+Native approval/replay and safe process-tree stop remain release gates.
 
 ## Bounded Hermes Stream
 

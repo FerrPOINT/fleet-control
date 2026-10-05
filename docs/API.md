@@ -6,8 +6,39 @@ Pending/terminal/stale/legacy context does not authorize control; task controls
 remain fail-closed until admission is integrated. ACK requires bounded HTTP200
 JSON and the original native run. A stop ACK means only interrupt requested;
 steer ACK cannot reset a concurrent waiting/stopping/terminal state. Invalid or
-unknown acceptance returns an error without retry or capacity release. There is
-no new public DTO/route/migration; see [consumer profile](contracts/HERMES_RUN_CONTROL_V1.md).
+unknown acceptance returns a durable receipt without retry or capacity release.
+Preflight validation failures remain errors. See
+[consumer profile](contracts/HERMES_RUN_CONTROL_V1.md).
+
+## Durable Free-Chat Controls
+
+Steer and stop require an authenticated `Idempotency-Key` header (valid reference,
+1..128 characters). The same actor/key, run, operation and normalized payload
+replays the existing command; a changed payload/identity is `409`. Actor identity
+comes from authentication, not JSON. A single unresolved command holds each run.
+Reservation and a single-use submitted permit precede the native POST; submitted
+or uncertain commands cannot be sent again after restart, including with a new key.
+
+`RuntimeRunControlResponse.command` contains a redacted `RuntimeControlReceipt`.
+`accepted=true` means only a validated native acknowledgement persisted atomically
+with audit/event and, for stop, nonterminal stopping state. A timeout, invalid ACK
+or unknown outcome is `accepted=false`; do not display success or clear guidance.
+An ACK-persistence failure can return an error while the journal remains submitted.
+
+- `GET /sessions/{session_id}/runs/{run_id}/controls`: latest 100 receipts, newest first.
+- `GET /sessions/{session_id}/runs/{run_id}/controls/{command_id}`: exact receipt.
+
+The required header is an explicit incompatible security migration for legacy
+unkeyed controls, not an ordinary additive API change. See
+[versioning and client migration](API_VERSIONING.md#explicit-runtime-security-migrations).
+
+Both require current session/project read access and exact session/run identity.
+Receipts expose IDs, actor, operation, state, ACK and timestamps, not command input,
+key, native credential/context or upstream response. Durable `runtime_control_changed`
+session events notify consumers to read the authorized receipt; events are not ACKs.
+`terminal_observed` means an independently committed terminal mirror was found,
+not that the control was accepted or that a task succeeded. Task-bound generic
+controls remain blocked pending fenced admission; Java chat/control remains phase 2.
 
 The internal Hermes stream consumer now enforces the
 [bounded event profile](contracts/HERMES_EVENT_STREAM_V1.md). Every JSON data

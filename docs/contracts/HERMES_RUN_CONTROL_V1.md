@@ -39,8 +39,32 @@ provides the independent durable commit. Neither ACK releases run capacity or
 proves descendant/process-tree quiescence, task success or Workflow completion.
 
 Unknown acceptance, stale session/status or invalid response keeps the original
-run/journal/capacity. Automatic retry is forbidden. Durable per-command receipts
-and independent control-outcome reconciliation remain release requirements.
+run/journal/capacity. Automatic retry is forbidden.
+
+## Fleet Command Journal
+
+Authenticated stop/steer require a stable actor-scoped `Idempotency-Key` header.
+The semantic input hash, operation and original run/context are immutable.
+Identical replay returns the prior receipt; changed payload or identity conflicts.
+An unresolved reserved/submitted/uncertain command excludes another command for
+the run. A reserved command can consume exactly one submitted permit after fresh
+native preflight and DB authorization/context revalidation. That permit is durable
+before HTTP; a submitted command is never automatically retried after restart.
+
+ACK commits command acknowledgement, audit, session event and nonterminal stopping
+atomically. The public response includes the receipt; unknown post/ACK transport
+returns accepted=false/uncertain, not success. A DB failure retains submitted.
+GET receipt/list routes enforce session/project access. The latest 100 receipts
+omit guidance, keys, credentials and upstream payloads. UI preserves input and
+blocks new commands while unresolved, including after reload.
+
+Bounded background reconciliation observes the independently committed original
+run/prompt terminal packet. It rejects an unclaimed reservation, or records
+terminal_observed for submitted/uncertain. It never claims unknown guidance was
+accepted, performs another POST, terminates descendants or creates task evidence.
+Native per-command acceptance lookup and safe cancellation of abandoned reserved
+commands are not implemented by this ledger; final source/native/CI evidence must
+be read separately in the verification ledger.
 
 ## Approvals And Phase 2
 

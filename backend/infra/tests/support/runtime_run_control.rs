@@ -11,6 +11,7 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 struct ControlFixture {
+    owner: Uuid,
     repo: Arc<PostgresFleetRepository>,
     runtime: infra::runtime::LocalRuntimeSupervisor,
     agent: Agent,
@@ -21,6 +22,21 @@ struct ControlFixture {
 impl Drop for ControlFixture {
     fn drop(&mut self) {
         self.server.abort();
+    }
+}
+impl ControlFixture {
+    fn restarted(&self) -> infra::runtime::LocalRuntimeSupervisor {
+        let mut config = AppConfig::default();
+        config.fleet.runtime_token_secret = "owned-control-fixture".into();
+        let (events, _) = tokio::sync::broadcast::channel(32);
+        infra::runtime::LocalRuntimeSupervisor::new(Arc::new(config), self.repo.clone(), events)
+    }
+
+    fn actor(&self) -> domain::RuntimeControlActor {
+        domain::RuntimeControlActor {
+            user_id: self.owner,
+            idempotency_key: Uuid::new_v4().to_string(),
+        }
     }
 }
 
@@ -168,6 +184,7 @@ async fn setup(
     let runtime =
         infra::runtime::LocalRuntimeSupervisor::new(Arc::new(config), repo.clone(), events);
     Some(ControlFixture {
+        owner,
         repo,
         runtime,
         agent,
@@ -207,6 +224,7 @@ async fn runtime_control_steer_ack_cannot_reset_concurrent_waiting_state() {
             SteerSessionRunRequest {
                 input: "guidance".into(),
             },
+            f.actor(),
         )
         .await
         .unwrap();
@@ -230,7 +248,11 @@ async fn runtime_control_stop_ack_is_only_stopping_and_keeps_capacity() {
     else {
         return;
     };
-    let ack = f.runtime.stop_run(&f.agent, &f.run).await.unwrap();
+    let ack = f
+        .runtime
+        .stop_run(&f.agent, &f.run, f.actor())
+        .await
+        .unwrap();
     assert!(ack.accepted);
     assert_eq!(ack.state, SessionRunState::Stopping);
     assert_eq!(f.calls.load(Ordering::SeqCst), 1);
@@ -303,17 +325,22 @@ async fn runtime_control_invalid_ack_transport_and_identity_do_not_mutate_or_ret
             .await
             .unwrap()
             .unwrap();
-        assert!(
-            f.runtime
-                .steer_run(
-                    &f.agent,
-                    &f.run,
-                    SteerSessionRunRequest {
-                        input: "guidance".into()
-                    }
-                )
-                .await
-                .is_err()
+        let unknown = f
+            .runtime
+            .steer_run(
+                &f.agent,
+                &f.run,
+                SteerSessionRunRequest {
+                    input: "guidance".into(),
+                },
+                f.actor(),
+            )
+            .await
+            .unwrap();
+        assert!(!unknown.accepted);
+        assert_eq!(
+            unknown.command.unwrap().state,
+            domain::RuntimeControlState::Uncertain
         );
         assert_eq!(f.calls.load(Ordering::SeqCst), 1);
         assert_eq!(
@@ -346,17 +373,22 @@ async fn runtime_control_ack_deadline_does_not_retry_or_claim_success() {
     else {
         return;
     };
-    assert!(
-        f.runtime
-            .steer_run(
-                &f.agent,
-                &f.run,
-                SteerSessionRunRequest {
-                    input: "guidance".into()
-                }
-            )
-            .await
-            .is_err()
+    let unknown = f
+        .runtime
+        .steer_run(
+            &f.agent,
+            &f.run,
+            SteerSessionRunRequest {
+                input: "guidance".into(),
+            },
+            f.actor(),
+        )
+        .await
+        .unwrap();
+    assert!(!unknown.accepted);
+    assert_eq!(
+        unknown.command.unwrap().state,
+        domain::RuntimeControlState::Uncertain
     );
     assert_eq!(f.calls.load(Ordering::SeqCst), 1);
     assert_eq!(
@@ -380,13 +412,28 @@ async fn runtime_control_foreign_native_session_and_stale_context_block_before_p
     else {
         return;
     };
-    assert!(f.runtime.stop_run(&f.agent, &f.run).await.is_err());
+    assert!(
+        f.runtime
+            .stop_run(&f.agent, &f.run, f.actor())
+            .await
+            .is_err()
+    );
     let mut stale = f.run.clone();
     stale.runtime_session_id = Some("other".into());
-    assert!(f.runtime.stop_run(&f.agent, &stale).await.is_err());
+    assert!(
+        f.runtime
+            .stop_run(&f.agent, &stale, f.actor())
+            .await
+            .is_err()
+    );
     let mut foreign_agent = f.agent.clone();
     foreign_agent.api_port = Some(1);
-    assert!(f.runtime.stop_run(&foreign_agent, &f.run).await.is_err());
+    assert!(
+        f.runtime
+            .stop_run(&foreign_agent, &f.run, f.actor())
+            .await
+            .is_err()
+    );
     assert_eq!(f.calls.load(Ordering::SeqCst), 0);
     assert_eq!(
         f.repo.get_session_agent_run(f.run.id).await.unwrap().state,
@@ -411,7 +458,11 @@ async fn runtime_control_terminal_stop_race_never_invents_stopping_or_completion
     else {
         return;
     };
-    let ack = f.runtime.stop_run(&f.agent, &f.run).await.unwrap();
+    let ack = f
+        .runtime
+        .stop_run(&f.agent, &f.run, f.actor())
+        .await
+        .unwrap();
     assert!(ack.accepted);
     assert_eq!(ack.state, SessionRunState::Running);
     assert!(ack.message.contains("readback"));
@@ -455,4 +506,340 @@ async fn runtime_control_legacy_run_wide_approval_cannot_reach_native_adapter() 
         Err(shared::AppError::Conflict(_))
     ));
     assert_eq!(f.calls.load(Ordering::SeqCst), 0);
+}
+
+async fn ledger_fixture(body: Value) -> Option<ControlFixture> {
+    setup(
+        body,
+        StatusCode::OK,
+        "application/json",
+        false,
+        false,
+        "control-native-session",
+        false,
+    )
+    .await
+}
+
+#[tokio::test]
+async fn runtime_control_concurrent_identical_replay_posts_once_and_survives_restart() {
+    let Some(f) = ledger_fixture(steer_ack()).await else {
+        return;
+    };
+    let actor = f.actor();
+    let command = SteerSessionRunRequest {
+        input: "same guidance".into(),
+    };
+    let (a, b, c, d) = tokio::join!(
+        f.runtime
+            .steer_run(&f.agent, &f.run, command.clone(), actor.clone()),
+        f.runtime
+            .steer_run(&f.agent, &f.run, command.clone(), actor.clone()),
+        f.runtime
+            .steer_run(&f.agent, &f.run, command.clone(), actor.clone()),
+        f.runtime
+            .steer_run(&f.agent, &f.run, command.clone(), actor.clone())
+    );
+    let receipts = [a, b, c, d].map(|r| r.unwrap().command.unwrap());
+    assert!(receipts.iter().all(|r| r.id == receipts[0].id));
+    assert_eq!(f.calls.load(Ordering::SeqCst), 1);
+    let replay = f
+        .restarted()
+        .steer_run(&f.agent, &f.run, command, actor.clone())
+        .await
+        .unwrap();
+    assert!(replay.accepted);
+    assert_eq!(replay.command.unwrap().id, receipts[0].id);
+    assert!(matches!(
+        f.runtime
+            .steer_run(
+                &f.agent,
+                &f.run,
+                SteerSessionRunRequest {
+                    input: "changed guidance".into()
+                },
+                actor.clone()
+            )
+            .await,
+        Err(shared::AppError::Conflict(_))
+    ));
+    assert!(matches!(
+        f.runtime.stop_run(&f.agent, &f.run, actor).await,
+        Err(shared::AppError::Conflict(_))
+    ));
+    assert_eq!(f.calls.load(Ordering::SeqCst), 1);
+    let history = f
+        .repo
+        .list_runtime_controls(f.run.session_id, f.run.id)
+        .await
+        .unwrap();
+    assert_eq!(history.len(), 1);
+    assert_eq!(history[0].state, domain::RuntimeControlState::Acknowledged);
+}
+
+#[tokio::test]
+async fn runtime_control_unknown_ack_holds_new_commands_and_never_reposts_after_restart() {
+    let Some(f) = ledger_fixture(json!({"accepted":true})).await else {
+        return;
+    };
+    let actor = f.actor();
+    let command = SteerSessionRunRequest {
+        input: "only once".into(),
+    };
+    let first = f
+        .runtime
+        .steer_run(&f.agent, &f.run, command.clone(), actor.clone())
+        .await
+        .unwrap();
+    let first = first.command.unwrap();
+    assert_eq!(first.state, domain::RuntimeControlState::Uncertain);
+    let replay = f
+        .restarted()
+        .steer_run(&f.agent, &f.run, command, actor)
+        .await
+        .unwrap();
+    assert!(!replay.accepted);
+    assert_eq!(replay.command.unwrap().id, first.id);
+    assert!(matches!(
+        f.runtime.stop_run(&f.agent, &f.run, f.actor()).await,
+        Err(shared::AppError::Conflict(_))
+    ));
+    assert_eq!(f.calls.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        f.repo.get_session_agent_run(f.run.id).await.unwrap().state,
+        SessionRunState::Running
+    );
+}
+
+#[tokio::test]
+async fn runtime_control_submitted_restart_is_read_only_and_claim_is_single_use() {
+    let Some(f) = ledger_fixture(stop_ack()).await else {
+        return;
+    };
+    let actor = f.actor();
+    let reservation = f
+        .repo
+        .reserve_runtime_control(&f.run, &actor, domain::RuntimeControlOperation::Stop, None)
+        .await
+        .unwrap();
+    let id = reservation.receipt.id;
+    let (a, b) = tokio::join!(
+        f.repo.claim_runtime_control(id),
+        f.repo.claim_runtime_control(id)
+    );
+    assert_eq!(usize::from(a.unwrap()) + usize::from(b.unwrap()), 1);
+    let replay = f
+        .restarted()
+        .stop_run(&f.agent, &f.run, actor)
+        .await
+        .unwrap();
+    assert!(!replay.accepted);
+    assert_eq!(
+        replay.command.unwrap().state,
+        domain::RuntimeControlState::Submitted
+    );
+    assert_eq!(f.calls.load(Ordering::SeqCst), 0);
+    assert!(!f.repo.claim_runtime_control(id).await.unwrap());
+}
+
+#[tokio::test]
+async fn runtime_control_claim_rechecks_actor_and_receipt_is_session_scoped() {
+    let Some(f) = ledger_fixture(stop_ack()).await else {
+        return;
+    };
+    let reservation = f
+        .repo
+        .reserve_runtime_control(
+            &f.run,
+            &f.actor(),
+            domain::RuntimeControlOperation::Stop,
+            None,
+        )
+        .await
+        .unwrap();
+    let id = reservation.receipt.id;
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE users SET is_active=false WHERE id=$1",
+        [f.owner.into()],
+    ))
+    .await
+    .unwrap();
+    assert!(matches!(
+        f.repo.claim_runtime_control(id).await,
+        Err(shared::AppError::Forbidden)
+    ));
+    let retired = f.repo.retire_runtime_control(id, false).await.unwrap();
+    assert_eq!(retired.state, domain::RuntimeControlState::Rejected);
+    assert!(matches!(
+        f.repo.get_runtime_control(Uuid::new_v4(), id).await,
+        Err(shared::AppError::NotFound { .. })
+    ));
+    assert!(
+        f.repo
+            .list_runtime_controls(Uuid::new_v4(), f.run.id)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(f.calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn runtime_control_ack_and_stopping_roll_back_together_on_audit_failure() {
+    let Some(f) = ledger_fixture(stop_ack()).await else {
+        return;
+    };
+    let reservation = f
+        .repo
+        .reserve_runtime_control(
+            &f.run,
+            &f.actor(),
+            domain::RuntimeControlOperation::Stop,
+            None,
+        )
+        .await
+        .unwrap();
+    let id = reservation.receipt.id;
+    assert!(f.repo.claim_runtime_control(id).await.unwrap());
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let guard = format!("control_fault_{}", Uuid::new_v4().simple());
+    db.execute_unprepared(&format!(
+        "CREATE FUNCTION {guard}() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN IF NEW.entity_id='{id}' AND NEW.action='runtime_control.acknowledged' THEN
+        RAISE EXCEPTION 'owned control audit failure'; END IF; RETURN NEW; END $$;
+        CREATE TRIGGER {guard} BEFORE INSERT ON audit_log FOR EACH ROW EXECUTE FUNCTION {guard}();"
+    ))
+    .await
+    .unwrap();
+    let result = f.repo.finish_runtime_control(id, "stopping").await;
+    db.execute_unprepared(&format!(
+        "DROP TRIGGER {guard} ON audit_log; DROP FUNCTION {guard}();"
+    ))
+    .await
+    .unwrap();
+    assert!(result.is_err());
+    assert_eq!(
+        f.repo
+            .get_runtime_control(f.run.session_id, id)
+            .await
+            .unwrap()
+            .state,
+        domain::RuntimeControlState::Submitted
+    );
+    assert_eq!(
+        f.repo.get_session_agent_run(f.run.id).await.unwrap().state,
+        SessionRunState::Running
+    );
+    let committed = f.repo.finish_runtime_control(id, "stopping").await.unwrap();
+    assert_eq!(committed.state, domain::RuntimeControlState::Acknowledged);
+    assert_eq!(
+        f.repo.get_session_agent_run(f.run.id).await.unwrap().state,
+        SessionRunState::Stopping
+    );
+    assert_eq!(
+        serde_json::to_value(f.repo.finish_runtime_control(id, "stopping").await.unwrap()).unwrap(),
+        serde_json::to_value(committed).unwrap()
+    );
+    let row = db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT count(*) AS total FROM session_events WHERE session_id=$1 AND payload->>'command_id'=$2",
+        [f.run.session_id.into(),id.to_string().into()])).await.unwrap().unwrap();
+    assert_eq!(row.try_get::<i64>("", "total").unwrap(), 3);
+}
+
+#[tokio::test]
+async fn runtime_control_terminal_reconciliation_requires_committed_mirror_not_run_flag() {
+    let Some(f) = ledger_fixture(json!({"accepted":true})).await else {
+        return;
+    };
+    let actor = f.actor();
+    let first = f
+        .runtime
+        .stop_run(&f.agent, &f.run, actor.clone())
+        .await
+        .unwrap()
+        .command
+        .unwrap();
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE session_agent_runs SET state='completed',last_event_at=now() WHERE id=$1",
+        [f.run.id.into()],
+    ))
+    .await
+    .unwrap();
+    f.repo.reconcile_runtime_controls().await.unwrap();
+    assert_eq!(
+        f.repo
+            .get_runtime_control(f.run.session_id, first.id)
+            .await
+            .unwrap()
+            .state,
+        domain::RuntimeControlState::Uncertain
+    );
+    db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE session_agent_runs SET state='running' WHERE id=$1",
+        [f.run.id.into()],
+    ))
+    .await
+    .unwrap();
+    let intent = f
+        .repo
+        .get_hermes_dispatch_intent_for_run(f.run.id)
+        .await
+        .unwrap()
+        .unwrap();
+    f.repo
+        .commit_hermes_terminal(app::HermesTerminalCommit {
+            message_id: intent.message_id,
+            run_id: f.run.id,
+            runtime_run_id: "run_control".into(),
+            runtime_session_id: "control-native-session".into(),
+            state: SessionRunState::Completed,
+            body: Some("independent terminal mirror".into()),
+            error: None,
+        })
+        .await
+        .unwrap();
+    f.repo.reconcile_runtime_controls().await.unwrap();
+    let observed = f
+        .repo
+        .get_runtime_control(f.run.session_id, first.id)
+        .await
+        .unwrap();
+    assert_eq!(
+        observed.state,
+        domain::RuntimeControlState::TerminalObserved
+    );
+    assert_eq!(
+        observed.observed_run_state,
+        Some(SessionRunState::Completed)
+    );
+    assert_eq!(observed.acknowledgement, None);
+    f.repo.reconcile_runtime_controls().await.unwrap();
+    assert_eq!(
+        serde_json::to_value(
+            f.repo
+                .get_runtime_control(f.run.session_id, first.id)
+                .await
+                .unwrap()
+        )
+        .unwrap(),
+        serde_json::to_value(observed).unwrap()
+    );
+    let replay = f
+        .restarted()
+        .stop_run(&f.agent, &f.run, actor)
+        .await
+        .unwrap();
+    assert!(!replay.accepted);
+    assert_eq!(f.calls.load(Ordering::SeqCst), 1);
 }
