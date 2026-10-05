@@ -985,6 +985,17 @@ pub trait AgentProvisioner: Send + Sync {
 
 #[async_trait]
 pub trait RuntimeSupervisor: Send + Sync {
+    async fn resolve_original_approval(
+        &self,
+        _agent: &Agent,
+        _run: &SessionAgentRun,
+        _approval: &RuntimeApprovalRequest,
+        _decision: &domain::ApprovalDecision,
+    ) -> Result<domain::ApprovalDecision, AppError> {
+        Err(AppError::Unavailable(
+            "original approval outcomes are unavailable".into(),
+        ))
+    }
     async fn resolve_targeted_approval(
         &self,
         _agent: &Agent,

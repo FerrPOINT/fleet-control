@@ -1,11 +1,14 @@
 # API
 
-Additive000016 introduces internal original approval reservation/claim/readback/
-completion methods only. No Fleet route, OpenAPI schema or public approval
-behavior changes in this packet. Existing HTTP decisions still use the legacy
-delivery path; they do not receive original context after dispatch. Public DTOs
-exclude context, exact action bytes and credential/store fingerprints. A future
-sender/GET worker must verify the native witness before internal completion.
+Additive000016 introduces private original approval reservation/claim/readback/
+completion. No Fleet route or OpenAPI schema is added. The existing exact-request
+decision endpoint selects original mode when the default-off control-outcome flag
+is enabled. It sends saved action bytes once and leaves transport/DB uncertainty
+held for original-context GET recovery. A replay reads the existing decision;
+failed preparation never falls back to legacy POST. Legacy decisions cannot gain
+original context retrospectively. Public DTOs exclude context, action bytes,
+mode/claim flags and credential/store fingerprints. Witnessed delivery is not
+tool completion or a business-stage receipt.
 
 The internal [control outcome journal](contracts/HERMES_CONTROL_OUTCOME_V1.md)
 adds no Fleet HTTP route or OpenAPI DTO. The default-false supervisor consumer

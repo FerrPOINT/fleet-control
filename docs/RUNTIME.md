@@ -3,10 +3,20 @@
 The separate approval decision journal is now implemented through additive000016:
 original mode is fixed at reservation, context/claim commit before any permitted
 effect, and ACK/receipt/audit commit together. Late completion preserves cancelled
-request and terminal run history. This packet does not connect approval POST or
-the outcome GET worker: existing HTTP approval behavior is unchanged. Native
+request and terminal run history. The default-off control-outcome flag now selects
+original reservation in the approval API and enables exact-byte POST plus the
+bounded UUID-keyset GET worker. Native
 positive/lost-ACK/OS-restart approval and combined-extension acceptance remain.
 See [approval journal ADR](adr/0025-original-approval-outcome-journal.md).
+
+Approval preparation reuses exact native waiting-request/session/capability
+checks before transactionally claiming the original journal. It sends command
+UUID/store headers and saved action bytes once. Unknown transport or DB ACK
+leaves the durable decision uncertain; replay never calls POST again. Recovery
+does not prepare new capabilities: it verifies the saved origin, bearer scope,
+epoch, native run, request and choice through GET only. Historical cancelled
+requests remain eligible for their original witness, without reopening a run.
+No PM/task admission or Java chat/control authority is added.
 
 ## Native Run Controls
 

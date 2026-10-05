@@ -1,5 +1,73 @@
 # Chat Clarification Verification
 
+## Original Approval Outcome Consumer (5 October 2026)
+
+Baseline journal packet `317c326f3323d9dac35ea808c279a74ca29f2b0e` is published
+regular fast-forward and its exact remote head was verified. Main d752a041,
+Draft PR47/main5240107, Base a1aeaec and dependency PR140/main177edb8 are
+unchanged. Fresh Tracker PR114/main8c80a41 and Workflow PR90/mastere4fba60
+remain read-only and incompatible with complete admission. Forge task2's
+ahead-27 working history is preserved, not pushed or changed here.
+
+Implemented: opt-in API fixes original mode before reservation, supervisor
+verifies the exact native waiting request, commits original context/one claim,
+then sends exact bytes/decision UUID/store headers once. Legacy dispatch is
+disabled in original mode; preparation failure never falls back. Bounded
+UUID-keyset GET recovery authenticates saved origin/scope/epoch/native run/
+request/choice without new POST or capabilities. Normal/lost/DB ACK settlement
+is atomic; historical cancelled requests and terminal runs remain unchanged.
+Public DTOs exclude the context, mode/claim flags and private fingerprints.
+No migration, generated API, SDK/lockfile, Base producer, UI or installed flag
+is changed by this consumer packet.
+
+First focused Linux Rust1.88/PG gate exec7536/project
+`sdlc-qa-approval-outcome-consumer-7c852c467cb1`:10 HTTP/PG cases PASS with
+workspace all-target check/format. Exact finally cleanup exits0 and independently
+empty Compose ps are verified. Startup spent time in Docker network/container
+creation; the original live process was observed and not replaced or duplicated.
+This first snapshot predates the separate keyset case and final wire/scope guards;
+it is not final-tree evidence.
+
+Final Linux Rust1.88/PG17.6 gate exec46521/project
+`sdlc-qa-approval-outcome-consumer-b5bffd65bc9c` exits0:450 distinct component PASS
+(236 library,201 foundation,2 separately executed keysets,1 approval SSE,
+7 isolated migrations,3 supplemental PG). Focused10/17 and lock repetitions
+are not additional cases. The separate approval keyset holds101 records with
+the valid UUID strictly after100 invalid scope contexts; recovery uses original
+GET and zero POSTs. Synthetic renderer export remains ignored. Format/all-target
+check/strict Clippy, source-generated OpenAPI byte equality, clean migration CLI
+up/status/down-one/up/status on17 versions and doc-test invocations PASS.
+Exact finally cleanup exits0 and independently empty Compose ps are verified;
+shared caches, accepted runtime HOME/images/data and foreign resources remain.
+Full log SHA256:
+`771899d0115199b055ab30861662661a7d943b33a0a8a566b9457142f583ecf2`.
+
+Host34 native-harness safety cases and3 README tests PASS; README,112 Markdown
+links, CI YAML/isolated keyset target, existing135 screenshot hashes and9/3
+fixture manifests PASS. No UI changes, new captures or browser acceptance are
+claimed. Three20-23s VM clock regressions remain an infrastructure risk; no
+assertions or timeouts were weakened. Post-cleanup Docker audit: desktop35
+checked, sdlc2-runner2 checked, sdlc1-runner unavailable/complete=false/exit1.
+A foreign rootless CI-QA transfer project lacks its job journal reference;
+no foreign resource was removed or repaired here.
+
+Final raw source SHA256 (paths relative to `backend/`):
+
+| Path | SHA256 |
+| --- | --- |
+| `api/src/routes/approvals.rs` | `6bf07c59c53dcbf31b303dd2d1dd082daea4f5a96ae2a916d5f82e554ebf4867` |
+| `app/src/lib.rs` | `02d0c38d1e2e59e70b64175d119a8f3b64334be14cbd88c36226109fc1b482b4` |
+| `infra/src/runtime/approval_outcome.rs` | `8153cf4779d57c479960cad1ceca3705284f2ff10ff7d6d8dda1b00cf12e1c54` |
+| `infra/src/runtime/targeted_approval.rs` | `632814be1e10922f6d696662894f9cc0d4861126538bb0eb18d41be38f56818c` |
+| `infra/src/runtime/control_outcome_wire.rs` | `94f5f24174ad5d5e55efbf48d01bc6b8a1fd620b15a342a2bf1925dcabdeb52e` |
+| `infra/src/runtime/control_outcome_wire_tests.rs` | `c5cd2bdf9e46c50e322b2567505f7e8444f5492db8ee3d2ae08c015d9c21805c` |
+| `infra/src/runtime/mod.rs` | `1b5eda1c033e62866010bfe608d1f951b614cb7b079f112367569938d88c0ebf` |
+| `infra/tests/support/runtime_control_outcome_http.rs` | `76811db66fb27b9dcbf70f808234a01974c33935686cae2502ffccad5ee924e7` |
+
+All19 registered migration source files remain byte-identical to the published
+journal baseline. No remote exact-head CI, actual native Hermes approval decision
+recovery, full-SDLC or release readiness is claimed by this component packet.
+
 ## Original Approval Outcome Journal (5 October 2026)
 
 Baseline Fleet integration HEAD04df3107c07203a7060ef2f4506428f222455f39,

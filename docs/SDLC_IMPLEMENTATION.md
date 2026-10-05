@@ -21,7 +21,7 @@ IMPLEMENTATION_PLAN и CURRENT_STATE. Они не являются приёмк�
 
 | Область | Реализация | Доказательство / предел |
 | --- | --- | --- |
-| Original approval journal | Additive000016: immutable original mode, exact context + single-use claim, atomic witnessed delivered/audit; cancelled request и terminal run сохраняются | Семь PostgreSQL component cases и isolated migration; approval HTTP sender/GET worker ещё не подключены. Нет native decision-recovery, machine/task admission или installed rollout |
+| Original approval journal/consumer | Additive000016: immutable original mode, exact context + single-use claim, atomic witnessed delivered/audit; opt-in API/single POST/GET-only worker подключены; cancelled request и terminal run сохраняются | Семь PostgreSQL journal cases, isolated migration и отдельные HTTP/PG consumer cases; evidence в verification ledger. Нет native decision-recovery, machine/task admission или installed rollout |
 | Специализации | Семь `SdlcRole`, поле `sdlc_role`, формы создания/редактирования | Миграция 000009; developer/tester backfill только для executors |
 | Каталог | `/agents`: управление для operator/admin, read-only directory для user | Секреты и runtime paths не запрашиваются read-only страницей |
 | Чаты | `/chats`: конкретный агент → его сессии, поиск, аватар владельца, private create; immutable task/agent binding | Свободные legacy sessions не превращаются в SDLC автоматически; task chat creation ожидает admission |

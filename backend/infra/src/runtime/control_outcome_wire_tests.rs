@@ -437,6 +437,56 @@ async fn send_unknown_negative_duplicate_or_terminal_ack_never_retries() {
 }
 
 #[tokio::test]
+async fn approval_sender_preserves_exact_action_and_cannot_send_stop_or_steer() {
+    let mut original = context(Operation::Approval);
+    let expected = original.request_body.clone();
+    let id = original.command_id.to_string();
+    let epoch = original.capabilities.store_id.clone();
+    let ack = acknowledged(&original)["ack"].clone();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let observed = calls.clone();
+    let router = Router::new().route(
+        &format!("/v1/runs/{RUN}/approval"),
+        post(move |headers: HeaderMap, bytes: Bytes| {
+            assert_eq!(headers["authorization"], format!("Bearer {TOKEN}"));
+            assert_eq!(headers["idempotency-key"], id);
+            assert_eq!(headers["x-fleet-control-store-id"], epoch);
+            assert_eq!(bytes.as_ref(), expected.as_bytes());
+            observed.fetch_add(1, Ordering::SeqCst);
+            let ack = ack.clone();
+            async { axum::Json(ack) }
+        }),
+    );
+    let (origin, task) = server(router).await;
+    original.origin = origin.clone();
+    for op in [Operation::Stop, Operation::Steer] {
+        let mut wrong = context(op);
+        wrong.origin = origin.clone();
+        assert!(
+            send_approval(&client(), &wrong, &origin, TOKEN)
+                .await
+                .is_err()
+        );
+    }
+    assert!(send(&client(), &original, &origin, TOKEN).await.is_err());
+    assert!(
+        send_approval(&client(), &original, &origin, "rotated-fixture-only")
+            .await
+            .is_err()
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    assert_eq!(
+        send_approval(&client(), &original, &origin, TOKEN)
+            .await
+            .unwrap(),
+        Acknowledgement::ApprovalResolved
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    task.abort();
+    let _ = task.await;
+}
+
+#[tokio::test]
 async fn authenticated_lookup_is_get_only_and_uses_original_epoch_body_hash_and_command() {
     let mut original = context(Operation::Steer);
     let expected = found(&original);

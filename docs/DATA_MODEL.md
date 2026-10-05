@@ -3,8 +3,9 @@
 The [control outcome contract](contracts/HERMES_CONTROL_OUTCOME_V1.md) now has
 an internal stop/steer journal in additive migration `000015`. The opt-in
 supervisor persists it before POST and consumes saved-context GET outcomes;
-the separate approval decision sender remains pending. Additive000016 adds its
-private journal without rewriting applied000013/000014/000015.
+the separate approval decision sender/GET worker uses its additive000016 private
+journal without rewriting applied000013/000014/000015. The existing default-off
+flag selects original mode for new API decisions; legacy history is never backfilled.
 Existing historical receipts are not backfilled with a producer epoch.
 
 ## Runtime Approval Outcomes

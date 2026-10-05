@@ -4,8 +4,11 @@ Original approval journal: [ADR0025](adr/0025-original-approval-outcome-journal.
 additive000016, `approval_outcomes` and seven PostgreSQL foundation cases plus
 the isolated upgrade/down/reapply test. Coverage includes single-use claim,
 closed action/original scope, concurrent completion, audit rollback, SQL history
-guards and cancelled/terminal history after revocation. The approval HTTP sender
-and GET worker are not connected; these checks do not prove native recovery.
+guards and cancelled/terminal history after revocation. The opt-in approval HTTP
+sender/GET worker is connected through `runtime/approval_outcome` and the actual
+approval API middleware. HTTP/PG component coverage includes concurrent choices,
+lost ACK/new repository, bad preflight/legacy, unknown/foreign witness, DB rollback,
+terminal/revocation and disabled/rotated contexts. It does not prove native recovery.
 
 Native control-outcome GET: [contract v1](contracts/HERMES_CONTROL_OUTCOME_V1.md),
 `runtime/control_outcome_wire` and eleven protocol tests cover saved raw bytes,

@@ -1,8 +1,8 @@
 # Hermes Control Outcome v1
 
 Status: Base producer, stop/steer supervisor dispatch/GET recovery and Fleet
-OS-death recovery verified. Original approval journal implemented; approval
-sender/GET recovery, positive native approval and installed rollout remain gates. This is not
+OS-death recovery verified. Original approval journal/sender/GET recovery implemented;
+positive native approval and installed rollout remain gates. This is not
 task admission, safe OS stop, Workflow completion or a replacement for
 [human control authorization](HERMES_RUN_CONTROL_V1.md).
 
@@ -139,8 +139,9 @@ of prior effects. Fenced task/machine controls remain a separate admission.
 These journal/consumer interactions remain explicit rollout requirements:
 
 1. Stop/steer supervisor context/claim before POST and GET-only worker are
-   implemented. Approval context persistence is additive000016; its sender and
-   GET worker remain separate. A producer
+   implemented. Approval context persistence is additive000016; its exact-byte
+   sender and bounded GET worker use the same default-off flag and a separate
+   decision lifecycle. A producer
    epoch observed after submission is not a historical witness. The public
    actor idempotency key remains separate from the producer command UUID.
 2. Additive000015 allows witnessed uncertain-to-acknowledged and separately

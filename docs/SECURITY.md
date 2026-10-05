@@ -17,8 +17,9 @@ Supervisor witness dispatch/GET recovery is explicitly default-false. Before
 POST it requires the original free-chat context, native status/capabilities and
 fresh claim-time actor authorization; saved-context GET records a prior effect,
 not new mutation authority after actor revocation. It cannot dispatch task/PM,
-adopt rotated credentials/epoch, backfill legacy receipts or recover approval
-decisions. Keep the producer disabled on installed agents until release/native
+adopt rotated credentials/epoch or backfill legacy receipts. Approval recovery
+uses a distinct journal with exact saved choice/request, not stop/steer receipts.
+Keep the producer disabled on installed agents until release/native
 acceptance. See [outcome v1](contracts/HERMES_CONTROL_OUTCOME_V1.md).
 
 ## Durable Authenticated Runtime Commands

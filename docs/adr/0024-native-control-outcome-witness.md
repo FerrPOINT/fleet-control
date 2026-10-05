@@ -32,7 +32,8 @@ Supervisor dispatch uses exact saved bytes/epoch/UUID only after claim; a
 separate bounded UUID-keyset GET worker commits original-context witnesses.
 The default-false flag starts no worker when disabled and never backfills old
 submitted commands. Approval decision journaling is now additive000016;
-its sender/GET worker remains pending. Fleet OS-death stop/steer recovery is
+its opt-in sender/GET worker is connected but native acceptance remains pending.
+Fleet OS-death stop/steer recovery is
 verified separately in the [ledger](../CHAT_CLARIFICATION_VERIFICATION.md).
 
 ## Consequences

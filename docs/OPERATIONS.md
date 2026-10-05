@@ -1,13 +1,20 @@
 # Operations
 
-Original approval outcomes now have internal immutable storage (000016), but no
-public repair/reset/delete endpoint or connected approval recovery worker yet.
+Original approval outcomes have immutable storage (000016) and an opt-in bounded
+GET-only recovery worker, but no public repair/reset/delete endpoint.
 Do not manually give legacy uncertainty a context or release a claimed decision
 as failed. A late witnessed receipt preserves cancelled request/run history;
 it does not permit a new action. Database backups include private contexts.
 Empty rollback is tested; any original decision history prevents downgrade.
 Installed flags/plugins remain unchanged pending ordered release and native
 approval/combined-extension acceptance.
+
+The same default-off control-outcome flag selects original-mode reservation for
+new exact-request decisions. A failed preflight keeps an unsubmitted uncertain
+receipt; replay does not retry preparation or POST. A saved claim cannot be
+released on missing, uncertain or invalid lookup. Changed origin/credential/store
+requires reconciliation, not adoption of fresh metadata. Read the public decision
+status after lost replies; no new key, bulk decision or direct SQLite edit is safe.
 
 ## Runtime Control Reconciliation
 

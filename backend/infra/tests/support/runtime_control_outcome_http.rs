@@ -33,6 +33,7 @@ struct Producer {
     mode: AtomicUsize, // 0 normal, 1 lost ACK, 2 unknown effect, 3 held normal ACK
     records: Mutex<HashMap<Uuid, Value>>,
     fault: Mutex<Option<(StatusCode, Value)>>,
+    status: Mutex<Value>,
     started: Notify,
     release: Notify,
 }
@@ -61,19 +62,29 @@ async fn control_post(
     let id = Uuid::parse_str(headers["idempotency-key"].to_str().unwrap()).unwrap();
     assert_eq!(headers["x-fleet-control-store-id"], p.epoch);
     assert_eq!(native, p.native);
-    let saved = p
-        .repo
-        .get_runtime_control_outcome(id)
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(saved.receipt.state, RuntimeControlState::Submitted);
+    let context = if op == "approval" {
+        let saved = p.repo.get_approval_outcome(id).await.unwrap().unwrap();
+        assert_eq!(
+            saved.decision.state,
+            domain::ApprovalDecisionState::Uncertain
+        );
+        saved.context
+    } else {
+        let saved = p
+            .repo
+            .get_runtime_control_outcome(id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(saved.receipt.state, RuntimeControlState::Submitted);
+        saved.context
+    };
     assert_eq!(
-        saved.context["request_body"].as_str().unwrap().as_bytes(),
+        context["request_body"].as_str().unwrap().as_bytes(),
         body.as_ref()
     );
-    assert_eq!(saved.context["operation"], op);
-    assert_eq!(saved.context["capabilities"]["store_id"], p.epoch);
+    assert_eq!(context["operation"], op);
+    assert_eq!(context["capabilities"]["store_id"], p.epoch);
     p.posts.fetch_add(1, Ordering::SeqCst);
     let ack = match op.as_str() {
         "steer" => json!({"object":"hermes.run.steer","run_id":native,"accepted":true}),
@@ -81,10 +92,18 @@ async fn control_post(
             assert!(body.is_empty());
             json!({"run_id":native,"status":"stopping"})
         }
+        "approval" => {
+            let body: Value = serde_json::from_slice(&body).unwrap();
+            assert_eq!(body["request_id"], "request_one");
+            assert_eq!(body["resolve_all"], false);
+            assert!(matches!(body["choice"].as_str(), Some("once" | "deny")));
+            assert_eq!(body.as_object().unwrap().len(), 3);
+            json!({"object":"hermes.run.approval_response","run_id":native,
+                "request_id":body["request_id"],"choice":body["choice"],"resolved":1})
+        }
         _ => panic!("unexpected operation"),
     };
     let mode = p.mode.load(Ordering::SeqCst);
-    let context = saved.context;
     let witness = json!({"object":"fleet.hermes.controls.lookup","contract_version":1,
         "store_id":p.epoch,"scope_fingerprint":context["capabilities"]["scope_fingerprint"],"profile":"default",
         "command_id":id,"run_id":native,"operation":op,"request_sha256":context["request_sha256"],
@@ -147,6 +166,62 @@ impl Drop for HttpFixture {
     }
 }
 impl HttpFixture {
+    async fn approval(&self) -> domain::RuntimeApprovalRequest {
+        let approval = self
+            .repo
+            .upsert_runtime_approval_request(app::RuntimeApprovalCreate {
+                session_id: self.run.session_id,
+                session_run_id: self.run.id,
+                agent_id: self.agent.id,
+                runtime_run_id: self.producer.native.clone(),
+                runtime_approval_id: Some("request_one".into()),
+                prompt: "Exact original approval".into(),
+                detail: json!({}),
+            })
+            .await
+            .unwrap();
+        let mut status = self.producer.status.lock().unwrap();
+        status["status"] = json!("waiting_for_approval");
+        status["approval"] = json!({"event":"approval.request","run_id":self.producer.native,
+            "request_id":"request_one"});
+        approval
+    }
+    async fn reserve_approval(
+        &self,
+        approval: &domain::RuntimeApprovalRequest,
+        choice: domain::ApprovalChoice,
+    ) -> domain::ApprovalDecision {
+        self.repo
+            .reserve_original_approval_decision(
+                self.run.session_id,
+                approval.id,
+                self.owner,
+                domain::ApprovalDecisionRequest {
+                    choice,
+                    idempotency_key: Uuid::new_v4().to_string(),
+                },
+            )
+            .await
+            .unwrap()
+            .decision
+    }
+    async fn delivered(&self, approval: Uuid) -> domain::ApprovalDecision {
+        tokio::time::timeout(Duration::from_secs(20), async {
+            loop {
+                let decision = self
+                    .repo
+                    .approval_decision(self.run.session_id, approval)
+                    .await
+                    .unwrap();
+                if decision.state == domain::ApprovalDecisionState::Delivered {
+                    return decision;
+                }
+                sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap()
+    }
     fn runtime(&self) -> infra::runtime::LocalRuntimeSupervisor {
         let (events, _) = tokio::sync::broadcast::channel(32);
         infra::runtime::LocalRuntimeSupervisor::new(
@@ -211,6 +286,627 @@ impl HttpFixture {
                 .unwrap()
         );
         reserved.receipt.id
+    }
+}
+
+#[tokio::test]
+async fn approval_outcome_http_single_post_concurrent_once_deny_and_no_replay_effect() {
+    for choice in [domain::ApprovalChoice::Once, domain::ApprovalChoice::Deny] {
+        let Some(f) = setup(0).await else {
+            return;
+        };
+        let approval = f.approval().await;
+        let decision = f.reserve_approval(&approval, choice).await;
+        let runtime = f.runtime();
+        let (a, b) = tokio::join!(
+            runtime.resolve_original_approval(&f.agent, &f.run, &approval, &decision),
+            runtime.resolve_original_approval(&f.agent, &f.run, &approval, &decision)
+        );
+        a.unwrap();
+        b.unwrap();
+        let delivered = f.delivered(approval.id).await;
+        assert_eq!(delivered.choice, choice);
+        assert_eq!(f.producer.posts.load(Ordering::SeqCst), 1);
+        let before = f.producer.caps_reads.load(Ordering::SeqCst);
+        let replay = runtime
+            .resolve_original_approval(&f.agent, &f.run, &approval, &decision)
+            .await
+            .unwrap();
+        assert_eq!(
+            serde_json::to_value(replay).unwrap(),
+            serde_json::to_value(delivered).unwrap()
+        );
+        assert_eq!(f.producer.caps_reads.load(Ordering::SeqCst), before);
+        assert_eq!(f.producer.posts.load(Ordering::SeqCst), 1);
+        let count=f.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT count(*) AS count FROM audit_log WHERE entity_id=$1 AND action='approval.decision_delivered'",
+            [decision.id.to_string().into()])).await.unwrap().unwrap().try_get::<i64>("","count").unwrap();
+        assert_eq!(count, 1);
+    }
+}
+
+#[tokio::test]
+async fn approval_outcome_http_lost_ack_get_recovery_with_new_repository_and_supervisor() {
+    let Some(f) = setup(1).await else {
+        return;
+    };
+    let approval = f.approval().await;
+    let decision = f
+        .reserve_approval(&approval, domain::ApprovalChoice::Once)
+        .await;
+    *f.producer.fault.lock().unwrap() = Some((StatusCode::NOT_FOUND, json!({"error":"held"})));
+    assert!(
+        f.runtime()
+            .resolve_original_approval(&f.agent, &f.run, &approval, &decision)
+            .await
+            .is_err()
+    );
+    let saved = f
+        .repo
+        .get_approval_outcome(decision.id)
+        .await
+        .unwrap()
+        .unwrap()
+        .context;
+    let repo = Arc::new(PostgresFleetRepository::new(
+        sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+            .await
+            .unwrap(),
+    ));
+    let (events, _) = tokio::sync::broadcast::channel(32);
+    let runtime =
+        infra::runtime::LocalRuntimeSupervisor::new(Arc::new(f.config.clone()), repo, events);
+    *f.producer.fault.lock().unwrap() = None;
+    f.delivered(approval.id).await;
+    assert_eq!(
+        runtime
+            .resolve_original_approval(&f.agent, &f.run, &approval, &decision)
+            .await
+            .unwrap()
+            .state,
+        domain::ApprovalDecisionState::Delivered
+    );
+    assert_eq!(
+        f.repo
+            .get_approval_outcome(decision.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .context,
+        saved
+    );
+    assert_eq!(f.producer.posts.load(Ordering::SeqCst), 1);
+    assert_eq!(f.producer.caps_reads.load(Ordering::SeqCst), 1);
+    assert!(f.producer.reads.load(Ordering::SeqCst) > 0);
+}
+
+#[tokio::test]
+async fn approval_outcome_http_bad_capability_pending_request_and_legacy_cannot_send() {
+    for change in ["capability", "request", "session", "legacy"] {
+        let Some(f) = setup(0).await else {
+            return;
+        };
+        let approval = f.approval().await;
+        let req = domain::ApprovalDecisionRequest {
+            choice: domain::ApprovalChoice::Once,
+            idempotency_key: Uuid::new_v4().to_string(),
+        };
+        let decision = if change == "legacy" {
+            f.repo
+                .reserve_approval_decision(f.run.session_id, approval.id, f.owner, req)
+                .await
+                .unwrap()
+                .decision
+        } else {
+            f.repo
+                .reserve_original_approval_decision(f.run.session_id, approval.id, f.owner, req)
+                .await
+                .unwrap()
+                .decision
+        };
+        match change {
+            "capability" => f.producer.bad_caps.store(true, Ordering::SeqCst),
+            "request" => {
+                f.producer.status.lock().unwrap()["approval"]["request_id"] = json!("other")
+            }
+            "session" => f.producer.status.lock().unwrap()["session_id"] = json!("foreign"),
+            _ => (),
+        }
+        assert!(
+            f.runtime()
+                .resolve_original_approval(&f.agent, &f.run, &approval, &decision)
+                .await
+                .is_err(),
+            "{change}"
+        );
+        assert_eq!(f.producer.posts.load(Ordering::SeqCst), 0, "{change}");
+        assert!(
+            f.repo
+                .get_approval_outcome(decision.id)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(
+            f.repo
+                .approval_decision(f.run.session_id, approval.id)
+                .await
+                .unwrap()
+                .state,
+            domain::ApprovalDecisionState::Uncertain
+        );
+    }
+}
+
+#[tokio::test]
+async fn approval_outcome_http_unknown_witness_cannot_complete_or_release_claim() {
+    let Some(f) = setup(2).await else {
+        return;
+    };
+    let approval = f.approval().await;
+    let decision = f
+        .reserve_approval(&approval, domain::ApprovalChoice::Once)
+        .await;
+    let runtime = f.runtime();
+    assert!(
+        runtime
+            .resolve_original_approval(&f.agent, &f.run, &approval, &decision)
+            .await
+            .is_err()
+    );
+    tokio::time::timeout(Duration::from_secs(15), async {
+        while f.producer.reads.load(Ordering::SeqCst) == 0 {
+            sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(
+        runtime
+            .resolve_original_approval(&f.agent, &f.run, &approval, &decision)
+            .await
+            .unwrap()
+            .state,
+        domain::ApprovalDecisionState::Uncertain
+    );
+    assert!(
+        f.repo
+            .fail_undispatched_approval_decision(decision.id)
+            .await
+            .is_err()
+    );
+    assert_eq!(f.producer.posts.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn approval_outcome_http_foreign_epoch_cannot_be_adopted_and_recovery_is_get_only() {
+    let Some(f) = setup(1).await else {
+        return;
+    };
+    let approval = f.approval().await;
+    let decision = f
+        .reserve_approval(&approval, domain::ApprovalChoice::Deny)
+        .await;
+    *f.producer.fault.lock().unwrap() = Some((StatusCode::NOT_FOUND, json!({"error":"held"})));
+    let runtime = f.runtime();
+    assert!(
+        runtime
+            .resolve_original_approval(&f.agent, &f.run, &approval, &decision)
+            .await
+            .is_err()
+    );
+    let saved = f
+        .repo
+        .get_approval_outcome(decision.id)
+        .await
+        .unwrap()
+        .unwrap()
+        .context;
+    let mut foreign = f.producer.records.lock().unwrap()[&decision.id].clone();
+    foreign["store_id"] = json!(Uuid::new_v4());
+    *f.producer.fault.lock().unwrap() = Some((StatusCode::OK, foreign));
+    let reads = f.producer.reads.load(Ordering::SeqCst);
+    tokio::time::timeout(Duration::from_secs(15), async {
+        while f.producer.reads.load(Ordering::SeqCst) == reads {
+            sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(
+        f.repo
+            .approval_decision(f.run.session_id, approval.id)
+            .await
+            .unwrap()
+            .state,
+        domain::ApprovalDecisionState::Uncertain
+    );
+    *f.producer.fault.lock().unwrap() = None;
+    f.delivered(approval.id).await;
+    assert_eq!(
+        f.repo
+            .get_approval_outcome(decision.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .context,
+        saved
+    );
+    assert_eq!(f.producer.posts.load(Ordering::SeqCst), 1);
+    assert_eq!(f.producer.caps_reads.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn approval_outcome_http_db_ack_failure_keeps_hold_then_recovers_without_post() {
+    let Some(f) = setup(0).await else {
+        return;
+    };
+    let approval = f.approval().await;
+    let decision = f
+        .reserve_approval(&approval, domain::ApprovalChoice::Once)
+        .await;
+    f.db.execute_unprepared("CREATE FUNCTION fail_approval_http_ack() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+        IF NEW.action='approval.decision_delivered' THEN RAISE EXCEPTION 'owned approval ACK fault';END IF;RETURN NEW;END $$;
+        CREATE TRIGGER fail_approval_http_ack BEFORE INSERT ON audit_log FOR EACH ROW EXECUTE FUNCTION fail_approval_http_ack();").await.unwrap();
+    let runtime = f.runtime();
+    assert!(
+        runtime
+            .resolve_original_approval(&f.agent, &f.run, &approval, &decision)
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        f.repo
+            .approval_decision(f.run.session_id, approval.id)
+            .await
+            .unwrap()
+            .state,
+        domain::ApprovalDecisionState::Uncertain
+    );
+    f.db.execute_unprepared(
+        "DROP TRIGGER fail_approval_http_ack ON audit_log;DROP FUNCTION fail_approval_http_ack();",
+    )
+    .await
+    .unwrap();
+    f.delivered(approval.id).await;
+    assert_eq!(f.producer.posts.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn approval_outcome_http_late_ack_after_cancel_and_revocation_preserves_terminal_history() {
+    let Some(f) = setup(1).await else {
+        return;
+    };
+    let approval = f.approval().await;
+    let decision = f
+        .reserve_approval(&approval, domain::ApprovalChoice::Once)
+        .await;
+    *f.producer.fault.lock().unwrap() = Some((StatusCode::NOT_FOUND, json!({"error":"held"})));
+    let runtime = f.runtime();
+    assert!(
+        runtime
+            .resolve_original_approval(&f.agent, &f.run, &approval, &decision)
+            .await
+            .is_err()
+    );
+    let intent = f
+        .repo
+        .get_hermes_dispatch_intent_for_run(f.run.id)
+        .await
+        .unwrap()
+        .unwrap();
+    f.repo
+        .commit_hermes_terminal(app::HermesTerminalCommit {
+            message_id: intent.message_id,
+            run_id: f.run.id,
+            runtime_run_id: f.producer.native.clone(),
+            runtime_session_id: "control-outcome-http-session".into(),
+            state: SessionRunState::Completed,
+            body: None,
+            error: None,
+        })
+        .await
+        .unwrap();
+    f.repo
+        .resolve_runtime_approval_requests_for_run(
+            f.run.id,
+            domain::ResolveRuntimeApprovalRequest {
+                choice: "cancelled".into(),
+                resolve_all: false,
+            },
+            f.owner,
+        )
+        .await
+        .unwrap();
+    let before =
+        serde_json::to_value(f.repo.get_session_agent_run(f.run.id).await.unwrap()).unwrap();
+    f.db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE users SET is_active=false WHERE id=$1",
+        [f.owner.into()],
+    ))
+    .await
+    .unwrap();
+    *f.producer.fault.lock().unwrap() = None;
+    f.delivered(approval.id).await;
+    assert_eq!(
+        serde_json::to_value(f.repo.get_session_agent_run(f.run.id).await.unwrap()).unwrap(),
+        before
+    );
+    assert_eq!(
+        f.repo
+            .list_session_approvals(f.run.session_id)
+            .await
+            .unwrap()[0]
+            .state,
+        domain::RuntimeApprovalState::Cancelled
+    );
+    assert_eq!(f.producer.posts.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn approval_outcome_http_disabled_or_rotated_context_never_probes_or_backfills() {
+    for rotated in [false, true] {
+        let Some(mut f) = setup(1).await else {
+            return;
+        };
+        let approval = f.approval().await;
+        let decision = f
+            .reserve_approval(&approval, domain::ApprovalChoice::Once)
+            .await;
+        // Send without starting background workers, then restart with changed deployment facts.
+        let mut config = f.config.clone();
+        config.fleet.hermes_control_outcome_enabled = false;
+        let (events, _) = tokio::sync::broadcast::channel(32);
+        let disabled =
+            infra::runtime::LocalRuntimeSupervisor::new(Arc::new(config), f.repo.clone(), events);
+        assert!(
+            disabled
+                .resolve_original_approval(&f.agent, &f.run, &approval, &decision)
+                .await
+                .is_err()
+        );
+        assert_eq!(f.producer.caps_reads.load(Ordering::SeqCst), 0);
+        let origin = format!("http://127.0.0.1:{}", f.agent.api_port.unwrap());
+        let context = infra::runtime::control_outcome_wire::prepare(
+            &reqwest::Client::new(),
+            &origin,
+            &f.producer.token,
+            decision.id,
+            &f.producer.native,
+            infra::runtime::control_outcome_wire::Request::Approval {
+                request_id: "request_one",
+                choice: decision.choice,
+            },
+        )
+        .await
+        .unwrap();
+        f.repo
+            .claim_approval_outcome(decision.id, serde_json::to_value(context).unwrap())
+            .await
+            .unwrap();
+        if rotated {
+            f.config.fleet.runtime_token_secret = "rotated-approval-outcome-fixture".into();
+        } else {
+            f.config.fleet.hermes_control_outcome_enabled = false;
+        }
+        let _runtime = f.runtime();
+        sleep(Duration::from_secs(6)).await;
+        assert_eq!(f.producer.reads.load(Ordering::SeqCst), 0);
+        assert_eq!(f.producer.posts.load(Ordering::SeqCst), 0);
+        assert_eq!(f.producer.caps_reads.load(Ordering::SeqCst), 1);
+    }
+}
+
+#[tokio::test]
+async fn approval_outcome_http_normal_ack_races_original_lookup_with_one_atomic_delivery() {
+    let Some(f) = setup(3).await else {
+        return;
+    };
+    let approval = f.approval().await;
+    let decision = f
+        .reserve_approval(&approval, domain::ApprovalChoice::Once)
+        .await;
+    let runtime = f.runtime();
+    let send = runtime.resolve_original_approval(&f.agent, &f.run, &approval, &decision);
+    let release = async {
+        f.producer.started.notified().await;
+        let saved = f
+            .repo
+            .get_approval_outcome(decision.id)
+            .await
+            .unwrap()
+            .unwrap();
+        let context = serde_json::from_value(saved.context.clone()).unwrap();
+        let origin = format!("http://127.0.0.1:{}", f.agent.api_port.unwrap());
+        assert_eq!(
+            infra::runtime::control_outcome_wire::lookup(
+                &reqwest::Client::new(),
+                &context,
+                &origin,
+                &f.producer.token
+            )
+            .await
+            .unwrap(),
+            infra::runtime::control_outcome_wire::Outcome::Acknowledged(
+                infra::runtime::control_outcome_wire::Acknowledgement::ApprovalResolved
+            )
+        );
+        f.producer.release.notify_one();
+        f.repo
+            .finish_approval_outcome(decision.id, saved.context)
+            .await
+            .unwrap();
+    };
+    let (result, _) = tokio::time::timeout(Duration::from_secs(25), async {
+        tokio::join!(send, release)
+    })
+    .await
+    .unwrap();
+    assert_eq!(
+        result.unwrap().state,
+        domain::ApprovalDecisionState::Delivered
+    );
+    assert_eq!(f.producer.posts.load(Ordering::SeqCst), 1);
+    let count=f.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT count(*) AS count FROM audit_log WHERE entity_id=$1 AND action='approval.decision_delivered'",
+        [decision.id.to_string().into()])).await.unwrap().unwrap().try_get::<i64>("","count").unwrap();
+    assert_eq!(count, 1);
+}
+
+#[tokio::test]
+async fn approval_outcome_http_api_reserves_original_mode_denies_foreign_and_replay_never_sends() {
+    for bad_caps in [false, true] {
+        let Some(f) = setup(0).await else {
+            return;
+        };
+        let approval = f.approval().await;
+        f.producer.bad_caps.store(bad_caps, Ordering::SeqCst);
+        let (events, _) = tokio::sync::broadcast::channel(32);
+        let (restart_tx, _) = tokio::sync::mpsc::channel(1);
+        let ctx = Arc::new(app::AppContext::new(
+            Arc::new(f.config.clone()),
+            f.repo.clone(),
+            Arc::new(infra::FilesystemProvisioner),
+            Arc::new(f.runtime()),
+            events,
+            restart_tx,
+        ));
+        let token = ctx
+            .auth
+            .issue_tokens(&f.repo.find_user_by_id(f.owner).await.unwrap().unwrap())
+            .unwrap()
+            .response
+            .access_token;
+        let stranger=f.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT id FROM users WHERE id<>$1 AND is_active AND system_role='user' ORDER BY id LIMIT 1",
+            [f.owner.into()])).await.unwrap().unwrap().try_get::<Uuid>("","id").unwrap();
+        let stranger_token = ctx
+            .auth
+            .issue_tokens(&f.repo.find_user_by_id(stranger).await.unwrap().unwrap())
+            .unwrap()
+            .response
+            .access_token;
+        let router = Router::new()
+            .route(
+                "/api/v1/sessions/{session_id}/approvals/{approval_id}/decision",
+                get(api::routes::approvals::read).post(api::routes::approvals::decide),
+            )
+            .route_layer(axum::middleware::from_fn_with_state(
+                ctx.clone(),
+                api::middleware::require_auth,
+            ))
+            .with_state(ctx);
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!(
+            "http://{}/api/v1/sessions/{}/approvals/{}/decision",
+            listener.local_addr().unwrap(),
+            f.run.session_id,
+            approval.id
+        );
+        let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+        let body = json!({"choice":"once","idempotency_key":Uuid::new_v4().to_string()});
+        assert_eq!(
+            client
+                .post(&url)
+                .bearer_auth(&stranger_token)
+                .json(&body)
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::FORBIDDEN
+        );
+        assert!(
+            f.repo
+                .approval_decision(f.run.session_id, approval.id)
+                .await
+                .is_err()
+        );
+        let response = client
+            .post(&url)
+            .bearer_auth(&token)
+            .json(&body)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let payload = response.json::<Value>().await.unwrap();
+        for private in [
+            "context",
+            "outcome_required",
+            "submission_claimed",
+            "request_body",
+            "credential_fingerprint",
+        ] {
+            assert!(payload.get(private).is_none());
+        }
+        let decision: domain::ApprovalDecision = serde_json::from_value(payload).unwrap();
+        assert_eq!(
+            decision.state,
+            if bad_caps {
+                domain::ApprovalDecisionState::Uncertain
+            } else {
+                domain::ApprovalDecisionState::Delivered
+            }
+        );
+        let original =
+            f.db.query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT outcome_required FROM runtime_approval_decisions WHERE id=$1",
+                [decision.id.into()],
+            ))
+            .await
+            .unwrap()
+            .unwrap()
+            .try_get::<bool>("", "outcome_required")
+            .unwrap();
+        assert!(original);
+        f.producer.bad_caps.store(false, Ordering::SeqCst);
+        let calls = f.producer.caps_reads.load(Ordering::SeqCst);
+        let replay = client
+            .post(&url)
+            .bearer_auth(&token)
+            .json(&body)
+            .send()
+            .await
+            .unwrap()
+            .json::<domain::ApprovalDecision>()
+            .await
+            .unwrap();
+        assert_eq!(
+            serde_json::to_value(replay).unwrap(),
+            serde_json::to_value(&decision).unwrap()
+        );
+        assert_eq!(f.producer.caps_reads.load(Ordering::SeqCst), calls);
+        assert_eq!(
+            f.producer.posts.load(Ordering::SeqCst),
+            usize::from(!bad_caps)
+        );
+        let conflict = json!({"choice":"deny","idempotency_key":body["idempotency_key"]});
+        assert_eq!(
+            client
+                .post(&url)
+                .bearer_auth(&token)
+                .json(&conflict)
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::CONFLICT
+        );
+        assert_eq!(
+            client
+                .get(&url)
+                .bearer_auth(&stranger_token)
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::FORBIDDEN
+        );
+        server.abort();
     }
 }
 
@@ -308,22 +1004,57 @@ async fn setup_at(mode: usize, url: Option<&str>) -> Option<HttpFixture> {
         mode: AtomicUsize::new(mode),
         records: Mutex::new(HashMap::new()),
         fault: Mutex::new(None),
+        status: Mutex::new(json!({"object":"hermes.run","run_id":native,
+            "session_id":"control-outcome-http-session","status":"running"})),
         started: Notify::new(),
         release: Notify::new(),
     });
     let mut caps = hermes_protocol_fixture::capabilities();
     caps["features"]["run_steer"] = json!(true);
     caps["endpoints"]["run_steer"] = json!({"method":"POST","path":"/v1/runs/{run_id}/steer"});
-    let router = Router::new()
-        .route("/health",get(|| async { Json(json!({"status":"ok"})) }))
-        .route("/v1/capabilities",get(move || { let caps=caps.clone();async { Json(caps) } }))
-        .route("/v1/runs/{run_id}",get(move |Path(run):Path<String>| { assert_eq!(run,native);async move { Json(json!({"object":"hermes.run","run_id":run,"session_id":"control-outcome-http-session","status":"running"})) } }))
-        .route("/fleet/v1/controls/capabilities",get(|State(p):State<Arc<Producer>>,headers:HeaderMap| async move {
-            p.authenticated(&headers);p.caps_reads.fetch_add(1,Ordering::SeqCst);let mut caps=p.caps();if p.bad_caps.load(Ordering::SeqCst) { caps["single_send"]=json!(false); }Json(caps)
-        }))
-        .route("/fleet/v1/controls/lookup",get(control_lookup))
-        .route("/v1/runs/{run_id}/{operation}",post(control_post))
-        .with_state(producer.clone());
+    caps["features"]["run_approval_response"] = json!(true);
+    caps["features"]["approval_events"] = json!(true);
+    caps["endpoints"]["run_approval"] =
+        json!({"method":"POST","path":"/v1/runs/{run_id}/approval"});
+    let router =
+        Router::new()
+            .route("/health", get(|| async { Json(json!({"status":"ok"})) }))
+            .route(
+                "/v1/capabilities",
+                get(move || {
+                    let caps = caps.clone();
+                    async { Json(caps) }
+                }),
+            )
+            .route(
+                "/v1/runs/{run_id}",
+                get(
+                    |State(p): State<Arc<Producer>>,
+                     Path(run): Path<String>,
+                     headers: HeaderMap| async move {
+                        p.authenticated(&headers);
+                        assert_eq!(run, p.native);
+                        Json(p.status.lock().unwrap().clone())
+                    },
+                ),
+            )
+            .route(
+                "/fleet/v1/controls/capabilities",
+                get(
+                    |State(p): State<Arc<Producer>>, headers: HeaderMap| async move {
+                        p.authenticated(&headers);
+                        p.caps_reads.fetch_add(1, Ordering::SeqCst);
+                        let mut caps = p.caps();
+                        if p.bad_caps.load(Ordering::SeqCst) {
+                            caps["single_send"] = json!(false);
+                        }
+                        Json(caps)
+                    },
+                ),
+            )
+            .route("/fleet/v1/controls/lookup", get(control_lookup))
+            .route("/v1/runs/{run_id}/{operation}", post(control_post))
+            .with_state(producer.clone());
     let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
     let agent = repo.get_agent(id).await.unwrap();
     Some(HttpFixture {
@@ -772,6 +1503,79 @@ async fn control_outcome_http_keyset_reaches_valid_witness_after_one_hundred_inv
     assert!(first.iter().all(|row| row.receipt.id != id));
     let _runtime = f.runtime();
     f.acknowledged(id).await;
+    assert_eq!(f.producer.posts.load(Ordering::SeqCst), 0);
+    assert_eq!(f.producer.caps_reads.load(Ordering::SeqCst), 1);
+    assert!(f.producer.reads.load(Ordering::SeqCst) > 0);
+}
+
+#[tokio::test]
+#[ignore = "requires its own disposable approval keyset database"]
+async fn approval_outcome_http_keyset_reaches_original_witness_after_one_hundred_invalid_contexts()
+{
+    let url = std::env::var("FLEET_APPROVAL_OUTCOME_KEYSET_TEST_DATABASE_URL")
+        .expect("owned approval keyset database is required");
+    let db = sea_orm::Database::connect(&url).await.unwrap();
+    let empty=db.query_one(Statement::from_string(DatabaseBackend::Postgres,
+        "SELECT NOT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE') AS empty"))
+        .await.unwrap().unwrap().try_get::<bool>("","empty").unwrap();
+    assert!(
+        empty,
+        "approval keyset requires its own empty disposable database"
+    );
+    let mut candidates = Vec::new();
+    let mut highest: Option<(Uuid, domain::RuntimeApprovalRequest, HttpFixture)> = None;
+    for _ in 0..101 {
+        let f = setup_at(0, Some(&url)).await.unwrap();
+        let approval = f.approval().await;
+        let decision = f
+            .reserve_approval(&approval, domain::ApprovalChoice::Once)
+            .await;
+        let origin = format!("http://127.0.0.1:{}", f.agent.api_port.unwrap());
+        let context = infra::runtime::control_outcome_wire::prepare(
+            &reqwest::Client::new(),
+            &origin,
+            &f.producer.token,
+            decision.id,
+            &f.producer.native,
+            infra::runtime::control_outcome_wire::Request::Approval {
+                request_id: "request_one",
+                choice: decision.choice,
+            },
+        )
+        .await
+        .unwrap();
+        candidates.push((decision.id, serde_json::to_value(context).unwrap()));
+        if highest
+            .as_ref()
+            .is_none_or(|(previous, _, _)| decision.id > *previous)
+        {
+            highest = Some((decision.id, approval, f));
+        }
+    }
+    let (id, approval, f) = highest.unwrap();
+    for (candidate, mut context) in candidates {
+        if candidate != id {
+            context["capabilities"]["scope_fingerprint"] = json!("0".repeat(64));
+        }
+        assert!(
+            f.repo
+                .claim_approval_outcome(candidate, context.clone())
+                .await
+                .unwrap()
+        );
+        if candidate == id {
+            f.producer.records.lock().unwrap().insert(id,json!({"object":"fleet.hermes.controls.lookup","contract_version":1,
+                "store_id":f.producer.epoch,"scope_fingerprint":context["capabilities"]["scope_fingerprint"],"profile":"default",
+                "command_id":id,"run_id":f.producer.native,"operation":"approval","request_sha256":context["request_sha256"],
+                "state":"acknowledged","ack":{"object":"hermes.run.approval_response","run_id":f.producer.native,
+                    "request_id":"request_one","choice":"once","resolved":1}}));
+        }
+    }
+    let first = f.repo.list_approval_outcomes(None).await.unwrap();
+    assert_eq!(first.len(), 100);
+    assert!(first.iter().all(|row| row.decision.id != id));
+    let _runtime = f.runtime();
+    f.delivered(approval.id).await;
     assert_eq!(f.producer.posts.load(Ordering::SeqCst), 0);
     assert_eq!(f.producer.caps_reads.load(Ordering::SeqCst), 1);
     assert!(f.producer.reads.load(Ordering::SeqCst) > 0);

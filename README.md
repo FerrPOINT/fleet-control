@@ -5,9 +5,10 @@
 SDLC implementation is in progress, not production accepted. Current scope and
 remaining blockers: [SDLC implementation](docs/SDLC_IMPLEMENTATION.md).
 
-Original approval context/claim/ACK persistence is implemented as an internal
-additive journal, not yet connected to approval dispatch/recovery. Existing public
-approval behavior and runtime flags stay unchanged. See
+Original approval context/claim/ACK persistence now connects to the opt-in API,
+exact-byte single-send supervisor and original-context GET-only recovery. The
+default-off flag and legacy history are unchanged; actual native approval and
+installed release acceptance remain required. See
 [approval journal ADR](docs/adr/0025-original-approval-outcome-journal.md).
 
 Pinned Base package preparation is available as an operator-only configuration

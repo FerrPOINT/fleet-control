@@ -10,6 +10,20 @@ concurrent completion, late cancelled history after revocation and injected
 audit failure rollback. These are journal component tests, not native approval
 sender/recovery acceptance. Existing targeted HTTP approval tests stay unchanged.
 
+The ten `approval_outcome_http` cases in `runtime_control_outcome_http` exercise
+the actual supervisor and exact-request API/middleware with authenticated HTTP
+and PostgreSQL: once/deny concurrent sends, original body/headers before effect,
+lost ACK/new repository, preflight/legacy denial, unknown/foreign witness, injected
+DB ACK rollback, cancelled/terminal history after revocation, disabled/rotated
+worker, normal ACK/readback races, ownership, public redaction and payload conflict.
+Fixtures prove consumer behavior, not native plugin compatibility or an OS restart.
+
+`approval_outcome_http_keyset` is separately ignored by the shared suite and must
+run with its own empty `FLEET_APPROVAL_OUTCOME_KEYSET_TEST_DATABASE_URL`. Its 101
+retained original contexts put the valid UUID strictly after the first 100 invalid
+bearer scopes. The worker must settle it through original GET with zero POSTs.
+CI creates that distinct database explicitly; the ordinary suite is not this gate.
+
 `migration --test runtime_approval_outcomes` requires a separate empty disposable
 database through `FLEET_APPROVAL_OUTCOME_MIGRATION_TEST_DATABASE_URL`. It checks
 predecessor history/guard, up/down/reapply and refused nonempty downgrade. CI

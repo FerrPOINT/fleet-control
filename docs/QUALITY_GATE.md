@@ -39,10 +39,22 @@ Additional gates:
 - additive journal-time 000014 upgrade/down/reapply with original guard/history
   equality and deterministic clock-regression/nonempty-downgrade tests; provide
   `FLEET_HERMES_TIME_MIGRATION_TEST_DATABASE_URL` for its separate empty database
+- additive control-outcome 000015 and approval-outcome 000016 migrations in
+  separate disposable databases: upgrade, empty down/reapply, legacy-history
+  preservation and nonempty downgrade refusal; keep one migration per release PR
+- original approval HTTP/PG tests: exact native request and scope, one committed
+  claim before POST, concurrent replay, lost HTTP/DB ACK, atomic audit settlement,
+  late terminal history and default-off/no-legacy-fallback behavior
+- isolated `control_outcome_http_keyset` and `approval_outcome_http_keyset`
+  ignored targets with their dedicated empty PostgreSQL databases; invalid
+  historical contexts must not starve a later original GET witness
 - actual managed native `scripts/native_supervisor_live/run.py` scenarios
-  `lifecycle`, `recovery`, `controls`, `approvals`, `approval-recovery`; preserve
+  `lifecycle`, `recovery`, `controls`, `control-outcomes`, `control-restart`,
+  `approvals`, `approval-recovery`; preserve
   exact source/binary hashes and verify owned Compose cleanup. A GET snapshot
-  is not complete historical replay or unknown decision acceptance proof
+  is not complete historical replay or unknown decision acceptance proof.
+  Original approval consumer component tests do not replace pending native
+  decision ACK/Fleet-process-death acceptance through the control plugin
 - OpenAPI regenerate and diff
 - opt-in recovery source gate: original journal/scope/epoch and DB-lock expiry
   races; Base plugin Linux SQLite/auth/boundary suite; actual pinned native

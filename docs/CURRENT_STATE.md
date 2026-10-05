@@ -9,9 +9,11 @@ Original approval decisions now have internal additive000016 context/claim/ACK
 storage. Mode is fixed at reservation; legacy uncertainty is not backfilled.
 Late witnessed delivery preserves cancelled request and terminal run history;
 audit failure rolls back the whole receipt. Seven PostgreSQL cases and an
-isolated migration verify the journal boundary. Approval HTTP sender/GET worker
-are not connected yet; public behavior and installed flags are unchanged. This
-is not native decision recovery or a merge-ready claim for the whole SDLC.
+isolated migration verify the journal boundary. The opt-in API now selects
+original mode and connects exact-byte single-send/GET-only recovery. No legacy
+fallback, new epoch or repeated POST is permitted. Installed flags stay unchanged.
+Consumer evidence is recorded separately; native decision recovery and whole-SDLC
+merge readiness remain unproven until their acceptance gates pass.
 See [approval journal ADR](adr/0025-original-approval-outcome-journal.md).
 
 Historical SIGKILL-only packet `04df310` has actual Fleet OS-process-death evidence:

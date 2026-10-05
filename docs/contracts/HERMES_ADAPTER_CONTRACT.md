@@ -3,8 +3,9 @@
 Additive000016 implements original approval context/claim and atomic historical
 ACK completion, separate from the legacy pending-request lifecycle. Context is
 fixed before a possible effect; old uncertain decisions never acquire it later.
-The adapter does not yet call these methods for approval POST/GET recovery.
-No public behavior or installed enablement changes; native approval recovery
+The opt-in adapter now calls these methods for exact-byte approval POST and
+original-context GET recovery. Legacy behavior and installed flags are unchanged;
+native approval recovery
 remains a required acceptance gate.
 
 The [control outcome extension](HERMES_CONTROL_OUTCOME_V1.md) now has a Rust
@@ -16,8 +17,9 @@ or task authority is added. Private context never appears
 in public receipts, and positive ACK does not erase an observed terminal fact.
 
 Current pending approval readback is GET-only and limited to the original
-accepted pinned free chat; historical/tool replay and unknown decision recovery
-are not implied. See [ADR0022](../adr/0022-current-native-approval-snapshot.md).
+accepted pinned free chat; it alone cannot prove historical decision delivery.
+That separate default-off consumer requires the original witness, not a current
+pending request or terminal run. See [ADR0022](../adr/0022-current-native-approval-snapshot.md).
 Additive000014 floors logical journal progress after the existing guard while
 preserving original horizon/key/permit. It is not native retention or trusted
 clock proof; see [ADR0023](../adr/0023-logical-journal-progress-time.md).

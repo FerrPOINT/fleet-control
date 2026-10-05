@@ -82,10 +82,16 @@ pub async fn decide(
             Err(error) => return Err(error),
         }
     }
-    let reserved = ctx
-        .repo
-        .reserve_approval_decision(session, approval, user.id, req)
-        .await?;
+    let original = ctx.config.fleet.hermes_control_outcome_enabled;
+    let reserved = if original {
+        ctx.repo
+            .reserve_original_approval_decision(session, approval, user.id, req)
+            .await?
+    } else {
+        ctx.repo
+            .reserve_approval_decision(session, approval, user.id, req)
+            .await?
+    };
     if !reserved.dispatch {
         return Ok(Json(reserved.decision));
     }
@@ -113,7 +119,16 @@ pub async fn decide(
             .await?;
         return Err(error);
     }
-    // The runtime does not expose idempotent approval commands. Lost acceptance stays
+    if original {
+        // No legacy fallback. Lost HTTP or DB acknowledgement keeps the original hold.
+        return Ok(Json(
+            ctx.runtime
+                .resolve_original_approval(&agent, &run, &reserved.approval, &reserved.decision)
+                .await
+                .unwrap_or(reserved.decision),
+        ));
+    }
+    // Unextended runtimes do not expose an original decision witness. Lost acceptance stays
     // uncertain; neither reconnect nor a repeated POST is permission to send again.
     if ctx
         .runtime

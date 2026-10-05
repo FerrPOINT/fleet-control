@@ -24,6 +24,7 @@ use tokio::{
 use uuid::Uuid;
 mod acceptance_readback;
 mod activation_journal;
+mod approval_outcome;
 mod approval_snapshot;
 mod control_outcome_readback;
 #[doc(hidden)]
@@ -97,6 +98,7 @@ impl LocalRuntimeSupervisor {
         supervisor.spawn_message_dispatcher();
         supervisor.spawn_acceptance_readback();
         supervisor.spawn_control_outcome_readback();
+        supervisor.spawn_approval_outcome_readback();
         supervisor.spawn_prepared_dispatch();
         supervisor.spawn_config_activator();
         supervisor
@@ -2257,6 +2259,15 @@ impl LocalRuntimeSupervisor {
 
 #[async_trait]
 impl RuntimeSupervisor for LocalRuntimeSupervisor {
+    async fn resolve_original_approval(
+        &self,
+        agent: &Agent,
+        run: &SessionAgentRun,
+        approval: &domain::RuntimeApprovalRequest,
+        decision: &domain::ApprovalDecision,
+    ) -> Result<domain::ApprovalDecision, AppError> {
+        approval_outcome::send(self, agent, run, approval, decision).await
+    }
     async fn resolve_targeted_approval(
         &self,
         agent: &Agent,

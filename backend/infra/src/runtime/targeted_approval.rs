@@ -9,6 +9,51 @@ pub(super) async fn resolve(
     approval: &RuntimeApprovalRequest,
     choice: ApprovalChoice,
 ) -> Result<(), AppError> {
+    if supervisor.config.fleet.hermes_control_outcome_enabled {
+        return Err(AppError::Unavailable(
+            "legacy approval dispatch is disabled in original mode".into(),
+        ));
+    }
+    let context = pending(supervisor, agent, run, approval).await?;
+    let request_id = approval.runtime_approval_id.as_deref().unwrap();
+    // No retry: losing an exact-action ACK cannot authorize another decision.
+    let response = supervisor
+        .client
+        .post(format!(
+            "{}/v1/runs/{}/approval",
+            context.base, approval.runtime_run_id
+        ))
+        .timeout(Duration::from_secs(10))
+        .bearer_auth(&context.token)
+        .header(header::ACCEPT_ENCODING, "identity")
+        .json(&json!({"choice":choice,"request_id":request_id,"resolve_all":false}))
+        .send()
+        .await
+        .map_err(|_| AppError::Unavailable("approval acceptance is unknown".into()))?;
+    if !response
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|mime| {
+            mime.split(';')
+                .next()
+                .is_some_and(|mime| mime.trim().eq_ignore_ascii_case("application/json"))
+        })
+    {
+        return Err(AppError::Unavailable(
+            "approval acknowledgement MIME does not match".into(),
+        ));
+    }
+    let payload = hermes_wire::read_json(response, StatusCode::OK, 64 * 1024).await?;
+    validate_ack(&payload, &approval.runtime_run_id, request_id, choice)
+}
+
+pub(super) async fn pending(
+    supervisor: &LocalRuntimeSupervisor,
+    agent: &Agent,
+    run: &SessionAgentRun,
+    approval: &RuntimeApprovalRequest,
+) -> Result<native_context::AcceptedContext, AppError> {
     let request_id = approval
         .runtime_approval_id
         .as_deref()
@@ -52,36 +97,7 @@ pub(super) async fn resolve(
         ));
     }
     verify_pending(&status, &approval.runtime_run_id, request_id)?;
-    // No retry: losing an exact-action ACK cannot authorize another decision.
-    let response = supervisor
-        .client
-        .post(format!(
-            "{}/v1/runs/{}/approval",
-            context.base, approval.runtime_run_id
-        ))
-        .timeout(Duration::from_secs(10))
-        .bearer_auth(&context.token)
-        .header(header::ACCEPT_ENCODING, "identity")
-        .json(&json!({"choice":choice,"request_id":request_id,"resolve_all":false}))
-        .send()
-        .await
-        .map_err(|_| AppError::Unavailable("approval acceptance is unknown".into()))?;
-    if !response
-        .headers()
-        .get(header::CONTENT_TYPE)
-        .and_then(|value| value.to_str().ok())
-        .is_some_and(|mime| {
-            mime.split(';')
-                .next()
-                .is_some_and(|mime| mime.trim().eq_ignore_ascii_case("application/json"))
-        })
-    {
-        return Err(AppError::Unavailable(
-            "approval acknowledgement MIME does not match".into(),
-        ));
-    }
-    let payload = hermes_wire::read_json(response, StatusCode::OK, 64 * 1024).await?;
-    validate_ack(&payload, &approval.runtime_run_id, request_id, choice)
+    Ok(context)
 }
 
 pub(super) fn verify_capability(payload: &Value) -> Result<(), AppError> {

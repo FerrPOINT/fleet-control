@@ -550,6 +550,29 @@ pub(crate) async fn send(
     if context.operation == Operation::Approval {
         return Err(unavailable());
     }
+    post(client, context, origin, token).await
+}
+
+/// Approval callers must first commit the separate approval journal's single-use claim.
+pub(crate) async fn send_approval(
+    client: &Client,
+    context: &Context,
+    origin: &str,
+    token: &str,
+) -> Result<Acknowledgement, AppError> {
+    context.validate(origin, token)?;
+    if context.operation != Operation::Approval {
+        return Err(unavailable());
+    }
+    post(client, context, origin, token).await
+}
+
+async fn post(
+    client: &Client,
+    context: &Context,
+    origin: &str,
+    token: &str,
+) -> Result<Acknowledgement, AppError> {
     let response = client
         .post(format!(
             "{origin}/v1/runs/{}/{}",

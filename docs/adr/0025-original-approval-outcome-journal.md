@@ -2,8 +2,8 @@
 
 ## Status
 
-Implemented internal journal. Approval HTTP sender/GET worker, actual native
-decision recovery, combined extensions and installed release remain pending.
+Implemented internal journal and opt-in approval HTTP sender/GET worker. Actual
+native decision recovery, combined extensions and installed release remain pending.
 
 ## Context
 
@@ -27,10 +27,12 @@ nonempty downgrade refuses deletion.
 
 ## Consequences
 
-The journal enables a future GET-only consumer but is not that consumer. Internal
+The connected consumer verifies the exact pending native request before claim,
+sends saved bytes/UUID/epoch once and recovers only original-context GET witnesses.
+The flag is default-off; opted-in preflight never falls back to legacy POST. Internal
 completion must be called only after closed native witness verification; it
 grants no new runtime authority after revocation. Unknown effect without durable
-native ACK remains held. Public legacy behavior and installed flags stay unchanged.
+native ACK remains held. Legacy behavior and installed flags stay unchanged.
 
 ## Alternatives
 
