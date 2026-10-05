@@ -1,0 +1,44 @@
+# ADR 0024: Native Control Outcome Witness
+
+## Status
+
+Producer/native protocol implemented and tested. Fleet consumer, native positive
+approval and installed rollout pending; automatic task controls remain denied.
+
+## Context
+
+A lost steer/stop/approval reply may follow a real side effect. Terminal run
+status cannot prove whether guidance or a particular decision was accepted.
+The existing Fleet ledger correctly holds uncertainty but native Hermes does
+not provide original-command readback. Fleet must not edit runtime databases.
+
+## Decision
+
+Use an explicit Base-owned native platform plugin. It reserves immutable
+scope/key/run/operation/raw-body hash before one handler and stores only a
+validated native ACK before returning HTTP. Separate authenticated GET observes
+the original epoch and command without dispatch. Producer storage has private
+file ownership, SQLite durability, continuity checks and immutable history.
+Missing/uncertain replies never grant retry. No backfill for legacy commands.
+Fleet must preserve original producer context transactionally before submission
+and reconcile only after exact GET validation; this consumer packet is pending.
+
+## Consequences
+
+Transport loss after durable ACK becomes recoverable without duplicate effects.
+Crash between effect and ACK remains a permanent unknown hold because native
+in-memory effects and SQLite do not share a transaction. Operator reconciliation,
+store restore/rotation and OS containment remain mandatory separate work.
+ACK is not tool completion, safe process stop or success of an SDLC stage.
+The plugin must remain disabled until a compatible Fleet consumer is verified.
+
+## Alternatives
+
+- Blind POST replay: duplicate guidance/decisions, rejected.
+- Derive success from terminal state or absent pending approval: indirect,
+  rejected.
+- Fleet writes Hermes SQLite: ownership/security violation, rejected.
+- Patch native Hermes handlers: prototype is read-only; use the supported
+  platform hook instead.
+
+See [wire contract](../contracts/HERMES_CONTROL_OUTCOME_V1.md).

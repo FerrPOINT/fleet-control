@@ -2,6 +2,12 @@
 
 ## Native Run Controls
 
+The new opt-in Base [control outcome producer](contracts/HERMES_CONTROL_OUTCOME_V1.md)
+records the original command before one native handler and exact ACK before
+transport. GET-only outcomes survive producer restart; missing/uncertain never
+authorize another effect. Production Fleet consumer integration is still
+required. Do not enable the plugin on installed agents or retrofit old receipts.
+
 The [control profile](contracts/HERMES_RUN_CONTROL_V1.md) separates acknowledgement
 from terminal proof. Stop/steer require fresh Fleet/native identity, original
 accepted journal/origin/credential context and advertised native capabilities.
@@ -19,8 +25,9 @@ fresh capabilities and GET verify the waiting exact request in the pinned native
 session before POST. Legacy/task context cannot substitute for admission.
 ACK requires exact200, JSON MIME, identity encoding and64KiB/ten-second bounds.
 A reserved preflight hold stays uncertain without automatic resend. This does
-not attest loaded configuration generation. Waiting-approval crash/outcome
-recovery, installed approval acceptance and safe process-tree stop remain gates.
+not attest loaded configuration generation. Current waiting-request GET recovery
+is implemented separately; historical approval/unknown-decision recovery,
+installed approval acceptance and safe process-tree stop remain gates.
 
 ## Bounded Hermes Stream
 

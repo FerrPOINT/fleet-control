@@ -70,6 +70,12 @@ Native per-command acceptance lookup and safe cancellation of abandoned reserved
 commands are not implemented by this ledger; final source/native/CI evidence must
 be read separately in the verification ledger.
 
+An opt-in Base [control outcome producer](HERMES_CONTROL_OUTCOME_V1.md) now
+provides a separate single-send ACK lookup contract. Production Fleet has not
+yet persisted its original epoch/raw-body context or integrated that readback.
+Do not enable the producer on installed Fleet, upgrade historical intents into
+witnesses, or treat native-only acceptance as consumer recovery.
+
 ## Approvals And Phase 2
 
 Run-wide approval is retired at both public API and adapter boundary. Never use
@@ -91,7 +97,9 @@ HTTP200/MIME/identity/64KiB/ten-second bounds apply to the exact native ACK.
 The decision ledger is already uncertain before preflight; a failure preserves
 that receipt without a decision POST/retry. Future availability or terminal run status cannot
 retroactively authorize a resend or convert uncertainty into delivery. This
-profile does not attest loaded config generation or recover a waiting approval
-after a Fleet crash. Native/component evidence and remaining gates stay separate.
+profile does not attest loaded config generation or recover unknown decision
+outcomes. Current pending-request GET recovery is covered separately by
+[ADR0022](../adr/0022-current-native-approval-snapshot.md), not inferred from an
+ACK. Native/component evidence and remaining gates stay separate.
 Java chat/control remains phase2. Native run controls do not terminate the gateway
 or attest operating-system isolation and safe stop.

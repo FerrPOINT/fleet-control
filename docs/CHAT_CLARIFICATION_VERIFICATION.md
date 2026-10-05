@@ -2176,3 +2176,62 @@ authority. Sources are read-only; snapshots were not overwritten to mask drift.
 Fleet snapshot parity alone is not cross-service release compatibility. Actual
 admission/structured tools/answer delivery/checkpoint/rebind and SDLC rollout
 remain closed until compatible producer heads and live integration are verified.
+
+## Native Control Outcome Producer: 5 October 2026
+
+Base source head `a48e53ee37a5a38b189f8a9cce84686d18fc5c83` is published in its
+existing integration branch; exact remote SHA is verified. Producer source
+bytes are attested below; no SDK pin or installed image was changed.
+
+Base's explicit control plugin reserves the original scope/key/run/operation/raw
+SHA before one native handler and commits only exact successful ACKs before
+transport. Private producer-owned `fleet_controls.db` is not Hermes SessionDB.
+Unknown handler/commit/crash outcomes remain held. Duplicate POST never invokes
+the handler; original-context GET returns acknowledged or uncertain without an
+effect. Native auth-first/default bearer and strict once/deny decision scope apply.
+See [wire](contracts/HERMES_CONTROL_OUTCOME_V1.md) and ADR0024.
+
+Final native exec63552/projectc111ac20a3d4 exits0: two real APIServerAdapter/AIAgent
+cases,50.093s. A proxy consumes an actual successful steer/interrupt response
+and closes without sending it downstream; original-key GET verifies exact ACK
+before/after gateway restart, one model inference and no handler replay.
+A native unknown run gives a durable uncertain hold before/after restart;
+changed payload is409 and no model work occurs. Model is deterministic loopback.
+Expected model fixture BrokenPipe after hard interrupt remains in the log.
+
+Clean pinned native bbaf7af archive SHA256
+`571fba4903d9094ade7f6d0ef5dfcee8c068e50f62e65f46611ec3ad65697e02`;
+non-root immutable dependency imageaeb97055 unchanged. Completion log
+`171d940574783c28fc79f6430a71442af2751a2975dd0f4fe16ac9d1ea59e3f6`.
+Producer plugin.py `261904c4db1b2833ef2e14f2a884caad198bbb3847dbf3e2587770e679f62e37`;
+store.py `50f3d591f33d793ac4fca7256dd54e41785911d8d131429b39ea5ac0ce7b5b48`;
+probe `9fd5c4146c8cb9687659e490f98879347f0d58f72cc115abf9f2156b4aba6b17`;
+runner `a147aff33e1aa4631b9b4105b0e4b2962a850e0c45418cb54475af2cd7034b0a`;
+native helper `243ae5cc57d9ecb3fde3da4fa114da9a294bb53d0daddcda6ddfd29c7bcfbbe7`.
+Every executed plugin/harness hash matches current bytes. Cleanup0, independent
+exact-project ps empty. Earlier source checks (discarded reply and before bounded
+clone) passed but are not substituted for this final actual transport-loss gate.
+
+Final Linux component project17cfc8925837 passes21 cases with no skips:
+single/concurrent claim, exact replay/conflict, ACK commit failure, restart,
+foreign/moved/reset schema/epoch, capacity, Unix0600/link guard, auth/no-key,
+bounded body/chunked clone and exact-action approval packets. Component approval
+ACK checks are not a positive native terminal-tool decision through the plugin.
+The Fleet host protocol harness passes17 cases; no Rust/public API/schema/UI or
+SDK9408802 change, and the preceding397/235 gates were not rerun for QA/docs only.
+
+Base's mandatory Rust1.88 fmt/strict all-target Clippy and63 tests with disposable
+PG pass (exec7549/project33cf8c077554); two live JWKS/three doc examples ignored.
+Completion log `2ba55bf6dd0657cdb17eedbc602ee913936e7e4e6a720c651df89888daf40bf8`.
+Node22 typecheck/lint/13 Node+83 Vitest, README/hub/unchanged mirror gates pass.
+Existing recovery plugin runs56 host tests with one Windows symlink skip.
+Owned Linux unit/Base/native QA cleanups and independent ps are empty; shared
+caches and accepted images/volumes/secrets remain untouched.
+
+Production Fleet does not yet persist producer epoch/raw body context, send the
+headers or reconcile outcomes into receipt/audit/events. Never enable this plugin
+on installed Fleet or retrofit historical intents. Consumer integration, combined
+extensions, positive native approval, image build/installed acceptance, original
+task/PM admission, OS containment/descendant stop, producer compatibility and
+ordered release/exact-head CI still remain. No new browser/screenshots or full
+SDLC merge readiness is claimed; PR47/PR140 and their pins remain unchanged.

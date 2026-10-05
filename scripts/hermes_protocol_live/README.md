@@ -1,5 +1,19 @@
 # Native Hermes Protocol Acceptance
 
+## Control Outcome Producer
+
+Explicit `--scenario controls --control-plugin-root <Base/deploy/hermes-control-plugin>`
+selects the new producer, never installs it into an accepted runtime. The two
+cases run real native API/AIAgent steer/interrupt, drop their actual HTTP ACKs,
+read original-key outcomes after gateway restart, and retain a rejected/unknown
+command without reexecuting its handler. Source/plugin/helper/probe/log hashes
+and exact Compose cleanup are recorded. Native source and dependency image stay
+pinned; the model is loopback. This is not production Fleet outcome recovery,
+positive native tool approval, CLI lifecycle, central identity or safe OS stop.
+See [wire v1](../../docs/contracts/HERMES_CONTROL_OUTCOME_V1.md).
+
+## Baseline Protocol
+
 This opt-in source gate runs the actual pinned Hermes `APIServerAdapter`, real
 `AIAgent`, native auth/profile middleware and SQLite in separate Python processes.
 Only the upstream model is a deterministic, loopback OpenAI fixture. It does not

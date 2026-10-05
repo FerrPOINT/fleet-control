@@ -195,7 +195,7 @@ async def serve(home, port):
 
 
 class NativeProcess:
-    def __init__(self, home, model_port, *, recovery_plugin=None):
+    def __init__(self, home, model_port, *, recovery_plugin=None, control_plugin=None):
         self.home = home
         home.mkdir()
         self.token = secrets.token_hex(32)
@@ -213,12 +213,16 @@ class NativeProcess:
             "telemetry": {"shared_metrics": {"enabled": False}},
             "agent": {"max_turns": 2},
         }
-        if recovery_plugin is not None:
-            plugin = home / "plugins" / "fleet-hermes-recovery"
+        if recovery_plugin is not None and control_plugin is not None:
+            raise ValueError("native fixture selects one producer extension")
+        selected_plugin = recovery_plugin if recovery_plugin is not None else control_plugin
+        if selected_plugin is not None:
+            plugin_name = "fleet-hermes-recovery" if recovery_plugin is not None else "fleet-hermes-controls"
+            plugin = home / "plugins" / plugin_name
             plugin.mkdir(parents=True)
             for name in ("__init__.py", "plugin.py", "store.py", "plugin.yaml"):
-                shutil.copyfile(recovery_plugin / name, plugin / name)
-            config["plugins"] = {"enabled": ["fleet-hermes-recovery"]}
+                shutil.copyfile(selected_plugin / name, plugin / name)
+            config["plugins"] = {"enabled": [plugin_name]}
         (home / "config.yaml").write_text(json.dumps(config), encoding="utf-8")
         (home / "SOUL.md").write_text("Answer the fixture prompt without using tools.\n", encoding="utf-8")
         self.workspace = home / "workspace"

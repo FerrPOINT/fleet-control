@@ -43,6 +43,32 @@ def archive(name, *, symlink=False):
 
 
 class HarnessSafetyTests(unittest.TestCase):
+    def test_controls_requires_complete_explicit_plugin_before_docker(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for extra in [
+                ['--scenario', 'controls'],
+                ['--scenario', 'controls', '--control-plugin-root', directory],
+                ['--control-plugin-root', directory],
+            ]:
+                with self.subTest(arguments=extra), \
+                     patch.object(sys, 'argv', ['run.py', '--hermes', directory, '--image', 'fixture', *extra]), \
+                     patch.object(runner.subprocess, 'check_output') as docker, self.assertRaises(SystemExit):
+                    runner.main()
+                docker.assert_not_called()
+
+    def test_control_fixture_is_explicit_and_does_not_enable_recovery_plugin(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plugin = root / 'plugin'
+            plugin.mkdir()
+            for name in ('__init__.py', 'plugin.py', 'store.py', 'plugin.yaml'):
+                (plugin / name).write_bytes(b'fixture-only')
+            process = probe.NativeProcess(root / 'home', 12345, control_plugin=plugin)
+            config = json.loads((process.home / 'config.yaml').read_text())
+            self.assertEqual(config['plugins']['enabled'], ['fleet-hermes-controls'])
+            self.assertTrue((process.home / 'plugins/fleet-hermes-controls/plugin.py').is_file())
+            self.assertFalse((process.home / 'plugins/fleet-hermes-recovery').exists())
+
     def test_native_yaml_exception_is_not_hidden_by_env_fallback(self):
         def failing_loader(_home, _data):
             raise TypeError('synthetic malformed native extra')

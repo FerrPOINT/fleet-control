@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Add native protocol QA for the opt-in Base control-outcome producer: real
+  steer/interrupt ACK transport loss, original-key GET and gateway restart.
+  Document the producer contract; production Fleet consumer remains pending.
+
 - Persist Linux managed-file directory changes before acknowledging config
   apply/rollback: rename/unlink parent barriers and new directory ancestors.
   Failed persistence retains private journal/drain and cannot promote effective
