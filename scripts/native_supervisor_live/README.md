@@ -115,6 +115,25 @@ neither replay nor terminal state may authorize a second decision POST.
 This is local human HTTP authentication, not central JWKS/PAT, fenced task
 admission, recovery of a waiting approval after a Fleet crash or safe OS stop.
 
+## Original Approval Decision Outcomes
+
+`--scenario approval-outcomes` selects
+`native_approvals::managed_native_original_approval_outcomes_recover_lost_http_ack`.
+It reuses the real terminal guard/owner HTTP scenario with the exact committed
+four-file Base control plugin and the default-off Fleet consumer enabled only
+inside its disposable agent. The legacy `approvals` scenario remains separate.
+
+The observer closes the actual ACK transport and holds only the original GET
+witness. While that GET is held, completion of the native run must leave the
+decision uncertain. Releasing the hold must settle it by original-context GET,
+not another POST or terminal inference. The test checks original decision UUID,
+store epoch, exact request hash, once/deny file modes, one POST/native ACK/audit,
+unchanged context/dispatch/terminal timestamp and replay/conflict behavior.
+It does not substitute a fake approval request, handler or witness. This is not
+Fleet OS-process death, combined recovery extensions, task/PM admission or safe
+descendant stop. Preserve actual evidence after running it; source alone is not
+accepted runtime behavior.
+
 ## Prerequisites
 
 - Clean Hermes source at `bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3`.
@@ -130,7 +149,7 @@ admission, recovery of a waiting approval after a Fleet crash or safe OS stop.
   copied from its exact committed Git blob, not mutable worktree content.
 - For `recovery`, that same committed revision must include the complete
   `deploy/hermes-recovery-plugin` inventory. Missing files fail before Docker starts.
-- For `control-outcomes` and `control-restart`, it must include the complete four-file
+- For `control-outcomes`, `control-restart` and `approval-outcomes`, it must include the complete four-file
   `deploy/hermes-control-plugin` inventory. The fault observer stays in QA and is
   never copied into accepted runtime agents.
 - An already-built Base Hermes dependency image with the matching revision label

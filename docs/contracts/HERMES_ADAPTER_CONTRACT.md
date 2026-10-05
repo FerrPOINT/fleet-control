@@ -4,9 +4,10 @@ Additive000016 implements original approval context/claim and atomic historical
 ACK completion, separate from the legacy pending-request lifecycle. Context is
 fixed before a possible effect; old uncertain decisions never acquire it later.
 The opt-in adapter now calls these methods for exact-byte approval POST and
-original-context GET recovery. Legacy behavior and installed flags are unchanged;
-native approval recovery
-remains a required acceptance gate.
+original-context GET recovery. Legacy behavior and installed flags are unchanged.
+The native `approval-outcomes` case verifies once/deny and lost-ACK GET recovery
+through the committed control plugin. Approval Fleet OS-death, combined extensions
+and installed release remain required acceptance gates.
 
 The [control outcome extension](HERMES_CONTROL_OUTCOME_V1.md) now has a Rust
 wire-consumer with closed capability/context/ACK validation and an

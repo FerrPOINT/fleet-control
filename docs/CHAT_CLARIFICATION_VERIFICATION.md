@@ -1,5 +1,78 @@
 # Chat Clarification Verification
 
+## Native Original Approval Outcomes (5 October 2026)
+
+Published Fleet consumer baseline
+`9576201d03031b6c5ded78c965d8fea3578e5a23` is verified on its remote integration
+branch. This new packet changes native tests/harness/docs only, not runtime
+code, public API, migrations, SDK9408802, Base producer or accepted runtime flags.
+The common approval scenario retains the legacy case and adds the distinct
+`--scenario approval-outcomes` with committed Base control plugin inventory.
+
+Canonical project `sdlc-qa-fleet-native-3eca3eb7b248` PASS25.54s: actual Hermes
+terminal guard emits the request, Fleet owner JWT HTTP sends once/deny, observed
+file permissions match each decision and one exact POST/native ACK/audit exists
+per decision UUID. The QA-only observer closes the real lost HTTP ACK and holds
+original GET. Native terminal completion leaves the receipt uncertain; releasing
+the hold settles it through the original GET with no second POST, context/dispatch
+change or terminal timestamp mutation. Replay returns the same decision and
+changed payload conflicts. The deterministic loopback model is the only inference
+fixture, not a Hermes handler, approval, native effect or witness substitute.
+
+Preflight verifies all13770 exact Hermes source files and four committed Base
+control files from a1aeaec83d92afbbd9579b932ea205b3d42dcf79. Native binary SHA256
+`5a5a0c98a956e5cdde9901af3a7f2d2afa408f5747cc19c0e6661f840e8a868a`;
+native log SHA256
+`adf67133224aa894b812d0a174bbf0fc6a93af97cde808b93bf87d4a9f4d5084`.
+Exact own cleanup exits0, independent Compose ps is empty and both own image
+aliases are removed. Existing dependency image/shared caches/accepted resources
+are preserved. Native build fmt/all-target check/strict native-test Clippy PASS.
+
+An initial compile project1db270f95fa6 failed because the test attempted to clone
+the mock-enabled non-Clone SeaORM connection. It was corrected to an independent
+connection, with no production/assertion/deadline changes. Finally cleanup0 and
+independently empty ps are verified for that failed project.
+Failed compile log SHA256:
+`8681fbdef494eef79043db752546d584b82c3b9c490c1c6e7bbd5782f45c127d`.
+Subsequent project
+59c621c85382 passes fmt/all-target check and10 HTTP/PG consumer regressions,
+with exact cleanup0/independent empty ps. Its log SHA256:
+`85b9eda61de969e4c9f6f4d8e07b89d64efcd954273b2ee512dbc008cfac0571`.
+This is a focused regression, not a recount of the published450-case gate.
+
+Three separate native regressions also PASS on the same binary/current source:
+legacy approvals projectb497ec9b0db1 (23.46s), current waiting approval recovery
+project3dfc2f186b8d (32.05s), and control SIGKILL project4ea1a3a025ef (31.95s).
+The latter confirms two SIGKILLs/three Fleet PIDs for steer/stop, not approvals.
+Every project has cleanup0, independently empty exact Compose ps and removed own
+source/dependency aliases. Native log hashes:
+
+| Scenario | SHA256 |
+| --- | --- |
+| `approvals` | `69457684eea6ffd35fc55a21f403c9a103d4a5e68b9f369af41cb6734378f656` |
+| `approval-recovery` | `470e0cb46861e1aeaaecafae545d99b92cac9f086a7885e28a6ac6eb8e04329d` |
+| `control-restart` | `9ad2b57066821cb84d34232beaffde51e113167129ea13670e6d39708f5629da` |
+
+Final raw native source/harness SHA256:
+
+| Path | SHA256 |
+| --- | --- |
+| `backend/infra/tests/support/native_approvals.rs` | `717990c3f18b254df1a7c6d3e8c868fe7f448e3d37f02f122b9c200756d15c82` |
+| `scripts/native_supervisor_live/run.py` | `6f10f8fd91de1266bbe6238a72195e65ac58593e40f28064cbbafe518b9c1c0d` |
+| `scripts/native_supervisor_live/preflight.py` | `4e486f38f5f32151be3ddd3a82a79423a863bb966af1a0f7981fff3fe823ae5d` |
+| `scripts/native_supervisor_live/approval_fault_plugin.py` | `e5623b7b26b68ca20d666e5b86ff8c5ef1c1cd41195d4ccf478c819a9d62eb52` |
+| `scripts/native_supervisor_live/test_harness.py` | `011b1790679a5fcdcac1bdb631a56acea9a1ce841989e80312b5654f5fe283a8` |
+
+Host36 harness and3 README cases, README/112 Markdown links, existing135 screenshot
+hashes and9/3 fixture manifests PASS. No new UI capture/browser acceptance or
+rerun of the earlier450-case component gate is claimed by this test-only packet.
+Post-cleanup global audit: desktop48/sdlc2-runner0 checked with no violations;
+sdlc1-runner unavailable, complete=false/exit1. This is distinct from exact own
+cleanup; the previously observed foreign journal violation is absent now.
+Approval Fleet OS-death, combined extensions, loaded generation/safe descendants,
+task/PM/production Chats/Forge and ordered exact-head release remain full-goal gates.
+This case does not declare the whole SDLC merge-ready or enable installed runtime.
+
 ## Original Approval Outcome Consumer (5 October 2026)
 
 Baseline journal packet `317c326f3323d9dac35ea808c279a74ca29f2b0e` is published

@@ -29,6 +29,16 @@ database through `FLEET_APPROVAL_OUTCOME_MIGRATION_TEST_DATABASE_URL`. It checks
 predecessor history/guard, up/down/reapply and refused nonempty downgrade. CI
 explicitly creates that database; a missing URL/early return is not PG acceptance.
 
+The separate canonical native `--scenario approval-outcomes` runs actual Hermes
+terminal guards and owner-authenticated Fleet HTTP decisions with the committed
+Base control plugin. It checks once/deny effects, one POST/native ACK/audit per
+decision UUID, saved raw hash/store epoch, lost real HTTP ACK held through native
+terminal completion, original GET recovery and unchanged context/history/replay.
+This is not the synthetic HTTP suite, approval Fleet OS-death or a stage receipt.
+Run legacy `approvals`, current `approval-recovery` and `control-restart` separately
+as regressions when changing the common native observer/test helper. Exact
+source/binary/log/cleanup evidence belongs in the verification ledger.
+
 ## Exact Approval Context And Delivery Lock Order
 
 `runtime_targeted_approval` uses journaled accepted runs, authenticated bounded

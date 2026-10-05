@@ -77,6 +77,16 @@ async fn approval_inference(
 #[tokio::test]
 #[ignore = "requires exact native Hermes image and disposable owned PostgreSQL/agent roots"]
 async fn managed_native_approval_decisions_are_exact_once_and_unknown_ack_is_held() {
+    native_approval_scenario(false).await;
+}
+
+#[tokio::test]
+#[ignore = "requires exact native Hermes/control plugin and disposable owned PostgreSQL/agent roots"]
+async fn managed_native_original_approval_outcomes_recover_lost_http_ack() {
+    native_approval_scenario(true).await;
+}
+
+async fn native_approval_scenario(outcomes: bool) {
     let db = native_database().await;
     let owner = Uuid::new_v4();
     let stranger = Uuid::new_v4();
@@ -86,6 +96,9 @@ async fn managed_native_approval_decisions_are_exact_once_and_unknown_ack_is_hel
              VALUES($1,$2,$3,'Native approval owner','disabled',false,'user')",
             [id.into(),format!("{id}@example.test").into(),id.to_string().into()])).await.unwrap();
     }
+    let audit_db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
     let repo = Arc::new(PostgresFleetRepository::new(db));
     repo.ensure_runtime_templates().await.unwrap();
     let model = Arc::new(ApprovalModel::default());
@@ -103,6 +116,7 @@ async fn managed_native_approval_decisions_are_exact_once_and_unknown_ack_is_hel
     config.fleet.agent_port_base = 29400;
     config.fleet.agent_port_stride = 5;
     config.fleet.project_workflow_url = None;
+    config.fleet.hermes_control_outcome_enabled = outcomes;
     let config = Arc::new(config);
     let root = Path::new("/tmp/fleet-native-supervisor/approval-fault");
     tokio::fs::create_dir(root).await.unwrap();
@@ -128,6 +142,20 @@ async fn managed_native_approval_decisions_are_exact_once_and_unknown_ack_is_hel
     desired.config_json["platform_toolsets"]["api_server"] = json!(["terminal"]);
     desired.config_json["approvals"] = json!({"mode":"manual","timeout":120});
     desired.config_json["plugins"] = json!({"enabled":["fleet-native-approval-observer"]});
+    if outcomes {
+        let controls = Path::new(&agent.paths.config).join("plugins/fleet-hermes-controls");
+        tokio::fs::create_dir_all(&controls).await.unwrap();
+        for name in ["__init__.py", "plugin.py", "store.py", "plugin.yaml"] {
+            tokio::fs::copy(
+                Path::new("/qa/control-plugin").join(name),
+                controls.join(name),
+            )
+            .await
+            .unwrap();
+        }
+        desired.config_json["plugins"] =
+            json!({"enabled":["fleet-hermes-controls","fleet-native-approval-observer"]});
+    }
     desired.env_json["TERMINAL_ENV"] = json!("local");
     desired.env_json["TERMINAL_CWD"] = json!(agent.paths.workspace);
     desired.env_json["FLEET_NATIVE_SUPERVISOR_TEST"] = json!("1");
@@ -308,6 +336,14 @@ async fn managed_native_approval_decisions_are_exact_once_and_unknown_ack_is_hel
             tokio::fs::write(root.join("drop-next-approval"), b"one owned ACK loss")
                 .await
                 .unwrap();
+            if outcomes {
+                tokio::fs::write(
+                    root.join("hold-outcome-lookup"),
+                    b"owned original witness hold",
+                )
+                .await
+                .unwrap();
+            }
         }
         let response = client
             .post(&url)
@@ -355,6 +391,91 @@ async fn managed_native_approval_decisions_are_exact_once_and_unknown_ack_is_hel
             ),
             before
         );
+        if outcomes {
+            let saved = repo
+                .get_approval_outcome(decision.id)
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(saved.context["command_id"], decision.id.to_string());
+            assert_eq!(saved.context["operation"], "approval");
+            let body: Value =
+                serde_json::from_str(saved.context["request_body"].as_str().unwrap()).unwrap();
+            assert_eq!(
+                body["request_id"].as_str(),
+                approval.runtime_approval_id.as_deref()
+            );
+            assert_eq!(body["choice"], choice.as_str());
+            assert_eq!(body["resolve_all"], false);
+            if lost {
+                timeout(Duration::from_secs(20), async {
+                    loop {
+                        if native_observations(root).await.iter().any(|row| {
+                            row["kind"] == "approval_outcome_lookup"
+                                && row["key"] == decision.id.to_string()
+                                && row["held"] == true
+                        }) {
+                            break;
+                        }
+                        sleep(Duration::from_millis(100)).await;
+                    }
+                })
+                .await
+                .expect("original approval GET hold was not observed");
+                assert_eq!(
+                    repo.approval_decision(session.id, approval.id)
+                        .await
+                        .unwrap()
+                        .state,
+                    ApprovalDecisionState::Uncertain
+                );
+                tokio::fs::remove_file(root.join("hold-outcome-lookup"))
+                    .await
+                    .unwrap();
+                timeout(Duration::from_secs(20), async {
+                    loop {
+                        if repo
+                            .approval_decision(session.id, approval.id)
+                            .await
+                            .unwrap()
+                            .state
+                            == ApprovalDecisionState::Delivered
+                        {
+                            break;
+                        }
+                        sleep(Duration::from_millis(100)).await;
+                    }
+                })
+                .await
+                .expect("original native approval ACK was not recovered");
+                let after = repo
+                    .get_approval_outcome(decision.id)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                assert_eq!(after.context, saved.context);
+                let historical = repo.get_session_agent_run(completed.id).await.unwrap();
+                assert_eq!(historical.state, completed.state);
+                assert_eq!(historical.updated_at, completed.updated_at);
+                assert!(
+                    native_observations(root)
+                        .await
+                        .iter()
+                        .any(|row| row["kind"] == "approval_outcome_lookup"
+                            && row["key"] == decision.id.to_string()
+                            && row["held"] == false)
+                );
+            }
+            let audit = audit_db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+                "SELECT count(*) AS count FROM audit_log WHERE entity_id=$1 AND action='approval.decision_delivered'",
+                [decision.id.to_string().into()])).await.unwrap().unwrap();
+            assert_eq!(audit.try_get::<i64>("", "count").unwrap(), 1);
+        }
+        let expected = if outcomes {
+            ApprovalDecisionState::Delivered
+        } else {
+            expected
+        };
         let transcript_before_replay =
             serde_json::to_value(repo.list_session_messages(session.id).await.unwrap()).unwrap();
         for _ in 0..2 {
@@ -414,6 +535,26 @@ async fn managed_native_approval_decisions_are_exact_once_and_unknown_ack_is_hel
         );
         assert_eq!(posts[0]["choice"], choice.as_str());
         assert_eq!(posts[0]["resolve_all"], false);
+        if outcomes {
+            let saved = repo
+                .get_approval_outcome(decision.id)
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(posts[0]["key"], decision.id.to_string());
+            assert_eq!(
+                posts[0]["store_id"],
+                saved.context["capabilities"]["store_id"]
+            );
+            assert_eq!(posts[0]["sha256"], saved.context["request_sha256"]);
+            assert_eq!(
+                rows.iter()
+                    .filter(|row| row["kind"] == "approval_ack"
+                        && row["run_id"] == approval.runtime_run_id)
+                    .count(),
+                1
+            );
+        }
         assert_eq!(
             rows.iter()
                 .filter(|row| row["kind"] == "approval_ack_dropped"
@@ -461,7 +602,13 @@ async fn managed_native_approval_decisions_are_exact_once_and_unknown_ack_is_hel
     );
     fleet_server.abort();
     model_server.abort();
-    println!(
-        "Managed native approvals passed: real terminal guard/request, owner HTTP once/deny, exact action, one POST per decision, lost real ACK remains uncertain after terminal/replay. No scoped task/PM admission or OS-descendant proof."
-    );
+    if outcomes {
+        println!(
+            "Original native approvals passed: real terminal guard, owner HTTP once/deny, one exact POST/native ACK/audit per UUID, lost HTTP ACK held through terminal then original GET recovery, immutable context/dispatch/terminal history. No Fleet OS restart, combined extensions, task/PM or safe descendants claimed."
+        );
+    } else {
+        println!(
+            "Managed native approvals passed: real terminal guard/request, owner HTTP once/deny, exact action, one POST per decision, lost real ACK remains uncertain after terminal/replay. No scoped task/PM admission or OS-descendant proof."
+        );
+    }
 }

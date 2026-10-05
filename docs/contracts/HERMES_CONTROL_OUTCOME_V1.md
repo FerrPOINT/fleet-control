@@ -2,7 +2,8 @@
 
 Status: Base producer, stop/steer supervisor dispatch/GET recovery and Fleet
 OS-death recovery verified. Original approval journal/sender/GET recovery implemented;
-positive native approval and installed rollout remain gates. This is not
+native once/deny/lost-ACK GET recovery verified separately. Approval Fleet OS-death,
+combined extensions and installed rollout remain gates. This is not
 task admission, safe OS stop, Workflow completion or a replacement for
 [human control authorization](HERMES_RUN_CONTROL_V1.md).
 

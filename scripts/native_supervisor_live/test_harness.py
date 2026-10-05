@@ -43,8 +43,8 @@ def archive(name, symlink=False):
 
 class SafetyTests(unittest.TestCase):
     def test_scenarios_select_distinct_exact_tests(self):
-        self.assertEqual(set(runner.TEST_NAMES), {'lifecycle', 'recovery', 'controls', 'control-outcomes', 'control-restart', 'approvals', 'approval-recovery'})
-        self.assertEqual(len(set(runner.TEST_NAMES.values())), 7)
+        self.assertEqual(set(runner.TEST_NAMES), {'lifecycle', 'recovery', 'controls', 'control-outcomes', 'control-restart', 'approvals', 'approval-recovery', 'approval-outcomes'})
+        self.assertEqual(len(set(runner.TEST_NAMES.values())), 8)
         self.assertTrue(all(name.rsplit('::', 1)[-1].startswith('managed_native_')
                             for name in runner.TEST_NAMES.values()))
 
@@ -61,11 +61,11 @@ class SafetyTests(unittest.TestCase):
         with patch.object(runner, 'git', return_value=archive('deploy/hermes-recovery-plugin/plugin.py')):
             with self.assertRaises(RuntimeError): runner.recovery_files('repo', 'exact-head')
 
-    def test_both_control_outcome_scenarios_require_plugin_preflight(self):
+    def test_all_original_outcome_scenarios_require_plugin_preflight(self):
         for scenario, name in runner.TEST_NAMES.items():
             with self.subTest(scenario=scenario):
                 self.assertEqual(preflight.control_plugin_required(name),
-                                 scenario in {'control-outcomes', 'control-restart'})
+                                 scenario in {'control-outcomes', 'control-restart', 'approval-outcomes'})
 
     def test_control_outcome_requires_its_own_complete_committed_inventory(self):
         output = io.BytesIO()
@@ -351,7 +351,10 @@ class ApprovalFaultFixtureTests(unittest.IsolatedAsyncioTestCase):
             order.append('body')
             return {'request_id':'native-request', 'choice':'once', 'resolve_all':False,
                     'command':'not recorded', 'token':'not recorded'}
+        async def read():
+            return b'{"request_id":"native-request","choice":"once","resolve_all":false}'
         return SimpleNamespace(path=path, method='POST', json=body,
+                               read=read, headers={}, query={},
                                transport=SimpleNamespace(close=lambda: order.append('closed')))
 
     def response(self, status=200, **override):
@@ -426,6 +429,41 @@ class ApprovalFaultFixtureTests(unittest.IsolatedAsyncioTestCase):
             self.assertIs(await observer(self.request(order, '/v1/runs/native-run/stop'), handler), response)
             self.assertEqual(order, ['handler'])
             self.assertFalse((root/'native-events.jsonl').exists())
+
+    async def test_original_lookup_hold_never_calls_handler_or_reads_body(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root/'hold-outcome-lookup').touch()
+            observer = self.install(root)
+            order = []
+            request = self.request(order, '/fleet/v1/controls/lookup')
+            request.method = 'GET'
+            request.query = {'command_id':'original-decision', 'token':'never record'}
+            async def handler(request): self.fail('held witness cannot reach handler')
+            self.assertEqual((await observer(request, handler)).status, 503)
+            self.assertEqual(order, [])
+            self.assertEqual(json.loads((root/'native-events.jsonl').read_text()),
+                             {'kind':'approval_outcome_lookup','key':'original-decision','held':True})
+
+    async def test_original_lookup_reads_real_handler_and_denies_foreign_auth_first(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            order = []
+            request = self.request(order, '/fleet/v1/controls/lookup')
+            request.method = 'GET'
+            request.query = {'command_id':'original-decision'}
+            async def handler(request):
+                order.append('handler')
+                return self.response()
+            denied = object()
+            observer = self.install(root, denied=denied)
+            self.assertIs(await observer(request, handler), denied)
+            self.assertFalse((root/'native-events.jsonl').exists())
+            observer = self.install(root)
+            self.assertEqual((await observer(request, handler)).status, 200)
+            self.assertEqual(order, ['handler'])
+            self.assertEqual(json.loads((root/'native-events.jsonl').read_text()),
+                             {'kind':'approval_outcome_lookup','key':'original-decision','held':False})
 
     def test_opt_in_and_exact_existing_root_are_required(self):
         with tempfile.TemporaryDirectory() as directory:

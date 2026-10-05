@@ -23,6 +23,7 @@ TEST_NAMES = {
     'control-restart':'native_control_restart::managed_native_control_outcomes_survive_fleet_process_death',
     'approvals':'native_approvals::managed_native_approval_decisions_are_exact_once_and_unknown_ack_is_held',
     'approval-recovery':'native_approvals::native_approval_recovery::managed_native_waiting_approval_recovers_across_fleet_processes',
+    'approval-outcomes':'native_approvals::managed_native_original_approval_outcomes_recover_lost_http_ack',
 }
 PLUGIN_FILES = ('__init__.py', 'plugin.py', 'store.py', 'plugin.yaml')
 
@@ -104,8 +105,8 @@ def main():
         raise RuntimeError('Base SDK must match Fleet .base-revision exactly')
     base_head = git(args.base_checkout, 'rev-parse','HEAD').decode().strip()
     launcher = archive_files(git(args.base_checkout,'archive','--format=tar',base_head,'deploy/fleet-hermes-launch.py'))['deploy/fleet-hermes-launch.py']
-    plugin_kind = 'control' if args.scenario in {'control-outcomes','control-restart'} else 'recovery'
-    plugin = recovery_files(args.base_checkout, base_head, controls=plugin_kind == 'control') if args.scenario in {'recovery','control-outcomes','control-restart'} else None
+    plugin_kind = 'control' if args.scenario in {'control-outcomes','control-restart','approval-outcomes'} else 'recovery'
+    plugin = recovery_files(args.base_checkout, base_head, controls=plugin_kind == 'control') if args.scenario in {'recovery','control-outcomes','control-restart','approval-outcomes'} else None
     image = json.loads(subprocess.check_output(['docker','image','inspect',args.image]))[0]
     if image['Config'].get('Labels',{}).get('sdlc.hermes.revision') != PIN:
         raise RuntimeError('Dependency image revision label is incompatible')
@@ -140,7 +141,8 @@ def main():
                                'backend/infra/tests/support/native_control_restart.rs',
                                'backend/infra/tests/support/native_approval_recovery.rs']},
               'fleet_runtime_sources_sha256':{name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest()
-                  for name in ['backend/app/src/lib.rs', 'backend/infra/src/lib.rs',
+                  for name in ['backend/api/src/routes/approvals.rs',
+                               'backend/app/src/lib.rs', 'backend/infra/src/lib.rs',
                                'backend/infra/src/configuration_disk.rs',
                                'backend/infra/src/pm_credentials.rs',
                                'backend/infra/src/runtime/activation_journal.rs',
@@ -148,13 +150,15 @@ def main():
                                'backend/infra/src/runtime/approval_snapshot.rs', 'backend/infra/src/runtime/acceptance_readback.rs',
                                'backend/infra/src/runtime/mod.rs', 'backend/infra/src/runtime/native_context.rs',
                                'backend/infra/src/runtime/run_control.rs', 'backend/infra/src/runtime/targeted_approval.rs',
+                               'backend/infra/src/runtime/approval_outcome.rs', 'backend/infra/src/approval_outcomes.rs',
                                'backend/infra/src/runtime/control_outcome_wire.rs', 'backend/infra/src/runtime/control_outcome_readback.rs',
                                'backend/infra/src/runtime_controls.rs', 'backend/shared/src/config.rs',
                                'backend/migration/src/lib.rs',
                                'backend/migration/src/m20261004_000012_hermes_dispatch_journal.rs',
                                'backend/migration/src/m20261005_000013_runtime_controls.rs',
                                'backend/migration/src/m20261005_000014_hermes_journal_time_order.rs',
-                               'backend/migration/src/m20261005_000015_runtime_control_outcomes.rs']},
+                               'backend/migration/src/m20261005_000015_runtime_control_outcomes.rs',
+                               'backend/migration/src/m20261005_000016_runtime_approval_outcomes.rs']},
               'harness_sha256':{name:hashlib.sha256((scripts/name).read_bytes()).hexdigest() for name in ['run.py','build.sh','native.sh','preflight.py','discard_ack_plugin.py','approval_fault_plugin.py','control_fault_plugin.py']}}
     if plugin is not None:
         plugin_dir = directory/(plugin_kind+'-plugin')

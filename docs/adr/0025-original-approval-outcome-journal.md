@@ -3,7 +3,8 @@
 ## Status
 
 Implemented internal journal and opt-in approval HTTP sender/GET worker. Actual
-native decision recovery, combined extensions and installed release remain pending.
+native once/deny/lost-ACK GET recovery verified through the control plugin.
+Fleet OS-death approval, combined extensions and installed release remain pending.
 
 ## Context
 

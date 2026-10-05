@@ -11,6 +11,7 @@ def control_plugin_required(test_name):
     return test_name in {
         'managed_native_original_control_outcomes_recover_lost_http_ack',
         'native_control_restart::managed_native_control_outcomes_survive_fleet_process_death',
+        'native_approvals::managed_native_original_approval_outcomes_recover_lost_http_ack',
     }
 
 

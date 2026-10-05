@@ -8,7 +8,11 @@ guards and cancelled/terminal history after revocation. The opt-in approval HTTP
 sender/GET worker is connected through `runtime/approval_outcome` and the actual
 approval API middleware. HTTP/PG component coverage includes concurrent choices,
 lost ACK/new repository, bad preflight/legacy, unknown/foreign witness, DB rollback,
-terminal/revocation and disabled/rotated contexts. It does not prove native recovery.
+terminal/revocation and disabled/rotated contexts. Component cases do not prove
+native recovery; separate native `approval-outcomes` verifies real once/deny,
+lost ACK held through terminal, original GET settlement, exact bytes/UUID/epoch,
+one POST/ACK/audit and immutable history. Approval Fleet OS-death/combined
+extensions/installed release remain gates; see the verification ledger.
 
 Native control-outcome GET: [contract v1](contracts/HERMES_CONTROL_OUTCOME_V1.md),
 `runtime/control_outcome_wire` and eleven protocol tests cover saved raw bytes,
@@ -20,8 +24,8 @@ dispatch/recovery is connected behind the default-false flag;
 `runtime_control_outcome_http` exercises exact POST, original GET, race/rollback,
 revocation/epoch/credential denial and bounded keyset behavior. The managed native
 transport-loss/gateway-restart consumer case passes with real Hermes and a
-loopback model. This is not installed consumer, positive native approval,
-safe-stop or full SDLC acceptance.
+loopback model. Approval has its separate native case above. This is not
+installed consumer, safe-stop or full SDLC acceptance.
 
 Journal clock-order repair: [ADR 0023](adr/0023-logical-journal-progress-time.md),
 additive migration 000014, deterministic clock-regression PG test and isolated

@@ -12,8 +12,11 @@ audit failure rolls back the whole receipt. Seven PostgreSQL cases and an
 isolated migration verify the journal boundary. The opt-in API now selects
 original mode and connects exact-byte single-send/GET-only recovery. No legacy
 fallback, new epoch or repeated POST is permitted. Installed flags stay unchanged.
-Consumer evidence is recorded separately; native decision recovery and whole-SDLC
-merge readiness remain unproven until their acceptance gates pass.
+Consumer evidence is recorded separately. The new native `approval-outcomes`
+case verifies real terminal once/deny, lost HTTP ACK held through terminal then
+original GET recovery, one POST/native ACK/audit and unchanged context/history.
+Fleet OS-death approval, combined extensions and whole-SDLC merge readiness
+remain unproven until their acceptance gates pass.
 See [approval journal ADR](adr/0025-original-approval-outcome-journal.md).
 
 Historical SIGKILL-only packet `04df310` has actual Fleet OS-process-death evidence:

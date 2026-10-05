@@ -1,4 +1,5 @@
 """Owned native approval observations; optionally lose a real exact-action ACK."""
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -30,6 +31,12 @@ def register(ctx):
             denied = adapter._check_auth(request)
             if denied is not None:
                 return denied
+            if request.method == 'GET' and request.path == '/fleet/v1/controls/lookup':
+                held = (root/'hold-outcome-lookup').is_file()
+                record(kind='approval_outcome_lookup', key=request.query.get('command_id'), held=held)
+                if held:
+                    return web.Response(status=503)
+                return await handler(request)
             if recovery:
                 parts = request.path.split('/')
                 if request.method == 'POST' and request.path == '/v1/runs':
@@ -62,9 +69,13 @@ def register(ctx):
                     or not request.path.endswith('/approval')):
                 return await handler(request)
             body = await request.json()
+            raw = await request.read()
             run_id = request.path.split('/')[3]
             record(kind='approval_post', run_id=run_id, request_id=body.get('request_id'),
-                   choice=body.get('choice'), resolve_all=body.get('resolve_all'))
+                   choice=body.get('choice'), resolve_all=body.get('resolve_all'),
+                   key=request.headers.get('Idempotency-Key'),
+                   store_id=request.headers.get('X-Fleet-Control-Store-Id'),
+                   sha256=hashlib.sha256(raw).hexdigest())
             response = await handler(request)
             if response.status != 200:
                 return response
