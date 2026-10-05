@@ -51,8 +51,10 @@ in advance, not accepted from arbitrary observed post-start configuration.
 The [release packet](https://github.com/FerrPOINT/services-base/blob/dd2d0755266ef9081528702767006ba08e32d841/docs/plans/runtime-boundary-bootstrap.md)
 records actual four-resource registration/start/controller-crash acceptance,
 separate process-tree stop acceptance,44 Linux boundary/bootstrap tests and
-main-based Rust/frontend gates. The release is not merged/installed; exact-head
-CI/review must still be checked. This is offline namespace evidence, not an
+main-based Rust/frontend gates. All nine checks in
+[exact-head CI](https://github.com/FerrPOINT/services-base/actions/runs/37376418561)
+pass; PR144 is ready for review/CLEAN with no review threads. It is not
+human-approved, merged or installed. This is offline namespace evidence, not an
 online Hermes/model, task admission or SDLC receipt.
 
 Fleet does not yet consume this registry: its DB binding before start,
