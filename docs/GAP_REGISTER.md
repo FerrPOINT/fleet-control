@@ -12,9 +12,13 @@ Open gaps:
 
 The [runtime containment proposal](design/RUNTIME_CONTAINMENT_PROPOSAL.md)
 records the recommended per-agent container boundary and delegated-cgroup
-alternative. It is a proposal only: no lifecycle, Compose, image or readiness
-policy has changed. Safe descendant stop and loaded-generation acceptance remain
-open until the real boundary, original-ID recovery and adversarial tests pass.
+alternative. Base standalone original-ID stop/readback is implemented and
+adversarial namespace QA passes at exact source `e6dcb3c`; the linked proposal
+records evidence and trust limits. Fleet lifecycle has not integrated it:
+pre-exec registry/persistence, generation fencing, drain, activation/rollback and
+receipt commit/recovery remain. No accepted Compose/image/readiness policy or SDK
+pin has changed. Safe Fleet descendant stop and loaded-generation acceptance
+remain open until this integration and its own adversarial tests pass.
 
 ## PM Clarification Slice
 

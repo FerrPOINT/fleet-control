@@ -1,9 +1,37 @@
 # Runtime Containment Decision Proposal
 
-Status: proposed, not implemented or live accepted. A user choice between a
+Status: Fleet integration proposed, not implemented or live accepted. A user choice between a
 per-agent container and delegated Linux cgroup was requested on 5 October 2026.
 Recommended candidate: one container per agent in its existing workspace Compose
 project. No installed runtime, image pin, mount or Compose group changes here.
+
+## Standalone Base Primitive: 5 October 2026
+
+Base [e6dcb3ca2c3cb4e2563f7bc13b443822ead3df10](https://github.com/FerrPOINT/services-base/commit/e6dcb3ca2c3cb4e2563f7bc13b443822ead3df10)
+implements the host-only original-ID utility, not Fleet lifecycle. Its
+[v1 contract](https://github.com/FerrPOINT/services-base/blob/e6dcb3ca2c3cb4e2563f7bc13b443822ead3df10/docs/platform/RUNTIME_BOUNDARY.md)
+specifies trusted controller policy, sealed real inventory, private Linux PID
+namespace, no restart, one durable stop claim and fresh original-ID readback.
+Foreign SQLite tables/views/incompatible schema are denied without writes; this
+is a separate controller journal, never Hermes SessionDB. Policy/labels cannot
+substitute for controller ownership, filesystem guards or authorization.
+
+Final Base native QA `sdlc-qa-runtime-boundary-cb38ff85e243` passes on Linux
+kernel6.6.87.2/Engine29.8.1: three distinct namespaces, real descendant/setsid/
+TERM-ignore/continuous-fork processes, one actual kill, protected sibling and
+old-generation denial after manual restart. Two fresh host controllers recover
+the original command after forced controller death before/after effect. On
+Windows this host fault is TerminateProcess, not Linux-controller SIGKILL.
+18 FakeEngine units are separate evidence. Exact source/report hashes and own
+cleanup/independent empty ps are in the
+[Base source ledger](https://github.com/FerrPOINT/services-base/blob/e6dcb3ca2c3cb4e2563f7bc13b443822ead3df10/docs/plans/base-pdlc-source-status.md).
+
+The primitive does not create/start boundaries, prove loaded configuration or
+integrate Fleet DB/drain/activation/admission. Docker Engine ID/kernel/version
+are not host boot identity. Exclusive controller lifecycle and never restarting
+the same container ID are mandatory; Docker kill provides no atomic StartedAt
+CAS against privileged external lifecycle mutation. No accepted runtime or
+dependency pin is changed; safe Fleet descendant stop remains unverified.
 
 ## Evidence And Required Boundary
 
@@ -41,8 +69,10 @@ never creates a replacement boundary as an implicit retry.
 - Persist original container ID, daemon/boot identity, project/service labels,
   concrete agent and config revision, boundary generation and normalized inventory
   fingerprint before execution. A reused service name or image tag is not identity.
-- Lifecycle mutations use real Compose service operations, not docker run/create
-  or forged labels. Never down the full accepted workspace to stop one agent.
+- Creation uses real Compose, never docker run/create or forged labels. Stop
+  may use one exact-ID kill of the existing registered generation via the trusted
+  host utility, followed by original-ID readback; a reused service name cannot
+  select its target. Never down the full accepted workspace to stop one agent.
   Preserve snapshots, volumes, secrets, existing image IDs and unrelated resources.
 
 ## Stop And Recovery Contract
