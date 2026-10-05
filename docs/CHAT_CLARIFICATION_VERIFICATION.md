@@ -1642,3 +1642,20 @@ fenced task first-step admission, PM tools/delivery/rebind, compatible Forge and
 seven-agent acceptance. Migration release order10/11 ->12 ->13, one new migration
 per release PR and exact-head CI remain gates. PR47 stays Draft938b4ed; publisher
 PR140 remains ready177edb8, not merged/installed. This packet does not close them.
+
+### Publication Readback
+
+The source packet `d976a82881315188a875dafe66ec973d18bd1691` was published by
+regular fast-forward to `feat/hermes-runtime-integration-20261004`; remote SHA
+readback matches. No main, PR47 branch, accepted runtime or dependency pin was
+pushed by this task. This integration branch has no automatic push CI trigger;
+local source/component evidence is not an exact-head release CI run.
+
+Later remote inspection supersedes the pre-publication PR47 observation above:
+another task published `5240107596ce9b645a4e30cd9b9506ecfc739905`, changing only
+`.base-revision` to `6080e11fa9f59db00b102939867d2a97441d6cbb`. PR47 remains Draft
+against main; its five CI checks are SUCCESS on that release head, not on this
+runtime integration source. Its remote work is preserved without rebasing or
+force-pushing the PR branch. Our component/native gates use SDK9408802, so release
+dependency reconciliation and renewed exact-head validation remain necessary;
+the green sibling pin-update CI does not certify migration13 or this runtime code.
