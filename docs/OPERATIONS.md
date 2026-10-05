@@ -1,5 +1,37 @@
 # Operations
 
+## Private Activation Recovery Storage
+
+Before requesting a configuration activation, explicitly provision a dedicated
+Linux controller directory outside every agent mount and set
+`FLEET_CONTROL_FLEET__CONTROLLER_ROOT` for the Fleet process. The controller UID
+must own it, mode0700. Do not reuse arbitrary existing directories or credentials
+stores. The application verifies but does not create/chmod/adopt this root.
+An empty/missing/unsafe root prevents file/runtime mutations and keeps the claimed
+activation drained for reconciliation. Do not resolve this by releasing its DB
+claim or retrying under a new revision/key.
+
+Private `<agent-uuid>.activation.json` v2 documents contain original locations,
+revision, expected hashes and previous runtime files, including resolved secrets.
+Include the directory in protected backups; exclude it from API, logs, agent
+mounts and screenshots. Preserve partial/retained documents. A successful DB
+result precedes byte-identical acknowledgement; changing owner/mode, linking or
+rewriting the document prevents deletion. Another agent has an independent file.
+
+Any `.fleet-activation-journal.json` v1 in agent config remains a blocker: do not
+auto-move it to the new directory, delete it, rewrite it or infer a successful
+rollback. A reviewed operator recovery must establish original DB/files/runtime
+state and safe descendant/remote-effect cessation first. No repair/reset endpoint
+or automated takeover is introduced by this packet. Windows ACL durability and
+actual Fleet container-boundary integration remain separate release gates.
+
+Installed Compose/mounts/images are not changed. Existing non-activation reads,
+legacy chat history and runtime controls do not gain task admission from this
+setting. The private root is infrastructure configuration, not a model parameter.
+Do not change the root or mount mapping while a journal or activation is unresolved;
+an empty replacement is not recovery. A reviewed root relocation must preserve
+all original documents and their protected backup provenance.
+
 Original approval outcomes have immutable storage (000016) and an opt-in bounded
 GET-only recovery worker, but no public repair/reset/delete endpoint.
 Do not manually give legacy uncertainty a context or release a claimed decision
@@ -158,8 +190,9 @@ Fleet task-bound prompt/steer remains blocked until verified workflow orchestrat
 Save a config draft, validate it, then explicitly activate. Desired and effective
 revisions can differ. During drain, do not force changes beneath active runs.
 Before stopping a tracked runtime or changing managed files, activation creates
-`config/.fleet-activation-journal.json` exclusively, persists previous bytes,
-expected file hashes, agent/revision identity and prior running state, and fsyncs
+`<controller_root>/<agent-uuid>.activation.json` v2 exclusively, persists previous
+bytes, canonical source locations, expected file hashes, agent/revision identity
+and prior running state, and fsyncs
 the file (and parent directory on Linux). An existing or incomplete journal
 blocks another activation; it is not overwritten. Backups are limited to 8 MiB
 total, 128 files and a 24 MiB serialized journal. Successful application or verified
@@ -180,8 +213,9 @@ If activation fails and rollback is unconfirmed, keep the drain in place and
 inspect the last error. Crash recovery/operator reconciliation is not yet a public
 API; do not edit state rows to fabricate readiness.
 This slice preserves restart recovery evidence; it does not automatically reclaim
-an interrupted activation or prove OS process-tree quiescence. Windows has file
-sync but no directory-sync guarantee here; Linux is the durability gate.
+an interrupted activation or prove OS process-tree quiescence. Windows private
+storage ACLs are not certified: activation is held before file/runtime effects.
+Linux is the private-storage and durability gate.
 
 An `uncertain` dispatch with a consumed submission permit may have been accepted
 by Hermes. Never re-send it or clear its capacity hold. Investigate runtime

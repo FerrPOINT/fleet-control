@@ -64,12 +64,19 @@ untracked/recorded-running state is not converted to stopped, and restart cannot
 spawn a replacement through that error. A Hermes `run.cancelled` event remains
 distinct from process wait and complete process-tree quiescence.
 
-Activation reserves `config/.fleet-activation-journal.json` before stopping a
-tracked Hermes or changing files. Previous bytes, expected hashes and exact
-agent/revision are protected and size-bounded. Rollback verifies every old file;
+Activation reserves `<controller_root>/<agent-uuid>.activation.json` v2 before
+stopping a tracked Hermes or changing files. The operator must provision this
+Linux-owned `0700` directory outside the agents root and every agent mount;
+Fleet does not create, chmod or adopt it. Previous bytes, expected hashes,
+canonical locations and exact agent/revision are protected and size-bounded.
+Missing/unsafe storage or a legacy `config/.fleet-activation-journal.json`
+keeps drain without moving, rewriting or deleting recovery evidence.
+Rollback verifies every old file;
 unknown outcomes preserve journal/drain. Cleanup follows the committed DB result,
 not an HTTP success or EOF. This is not automatic restart reconciliation or proof
 that all descendant OS processes stopped.
+This storage contract alone cannot prevent access by an agent using the
+controller's OS identity; runtime/container isolation is a separate gate.
 Managed apply/rollback now require Linux parent-directory fsync after rename and
 unlink, plus leaf-to-root synchronization of newly created directory entries.
 Unconfirmed persistence retains journal/drain and does not promote effective head.

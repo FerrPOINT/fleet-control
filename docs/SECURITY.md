@@ -99,9 +99,18 @@ Loaded-config proof, OS/tool isolation and assignment fencing remain required.
 
 The managed configuration journal is local recovery material, not public evidence.
 It contains previous runtime files, including resolved credentials in hexadecimal
-(not encryption), and is created exclusively with Unix mode 0600. No Debug/API
+(not encryption), and is created exclusively with Unix mode 0600 outside the
+managed agent root, in operator-configured controller storage. Linux checks
+controller UID/exact0700 directory permissions and rejects overlap with agents
+root, ancestor links and hardlinked/permission-changed acknowledgement files.
+The directory must never be mounted into an agent. Legacy agent-local journals
+block activation without automatic relocation; Windows fails closed pending ACL
+support. No Debug/API
 representation is provided. Path guards reject links/junctions, foreign/duplicate/
 traversal paths and non-regular backup files; reads and total size are bounded.
+This placement does not isolate an agent running with the controller's OS UID.
+Mount denial and separate runtime identities are deployment/security gates, not
+facts certified by this path guard.
 Partial/existing journals are preserved rather than overwritten. Acknowledgement
 requires byte-identical readback after the database result commits. This protects
 cooperative managed writes, not hostile host TOCTOU or cross-agent OS access;

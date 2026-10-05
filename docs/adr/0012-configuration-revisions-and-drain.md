@@ -22,6 +22,11 @@ facts. Failed activation must not silently expose a partly applied revision.
 - On failure, restore the previous files and runtime. If rollback cannot be
   verified, keep the agent drained and retain the previous effective revision.
 - Persist a protected exclusive backup journal before runtime/file effects.
+  Version 2 stores resolved secret backups under an operator-provisioned private
+  controller root, outside the agents root and all agent mounts. Require Linux
+  process ownership, directory mode `0700` and journal mode `0600`; acknowledge
+  only the original single-link bytes. Missing or unsafe storage keeps drain.
+  Legacy journals stay untouched and block activation until reconciliation.
   On Linux, fsync files before rename and directories after rename/unlink; persist
   new directory ancestors before effective-head acknowledgement. Unconfirmed
   persistence keeps journal/drain, even if current file readback matches.
@@ -42,6 +47,8 @@ project access must be verified before automatic assignments can be enabled.
 - The disk activation journal is implemented; automatic recovery and public
   operator reconciliation remain needed for crashes. Directory barriers do not
   prove power-loss recovery, loaded runtime revision or descendant quiescence.
+- Private storage is not isolation from an agent sharing the controller's OS
+  identity. Per-agent runtime boundaries and mount denial remain required.
 - Skill edits require a new snapshot; automatic skill revision UX remains pending.
 - Java config activation is phase 2; existing Java lifecycle is preserved.
 

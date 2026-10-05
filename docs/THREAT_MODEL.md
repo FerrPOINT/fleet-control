@@ -68,6 +68,11 @@ sharing; they do not stop arbitrary agent code with the same OS identity from
 reading sibling files or host secrets. Unix `0600` protects against other OS
 users, not another process under the same identity. Path guards protect Fleet
 managed operations, not every filesystem action an agent can execute.
+Activation backups require a private operator-provisioned controller root outside
+the managed agents root. Linux owner/mode and exclusive-file/link checks prevent
+accidental shared storage; they do not exclude same-UID runtime code. Legacy
+agent-local journals are sensitive retained recovery material, not automatically
+safe or relocated evidence. Mount/identity isolation remains required.
 
 Fleet ownership checks protect HTTP and stream access. They do not by themselves
 prevent a runtime tool from inspecting another user's history in a shared agent's

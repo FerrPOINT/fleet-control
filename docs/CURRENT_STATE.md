@@ -5,6 +5,17 @@ blocked until cross-service assignment/workflow/deployment contracts are verifie
 See [SDLC implementation](SDLC_IMPLEMENTATION.md). The baseline feature/gate lists
 below are historical, not acceptance evidence for the new SDLC plan.
 
+Activation recovery v2 now requires an operator-provisioned private Linux
+controller root outside the managed agents root. Canonical source locations,
+exclusive owner/mode/link guards and unchanged legacy-journal holds are implemented.
+Empty/unsafe storage keeps drain before runtime/file effects; Windows ACLs and
+automatic crash takeover remain unsupported. Final Linux gates pass 444 distinct
+component cases, clean migrations, generated OpenAPI equality and the actual
+two-home Hermes lifecycle/restart case. Private storage does not isolate an agent
+sharing the controller OS identity or attest safe descendants/loaded generation.
+See [exact storage evidence](CHAT_CLARIFICATION_VERIFICATION.md#private-controller-activation-storage-5-october-2026).
+No accepted image/mount, SDK pin, migration source or installed flag changed.
+
 Original approval decisions now have internal additive000016 context/claim/ACK
 storage. Mode is fixed at reservation; legacy uncertainty is not backfilled.
 Late witnessed delivery preserves cancelled request and terminal run history;

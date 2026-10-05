@@ -225,6 +225,9 @@ pub struct FleetConfig {
     #[serde(default)]
     pub base_package_checkout: String,
     pub agents_root: String,
+    /// Private operator-provisioned controller storage, never mounted into an agent.
+    #[serde(default)]
+    pub controller_root: String,
     pub hermes_source: String,
     pub hermes_command: String,
     /// Require the opt-in, source-pinned original-key recovery extension.
@@ -326,6 +329,7 @@ impl AppConfig {
             .set_default("auth.refresh_cookie_domain", Option::<String>::None)?
             .set_default("auth.refresh_cookie_path", "/api/v1/auth")?
             .set_default("fleet.agents_root", "./data/agents")?
+            .set_default("fleet.controller_root", "")?
             .set_default("fleet.hermes_source", "../прототипы/hermes")?
             .set_default("fleet.hermes_command", "hermes")?
             .set_default("fleet.hermes_recovery_extension_enabled", false)?
@@ -477,6 +481,7 @@ impl Default for FleetConfig {
         Self {
             base_package_checkout: String::new(),
             agents_root: "./data/agents".to_string(),
+            controller_root: String::new(),
             hermes_source: "../прототипы/hermes".to_string(),
             hermes_command: "hermes".to_string(),
             hermes_recovery_extension_enabled: false,

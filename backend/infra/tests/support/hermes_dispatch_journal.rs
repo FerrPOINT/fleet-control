@@ -160,7 +160,13 @@ async fn journal_clock_regression_keeps_logical_progress_without_renewing_horizo
         1
     );
     assert!(claim(&p).await.unwrap().is_none());
-    let downgrade = migration::Migrator::down(&p.db, Some(1)).await;
+    let time_order_migration = migration::Migrator::migrations()
+        .into_iter()
+        .find(|migration| migration.name() == "m20261005_000014_hermes_journal_time_order")
+        .expect("dispatch time-order migration must remain registered");
+    let downgrade = time_order_migration
+        .down(&migration::SchemaManager::new(&p.db))
+        .await;
     assert!(downgrade.is_err(), "retained journal must block downgrade");
     let retained =
         p.db.query_one(Statement::from_string(

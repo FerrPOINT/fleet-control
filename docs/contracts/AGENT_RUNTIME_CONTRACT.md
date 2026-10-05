@@ -60,6 +60,12 @@ stop/file effects. Only the exact journal can be acknowledged after the database
 activation result commits and rollback/application is verified. Existing, partial
 or changed journals hold further activation; no automatic crash takeover follows.
 Journal content is sensitive local recovery data, never a public runtime receipt.
+Version 2 requires operator-provisioned private Linux controller storage outside
+the agents root and every agent mount, with canonical source locations and
+owner/permission/link guards. Missing/unsafe storage and legacy agent-local
+journals keep drain without automatic adoption or relocation. This is not an OS
+boundary for a runtime using the same controller identity; see
+[private storage](../ENV.md#private-controller-storage).
 Linux apply/rollback persist parent directory entries after file rename/unlink,
 including every new skill-directory ancestor. A failed barrier holds journal/drain
 instead of acknowledging effective state. This does not certify Windows directory

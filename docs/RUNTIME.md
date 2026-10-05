@@ -232,6 +232,12 @@ Hermes:
   agent row lock with runtime reservations. Active/pending/stopping runs, queued
   or unknown prompt dispatch and configuration drain reject changes with 409.
   Metadata edits with unchanged identity remain possible outside drain.
+  Sensitive activation recovery now uses explicit private controller storage
+  outside all agent paths; legacy agent-local documents block before mutations.
+  See [environment](ENV.md#private-controller-storage) and
+  [operations](OPERATIONS.md#private-activation-recovery-storage). This placement
+  does not implement process-tree containment, crash takeover or loaded-generation
+  attestation; those gates remain mandatory.
 - Effective configuration readiness now reads the actual managed files on each
   request using the persisted effective head, independently of the last-100
   configuration history page. Validate/activate also use exact agent/revision

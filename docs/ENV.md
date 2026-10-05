@@ -2,6 +2,26 @@
 
 Prefix: `FLEET_CONTROL_`.
 
+## Private Controller Storage
+
+`FLEET_CONTROL_FLEET__CONTROLLER_ROOT` is operator-owned deployment configuration,
+not an agent setting or a managed settings UI field. It defaults to empty; new
+configuration activations stay held until an existing private directory is
+configured. It must be outside `agents_root` and must not contain it, resolve
+through links/junctions, or be mounted into any agent. Linux requires controller
+UID ownership and exact mode0700; activation documents use exclusive mode0600.
+The controller does not silently create, chmod or adopt an existing directory.
+Windows ACL/directory durability is not certified; this operation fails closed
+there pending platform integration. Linux remains the authoritative gate.
+
+Preserve this storage across Fleet restarts and backups. Existing v1 journals in
+agent config are not moved or deleted automatically; they block new activation
+until reviewed reconciliation. New private documents are v2, include the original
+agent/revision/config location and keep sensitive file backups. No automatic
+crash takeover, reset or per-agent container enablement follows from this setting.
+Installed mounts/Compose/image pins have not been changed. See
+[operations](OPERATIONS.md#private-activation-recovery-storage).
+
 ## Hermes Original-Key Recovery
 
 Stop/steer outcome recovery has its own default-false flag:

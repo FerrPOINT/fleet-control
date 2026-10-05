@@ -36,7 +36,21 @@ async fn fixture(
     repo.ensure_runtime_templates().await.unwrap();
     let root = std::env::temp_dir().join(format!("fleet-lifecycle-{}", Uuid::new_v4()));
     let mut config = AppConfig::default();
-    config.fleet.agents_root = root.to_string_lossy().into_owned();
+    config.fleet.agents_root = root.join("agents").to_string_lossy().into_owned();
+    config.fleet.controller_root = root.join("controller").to_string_lossy().into_owned();
+    tokio::fs::create_dir_all(&config.fleet.controller_root)
+        .await
+        .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        tokio::fs::set_permissions(
+            &config.fleet.controller_root,
+            std::fs::Permissions::from_mode(0o700),
+        )
+        .await
+        .unwrap();
+    }
     config.fleet.runtime_token_secret = "lifecycle-test-only".into();
     let agent = repo
         .create_agent(
@@ -77,7 +91,10 @@ async fn fixture(
         .await
         .unwrap();
     tokio::fs::write(
-        root.join(&agent.name).join(".fleet-agent.json"),
+        PathBuf::from(&agent.paths.config)
+            .parent()
+            .unwrap()
+            .join(".fleet-agent.json"),
         serde_json::to_vec(
             &json!({"id":agent.id,"name":agent.name,"ordinal":agent.ordinal,"kind":"hermes"}),
         )
@@ -127,6 +144,13 @@ fn supervisor(
     }
 }
 
+fn journal_path(supervisor: &LocalRuntimeSupervisor, agent: &Agent) -> PathBuf {
+    activation_journal::controller_journal_path(
+        std::path::Path::new(&supervisor.config.fleet.controller_root),
+        agent.id,
+    )
+}
+
 #[tokio::test]
 async fn delayed_start_rechecks_drain_after_acquiring_lifecycle_lock() {
     let Some((repo, agent, owner, config, root)) = fixture(AgentKind::Hermes).await else {
@@ -155,12 +179,7 @@ async fn delayed_start_rechecks_drain_after_acquiring_lifecycle_lock() {
         Err(AppError::Conflict(_))
     ));
     assert!(!supervisor.children.lock().await.contains_key(&agent.id));
-    assert!(
-        !root
-            .join(&agent.name)
-            .join("config/.fleet-activation-journal.json")
-            .exists()
-    );
+    assert!(!journal_path(&supervisor, &agent).exists());
     tokio::fs::remove_dir_all(root).await.unwrap();
 }
 
@@ -190,7 +209,7 @@ async fn activation_keeps_lifecycle_lock_through_file_readback_and_event_persist
         .unwrap();
     let supervisor = supervisor(config, repo.clone());
     let worker = supervisor.clone();
-    let activation = tokio::spawn(async move {
+    let mut activation = tokio::spawn(async move {
         let mut journal = None;
         let result = worker.apply_config_revision(&revision, &mut journal).await;
         (result, journal)
@@ -198,6 +217,10 @@ async fn activation_keeps_lifecycle_lock_through_file_readback_and_event_persist
     let soul = PathBuf::from(&agent.paths.config).join("SOUL.md");
     timeout(Duration::from_secs(5), async {
         loop {
+            if activation.is_finished() {
+                let (result, _journal) = (&mut activation).await.unwrap();
+                panic!("activation exited before locked event persistence: {result:?}");
+            }
             if tokio::fs::read(&soul).await.ok().as_deref() == Some(b"Updated lifecycle SOUL") {
                 break;
             }
@@ -232,11 +255,7 @@ async fn activation_keeps_lifecycle_lock_through_file_readback_and_event_persist
     ));
     // No DB acknowledgement: the sensitive recovery journal must still exist.
     drop(journal);
-    assert!(
-        PathBuf::from(&agent.paths.config)
-            .join(".fleet-activation-journal.json")
-            .exists()
-    );
+    assert!(journal_path(&supervisor, &agent).exists());
     tokio::fs::remove_dir_all(root).await.unwrap();
 }
 
@@ -288,11 +307,56 @@ async fn failed_directory_barrier_preserves_activation_drain_journal_and_effecti
     assert_ne!(observed.state, "active");
     assert!(!supervisor.children.lock().await.contains_key(&agent.id));
     drop(journal);
-    assert!(
-        PathBuf::from(&agent.paths.config)
-            .join(".fleet-activation-journal.json")
-            .is_file()
+    assert!(journal_path(&supervisor, &agent).is_file());
+    assert!(repo.claim_config_activation().await.unwrap().is_none());
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[tokio::test]
+async fn legacy_agent_journal_keeps_drain_and_blocks_before_configuration_effects() {
+    let Some((repo, agent, owner, config, root)) = fixture(AgentKind::Hermes).await else {
+        return;
+    };
+    let revision = revision(&repo, &agent, owner).await;
+    let legacy = PathBuf::from(&agent.paths.config).join(".fleet-activation-journal.json");
+    tokio::fs::write(&legacy, b"legacy-sensitive-recovery")
+        .await
+        .unwrap();
+    let soul = PathBuf::from(&agent.paths.config).join("SOUL.md");
+    tokio::fs::write(&soul, b"previous-soul").await.unwrap();
+    repo.request_config_activation(agent.id, revision.revision, owner)
+        .await
+        .unwrap();
+    let claimed = repo.claim_config_activation().await.unwrap().unwrap();
+    let supervisor = supervisor(config, repo.clone());
+    let mut journal = None;
+    let outcome = supervisor
+        .apply_config_revision(&claimed, &mut journal)
+        .await;
+    assert!(matches!(outcome, Err(AppError::Unavailable(_))));
+    assert!(journal.is_none());
+    assert!(!journal_path(&supervisor, &agent).exists());
+    assert_eq!(
+        tokio::fs::read(&legacy).await.unwrap(),
+        b"legacy-sensitive-recovery"
     );
+    assert_eq!(tokio::fs::read(&soul).await.unwrap(), b"previous-soul");
+    repo.finish_config_activation(
+        agent.id,
+        claimed.revision,
+        Some("legacy journal reconciliation required".into()),
+        false,
+    )
+    .await
+    .unwrap();
+    assert!(repo.agent_is_draining(agent.id).await.unwrap());
+    assert!(
+        repo.get_effective_config_revision(agent.id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(!supervisor.children.lock().await.contains_key(&agent.id));
     assert!(repo.claim_config_activation().await.unwrap().is_none());
     tokio::fs::remove_dir_all(root).await.unwrap();
 }
@@ -415,10 +479,6 @@ async fn stopped_child_with_failed_metadata_commit_keeps_activation_journal_and_
     .unwrap();
     assert!(repo.agent_is_draining(agent.id).await.unwrap());
     drop(journal);
-    assert!(
-        PathBuf::from(&agent.paths.config)
-            .join(".fleet-activation-journal.json")
-            .exists()
-    );
+    assert!(journal_path(&supervisor, &agent).exists());
     tokio::fs::remove_dir_all(root).await.unwrap();
 }

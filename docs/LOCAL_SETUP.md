@@ -2,21 +2,25 @@
 
 The sibling `services-base` checkout is required for Cargo path dependencies
 and the shared frontend package. Use the same parent directory for both repos.
-For this foundation branch, use Base revision
-`d03096d4f21cff5231e23d7a8744c51413d25569`
-([dependency PR](https://github.com/FerrPOINT/services-base/pull/121));
-an older `main` lacks the shared AppShell and durable-stream helpers.
+The authoritative SDK revision is [`.base-revision`](../.base-revision), currently
+`9408802dfa978cba2f67162a49adca6f65851b01`. Runtime producer source and SDK
+publication are separate; do not replace this pin with an integration-branch
+head. See [Base integration](BASE_INTEGRATION.md).
 SDLC is not enabled by running these services; see
 [implementation and acceptance](SDLC_IMPLEMENTATION.md).
 
 ```bash
 cp .env.example .env
 # Replace FLEET_CONTROL_JWT_SECRET and runtime token secrets before backend run.
-docker compose up -d postgres redis
 pnpm --dir ../services-base/frontend install --frozen-lockfile
-cd frontend && pnpm install
-cd backend && cargo fetch
+cd frontend && pnpm install --frozen-lockfile
+cd ../backend && cargo fetch --locked
 ```
+
+Start the accepted local workspace from its root with PowerShell 7 and
+`./start-local.ps1`; `-Workspace` selects `sdlc1` or `sdlc2`. Infrastructure belongs
+to `sdlc-common`. Do not create a standalone permanent Fleet Compose project.
+Disposable tests require an owned, labelled `sdlc-qa-*` project and exact cleanup.
 
 Run backend:
 
@@ -53,6 +57,18 @@ native acceptance остаются отдельными gaps. Не перепи�
 snapshots для перехода на новые defaults. См.
 [runtime](RUNTIME.md) и [контракт адаптера](contracts/HERMES_ADAPTER_CONTRACT.md).
 Эта настройка не включает native-ready admission или автоматический SDLC.
+
+## Configuration Activation Storage
+
+Before activating a revision, the operator must provision persistent private
+Linux storage for `FLEET_CONTROL_FLEET__CONTROLLER_ROOT`, outside the agents root
+and every runtime mount. It must belong to the Fleet process UID with mode `0700`.
+Do not assume a Windows bind mount enforces Linux ownership/permissions.
+Empty, missing or unsafe storage holds activation before file/runtime effects;
+Windows ACL support is not certified. Preserve legacy journals instead of
+deleting them to unblock setup. See [environment](ENV.md#private-controller-storage)
+and [recovery operations](OPERATIONS.md#private-activation-recovery-storage).
+This prerequisite does not enable SDLC or certify runtime containment.
 
 Local URLs:
 

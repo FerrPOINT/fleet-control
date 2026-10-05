@@ -12,6 +12,53 @@ const MAX_JOURNAL_BYTES: usize = 24 * 1024 * 1024;
 const MAX_FILES: usize = 128;
 const JOURNAL_NAME: &str = ".fleet-activation-journal.json";
 
+pub(super) struct JournalLocation<'a> {
+    pub agents_root: &'a Path,
+    pub config_directory: &'a Path,
+    pub controller_root: &'a Path,
+}
+
+fn held() -> AppError {
+    AppError::Unavailable(
+        "private controller journal requires reconciliation; agent remains drained".into(),
+    )
+}
+
+async fn private_controller_directory(path: &Path) -> Result<PathBuf, AppError> {
+    if path.as_os_str().is_empty() {
+        return Err(held());
+    }
+    let absolute = crate::normalize_path(path).map_err(|_| held())?;
+    let filesystem_root = absolute.ancestors().last().ok_or_else(held)?;
+    crate::reject_symlink_components(filesystem_root, &absolute)
+        .await
+        .map_err(|_| held())?;
+    let metadata = tokio::fs::symlink_metadata(&absolute)
+        .await
+        .map_err(|_| held())?;
+    if !metadata.is_dir() {
+        return Err(held());
+    }
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::fs::MetadataExt;
+        let process_owner = tokio::fs::metadata("/proc/self")
+            .await
+            .map_err(|_| held())?
+            .uid();
+        if metadata.uid() != process_owner || metadata.mode() & 0o777 != 0o700 {
+            return Err(held());
+        }
+        tokio::fs::canonicalize(&absolute).await.map_err(|_| held())
+    }
+    #[cfg(not(target_os = "linux"))]
+    Err(held())
+}
+
+pub(super) fn controller_journal_path(controller_root: &Path, agent_id: Uuid) -> PathBuf {
+    controller_root.join(format!("{agent_id}.activation.json"))
+}
+
 // Contains resolved env secrets: never implement Debug or expose the document through API.
 pub(super) struct ActivationJournal {
     root: PathBuf,
@@ -64,14 +111,15 @@ pub(super) async fn read_backup(root: &Path, path: &Path) -> Result<Option<Vec<u
 
 impl ActivationJournal {
     pub(super) async fn prepare(
-        root: &Path,
-        config_directory: &Path,
+        location: JournalLocation<'_>,
         agent_id: Uuid,
         revision: i64,
         was_running: bool,
         files: &[(PathBuf, String)],
         backups: &[(PathBuf, Option<Vec<u8>>)],
     ) -> Result<Self, AppError> {
+        let root = location.agents_root;
+        let config_directory = location.config_directory;
         if revision <= 0
             || agent_id.is_nil()
             || files.is_empty()
@@ -83,6 +131,22 @@ impl ActivationJournal {
             ));
         }
         crate::reject_symlink_components(root, config_directory).await?;
+        // Never auto-adopt or relocate an interrupted legacy recovery document.
+        match tokio::fs::symlink_metadata(config_directory.join(JOURNAL_NAME)).await {
+            Err(error) if error.kind() == ErrorKind::NotFound => {}
+            _ => return Err(held()),
+        }
+        let controller_root = private_controller_directory(location.controller_root).await?;
+        let agents_root = tokio::fs::canonicalize(root).await.map_err(|_| held())?;
+        let canonical_config_directory = tokio::fs::canonicalize(config_directory)
+            .await
+            .map_err(|_| held())?;
+        if !canonical_config_directory.starts_with(&agents_root) {
+            return Err(held());
+        }
+        if controller_root.starts_with(&agents_root) || agents_root.starts_with(&controller_root) {
+            return Err(held());
+        }
         let mut entries = Vec::new();
         let mut total = 0usize;
         let mut paths = std::collections::HashSet::new();
@@ -117,7 +181,8 @@ impl ActivationJournal {
             }));
         }
         let document = serde_json::to_vec(&serde_json::json!({
-            "contract_version": 1, "agent_id": agent_id, "revision": revision,
+            "contract_version": 2, "agent_id": agent_id, "revision": revision,
+            "agents_root": agents_root, "config_directory": canonical_config_directory,
             "was_running": was_running, "files": entries,
         }))
         .map_err(|_| AppError::internal("configuration journal serialization failed"))?;
@@ -126,8 +191,10 @@ impl ActivationJournal {
                 "configuration journal exceeds its byte limit",
             ));
         }
-        let path = config_directory.join(JOURNAL_NAME);
-        crate::reject_symlink_components(root, &path).await?;
+        let path = controller_journal_path(&controller_root, agent_id);
+        crate::reject_symlink_components(&controller_root, &path)
+            .await
+            .map_err(|_| held())?;
         let mut options = tokio::fs::OpenOptions::new();
         options.write(true).create_new(true);
         #[cfg(unix)]
@@ -149,16 +216,19 @@ impl ActivationJournal {
             )
         })?;
         drop(file);
-        sync_directory(config_directory).await?;
+        sync_directory(&controller_root).await?;
         Ok(Self {
-            root: root.to_path_buf(),
+            root: controller_root,
             path,
             document,
         })
     }
 
     pub(super) async fn acknowledge(self) -> Result<(), AppError> {
-        crate::reject_symlink_components(&self.root, &self.path).await?;
+        private_controller_directory(&self.root).await?;
+        crate::reject_symlink_components(&self.root, &self.path)
+            .await
+            .map_err(|_| held())?;
         if !tokio::fs::symlink_metadata(&self.path)
             .await
             .map_err(|_| {
@@ -177,6 +247,22 @@ impl ActivationJournal {
                 "configuration journal acknowledgement requires reconciliation".into(),
             )
         })?;
+        #[cfg(target_os = "linux")]
+        {
+            use std::os::unix::fs::MetadataExt;
+            let metadata = file.metadata().await.map_err(|_| held())?;
+            let owner = tokio::fs::metadata(&self.root)
+                .await
+                .map_err(|_| held())?
+                .uid();
+            if !metadata.is_file()
+                || metadata.nlink() != 1
+                || metadata.uid() != owner
+                || metadata.mode() & 0o777 != 0o600
+            {
+                return Err(held());
+            }
+        }
         let mut observed = Vec::new();
         file.take((MAX_JOURNAL_BYTES + 1) as u64)
             .read_to_end(&mut observed)
@@ -232,8 +318,17 @@ mod tests {
 
     async fn fixture() -> Fixture {
         let root = std::env::temp_dir().join(format!("fleet-journal-test-{}", Uuid::new_v4()));
-        let config = root.join("agent1/config");
+        let config = root.join("agents/agent1/config");
         tokio::fs::create_dir_all(&config).await.unwrap();
+        let controller = root.join("controller");
+        tokio::fs::create_dir(&controller).await.unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            tokio::fs::set_permissions(&controller, std::fs::Permissions::from_mode(0o700))
+                .await
+                .unwrap();
+        }
         let path = config.join(".env");
         tokio::fs::write(&path, b"old-secret").await.unwrap();
         (
@@ -244,16 +339,48 @@ mod tests {
         )
     }
 
+    async fn prepare(
+        root: &Path,
+        config: &Path,
+        id: Uuid,
+        revision: i64,
+        running: bool,
+        files: &[(PathBuf, String)],
+        backups: &[(PathBuf, Option<Vec<u8>>)],
+    ) -> Result<ActivationJournal, AppError> {
+        ActivationJournal::prepare(
+            JournalLocation {
+                agents_root: &root.join("agents"),
+                config_directory: config,
+                controller_root: &root.join("controller"),
+            },
+            id,
+            revision,
+            running,
+            files,
+            backups,
+        )
+        .await
+    }
+
     #[tokio::test]
     async fn journal_preserves_backup_and_exclusive_hold_until_acknowledgement() {
         let (root, config, files, backups) = fixture().await;
-        let journal =
-            ActivationJournal::prepare(&root, &config, Uuid::new_v4(), 1, false, &files, &backups)
-                .await
-                .unwrap();
+        let id = Uuid::new_v4();
+        let journal = prepare(&root, &config, id, 1, false, &files, &backups)
+            .await
+            .unwrap();
         let payload: serde_json::Value =
-            serde_json::from_slice(&tokio::fs::read(config.join(JOURNAL_NAME)).await.unwrap())
-                .unwrap();
+            serde_json::from_slice(&tokio::fs::read(&journal.path).await.unwrap()).unwrap();
+        assert_eq!(payload["contract_version"], 2);
+        assert_eq!(
+            payload["config_directory"],
+            serde_json::json!(tokio::fs::canonicalize(&config).await.unwrap())
+        );
+        assert_eq!(
+            payload["agents_root"],
+            serde_json::json!(tokio::fs::canonicalize(root.join("agents")).await.unwrap())
+        );
         assert_eq!(
             payload["files"][0]["previous_hex"],
             hex::encode(b"old-secret")
@@ -263,7 +390,7 @@ mod tests {
             hex::encode(Sha256::digest(b"new-secret"))
         );
         assert!(
-            ActivationJournal::prepare(&root, &config, Uuid::new_v4(), 2, false, &files, &backups)
+            prepare(&root, &config, id, 2, false, &files, &backups)
                 .await
                 .is_err()
         );
@@ -272,7 +399,7 @@ mod tests {
         {
             use std::os::unix::fs::PermissionsExt;
             assert_eq!(
-                tokio::fs::metadata(config.join(JOURNAL_NAME))
+                tokio::fs::metadata(&journal.path)
                     .await
                     .unwrap()
                     .permissions()
@@ -281,28 +408,29 @@ mod tests {
                 0o600
             );
         }
-        journal.acknowledge().await.unwrap();
+        let journal_path = journal.path.clone();
         assert!(!config.join(JOURNAL_NAME).exists());
+        assert!(journal_path.starts_with(root.join("controller")));
+        journal.acknowledge().await.unwrap();
+        assert!(!journal_path.exists());
         tokio::fs::remove_dir_all(root).await.unwrap();
     }
 
     #[tokio::test]
     async fn journal_retains_unknown_crash_and_changed_identity() {
         let (root, config, files, backups) = fixture().await;
-        let journal =
-            ActivationJournal::prepare(&root, &config, Uuid::new_v4(), 1, true, &files, &backups)
-                .await
-                .unwrap();
-        tokio::fs::write(config.join(JOURNAL_NAME), b"incomplete")
+        let id = Uuid::new_v4();
+        let journal = prepare(&root, &config, id, 1, true, &files, &backups)
+            .await
+            .unwrap();
+        let journal_path = journal.path.clone();
+        tokio::fs::write(&journal_path, b"incomplete")
             .await
             .unwrap();
         assert!(journal.acknowledge().await.is_err());
-        assert_eq!(
-            tokio::fs::read(config.join(JOURNAL_NAME)).await.unwrap(),
-            b"incomplete"
-        );
+        assert_eq!(tokio::fs::read(&journal_path).await.unwrap(), b"incomplete");
         assert!(
-            ActivationJournal::prepare(&root, &config, Uuid::new_v4(), 1, false, &files, &backups)
+            prepare(&root, &config, id, 1, false, &files, &backups)
                 .await
                 .is_err()
         );
@@ -315,42 +443,34 @@ mod tests {
         let id = Uuid::new_v4();
         let outside = vec![(root.join("agent2/.env"), "other".into())];
         assert!(
-            ActivationJournal::prepare(&root, &config, id, 1, false, &outside, &backups)
+            prepare(&root, &config, id, 1, false, &outside, &backups)
                 .await
                 .is_err()
         );
         let duplicate = vec![files[0].clone(), files[0].clone()];
         let duplicate_backups = vec![backups[0].clone(), backups[0].clone()];
         assert!(
-            ActivationJournal::prepare(
-                &root,
-                &config,
-                id,
-                1,
-                false,
-                &duplicate,
-                &duplicate_backups
-            )
-            .await
-            .is_err()
+            prepare(&root, &config, id, 1, false, &duplicate, &duplicate_backups)
+                .await
+                .is_err()
         );
         let alias = vec![files[0].clone(), (config.join(".ENV"), "other".into())];
         let alias_backups = vec![backups[0].clone(), (config.join(".ENV"), None)];
         assert!(
-            ActivationJournal::prepare(&root, &config, id, 1, false, &alias, &alias_backups)
+            prepare(&root, &config, id, 1, false, &alias, &alias_backups)
                 .await
                 .is_err()
         );
         let traversal = vec![(config.join("skills/../.env"), "other".into())];
         let traversal_backup = vec![(traversal[0].0.clone(), None)];
         assert!(
-            ActivationJournal::prepare(&root, &config, id, 1, false, &traversal, &traversal_backup)
+            prepare(&root, &config, id, 1, false, &traversal, &traversal_backup)
                 .await
                 .is_err()
         );
         let huge = vec![(backups[0].0.clone(), Some(vec![0; MAX_BACKUP_BYTES + 1]))];
         assert!(
-            ActivationJournal::prepare(&root, &config, id, 1, false, &files, &huge)
+            prepare(&root, &config, id, 1, false, &files, &huge)
                 .await
                 .is_err()
         );
@@ -364,7 +484,7 @@ mod tests {
         let (root, config, files, backups) = fixture().await;
         std::os::unix::fs::symlink(&files[0].0, config.join(JOURNAL_NAME)).unwrap();
         assert!(
-            ActivationJournal::prepare(&root, &config, Uuid::new_v4(), 1, false, &files, &backups)
+            prepare(&root, &config, Uuid::new_v4(), 1, false, &files, &backups)
                 .await
                 .is_err()
         );
@@ -382,19 +502,19 @@ mod tests {
         let skill = config.join("skills/disabled/SKILL.md");
         files.push((skill.clone(), String::new()));
         backups.push((skill, None));
-        let journal =
-            ActivationJournal::prepare(&root, &config, Uuid::new_v4(), 1, true, &files, &backups)
-                .await
-                .unwrap();
+        let id = Uuid::new_v4();
+        let journal = prepare(&root, &config, id, 1, true, &files, &backups)
+            .await
+            .unwrap();
+        let journal_path = journal.path.clone();
         drop(journal);
         let payload: serde_json::Value =
-            serde_json::from_slice(&tokio::fs::read(config.join(JOURNAL_NAME)).await.unwrap())
-                .unwrap();
+            serde_json::from_slice(&tokio::fs::read(&journal_path).await.unwrap()).unwrap();
         assert!(payload["was_running"].as_bool().unwrap());
         assert!(payload["files"][1]["previous_hex"].is_null());
         assert!(payload["files"][1]["expected_sha256"].is_null());
         assert!(
-            ActivationJournal::prepare(&root, &config, Uuid::new_v4(), 2, false, &files, &backups)
+            prepare(&root, &config, id, 2, false, &files, &backups)
                 .await
                 .is_err()
         );
@@ -423,6 +543,143 @@ mod tests {
                 .unwrap()
                 .is_none()
         );
+        tokio::fs::remove_dir_all(root).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn legacy_journal_blocks_without_moving_or_rewriting_sensitive_state() {
+        let (root, config, files, backups) = fixture().await;
+        tokio::fs::write(config.join(JOURNAL_NAME), b"legacy-unknown-secret")
+            .await
+            .unwrap();
+        let id = Uuid::new_v4();
+        assert!(
+            prepare(&root, &config, id, 1, false, &files, &backups)
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            tokio::fs::read(config.join(JOURNAL_NAME)).await.unwrap(),
+            b"legacy-unknown-secret"
+        );
+        assert!(!controller_journal_path(&root.join("controller"), id).exists());
+        assert_eq!(tokio::fs::read(&files[0].0).await.unwrap(), b"old-secret");
+        tokio::fs::remove_dir_all(root).await.unwrap();
+    }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn missing_shared_overlapping_and_linked_controller_roots_are_denied() {
+        use std::os::unix::fs::PermissionsExt;
+        let (root, config, files, backups) = fixture().await;
+        let id = Uuid::new_v4();
+        let agents = root.join("agents");
+        let controller = root.join("controller");
+        let nested = agents.join("controller");
+        tokio::fs::create_dir(&nested).await.unwrap();
+        tokio::fs::set_permissions(&nested, std::fs::Permissions::from_mode(0o700))
+            .await
+            .unwrap();
+        tokio::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
+            .await
+            .unwrap();
+        std::os::unix::fs::symlink(&controller, root.join("alias")).unwrap();
+        for bad in [
+            PathBuf::new(),
+            root.join("missing"),
+            nested,
+            root.clone(),
+            root.join("alias"),
+        ] {
+            assert!(matches!(
+                ActivationJournal::prepare(
+                    JournalLocation {
+                        agents_root: &agents,
+                        config_directory: &config,
+                        controller_root: &bad,
+                    },
+                    id,
+                    1,
+                    false,
+                    &files,
+                    &backups
+                )
+                .await,
+                Err(AppError::Unavailable(_))
+            ));
+        }
+        for mode in [0o755, 0o770, 0o711] {
+            tokio::fs::set_permissions(&controller, std::fs::Permissions::from_mode(mode))
+                .await
+                .unwrap();
+            assert!(matches!(
+                prepare(&root, &config, id, 1, false, &files, &backups).await,
+                Err(AppError::Unavailable(_))
+            ));
+        }
+        assert!(!controller_journal_path(&controller, id).exists());
+        assert_eq!(tokio::fs::read(&files[0].0).await.unwrap(), b"old-secret");
+        tokio::fs::remove_dir_all(root).await.unwrap();
+    }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn acknowledgement_rejects_hardlinks_and_changed_directory_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+        for hardlink in [true, false] {
+            let (root, config, files, backups) = fixture().await;
+            let journal = prepare(&root, &config, Uuid::new_v4(), 1, false, &files, &backups)
+                .await
+                .unwrap();
+            let path = journal.path.clone();
+            let original = tokio::fs::read(&path).await.unwrap();
+            if hardlink {
+                tokio::fs::hard_link(&path, root.join("foreign-link"))
+                    .await
+                    .unwrap();
+            } else {
+                tokio::fs::set_permissions(
+                    root.join("controller"),
+                    std::fs::Permissions::from_mode(0o755),
+                )
+                .await
+                .unwrap();
+            }
+            assert!(journal.acknowledge().await.is_err());
+            assert_eq!(tokio::fs::read(&path).await.unwrap(), original);
+            tokio::fs::remove_dir_all(root).await.unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn independent_agent_journals_are_isolated_in_controller_storage() {
+        let (root, config, files, backups) = fixture().await;
+        let first_id = Uuid::new_v4();
+        let first = prepare(&root, &config, first_id, 1, false, &files, &backups)
+            .await
+            .unwrap();
+        let other_config = root.join("agents/agent2/config");
+        tokio::fs::create_dir_all(&other_config).await.unwrap();
+        let other_path = other_config.join(".env");
+        let second = prepare(
+            &root,
+            &other_config,
+            Uuid::new_v4(),
+            1,
+            false,
+            &[(other_path.clone(), "other-secret".into())],
+            &[(other_path, None)],
+        )
+        .await
+        .unwrap();
+        let first_path = first.path.clone();
+        let second_path = second.path.clone();
+        first.acknowledge().await.unwrap();
+        assert!(!first_path.exists());
+        assert!(second_path.exists());
+        assert!(!config.join(JOURNAL_NAME).exists());
+        assert!(!other_config.join(JOURNAL_NAME).exists());
+        second.acknowledge().await.unwrap();
         tokio::fs::remove_dir_all(root).await.unwrap();
     }
 }

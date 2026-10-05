@@ -314,6 +314,13 @@ paths, links, non-regular files, bounded reads and absent/disabled-skill semanti
 Existing PostgreSQL tests cover draining, failed rollback hold, identity fencing
 and exact effective-head readiness. These are not process-kill fault injection
 or an installed-runtime restart recovery acceptance; both remain required.
+Private controller storage tests additionally cover missing/shared/overlapping
+roots, owner/mode checks, symlink aliases, changed directory permissions,
+hardlinked acknowledgement, independent agent files and preservation of legacy
+sensitive bytes. The PG case
+`legacy_agent_journal_keeps_drain_and_blocks_before_configuration_effects`
+checks no new document, no config mutation/spawn/effective head and no second
+claim. These are filesystem/DB component evidence, not container mount isolation.
 
 `cargo test --locked -p infra --lib configuration_disk::tests` covers nested
 directory creation, replacement/deletion, Unix0600, missing paths, non-files,

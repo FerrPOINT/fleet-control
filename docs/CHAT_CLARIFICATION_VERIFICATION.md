@@ -1,5 +1,69 @@
 # Chat Clarification Verification
 
+## Private Controller Activation Storage: 5 October 2026
+
+Source packet atop Fleet `e7379489f166bd2e5ac1f83c9ae4686c480173e2` moves new
+activation backups from agent config into explicit operator-owned Linux storage.
+Version 2 freezes canonical agents/config paths; exact owner/mode/link guards,
+exclusive reservation, bounded backups and file/directory persistence apply.
+Legacy v1 documents remain untouched and block before stop/file mutation. Empty
+or unsafe storage returns unavailable, preserving drain. Root bootstrap, Windows
+ACLs, crash takeover and same-UID agent isolation are not implemented.
+
+Final owned project `sdlc-qa-fleet-controller-3f4e10a0ac13` passes Rust 1.88
+fmt/check/strict all-target Clippy and 444 distinct executed component cases:
+API41, app21, domain26, infra140, managed-settings1, foundation201 and shared14.
+This includes ten journal filesystem cases and six PostgreSQL lifecycle cases.
+The focused lifecycle diagnostic also passes; duplicates are not counted.
+Eighteen opt-in cases are ignored. Seven migration tests return without their
+dedicated DB variables in this broad run and are not counted as migration proof.
+Completion log SHA256
+`bf9e4464ff8f826b7a808a79e4db6bd81ff695ddae3395eaff9e30b031101d01`.
+
+Separate project `sdlc-qa-fleet-controller-meta-6d93c2d6e6af` uses two clean
+disposable databases: migration CLI up/status/latest-down/reapply/status and
+the actual time-order migration upgrade/guard-preservation regression pass.
+Generated OpenAPI matches tracked bytes; fmt check passes. Log SHA256
+`2e663e8ed877be536a03d82b58e80b119c020bd29efb1a6b66e10c576f2d9e35`.
+No applied/historical migration source was changed.
+
+The first gate fails because the clock regression tests latest-migration down
+instead of the named time-order migration after newer migrations were added.
+The test now calls that registered migration directly and retains its nonempty
+downgrade denial and unchanged-history assertions. Failure log SHA256
+`8a9f212ee24a4311634704cc82519e48bb8b8aed3601b51d6f5cb55f02305a79`.
+A second gate times out at the lifecycle SOUL observation. Early worker-exit
+diagnostics were added without extending its five-second timeout or weakening
+lock assertions. Focused and full final runs pass; the earlier timeout is not
+claimed diagnosed or fixed. Retained failure log SHA256
+`d3050cea4d108381ec51f935053210639dac100016cf08db159356f2b8566509`.
+
+Native project `sdlc-qa-fleet-native-dab82533251d` passes one real two-home
+Hermes lifecycle/restart test in 54.87s on binary SHA256
+`5c64650c7f5818457155d94edaece238c2fa42b04c45da8e28c59bdee377d964`.
+It verifies all13770 pinned bbaf7af native files, Base SDK9408802 and launcher
+source e6dcb3c, actual activation/dispatch/mirrors, cross-token denial and
+restart history. The model is deterministic loopback. Ten other native selectors
+were not rerun for this packet; their fixture helpers now provision private
+controller storage, without changing producer/control behavior. Native log
+`6ebf1f91013065b98664c6fd09c6269c341ee8096e30de24a731e3be57429b3f`;
+report `46d13a41b910cc104dbdb1b23f7d5d9f8ad6b4b68b35e561d7646aa573f60949`.
+
+Executed source SHA256: journal
+`37ab380f884c542f448434add57c654e1382bbdaf9e4945328102019318327f5`;
+supervisor `6013f2599bed7dc9550d7d0d0244c08f8e9e9146e23e68f30da41d5f0f8d23b8`;
+shared config `451873ae2c4853da21160572b33915c46623f4e2669b289c04404ffb669c72b7`;
+native fixture `d1c7b3a659b72c6133c38c376db507dcae9ed5eceb190ca0ee59998fb229a897`.
+All owned Compose cleanups pass with independently empty ps. Disposable native
+tags are gone; shared caches, accepted images, mounts, secrets and pins remain.
+README/links,36 native harness units and135 existing screenshot hashes pass;
+no UI/browser capture or live-provider/PM/SDLC acceptance is claimed.
+Per-agent OS boundaries, safe descendants, loaded generation, full native matrix,
+producer admission, PM tools/resume, Forge integration and ordered exact-head
+release/CI remain gates. Integration-branch evidence does not update PR47/PR140.
+Fresh workspace Docker-group audit is complete: desktop60, sdlc1-runner0 and
+sdlc2-runner0, with no violations. This checks resource grouping, not SDLC success.
+
 ## Combined Native Recovery Extensions (5 October 2026)
 
 Baseline Fleet d310b430ce6f73a57591ba1b75958dc5982fe343 is fetched and matches

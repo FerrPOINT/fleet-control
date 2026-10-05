@@ -17,7 +17,7 @@ use sea_orm::{ConnectionTrait, DatabaseBackend, Statement};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use shared::{AppConfig, DatabaseConfig};
-use std::os::unix::fs::MetadataExt;
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::{collections::HashMap, path::Path, sync::Arc};
 use tokio::{
     sync::Mutex,
@@ -30,6 +30,17 @@ mod native_approvals;
 
 #[path = "support/native_control_restart.rs"]
 mod native_control_restart;
+
+fn native_configuration(mut config: AppConfig) -> Arc<AppConfig> {
+    let controller_root = Path::new(&config.fleet.agents_root)
+        .parent()
+        .expect("owned native QA agent root must have a parent")
+        .join("controller");
+    std::fs::create_dir_all(&controller_root).unwrap();
+    std::fs::set_permissions(&controller_root, std::fs::Permissions::from_mode(0o700)).unwrap();
+    config.fleet.controller_root = controller_root.to_string_lossy().into_owned();
+    Arc::new(config)
+}
 
 #[derive(Default)]
 struct Model {
@@ -460,7 +471,7 @@ async fn managed_native_gateway_isolates_home_soul_messages_and_restart_history(
     config.fleet.agent_port_base = 29100;
     config.fleet.agent_port_stride = 5;
     config.fleet.project_workflow_url = None;
-    let config = Arc::new(config);
+    let config = native_configuration(config);
     let (events, _) = tokio::sync::broadcast::channel(32);
     let runtime = LocalRuntimeSupervisor::new(config.clone(), repo.clone(), events);
     let mut agents = Vec::new();
@@ -523,7 +534,7 @@ fn recovery_configuration(secret: String) -> Arc<AppConfig> {
     config.fleet.agent_port_stride = 5;
     config.fleet.project_workflow_url = None;
     config.fleet.hermes_recovery_extension_enabled = true;
-    Arc::new(config)
+    native_configuration(config)
 }
 
 async fn native_observations(root: &Path) -> Vec<Value> {
@@ -947,7 +958,7 @@ async fn native_control_scenario(outcomes: bool) {
     config.fleet.agent_port_base = 29300;
     config.fleet.agent_port_stride = 5;
     config.fleet.project_workflow_url = None;
-    let config = Arc::new(config);
+    let config = native_configuration(config);
     let (events, _) = tokio::sync::broadcast::channel(32);
     let runtime = LocalRuntimeSupervisor::new(config.clone(), repo.clone(), events);
     let agent = create_agent(&repo, &config, "Native control agent").await;

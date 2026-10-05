@@ -275,8 +275,11 @@ impl LocalRuntimeSupervisor {
         }
         *journal = Some(
             activation_journal::ActivationJournal::prepare(
-                std::path::Path::new(&self.config.fleet.agents_root),
-                std::path::Path::new(&agent.paths.config),
+                activation_journal::JournalLocation {
+                    agents_root: std::path::Path::new(&self.config.fleet.agents_root),
+                    config_directory: std::path::Path::new(&agent.paths.config),
+                    controller_root: std::path::Path::new(&self.config.fleet.controller_root),
+                },
                 agent.id,
                 revision.revision,
                 running,

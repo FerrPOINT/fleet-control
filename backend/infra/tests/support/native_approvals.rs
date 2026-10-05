@@ -126,7 +126,7 @@ async fn native_approval_scenario(outcomes: bool) {
     config.fleet.agent_port_stride = 5;
     config.fleet.project_workflow_url = None;
     config.fleet.hermes_control_outcome_enabled = outcomes;
-    let config = Arc::new(config);
+    let config = native_configuration(config);
     let root = Path::new("/tmp/fleet-native-supervisor/approval-fault");
     tokio::fs::create_dir(root).await.unwrap();
     let (events, _) = tokio::sync::broadcast::channel(32);

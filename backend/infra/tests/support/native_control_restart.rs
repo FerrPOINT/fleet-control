@@ -18,7 +18,7 @@ fn config(secret: String, combined: bool) -> Arc<AppConfig> {
     config.fleet.agent_port_base = 29700;
     config.fleet.agent_port_stride = 5;
     config.fleet.project_workflow_url = None;
-    Arc::new(config)
+    native_configuration(config)
 }
 
 async fn save(name: &str, value: Value) {
