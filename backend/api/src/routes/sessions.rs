@@ -495,9 +495,13 @@ pub async fn steer_session_run(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<crate::middleware::CurrentUser>,
     Path((session_id, run_id)): Path<(Uuid, Uuid)>,
+    human: Option<Extension<crate::middleware::VerifiedHumanSession>>,
     headers: HeaderMap,
     Json(req): Json<SteerSessionRunRequest>,
 ) -> Result<Json<RuntimeRunControlResponse>, AppError> {
+    if human.is_none() {
+        return Err(AppError::Forbidden);
+    }
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_write_access(&session, &user)?;
     if ctx.repo.get_task_chat_binding(session_id).await?.is_some() {
@@ -520,8 +524,12 @@ pub async fn stop_session_run(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<crate::middleware::CurrentUser>,
     Path((session_id, run_id)): Path<(Uuid, Uuid)>,
+    human: Option<Extension<crate::middleware::VerifiedHumanSession>>,
     headers: HeaderMap,
 ) -> Result<Json<RuntimeRunControlResponse>, AppError> {
+    if human.is_none() {
+        return Err(AppError::Forbidden);
+    }
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_write_access(&session, &user)?;
     let run = ctx.repo.get_session_agent_run(run_id).await?;

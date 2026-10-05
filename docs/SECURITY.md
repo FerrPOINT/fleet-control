@@ -16,8 +16,13 @@ unknown effect; native unknown-command readback and distributed task fencing are
 still separate requirements. Task/PM commands remain denied without admission;
 terminal mirror proof does not grant process-tree or business authority.
 `CurrentUser` is authenticated identity, not by itself proof of a browser human
-session. Approval/PM owner actions retain their distinct verified-human gate;
-generic free-chat control HTTP identity acceptance remains an explicit gap.
+session. Stop/steer now require the same separate `VerifiedHumanSession` gate as
+approval/PM owner actions, before session or run lookup. A sessionless principal,
+including an admin, cannot call those human mutations; client headers cannot
+provide that extension. Local HMAC login remains the explicitly supported human
+mode. Central session proof is supplied by the existing auth middleware, not
+inferred from a local user ID, email, role or caller JSON. Live central identity
+and assignment-scoped machine control acceptance remain separate gates.
 
 Prepared restart recovery grants only the original unconsumed free-chat
 submission permit. Fresh protocol proof and transactional current identity,

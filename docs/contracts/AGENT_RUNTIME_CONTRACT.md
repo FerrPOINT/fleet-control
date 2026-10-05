@@ -5,7 +5,10 @@ and pinned native status under the [control profile](HERMES_RUN_CONTROL_V1.md).
 Only an exact bounded ACK is accepted. Guidance never resets local run state;
 interrupt ACK can mark stopping, not terminal success or capacity release.
 Free-chat controls now reserve a durable actor/key/payload-hash command before
-native IO and claim its single-send permit before POST. Readback and replay never
+native IO and claim its single-send permit before POST. Public stop/steer also
+require independently verified human-session proof before session/run lookup;
+an authenticated machine or admin role alone does not authorize these routes.
+Readback and replay never
 resend submitted/uncertain controls. ACK persistence, stopping state, audit and
 Fleet events commit atomically. Independent terminal mirror proof can retire an
 unresolved command as `terminal_observed`, not fabricate its ACK. Task-bound

@@ -41,6 +41,7 @@ case; running/approval/native-crash and installed recovery remain gates.
 | No unknown-command reinterpretation | Frozen message/answer payloads and keys, uncertain-steer regression | PM delivery readback/rebind |
 | Requirements revision changes revoke UI consent | Revision/hash form identity, full document and comparison, regression test | Trusted exact-revision prerequisite evidence |
 | Wire drift | Rust OpenAPI, generated client, seven-schema Tracker snapshot check | Compatible deployed versions and CI head verification |
+| Human-only stop/steer, private command receipts | VerifiedHumanSession gate before lookup; actual local JWT HTTP owner/replay/revocation, foreign session/run denial and operator/admin reads; sessionless admin denied without native POST | Live central session/PAT identity, assignment-scoped machine control and release CI |
 | Keyboard/mobile/desktop | Three-browser controller fixtures, axe, Escape focus and tab arrows, generated image hashes | Live production acceptance, not fixture promotion |
 
 The table below describes the legacy baseline, not complete SDLC acceptance.

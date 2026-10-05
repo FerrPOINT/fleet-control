@@ -6,7 +6,14 @@
 replay with one native POST, semantic conflicts, unknown ACK hold, one submitted
 claim, current actor revocation, foreign-session readback, atomic ACK/audit rollback
 and terminal-only reconciliation. A raw run flag is insufficient proof. The
-isolated migration `runtime_controls` test needs its own empty disposable DB via
+actual human HTTP group uses issued local HMAC JWTs and `require_auth`, real
+handlers, an owned PostgreSQL DB and authenticated fake Hermes. It checks missing/
+invalid auth, unrelated user, wrong session/run, missing keys, owner replay with
+one POST per command, payload conflict, operator/admin receipt reads and revoked
+user denial. A separate injected sessionless admin tests only the proof boundary:
+no HTTP human header can create `VerifiedHumanSession`. It is not Central Auth
+JWKS/session/PAT live evidence or assignment-scoped machine-control admission.
+The isolated migration `runtime_controls` test needs its own empty disposable DB via
 `FLEET_RUNTIME_CONTROL_MIGRATION_TEST_DATABASE_URL`; without it no PG evidence is
 provided. It exercises additive upgrade, preserved legacy rows, empty down/re-up,
 nonempty refusal and immutable identity/state guards.

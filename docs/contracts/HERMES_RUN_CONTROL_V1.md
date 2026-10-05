@@ -15,6 +15,10 @@ endpoint or permission to run SDLC. See [runtime](../RUNTIME.md) and the
   it does not renew a lease, horizon, idempotency key or dispatch permit.
 - Reject task-bound controls until assignment/control admission is integrated.
   Public HTTP ownership remains authoritative; this adapter is not human auth.
+  The public human stop/steer routes require middleware `VerifiedHumanSession`
+  before lookup. A sessionless authenticated principal or caller-supplied human
+  header cannot satisfy this gate. Machine assignment control needs its own
+  scoped admission contract, not reuse of these human routes.
 - Fresh authenticated health/capabilities must advertise the exact POST endpoint
   and feature. Authenticated bounded GET verifies the original run/session and
   eligible native status before POST. No redirect, proxy-env fallback or retry.

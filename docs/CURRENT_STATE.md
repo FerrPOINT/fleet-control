@@ -22,6 +22,15 @@ VM clock-regression observations remain recorded, not reclassified as successes.
 Task admission, native approval acceptance,
 safe OS descendant stop, release partition and exact-head CI remain requirements.
 
+Human free-chat stop/steer now require `VerifiedHumanSession` before lookup,
+matching targeted approvals. Actual local JWT middleware/HTTP tests verify owner
+commands, replay, foreign-session/run denials, operator/admin receipt reads and
+active-user revocation. A separate sessionless-principal test denies even an
+admin and a forged human header. The renewed Linux/PG gate passes372 distinct
+component cases plus migration CLI and strict all-target checks. This is not
+live central JWKS, scoped machine/task admission or a release-head CI result;
+see [exact evidence](CHAT_CLARIFICATION_VERIFICATION.md#human-runtime-control-http-boundary-5-october-2026).
+
 The native Hermes stream consumer now has bounded incremental byte framing,
 strict JSON and original run identity, fixed assembly/idle/lifetime deadlines,
 traffic/text/snapshot budgets and no incomplete EOF dispatch. Empty transport

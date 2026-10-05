@@ -201,6 +201,327 @@ fn stop_ack() -> Value {
     json!({"run_id":"run_control","status":"stopping"})
 }
 
+fn control_http_context(f: &ControlFixture) -> Arc<app::AppContext> {
+    let mut config = AppConfig::default();
+    config.fleet.runtime_token_secret = "owned-control-fixture".into();
+    let config = Arc::new(config);
+    let (events, _) = tokio::sync::broadcast::channel(32);
+    let runtime = Arc::new(infra::runtime::LocalRuntimeSupervisor::new(
+        config.clone(),
+        f.repo.clone(),
+        events.clone(),
+    ));
+    let (restart_tx, _) = tokio::sync::mpsc::channel(1);
+    Arc::new(app::AppContext::new(
+        config,
+        f.repo.clone(),
+        Arc::new(infra::FilesystemProvisioner),
+        runtime,
+        events,
+        restart_tx,
+    ))
+}
+
+fn control_http_routes() -> Router<Arc<app::AppContext>> {
+    Router::new()
+        .route(
+            "/api/v1/sessions/{session_id}/runs/{run_id}/steer",
+            post(api::routes::sessions::steer_session_run),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/runs/{run_id}/stop",
+            post(api::routes::sessions::stop_session_run),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/runs/{run_id}/controls",
+            get(api::routes::sessions::list_controls),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/runs/{run_id}/controls/{command_id}",
+            get(api::routes::sessions::read_control),
+        )
+}
+
+#[tokio::test]
+async fn runtime_control_http_sessionless_principal_cannot_impersonate_human() {
+    let Some(f) = ledger_fixture(steer_ack()).await else {
+        return;
+    };
+    // This isolates the human proof boundary; it is not a central JWKS acceptance test.
+    let router = control_http_routes()
+        .layer(axum::Extension(api::middleware::CurrentUser {
+            id: f.owner,
+            role: domain::SystemRole::Admin,
+            is_system_admin: true,
+        }))
+        .with_state(control_http_context(&f));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+    let client = reqwest::Client::new();
+    for (session, run) in [
+        (f.run.session_id, f.run.id),
+        (Uuid::new_v4(), Uuid::new_v4()),
+    ] {
+        for operation in ["stop", "steer"] {
+            let response = client
+                .post(format!(
+                    "{base}/api/v1/sessions/{session}/runs/{run}/{operation}"
+                ))
+                .header("Idempotency-Key", "machine-forged-human")
+                .header("X-Verified-Human-Session", "true")
+                .json(&json!({"input":"machine attempt"}))
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        }
+    }
+    assert_eq!(f.calls.load(Ordering::SeqCst), 0);
+    assert!(
+        f.repo
+            .list_runtime_controls(f.run.session_id, f.run.id)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    server.abort();
+}
+
+#[tokio::test]
+async fn runtime_control_http_local_login_scopes_replay_and_revocation() {
+    let Some(f) = ledger_fixture(json!({"object":"hermes.run.steer", "run_id":"run_control",
+        "accepted":true, "status":"stopping"}))
+    .await
+    else {
+        return;
+    };
+    let ctx = control_http_context(&f);
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let mut principals = Vec::new();
+    for role in [
+        domain::SystemRole::User,
+        domain::SystemRole::Operator,
+        domain::SystemRole::Admin,
+    ] {
+        let id = Uuid::new_v4();
+        db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "INSERT INTO users(id,email,username,display_name,password_hash,is_system_admin,system_role)
+             VALUES($1,$2,$3,'HTTP control test','disabled',$4,$5)",
+            [id.into(), format!("{id}@example.test").into(), id.to_string().into(),
+             role.is_admin().into(), role.to_string().into()])).await.unwrap();
+        let record = f.repo.find_user_by_id(id).await.unwrap().unwrap();
+        principals.push((
+            role,
+            ctx.auth
+                .issue_tokens(&record)
+                .unwrap()
+                .response
+                .access_token,
+        ));
+    }
+    let owner = ctx
+        .auth
+        .issue_tokens(&f.repo.find_user_by_id(f.owner).await.unwrap().unwrap())
+        .unwrap()
+        .response
+        .access_token;
+    let foreign = f
+        .repo
+        .create_session(chat(f.agent.id, "foreign-run-route"), f.owner)
+        .await
+        .unwrap();
+    let router = control_http_routes()
+        .route_layer(axum::middleware::from_fn_with_state(
+            ctx.clone(),
+            api::middleware::require_auth,
+        ))
+        .with_state(ctx);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+    let client = reqwest::Client::new();
+    let run_url = format!(
+        "{base}/api/v1/sessions/{}/runs/{}",
+        f.run.session_id, f.run.id
+    );
+    let foreign_url = format!("{base}/api/v1/sessions/{}/runs/{}", foreign.id, f.run.id);
+    for operation in ["steer", "stop"] {
+        let url = format!("{run_url}/{operation}");
+        for token in [None, Some("invalid-token"), Some(principals[0].1.as_str())] {
+            let mut request = client
+                .post(&url)
+                .header("Idempotency-Key", "denied-command")
+                .json(&json!({"input":"guidance"}));
+            if let Some(token) = token {
+                request = request.bearer_auth(token);
+            }
+            let expected = if token == Some(principals[0].1.as_str()) {
+                StatusCode::FORBIDDEN
+            } else {
+                StatusCode::UNAUTHORIZED
+            };
+            assert_eq!(request.send().await.unwrap().status(), expected);
+        }
+        let unkeyed = client
+            .post(&url)
+            .bearer_auth(&owner)
+            .json(&json!({"input":"guidance"}))
+            .send()
+            .await
+            .unwrap();
+        assert!(unkeyed.status().is_client_error());
+        assert_eq!(
+            client
+                .post(format!("{foreign_url}/{operation}"))
+                .bearer_auth(&owner)
+                .header("Idempotency-Key", "wrong-run")
+                .json(&json!({"input":"guidance"}))
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::NOT_FOUND
+        );
+    }
+    assert_eq!(f.calls.load(Ordering::SeqCst), 0);
+    assert!(
+        f.repo
+            .list_runtime_controls(f.run.session_id, f.run.id)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    let mut receipts = Vec::new();
+    for operation in ["steer", "stop"] {
+        let url = format!("{run_url}/{operation}");
+        let key = format!("owner-{operation}");
+        for _ in 0..2 {
+            let response = client
+                .post(&url)
+                .bearer_auth(&owner)
+                .header("Idempotency-Key", &key)
+                .json(&json!({"input":"guidance"}))
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            let ack = response
+                .json::<domain::RuntimeRunControlResponse>()
+                .await
+                .unwrap();
+            assert!(ack.accepted);
+            let receipt = ack.command.unwrap();
+            assert_eq!(receipt.actor_user_id, f.owner);
+            assert_eq!(receipt.state, domain::RuntimeControlState::Acknowledged);
+            receipts.push(receipt);
+        }
+    }
+    for pair in receipts.chunks_exact(2) {
+        assert_eq!(pair[0].id, pair[1].id);
+    }
+    assert_eq!(f.calls.load(Ordering::SeqCst), 2);
+    assert_eq!(
+        client
+            .post(format!("{run_url}/steer"))
+            .bearer_auth(&owner)
+            .header("Idempotency-Key", "owner-steer")
+            .json(&json!({"input":"changed"}))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::CONFLICT
+    );
+    for (role, token) in &principals {
+        let expected = if *role == domain::SystemRole::User {
+            StatusCode::FORBIDDEN
+        } else {
+            StatusCode::OK
+        };
+        for suffix in [
+            "/controls".to_string(),
+            format!("/controls/{}", receipts[0].id),
+        ] {
+            assert_eq!(
+                client
+                    .get(format!("{run_url}{suffix}"))
+                    .bearer_auth(token)
+                    .send()
+                    .await
+                    .unwrap()
+                    .status(),
+                expected
+            );
+        }
+    }
+    assert_eq!(
+        client
+            .get(format!("{foreign_url}/controls/{}", receipts[0].id))
+            .bearer_auth(&owner)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        client
+            .get(format!("{run_url}/controls/{}", Uuid::new_v4()))
+            .bearer_auth(&owner)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::NOT_FOUND
+    );
+    let list = client
+        .get(format!("{run_url}/controls"))
+        .bearer_auth(&owner)
+        .send()
+        .await
+        .unwrap()
+        .json::<Vec<domain::RuntimeControlReceipt>>()
+        .await
+        .unwrap();
+    assert_eq!(list.len(), 2);
+    db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE users SET is_active=false WHERE id=$1",
+        [f.owner.into()],
+    ))
+    .await
+    .unwrap();
+    for operation in ["steer", "stop"] {
+        assert_eq!(
+            client
+                .post(format!("{run_url}/{operation}"))
+                .bearer_auth(&owner)
+                .header("Idempotency-Key", format!("revoked-{operation}"))
+                .json(&json!({"input":"guidance"}))
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::FORBIDDEN
+        );
+    }
+    assert_eq!(
+        client
+            .get(format!("{run_url}/controls"))
+            .bearer_auth(&owner)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(f.calls.load(Ordering::SeqCst), 2);
+    server.abort();
+}
+
 #[tokio::test]
 async fn runtime_control_steer_ack_cannot_reset_concurrent_waiting_state() {
     let Some(f) = setup(

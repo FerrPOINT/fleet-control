@@ -33,6 +33,15 @@ as backwards-compatible changes:
   `Idempotency-Key` header. Missing/invalid keys fail before dispatch. A server
   generated fallback would make a lost reply unsafe to retry, so there is none.
 
+These human stop/steer operations additionally require middleware-verified human
+session proof, matching targeted approvals. An authenticated sessionless token
+is no longer sufficient, even for an administrator or with an idempotency key.
+Clients must use a verified human login/session; custom headers cannot assert it.
+There is no unscoped machine-token fallback. Assignment-scoped machine control
+remains a separate blocked contract until admission is implemented. This is an
+authorization security retirement without a DTO change, not a claim that every
+existing token/client remains compatible or that schema checks prove identity.
+
 Clients must freeze one key with the original run/operation/payload and read the
 durable receipt after an unknown result. A changed payload needs a distinct new
 intent only when no unresolved control holds the run; never rotate the key to

@@ -15,7 +15,10 @@ Preflight validation failures remain errors. See
 Steer and stop require an authenticated `Idempotency-Key` header (valid reference,
 1..128 characters). The same actor/key, run, operation and normalized payload
 replays the existing command; a changed payload/identity is `409`. Actor identity
-comes from authentication, not JSON. A single unresolved command holds each run.
+comes from authentication, not JSON. Both mutations additionally require verified
+human-session proof; a sessionless principal receives `403` before session/run
+lookup, even with an admin role and a valid key. This does not introduce an agent
+or assignment machine-control API. A single unresolved command holds each run.
 Reservation and a single-use submitted permit precede the native POST; submitted
 or uncertain commands cannot be sent again after restart, including with a new key.
 

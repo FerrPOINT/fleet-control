@@ -1659,3 +1659,76 @@ runtime integration source. Its remote work is preserved without rebasing or
 force-pushing the PR branch. Our component/native gates use SDK9408802, so release
 dependency reconciliation and renewed exact-head validation remain necessary;
 the green sibling pin-update CI does not certify migration13 or this runtime code.
+
+## Human Runtime Control HTTP Boundary (5 October2026)
+
+This follow-up to647ea572958d0be8e021d59e7f6f465805c5d637 changes the public
+human stop/steer boundary, not native wire/adapter, schema, migration or runtime
+pins. Both routes require middleware `VerifiedHumanSession` before session/run
+lookup, like exact approval decisions. A sessionless principal cannot reuse an
+admin role, authenticated local user ID or forged HTTP human header as proof.
+Scoped machine control remains a separate admission contract, not a fallback.
+API_VERSIONING records the deliberate authorization security retirement.
+
+Two new PostgreSQL/HTTP tests execute the actual production handlers. One uses
+issued HMAC login JWTs and actual `require_auth`: unauthorized401, unrelated
+user403, foreign session/run404, unkeyed rejection, owner actor derivation,
+same-key replay, changed-input409, authorized operator/admin receipt reads and
+active-user revocation. Each successful steer and stop sends exactly one fake
+Hermes POST across two requests; all rejected commands leave that counter and
+journal unchanged. The other injects a sessionless admin only to isolate the
+human-proof guard, including nonexistent IDs and a forged human header:403 with
+zero runtime calls and no command rows. This is not actual central JWKS/PAT
+acceptance, distributed machine fencing or live SDLC.
+
+Final exec19550 exits0 with owned Compose project
+`sdlc-qa-fleet-human-controls-925f1083ec4c`. Rust1.88/PG17.6 gate passes209 library,
+155 foundation, one isolated approval SSE, four migration and three supplemental
+settings/directory/central-subject cases:372 distinct PASS, zero failed. The one
+renderer export remains explicitly ignored. All-target check, strict workspace
+Clippy, fmt and byte-equal regenerated OpenAPI pass. Clean migration CLI
+up/status/down-one/up/status verifies14 registered names, not a misleading count
+based on the last ordinal. Workspace doc tests pass with zero executable examples.
+No `GATE_FAIL` or clock-regression line occurs in this log; earlier observed VM
+clock regressions remain unresolved, not declared fixed from one passing run.
+
+| Evidence                         | SHA256                                                             |
+| --- | --- |
+| Component completion log         | `ab08b7046ccffd96318de5e43148467dffa75d169faedd81b2ba5fe4913fcff5` |
+| Public session routes source     | `7f6a1695fd08072bdf8ce009d3c6454902e690c9429ea025f5f8f145d8cf8683` |
+| Control HTTP/support test source | `f7fc0653acd1a21a168f5b7f5e9cb95c8bdf6ba3ec3f12cf73c2988e7f0f6d1b` |
+| Own PowerShell QA launcher       | `93cc53636e0a917364657707b8d7e5977c288a4cd230540a4cf4f2501681f903` |
+| Own scoped shell entry           | `f4871be593c1bc63f11b9427ac4c57738d7d920c7cb261b8fce930539e1f5a86` |
+| Own Compose descriptor           | `10bfedf240720d86735f134e3819c9af13f2d6068383a9d6ebacbf390cf9a4a1` |
+
+The launcher runs preflight format/check/generated OpenAPI, the existing complete
+component recipe and the supplemental recipe sequentially against distinct owned
+databases; all Rust commands are locked/offline. It retains external caches and
+uses exact finally Compose down. Independent ps is empty. SDK9408802, private
+package4b9b4c9, accepted images/volumes, other QA groups and read-only producers
+are unchanged. New Docker audit checks37 Desktop containers without violations
+but cannot reach either registered runner:complete=false/exit1. It is not full
+grouping acceptance, and shared infrastructure is not changed to make it green.
+
+Node22 typecheck, API equality and the existing explicit compatibility wrapper
+pass; authorization semantics are not proven by schema compatibility.135/9/3
+fixture screenshot hashes are reverified, not recaptured or promoted to live
+evidence. Frontend source is unchanged; prior browser/Vitest/native results stay
+at their recorded scope, no new native binary or browser run is claimed.
+README/Markdown/format checks are separate document gates.
+
+Remote PR47 remains Draft5240107/main with five SUCCESS jobs, no reviews or review
+threads, mergeable/CLEAN at readback; that is not review approval or this source's
+CI. PR140 remains ready177edb8/main with six SUCCESS, not merged or installed.
+Base9408802 versus release pin6080e11 has no diff in Rust crate sources/Cargo.toml
+or frontend sources/scripts, but Cargo.lock, frontend package/lock and selected
+materialization scripts differ. Source similarity cannot replace exact dependency
+checkout/build validation. No pin is blindly adopted or sibling commit overwritten.
+Local runtime work now follows its own integration branch/tracking ref; the former
+local feature ref and remote release branch are preserved, without force push.
+
+Remaining: live central identity and machine/task scopes, native unknown controls/
+approvals, expired stream snapshot, safe descendants/loaded configuration,
+fenced first-step admission, PM tools/delivery/rebind, compatible Forge and full
+seven-agent acceptance. Release partition/order10/11 ->12 ->13 and exact-head CI
+still apply. This component packet does not make the full objective merge-ready.
