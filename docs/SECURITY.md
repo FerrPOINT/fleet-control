@@ -1,5 +1,17 @@
 # Security
 
+The `000017` launch journal is controller-only PostgreSQL data. No public caller
+can submit a launch binding, mark spawn/exit or choose controller identity.
+Source identity is validated under agent/config locks; command/configuration
+values are hashed, never returned raw. A new controller cannot adopt a PID or
+turn health into a new launch permit. Unknown launches block identity edits,
+configuration effects and replacement; history cannot be reset or downgraded.
+
+This native journal does not isolate a same-UID agent, attest immutable loaded
+configuration or prove descendant termination. Those require the separate trusted
+host boundary and its receipts before SDLC admission. See
+[the internal contract](contracts/RUNTIME_LAUNCH_JOURNAL_V1.md).
+
 Original approval context in additive000016 is likewise private: no Debug or
 public serialization, token, raw context in audit, or legacy backfill. The journal
 rechecks current actor and original active free-chat authority at claim. Historical

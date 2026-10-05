@@ -156,6 +156,8 @@ def main():
               'fleet_runtime_sources_sha256':{name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest()
                   for name in ['backend/api/src/routes/approvals.rs',
                                'backend/app/src/lib.rs', 'backend/infra/src/lib.rs',
+                               'backend/app/src/runtime_launch.rs', 'backend/infra/src/runtime_launches.rs',
+                               'backend/infra/src/runtime/launch_journal.rs', 'backend/infra/src/config_revisions.rs',
                                'backend/infra/src/configuration_disk.rs',
                                'backend/infra/src/pm_credentials.rs',
                                'backend/infra/src/runtime/activation_journal.rs',
@@ -171,7 +173,8 @@ def main():
                                'backend/migration/src/m20261005_000013_runtime_controls.rs',
                                'backend/migration/src/m20261005_000014_hermes_journal_time_order.rs',
                                'backend/migration/src/m20261005_000015_runtime_control_outcomes.rs',
-                               'backend/migration/src/m20261005_000016_runtime_approval_outcomes.rs']},
+                               'backend/migration/src/m20261005_000016_runtime_approval_outcomes.rs',
+                               'backend/migration/src/m20261006_000017_runtime_launches.rs']},
               'harness_sha256':{name:hashlib.sha256((scripts/name).read_bytes()).hexdigest() for name in ['run.py','build.sh','native.sh','preflight.py','discard_ack_plugin.py','approval_fault_plugin.py','control_fault_plugin.py']}}
     for plugin_kind, plugin in plugins.items():
         plugin_dir = directory/(plugin_kind+'-plugin')

@@ -1,5 +1,32 @@
 # Testing
 
+Native launch journal tests additionally cover atomic metadata failure, original
+ACK readback with retained child custody and prepared-intent generation fencing.
+PostgreSQL fixtures require `FLEET_TEST_DATABASE_URL`; absent opt-in database
+variables are skipped execution, not migration/upgrade acceptance. The dedicated
+`FLEET_RUNTIME_LAUNCH_MIGRATION_TEST_DATABASE_URL` must point to an empty disposable
+database. Main canonical/legacy lineage upgrade validation remains a separate
+release gate; a fresh integration-schema PASS cannot substitute for it.
+
+## Pre-Spawn Runtime Launch Journal
+
+`infra --lib runtime_launch` requires actual PostgreSQL via
+`FLEET_TEST_DATABASE_URL`. The controller tests cover concurrent spawn permits,
+unknown launch across controller restart, stop/config holds, immutable owner/PID/
+history, source drift, distinct activation/rollback revisions, definite spawn
+failure and missing ACK. Linux child tests additionally inject a failed DB ACK
+after actual spawn, retain the original handle, deny fresh health, then record
+only the original gateway exit. They do not certify descendants or host isolation.
+
+`migration --test runtime_launches` requires a distinct empty disposable database
+through `FLEET_RUNTIME_LAUNCH_MIGRATION_TEST_DATABASE_URL`. It verifies unchanged
+legacy rows/no backfill, empty down/reapply, identity/PID constraints and rejected
+downgrade with unresolved or terminal history. An unset variable/early return is
+not migration acceptance. Never run migration history tests against runtime data.
+
+See [the contract](contracts/RUNTIME_LAUNCH_JOURNAL_V1.md) and
+[exact verification evidence](CHAT_CLARIFICATION_VERIFICATION.md).
+
 ## Original Approval Journal
 
 `runtime_approval_outcomes` in `sdlc_foundation` requires actual PostgreSQL via

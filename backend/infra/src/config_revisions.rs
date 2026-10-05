@@ -406,7 +406,9 @@ pub(super) async fn guard_identity_change(
                     AND state IN ('pending','running','waiting','stopping'))
                 OR EXISTS (SELECT 1 FROM message_dispatch_outbox WHERE agent_id=$1 AND state='pending')
                 OR EXISTS (SELECT 1 FROM message_dispatch_outbox WHERE agent_id=$1
-                    AND state IN ('dispatching','uncertain')) AS blocked",
+                    AND state IN ('dispatching','uncertain'))
+                OR EXISTS (SELECT 1 FROM runtime_launches WHERE agent_id=$1
+                    AND state IN ('claimed','gateway_started')) AS blocked",
             [id.into()],
         ))
         .await

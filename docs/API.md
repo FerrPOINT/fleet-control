@@ -1,5 +1,11 @@
 # API
 
+Runtime actions now use the internal [pre-spawn launch journal](contracts/RUNTIME_LAUNCH_JOURNAL_V1.md).
+There is no public launch-claim/ACK/reset endpoint or new API schema. Unresolved
+original launches can return existing unavailable/conflict responses instead of
+starting a replacement or reporting a successful stop/config activation. Backend
+ownership is authoritative; HTTP health does not resolve an unknown generation.
+
 Additive000016 introduces private original approval reservation/claim/readback/
 completion. No Fleet route or OpenAPI schema is added. The existing exact-request
 decision endpoint selects original mode when the default-off control-outcome flag

@@ -1,5 +1,97 @@
 # Chat Clarification Verification
 
+## Pre-Spawn Launch And Dispatch Generation: 6 October 2026
+
+Source packet atop Fleet `856f94db16b2b080d09f733e2c1413f49a0ff5c1` adds
+internal additive000017, immutable pre-spawn agent/config/controller binding,
+atomic gateway observation/runtime metadata, retained-child original ACK
+readback and generation-pinned free-chat dispatch. The private closed
+`fleet_launch` binding cannot be supplied by Hermes metadata or translated to
+a replacement runtime. Late stopped/old-PID metadata cannot clear a new
+outstanding launch. This is not a container/loaded-generation/admission receipt.
+
+Final Linux project `sdlc-qa-fleet-runtime-launch-44dbd3b86e57` passes Rust1.88
+fmt/check/strict all-target Clippy, generated OpenAPI byte equality and462
+distinct executed component cases: API41, app21, domain26, infra155,
+managed-settings1, foundation204 and shared14. Focused15 launch and three
+generation-journal cases are duplicates, not added to that total. Foundation
+duration712.11s. Eighteen opt-in cases are ignored; eight broad migration cases
+return without their dedicated database variables and are not upgrade evidence.
+
+The same disposable project creates two separate empty databases for clean
+CLI up/status/latest-down/reapply/status and actual000017 upgrade/down/reapply,
+legacy-row preservation, immutable history/PID/null-identity/delete/truncate
+guards. The dedicated migration test executes in0.54s, not an early return.
+Terminal process exit0 and finally cleanup0; independent exact-project ps is
+empty. Full log SHA256
+`126f3030ee2451aa53a2f6f08d53e0b62a90a4078466b4c24a8bfeee7756a513`.
+
+Earlier9a99ef6d2bd3 fails10 cases at the NOT NULL capabilities column; the
+atomic observation now clears it to an empty JSON object, not SQL NULL.
+3da2aa9b7fab passes focused15+3 but is intentionally interrupted after finding
+the late metadata race, not counted as a full PASS. f1e819319e33 fails compilation
+on a missing test closure type annotation; the final source corrects it. All
+three preliminary projects are cleaned and independently absent.
+
+Native project `sdlc-qa-fleet-native-8d421ac15eb2` passes the actual two-home
+Hermes API/AIAgent lifecycle test in81.97s, binary SHA256
+`bb82f253e2165430ae0271979e802945537e1b72560e016abff8decff0513d6b`.
+It verifies13770 pinned bbaf7af source files, SDK9408802 and launcher Base
+`5b7c5693d67c80d2252aa64c0948d0445e36dc7a`; only the model is deterministic
+loopback. Activation, distinct HOME/SOUL/model/workspace, cross-token denial,
+idempotent prompts, single terminal mirrors, original history after restart
+and tracked-parent stop pass. Ten other native selectors are not rerun here.
+Native log `28694aa710479a38fdcf11b67edb9e8c6aef4f4286890aa8a099305b3f82ee9b`;
+report `f0228bb7adb7a22a6d4d4c958faf793d988b2e4abfd5fe6683e3dac52bddf3a4`.
+All31 recorded runtime-source and five native-test fingerprints match current
+executable bytes. Own finally cleanup0, independent ps empty, temporary source/
+dependency tags removed; accepted image and shared caches remain untouched.
+
+Earlier nativea292f09460c3 fails at Compose preparation's120s deadline before
+Rust compilation/native execution, despite the captured Healthy line. It is
+not runtime acceptance. Its cleanup0/empty ps/tag removal are verified; report
+`1f1dee45610be5020aafd41f15c7599909316b8eca0636dffa1fc4febfffa78e`,
+timeout log `7c4db45922d76cf517e6b7a98151a7a7a1b06bc522f45a6fca30fccf2716d45d`.
+The successful retry changes neither source, timeout nor assertions. The first
+timeout is not claimed diagnosed or fixed.
+
+| Executed source | SHA256 |
+| --- | --- |
+| app/runtime_launch.rs | `e6a48cecd493f062821e04a2cf131ca401ca7f2c50278f2654a8eda3187e4650` |
+| infra/runtime_launches.rs | `b0d5a9a0596a35d29d504ef9708661b14e5bb1ec955caf50dba6d2e870620b25` |
+| infra/runtime/launch_journal.rs | `e9d945a614f73c155470c8890edfb3d1d1443dac6237acc6dde6adbc3aa0275f` |
+| infra/runtime/mod.rs | `27def64ad64050ac6bcd586775f8b1148b00991961bb2022a6272a694cd1598c` |
+| infra/hermes_dispatch_journal.rs | `7be9dfb477116cafc9b1c0799086f5a06cb590f483d5b129ee0847ae7ed22bc1` |
+| migration000017 | `6563cf747e4bd473bdaecff0dd8b2d94f85ceafc0a179a339c86db17982570e6` |
+
+Run the documented `scripts/native_supervisor_live/run.py --scenario lifecycle`
+with the immutable dependency image
+`sha256:aeb97055b0f5aee433e29998eeafd8065b81e70d1fcb69345c520c2bfbf23777`,
+the exact checkouts above and preserved caches `pm-credential-target-20261002-04c0cf46`,
+`pm-base-reconcile-cargo-20261002`, `pm-tracker-lease-rustup-20261002`.
+Fixture isolation, default-free-chat compatibility and a parent wait are not
+host namespace quiescence, loaded-generation admission or real PM acceptance.
+
+Windows Node22 typecheck,31 Vitest files/235 cases,36 native harness safety
+units, README validator,115 Markdown links and26-entry ADR index pass. Screenshot
+verifier9 units and135 existing fixture screenshots/three viewport hashes pass;
+no new browser capture or live PM screenshot is claimed. CI now explicitly
+creates an empty launch-upgrade database and runs that test; YAML/command
+validation passes, remote exact-head CI is still pending.
+
+Fresh remote Base PR144 remains ready/main/CLEAN with all9 checks SUCCESS on
+`dd2d0755266ef9081528702767006ba08e32d841`; it is not installed, Fleet-consumed,
+merged or human-approved. Tracker PR114 `8c80a41` and Workflow PR90 `e4fba60`
+remain unchanged Draft producer dependencies; task dispatch stays closed.
+Fetched Fleet main `3c6b8ef7bdb08f799ca30e0a5d7537914ce40ab6` includes accepted
+auth/profile and split/canonical migration-lineage preservation not yet reconciled
+in this integration branch. Original migration bytes and both lineage upgrade
+gates must be preserved in normal ordered release, not replaced by fresh-DB PASS.
+Host boundary/boot/loaded config, safe descendants, PM tools/resume, producer
+admission, Forge receipts, seven-agent live acceptance and exact-head release
+remain required. PR47/PR140, main, SDK9408802, accepted images/mounts/secrets/flags
+and read-only sibling repositories are unchanged by this packet.
+
 ## Private Controller Activation Storage: 5 October 2026
 
 Source packet atop Fleet `e7379489f166bd2e5ac1f83c9ae4686c480173e2` moves new

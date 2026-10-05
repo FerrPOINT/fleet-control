@@ -101,6 +101,7 @@ pub(super) async fn prepare(
         ));
     }
     validate_capabilities(&draft.capabilities)?;
+    validate_launch_generation(&txn, draft.agent_id, &draft.capabilities).await?;
     let mut body = json!({"input":draft.input,"session_id":draft.requested_session_id});
     if let Some(model) = &run.model {
         body["model"] = json!(model);
@@ -169,6 +170,7 @@ pub(super) async fn claim(
         return Ok(None);
     }
     validate_current(&txn, &agent, &session, &run, &origin).await?;
+    validate_launch_generation(&txn, agent.id, &result.capabilities).await?;
     if run.run_role != frozen_role
         || run.runtime_session_id.as_deref()
             != Some(format!("fleet:{}:{}", session.id, agent.id).as_str())
@@ -263,6 +265,7 @@ fn validate_draft(draft: &HermesDispatchDraft) -> Result<(), AppError> {
 }
 
 fn validate_capabilities(caps: &Value) -> Result<(), AppError> {
+    crate::runtime_launches::dispatch_launch_id(caps)?;
     crate::runtime::recovery_wire::store_id(caps)?;
     if caps["object"] != "hermes.api_server.capabilities"
         || caps["platform"] != "hermes-agent"
@@ -298,6 +301,31 @@ fn validate_capabilities(caps: &Value) -> Result<(), AppError> {
                 "Hermes dispatch protocol endpoints do not match".into(),
             ));
         }
+    }
+    Ok(())
+}
+
+async fn validate_launch_generation(
+    txn: &DatabaseTransaction,
+    agent: Uuid,
+    capabilities: &Value,
+) -> Result<(), AppError> {
+    let expected = crate::runtime_launches::dispatch_launch_id(capabilities)?;
+    let current = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT id,state FROM runtime_launches WHERE agent_id=$1 AND state IN ('claimed','gateway_started')",
+        [agent.into()])).await.map_err(database_error)?;
+    let actual = current
+        .as_ref()
+        .map(|row| column::<Uuid>(row, "id"))
+        .transpose()?;
+    if expected != actual
+        || current.as_ref().is_some_and(|row| {
+            column::<String>(row, "state").ok().as_deref() != Some("gateway_started")
+        })
+    {
+        return Err(AppError::Unavailable(
+            "original dispatch gateway generation changed".into(),
+        ));
     }
     Ok(())
 }

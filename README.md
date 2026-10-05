@@ -5,6 +5,12 @@
 SDLC implementation is in progress, not production accepted. Current scope and
 remaining blockers: [SDLC implementation](docs/SDLC_IMPLEMENTATION.md).
 
+Native launch identity is now journaled before spawn, with atomic gateway
+observations and generation-pinned free-chat dispatch. Lost acknowledgements
+do not authorize a new launch or message replay. This is integration source,
+not installed host isolation, loaded-config attestation or SDLC admission; see
+the [launch contract](docs/contracts/RUNTIME_LAUNCH_JOURNAL_V1.md).
+
 Original approval context/claim/ACK persistence now connects to the opt-in API,
 exact-byte single-send supervisor and original-context GET-only recovery. The
 default-off flag and legacy history are unchanged. Actual native once/deny and

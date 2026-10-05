@@ -15,6 +15,7 @@ mod pm_execution;
 pub mod runtime;
 mod runtime_acceptance;
 mod runtime_controls;
+mod runtime_launches;
 mod task_chats;
 pub mod tracker_event_poller;
 mod tracker_events;
@@ -1240,11 +1241,13 @@ impl FleetRepository for PostgresFleetRepository {
         let txn = self.db.begin().await.map_err(AppError::database)?;
         let ts = now();
         let mut agent_model = agent::Entity::find_by_id(id)
+            .lock_exclusive()
             .one(&txn)
             .await
             .map_err(AppError::database)?
             .ok_or_else(|| AppError::not_found("agent", id))?
             .into_active_model();
+        runtime_launches::guard_runtime_patch(&txn, id, &patch).await?;
         agent_model.status = Set(patch.status.as_str().to_string());
         agent_model.updated_at = Set(ts);
         agent_model.update(&txn).await.map_err(AppError::database)?;
@@ -1409,6 +1412,26 @@ impl FleetRepository for PostgresFleetRepository {
         actor: Uuid,
     ) -> Result<domain::AgentConfigRevision, AppError> {
         config_revisions::create(self, id, config, actor).await
+    }
+    async fn claim_runtime_launch(
+        &self,
+        binding: &app::runtime_launch::RuntimeLaunchBinding,
+    ) -> Result<(), AppError> {
+        runtime_launches::claim(self, binding).await
+    }
+    async fn get_open_runtime_launch(
+        &self,
+        agent: Uuid,
+    ) -> Result<Option<app::runtime_launch::RuntimeLaunchRecord>, AppError> {
+        runtime_launches::open(self, agent).await
+    }
+    async fn observe_runtime_launch(
+        &self,
+        binding: &app::runtime_launch::RuntimeLaunchBinding,
+        state: &str,
+        pid: Option<i32>,
+    ) -> Result<(), AppError> {
+        runtime_launches::observe(self, binding, state, pid).await
     }
     async fn list_config_revisions(
         &self,

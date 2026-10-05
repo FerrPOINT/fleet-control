@@ -1,5 +1,19 @@
 # Operations
 
+## Unknown Runtime Launch
+
+With migration `000017`, a controller can leave an original `claimed` or
+`gateway_started` record after death or failed acknowledgement. Do not delete it,
+edit its binding/PID, reset Ready metadata, downgrade the schema or retry under a
+new launch key. A different Fleet process cannot adopt a numeric PID or use HTTP
+health to assert ownership. Stop/activation/replacement stays held without the
+original child. The owning controller can record its positively observed gateway
+exit, but that does not prove safe descendant or remote-job termination.
+
+Operator force-release/recovery is not implemented. Isolated production rollout
+requires verified original host-generation/empty-boundary evidence and protected
+config state first. See [the launch contract](contracts/RUNTIME_LAUNCH_JOURNAL_V1.md).
+
 ## Private Activation Recovery Storage
 
 Before requesting a configuration activation, explicitly provision a dedicated

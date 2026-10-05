@@ -2,6 +2,24 @@
 
 ## Current SDLC Scope
 
+The pre-spawn native launch journal `000017` binds agent/config/controller before
+execution and holds unknown outcomes across Fleet replicas. Component validation
+is recorded separately; this does not complete the host-boundary integration,
+loaded config, safe descendants or task admission. Release after `000016` as its
+own one-migration packet, never by rewriting applied migration history.
+
+The packet also pins native launch identity in private dispatch intents and
+checks it before preparation, permit consumption and actual HTTP submission.
+An old or legacy intent cannot follow a replacement managed gateway. This is
+not loaded-generation attestation or full task admission.
+
+Release prerequisite: fetched main `3c6b8ef` already preserves canonical and
+legacy split SDLC migration lineages. The integration branch must reconcile
+that implementation and its historical migration bytes, then prove upgrades
+from both histories. A clean integration database gate does not prove that
+accepted deployments can upgrade. Keep PR47 and dependency packets unchanged
+until their owners perform the ordered one-migration release process.
+
 The historical phases below are not completion evidence for the October SDLC plan.
 Current implementation, boundaries, blockers and acceptance are maintained in
 [SDLC_IMPLEMENTATION.md](SDLC_IMPLEMENTATION.md). Leaders are deferred. Java lifecycle

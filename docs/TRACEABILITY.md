@@ -1,5 +1,19 @@
 # Traceability
 
+Pre-spawn launch journal: [ADR0026](adr/0026-pre-spawn-runtime-launch-journal.md),
+[internal contract](contracts/RUNTIME_LAUNCH_JOURNAL_V1.md), additive000017,
+`runtime_launches` and `runtime/launch_journal`. PostgreSQL/controller cases in
+`runtime/launch_journal_tests` cover concurrent claim, crash holds, immutable
+identity/PID/history, config source revisions, retained-child ACK recovery,
+atomic exit failure and stale metadata denial. Closed private dispatch binding
+and real-child replacement are covered there; three foundation journal cases
+verify original permit, changed generation and legacy-to-managed denial.
+`migration/tests/runtime_launches` requires a dedicated empty database for actual
+upgrade/down/reapply and retained-history guards. Native lifecycle compatibility
+and final source fingerprints belong in the verification ledger, not inferred
+from these component cases. No host boundary, producer admission, migration
+lineage reconciliation or full SDLC completion is claimed.
+
 Original approval journal: [ADR0025](adr/0025-original-approval-outcome-journal.md),
 additive000016, `approval_outcomes` and seven PostgreSQL foundation cases plus
 the isolated upgrade/down/reapply test. Coverage includes single-use claim,

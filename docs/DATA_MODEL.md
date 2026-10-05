@@ -1,5 +1,17 @@
 # Data Model
 
+## Runtime Launches
+
+Additive `000017` introduces internal `runtime_launches`: immutable UUID/agent/
+controller binding, configuration phase/revision/snapshot and command hashes,
+`claimed | gateway_started | gateway_exited | spawn_failed`, original positive
+PID and observation timestamps. Raw commands, secrets and snapshots are excluded.
+The partial unique index enforces one outstanding launch per agent across
+controllers. Database guards prevent binding/PID/history mutation or deletion.
+Any launch history blocks downgrade; legacy runtime rows are not backfilled.
+The [contract](contracts/RUNTIME_LAUNCH_JOURNAL_V1.md) specifies replay and limits.
+`gateway_exited` is deliberately not a boundary-empty or SDLC-completion receipt.
+
 The [control outcome contract](contracts/HERMES_CONTROL_OUTCOME_V1.md) now has
 an internal stop/steer journal in additive migration `000015`. The opt-in
 supervisor persists it before POST and consumes saved-context GET outcomes;

@@ -17,7 +17,15 @@
 - [0015-accepted-run-session-readback.md](adr/0015-accepted-run-session-readback.md)
 - [0016-hermes-original-request-journal.md](adr/0016-hermes-original-request-journal.md)
 - [0017-versioned-native-hermes-renderer.md](adr/0017-versioned-native-hermes-renderer.md)
+- [0018-atomic-terminal-pinned-recovery.md](adr/0018-atomic-terminal-pinned-recovery.md)
+- [0019-native-original-key-recovery.md](adr/0019-native-original-key-recovery.md)
+- [0020-prepared-dispatch-restart-recovery.md](adr/0020-prepared-dispatch-restart-recovery.md)
 - [0021-durable-runtime-control-commands.md](adr/0021-durable-runtime-control-commands.md)
+- [0022-current-native-approval-snapshot.md](adr/0022-current-native-approval-snapshot.md)
+- [0023-logical-journal-progress-time.md](adr/0023-logical-journal-progress-time.md)
+- [0024-native-control-outcome-witness.md](adr/0024-native-control-outcome-witness.md)
+- [0025-original-approval-outcome-journal.md](adr/0025-original-approval-outcome-journal.md)
+- [0026-pre-spawn-runtime-launch-journal.md](adr/0026-pre-spawn-runtime-launch-journal.md)
 
 Records 0008 and 0009 describe historical migration stages. Their status notes
 point to the current shared dependency and central identity architecture.

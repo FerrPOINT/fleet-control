@@ -1,12 +1,31 @@
 # Runtime
 
+## Pre-Spawn Launch Identity
+
+The supervisor commits an immutable agent/configuration/controller launch in
+PostgreSQL before native Hermes/Java spawn (additive `000017`). An unknown
+launch cannot be replaced from Ready metadata or a healthy HTTP response. Failed
+spawn acknowledgements retain child custody and block new dispatch/activation
+until original committed-ACK readback with the same child succeeds. Runtime
+metadata writes recheck outstanding ownership under the agent lock, preventing
+a late exit write from clearing a newer gateway. New dispatch intents pin the
+original launch ID and cannot follow a replacement gateway.
+Activation and rollback pin their own exact source revisions. See the
+[launch contract](contracts/RUNTIME_LAUNCH_JOURNAL_V1.md) and
+[ADR](adr/0026-pre-spawn-runtime-launch-journal.md).
+
+This records gateway launch/exit, not safe descendant stop, immutable loaded
+configuration, a Base host-boundary receipt or SDLC admission. Existing native
+exit/restart remains uncertified for those stronger guarantees.
+
 The separate approval decision journal is now implemented through additive000016:
 original mode is fixed at reservation, context/claim commit before any permitted
 effect, and ACK/receipt/audit commit together. Late completion preserves cancelled
 request and terminal run history. The default-off control-outcome flag now selects
 original reservation in the approval API and enables exact-byte POST plus the
-bounded UUID-keyset GET worker. Native
-positive/lost-ACK/OS-restart approval and combined-extension acceptance remain.
+bounded UUID-keyset GET worker. Separate native positive/lost-ACK/OS-restart
+approval and combined-extension evidence is recorded in the verification ledger;
+it is not an installed rollout or full task admission proof.
 See [approval journal ADR](adr/0025-original-approval-outcome-journal.md).
 
 Approval preparation reuses exact native waiting-request/session/capability
@@ -34,7 +53,8 @@ claim and commits positive ACK/receipt/audit/event atomically (migration000015).
 The supervisor uses that path when `hermes_control_outcome_enabled` is true;
 its separate100-row UUID-keyset worker performs GET-only outcome recovery with
 original accepted context, not a fresh epoch or control POST. Invalid records do
-not starve later pages. Approval decision integration remains pending. A
+not starve later pages. Approval decisions have their separate original-outcome
+consumer and journal above. A
 deserialized context is revalidated before HTTP and is not a human/machine
 authorization proof. See the outcome contract above.
 

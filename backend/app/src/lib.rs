@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod pm_draft;
+pub mod runtime_launch;
 pub mod sdlc_workflow;
 
 use async_trait::async_trait;
@@ -562,6 +563,32 @@ pub trait FleetRepository: Send + Sync {
     ) -> Result<Vec<LeaderExecutor>, AppError>;
 
     async fn get_agent_config(&self, agent_id: Uuid) -> Result<AgentConfig, AppError>;
+    async fn claim_runtime_launch(
+        &self,
+        _binding: &runtime_launch::RuntimeLaunchBinding,
+    ) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "runtime launch journal is unavailable".into(),
+        ))
+    }
+    async fn get_open_runtime_launch(
+        &self,
+        _agent_id: Uuid,
+    ) -> Result<Option<runtime_launch::RuntimeLaunchRecord>, AppError> {
+        Err(AppError::Unavailable(
+            "runtime launch journal is unavailable".into(),
+        ))
+    }
+    async fn observe_runtime_launch(
+        &self,
+        _binding: &runtime_launch::RuntimeLaunchBinding,
+        _state: &str,
+        _pid: Option<i32>,
+    ) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "runtime launch journal is unavailable".into(),
+        ))
+    }
     async fn create_config_revision(
         &self,
         agent_id: Uuid,

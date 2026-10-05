@@ -96,6 +96,102 @@ async fn claim(p: &JournalFixture) -> Result<Option<HermesDispatchIntent>, AppEr
         .await
 }
 
+async fn managed_launch(p: &JournalFixture) -> app::runtime_launch::RuntimeLaunchBinding {
+    sql(
+        p,
+        "UPDATE agents SET status='stopped' WHERE id=$1",
+        vec![p.draft.agent_id.into()],
+    )
+    .await;
+    sql(
+        p,
+        "UPDATE agent_runtime SET pid=NULL,desired_state='stopped' WHERE agent_id=$1",
+        vec![p.draft.agent_id.into()],
+    )
+    .await;
+    let agent = p.repo.get_agent(p.draft.agent_id).await.unwrap();
+    let binding = app::runtime_launch::RuntimeLaunchBinding {
+        id: Uuid::new_v4(),
+        agent_id: agent.id,
+        controller_id: Uuid::new_v4(),
+        kind: agent.kind,
+        paths: agent.paths,
+        api_port: agent.api_port,
+        phase: "regular".into(),
+        configuration_revision: None,
+        configuration_sha256: None,
+        command_sha256: "a".repeat(64),
+    };
+    p.repo.claim_runtime_launch(&binding).await.unwrap();
+    p.repo
+        .observe_runtime_launch(&binding, "gateway_started", Some(101))
+        .await
+        .unwrap();
+    sql(
+        p,
+        "UPDATE agents SET status='running' WHERE id=$1",
+        vec![p.draft.agent_id.into()],
+    )
+    .await;
+    binding
+}
+
+#[tokio::test]
+async fn journal_managed_dispatch_requires_original_launch_binding_before_claim() {
+    let Some(mut p) = setup().await else { return };
+    let binding = managed_launch(&p).await;
+    assert!(
+        prepare(&p).await.is_err(),
+        "legacy draft cannot gain managed authority"
+    );
+    p.draft.capabilities["fleet_launch"] = json!({"version":1,"launch_id":binding.id});
+    let prepared = prepare(&p).await.unwrap();
+    let claimed = claim(&p).await.unwrap().unwrap();
+    assert_eq!(prepared.capabilities, claimed.capabilities);
+    assert!(claim(&p).await.unwrap().is_none());
+}
+
+#[tokio::test]
+async fn journal_prepared_dispatch_denies_replacement_without_consuming_permit() {
+    let Some(mut p) = setup().await else { return };
+    let original = managed_launch(&p).await;
+    p.draft.capabilities["fleet_launch"] = json!({"version":1,"launch_id":original.id});
+    let prepared = prepare(&p).await.unwrap();
+    p.repo
+        .observe_runtime_launch(&original, "gateway_exited", Some(101))
+        .await
+        .unwrap();
+    let replacement = managed_launch(&p).await;
+    assert_ne!(original.id, replacement.id);
+    assert!(claim(&p).await.is_err());
+    let retained = p
+        .repo
+        .get_hermes_dispatch_intent(p.draft.message_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(retained.state, "prepared");
+    assert!(!retained.submission_attempted);
+    assert_eq!(retained.capabilities, prepared.capabilities);
+    assert!(retained.run.runtime_run_id.is_none());
+}
+
+#[tokio::test]
+async fn journal_legacy_prepared_dispatch_cannot_gain_new_managed_launch() {
+    let Some(p) = setup().await else { return };
+    prepare(&p).await.unwrap();
+    managed_launch(&p).await;
+    assert!(claim(&p).await.is_err());
+    let retained = p
+        .repo
+        .get_hermes_dispatch_intent(p.draft.message_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(retained.state, "prepared");
+    assert!(!retained.submission_attempted);
+}
+
 #[tokio::test]
 async fn journal_clock_regression_keeps_logical_progress_without_renewing_horizon() {
     let Some(p) = setup().await else { return };

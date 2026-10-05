@@ -1,5 +1,22 @@
 # Current State
 
+## Runtime Launch Packet: 6 October 2026
+
+Integration source adds internal `000017` pre-spawn journal, atomic original
+gateway observations/runtime metadata, retained-child ACK readback and private
+dispatch generation binding. Replacing an agent's gateway cannot reassign an
+already prepared message to that new launch. Verification and publication are
+tracked in the current ledger; these are not installed production features.
+The final Linux/PostgreSQL gate passes462 distinct component cases, isolated
+000017 upgrade/down/reapply and OpenAPI equality. Actual two-home native Hermes
+lifecycle/restart passes on the recorded final binary with a loopback model.
+See [exact evidence](CHAT_CLARIFICATION_VERIFICATION.md#pre-spawn-launch-and-dispatch-generation-6-october-2026).
+
+Main lineage/auth reconciliation, ordered one-migration release, host-container
+integration, loaded config/boot attestation, producer admission and the full
+PM/Forge/seven-agent acceptance remain mandatory. No new UI, screenshots,
+accepted images, SDK pin or runtime flag changes belong to this packet.
+
 Status (2026-10-05): SDLC foundation is partially implemented. Automatic SDLC is
 blocked until cross-service assignment/workflow/deployment contracts are verified.
 See [SDLC implementation](SDLC_IMPLEMENTATION.md). The baseline feature/gate lists

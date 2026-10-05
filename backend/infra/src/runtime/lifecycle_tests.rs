@@ -4,7 +4,7 @@ use sea_orm::{ConnectionTrait, DatabaseBackend, Statement, TransactionTrait};
 use std::path::PathBuf;
 use tokio::time::timeout;
 
-async fn fixture(
+pub(super) async fn fixture(
     kind: AgentKind,
 ) -> Option<(
     Arc<crate::PostgresFleetRepository>,
@@ -128,7 +128,7 @@ async fn revision(
     revision
 }
 
-fn supervisor(
+pub(super) fn supervisor(
     config: Arc<AppConfig>,
     repo: Arc<crate::PostgresFleetRepository>,
 ) -> LocalRuntimeSupervisor {
@@ -137,6 +137,8 @@ fn supervisor(
         config,
         repo: repo.clone(),
         children: Arc::new(Mutex::new(HashMap::new())),
+        controller_id: Uuid::new_v4(),
+        launches: Arc::new(Mutex::new(HashMap::new())),
         lifecycle_locks: Arc::new(Mutex::new(HashMap::new())),
         client: reqwest::Client::new(),
         events,

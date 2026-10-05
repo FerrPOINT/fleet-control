@@ -10,6 +10,13 @@ acceptance proof, exact-SHA CI/deployment or seven-agent end-to-end acceptance.
 
 Open gaps:
 
+Fetched main `3c6b8ef` preserves both historical split and combined SDLC
+migration lineages. The integration branch still needs normal reconciliation
+with that accepted implementation and explicit PostgreSQL upgrade tests from
+both histories. Do not replace the original migration bytes, claim a clean DB
+gate proves upgrade safety, or put all predecessor migrations into the new
+single-migration release packet.
+
 The [runtime containment proposal](design/RUNTIME_CONTAINMENT_PROPOSAL.md)
 records the recommended per-agent container boundary and delegated-cgroup
 alternative. Base standalone original-ID stop/readback is implemented. The
@@ -17,8 +24,11 @@ main-based [Base PR144](https://github.com/FerrPOINT/services-base/pull/144),
 head `dd2d0755266ef9081528702767006ba08e32d841`, adds pre-exec registration and
 single-start/crash holds with actual namespace acceptance and44 Linux tests.
 The linked proposal records exact fingerprints, release status and trust limits.
-This candidate is not installed and Fleet lifecycle has not integrated it:
-pre-exec registry/persistence, generation fencing, drain, activation/rollback and
+This candidate is not installed and Fleet lifecycle has not integrated its host
+registry. Fleet now has a separate pre-spawn native agent/config/controller
+PostgreSQL journal ([contract](contracts/RUNTIME_LAUNCH_JOURNAL_V1.md)); it prevents
+duplicate controller launches and holds unknown outcomes, but is not a container
+or loaded-generation receipt. Host persistence, generation fencing, drain, activation/rollback and
 receipt commit/recovery remain. No accepted Compose/image/readiness policy or SDK
 pin has changed. Safe Fleet descendant stop and loaded-generation acceptance
 remain open until this integration and its own adversarial tests pass.
