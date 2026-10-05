@@ -1732,3 +1732,79 @@ approvals, expired stream snapshot, safe descendants/loaded configuration,
 fenced first-step admission, PM tools/delivery/rebind, compatible Forge and full
 seven-agent acceptance. Release partition/order10/11 ->12 ->13 and exact-head CI
 still apply. This component packet does not make the full objective merge-ready.
+
+## Managed Native Exact-Action Approvals (5 October2026)
+
+The owned `--scenario approvals` gate now executes a real Hermes gateway/AIAgent,
+actual terminal approval detection, request queue and tool, Fleet activation,
+outbox/mirror, local issued HMAC JWT middleware and production decision/read routes.
+Only the upstream OpenAI model is deterministic loopback. The native request is
+not fabricated in Fleet/SQLite. One chmod command targets one disposable file
+in the concrete agent's workspace, with explicit terminal cwd and private tmpfs.
+
+Three independent owner chats verify once, deny and a lost exact successful ACK.
+Modes change600 ->666 for once; deny retains600. Each decision has one native
+POST/request/choice, resolve_all=false, two model calls, one final assistant
+message plus distinct tool events. Original dispatch/run/session identity stays
+fixed. Two same-key replays and GET keep the same decision and transcript bytes;
+changed-payload returns409. Stranger403 and unsupported always422 issue no native
+POST. After the third real tool effect/ACK, the QA-only observer closes transport:
+Fleet retains uncertain after terminal and replay instead of claiming delivered
+or sending a second approval. This does not recover the unknown native outcome.
+
+The observer authenticates before body reads/effect/observations and requires
+explicit opt-in plus an existing fixed Linux QA directory. Only IDs/choice/flags
+are recorded, not command bodies, keys or credentials. It is embedded in the
+test binary and installed only inside disposable HOME. Five new host tests
+cover auth ordering, exact-once ACK loss, foreign/error ACKs, non-approval bypass
+and root/opt-in denial; total21 host cases PASS. Linux O_NOFOLLOW/private file
+mode is native evidence, not the Windows host-unit flag stub.
+
+Final exec11165 exits0; owned project `sdlc-qa-fleet-native-f3f5f3a93010` passes
+the exact qualified ignored test in11.30s, one passed/zero failed/zero ignored.
+Rust1.88 locked/offline fmt/all-target check/native-target strict Clippy/build
+pass. Every13770 Hermes tracked file is verified against archive571fba49 before
+model startup. SDK9408802 and committed Base launcher5f7698 are unchanged.
+Image runs as fleet-control/non-root, read-only root/drop caps/internal network,
+no host ports, QA tmpfs. Exact Compose down exits0, both owned image aliases are
+removed and independent ps is empty. Accepted resources/shared caches unchanged.
+
+| Evidence | SHA256 |
+| --- | --- |
+| Executed test binary | `a7fe2a2fd9e3d27de9b812804bef399f8aa05785debf08d0032ad2f819867e96` |
+| Native completion log | `ea043f7b068540dd4a761f6dc96e11d873c5bede3af5ac3224017eac8086df0e` |
+| Main native test source | `013cbf0281ee7dc65ef036aee0bbb9ff73699d69ad87649943eaac4d4891fb1c` |
+| Approval child test source | `9debe433f24979e6d58ae234ea8414753c53a478d6f54efceebf93d3afed887e` |
+| Approval QA observer | `3fa21b195f8b707560e02e89b59df130f560925b1a8d8ef6c7fb0fa47ea76c0d` |
+| Harness entry | `9db93d64daf454a55e9aea63b8c83e7f345d5fe5cddb0f3c07ca15c2a565a9ec` |
+| Base launcher | `75ad258e5901df8dc7eecff892f3f2d054a6b21fc49e4dc66755c5dc24fbf3d8` |
+
+The first native attempt ad0906f45345 failed because the new test counted all
+agent-authored messages, including three valid tool events, as final answers.
+It remains failed evidence: log352af3c19cba138267e2ccd7bcb3270d6e891cdd7b23ce70b185c7b936b08def,
+binaryb3273dc652ed895e56b43d46e8e0c647a37962c141e08dcfec239c46c03a378b.
+The corrected assertion requires exactly one AssistantMessage, separate ToolEvent
+presence and full transcript equality after replay. No runtime protocol/deadline,
+production approval code, pin or permission was relaxed. Its cleanup also exits0.
+An initial formatter Compose descriptor lacked the inherited postgres declaration
+and failed validation before starting containers; the owned descriptor was fixed.
+
+This is executed dirty candidate source atopdb9c03f, not exact-head CI or installed
+acceptance. The report now fingerprints the child test source as well as its
+parent. The372-case component result above is not rerun or increased by a native
+scenario; normal cargo test ignores it. Production UI/API/schema did not change,
+so no new screenshot/live browser claim is made. Central auth, task/config-generation
+admission, waiting-approval crash recovery/missed event replay, native unknown
+decision lookup, safe descendants, PM first-step/tools/resume and full seven-agent
+flow remain. PR47/main and PR140 are unchanged; migration release order remains.
+
+Before publication, both Rust test blobs, the embedded approval observer and
+run.py in the Git index are byte-equal to the executed worktree hashes above.
+This preserves source provenance; it does not convert local QA into release CI.
+
+Follow-up README validation,107 Markdown links and generated OpenAPI/client
+equality PASS. Existing135/9/3 fixture screenshot hashes reverify; no UI source,
+browser run or new screenshot capture is claimed. Final grouping audit checks54
+Desktop containers without violations, but both registered runner endpoints are
+unavailable:complete=false/exit1. Own cleanup is independently empty and does not
+turn the incomplete full-group audit green. Earlier VM clock observations remain.

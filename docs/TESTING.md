@@ -67,7 +67,7 @@ readback and tracked parent stop. Native source files are compared with exact
 Git archive hashes before inference; compiler JSON pins the executed test binary.
 
 This ignored target must explicitly run one named test. Ordinary workspace tests
-do not execute it. Host CI runs sixteen harness/QA-fault unit tests without Docker;
+do not execute it. Host CI runs twenty-one harness/QA-fault unit tests without Docker;
 these are not native acceptance. Build/native logs, exact hashes and independent
 post-cleanup container readback are saved under ignored `tmp/`. There are no
 installed runtime, accepted image, migration, Base SDK pin or production UI changes.
@@ -79,9 +79,22 @@ plugin, retaining request bytes/hash/key/context/horizon and one assistant mirro
 Native observations require one POST/inference and no SSE. This does not certify
 native gateway crash, running/approval recovery or orphan safe-stop transfer.
 Exact bytes/logs and the initial fixture failure are in the verification ledger.
-Tools/approvals, complete loaded-config inventory,
-descendant quiescence, Fleet HTTP auth/UI and task/PM admission remain distinct
+Waiting tools/approvals crash recovery, complete loaded-config inventory,
+descendant quiescence, central Fleet auth/UI and task/PM admission remain distinct
 gates. Never substitute this chat happy path for a Workflow stage receipt.
+
+`--scenario approvals` runs real terminal approval guards and exact-action
+decisions through the actual local JWT middleware/HTTP routes. Three separate
+chats exercise `once`, `deny` and losing a real successful native ACK. Check the
+owned target's actual file mode, one decision POST, original run/dispatch identity,
+one final assistant message (tool events are distinct), immutable replay transcript,
+same-key replay and changed-payload409. The lost ACK must remain `uncertain` after
+terminal and must never resend. Owner/stranger denial and unsupported `always`
+choice are checked before runtime IO. The QA observer never manufactures a
+request, approval, native result or ACK. This does not prove central credentials,
+task-specific approvals, native outcome lookup or a Fleet restart while waiting.
+The exact named ignored case and all21 host safety units are documented in the
+harness README; historical failures and passing binary hashes stay in the ledger.
 
 Prepared restart recovery coverage lives in
 `backend/infra/tests/support/runtime_prepared_recovery.rs`: two fresh supervisors,

@@ -42,6 +42,7 @@ case; running/approval/native-crash and installed recovery remain gates.
 | Requirements revision changes revoke UI consent | Revision/hash form identity, full document and comparison, regression test | Trusted exact-revision prerequisite evidence |
 | Wire drift | Rust OpenAPI, generated client, seven-schema Tracker snapshot check | Compatible deployed versions and CI head verification |
 | Human-only stop/steer, private command receipts | VerifiedHumanSession gate before lookup; actual local JWT HTTP owner/replay/revocation, foreign session/run denial and operator/admin reads; sessionless admin denied without native POST | Live central session/PAT identity, assignment-scoped machine control and release CI |
+| Exact-action approvals without duplicate effect | Native `approvals` case: real Hermes terminal guard/request/effect, actual local JWT owner HTTP once/deny, one POST, unchanged transcript replay and lost real ACK held uncertain after terminal;21 host safety cases | Native unknown-decision lookup, crash while waiting, current config/task admission, central identity and installed/live UI |
 | Keyboard/mobile/desktop | Three-browser controller fixtures, axe, Escape focus and tab arrows, generated image hashes | Live production acceptance, not fixture promotion |
 
 The table below describes the legacy baseline, not complete SDLC acceptance.

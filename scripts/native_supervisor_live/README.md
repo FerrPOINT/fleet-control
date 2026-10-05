@@ -54,6 +54,28 @@ the barrier releases, native terminal readback must retain the original journal
 and run, with one inference and rejected late steer. This is not approval/tool
 replay, per-command recovery, a task stage receipt or OS-descendant safe stop.
 
+## Native Exact-Action Approvals
+
+`--scenario approvals` selects
+`native_approvals::managed_native_approval_decisions_are_exact_once_and_unknown_ack_is_held`.
+The local model requests a terminal command changing the permissions of one
+disposable file in that agent's workspace. The real Hermes guard must emit the
+approval request; no test inserts an approval into Fleet or Hermes storage.
+The three independent chats exercise owner `once`, `deny` and a lost real ACK.
+The test checks the actual file mode, one native POST per decision, unchanged
+dispatch identity, terminal mirror, same-key replay and changed-payload conflict.
+An unrelated human and unsupported `always` choice must not reach Hermes.
+
+Only the QA-only approval observer loses the final ACK, after the exact native
+handler has applied and acknowledged that one decision. Authentication comes
+before body reads and observations. The plugin requires an explicit QA opt-in
+and its existing fixed Linux tmpfs root; it is not installed in accepted agents.
+Observations contain action identifiers and choices, never tokens or commands.
+After the lost ACK, Fleet must retain `uncertain` even when the run completes;
+neither replay nor terminal state may authorize a second decision POST.
+This is local human HTTP authentication, not central JWKS/PAT, fenced task
+admission, recovery of a waiting approval after a Fleet crash or safe OS stop.
+
 ## Prerequisites
 
 - Clean Hermes source at `bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3`.
@@ -121,7 +143,7 @@ Host-only CI tests:
 python3 -B -m unittest discover -s scripts/native_supervisor_live -p test_harness.py -v
 ```
 
-Native running/approval recovery, tool/approval replay, complete
-loaded-config/plugin inventory, process-tree safe stop, real Fleet HTTP auth/UI,
+Native running/approval crash recovery, missed tool/approval replay, complete
+loaded-config/plugin inventory, process-tree safe stop, central Fleet auth/UI,
 assignment/first-step/PM continuation and full SDLC/deployment remain separate
 acceptance requirements. A completed chat run is not a Tracker stage receipt.

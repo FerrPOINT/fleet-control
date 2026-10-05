@@ -25,6 +25,9 @@ use tokio::{
 };
 use uuid::Uuid;
 
+#[path = "support/native_approvals.rs"]
+mod native_approvals;
+
 #[derive(Default)]
 struct Model {
     requests: Mutex<HashMap<String, Vec<String>>>,

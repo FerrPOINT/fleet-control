@@ -19,7 +19,7 @@ evidence is recorded separately in the verification ledger; the broad backend
 component gate now passes367 distinct Linux/PG tests, all-target check, strict
 workspace Clippy, fmt and OpenAPI equality. Previous failed attempts and ongoing
 VM clock-regression observations remain recorded, not reclassified as successes.
-Task admission, native approval acceptance,
+Task admission, waiting-approval crash recovery and installed approval acceptance,
 safe OS descendant stop, release partition and exact-head CI remain requirements.
 
 Human free-chat stop/steer now require `VerifiedHumanSession` before lookup,
@@ -30,6 +30,16 @@ admin and a forged human header. The renewed Linux/PG gate passes372 distinct
 component cases plus migration CLI and strict all-target checks. This is not
 live central JWKS, scoped machine/task admission or a release-head CI result;
 see [exact evidence](CHAT_CLARIFICATION_VERIFICATION.md#human-runtime-control-http-boundary-5-october-2026).
+
+Native targeted approvals now pass a separate opt-in owned Linux test against
+real Hermes terminal guards, approval requests and tool execution. Three chats
+verify owner once/deny, one POST per decision, immutable transcript on replay,
+foreign-user denial and a dropped real ACK retained as uncertain after terminal.
+The model is a loopback fixture; HTTP uses actual local JWT middleware. This
+does not certify central identity, task/PM admission, waiting-approval crash
+recovery, native outcome lookup, installed agents or safe descendants. The
+21 host harness tests and exact binary/source/log evidence are recorded in
+[native approval evidence](CHAT_CLARIFICATION_VERIFICATION.md#managed-native-exact-action-approvals-5-october2026).
 
 The native Hermes stream consumer now has bounded incremental byte framing,
 strict JSON and original run identity, fixed assembly/idle/lifetime deadlines,
@@ -51,8 +61,8 @@ distinct loaded SOUL and restart-preserved run/transcript identity. Every13770
 tracked source file matches the pinned archive; temporary QA source image and
 containers are cleaned up. Two host-bind readiness failures remain failed
 evidence, not PASS. No production readiness deadline or installed image changed.
-Native tools/approvals, complete config/plugin inventory,
-descendant quiescence, HTTP auth/UI and task/PM admission still remain gates.
+Native waiting-tool/approval crash recovery, complete config/plugin inventory,
+descendant quiescence, central auth/UI and task/PM admission still remain gates.
 See [scope and exact evidence](CHAT_CLARIFICATION_VERIFICATION.md#managed-native-supervisor-4-october-2026).
 
 Managed lost-ACK recovery now passes a separate opt-in native case. A QA-only

@@ -19,6 +19,7 @@ TEST_NAMES = {
     'lifecycle':'managed_native_gateway_isolates_home_soul_messages_and_restart_history',
     'recovery':'managed_native_lost_ack_recovers_original_run_across_fleet_processes',
     'controls':'managed_native_run_steer_and_stop_require_native_ack_and_terminal_readback',
+    'approvals':'native_approvals::managed_native_approval_decisions_are_exact_once_and_unknown_ack_is_held',
 }
 PLUGIN_FILES = ('__init__.py', 'plugin.py', 'store.py', 'plugin.yaml')
 
@@ -129,7 +130,10 @@ def main():
               'fleet_head':git(ROOT,'rev-parse','HEAD').decode().strip(),
               'fleet_worktree_clean':not bool(git(ROOT,'status','--porcelain')),
               'fleet_test_source_sha256':hashlib.sha256((ROOT/'backend/infra/tests/native_supervisor_live.rs').read_bytes()).hexdigest(),
-              'harness_sha256':{name:hashlib.sha256((scripts/name).read_bytes()).hexdigest() for name in ['run.py','build.sh','native.sh','preflight.py','discard_ack_plugin.py']}}
+              'fleet_test_sources_sha256':{name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest()
+                  for name in ['backend/infra/tests/native_supervisor_live.rs',
+                               'backend/infra/tests/support/native_approvals.rs']},
+              'harness_sha256':{name:hashlib.sha256((scripts/name).read_bytes()).hexdigest() for name in ['run.py','build.sh','native.sh','preflight.py','discard_ack_plugin.py','approval_fault_plugin.py']}}
     if plugin is not None:
         plugin_dir = directory/'recovery-plugin'
         plugin_dir.mkdir()

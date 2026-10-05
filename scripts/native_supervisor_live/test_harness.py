@@ -22,6 +22,7 @@ def module(name):
 runner = module('run')
 preflight = module('preflight')
 fault_plugin = module('discard_ack_plugin')
+approval_plugin = module('approval_fault_plugin')
 
 
 def archive(name, symlink=False):
@@ -41,9 +42,10 @@ def archive(name, symlink=False):
 
 class SafetyTests(unittest.TestCase):
     def test_scenarios_select_distinct_exact_tests(self):
-        self.assertEqual(set(runner.TEST_NAMES), {'lifecycle', 'recovery', 'controls'})
-        self.assertEqual(len(set(runner.TEST_NAMES.values())), 3)
-        self.assertTrue(all(name.startswith('managed_native_') for name in runner.TEST_NAMES.values()))
+        self.assertEqual(set(runner.TEST_NAMES), {'lifecycle', 'recovery', 'controls', 'approvals'})
+        self.assertEqual(len(set(runner.TEST_NAMES.values())), 4)
+        self.assertTrue(all(name.rsplit('::', 1)[-1].startswith('managed_native_')
+                            for name in runner.TEST_NAMES.values()))
 
     def test_recovery_requires_complete_committed_inventory(self):
         output = io.BytesIO()
@@ -199,6 +201,115 @@ class FaultFixtureTests(unittest.IsolatedAsyncioTestCase):
                                  (Path(directory)/'missing', '1')]:
                 with self.subTest(root=root, opt_in=opt_in), self.assertRaises(RuntimeError):
                     self.install(root, opt_in=opt_in)
+
+
+class ApprovalFaultFixtureTests(unittest.IsolatedAsyncioTestCase):
+    setUp = FaultFixtureTests.setUp
+
+    def install(self, root, denied=None, opt_in='1', map_linux_root=True):
+        app = SimpleNamespace(middlewares=[])
+        web = SimpleNamespace(middleware=lambda function: function)
+        handlers = []
+        approval_plugin.register(SimpleNamespace(
+            register_platform_handler=lambda name, wire: handlers.append((name, wire))))
+        self.assertEqual(handlers[0][0], 'api_server')
+        # Only host units map the fixed Linux QA directory to their disposable root.
+        def path(value):
+            return root if value == '/tmp/fleet-native-supervisor/approval-fault' else Path(value)
+        with patch.dict('sys.modules', {'aiohttp':SimpleNamespace(web=web)}), patch.dict(os.environ, {
+            'FLEET_NATIVE_SUPERVISOR_TEST':opt_in, 'FLEET_NATIVE_APPROVAL_FAULT_ROOT':str(root),
+        }), patch.object(approval_plugin, 'Path', path if map_linux_root else Path):
+            handlers[0][1](app, SimpleNamespace(_check_auth=lambda request: denied))
+        return app.middlewares[0]
+
+    def request(self, order, path='/v1/runs/native-run/approval'):
+        async def body():
+            order.append('body')
+            return {'request_id':'native-request', 'choice':'once', 'resolve_all':False,
+                    'command':'not recorded', 'token':'not recorded'}
+        return SimpleNamespace(path=path, method='POST', json=body,
+                               transport=SimpleNamespace(close=lambda: order.append('closed')))
+
+    def response(self, status=200, **override):
+        body = {'object':'hermes.run.approval_response', 'run_id':'native-run',
+                'request_id':'native-request', 'choice':'once', 'resolved':1}
+        body.update(override)
+        return SimpleNamespace(status=status, body=json.dumps(body).encode())
+
+    async def test_exact_real_ack_is_dropped_only_once_after_effect(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root/'drop-next-approval').touch()
+            observer = self.install(root)
+            order = []
+            response = self.response()
+            async def handler(request):
+                order.append('effect')
+                return response
+            self.assertIs(await observer(self.request(order), handler), response)
+            self.assertEqual(order, ['body', 'effect', 'closed'])
+            self.assertFalse((root/'drop-next-approval').exists())
+            order.clear()
+            self.assertIs(await observer(self.request(order), handler), response)
+            self.assertEqual(order, ['body', 'effect'])
+            raw = (root/'native-events.jsonl').read_text()
+            events = [json.loads(line) for line in raw.splitlines()]
+            self.assertEqual([row['kind'] for row in events],
+                             ['approval_post', 'approval_ack', 'approval_ack_dropped',
+                              'approval_post', 'approval_ack'])
+            self.assertNotIn('not recorded', raw)
+            self.assertNotIn('command', raw)
+            self.assertNotIn('token', raw)
+
+    async def test_auth_denial_precedes_body_handler_and_observations(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            denied = object()
+            observer = self.install(root, denied=denied)
+            order = []
+            async def handler(request): self.fail('denied request cannot reach handler')
+            self.assertIs(await observer(self.request(order), handler), denied)
+            self.assertEqual(order, [])
+            self.assertFalse((root/'native-events.jsonl').exists())
+
+    async def test_error_or_foreign_ack_preserves_drop_marker(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            marker = root/'drop-next-approval'
+            marker.touch()
+            observer = self.install(root)
+            for response in [self.response(status=409), self.response(run_id='foreign'),
+                             self.response(request_id='foreign'), self.response(choice='deny'),
+                             self.response(resolved=2), self.response(object='foreign')]:
+                with self.subTest(response=response.body):
+                    order = []
+                    async def handler(request): return response
+                    self.assertIs(await observer(self.request(order), handler), response)
+                    self.assertEqual(order, ['body'])
+                    self.assertTrue(marker.exists())
+            events = [json.loads(line) for line in (root/'native-events.jsonl').read_text().splitlines()]
+            self.assertTrue(all(row['kind'] == 'approval_post' for row in events))
+
+    async def test_non_approval_requests_are_not_observed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            observer = self.install(root)
+            order = []
+            response = self.response()
+            async def handler(request):
+                order.append('handler')
+                return response
+            self.assertIs(await observer(self.request(order, '/v1/runs/native-run/stop'), handler), response)
+            self.assertEqual(order, ['handler'])
+            self.assertFalse((root/'native-events.jsonl').exists())
+
+    def test_opt_in_and_exact_existing_root_are_required(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for opt_in, mapped in [('0', True), ('1', False)]:
+                with self.subTest(opt_in=opt_in, mapped=mapped), self.assertRaises(RuntimeError):
+                    self.install(root, opt_in=opt_in, map_linux_root=mapped)
+            with self.assertRaises(RuntimeError): self.install(root/'missing')
 
 
 if __name__ == '__main__':
