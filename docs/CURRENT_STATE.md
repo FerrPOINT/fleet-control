@@ -17,9 +17,10 @@ Native Windows Rust commands still require MSVC `link.exe`.
 This isolated candidate joins the main-based profile-name fix with historical
 migration compatibility. It pins the published Base source commit
 `cbb4e99230420dc2659431b1c9fb5090e5c940f0` from
-[Base #142](https://github.com/FerrPOINT/services-base/pull/142), which remains
-draft/unmerged. A post-Base-merge gate and installed-platform acceptance are
-still required; a published branch is not a completed dependency release.
+[Base #142](https://github.com/FerrPOINT/services-base/pull/142), merged into
+Base main as `fc13b83c503fa83becbe27dd0dec912852361204`. The exact SDK pin
+remains immutable and reachable from main. Installed-platform acceptance is
+still required; source publication is not runtime promotion.
 
 Local source-bound Rust 1.88 gates passed: 90 workspace tests, including 18
 real PostgreSQL tests, with no failed or ignored tests; formatting, strict
@@ -48,12 +49,14 @@ JWT/PAT identity/roles, historical same-email profile, real SMTP/password setup,
 missing-name fail-closed, Auth outage/recovery, token revoke, browser logout
 without PAT revoke, and central user disable were verified. The real Admin
 directory requires [Base #143](https://github.com/FerrPOINT/services-base/pull/143)
-for its total header; this is an Auth runtime dependency, not a change to the
-Fleet SDK pin. Binary/config/source receipt verification also passed.
+for its total header, now merged as `ad4e7fd6135691f69f7715007201bb71ffb38488`.
+This is an Auth runtime dependency, not a change to the Fleet SDK pin.
+Binary/config/source receipt verification also passed.
 
 This is profile/lineage acceptance, not permission-policy or full-platform
-release acceptance. Base review/merge and post-merge consumer gates remain
-open. No permanent runtime was updated during the QA freeze.
+release acceptance. Both source dependencies are merged, but final installed
+images and remaining platform gates are not accepted by this scoped evidence.
+No permanent runtime was updated during the QA freeze.
 
 ## October Foundation Evidence
 
