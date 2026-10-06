@@ -6,6 +6,7 @@ import {
   useQuery,
   useQueryClient,
   type QueryClient,
+  type UseMutationResult,
 } from '@tanstack/react-query'
 import {
   ArrowDown,
@@ -70,6 +71,12 @@ import './chat.css'
 
 function requestKey() {
   return crypto.randomUUID()
+}
+type ConfirmationCommand = { revision: number; hash: string; key: string }
+type ConfirmationResult = Awaited<ReturnType<typeof confirmRequirements>>
+type ConfirmationMutation = UseMutationResult<ConfirmationResult, Error, ConfirmationCommand>
+function unknownOutcome(error: unknown) {
+  return Boolean(error) && (!(error instanceof ApiError) || error.status >= 500)
 }
 async function refreshHistory(client: QueryClient, id: string) {
   const queryKey = ['chat-history', id]
@@ -148,6 +155,21 @@ function ChatWorkspace({ id }: { id: string }) {
   const [messageKey, setMessageKey] = useState(requestKey)
   const [delta, setDelta] = useState<Record<string, string>>({})
   const [receipt, setReceipt] = useState<string | null>(null)
+  const confirmation = useMutation({
+    mutationFn: (command: ConfirmationCommand) =>
+      confirmRequirements(id, command.revision, command.hash, command.key),
+    onSuccess: async (_result, command) => {
+      setReceipt(
+        `Подтверждение редакции ${command.revision} сохранено. Следующее назначение проверяется отдельно.`,
+      )
+      await invalidate()
+    },
+    onError: () => {
+      void task.refetch()
+      void requirements.refetch()
+    },
+  })
+  const confirmationUncertain = confirmation.isError && unknownOutcome(confirmation.error)
   const transcript = useRef<HTMLDivElement>(null)
   const following = useRef(true)
   const [newMessages, setNewMessages] = useState(false)
@@ -166,6 +188,8 @@ function ChatWorkspace({ id }: { id: string }) {
   const questionKey = selectedQuestion ? `${selectedQuestion.id}:${selectedQuestion.version}` : ''
   const draft = drafts[questionKey] ?? { selected: [], text: '', comment: '', key: '' }
   const dirty =
+    confirmation.isPending ||
+    confirmationUncertain ||
     Boolean(body.trim()) ||
     Object.values(drafts).some((value) =>
       Boolean(value.selected.length || value.text.trim() || value.comment.trim()),
@@ -214,7 +238,20 @@ function ChatWorkspace({ id }: { id: string }) {
       token,
       eventTypes: ['session'],
       onOpen: () => {
-        void refreshHistory(client, id)
+        setDelta({})
+        ;[
+          'chat-history',
+          'session-runs',
+          'chat-controls',
+          'task-context',
+          'clarifications',
+          'requirements',
+          'task-approvals',
+          'runtime-controls',
+        ].forEach((key) => {
+          if (key === 'chat-history') void refreshHistory(client, id)
+          else void client.invalidateQueries({ queryKey: [key, id] })
+        })
       },
       onEvent: (_type, data) => {
         if (
@@ -313,8 +350,7 @@ function ChatWorkspace({ id }: { id: string }) {
       stopSessionRun(id, command.runId, command.key),
     onSuccess: invalidate,
   })
-  const answerUncertain =
-    answer.isError && (!(answer.error instanceof ApiError) || answer.error.status >= 500)
+  const answerUncertain = answer.isError && unknownOutcome(answer.error)
   const messageUncertain =
     (message.isError && (!(message.error instanceof ApiError) || message.error.status >= 500)) ||
     (message.isSuccess && 'accepted' in message.data && !message.data.accepted)
@@ -371,7 +407,13 @@ function ChatWorkspace({ id }: { id: string }) {
       <dl className="fc-chat-fields">
         <div>
           <dt>Задача</dt>
-          <dd>{task.data?.binding?.task_id ?? 'Свободный чат'}</dd>
+          <dd>
+            {task.isPending
+              ? 'Загрузка контекста'
+              : task.isError
+                ? 'Контекст не обновлён'
+                : (task.data?.binding?.task_id ?? 'Свободный чат')}
+          </dd>
         </div>
         <div>
           <dt>Владелец</dt>
@@ -390,7 +432,17 @@ function ChatWorkspace({ id }: { id: string }) {
         </div>
         <div>
           <dt>Выполнение</dt>
-          <dd>{activeRun ? <StatusBadge value={activeRun.state} /> : 'Нет активного запуска'}</dd>
+          <dd>
+            {controls.isPending || runs.isPending ? (
+              'Загрузка запусков'
+            ) : controls.isError || runs.isError ? (
+              'Состояние запуска не обновлено'
+            ) : activeRun ? (
+              <StatusBadge value={activeRun.state} />
+            ) : (
+              'Нет активного запуска'
+            )}
+          </dd>
         </div>
         <div>
           <dt>Execution</dt>
@@ -405,9 +457,11 @@ function ChatWorkspace({ id }: { id: string }) {
       <p>
         {questions.isError
           ? 'Источник недоступен'
-          : bound
-            ? `${questionList.filter((question) => question.state === 'answered').length} / ${questionList.length}`
-            : 'Нет привязки к SDLC'}
+          : questions.isPending && bound
+            ? 'Загрузка уточнений'
+            : bound
+              ? `${questionList.filter((question) => question.state === 'answered').length} / ${questionList.length}`
+              : 'Нет привязки к SDLC'}
       </p>
       <h3>Запуски</h3>
       {runs.isError ? (
@@ -523,9 +577,7 @@ function ChatWorkspace({ id }: { id: string }) {
                     Предыдущие сообщения
                   </Button>
                 )}
-                {!history.isPending && !messages.length && (
-                  <EmptyState title="Сообщений пока нет" />
-                )}
+                {history.isSuccess && !messages.length && <EmptyState title="Сообщений пока нет" />}
                 {messages.map((item) => (
                   <article className="fc-chat-message" key={item.id}>
                     <div>
@@ -602,7 +654,19 @@ function ChatWorkspace({ id }: { id: string }) {
                       : 'Исход команды проверяется. Повтор сообщения использует прежний ключ; текст пока нельзя менять.'}
                   </p>
                 )}
-                {controls.isError && <ReadableError error={controls.error} />}
+                {controls.isError && (
+                  <>
+                    <ReadableError error={controls.error} />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={controls.isFetching}
+                      onClick={() => void controls.refetch()}
+                    >
+                      Проверить доступность отправки
+                    </Button>
+                  </>
+                )}
                 <div>
                   <span>
                     <ShieldCheck size={14} />
@@ -648,7 +712,9 @@ function ChatWorkspace({ id }: { id: string }) {
             </TabsContent>
             <TabsContent value="clarification" className="fc-chat-panel">
               <div className="fc-chat-scroll">
-                {!bound ? (
+                {task.isPending ? (
+                  <p>Загрузка контекста</p>
+                ) : !bound ? (
                   <EmptyState
                     title={
                       task.isError ? 'Контекст недоступен' : 'Свободный чат: уточнения не привязаны'
@@ -656,12 +722,20 @@ function ChatWorkspace({ id }: { id: string }) {
                   />
                 ) : questions.isPending ? (
                   <p>Загрузка уточнений</p>
-                ) : questions.isError ? (
+                ) : questions.isError && !questions.data ? (
                   <ReadableError error={questions.error} />
                 ) : !questionList.length ? (
                   <EmptyState title="Уточнений пока нет" />
                 ) : (
                   <>
+                    {questions.isError && (
+                      <>
+                        <ReadableError error={questions.error} />
+                        <p role="status">
+                          Показаны последние полученные вопросы. Ответы заблокированы до обновления.
+                        </p>
+                      </>
+                    )}
                     <nav className="fc-chat-question-list" aria-label="Вопросы">
                       {questionList.map((question, index) => (
                         <button
@@ -690,7 +764,7 @@ function ChatWorkspace({ id }: { id: string }) {
                           !context?.permissions.can_answer ||
                           selectedQuestion.state !== 'open' ||
                           answer.isPending ||
-                          (answerUncertain && answer.variables?.questionKey === questionKey)
+                          answerUncertain
                         }
                       >
                         <legend>{selectedQuestion.text}</legend>
@@ -781,6 +855,7 @@ function ChatWorkspace({ id }: { id: string }) {
                             !owner ||
                             task.isError ||
                             answer.isPending ||
+                            answerUncertain ||
                             Boolean(
                               draft.text.trim() || draft.comment.trim() || draft.selected.length,
                             )
@@ -808,10 +883,26 @@ function ChatWorkspace({ id }: { id: string }) {
                 )}
                 {answer.isError && <ReadableError error={answer.error} />}
                 {answerUncertain && (
-                  <p role="status">
-                    Неизвестен исход сохранения. Проверьте состояние вопроса или повторите тот же
-                    ответ без изменения ключа.
-                  </p>
+                  <div>
+                    <p role="status">
+                      Неизвестен исход сохранения. Проверьте состояние вопроса или повторите тот же
+                      ответ без изменения ключа.
+                    </p>
+                    <Button
+                      variant="outline"
+                      disabled={
+                        !owner ||
+                        task.isError ||
+                        task.isFetching ||
+                        questions.isError ||
+                        questions.isFetching ||
+                        !answer.variables
+                      }
+                      onClick={() => answer.variables && answer.mutate(answer.variables)}
+                    >
+                      Повторить исходный ответ
+                    </Button>
+                  </div>
                 )}
               </div>
               <footer className="fc-chat-answer-footer">
@@ -823,11 +914,17 @@ function ChatWorkspace({ id }: { id: string }) {
                     task.isError ||
                     questions.isError ||
                     !context?.permissions.can_answer ||
+                    (answerUncertain && (task.isFetching || questions.isFetching)) ||
+                    (answerUncertain && answer.variables?.questionKey !== questionKey) ||
                     !draft.key ||
                     !canSubmitAnswer(selectedQuestion, draft.selected, draft.text) ||
                     answer.isPending
                   }
                   onClick={() => {
+                    if (answerUncertain && answer.variables) {
+                      answer.mutate(answer.variables)
+                      return
+                    }
                     if (!selectedQuestion) return
                     answer.mutate({
                       questionId: selectedQuestion.id,
@@ -850,20 +947,44 @@ function ChatWorkspace({ id }: { id: string }) {
             </TabsContent>
             <TabsContent value="requirements" className="fc-chat-panel">
               <div className="fc-chat-scroll">
-                {!bound ? (
+                {task.isPending ? (
+                  <p>Загрузка контекста</p>
+                ) : !bound ? (
                   <EmptyState title="Нет привязки к SDLC" />
                 ) : requirements.isPending ? (
                   <p>Загрузка требований</p>
-                ) : requirements.isError ? (
+                ) : requirements.isError && !requirements.data ? (
                   <ReadableError error={requirements.error} />
                 ) : (
-                  <RequirementsView
-                    revisions={requirements.data?.revisions ?? []}
-                    currentRevision={context?.requirement_revision ?? null}
-                    canConfirm={owner && !task.isError && Boolean(context?.permissions.can_confirm)}
-                    sessionId={id}
-                    onSaved={invalidate}
-                  />
+                  <>
+                    {requirements.isError && (
+                      <>
+                        <ReadableError error={requirements.error} />
+                        <p role="status">
+                          Показана последняя полученная редакция. Подтверждение заблокировано до
+                          обновления.
+                        </p>
+                      </>
+                    )}
+                    <RequirementsView
+                      revisions={requirements.data?.revisions ?? []}
+                      currentRevision={context?.requirement_revision ?? null}
+                      canConfirm={
+                        owner &&
+                        !task.isError &&
+                        !requirements.isError &&
+                        Boolean(context?.permissions.can_confirm)
+                      }
+                      confirmation={confirmation}
+                      canReplayConfirmation={
+                        owner &&
+                        task.isSuccess &&
+                        !task.isFetching &&
+                        requirements.isSuccess &&
+                        !requirements.isFetching
+                      }
+                    />
+                  </>
                 )}
               </div>
             </TabsContent>
@@ -940,14 +1061,14 @@ function RequirementsView({
   revisions,
   currentRevision,
   canConfirm,
-  sessionId,
-  onSaved,
+  confirmation,
+  canReplayConfirmation,
 }: {
   revisions: RequirementsRevision[]
   currentRevision: number | null
   canConfirm: boolean
-  sessionId: string
-  onSaved: () => Promise<void>
+  confirmation: ConfirmationMutation
+  canReplayConfirmation: boolean
 }) {
   const [params, setParams] = useSearchParams()
   const selected =
@@ -992,8 +1113,8 @@ function RequirementsView({
         key={`${selected.revision}:${selected.content_hash}`}
         revision={selected}
         enabled={canConfirm && selected.revision === currentRevision}
-        sessionId={sessionId}
-        onSaved={onSaved}
+        mutation={confirmation}
+        canReplay={canReplayConfirmation}
       />
     </>
   )
@@ -1001,41 +1122,71 @@ function RequirementsView({
 function RevisionConfirmation({
   revision,
   enabled,
-  sessionId,
-  onSaved,
+  mutation,
+  canReplay,
 }: {
   revision: RequirementsRevision
   enabled: boolean
-  sessionId: string
-  onSaved: () => Promise<void>
+  mutation: ConfirmationMutation
+  canReplay: boolean
 }) {
   const [checked, setChecked] = useState(false)
   const [key] = useState(requestKey)
-  const mutation = useMutation({
-    mutationFn: () => confirmRequirements(sessionId, revision.revision, revision.content_hash, key),
-    onSuccess: onSaved,
-  })
+  const uncertain = mutation.isError && unknownOutcome(mutation.error)
+  const sameTarget =
+    mutation.variables?.revision === revision.revision &&
+    mutation.variables?.hash === revision.content_hash
+  const held = mutation.isPending || uncertain
+  const saved = sameTarget && mutation.isSuccess
   return (
     <div className="fc-chat-confirm">
       <label>
         <input
           type="checkbox"
-          checked={checked}
-          disabled={!enabled || mutation.isPending || mutation.isSuccess}
+          checked={checked || (sameTarget && (held || saved))}
+          disabled={!enabled || held || saved}
           onChange={(event) => setChecked(event.target.checked)}
         />
         Подтверждаю цель, границы и критерии приёмки редакции {revision.revision}
       </label>
       {!enabled && <p>Подтверждение недоступно: проверьте актуальную редакцию и prerequisites.</p>}
       <Button
-        disabled={!enabled || !checked || mutation.isPending || mutation.isSuccess}
-        onClick={() => mutation.mutate()}
+        disabled={
+          !enabled ||
+          (!checked && !(sameTarget && uncertain)) ||
+          mutation.isPending ||
+          saved ||
+          (uncertain && !canReplay) ||
+          (uncertain && !sameTarget)
+        }
+        onClick={() =>
+          mutation.mutate(
+            uncertain && sameTarget && mutation.variables
+              ? mutation.variables
+              : { revision: revision.revision, hash: revision.content_hash, key },
+          )
+        }
       >
         <Check size={15} />
         Подтвердить редакцию {revision.revision}
       </Button>
-      {mutation.isError && <ReadableError error={mutation.error} />}
-      {mutation.isSuccess && (
+      {mutation.isError && sameTarget && <ReadableError error={mutation.error} />}
+      {uncertain && (
+        <div>
+          <p role="status">
+            Исход подтверждения редакции {mutation.variables?.revision} неизвестен. Сверьте
+            состояние; повтор возможен только для исходной редакции и с прежним ключом.
+          </p>
+          <Button
+            variant="outline"
+            disabled={!canReplay || !mutation.variables}
+            onClick={() => mutation.variables && mutation.mutate(mutation.variables)}
+          >
+            Повторить исходное подтверждение
+          </Button>
+        </div>
+      )}
+      {saved && (
         <p role="status">Подтверждение сохранено. Следующее назначение проверяется отдельно.</p>
       )}
     </div>

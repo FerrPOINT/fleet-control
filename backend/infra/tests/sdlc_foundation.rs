@@ -1864,6 +1864,8 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
     let project = binding.project_id;
     let instance = binding.tracker_instance_id.clone();
     let tracker = axum::Router::new()
+    .route("/api/v1/issues/{id}/sdlc/clarifications",axum::routing::get(|| async { axum::Json(serde_json::json!({"questions":[]})) }))
+    .route("/api/v1/issues/{id}/sdlc/requirements/revisions",axum::routing::get(|| async { axum::Json(serde_json::json!({"revisions":[]})) }))
     .route("/api/v1/sdlc/project-access",axum::routing::get(move || {
         let check=list_check.clone();let instance=instance.clone();
         async move { axum::Json(serde_json::json!({"contract_version":1,"tracker_instance_id":instance,"project_ids":if check.load(Ordering::SeqCst) {vec![]} else {vec![project]}})) }
@@ -1966,6 +1968,14 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
             axum::routing::get(api::routes::task_chats::controls),
         )
         .route(
+            "/api/v1/sessions/{session_id}/clarifications",
+            axum::routing::get(api::routes::task_chats::clarifications),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/requirements",
+            axum::routing::get(api::routes::task_chats::requirements),
+        )
+        .route(
             "/api/v1/sessions/{session_id}/stream",
             axum::routing::get(api::routes::sessions::stream_session),
         )
@@ -2019,6 +2029,8 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
         "/runs",
         "/history",
         "/chat-controls",
+        "/clarifications",
+        "/requirements",
     ] {
         assert_eq!(
             client
@@ -2142,6 +2154,8 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
         "/runs",
         "/history",
         "/chat-controls",
+        "/clarifications",
+        "/requirements",
     ] {
         assert_eq!(
             client

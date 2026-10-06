@@ -172,6 +172,170 @@ beforeEach(() => {
   })
 })
 describe('production chat', () => {
+  it.each(['answer', 'confirmation'] as const)(
+    'holds both %s retry buttons until command readback finishes',
+    async (command) => {
+      const isAnswer = command === 'answer'
+      const mutation = isAnswer ? chats.answerClarification : chats.confirmRequirements
+      vi.mocked(mutation).mockRejectedValue(new Error('Lost command ACK'))
+      renderPage(isAnswer ? 'clarification' : 'requirements')
+      await userEvent.click(
+        isAnswer
+          ? await screen.findByRole('radio', { name: /Участники проекта/ })
+          : await screen.findByRole('checkbox', { name: /Подтверждаю цель/ }),
+      )
+      let resolveContext!: (value: chats.TaskContextResponse) => void
+      vi.mocked(chats.getTaskContext).mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveContext = resolve
+          }),
+      )
+      const submit = screen.getByRole('button', {
+        name: isAnswer ? 'Сохранить ответ' : 'Подтвердить редакцию 3',
+      })
+      await userEvent.click(submit)
+      await screen.findByText('Lost command ACK')
+      const retry = screen.getByRole('button', {
+        name: isAnswer ? 'Повторить исходный ответ' : 'Повторить исходное подтверждение',
+      })
+      expect(submit).toBeDisabled()
+      expect(retry).toBeDisabled()
+      expect(mutation).toHaveBeenCalledTimes(1)
+      await act(async () => resolveContext(context))
+      await waitFor(() => expect(submit).toBeEnabled())
+      expect(retry).toBeEnabled()
+    },
+  )
+  it('keeps stale requirements readable and blocks consent after a failed document refresh', async () => {
+    const { client } = renderPage('requirements')
+    await screen.findByText('Настоящие требования')
+    vi.mocked(chats.getRequirements).mockRejectedValue(new Error('Requirements refresh failed'))
+    await client.invalidateQueries({ queryKey: ['requirements', 'session1'] })
+    expect(await screen.findByText('Requirements refresh failed')).toBeVisible()
+    expect(screen.getByText('Настоящие требования')).toBeVisible()
+    expect(screen.getByRole('checkbox', { name: /Подтверждаю цель/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Подтвердить редакцию 3' })).toBeDisabled()
+  })
+  it('keeps a question draft readable and blocked after a failed question refresh', async () => {
+    const { client } = renderPage('clarification')
+    await userEvent.type(await screen.findByLabelText('Комментарий'), 'Retained draft')
+    vi.mocked(chats.getClarifications).mockRejectedValue(new Error('Questions refresh failed'))
+    await client.invalidateQueries({ queryKey: ['clarifications', 'session1'] })
+    expect(await screen.findByText('Questions refresh failed')).toBeVisible()
+    expect(screen.getByLabelText('Комментарий')).toHaveValue('Retained draft')
+    expect(screen.getByLabelText('Комментарий')).toBeDisabled()
+  })
+  it('does not report empty history on a failed first load and offers a controls retry', async () => {
+    vi.mocked(chats.getChatHistory).mockRejectedValue(new Error('History unavailable'))
+    vi.mocked(chats.getChatControls).mockRejectedValueOnce(new Error('Controls unavailable'))
+    renderPage()
+    expect(await screen.findByText('History unavailable')).toBeVisible()
+    expect(screen.queryByText('Сообщений пока нет')).not.toBeInTheDocument()
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Проверить доступность отправки' }),
+    )
+    await waitFor(() => expect(chats.getChatControls).toHaveBeenCalledTimes(2))
+    expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+  })
+  it('holds every question and stale-draft transfer after an unknown answer outcome', async () => {
+    vi.mocked(chats.answerClarification).mockRejectedValue(new Error('Lost answer ACK'))
+    vi.mocked(chats.getClarifications).mockResolvedValue({
+      questions: [question, { ...question, id: 'q2', text: 'Второй вопрос' }],
+    })
+    const { client } = renderPage('clarification')
+    await userEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+    await screen.findByText('Lost answer ACK')
+    await userEvent.click(screen.getByRole('button', { name: /Второй вопрос/ }))
+    expect(screen.getByLabelText('Комментарий')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+    client.setQueryData(['clarifications', 'session1'], {
+      questions: [{ ...question, version: 2 }],
+    })
+    expect(
+      await screen.findByRole('button', { name: 'Перенести черновик и проверить новый вопрос' }),
+    ).toBeDisabled()
+    expect(chats.answerClarification).toHaveBeenCalledTimes(1)
+    await userEvent.click(screen.getByRole('button', { name: 'Повторить исходный ответ' }))
+    await waitFor(() => expect(chats.answerClarification).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(chats.answerClarification).mock.calls[1]).toEqual(
+      vi.mocked(chats.answerClarification).mock.calls[0],
+    )
+  })
+  it('keeps confirmation identity and unknown outcome across tabs and a new revision', async () => {
+    vi.mocked(chats.confirmRequirements).mockRejectedValue(new Error('Lost confirmation ACK'))
+    const { client } = renderPage('requirements')
+    await userEvent.click(await screen.findByRole('checkbox', { name: /Подтверждаю цель/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Подтвердить редакцию 3' }))
+    await screen.findByText('Lost confirmation ACK')
+    await userEvent.click(screen.getByRole('tab', { name: /Диалог/ }))
+    await userEvent.click(screen.getByRole('tab', { name: /Требования/ }))
+    expect(screen.getByRole('checkbox', { name: /Подтверждаю цель/ })).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: 'Подтвердить редакцию 3' }))
+    await waitFor(() => expect(chats.confirmRequirements).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(chats.confirmRequirements).mock.calls[1]).toEqual(
+      vi.mocked(chats.confirmRequirements).mock.calls[0],
+    )
+    client.setQueryData(['requirements', 'session1'], {
+      revisions: [revision, { ...revision, revision: 4, content_hash: 'hash4' }],
+    })
+    client.setQueryData(['task-context', 'session1'], {
+      ...context,
+      tracker: { ...context.tracker, requirement_revision: 4 },
+    })
+    expect(await screen.findByRole('button', { name: 'Подтвердить редакцию 4' })).toBeDisabled()
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Исход подтверждения редакции 3 неизвестен',
+    )
+    expect(chats.confirmRequirements).toHaveBeenCalledTimes(2)
+  })
+  it('does not submit another confirmation when a pending request loses its view', async () => {
+    let resolveConfirmation!: (value: Awaited<ReturnType<typeof chats.confirmRequirements>>) => void
+    vi.mocked(chats.confirmRequirements).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveConfirmation = resolve
+        }),
+    )
+    renderPage('requirements')
+    await userEvent.click(await screen.findByRole('checkbox', { name: /Подтверждаю цель/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Подтвердить редакцию 3' }))
+    await userEvent.click(screen.getByRole('tab', { name: /Диалог/ }))
+    await userEvent.click(screen.getByRole('tab', { name: /Требования/ }))
+    expect(screen.getByRole('button', { name: 'Подтвердить редакцию 3' })).toBeDisabled()
+    await act(async () =>
+      resolveConfirmation({
+        id: 'confirmation',
+        task_id: 'task',
+        revision: 3,
+        content_hash: 'hash3',
+        owner_subject: 'subject-owner',
+        created_at: '2026-10-01T12:00:00Z',
+        stage: 'Backlog',
+      }),
+    )
+    await screen.findByText('Подтверждение сохранено. Следующее назначение проверяется отдельно.')
+    await userEvent.click(screen.getByRole('tab', { name: /Диалог/ }))
+    await userEvent.click(screen.getByRole('tab', { name: /Требования/ }))
+    expect(screen.getByRole('button', { name: 'Подтвердить редакцию 3' })).toBeDisabled()
+    expect(chats.confirmRequirements).toHaveBeenCalledTimes(1)
+  })
+  it('refreshes permissions and context as well as transcript on stream reconnect', async () => {
+    useAuthStore.setState({ token: 'fixture-token' })
+    renderPage('clarification')
+    await screen.findByRole('radio', { name: /Участники проекта/ })
+    vi.mocked(chats.getTaskContext).mockResolvedValue({
+      ...context,
+      tracker: { ...context.tracker!, permissions: { can_answer: false, can_confirm: false } },
+    })
+    await act(async () => vi.mocked(connectAuthenticatedEventStream).mock.calls[0]?.[0].onOpen?.())
+    await waitFor(() =>
+      expect(screen.getByRole('radio', { name: /Участники проекта/ })).toBeDisabled(),
+    )
+    expect(chats.getChatControls).toHaveBeenCalledTimes(2)
+    expect(chats.getRequirements).toHaveBeenCalledTimes(2)
+  })
   it('shows Tracker Analysis without granting prompt or confirmation actions', async () => {
     vi.mocked(chats.getTaskContext).mockResolvedValue({
       ...context,
