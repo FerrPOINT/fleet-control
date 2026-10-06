@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Navigate, useLocation } from 'react-router'
 import { beginSso, isSsoNavigationInterruption } from '@sdlc/ui/sso'
-import { Button, PlatformMark } from '@sdlc/ui/ui'
+import { Button } from '@sdlc/ui/ui'
 import { ssoConfig, useAuthStore } from '@/shared/auth/store'
 
 export function LoginPage() {
@@ -22,8 +22,7 @@ export function LoginPage() {
   return (
     <main className="grid min-h-screen place-items-center bg-background p-4">
       <div className="w-full max-w-sm space-y-5 text-center">
-        <PlatformMark withName />
-        <h1 className="text-xl font-semibold">Вход в Fleet Control</h1>
+        <h1 className="text-xl font-semibold">Вход в платформу</h1>
         {error && (
           <p role="alert" className="text-sm text-destructive">
             {error}
