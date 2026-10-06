@@ -1,5 +1,16 @@
 # Data Model
 
+The existing private runtime-launch journal's immutable JSON binding may include
+an optional `container` object: original Base registration, protected policy,
+Compose/start/stop journal locations, source hashes and explicit Docker context.
+Container generation equals the launch UUID; resource equals the concrete agent
+UUID. Paths/port/effective configuration are also fixed by the existing launch
+binding. No new schema migration or public DTO is introduced for this candidate.
+Historical native JSON omits `container` unchanged. Docker PID metadata is never
+native process authority, and a stopped generation cannot be reused for restart.
+See [Container Control](contracts/CONTAINER_CONTROL_V1.md) for validation and
+remaining automatic generation/configuration work.
+
 Original-controller liveness verification does not add a migration or mutate
 launch identity: an exited retained child leaves reconciliation holds intact.
 Foreign health observation preserves agent/runtime/launch rows; its separate

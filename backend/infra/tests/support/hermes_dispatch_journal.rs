@@ -121,6 +121,7 @@ async fn managed_launch(p: &JournalFixture) -> app::runtime_launch::RuntimeLaunc
         configuration_revision: None,
         configuration_sha256: None,
         command_sha256: "a".repeat(64),
+        container: None,
     };
     p.repo.claim_runtime_launch(&binding).await.unwrap();
     p.repo

@@ -17,6 +17,21 @@ impl LocalRuntimeSupervisor {
         &self,
         agent: Uuid,
     ) -> Result<Option<Uuid>, AppError> {
+        if self
+            .repo
+            .get_open_runtime_launch(agent)
+            .await?
+            .is_some_and(|launch| launch.binding.container.is_some())
+        {
+            return self.container_generation(agent).await.map(Some);
+        }
+        if self.config.fleet.container_control.is_some()
+            && self.repo.get_agent(agent).await?.kind == AgentKind::Hermes
+        {
+            return Err(AppError::Unavailable(
+                "verified agent container generation is required; no native fallback".into(),
+            ));
+        }
         let child_pid = match self.children.lock().await.get_mut(&agent) {
             Some(child) => {
                 if child.try_wait().map_err(AppError::internal)?.is_some() {
@@ -127,6 +142,7 @@ impl LocalRuntimeSupervisor {
                 })
                 .transpose()?,
             command_sha256,
+            container: None,
         };
         // No process may execute unless this authoritative transaction has committed.
         self.repo.claim_runtime_launch(&binding).await?;

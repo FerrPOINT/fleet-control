@@ -1,5 +1,19 @@
 # Hermes Adapter Contract
 
+The opt-in [container consumer](CONTAINER_CONTROL_V1.md) uses the original Base
+registration/ACK/bridge endpoint for all Hermes requests, including health,
+capabilities, dispatch, readback, streams and controls. The public adapter
+protocol is unchanged. Gateway generation comes from the immutable Fleet
+launch and observed original running namespace, not from Hermes-supplied fields
+or a newly discovered PID/address. Unknown start remains held and cannot fall
+back to native launch or loopback HTTP. Base endpoint validation alone proves
+neither network reachability nor loaded configuration, model access or SDLC
+readiness. Automatic Compose provisioning and live container acceptance remain.
+
+Retained-child checks below apply to the legacy native path. Container config
+activation is explicitly unavailable before file/stop effects until safe
+new-generation activation/rollback exists; native evidence does not certify it.
+
 The automatic queue selector now respects the original acknowledged controller
 in the [launch journal](RUNTIME_LAUNCH_JOURNAL_V1.md). Foreign controllers leave
 pending delivery unchanged instead of claiming and failing another process's

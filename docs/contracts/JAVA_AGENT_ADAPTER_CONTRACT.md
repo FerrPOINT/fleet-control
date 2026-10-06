@@ -1,5 +1,11 @@
 # Java Agent Adapter Contract
 
+The optional Base container-control consumer currently accepts only Hermes
+bindings. It neither containerizes Java nor adds Java chat/control/SDLC
+capabilities. Existing Java local jar lifecycle/readiness remains unchanged.
+Java Docker lifecycle will need its own image/launch and acceptance contract;
+Hermes original container receipts cannot authorize a Java launch.
+
 The original approval journal (000016) likewise adds no Java chat/control or
 machine admission. Its claim requires an accepted concrete Hermes free chat;
 Java lifecycle and typed unsupported execution remain unchanged.

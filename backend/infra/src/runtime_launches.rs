@@ -14,6 +14,95 @@ pub(crate) fn snapshot_hash(value: &serde_json::Value) -> Result<String, AppErro
     )))
 }
 
+pub(crate) fn validate_container_binding(binding: &RuntimeLaunchBinding) -> Result<(), AppError> {
+    let Some(container) = &binding.container else {
+        return Ok(());
+    };
+    let invalid = || AppError::validation("invalid original container launch identity");
+    crate::runtime::container_control::validate_registration(&container.registration)?;
+    let registration = &container.registration;
+    let policy = &container.policy;
+    if binding.kind != domain::AgentKind::Hermes
+        || registration.contract_version != 2
+        || registration.resource_id != binding.agent_id
+        || registration.generation != binding.id
+        || policy
+            .get("contract_version")
+            .and_then(serde_json::Value::as_u64)
+            != Some(2)
+        || policy
+            .get("resource_id")
+            .and_then(serde_json::Value::as_str)
+            != Some(binding.agent_id.to_string().as_str())
+        || policy.get("generation").and_then(serde_json::Value::as_str)
+            != Some(binding.id.to_string().as_str())
+        || !matches!(
+            policy.get("project").and_then(serde_json::Value::as_str),
+            Some("sdlc1" | "sdlc2")
+        ) && !policy
+            .get("project")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|name| {
+                name.starts_with("sdlc-qa-")
+                    && name.len() <= 128
+                    && name.bytes().all(|byte| {
+                        byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-'
+                    })
+            })
+        || container.source_sha256.iter().any(|hash| !valid_hash(hash))
+        || container.context.is_empty()
+        || container.context.len() > 128
+        || !container
+            .context
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"_.-".contains(&byte))
+        || [
+            &container.compose,
+            &container.journal,
+            &container.stop_journal,
+        ]
+        .iter()
+        .any(|path| !std::path::Path::new(path).is_absolute())
+        || container.compose == container.journal
+        || container.compose == container.stop_journal
+        || container.journal == container.stop_journal
+        || snapshot_hash(&serde_json::to_value(container).map_err(AppError::internal)?)?
+            != binding.command_sha256
+    {
+        return Err(invalid());
+    }
+    let mounts = policy
+        .get("mounts")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(invalid)?;
+    if mounts.len() != 4 {
+        return Err(invalid());
+    }
+    for (destination, source, read_only) in [
+        ("/runtime", &binding.paths.runtime, true),
+        ("/config", &binding.paths.config, false),
+        ("/workspace", &binding.paths.workspace, false),
+        ("/logs", &binding.paths.logs, false),
+    ] {
+        if mounts
+            .iter()
+            .filter(|mount| {
+                mount.get("destination").and_then(serde_json::Value::as_str) == Some(destination)
+                    && mount.get("source").and_then(serde_json::Value::as_str)
+                        == Some(source.as_str())
+                    && mount.get("type").and_then(serde_json::Value::as_str) == Some("bind")
+                    && mount.get("read_only").and_then(serde_json::Value::as_bool)
+                        == Some(read_only)
+            })
+            .count()
+            != 1
+        {
+            return Err(invalid());
+        }
+    }
+    Ok(())
+}
+
 pub(crate) fn dispatch_launch_id(caps: &serde_json::Value) -> Result<Option<Uuid>, AppError> {
     let Some(binding) = caps.get("fleet_launch") else {
         // Historical unjournaled free-chat intent, never managed-launch authority.
@@ -41,6 +130,7 @@ pub(super) async fn claim(
     repo: &PostgresFleetRepository,
     binding: &RuntimeLaunchBinding,
 ) -> Result<(), AppError> {
+    validate_container_binding(binding)?;
     if binding.id.is_nil()
         || binding.agent_id.is_nil()
         || binding.controller_id.is_nil()
@@ -297,14 +387,43 @@ pub(super) async fn observe(
         txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
             "UPDATE agents SET status=CASE WHEN archived_at IS NULL THEN $2 ELSE status END WHERE id=$1", [binding.agent_id.into(), status.into()]))
             .await.map_err(AppError::database)?;
-        let changed = txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
-            "UPDATE agent_runtime SET pid=$2,desired_state=$3,health_status=$4,
-                health_detail='Original native gateway observation; boundary quiescence is not attested',
+        let changed = txn
+            .execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "UPDATE agent_runtime SET pid=$2,desired_state=$3,health_status=$4,
+                health_detail=$5,
                 last_capabilities_json='{}'::jsonb,last_health_at=now(),
                 stopped_at=CASE WHEN $3='stopped' THEN now() ELSE NULL END
-                WHERE agent_id=$1", [binding.agent_id.into(), if state=="gateway_started" { pid } else { None }.into(),
-                if state=="gateway_started" { "running" } else { "stopped" }.into(), state.into()]))
-            .await.map_err(AppError::database)?;
+                WHERE agent_id=$1",
+                [
+                    binding.agent_id.into(),
+                    if state == "gateway_started" {
+                        pid
+                    } else {
+                        None
+                    }
+                    .into(),
+                    if state == "gateway_started" {
+                        "running"
+                    } else {
+                        "stopped"
+                    }
+                    .into(),
+                    state.into(),
+                    if binding.container.is_some() {
+                        if state == "gateway_exited" {
+                            "Original container namespace exit confirmed"
+                        } else {
+                            "Original container launch acknowledgement"
+                        }
+                    } else {
+                        "Original native gateway observation; boundary quiescence is not attested"
+                    }
+                    .into(),
+                ],
+            ))
+            .await
+            .map_err(AppError::database)?;
         if changed.rows_affected() != 1 {
             return Err(AppError::Unavailable(
                 "original runtime metadata is missing".into(),

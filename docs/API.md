@@ -1,5 +1,15 @@
 # API
 
+Hermes container control is an operator-configured candidate behind existing
+runtime action routes, not a new public controller API. No registration, policy,
+Compose path, source pin or prepared-generation document is exposed publicly.
+For an original container launch, runtime `pid` is the Docker-daemon init PID
+from its durable ACK, not a process Fleet may signal on the backend host.
+Start/health require original running namespace evidence and Hermes readiness;
+stop requires original namespace exit. Unknown start fails closed without retry
+or native fallback. Automatic provisioning and Docker config activation remain
+unavailable; see [Container Control](contracts/CONTAINER_CONTROL_V1.md).
+
 Managed health observation by a non-owning controller can return degraded
 without changing shared agent/runtime/launch state. The health audit records
 both observed `status` and fresh `persisted_status`; a nonpersisted observation

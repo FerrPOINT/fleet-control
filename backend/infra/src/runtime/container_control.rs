@@ -1,4 +1,5 @@
 //! Private Base subprocess protocol. No Docker command or credential is agent-supplied.
+pub use app::runtime_launch::{ContainerEngineIdentity as EngineIdentity, ContainerRegistration};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -26,34 +27,6 @@ pub struct ContainerControl {
     python: PathBuf,
     source: ControlSource,
     context: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct EngineIdentity {
-    #[serde(rename = "ID")]
-    pub id: String,
-    #[serde(rename = "KernelVersion")]
-    pub kernel_version: String,
-    #[serde(rename = "ServerVersion")]
-    pub server_version: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ContainerRegistration {
-    pub contract_version: u8,
-    pub operation_id: Uuid,
-    pub container_id: String,
-    pub resource_id: Uuid,
-    pub generation: Uuid,
-    pub engine: EngineIdentity,
-    pub policy_sha256: String,
-    pub inventory_sha256: String,
-    pub running_inventory_sha256: String,
-    pub compose_sha256: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub network_sha256: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -138,6 +111,13 @@ struct Envelope {
     result: Value,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Endpoint {
+    receipt: ContainerReceipt,
+    host: std::net::Ipv4Addr,
+}
+
 fn held() -> AppError {
     AppError::Unavailable(
         "original Docker operation requires reconciliation; no automatic resend".into(),
@@ -151,8 +131,19 @@ fn hash(value: &str) -> bool {
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
-fn validate_registration(value: &ContainerRegistration) -> Result<(), AppError> {
+fn canonical_hash(value: &impl Serialize) -> Result<String, AppError> {
+    let mut sorted = serde_json::to_value(value).map_err(|_| held())?;
+    sorted.sort_all_objects();
+    Ok(hex::encode(Sha256::digest(
+        serde_json::to_vec(&sorted).map_err(|_| held())?,
+    )))
+}
+
+pub(crate) fn validate_registration(value: &ContainerRegistration) -> Result<(), AppError> {
     if !matches!(value.contract_version, 1 | 2)
+        || value.operation_id.is_nil()
+        || value.resource_id.is_nil()
+        || value.generation.is_nil()
         || (value.contract_version == 2) != value.network_sha256.is_some()
         || [
             &value.container_id,
@@ -173,7 +164,7 @@ fn validate_registration(value: &ContainerRegistration) -> Result<(), AppError> 
             &value.engine.server_version,
         ]
         .iter()
-        .any(|value| value.is_empty() || value.len() > 256)
+        .any(|value| value.is_empty() || value.len() > 256 || !value.is_ascii())
     {
         return Err(held());
     }
@@ -340,6 +331,30 @@ impl ContainerControl {
         self.receipt(files, original, "observe").await
     }
 
+    pub async fn endpoint(
+        &self,
+        files: &ContainerLaunchFiles,
+        original: &ContainerRegistration,
+    ) -> Result<std::net::Ipv4Addr, AppError> {
+        let (status, value) = self
+            .call(files, "endpoint", json!({"registration": original}))
+            .await?;
+        let endpoint: Endpoint = serde_json::from_value(value).map_err(|_| held())?;
+        validate_receipt(&endpoint.receipt, original, status, "endpoint")?;
+        if original.contract_version != 2
+            || endpoint.receipt.state != ContainerReceiptState::Observed
+            || endpoint.receipt.observation != ContainerObservation::Running
+            || !endpoint.host.is_private()
+            || endpoint.host.is_loopback()
+            || endpoint.host.is_link_local()
+            || endpoint.host.is_unspecified()
+            || endpoint.host.is_multicast()
+        {
+            return Err(held());
+        }
+        Ok(endpoint.host)
+    }
+
     /// Caller must commit the registration in Fleet's authoritative launch journal first.
     pub async fn start(
         &self,
@@ -369,6 +384,8 @@ impl ContainerControl {
         original: &ContainerRegistration,
         operation_id: Uuid,
     ) -> Result<ContainerStopReceipt, AppError> {
+        let observed = self.observe(files, original).await?;
+        let snapshot_sha256 = canonical_hash(observed.snapshot.as_ref().ok_or_else(held)?)?;
         let (status, value) = self
             .call(
                 files,
@@ -383,7 +400,7 @@ impl ContainerControl {
             || receipt.container_id != original.container_id
             || receipt.resource_id != original.resource_id
             || receipt.generation != original.generation
-            || !hash(&receipt.snapshot_sha256)
+            || receipt.snapshot_sha256 != snapshot_sha256
             || status != 0
             || receipt.state != ContainerReceiptState::Observed
             || receipt.observation != ContainerObservation::NamespaceExited
@@ -418,7 +435,7 @@ fn validate_receipt(
         || receipt.container_id != original.container_id
         || receipt.resource_id != original.resource_id
         || receipt.generation != original.generation
-        || !hash(&receipt.registration_sha256)
+        || receipt.registration_sha256 != canonical_hash(original)?
     {
         return Err(held());
     }
@@ -455,6 +472,14 @@ fn validate_receipt(
 mod tests {
     use super::*;
 
+    #[test]
+    fn canonical_receipt_hash_matches_python_sorted_nested_json() {
+        assert_eq!(
+            canonical_hash(&json!({"z":{"y":2,"a":1},"a":0})).unwrap(),
+            "83881ff50a9a61481c4ed5e19aa8d7610ccfa1705bf25a25c1a00aa713949461"
+        );
+    }
+
     fn original() -> ContainerRegistration {
         ContainerRegistration {
             contract_version: 2,
@@ -482,7 +507,7 @@ mod tests {
             container_id: original.container_id.clone(),
             resource_id: original.resource_id,
             generation: original.generation,
-            registration_sha256: "1".repeat(64),
+            registration_sha256: canonical_hash(original).unwrap(),
             state: ContainerReceiptState::Observed,
             observation: ContainerObservation::Running,
             snapshot: Some(ContainerSnapshot {
@@ -534,7 +559,7 @@ mod tests {
         let original = original();
         let mut value = json!({"contract_version":2,"operation_id":original.operation_id,
             "container_id":original.container_id,"resource_id":original.resource_id,
-            "generation":original.generation,"registration_sha256":"1".repeat(64),
+            "generation":original.generation,"registration_sha256":canonical_hash(&original).unwrap(),
             "state":"held","observation":"unavailable","snapshot":null});
         let receipt: ContainerReceipt = serde_json::from_value(value.clone()).unwrap();
         validate_receipt(&receipt, &original, 2, "start").unwrap();

@@ -44,7 +44,7 @@ impl LocalRuntimeSupervisor {
                 "Prepared Hermes dispatch is not its free chat",
             ));
         }
-        let base = Self::hermes_base_url(&agent)?;
+        let base = self.hermes_base_url(&agent).await?;
         let token = crate::agent_runtime_token(&self.config, agent.id)?;
         hermes_wire::verify_intent(&intent, &base, &token)?;
         self.verify_dispatch_launch(agent.id, &intent.capabilities)

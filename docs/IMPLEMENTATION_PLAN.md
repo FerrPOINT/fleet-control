@@ -2,7 +2,30 @@
 
 ## Current SDLC Scope
 
-Latest Base release is d2c8ef6, preserving accepted maina3d6a79 with unchanged
+Docker consumer is now connected in the integration candidate: immutable
+container registration/paths/config/context/source pins precede Base start;
+start/health/stop and every Hermes endpoint use original container receipts.
+Unknown start stays claimed and cannot resend or fall back to native Hermes.
+This requires a private operator-prepared generation. Next implement guarded
+Compose rendering/create, trusted controller bridge attachment, daemon source
+mapping, logs, new-generation restart and namespace-based config rollback.
+Do not enable installed Docker mode or label automatic provisioning complete.
+Task admission, producer first step, PM tools/resume and real Forge/seven-agent
+acceptance remain separate required gates.
+
+The full fresh Rust1.88/PG candidate gate passes490 tests with29 explicitly
+ignored profiles, all-target check/strict Clippy and fmt. See
+[verification and retained failure](CHAT_CLARIFICATION_VERIFICATION.md).
+This proves neither automatic provisioning nor actual container/Hermes or
+full PM acceptance; do not relabel the ignored/live gates as complete.
+
+Read-only remote recheck: Base PR150 at4cfdfa9 is ready/CLEAN with nine green
+CI37420102732 jobs; PR144 is merged at main63fff28. This certifies the endpoint
+utility, not the Fleet consumer. Its validation/publication remains separate.
+
+## Historical Native Packet
+
+The earlier Base release was d2c8ef6, preserving accepted maina3d6a79 with unchanged
 boundary/bootstrap bytes and nine green jobs in CI37409952184. The a0f7044
 observation below is historical. Fleet2293862 is published integration source;
 its229 component/38 harness cases and fresh native lifecycle are scoped local

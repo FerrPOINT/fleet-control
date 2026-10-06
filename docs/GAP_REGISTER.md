@@ -3,16 +3,20 @@
 ## October SDLC Gate
 
 Docker is the selected runtime architecture, not an open user choice. The
-private [container control client](contracts/CONTAINER_CONTROL_V1.md) is added,
-but the supervisor still uses native spawn. Do not count the client or Base
-protocol QA as completed container lifecycle. Guarded Compose create/rendering,
-Fleet DB binding before start, trusted bridge access, receipt-based stop/health/
-logs and config drain/rollback are required before replacing that path.
+private [container control client](contracts/CONTAINER_CONTROL_V1.md) now has an
+opt-in supervisor consumer with pre-exec DB binding, original endpoint/ACK,
+namespace stop, health and dispatch generation checks. It requires an operator-
+prepared registration; native fallback is forbidden. Do not count this or Base
+protocol QA as completed automatic container lifecycle. Guarded Compose
+create/rendering, daemon path mapping, trusted bridge access, log capture,
+loaded config, controller recovery and config drain/rollback remain mandatory.
 
 Current Base protocol source is PR150
-`57d717ff50b49133e12f5e2761141f72078859b1`, ready/CLEAN, nine green CI37417100487 jobs;
+`4cfdfa9e45216c6c499580541eb8c3d1bb37ccc8`, ready/CLEAN, nine green CI37420102732 jobs;
 the following176e ready/green observation is historical. Full Fleet remains
 not merge-ready; no installed image, migration or automation is changed here.
+
+## Historical Release Evidence
 
 Base PR144 is now merged into main63fff28. New
 [Base PR150](https://github.com/FerrPOINT/services-base/pull/150), head
@@ -38,6 +42,8 @@ ready for review, not human-approved or merged. Both preserve current accepted
 main changes. This supersedes older head/conflict observations below, not the
 remaining ordered runtime releases or full PM/SDLC acceptance. Base boundary
 still is not consumed by Fleet; Java chat/control remain phase two.
+
+## Remaining Implementation And Rollout
 
 Automatic SDLC remains blocked. See the exhaustive owner/stage table in
 [SDLC_IMPLEMENTATION.md](SDLC_IMPLEMENTATION.md). Foundation changes do not close

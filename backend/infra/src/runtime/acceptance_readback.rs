@@ -52,7 +52,7 @@ impl LocalRuntimeSupervisor {
                 "Hermes acceptance does not match its free chat",
             ));
         }
-        let base = Self::hermes_base_url(agent)?;
+        let base = self.hermes_base_url(agent).await?;
         let token = crate::agent_runtime_token(&self.config, agent.id)?;
         let mut intent = self.repo.get_hermes_dispatch_intent(message.id).await?
             .ok_or_else(|| AppError::Unavailable("Legacy Hermes acceptance has no original dispatch context; reconciliation is required".into()))?;

@@ -220,6 +220,15 @@ impl Default for RetentionConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContainerControlConfig {
+    pub python: String,
+    pub base_root: String,
+    pub source_sha256: [String; 3],
+    pub context: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FleetConfig {
     /// Operator-owned local Git object cache. Empty disables Base package preparation.
     #[serde(default)]
@@ -228,6 +237,9 @@ pub struct FleetConfig {
     /// Private operator-provisioned controller storage, never mounted into an agent.
     #[serde(default)]
     pub controller_root: String,
+    /// Operator opt-in. Missing Docker preparation never falls back to a host process.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub container_control: Option<ContainerControlConfig>,
     pub hermes_source: String,
     pub hermes_command: String,
     /// Require the opt-in, source-pinned original-key recovery extension.
@@ -482,6 +494,7 @@ impl Default for FleetConfig {
             base_package_checkout: String::new(),
             agents_root: "./data/agents".to_string(),
             controller_root: String::new(),
+            container_control: None,
             hermes_source: "../прототипы/hermes".to_string(),
             hermes_command: "hermes".to_string(),
             hermes_recovery_extension_enabled: false,

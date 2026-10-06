@@ -6,16 +6,22 @@ The container decision is fixed: one concrete agent, one container in its
 existing workspace Compose project, no new user-facing controller service.
 The candidate private Rust client and its
 [contract](contracts/CONTAINER_CONTROL_V1.md) implement original registration,
-start/read-only observe/stop over the Base stdin/stdout protocol. They are not
-yet routed from LocalRuntimeSupervisor; existing buttons still use native spawn.
-Compose create/rendering, pre-exec DB binding, trusted Fleet network connection,
-container log/health reconciliation and configuration drain/rollback remain open.
+start/read-only observe/stop over the Base stdin/stdout protocol. They are
+now routed from LocalRuntimeSupervisor when operator Docker configuration is
+selected: immutable DB binding before start, original ACK/endpoint readback,
+health, namespace-confirmed stop and dispatch-generation checks. This consumer
+requires a private operator-prepared Compose registration; missing/unknown
+preparation never falls back to native execution. Legacy native remains only
+with no Docker configuration. Installed enablement has not changed.
+Compose create/rendering, trusted Fleet network connection, daemon path mapping,
+container logs, loaded config and configuration drain/rollback remain open.
 
 Base [PR150](https://github.com/FerrPOINT/services-base/pull/150) now publishes
-`57d717ff50b49133e12f5e2761141f72078859b1`, ready for review/CLEAN with
-[nine successful exact-head CI jobs](https://github.com/FerrPOINT/services-base/actions/runs/37417100487).
-Local311 Python cases pass300/skip11; native two-container protocol and v1
-bootstrap/crash gates pass with source fingerprints and exact owned cleanup.
+`4cfdfa9e45216c6c499580541eb8c3d1bb37ccc8`, ready for review/CLEAN with
+[nine successful exact-head CI jobs](https://github.com/FerrPOINT/services-base/actions/runs/37420102732).
+Local314 Python cases pass303/skip11; native two-container endpoint/readback
+passes with source fingerprints and exact owned cleanup. Earlier v1 bootstrap/
+crash evidence refers to unchanged historical bootstrap bytes.
 These are utility tests, not Fleet/Hermes/PM or seven-agent SDLC acceptance.
 No API/schema/SDK/image pin, frontend or accepted runtime deployment is changed.
 

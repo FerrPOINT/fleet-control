@@ -1,6 +1,85 @@
 # Chat Clarification Verification
 
-## Private Container Client: 6 October 2026
+## Full Workspace Consumer Gate: 6 October 2026
+
+Fresh project `sdlc-qa-fleet-container-control-b1b8968dd75f` passes Rust1.88
+fmt, locked/offline all-target workspace check, strict all-target Clippy and
+`cargo test --workspace -- --nocapture --test-threads=1`:490 passed,0 failed,
+29 ignored. The explicit disposable PostgreSQL URL exercises normal repository
+and HTTP integration fixtures. Ignored native/producers, dedicated large-keyset,
+central-profile/directory and migration-lineage/message-order profiles were not
+run; this is not those profiles' acceptance or a Docker/Hermes/PM live gate.
+All288 frozen inputs match final source bytes; SDKcbb4e99 and installed resources
+are unchanged. The earlier narrow component packet below uses the same manifest.
+
+| Evidence | SHA256 |
+| --- | --- |
+| frozen source manifest | `297e6ed8d066bbde379400e68248a32362e991792f0e7ef4a63a9d15c2d19913` |
+| full workspace log | `bb074f3f8d68b3f5d8181b27530fad6f464a51054e2a8bef0b454e8cd26f76d2` |
+| full workspace report | `d5f061758ec2afb74d7e2f2d95af11c92e3f2fed8d3986117563f8091d3e1d31` |
+
+Terminal exact-identity regression passes both in this full run and separately
+in project366e7cf4d4b3, isolated log
+`7e0f06b77d8c5518acb3c73bc514027a31b1d4b524d720be703a32098892bb2f`.
+The former b2e5493b7087 attempt remains failed:1200-second driver timeout and
+a terminal failure without a final panic summary. These later passes do not
+prove the old failure's cause. Only the QA driver budget/temporary DB capacity
+increased; no production timer, assertion, guard or Rust source changed.
+Finally cleanup and independent exact Compose ps are empty. Current117 Markdown
+files pass link checks; no UI/screenshot change or new browser evidence is claimed.
+
+## Opt-In Container Supervisor: 6 October 2026
+
+The integration candidate connects Docker start/stop/health, launch generation
+and every Hermes HTTP endpoint to the private Base protocol. A controller-only
+prepared generation binds original container, paths, effective config revision,
+Docker context and source hashes. Fleet commits the immutable launch before the
+single start effect. Unknown acceptance cannot repeat start or fall back to
+native Hermes. Stop closes the launch only on original namespace-exit evidence.
+This is not yet automatic creation/provisioning or installed enablement.
+
+Fresh Linux/PG project `sdlc-qa-fleet-container-control-9276912e36c3` passes
+fmt, locked/offline all-target workspace check and strict Clippy, eleven
+container tests and eighteen original launch-journal tests. PostgreSQL fixtures
+ran with an explicit disposable database, not their no-database skip path.
+The remaining infra tests were filtered in this narrow run; the full workspace
+run above is separate evidence, not inferred from these selectors.
+Seven container tests validate protocol shapes/hashes; four exercise the actual
+supervisor/repository against a fake Base subprocess, not Docker/Hermes.
+
+| Evidence | SHA256 |
+| --- | --- |
+| frozen 288-file source manifest | `297e6ed8d066bbde379400e68248a32362e991792f0e7ef4a63a9d15c2d19913` |
+| gate log | `e890d03013f8c2e688ba4348270e7e0cd7794b5f769672aa67b1e326dd9052f7` |
+| report | `44b40dabc7d297f3b016a5e574e7b90b77211a0ed97f5687ed96669c97ccf2be` |
+
+Fresh target compilation used Rust1.88 and unchanged SDKcbb4e99. Finally cleanup
+removed only this project's resources; independent exact Compose ps is empty.
+Earlier compile/fixture failures are retained as failed evidence: b43e0d47f3df
+required an explicit tuple type; 4a5845ebf819 and7471b9e32830 exposed the test
+Python fixture's incorrect `Path.parent()` call, fixed to `Path.parent`.
+No production guard or deadline was relaxed to obtain a passing result.
+
+The broader workspace attempt b2e5493b7087 did not pass: its QA driver hit
+1200 seconds before the suite finished and recorded a terminal integration
+test failure without the final panic summary. The driver's first cleanup
+observation also found a remaining one-off; subsequent independent exact
+Compose/engine container and network queries were empty. Retain this failed
+report rather than reclassifying it as success. The isolated uncaptured terminal
+test and complete broader run are recorded above; the product's live acceptance
+and ordered release gates remain incomplete.
+
+Base PR150 is independently ready/CLEAN at `4cfdfa9e45216c6c499580541eb8c3d1bb37ccc8`
+with nine successful CI37420102732 jobs. Its endpoint readback requires original
+running ACK, exact bridge/EndpointID and private IPv4, then a second readback.
+Synthetic native HTTP utility tests are not this Rust consumer's live acceptance.
+No main merge, SDK/image pin, public API/schema, UI or installed runtime change.
+Compose rendering/create, controller bridge attachment, daemon path mapping,
+logs, new-generation restart, config activation/rollback and loaded-generation
+attestation remain. Task admission/first step, PM tools/resume, Forge receipts
+and seven-agent deployment acceptance are still required for the full objective.
+
+## Historical Private Container Client
 
 Container architecture is fixed: one agent/container in existing sdlc1/sdlc2,
 without a new user-facing controller service. The new private Rust client

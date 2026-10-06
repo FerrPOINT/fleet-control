@@ -2,6 +2,24 @@
 
 Prefix: `FLEET_CONTROL_`.
 
+## Docker Controller Configuration
+
+The optional operator-owned TOML table `[fleet.container_control]` has python,
+base_root, context and source_sha256 (three exact hashes in boundary/bootstrap/
+control order). A selected Docker controller never falls back to native Hermes
+when preparation, transport or receipt is unavailable. Missing table preserves
+legacy native deployment, not container readiness. These fields are deployment
+configuration, not user-editable agent settings; Python/Base paths must be
+protected operator executables. No example signing key or runtime token is needed.
+
+Preparation currently requires a closed private document in CONTROLLER_ROOT;
+the exact shape and held states are described in the
+[private contract](contracts/CONTAINER_CONTROL_V1.md#supervisor-binding).
+Automated rendering, controller bridge attachment, daemon mount translation and
+new-generation config rollback remain open. Keep installed enablement off until
+real Fleet/Hermes container acceptance; this packet changes no accepted mounts,
+images, ports, flags or secrets.
+
 ## Private Controller Storage
 
 `FLEET_CONTROL_FLEET__CONTROLLER_ROOT` is operator-owned deployment configuration,

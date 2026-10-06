@@ -38,7 +38,7 @@ pub(super) async fn probe(
         .client
         .get(format!(
             "{}/v1/runs/{raw_id}",
-            LocalRuntimeSupervisor::hermes_base_url(agent)?
+            supervisor.hermes_base_url(agent).await?
         ))
         .header(reqwest::header::ACCEPT_ENCODING, "identity")
         .timeout(Duration::from_secs(10))

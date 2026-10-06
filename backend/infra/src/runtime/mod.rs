@@ -27,6 +27,9 @@ mod activation_journal;
 mod approval_outcome;
 mod approval_snapshot;
 pub mod container_control;
+mod container_lifecycle;
+#[cfg(test)]
+mod container_lifecycle_tests;
 mod control_outcome_readback;
 #[doc(hidden)]
 pub mod control_outcome_wire;
@@ -253,6 +256,15 @@ impl LocalRuntimeSupervisor {
         let lock = self.lifecycle_lock(revision.agent_id).await;
         let _guard = lock.lock().await;
         let agent = self.repo.get_agent(revision.agent_id).await?;
+        if self.config.fleet.container_control.is_some()
+            || self
+                .repo
+                .get_open_runtime_launch(agent.id)
+                .await?
+                .is_some_and(|launch| launch.binding.container.is_some())
+        {
+            return Err(AppError::Unavailable("container configuration activation requires a prepared replacement generation; files remain unchanged".into()));
+        }
         if self.repo.get_open_runtime_launch(agent.id).await?.is_some()
             && !self.children.lock().await.contains_key(&agent.id)
         {
@@ -568,7 +580,7 @@ impl LocalRuntimeSupervisor {
 
     /// Pull /api/v2/sessions from a running java agent into Fleet Control.
     async fn sync_java_agent_sessions(&self, agent: &Agent) -> Result<u64, AppError> {
-        let base = Self::hermes_base_url(agent)?;
+        let base = self.hermes_base_url(agent).await?;
         let response = self
             .client
             .get(format!("{base}/api/v2/sessions?limit=100"))
@@ -1084,7 +1096,7 @@ impl LocalRuntimeSupervisor {
         // Readiness is db-only per the java-agent contract; optional
         // components (browser CDP, model) may be DOWN while the runtime
         // still serves traffic, so probe readiness, not the aggregate.
-        let base = Self::hermes_base_url(agent)?;
+        let base = self.hermes_base_url(agent).await?;
         let readiness = self
             .client
             .get(format!("{base}/actuator/health/readiness"))
@@ -1150,7 +1162,20 @@ impl LocalRuntimeSupervisor {
         });
     }
 
-    fn hermes_base_url(agent: &Agent) -> Result<String, AppError> {
+    async fn hermes_base_url(&self, agent: &Agent) -> Result<String, AppError> {
+        if self
+            .repo
+            .get_open_runtime_launch(agent.id)
+            .await?
+            .is_some_and(|launch| launch.binding.container.is_some())
+        {
+            return self.container_base_url(agent).await;
+        }
+        if self.config.fleet.container_control.is_some() {
+            return Err(AppError::Unavailable(
+                "verified agent container is required; no native endpoint fallback".into(),
+            ));
+        }
         let port = agent
             .api_port
             .ok_or_else(|| AppError::validation("agent api_port is required"))?;
@@ -1192,7 +1217,7 @@ impl LocalRuntimeSupervisor {
     }
 
     async fn probe_hermes(&self, agent: &Agent) -> Result<Value, AppError> {
-        let base = Self::hermes_base_url(agent)?;
+        let base = self.hermes_base_url(agent).await?;
         let token = crate::agent_runtime_token(&self.config, agent.id)?;
         let health = self
             .client
@@ -1271,7 +1296,7 @@ impl LocalRuntimeSupervisor {
         let capabilities = self.probe_hermes(agent).await?;
         let mut capabilities = hermes_wire::dispatch_capabilities(&capabilities)?;
         capabilities["fleet_launch"] = json!({"version":1,"launch_id":generation});
-        let base = Self::hermes_base_url(agent)?;
+        let base = self.hermes_base_url(agent).await?;
         let token = crate::agent_runtime_token(&self.config, agent.id)?;
         if self.config.fleet.hermes_recovery_extension_enabled {
             capabilities["fleet_recovery"] =
@@ -1324,7 +1349,7 @@ impl LocalRuntimeSupervisor {
                 "configuration drain prohibits a new runtime submission".into(),
             ));
         }
-        let base = Self::hermes_base_url(agent)?;
+        let base = self.hermes_base_url(agent).await?;
         if claimed.state != "submitted"
             || !claimed.submission_attempted
             || claimed.run.runtime_run_id.is_some()
@@ -1422,7 +1447,7 @@ impl LocalRuntimeSupervisor {
         run: SessionAgentRun,
         runtime_run_id: String,
     ) -> Result<(), AppError> {
-        let base = Self::hermes_base_url(&agent)?;
+        let base = self.hermes_base_url(&agent).await?;
         let token = crate::agent_runtime_token(&self.config, agent.id)?;
         let intent = self
             .repo
@@ -1940,6 +1965,16 @@ impl LocalRuntimeSupervisor {
     ) -> Result<RuntimeOperationResponse, AppError> {
         let fresh = self.repo.get_agent(agent.id).await?;
         let agent = &fresh;
+        if agent.kind == AgentKind::Hermes
+            && (self.config.fleet.container_control.is_some()
+                || self
+                    .repo
+                    .get_open_runtime_launch(agent.id)
+                    .await?
+                    .is_some_and(|launch| launch.binding.container.is_some()))
+        {
+            return self.start_container_locked(agent, phase).await;
+        }
         if !self.children.lock().await.contains_key(&agent.id)
             && (agent.runtime.pid.is_some()
                 || agent.runtime.desired_state == DesiredState::Running
@@ -2094,6 +2129,14 @@ impl LocalRuntimeSupervisor {
     async fn stop_locked(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
         let fresh = self.repo.get_agent(agent.id).await?;
         let agent = &fresh;
+        if self
+            .repo
+            .get_open_runtime_launch(agent.id)
+            .await?
+            .is_some_and(|launch| launch.binding.container.is_some())
+        {
+            return self.stop_container_locked(agent).await;
+        }
         let mut children = self.children.lock().await;
         if let Some(child) = children.get_mut(&agent.id) {
             process_stop::terminate(child).await?;
@@ -2147,6 +2190,14 @@ impl LocalRuntimeSupervisor {
     async fn health_locked(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
         let fresh = self.repo.get_agent(agent.id).await?;
         let agent = &fresh;
+        if self
+            .repo
+            .get_open_runtime_launch(agent.id)
+            .await?
+            .is_some_and(|launch| launch.binding.container.is_some())
+        {
+            return self.health_container_locked(agent).await;
+        }
         let mut children = self.children.lock().await;
         let finished = match children.get_mut(&agent.id) {
             Some(child) => child.try_wait().map_err(AppError::internal)?,

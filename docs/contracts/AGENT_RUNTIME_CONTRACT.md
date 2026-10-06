@@ -1,5 +1,23 @@
 # Agent Runtime Contract
 
+## Container Candidate
+
+The opt-in Hermes supervisor consumes [Container Control v1](CONTAINER_CONTROL_V1.md)
+for start/health/stop and every runtime HTTP endpoint. Its original registration,
+effective configuration, paths, controller and source/context pins are immutable
+before the first start. A durable original Docker ACK authorizes generation;
+original namespace exit authorizes stop completion. A daemon PID is metadata,
+never a host kill target. Missing/uncertain/foreign registration fails closed,
+without native fallback, automatic start replay or controller takeover.
+
+An operator-prepared private generation is still required. Compose creation,
+controller network access, logs and Docker configuration activation/rollback
+are not complete; readiness is not SDLC admission. Java is unchanged. Statements
+below about retained children and process `try_wait` describe the legacy native
+path only, not container custody or Docker acceptance evidence.
+
+## Native Path And Execution Contracts
+
 Generation checks require the retained original child to be nonterminal by
 process `try_wait`, not just a cached numeric PID. Failure preserves custody
 and launch metadata for reconciliation, without a dispatch permit or boundary

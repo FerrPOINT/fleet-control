@@ -24,7 +24,7 @@ fn held() -> AppError {
     )
 }
 
-async fn private_controller_directory(path: &Path) -> Result<PathBuf, AppError> {
+pub(super) async fn private_controller_directory(path: &Path) -> Result<PathBuf, AppError> {
     if path.as_os_str().is_empty() {
         return Err(held());
     }
