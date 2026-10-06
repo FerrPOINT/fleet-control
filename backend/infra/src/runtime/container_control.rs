@@ -1,5 +1,7 @@
 //! Private Base subprocess protocol. No Docker command or credential is agent-supplied.
-pub use app::runtime_launch::{ContainerEngineIdentity as EngineIdentity, ContainerRegistration};
+pub use app::runtime_launch::{
+    ContainerEngineIdentity as EngineIdentity, ContainerMountMapping, ContainerRegistration,
+};
 use base64::{Engine, engine::general_purpose::STANDARD};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -122,6 +124,8 @@ pub struct ContainerLaunchFiles {
     pub compose: PathBuf,
     pub journal: PathBuf,
     pub stop_journal: PathBuf,
+    pub mount_mapping: Option<ContainerMountMapping>,
+    pub mapping_file: Option<PathBuf>,
 }
 
 // Resolved credentials remain private. Never derive Debug or expose this as an API DTO.
@@ -160,6 +164,7 @@ pub(super) fn validate_preparation(
     prepared: &ContainerPreparation,
     policy: &Value,
     operation_id: Uuid,
+    mapping: Option<&ContainerMountMapping>,
 ) -> Result<(), AppError> {
     validate_registration(&prepared.registration)?;
     let mut expected = policy.clone();
@@ -173,7 +178,8 @@ pub(super) fn validate_preparation(
     expected["network"]["id"] = json!(network_id);
     if prepared.state != "prepared"
         || prepared.policy != expected
-        || prepared.registration.contract_version != 2
+        || !matches!(prepared.registration.contract_version, 2 | 3)
+        || policy["contract_version"] != json!(prepared.registration.contract_version)
         || prepared.registration.operation_id != operation_id
         || prepared.registration.policy_sha256 != canonical_hash(&prepared.policy)?
         || prepared.policy["resource_id"] != json!(prepared.registration.resource_id)
@@ -181,6 +187,7 @@ pub(super) fn validate_preparation(
     {
         return Err(held());
     }
+    validate_mapping_registration(&prepared.policy, mapping, &prepared.registration)?;
     Ok(())
 }
 
@@ -212,7 +219,7 @@ fn hash(value: &str) -> bool {
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
-fn canonical_hash(value: &impl Serialize) -> Result<String, AppError> {
+pub(crate) fn canonical_hash(value: &impl Serialize) -> Result<String, AppError> {
     let mut sorted = serde_json::to_value(value).map_err(|_| held())?;
     sorted.sort_all_objects();
     Ok(hex::encode(Sha256::digest(
@@ -221,11 +228,12 @@ fn canonical_hash(value: &impl Serialize) -> Result<String, AppError> {
 }
 
 pub(crate) fn validate_registration(value: &ContainerRegistration) -> Result<(), AppError> {
-    if !matches!(value.contract_version, 1 | 2)
+    if !matches!(value.contract_version, 1..=3)
         || value.operation_id.is_nil()
         || value.resource_id.is_nil()
         || value.generation.is_nil()
-        || (value.contract_version == 2) != value.network_sha256.is_some()
+        || (value.contract_version >= 2) != value.network_sha256.is_some()
+        || (value.contract_version == 3) != value.mount_mapping_sha256.is_some()
         || [
             &value.container_id,
             &value.policy_sha256,
@@ -239,6 +247,10 @@ pub(crate) fn validate_registration(value: &ContainerRegistration) -> Result<(),
             .network_sha256
             .as_ref()
             .is_some_and(|value| !hash(value))
+        || value
+            .mount_mapping_sha256
+            .as_ref()
+            .is_some_and(|value| !hash(value))
         || [
             &value.engine.id,
             &value.engine.kernel_version,
@@ -248,6 +260,188 @@ pub(crate) fn validate_registration(value: &ContainerRegistration) -> Result<(),
         .any(|value| value.is_empty() || value.len() > 256 || !value.is_ascii())
     {
         return Err(held());
+    }
+    Ok(())
+}
+
+fn linux_directory(value: &str) -> bool {
+    value.starts_with('/')
+        && value != "/"
+        && value.len() <= 4096
+        && !value.contains(['\\', '\0'])
+        && value[1..]
+            .split('/')
+            .all(|part| !matches!(part, "" | "." | ".."))
+}
+
+fn agent_name(value: &str) -> bool {
+    value.strip_prefix("agent").is_some_and(|ordinal| {
+        !ordinal.is_empty()
+            && ordinal.as_bytes()[0].is_ascii_digit()
+            && ordinal.as_bytes()[0] != b'0'
+            && ordinal.bytes().all(|byte| byte.is_ascii_digit())
+    })
+}
+
+pub(super) fn validate_mount_mapping(
+    mapping: &ContainerMountMapping,
+    local: &Value,
+    controller: &shared::config::BridgeControllerConfig,
+    local_root: &str,
+) -> Result<(), AppError> {
+    if mapping.state != "resolved"
+        || mapping.local_root != local_root
+        || !linux_directory(local_root)
+        || mapping.controller.container_id != controller.container_id
+        || mapping.controller.image_id != controller.image_id
+        || mapping.controller.service != controller.service
+        || !hash(&mapping.controller.container_id)
+        || !mapping
+            .controller
+            .image_id
+            .strip_prefix("sha256:")
+            .is_some_and(hash)
+        || !matches!(
+            mapping.controller.service.as_str(),
+            "fleet-backend" | "fleet-control-backend"
+        )
+        || mapping.snapshot.container_id != mapping.controller.container_id
+        || mapping.snapshot.init_pid == 0
+        || mapping.snapshot.started_at.is_empty()
+        || mapping.snapshot.started_at.starts_with("0001-")
+        || [
+            &mapping.snapshot.inventory_sha256,
+            &mapping.volume_sha256,
+            &mapping.input_policy_sha256,
+        ]
+        .iter()
+        .any(|value| !hash(value))
+        || [
+            &mapping.engine.id,
+            &mapping.engine.kernel_version,
+            &mapping.engine.server_version,
+        ]
+        .iter()
+        .any(|value| value.is_empty() || value.len() > 256 || !value.is_ascii())
+        || mapping.volume_name.is_empty()
+        || mapping.volume_name.len() > 128
+        || !mapping.volume_name.as_bytes()[0].is_ascii_alphanumeric()
+        || !mapping
+            .volume_name
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"_.-".contains(&byte))
+        || local["contract_version"] != 2
+        || local["network"]["id"] != "0".repeat(64)
+        || mapping.input_policy_sha256 != canonical_hash(local)?
+        || mapping.mounts.len() != 4
+    {
+        return Err(held());
+    }
+    let mounts = local["mounts"]
+        .as_array()
+        .filter(|mounts| mounts.len() == 4)
+        .ok_or_else(held)?;
+    let mut original_agent = None;
+    let mut daemon_root = None;
+    for ((local_mount, projected), area) in
+        mounts
+            .iter()
+            .zip(&mapping.mounts)
+            .zip(["runtime", "config", "workspace", "logs"])
+    {
+        let source = local_mount["source"].as_str().ok_or_else(held)?;
+        let relative = source
+            .strip_prefix(&format!("{local_root}/"))
+            .ok_or_else(held)?;
+        let (agent, leaf) = relative.split_once('/').ok_or_else(held)?;
+        let (daemon_parent, daemon_leaf) = projected.source.rsplit_once('/').ok_or_else(held)?;
+        let (base, daemon_agent) = daemon_parent.rsplit_once('/').ok_or_else(held)?;
+        if !agent_name(agent)
+            || leaf != area
+            || !linux_directory(source)
+            || !linux_directory(&projected.source)
+            || !linux_directory(base)
+            || daemon_agent != agent
+            || daemon_leaf != area
+            || original_agent.is_some_and(|original| original != agent)
+            || daemon_root.is_some_and(|original| original != base)
+            || local_mount
+                != &json!({"type":"bind","source":source,"destination":format!("/{area}"),"read_only":area=="runtime"})
+            || projected.mount_type != "bind"
+            || projected.destination != format!("/{area}")
+            || projected.read_only != (area == "runtime")
+        {
+            return Err(held());
+        }
+        original_agent = Some(agent);
+        daemon_root = Some(base);
+    }
+    Ok(())
+}
+
+pub(super) fn mapped_policy(
+    local: &Value,
+    mapping: &ContainerMountMapping,
+) -> Result<Value, AppError> {
+    let controller = shared::config::BridgeControllerConfig {
+        container_id: mapping.controller.container_id.clone(),
+        image_id: mapping.controller.image_id.clone(),
+        service: mapping.controller.service.clone(),
+    };
+    validate_mount_mapping(mapping, local, &controller, &mapping.local_root)?;
+    let mut policy = local.clone();
+    policy["contract_version"] = json!(3);
+    policy["mounts"] = json!(mapping.mounts.iter().map(|mount| {
+        let agent = mount.source.rsplit('/').nth(1).ok_or_else(held)?;
+        Ok(json!({"type":"volume","source":mapping.volume_name,
+            "subpath":format!("{agent}{}",mount.destination),"destination":mount.destination,"read_only":mount.read_only}))
+    }).collect::<Result<Vec<_>, AppError>>()?);
+    Ok(policy)
+}
+
+pub(crate) fn local_mapping_policy(
+    policy: &Value,
+    mapping: &ContainerMountMapping,
+) -> Result<Value, AppError> {
+    if policy["contract_version"] != 3
+        || !policy["network"].is_object()
+        || mapping.mounts.len() != 4
+    {
+        return Err(held());
+    }
+    let mut local = policy.clone();
+    local["contract_version"] = json!(2);
+    local["network"]["id"] = json!("0".repeat(64));
+    local["mounts"] = json!(mapping.mounts.iter().map(|mount| {
+        let agent = mount.source.rsplit('/').nth(1).ok_or_else(held)?;
+        Ok(json!({"type":"bind","source":format!("{}/{agent}{}",mapping.local_root,mount.destination),
+            "destination":mount.destination,"read_only":mount.read_only}))
+    }).collect::<Result<Vec<_>, AppError>>()?);
+    let mut expected = mapped_policy(&local, mapping)?;
+    expected["network"]["id"] = policy["network"]["id"].clone();
+    if expected != *policy {
+        return Err(held());
+    }
+    Ok(local)
+}
+
+pub(crate) fn validate_mapping_registration(
+    policy: &Value,
+    mapping: Option<&ContainerMountMapping>,
+    registration: &ContainerRegistration,
+) -> Result<(), AppError> {
+    match mapping {
+        Some(mapping) if registration.contract_version == 3 => {
+            local_mapping_policy(policy, mapping)?;
+            if registration.engine != mapping.engine
+                || registration.mount_mapping_sha256.as_deref()
+                    != Some(canonical_hash(mapping)?.as_str())
+            {
+                return Err(held());
+            }
+        }
+        None if registration.contract_version != 3 && policy["contract_version"] != 3 => {}
+        _ => return Err(held()),
     }
     Ok(())
 }
@@ -314,8 +508,26 @@ impl ContainerControl {
             }
             sources.push(STANDARD.encode(bytes));
         }
-        let mut request = json!({"protocol_version":1, "action":action, "context":self.context,
+        let protocol_version = match (&files.mount_mapping, &files.mapping_file) {
+            (None, None) if files.policy["contract_version"] != 3 => 1,
+            (Some(mapping), Some(path)) if action != "resolve_mounts" => {
+                local_mapping_policy(&files.policy, mapping)?;
+                if !path.is_absolute()
+                    || path.parent() != files.journal.parent()
+                    || [&files.compose, &files.journal, &files.stop_journal].contains(&path)
+                {
+                    return Err(held());
+                }
+                2
+            }
+            _ => return Err(held()),
+        };
+        let mut request = json!({"protocol_version":protocol_version, "action":action, "context":self.context,
             "policy":files.policy, "compose":files.compose, "journal":files.journal});
+        if protocol_version == 2 {
+            request["mount_mapping"] = json!(files.mount_mapping);
+            request["mapping_file"] = json!(files.mapping_file);
+        }
         if !files.compose.is_absolute()
             || !files.journal.is_absolute()
             || !files.stop_journal.is_absolute()
@@ -323,6 +535,14 @@ impl ContainerControl {
             return Err(AppError::validation(
                 "Docker launch storage must be absolute",
             ));
+        }
+        if extra
+            .as_object()
+            .ok_or_else(held)?
+            .keys()
+            .any(|key| request.get(key).is_some())
+        {
+            return Err(held());
         }
         request
             .as_object_mut()
@@ -381,10 +601,34 @@ impl ContainerControl {
             return Err(held());
         }
         let envelope: Envelope = serde_json::from_slice(&result.1).map_err(|_| held())?;
-        if envelope.protocol_version != 1 || envelope.action != action {
+        if envelope.protocol_version != protocol_version || envelope.action != action {
             return Err(held());
         }
         Ok((result.0, envelope.result))
+    }
+
+    /// Read-only proof; never grants permission to create or start a process.
+    pub async fn resolve_mounts(
+        &self,
+        files: &ContainerLaunchFiles,
+        controller: &shared::config::BridgeControllerConfig,
+        local_root: &str,
+    ) -> Result<ContainerMountMapping, AppError> {
+        let (status, value) = self
+            .call(
+                files,
+                "resolve_mounts",
+                json!({
+                    "controller":controller,"local_root":local_root,
+                }),
+            )
+            .await?;
+        if status != 0 {
+            return Err(held());
+        }
+        let mapping: ContainerMountMapping = serde_json::from_value(value).map_err(|_| held())?;
+        validate_mount_mapping(&mapping, &files.policy, controller, local_root)?;
+        Ok(mapping)
     }
 
     pub async fn register(
@@ -403,6 +647,7 @@ impl ContainerControl {
         let registration: ContainerRegistration =
             serde_json::from_value(value).map_err(|_| held())?;
         validate_registration(&registration)?;
+        validate_mapping_registration(&files.policy, files.mount_mapping.as_ref(), &registration)?;
         if registration.container_id != container_id
             || registration.operation_id != operation_id
             || files.policy.get("resource_id").and_then(Value::as_str)
@@ -449,7 +694,12 @@ impl ContainerControl {
             return Err(held());
         }
         let prepared: ContainerPreparation = serde_json::from_value(value).map_err(|_| held())?;
-        validate_preparation(&prepared, &files.policy, operation_id)?;
+        validate_preparation(
+            &prepared,
+            &files.policy,
+            operation_id,
+            files.mount_mapping.as_ref(),
+        )?;
         Ok(prepared)
     }
 
@@ -466,12 +716,14 @@ impl ContainerControl {
         files: &ContainerLaunchFiles,
         original: &ContainerRegistration,
     ) -> Result<std::net::Ipv4Addr, AppError> {
+        validate_registration(original)?;
+        validate_mapping_registration(&files.policy, files.mount_mapping.as_ref(), original)?;
         let (status, value) = self
             .call(files, "endpoint", json!({"registration": original}))
             .await?;
         let endpoint: Endpoint = serde_json::from_value(value).map_err(|_| held())?;
         validate_receipt(&endpoint.receipt, original, status, "endpoint")?;
-        if original.contract_version != 2
+        if !matches!(original.contract_version, 2 | 3)
             || endpoint.receipt.state != ContainerReceiptState::Observed
             || endpoint.receipt.observation != ContainerObservation::Running
             || !endpoint.host.is_private()
@@ -492,6 +744,7 @@ impl ContainerControl {
         controller: &shared::config::BridgeControllerConfig,
         journal: &std::path::Path,
     ) -> Result<(), AppError> {
+        validate_registration(original)?;
         if !hash(&controller.container_id)
             || controller.container_id == original.container_id
             || !controller
@@ -502,13 +755,21 @@ impl ContainerControl {
                 controller.service.as_str(),
                 "fleet-backend" | "fleet-control-backend"
             )
-            || original.contract_version != 2
+            || !matches!(original.contract_version, 2 | 3)
             || !journal.is_absolute()
             || journal.parent() != files.journal.parent()
             || journal == files.journal
             || journal == files.compose
             || journal == files.stop_journal
         {
+            return Err(held());
+        }
+        validate_mapping_registration(&files.policy, files.mount_mapping.as_ref(), original)?;
+        if files.mount_mapping.as_ref().is_some_and(|mapping| {
+            mapping.controller.container_id != controller.container_id
+                || mapping.controller.image_id != controller.image_id
+                || mapping.controller.service != controller.service
+        }) {
             return Err(held());
         }
         let (status, value) = self
@@ -548,6 +809,8 @@ impl ContainerControl {
         original: &ContainerRegistration,
         action: &str,
     ) -> Result<ContainerReceipt, AppError> {
+        validate_registration(original)?;
+        validate_mapping_registration(&files.policy, files.mount_mapping.as_ref(), original)?;
         let (status, value) = self
             .call(files, action, json!({"registration":original}))
             .await?;
@@ -672,7 +935,7 @@ mod tests {
             policy,
             registration,
         };
-        validate_preparation(&original, &input, original.registration.operation_id).unwrap();
+        validate_preparation(&original, &input, original.registration.operation_id, None).unwrap();
         for field in [
             "mount",
             "bridge",
@@ -692,7 +955,8 @@ mod tests {
                 _ => changed.registration.operation_id = Uuid::new_v4(),
             }
             assert!(
-                validate_preparation(&changed, &input, original.registration.operation_id).is_err(),
+                validate_preparation(&changed, &input, original.registration.operation_id, None)
+                    .is_err(),
                 "{field}"
             );
         }
@@ -715,7 +979,180 @@ mod tests {
             running_inventory_sha256: "d".repeat(64),
             compose_sha256: "e".repeat(64),
             network_sha256: Some("f".repeat(64)),
+            mount_mapping_sha256: None,
         }
+    }
+
+    fn mapping_fixture() -> (Value, ContainerMountMapping) {
+        let local = json!({"contract_version":2,"project":"sdlc1","service":"agent1-runtime",
+            "resource_id":Uuid::new_v4(),"generation":Uuid::new_v4(),
+            "image_id":format!("sha256:{}","b".repeat(64)),"task":"test","purpose":"gate",
+            "network":{"id":"0".repeat(64),"name":"sdlc1-agent1","internal":true},
+            "mounts":(["runtime","config","workspace","logs"].map(|area| json!({
+                "type":"bind","source":format!("/local/agents/agent1/{area}"),
+                "destination":format!("/{area}"),"read_only":area=="runtime"})))});
+        let mapping = serde_json::from_value(json!({"state":"resolved",
+            "controller":{"container_id":"a".repeat(64),"image_id":format!("sha256:{}","c".repeat(64)),"service":"fleet-backend"},
+            "snapshot":{"container_id":"a".repeat(64),"started_at":"2026-10-06T12:00:00Z","init_pid":999,"inventory_sha256":"d".repeat(64)},
+            "engine":{"ID":"host","KernelVersion":"kernel","ServerVersion":"29"},
+            "local_root":"/local/agents","volume_name":"sdlc1_fleet_agents","volume_sha256":"e".repeat(64),
+            "mounts":(["runtime","config","workspace","logs"].map(|area| json!({
+                "type":"bind","source":format!("/daemon/volumes/own/_data/agent1/{area}"),
+                "destination":format!("/{area}"),"read_only":area=="runtime"}))),
+            "input_policy_sha256":canonical_hash(&local).unwrap()})).unwrap();
+        (local, mapping)
+    }
+
+    #[test]
+    fn mapping_builds_volume_subpaths_and_only_bridge_allocation_may_change() {
+        let (local, mapping) = mapping_fixture();
+        let mut policy = mapped_policy(&local, &mapping).unwrap();
+        assert_eq!(
+            policy["mounts"][1],
+            json!({"type":"volume","source":"sdlc1_fleet_agents",
+            "subpath":"agent1/config","destination":"/config","read_only":false})
+        );
+        policy["network"]["id"] = json!("f".repeat(64));
+        assert_eq!(local_mapping_policy(&policy, &mapping).unwrap(), local);
+        for field in [
+            "sibling",
+            "volume",
+            "propagation",
+            "read_only",
+            "root",
+            "recipe",
+            "version",
+        ] {
+            let mut changed = policy.clone();
+            match field {
+                "sibling" => changed["mounts"][1]["subpath"] = json!("agent2/config"),
+                "volume" => changed["mounts"][1]["source"] = json!("sdlc2_fleet_agents"),
+                "propagation" => changed["mounts"][0]["propagation"] = json!("rslave"),
+                "read_only" => changed["mounts"][0]["read_only"] = json!(false),
+                "root" => changed["mounts"][1]["subpath"] = json!("."),
+                "recipe" => changed["image_id"] = json!(format!("sha256:{}", "1".repeat(64))),
+                _ => changed["contract_version"] = json!(2),
+            }
+            assert!(local_mapping_policy(&changed, &mapping).is_err(), "{field}");
+        }
+    }
+
+    #[test]
+    fn mapping_rejects_malformed_or_unrelated_original_proof() {
+        let (local, original) = mapping_fixture();
+        let controller = shared::config::BridgeControllerConfig {
+            container_id: original.controller.container_id.clone(),
+            image_id: original.controller.image_id.clone(),
+            service: "fleet-backend".into(),
+        };
+        validate_mount_mapping(&original, &local, &controller, "/local/agents").unwrap();
+        for field in [
+            "controller",
+            "image",
+            "snapshot",
+            "pid",
+            "started",
+            "engine",
+            "hash",
+            "root",
+            "sibling",
+            "alias",
+            "order",
+            "extra",
+        ] {
+            let mut changed = original.clone();
+            match field {
+                "controller" => changed.controller.container_id = "f".repeat(64),
+                "image" => changed.controller.image_id = format!("sha256:{}", "f".repeat(64)),
+                "snapshot" => changed.snapshot.container_id = "f".repeat(64),
+                "pid" => changed.snapshot.init_pid = 0,
+                "started" => changed.snapshot.started_at = "0001-01-01".into(),
+                "engine" => changed.engine.id.clear(),
+                "hash" => changed.input_policy_sha256 = "0".repeat(64),
+                "root" => changed.local_root = "/local/agents/..".into(),
+                "sibling" => {
+                    changed.mounts[1].source = "/daemon/volumes/own/_data/agent2/config".into()
+                }
+                "alias" => changed.mounts[1].source = "/foreign/_data/agent1/config".into(),
+                "order" => changed.mounts.swap(0, 1),
+                _ => changed.mounts.push(changed.mounts[0].clone()),
+            }
+            assert!(
+                validate_mount_mapping(&changed, &local, &controller, "/local/agents").is_err(),
+                "{field}"
+            );
+        }
+        let mut dto = serde_json::to_value(original).unwrap();
+        dto["snapshot"]["adopt_pid"] = json!(999);
+        assert!(serde_json::from_value::<ContainerMountMapping>(dto).is_err());
+        for path in [
+            "/",
+            "//local/agents",
+            "/local//agents",
+            "/local/./agents",
+            "/local/agents/",
+            "/local/../agents",
+            "relative",
+            "/local\\agents",
+        ] {
+            assert!(!linux_directory(path), "{path}");
+        }
+    }
+
+    #[test]
+    fn mapped_preparation_requires_original_mapping_digest_and_engine() {
+        let (local, mapping) = mapping_fixture();
+        let input = mapped_policy(&local, &mapping).unwrap();
+        let mut policy = input.clone();
+        policy["network"]["id"] = json!("1".repeat(64));
+        let mut registration = original();
+        registration.contract_version = 3;
+        registration.resource_id = serde_json::from_value(policy["resource_id"].clone()).unwrap();
+        registration.generation = serde_json::from_value(policy["generation"].clone()).unwrap();
+        registration.policy_sha256 = canonical_hash(&policy).unwrap();
+        registration.mount_mapping_sha256 = Some(canonical_hash(&mapping).unwrap());
+        let mut prepared = ContainerPreparation {
+            state: "prepared".into(),
+            policy,
+            registration,
+        };
+        validate_preparation(
+            &prepared,
+            &input,
+            prepared.registration.operation_id,
+            Some(&mapping),
+        )
+        .unwrap();
+        assert!(
+            validate_preparation(&prepared, &input, prepared.registration.operation_id, None)
+                .is_err()
+        );
+        prepared.registration.engine.id = "foreign".into();
+        assert!(
+            validate_preparation(
+                &prepared,
+                &input,
+                prepared.registration.operation_id,
+                Some(&mapping)
+            )
+            .is_err()
+        );
+        prepared.registration.engine = mapping.engine.clone();
+        prepared.registration.mount_mapping_sha256 = Some("0".repeat(64));
+        assert!(
+            validate_preparation(
+                &prepared,
+                &input,
+                prepared.registration.operation_id,
+                Some(&mapping)
+            )
+            .is_err()
+        );
+        prepared.registration.mount_mapping_sha256 = None;
+        assert!(validate_registration(&prepared.registration).is_err());
+        prepared.registration.mount_mapping_sha256 = Some(canonical_hash(&mapping).unwrap());
+        prepared.registration.contract_version = 2;
+        assert!(validate_registration(&prepared.registration).is_err());
     }
 
     fn receipt(original: &ContainerRegistration) -> ContainerReceipt {
@@ -857,6 +1294,8 @@ mod tests {
             compose: root.join("compose.json"),
             journal: root.join("journal.json"),
             stop_journal: root.join("stop.json"),
+            mount_mapping: None,
+            mapping_file: None,
         };
         (control, files)
     }

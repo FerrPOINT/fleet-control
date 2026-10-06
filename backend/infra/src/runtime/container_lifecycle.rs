@@ -5,7 +5,7 @@ use container_control::{
     ContainerReceiptState, ControlSource,
 };
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tokio::io::AsyncWriteExt;
 
 #[derive(Serialize, Deserialize)]
@@ -36,6 +36,28 @@ struct ContainerCreationIntent {
     context: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     bridge_controller: Option<shared::config::BridgeControllerConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    mount_mapping: Option<container_control::ContainerMountMapping>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    mapping_file: Option<String>,
+}
+
+fn apply_mapping(
+    intent: &mut ContainerCreationIntent,
+    root: &Path,
+    mapping: container_control::ContainerMountMapping,
+) -> Result<(), AppError> {
+    intent.policy = container_control::mapped_policy(&intent.policy, &mapping)?;
+    intent.mapping_file = Some(
+        root.join(format!(
+            "{}.{}.mapping.json",
+            intent.agent_id, intent.generation
+        ))
+        .to_string_lossy()
+        .into_owned(),
+    );
+    intent.mount_mapping = Some(mapping);
+    Ok(())
 }
 
 async fn private_document(
@@ -181,6 +203,8 @@ impl LocalRuntimeSupervisor {
             source_sha256: config.source_sha256.clone(),
             context: config.context.clone(),
             bridge_controller: config.bridge_controller.clone(),
+            mount_mapping: None,
+            mapping_file: None,
         })
     }
 
@@ -218,8 +242,37 @@ impl LocalRuntimeSupervisor {
         let operation_id = previous
             .as_ref()
             .map_or_else(Uuid::new_v4, |value| value.operation_id);
-        let intent =
+        let mut intent =
             self.container_intent(agent, generation, operation_id, revision, revision_hash)?;
+        let name = format!("{}.{}", agent.id, generation);
+        let control = ContainerControl::new(
+            config.python.clone().into(),
+            ControlSource {
+                root: config.base_root.clone().into(),
+                sha256: config.source_sha256.clone(),
+            },
+            config.context.clone(),
+        )?;
+        if let Some(controller) = &config.bridge_controller {
+            let local_files = ContainerLaunchFiles {
+                policy: intent.policy.clone(),
+                compose: root.join(format!("{name}.compose.json")),
+                journal: root.join(format!("{name}.launch.sqlite")),
+                stop_journal: root.join(format!("{name}.stop.sqlite")),
+                mount_mapping: None,
+                mapping_file: None,
+            };
+            let fresh = control
+                .resolve_mounts(&local_files, controller, agents.to_str().ok_or_else(held)?)
+                .await?;
+            if previous
+                .as_ref()
+                .is_some_and(|previous| previous.mount_mapping.as_ref() != Some(&fresh))
+            {
+                return Err(held());
+            }
+            apply_mapping(&mut intent, root, fresh)?;
+        }
         if let Some(previous) = previous {
             if serde_json::to_value(previous).map_err(|_| held())?
                 != serde_json::to_value(&intent).map_err(|_| held())?
@@ -229,21 +282,14 @@ impl LocalRuntimeSupervisor {
         } else {
             private_document(root, intent_path, &intent).await?;
         }
-        let name = format!("{}.{}", agent.id, generation);
         let files = ContainerLaunchFiles {
             policy: intent.policy,
             compose: root.join(format!("{name}.compose.json")),
             journal: root.join(format!("{name}.launch.sqlite")),
             stop_journal: root.join(format!("{name}.stop.sqlite")),
+            mount_mapping: intent.mount_mapping.clone(),
+            mapping_file: intent.mapping_file.as_ref().map(PathBuf::from),
         };
-        let control = ContainerControl::new(
-            config.python.clone().into(),
-            ControlSource {
-                root: config.base_root.clone().into(),
-                sha256: config.source_sha256.clone(),
-            },
-            config.context.clone(),
-        )?;
         let prepared = control
             .prepare(
                 &files,
@@ -267,6 +313,8 @@ impl LocalRuntimeSupervisor {
                 stop_journal: files.stop_journal.to_string_lossy().into_owned(),
                 source_sha256: config.source_sha256.clone(),
                 context: config.context.clone(),
+                mount_mapping: intent.mount_mapping,
+                mapping_file: intent.mapping_file,
             },
         };
         private_document(root, prepared_path, &document).await
@@ -307,7 +355,26 @@ impl LocalRuntimeSupervisor {
         if root.starts_with(&agents) || agents.starts_with(&root) {
             return Err(held());
         }
-        for value in [&binding.compose, &binding.journal, &binding.stop_journal] {
+        if let Some(mapping) = &binding.mount_mapping {
+            let controller = self
+                .config
+                .fleet
+                .container_control
+                .as_ref()
+                .and_then(|config| config.bridge_controller.as_ref())
+                .ok_or_else(held)?;
+            let local = container_control::local_mapping_policy(&binding.policy, mapping)?;
+            container_control::validate_mount_mapping(
+                mapping,
+                &local,
+                controller,
+                agents.to_str().ok_or_else(held)?,
+            )?;
+        }
+        for value in [&binding.compose, &binding.journal, &binding.stop_journal]
+            .into_iter()
+            .chain(binding.mapping_file.as_ref())
+        {
             let path = Path::new(value);
             if !path.is_absolute() || path.parent() != Some(root.as_path()) {
                 return Err(held());
@@ -321,6 +388,8 @@ impl LocalRuntimeSupervisor {
             compose: binding.compose.clone().into(),
             journal: binding.journal.clone().into(),
             stop_journal: binding.stop_journal.clone().into(),
+            mount_mapping: binding.mount_mapping.clone(),
+            mapping_file: binding.mapping_file.as_ref().map(PathBuf::from),
         })
     }
 
@@ -520,13 +589,25 @@ impl LocalRuntimeSupervisor {
             // A prepared receipt is not permission to start an obsolete recipe or token.
             let intent: ContainerCreationIntent =
                 serde_json::from_slice(&intent_bytes.ok_or_else(held)?).map_err(|_| held())?;
-            let expected = self.container_intent(
+            let mut expected = self.container_intent(
                 agent,
                 intent.generation,
                 intent.operation_id,
                 revision_number,
                 revision_hash.clone(),
             )?;
+            if let Some(mapping) = intent.mount_mapping.clone() {
+                let controller = expected.bridge_controller.as_ref().ok_or_else(held)?;
+                container_control::validate_mount_mapping(
+                    &mapping,
+                    &expected.policy,
+                    controller,
+                    agents_root.to_str().ok_or_else(held)?,
+                )?;
+                apply_mapping(&mut expected, &root, mapping)?;
+            } else if expected.bridge_controller.is_some() {
+                return Err(held());
+            }
             if serde_json::to_value(&intent).map_err(|_| held())?
                 != serde_json::to_value(expected).map_err(|_| held())?
             {
@@ -540,7 +621,13 @@ impl LocalRuntimeSupervisor {
                 },
                 &intent.policy,
                 intent.operation_id,
+                intent.mount_mapping.as_ref(),
             )?;
+            if prepared.container.mount_mapping != intent.mount_mapping
+                || prepared.container.mapping_file != intent.mapping_file
+            {
+                return Err(held());
+            }
         }
         let command_sha256 = crate::runtime_launches::snapshot_hash(
             &serde_json::to_value(&prepared.container).map_err(AppError::internal)?,

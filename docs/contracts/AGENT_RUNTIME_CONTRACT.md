@@ -2,7 +2,7 @@
 
 ## Container Candidate
 
-The opt-in Hermes supervisor consumes [Container Control v1](CONTAINER_CONTROL_V1.md)
+The opt-in Hermes supervisor consumes [Container Control](CONTAINER_CONTROL_V1.md)
 for start/health/stop and every runtime HTTP endpoint. Its original registration,
 effective configuration, paths, controller and source/context pins are immutable
 before the first start. A durable original Docker ACK authorizes generation;
@@ -14,8 +14,12 @@ Automatic Compose generation preparation now uses a private original
 intent and Base prepare receipt before the DB start claim. Operator-prepared
 generations remain compatible. After confirmed original namespace exit, restart
 prepares another generation under an immutable-history ordinal; unknown starts
-cannot advance it. Controller/daemon mount mapping, UID/file access, controller
-network access, logs, real Docker restart acceptance and configuration
+cannot advance it. The mapped consumer now fixes original named-volume proof
+in creation intent/prepared/DB bindings, uses exact agentN subpaths and forwards
+private protocol2 guards through lifecycle operations. Projected daemon paths
+are not host-bind launch sources. Source implementation is not actual Rust Fleet
+UID/file/model acceptance; controller restart stays held without takeover.
+UID/file access, logs, real Docker restart acceptance and configuration
 activation/rollback are not complete; readiness is not SDLC admission. Java is unchanged. Statements
 below about retained children and process `try_wait` describe the legacy native
 path only, not container custody or Docker acceptance evidence.

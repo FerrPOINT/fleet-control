@@ -11,8 +11,12 @@ neither network reachability nor loaded configuration, model access or SDLC
 readiness. Automatic Compose generation preparation now saves the original
 private intent and consumes Base's never-started preparation receipt before DB
 claim/start. It uses /config and /workspace inside the container and binds only
-the isolated bridge, without published ports. Daemon mount translation, UID/file
-access, controller bridge connectivity and actual Hermes container acceptance remain.
+the isolated bridge, without published ports. With an explicit trusted Fleet
+controller, the new private mapping resolves local AgentPaths to original
+named-volume subpaths and binds proof/file/digest before start; it does not use
+daemon-root binds or rslave fallback. Every endpoint/observe/control-lifecycle
+lookup retains that original proof. Actual Rust Fleet UID/file/model access,
+controller restart and Hermes container acceptance remain required.
 Confirmed original namespace exit permits a new history-ordinal generation;
 unknown preparation/start keeps its original intent/claim and cannot advance it.
 Previous generation files are preserved, not rewritten or restarted.

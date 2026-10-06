@@ -3,6 +3,11 @@
 Hermes container control is an operator-configured candidate behind existing
 runtime action routes, not a new public controller API. No registration, policy,
 Compose path, source pin or prepared-generation document is exposed publicly.
+Named-volume mapping and mapping-file/hash provenance are likewise private:
+the backend resolves them from its explicit controller, never from a browser
+path/volume selection. Boundary policy3 does not add a public DTO or route;
+OpenAPI is unchanged. A stale/missing mapping returns existing reconciliation
+errors and never silently adopts a replacement or retries an uncertain effect.
 For an original container launch, runtime `pid` is the Docker-daemon init PID
 from its durable ACK, not a process Fleet may signal on the backend host.
 Start/health require original running namespace evidence and Hermes readiness;

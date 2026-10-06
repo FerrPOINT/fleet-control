@@ -65,6 +65,7 @@ case; running/approval/native-crash and installed recovery remain gates.
 
 | Requirement | Evidence / Remaining Gate |
 | --- | --- |
+| Docker named-volume isolation | Private protocol2/policy3 consumer, original mapping in creation/prepared/DB binding, canonical proof digest and exact per-agent subpaths. Three control units plus two Linux/PG lifecycle cases cover recipe/digest/Engine/downgrade/sibling guards, replay, private-file/controller drift, unknown start and witnessed stop. Actual Rust Fleet mapped Hermes/model/config/restart and installed acceptance remain; see [verification](CHAT_CLARIFICATION_VERIFICATION.md) |
 | Seven independent specializations | `SdlcRole`, migration 000009, create/edit; no seven-agent live acceptance yet |
 | Agent -> own chats | `/chats/:sessionId`, immutable task binding, owner-only persisted Draft/reservation/chat coordinator; actual admitted PM start pending |
 | No new leader orchestration | Main nav and Chats controls exclude it; legacy routes/history preserved |

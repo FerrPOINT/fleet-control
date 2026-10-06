@@ -37,13 +37,13 @@ pub(crate) fn validate_container_binding(binding: &RuntimeLaunchBinding) -> Resu
     let registration = &container.registration;
     let policy = &container.policy;
     if binding.kind != domain::AgentKind::Hermes
-        || registration.contract_version != 2
+        || !matches!(registration.contract_version, 2 | 3)
         || registration.resource_id != binding.agent_id
         || registration.generation != binding.id
         || policy
             .get("contract_version")
             .and_then(serde_json::Value::as_u64)
-            != Some(2)
+            != Some(registration.contract_version.into())
         || policy
             .get("resource_id")
             .and_then(serde_json::Value::as_str)
@@ -76,7 +76,35 @@ pub(crate) fn validate_container_binding(binding: &RuntimeLaunchBinding) -> Resu
     {
         return Err(invalid());
     }
-    let mounts = policy
+    let local_policy = match (&container.mount_mapping, &container.mapping_file) {
+        (Some(mapping), Some(file)) if registration.contract_version == 3 => {
+            let control = crate::runtime::container_control::local_mapping_policy(policy, mapping)?;
+            crate::runtime::container_control::validate_mapping_registration(
+                policy,
+                Some(mapping),
+                registration,
+            )?;
+            let file = std::path::Path::new(file);
+            if !file.is_absolute()
+                || file.parent() != std::path::Path::new(&container.journal).parent()
+                || [
+                    &container.compose,
+                    &container.journal,
+                    &container.stop_journal,
+                ]
+                .iter()
+                .any(|other| std::path::Path::new(other) == file)
+                || crate::runtime::container_control::canonical_hash(policy)?
+                    != registration.policy_sha256
+            {
+                return Err(invalid());
+            }
+            control
+        }
+        (None, None) if registration.contract_version == 2 => policy.clone(),
+        _ => return Err(invalid()),
+    };
+    let mounts = local_policy
         .get("mounts")
         .and_then(serde_json::Value::as_array)
         .ok_or_else(invalid)?;

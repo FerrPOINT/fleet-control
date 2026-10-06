@@ -3,6 +3,10 @@
 The existing private runtime-launch journal's immutable JSON binding may include
 an optional `container` object: original Base registration, protected policy,
 Compose/start/stop journal locations, source hashes and explicit Docker context.
+Mapped boundary policy3 additionally requires a closed `mount_mapping` and
+private `mapping_file`; registration requires `mount_mapping_sha256`. The hash
+is canonical sorted JSON, and registration Engine must match the original proof.
+Both optional fields are absent from historical host-bind/native records.
 Container generation equals the launch UUID; resource equals the concrete agent
 UUID. Paths/port/effective configuration are also fixed by the existing launch
 binding. No new schema migration or public DTO is introduced for this candidate.
@@ -14,7 +18,10 @@ remaining automatic generation/configuration work.
 Automatic generation preparation adds no PostgreSQL table. Its original
 creation intent is an exclusive private controller document, containing the
 agent/paths/config revision, generation/operation UUIDs, process and source/context
-pins. Resolved env credentials remain outside DB/public DTOs. Base uses a separate
+pins. A mapped intent also fixes original controller snapshot/Engine/local root,
+volume name/digest, projected proof paths, local-policy hash and mapping-file path.
+The prepared document and DB binding must match this exact original proof;
+fresh readback cannot replace it. Resolved env credentials remain outside DB/public DTOs. Base uses a separate
 owned preparation SQLite file with application ID0x53444233, original payload hash,
 committed create claim and prepared receipt. This is not Hermes SessionDB or a
 business assignment queue. Only a matching prepared receipt precedes the existing

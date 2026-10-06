@@ -1,4 +1,4 @@
-# Private Container Control v1
+# Private Container Control v1/v2
 
 Status: private client and opt-in supervisor routing are implemented in the
 integration candidate. Automatic generation preparation is connected
@@ -43,7 +43,10 @@ is private backend code, not an agent tool or publicly configurable command.
 
 ## Commands And Receipts
 
-Protocol version1 carries Base boundary policy version1 or2. Common fields are
+Protocol version1 carries Base boundary policy version1 or2. Mapped lifecycle
+uses protocol2 with boundary policy3 and requires the original mount_mapping
+plus private mapping_file on every command. Resolve_mounts itself remains a
+read-only protocol1 prerequisite using the original local policy2. Common fields are
 action/context/policy/absolute compose and journal paths. Register additionally
 binds original full container ID and operation UUID. Start/observe carry the
 original registration. Stop adds its original operation UUID and separate
@@ -83,7 +86,37 @@ Docker configuration and is not container or SDLC acceptance.
 
 ## Supervisor Binding
 
-### Named-Volume Mapping Prerequisite
+### Named-Volume Consumer
+
+Fleet's opt-in automatic creation now resolves the exact configured Fleet
+backend and agents_root through Base. The closed typed receipt validates the
+original controller/image/service, snapshot, Engine, volume metadata digest,
+four ordered areas of one agent and the canonical original local-policy hash.
+Daemon bind projections are proof only: launch policy3 uses the original named
+volume with exact agentN/runtime, config, workspace and logs subpaths. Runtime
+is readonly; agent containers receive neither the volume root nor Docker socket.
+
+The exclusive creation intent stores the original mapping and generation-specific
+mapping-file path before prepare. An identical retry compares fresh readback with
+that proof; it cannot adopt another controller, PID, volume or recipe. Base owns
+the immutable mode600 mapping file and seals its canonical digest in registration.
+Prepared documents and DB launch bindings carry the same mapping/path/hash;
+registration Engine must equal the original mapping Engine. Only bridge-ID
+allocation may differ from the original local policy. Removing either mapping
+field, changing local AgentPaths or downgrading protocol/version fails closed.
+
+Prepare/start/observe/endpoint/attachment/stop forward protocol2 with this original
+proof. Base revalidates controller/Engine/volume and local filesystem guards on
+every effect/readback. Fleet also rechecks current controller/root configuration
+and private storage paths. A missing/changed proof file or controller restart
+remains a reconciliation hold, not takeover or permission to resend. Existing
+native/host-bind records omit the new fields unchanged; automatic creation with
+a configured bridge controller cannot upgrade an old unmapped intent in place.
+The Base SDK pin, default deployment flags, public API and PostgreSQL migrations
+are unchanged. See [verification](../CHAT_CLARIFICATION_VERIFICATION.md) for
+the Rust gate and the still-required actual mapped Hermes/model/config acceptance.
+
+### Base Prerequisite Evidence
 
 Current Base sourcee083651 / candidate98a5bbd implements the next layer:
 private protocol2 + boundary policy3 uses external named-volume subpaths,
@@ -93,9 +126,9 @@ The immutable mapping_file precedes create; preparation/registration seal
 mount_mapping_sha256 and all effects/readbacks revalidate the original proof.
 Old protocol1 cannot service mapped registrations. Native own-volume lifecycle
 0a1f2bdd97e1 passes with UID999, no socket, local symlink denial and exact cleanup.
-The read-only-only evidence below is historical. Rust still needs typed policy3,
-mapping/file/hash binding and consumer tests; existing policy2 bindings stay held
-for this path. Do not replace binds with rslave or claim installed acceptance.
+The read-only-only evidence below is historical. The Rust consumer above adds
+typed policy3 and mapping/file/hash binding; this does not prove installed
+acceptance. Do not replace binds with rslave.
 
 Base adds read-only resolve_mounts with explicit controller/local_root alongside
 the common policy/compose/journal/context. Exact controller inventory and Engine
@@ -107,8 +140,8 @@ sources identify one agentN, not sibling or private controller storage.
 The receipt contains state=resolved, controller/snapshot/engine/local_root,
 volume_name/volume_sha256, mounts and input_policy_sha256. It never carries raw
 inspect/env or writes a journal. It is a private prerequisite, not a launch permit.
-The Rust consumer does not yet invoke it or bind it in original creation intent;
-mapped lifecycle validation must preserve local guarded-path checks. Do not pass
+The Rust consumer now invokes it and binds the original proof in creation intent;
+mapped lifecycle validation preserves local guarded-path checks. Do not pass
 the returned daemon paths to existing local guarded_mount_sources and pretend
 the namespace gap is closed. Installed opt-in and full runtime remain held.
 

@@ -49,6 +49,7 @@ fn binding(agent: &Agent, controller_id: Uuid) -> RuntimeLaunchBinding {
         running_inventory_sha256: "d".repeat(64),
         compose_sha256: "e".repeat(64),
         network_sha256: Some("f".repeat(64)),
+        mount_mapping_sha256: None,
     };
     let controller = Path::new(&agent.paths.config)
         .parent()
@@ -81,6 +82,8 @@ fn binding(agent: &Agent, controller_id: Uuid) -> RuntimeLaunchBinding {
             .into_owned(),
         source_sha256: ["1".repeat(64), "2".repeat(64), "3".repeat(64)],
         context: "desktop-linux".into(),
+        mount_mapping: None,
+        mapping_file: None,
     };
     RuntimeLaunchBinding {
         id: generation,
@@ -376,6 +379,8 @@ async fn container_lifecycle_original_ack_authorizes_generation_and_namespace_st
         compose: container.compose.clone().into(),
         journal: container.journal.clone().into(),
         stop_journal: container.stop_journal.clone().into(),
+        mount_mapping: None,
+        mapping_file: None,
     };
     let receipt = runtime
         .container_control(container)
@@ -436,7 +441,18 @@ async fn fake_creation(config: &AppConfig, agent: &Agent, unknown: bool) -> AppC
 from pathlib import Path
 r=json.load(sys.stdin);root=Path(r['journal']).parent
 digest=lambda v:hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':')).encode()).hexdigest()
-if r['action']=='prepare':
+if r['protocol_version']==2:
+ assert r['policy']['contract_version']==3
+ mapping=r['mount_mapping'];file=Path(r['mapping_file'])
+ assert not (root/'mapping-drift').exists()
+ raw=json.dumps(mapping,sort_keys=True,separators=(',',':'))
+ if r['action']=='prepare' and not file.exists():file.write_text(raw);file.chmod(0o600)
+ assert file.read_text()==raw
+if r['action']=='resolve_mounts':
+ mounts=[dict(m,source='/daemon/volumes/own/_data/'+m['source'][len(r['local_root'])+1:]) for m in r['policy']['mounts']]
+ result={'state':'resolved','controller':r['controller'],'snapshot':{'container_id':r['controller']['container_id'],'started_at':'2026-10-06T12:00:00Z','init_pid':999,'inventory_sha256':'a'*64},'engine':{'ID':'original-engine','KernelVersion':'original-kernel','ServerVersion':'29'},'local_root':r['local_root'],'volume_name':'qa_owned_agents','volume_sha256':'b'*64,'mounts':mounts,'input_policy_sha256':digest(r['policy'])}
+ if (root/'mapping-drift').exists():result['snapshot']['init_pid']+=1
+elif r['action']=='prepare':
  intents=[json.loads(p.read_bytes()) for p in root.glob(r['policy']['resource_id']+'*.container-creation.json')]
  intent=next(v for v in intents if v['generation']==r['policy']['generation'])
  assert intent['generation']==r['policy']['generation'] and intent['operation_id']==r['operation_id']
@@ -446,7 +462,8 @@ if r['action']=='prepare':
   result={'state':'held','operation_id':r['operation_id'],'resource_id':r['policy']['resource_id'],'generation':r['policy']['generation']}
  else:
   policy=r['policy'];policy['network']['id']='1'*64
-  reg={'contract_version':2,'operation_id':r['operation_id'],'container_id':digest(policy['generation']),'resource_id':policy['resource_id'],'generation':policy['generation'],'engine':{'ID':'original-engine','KernelVersion':'original-kernel','ServerVersion':'29'},'policy_sha256':digest(policy),'inventory_sha256':'c'*64,'running_inventory_sha256':'d'*64,'compose_sha256':'e'*64,'network_sha256':'f'*64}
+  reg={'contract_version':policy['contract_version'],'operation_id':r['operation_id'],'container_id':digest(policy['generation']),'resource_id':policy['resource_id'],'generation':policy['generation'],'engine':{'ID':'original-engine','KernelVersion':'original-kernel','ServerVersion':'29'},'policy_sha256':digest(policy),'inventory_sha256':'c'*64,'running_inventory_sha256':'d'*64,'compose_sha256':'e'*64,'network_sha256':'f'*64}
+  if r['protocol_version']==2:reg['mount_mapping_sha256']=digest(r['mount_mapping'])
   result={'state':'prepared','policy':policy,'registration':reg}
 elif r['action']=='attach_controller':
  reg=r['registration']
@@ -464,12 +481,12 @@ else:
  if started.exists():
   result.update(state='held',observation='unavailable')
   if r['action']!='start' and (root/'recover-start').exists():
-   snap={'contract_version':2,'container_id':reg['container_id'],'engine':reg['engine'],'policy_sha256':reg['policy_sha256'],'inventory_sha256':reg['running_inventory_sha256'],'started_at':'2026-10-06T12:00:00.123456789Z','init_pid':12345,'network_sha256':reg['network_sha256']}
+   snap={'contract_version':reg['contract_version'],'container_id':reg['container_id'],'engine':reg['engine'],'policy_sha256':reg['policy_sha256'],'inventory_sha256':reg['running_inventory_sha256'],'started_at':'2026-10-06T12:00:00.123456789Z','init_pid':12345,'network_sha256':reg['network_sha256']}
    result.update(state='observed',observation='namespace_exited' if stopped.exists() else 'running',snapshot=snap)
    if r['action']=='stop':
     stopped.write_text('1');result={k:reg[k] for k in ('contract_version','container_id','resource_id','generation')}
     result.update(operation_id=r['operation_id'],snapshot_sha256=digest(snap),state='observed',observation='namespace_exited')
-print(json.dumps({'protocol_version':1,'action':r['action'],'result':result}));sys.exit(2 if result['state']=='held' else 0)
+print(json.dumps({'protocol_version':r['protocol_version'],'action':r['action'],'result':result}));sys.exit(2 if result['state']=='held' else 0)
 "#;
     let control = config.fleet.container_control.as_mut().unwrap();
     let source = Path::new(&control.base_root).join("scripts/runtime_control.py");
@@ -834,6 +851,257 @@ async fn trusted_bridge_attachment_precedes_launch_and_unknown_blocks_start() {
             .unwrap()
             .is_some()
     );
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+fn with_mapping_controller(mut config: AppConfig) -> AppConfig {
+    config
+        .fleet
+        .container_control
+        .as_mut()
+        .unwrap()
+        .bridge_controller = Some(shared::config::BridgeControllerConfig {
+        container_id: "a".repeat(64),
+        image_id: format!("sha256:{}", "b".repeat(64)),
+        service: "fleet-backend".into(),
+    });
+    config
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn mapped_container_persists_original_proof_and_rejects_drift_before_launch() {
+    let Some((repo, agent, _, config, root)) = lifecycle_tests::fixture(AgentKind::Hermes).await
+    else {
+        return;
+    };
+    let config = with_mapping_controller(fake_creation(&config, &agent, false).await);
+    let runtime = lifecycle_tests::supervisor(Arc::new(config.clone()), repo.clone());
+    let original = runtime
+        .prepared_container(&agent, LaunchPhase::Regular)
+        .await
+        .unwrap();
+    let container = original.container.as_ref().unwrap();
+    let mapping = container.mount_mapping.as_ref().unwrap();
+    assert_eq!(container.registration.contract_version, 3);
+    assert_eq!(
+        container.registration.mount_mapping_sha256,
+        Some(container_control::canonical_hash(mapping).unwrap())
+    );
+    assert_eq!(container.policy["mounts"][1]["source"], "qa_owned_agents");
+    assert_eq!(
+        container.policy["mounts"][1]["subpath"],
+        format!("{}/config", agent.name)
+    );
+    let private = root.join("controller");
+    let intent_path = private.join(format!("{}.container-creation.json", agent.id));
+    let intent_bytes = tokio::fs::read(&intent_path).await.unwrap();
+    let intent: Value = serde_json::from_slice(&intent_bytes).unwrap();
+    assert_eq!(
+        intent["mount_mapping"],
+        serde_json::to_value(mapping).unwrap()
+    );
+    assert_eq!(intent["mapping_file"], json!(container.mapping_file));
+    let file = Path::new(container.mapping_file.as_ref().unwrap());
+    let proof_bytes = tokio::fs::read(file).await.unwrap();
+    let repeated = runtime
+        .prepared_container(&agent, LaunchPhase::Regular)
+        .await
+        .unwrap();
+    assert_eq!(repeated.command_sha256, original.command_sha256);
+    assert_eq!(repeated.id, original.id);
+    for field in ["missing", "digest", "downgrade", "file", "local", "sibling"] {
+        let mut changed = original.clone();
+        let container = changed.container.as_mut().unwrap();
+        match field {
+            "missing" => container.mount_mapping = None,
+            "digest" => container.registration.mount_mapping_sha256 = Some("0".repeat(64)),
+            "downgrade" => {
+                container.registration.contract_version = 2;
+                container.registration.mount_mapping_sha256 = None;
+                container.policy["contract_version"] = json!(2);
+            }
+            "file" => container.mapping_file = Some(container.journal.clone()),
+            "local" => changed.paths.config = "/foreign/agent1/config".into(),
+            _ => container.policy["mounts"][1]["subpath"] = json!("agent999/config"),
+        }
+        changed.command_sha256 = crate::runtime_launches::snapshot_hash(
+            &serde_json::to_value(changed.container.as_ref().unwrap()).unwrap(),
+        )
+        .unwrap();
+        assert!(
+            crate::runtime_launches::validate_container_binding(&changed).is_err(),
+            "{field}"
+        );
+    }
+    tokio::fs::write(private.join("mapping-drift"), "1")
+        .await
+        .unwrap();
+    assert!(
+        runtime
+            .start_locked(&agent, LaunchPhase::Regular)
+            .await
+            .is_err()
+    );
+    assert!(
+        repo.get_open_runtime_launch(agent.id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(!private.join("start-effect").exists());
+    tokio::fs::remove_file(private.join("mapping-drift"))
+        .await
+        .unwrap();
+    tokio::fs::write(file, b"{}").await.unwrap();
+    assert!(
+        runtime
+            .start_locked(&agent, LaunchPhase::Regular)
+            .await
+            .is_err()
+    );
+    assert!(
+        repo.get_open_runtime_launch(agent.id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    tokio::fs::write(file, &proof_bytes).await.unwrap();
+    let mut changed = config.clone();
+    changed
+        .fleet
+        .container_control
+        .as_mut()
+        .unwrap()
+        .bridge_controller
+        .as_mut()
+        .unwrap()
+        .container_id = "f".repeat(64);
+    let replacement = lifecycle_tests::supervisor(Arc::new(changed), repo.clone());
+    assert!(
+        replacement
+            .start_locked(&agent, LaunchPhase::Regular)
+            .await
+            .is_err()
+    );
+    assert_eq!(tokio::fs::read(&intent_path).await.unwrap(), intent_bytes);
+    assert_eq!(tokio::fs::read(file).await.unwrap(), proof_bytes);
+    assert!(!private.join("start-effect").exists());
+    assert!(
+        runtime
+            .start_locked(&agent, LaunchPhase::Regular)
+            .await
+            .is_err()
+    );
+    let launch = repo
+        .get_open_runtime_launch(agent.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(launch.state, "claimed");
+    assert_eq!(
+        launch.binding.container.unwrap().mount_mapping.as_ref(),
+        Some(mapping)
+    );
+    assert!(
+        runtime
+            .start_locked(
+                &repo.get_agent(agent.id).await.unwrap(),
+                LaunchPhase::Regular
+            )
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        tokio::fs::read_to_string(private.join("prepare-effect"))
+            .await
+            .unwrap(),
+        "1"
+    );
+    assert_eq!(
+        tokio::fs::read_to_string(private.join("start-effect"))
+            .await
+            .unwrap(),
+        "1"
+    );
+    tokio::fs::write(private.join("recover-start"), "1")
+        .await
+        .unwrap();
+    runtime
+        .health_locked(&repo.get_agent(agent.id).await.unwrap())
+        .await
+        .unwrap();
+    assert_eq!(
+        runtime.gateway_launch_generation(agent.id).await.unwrap(),
+        Some(original.id)
+    );
+    assert_eq!(
+        runtime.stop_locked(&agent).await.unwrap().status,
+        AgentStatus::Stopped
+    );
+    assert!(
+        repo.get_open_runtime_launch(agent.id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn mapped_unknown_preparation_never_adopts_changed_controller_snapshot() {
+    let Some((repo, agent, _, config, root)) = lifecycle_tests::fixture(AgentKind::Hermes).await
+    else {
+        return;
+    };
+    let config = with_mapping_controller(fake_creation(&config, &agent, true).await);
+    let runtime = lifecycle_tests::supervisor(Arc::new(config), repo.clone());
+    assert!(
+        runtime
+            .prepared_container(&agent, LaunchPhase::Regular)
+            .await
+            .is_err()
+    );
+    let private = root.join("controller");
+    let path = private.join(format!("{}.container-creation.json", agent.id));
+    let bytes = tokio::fs::read(&path).await.unwrap();
+    assert!(serde_json::from_slice::<Value>(&bytes).unwrap()["mount_mapping"].is_object());
+    tokio::fs::write(private.join("mapping-drift"), "1")
+        .await
+        .unwrap();
+    tokio::fs::remove_file(private.join("prepare-unknown"))
+        .await
+        .unwrap();
+    assert!(
+        runtime
+            .prepared_container(&agent, LaunchPhase::Regular)
+            .await
+            .is_err()
+    );
+    assert_eq!(tokio::fs::read(&path).await.unwrap(), bytes);
+    assert!(
+        !private
+            .join(format!("{}.container-prepared.json", agent.id))
+            .exists()
+    );
+    assert!(!private.join("start-effect").exists());
+    assert!(
+        repo.get_open_runtime_launch(agent.id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    tokio::fs::remove_file(private.join("mapping-drift"))
+        .await
+        .unwrap();
+    let prepared = runtime
+        .prepared_container(&agent, LaunchPhase::Regular)
+        .await
+        .unwrap();
+    assert_eq!(prepared.container.unwrap().registration.contract_version, 3);
+    assert_eq!(tokio::fs::read(&path).await.unwrap(), bytes);
     tokio::fs::remove_dir_all(root).await.unwrap();
 }
 
