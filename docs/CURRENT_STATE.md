@@ -1,5 +1,27 @@
 # Current State
 
+## Integrated Clarification Draft Labels: 7 October 2026
+
+Consumer `14982e15e9597e3bf7d6a9490381e0b99f7f120f` is normally merged into
+runtime integration `d8a8c0b1263a087b8ef5e8c3a6c331997f3229a5`. Retained answer
+drafts display the original question version's option labels; an explicit transfer
+captures the reviewed version without automatic selection or submission.
+
+Fresh combined frontend checks pass292 unit cases, typecheck/build, lint,
+format, OpenAPI/client compatibility,127 Markdown documents and the135-screen
+manifest with9 validator cases. All66 selected Chromium/Firefox/WebKit fixture
+cases pass without retries, skips or flaky results. Six committed draft captures
+match fresh Chromium screenshots at375/1920/2560 widths. The owned preview is
+stopped and all102 captured frontend inputs remain unchanged.
+See [evidence](CHAT_CLARIFICATION_VERIFICATION.md#integrated-clarification-draft-labels-7-october-2026).
+
+This closes a production consumer defect, not the live PM scenario. Predispatch
+authority/first step, structured publication, durable answer delivery,
+checkpoint/resume/rebind and authorized Workflow projection remain open.
+PM Draft creation is still an unapproved separate preview. No backend, migration,
+public API, SDK pin or installed runtime change is introduced by this merge;
+the earlier Rust gate is not relabeled as a fresh full run.
+
 ## Verified Base Log Source Pages: 7 October 2026
 
 Base control sourced0eedc1 adds verified byte-range/prefix cursors instead of
@@ -13,7 +35,9 @@ This operation is not yet a Fleet Rust collector. The durable DB/checkpoint
 transaction, original resolved secrets, bounded source policy, authorized API/SSE
 acceptance and existing PM/Forge/recovery requirements remain open. Base PR150
 is the open prerequisite; this candidate is not installed or independently
-main-release-ready. No new full Fleet/Rust/UI gate is claimed for this docs update.
+main-release-ready. A separate full Base Rust1.88/PostgreSQL gate passes63 Rust
+cases with14 explicit ignores and all137 Linux runtime cases without skips.
+No full Fleet Rust or installed SDLC gate is claimed for this Base packet.
 
 ## Atomic Process Log Acknowledgement: 7 October 2026
 

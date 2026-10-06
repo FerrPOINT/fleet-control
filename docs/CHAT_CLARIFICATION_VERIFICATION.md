@@ -1,5 +1,40 @@
 # Chat Clarification Verification
 
+## Integrated Clarification Draft Labels: 7 October 2026
+
+The independent consumer commit
+`14982e15e9597e3bf7d6a9490381e0b99f7f120f` is merged normally into exact runtime
+integration head `d8a8c0b1263a087b8ef5e8c3a6c331997f3229a5`. The source fix keeps
+original option labels with an answer draft. Explicit transfer still removes
+absent option IDs and records labels from the reviewed question version; it
+never posts or selects an answer automatically.
+
+Fresh parent checks pass292 unit cases in31 files, typecheck/build, lint/semantic
+classes, format, OpenAPI/client compatibility and127 Markdown documents. The
+135-screen manifest and9 validator cases pass. Six committed
+[draft-label captures](assets/screens/chats-draft-labels-20261007/validation.json)
+match the fresh Chromium PNGs byte-for-byte at375x812,1920x1080 and2560x1440.
+Mobile renamed and desktop replaced views are visually inspected.
+
+The combined fixture gate selects `fleet-control.spec.ts`,
+`chats-directory.spec.ts` and `task-approvals.spec.ts` with one worker and zero
+retries:66 PASS,0 unexpected/skipped/flaky across Chromium/Firefox/WebKit in
+363.40 seconds. All102 captured frontend/lock/config inputs remain unchanged;
+the private preview is stopped. Source manifest SHA256
+`957fc9f52ba806addea26e97ca9e7b36f92a63aafc55080336c365c875578e02`;
+browser log SHA256
+`8819f3bfe15e72679ac9ed41d09df6ec5ac1ce71c0c428b0b15a6ad59bbbb28d`.
+Private artifacts: workspace `.local/fleet-log-pages-chats-browser-74b1adaa0158/`.
+
+The independent consumer's earlier56-pass/one screenshot-protocol-failure run
+and its focused successful repeats remain recorded, not overwritten by this
+fresh combined gate. The Base WebKit navigation diagnostic also remains open;
+these repeats do not implement an SDK fix. APIs/SSO are fixtures, not a live
+Tracker/Workflow/Hermes PM sequence. No backend, migration, DTO or SDK pin
+changes; no fresh full Rust gate is claimed for this UI merge. Predispatch
+admission, structured publication, answer delivery, checkpoint/rebind and
+authorized native projection still require implementation and live acceptance.
+
 ## Verified Base Log Source Pages: 7 October 2026
 
 Published Base control head
@@ -15,6 +50,16 @@ runtime cases,0 skipped, including17 new cursor/protocol/pipe cases and all8
 existing tail cases.81 captured inputs match current source; source manifest
 SHA256 `4c05cc93b0d37d90bf1250b378afc1620e68be911164818bcc1f9817f1431179`,
 log SHA256 `26af3f5c64b97ae716fe8d94357f32246cf1364c419b2d8d3e3e545f6cf370ff`.
+
+The subsequent full Base source gate on Rust1.88.0/disposable PostgreSQL passes
+fmt, locked strict all-target Clippy and63 Rust cases, with14 explicitly ignored
+live/doc cases, then all137 Linux runtime cases without skips. All164 captured
+inputs remain unchanged; project `sdlc-qa-base-ledger-180354ecd63b` cleans its own
+containers/network. Manifest SHA256
+`43a5dff1363e7bf1499c71e917b99979079cd8de8e80ae33428c124fd1fb30e3`;
+log SHA256 `dced1ff8e3830b2efc8d2c0e7086d02ea7424aa35cbce2ae2e20b363f641bed1`.
+Private artifacts: workspace `.local/base-ledger-checks-291a559635ba/`.
+This is an additional Base regression gate, not a Fleet runtime or live PM test.
 
 The actual Docker driver uses existing immutable Rust/Python and CLI images,
 an isolated non-root synthetic source and a trusted checker with Docker access.
@@ -36,7 +81,7 @@ Artifacts: workspace `.local/base-runtime-log-pages-7a2776674174/` and
 Base README/hub/mirror-manifest checks pass. CI now includes both log suites,
 but no new exact-head remote CI is claimed: the candidate branch has no PR and
 still depends on open PR150. No main merge, installed source/log-driver change,
-new Fleet migration/DTO/UI/screenshots or full Rust/SDLC gate is claimed.
+new Fleet migration/DTO/UI/screenshots or full Fleet Rust/SDLC gate is claimed.
 
 Remaining: actual Rust/private protocol ingestion, immutable resolved-secret
 snapshot, partial credential chunks, atomic cursor/batch/private-checkpoint

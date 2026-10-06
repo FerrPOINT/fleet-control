@@ -36,6 +36,14 @@ The two new browser cases passed in all three engines. The full fixture run had
 two focused repeats of that unchanged case passed. The record preserves both
 the original failure and the rechecks.
 
+The parent integration subsequently merged this consumer normally as
+`d8a8c0b1263a087b8ef5e8c3a6c331997f3229a5`. Its fresh combined gate passes all66
+selected cases across Chromium/Firefox/WebKit with zero retries/skips/flaky
+results. Six draft-label captures match fresh Chromium images byte-for-byte;
+292 unit cases and the frontend/document gates pass. This separate result does
+not replace the earlier failed run or prove the live acceptance below. See
+[parent evidence](CHAT_CLARIFICATION_VERIFICATION.md#integrated-clarification-draft-labels-7-october-2026).
+
 The [PM Draft proposal](design/PM_DRAFT_CREATION_PREVIEW.md) was published in
 `96bb6d0`, with a separate clickable entry, 11 component cases, 12 isolated browser
 cases and 20 reviewed captures. Its previously sent design question remains
