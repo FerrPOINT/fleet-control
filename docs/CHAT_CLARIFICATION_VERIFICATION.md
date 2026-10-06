@@ -1,5 +1,36 @@
 # Chat Clarification Verification
 
+## Current Mount Evidence And Base Reconciliation: 6 October 2026
+
+Base PR150 head368cfb8205e9cac578a353ddfb5a1e83befa4484 normally merges main475c694.
+The only textual conflict was CHANGELOG; both entries are preserved. No force
+push or rewritten commits. The Base runtime boundary/bootstrap/control and
+Hermes live harness bytes are unchanged from0e14ddf. Full local host discovery:
+377 cases,366 PASS/11 explicit skips;26 Node runtime-contract cases PASS;
+README/hub/mirror manifest and diff checks PASS. CI37458583952 passes all nine
+jobs for this exact merged head. PR150 is ready/mergeable; head/checks reread
+after ready, reviews/threads empty. Remote body verified against main template:
+three headings, seven checklist items, two HTML comments. No merge/install.
+
+Read-only Docker inspect of `/sdlc1-fleet-backend-1` and
+`/sdlc2-fleet-backend-1` reports immutable image
+`sha256:c0f6b1a5d2c0b8d824e253b8874d33bd92398d0cb8545dcb04446c1dd8e71572`.
+Each maps its separate named-volume daemon Source
+`/var/lib/docker/volumes/sdlc1_fleet_agents/_data` or
+`/var/lib/docker/volumes/sdlc2_fleet_agents/_data` to controller Destination
+`/var/lib/fleet-control/agents`, RW. Read-only `id` inside each existing backend
+confirms UID999/GID999. No env secret values or raw inspect inventories published.
+
+This changes the next implementation action: current container_intent policy
+uses AgentPaths directly, but those paths are in the controller namespace, not
+the daemon namespace. The Base guarded_mount_sources also checks paths locally.
+A verified mapping must bind the exact trusted controller mount and Engine,
+keep agent-relative guarded paths and exclude controller/sibling storage. UID
+access must be tested with the real selected identities; the previous startup
+QA's UID10001 and host directory bind do not prove named-volume access.
+No agent launched, no ownership changed, no permanent container restarted and
+no model/chat/PM acceptance claimed by this inspection.
+
 ## Trusted Fleet Bridge Consumer: 6 October 2026
 
 Optional private bridge_controller pins exact container/image/service. Fleet
@@ -26,7 +57,7 @@ cleanup0/empty inventories/own tags removed. Report
 `e7bea6bf0cfe9bf5f6752ceb66a5ff0324683a3e2ae3172136de7f2d3688b60d`.
 First7ae QA bytes-ID failure was cleaned; only harness ASCII decode changed.
 Host Base362:351 PASS/11 skips after normal mainefa21dc history merge. PR150 at
-0e14ddf is ready/mergeable; nine exact-head CI37456080881 jobs successful after
+0e14ddf was ready/mergeable at that check; nine exact-head CI37456080881 jobs successful after
 ready and reviews/threads empty. Prior604 CI is not evidence for these bytes.
 
 This certifies Base network/startup and fake Rust consumer separately. It does

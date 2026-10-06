@@ -2,6 +2,28 @@
 
 ## Current SDLC Scope
 
+The current published runtime integration is cf4b08e, including trusted Fleet
+bridge attachment. Its full Rust1.88/Linux/PG gate passes504 tests with29 ignored;
+the earlier503/502 gates below are historical. The attachment fixture is not
+actual Rust Fleet/container/model/chat acceptance.
+
+Read-only installed-runtime inspection on6 October confirms a remaining blocker:
+Fleet agents_root is `/var/lib/fleet-control/agents`, whereas the Docker Engine
+bind source is `/var/lib/docker/volumes/sdlc1_fleet_agents/_data` (independently
+`sdlc2_fleet_agents/_data` for workspace2). Both Fleet backends run UID/GID999;
+the previous Base Hermes startup QA ran UID/GID10001. Do not pass the controller
+path to the daemon, guess another volume, change protected ownership or accept
+the previous host-bind QA as volume/permission proof. The next runtime packet
+must seal the exact controller/Engine mount mapping, preserve local path/marker
+guards and prove write/read access for the explicitly selected runtime UID.
+See [current verification](CHAT_CLARIFICATION_VERIFICATION.md).
+
+Base PR150 has been normally merged with accepted main475c694 without force push;
+candidate368cfb8 is ready/mergeable with nine successful exact-head CI37458583952
+jobs, reread after ready. Local377 Python cases contain366 PASS/11 skips;
+26 Node runtime-contract tests and README/hub pass.
+Utility executable bytes are unchanged by this history reconciliation.
+
 Prepared-generation recipe checking is now implemented: original process/policy,
 derived runtime API token and registration are revalidated before claim/start.
 The new seven-case regression and fresh503-test Rust1.88/PG workspace gate pass
@@ -23,8 +45,8 @@ start/health/stop and every Hermes endpoint use original container receipts.
 Unknown start stays claimed and cannot resend or fall back to native Hermes.
 Automatic first-generation preparation now saves a private original intent
 before Base render/create/register and writes its matching prepared document.
-Operator-prepared generations remain a compatibility path. Next implement
-trusted controller bridge attachment, daemon source mapping, UID/file access,
+Operator-prepared generations remain a compatibility path. Trusted controller
+bridge attachment is now implemented; next implement daemon source mapping, UID/file access,
 logs and namespace-based config rollback. The follow-up history-ordinal restart
 candidate now preserves previous files and creates a new generation only after
 confirmed original exit; its new full Rust/PG gate was interrupted by host disk
@@ -42,7 +64,7 @@ This gate includes the initial preparation consumer and fake-Base PG fixtures,
 not actual container/Hermes or full PM acceptance. Do not relabel the
 ignored/live gates as complete. The prior490-case gate remains historical.
 
-Base PR150 at6041530 is ready/mergeable with nine successful exact-head jobs in
+Historically, Base PR150 at6041530 was ready/mergeable with nine successful exact-head jobs in
 CI37449729086; checks were reread after ready and reviews/threads are empty.
 PR144 is merged at main63fff28. This certifies the shared utility, not installed
 Fleet/Hermes acceptance. Native real-Hermes startup/stop and synthetic creation

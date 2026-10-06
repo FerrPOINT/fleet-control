@@ -1,5 +1,23 @@
 # Current State
 
+## Runtime Reconciliation And Mount Evidence: 6 October 2026
+
+Runtime integration remains published at cf4b08e. Base PR150 candidate368cfb8
+preserves accepted main475c694 through normal merge, without force push. It is
+ready/mergeable with nine successful exact-head CI37458583952 jobs, reread after
+ready, no reviews/threads. The earlier green0e14ddf below does not certify this
+merged candidate. Local377 Python cases:366 PASS/11 skips;
+26 Node contract tests and README/hub PASS. Base lifecycle bytes did not change.
+
+Read-only inspection of both installed Fleet backends confirms agents_root
+`/var/lib/fleet-control/agents` maps to distinct daemon named-volume sources
+`/var/lib/docker/volumes/sdlc1_fleet_agents/_data` and
+`/var/lib/docker/volumes/sdlc2_fleet_agents/_data`. Both run UID/GID999, not the
+previous Hermes QA's10001. Current automatic creation passes local paths as
+daemon bind sources; that must be resolved and verified before installed opt-in.
+No protected volume/files/ownership, accepted images or service lifecycle changed.
+Mount mapping, real Fleet/Hermes inference and config lifecycle remain open.
+
 ## Trusted Fleet Bridge Consumer: 6 October 2026
 
 Private bridge_controller configuration now attaches an explicitly pinned Fleet
@@ -14,7 +32,7 @@ This is not Rust Fleet/actual Docker/model/chat acceptance. Native Base separate
 proves a trusted QA peer reaches two real Hermes gateways through the new utility.
 No inference, new UI screenshots, installed images or permanent services changed.
 
-Base PR150 is ready/mergeable at0e14ddf with nine successful exact-head jobs in
+At the earlier check, Base PR150 was ready/mergeable at0e14ddf with nine successful exact-head jobs in
 CI37456080881, reread after ready; no reviews/threads. Runtime/config activation,
 daemon-path/UID/logs, container chat and PM admission/resume remain incomplete.
 Chats/PM consumer has a separate user-requested task/worktree; its existence is
