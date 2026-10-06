@@ -1,5 +1,18 @@
 # Testing
 
+## Container Configuration Candidate
+
+The Linux-only `runtime::container_configuration_tests` use disposable
+PostgreSQL, the actual supervisor and a bounded fake Base/HTTP runtime, not real
+Docker or model inference. They cover pre-create drain/claimed revision admission,
+stopped activation, missing pre-create intent, owned running replacement,
+readiness-failure rollback to a new generation, unknown prepare/start holds and
+foreign-controller denial. All8 new cases,17 container and6 configuration
+lifecycle cases pass with strict Clippy on exact captured source; the full
+workspace gate passes523 cases with29 explicit opt-in ignores. No passing test count from earlier packets is reused
+for these new bytes. Real mapped-volume
+Hermes/model/config lifecycle and full SDLC acceptance remain separate gates.
+
 ## Container Pre-Create Fence
 
 The PostgreSQL container lifecycle tests cover exact pre-create replay,

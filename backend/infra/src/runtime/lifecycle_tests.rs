@@ -105,7 +105,7 @@ pub(super) async fn fixture(
     Some((repo, agent, owner, Arc::new(config), root))
 }
 
-async fn revision(
+pub(super) async fn revision(
     repo: &crate::PostgresFleetRepository,
     agent: &Agent,
     owner: Uuid,

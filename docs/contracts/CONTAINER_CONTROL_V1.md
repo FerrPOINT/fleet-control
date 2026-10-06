@@ -8,6 +8,16 @@ silently relabelled Docker.
 
 ## Ownership
 
+The configuration-replacement candidate checks phase/revision/hash before
+preparation and again before launch. It stops the original namespace before
+rewriting shared agent files; activation and rollback use new generations.
+Unknown preparation or start blocks rollback file mutation/spawn and retains
+the private activation journal. Stopped config readback is not runtime readiness.
+See [ADR0029](../adr/0029-container-configuration-generation-replacement.md);
+31 focused Linux/PostgreSQL cases and strict Clippy pass. Full workspace fmt,
+check, strict Clippy and523 cases pass with29 explicit ignores. Real-runtime
+acceptance remains pending, not inferred from prior lifecycle evidence.
+
 Automatic preparation additionally uses Fleet's000018 pre-create DB fence,
 before private intent creation and Base prepare. It commits original agent/
 history ordinal/controller/generation/operation/intent hash, not the resolved

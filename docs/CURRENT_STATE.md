@@ -1,5 +1,18 @@
 # Current State
 
+## Verified Container Configuration Replacement Candidate
+
+The next candidate connects configuration drain/activation/rollback to original
+container namespace exit and fresh generation preparation. Configuration
+phase/revision/hash is checked before create as well as start. All 8 new Linux
+supervisor/PostgreSQL regressions pass, along with 17 container and 6 existing
+configuration lifecycle cases and strict Clippy. Full workspace verification
+passes 523 cases with 29 explicit ignores, fmt/check/Clippy; all 291 frozen inputs
+match. These cases do not execute actual Docker/Hermes/model inference.
+See [exact evidence](CHAT_CLARIFICATION_VERIFICATION.md#container-configuration-replacement-6-october-2026).
+Previous passing gates below belong to their own
+frozen source. Installed runtime, public API, SDK pin and frontend are unchanged.
+
 ## Verified Container Pre-Create Fence Candidate
 
 The current work adds one additive000018 migration and a durable pre-create

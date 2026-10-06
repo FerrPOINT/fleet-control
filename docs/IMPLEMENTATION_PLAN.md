@@ -2,6 +2,16 @@
 
 ## Current SDLC Scope
 
+The current focused-tested candidate implements container configuration replacement
+through original namespace stop and fresh activation/rollback generations.
+Eight focused regressions cover exact pre-create admission, stopped apply,
+pending custody holds, normal replacement, readiness rollback and unknown or
+foreign effects.31 focused cases and strict Clippy pass. The full exact-source
+Linux gate passes523 cases with29 explicit ignores and fmt/check/Clippy.
+Complete real mapped Hermes/model acceptance before claiming release readiness.
+This is not controller takeover
+or completed PM/Forge/SDLC acceptance.
+
 The current work adds additive000018 pre-create DB authority: immutable
 agent/history ordinal/controller/generation/operation/intent hash before both
 private intent creation and Docker prepare. Exact replay, missing-file holds,

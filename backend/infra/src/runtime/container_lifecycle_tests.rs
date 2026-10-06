@@ -432,7 +432,7 @@ async fn container_lifecycle_original_ack_authorizes_generation_and_namespace_st
 }
 
 #[cfg(target_os = "linux")]
-async fn fake_creation(config: &AppConfig, agent: &Agent, unknown: bool) -> AppConfig {
+pub(super) async fn fake_creation(config: &AppConfig, agent: &Agent, unknown: bool) -> AppConfig {
     let (mut config, _) = fake_control(config, binding(agent, Uuid::new_v4()), false).await;
     let root = Path::new(&config.fleet.controller_root);
     tokio::fs::remove_file(root.join(format!("{}.container-prepared.json", agent.id)))
@@ -480,15 +480,19 @@ else:
  started=root/(reg['generation']+'.started');stopped=root/(reg['generation']+'.stopped')
  if r['action']=='start':
   (root/'start-effect').write_text('1');started.write_text('1')
+  with (root/'start-calls').open('a') as calls:calls.write(reg['generation']+'\n')
+  if (root/'hold-next-start').exists():(root/(reg['generation']+'.unknown')).write_text('1')
  if started.exists():
   result.update(state='held',observation='unavailable')
-  if r['action']!='start' and (root/'recover-start').exists():
+  if ((r['action']!='start' and (root/'recover-start').exists()) or (root/'known-start').exists()) and not (root/(reg['generation']+'.unknown')).exists():
    snap={'contract_version':reg['contract_version'],'container_id':reg['container_id'],'engine':reg['engine'],'policy_sha256':reg['policy_sha256'],'inventory_sha256':reg['running_inventory_sha256'],'started_at':'2026-10-06T12:00:00.123456789Z','init_pid':12345,'network_sha256':reg['network_sha256']}
    result.update(state='observed',observation='namespace_exited' if stopped.exists() else 'running',snapshot=snap)
    if r['action']=='stop':
     stopped.write_text('1');result={k:reg[k] for k in ('contract_version','container_id','resource_id','generation')}
     result.update(operation_id=r['operation_id'],snapshot_sha256=digest(snap),state='observed',observation='namespace_exited')
-print(json.dumps({'protocol_version':r['protocol_version'],'action':r['action'],'result':result}));sys.exit(2 if result['state']=='held' else 0)
+ if r['action']=='endpoint' and result['state']=='observed' and result['observation']=='running':
+  result={'host':(root/'endpoint-host').read_text(),'receipt':result}
+print(json.dumps({'protocol_version':r['protocol_version'],'action':r['action'],'result':result}));sys.exit(2 if result.get('state')=='held' else 0)
 "#;
     let control = config.fleet.container_control.as_mut().unwrap();
     let source = Path::new(&control.base_root).join("scripts/runtime_control.py");
@@ -1380,13 +1384,20 @@ async fn precreate_claim_serializes_controllers_and_replays_only_exact_identity(
     competitor.controller_id = Uuid::new_v4();
     competitor.generation = Uuid::new_v4();
     competitor.operation_id = Uuid::new_v4();
+    let configuration = app::runtime_launch::RuntimeConfigurationClaim {
+        phase: "regular".into(),
+        revision: None,
+        sha256: None,
+    };
     let (a, b) = tokio::join!(
-        repo.claim_container_preparation(&first),
-        repo.claim_container_preparation(&competitor)
+        repo.claim_container_preparation(&first, &configuration),
+        repo.claim_container_preparation(&competitor, &configuration)
     );
     assert_ne!(a.is_ok(), b.is_ok());
     let original = if a.is_ok() { first } else { competitor };
-    repo.claim_container_preparation(&original).await.unwrap();
+    repo.claim_container_preparation(&original, &configuration)
+        .await
+        .unwrap();
     for field in ["controller", "generation", "operation", "hash", "ordinal"] {
         let mut changed = original.clone();
         match field {
@@ -1398,7 +1409,9 @@ async fn precreate_claim_serializes_controllers_and_replays_only_exact_identity(
             _ => unreachable!(),
         }
         assert!(
-            repo.claim_container_preparation(&changed).await.is_err(),
+            repo.claim_container_preparation(&changed, &configuration)
+                .await
+                .is_err(),
             "{field}"
         );
     }

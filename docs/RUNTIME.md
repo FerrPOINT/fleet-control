@@ -1,5 +1,19 @@
 # Runtime
 
+## Container Configuration Replacement Candidate
+
+Configuration admission now runs before both create and start. A regular
+preparation cannot bypass drain; activation/rollback bind claimed desired/prior
+effective revisions and snapshot hashes under the database locks. The candidate
+connects the private activation journal to original namespace stop, file
+readback and fresh Docker generations. Stopped agents do not implicitly start.
+Unknown creation/start/stop holds drain and candidate files; no rollback spawn
+or native fallback is allowed until original custody is reconciled. See
+[ADR0029](adr/0029-container-configuration-generation-replacement.md).
+All31 focused Linux/PostgreSQL cases and strict Clippy pass; the full workspace
+gate passes523 cases with29 explicit ignores and fmt/check/Clippy. Real mapped Hermes/model/config acceptance remains pending;
+the earlier gates below do not verify this new source.
+
 ## Container Preparation Custody
 
 Additive000018 commits an immutable DB identity before the secret-bearing

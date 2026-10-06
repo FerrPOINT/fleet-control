@@ -63,6 +63,7 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 - [SDLC Workflow binding](contracts/SDLC_WORKFLOW_BINDING_V1.md)
 - [ADR.md](ADR.md)
 - [Durable container pre-create fence](adr/0028-durable-container-precreate-fence.md)
+- [Container configuration generation replacement](adr/0029-container-configuration-generation-replacement.md)
 
 ## API And Database
 

@@ -1,7 +1,7 @@
 use crate::PostgresFleetRepository;
 use app::{
     RuntimeStatePatch,
-    runtime_launch::{RuntimeLaunchBinding, RuntimeLaunchRecord},
+    runtime_launch::{RuntimeConfigurationClaim, RuntimeLaunchBinding, RuntimeLaunchRecord},
 };
 use sea_orm::{ConnectionTrait, DatabaseBackend, DatabaseTransaction, Statement, TransactionTrait};
 use sha2::{Digest, Sha256};
@@ -251,64 +251,16 @@ pub(super) async fn claim(
     {
         return Err(AppError::conflict("agent launch port changed"));
     }
-    let head = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
-        "SELECT desired_revision,effective_revision,draining FROM agent_config_heads WHERE agent_id=$1 FOR UPDATE",
-        [binding.agent_id.into()])).await.map_err(AppError::database)?;
-    let draining = head
-        .as_ref()
-        .map(|row| row.try_get::<bool>("", "draining"))
-        .transpose()
-        .map_err(AppError::database)?
-        .unwrap_or(false);
-    if draining != (binding.phase != "regular") {
-        return Err(AppError::conflict(
-            "configuration drain changed before launch",
-        ));
-    }
-    let column = if binding.phase == "activation" {
-        "desired_revision"
-    } else {
-        "effective_revision"
-    };
-    let current = head
-        .as_ref()
-        .map(|row| row.try_get::<Option<i64>>("", column))
-        .transpose()
-        .map_err(AppError::database)?
-        .flatten();
-    if current != binding.configuration_revision
-        || (binding.phase == "activation" && current.is_none())
-    {
-        return Err(AppError::conflict(
-            "configuration revision changed before launch",
-        ));
-    }
-    if let Some(revision) = current {
-        let row = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
-            "SELECT state,snapshot,claimed_at IS NOT NULL AS claimed FROM agent_config_revisions WHERE agent_id=$1 AND revision=$2",
-            [binding.agent_id.into(), revision.into()])).await.map_err(AppError::database)?
-            .ok_or_else(|| AppError::conflict("runtime configuration snapshot is missing"))?;
-        let expected_state = if binding.phase == "activation" {
-            "activating"
-        } else {
-            "active"
-        };
-        if row
-            .try_get::<String>("", "state")
-            .map_err(AppError::database)?
-            != expected_state
-            || (binding.phase == "activation"
-                && !row
-                    .try_get::<bool>("", "claimed")
-                    .map_err(AppError::database)?)
-            || Some(snapshot_hash(
-                &row.try_get::<serde_json::Value>("", "snapshot")
-                    .map_err(AppError::database)?,
-            )?) != binding.configuration_sha256
-        {
-            return Err(AppError::conflict("runtime configuration snapshot changed"));
-        }
-    }
+    verify_configuration_claim(
+        &txn,
+        binding.agent_id,
+        &RuntimeConfigurationClaim {
+            phase: binding.phase.clone(),
+            revision: binding.configuration_revision,
+            sha256: binding.configuration_sha256.clone(),
+        },
+    )
+    .await?;
     let original = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "SELECT id FROM runtime_launches WHERE agent_id=$1 AND state IN ('claimed','gateway_started')",
         [binding.agent_id.into()])).await.map_err(AppError::database)?;
@@ -359,9 +311,88 @@ fn valid_hash(hash: &str) -> bool {
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
+async fn verify_configuration_claim(
+    txn: &DatabaseTransaction,
+    agent_id: Uuid,
+    configuration: &RuntimeConfigurationClaim,
+) -> Result<(), AppError> {
+    if !matches!(
+        configuration.phase.as_str(),
+        "regular" | "activation" | "rollback"
+    ) || configuration.revision.is_some() != configuration.sha256.is_some()
+        || configuration.revision.is_some_and(|revision| revision <= 0)
+        || configuration
+            .sha256
+            .as_deref()
+            .is_some_and(|hash| !valid_hash(hash))
+    {
+        return Err(AppError::validation("invalid runtime configuration claim"));
+    }
+    let head = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT desired_revision,effective_revision,draining FROM agent_config_heads WHERE agent_id=$1 FOR UPDATE",
+        [agent_id.into()])).await.map_err(AppError::database)?;
+    let draining = head
+        .as_ref()
+        .map(|row| row.try_get::<bool>("", "draining"))
+        .transpose()
+        .map_err(AppError::database)?
+        .unwrap_or(false);
+    if draining != (configuration.phase != "regular") {
+        return Err(AppError::conflict(
+            "configuration drain changed before launch",
+        ));
+    }
+    let column = if configuration.phase == "activation" {
+        "desired_revision"
+    } else {
+        "effective_revision"
+    };
+    let current = head
+        .as_ref()
+        .map(|row| row.try_get::<Option<i64>>("", column))
+        .transpose()
+        .map_err(AppError::database)?
+        .flatten();
+    if current != configuration.revision
+        || (configuration.phase == "activation" && current.is_none())
+    {
+        return Err(AppError::conflict(
+            "configuration revision changed before launch",
+        ));
+    }
+    if let Some(revision) = current {
+        let row = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT state,snapshot,claimed_at IS NOT NULL AS claimed FROM agent_config_revisions WHERE agent_id=$1 AND revision=$2",
+            [agent_id.into(), revision.into()])).await.map_err(AppError::database)?
+            .ok_or_else(|| AppError::conflict("runtime configuration snapshot is missing"))?;
+        let expected_state = if configuration.phase == "activation" {
+            "activating"
+        } else {
+            "active"
+        };
+        if row
+            .try_get::<String>("", "state")
+            .map_err(AppError::database)?
+            != expected_state
+            || (configuration.phase == "activation"
+                && !row
+                    .try_get::<bool>("", "claimed")
+                    .map_err(AppError::database)?)
+            || Some(snapshot_hash(
+                &row.try_get::<serde_json::Value>("", "snapshot")
+                    .map_err(AppError::database)?,
+            )?) != configuration.sha256
+        {
+            return Err(AppError::conflict("runtime configuration snapshot changed"));
+        }
+    }
+    Ok(())
+}
+
 pub(super) async fn claim_preparation(
     repo: &PostgresFleetRepository,
     preparation: &app::runtime_launch::RuntimeContainerPreparation,
+    configuration: &RuntimeConfigurationClaim,
 ) -> Result<(), AppError> {
     if preparation.agent_id.is_nil()
         || preparation.controller_id.is_nil()
@@ -420,6 +451,7 @@ pub(super) async fn claim_preparation(
     {
         return Err(held());
     }
+    verify_configuration_claim(&txn, preparation.agent_id, configuration).await?;
     let history = txn
         .query_one(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
@@ -466,6 +498,18 @@ pub(super) async fn claim_preparation(
             .await.map_err(AppError::database)?;
     }
     txn.commit().await.map_err(AppError::database)
+}
+
+pub(super) async fn pending_preparation(
+    repo: &PostgresFleetRepository,
+    agent: Uuid,
+) -> Result<bool, AppError> {
+    let row = repo.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT EXISTS(SELECT 1 FROM runtime_container_preparations
+            WHERE agent_id=$1 AND ordinal=(SELECT count(*) FROM runtime_launches WHERE agent_id=$1)) AS pending",
+        [agent.into()])).await.map_err(AppError::database)?.ok_or_else(|| AppError::Unavailable(
+            "container preparation journal is unavailable".into()))?;
+    row.try_get("", "pending").map_err(AppError::database)
 }
 
 pub(super) async fn open(

@@ -26,6 +26,8 @@ mod acceptance_readback;
 mod activation_journal;
 mod approval_outcome;
 mod approval_snapshot;
+#[cfg(all(test, target_os = "linux"))]
+mod container_configuration_tests;
 pub mod container_control;
 mod container_lifecycle;
 #[cfg(test)]
@@ -256,16 +258,18 @@ impl LocalRuntimeSupervisor {
         let lock = self.lifecycle_lock(revision.agent_id).await;
         let _guard = lock.lock().await;
         let agent = self.repo.get_agent(revision.agent_id).await?;
-        if self.config.fleet.container_control.is_some()
+        let container = self.config.fleet.container_control.is_some()
             || self
                 .repo
                 .get_open_runtime_launch(agent.id)
                 .await?
-                .is_some_and(|launch| launch.binding.container.is_some())
-        {
-            return Err(AppError::Unavailable("container configuration activation requires a prepared replacement generation; files remain unchanged".into()));
+                .is_some_and(|launch| launch.binding.container.is_some());
+        if container {
+            self.verify_container_configuration_transition(&agent)
+                .await?;
         }
-        if self.repo.get_open_runtime_launch(agent.id).await?.is_some()
+        if !container
+            && self.repo.get_open_runtime_launch(agent.id).await?.is_some()
             && !self.children.lock().await.contains_key(&agent.id)
         {
             return Err(AppError::Unavailable(
@@ -286,7 +290,7 @@ impl LocalRuntimeSupervisor {
                 "runtime must be running, ready or stopped before configuration activation",
             ));
         }
-        if running && !self.children.lock().await.contains_key(&agent.id) {
+        if running && !container && !self.children.lock().await.contains_key(&agent.id) {
             return Err(AppError::conflict(
                 "untracked runtime must be reconciled before configuration activation",
             ));
@@ -325,6 +329,10 @@ impl LocalRuntimeSupervisor {
             self.stop_locked(&agent).await.map_err(|_| AppError::Unavailable(
                 "configuration stop and runtime metadata require reconciliation; agent remains drained".into()
             ))?;
+        }
+        if container {
+            self.verify_container_configuration_quiescent(&agent)
+                .await?;
         }
         let applied = async {
             for (path, body) in &files {
@@ -387,6 +395,11 @@ impl LocalRuntimeSupervisor {
                 self.stop_locked(&agent).await.map_err(|_| AppError::Unavailable(
                     "configuration rollback requires confirmed runtime termination; agent remains drained".into()
                 ))?;
+            }
+            if container {
+                // An unknown prepare/start is not permission to rewrite a candidate's files.
+                self.verify_container_configuration_quiescent(&agent)
+                    .await?;
             }
             let rollback = async {
                 for (path, old) in &backups {

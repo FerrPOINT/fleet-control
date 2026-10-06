@@ -1,5 +1,24 @@
 # Operations
 
+## Container Configuration Replacement Candidate
+
+Use the existing draft/validate/activate flow; changing a stopped configuration
+does not start a runtime. A running agent drains and waits for run/outbox
+quiescence before the original controller stops its namespace and starts a
+new generation. A readiness failure restores prior files and starts a distinct
+rollback generation, not the exited container. 31 focused Linux/PostgreSQL
+cases and strict Clippy pass; full workspace gates pass 523 cases with 29 explicit
+ignores. Live acceptance remains pending.
+Do not enable the installed Docker path from this document.
+
+Unknown prepare/start/stop or a foreign controller retains drain and the private
+activation journal. Keep candidate files, pre-create/launch rows and original
+Base journals together; do not clear heads, delete fences, rewrite files or
+spawn a replacement manually. The standard runtime actions remain blocked by
+drain. Complete operator reconciliation/takeover remains an open acceptance
+item, not an implemented recovery command. Healthy HTTP alone cannot release
+that hold. See [ADR0029](adr/0029-container-configuration-generation-replacement.md).
+
 ## Lost Container Preparation Files
 
 With000018, automatic preparation commits an immutable DB fence before Docker

@@ -8,6 +8,15 @@ step/checkpoint projection or live authenticated browser acceptance below.
 
 ## October SDLC Gate
 
+Container configuration replacement is now an implemented, focused-tested
+candidate: phase/revision admission before create, original stop, new generation
+activation/rollback and pending/foreign-effect holds. All8 new cases,17 container
+and6 configuration lifecycle cases pass with strict Clippy. Full workspace
+verification passes523 cases with29 explicit opt-in ignores and fmt/check/Clippy.
+Real mapped Docker/Hermes/model/config acceptance and complete interrupted
+activation reconciliation remain open. The prior broad "configuration activation held" statements below
+describe earlier packets; they do not certify or reject this new source.
+
 New additive000018 source addresses missing pre-create database authority:
 immutable original identity/hash now precedes the intent write and Base create,
 with exact-source515-case full and19-case migration verification passing.

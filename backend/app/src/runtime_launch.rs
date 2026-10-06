@@ -127,3 +127,10 @@ pub struct RuntimeContainerPreparation {
     pub operation_id: Uuid,
     pub intent_sha256: String,
 }
+
+#[derive(Debug, Clone)]
+pub struct RuntimeConfigurationClaim {
+    pub phase: String,
+    pub revision: Option<i64>,
+    pub sha256: Option<String>,
+}

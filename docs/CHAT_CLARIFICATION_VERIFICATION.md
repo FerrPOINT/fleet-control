@@ -1,5 +1,50 @@
 # Chat Clarification Verification
 
+## Container Configuration Replacement: 6 October 2026
+
+The candidate adds exact phase/revision/hash admission before preparation as
+well as start, original namespace stop before file effects, and fresh activation
+and rollback generations. Stopped configuration apply remains stopped. Unknown
+prepare/start/stop or foreign custody retains candidate files and drain instead
+of inventing a rollback effect. No new migration, Base wire protocol, public
+API/frontend/SDK pin or installed flag/image/volume changes.
+
+Project `sdlc-qa-fleet-container-control-0ae96e07367e` passes Rust 1.88/Linux
+fmt, all-target strict Clippy and 31 focused PostgreSQL/fake-Base supervisor
+cases: 8 new configuration cases, 17 container lifecycle cases and 6 prior
+configuration lifecycle cases, 0 failures/ignores. The readiness-failure case
+executes the real bounded readiness wait and fresh rollback path. The tests
+use a fake runtime HTTP API, not actual Docker/Hermes/model inference.
+All 291 frozen backend/SDK inputs match source. Source manifest SHA256:
+`9e616ae325556ea5110cad820f4098b6337cf9ff2511a519678642cbc301d826`;
+log SHA256:
+`03c77f50189012797d58c9658bd8db464f103545120aaf1d9595c4b96b85f3ea`;
+report SHA256:
+`064f7d7a902fc30c54172084ccc46d7f40a45ef9f669442b1027adc80c1149a6`.
+The initial frozen configuration attempt had 3 passing/3 failing cases because
+it queried a next ordinal before old namespace exit; this ordering was fixed
+before the successful source capture. Its owned project is separately cleaned.
+Independent original-Engine container/network checks confirm successful cleanup.
+
+The full workspace project `sdlc-qa-fleet-container-control-c2f2217d36e2` passes
+locked/offline Rust 1.88/Linux/PostgreSQL fmt, all-target check, strict Clippy and
+523 cases in 35 result groups, 0 failures/29 explicit opt-in ignores, on the same
+291 frozen inputs. Log SHA256:
+`59b0c78e13babaecbbdf05ff03ba89525c3d16a1b2f7f02d288662ce44105a50`;
+report SHA256:
+`923a4debd47b8da903883bbd05c82990951721fe4bc0c4e599081e81e6ab3a2c`.
+Original-Engine container/network inventories are independently empty.
+All 39 migration/crate-root inputs are unchanged from the preceding authoritative
+19-case migration gate on ten disposable DBs; that evidence is retained, not a
+fresh migration run. README and 120 Markdown files pass. No frontend changed in
+this packet, so no new screenshots/browser run is claimed.
+
+Real mapped-volume
+Hermes/model/config lifecycle, loaded configuration evidence, complete interrupted
+activation reconciliation/takeover, producer admission/PM/Forge/seven-agent
+acceptance and ordered release PR gates remain open. Existing UI evidence below
+belongs to its original source; Chats follow-up 77fc543 is not yet integrated.
+
 ## Durable Container Pre-Create Fence: 6 October 2026
 
 The new additive000018 preparation ledger commits immutable agent/history

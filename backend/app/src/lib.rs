@@ -587,7 +587,13 @@ pub trait FleetRepository: Send + Sync {
     async fn claim_container_preparation(
         &self,
         _preparation: &runtime_launch::RuntimeContainerPreparation,
+        _configuration: &runtime_launch::RuntimeConfigurationClaim,
     ) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "container preparation journal is unavailable".into(),
+        ))
+    }
+    async fn has_pending_container_preparation(&self, _agent_id: Uuid) -> Result<bool, AppError> {
         Err(AppError::Unavailable(
             "container preparation journal is unavailable".into(),
         ))

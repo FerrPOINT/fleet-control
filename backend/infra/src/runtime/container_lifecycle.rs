@@ -126,18 +126,22 @@ impl LocalRuntimeSupervisor {
         &self,
         intent: &ContainerCreationIntent,
         ordinal: i64,
+        configuration: &app::runtime_launch::RuntimeConfigurationClaim,
     ) -> Result<(), AppError> {
         self.repo
-            .claim_container_preparation(&app::runtime_launch::RuntimeContainerPreparation {
-                agent_id: intent.agent_id,
-                ordinal,
-                controller_id: self.controller_id,
-                generation: intent.generation,
-                operation_id: intent.operation_id,
-                intent_sha256: crate::runtime_launches::snapshot_hash(
-                    &serde_json::to_value(intent).map_err(AppError::internal)?,
-                )?,
-            })
+            .claim_container_preparation(
+                &app::runtime_launch::RuntimeContainerPreparation {
+                    agent_id: intent.agent_id,
+                    ordinal,
+                    controller_id: self.controller_id,
+                    generation: intent.generation,
+                    operation_id: intent.operation_id,
+                    intent_sha256: crate::runtime_launches::snapshot_hash(
+                        &serde_json::to_value(intent).map_err(AppError::internal)?,
+                    )?,
+                },
+                configuration,
+            )
             .await
     }
 
@@ -234,7 +238,7 @@ impl LocalRuntimeSupervisor {
         prepared_path: &Path,
         intent_path: &Path,
         ordinal: i64,
-        revision: (Option<i64>, Option<String>),
+        configuration: &app::runtime_launch::RuntimeConfigurationClaim,
     ) -> Result<(), AppError> {
         let config = self
             .config
@@ -261,8 +265,13 @@ impl LocalRuntimeSupervisor {
         let operation_id = previous
             .as_ref()
             .map_or_else(Uuid::new_v4, |value| value.operation_id);
-        let mut intent =
-            self.container_intent(agent, generation, operation_id, revision.0, revision.1)?;
+        let mut intent = self.container_intent(
+            agent,
+            generation,
+            operation_id,
+            configuration.revision,
+            configuration.sha256.clone(),
+        )?;
         let name = format!("{}.{}", agent.id, generation);
         let control = ContainerControl::new(
             config.python.clone().into(),
@@ -301,7 +310,8 @@ impl LocalRuntimeSupervisor {
         }
         // Commit before both private-file creation and Docker create. Missing files
         // must not grant a new generation after an unknown physical effect.
-        self.claim_container_intent(&intent, ordinal).await?;
+        self.claim_container_intent(&intent, ordinal, configuration)
+            .await?;
         if previous.is_none() {
             private_document(root, intent_path, &intent).await?;
         }
@@ -326,7 +336,7 @@ impl LocalRuntimeSupervisor {
             agent_id: agent.id,
             paths: agent.paths.clone(),
             api_port: agent.api_port,
-            configuration_revision: revision.0,
+            configuration_revision: configuration.revision,
             configuration_sha256: intent.configuration_sha256,
             container: RuntimeContainerBinding {
                 registration: prepared.registration,
@@ -483,11 +493,7 @@ impl LocalRuntimeSupervisor {
         Ok(format!("http://{host}:{port}"))
     }
 
-    pub(super) async fn prepared_container(
-        &self,
-        agent: &Agent,
-        phase: LaunchPhase,
-    ) -> Result<RuntimeLaunchBinding, AppError> {
+    async fn validate_container_agent_paths(&self, agent: &Agent) -> Result<PathBuf, AppError> {
         let agents_root =
             crate::normalize_path(Path::new(&self.config.fleet.agents_root)).map_err(|_| held())?;
         let agent_root = crate::safe_agent_root(&agents_root, &agent.name).map_err(|_| held())?;
@@ -521,6 +527,80 @@ impl LocalRuntimeSupervisor {
         {
             return Err(held());
         }
+        Ok(agents_root)
+    }
+
+    pub(super) async fn verify_container_configuration_transition(
+        &self,
+        agent: &Agent,
+    ) -> Result<(), AppError> {
+        let control = self
+            .config
+            .fleet
+            .container_control
+            .as_ref()
+            .ok_or_else(held)?;
+        if control.provisioning.is_none() || self.children.lock().await.contains_key(&agent.id) {
+            return Err(held());
+        }
+        self.validate_container_agent_paths(agent).await?;
+        let running = self.repo.get_open_runtime_launch(agent.id).await?.is_some();
+        if running {
+            // Only the original observed namespace can be stopped before replacing files.
+            self.container_generation(agent.id).await?;
+        } else if unconfirmed_runtime(agent) {
+            return Err(held());
+        }
+        if self
+            .repo
+            .has_pending_container_preparation(agent.id)
+            .await?
+        {
+            return Err(held());
+        }
+        if running {
+            return Ok(());
+        }
+        let root = activation_journal::private_controller_directory(Path::new(
+            &self.config.fleet.controller_root,
+        ))
+        .await?;
+        let ordinal = self.repo.next_container_launch_ordinal(agent.id).await?;
+        let suffix = if ordinal == 0 {
+            agent.id.to_string()
+        } else {
+            format!("{}.{ordinal}", agent.id)
+        };
+        for extension in ["container-creation.json", "container-prepared.json"] {
+            if read_private_document(&root, &root.join(format!("{suffix}.{extension}")))
+                .await?
+                .is_some()
+            {
+                return Err(held());
+            }
+        }
+        Ok(())
+    }
+
+    pub(super) async fn verify_container_configuration_quiescent(
+        &self,
+        agent: &Agent,
+    ) -> Result<(), AppError> {
+        let fresh = self.repo.get_agent(agent.id).await?;
+        if self.repo.get_open_runtime_launch(agent.id).await?.is_some()
+            || unconfirmed_runtime(&fresh)
+        {
+            return Err(held());
+        }
+        self.verify_container_configuration_transition(&fresh).await
+    }
+
+    pub(super) async fn prepared_container(
+        &self,
+        agent: &Agent,
+        phase: LaunchPhase,
+    ) -> Result<RuntimeLaunchBinding, AppError> {
+        let agents_root = self.validate_container_agent_paths(agent).await?;
         let root = activation_journal::private_controller_directory(Path::new(
             &self.config.fleet.controller_root,
         ))
@@ -555,19 +635,14 @@ impl LocalRuntimeSupervisor {
                 )
             })
             .transpose()?;
+        let configuration = app::runtime_launch::RuntimeConfigurationClaim {
+            phase: phase.into(),
+            revision: revision_number,
+            sha256: revision_hash.clone(),
+        };
         if read_private_document(&root, &path).await?.is_none() {
-            if phase != "regular" {
-                return Err(held());
-            }
-            self.create_container(
-                agent,
-                &root,
-                &path,
-                &intent_path,
-                ordinal,
-                (revision_number, revision_hash.clone()),
-            )
-            .await?;
+            self.create_container(agent, &root, &path, &intent_path, ordinal, &configuration)
+                .await?;
         }
         crate::reject_symlink_components(&root, &path)
             .await
@@ -651,7 +726,8 @@ impl LocalRuntimeSupervisor {
             {
                 return Err(held());
             }
-            self.claim_container_intent(&intent, ordinal).await?;
+            self.claim_container_intent(&intent, ordinal, &configuration)
+                .await?;
         }
         let command_sha256 = crate::runtime_launches::snapshot_hash(
             &serde_json::to_value(&prepared.container).map_err(AppError::internal)?,
