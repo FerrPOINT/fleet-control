@@ -105,7 +105,7 @@ const revision: chats.RequirementsRevision = {
     prerequisites: [],
   },
 }
-function renderPage(tab = 'dialogue') {
+function renderPage(tab = 'dialogue', queryRetries: false | number = false) {
   const router = createMemoryRouter(
     [
       { path: '/chats/:sessionId', element: <ChatDetailPage /> },
@@ -114,7 +114,7 @@ function renderPage(tab = 'dialogue') {
     { initialEntries: [`/chats/session1?tab=${tab}`] },
   )
   const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    defaultOptions: { queries: { retry: queryRetries }, mutations: { retry: false } },
   })
   render(
     <QueryClientProvider client={client}>
@@ -172,6 +172,102 @@ beforeEach(() => {
   })
 })
 describe('production chat', () => {
+  it('holds stop after the first failed controls read while its retry is still pending', async () => {
+    vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+    const available = {
+      can_send: false,
+      can_steer: false,
+      can_stop: true,
+      active_run_id: 'run-original',
+      blocked_reason: null,
+    }
+    vi.mocked(chats.getChatControls).mockResolvedValue(available)
+    const { client } = renderPage('dialogue', 1)
+    const stop = await screen.findByRole('button', { name: 'Остановить запуск' })
+    await waitFor(() => expect(stop).toBeEnabled())
+    let resolveRetry!: (value: typeof available) => void
+    vi.mocked(chats.getChatControls)
+      .mockRejectedValueOnce(new ApiError(503, 'Retrying controls'))
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveRetry = resolve
+          }),
+      )
+    let refresh!: Promise<unknown>
+    await act(async () => {
+      refresh = client.invalidateQueries({ queryKey: ['chat-controls', 'session1'] })
+    })
+    await waitFor(() => expect(resolveRetry).toBeTypeOf('function'), { timeout: 3000 })
+    expect(client.getQueryState(['chat-controls', 'session1'])?.status).toBe('success')
+    expect(stop).toBeDisabled()
+    fireEvent.click(stop)
+    expect(fleet.stopSessionRun).not.toHaveBeenCalled()
+    await act(async () => {
+      resolveRetry(available)
+      await refresh
+    })
+    await waitFor(() => expect(stop).toBeEnabled())
+  })
+  it('holds a cached stop permission after a failed refresh and recovers only from fresh controls', async () => {
+    vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+    const available = {
+      can_send: false,
+      can_steer: false,
+      can_stop: true,
+      active_run_id: 'run-original',
+      blocked_reason: null,
+    }
+    vi.mocked(chats.getChatControls).mockResolvedValue(available)
+    const { client } = renderPage()
+    const stop = await screen.findByRole('button', { name: 'Остановить запуск' })
+    await waitFor(() => expect(stop).toBeEnabled())
+    vi.mocked(chats.getChatControls).mockRejectedValue(new Error('Stop authority unavailable'))
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ['chat-controls', 'session1'] })
+    })
+    await screen.findByText('Stop authority unavailable')
+    expect(stop).toBeDisabled()
+    fireEvent.click(stop)
+    expect(fleet.stopSessionRun).not.toHaveBeenCalled()
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      ...available,
+      active_run_id: 'run-current',
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Проверить доступность отправки' }))
+    await waitFor(() => expect(stop).toBeEnabled())
+    await userEvent.click(stop)
+    await waitFor(() =>
+      expect(fleet.stopSessionRun).toHaveBeenCalledWith(
+        'session1',
+        'run-current',
+        expect.any(String),
+      ),
+    )
+  })
+  it.each(['different-owner', 'missing-run'] as const)(
+    'does not issue a stop with cached controls for %s',
+    async (condition) => {
+      vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+      vi.mocked(chats.getChatControls).mockResolvedValue({
+        can_send: false,
+        can_steer: false,
+        can_stop: true,
+        active_run_id: condition === 'missing-run' ? null : 'run-original',
+        blocked_reason: null,
+      })
+      if (condition === 'different-owner') useAuthStore.setState({ userId: 'operator' })
+      const { client } = renderPage()
+      const stop = await screen.findByRole('button', { name: 'Остановить запуск' })
+      if (condition === 'different-owner')
+        await waitFor(() =>
+          expect(client.getQueryData(['runtime-controls', 'session1', 'run-original'])).toEqual([]),
+        )
+      expect(stop).toBeDisabled()
+      fireEvent.click(stop)
+      expect(fleet.stopSessionRun).not.toHaveBeenCalled()
+    },
+  )
   it.each(['answer', 'confirmation', 'prompt'] as const)(
     'holds a timed-out %s and retries its original command',
     async (command) => {

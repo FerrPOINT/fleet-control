@@ -172,6 +172,81 @@ test('durable runtime controls hold unknown commands after reload', async ({ pag
   expect(errors).toEqual([])
 })
 
+test('chat stop holds stale permissions and uses the refreshed active run', async ({
+  page,
+}, testInfo) => {
+  const state = createState()
+  const original = makeRun(ids.session, state.agents[0])
+  state.runsBySession[ids.session] = [original]
+  await installMocks(page, state)
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  let unavailable = false
+  let failedReads = 0
+  let activeRunId = original.id
+  const currentRunId = '00000000-0000-4000-8000-000000000902'
+  const commands: { path: string; key: string | undefined }[] = []
+  await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    if (path.endsWith('/chat-controls')) {
+      if (unavailable) {
+        failedReads += 1
+        return fulfill(route, { error: { message: 'Stop authority unavailable' } }, 503)
+      }
+      return fulfill(route, {
+        can_send: false,
+        can_steer: false,
+        can_stop: true,
+        active_run_id: activeRunId,
+        blocked_reason: null,
+      })
+    }
+    if (path.endsWith('/stop') && request.method() === 'POST') {
+      commands.push({ path, key: request.headers()['idempotency-key'] })
+      return fulfill(route, {
+        session_id: ids.session,
+        run_id: currentRunId,
+        runtime_run_id: 'native-fixture',
+        accepted: false,
+        state: 'running',
+        message: 'Fixture stop outcome unknown',
+      })
+    }
+    return route.fallback()
+  })
+  await page.goto(`/chats/${ids.session}`)
+  const stop = page.getByRole('button', { name: 'Остановить запуск', exact: true })
+  await expect(stop).toBeEnabled()
+  unavailable = true
+  // Wait for the real controller's controls refresh. Keep the cached
+  // successful body while the read fails; do not reload away the cache.
+  await expect.poll(() => failedReads, { timeout: 15000 }).toBeGreaterThan(0)
+  await expect(stop).toBeDisabled()
+  for (const viewport of [
+    { width: 375, height: 812 },
+    { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await expect(stop).toBeDisabled()
+    await page.screenshot({
+      path: testInfo.outputPath(`chat-stop-held-${viewport.width}.png`),
+      fullPage: true,
+      animations: 'disabled',
+    })
+  }
+  expect(commands).toEqual([])
+  activeRunId = currentRunId
+  unavailable = false
+  await expect(stop).toBeEnabled()
+  await stop.click()
+  await expect.poll(() => commands.length).toBe(1)
+  expect(commands[0].path).toBe(`/api/v1/sessions/${ids.session}/runs/${currentRunId}/stop`)
+  expect(commands[0].key).toBeTruthy()
+  expect(errors).toEqual([])
+})
+
 test('PM chat clarification preserves explicit answers and exact confirmation', async ({
   page,
 }, testInfo) => {

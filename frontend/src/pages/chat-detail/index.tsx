@@ -364,6 +364,14 @@ function ChatWorkspace({ id }: { id: string }) {
       stopSessionRun(id, command.runId, command.key),
     onSuccess: invalidate,
   })
+  const canStop =
+    owner &&
+    controls.isSuccess &&
+    !controls.isFetching &&
+    controls.failureCount === 0 &&
+    Boolean(controls.data?.can_stop && controls.data.active_run_id) &&
+    !stop.isPending &&
+    !controlHeld
   const uncertainSteer = messageUncertain && message.variables?.kind === 'steer'
   const canSubmitMessage =
     owner &&
@@ -704,10 +712,10 @@ function ChatWorkspace({ id }: { id: string }) {
                       variant="outline"
                       aria-label="Остановить запуск"
                       title="Остановить запуск"
-                      disabled={stop.isPending || Boolean(controlHeld)}
+                      disabled={!canStop}
                       onClick={() => {
                         const runId = controls.data?.active_run_id
-                        if (!runId) return
+                        if (!canStop || !runId) return
                         const key = stopKeys.current.get(runId) ?? requestKey()
                         stopKeys.current.set(runId, key)
                         stop.mutate({ runId, key })
