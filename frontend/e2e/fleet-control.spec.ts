@@ -533,6 +533,77 @@ test('PM chat clarification preserves explicit answers and exact confirmation', 
   await expect(page).toHaveURL(/tab=clarification/)
   expect(errors).toEqual([])
 })
+test('long chat history restores reading and tail positions across tabs', async ({
+  page,
+}, testInfo) => {
+  const state = createState()
+  await installMocks(page, state)
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  const items = Array.from({ length: 40 }, (_, index) => ({
+    ...makeMessage(
+      ids.session,
+      `History entry ${index + 1}\n${'Long retained history text. '.repeat(25)}`,
+    ),
+    id: `00000000-0000-4000-8000-${String(index + 1000).padStart(12, '0')}`,
+  }))
+  await page.route(`**/api/v1/sessions/${ids.session}/history**`, (route) =>
+    fulfill(route, { items, next_before: null }),
+  )
+  let submitted = 0
+  await page.route(`**/api/v1/sessions/${ids.session}/messages`, (route) => {
+    if (route.request().method() === 'POST') submitted += 1
+    return route.fallback()
+  })
+  await page.goto(`/chats/${ids.session}?tab=dialogue`)
+  const dialogue = page.getByRole('tab', { name: /Диалог/ })
+  const clarification = page.getByRole('tab', { name: /Уточнения/ })
+  const transcript = page.locator('.fc-chat-panel .fc-chat-scroll')
+  const prompt = page.getByLabel('Сообщение агенту', { exact: true })
+  await expect(prompt).toBeEnabled()
+  await prompt.fill('Retained original composer draft')
+  for (const viewport of [
+    { width: 375, height: 812 },
+    { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await expect(page.locator('.fc-chat-message')).toHaveCount(40)
+    const readingTop = await transcript.evaluate((node) => {
+      node.scrollTop = (node.scrollHeight - node.clientHeight) * 0.45
+      node.dispatchEvent(new Event('scroll'))
+      return node.scrollTop
+    })
+    expect(readingTop).toBeGreaterThan(100)
+    await clarification.click()
+    await expect(clarification).toHaveAttribute('aria-selected', 'true')
+    await dialogue.click()
+    await expect(dialogue).toHaveAttribute('aria-selected', 'true')
+    await expect
+      .poll(() => transcript.evaluate((node) => node.scrollTop))
+      .toBeCloseTo(readingTop, 0)
+    await expect(prompt).toHaveValue('Retained original composer draft')
+    await page.screenshot({
+      path: testInfo.outputPath(`chat-reading-restored-${viewport.width}.png`),
+      fullPage: true,
+      animations: 'disabled',
+    })
+    await transcript.evaluate((node) => {
+      node.scrollTop = node.scrollHeight
+      node.dispatchEvent(new Event('scroll'))
+    })
+    await clarification.click()
+    await dialogue.click()
+    await expect
+      .poll(() =>
+        transcript.evaluate((node) => node.scrollHeight - node.clientHeight - node.scrollTop),
+      )
+      .toBeLessThanOrEqual(1)
+  }
+  expect(submitted).toBe(0)
+  expect(errors).toEqual([])
+})
+
 test('chat history preserves server order after clock rollback and page overlap', async ({
   page,
 }) => {

@@ -172,6 +172,34 @@ beforeEach(() => {
   })
 })
 describe('production chat', () => {
+  it('restores the reading position after visiting clarification without losing the answer draft', async () => {
+    vi.mocked(chats.getChatHistory).mockResolvedValue({
+      items: [message('reading', 'A retained history message')],
+      next_before: null,
+    })
+    const { router } = renderPage()
+    await screen.findByText('A retained history message')
+    const original = document.querySelector<HTMLDivElement>('.fc-chat-panel .fc-chat-scroll')!
+    Object.defineProperties(original, {
+      scrollHeight: { value: 1200 },
+      clientHeight: { value: 400 },
+    })
+    original.scrollTop = 240
+    fireEvent.scroll(original)
+    await userEvent.click(screen.getByRole('tab', { name: /Уточнения/ }))
+    await waitFor(() => expect(router.state.location.search).toContain('tab=clarification'))
+    fireEvent.change(await screen.findByLabelText('Комментарий'), {
+      target: { value: 'Original answer draft' },
+    })
+    await userEvent.click(screen.getByRole('tab', { name: /Диалог/ }))
+    await waitFor(() => expect(router.state.location.search).toContain('tab=dialogue'))
+    const returned = document.querySelector<HTMLDivElement>('.fc-chat-panel .fc-chat-scroll')!
+    expect(returned).not.toBe(original)
+    expect(returned.scrollTop).toBe(240)
+    await userEvent.click(screen.getByRole('tab', { name: /Уточнения/ }))
+    expect(await screen.findByLabelText('Комментарий')).toHaveValue('Original answer draft')
+    expect(chats.answerClarification).not.toHaveBeenCalled()
+  })
   it('holds stop after the first failed controls read while its retry is still pending', async () => {
     vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
     const available = {

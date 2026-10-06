@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useBlocker, useParams, useSearchParams } from 'react-router'
 import {
   useInfiniteQuery,
@@ -178,6 +178,11 @@ function ChatWorkspace({ id }: { id: string }) {
   })
   const transcript = useRef<HTMLDivElement>(null)
   const following = useRef(true)
+  const readingPosition = useRef(0)
+  const attachTranscript = useCallback((node: HTMLDivElement | null) => {
+    transcript.current = node
+    if (node) node.scrollTop = following.current ? node.scrollHeight : readingPosition.current
+  }, [])
   const [newMessages, setNewMessages] = useState(false)
   const tab = ['dialogue', 'clarification', 'requirements'].includes(params.get('tab') ?? '')
     ? params.get('tab')!
@@ -568,12 +573,14 @@ function ChatWorkspace({ id }: { id: string }) {
             )}
             <TabsContent value="dialogue" className="fc-chat-panel">
               <div
-                ref={transcript}
+                ref={attachTranscript}
                 className="fc-chat-scroll"
                 onScroll={() => {
                   const node = transcript.current
-                  if (node)
+                  if (node) {
+                    readingPosition.current = node.scrollTop
                     following.current = node.scrollHeight - node.scrollTop - node.clientHeight < 48
+                  }
                 }}
               >
                 {history.isError && <ReadableError error={history.error} />}
