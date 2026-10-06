@@ -191,6 +191,7 @@ mod tests {
             source_sha256: ["a".repeat(64), "b".repeat(64), "c".repeat(64)],
             context: "default".into(),
             provisioning: None,
+            bridge_controller: None,
         });
         let mut content = json!({});
         native_listener(&agent, &config, &mut content).unwrap();

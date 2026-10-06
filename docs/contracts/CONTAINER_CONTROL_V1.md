@@ -83,6 +83,30 @@ Docker configuration and is not container or SDLC acceptance.
 
 ## Supervisor Binding
 
+### Trusted Fleet Bridge Attachment Candidate
+
+Private optional `fleet.container_control.bridge_controller` contains full
+`container_id`, immutable `image_id` and exact Compose `service` (`fleet-backend`
+or `fleet-control-backend`). It is operator configuration, not agent/user input.
+Fleet calls Base `attach_controller` after preparation, before DB launch claim
+and protected start; it revalidates the same attachment before resolving any
+Hermes HTTP endpoint. Missing option retains explicit host/operator networking,
+not automatic discovery of a running Fleet container.
+
+The automatic creation intent pins the controller selection; drift conflicts
+before launch. A generation-specific private attachment SQLite journal lives
+outside agent storage. Base seals original controller PID/start/inventory, Engine,
+registration and bridge; only that running same-project trusted Fleet backend
+is attached. Unknown acceptance cannot repeat connect; exact positive membership
+readback can recover the original claim. External membership is not adopted;
+controller replacement/restart holds for operator reconciliation. Agent topology
+stays one private bridge, without host ports/socket or sibling mounts.
+
+This candidate does not implement daemon-path translation, controller takeover,
+container logs/config activation, PM admission or model/chat acceptance. Native
+two-Hermes trusted-controller HTTP and Rust consumer gates must be recorded
+separately; fixture receipts cannot certify the installed Fleet backend.
+
 Operator configuration `fleet.container_control` selects Docker without native
 fallback. The controller reads a private mode0600 file
 `<controller_root>/<agent_uuid>.container-prepared.json`, with closed fields:

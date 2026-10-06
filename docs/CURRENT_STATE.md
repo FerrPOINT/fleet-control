@@ -1,5 +1,25 @@
 # Current State
 
+## Trusted Fleet Bridge Consumer: 6 October 2026
+
+Private bridge_controller configuration now attaches an explicitly pinned Fleet
+container before launch claim/start and revalidates its original membership before
+Hermes endpoint resolution. Automatic intent pins the controller selection; drift
+cannot start an obsolete generation. No new controller service or native fallback.
+
+Fresh Rust1.88/PostgreSQL full gate:504 PASS/0 failed/29 ignored, fmt/locked offline
+all-target check/strict Clippy PASS. The new fake-Base fixture proves unknown
+attachment cannot claim/start; matching attachment precedes the existing launch.
+This is not Rust Fleet/actual Docker/model/chat acceptance. Native Base separately
+proves a trusted QA peer reaches two real Hermes gateways through the new utility.
+No inference, new UI screenshots, installed images or permanent services changed.
+
+Base PR150 is ready/mergeable at0e14ddf with nine successful exact-head jobs in
+CI37456080881, reread after ready; no reviews/threads. Runtime/config activation,
+daemon-path/UID/logs, container chat and PM admission/resume remain incomplete.
+Chats/PM consumer has a separate user-requested task/worktree; its existence is
+not delivery evidence. See [verification](CHAT_CLARIFICATION_VERIFICATION.md).
+
 ## Prepared Container Recipe Guard: 6 October 2026
 
 Saved automatic generations now revalidate their original intent against current

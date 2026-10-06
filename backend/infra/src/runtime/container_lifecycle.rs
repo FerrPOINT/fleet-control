@@ -34,6 +34,8 @@ struct ContainerCreationIntent {
     process: container_control::ContainerProcess,
     source_sha256: [String; 3],
     context: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    bridge_controller: Option<shared::config::BridgeControllerConfig>,
 }
 
 async fn private_document(
@@ -178,6 +180,7 @@ impl LocalRuntimeSupervisor {
             },
             source_sha256: config.source_sha256.clone(),
             context: config.context.clone(),
+            bridge_controller: config.bridge_controller.clone(),
         })
     }
 
@@ -376,6 +379,7 @@ impl LocalRuntimeSupervisor {
             return Err(held());
         }
         let binding = launch.binding.container.as_ref().ok_or_else(held)?;
+        self.attach_container_controller(binding).await?;
         let host = self
             .container_control(binding)?
             .endpoint(&self.container_files(binding).await?, &binding.registration)
@@ -589,6 +593,7 @@ impl LocalRuntimeSupervisor {
         let container = binding.container.as_ref().ok_or_else(held)?;
         let control = self.container_control(container)?;
         let files = self.container_files(container).await?;
+        self.attach_container_controller(container).await?;
         // This transaction is the last prerequisite before the single protected Docker start.
         self.repo.claim_runtime_launch(&binding).await?;
         self.launches.lock().await.insert(
@@ -651,6 +656,29 @@ impl LocalRuntimeSupervisor {
             status: AgentStatus::Running,
             message: "Hermes container started and API is ready".into(),
         })
+    }
+
+    async fn attach_container_controller(
+        &self,
+        binding: &RuntimeContainerBinding,
+    ) -> Result<(), AppError> {
+        let config = self
+            .config
+            .fleet
+            .container_control
+            .as_ref()
+            .ok_or_else(held)?;
+        let Some(controller) = config.bridge_controller.as_ref() else {
+            return Ok(());
+        };
+        let files = self.container_files(binding).await?;
+        let journal = files.journal.parent().ok_or_else(held)?.join(format!(
+            "{}.{}.attachment.sqlite",
+            binding.registration.resource_id, binding.registration.generation
+        ));
+        self.container_control(binding)?
+            .attach_controller(&files, &binding.registration, controller, &journal)
+            .await
     }
 
     async fn ack_container(

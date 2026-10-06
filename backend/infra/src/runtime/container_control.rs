@@ -146,6 +146,16 @@ pub struct ContainerPreparation {
     pub registration: ContainerRegistration,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ControllerAttachment {
+    state: String,
+    registration_sha256: String,
+    controller_id: String,
+    controller_sha256: String,
+    network_id: String,
+}
+
 pub(super) fn validate_preparation(
     prepared: &ContainerPreparation,
     policy: &Value,
@@ -473,6 +483,54 @@ impl ContainerControl {
             return Err(held());
         }
         Ok(endpoint.host)
+    }
+
+    pub async fn attach_controller(
+        &self,
+        files: &ContainerLaunchFiles,
+        original: &ContainerRegistration,
+        controller: &shared::config::BridgeControllerConfig,
+        journal: &std::path::Path,
+    ) -> Result<(), AppError> {
+        if !hash(&controller.container_id)
+            || controller.container_id == original.container_id
+            || !controller
+                .image_id
+                .strip_prefix("sha256:")
+                .is_some_and(hash)
+            || !matches!(
+                controller.service.as_str(),
+                "fleet-backend" | "fleet-control-backend"
+            )
+            || original.contract_version != 2
+            || !journal.is_absolute()
+            || journal.parent() != files.journal.parent()
+            || journal == files.journal
+            || journal == files.compose
+            || journal == files.stop_journal
+        {
+            return Err(held());
+        }
+        let (status, value) = self
+            .call(
+                files,
+                "attach_controller",
+                json!({
+                    "registration":original, "controller":controller, "attachment_journal":journal,
+                }),
+            )
+            .await?;
+        let attachment: ControllerAttachment = serde_json::from_value(value).map_err(|_| held())?;
+        if status != 0
+            || attachment.state != "attached"
+            || attachment.registration_sha256 != canonical_hash(original)?
+            || attachment.controller_id != controller.container_id
+            || !hash(&attachment.controller_sha256)
+            || files.policy["network"]["id"].as_str() != Some(attachment.network_id.as_str())
+        {
+            return Err(held());
+        }
+        Ok(())
     }
 
     /// Caller must commit the registration in Fleet's authoritative launch journal first.

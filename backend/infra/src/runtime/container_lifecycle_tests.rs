@@ -206,6 +206,7 @@ print(json.dumps({'protocol_version':1,'action':r['action'],'result':result}));s
         source_sha256: container.source_sha256.clone(),
         context: container.context.clone(),
         provisioning: None,
+        bridge_controller: None,
     });
     launch.command_sha256 =
         crate::runtime_launches::snapshot_hash(&serde_json::to_value(&container).unwrap()).unwrap();
@@ -447,6 +448,13 @@ if r['action']=='prepare':
   policy=r['policy'];policy['network']['id']='1'*64
   reg={'contract_version':2,'operation_id':r['operation_id'],'container_id':digest(policy['generation']),'resource_id':policy['resource_id'],'generation':policy['generation'],'engine':{'ID':'original-engine','KernelVersion':'original-kernel','ServerVersion':'29'},'policy_sha256':digest(policy),'inventory_sha256':'c'*64,'running_inventory_sha256':'d'*64,'compose_sha256':'e'*64,'network_sha256':'f'*64}
   result={'state':'prepared','policy':policy,'registration':reg}
+elif r['action']=='attach_controller':
+ reg=r['registration']
+ if (root/'attach-unknown').exists():
+  result={'state':'held'}
+ else:
+  (root/'attach-effect').write_text('1')
+  result={'state':'attached','registration_sha256':digest(reg),'controller_id':r['controller']['container_id'],'controller_sha256':'e'*64,'network_id':r['policy']['network']['id']}
 else:
  reg=r['registration'];result={k:reg[k] for k in ('contract_version','operation_id','container_id','resource_id','generation')}
  result.update(registration_sha256=digest(reg),state='registered',observation='never_started',snapshot=None)
@@ -538,6 +546,7 @@ async fn java_cannot_fall_back_to_native_when_docker_mode_is_selected() {
         source_sha256: ["a".repeat(64), "b".repeat(64), "c".repeat(64)],
         context: "desktop-linux".into(),
         provisioning: None,
+        bridge_controller: None,
     });
     let runtime = lifecycle_tests::supervisor(Arc::new(config), repo.clone());
     let result = runtime.start_locked(&agent, LaunchPhase::Regular).await;
@@ -701,6 +710,7 @@ async fn prepared_container_rejects_changed_credentials_and_recipe_before_launch
         "memory",
         "network",
         "cors",
+        "controller",
     ] {
         let mut changed = config.clone();
         let provision = changed
@@ -722,6 +732,18 @@ async fn prepared_container_rejects_changed_credentials_and_recipe_before_launch
                 .server
                 .cors_allowed_origins
                 .push("https://changed.test".into()),
+            "controller" => {
+                changed
+                    .fleet
+                    .container_control
+                    .as_mut()
+                    .unwrap()
+                    .bridge_controller = Some(shared::config::BridgeControllerConfig {
+                    container_id: "a".repeat(64),
+                    image_id: format!("sha256:{}", "b".repeat(64)),
+                    service: "fleet-backend".into(),
+                })
+            }
             _ => unreachable!(),
         }
         let runtime = lifecycle_tests::supervisor(Arc::new(changed), repo.clone());
@@ -756,6 +778,62 @@ async fn prepared_container_rejects_changed_credentials_and_recipe_before_launch
     );
     assert_eq!(tokio::fs::read(&intent_path).await.unwrap(), intent);
     assert_eq!(tokio::fs::read(&prepared_path).await.unwrap(), prepared);
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn trusted_bridge_attachment_precedes_launch_and_unknown_blocks_start() {
+    let Some((repo, agent, _, config, root)) = lifecycle_tests::fixture(AgentKind::Hermes).await
+    else {
+        return;
+    };
+    let mut config = fake_creation(&config, &agent, false).await;
+    config
+        .fleet
+        .container_control
+        .as_mut()
+        .unwrap()
+        .bridge_controller = Some(shared::config::BridgeControllerConfig {
+        container_id: "a".repeat(64),
+        image_id: format!("sha256:{}", "b".repeat(64)),
+        service: "fleet-backend".into(),
+    });
+    let runtime = lifecycle_tests::supervisor(Arc::new(config), repo.clone());
+    let private = root.join("controller");
+    tokio::fs::write(private.join("attach-unknown"), "1")
+        .await
+        .unwrap();
+    assert!(
+        runtime
+            .start_locked(&agent, LaunchPhase::Regular)
+            .await
+            .is_err()
+    );
+    assert!(!private.join("start-effect").exists());
+    assert!(
+        repo.get_open_runtime_launch(agent.id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    tokio::fs::remove_file(private.join("attach-unknown"))
+        .await
+        .unwrap();
+    assert!(
+        runtime
+            .start_locked(&agent, LaunchPhase::Regular)
+            .await
+            .is_err()
+    );
+    assert!(private.join("attach-effect").exists());
+    assert!(private.join("start-effect").exists());
+    assert!(
+        repo.get_open_runtime_launch(agent.id)
+            .await
+            .unwrap()
+            .is_some()
+    );
     tokio::fs::remove_dir_all(root).await.unwrap();
 }
 

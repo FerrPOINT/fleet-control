@@ -228,6 +228,16 @@ pub struct ContainerControlConfig {
     pub context: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provisioning: Option<ContainerProvisioningConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bridge_controller: Option<BridgeControllerConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BridgeControllerConfig {
+    pub container_id: String,
+    pub image_id: String,
+    pub service: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

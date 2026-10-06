@@ -1,5 +1,39 @@
 # Chat Clarification Verification
 
+## Trusted Fleet Bridge Consumer: 6 October 2026
+
+Optional private bridge_controller pins exact container/image/service. Fleet
+calls captured Base attach_controller after preparation, before DB launch claim
+and start, and on endpoint resolution. Original creation intent includes the
+controller selection. No public API, migration, SDK pin or installed runtime change.
+The fixture proves unknown attachment has zero launch/start; success precedes
+claim/start. Prepared recipe drift now includes the controller alongside earlier
+credential/process checks. Fixture start remains a fake unresolved ACK, not health.
+
+Full Rust1.88/Linux/PG project `sdlc-qa-fleet-container-control-e398f08cd693` PASS:
+504 cases/0 failures/29 ignored; fmt, locked offline all-target check/strict Clippy.
+All288 captured inputs unchanged. Source/log/report SHA256:
+`9f1df38614ecec519a4fe7607a0c2371c20a7177d3b0e9a55839c7aa1013e784` /
+`e2f7eeba28d73b3d3843d40e6bf9c31ae72049ce3f43a4b1b310c2cef005e18f` /
+`5ac04d43eba4cae93db1d16e88026552f460b5f30a9977be16882f784c2be4c4`.
+Artifacts: ignored `.local/fleet-container-control-checks-9852af80b644` in workspace.
+Cleanup0 and independent exact-project container/network inventories empty.
+
+Base nativea208dec88b45 separately proves original trusted-peer attachment/replay
+before start, real Hermes health/required capabilities/cross-token denial and two
+namespace_exited receipts.13770 pinned files, nine unchanged executable inputs,
+cleanup0/empty inventories/own tags removed. Report
+`e7bea6bf0cfe9bf5f6752ceb66a5ff0324683a3e2ae3172136de7f2d3688b60d`.
+First7ae QA bytes-ID failure was cleaned; only harness ASCII decode changed.
+Host Base362:351 PASS/11 skips after normal mainefa21dc history merge. PR150 at
+0e14ddf is ready/mergeable; nine exact-head CI37456080881 jobs successful after
+ready and reviews/threads empty. Prior604 CI is not evidence for these bytes.
+
+This certifies Base network/startup and fake Rust consumer separately. It does
+not certify actual Rust Fleet supervisor/model/chat, daemon-path/UID, config
+activation/rollback, Docker logs/controller takeover or PM admission/resume.
+No live browser/screenshot capture; no merge/install/accepted resources change.
+
 ## Prepared Container Recipe Guard: 6 October 2026
 
 The follow-up reconstructs the current automatic recipe using the original
