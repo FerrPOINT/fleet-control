@@ -6,8 +6,12 @@ The real [container acceptance](../CONTAINER_SUPERVISOR_ACCEPTANCE.md) verifies
 two UID999 Hermes containers, isolated SOUL/model input, once-only free-chat
 delivery, configuration drain/replacement and restart through the Rust supervisor.
 The model is controlled locally; this is not task/PM or full SDLC acceptance.
-Readiness-failure rollback, controller crash/private-journal recovery and Docker
-log ingestion remain separate live gates.
+The separate controlled readiness-timeout gate verifies a distinct rollback
+generation and restored configuration; see
+[rollback evidence](../CHAT_CLARIFICATION_VERIFICATION.md#actual-docker-readiness-rollback-6-october-2026).
+Controller crash/private-journal recovery and production Docker log ingestion
+remain open live gates. That controlled failure does not certify every rollback
+failure mode or installed rollout.
 
 Additive000019 persists a Base-verified bridge origin against the original
 started launch/PID. The dispatch journal requires that exact endpoint and private
@@ -35,10 +39,11 @@ prepares another generation under an immutable-history ordinal; unknown starts
 cannot advance it. The mapped consumer now fixes original named-volume proof
 in creation intent/prepared/DB bindings, uses exact agentN subpaths and forwards
 private protocol2 guards through lifecycle operations. Projected daemon paths
-are not host-bind launch sources. Source implementation is not actual Rust Fleet
-UID/file/model acceptance; controller restart stays held without takeover.
-UID/file access, logs, real Docker restart acceptance and configuration
-activation/rollback are not complete; readiness is not SDLC admission. Java is unchanged. Statements
+are not host-bind launch sources. Actual Rust Fleet UID/file/model, original
+namespace restart, configuration activation and controlled readiness rollback
+have scoped disposable QA evidence. Controller restart stays held without
+takeover; private-journal recovery and production logs remain incomplete.
+Readiness is not SDLC admission. Java is unchanged. Statements
 below about retained children and process `try_wait` describe the legacy native
 path only, not container custody or Docker acceptance evidence.
 

@@ -13,7 +13,8 @@ predispatch/first-step/PM/Forge acceptance next. Do not invent missing producer
 authority or use a healthy runtime as SDLC readiness.
 
 Keep Base control source69831aa separate from SDK pin cbb4e99. Its prerequisite
-PR150 is currently conflicting against main; retain ordered release rather than
+PR150 is ready/MERGEABLE at7d7323a with9 successful exact-head CI jobs, but still
+open and not installed. Retain ordered release rather than
 publishing a predecessor-heavy log-only main PR. Fleet's historical migrations
 still require the agreed one-migration-per-release-PR order. Nothing is installed
 or enabled from this packet. See

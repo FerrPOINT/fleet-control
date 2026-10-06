@@ -411,8 +411,12 @@ version is rejected instead of overwriting another operator's change.
 
 ## Logs
 
-Runtime stdout/stderr is captured into `agent_logs`. Secret-like markers are
-redacted before persistence.
+The native process path captures stdout/stderr into `agent_logs` and applies
+generic secret-marker redaction before persistence. This is not production
+Docker log ingestion or proof of exact resolved per-launch secret redaction.
+The container candidate currently provides private bounded Base log readback;
+generation-bound collection, durable replay/cursors, rotation/gap handling and
+redaction of the original resolved credentials remain required before rollout.
 
 `/logs` has process logs, events and audit tabs. Use audit for role changes,
 settings changes, skill/config edits, runtime actions, handoff and delegation.
