@@ -3,10 +3,11 @@ import { Link, useNavigate, useSearchParams } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight, Bot, MessageSquare, Plus, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { ApiError } from '@sdlc/ui/lib'
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, Input, Label } from '@sdlc/ui/ui'
 import { createSession } from '@/api/fleet'
 import { getChatsDirectory } from '@/api/chats-directory'
-import type { AgentDirectoryItem } from '@/api/types'
+import type { AgentDirectoryItem, CreateSessionRequest } from '@/api/types'
 import { useSessionUserFilter, SessionUserFilter } from '@/shared/session-user-filter'
 import { useAuthStore } from '@/shared/auth/store'
 import { UserAvatar } from '@/shared/ui/user-avatar'
@@ -294,14 +295,12 @@ export function ChatsPage() {
           </section>
         </div>
       ) : null}
-      {selected ? (
-        <CreatePrivateChat
-          agent={selected.agent}
-          open={createOpen}
-          onOpenChange={setCreateOpen}
-          returnTo={returnTo}
-        />
-      ) : null}
+      <CreatePrivateChat
+        agent={selected?.agent}
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        returnTo={returnTo}
+      />
     </>
   )
 }
@@ -312,7 +311,7 @@ function CreatePrivateChat({
   onOpenChange,
   returnTo,
 }: {
-  agent: AgentDirectoryItem
+  agent?: AgentDirectoryItem
   open: boolean
   onOpenChange: (value: boolean) => void
   returnTo: string
@@ -322,22 +321,25 @@ function CreatePrivateChat({
   const client = useQueryClient()
   const [title, setTitle] = useState('')
   const [key, setKey] = useState(() => crypto.randomUUID())
+  const [uncertain, setUncertain] = useState(false)
   const mutation = useMutation({
-    mutationFn: () =>
-      createSession({
-        primary_agent_id: agent.id,
-        title: title.trim(),
-        leader_agent_id: null,
-        idempotency_key: key,
-      }),
+    mutationFn: (command: { input: CreateSessionRequest; agentName: string }) =>
+      createSession(command.input),
     onSuccess: async (session) => {
+      setUncertain(false)
       await client.invalidateQueries({ queryKey: ['chats-directory'] })
       onOpenChange(false)
       setTitle('')
       setKey(crypto.randomUUID())
       navigate(`/chats/${session.id}?returnTo=${encodeURIComponent(returnTo)}`)
     },
+    onError: (error) => {
+      if (!(error instanceof ApiError) || error.status === 408 || error.status >= 500)
+        setUncertain(true)
+    },
   })
+  const held = mutation.isPending || uncertain
+  if (!agent && !held) return null
   return (
     <Dialog
       open={open}
@@ -348,7 +350,7 @@ function CreatePrivateChat({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            {t('chats.new')} · {agent.display_name}
+            {t('chats.new')} · {held ? mutation.variables?.agentName : agent?.display_name}
           </DialogTitle>
         </DialogHeader>
         <form
@@ -356,7 +358,22 @@ function CreatePrivateChat({
           aria-busy={mutation.isPending}
           onSubmit={(event) => {
             event.preventDefault()
-            if (title.trim() && !mutation.isPending) mutation.mutate()
+            if (mutation.isPending) return
+            if (uncertain && mutation.variables) mutation.mutate(mutation.variables)
+            else if (
+              title.trim() &&
+              agent?.product_role === 'executor' &&
+              agent.status !== 'archived'
+            )
+              mutation.mutate({
+                agentName: agent.display_name,
+                input: {
+                  primary_agent_id: agent.id,
+                  title: title.trim(),
+                  leader_agent_id: null,
+                  idempotency_key: key,
+                },
+              })
           }}
         >
           <Label htmlFor="chat-title">{t('sessions.sessionTitle')}</Label>
@@ -366,14 +383,17 @@ function CreatePrivateChat({
             value={title}
             required
             maxLength={200}
-            disabled={mutation.isPending}
+            disabled={held}
             onChange={(event) => {
               setTitle(event.target.value)
               setKey(crypto.randomUUID())
               mutation.reset()
             }}
           />
-          {mutation.isError ? <ErrorState message={t('sessions.createError')} /> : null}
+          {mutation.isError && !uncertain ? (
+            <ErrorState message={t('sessions.createError')} />
+          ) : null}
+          {uncertain ? <ErrorState message={t('chats.creationUnknown')} /> : null}
           <Button type="submit" disabled={mutation.isPending || !title.trim()}>
             <Plus className="h-4 w-4" />
             {mutation.isPending ? t('sessions.creating') : t('sessions.create')}

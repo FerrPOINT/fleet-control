@@ -1,0 +1,85 @@
+{
+  "baseline": "d592a0d06f71176861c8b75da2b012b133187aae",
+  "originalPacketIntegratedAt": "5ec44648714a652fd6548d9a80ad1720a2d2e6de",
+  "sourceSha256": {
+    "frontend/src/pages/chats/index.tsx": "68f23d9d21a03fc01bb22c8c2ed888a40b63a19c0ab005e9d84536f3a3379ef1",
+    "frontend/src/pages/chats/index.test.tsx": "6bf8207dd9a3ca6ec16935787a6d2946b3964143fb5c524784218a52b6632584",
+    "frontend/src/pages/workflows/index.tsx": "6de051e5f350652c05750ce4fb76ce4f9d2de5532c9e65cce22026f0b8ef89ed",
+    "frontend/src/pages/workflows/index.test.tsx": "966a6fd385d8ea70a263430b03294b6a81cdeb2abffc3d0e0c43b7de83528923",
+    "frontend/src/shared/i18n/locales/ru.json": "5c50e0e91bb557fc81fb9a535ae659eecd669d63e5e6e5d0e958f4f609e90300",
+    "frontend/src/shared/i18n/locales/en.json": "eafdde1d758595ba05a98a16ae2161e33c96d713b0d28c30a76a2dd873200668",
+    "frontend/e2e/chats-directory.spec.ts": "4d4549fbeeabd95fb18579919eecab51ddeffd737bf4217b4ccb5297d3ee431f",
+    "frontend/e2e/fleet-control.spec.ts": "e57f7eb06c986ecd9cfd88feb1ae9854494c1610944729da827547d7abc8bdfb",
+    "frontend/scripts/verify-chat-contract.mjs": "9094807e9f6c10f821215ca3dd543f5a08890b1a4b4fb01fbc2e0b590d981e5f",
+    "frontend/src/pages/chat-detail/index.tsx": "76d3bb9dbe2298772a341f1127cb2da4b358f54e16c387147d8ce7028abe9983",
+    "frontend/src/pages/chat-detail/index.test.tsx": "0223d0b598820a6d2adff07a3c30d4a315d4e77fd1cfe11e57f88d973d36cbc7",
+    "frontend/package.json": "acedfb03a8d8c833eb7675c28ebecd1ffd7f98f3045e353f43b59762c0a4466e",
+    "frontend/pnpm-lock.yaml": "37918d9d24852a14f24c43a593777e99d36e0e58de2e7b9a58a4415fd927fb67"
+  },
+  "node": "22.20.0",
+  "pnpm": "10.28.1",
+  "baseRevision": "cbb4e99230420dc2659431b1c9fb5090e5c940f0",
+  "unitFiles": 31,
+  "unitPassed": 268,
+  "browserPassed": 36,
+  "browsers": [
+    "chromium",
+    "firefox",
+    "webkit"
+  ],
+  "browserBaseURL": "http://localhost:24173",
+  "liveNavigationVerified": true,
+  "livePmAcceptance": false,
+  "candidateInstalled": false,
+  "runtimeModified": false,
+  "unchangedBackend": {
+    "tests": 13,
+    "sourceHashesVerified": true
+  },
+  "reproducedBeforeFix": {
+    "failedCases": 5,
+    "logSha256": "630341104157ef7a6c9d1c5a3f9ceac8bf80b66e9700c57fb15ac504ea05dff1"
+  },
+  "sourceLogSha256": {
+    "unit": "4d108ae15ff2429c9f5a33ba226b10155ddf1ae848a815bf1c08b948a6c7ed1f",
+    "browser": "bb35c2935571eab12bfa6573059ce8ae454ced9007fc52f55d7fe7c583ec3b5e",
+    "publishedExactCheck": "6b736e5c06af8814df7e1d01731b7da9de239819f380ccae80055a46fdc2bac9"
+  },
+  "passedCommands": [
+    "pnpm typecheck",
+    "pnpm lint",
+    "pnpm test",
+    "pnpm build",
+    "pnpm format:check",
+    "pnpm chat:contract",
+    "pnpm openapi:check",
+    "pnpm openapi:compat",
+    "pnpm markdown:check",
+    "node node_modules/@sdlc/ui/scripts/check-ui-contract.mjs --repo .. --require-installed",
+    "PLAYWRIGHT_BASE_URL=http://localhost:24173 node node_modules/@playwright/test/cli.js test e2e/fleet-control.spec.ts e2e/chats-directory.spec.ts --workers=3",
+    "node scripts/publish-chats-pm-consumer-evidence.mjs --verify"
+  ],
+  "publishedExactParity": false,
+  "publishedTrackerDifferences": 3,
+  "producerHeads": {
+    "tracker": "8c80a41fae3bf1c10439ddb7e536b05bf320340d",
+    "workflow": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37"
+  },
+  "browserAssertionFollowups": {
+    "messageAssertionUpdated": true,
+    "ambiguousPageLocatorScopedToSummary": true,
+    "messageLogSha256": "194da26392dbd75f6cc4cdbc458784ff91d232e6415387738d90b929c02eb680",
+    "ambiguousLocatorLogSha256": "efee1f62fecc0b156fbeb1b7deca03bbeac408c2c09aa05ceaea65de7ecc918b"
+  },
+  "browserInitialFailure": {
+    "reason": "incorrect fixture error text assertion corrected; owned runner stopped and rerun",
+    "logSha256": "49c85d2c340aab8ae8fb0751826d7181f8df632081defe4d638e9349d4e615a1"
+  },
+  "limits": [
+    "No live owner task/clarification/requirements records accessible",
+    "Live account has no Workflow operator access",
+    "No native PM checkpoint/resume/dispatch proof",
+    "No exact-head independent-branch CI",
+    "Unknown private-chat creation survives page-local dialogs/filters but not full reload; durable operation readback is a separate contract"
+  ]
+}

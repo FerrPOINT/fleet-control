@@ -846,6 +846,7 @@
   "chats": {
     "title": "Chats",
     "new": "New chat",
+    "creationUnknown": "The result of creating the chat is still unknown. You can only retry the original request. The title and agent are preserved.",
     "agents": "Agents",
     "sessions": "Agent tasks and sessions",
     "count": "Session count",

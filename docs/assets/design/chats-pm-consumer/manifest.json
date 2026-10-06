@@ -11,7 +11,7 @@
   "command": "pnpm exec playwright test e2e/fleet-control.spec.ts e2e/chats-directory.spec.ts --workers=1",
   "sourceSha256": {
     "frontend/src/pages/chat-detail/index.tsx": "76d3bb9dbe2298772a341f1127cb2da4b358f54e16c387147d8ce7028abe9983",
-    "frontend/e2e/fleet-control.spec.ts": "351620e6ed261aaf007e55811b84193154476ce9ec1f3894638e5c3c4be40aaf"
+    "frontend/e2e/fleet-control.spec.ts": "e57f7eb06c986ecd9cfd88feb1ae9854494c1610944729da827547d7abc8bdfb"
   },
   "screenshots": [
     {

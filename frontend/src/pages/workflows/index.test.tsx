@@ -50,13 +50,14 @@ const catalog = {
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(
+  const result = render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
         <WorkflowsPage />
       </MemoryRouter>
     </QueryClientProvider>,
   )
+  return { ...result, client }
 }
 
 describe('WorkflowsPage', () => {
@@ -138,6 +139,32 @@ describe('WorkflowsPage', () => {
     fireEvent.click(within(error.parentElement!).getByRole('button', { name: 'Повторить' }))
     await waitFor(() =>
       expect(screen.getAllByRole('button', { name: 'Перепривязать' })[0]).toBeEnabled(),
+    )
+  })
+  it('holds cached rebind choices after a failed catalog refresh and preserves selection', async () => {
+    const { client } = renderPage()
+    const selector = await screen.findByLabelText('Новое пространство для First Agent')
+    fireEvent.change(selector, { target: { value: 'namespace-2' } })
+    vi.mocked(fleet.getWorkflowCatalog).mockRejectedValue(new Error('catalog refresh offline'))
+    await client.invalidateQueries({ queryKey: ['workflow-catalog'] })
+    await screen.findByText(/Каталог Project Workflow недоступен/)
+    expect(selector).toBeDisabled()
+    expect(selector).toHaveValue('namespace-2')
+    const button = screen.getAllByRole('button', { name: 'Перепривязать' })[0]!
+    expect(button).toBeDisabled()
+    fireEvent.click(button)
+    expect(fleet.rebindWorkflowBinding).not.toHaveBeenCalled()
+    vi.mocked(fleet.getWorkflowCatalog).mockResolvedValue(catalog)
+    const error = screen.getByRole('alert')
+    fireEvent.click(within(error.parentElement!).getByRole('button', { name: 'Повторить' }))
+    await waitFor(() => expect(button).toBeEnabled())
+    expect(selector).toHaveValue('namespace-2')
+    fireEvent.click(button)
+    await waitFor(() =>
+      expect(fleet.rebindWorkflowBinding).toHaveBeenCalledWith('agent-1', {
+        namespace_id: 'namespace-2',
+        workflow_id: 'workflow-2',
+      }),
     )
   })
 })

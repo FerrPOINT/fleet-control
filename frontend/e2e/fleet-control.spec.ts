@@ -1681,14 +1681,54 @@ test('uses the shared work-area geometry across semantic page modes', async ({
   }
 })
 
-test('workflow bindings rebind only to a workflow in the selected namespace', async ({ page }) => {
+test('workflow bindings rebind only to a workflow in the selected namespace', async ({
+  page,
+}, testInfo) => {
   const state = createState()
   await installMocks(page, state)
+  let catalogDenied = false
+  const commands: unknown[] = []
+  await page.route('**/api/v1/workflow-catalog', (route) =>
+    catalogDenied
+      ? fulfill(route, { error: { message: 'Catalog access revoked' } }, 403)
+      : route.fallback(),
+  )
+  await page.route('**/api/v1/workflow-bindings/*', (route) => {
+    if (route.request().method() === 'PUT') commands.push(route.request().postDataJSON())
+    return route.fallback()
+  })
   await page.goto('/workflows')
 
   await expect(page.getByText('Developer Hermes', { exact: true })).toBeVisible()
+  const namespace = page.getByLabel('Новое пространство для Developer Hermes')
+  await namespace.selectOption('1')
+  catalogDenied = true
+  await page.getByRole('link', { name: 'Чаты', exact: true }).click()
+  await page.getByRole('link', { name: 'Процессы', exact: true }).click()
+  await expect(page.getByText(/Каталог Project Workflow недоступен/)).toBeVisible()
+  await expect(namespace).toBeDisabled()
+  const rebind = page.getByRole('button', { name: 'Перепривязать', exact: true })
+  await expect(rebind).toBeDisabled()
+  expect(commands).toHaveLength(0)
+  for (const viewport of [
+    { width: 375, height: 812 },
+    { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await page.screenshot({
+      path: testInfo.outputPath(`workflow-catalog-held-${viewport.width}.png`),
+      fullPage: true,
+      animations: 'disabled',
+      scale: 'css',
+    })
+  }
+  catalogDenied = false
+  await page.getByRole('button', { name: 'Повторить', exact: true }).click()
+  await expect(rebind).toBeEnabled()
   await page.getByRole('button', { name: 'Перепривязать', exact: true }).click()
   await expect(page.getByText('sdlc-business-tech-v1').first()).toBeVisible()
+  expect(commands).toEqual([{ namespace_id: '1', workflow_id: '1' }])
 })
 
 test('managed settings require preview, preserve failed changes and expose rollback history', async ({
@@ -2045,7 +2085,9 @@ test('Hermes fleet control flow covers agents, runtime, skills, sessions and han
   await page.getByLabel('Новый основной агент').selectOption(ids.tester)
   await page.getByRole('button', { name: 'Передать сессию' }).click()
   await expect(page.getByText('Ожидает передачи')).toBeVisible()
-  await expect(page.getByText('agent2', { exact: true })).toBeVisible()
+  await expect(
+    page.getByLabel('Сводка по сессии').getByText('agent2', { exact: true }),
+  ).toBeVisible()
 
   await page.goto('/deployments?tab=jobs')
   await expect(page.getByRole('heading', { name: 'Развёртывания', exact: true })).toBeVisible()

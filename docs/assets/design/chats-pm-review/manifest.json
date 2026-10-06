@@ -1,0 +1,161 @@
+{
+  "baseline": "d592a0d06f71176861c8b75da2b012b133187aae",
+  "evidence": "separate installed read-only and candidate fixture views",
+  "livePmAcceptance": false,
+  "sourceSha256": {
+    "frontend/src/pages/chats/index.tsx": "68f23d9d21a03fc01bb22c8c2ed888a40b63a19c0ab005e9d84536f3a3379ef1",
+    "frontend/src/pages/chats/index.test.tsx": "6bf8207dd9a3ca6ec16935787a6d2946b3964143fb5c524784218a52b6632584",
+    "frontend/src/pages/workflows/index.tsx": "6de051e5f350652c05750ce4fb76ce4f9d2de5532c9e65cce22026f0b8ef89ed",
+    "frontend/src/pages/workflows/index.test.tsx": "966a6fd385d8ea70a263430b03294b6a81cdeb2abffc3d0e0c43b7de83528923",
+    "frontend/src/shared/i18n/locales/ru.json": "5c50e0e91bb557fc81fb9a535ae659eecd669d63e5e6e5d0e958f4f609e90300",
+    "frontend/src/shared/i18n/locales/en.json": "eafdde1d758595ba05a98a16ae2161e33c96d713b0d28c30a76a2dd873200668",
+    "frontend/e2e/chats-directory.spec.ts": "4d4549fbeeabd95fb18579919eecab51ddeffd737bf4217b4ccb5297d3ee431f",
+    "frontend/e2e/fleet-control.spec.ts": "e57f7eb06c986ecd9cfd88feb1ae9854494c1610944729da827547d7abc8bdfb",
+    "frontend/scripts/verify-chat-contract.mjs": "9094807e9f6c10f821215ca3dd543f5a08890b1a4b4fb01fbc2e0b590d981e5f",
+    "frontend/src/pages/chat-detail/index.tsx": "76d3bb9dbe2298772a341f1127cb2da4b358f54e16c387147d8ce7028abe9983",
+    "frontend/src/pages/chat-detail/index.test.tsx": "0223d0b598820a6d2adff07a3c30d4a315d4e77fd1cfe11e57f88d973d36cbc7",
+    "frontend/package.json": "acedfb03a8d8c833eb7675c28ebecd1ffd7f98f3045e353f43b59762c0a4466e",
+    "frontend/pnpm-lock.yaml": "37918d9d24852a14f24c43a593777e99d36e0e58de2e7b9a58a4415fd927fb67"
+  },
+  "screenshots": [
+    {
+      "file": "preview-creation-unknown-375.png",
+      "scenario": "creation-unknown",
+      "fixture": true,
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "5a222f1808cd33572d0ceac996989b967ed45bba5177d603be7ff05c983c6494",
+      "width": 375,
+      "height": 812,
+      "mimeType": "image/png"
+    },
+    {
+      "file": "preview-creation-unknown-1920.png",
+      "scenario": "creation-unknown",
+      "fixture": true,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "9d4c94521f15f9b3fb3460c59409ca717f83c9f9e5536e98537199ae7b7598e9",
+      "width": 1920,
+      "height": 1080,
+      "mimeType": "image/png"
+    },
+    {
+      "file": "preview-creation-unknown-2560.png",
+      "scenario": "creation-unknown",
+      "fixture": true,
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "0d676b94a1e27b29ae401d48d49d47f50dc12a43e667fa219564b44f1831a5f8",
+      "width": 2560,
+      "height": 1440,
+      "mimeType": "image/png"
+    },
+    {
+      "file": "preview-workflow-catalog-held-375.png",
+      "scenario": "workflow-catalog-held",
+      "fixture": true,
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "e171248ca8383815f75ffe4aff01666d041e839185cf58d9cad99ba984ee6082",
+      "width": 375,
+      "height": 832,
+      "mimeType": "image/png"
+    },
+    {
+      "file": "preview-workflow-catalog-held-1920.png",
+      "scenario": "workflow-catalog-held",
+      "fixture": true,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "9b545d0c4ed83021edf415d3ea8f11dea56054bfd3329827cf9a5823f2bfae2d",
+      "width": 1920,
+      "height": 1080,
+      "mimeType": "image/png"
+    },
+    {
+      "file": "preview-workflow-catalog-held-2560.png",
+      "scenario": "workflow-catalog-held",
+      "fixture": true,
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "807844925a1d2269a8bd5ff63a0554a83efdb34b3d46fbe4551ea1064b38158b",
+      "width": 2560,
+      "height": 1440,
+      "mimeType": "image/png"
+    },
+    {
+      "file": "live-chats-375.jpg",
+      "scenario": "authenticated empty own directory",
+      "fixture": false,
+      "candidate": false,
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "85867a5cda621fce381895427ad6671cf1d14536531bff206ec23120584c9ad5",
+      "width": 375,
+      "height": 812,
+      "mimeType": "image/jpeg"
+    },
+    {
+      "file": "live-chats-1920.jpg",
+      "scenario": "authenticated empty own directory",
+      "fixture": false,
+      "candidate": false,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "17f23074806e7331b0eee9b716cb50416ace05a35ad894d9c8c3808473bbb8ea",
+      "width": 1920,
+      "height": 1080,
+      "mimeType": "image/jpeg"
+    },
+    {
+      "file": "live-create-dialog-1920.jpg",
+      "scenario": "blank form, not submitted",
+      "fixture": false,
+      "candidate": false,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "920275d9b876b052366ebda741875383f844d56eb43f240ead3f3a1a92741a47",
+      "width": 1920,
+      "height": 1080,
+      "mimeType": "image/jpeg"
+    },
+    {
+      "file": "live-workflows-denied-1920.jpg",
+      "scenario": "authenticated access denial",
+      "fixture": false,
+      "candidate": false,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "30b179805a1d9021a9bac187125fe719b3772d96a5ccf99eb65e3da7677c6be0",
+      "width": 1920,
+      "height": 1080,
+      "mimeType": "image/jpeg"
+    }
+  ],
+  "browsersVerified": [
+    "chromium",
+    "firefox",
+    "webkit"
+  ]
+}

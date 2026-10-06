@@ -13,15 +13,15 @@ Consumer code commit:
 Documentation/evidence commit `e4ee22227112a9512210a1c98ad037e02e0a854b`
 and its append-only consumer review follow-up belong to the same independent
 [branch](https://github.com/FerrPOINT/fleet-control/tree/feat/chats-pm-consumer-20261006).
-Integrate the two original commits followed by `0ecee7e` and the HTTP 408
-follow-up at this branch's tip. Published
-history is preserved; do not merge the entire historical runtime tail into main.
+The original four commits through the HTTP 408 fix `d592a0d` have already been
+integrated at `5ec4464`. Only the subsequent consumer follow-up remains to apply;
+see its scope below. Published history is preserved.
 
 ## Краткая таблица готовности
 
 | Область | Реализовано и проверено | Что требуется для настоящего PM |
 | --- | --- | --- |
-| Chats, история и доступ | Consumer UI; 262 unit-теста и 33 браузерных случая с fixture API. 13 Rust/PG/HTTP тестов проверяют gateway, binding, private history и отзыв доступа. | Реальная задача владельца и установленный совместимый Tracker; fixture-вход не подтверждает live-права. |
+| Chats, история и доступ | Consumer UI; 268 unit-тестов и 36 браузерных случаев с fixture API. 13 Rust/PG/HTTP тестов проверяют gateway, binding, private history и отзыв доступа. | Реальная задача владельца и установленный совместимый Tracker; fixture-вход не подтверждает live-права. |
 | Ответ владельца | Single/multiple/text без предвыбора; точный receipt. HTTP 408 удерживает формы; явный повтор сохраняет исходные payload/key, даже после сохранения ответа. | Tracker `POST /api/v1/issues/{id}/sdlc/clarifications/{question_id}/answers`, durable answer event/outbox и доверенный runtime consumer этого события. |
 | Подтверждение требований | Согласие на конкретные revision/hash; проверка owner и Backlog receipt; после timeout повторяется исходная команда. | Tracker `POST /api/v1/issues/{id}/sdlc/requirements/{revision}/confirm`, настоящий prerequisite verifier и опубликованный контракт требуемого перехода. |
 | Первый PM запуск | Task send/steer закрыты без полномочий; UI не подменяет admission. | Tracker owner CAS/reservation + Workflow predispatch claim/first-step + effective Fleet config и Base delegated credential. Опубликованный PM bind требует уже работающий run и не заменяет predispatch admission. |
@@ -32,6 +32,71 @@ history is preserved; do not merge the entire historical runtime tail into main.
 Браузерные случаи используют тестовый SSO/API. Отдельный чат Codex уже работает
 параллельно с runtime-чатом; вход пользователя в Fleet не требуется для этой
 доработки. Live PM acceptance остаётся отдельной интеграционной проверкой.
+
+## Consumer release follow-up after d592a0d
+
+The four original consumer commits through `d592a0d06f71176861c8b75da2b012b133187aae`
+were already normally merged by the runtime chat into
+`5ec44648714a652fd6548d9a80ad1720a2d2e6de`. Apply only this branch's subsequent
+follow-up, preserving that history; no original commit needs to be replayed.
+The integration checkout and installed images remain outside this packet's ownership.
+
+Implemented and reproduced:
+
+- Private-chat creation freezes original title/agent/key after network failure,
+  HTTP 408 or 5xx. A denied replay cannot erase earlier uncertainty. The creation
+  mutation stays mounted when directory refresh temporarily removes its selected
+  agent, and survives dialog close/reopen and selecting another agent. Only an
+  explicit retry reuses that command; no automatic POST. A definite initial 4xx
+  rejection still allows editing. Unknown creation shows its own explanation
+  instead of asking the owner to edit frozen data. Five unit cases cover those states; four failed
+  before the fix. The browser fixture applies creation before losing its ACK and
+  returns the saved original session on replay. This is session creation only,
+  not PM admission or model dispatch. The hold is in page memory; a full reload
+  does not provide persisted reconciliation. That requires a server operation
+  readback contract, not a new browser key or an invented session receipt.
+- Cached Workflow catalog selections cannot rebind after refresh fails. The
+  selector and action stay disabled until a successful read, preserving the
+  chosen namespace. The unit regression failed before the fix; the browser uses
+  a real component with fixture catalog access revocation and recovery. This is
+  ordinary agent binding via `PUT /api/v1/workflow-bindings/{agent_id}`;
+  it does not implement native PM `POST .../pm/rebind` or resume orchestration.
+- The existing handoff browser assertion is scoped to the session summary:
+  waiting for a page-wide `agent2` was ambiguous once run/history rows loaded.
+  This changes the fixture assertion only.
+- The local schema checker explicitly says when published Tracker source was
+  not provided. Its strict published-source check still rejects the three
+  documented additive differences. No schema snapshot, optional routing field,
+  runtime validator or producer contract was rewritten to conceal drift.
+
+| Проверка | Фактически доступное покрытие | Ограничение |
+| --- | --- | --- |
+| Живые `/chats` и форма создания | Самостоятельный штатный OIDC-вход существующей локальной учётной записью; оба агента видимы, у текущего владельца 0 чатов; desktop/mobile, форма открыта и закрыта без отправки. | Это установленный UI, не кандидат этой ветки. Реальная карточка с вопросами и требованиями отсутствует в доступном списке. |
+| Живой `/workflows` | После входа показывает «Нет доступа»; разрешения не менялись. | Не доказывает отсутствие producer API. Операторский доступ и настоящие PM records нужны для более широкого live-прохода. |
+| Candidate Chats/detail/requirements/Workflow | 268 unit-тестов, типизация, lint, build; 36 случаев Chromium/Firefox/WebKit с fixture API, включая lost-ACK creation и cached-catalog denial/retry; 6 новых responsive preview плюс прежние 21 PM preview. | Fixture не подтверждает настоящие Tracker permissions, Workflow checkpoints или доставку ответа в Hermes. |
+| Backend consumer | Прежние 13 Rust/PG/HTTP проверок; source hashes совпадают, backend не менялся. | Это историческая проверка тех же bytes, не новый runtime acceptance. |
+| Producer contracts | Tracker114 `8c80a41...`, Workflow90 `e4fba60...` повторно прочитаны по точным blobs; heads и успешные exact-head jobs не изменились. | PR открыты. Четыре Tracker DTO точно совпадают; три расширения Fleet остаются без published exact parity. Общий PMIdentity должен удовлетворять обоим validators. |
+| Merge/release | Только consumer changes на независимой ветке, без migration/pin/config changes. | Runtime chat должен объединить последующий commit и выполнить checks/CI на своём итоговом head. Полная PM приёмка не достигнута. |
+
+[Sanitized live observation](assets/design/chats-pm-review/installed-readonly.json)
+records immutable installed image IDs, public-schema GET results and the exact
+scope of authenticated navigation. The Fleet backend's OCI revision is
+`b23ba7259c3a65e0d374dc672886e447dc693292`; it is not this consumer head.
+Tracker's public schema probe returned 404; Workflow's returned HTML rather than
+OpenAPI JSON. Those probes do not prove private capability absence. Credentials,
+cookies, tokens and account identifiers are excluded from the record. The four
+live screenshots and six fresh fixture views are kept separately in
+[review evidence](assets/design/chats-pm-review/manifest.json).
+
+Remaining operations and owners are the exact runtime/producer handoff below:
+non-circular Tracker/Workflow predispatch authority and Base credentials;
+structured PM publication and durable answer event consumption; trusted terminal
+readback, single reserved resume run and accepted checkpoint/rebind receipts;
+then an authorized server projection for browser Workflow steps/history. That
+projection is still unimplemented and depends on runtime-owned identity and
+credential contracts; source reading is not consumer integration. Full owner,
+operator denial, restart, partial-success and actual PM model acceptance remain
+required. None of those dependencies grants permission to enable dispatch here.
 
 ## Implemented
 
@@ -78,7 +143,9 @@ history is preserved; do not merge the entire historical runtime tail into main.
 
 ## Verification And Evidence
 
-Source locations: [Chats](../frontend/src/pages/chat-detail/index.tsx),
+Source locations: [private-chat creation](../frontend/src/pages/chats/index.tsx),
+[Workflow catalog guard](../frontend/src/pages/workflows/index.tsx),
+[Chats](../frontend/src/pages/chat-detail/index.tsx),
 [consumer regressions](../frontend/src/pages/chat-detail/index.test.tsx),
 [gateway](../backend/api/src/routes/task_chats.rs),
 [PostgreSQL/HTTP history test](../backend/infra/tests/sdlc_foundation.rs),
@@ -86,7 +153,7 @@ Source locations: [Chats](../frontend/src/pages/chat-detail/index.tsx),
 
 Node 22.20.0, pnpm 10.28.1, frozen lockfile and Base
 `cbb4e99230420dc2659431b1c9fb5090e5c940f0` are used. Frontend typecheck, lint,
-262 Vitest tests, build, format, OpenAPI generated-client/compatibility and seven
+268 Vitest tests, build, format, OpenAPI generated-client/compatibility and seven
 local chat-contract comparisons pass. The seven-schema local snapshot is not
 proof of parity with published Tracker114; see the producer boundary below.
 The build still reports the existing production chunk-size warning (>500 KiB).
@@ -109,7 +176,7 @@ QA project has no remaining containers or networks; installed runtime is unchang
 Workspace Docker audit found no violations on the two reachable endpoints but
 was incomplete because `sdlc1-runner` was unavailable; it is not a global audit pass.
 
-Chromium/Firefox/WebKit pass 33 fixture browser cases across the full
+Chromium/Firefox/WebKit pass 36 fixture browser cases across the full
 `fleet-control.spec.ts` and `chats-directory.spec.ts`: PM questions,
 exact confirmation, keyboard tabs/drawer/Escape, three viewports, history order,
 legacy first prompt and held delivery after reload. The PM case also checks
@@ -121,20 +188,23 @@ These are production components with fixture API, **liveAcceptance=false**.
 Historical fixture manifests also verify successfully (135 general screenshots,
 nine chat-controller and three runtime-control images); these hash/dimension
 checks are not fresh live captures. The new 21-image manifest is tied to the
-current consumer source and the successful 33-case run.
-[Final frontend validation](assets/design/chats-pm-consumer/frontend-validation.json)
-records source/log hashes and exact commands. WebKit emits fixture teardown proxy
-warnings against the absent mock upstream at `127.0.0.1:3456`; all 33 cases pass.
+current consumer source and the successful 36-case run.
+[Previous frontend validation](assets/design/chats-pm-consumer/frontend-validation.json)
+preserves the original d592a0d packet's 262/33 source/log hashes and commands;
+[follow-up validation](assets/design/chats-pm-review/validation.json) records
+the final 268/36 checks and source hashes. WebKit emits fixture teardown proxy
+warnings against the absent mock upstream; all 36 cases pass.
 This is browser component acceptance and does not attest that upstream service.
-The HTTP 408 follow-up runs on its own strict-port preview at
+The follow-up runs on its own strict-port preview at
 `http://localhost:24173`, stopped in the runner's finally block. Its preliminary
 shared-preview disappearance and 127.0.0.1/localhost fixture SSO origin mismatch
 are recorded separately from the final result. No runtime login is required for
 these fixture tests.
 
-The installed Fleet `http://127.0.0.1:7742/chats` was opened through the browser
-without changing runtime. It redirected to the real SDLC login; no authenticated
-owner task, PM publication, confirmation or cross-user denial was exercised.
+The first installed Fleet `http://127.0.0.1:7742/chats` observation redirected to
+the real SDLC login. The follow-up above subsequently completed normal login
+using the existing local test account and read the actual empty owner directory.
+No owner task, PM publication, confirmation or cross-user task denial was exercised.
 [Live login observation](assets/design/chats-pm-consumer/live/auth-required-1920.jpg)
 is separated from preview. It is a 1920x1080 observation, not three live chat views.
 No credential reset or installation change was used to bypass that boundary.
@@ -254,10 +324,12 @@ The historical published integration target observed for the `0ecee7e` review is
 `8295fa8da84593d271a867c8cc692a2f4e03f77a`; it descends from this packet's baseline
 and preserves the same Base pin. Its scoped overlap is `docs/CURRENT_STATE.md`:
 both branches add introductions. Keep the runtime owner's new introductory sections
-and this consumer introduction, preserving the shared historical body. Apply the
-original code commit, original documentation commit, `0ecee7e`, then the HTTP 408 follow-up;
-rerun integrated checks after resolving that documentation overlap. Use a temporary
-Git index for the dry run; the actual integration checkout must remain untouched.
+and this consumer introduction, preserving the shared historical body. The
+original code commit, original documentation commit and `0ecee7e` were applied in
+that historical temporary-index dry run. Its actual integration checkout was
+untouched; the runtime chat subsequently performed the normal merge through
+d592a0d. The current packet therefore requires only the new follow-up and fresh
+checks on the runtime chat's actual integration head.
 The [completed dry-run evidence](assets/design/chats-pm-consumer/integration-review.json)
 records one initial documentation conflict and no remaining conflicts after this
 resolution; all source changes apply. It does not claim an integrated build or
