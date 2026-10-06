@@ -2,6 +2,12 @@
 
 ## Current SDLC Scope
 
+Latest Base release is d2c8ef6, preserving accepted maina3d6a79 with unchanged
+boundary/bootstrap bytes and nine green jobs in CI37409952184. The a0f7044
+observation below is historical. Fleet2293862 is published integration source;
+its229 component/38 harness cases and fresh native lifecycle are scoped local
+evidence, not readiness for PM, host-boundary consumption or automatic SDLC.
+
 The reconciled foundational release PR47 now has five green exact-head CI jobs
 at `5f20540`, but stays Draft for missing live PM acceptance. Base PR144 has nine
 green jobs at `a0f7044`; its host primitive still is not a Fleet consumer.

@@ -2,7 +2,12 @@
 
 ## October SDLC Gate
 
-Release reconciliation now has independent exact-head evidence: Fleet PR47
+After the next accepted main advance, Base PR144 is reconciled at
+`d2c8ef60ec4b9204d7c8232888b81022315c14b3`, CLEAN/MERGEABLE with nine successful
+jobs in CI37409952184. This supersedes a0f7044 as current release head, without
+closing Fleet consumption, human approval, installation or full PM acceptance.
+
+Earlier release reconciliation has independent exact-head evidence: Fleet PR47
 `5f20540ee33ff9451196e0cbe0149c337c35ae42` passes five CI jobs and remains Draft;
 Base PR144 `a0f7044a95838504394d31bcf3f8d6cc682600c9` passes nine jobs and is
 ready for review, not human-approved or merged. Both preserve current accepted

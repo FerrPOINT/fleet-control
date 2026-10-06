@@ -7,7 +7,14 @@ project. No installed runtime, image pin, mount or Compose group changes here.
 
 ## Standalone Base Primitive: 5 October 2026
 
-Current release candidate after main reconciliation is
+Latest reconciliation preserves accepted maina3d6a79 at
+`d2c8ef60ec4b9204d7c8232888b81022315c14b3`:
+[CI37409952184](https://github.com/FerrPOINT/services-base/actions/runs/37409952184)
+passes all nine jobs, PR144 CLEAN/MERGEABLE. Boundary/bootstrap source bytes
+remain unchanged; Fleet still does not consume the primitive. The a0f7044
+release observation below is historical, not the current head.
+
+Previous release candidate after main reconciliation was
 [PR144](https://github.com/FerrPOINT/services-base/pull/144), head
 `a0f7044a95838504394d31bcf3f8d6cc682600c9`:
 [CI37406268902](https://github.com/FerrPOINT/services-base/actions/runs/37406268902)

@@ -1,5 +1,13 @@
 # Current State
 
+Latest release observation on6 October: Base PR144 is CLEAN/MERGEABLE at
+`d2c8ef60ec4b9204d7c8232888b81022315c14b3`, with all nine jobs successful in
+[CI37409952184](https://github.com/FerrPOINT/services-base/actions/runs/37409952184).
+It preserves accepted maina3d6a79/Auth/probe changes and unchanged boundary code;
+local host gate has281 cases,270 PASS/11 platform skips. Earlier a0f7044 entries
+below are prior exact-head evidence, not the current release head. Fleet source
+packet2293862 is published separately; neither CI proves full PM/SDLC acceptance.
+
 ## Launch Liveness And Observational Health: 6 October 2026
 
 The integration follow-up atop4d4307d rejects dispatch from a retained exited
