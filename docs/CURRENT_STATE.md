@@ -1,5 +1,22 @@
 # Current State
 
+## Atomic Process Log Acknowledgement: 7 October 2026
+
+The shared process-log repository now returns the exact persisted redacted row
+via `INSERT ... RETURNING`, independently of newer stdout/stderr writes.
+Independent [PR55](https://github.com/FerrPOINT/fleet-control/pull/55) contains only
+the fix, three PostgreSQL regressions and docs, without runtime migration history.
+Its local main-based gate passes96 workspace cases with10 explicit opt-in ignores,
+fmt/check/strict Clippy and regenerated OpenAPI equality. Original-code negative
+control reproduces the exact false `NotFound`. The runtime source separately
+passes all three PG cases without ignores and strict all-target Clippy.
+See [verification](CHAT_CLARIFICATION_VERIFICATION.md#atomic-process-log-acknowledgement-7-october-2026).
+
+This is not production Docker ingestion. Generation-bound cursor/replay,
+original resolved-secret redaction, rotation/gaps, controller recovery and the
+unchanged task/PM/Forge acceptance remain open. No installed runtime, SDK pin,
+public DTO, migration or UI changes are introduced by this packet.
+
 ## Integrated Chats Consumer: 7 October 2026
 
 The seven remaining commits through consumer

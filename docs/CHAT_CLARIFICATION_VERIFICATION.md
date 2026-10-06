@@ -1,5 +1,53 @@
 # Chat Clarification Verification
 
+## Atomic Process Log Acknowledgement: 7 October 2026
+
+Main-based [PR55](https://github.com/FerrPOINT/fleet-control/pull/55), head
+`fdbd7dd2c6cf1d9a66651fba5c0bf92a66047529`, fixes `insert_log` using the exact
+PostgreSQL `INSERT ... RETURNING` row rather than a latest-log search. Its source
+baseline is main1ff9066; Base remains pinned atf04af5f. The isolated old-code
+negative control fails specifically with false `NotFound` after an agent-scoped
+AFTER INSERT trigger creates a newer row. It is an expected negative result,
+not a failed fixed-source test or evidence from thread scheduling probability.
+
+Fresh Linux/Rust1.88/PostgreSQL project `sdlc-qa-fleet-log-identity-3d43a05a59be`
+passes fmt, locked all-target check, strict Clippy,96 workspace tests and generated
+OpenAPI equality. Ten historical lineage/profile cases remain explicitly ignored;
+they are not relabeled as executed. All three new log cases pass: deterministic
+interleaving,64 concurrent stdout/stderr writers with exact persisted/redacted
+identity/timestamp and failed FK insert without a phantom row. All164 captured
+inputs still match. Exact own container/network inventories are empty after cleanup.
+
+- Source manifest: `c23bba00a252edceb89428476f0332a2a638c2a63f7dfb477737a9810e6af8f3`.
+- Original source: `b180049ad4997725363bd198f73fc65809f34969f0296df6cd1d7b21b8ecbe80`.
+- Negative-control log: `52dc5f5a3481ae6d5c72ec748ab14b5d9a27fcabee2a2014fb38252618dc367e`.
+- Full gate log: `d4027f843099f4e8757466500186e3e23cd97920e9e27478c5f97c1cbe71e6b5`.
+- Report: `2aed026616fcdf452314544c82bb4a1f5dacb8f3f6dbd38b6c86dff3eca81b57`.
+
+Private artifacts: workspace `.local/fleet-log-identity-checks-f1cc976b7cc7/`.
+Earlierb85050658413 and475f705272dd attempts failed during test fixture preparation
+and are retained FAILED/cleaned; neither is the accepted negative control.
+
+Only this packet is transferred to runtime source1e0b9ae, preserving its SDKcbb4e99,
+existing implementation/docs and migration history. Separate fresh project
+`sdlc-qa-fleet-container-control-3d7ff513c70a` passes fmt, strict all-target Clippy
+and3 PostgreSQL log cases without ignores. All294 backend/SDK inputs match;
+owned containers/networks are cleaned. It does not rerun the prior528-case full
+integration suite or actual Docker/Hermes acceptance. The test file is identical
+in both source trees: SHA256
+`b9780e307c0bc87f3e4649570ce80c93927dc9e04961743ed53622de566bace9`.
+
+- Integration source manifest: `9e9922cf9c33a8d785bf4194d001d02ff12a0d88308bc1273d70c02d054acd75`.
+- Focused log: `35dfcebd327659c63a9257674f28252cca2b748c52a3b014078ecb9cdaf4cf9c`.
+- Report: `bbcbdfeb06669501a8acfa23750ef65ff52305763d0c7ed38b6cbc676bb6f82b`.
+
+Private artifacts: workspace `.local/fleet-container-control-checks-fc75d5b31397/`.
+README validation,87 main/127 integration Markdown links and diff checks pass.
+No UI source changes or new screenshots. No public DTO, schema, dependency pin,
+runtime protocol or installed services changes. Generic redaction is preserved,
+not upgraded into exact per-launch credential coverage. Production Docker log
+collection/cursors, controller recovery, task admission and full PM/Forge remain open.
+
 ## Integrated Chats Consumer And Base Release Gates: 7 October 2026
 
 The seven remaining consumer commits through

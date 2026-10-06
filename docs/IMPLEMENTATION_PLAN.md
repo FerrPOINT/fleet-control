@@ -2,6 +2,16 @@
 
 ## Next Runtime Work After Private Log Transport
 
+The shared repository log-acknowledgement race is fixed and verified on both
+main-based and runtime source. See
+[the PostgreSQL evidence](CHAT_CLARIFICATION_VERIFICATION.md#atomic-process-log-acknowledgement-7-october-2026).
+Do not implement collection by repeatedly inserting the current200-line tail:
+timestamps/content hashes are not reliable source offsets, and identical lines
+can be distinct real records. Freeze the original resolved per-launch credentials
+before rotation, and atomically commit a verified source range with its cursor.
+Missing prefix, overflow or rotation needs explicit gap/reconciliation semantics,
+not silent deduplication or a successful empty poll.
+
 Private Base Docker log readback now passes on four original exited generations
 of two actual Hermes agents. Rust's typed client is implemented and passes the
 fresh528-case Linux gate, but this is not production ingestion. Connect it only

@@ -16,12 +16,15 @@ The prior combined35/36 failure and SDK navigation reproduction remain evidence:
 no Base stream lifecycle fix or dependency upgrade has occurred. Do not close
 that finding solely because this fresh same-origin repeat is60/60.
 
-Production Docker log ingestion also needs a repository concurrency fix:
-`insert_log` inserts its UUID and then searches only the latest agent log. A
-concurrent insert can make that read return `not_found` despite a committed row.
-Use the inserted row's authoritative result and add a deterministic PostgreSQL
-race regression before declaring concurrent stdout/stderr ingestion complete.
-No runtime collector, migration or log cursor is added by this consumer merge.
+The repository log-acknowledgement race is fixed: `insert_log` now returns its
+own persisted redacted row from PostgreSQL `INSERT ... RETURNING`. The original
+main fails the deterministic newer-row regression; the independent main packet
+and integrated runtime both pass all three new PG cases, including64 concurrent
+stdout/stderr writers and rejected-insert/no-phantom handling.
+See [exact evidence](CHAT_CLARIFICATION_VERIFICATION.md#atomic-process-log-acknowledgement-7-october-2026).
+This closes that repository race, not production Docker ingestion. A runtime
+collector, resolved-secret snapshots, durable generation cursor, deduplication
+and rotation/gap handling still need implementation and actual acceptance.
 
 ## Private Docker Log Readback Verified; Ingestion Still Open
 
