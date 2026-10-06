@@ -115,3 +115,15 @@ pub struct RuntimeLaunchRecord {
     pub state: String,
     pub pid: Option<i32>,
 }
+
+/// Durable pre-create fence; the private intent (including credentials) stays on disk.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RuntimeContainerPreparation {
+    pub agent_id: Uuid,
+    pub ordinal: i64,
+    pub controller_id: Uuid,
+    pub generation: Uuid,
+    pub operation_id: Uuid,
+    pub intent_sha256: String,
+}

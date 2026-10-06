@@ -27,6 +27,7 @@
 - [0025-original-approval-outcome-journal.md](adr/0025-original-approval-outcome-journal.md)
 - [0026-pre-spawn-runtime-launch-journal.md](adr/0026-pre-spawn-runtime-launch-journal.md)
 - [0027-agent-containers-without-controller-service.md](adr/0027-agent-containers-without-controller-service.md)
+- [0028-durable-container-precreate-fence.md](adr/0028-durable-container-precreate-fence.md)
 
 Records 0008 and 0009 describe historical migration stages. Their status notes
 point to the current shared dependency and central identity architecture.

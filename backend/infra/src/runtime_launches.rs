@@ -318,6 +318,23 @@ pub(super) async fn claim(
             "original runtime launch requires reconciliation".into(),
         ));
     }
+    let preparation = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT controller_id,generation,operation_id FROM runtime_container_preparations
+            WHERE agent_id=$1 AND ordinal=(SELECT count(*) FROM runtime_launches WHERE agent_id=$1)",
+        [binding.agent_id.into()])).await.map_err(AppError::database)?;
+    if let Some(preparation) = preparation {
+        let matches = binding.container.as_ref().is_some_and(|container| {
+            preparation.try_get::<Uuid>("", "controller_id").ok() == Some(binding.controller_id)
+                && preparation.try_get::<Uuid>("", "generation").ok() == Some(binding.id)
+                && preparation.try_get::<Uuid>("", "operation_id").ok()
+                    == Some(container.registration.operation_id)
+        });
+        if !matches {
+            return Err(AppError::Unavailable(
+                "original container preparation requires reconciliation".into(),
+            ));
+        }
+    }
     txn.execute(Statement::from_sql_and_values(
         DatabaseBackend::Postgres,
         "INSERT INTO runtime_launches(id,agent_id,controller_id,binding) VALUES ($1,$2,$3,$4)",
@@ -340,6 +357,115 @@ fn valid_hash(hash: &str) -> bool {
         && hash
             .bytes()
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+pub(super) async fn claim_preparation(
+    repo: &PostgresFleetRepository,
+    preparation: &app::runtime_launch::RuntimeContainerPreparation,
+) -> Result<(), AppError> {
+    if preparation.agent_id.is_nil()
+        || preparation.controller_id.is_nil()
+        || preparation.generation.is_nil()
+        || preparation.operation_id.is_nil()
+        || preparation.ordinal < 0
+        || !valid_hash(&preparation.intent_sha256)
+    {
+        return Err(AppError::validation(
+            "invalid container preparation identity",
+        ));
+    }
+    let held =
+        || AppError::Unavailable("original container preparation requires reconciliation".into());
+    let txn = repo.db.begin().await.map_err(AppError::database)?;
+    let agent = txn
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT kind,status FROM agents WHERE id=$1 AND archived_at IS NULL FOR UPDATE",
+            [preparation.agent_id.into()],
+        ))
+        .await
+        .map_err(AppError::database)?
+        .ok_or_else(held)?;
+    if agent
+        .try_get::<String>("", "kind")
+        .map_err(AppError::database)?
+        != "hermes"
+        || matches!(
+            agent
+                .try_get::<String>("", "status")
+                .map_err(AppError::database)?
+                .as_str(),
+            "running" | "starting" | "degraded" | "archived"
+        )
+    {
+        return Err(held());
+    }
+    let runtime = txn
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT pid,desired_state FROM agent_runtime WHERE agent_id=$1 FOR UPDATE",
+            [preparation.agent_id.into()],
+        ))
+        .await
+        .map_err(AppError::database)?
+        .ok_or_else(held)?;
+    if runtime
+        .try_get::<Option<i32>>("", "pid")
+        .map_err(AppError::database)?
+        .is_some()
+        || runtime
+            .try_get::<String>("", "desired_state")
+            .map_err(AppError::database)?
+            != "stopped"
+    {
+        return Err(held());
+    }
+    let history = txn
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT count(*) AS ordinal,
+            count(*) FILTER (WHERE state IN ('claimed','gateway_started')) AS outstanding
+            FROM runtime_launches WHERE agent_id=$1",
+            [preparation.agent_id.into()],
+        ))
+        .await
+        .map_err(AppError::database)?
+        .ok_or_else(held)?;
+    if history
+        .try_get::<i64>("", "ordinal")
+        .map_err(AppError::database)?
+        != preparation.ordinal
+        || history
+            .try_get::<i64>("", "outstanding")
+            .map_err(AppError::database)?
+            != 0
+    {
+        return Err(held());
+    }
+    let original = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT jsonb_build_object('agent_id',agent_id,'ordinal',ordinal,'controller_id',controller_id,
+            'generation',generation,'operation_id',operation_id,'intent_sha256',intent_sha256) AS preparation
+            FROM runtime_container_preparations WHERE agent_id=$1 AND ordinal=$2",
+        [preparation.agent_id.into(), preparation.ordinal.into()])).await.map_err(AppError::database)?;
+    if let Some(original) = original {
+        let original: app::runtime_launch::RuntimeContainerPreparation = serde_json::from_value(
+            original
+                .try_get("", "preparation")
+                .map_err(AppError::database)?,
+        )
+        .map_err(AppError::internal)?;
+        if original != *preparation {
+            return Err(held());
+        }
+    } else {
+        txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "INSERT INTO runtime_container_preparations
+                (agent_id,ordinal,controller_id,generation,operation_id,intent_sha256) VALUES($1,$2,$3,$4,$5,$6)",
+            [preparation.agent_id.into(), preparation.ordinal.into(), preparation.controller_id.into(),
+                preparation.generation.into(), preparation.operation_id.into(), preparation.intent_sha256.clone().into()]))
+            .await.map_err(AppError::database)?;
+    }
+    txn.commit().await.map_err(AppError::database)
 }
 
 pub(super) async fn open(

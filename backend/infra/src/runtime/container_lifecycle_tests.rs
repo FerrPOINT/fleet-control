@@ -3,6 +3,7 @@ use app::runtime_launch::{
     ContainerEngineIdentity, ContainerRegistration, RuntimeContainerBinding, RuntimeLaunchBinding,
     RuntimeLaunchRecord,
 };
+use sea_orm::ConnectionTrait;
 use sha2::{Digest, Sha256};
 use std::path::Path;
 
@@ -453,6 +454,7 @@ if r['action']=='resolve_mounts':
  result={'state':'resolved','controller':r['controller'],'snapshot':{'container_id':r['controller']['container_id'],'started_at':'2026-10-06T12:00:00Z','init_pid':999,'inventory_sha256':'a'*64},'engine':{'ID':'original-engine','KernelVersion':'original-kernel','ServerVersion':'29'},'local_root':r['local_root'],'volume_name':'qa_owned_agents','volume_sha256':'b'*64,'mounts':mounts,'input_policy_sha256':digest(r['policy'])}
  if (root/'mapping-drift').exists():result['snapshot']['init_pid']+=1
 elif r['action']=='prepare':
+ with (root/'prepare-calls').open('a') as calls:calls.write(r['operation_id']+'\n')
  intents=[json.loads(p.read_bytes()) for p in root.glob(r['policy']['resource_id']+'*.container-creation.json')]
  intent=next(v for v in intents if v['generation']==r['policy']['generation'])
  assert intent['generation']==r['policy']['generation'] and intent['operation_id']==r['operation_id']
@@ -1194,5 +1196,222 @@ async fn container_restart_requires_original_exit_and_preserves_previous_generat
     );
     assert_eq!(tokio::fs::read(&next_path).await.unwrap(), next_intent);
     assert!(runtime.children.lock().await.is_empty());
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn lost_creation_intent_cannot_create_another_container_or_fall_back_to_native() {
+    let Some((repo, agent, _, config, root)) = lifecycle_tests::fixture(AgentKind::Hermes).await
+    else {
+        return;
+    };
+    let config = fake_creation(&config, &agent, true).await;
+    let runtime = lifecycle_tests::supervisor(Arc::new(config), repo.clone());
+    assert!(
+        runtime
+            .prepared_container(&agent, LaunchPhase::Regular)
+            .await
+            .is_err()
+    );
+    let private = root.join("controller");
+    let path = private.join(format!("{}.container-creation.json", agent.id));
+    let bytes = tokio::fs::read(&path).await.unwrap();
+    let intent: Value = serde_json::from_slice(&bytes).unwrap();
+    let row = repo.db.query_one(sea_orm::Statement::from_sql_and_values(
+        sea_orm::DatabaseBackend::Postgres,
+        "SELECT generation,intent_sha256 FROM runtime_container_preparations WHERE agent_id=$1 AND ordinal=0",
+        [agent.id.into()],
+    )).await.unwrap().unwrap();
+    assert_eq!(
+        json!(row.try_get::<Uuid>("", "generation").unwrap()),
+        intent["generation"]
+    );
+    assert_eq!(
+        row.try_get::<String>("", "intent_sha256").unwrap(),
+        crate::runtime_launches::snapshot_hash(&intent).unwrap()
+    );
+    let calls = tokio::fs::read(private.join("prepare-calls"))
+        .await
+        .unwrap();
+    tokio::fs::remove_file(&path).await.unwrap();
+    tokio::fs::remove_file(private.join("prepare-unknown"))
+        .await
+        .unwrap();
+    assert!(
+        runtime
+            .start_locked(&agent, LaunchPhase::Regular)
+            .await
+            .is_err()
+    );
+    assert!(
+        !path.exists(),
+        "rejected replacement must not overwrite a lost original"
+    );
+    assert_eq!(
+        tokio::fs::read(private.join("prepare-calls"))
+            .await
+            .unwrap(),
+        calls
+    );
+    assert!(!private.join("start-effect").exists());
+    assert!(
+        repo.get_open_runtime_launch(agent.id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+
+    let native = lifecycle_tests::supervisor(runtime.config.clone(), repo.clone());
+    let native_binding = app::runtime_launch::RuntimeLaunchBinding {
+        id: Uuid::new_v4(),
+        agent_id: agent.id,
+        controller_id: native.controller_id,
+        kind: agent.kind,
+        paths: agent.paths.clone(),
+        api_port: agent.api_port,
+        phase: "regular".into(),
+        configuration_revision: None,
+        configuration_sha256: None,
+        command_sha256: "a".repeat(64),
+        container: None,
+    };
+    assert!(repo.claim_runtime_launch(&native_binding).await.is_err());
+    // Restoring the exact original private document permits readback on its original key.
+    tokio::fs::write(&path, &bytes).await.unwrap();
+    use std::os::unix::fs::PermissionsExt;
+    tokio::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))
+        .await
+        .unwrap();
+    let recovered = runtime
+        .prepared_container(&agent, LaunchPhase::Regular)
+        .await
+        .unwrap();
+    assert_eq!(json!(recovered.id), intent["generation"]);
+    assert!(!private.join("start-effect").exists());
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn whole_private_directory_loss_retains_database_precreate_fence() {
+    let Some((repo, agent, _, config, root)) = lifecycle_tests::fixture(AgentKind::Hermes).await
+    else {
+        return;
+    };
+    let mut config = fake_creation(&config, &agent, true).await;
+    // Keep the pinned utility available: the hold must come from DB custody,
+    // not a missing executable prerequisite after deleting private documents.
+    let source = root.join("base-source");
+    tokio::fs::create_dir_all(source.join("scripts"))
+        .await
+        .unwrap();
+    let control = config.fleet.container_control.as_mut().unwrap();
+    for name in [
+        "runtime_boundary.py",
+        "runtime_bootstrap.py",
+        "runtime_control.py",
+    ] {
+        let bytes = tokio::fs::read(Path::new(&control.base_root).join("scripts").join(name))
+            .await
+            .unwrap();
+        tokio::fs::write(source.join("scripts").join(name), bytes)
+            .await
+            .unwrap();
+    }
+    control.base_root = source.to_string_lossy().into_owned();
+    let runtime = lifecycle_tests::supervisor(Arc::new(config.clone()), repo.clone());
+    assert!(
+        runtime
+            .prepared_container(&agent, LaunchPhase::Regular)
+            .await
+            .is_err()
+    );
+    let private = root.join("controller");
+    tokio::fs::remove_dir_all(&private).await.unwrap();
+    tokio::fs::create_dir(&private).await.unwrap();
+    use std::os::unix::fs::PermissionsExt;
+    tokio::fs::set_permissions(&private, std::fs::Permissions::from_mode(0o700))
+        .await
+        .unwrap();
+    let controller = activation_journal::private_controller_directory(&private)
+        .await
+        .unwrap();
+    for supervisor in [
+        &runtime,
+        &lifecycle_tests::supervisor(Arc::new(config), repo.clone()),
+    ] {
+        assert!(
+            matches!(supervisor.start_locked(&agent, LaunchPhase::Regular).await,
+            Err(AppError::Unavailable(detail))
+                if detail == "original container preparation requires reconciliation")
+        );
+        assert!(!controller.join("prepare-effect").exists());
+        assert!(!controller.join("start-effect").exists());
+        assert!(
+            !controller
+                .join(format!("{}.container-creation.json", agent.id))
+                .exists()
+        );
+    }
+    assert!(
+        repo.get_open_runtime_launch(agent.id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[tokio::test]
+async fn precreate_claim_serializes_controllers_and_replays_only_exact_identity() {
+    let Some((repo, agent, _, _, root)) = lifecycle_tests::fixture(AgentKind::Hermes).await else {
+        return;
+    };
+    let first = app::runtime_launch::RuntimeContainerPreparation {
+        agent_id: agent.id,
+        ordinal: 0,
+        controller_id: Uuid::new_v4(),
+        generation: Uuid::new_v4(),
+        operation_id: Uuid::new_v4(),
+        intent_sha256: "a".repeat(64),
+    };
+    let mut competitor = first.clone();
+    competitor.controller_id = Uuid::new_v4();
+    competitor.generation = Uuid::new_v4();
+    competitor.operation_id = Uuid::new_v4();
+    let (a, b) = tokio::join!(
+        repo.claim_container_preparation(&first),
+        repo.claim_container_preparation(&competitor)
+    );
+    assert_ne!(a.is_ok(), b.is_ok());
+    let original = if a.is_ok() { first } else { competitor };
+    repo.claim_container_preparation(&original).await.unwrap();
+    for field in ["controller", "generation", "operation", "hash", "ordinal"] {
+        let mut changed = original.clone();
+        match field {
+            "controller" => changed.controller_id = Uuid::new_v4(),
+            "generation" => changed.generation = Uuid::new_v4(),
+            "operation" => changed.operation_id = Uuid::new_v4(),
+            "hash" => changed.intent_sha256 = "b".repeat(64),
+            "ordinal" => changed.ordinal += 1,
+            _ => unreachable!(),
+        }
+        assert!(
+            repo.claim_container_preparation(&changed).await.is_err(),
+            "{field}"
+        );
+    }
+    let row = repo
+        .db
+        .query_one(sea_orm::Statement::from_sql_and_values(
+            sea_orm::DatabaseBackend::Postgres,
+            "SELECT count(*) AS count FROM runtime_container_preparations WHERE agent_id=$1",
+            [agent.id.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(row.try_get::<i64>("", "count").unwrap(), 1);
     tokio::fs::remove_dir_all(root).await.unwrap();
 }

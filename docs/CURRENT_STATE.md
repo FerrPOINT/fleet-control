@@ -1,5 +1,21 @@
 # Current State
 
+## Verified Container Pre-Create Fence Candidate
+
+The current work adds one additive000018 migration and a durable pre-create
+identity/hash, with new exact replay/lost-file/concurrent-controller tests.
+Fresh Rust1.88/Linux/PostgreSQL gates pass515 workspace cases with29 explicit
+ignores, fmt/all-target check/strict Clippy, and19 isolated migration cases with
+no ignores. All290 frozen backend/SDK inputs agree between gates and still
+match source. Both owned projects are cleaned. Earlier gate counts below belong
+to their original source. See [exact evidence](CHAT_CLARIFICATION_VERIFICATION.md#durable-container-pre-create-fence-6-october-2026).
+This packet does not enable installed Docker/PM execution or complete
+real-runtime acceptance.
+Base PR150's advanced-main conflict is normally merged in424ad76. All9
+CI37480593149 jobs pass; a post-ready check confirms ready/MERGEABLE and no
+reviews/threads. Utility bytes are unchanged; earlier98a5bbd observations below
+are historical. Base remains unmerged/uninstalled.
+
 ## Current HTTP Timeout Follow-Up
 
 The latest normal merge also includes Chats

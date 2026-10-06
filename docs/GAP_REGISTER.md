@@ -8,6 +8,17 @@ step/checkpoint projection or live authenticated browser acceptance below.
 
 ## October SDLC Gate
 
+New additive000018 source addresses missing pre-create database authority:
+immutable original identity/hash now precedes the intent write and Base create,
+with exact-source515-case full and19-case migration verification passing.
+The full gate retains29 explicitly ignored opt-in cases; the ten disposable
+migration databases execute all required upgrades without skips. This closes
+the tested pre-create custody gap, not full storage-loss recovery. It does not complete
+actual mapped Hermes/model or private Base journal restore/takeover acceptance.
+Base PR150 is now normally merged with main in424ad76, ready/MERGEABLE with9
+SUCCESS CI37480593149 jobs and no reviews/threads after recheck. Its earlier
+98a5bbd mergeable/green entries are historical. No installed rollout is authorized.
+
 Consumer `d592a0d` is now included: HTTP408 keeps the original command uncertain.
 Fresh262 frontend tests and33 fixture browser cases pass;21 previews are
 regenerated. All288 backend/SDK inputs still match the511-case workspace and

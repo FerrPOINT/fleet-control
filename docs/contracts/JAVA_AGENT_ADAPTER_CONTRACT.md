@@ -12,6 +12,9 @@ The automatic generation preparation/restart path is likewise Hermes-only;
 Java never obtains its image/process/config bindings or preparation receipt.
 Named-volume protocol2/policy3 is also Hermes-only and does not grant Java
 Docker, chat or SDLC capabilities; historical Java local lifecycle is unchanged.
+The000018 pre-create reservation accepts only Hermes. It introduces no Java
+container or SDLC capability; an unresolved Hermes reservation cannot be bypassed
+by changing launch kind or requesting a native launch.
 
 The original approval journal (000016) likewise adds no Java chat/control or
 machine admission. Its claim requires an accepted concrete Hermes free chat;

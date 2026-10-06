@@ -23,7 +23,10 @@ Start/health require original running namespace evidence and Hermes readiness;
 stop requires original namespace exit. Unknown start fails closed without retry
 or native fallback. Automatic generation preparation is internal to start
 when private provisioning config is present: saved original intent, Base create/
-register receipt, then DB binding before process start. No public field selects
+register receipt, then DB binding before process start. Additive000018 now commits
+a private pre-create DB fence before the intent file and Base prepare; lost
+controller files return reconciliation, not permission to create a replacement.
+No new public endpoint or DTO is added. No public field selects
 an image, Docker policy, process credential or operation key. Docker config
 activation remains unavailable. Restart prepares another generation only after
 original namespace exit and closed DB history; an unknown launch cannot advance

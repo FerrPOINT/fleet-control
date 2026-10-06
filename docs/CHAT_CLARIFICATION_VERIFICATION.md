@@ -1,5 +1,52 @@
 # Chat Clarification Verification
 
+## Durable Container Pre-Create Fence: 6 October 2026
+
+The new additive000018 preparation ledger commits immutable agent/history
+ordinal/controller/generation/operation/intent hash before private-file creation
+and Base prepare. Credentials remain private; the database holds only the hash.
+Exact original replay is allowed; missing intent/directory, changed controller,
+changed identity and competing claims cannot authorize a replacement effect or
+native fallback.
+
+Fresh project `sdlc-qa-fleet-container-control-f02c1d9715d7` passes locked/offline
+Rust1.88/Linux/PostgreSQL fmt, all-target check, strict Clippy and515 workspace
+cases in35 result groups, with0 failures and29 explicit opt-in ignores. The
+three new supervisor/database regressions execute, including whole private
+directory loss with the Base utility still available; the hold therefore does
+not merely result from a missing executable. Workspace log SHA256:
+`50993f6d68d8dbfc1ec6b6c59d64c6efd3d9cebbf69baf545f0fb86851354f3e`;
+report SHA256:
+`f52589a2a5e594ddcf69693ce8cd70e52992b52173fa53349b0f0962dac29f71`.
+The first compile attempt and a second incorrect directory-loss fixture failed
+and remain separately recorded; neither is counted as successful evidence.
+Both failed projects were cleaned before the final source capture.
+
+The separate migration project `sdlc-qa-fleet-container-control-51a6a698e2da`
+passes19 cases with0 failures and0 ignores on ten distinct disposable PostgreSQL
+databases. The new test executes actual upgrade, empty downgrade/reapply,
+populated launch-history preservation, immutable row guards and retained-fence
+downgrade denial. No accepted runtime database is used. All290 frozen source
+files match the full workspace gate's capture; source manifest SHA256:
+`c0944d087c1b25f359aab02d94c72982d7eec95a0e9e34ea943e4d7c8565064d`.
+Migration log SHA256:
+`131c251df77882094d336e01f9dd334704a468d2204a10fea44dda84342744b3`;
+report SHA256:
+`5752908961f3a5f7fb670db5cd6e4e22aca1200a3174b0d44562184a5f23abbd`.
+Independent original-Engine container/network checks confirm cleanup for both
+successful projects. The migration-only case returning early without its
+dedicated URL in the workspace run is not migration acceptance; the separately
+configured gate above is authoritative.
+
+This is not full storage-loss recovery, controller takeover, actual mapped
+Hermes/model/chat or container configuration lifecycle acceptance. No installed
+flag/image/volume, public API, frontend or SDK pin changes. Existing consumer
+frontend evidence below remains tied to its original bytes; parallel Chats
+changes require their own integration. Base PR150 now targets main normally
+merged in `424ad76b1fc0c976e465e9de272f71a3b03a45b6`; all9 fresh exact-head jobs
+in CI37480593149 pass, ready/MERGEABLE with no reviews/threads on recheck, but
+not merged or installed. The runtime utility bytes are unchanged by that merge.
+
 ## HTTP Timeout Follow-Up: 6 October 2026
 
 The second normal merge adds consumer

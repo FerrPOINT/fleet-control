@@ -24,6 +24,7 @@ mod m20261005_000014_hermes_journal_time_order;
 mod m20261005_000015_runtime_control_outcomes;
 mod m20261005_000016_runtime_approval_outcomes;
 mod m20261006_000017_runtime_launches;
+mod m20261006_000018_container_preparations;
 
 pub struct Migrator;
 
@@ -120,5 +121,6 @@ fn runtime_followups() -> Vec<Box<dyn MigrationTrait>> {
         Box::new(m20261005_000015_runtime_control_outcomes::Migration),
         Box::new(m20261005_000016_runtime_approval_outcomes::Migration),
         Box::new(m20261006_000017_runtime_launches::Migration),
+        Box::new(m20261006_000018_container_preparations::Migration),
     ]
 }

@@ -11,7 +11,12 @@ never a host kill target. Missing/uncertain/foreign registration fails closed,
 without native fallback, automatic start replay or controller takeover.
 
 Automatic Compose generation preparation now uses a private original
-intent and Base prepare receipt before the DB start claim. Operator-prepared
+intent and Base prepare receipt before the DB start claim. Additive000018 fixes
+agent/history ordinal/controller/generation/operation/intent hash in DB before
+the private intent write and physical create. Exact replay cannot change any
+field; lost private files, a competing controller or native fallback stay held.
+An exact original file restore still requires the original controller and Base
+readback; the fence does not reconstruct secret-bearing documents. Operator-prepared
 generations remain compatible. After confirmed original namespace exit, restart
 prepares another generation under an immutable-history ordinal; unknown starts
 cannot advance it. The mapped consumer now fixes original named-volume proof

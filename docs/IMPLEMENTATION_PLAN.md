@@ -2,6 +2,22 @@
 
 ## Current SDLC Scope
 
+The current work adds additive000018 pre-create DB authority: immutable
+agent/history ordinal/controller/generation/operation/intent hash before both
+private intent creation and Docker prepare. Exact replay, missing-file holds,
+competing-controller fencing and blocked native fallback have new regressions;
+fresh full/migration gates pass515 workspace cases (29 explicit ignores),
+fmt/check/strict Clippy and19 migration cases without ignores on ten disposable
+databases. Both gates capture the same290 unchanged backend/SDK files and owned
+resources are cleaned. See [exact evidence](CHAT_CLARIFICATION_VERIFICATION.md#durable-container-pre-create-fence-6-october-2026).
+This is not actual
+mapped Hermes/model acceptance or complete private Base journal recovery.
+Base PR150's main conflict was normally merged into424ad76 without rewriting
+history. All9 exact-head CI37480593149 jobs pass; the candidate is ready/mergeable
+after a fresh post-ready check, with no reviews/threads. Utility bytes are
+unchanged. Earlier98a5bbd readiness below is historical; installed state and
+producer permissions remain unchanged.
+
 The current candidate additionally merges consumer `d592a0d` (HTTP408 remains
 unknown). Fresh262 frontend tests and33 fixture browser cases pass, with
 regenerated21-image preview evidence. All288 backend/SDK bytes match the

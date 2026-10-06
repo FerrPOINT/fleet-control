@@ -584,6 +584,14 @@ pub trait FleetRepository: Send + Sync {
             "runtime launch history is unavailable".into(),
         ))
     }
+    async fn claim_container_preparation(
+        &self,
+        _preparation: &runtime_launch::RuntimeContainerPreparation,
+    ) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "container preparation journal is unavailable".into(),
+        ))
+    }
     async fn observe_runtime_launch(
         &self,
         _binding: &runtime_launch::RuntimeLaunchBinding,

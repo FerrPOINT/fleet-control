@@ -1,5 +1,20 @@
 # Testing
 
+## Container Pre-Create Fence
+
+The PostgreSQL container lifecycle tests cover exact pre-create replay,
+concurrent controller claims, lost original intent, complete private-directory
+loss, blocked native fallback and restored original document readback. They use
+the actual Rust supervisor/repository with a pinned fake Base utility, not real
+Docker/Hermes/model acceptance. `FLEET_TEST_DATABASE_URL` is mandatory for their
+database evidence. The dedicated `migration --test container_preparations`
+requires `FLEET_CONTAINER_PREPARATION_MIGRATION_TEST_DATABASE_URL` naming a
+separate empty disposable DB; CI creates it explicitly. The test checks unchanged
+legacy agent/runtime/launch bytes, empty down/reapply, constraints, duplicate
+identity, immutable retained history and refused populated downgrade. Missing
+variables/early return are not acceptance; controller takeover and private
+Base SQLite journal loss/restore still need independent real-runtime tests.
+
 ## Pinned Container Utility Loader
 
 Run `python -B -m unittest scripts.tests.test_container_control_loader -v` without

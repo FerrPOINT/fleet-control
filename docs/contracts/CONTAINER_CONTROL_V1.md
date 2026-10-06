@@ -8,6 +8,14 @@ silently relabelled Docker.
 
 ## Ownership
 
+Automatic preparation additionally uses Fleet's000018 pre-create DB fence,
+before private intent creation and Base prepare. It commits original agent/
+history ordinal/controller/generation/operation/intent hash, not the resolved
+environment. Missing private files cannot authorize a new generation or native
+fallback. The Base protocol is unchanged by this Fleet-private additive table;
+same-controller exact restore/readback is not controller takeover. See
+[ADR0028](../adr/0028-durable-container-precreate-fence.md).
+
 Fleet owns agent identities, authorization, configuration and runtime lifecycle.
 Base owns the shared Compose boundary and private control utility. There is no
 new user-facing service, HTTP controller or business scheduler. One agent uses
@@ -112,8 +120,10 @@ and private storage paths. A missing/changed proof file or controller restart
 remains a reconciliation hold, not takeover or permission to resend. Existing
 native/host-bind records omit the new fields unchanged; automatic creation with
 a configured bridge controller cannot upgrade an old unmapped intent in place.
-The Base SDK pin, default deployment flags, public API and PostgreSQL migrations
-are unchanged. See [verification](../CHAT_CLARIFICATION_VERIFICATION.md) for
+The mapped transport itself leaves the Base SDK pin, default deployment flags,
+public API and existing migrations unchanged. The later pre-create fence uses
+separate additive000018; it does not rewrite transport/launch history. See
+[verification](../CHAT_CLARIFICATION_VERIFICATION.md) for
 the Rust gate and the still-required actual mapped Hermes/model/config acceptance.
 
 ### Base Prerequisite Evidence

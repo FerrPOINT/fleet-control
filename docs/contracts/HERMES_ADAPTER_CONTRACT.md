@@ -20,6 +20,11 @@ controller restart and Hermes container acceptance remain required.
 Confirmed original namespace exit permits a new history-ordinal generation;
 unknown preparation/start keeps its original intent/claim and cannot advance it.
 Previous generation files are preserved, not rewritten or restarted.
+The000018 pre-create DB fence commits the immutable ordinal/controller/generation/
+operation/intent hash before file creation and Base prepare. Neither missing
+intent nor whole private-directory loss authorizes another create or native
+fallback. Resolved credentials remain private files, never database columns.
+Original file restore/readback is distinct from unimplemented controller takeover.
 
 Retained-child checks below apply to the legacy native path. Container config
 activation is explicitly unavailable before file/stop effects until safe

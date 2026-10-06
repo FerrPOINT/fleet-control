@@ -1,5 +1,20 @@
 # Operations
 
+## Lost Container Preparation Files
+
+With000018, automatic preparation commits an immutable DB fence before Docker
+create, including the original controller/generation/operation and private
+intent hash. Missing intent or the entire private controller directory must
+remain held; do not delete the fence, reset the ordinal, switch to native mode
+or generate a new preparation. Restore only the exact original private files
+from a protected backup and reconcile Base's original create receipt. Same-
+controller readback is supported; replacement-controller takeover and complete
+journal/backup restore remain separate acceptance gates. The migration cannot
+recover a pre-upgrade unrecorded intent: inventory outstanding preparations
+before enabling automatic creation. Never expose secret-bearing files in reports.
+
+## Runtime Ownership
+
 For a journaled launch owned by another controller, health returns observational
 degraded without changing persisted runtime/heartbeat/capabilities. Inspect the
 original controller rather than treating that response as a failed process or

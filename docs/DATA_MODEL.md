@@ -22,7 +22,18 @@ native process authority, and a stopped generation cannot be reused for restart.
 See [Container Control](contracts/CONTAINER_CONTROL_V1.md) for validation and
 remaining automatic generation/configuration work.
 
-Automatic generation preparation adds no PostgreSQL table. Its original
+Automatic generation preparation now adds `runtime_container_preparations`
+through additive `000018`. Its primary key is agent UUID + history ordinal;
+generation and operation UUIDs are unique. It fixes controller UUID and canonical
+intent SHA256 before either the private intent write or physical Docker create.
+Only identifiers and hash are stored: no process/environment/credential bytes.
+Exact replay requires the same controller and full identity; missing private
+files cannot allocate another generation. UPDATE/DELETE/TRUNCATE and nonempty
+downgrade are rejected. An outstanding preparation also blocks native fallback
+or a mismatching launch. This is not automatic controller takeover or private
+storage reconstruction. Legacy unrecorded preparations require inventory and
+reconciliation before rollout; the migration does not infer lost historical
+intent. Its original
 creation intent is an exclusive private controller document, containing the
 agent/paths/config revision, generation/operation UUIDs, process and source/context
 pins. A mapped intent also fixes original controller snapshot/Engine/local root,
@@ -33,7 +44,9 @@ owned preparation SQLite file with application ID0x53444233, original payload ha
 committed create claim and prepared receipt. This is not Hermes SessionDB or a
 business assignment queue. Only a matching prepared receipt precedes the existing
 Fleet runtime-launch DB claim and sole process start; unknown creation cannot
-allocate a replacement intent or change effective configuration.
+allocate a replacement intent after private-file loss or change effective
+configuration. The same claim is rechecked before a prepared generation may
+proceed to the launch claim.
 
 The next preparation ordinal is a single-snapshot count of immutable
 runtime_launches rows for the agent, with outstanding claimed/started rows

@@ -122,6 +122,25 @@ fn held() -> AppError {
 }
 
 impl LocalRuntimeSupervisor {
+    async fn claim_container_intent(
+        &self,
+        intent: &ContainerCreationIntent,
+        ordinal: i64,
+    ) -> Result<(), AppError> {
+        self.repo
+            .claim_container_preparation(&app::runtime_launch::RuntimeContainerPreparation {
+                agent_id: intent.agent_id,
+                ordinal,
+                controller_id: self.controller_id,
+                generation: intent.generation,
+                operation_id: intent.operation_id,
+                intent_sha256: crate::runtime_launches::snapshot_hash(
+                    &serde_json::to_value(intent).map_err(AppError::internal)?,
+                )?,
+            })
+            .await
+    }
+
     fn container_intent(
         &self,
         agent: &Agent,
@@ -214,8 +233,8 @@ impl LocalRuntimeSupervisor {
         root: &Path,
         prepared_path: &Path,
         intent_path: &Path,
-        revision: Option<i64>,
-        revision_hash: Option<String>,
+        ordinal: i64,
+        revision: (Option<i64>, Option<String>),
     ) -> Result<(), AppError> {
         let config = self
             .config
@@ -243,7 +262,7 @@ impl LocalRuntimeSupervisor {
             .as_ref()
             .map_or_else(Uuid::new_v4, |value| value.operation_id);
         let mut intent =
-            self.container_intent(agent, generation, operation_id, revision, revision_hash)?;
+            self.container_intent(agent, generation, operation_id, revision.0, revision.1)?;
         let name = format!("{}.{}", agent.id, generation);
         let control = ContainerControl::new(
             config.python.clone().into(),
@@ -273,13 +292,17 @@ impl LocalRuntimeSupervisor {
             }
             apply_mapping(&mut intent, root, fresh)?;
         }
-        if let Some(previous) = previous {
+        if let Some(previous) = previous.as_ref() {
             if serde_json::to_value(previous).map_err(|_| held())?
                 != serde_json::to_value(&intent).map_err(|_| held())?
             {
                 return Err(held());
             }
-        } else {
+        }
+        // Commit before both private-file creation and Docker create. Missing files
+        // must not grant a new generation after an unknown physical effect.
+        self.claim_container_intent(&intent, ordinal).await?;
+        if previous.is_none() {
             private_document(root, intent_path, &intent).await?;
         }
         let files = ContainerLaunchFiles {
@@ -303,7 +326,7 @@ impl LocalRuntimeSupervisor {
             agent_id: agent.id,
             paths: agent.paths.clone(),
             api_port: agent.api_port,
-            configuration_revision: revision,
+            configuration_revision: revision.0,
             configuration_sha256: intent.configuration_sha256,
             container: RuntimeContainerBinding {
                 registration: prepared.registration,
@@ -541,8 +564,8 @@ impl LocalRuntimeSupervisor {
                 &root,
                 &path,
                 &intent_path,
-                revision_number,
-                revision_hash.clone(),
+                ordinal,
+                (revision_number, revision_hash.clone()),
             )
             .await?;
         }
@@ -628,6 +651,7 @@ impl LocalRuntimeSupervisor {
             {
                 return Err(held());
             }
+            self.claim_container_intent(&intent, ordinal).await?;
         }
         let command_sha256 = crate::runtime_launches::snapshot_hash(
             &serde_json::to_value(&prepared.container).map_err(AppError::internal)?,

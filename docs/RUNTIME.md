@@ -1,5 +1,16 @@
 # Runtime
 
+## Container Preparation Custody
+
+Additive000018 commits an immutable DB identity before the secret-bearing
+intent file and Base physical create. The agent/history-ordinal/controller/
+generation/operation/hash must replay exactly. Missing private storage cannot
+grant another create or native fallback. Restoration requires the exact original
+document and Base readback; a different controller remains held. Existing000017
+launch/start authority and namespace-exit requirements remain unchanged.
+See [ADR0028](adr/0028-durable-container-precreate-fence.md) and
+[recovery operations](OPERATIONS.md#lost-container-preparation-files).
+
 ## Original-Controller Observation And Liveness
 
 A replica without the original managed launch returns an observational degraded

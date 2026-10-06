@@ -23,3 +23,5 @@ Required index coverage:
 - `audit_log.actor_user_id`, `audit_log.action`,
   `audit_log.entity_type/entity_id`, `audit_log.created_at`.
 - recent `agent_events` and `agent_logs` access by time and agent.
+- `runtime_container_preparations(agent_id, ordinal)` primary key for exact replay;
+  unique `generation` and `operation_id` enforce pre-create identity across agents.

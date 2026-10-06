@@ -30,9 +30,9 @@ files and applied ledger entries are not rewritten or renamed. On each status,
 up or down operation, the stored ledger selects its original foundation;
 unknown versions or a mixture of split and combined histories fail closed.
 
-Both registries append the same ordered eight runtime/chat migrations
-`000010_task_chats` through `000017_runtime_launches`: eighteen entries for a
-canonical installation, twenty-one for a split installation. Full migration
+Both registries append the same ordered nine runtime/chat migrations
+`000010_task_chats` through `000018_container_preparations`: nineteen entries for a
+canonical installation, twenty-two for a split installation. Full migration
 names, not ordinal suffixes alone, identify a step. A matching numeric suffix
 does not replace a historical split step with a newer runtime release.
 
@@ -50,6 +50,17 @@ runtime launch/dispatch authority. This source integration still requires
 ordered release packets with at most one new migration each and exact-head CI.
 An empty latest-step downgrade test is not permission to remove retained
 launch or dispatch receipts.
+
+## Container Pre-Create Fence
+
+Additive `m20261006_000018_container_preparations` follows000017 without
+rewriting it. Empty down/reapply is supported; retained preparation rows prohibit
+downgrade, UPDATE, DELETE and TRUNCATE. The table stores identities/intent hash,
+not runtime credentials, and does not backfill legacy agents/launches or fabricate
+lost preparation provenance. Test its clean upgrade and populated-history
+preservation using `FLEET_CONTAINER_PREPARATION_MIGRATION_TEST_DATABASE_URL`.
+Release this single migration in an ordered packet after its runtime-launch
+dependency, never as part of the accumulated integration tail.
 
 ## Journal Time Ordering
 
