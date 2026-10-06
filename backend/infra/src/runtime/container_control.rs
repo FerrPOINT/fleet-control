@@ -1,0 +1,584 @@
+//! Private Base subprocess protocol. No Docker command or credential is agent-supplied.
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
+use shared::AppError;
+use std::{path::PathBuf, process::Stdio, time::Duration};
+use tokio::{
+    io::{AsyncRead, AsyncReadExt, AsyncWriteExt},
+    process::Command,
+};
+use uuid::Uuid;
+
+const LIMIT: usize = 64 * 1024;
+const DEADLINE: Duration = Duration::from_secs(60);
+const BOOTSTRAP: &str = "import runpy,sys,types; from pathlib import Path; p=types.ModuleType('scripts'); p.__path__=[str(Path(sys.argv[1])/'scripts')]; sys.modules['scripts']=p; runpy.run_module('scripts.runtime_control',run_name='__main__')";
+
+#[derive(Debug, Clone)]
+pub struct ControlSource {
+    pub root: PathBuf,
+    /// Boundary, bootstrap and control bytes from an operator-pinned Base checkout.
+    pub sha256: [String; 3],
+}
+
+#[derive(Debug, Clone)]
+pub struct ContainerControl {
+    python: PathBuf,
+    source: ControlSource,
+    context: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EngineIdentity {
+    #[serde(rename = "ID")]
+    pub id: String,
+    #[serde(rename = "KernelVersion")]
+    pub kernel_version: String,
+    #[serde(rename = "ServerVersion")]
+    pub server_version: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContainerRegistration {
+    pub contract_version: u8,
+    pub operation_id: Uuid,
+    pub container_id: String,
+    pub resource_id: Uuid,
+    pub generation: Uuid,
+    pub engine: EngineIdentity,
+    pub policy_sha256: String,
+    pub inventory_sha256: String,
+    pub running_inventory_sha256: String,
+    pub compose_sha256: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub network_sha256: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContainerSnapshot {
+    pub contract_version: u8,
+    pub container_id: String,
+    pub engine: EngineIdentity,
+    pub policy_sha256: String,
+    pub inventory_sha256: String,
+    pub started_at: String,
+    pub init_pid: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub network_sha256: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ContainerObservation {
+    NeverStarted,
+    Running,
+    NamespaceExited,
+    Unavailable,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ContainerReceiptState {
+    Registered,
+    Observed,
+    Held,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContainerReceipt {
+    pub contract_version: u8,
+    pub operation_id: Uuid,
+    pub container_id: String,
+    pub resource_id: Uuid,
+    pub generation: Uuid,
+    pub registration_sha256: String,
+    pub state: ContainerReceiptState,
+    pub observation: ContainerObservation,
+    #[serde(deserialize_with = "required_snapshot")]
+    pub snapshot: Option<ContainerSnapshot>,
+}
+
+fn required_snapshot<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<ContainerSnapshot>, D::Error> {
+    Option::deserialize(deserializer)
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContainerStopReceipt {
+    pub contract_version: u8,
+    pub operation_id: Uuid,
+    pub container_id: String,
+    pub resource_id: Uuid,
+    pub generation: Uuid,
+    pub snapshot_sha256: String,
+    pub state: ContainerReceiptState,
+    pub observation: ContainerObservation,
+}
+
+/// Paths remain controller-private; neither these nor registrations are public agent DTOs.
+#[derive(Debug, Clone)]
+pub struct ContainerLaunchFiles {
+    pub policy: Value,
+    pub compose: PathBuf,
+    pub journal: PathBuf,
+    pub stop_journal: PathBuf,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Envelope {
+    protocol_version: u8,
+    action: String,
+    result: Value,
+}
+
+fn held() -> AppError {
+    AppError::Unavailable(
+        "original Docker operation requires reconciliation; no automatic resend".into(),
+    )
+}
+
+fn hash(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+fn validate_registration(value: &ContainerRegistration) -> Result<(), AppError> {
+    if !matches!(value.contract_version, 1 | 2)
+        || (value.contract_version == 2) != value.network_sha256.is_some()
+        || [
+            &value.container_id,
+            &value.policy_sha256,
+            &value.inventory_sha256,
+            &value.running_inventory_sha256,
+            &value.compose_sha256,
+        ]
+        .iter()
+        .any(|value| !hash(value))
+        || value
+            .network_sha256
+            .as_ref()
+            .is_some_and(|value| !hash(value))
+        || [
+            &value.engine.id,
+            &value.engine.kernel_version,
+            &value.engine.server_version,
+        ]
+        .iter()
+        .any(|value| value.is_empty() || value.len() > 256)
+    {
+        return Err(held());
+    }
+    Ok(())
+}
+
+impl ContainerControl {
+    pub fn new(python: PathBuf, source: ControlSource, context: String) -> Result<Self, AppError> {
+        if python.as_os_str().is_empty()
+            || !source.root.is_absolute()
+            || context.is_empty()
+            || context.len() > 128
+            || !context
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || b"_.-".contains(&byte))
+            || !context.as_bytes()[0].is_ascii_alphanumeric()
+            || source.sha256.iter().any(|value| !hash(value))
+        {
+            return Err(AppError::validation(
+                "invalid protected Docker control configuration",
+            ));
+        }
+        Ok(Self {
+            python,
+            source,
+            context,
+        })
+    }
+
+    async fn call(
+        &self,
+        files: &ContainerLaunchFiles,
+        action: &str,
+        extra: Value,
+    ) -> Result<(i32, Value), AppError> {
+        for (name, expected) in [
+            "runtime_boundary.py",
+            "runtime_bootstrap.py",
+            "runtime_control.py",
+        ]
+        .iter()
+        .zip(&self.source.sha256)
+        {
+            let path = self.source.root.join("scripts").join(name);
+            let meta = tokio::fs::symlink_metadata(&path)
+                .await
+                .map_err(|_| held())?;
+            if !meta.is_file() || meta.len() > 1024 * 1024 {
+                return Err(held());
+            }
+            let bytes = tokio::fs::read(&path).await.map_err(|_| held())?;
+            if hex::encode(Sha256::digest(bytes)) != *expected {
+                return Err(held());
+            }
+        }
+        let mut request = json!({"protocol_version":1, "action":action, "context":self.context,
+            "policy":files.policy, "compose":files.compose, "journal":files.journal});
+        if !files.compose.is_absolute()
+            || !files.journal.is_absolute()
+            || !files.stop_journal.is_absolute()
+        {
+            return Err(AppError::validation(
+                "Docker launch storage must be absolute",
+            ));
+        }
+        request
+            .as_object_mut()
+            .ok_or_else(held)?
+            .extend(extra.as_object().ok_or_else(held)?.clone());
+        let payload = serde_json::to_vec(&request).map_err(|_| held())?;
+        if payload.len() > LIMIT {
+            return Err(held());
+        }
+        let mut command = Command::new(&self.python);
+        command
+            .args(["-I", "-c", BOOTSTRAP])
+            .arg(&self.source.root)
+            .env_clear()
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true);
+        for key in [
+            "PATH",
+            "HOME",
+            "USERPROFILE",
+            "SYSTEMROOT",
+            "WINDIR",
+            "TEMP",
+            "TMP",
+            "DOCKER_CONFIG",
+            "DOCKER_HOST",
+            "DOCKER_TLS",
+            "DOCKER_TLS_VERIFY",
+            "DOCKER_CERT_PATH",
+        ] {
+            if let Some(value) = std::env::var_os(key) {
+                command.env(key, value);
+            }
+        }
+        let mut child = command.spawn().map_err(|_| held())?;
+        let mut stdin = child.stdin.take().ok_or_else(held)?;
+        let stdout = child.stdout.take().ok_or_else(held)?;
+        let stderr = child.stderr.take().ok_or_else(held)?;
+        let result = tokio::time::timeout(DEADLINE, async {
+            stdin.write_all(&payload).await.map_err(|_| held())?;
+            stdin.shutdown().await.map_err(|_| held())?;
+            drop(stdin);
+            let (status, output, _) = tokio::try_join!(
+                async { child.wait().await.map_err(|_| held()) },
+                bounded(stdout),
+                bounded(stderr)
+            )?;
+            Ok::<_, AppError>((status.code().ok_or_else(held)?, output))
+        })
+        .await
+        .map_err(|_| held())??;
+        if !matches!(result.0, 0 | 2) {
+            return Err(held());
+        }
+        let envelope: Envelope = serde_json::from_slice(&result.1).map_err(|_| held())?;
+        if envelope.protocol_version != 1 || envelope.action != action {
+            return Err(held());
+        }
+        Ok((result.0, envelope.result))
+    }
+
+    pub async fn register(
+        &self,
+        files: &ContainerLaunchFiles,
+        container_id: &str,
+        operation_id: Uuid,
+    ) -> Result<ContainerRegistration, AppError> {
+        let (_, value) = self
+            .call(
+                files,
+                "register",
+                json!({"container_id":container_id, "operation_id":operation_id}),
+            )
+            .await?;
+        let registration: ContainerRegistration =
+            serde_json::from_value(value).map_err(|_| held())?;
+        validate_registration(&registration)?;
+        if registration.container_id != container_id
+            || registration.operation_id != operation_id
+            || files.policy.get("resource_id").and_then(Value::as_str)
+                != Some(registration.resource_id.to_string().as_str())
+            || files.policy.get("generation").and_then(Value::as_str)
+                != Some(registration.generation.to_string().as_str())
+            || files.policy.get("contract_version").and_then(Value::as_u64)
+                != Some(registration.contract_version.into())
+            || !hash(&registration.container_id)
+        {
+            return Err(held());
+        }
+        Ok(registration)
+    }
+
+    pub async fn observe(
+        &self,
+        files: &ContainerLaunchFiles,
+        original: &ContainerRegistration,
+    ) -> Result<ContainerReceipt, AppError> {
+        self.receipt(files, original, "observe").await
+    }
+
+    /// Caller must commit the registration in Fleet's authoritative launch journal first.
+    pub async fn start(
+        &self,
+        files: &ContainerLaunchFiles,
+        original: &ContainerRegistration,
+    ) -> Result<ContainerReceipt, AppError> {
+        self.receipt(files, original, "start").await
+    }
+
+    async fn receipt(
+        &self,
+        files: &ContainerLaunchFiles,
+        original: &ContainerRegistration,
+        action: &str,
+    ) -> Result<ContainerReceipt, AppError> {
+        let (status, value) = self
+            .call(files, action, json!({"registration":original}))
+            .await?;
+        let receipt: ContainerReceipt = serde_json::from_value(value).map_err(|_| held())?;
+        validate_receipt(&receipt, original, status, action)?;
+        Ok(receipt)
+    }
+
+    pub async fn stop(
+        &self,
+        files: &ContainerLaunchFiles,
+        original: &ContainerRegistration,
+        operation_id: Uuid,
+    ) -> Result<ContainerStopReceipt, AppError> {
+        let (status, value) = self
+            .call(
+                files,
+                "stop",
+                json!({"registration":original,
+            "operation_id":operation_id,"stop_journal":files.stop_journal}),
+            )
+            .await?;
+        let receipt: ContainerStopReceipt = serde_json::from_value(value).map_err(|_| held())?;
+        if receipt.contract_version != original.contract_version
+            || receipt.operation_id != operation_id
+            || receipt.container_id != original.container_id
+            || receipt.resource_id != original.resource_id
+            || receipt.generation != original.generation
+            || !hash(&receipt.snapshot_sha256)
+            || status != 0
+            || receipt.state != ContainerReceiptState::Observed
+            || receipt.observation != ContainerObservation::NamespaceExited
+        {
+            return Err(held());
+        }
+        Ok(receipt)
+    }
+}
+
+async fn bounded(reader: impl AsyncRead + Unpin) -> Result<Vec<u8>, AppError> {
+    let mut output = Vec::new();
+    reader
+        .take((LIMIT + 1) as u64)
+        .read_to_end(&mut output)
+        .await
+        .map_err(|_| held())?;
+    if output.len() > LIMIT {
+        return Err(held());
+    }
+    Ok(output)
+}
+
+fn validate_receipt(
+    receipt: &ContainerReceipt,
+    original: &ContainerRegistration,
+    status: i32,
+    action: &str,
+) -> Result<(), AppError> {
+    if receipt.contract_version != original.contract_version
+        || receipt.operation_id != original.operation_id
+        || receipt.container_id != original.container_id
+        || receipt.resource_id != original.resource_id
+        || receipt.generation != original.generation
+        || !hash(&receipt.registration_sha256)
+    {
+        return Err(held());
+    }
+    let valid = match (&receipt.state, receipt.observation, &receipt.snapshot) {
+        (ContainerReceiptState::Held, ContainerObservation::Unavailable, None) => status == 2,
+        (ContainerReceiptState::Registered, ContainerObservation::NeverStarted, None) => {
+            status == 0 && action == "observe"
+        }
+        (
+            ContainerReceiptState::Observed,
+            ContainerObservation::Running | ContainerObservation::NamespaceExited,
+            Some(snapshot),
+        ) => {
+            status == 0
+                && snapshot.contract_version == original.contract_version
+                && snapshot.container_id == original.container_id
+                && snapshot.engine == original.engine
+                && snapshot.policy_sha256 == original.policy_sha256
+                && snapshot.inventory_sha256 == original.running_inventory_sha256
+                && snapshot.network_sha256 == original.network_sha256
+                && snapshot.init_pid > 0
+                && !snapshot.started_at.is_empty()
+                && !snapshot.started_at.starts_with("0001-")
+        }
+        _ => false,
+    };
+    if !valid {
+        return Err(held());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn original() -> ContainerRegistration {
+        ContainerRegistration {
+            contract_version: 2,
+            operation_id: Uuid::new_v4(),
+            container_id: "a".repeat(64),
+            resource_id: Uuid::new_v4(),
+            generation: Uuid::new_v4(),
+            engine: EngineIdentity {
+                id: "host".into(),
+                kernel_version: "kernel".into(),
+                server_version: "29".into(),
+            },
+            policy_sha256: "b".repeat(64),
+            inventory_sha256: "c".repeat(64),
+            running_inventory_sha256: "d".repeat(64),
+            compose_sha256: "e".repeat(64),
+            network_sha256: Some("f".repeat(64)),
+        }
+    }
+
+    fn receipt(original: &ContainerRegistration) -> ContainerReceipt {
+        ContainerReceipt {
+            contract_version: 2,
+            operation_id: original.operation_id,
+            container_id: original.container_id.clone(),
+            resource_id: original.resource_id,
+            generation: original.generation,
+            registration_sha256: "1".repeat(64),
+            state: ContainerReceiptState::Observed,
+            observation: ContainerObservation::Running,
+            snapshot: Some(ContainerSnapshot {
+                contract_version: 2,
+                container_id: original.container_id.clone(),
+                engine: original.engine.clone(),
+                policy_sha256: original.policy_sha256.clone(),
+                inventory_sha256: original.running_inventory_sha256.clone(),
+                started_at: "2026-10-06T12:00:00.123456789Z".into(),
+                init_pid: 123,
+                network_sha256: original.network_sha256.clone(),
+            }),
+        }
+    }
+
+    #[test]
+    fn original_ack_and_exit_are_not_interchangeable_with_held_or_foreign_receipts() {
+        let original = original();
+        let mut value = receipt(&original);
+        validate_receipt(&value, &original, 0, "start").unwrap();
+        value.observation = ContainerObservation::NamespaceExited;
+        validate_receipt(&value, &original, 0, "observe").unwrap();
+        value.generation = Uuid::new_v4();
+        assert!(validate_receipt(&value, &original, 0, "observe").is_err());
+        value.generation = original.generation;
+        value.snapshot.as_mut().unwrap().inventory_sha256 = original.inventory_sha256.clone();
+        assert!(validate_receipt(&value, &original, 0, "start").is_err());
+        value.snapshot = None;
+        assert!(validate_receipt(&value, &original, 0, "start").is_err());
+        value.state = ContainerReceiptState::Held;
+        value.observation = ContainerObservation::Unavailable;
+        validate_receipt(&value, &original, 2, "start").unwrap();
+        assert!(validate_receipt(&value, &original, 0, "start").is_err());
+    }
+
+    #[test]
+    fn preexec_observation_is_not_a_start_ack() {
+        let original = original();
+        let mut value = receipt(&original);
+        value.state = ContainerReceiptState::Registered;
+        value.observation = ContainerObservation::NeverStarted;
+        value.snapshot = None;
+        validate_receipt(&value, &original, 0, "observe").unwrap();
+        assert!(validate_receipt(&value, &original, 0, "start").is_err());
+    }
+
+    #[test]
+    fn receipt_requires_explicit_nullable_snapshot_and_closed_fields() {
+        let original = original();
+        let mut value = json!({"contract_version":2,"operation_id":original.operation_id,
+            "container_id":original.container_id,"resource_id":original.resource_id,
+            "generation":original.generation,"registration_sha256":"1".repeat(64),
+            "state":"held","observation":"unavailable","snapshot":null});
+        let receipt: ContainerReceipt = serde_json::from_value(value.clone()).unwrap();
+        validate_receipt(&receipt, &original, 2, "start").unwrap();
+        value.as_object_mut().unwrap().remove("snapshot");
+        assert!(serde_json::from_value::<ContainerReceipt>(value.clone()).is_err());
+        value["snapshot"] = Value::Null;
+        value["adopt_pid"] = json!(123);
+        assert!(serde_json::from_value::<ContainerReceipt>(value).is_err());
+    }
+
+    #[test]
+    fn registration_requires_all_original_hashes_and_versioned_network() {
+        let mut value = original();
+        validate_registration(&value).unwrap();
+        value.network_sha256 = None;
+        assert!(validate_registration(&value).is_err());
+        value.contract_version = 1;
+        validate_registration(&value).unwrap();
+        value.compose_sha256 = "mutable".into();
+        assert!(validate_registration(&value).is_err());
+    }
+
+    #[test]
+    fn source_configuration_rejects_implicit_context_and_unpinned_sources() {
+        let source = ControlSource {
+            root: PathBuf::from("relative"),
+            sha256: ["a".repeat(64), "b".repeat(64), "c".repeat(64)],
+        };
+        assert!(ContainerControl::new("python".into(), source, "desktop-linux".into()).is_err());
+        let source = ControlSource {
+            root: std::env::current_dir().unwrap(),
+            sha256: ["a".repeat(64), "b".repeat(64), "c".repeat(64)],
+        };
+        for context in ["", "--host=foreign", "a b", "/remote"] {
+            assert!(
+                ContainerControl::new("python".into(), source.clone(), context.into()).is_err()
+            );
+        }
+        ContainerControl::new("python".into(), source, "desktop-linux".into()).unwrap();
+    }
+
+    #[tokio::test]
+    async fn native_output_is_bounded_and_cannot_become_a_receipt() {
+        assert!(bounded(&vec![b'x'; LIMIT + 1][..]).await.is_err());
+        assert_eq!(bounded(&b"receipt"[..]).await.unwrap(), b"receipt");
+    }
+}

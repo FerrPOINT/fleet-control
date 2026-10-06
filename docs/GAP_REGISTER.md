@@ -2,6 +2,18 @@
 
 ## October SDLC Gate
 
+Docker is the selected runtime architecture, not an open user choice. The
+private [container control client](contracts/CONTAINER_CONTROL_V1.md) is added,
+but the supervisor still uses native spawn. Do not count the client or Base
+protocol QA as completed container lifecycle. Guarded Compose create/rendering,
+Fleet DB binding before start, trusted bridge access, receipt-based stop/health/
+logs and config drain/rollback are required before replacing that path.
+
+Current Base protocol source is PR150
+`57d717ff50b49133e12f5e2761141f72078859b1`, ready/CLEAN, nine green CI37417100487 jobs;
+the following176e ready/green observation is historical. Full Fleet remains
+not merge-ready; no installed image, migration or automation is changed here.
+
 Base PR144 is now merged into main63fff28. New
 [Base PR150](https://github.com/FerrPOINT/services-base/pull/150), head
 `176e5d2265a330316af75dac9432dd1003a79121`, adds explicit sealed bridge v2 and

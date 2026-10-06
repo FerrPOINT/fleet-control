@@ -1,5 +1,46 @@
 # Chat Clarification Verification
 
+## Private Container Client: 6 October 2026
+
+Container architecture is fixed: one agent/container in existing sdlc1/sdlc2,
+without a new user-facing controller service. The new private Rust client
+consumes Base's register/start/observe/stop stdin/stdout protocol; it is not
+yet routed from LocalRuntimeSupervisor. Buttons still use native spawn. See
+[contract and remaining wiring](contracts/CONTAINER_CONTROL_V1.md).
+
+Fresh Linux Rust1.88 project `sdlc-qa-fleet-container-control-700d2eab3989`
+passes fmt, locked/offline workspace all-target check, strict all-target Clippy
+and six client units. The159 other infra units are filtered, not rerun here.
+The units cover original/foreign/held receipts, never-started versus ACK,
+closed required snapshot fields, original hashes/network versions, pinned
+configuration and bounded output. They do not execute the Rust client against
+Docker or prove supervisor lifecycle.286 frozen source files match final bytes;
+the target directory is new, not a previous compiled binary. SDKcbb4e99 is unchanged.
+
+| Evidence | SHA256 |
+| --- | --- |
+| container_control.rs | `1a121eeb773c0de287e1cef09329bbe31b3a4c02dc2e7d1507c53102e738dd97` |
+| runtime/mod.rs | `2ca797ba04de966b9ce6f21e45319d273eb6131c2b03aafd27fcda6dd285806d` |
+| frozen source manifest | `5950e570436c52bdd52b98817fb50a5984b755c2690acc7f98d4859b6d964d8c` |
+| final gate log | `3a96627a5e200b934f00052fe75828d936bcdaa39a26bcc0f81effeb2bde3e1c` |
+| final report | `fac595659e4e0a4c2f8209c54bdcadbba487d9cfd41f9c867e9db7e2d4c7ca46` |
+
+Own finally cleanup and independent exact Compose ps are empty. Preliminary
+driver failures remain recorded: d429c2af091a generated CRLF in gate.sh;
+9b4fe849eed1 omitted source include files needed by native test compilation.
+The final driver uses LF and all required input files; no production assertion,
+Cargo target freshness or command deadline is weakened.
+
+Independent Base PR150 source57d717f has nine successful CI37417100487 jobs,
+ready/CLEAN, no reviews/threads and no merge/install. Its native two-container
+protocol and v1 startup/crash gates pass with matching source fingerprints.
+Those synthetic HTTP peers do not certify this Rust client or actual Hermes.
+No schema/public API/SDK/image pin, UI or installed runtime is changed. Compose
+provisioning, DB-before-start binding, trusted network access, stop/health/logs,
+drain/rollback, assignment admission, PM resume and full SDLC remain incomplete.
+
+## Historical Native Publication 2293862
+
 Final publication update: integration source
 `22938621568e4ab3d812fb506226551fe506d9bd` is pushed normally with clean worktree;
 47 runtime/test/harness fingerprints are checked against staged Git bytes.

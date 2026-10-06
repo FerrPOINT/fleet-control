@@ -26,6 +26,7 @@ mod acceptance_readback;
 mod activation_journal;
 mod approval_outcome;
 mod approval_snapshot;
+pub mod container_control;
 mod control_outcome_readback;
 #[doc(hidden)]
 pub mod control_outcome_wire;

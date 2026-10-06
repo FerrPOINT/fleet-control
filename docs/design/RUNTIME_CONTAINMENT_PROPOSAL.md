@@ -1,9 +1,28 @@
 # Runtime Containment Decision Proposal
 
-Status: Fleet integration proposed, not implemented or live accepted. A user choice between a
-per-agent container and delegated Linux cgroup was requested on 5 October 2026.
-Recommended candidate: one container per agent in its existing workspace Compose
-project. No installed runtime, image pin, mount or Compose group changes here.
+Status: container architecture confirmed by the user on 6 October 2026;
+supervisor integration is not yet implemented or live accepted. One concrete
+agent uses one Docker container in the existing sdlc1/sdlc2 Compose project,
+with its own config/workspace/logs/credentials. Earlier cgroup/host-controller
+choice requests are superseded. No new user-facing service or section is needed.
+Installed runtime, image pins, mounts and Compose groups remain unchanged here.
+
+## Fleet Control Client: 6 October 2026
+
+The candidate `runtime/container_control.rs` is the private Rust client for
+Base's closed stdin/stdout protocol, not a new network service. It verifies
+three operator-pinned Base source hashes, uses isolated Python imports and an
+explicit Docker context, bounds input/output/deadline, and validates typed
+original register/start/observe/stop acknowledgements. Native stderr and runtime
+environment are never copied into public errors. Held/unknown outcomes never
+permit an automatic second start or PID adoption.
+
+This client is not yet routed from `LocalRuntimeSupervisor` start/stop/health.
+The existing buttons still use the native process path. Remaining integration:
+guarded Compose rendering/create, authoritative original binding before execution,
+trusted Fleet network access, durable stop acceptance and config drain/rollback.
+Do not describe client unit tests or Base transport QA as actual Fleet/Hermes
+container acceptance. No public API/schema/UI/SDK/image-pin change is made here.
 
 ## Bridge v2 Prerequisite: 6 October 2026
 
@@ -27,9 +46,9 @@ not merged or installed; all nine jobs in
 pass. This is not CI acceptance for Fleet integration.
 
 Fleet has not integrated the host registry, DB binding before start, trusted
-transport or atomic receipt/drain/config activation/rollback. No containment
-policy choice, installed automation, image/SDK pin or permanent Compose change
-is implied. These remain acceptance gates before replacing subprocess custody.
+transport or atomic receipt/drain/config activation/rollback. The container
+choice above is fixed; installed automation, image/SDK pins and permanent Compose
+remain unchanged. These remain acceptance gates before replacing subprocess custody.
 
 ## Standalone Base Primitive: 5 October 2026
 

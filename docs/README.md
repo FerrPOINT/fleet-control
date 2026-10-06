@@ -23,6 +23,7 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 - [ADR: native control outcome witness](adr/0024-native-control-outcome-witness.md)
 - [ADR: original approval outcome journal](adr/0025-original-approval-outcome-journal.md)
 - [Pre-spawn runtime launch journal](contracts/RUNTIME_LAUNCH_JOURNAL_V1.md)
+- [Private container lifecycle client](contracts/CONTAINER_CONTROL_V1.md)
 - [ADR: pre-spawn runtime launch binding](adr/0026-pre-spawn-runtime-launch-journal.md)
 - [Durable runtime command ADR](adr/0021-durable-runtime-control-commands.md)
 - [Current native approval snapshot ADR](adr/0022-current-native-approval-snapshot.md)
