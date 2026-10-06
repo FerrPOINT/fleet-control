@@ -1,0 +1,88 @@
+{
+  "trackerHead": "8c80a41fae3bf1c10439ddb7e536b05bf320340d",
+  "workflowHead": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+  "comparedTrackerSchemas": [
+    "TrackerTaskContext",
+    "TrackerQuestion",
+    "TrackerAnswer",
+    "TrackerRequirementsRevision",
+    "TrackerConfirmation",
+    "ClarificationAnswerRequest",
+    "ConfirmRequirementsRequest"
+  ],
+  "matchingLocalSnapshot": [
+    "TrackerTaskContext",
+    "TrackerQuestion",
+    "TrackerAnswer",
+    "TrackerRequirementsRevision",
+    "TrackerConfirmation",
+    "ClarificationAnswerRequest",
+    "ConfirmRequirementsRequest"
+  ],
+  "publishedTrackerDifferences": [
+    {
+      "path": "TrackerTaskContext.properties.stage.enum",
+      "fleet": [
+        "Analysis",
+        "Backlog",
+        "Clarification",
+        "Draft"
+      ],
+      "publishedTracker": [
+        "Backlog",
+        "Clarification",
+        "Draft"
+      ]
+    },
+    {
+      "path": "TrackerConfirmation.properties.stage.enum",
+      "fleet": [
+        "Analysis",
+        "Backlog",
+        "Clarification",
+        "Draft"
+      ],
+      "publishedTracker": [
+        "Backlog",
+        "Clarification",
+        "Draft"
+      ]
+    },
+    {
+      "path": "ConfirmRequirementsRequest.properties.expected_routing_policy_version",
+      "fleet": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "int64"
+      },
+      "publishedTracker": null
+    }
+  ],
+  "workflowPMPaths": [
+    "/internal/runtime/v1/pm/bind",
+    "/internal/runtime/v1/pm/checkpoint",
+    "/internal/runtime/v1/pm/readback",
+    "/internal/runtime/v1/pm/rebind",
+    "/internal/runtime/v1/pm/resume"
+  ],
+  "workflowIdentityRequired": [
+    "task",
+    "execution_ref",
+    "tracker_instance_ref",
+    "tracker_project_ref",
+    "task_ref",
+    "root_ref",
+    "agent_ref",
+    "assignment_operation_key",
+    "assignment_ref",
+    "assignment_revision"
+  ],
+  "publishedSourceSha256": {
+    "tracker-openapi.json": "361672c7cbc04d7aaf9116480715c293fc8841671d2e6a026d618abc93c9722f",
+    "tracker-sdlc.rs": "689d0764d7207fd20a156776f2f67074fd2260ddce1268a8bc15abda85228362",
+    "workflow-openapi.json": "580cebfc6c5ad62606ac5c3458429aab19651493d6df312caa369822e31a34e4",
+    "workflow-contract.md": "d5c361ecf438686a8459ed7b0c2e46005c5335e18f6fbae0d5d3e60498f68828"
+  }
+}

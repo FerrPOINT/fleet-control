@@ -172,6 +172,186 @@ beforeEach(() => {
   })
 })
 describe('production chat', () => {
+  it('preserves the original prompt after a denied retry until its matching receipt arrives', async () => {
+    vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      can_send: true,
+      can_steer: false,
+      can_stop: false,
+      active_run_id: null,
+      blocked_reason: null,
+    })
+    vi.mocked(fleet.createSessionMessage)
+      .mockRejectedValueOnce(new Error('Prompt ACK lost'))
+      .mockRejectedValueOnce(new ApiError(403, 'Prompt retry denied'))
+      .mockResolvedValueOnce(message('original-prompt', 'Original prompt'))
+    renderPage()
+    const input = await screen.findByLabelText('Сообщение агенту')
+    await userEvent.type(input, 'Original prompt')
+    const submit = screen.getByRole('button', { name: 'Отправить сообщение' })
+    await userEvent.click(submit)
+    await screen.findByText('Prompt ACK lost')
+    expect(input).toBeDisabled()
+    await userEvent.click(submit)
+    await screen.findByText('Prompt retry denied')
+    expect(input).toBeDisabled()
+    expect(input).toHaveValue('Original prompt')
+    await userEvent.click(submit)
+    await waitFor(() => expect(input).toBeEnabled())
+    expect(input).toHaveValue('')
+    const calls = vi.mocked(fleet.createSessionMessage).mock.calls
+    expect(calls).toHaveLength(3)
+    expect(calls[1]).toEqual(calls[0])
+    expect(calls[2]).toEqual(calls[0])
+  })
+  it.each(['answer', 'confirmation'] as const)(
+    'does not treat a rejected %s retry as proof that the original command failed',
+    async (command) => {
+      const isAnswer = command === 'answer'
+      const mutation = isAnswer ? chats.answerClarification : chats.confirmRequirements
+      vi.mocked(mutation)
+        .mockRejectedValueOnce(new Error('Original ACK lost'))
+        .mockRejectedValue(new ApiError(403, 'Retry denied'))
+      const { client } = renderPage(isAnswer ? 'clarification' : 'requirements')
+      await userEvent.click(
+        isAnswer
+          ? await screen.findByRole('radio', { name: /Участники проекта/ })
+          : await screen.findByRole('checkbox', { name: /Подтверждаю цель/ }),
+      )
+      await userEvent.click(
+        screen.getByRole('button', {
+          name: isAnswer ? 'Сохранить ответ' : 'Подтвердить редакцию 3',
+        }),
+      )
+      await screen.findByText('Original ACK lost')
+      const retryName = isAnswer ? 'Повторить исходный ответ' : 'Повторить исходное подтверждение'
+      await waitFor(() => expect(screen.getByRole('button', { name: retryName })).toBeEnabled())
+      await userEvent.click(screen.getByRole('button', { name: retryName }))
+      await screen.findByText('Retry denied')
+      await waitFor(() => expect(screen.getByRole('button', { name: retryName })).toBeEnabled())
+      expect(mutation).toHaveBeenCalledTimes(2)
+      expect(vi.mocked(mutation).mock.calls[1]).toEqual(vi.mocked(mutation).mock.calls[0])
+      expect(screen.getByRole('button', { name: retryName })).toBeVisible()
+      await act(async () => {
+        if (isAnswer)
+          client.setQueryData(['clarifications', 'session1'], {
+            questions: [{ ...question, version: 2 }],
+          })
+        else {
+          client.setQueryData(['requirements', 'session1'], {
+            revisions: [revision, { ...revision, revision: 4, content_hash: 'hash4' }],
+          })
+          client.setQueryData(['task-context', 'session1'], {
+            ...context,
+            tracker: { ...context.tracker!, requirement_revision: 4 },
+          })
+        }
+      })
+      await waitFor(() =>
+        expect(
+          screen.getByRole('button', {
+            name: isAnswer ? 'Сохранить ответ' : 'Подтвердить редакцию 4',
+          }),
+        ).toBeDisabled(),
+      )
+      expect(
+        isAnswer
+          ? screen.getByLabelText('Комментарий')
+          : screen.getByRole('checkbox', { name: /Подтверждаю цель/ }),
+      ).toBeDisabled()
+      if (isAnswer) {
+        vi.mocked(chats.getClarifications).mockResolvedValue({
+          questions: [{ ...question, version: 2 }],
+        })
+        vi.mocked(chats.answerClarification).mockResolvedValueOnce({
+          id: 'answer',
+          question_id: 'q1',
+          question_version: 1,
+          requirement_revision: 3,
+          selected_option_ids: ['project'],
+          text: null,
+          comment: null,
+          author_subject: 'subject-owner',
+          created_at: '2026-10-01T12:00:00Z',
+        })
+      } else {
+        vi.mocked(chats.getRequirements).mockResolvedValue({
+          revisions: [revision, { ...revision, revision: 4, content_hash: 'hash4' }],
+        })
+        vi.mocked(chats.getTaskContext).mockResolvedValue({
+          ...context,
+          tracker: { ...context.tracker!, requirement_revision: 4 },
+        })
+        vi.mocked(chats.confirmRequirements).mockResolvedValueOnce({
+          id: 'confirmation',
+          task_id: 'task',
+          revision: 3,
+          content_hash: 'hash3',
+          owner_subject: 'subject-owner',
+          created_at: '2026-10-01T12:00:00Z',
+          stage: 'Backlog',
+        })
+      }
+      await userEvent.click(screen.getByRole('button', { name: retryName }))
+      await waitFor(() =>
+        expect(screen.queryByRole('button', { name: retryName })).not.toBeInTheDocument(),
+      )
+      await waitFor(() =>
+        expect(
+          isAnswer
+            ? screen.getByLabelText('Комментарий')
+            : screen.getByRole('checkbox', { name: /Подтверждаю цель/ }),
+        ).toBeEnabled(),
+      )
+      expect(mutation).toHaveBeenCalledTimes(3)
+      expect(vi.mocked(mutation).mock.calls[2]).toEqual(vi.mocked(mutation).mock.calls[0])
+    },
+  )
+  it('does not present an empty cached question list as fresh after a failed refresh', async () => {
+    vi.mocked(chats.getClarifications).mockResolvedValue({ questions: [] })
+    const { client } = renderPage('clarification')
+    await screen.findByText('Уточнений пока нет')
+    vi.mocked(chats.getClarifications).mockRejectedValue(new Error('Question source unavailable'))
+    await client.invalidateQueries({ queryKey: ['clarifications', 'session1'] })
+    expect(await screen.findByText('Question source unavailable')).toBeVisible()
+    expect(screen.queryByText('Уточнений пока нет')).not.toBeInTheDocument()
+  })
+  it.each(['source unavailable', 'read only', 'answered'])(
+    'preserves a stale draft without transferring it when the question is %s',
+    async (state) => {
+      const { client } = renderPage('clarification')
+      fireEvent.change(await screen.findByLabelText('Комментарий'), {
+        target: { value: 'Original draft' },
+      })
+      await act(async () => {
+        client.setQueryData(['clarifications', 'session1'], {
+          questions: [
+            { ...question, version: 2, state: state === 'answered' ? 'answered' : 'open' },
+          ],
+        })
+        if (state === 'read only')
+          client.setQueryData(['task-context', 'session1'], {
+            ...context,
+            tracker: {
+              ...context.tracker!,
+              permissions: { can_answer: false, can_confirm: false },
+            },
+          })
+      })
+      if (state === 'source unavailable') {
+        vi.mocked(chats.getClarifications).mockRejectedValue(new Error('Question refresh failed'))
+        await client.invalidateQueries({ queryKey: ['clarifications', 'session1'] })
+        await screen.findByText('Question refresh failed')
+      }
+      expect(await screen.findByText('Original draft')).toBeVisible()
+      expect(
+        screen.getByRole('button', {
+          name: 'Перенести черновик и проверить новый вопрос',
+        }),
+      ).toBeDisabled()
+      expect(chats.answerClarification).not.toHaveBeenCalled()
+    },
+  )
   it.each(['answer', 'confirmation'] as const)(
     'holds both %s retry buttons until command readback finishes',
     async (command) => {

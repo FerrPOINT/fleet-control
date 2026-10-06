@@ -155,21 +155,25 @@ function ChatWorkspace({ id }: { id: string }) {
   const [messageKey, setMessageKey] = useState(requestKey)
   const [delta, setDelta] = useState<Record<string, string>>({})
   const [receipt, setReceipt] = useState<string | null>(null)
+  const [confirmationUncertain, setConfirmationUncertain] = useState(false)
+  const [answerUncertain, setAnswerUncertain] = useState(false)
+  const [messageUncertain, setMessageUncertain] = useState(false)
   const confirmation = useMutation({
     mutationFn: (command: ConfirmationCommand) =>
       confirmRequirements(id, command.revision, command.hash, command.key),
     onSuccess: async (_result, command) => {
+      setConfirmationUncertain(false)
       setReceipt(
         `Подтверждение редакции ${command.revision} сохранено. Следующее назначение проверяется отдельно.`,
       )
       await invalidate()
     },
-    onError: () => {
+    onError: (error) => {
+      if (unknownOutcome(error)) setConfirmationUncertain(true)
       void task.refetch()
       void requirements.refetch()
     },
   })
-  const confirmationUncertain = confirmation.isError && unknownOutcome(confirmation.error)
   const transcript = useRef<HTMLDivElement>(null)
   const following = useRef(true)
   const [newMessages, setNewMessages] = useState(false)
@@ -313,10 +317,12 @@ function ChatWorkspace({ id }: { id: string }) {
         : createSessionMessage(id, { body: command.input, idempotency_key: command.key }),
     onSuccess: async (result) => {
       if ('accepted' in result && !result.accepted) {
+        setMessageUncertain(true)
         setReceipt('Исход команды неизвестен. Проверяется сохранённая запись.')
         await invalidate()
         return
       }
+      setMessageUncertain(false)
       setBody('')
       setMessageKey(requestKey())
       setReceipt(
@@ -326,11 +332,16 @@ function ChatWorkspace({ id }: { id: string }) {
       )
       await invalidate()
     },
+    onError: (error) => {
+      if (unknownOutcome(error)) setMessageUncertain(true)
+      void invalidate()
+    },
   })
   const answer = useMutation({
     mutationFn: (command: { questionId: string; questionKey: string; payload: AnswerInput }) =>
       answerClarification(id, command.questionId, command.payload),
     onSuccess: async (_result, command) => {
+      setAnswerUncertain(false)
       setReceipt('Ответ сохранён. Требования ещё не опубликованы.')
       setDrafts((current) => {
         const next = { ...current }
@@ -339,7 +350,8 @@ function ChatWorkspace({ id }: { id: string }) {
       })
       await invalidate()
     },
-    onError: () => {
+    onError: (error) => {
+      if (unknownOutcome(error)) setAnswerUncertain(true)
       void questions.refetch()
       void task.refetch()
     },
@@ -350,10 +362,6 @@ function ChatWorkspace({ id }: { id: string }) {
       stopSessionRun(id, command.runId, command.key),
     onSuccess: invalidate,
   })
-  const answerUncertain = answer.isError && unknownOutcome(answer.error)
-  const messageUncertain =
-    (message.isError && (!(message.error instanceof ApiError) || message.error.status >= 500)) ||
-    (message.isSuccess && 'accepted' in message.data && !message.data.accepted)
   const uncertainSteer = messageUncertain && message.variables?.kind === 'steer'
   const canSubmitMessage =
     owner &&
@@ -722,7 +730,7 @@ function ChatWorkspace({ id }: { id: string }) {
                   />
                 ) : questions.isPending ? (
                   <p>Загрузка уточнений</p>
-                ) : questions.isError && !questions.data ? (
+                ) : questions.isError && !questionList.length ? (
                   <ReadableError error={questions.error} />
                 ) : !questionList.length ? (
                   <EmptyState title="Уточнений пока нет" />
@@ -854,6 +862,9 @@ function ChatWorkspace({ id }: { id: string }) {
                           disabled={
                             !owner ||
                             task.isError ||
+                            questions.isError ||
+                            !context?.permissions.can_answer ||
+                            selectedQuestion?.state !== 'open' ||
                             answer.isPending ||
                             answerUncertain ||
                             Boolean(
@@ -896,6 +907,7 @@ function ChatWorkspace({ id }: { id: string }) {
                         task.isFetching ||
                         questions.isError ||
                         questions.isFetching ||
+                        answer.isPending ||
                         !answer.variables
                       }
                       onClick={() => answer.variables && answer.mutate(answer.variables)}
@@ -976,6 +988,7 @@ function ChatWorkspace({ id }: { id: string }) {
                         Boolean(context?.permissions.can_confirm)
                       }
                       confirmation={confirmation}
+                      confirmationUncertain={confirmationUncertain}
                       canReplayConfirmation={
                         owner &&
                         task.isSuccess &&
@@ -1062,12 +1075,14 @@ function RequirementsView({
   currentRevision,
   canConfirm,
   confirmation,
+  confirmationUncertain,
   canReplayConfirmation,
 }: {
   revisions: RequirementsRevision[]
   currentRevision: number | null
   canConfirm: boolean
   confirmation: ConfirmationMutation
+  confirmationUncertain: boolean
   canReplayConfirmation: boolean
 }) {
   const [params, setParams] = useSearchParams()
@@ -1114,6 +1129,7 @@ function RequirementsView({
         revision={selected}
         enabled={canConfirm && selected.revision === currentRevision}
         mutation={confirmation}
+        uncertain={confirmationUncertain}
         canReplay={canReplayConfirmation}
       />
     </>
@@ -1123,16 +1139,17 @@ function RevisionConfirmation({
   revision,
   enabled,
   mutation,
+  uncertain,
   canReplay,
 }: {
   revision: RequirementsRevision
   enabled: boolean
   mutation: ConfirmationMutation
+  uncertain: boolean
   canReplay: boolean
 }) {
   const [checked, setChecked] = useState(false)
   const [key] = useState(requestKey)
-  const uncertain = mutation.isError && unknownOutcome(mutation.error)
   const sameTarget =
     mutation.variables?.revision === revision.revision &&
     mutation.variables?.hash === revision.content_hash
@@ -1179,7 +1196,7 @@ function RevisionConfirmation({
           </p>
           <Button
             variant="outline"
-            disabled={!canReplay || !mutation.variables}
+            disabled={!canReplay || mutation.isPending || !mutation.variables}
             onClick={() => mutation.variables && mutation.mutate(mutation.variables)}
           >
             Повторить исходное подтверждение

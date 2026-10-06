@@ -10,10 +10,11 @@ The previously approved composition and legacy `/sessions` remain supported.
 
 Consumer code commit:
 [`9456647533b7ae24cd3647bc067b15bc115f4773`](https://github.com/FerrPOINT/fleet-control/commit/9456647533b7ae24cd3647bc067b15bc115f4773).
-The following documentation/evidence commit belongs to the same independent
+Documentation/evidence commit `e4ee22227112a9512210a1c98ad037e02e0a854b`
+and its append-only consumer review follow-up belong to the same independent
 [branch](https://github.com/FerrPOINT/fleet-control/tree/feat/chats-pm-consumer-20261006).
-Integrate the packet's two commits, not all historical commits between main and
-its integration baseline.
+Integrate the two original commits followed by the review follow-up. Published
+history is preserved; do not merge the entire historical runtime tail into main.
 
 ## Implemented
 
@@ -21,6 +22,8 @@ its integration baseline.
   chat. A retry uses the captured original question/version/revision/payload/key,
   including when another question/version is displayed. Readback refreshes run
   before the explicit original-command retry is enabled. No automatic POST retry.
+  A later 4xx denial of that retry does not erase the original uncertainty. Holds
+  continue during pending retries and clear only on a matching acknowledgement.
 - Confirmation mutation belongs to the session workspace, not the mounted tab.
   Pending, acknowledged and unknown results survive tab changes. A new displayed
   revision/hash resets consent; uncertainty holds new confirmations. An explicit
@@ -31,6 +34,8 @@ its integration baseline.
   Nil receipt IDs and unrelated successful DTOs become dependency uncertainty.
   This protects the consumer; Tracker remains the owner of atomic idempotency,
   prerequisites and business transitions. No optional routing field is added by UI.
+  A non-200 successful context preflight also returns dependency uncertainty,
+  rather than passing its context body through as an acknowledged command.
 - Read-only questions/revisions remain available after assignment replacement,
   subject to unchanged immutable binding and fresh Tracker project authorization.
   Mutations still require the current concrete agent; revoked access denies reads.
@@ -42,6 +47,12 @@ its integration baseline.
   stale notice and disabled actions. Failed first history load does not claim an
   empty transcript. Controls have an explicit read-only retry. Runtime-health,
   prompt delivery, runtime terminal state and Tracker stage remain distinct.
+  Failed refresh of an empty cached question list shows the source error. A stale
+  draft cannot transfer into an answered, read-only or unsuccessfully refreshed
+  question. These edges and lost ACK -> denied retry -> exact successful receipt
+  have seven additional consumer regressions. The same uncertainty guard protects
+  a free-chat prompt after a denied retry; its original payload/key stays frozen
+  until an acknowledged original message arrives. Unknown steer stays held.
 
 ## Verification And Evidence
 
@@ -53,29 +64,45 @@ Source locations: [Chats](../frontend/src/pages/chat-detail/index.tsx),
 
 Node 22.20.0, pnpm 10.28.1, frozen lockfile and Base
 `cbb4e99230420dc2659431b1c9fb5090e5c940f0` are used. Frontend typecheck, lint,
-252 Vitest tests, build, format, OpenAPI generated-client/compatibility and seven
+259 Vitest tests, build, format, OpenAPI generated-client/compatibility and seven
 local chat-contract comparisons pass. The seven-schema local snapshot is not
 proof of parity with published Tracker114; see the producer boundary below.
 The build still reports the existing production chunk-size warning (>500 KiB).
+The pinned installed Base UI checker and effective theme contrast pass. The
+checker script's SHA256 matches the read-only pinned Base source. The normal
+`pnpm ui:check` entry point requires Base's development dependencies (not installed
+in this read-only dependency checkout), so the exact installed script was used:
+`node node_modules/@sdlc/ui/scripts/check-ui-contract.mjs --repo .. --require-installed`.
 
 Rust 1.88.0 `cargo fmt --all --check`, locked/offline workspace check with all
 targets, API clippy with warnings denied, six task-chat API tests and seven
 focused PostgreSQL/HTTP tests pass on the final backend bytes. Tests cover binding
 immutability/concurrency, private history/idempotency, and read access after
 assignment replacement with denial after project access revocation.
+The HTTP regression also injects a valid context body with HTTP 202 and requires
+503 for both structured read routes, exercising the shared command proxy guard.
 [Sanitized backend validation](assets/design/chats-pm-consumer/backend-validation.json)
 records commands, source hashes, test groups and exact Compose cleanup. The owned
 QA project has no remaining containers or networks; installed runtime is unchanged.
 Workspace Docker audit found no violations on the two reachable endpoints but
 was incomplete because `sdlc1-runner` was unavailable; it is not a global audit pass.
 
-Chromium/Firefox/WebKit pass nine focused fixture browser cases: PM questions,
+Chromium/Firefox/WebKit pass 33 fixture browser cases across the full
+`fleet-control.spec.ts` and `chats-directory.spec.ts`: PM questions,
 exact confirmation, keyboard tabs/drawer/Escape, three viewports, history order,
 legacy first prompt and held delivery after reload. Screenshots for dialogue,
 single/multiple/text (no preselection), requirements, confirmation and diff use
 375x812, 1920x1080 and 2560x1440. Their source/hash manifest and preview files are
 kept in [consumer evidence](assets/design/chats-pm-consumer/manifest.json).
 These are production components with fixture API, **liveAcceptance=false**.
+Historical fixture manifests also verify successfully (135 general screenshots,
+nine chat-controller and three runtime-control images); these hash/dimension
+checks are not fresh live captures. The new 21-image manifest is tied to the
+current consumer source and the successful 33-case run.
+[Final frontend validation](assets/design/chats-pm-consumer/frontend-validation.json)
+records source/log hashes and exact commands. WebKit emits fixture teardown proxy
+warnings against the absent mock upstream at `127.0.0.1:3456`; all 33 cases pass.
+This is browser component acceptance and does not attest that upstream service.
 
 The installed Fleet `http://127.0.0.1:7742/chats` was opened through the browser
 without changing runtime. It redirected to the real SDLC login; no authenticated
@@ -99,6 +126,27 @@ Rechecked 6 October via GitHub API:
 | --- | --- | --- |
 | [Tracker114](https://github.com/FerrPOINT/task-tracker/pull/114) | `8c80a41fae3bf1c10439ddb7e536b05bf320340d`, open, base main, conflicting | Owner questions/answers/revisions/confirmation and metadata outbox are published source. Analysis/routing/reservation extensions in other local checkout are not published compatibility evidence. |
 | [Workflow90](https://github.com/FerrPOINT/project-workflow/pull/90) | `e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37`, open, base master | PM bind/checkpoint/resume/rebind/readback are published source; minimal handshake finalizes ordinary bind after Fleet dispatch. It cannot authorize the first model POST. |
+
+Tracker114's four exact-head CI jobs and Workflow90's two jobs are successful.
+Tracker114 remains conflicting with main; Workflow90 is mergeable. They are open
+source candidates, not released/installed evidence. The
+[wire comparison](assets/design/chats-pm-consumer/published-contract-review.json)
+and [exact GitHub blob/SHA256 identities](assets/design/chats-pm-consumer/published-contract-sources.json)
+record the current seven-schema audit. Four schemas match exactly. Three differ:
+
+| Fleet schema/path | Fleet consumer snapshot | Published Tracker114 |
+| --- | --- | --- |
+| TrackerTaskContext.stage | Draft / Clarification / Backlog / Analysis | Draft / Clarification / Backlog |
+| TrackerConfirmation.stage | Same extended enum | No Analysis |
+| ConfirmRequirementsRequest.expected_routing_policy_version | Optional nullable int64 | Field absent |
+
+These are additive Fleet extensions; they do not demonstrate a failure to decode
+published legacy receipts. This UI sends only the legacy command; omitted/null
+routing is skipped by Fleet's DTO serializer. The exact equality gate
+`verify-chat-contract.mjs --tracker <published-openapi>` correctly rejects drift.
+Do not overwrite the accepted snapshot to make it green or treat the local
+seven-schema pass as published parity. Enabling Analysis/routing requires its
+own compatible released producer contracts.
 
 Tracker114 copies answer text/comment exactly and treats selected options as a set;
 the gateway receipt comparisons follow that source behavior. UI sends only legacy
@@ -157,6 +205,26 @@ historical runtime migrations. Integrate after the runtime owner's review, prese
 Fleet 000010/11 ->12 ->13 ->14 ->15 ->16 and producer release order from existing plans;
 Tracker/Workflow/Forge release heads and exact-head CI must be verified separately.
 PR47, Base PR150 and unrelated release branches are unchanged.
+
+The published integration target observed during review is
+`8295fa8da84593d271a867c8cc692a2f4e03f77a`; it descends from this packet's baseline
+and preserves the same Base pin. Its scoped overlap is `docs/CURRENT_STATE.md`:
+both branches add introductions. Keep the runtime owner's new introductory sections
+and this consumer introduction, preserving the shared historical body. Apply the
+original code commit, original documentation commit, then this review follow-up;
+rerun integrated checks after resolving that documentation overlap. Use a temporary
+Git index for the dry run; the actual integration checkout must remain untouched.
+The [completed dry-run evidence](assets/design/chats-pm-consumer/integration-review.json)
+records one initial documentation conflict and no remaining conflicts after this
+resolution; all source changes apply. It does not claim an integrated build or
+live acceptance. The exact target may advance during the runtime task, so repeat
+the scoped application/check on its actual head before integration.
+
+No independent-branch CI run exists: Fleet CI triggers only pushes/PRs for main.
+This source packet has local consumer validation; merge readiness still requires
+an appropriately scoped integration PR and successful exact-head CI after the
+runtime owner applies it. Creating a main PR directly from this baseline would
+include unrelated historical runtime work and is deliberately excluded.
 
 Remaining: compatible released admission producers, real PM tools/initial dispatch,
 durable delivery/checkpoint/resume/rebind orchestration, trusted prerequisite

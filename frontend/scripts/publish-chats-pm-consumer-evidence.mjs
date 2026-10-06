@@ -95,7 +95,7 @@ if (process.argv.includes('--verify')) {
         baseline: '08c6c56229ee308050176293e34d65f087b5b112',
         browsersVerified: ['chromium', 'firefox', 'webkit'],
         command:
-          'pnpm exec playwright test e2e/fleet-control.spec.ts --grep "PM chat clarification|chat history|legacy session" --workers=1',
+          'pnpm exec playwright test e2e/fleet-control.spec.ts e2e/chats-directory.spec.ts --workers=1',
         sourceSha256,
         screenshots,
       },

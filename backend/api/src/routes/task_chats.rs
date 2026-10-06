@@ -489,6 +489,9 @@ async fn proxy(
         .request(binding.task_id, &["context".into()], headers, None)
         .await?;
     if context_status != StatusCode::OK {
+        if context_status.is_success() {
+            return Err(context_error(context_status));
+        }
         return Ok((context_status, Json(context)));
     }
     if write {

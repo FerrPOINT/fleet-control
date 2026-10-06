@@ -1,0 +1,45 @@
+{
+  "baseline": "08c6c56229ee308050176293e34d65f087b5b112",
+  "node": "22.20.0",
+  "pnpm": "10.28.1",
+  "sourceSha256": {
+    "frontend/src/pages/chat-detail/index.tsx": "4d801da7b225e71c5b066585a815552402a5b7ace96bbbd4445c155ca6be94bd",
+    "frontend/src/pages/chat-detail/index.test.tsx": "4a76ee4a6239203398dc69335f997fa67567936669281f0dbab422a7deb67270",
+    "frontend/e2e/fleet-control.spec.ts": "4b68ab134e7e21d6a0f4a1720dda7d9f2b648f6bab8c1f0b839420a4fc32cfae",
+    "frontend/e2e/chats-directory.spec.ts": "8b97fd2b41f0f0766486b1c87f7cc6f9635286e4d72f9d7886c5e8e5e49aac29",
+    "frontend/package.json": "acedfb03a8d8c833eb7675c28ebecd1ffd7f98f3045e353f43b59762c0a4466e",
+    "frontend/pnpm-lock.yaml": "37918d9d24852a14f24c43a593777e99d36e0e58de2e7b9a58a4415fd927fb67"
+  },
+  "passedCommands": [
+    "pnpm typecheck",
+    "pnpm lint",
+    "pnpm test",
+    "pnpm build",
+    "pnpm format:check",
+    "pnpm chat:contract",
+    "pnpm openapi:check",
+    "pnpm openapi:compat",
+    "pnpm markdown:check",
+    "node node_modules/@sdlc/ui/scripts/check-ui-contract.mjs --repo .. --require-installed",
+    "node node_modules/@sdlc/ui/scripts/sdlc-effective-theme-check.mjs http://127.0.0.1:4173",
+    "pnpm exec playwright test e2e/fleet-control.spec.ts e2e/chats-directory.spec.ts --workers=1",
+    "node scripts/publish-chats-pm-consumer-evidence.mjs --verify",
+    "pnpm chat:evidence:verify",
+    "pnpm controls:evidence:verify",
+    "pnpm screenshots:verify"
+  ],
+  "unitTestFiles": 31,
+  "unitTestsPassed": 259,
+  "browserCasesPassed": 33,
+  "browserLogSha256": "f54fd67ed3620efe71c4ac076435ac1dbf33ff16b65a203d7181af3e5239e45c",
+  "previewScreenshots": 21,
+  "liveAcceptance": false,
+  "observedWarnings": [
+    "Existing Vite chunk-size warning",
+    "WebKit fixture teardown requests reached the absent fixture upstream (127.0.0.1:3456)"
+  ],
+  "limitations": [
+    "No exact-head CI for the independent branch",
+    "No real PM workflow/admission acceptance"
+  ]
+}

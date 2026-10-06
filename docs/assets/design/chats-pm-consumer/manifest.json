@@ -7,9 +7,9 @@
     "firefox",
     "webkit"
   ],
-  "command": "pnpm exec playwright test e2e/fleet-control.spec.ts --grep \"PM chat clarification|chat history|legacy session\" --workers=1",
+  "command": "pnpm exec playwright test e2e/fleet-control.spec.ts e2e/chats-directory.spec.ts --workers=1",
   "sourceSha256": {
-    "frontend/src/pages/chat-detail/index.tsx": "ceaf99cfb52782ab0f454057655919166461e4339c036aed7648783a115cb836",
+    "frontend/src/pages/chat-detail/index.tsx": "4d801da7b225e71c5b066585a815552402a5b7ace96bbbd4445c155ca6be94bd",
     "frontend/e2e/fleet-control.spec.ts": "4b68ab134e7e21d6a0f4a1720dda7d9f2b648f6bab8c1f0b839420a4fc32cfae"
   },
   "screenshots": [

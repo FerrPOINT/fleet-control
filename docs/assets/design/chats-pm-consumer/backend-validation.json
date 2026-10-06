@@ -20,15 +20,16 @@
     "historyAfterReassignmentAndAccessRevocation": 1,
     "concurrentIdempotencyAndPrivateAuthorization": 1
   },
+  "includesNon200ContextHTTPRegression": true,
   "qaSourceFiles": 323,
-  "qaSourceManifestSha256": "7b63aa8b6a91ab849318f5e3c8937798de96d52212b87b1e6ad1000a0ce65a3e",
-  "gateLogSha256": "0dcc50d5ea7878f0d021a53f13cb0f262f85466facd8f7d1fc7a62e4151cd39d",
+  "qaSourceManifestSha256": "2bc5d3ff697cf478581ea0e05b2ec44540bf97619f63a84976dd2a30a2b2044a",
+  "gateLogSha256": "8aeba1fb4845ad0b0462ed1192e053f08097adb76c5cc41a7de4f9157a833800",
   "sourceSha256": {
-    "backend/api/src/routes/task_chats.rs": "e7e79fc42ed510b988bf9cc3e1dd3ee4c31facd841a7c1a51b32edcaf39ba0ae",
-    "backend/infra/tests/sdlc_foundation.rs": "82a55b2d47ea758ee8e2de24fb99d3bcd79020eed7165e5db53b2d03351f4e82"
+    "backend/api/src/routes/task_chats.rs": "914213bee1ded7827cc945f5940dd168ca9daaa7c0db342937c2c8be48897214",
+    "backend/infra/tests/sdlc_foundation.rs": "e64c016ac065165e53feff1c0d343a7b5c1694ffeda6d45bf641eb8ae9f85e42"
   },
   "compose": {
-    "project": "sdlc-qa-chats-pm-a5e340cfa678",
+    "project": "sdlc-qa-chats-pm-8085a04b394b",
     "sourceFiles": 323,
     "installedRuntimeChanged": false,
     "exitCode": 0,
@@ -36,7 +37,8 @@
     "remainingContainers": "",
     "remainingNetworks": ""
   },
-  "dockerGroupsAudit": {
+  "liveAcceptance": false,
+  "earlierWorkspaceDockerGroupsAudit": {
     "complete": false,
     "observedViolations": [],
     "unavailableEndpoint": "sdlc1-runner",
@@ -44,6 +46,5 @@
       "desktop-linux",
       "sdlc2-runner"
     ]
-  },
-  "liveAcceptance": false
+  }
 }

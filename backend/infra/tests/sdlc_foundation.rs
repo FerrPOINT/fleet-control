@@ -1861,6 +1861,8 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
     let revoked = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let check = revoked.clone();
     let list_check = revoked.clone();
+    let context_accepted = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let context_status_check = context_accepted.clone();
     let project = binding.project_id;
     let instance = binding.tracker_instance_id.clone();
     let tracker = axum::Router::new()
@@ -1877,6 +1879,7 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
                   headers: axum::http::HeaderMap| {
                 let check = check.clone();
                 let context = context.clone();
+                let context_status_check = context_status_check.clone();
                 async move {
                     assert_eq!(id, context.task_id);
                     assert!(
@@ -1894,7 +1897,11 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
                         )
                     } else {
                         (
-                            axum::http::StatusCode::OK,
+                            if context_status_check.load(Ordering::SeqCst) {
+                                axum::http::StatusCode::ACCEPTED
+                            } else {
+                                axum::http::StatusCode::OK
+                            },
                             axum::Json(serde_json::to_value(context).unwrap()),
                         )
                     }
@@ -2044,6 +2051,21 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
             "historical chat read failed after reassignment: {suffix}"
         );
     }
+    context_accepted.store(true, Ordering::SeqCst);
+    for suffix in ["/clarifications", "/requirements"] {
+        assert_eq!(
+            client
+                .get(format!("{session_url}{suffix}"))
+                .bearer_auth("verified-owner-fixture")
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            reqwest::StatusCode::SERVICE_UNAVAILABLE,
+            "non-200 Tracker context must not masquerade as a successful response: {suffix}"
+        );
+    }
+    context_accepted.store(false, Ordering::SeqCst);
     let read = client
         .get(&url)
         .bearer_auth("verified-owner-fixture")
