@@ -1,5 +1,11 @@
 # Operations
 
+Task-chat rollback supports empty schema only. Populated transcript/allocation
+order, bindings, creation, projection, PM run or approval history prevents down
+before DDL, under table locks. Retain the schema and use a forward correction or
+verified backup/restore; never delete history to make a downgrade pass. See
+[migration rules](MIGRATIONS.md#historical-lineages-and-task-chats).
+
 ## Effective Configuration Readback
 
 An operator/admin readiness response may contain

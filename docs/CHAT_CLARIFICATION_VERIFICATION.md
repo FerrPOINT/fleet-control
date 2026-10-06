@@ -3,6 +3,81 @@
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 
+## Accepted-Main Reconciliation And Safe Downgrade (2026-10-06)
+
+Release source `5240107596ce9b645a4e30cd9b9506ecfc739905` is reconciled by a
+normal merge with accepted main `3c6b8ef7bdb08f799ca30e0a5d7537914ce40ab6`.
+The accepted Base SDK is `cbb4e99230420dc2659431b1c9fb5090e5c940f0`.
+Verified display names retain both human-session and central-subject proofs.
+All fourteen historical main migration blobs are preserved. Only pending task
+chats000010 is appended, giving eleven canonical or fourteen split entries;
+later runtime integration migrations are not part of this release.
+
+A real PostgreSQL regression reproduced destructive populated downgrade:
+the old `down` succeeded, deleting task metadata and allowing transcript
+allocation order to be rebuilt from a clock-regressed timestamp. The pending
+migration now locks its history tables and refuses downgrade before changing
+schema or ledger if any transcript, binding, creation operation, approval,
+PM run, inbox event or projection cursor exists. Empty downgrade/reapply still
+works. Populated upgrade tests cover both accepted foundations, preserve
+runtime/config/outbox/event/user/deployment records and do not bind legacy
+chats by title or task key. Separate tests retain an unmessaged binding and
+a creation operation. The migration's `up` SQL is unchanged.
+
+Final Linux Rust1.88/PostgreSQL17.6 gate: **179 distinct component cases passed**.
+The serial workspace suite passed164 cases. Explicit opt-in gates passed
+nine additional lineage cases, three central-profile cases, and one each for
+historical transcript ordering, scoped directory and authenticated approval
+SSE. The lineage registry unit test ran twice and is counted only once.
+No opt-in case is claimed from an ignored test or missing database URL.
+Locked all-target check, strict Clippy, fmt, clean migration CLI up/status/
+empty down/reapply/status and byte-exact Rust OpenAPI regeneration passed.
+CI now explicitly executes the lineage and central-profile opt-in gates.
+
+| Owned evidence | SHA256 |
+| --- | --- |
+| Final backend project `sdlc-qa-fleet-chat-release-615ca6a67d74` log | `5293d3bf18dc0844bbb8914ba7dfab8e26a40fafd33fcf69e9948e8c511f4145` |
+| Pre-fix populated-down regression `d4f2cc6d199c`, expected failure | `96c55b19ed6b778b89b155bdd44f650f32dbe7bbe54dec8d306a3d1e065d9805` |
+| Earlier baseline gate `3a86122ea4f1`, before guard | `e58a519f9e3f2e1ccf7ec094894b5683f760a00cba1143e674a187e30e6fbe40` |
+| Preliminary compile failure `eddcf3faa07e`, corrected borrowed DB helper | `63f5b29ef77a30fc9541976f4fc7aaa43b8a7186ffa5e3306f4b29da6833a9d0` |
+| Final canonical-origin three-browser fixture log | `361ff4734254ff34866206ce71987cbb5f57e92f054213dbdd26929f173ea307` |
+
+Logs are retained in the owning local release QA directory; the final run,
+not preliminary successes, attests the guarded migration bytes. Every listed
+Compose project was removed in `finally` and independently read back empty.
+Docker grouping audit returned `complete=true`, desktop42, both runners0,
+and no violations. Accepted runtime images, volumes, pins and flags were not
+changed. These counts describe that observation, not a permanent inventory.
+
+Node22.20.0/pnpm10.28.1 frozen installation, accepted SDK shared-UI verification
+(38 route patterns), generation/drift/compatibility, typecheck, **228 Vitest
+cases**, lint/semantic classes, formatting and production build passed.
+The same release-generated seven PM wire schemas also match actual Tracker
+PR114 source `8c80a41fae3bf1c10439ddb7e536b05bf320340d`, read directly from its
+Git OpenAPI blob, without changing the accepted snapshot or that repository.
+This is schema compatibility, not deployed producer/admission authority.
+
+The final canonical `http://localhost:4187` preview passed **36 fixture cases**
+in Chromium, Firefox and WebKit; **27 opt-in live cases were skipped**. The
+earlier QA wrapper used `127.0.0.1`, while central login canonicalizes to
+localhost, losing fixture local-storage identity after navigation. Correcting
+only that wrapper origin made the gate pass; product/test assertions were
+not weakened. The fixture logs still contain unmatched legacy API proxy
+failures because no live backend was started; they are not a no-network-error
+or live integration acceptance. Preview exited with the test process.
+
+Desktop clarification and mobile dialogue captures were visually inspected;
+no obvious overlap was seen. Existing135 screenshot entries and nine controller
+fixture hashes were verified, not relabeled as live screenshots. New browser
+captures remain local fixture artifacts. Markdown links and README validation
+are rerun after these documentation edits. Exact published-head CI must be
+checked independently; older green checks do not attest this merge.
+
+The PR remains Draft: real fenced admission/first-step, PM structured tools,
+answer delivery/checkpoint/rebind, owner-confirmation-to-Backlog, producer
+readiness and seven-agent/deployment acceptance remain open. The newer runtime
+integration branch has separate evidence and is not certified by this gate.
+
 ## Directory Query Review Follow-Up (2026-10-03)
 
 Owner IDs retain their existing JSON SQL parameter, but membership converts

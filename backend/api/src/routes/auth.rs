@@ -50,10 +50,12 @@ pub async fn login(
     let req = auth::normalize_login(req);
     // Central fleet auth first; local password login remains the fallback
     // during the migration window (middleware/central_auth.rs).
-    if let Some((pair, central_ctx)) =
+    if let Some((pair, central_ctx, display_name)) =
         crate::middleware::central_auth::try_login(&req.email, &req.password).await
     {
-        let user = crate::middleware::find_or_link_central_user_public(&ctx, &central_ctx).await?;
+        let user =
+            crate::middleware::find_or_link_central_user_public(&ctx, &central_ctx, &display_name)
+                .await?;
         return Ok((
             jar,
             Json(domain::AuthResponse {

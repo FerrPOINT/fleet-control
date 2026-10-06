@@ -119,6 +119,10 @@ jobs:
       - run: cargo check --locked --workspace --all-targets
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - run: cargo test --locked --workspace -- --test-threads=1
+      - name: Historical lineage upgrade and central profile preservation
+        run: |
+          cargo test --locked -p migration --lib lineage_tests -- --include-ignored --test-threads=1
+          cargo test --locked -p infra --test central_profile -- --ignored --test-threads=1
       - name: Isolated directory and approval SSE acceptance
         env:
           PGPASSWORD: fleet_control

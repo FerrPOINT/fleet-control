@@ -1,5 +1,29 @@
 # Current State
 
+## Task-Chat Release Reconciliation: 6 October 2026
+
+PR47's foundation source `5240107` is reconciled with accepted main `3c6b8ef`
+by a normal merge, without rewriting either history. The accepted Base SDK
+`cbb4e99230420dc2659431b1c9fb5090e5c940f0`, verified profile names and Fleet
+human/central-subject proofs are preserved. The only pending migration remains
+task chats000010, appended to both accepted foundations (eleven canonical or
+fourteen split entries). No later runtime/credential migrations or installed
+images/feature flags are included. Actual verification is recorded in the
+[ledger](CHAT_CLARIFICATION_VERIFICATION.md).
+
+This is the release foundation, not the newer runtime integration branch.
+Its tests cannot certify that branch or a complete PM/SDLC flow. Producer
+compatibility, fenced admission, structured runtime tools, checkpoint/resume,
+owner-confirmation-to-Backlog and live screenshots remain open; the PR stays
+Draft until its agreed live acceptance is met.
+
+Local release gates passed179 distinct Rust/PostgreSQL component cases,
+228 frontend cases and36 three-browser fixture cases (27 live cases skipped).
+The task-chat downgrade now refuses populated history without schema/ledger
+changes; empty rollback/reapply and both accepted upgrade lineages passed.
+Source-generated OpenAPI is unchanged. These are local source gates, not
+exact-head CI or deployed PM acceptance; see the verification ledger.
+
 Status (2026-10-02): SDLC foundation is partially implemented. Automatic SDLC is
 blocked until cross-service assignment/workflow/deployment contracts are verified.
 See [SDLC implementation](SDLC_IMPLEMENTATION.md). The baseline feature/gate lists
@@ -155,6 +179,51 @@ The merged eleven-file schema passed clean up, pending migration 000010 down,
 reapply and status on an isolated PostgreSQL 17 database. This feature owns only
 one new migration. Disposable QA database ownership was verified before cleanup;
 accepted runtimes, images and volumes were not changed.
+## October 5 Profile Integration Candidate
+
+This isolated candidate joins the main-based profile-name fix with historical
+migration compatibility. It pins the published Base source commit
+`cbb4e99230420dc2659431b1c9fb5090e5c940f0` from
+[Base #142](https://github.com/FerrPOINT/services-base/pull/142), merged into
+Base main as `fc13b83c503fa83becbe27dd0dec912852361204`. The exact SDK pin
+remains immutable and reachable from main. Installed-platform acceptance is
+still required; source publication is not runtime promotion.
+
+Local source-bound Rust 1.88 gates passed: 90 workspace tests, including 18
+real PostgreSQL tests, with no failed or ignored tests; formatting, strict
+Clippy, release build and semantic OpenAPI equality. The three profile tests
+verify same-sub identity/role and historical same-email preservation, inactive
+profile rejection without reactivation, and unchanged-profile reads without
+waiting on a user-row write lock. Eight lineage tests separately cover the
+canonical and split migration registries.
+
+The tested backend/Base manifest has 164 files, SHA-256
+`690b085c6baa23f8a6bcc95c9e375b2a37169a4ed07cd274fc335f57dc2a987d`.
+The declared Base pin matched a clean checkout and the published branch.
+Disposable Compose resources were removed and permanent runtime metadata was
+unchanged.
+
+The combined production candidate passed two starts over the actual previous
+image's disposable split schema: all 13 versions/applied timestamps, schema,
+historical user and deployment job were preserved. Fleet frontend frozen
+install/codegen/lint/typecheck/OpenAPI compatibility/build and 121 tests passed;
+the unchanged pinned Base UI passed 83 tests.
+
+One uninterrupted no-mock production-image profile run passed 11 scenarios and
+45 page/menu cases at 375/768/1280/1920/2560 in light/gray/dark, with no console
+errors, overflow or serious/critical axe violations. Admin rename, unchanged
+JWT/PAT identity/roles, historical same-email profile, real SMTP/password setup,
+missing-name fail-closed, Auth outage/recovery, token revoke, browser logout
+without PAT revoke, and central user disable were verified. The real Admin
+directory requires [Base #143](https://github.com/FerrPOINT/services-base/pull/143)
+for its total header, now merged as `ad4e7fd6135691f69f7715007201bb71ffb38488`.
+This is an Auth runtime dependency, not a change to the Fleet SDK pin.
+Binary/config/source receipt verification also passed.
+
+This is profile/lineage acceptance, not permission-policy or full-platform
+release acceptance. Both source dependencies are merged, but final installed
+images and remaining platform gates are not accepted by this scoped evidence.
+No permanent runtime was updated during the QA freeze.
 
 ## October Foundation Evidence
 

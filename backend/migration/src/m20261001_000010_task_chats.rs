@@ -194,7 +194,22 @@ impl MigrationTrait for Migration {
         manager
             .get_connection()
             .execute_unprepared(
-                "DROP TABLE pm_draft_creation_operations; DROP FUNCTION fleet_guard_pm_creation();
+                "LOCK TABLE session_messages, task_chat_bindings, pm_draft_creation_operations,
+                    runtime_approval_decisions, pm_run_bindings, tracker_event_inbox,
+                    tracker_event_cursors IN ACCESS EXCLUSIVE MODE;
+             DO $$ BEGIN
+                IF EXISTS (SELECT 1 FROM session_messages)
+                   OR EXISTS (SELECT 1 FROM task_chat_bindings)
+                   OR EXISTS (SELECT 1 FROM pm_draft_creation_operations)
+                   OR EXISTS (SELECT 1 FROM runtime_approval_decisions)
+                   OR EXISTS (SELECT 1 FROM pm_run_bindings)
+                   OR EXISTS (SELECT 1 FROM tracker_event_inbox)
+                   OR EXISTS (SELECT 1 FROM tracker_event_cursors) THEN
+                    RAISE EXCEPTION 'task-chat history prevents downgrade; retain schema and use a forward migration or verified restore'
+                        USING ERRCODE = '23514';
+                END IF;
+             END $$;
+             DROP TABLE pm_draft_creation_operations; DROP FUNCTION fleet_guard_pm_creation();
              DROP TABLE runtime_approval_decisions; DROP FUNCTION fleet_guard_approval_decision(); DROP TABLE pm_run_bindings; DROP FUNCTION fleet_guard_pm_run();
              DROP TABLE tracker_event_inbox; DROP FUNCTION fleet_guard_tracker_receipt(); DROP TABLE tracker_event_cursors;
              DROP FUNCTION fleet_guard_tracker_projection();

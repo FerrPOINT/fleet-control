@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+- Reconcile the task-chat foundation with accepted main without rewriting
+  history. Preserve verified central profile names/human-session proofs and
+  append the one task-chat migration to both historical database lineages.
+- Refuse task-chat downgrade before any schema effect when transcript/order,
+  bindings, creation, projection, PM run or approval history exists. Lock those
+  tables before the check; retain empty down/reapply and unchanged up/history.
+
 - Clear previous apply/rollback errors when a new managed-settings confirmation
   opens or a completed attempt is cancelled. Preserve same-dialog retry, drafts,
   optimistic version checks, local roles and restart confirmation semantics.
@@ -74,6 +81,12 @@
 - Integrate exact-request human tool approvals with immutable command replay,
   stale-assignment protection and no automatic redispatch after an unknown outcome.
   PM structured dispatch/resume and live clarification acceptance remain incomplete.
+- Central profiles use the confirmed current name from the same JWT/PAT
+  activity check. Same-sub ID, local roles and historical same-email users are
+  preserved; missing names fail closed and unchanged profiles avoid a write.
+- Restore compatibility with the historical 13-step split migration ledger
+  alongside the canonical 10-step registry without rewriting applied versions;
+  unknown or mixed histories are rejected.
 
 - Повторный явный вход разрешён после отменённого перехода Central Auth;
   автоматический guard не отменяет logout. Отмена перехода не показывает

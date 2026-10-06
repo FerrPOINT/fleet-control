@@ -2,6 +2,19 @@
 
 Status: agreed target contract; deployment compatibility must be verified.
 
+## Release-Specific Compatibility Evidence (2026-10-06)
+
+The PR47 foundation release, reconciled from5240107 with main3c6b8ef and pinned
+SDKcbb4e99, matches all seven clarification/context/requirements/confirmation
+wire schemas in actual Tracker PR114 OpenAPI at
+`8c80a41fae3bf1c10439ddb7e536b05bf320340d`. The comparison reads exact Git
+blobs, recursively resolves DTO references and verifies property types,
+required fields, formats, enums and compositions against generated Fleet
+schemas. It does not prove HTTP authorization, complete behavioral equivalence,
+deployed compatibility, namespace execution authority or runnable admission.
+The newer runtime integration branch must compare its extended schemas
+independently. See the [verification ledger](../CHAT_CLARIFICATION_VERIFICATION.md).
+
 ## Identity And Ownership
 
 Tracker instance + immutable issue ID identify a task; display key is not identity.

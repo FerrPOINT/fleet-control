@@ -1,5 +1,21 @@
 # Gap Register
 
+## Release Foundation Reconciliation (2026-10-06)
+
+PR47 is normally reconciled with accepted main3c6b8ef and SDKcbb4e99, without
+rewriting fourteen historical migration blobs. Only new task chats000010 is
+included; it extends both supported lineages and refuses populated downgrade.
+Actual local gates passed179 distinct backend/PG cases,228 frontend cases and
+36 browser fixtures with27 live cases skipped. Seven generated wire schemas
+match Tracker PR114 source8c80a41. Evidence and limits are recorded in
+[CHAT_CLARIFICATION_VERIFICATION](CHAT_CLARIFICATION_VERIFICATION.md).
+
+This closes release-history conflicts and destructive downgrade, not full PM
+admission/resume or SDLC. PR47 remains Draft pending agreed live acceptance.
+The later runtime integration packets and Base runtime-boundary bootstrap have
+separate source/release gates; they are not included or certified here.
+Do not use this release's compatibility result for their extended wire DTOs.
+
 ## October SDLC Gate
 
 Automatic SDLC remains blocked. See the exhaustive owner/stage table in

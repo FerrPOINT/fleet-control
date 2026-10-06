@@ -72,6 +72,24 @@ only by verified central subject and retain their stored role. Central mode
 disables local credential fallback; there is no effective-admin bypass. Standalone
 legacy HMAC mode retains strict issuer/audience validation for fleet claims.
 
+Central profile names come from Base's live verified profile metadata, not the
+email prefix or a stale access-token claim. Missing verified names fail closed
+before provisioning. The repository updates only the name and timestamp of an
+active matching `central_sub`; identity, stored role and historical same-email
+profiles remain unchanged. An unchanged profile uses a read path, avoiding a
+user-row write lock on every protected request. Inactive profiles are not
+reactivated as a side effect of authentication.
+
+## Migration History Compatibility
+
+Fresh installations use nine common migrations and the combined foundation
+migration. Existing split SDLC histories retain all 13 applied versions. Startup
+selects the original registry from the applied versions without rewriting the
+ledger, timestamps or historical SQL. Unknown and mixed histories are rejected;
+product deployments remain part of both histories. The profile integration
+candidate is tested with this compatibility fix, not with an incompatible
+fresh-install-only migrator.
+
 ## Security Boundary
 
 `SystemRole = admin | operator | user` is enforced in the backend. Frontend

@@ -162,7 +162,11 @@ its full visible history; project ACL predicates apply in either mode.
 ## PM Run Proof
 
 The feature's single pending migration `m20261001_000010_task_chats` adds
-`pm_run_bindings` (eleven migration files after the accepted main refresh).
+`pm_run_bindings` (eleven canonical or fourteen historical split ledger entries;
+see [migration lineage](MIGRATIONS.md#historical-lineages-and-task-chats)).
+Its pending down migration refuses populated transcript or task-chat history,
+including unmessaged bindings/creation operations, before any schema effect.
+Empty-schema down/reapply is supported; the up statement is unchanged.
 Each Fleet run UUID has one immutable
 reservation containing its task chat, concrete agent, Tracker identity,
 assignment/execution, workflow binding, dispatch operation key, checkpoint and

@@ -1,5 +1,15 @@
 # Testing
 
+Historical-lineage upgrade tests and central-profile preservation run explicitly
+in CI after workspace tests, with `--include-ignored`/`--ignored` respectively.
+Use an owned disposable PostgreSQL database; lineage cases create isolated
+schemas. New task-chat upgrade acceptance exercises both accepted foundations
+with populated runtime/config/outbox/transcript/event history and unchanged
+users/deployment records. Populated down denial also covers a binding or creation
+operation before its first message. The clock-rollback regression checks exact
+bodies/allocated sequence after refusal, not just surviving message count.
+Default ignored results do not prove this gate.
+
 Delegated PM credential tests cover canonical bound-task operation allowlisting,
 foreign/legacy paths, URL normalization and wrong method rejection, unsafe revision
 numbers, owner/verifier actions, expiry, existing Authorization, scope mismatch and

@@ -18,6 +18,11 @@ The server-only delegated PM client is limited to enumerated SDLC operations for
 its assigned task. This client restriction does not replace Tracker authorization
 and does not enable credential handoff or runtime dispatch.
 
+The task-chat release preserves both accepted migration lineages. Its pending
+down migration refuses populated transcript, task-binding, creation or approval
+history before dropping anything; empty-schema rollback remains supported.
+See [migration rules](docs/MIGRATIONS.md#historical-lineages-and-task-chats).
+
 <p align="center">
   <a href="#overview"><img src="https://img.shields.io/badge/Overview-3730a3?style=for-the-badge" alt="Overview" /></a>
   <a href="#capabilities"><img src="https://img.shields.io/badge/Capabilities-4338ca?style=for-the-badge" alt="Capabilities" /></a>
@@ -60,6 +65,12 @@ and does not enable credential handoff or runtime dispatch.
 В standalone legacy mode первый зарегистрированный пользователь получает
 `system_role = admin`. При Central Auth локальная регистрация выключена; вход
 не повышает роль, а bootstrap admin требует явно настроенного verified subject.
+
+В central mode локальный профиль связывается с проверенным `sub`, а актуальное
+имя берётся из той же проверки активности JWT/PAT. Переименование не меняет
+ID/роль и не объединяет исторических пользователей по email; после обновления
+страницы новое имя видно в меню. Статус узкой интеграционной приёмки и отдельные
+незакрытые release gates: [Current state](docs/CURRENT_STATE.md).
 
 <a name="capabilities"></a>
 

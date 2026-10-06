@@ -85,11 +85,29 @@ async fn historical_backfill_and_clock_rollback_keep_order_without_changing_wire
         "INSERT INTO session_messages(id,session_id,author_type,body,message_kind,append_sequence) VALUES
           (gen_random_uuid(),'cccccccc-cccc-4ccc-8ccc-cccccccccccc','system','Forbidden','system_event',100);"
     ).await.is_err());
-    Migrator::down(&db, Some(1)).await.unwrap();
+    let error = Migrator::down(&db, Some(1)).await.unwrap_err().to_string();
+    assert!(error.contains("task-chat history prevents downgrade"));
     Migrator::up(&db, None).await.unwrap();
-    let row = db.query_one(Statement::from_string(DatabaseBackend::Postgres,
-        "SELECT count(*) AS n,count(DISTINCT append_sequence) AS unique_n FROM session_messages".to_string()))
-        .await.unwrap().unwrap();
-    assert_eq!(row.try_get::<i64>("", "n").unwrap(), 3);
-    assert_eq!(row.try_get::<i64>("", "unique_n").unwrap(), 3);
+    let after = db
+        .query_all(Statement::from_string(
+            DatabaseBackend::Postgres,
+            "SELECT body,append_sequence FROM session_messages ORDER BY append_sequence"
+                .to_string(),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(
+        after
+            .iter()
+            .map(|row| row.try_get::<String>("", "body").unwrap())
+            .collect::<Vec<_>>(),
+        bodies
+    );
+    assert_eq!(
+        after
+            .iter()
+            .map(|row| row.try_get::<i64>("", "append_sequence").unwrap())
+            .collect::<Vec<_>>(),
+        sequences
+    );
 }
