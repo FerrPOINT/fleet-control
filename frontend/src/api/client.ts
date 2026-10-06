@@ -1,10 +1,10 @@
 import { useAuthStore } from '@/shared/auth/store'
 
-export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') ?? ''
+export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') ?? import.meta.env.BASE_URL.replace(/\/$/, '')
 
 export async function refreshAccessToken(): Promise<boolean> {
   useAuthStore.getState().logout()
-  window.location.assign('/login')
+  window.location.assign(`${import.meta.env.BASE_URL}login`)
   return false
 }
 
