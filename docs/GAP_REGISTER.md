@@ -2,10 +2,22 @@
 
 ## October SDLC Gate
 
-After the next accepted main advance, Base PR144 is reconciled at
+Base PR144 is now merged into main63fff28. New
+[Base PR150](https://github.com/FerrPOINT/services-base/pull/150), head
+`176e5d2265a330316af75dac9432dd1003a79121`, adds explicit sealed bridge v2 and
+frozen Docker context/environment while retaining offline v1. It is a separate
+ready-for-review candidate with [nine green exact-head CI jobs](https://github.com/FerrPOINT/services-base/actions/runs/37413423353),
+not an installed Fleet consumer. Native authenticated HTTP, original stop and
+sibling tests pass, alongside repeated v1 bootstrap/crash/descendant gates;
+synthetic HTTP is not Hermes/model/PM acceptance. The source ledger records
+the final bytes and failed preliminary checks. Fleet DB pre-exec binding,
+loaded generation, atomic drain/activation/rollback, admission and PM resume
+are still required. This doc-only packet does not change infrastructure/pins.
+
+Before that merge, Base PR144 was reconciled at
 `d2c8ef60ec4b9204d7c8232888b81022315c14b3`, CLEAN/MERGEABLE with nine successful
 jobs in CI37409952184. This supersedes a0f7044 as current release head, without
-closing Fleet consumption, human approval, installation or full PM acceptance.
+closing Fleet consumption, installation or full PM acceptance.
 
 Earlier release reconciliation has independent exact-head evidence: Fleet PR47
 `5f20540ee33ff9451196e0cbe0149c337c35ae42` passes five CI jobs and remains Draft;

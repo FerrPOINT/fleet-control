@@ -5,9 +5,35 @@ per-agent container and delegated Linux cgroup was requested on 5 October 2026.
 Recommended candidate: one container per agent in its existing workspace Compose
 project. No installed runtime, image pin, mount or Compose group changes here.
 
+## Bridge v2 Prerequisite: 6 October 2026
+
+Base PR144 has merged into main63fff28. The separate
+[Base PR150](https://github.com/FerrPOINT/services-base/pull/150), head
+`176e5d2265a330316af75dac9432dd1003a79121`, implements an explicit versioned
+bridge transport prerequisite. Its
+[contract](https://github.com/FerrPOINT/services-base/blob/176e5d2265a330316af75dac9432dd1003a79121/docs/platform/RUNTIME_BOUNDARY.md)
+seals one exact-ID own Compose bridge before execution; v1 remains offline.
+Context/environment are frozen before lifecycle commands, not a privileged-host
+CAS guarantee. Private config/labels alone do not create authorization.
+
+The [release packet](https://github.com/FerrPOINT/services-base/blob/176e5d2265a330316af75dac9432dd1003a79121/docs/plans/runtime-boundary-bootstrap.md)
+records host296 cases285 PASS/11 skips, scoped59 cases58 PASS/1 Windows skip
+and three matching-byte native gates with exact cleanup. V2 actual TCP/token
+checks use synthetic HTTP peers; v1 namespace/crash acceptance is recorded
+separately. This does not prove Hermes/model readiness, a firewall, native v2
+crash stress or Fleet admission. The separate candidate is ready for review,
+not merged or installed; all nine jobs in
+[independent exact-head CI](https://github.com/FerrPOINT/services-base/actions/runs/37413423353)
+pass. This is not CI acceptance for Fleet integration.
+
+Fleet has not integrated the host registry, DB binding before start, trusted
+transport or atomic receipt/drain/config activation/rollback. No containment
+policy choice, installed automation, image/SDK pin or permanent Compose change
+is implied. These remain acceptance gates before replacing subprocess custody.
+
 ## Standalone Base Primitive: 5 October 2026
 
-Latest reconciliation preserves accepted maina3d6a79 at
+Previous reconciliation preserved accepted maina3d6a79 at
 `d2c8ef60ec4b9204d7c8232888b81022315c14b3`:
 [CI37409952184](https://github.com/FerrPOINT/services-base/actions/runs/37409952184)
 passes all nine jobs, PR144 CLEAN/MERGEABLE. Boundary/bootstrap source bytes

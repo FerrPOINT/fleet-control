@@ -1,6 +1,29 @@
 # Current State
 
-Latest release observation on6 October: Base PR144 is CLEAN/MERGEABLE at
+## Base Bridge Transport Candidate: 6 October 2026
+
+Base [PR144](https://github.com/FerrPOINT/services-base/pull/144) is now merged
+into main63fff28. Its v1 host utility still is not consumed by Fleet. A separate
+[PR150](https://github.com/FerrPOINT/services-base/pull/150), head
+`176e5d2265a330316af75dac9432dd1003a79121`, adds explicit v2 per-agent sealed
+Compose bridge transport while preserving offline v1. Its
+[CI](https://github.com/FerrPOINT/services-base/actions/runs/37413423353) passes
+all nine jobs on that exact head. The candidate is ready for review/CLEAN,
+not merged or installed; this does not certify the Fleet integration tail.
+
+Base local host296 cases pass285/skip11; scoped59 pass58/skip1 on Windows.
+Three final native gates pass with matching source bytes and exact cleanup:
+v2 authenticated synthetic HTTP/cross-token denial/stop/sibling, v1 pre-exec
+bootstrap/crash holds and v1 descendant stop. The
+[source/report ledger](https://github.com/FerrPOINT/services-base/blob/176e5d2265a330316af75dac9432dd1003a79121/docs/plans/runtime-boundary-bootstrap.md)
+separates v2 unit guards from v1 native controller-crash evidence. These do not
+prove Hermes/model/PM readiness, Fleet DB receipt commits or network firewall
+acceptance. Fleet pre-exec host binding, loaded generation, atomic drain/config
+activation/rollback, first-step admission and PM tools/resume remain open.
+No Fleet runtime code, API, schema, SDK pins, UI or accepted deployment changes
+belong to this documentation follow-up. PR47 remains its independent Draft.
+
+Previous release observation on6 October: Base PR144 was CLEAN/MERGEABLE at
 `d2c8ef60ec4b9204d7c8232888b81022315c14b3`, with all nine jobs successful in
 [CI37409952184](https://github.com/FerrPOINT/services-base/actions/runs/37409952184).
 It preserves accepted maina3d6a79/Auth/probe changes and unchanged boundary code;
