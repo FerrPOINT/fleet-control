@@ -1,5 +1,100 @@
 # Chat Clarification Verification
 
+## Main Reconciliation And First Prompt: 6 October 2026
+
+Candidate integrates Fleet `6135afd027f58b25b778742859822c8f7996972c`
+and accepted main `3c6b8ef7bdb08f799ca30e0a5d7537914ce40ab6` by a normal
+merge, not history rewriting. The accepted SDK is
+`cbb4e99230420dc2659431b1c9fb5090e5c940f0`. Verified current names and
+central-profile role/identity preservation coexist with Fleet's verified human
+and central-subject markers. All14 historical migration files match main;
+canonical18 and split21 registries append the same8 runtime releases. Nine
+lineage cases (eight actual PostgreSQL) exercise populated upgrades, ledger/data
+preservation, mixed/unknown denial and latest-step down/reapply. Three actual
+profile cases verify no identity/role transfer or unnecessary profile write.
+
+Managed outbox selection now excludes another controller's open launch and a
+still-claimed/non-ready launch before mutating delivery. The deterministic
+PostgreSQL case verifies unchanged pending snapshots, owner-only concurrent
+claim and no second claim. It does not adopt a child from a persisted PID.
+Final Linux/PostgreSQL project `sdlc-qa-fleet-main-lineage-f53eede92e82`
+passes Rust1.88 locked/offline all-target check and strict Clippy, final fmt
+check, generated OpenAPI byte equality and467 distinct component cases:
+API44, app21, domain26, infra156, managed-settings1, foundation204, shared14
+and migration-registry1. Foundation duration725.69s. The focused owner-queue
+case is a duplicate, not added to that total. Eight actual populated lineage
+cases and three central-profile cases execute separately; the registry case
+in the focused lineage suite is already counted above. Historical central-
+subject/email coexistence also executes against PostgreSQL in0.44s.
+
+The same project verifies clean CLI up/status/latest-down/reapply/status in
+one separate empty database and actual000017 legacy-preserving upgrade,
+nonempty downgrade denial and empty down/reapply in another (0.87s).
+Seven other broad migration cases return without their dedicated variables
+and are not upgrade evidence. Twenty-nine broad-suite opt-ins are ignored;
+the eight lineage and three profile opt-ins are explicitly run above.
+Terminal exit0 and finally cleanup0; independent exact-project ps is empty.
+Full log SHA256
+`7eb0153afe22da10cfbab981dd641b598e4722c6286e45adff8f2b6048ec031b`.
+
+Native project `sdlc-qa-fleet-native-3181fe8bcf28` passes actual two-home
+Hermes API/AIAgent lifecycle in65.74s, binary SHA256
+`2f9b37ca82d475a087bd5a1ba7edf56b83582d0b7e85a86a530ecdbea4fff0bf`.
+It verifies13770 pinned bbaf7af source files, accepted SDKcbb4e99 and launcher
+Base5b7c569, with a deterministic loopback model only. Distinct HOME/SOUL/model/
+workspace/ports, cross-token denial, idempotent messages, single terminal mirrors,
+history after restart and tracked-parent stop pass. Ten other native selectors
+are not rerun. Log SHA256
+`b5b8bc3ebb3b32fd0af92106b7f98e38223a00cd791f41d3b0d6152ea47a3a2a`;
+report `72047722c5a810167f295aa194bd4adffd06f309eeec62df682992cb1da5d88f`.
+Cleanup0, independent exact-project ps empty and both temporary image tags
+removed; accepted runtime/cache resources remain untouched.
+
+Earlier nativee171afd71d94 fails in48.06s because a second controller claims
+a message it does not own. Its report
+`104bb11660fcd1a1734537c6416f022396354c4dd5e358036aa267eb25fec5ae`
+and log `41ae841917e78fb8a7c1c0cfa869640ad86558496ef5fd883a71d029e7f2319b`
+remain failure evidence. The owner-aware atomic queue selection fixes this
+without weakening the retained-child/generation check. The preliminarya6cfb79
+component gate then exposes a regression-test setup error: a spawn observation
+correctly sets Starting, so even the owner cannot claim before readiness.
+The test now explicitly asserts that hold before setting Running. Both own
+projects are cleaned; no failed run is counted as acceptance.
+
+Legacy composer now reads authoritative chat controls instead of treating an
+unused placeholder as active. Pending/unknown, task gate, read-only, unreadable
+controls and witnessed pending remain held; running steer requires matching
+active ID and permission. Frontend source is byte-identical between integration
+and the isolated QA clone. Node22.20/pnpm10.28 frozen dependencies,
+OpenAPI generate/check/compatibility, typecheck/lint/semantic/format,243 tests in31
+files, build,38-route UI contract, chat contract,135 historical fixture verification
+and115 Markdown links pass. Full frontend log SHA256
+`f07eaa16ee1c41b20860d6069412e9aa0c13966839830b1f3fed293fd44f785f`.
+Earlier test-only type/mock failures are retained, not passed evidence.
+
+All42 Chromium/Firefox/WebKit fixture cases pass in3.3m without retries;
+27 live opt-ins are skipped, not live acceptance. Browser log SHA256
+`3f13f89c4b0d26709ecda30df4b2939054dfed301181ef2aeebecfd3c3d97c4d`.
+The corrected QA origin is localhost, matching Base SSO canonicalization.
+The earlier127-origin route-loss failure and then three actual legacy-composer
+failures are retained separately. The new first-prompt/reload case captures all
+three viewports per browser. Its publisher checks all9 PNGs and stores3 Chromium
+full-page images with route/dimensions/hash and liveAcceptance=false in the
+[separate manifest](assets/design/session-composer/manifest.json), SHA256
+`b2eabe3f645e1004be7d1a89f83fbcd08cc0f7e1573a0a70334549df2cb6e51d`.
+Desktop/mobile images are visually inspected; own preview55173 is absent.
+Historical135 screenshots are not claimed regenerated.36 native harness safety
+units also pass. No SDK dependency lock, public API or historical migration drift.
+All32 native runtime fingerprints and five test-source fingerprints match
+the staged source bytes; all40 staged files match the checked worktree bytes.
+The local native report records the pre-commit parent plus these fingerprints,
+not an exact-head CI result for the subsequent source merge.
+
+Ordered single-migration release, exact-head CI/reviews, installed rollout,
+online host boundary/loaded config/safe descendants, producer admission, PM
+resume and seven-agent Forge/deployment acceptance remain separate open gates.
+This source merge is not a main deployment or 100% SDLC readiness.
+
 ## Pre-Spawn Launch And Dispatch Generation: 6 October 2026
 
 Source packet atop Fleet `856f94db16b2b080d09f733e2c1413f49a0ff5c1` adds

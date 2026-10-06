@@ -10,12 +10,14 @@ acceptance proof, exact-SHA CI/deployment or seven-agent end-to-end acceptance.
 
 Open gaps:
 
-Fetched main `3c6b8ef` preserves both historical split and combined SDLC
-migration lineages. The integration branch still needs normal reconciliation
-with that accepted implementation and explicit PostgreSQL upgrade tests from
-both histories. Do not replace the original migration bytes, claim a clean DB
-gate proves upgrade safety, or put all predecessor migrations into the new
-single-migration release packet.
+The source integration now reconciles accepted main `3c6b8ef` with both
+historical split and combined foundations. Nine lineage cases, including eight
+actual PostgreSQL cases, verify populated upgrades to the same runtime tail;
+all fourteen historical migration files remain byte-identical to main. Verified
+central names and the accepted SDK pin are preserved together with Fleet human
+and central-subject proofs. This closes local reconciliation, not release:
+ordered one-migration packets and exact-head CI/review remain mandatory. Do not
+put all predecessor migrations into the new single-migration release packet.
 
 The [runtime containment proposal](design/RUNTIME_CONTAINMENT_PROPOSAL.md)
 records the recommended per-agent container boundary and delegated-cgroup
@@ -29,8 +31,9 @@ registry. Fleet now has a separate pre-spawn native agent/config/controller
 PostgreSQL journal ([contract](contracts/RUNTIME_LAUNCH_JOURNAL_V1.md)); it prevents
 duplicate controller launches and holds unknown outcomes, but is not a container
 or loaded-generation receipt. Host persistence, generation fencing, drain, activation/rollback and
-receipt commit/recovery remain. No accepted Compose/image/readiness policy or SDK
-pin has changed. Safe Fleet descendant stop and loaded-generation acceptance
+receipt commit/recovery remain. Accepted Compose/images/readiness policy are
+unchanged. The accepted profile SDK pin does not install this boundary.
+Safe Fleet descendant stop and loaded-generation acceptance
 remain open until this integration and its own adversarial tests pass.
 
 ## PM Clarification Slice

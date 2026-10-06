@@ -133,6 +133,10 @@ jobs:
       - run: cargo check --locked --workspace --all-targets
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - run: cargo test --locked --workspace -- --test-threads=1
+      - name: Accepted migration histories and current central profiles
+        run: |
+          cargo test --locked -p migration --lib lineage_tests -- --include-ignored --test-threads=1
+          cargo test --locked -p infra --test central_profile -- --ignored --test-threads=1
       - name: Isolated directory and approval SSE acceptance
         env:
           PGPASSWORD: fleet_control
@@ -274,6 +278,7 @@ jobs:
       - run: pnpm ui:check
       - run: pnpm markdown:check
       - run: pnpm screenshots:verify
+      - run: node scripts/publish-session-composer-evidence.mjs --verify
       - run: pnpm typecheck
       - run: pnpm test -- --run
       - run: pnpm lint

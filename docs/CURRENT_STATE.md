@@ -1,5 +1,33 @@
 # Current State
 
+## Main Reconciliation And Composer: 6 October 2026
+
+The integration source reconciles Fleet `6135afd` with accepted main `3c6b8ef`:
+verified central names, the accepted Base SDK `cbb4e99`, and both historical
+migration foundations are preserved. The shared runtime tail produces18
+canonical/21 split ledger entries without renaming old steps. Actual populated
+PostgreSQL upgrades, profile identity/role preservation and immutable historical
+migration bytes are checked separately from clean installation.
+
+Legacy `/sessions/:id` now uses authoritative chat controls, permits a first
+prompt for an unused placeholder, and retains pending/unknown/read-only/task
+holds. Frontend passes243 component tests and42 Chromium/Firefox/WebKit fixture
+cases;27 live opt-ins are skipped. The new generated composer screenshot
+manifest is separate from the135 historical fixtures. These are not live PM or
+SDLC completion evidence.
+
+The renewed native gate exposed a competing controller claiming another
+controller's message. Queue selection now checks original started-controller
+ownership before changing delivery state. Final Linux/PostgreSQL verification
+passes467 distinct component cases, populated historical upgrades, profile
+preservation, clean/latest migration cycles and OpenAPI byte equality. The
+actual two-home Hermes API/AIAgent lifecycle passes in65.74s with the accepted
+SDK and a deterministic loopback model; runtime/test fingerprints match the
+staged source. See the [verification ledger](CHAT_CLARIFICATION_VERIFICATION.md#main-reconciliation-and-first-prompt-6-october-2026).
+Ordered one-migration release, exact-head CI/review, host isolation, loaded
+config, producer admission and seven-agent PM/Forge acceptance remain mandatory.
+Accepted runtime images/mounts/flags are unchanged.
+
 ## Runtime Launch Packet: 6 October 2026
 
 Integration source adds internal `000017` pre-spawn journal, atomic original
@@ -12,7 +40,8 @@ The final Linux/PostgreSQL gate passes462 distinct component cases, isolated
 lifecycle/restart passes on the recorded final binary with a loopback model.
 See [exact evidence](CHAT_CLARIFICATION_VERIFICATION.md#pre-spawn-launch-and-dispatch-generation-6-october-2026).
 
-Main lineage/auth reconciliation, ordered one-migration release, host-container
+Main lineage/auth reconciliation was required at that packet's publication;
+the current reconciliation is described above. Ordered one-migration release, host-container
 integration, loaded config/boot attestation, producer admission and the full
 PM/Forge/seven-agent acceptance remain mandatory. No new UI, screenshots,
 accepted images, SDK pin or runtime flag changes belong to this packet.
@@ -514,6 +543,52 @@ The merged eleven-file schema passed clean up, pending migration 000010 down,
 reapply and status on an isolated PostgreSQL 17 database. This feature owns only
 one new migration. Disposable QA database ownership was verified before cleanup;
 accepted runtimes, images and volumes were not changed.
+
+## October 5 Profile Integration Candidate
+
+This isolated candidate joins the main-based profile-name fix with historical
+migration compatibility. It pins the published Base source commit
+`cbb4e99230420dc2659431b1c9fb5090e5c940f0` from
+[Base #142](https://github.com/FerrPOINT/services-base/pull/142), merged into
+Base main as `fc13b83c503fa83becbe27dd0dec912852361204`. The exact SDK pin
+remains immutable and reachable from main. Installed-platform acceptance is
+still required; source publication is not runtime promotion.
+
+Local source-bound Rust 1.88 gates passed: 90 workspace tests, including 18
+real PostgreSQL tests, with no failed or ignored tests; formatting, strict
+Clippy, release build and semantic OpenAPI equality. The three profile tests
+verify same-sub identity/role and historical same-email preservation, inactive
+profile rejection without reactivation, and unchanged-profile reads without
+waiting on a user-row write lock. Eight lineage tests separately cover the
+canonical and split migration registries.
+
+The tested backend/Base manifest has 164 files, SHA-256
+`690b085c6baa23f8a6bcc95c9e375b2a37169a4ed07cd274fc335f57dc2a987d`.
+The declared Base pin matched a clean checkout and the published branch.
+Disposable Compose resources were removed and permanent runtime metadata was
+unchanged.
+
+The combined production candidate passed two starts over the actual previous
+image's disposable split schema: all 13 versions/applied timestamps, schema,
+historical user and deployment job were preserved. Fleet frontend frozen
+install/codegen/lint/typecheck/OpenAPI compatibility/build and 121 tests passed;
+the unchanged pinned Base UI passed 83 tests.
+
+One uninterrupted no-mock production-image profile run passed 11 scenarios and
+45 page/menu cases at 375/768/1280/1920/2560 in light/gray/dark, with no console
+errors, overflow or serious/critical axe violations. Admin rename, unchanged
+JWT/PAT identity/roles, historical same-email profile, real SMTP/password setup,
+missing-name fail-closed, Auth outage/recovery, token revoke, browser logout
+without PAT revoke, and central user disable were verified. The real Admin
+directory requires [Base #143](https://github.com/FerrPOINT/services-base/pull/143)
+for its total header, now merged as `ad4e7fd6135691f69f7715007201bb71ffb38488`.
+This is an Auth runtime dependency, not a change to the Fleet SDK pin.
+Binary/config/source receipt verification also passed.
+
+This is profile/lineage acceptance, not permission-policy or full-platform
+release acceptance. Both source dependencies are merged, but final installed
+images and remaining platform gates are not accepted by this scoped evidence.
+No permanent runtime was updated during the QA freeze.
 
 ## October Foundation Evidence
 

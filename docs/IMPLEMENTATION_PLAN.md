@@ -13,12 +13,13 @@ checks it before preparation, permit consumption and actual HTTP submission.
 An old or legacy intent cannot follow a replacement managed gateway. This is
 not loaded-generation attestation or full task admission.
 
-Release prerequisite: fetched main `3c6b8ef` already preserves canonical and
-legacy split SDLC migration lineages. The integration branch must reconcile
-that implementation and its historical migration bytes, then prove upgrades
-from both histories. A clean integration database gate does not prove that
-accepted deployments can upgrade. Keep PR47 and dependency packets unchanged
-until their owners perform the ordered one-migration release process.
+Source reconciliation with accepted main `3c6b8ef` now preserves canonical and
+legacy split foundations, verified central names and the accepted Base SDK.
+The actual PostgreSQL lineage suite verifies both populated histories through
+the shared eight-step tail (18 canonical/21 split entries), not just a clean
+installation. Historical migration bytes are unchanged. Ordered single-migration
+release packets, exact-head CI and review are still prerequisites. Keep PR47
+and dependency packets unchanged until their owners perform that process.
 
 The historical phases below are not completion evidence for the October SDLC plan.
 Current implementation, boundaries, blockers and acceptance are maintained in

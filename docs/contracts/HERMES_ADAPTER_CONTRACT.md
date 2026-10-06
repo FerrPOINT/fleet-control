@@ -1,5 +1,11 @@
 # Hermes Adapter Contract
 
+The automatic queue selector now respects the original acknowledged controller
+in the [launch journal](RUNTIME_LAUNCH_JOURNAL_V1.md). Foreign controllers leave
+pending delivery unchanged instead of claiming and failing another process's
+prompt. Actual submission still requires retained child custody and the pinned
+generation; no process adoption or unknown-command replay is introduced.
+
 Additive000016 implements original approval context/claim and atomic historical
 ACK completion, separate from the legacy pending-request lifecycle. Context is
 fixed before a possible effect; old uncertain decisions never acquire it later.

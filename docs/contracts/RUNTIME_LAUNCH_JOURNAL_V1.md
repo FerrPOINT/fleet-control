@@ -63,6 +63,17 @@ prevents migration downgrade; clean-schema down/reapply is allowed.
 
 ## Dispatch Generation
 
+The automatic outbox worker claims journaled agents only for its original
+controller UUID and an acknowledged `gateway_started` row. A foreign controller
+or a still-claimed launch is skipped inside the atomic queue selection, before
+changing outbox/message state. It does not turn another controller's queued
+prompt into a delivery failure. The retained-child/generation checks still run
+before the actual POST; a database claim is not process custody. Repositories
+without this controller-aware operation default to no managed dispatch.
+Unjournaled legacy runtimes retain their legacy queue behavior and do not gain
+managed authority. The unscoped repository operation is retained for historical
+callers/tests, not used by the automatic supervisor.
+
 New free-chat dispatch intents pin `fleet_launch: {version: 1, launch_id}` in
 the private, immutable capability snapshot. Fleet writes this field after
 sanitizing upstream capabilities; Hermes cannot supply it. A null launch ID

@@ -9,6 +9,14 @@ python3 ../services-base/scripts/verify_base_revision.py --base ../services-base
 python3 scripts/build.py
 ```
 
+Runtime integration сохраняет принятый в Fleet main точный SDK pin
+`cbb4e99230420dc2659431b1c9fb5090e5c940f0`: проверенное актуальное имя пользователя
+получается вместе с central token activity check. Отсутствующее verified name
+не заменяется email. Сохранены local roles, central subject и отдельный признак
+verified human session для chat controls. Старые evidence с SDK `9408802`
+остаются историческими и не подтверждают новый source head. SDK pin не означает
+обновления принятых runtime images либо установки отдельного host-boundary PR.
+
 Docker standalone и umbrella используют соседние checkout как build context.
 CI получает Base на том же SHA. Forge runner sources формируются штатным
 `materialize_runner_sources.py` из чистого delivery candidate, с manifest происхождения.

@@ -437,7 +437,7 @@ pub async fn stream_session(
         move |(ctx, user, token, headers, mut cursor, mut queue)| async move {
             loop {
                 let valid_token = match crate::middleware::central_auth::check_token(&token).await {
-                    crate::middleware::central_auth::CentralCheck::Validated(central) => {
+                    crate::middleware::central_auth::CentralCheck::Validated(central, _) => {
                         central.allows_service("fleet-control", "GET")
                     }
                     crate::middleware::central_auth::CentralCheck::FallThrough

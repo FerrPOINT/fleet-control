@@ -144,7 +144,11 @@ impl LocalRuntimeSupervisor {
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
             handle.spawn(async move {
                 loop {
-                    match supervisor.repo.claim_message_dispatch().await {
+                    match supervisor
+                        .repo
+                        .claim_controller_message_dispatch(supervisor.controller_id)
+                        .await
+                    {
                         Ok(Some(message)) => {
                             let result = async {
                                 let session =

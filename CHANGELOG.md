@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+- Reconcile accepted main profile auth and both immutable migration foundations
+  with the shared runtime tail; verify populated upgrades and retain verified
+  human/central-subject markers. Use the accepted Base SDK revision.
+- Gate legacy session composer on authoritative chat controls: permit the first
+  prompt for an unused placeholder, retain pending/unknown and read-only holds,
+  and require exact active-run steer permission.
+- Select managed outbox messages only for the original acknowledged controller;
+  foreign controllers leave pending prompts unchanged before native dispatch.
+
 - Add real native stop/steer recovery acceptance across three Fleet OS processes
   and two verified SIGKILLs: one POST per command, saved-context GET-only recovery,
   same gateway/dispatch and late ACK without rewriting terminal history. Require
@@ -194,6 +203,14 @@
 - Integrate exact-request human tool approvals with immutable command replay,
   stale-assignment protection and no automatic redispatch after an unknown outcome.
   PM structured dispatch/resume and live clarification acceptance remain incomplete.
+
+- Central profiles use the confirmed current name from the same JWT/PAT
+  activity check. Same-sub ID, local roles and historical same-email users are
+  preserved; missing names fail closed and unchanged profiles avoid a write.
+- Preserve the historical 13-step split foundation alongside the canonical
+  10-step foundation and append the same runtime releases to both without
+  rewriting applied versions. Unknown or mixed histories are rejected;
+  populated upgrade and profile regressions run explicitly in CI.
 
 - Повторный явный вход разрешён после отменённого перехода Central Auth;
   автоматический guard не отменяет logout. Отмена перехода не показывает

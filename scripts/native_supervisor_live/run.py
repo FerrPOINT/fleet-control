@@ -157,6 +157,7 @@ def main():
                   for name in ['backend/api/src/routes/approvals.rs',
                                'backend/app/src/lib.rs', 'backend/infra/src/lib.rs',
                                'backend/app/src/runtime_launch.rs', 'backend/infra/src/runtime_launches.rs',
+                               'backend/infra/src/message_dispatch.rs',
                                'backend/infra/src/runtime/launch_journal.rs', 'backend/infra/src/config_revisions.rs',
                                'backend/infra/src/configuration_disk.rs',
                                'backend/infra/src/pm_credentials.rs',

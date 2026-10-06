@@ -4,6 +4,71 @@ import AxeBuilder from '@axe-core/playwright'
 
 const now = '2026-09-01T10:00:00+03:00'
 
+test('legacy session permits the first prompt but holds a pending delivery after reload', async ({
+  page,
+}, testInfo) => {
+  const state = createState()
+  state.runsBySession[ids.session] = [
+    {
+      ...makeRun(ids.session, state.agents[0]),
+      runtime_session_id: null,
+      runtime_run_id: null,
+      last_event_at: null,
+    },
+  ]
+  await installMocks(page, state)
+  let pending = false
+  let submitted = 0
+  await page.route(`**/api/v1/sessions/${ids.session}/chat-controls`, (route) =>
+    fulfill(route, {
+      can_send: !pending,
+      can_steer: false,
+      can_stop: false,
+      active_run_id: null,
+      blocked_reason: pending ? 'dispatch_pending_or_uncertain' : null,
+    }),
+  )
+  await page.route(`**/api/v1/sessions/${ids.session}/messages`, async (route) => {
+    if (route.request().method() === 'POST') {
+      submitted += 1
+      pending = true
+    }
+    return route.fallback()
+  })
+  await page.goto(`/sessions/${ids.session}`)
+  const input = page.getByLabel('Сообщение', { exact: true })
+  await expect(input).toBeEnabled()
+  const initialViewport = page.viewportSize()!
+  for (const viewport of [
+    { width: 375, height: 812 },
+    { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await expect(input).toBeEnabled()
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
+    ).toBe(true)
+    await page.screenshot({
+      path: testInfo.outputPath(`legacy-first-prompt-${viewport.width}.png`),
+      fullPage: true,
+      animations: 'disabled',
+    })
+  }
+  await page.setViewportSize(initialViewport)
+  await input.fill('Keep one original prompt')
+  await page.getByRole('button', { name: 'Отправить', exact: true }).click()
+  await expect(page.getByText('Доставка ожидается или требует сверки')).toBeVisible()
+  await expect(input).toBeDisabled()
+  expect(submitted).toBe(1)
+  await page.reload()
+  await expect(page.getByText('Доставка ожидается или требует сверки')).toBeVisible()
+  await expect(input).toBeDisabled()
+  expect(submitted).toBe(1)
+})
+
 test('durable runtime controls hold unknown commands after reload', async ({ page }, testInfo) => {
   test.setTimeout(90000)
   const state = createState()

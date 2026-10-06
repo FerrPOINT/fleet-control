@@ -118,6 +118,114 @@ async fn bind(runtime: &LocalRuntimeSupervisor, agent: &Agent) -> RuntimeLaunchB
 }
 
 #[tokio::test]
+async fn runtime_launch_outbox_is_claimed_only_by_the_original_started_controller() {
+    let Some((repo, agent, owner, config, root)) = fixture(AgentKind::Hermes).await else {
+        return;
+    };
+    let runtime = supervisor(config, repo.clone());
+    let original = bind(&runtime, &agent).await;
+    repo.update_agent_status(agent.id, AgentStatus::Running)
+        .await
+        .unwrap();
+    let session = repo
+        .create_session(
+            domain::CreateSessionRequest {
+                primary_agent_id: Some(agent.id),
+                agent_id: None,
+                title: "Original controller queue".into(),
+                task_key: None,
+                leader_agent_id: None,
+                parent_session_id: None,
+                namespace_id: None,
+                idempotency_key: Some(Uuid::new_v4().to_string()),
+            },
+            owner,
+        )
+        .await
+        .unwrap();
+    let message = repo
+        .create_session_message(
+            session.id,
+            domain::CreateSessionMessageRequest {
+                body: "controller-only prompt".into(),
+                author_agent_id: None,
+                message_kind: Some(MessageKind::UserPrompt),
+                runtime_message_id: None,
+                idempotency_key: Some(Uuid::new_v4().to_string()),
+            },
+            owner,
+        )
+        .await
+        .unwrap();
+    let snapshot =
+        || async {
+            repo.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT row_to_json(o) AS row FROM message_dispatch_outbox o WHERE message_id=$1",
+            [message.id.into()])).await.unwrap().unwrap().try_get::<Value>("", "row").unwrap()
+        };
+    let pending = snapshot().await;
+    for controller in [runtime.controller_id, Uuid::new_v4()] {
+        assert!(
+            repo.claim_controller_message_dispatch(controller)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(snapshot().await, pending);
+    }
+    repo.observe_runtime_launch(&original, "gateway_started", Some(1234))
+        .await
+        .unwrap();
+    assert!(
+        repo.claim_controller_message_dispatch(runtime.controller_id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(snapshot().await, pending);
+    repo.update_agent_status(agent.id, AgentStatus::Running)
+        .await
+        .unwrap();
+    assert!(
+        repo.claim_controller_message_dispatch(Uuid::new_v4())
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(snapshot().await, pending);
+    let (a, b) = tokio::join!(
+        repo.claim_controller_message_dispatch(runtime.controller_id),
+        repo.claim_controller_message_dispatch(Uuid::new_v4()),
+    );
+    assert_eq!(a.unwrap().unwrap().id, message.id);
+    assert!(b.unwrap().is_none());
+    assert_eq!(snapshot().await["state"], "dispatching");
+    assert!(
+        repo.claim_controller_message_dispatch(runtime.controller_id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(
+        repo.list_session_messages(session.id)
+            .await
+            .unwrap()
+            .iter()
+            .find(|item| item.id == message.id)
+            .unwrap()
+            .delivery_state,
+        MessageDeliveryState::Pending
+    );
+    repo.observe_runtime_launch(&original, "gateway_exited", Some(1234))
+        .await
+        .unwrap();
+    repo.update_agent_status(agent.id, AgentStatus::Stopped)
+        .await
+        .unwrap();
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[tokio::test]
 async fn runtime_launch_concurrent_controllers_receive_one_spawn_permit() {
     let Some((repo, agent, _, config, root)) = fixture(AgentKind::Hermes).await else {
         return;

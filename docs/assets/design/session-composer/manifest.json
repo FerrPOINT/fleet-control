@@ -1,0 +1,55 @@
+{
+  "evidence": "production-controller-with-fixture-api",
+  "liveAcceptance": false,
+  "browsersVerified": [
+    "chromium",
+    "firefox",
+    "webkit"
+  ],
+  "command": "pnpm exec playwright test e2e/fleet-control.spec.ts --grep \"legacy session permits\"",
+  "count": 3,
+  "screenshots": [
+    {
+      "file": "legacy-first-prompt-375.png",
+      "view": "legacy-first-prompt",
+      "route": "/sessions/00000000-0000-4000-8000-000000000201",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "size": {
+        "width": 375,
+        "height": 2605
+      },
+      "sha256": "993d523c28f6de73beecf070629257986cdce16da8a2898b2da067b1bb96ebe4"
+    },
+    {
+      "file": "legacy-first-prompt-1920.png",
+      "view": "legacy-first-prompt",
+      "route": "/sessions/00000000-0000-4000-8000-000000000201",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "size": {
+        "width": 1920,
+        "height": 1524
+      },
+      "sha256": "0fbd178c00def201745127279e312d23014ca15a103d164ee6db2c2c7fe49a92"
+    },
+    {
+      "file": "legacy-first-prompt-2560.png",
+      "view": "legacy-first-prompt",
+      "route": "/sessions/00000000-0000-4000-8000-000000000201",
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      },
+      "size": {
+        "width": 2560,
+        "height": 1524
+      },
+      "sha256": "a5f506b2b54ca7572c05ea85002e7eb4333f61db84029281c1200ffc26cc0d9b"
+    }
+  ]
+}

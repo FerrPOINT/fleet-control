@@ -9,6 +9,7 @@ mod effective_configuration;
 pub mod entities;
 mod hermes_approval_recovery;
 mod hermes_dispatch_journal;
+mod message_dispatch;
 pub mod pm_credentials;
 mod pm_draft;
 mod pm_execution;
@@ -2447,35 +2448,14 @@ impl FleetRepository for PostgresFleetRepository {
     }
 
     async fn claim_message_dispatch(&self) -> Result<Option<SessionMessage>, AppError> {
-        let row = self.db.query_one(Statement::from_string(DatabaseBackend::Postgres,
-            "WITH candidate AS (
-                SELECT o.message_id FROM message_dispatch_outbox o
-                JOIN agents a ON a.id = o.agent_id
-                JOIN session_messages m ON m.id = o.message_id
-                JOIN agent_sessions s ON s.id = m.session_id
-                WHERE o.state = 'pending' AND a.status = 'running' AND a.kind = 'hermes'
-                  AND NOT EXISTS (SELECT 1 FROM task_chat_bindings b WHERE b.session_id = s.id)
-                  AND NOT EXISTS (SELECT 1 FROM agent_config_heads h WHERE h.agent_id = a.id AND h.draining)
-                  AND NOT EXISTS (SELECT 1 FROM message_dispatch_outbox busy WHERE busy.agent_id = a.id AND busy.state IN ('dispatching','uncertain'))
-                  AND NOT EXISTS (SELECT 1 FROM session_agent_runs r WHERE r.agent_id = a.id
-                      AND r.state IN ('pending','running','waiting','stopping') AND r.runtime_session_id IS NOT NULL)
-                ORDER BY o.created_at, o.message_id FOR UPDATE OF a, o, s SKIP LOCKED LIMIT 1)
-             UPDATE message_dispatch_outbox o SET state = 'dispatching', updated_at = now()
-                FROM candidate WHERE o.message_id = candidate.message_id RETURNING o.message_id".to_string()))
-            .await.map_err(AppError::database)?;
-        let Some(row) = row else {
-            return Ok(None);
-        };
-        let id: Uuid = row.try_get("", "message_id").map_err(AppError::database)?;
-        let message = session_message::Entity::find_by_id(id)
-            .one(&self.db)
-            .await
-            .map_err(AppError::database)?
-            .ok_or_else(|| AppError::not_found("session_message", id))?;
-        let mut result = self.message_by_id(id).await?;
-        // Runtime dispatch receives the original prompt; public transcript reads are redacted.
-        result.body = message.body;
-        Ok(Some(result))
+        self.claim_owned_message_dispatch(None).await
+    }
+
+    async fn claim_controller_message_dispatch(
+        &self,
+        controller_id: Uuid,
+    ) -> Result<Option<SessionMessage>, AppError> {
+        self.claim_owned_message_dispatch(Some(controller_id)).await
     }
 
     async fn finish_message_dispatch(
@@ -3792,8 +3772,19 @@ impl FleetRepository for PostgresFleetRepository {
         email: &str,
         display_name: &str,
     ) -> Result<app::auth::UserRecord, AppError> {
-        if sub.trim().is_empty() || email.trim().is_empty() {
+        if sub.trim().is_empty() || email.trim().is_empty() || display_name.trim().is_empty() {
             return Err(AppError::Unauthorized);
+        }
+        // Verified, unchanged profiles must not queue behind user write locks.
+        if let Some(model) = user::Entity::find()
+            .filter(user::Column::CentralSub.eq(sub.trim()))
+            .one(&self.db)
+            .await
+            .map_err(AppError::database)?
+            && model.is_active
+            && model.display_name == display_name.trim()
+        {
+            return Ok(user_record(model));
         }
         let id = Uuid::new_v4();
         self.db
@@ -3802,7 +3793,9 @@ impl FleetRepository for PostgresFleetRepository {
                 "INSERT INTO users (id, email, username, display_name, password_hash, central_sub, \
                system_role, is_system_admin, is_active, created_at, updated_at) \
              VALUES ($1, $2, $3, $4, '!', $5, 'user', false, true, now(), now()) \
-             ON CONFLICT (central_sub) WHERE central_sub IS NOT NULL DO NOTHING",
+             ON CONFLICT (central_sub) WHERE central_sub IS NOT NULL DO UPDATE \
+             SET display_name = EXCLUDED.display_name, updated_at = now() \
+             WHERE users.is_active AND users.display_name IS DISTINCT FROM EXCLUDED.display_name",
                 [
                     id.into(),
                     email.trim().to_lowercase().into(),

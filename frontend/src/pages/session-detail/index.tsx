@@ -30,6 +30,7 @@ import {
   stopSessionRun,
 } from '@/api/fleet'
 import type { AgentSession, SessionAgentRun, SessionMessage, SessionParticipant } from '@/api/types'
+import { blockedLabels, getChatControls } from '@/api/task-chats'
 import { useAuthStore } from '@/shared/auth/store'
 import {
   AlertDialog,
@@ -104,6 +105,12 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
     enabled: Boolean(sessionId),
     refetchInterval: 10_000,
   })
+  const chatControls = useQuery({
+    queryKey: ['chat-controls', sessionId],
+    queryFn: () => getChatControls(sessionId!),
+    enabled: Boolean(sessionId),
+    refetchInterval: 10_000,
+  })
   const participants = useQuery({
     queryKey: ['session-participants', sessionId],
     queryFn: () => listSessionParticipants(sessionId!),
@@ -117,6 +124,7 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
       void queryClient.invalidateQueries({ queryKey: ['session', sessionId] })
       void queryClient.invalidateQueries({ queryKey: ['session-messages', sessionId] })
       void queryClient.invalidateQueries({ queryKey: ['session-runs', sessionId] })
+      void queryClient.invalidateQueries({ queryKey: ['chat-controls', sessionId] })
       void queryClient.invalidateQueries({ queryKey: ['runtime-controls', sessionId] })
       void queryClient.invalidateQueries({ queryKey: ['session-participants', sessionId] })
       void queryClient.invalidateQueries({ queryKey: ['task-approvals', sessionId] })
@@ -151,7 +159,11 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
 
   const activeRun = [...(runs.data ?? [])]
     .reverse()
-    .find((run) => ['pending', 'running', 'waiting', 'stopping', 'uncertain'].includes(run.state))
+    .find(
+      (run) =>
+        ['pending', 'running', 'waiting', 'stopping', 'uncertain'].includes(run.state) &&
+        (run.state !== 'pending' || run.runtime_run_id != null || run.last_event_at != null),
+    )
 
   const [targetAgentId, setTargetAgentId] = useState('')
   const [leaderId, setLeaderId] = useState('')
@@ -227,6 +239,7 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
         queryClient.invalidateQueries({ queryKey: ['session', sessionId] }),
         queryClient.invalidateQueries({ queryKey: ['session-messages', sessionId] }),
         queryClient.invalidateQueries({ queryKey: ['session-runs', sessionId] }),
+        queryClient.invalidateQueries({ queryKey: ['chat-controls', sessionId] }),
         queryClient.invalidateQueries({ queryKey: ['sessions'] }),
       ])
       toast.success(
@@ -268,6 +281,7 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
         queryClient.invalidateQueries({ queryKey: ['session', sessionId] }),
         queryClient.invalidateQueries({ queryKey: ['session-messages', sessionId] }),
         queryClient.invalidateQueries({ queryKey: ['session-runs', sessionId] }),
+        queryClient.invalidateQueries({ queryKey: ['chat-controls', sessionId] }),
         queryClient.invalidateQueries({ queryKey: ['sessions'] }),
       ])
       toast.success(t('sessionDetail.messageSuccess'))
@@ -280,6 +294,11 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
       !messageMutation.data.accepted)
   const messageBlocked =
     messageMutation.isPending ||
+    chatControls.isPending ||
+    chatControls.isError ||
+    (activeRun
+      ? !chatControls.data?.can_steer || chatControls.data.active_run_id !== activeRun.id
+      : !chatControls.data?.can_send || Boolean(chatControls.data.active_run_id)) ||
     Boolean(controlHeld) ||
     (messageUncertain && Boolean(messageMutation.variables?.runId)) ||
     Boolean(activeRun && activeRun.state !== 'running')
@@ -416,6 +435,17 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
               onSubmit={submitMessage}
               aria-busy={messageMutation.isPending}
             >
+              {chatControls.isError ? (
+                <RetryState
+                  message="Не удалось проверить доступные действия чата"
+                  onRetry={() => void chatControls.refetch()}
+                />
+              ) : chatControls.data?.blocked_reason ? (
+                <p role="status" className="text-sm text-text-muted">
+                  {blockedLabels[chatControls.data.blocked_reason] ??
+                    'Действия чата временно недоступны'}
+                </p>
+              ) : null}
               <div className="grid max-w-sm gap-2">
                 <Label htmlFor="session-message-author">{t('sessionDetail.messageAuthor')}</Label>
                 <select

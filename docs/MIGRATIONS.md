@@ -22,6 +22,35 @@ Current critical migrations:
 
 Clean DB migration up/status is part of the release gate.
 
+## Accepted Foundation Histories
+
+The registry preserves the canonical ten-step foundation and the historical
+thirteen-step split foundation accepted in main `3c6b8ef`. Existing migration
+files and applied ledger entries are not rewritten or renamed. On each status,
+up or down operation, the stored ledger selects its original foundation;
+unknown versions or a mixture of split and combined histories fail closed.
+
+Both registries append the same ordered eight runtime/chat migrations
+`000010_task_chats` through `000017_runtime_launches`: eighteen entries for a
+canonical installation, twenty-one for a split installation. Full migration
+names, not ordinal suffixes alone, identify a step. A matching numeric suffix
+does not replace a historical split step with a newer runtime release.
+
+Run the actual PostgreSQL lineage suite, including its opt-in cases:
+
+```sh
+FLEET_MIGRATION_TEST_DATABASE_URL=<disposable-postgresql-url> \
+  cargo test --locked -p migration --lib lineage_tests -- --include-ignored --test-threads=1
+```
+
+The suite covers both populated foundations, partial split history, data and
+ledger timestamp preservation, unknown/mixed denial, and empty latest-step
+down/reapply. Legacy chats are not inferred as task bindings or backfilled with
+runtime launch/dispatch authority. This source integration still requires
+ordered release packets with at most one new migration each and exact-head CI.
+An empty latest-step downgrade test is not permission to remove retained
+launch or dispatch receipts.
+
 ## Journal Time Ordering
 
 Migration `m20261005_000014_hermes_journal_time_order` is additive and follows

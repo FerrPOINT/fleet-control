@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SessionDetailPage } from './index'
 import * as fleet from '@/api/fleet'
+import { getChatControls } from '@/api/task-chats'
 import type {
   Agent,
   AgentSession,
@@ -32,6 +33,10 @@ vi.mock('@/api/fleet', () => ({
   stopSessionRun: vi.fn(),
 }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), warning: vi.fn() } }))
+vi.mock('@/api/task-chats', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/task-chats')>()),
+  getChatControls: vi.fn(),
+}))
 
 const executor = {
   id: 'executor-1',
@@ -173,6 +178,17 @@ describe('SessionDetailPage', () => {
     vi.mocked(fleet.listSessionMessages).mockResolvedValue([])
     vi.mocked(fleet.listSessionAgentRuns).mockResolvedValue([])
     vi.mocked(fleet.listRuntimeControls).mockResolvedValue([])
+    vi.mocked(getChatControls).mockImplementation(async () => {
+      const runs = await fleet.listSessionAgentRuns(session.id)
+      const active = [...runs].reverse().find((run) => run.state === 'running')
+      return {
+        can_send: !active,
+        can_steer: Boolean(active),
+        can_stop: Boolean(active),
+        active_run_id: active?.id ?? null,
+        blocked_reason: null,
+      }
+    })
     vi.mocked(fleet.listSessionParticipants).mockResolvedValue([])
     vi.mocked(fleet.assignSessionLeader).mockResolvedValue(session)
     vi.mocked(fleet.handoffSession).mockResolvedValue(session)
@@ -221,6 +237,7 @@ describe('SessionDetailPage', () => {
     renderPage()
 
     const body = await screen.findByLabelText('Сообщение')
+    await waitFor(() => expect(body).toBeEnabled())
     fireEvent.change(body, { target: { value: '  Проверка  ' } })
     fireEvent.click(screen.getByRole('button', { name: 'Отправить' }))
     await screen.findByText(/Не удалось отправить сообщение/)
@@ -235,6 +252,65 @@ describe('SessionDetailPage', () => {
     expect(retryRequest?.idempotency_key).toBe(firstRequest?.idempotency_key)
     expect(toast.success).toHaveBeenCalledWith('Сообщение отправлено')
   })
+
+  it('allows the first message for an undispatched placeholder only with server permission', async () => {
+    vi.mocked(fleet.listSessionAgentRuns).mockResolvedValue([
+      { ...runAlpha, state: 'pending', runtime_run_id: null, last_event_at: null },
+    ])
+    renderPage()
+    const body = await screen.findByLabelText('Сообщение')
+    await waitFor(() => expect(body).toBeEnabled())
+    fireEvent.change(body, { target: { value: 'First prompt' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }))
+    await waitFor(() => expect(fleet.createSessionMessage).toHaveBeenCalledTimes(1))
+    expect(fleet.steerSessionRun).not.toHaveBeenCalled()
+  })
+
+  it.each(['dispatch_pending_or_uncertain', 'read_only', 'workflow_assignment_required'])(
+    'blocks an undispatched placeholder when the server reports %s',
+    async (blockedReason) => {
+      vi.mocked(fleet.listSessionAgentRuns).mockResolvedValue([
+        { ...runAlpha, state: 'pending', runtime_run_id: null, last_event_at: null },
+      ])
+      vi.mocked(getChatControls).mockResolvedValue({
+        can_send: false,
+        can_steer: false,
+        can_stop: false,
+        active_run_id: null,
+        blocked_reason: blockedReason,
+      })
+      renderPage()
+      const body = await screen.findByLabelText('Сообщение')
+      await waitFor(() => expect(getChatControls).toHaveBeenCalled())
+      expect(body).toBeDisabled()
+      expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+    },
+  )
+
+  it('fails closed when chat permissions cannot be read', async () => {
+    vi.mocked(getChatControls).mockRejectedValue(new Error('offline'))
+    renderPage()
+    const body = await screen.findByLabelText('Сообщение')
+    await waitFor(() => expect(getChatControls).toHaveBeenCalled())
+    expect(body).toBeDisabled()
+    expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { ...runAlpha, state: 'pending' as const },
+    { ...runAlpha, state: 'pending' as const, runtime_run_id: null },
+    { ...runAlpha, state: 'waiting' as const },
+  ])(
+    'never treats a witnessed pending or waiting run as an unused placeholder ($state)',
+    async (run) => {
+      vi.mocked(fleet.listSessionAgentRuns).mockResolvedValue([run])
+      renderPage()
+      const body = await screen.findByLabelText('Сообщение')
+      await waitFor(() => expect(fleet.listSessionAgentRuns).toHaveBeenCalled())
+      expect(body).toBeDisabled()
+      expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+    },
+  )
 
   it('normalizes delegation fields and reuses the request key on retry', async () => {
     vi.mocked(fleet.createSessionDelegation)

@@ -1,5 +1,20 @@
 # Чаты и сессии Fleet Control
 
+## Первая отправка: 6 октября 2026
+
+Legacy `/sessions/:id` теперь читает те же серверные `chat-controls`, что и
+`/chats/:id`. Созданная заранее запись `pending` без native run ID и событий
+не является начавшимся выполнением: первую отправку разрешает только backend.
+Ожидающий outbox/неизвестная доставка, task assignment gate, отсутствие прав,
+непрочитанные controls и witnessed pending продолжают блокировать composer.
+Активному run разрешён только steer с совпавшим ID и серверной capability.
+При ошибке проверки есть явный retry, ввод не отправляется автоматически.
+Это исправление совместимого маршрута, не обход SDLC admission и не запуск PM.
+Отдельный [generated manifest](assets/design/session-composer/manifest.json)
+содержит три новых full-page fixture-скрина. Chromium/Firefox/WebKit проверяют
+первую отправку и сохранение pending-блокировки после reload; это не live PM
+или runtime-приёмка. Общий исторический manifest не выдаётся за обновлённые live-скрины.
+
 ## Команды запуска: 5 октября 2026
 
 В `/chats` и legacy `/sessions` есть readback истории steer/stop: автор, операция,

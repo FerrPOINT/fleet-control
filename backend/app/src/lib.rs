@@ -718,6 +718,13 @@ pub trait FleetRepository: Send + Sync {
         payload: serde_json::Value,
     ) -> Result<(), AppError>;
     async fn claim_message_dispatch(&self) -> Result<Option<SessionMessage>, AppError>;
+    async fn claim_controller_message_dispatch(
+        &self,
+        _controller_id: Uuid,
+    ) -> Result<Option<SessionMessage>, AppError> {
+        // Repositories without durable launch ownership cannot dispatch managed children.
+        Ok(None)
+    }
     async fn finish_message_dispatch(
         &self,
         message_id: Uuid,
