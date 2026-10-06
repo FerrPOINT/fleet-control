@@ -885,6 +885,280 @@ for (const change of ['renamed', 'replaced'] as const) {
   })
 }
 
+test('chat revalidates session access on stream reconnect and preserves the denied answer draft', async ({
+  page,
+}, info) => {
+  test.setTimeout(60000)
+  const state = createState()
+  await installMocks(page, state)
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  const question = {
+    id: '00000000-0000-4000-8000-000000000501',
+    request_id: '00000000-0000-4000-8000-000000000502',
+    task_id: ids.session,
+    root_task_id: ids.session,
+    assignment_id: '00000000-0000-4000-8000-000000000503',
+    execution_id: '00000000-0000-4000-8000-000000000504',
+    agent_id: ids.dev,
+    assignment_version: 1,
+    checkpoint_id: '00000000-0000-4000-8000-000000000505',
+    author_subject: ids.dev,
+    created_at: now,
+    version: 1,
+    requirement_revision: 1,
+    text: 'Кто может просматривать задачи?',
+    rationale: 'Фиксируем границы доступа.',
+    required: true,
+    mode: 'single',
+    state: 'open',
+    answer: null,
+    requirement_reference: 'REQ-1',
+    recommended_option_id: ids.dev,
+    options: [
+      { id: ids.dev, label: 'Участники проекта', consequences: 'Только проект.', is_custom: false },
+    ],
+  }
+  let phase: 'ready' | 'retry' | 'denied' | 'recovered' = 'ready'
+  let failedReads = 0
+  let heldReads = 0
+  let releaseRead!: () => void
+  const gate = new Promise<void>((resolve) => {
+    releaseRead = resolve
+  })
+  const commands: string[] = []
+  await page.route(`**/api/v1/sessions/${ids.session}`, async (route) => {
+    if (phase === 'retry') {
+      if (failedReads++ === 0)
+        return fulfill(route, { error: { message: 'Session read retry pending' } }, 503)
+      heldReads += 1
+      await gate
+    }
+    if (phase === 'denied')
+      return fulfill(route, { error: { message: 'Session access revoked' } }, 403)
+    return fulfill(route, {
+      ...state.sessions[0],
+      title: phase === 'recovered' ? 'Recovered session' : state.sessions[0].title,
+    })
+  })
+  await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (route.request().method() === 'POST') commands.push(path)
+    if (path.endsWith('/task-context'))
+      return fulfill(route, {
+        binding: {
+          tracker_instance_id: 'fixture-tracker',
+          project_id: ids.dev,
+          task_id: ids.session,
+          root_task_id: ids.session,
+          agent_id: ids.dev,
+          owner_subject: ids.user,
+        },
+        tracker: {
+          contract_version: 1,
+          tracker_instance_id: 'fixture-tracker',
+          project_id: ids.dev,
+          task_id: ids.session,
+          root_task_id: ids.session,
+          owner_subject: ids.user,
+          stage: 'Clarification',
+          requirement_revision: 1,
+          waiting_reason: 'Требуется ответ',
+          assignment: null,
+          permissions: { can_answer: true, can_confirm: false },
+        },
+      })
+    if (path.endsWith('/clarifications')) return fulfill(route, { questions: [question] })
+    if (path.endsWith('/requirements')) return fulfill(route, { revisions: [] })
+    if (path.endsWith('/chat-controls'))
+      return fulfill(route, {
+        can_send: false,
+        can_steer: false,
+        can_stop: false,
+        active_run_id: null,
+        blocked_reason: 'workflow_assignment_required',
+      })
+    return route.fallback()
+  })
+  try {
+    await page.goto(`/chats/${ids.session}?tab=clarification`)
+    const choice = page.getByRole('radio', { name: /Участники проекта/ })
+    await choice.check()
+    await page.getByLabel('Комментарий', { exact: true }).fill('Preserve this answer draft')
+    const save = page.getByRole('button', { name: 'Сохранить ответ' })
+    await expect(save).toBeEnabled()
+    phase = 'retry'
+    await expect.poll(() => heldReads, { timeout: 15000 }).toBeGreaterThan(0)
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await expect(choice).toBeChecked()
+      await expect(choice).toBeDisabled()
+      await expect(save).toBeDisabled()
+      await expect(page.getByLabel('Комментарий', { exact: true })).toHaveValue(
+        'Preserve this answer draft',
+      )
+      await page.screenshot({
+        path: info.outputPath(`chat-session-read-held-${viewport.width}.png`),
+        fullPage: true,
+        animations: 'disabled',
+        scale: 'css',
+      })
+    }
+    expect(commands).toEqual([])
+    phase = 'denied'
+    releaseRead()
+    await expect(page.getByText('Session access revoked', { exact: true })).toBeVisible()
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await expect(page.getByRole('tab', { name: /Уточнения/ })).toHaveCount(0)
+      await expect(page.getByText('Preserve this answer draft', { exact: true })).toHaveCount(0)
+      await expect(page.getByRole('button', { name: 'Проверить доступ к чату' })).toBeEnabled()
+      await page.screenshot({
+        path: info.outputPath(`chat-session-access-denied-${viewport.width}.png`),
+        fullPage: true,
+        animations: 'disabled',
+        scale: 'css',
+      })
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      ).toBe(true)
+    }
+    phase = 'recovered'
+    await page.getByRole('button', { name: 'Проверить доступ к чату' }).click()
+    await expect(page.getByRole('heading', { name: 'Recovered session' })).toBeVisible()
+    await expect(choice).toBeChecked()
+    await expect(page.getByLabel('Комментарий', { exact: true })).toHaveValue(
+      'Preserve this answer draft',
+    )
+    await expect(save).toBeEnabled()
+    expect(commands).toEqual([])
+    expect(errors).toEqual([])
+  } finally {
+    releaseRead()
+  }
+})
+
+test('chat composer recovers from the exact known steer acknowledgement without another POST', async ({
+  page,
+}, info) => {
+  const state = createState()
+  const runId = '00000000-0000-4000-8000-000000000601'
+  state.runsBySession[ids.session] = [
+    {
+      ...makeRun(ids.session, state.agents[0]),
+      id: runId,
+      state: 'running',
+      runtime_run_id: 'native-original-run',
+    },
+  ]
+  await installMocks(page, state)
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  let submitted = false
+  let confirmed = false
+  let posts = 0
+  const receipt = {
+    id: '00000000-0000-4000-8000-000000000602',
+    actor_user_id: ids.user,
+    agent_id: ids.dev,
+    session_id: ids.session,
+    session_run_id: runId,
+    operation: 'steer',
+    state: 'uncertain',
+    acknowledgement: null,
+    observed_run_state: null,
+    created_at: now,
+    updated_at: now,
+  }
+  await page.route(`**/api/v1/sessions/${ids.session}/chat-controls`, (route) =>
+    fulfill(route, {
+      can_send: false,
+      can_steer: true,
+      can_stop: true,
+      active_run_id: runId,
+    }),
+  )
+  await page.route(`**/api/v1/sessions/${ids.session}/runs/${runId}/controls`, (route) =>
+    fulfill(
+      route,
+      submitted
+        ? [
+            {
+              ...receipt,
+              state: confirmed ? 'acknowledged' : 'uncertain',
+              acknowledgement: confirmed ? 'steered' : null,
+            },
+          ]
+        : [],
+    ),
+  )
+  await page.route(`**/api/v1/sessions/${ids.session}/runs/${runId}/steer`, (route) => {
+    expect(route.request().method()).toBe('POST')
+    expect(route.request().postDataJSON()).toEqual({ input: 'Original scoped guidance' })
+    expect(route.request().headers()['idempotency-key']).toEqual(expect.any(String))
+    posts += 1
+    submitted = true
+    return fulfill(route, {
+      accepted: false,
+      session_id: ids.session,
+      run_id: runId,
+      runtime_run_id: 'native-original-run',
+      state: 'running',
+      message: 'Outcome is being checked',
+      command: receipt,
+    })
+  })
+  await page.goto(`/chats/${ids.session}`)
+  const input = page.getByLabel('Уточнение активному запуску', { exact: true })
+  await input.fill('Original scoped guidance')
+  await page.getByRole('button', { name: 'Передать уточнение запуску' }).click()
+  await expect(page.getByText(/Исход уточнения запуску неизвестен/)).toBeVisible()
+  await expect(input).toBeDisabled()
+  expect(posts).toBe(1)
+  confirmed = true
+  await expect(
+    page.getByText(
+      'Runtime подтвердил исходное уточнение. Состояние запуска проверяется отдельно.',
+      { exact: true },
+    ),
+  ).toBeVisible()
+  for (const viewport of [
+    { width: 375, height: 812 },
+    { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await expect(input).toHaveValue('')
+    await expect(input).toBeEnabled()
+    await expect(page.getByRole('button', { name: 'Передать уточнение запуску' })).toBeDisabled()
+    await page.screenshot({
+      path: info.outputPath(`chat-steer-confirmed-${viewport.width}.png`),
+      fullPage: true,
+      animations: 'disabled',
+      scale: 'css',
+    })
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
+    ).toBe(true)
+  }
+  await input.fill('New explicit guidance')
+  await expect(page.getByRole('button', { name: 'Передать уточнение запуску' })).toBeEnabled()
+  expect(posts).toBe(1)
+  expect(errors).toEqual([])
+})
+
 test('long chat history restores reading and tail positions across tabs', async ({
   page,
 }, testInfo) => {

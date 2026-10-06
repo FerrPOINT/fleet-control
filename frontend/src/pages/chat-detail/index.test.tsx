@@ -172,6 +172,286 @@ beforeEach(() => {
   })
 })
 describe('production chat', () => {
+  it.each(['reconnect', 'inactive delta', 'active delta'] as const)(
+    'reports unread chat content only when displayed content changes: %s',
+    async (event) => {
+      useAuthStore.setState({ token: 'fixture-token' })
+      vi.mocked(chats.getChatHistory).mockResolvedValue({
+        items: [message('reading', 'Retained message')],
+        next_before: null,
+      })
+      vi.mocked(chats.getChatControls).mockResolvedValue({
+        can_send: false,
+        can_steer: true,
+        can_stop: true,
+        active_run_id: 'run-active',
+      })
+      vi.mocked(fleet.listSessionAgentRuns).mockResolvedValue([
+        {
+          id: 'run-active',
+          session_id: 'session1',
+          agent_id: 'agent1',
+          agent_name: 'PM',
+          runtime_session_id: 'native-session',
+          runtime_run_id: 'native-run',
+          run_role: 'primary',
+          state: 'running',
+          last_error: null,
+          last_event_at: null,
+          model: null,
+          provider: null,
+          model_options: {},
+          created_at: '2026-10-01T12:00:00Z',
+          updated_at: '2026-10-01T12:00:00Z',
+        },
+      ])
+      renderPage()
+      await screen.findByText('Retained message')
+      const pane = document.querySelector<HTMLDivElement>('.fc-chat-panel .fc-chat-scroll')!
+      Object.defineProperties(pane, { scrollHeight: { value: 1200 }, clientHeight: { value: 400 } })
+      pane.scrollTop = 240
+      fireEvent.scroll(pane)
+      await act(async () => {
+        const stream = vi.mocked(connectAuthenticatedEventStream).mock.calls[0]![0]
+        if (event === 'reconnect') stream.onOpen?.()
+        else
+          stream.onEvent('session', {
+            type: 'session_run_delta',
+            run_id: event === 'active delta' ? 'run-active' : 'run-old',
+            text: 'New streamed content',
+          })
+      })
+      if (event === 'active delta') {
+        expect(await screen.findByRole('button', { name: 'Новые сообщения' })).toBeVisible()
+        expect(screen.getByText('New streamed content')).toBeVisible()
+      } else {
+        expect(screen.queryByRole('button', { name: 'Новые сообщения' })).not.toBeInTheDocument()
+        expect(screen.queryByText('New streamed content')).not.toBeInTheDocument()
+      }
+      expect(pane.scrollTop).toBe(240)
+    },
+  )
+  it.each([
+    'acknowledged',
+    'terminal-ack',
+    'run-changed',
+    'wrong-id',
+    'wrong-run',
+    'wrong-actor',
+    'terminal-unconfirmed',
+  ] as const)('reconciles only the known original steer receipt: %s', async (outcome) => {
+    vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      can_send: false,
+      can_steer: true,
+      can_stop: true,
+      active_run_id: 'run-original',
+    })
+    const receipt = {
+      id: 'original-command',
+      actor_user_id: 'owner',
+      agent_id: 'agent1',
+      session_id: 'session1',
+      session_run_id: 'run-original',
+      operation: 'steer' as const,
+      state: 'uncertain' as const,
+      acknowledgement: null,
+      observed_run_state: null,
+      created_at: '2026-10-01T12:00:00Z',
+      updated_at: '2026-10-01T12:00:00Z',
+    }
+    let submitted = false
+    vi.mocked(fleet.listRuntimeControls).mockImplementation(async () =>
+      submitted ? [receipt] : [],
+    )
+    vi.mocked(fleet.steerSessionRun).mockImplementationOnce(async () => {
+      submitted = true
+      return {
+        session_id: 'session1',
+        run_id: 'run-original',
+        runtime_run_id: 'native-original',
+        state: 'waiting',
+        accepted: false,
+        message: 'Unknown command outcome',
+        command: receipt,
+      }
+    })
+    const { client } = renderPage()
+    const input = await screen.findByLabelText('Уточнение активному запуску')
+    fireEvent.change(input, { target: { value: 'Original scoped guidance' } })
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Передать уточнение запуску' })).toBeEnabled(),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Передать уточнение запуску' }))
+    await screen.findByText(/Исход уточнения запуску неизвестен/)
+    await waitFor(() => expect(client.isMutating()).toBe(0))
+    expect(input).toBeDisabled()
+    const fresh = {
+      ...receipt,
+      state: outcome.startsWith('terminal')
+        ? ('terminal_observed' as const)
+        : ('acknowledged' as const),
+      acknowledgement: outcome === 'terminal-unconfirmed' ? null : 'steered',
+      id: outcome === 'wrong-id' ? 'another-command' : receipt.id,
+      session_run_id: outcome === 'wrong-run' ? 'another-run' : receipt.session_run_id,
+      actor_user_id: outcome === 'wrong-actor' ? 'another-owner' : receipt.actor_user_id,
+    }
+    vi.mocked(fleet.listRuntimeControls).mockImplementation(async (_sessionId, runId) =>
+      runId === 'run-original' ? [fresh] : [],
+    )
+    if (outcome === 'run-changed') {
+      await act(async () => {
+        client.setQueryData(['chat-controls', 'session1'], {
+          can_send: false,
+          can_steer: true,
+          can_stop: true,
+          active_run_id: 'run-new',
+        })
+      })
+    }
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ['runtime-controls', 'session1', 'run-original'] })
+    })
+    if (outcome === 'acknowledged' || outcome === 'terminal-ack' || outcome === 'run-changed') {
+      await waitFor(() => expect(input).toHaveValue(''))
+      expect(input).toBeEnabled()
+      fireEvent.change(input, { target: { value: 'New explicit guidance' } })
+      expect(screen.getByRole('button', { name: 'Передать уточнение запуску' })).toBeEnabled()
+    } else {
+      expect(input).toHaveValue('Original scoped guidance')
+      expect(input).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Передать уточнение запуску' })).toBeDisabled()
+    }
+    expect(fleet.steerSessionRun).toHaveBeenCalledTimes(1)
+    expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+  })
+  it.each(['reconnect', 'session event'] as const)(
+    'refreshes session access on %s and hides the workspace after denial',
+    async (event) => {
+      const dispose = vi.fn()
+      vi.mocked(connectAuthenticatedEventStream).mockReturnValueOnce(dispose)
+      useAuthStore.setState({ token: 'fixture-token' })
+      renderPage('clarification')
+      await screen.findByRole('radio', { name: /Участники проекта/ })
+      vi.mocked(fleet.getSession).mockRejectedValue(new ApiError(403, 'Session access revoked'))
+      await act(async () => {
+        const stream = vi.mocked(connectAuthenticatedEventStream).mock.calls[0]![0]
+        if (event === 'reconnect') stream.onOpen?.()
+        else stream.onEvent('session', { type: 'session_changed' })
+      })
+      await screen.findByText('Session access revoked')
+      await waitFor(() => expect(dispose).toHaveBeenCalledTimes(1))
+      expect(screen.queryByRole('tab', { name: /Уточнения/ })).not.toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'Task' })).not.toBeInTheDocument()
+      expect(chats.answerClarification).not.toHaveBeenCalled()
+      expect(chats.confirmRequirements).not.toHaveBeenCalled()
+    },
+  )
+  it('recovers session read access through GET without losing the answer draft', async () => {
+    const { client } = renderPage('clarification')
+    fireEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))
+    fireEvent.change(screen.getByLabelText('Комментарий'), {
+      target: { value: 'Preserve this draft' },
+    })
+    const original = client.getQueryData<AgentSession>(['session', 'session1'])!
+    vi.mocked(fleet.getSession).mockRejectedValue(new ApiError(403, 'Session access revoked'))
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ['session', 'session1'] })
+    })
+    await screen.findByText('Session access revoked')
+    vi.mocked(fleet.getSession).mockResolvedValue(original)
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить доступ к чату' }))
+    expect(await screen.findByRole('radio', { name: /Участники проекта/ })).toBeChecked()
+    expect(screen.getByLabelText('Комментарий')).toHaveValue('Preserve this draft')
+    expect(chats.answerClarification).not.toHaveBeenCalled()
+    expect(chats.confirmRequirements).not.toHaveBeenCalled()
+    expect(fleet.getSession).toHaveBeenCalledTimes(3)
+  })
+  it('refreshes session metadata on a session event', async () => {
+    useAuthStore.setState({ token: 'fixture-token' })
+    renderPage('clarification')
+    await screen.findByRole('heading', { name: 'Task' })
+    const original = await vi.mocked(fleet.getSession).mock.results[0]!.value
+    vi.mocked(fleet.getSession).mockResolvedValue({ ...original, title: 'Renamed task' })
+    await act(async () => {
+      vi.mocked(connectAuthenticatedEventStream).mock.calls[0]![0].onEvent('session', {
+        type: 'session_changed',
+      })
+    })
+    await screen.findByRole('heading', { name: 'Renamed task' })
+    expect(fleet.getSession).toHaveBeenCalledTimes(2)
+  })
+  it.each(['prompt', 'answer', 'confirmation'] as const)(
+    'holds owner-only %s during a failed session read retry',
+    async (command) => {
+      if (command === 'prompt') {
+        vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+        vi.mocked(chats.getChatControls).mockResolvedValue({
+          can_send: true,
+          can_steer: false,
+          can_stop: false,
+          active_run_id: null,
+        })
+      }
+      const { client } = renderPage(
+        command === 'prompt' ? 'dialogue' : command === 'answer' ? 'clarification' : 'requirements',
+        1,
+      )
+      if (command === 'prompt')
+        fireEvent.change(await screen.findByLabelText('Сообщение агенту'), {
+          target: { value: 'Retained prompt' },
+        })
+      else
+        await userEvent.click(
+          command === 'answer'
+            ? await screen.findByRole('radio', { name: /Участники проекта/ })
+            : await screen.findByRole('checkbox', { name: /Подтверждаю цель/ }),
+        )
+      const button = screen.getByRole('button', {
+        name:
+          command === 'prompt'
+            ? 'Отправить сообщение'
+            : command === 'answer'
+              ? 'Сохранить ответ'
+              : 'Подтвердить редакцию 3',
+      })
+      await waitFor(() => expect(button).toBeEnabled())
+      const original = client.getQueryData<AgentSession>(['session', 'session1'])!
+      let resolveRetry!: () => void
+      vi.mocked(fleet.getSession)
+        .mockRejectedValueOnce(new ApiError(503, 'Session retry pending'))
+        .mockImplementationOnce(async () => {
+          await new Promise<void>((resolve) => {
+            resolveRetry = resolve
+          })
+          return original
+        })
+      let refresh!: Promise<unknown>
+      await act(async () => {
+        refresh = client.invalidateQueries({ queryKey: ['session', 'session1'] })
+      })
+      await waitFor(() => expect(resolveRetry).toBeTypeOf('function'), { timeout: 3000 })
+      expect(client.getQueryState(['session', 'session1'])?.status).toBe('success')
+      expect(button).toBeDisabled()
+      fireEvent.click(button)
+      expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+      expect(chats.answerClarification).not.toHaveBeenCalled()
+      expect(chats.confirmRequirements).not.toHaveBeenCalled()
+      await act(async () => {
+        resolveRetry()
+        await refresh
+      })
+      await waitFor(() => expect(button).toBeEnabled())
+      if (command === 'prompt')
+        expect(screen.getByLabelText('Сообщение агенту')).toHaveValue('Retained prompt')
+      else
+        expect(
+          screen.getByRole(command === 'answer' ? 'radio' : 'checkbox', {
+            name: command === 'answer' ? /Участники проекта/ : /Подтверждаю цель/,
+          }),
+        ).toBeChecked()
+    },
+  )
   it.each([
     ['prompt', 'controls'],
     ['steer', 'controls'],

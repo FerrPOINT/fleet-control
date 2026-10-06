@@ -111,6 +111,10 @@ function ChatWorkspace({ id }: { id: string }) {
   const token = useAuthStore((state) => state.token)
   const userId = useAuthStore((state) => state.userId)
   const session = useQuery({ queryKey: ['session', id], queryFn: () => getSession(id) })
+  const sessionDenied =
+    session.isError &&
+    session.error instanceof ApiError &&
+    [401, 403, 404].includes(session.error.status)
   const agents = useQuery({ queryKey: ['agent-directory'], queryFn: listAgentDirectory })
   const task = useQuery({
     queryKey: ['task-context', id],
@@ -194,9 +198,10 @@ function ChatWorkspace({ id }: { id: string }) {
   const tab = ['dialogue', 'clarification', 'requirements'].includes(params.get('tab') ?? '')
     ? params.get('tab')!
     : 'dialogue'
-  const owner = session.data?.user_id === userId
-  const canResolveApprovals =
-    useAuthStore((state) => state.permissions.includes('agents:manage')) || owner
+  const sessionFresh = session.isSuccess && !session.isFetching && session.failureCount === 0
+  const owner = sessionFresh && session.data?.user_id === userId
+  const canManageApprovals = useAuthStore((state) => state.permissions.includes('agents:manage'))
+  const canResolveApprovals = sessionFresh && (canManageApprovals || owner)
   const context = task.data?.tracker
   const taskFresh = task.isSuccess && !task.isFetching && task.failureCount === 0
   const questionsFresh =
@@ -261,7 +266,7 @@ function ChatWorkspace({ id }: { id: string }) {
     )
   }
   useEffect(() => {
-    if (!token) return
+    if (!token || sessionDenied) return
     return connectAuthenticatedEventStream({
       url: `${apiBaseUrl}/api/v1/sessions/${id}/stream`,
       token,
@@ -269,6 +274,7 @@ function ChatWorkspace({ id }: { id: string }) {
       onOpen: () => {
         setDelta({})
         ;[
+          'session',
           'chat-history',
           'session-runs',
           'chat-controls',
@@ -301,6 +307,7 @@ function ChatWorkspace({ id }: { id: string }) {
           }
         } else {
           ;[
+            'session',
             'chat-history',
             'session-runs',
             'chat-controls',
@@ -317,7 +324,7 @@ function ChatWorkspace({ id }: { id: string }) {
         }
       },
     })
-  }, [client, id, token])
+  }, [client, id, token, sessionDenied])
   const messageMap = new Map(
     [...(history.data?.pages ?? [])]
       .reverse()
@@ -326,11 +333,18 @@ function ChatWorkspace({ id }: { id: string }) {
   )
   const messages = [...messageMap.values()]
   const lastMessage = messages.at(-1)?.id
+  const activeRun = runs.data?.find((run) => run.id === controls.data?.active_run_id)
+  const displayedDelta = activeRun ? delta[activeRun.id] : undefined
+  const previousContent = useRef({ lastMessage, delta: displayedDelta })
   useEffect(() => {
+    const changed =
+      (Boolean(lastMessage) && lastMessage !== previousContent.current.lastMessage) ||
+      (Boolean(displayedDelta) && displayedDelta !== previousContent.current.delta)
+    previousContent.current = { lastMessage, delta: displayedDelta }
     if (!transcript.current) return
     if (following.current) transcript.current.scrollTop = transcript.current.scrollHeight
-    else if (lastMessage) setNewMessages(true)
-  }, [lastMessage, delta])
+    else if (changed) setNewMessages(true)
+  }, [lastMessage, displayedDelta])
   const message = useMutation({
     mutationFn: async (
       command:
@@ -362,6 +376,61 @@ function ChatWorkspace({ id }: { id: string }) {
       void invalidate()
     },
   })
+  const originalSteer =
+    messageUncertain && message.variables?.kind === 'steer' ? message.variables : undefined
+  const knownSteerReceipt =
+    originalSteer &&
+    message.data &&
+    'command' in message.data &&
+    message.data.accepted === false &&
+    message.data.session_id === id &&
+    message.data.run_id === originalSteer.runId &&
+    message.data.command?.id &&
+    message.data.command.session_id === id &&
+    message.data.command.session_run_id === originalSteer.runId &&
+    message.data.command.actor_user_id === userId &&
+    message.data.command.operation === 'steer'
+      ? message.data.command
+      : undefined
+  const originalSteerCommands = useRuntimeControls(
+    id,
+    owner ? knownSteerReceipt?.session_run_id : undefined,
+  )
+  useEffect(() => {
+    if (
+      !owner ||
+      !knownSteerReceipt ||
+      !originalSteerCommands.isSuccess ||
+      originalSteerCommands.isFetching ||
+      originalSteerCommands.failureCount > 0
+    )
+      return
+    const confirmed = originalSteerCommands.data?.some(
+      (command) =>
+        command.id === knownSteerReceipt.id &&
+        command.session_id === id &&
+        command.session_run_id === knownSteerReceipt.session_run_id &&
+        command.agent_id === knownSteerReceipt.agent_id &&
+        command.actor_user_id === userId &&
+        command.operation === 'steer' &&
+        (command.state === 'acknowledged' ||
+          (command.state === 'terminal_observed' && Boolean(command.acknowledgement?.trim()))),
+    )
+    if (!confirmed) return
+    setMessageUncertain(false)
+    setBody('')
+    setMessageKey(requestKey())
+    setReceipt('Runtime подтвердил исходное уточнение. Состояние запуска проверяется отдельно.')
+  }, [
+    id,
+    userId,
+    owner,
+    knownSteerReceipt,
+    originalSteerCommands.data,
+    originalSteerCommands.isSuccess,
+    originalSteerCommands.isFetching,
+    originalSteerCommands.failureCount,
+  ])
   const answer = useMutation({
     mutationFn: (command: { questionId: string; questionKey: string; payload: AnswerInput }) =>
       answerClarification(id, command.questionId, command.payload),
@@ -433,9 +502,20 @@ function ChatWorkspace({ id }: { id: string }) {
       return next
     })
   if (session.isPending) return <EmptyState title="Загрузка чата" />
-  if (session.isError || !session.data) return <ReadableError error={session.error} />
+  if (session.isError || !session.data)
+    return (
+      <div className="space-y-4">
+        <ReadableError error={session.error} />
+        <Button
+          variant="outline"
+          disabled={session.isFetching}
+          onClick={() => void session.refetch()}
+        >
+          Проверить доступ к чату
+        </Button>
+      </div>
+    )
   const agent = agents.data?.find((item) => item.id === session.data.primary_agent_id)
-  const activeRun = runs.data?.find((run) => run.id === controls.data?.active_run_id)
   const waiting = context?.waiting_reason
   const returnTo = params.get('returnTo')
   const backTo =
