@@ -2,8 +2,8 @@
 
 Production Chats implements dialogue, structured answers and exact-revision
 confirmation. Full live PM acceptance remains open. This inspection starts at
-consumer `717aaba4f0ee8b6812eda5651dc17b82cc9ef229`, already integrated in
-published Fleet `f7f88582fc4977e971fd75601b8b7b0ddab1a684`. Fleet's frontend
+consumer `14982e15e9597e3bf7d6a9490381e0b99f7f120f`, already integrated in
+published Fleet `abcf8224b47051bec1d9e48fab2781ffcdef4db0`. Fleet's frontend
 and browser API snapshot are identical at those two commits. Base remains pinned
 to `cbb4e99230420dc2659431b1c9fb5090e5c940f0`. Producer head checks on
 7 October 2026 match the previously verified source blobs:
@@ -22,7 +22,7 @@ Four regressions failed before that fix; its source hashes, local checks
 and fixture captures are in
 [command freshness validation](assets/screens/chats-command-freshness-20261006/validation.json).
 
-This follow-up fixes a separate question-version display defect: the retained
+Integrated `14982e1` fixes a separate question-version display defect: the retained
 selected answer previously used labels from the new version, or fell back to
 an option UUID after replacement. Drafts now retain their original labels.
 Explicit transfer still filters out removed option IDs and captures the reviewed
@@ -49,6 +49,35 @@ The [PM Draft proposal](design/PM_DRAFT_CREATION_PREVIEW.md) was published in
 cases and 20 reviewed captures. Its previously sent design question remains
 pending. Parallel frontend authorization is not explicit approval of that new
 creation/recovery flow. Existing approved Chats fixes continue independently.
+
+The current follow-up refreshes `GET /api/v1/sessions/{id}` on SSE open and
+non-delta events. A cached successful session during a pending/failed GET no
+longer grants command or approval authority. A definitive 401/403/404 session
+denial closes the SSE connection and hides the workspace. The explicit access
+check only repeats GET; a successful result restores the retained answer draft
+and consent without submitting a command. Prompt, answer and exact confirmation
+tests cover the cached-success retry window.
+
+Known steer recovery now follows the original command ID on its original run,
+including after the active run changes. A fresh
+`GET /api/v1/sessions/{id}/runs/{run_id}/controls` must match command ID, session,
+run, agent, actor and operation. Only `acknowledged`, or `terminal_observed`
+with a nonempty native acknowledgement, releases the composer; no second POST
+occurs. Wrong-scope and unconfirmed terminal receipts retain the hold. The
+reading-position indicator now reacts to visible content changes, so reconnect
+and a delta for an inactive run do not announce new messages.
+
+The [session and receipt validation](assets/screens/chats-session-recovery-20261007/validation.json)
+records 309 unit cases in 31 files, including 71 ChatDetail cases; the browser
+results and reviewed captures are recorded with the exact source hashes. These
+are existing-API fixture checks, separate from live PM acceptance.
+
+Two additional recovery boundaries need producer contracts:
+
+| Owner                                       | Existing contract and required acceptance                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Fleet runtime / public control API          | `POST /api/v1/sessions/{id}/runs/{run_id}/steer` accepts `{input}` with `Idempotency-Key`; its response may include `command`. The public `RuntimeControlReceipt` journal has ID, session/run/agent/actor, operation, state, acknowledgement, observed run state and timestamps, but no original key or payload identity. If the initial reply is lost without a command ID, define an authorized read-only lookup for the original key and actor/session/run/operation plus payload identity. Prove restart/lost-ack reconciliation and wrong-scope denial without a second dispatch. Matching text, ordering or the current run is insufficient; this consumer retains the unknown hold. |
+| Base authenticated SSE SDK / Fleet consumer | The current SDK reports `onOpen` and events, but a direct stream HTTP 401/403 has no consumer status callback. The session GET denial path above is covered; transport-only denial remains open. Define an authorization/connection-status callback and cursor/restart semantics, then prove access revocation hides the workspace, stops reconnects, preserves drafts and only resumes after fresh session authorization. The separate pending-fetch WebKit navigation diagnostic remains open.                                                                                                                                                                                           |
 
 | Remaining contract / owner                                          | Concrete missing integration or fields                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
