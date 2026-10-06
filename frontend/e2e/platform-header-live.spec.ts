@@ -217,7 +217,7 @@ test('Fleet global header preserves navigation, services, identity and central l
   await profile.click()
   await menu.getByRole('menuitem', { name: 'Выйти', exact: true }).click()
   await expect(page).toHaveURL(/localhost:7701\/oidc\/logout\?client_id=fleet-control/)
-  await page.getByRole('button', { name: 'Выйти из всех приложений', exact: true }).click()
+  await page.getByRole('button', { name: 'Выйти', exact: true }).click()
   await expect(page).toHaveURL(/localhost:7742\/login\?logged_out/)
   await page.goto(`${base}/agents`, { waitUntil: 'commit' })
   await expect(page).toHaveURL(/localhost:7701\/oidc\/authorize/)
