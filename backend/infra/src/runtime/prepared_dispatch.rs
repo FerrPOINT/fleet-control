@@ -47,7 +47,14 @@ impl LocalRuntimeSupervisor {
         let base = Self::hermes_base_url(&agent)?;
         let token = crate::agent_runtime_token(&self.config, agent.id)?;
         hermes_wire::verify_intent(&intent, &base, &token)?;
+        self.verify_dispatch_launch(agent.id, &intent.capabilities)
+            .await?;
         let mut current = hermes_wire::dispatch_capabilities(&self.probe_hermes(&agent).await?)?;
+        // The private Fleet binding is not advertised by Hermes. Retain it only
+        // after proving this controller still owns that exact original child.
+        if let Some(launch) = intent.capabilities.get("fleet_launch") {
+            current["fleet_launch"] = launch.clone();
+        }
         if recovery_wire::store_id(&intent.capabilities)?.is_some() {
             if !self.config.fleet.hermes_recovery_extension_enabled {
                 return Err(AppError::Unavailable(

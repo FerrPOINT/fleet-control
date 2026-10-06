@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- Recover a managed prepared prompt only through its original retained child
+  and unused dispatch permit; restore the verified private generation during
+  fresh native-fact comparison. Preserve pending/error after pre-submission
+  failure without reopening historical failed delivery or repeating a submitted
+  request. Add actual native pre-claim fault recovery and lost-ACK regression.
+
 - Reconcile accepted main profile auth and both immutable migration foundations
   with the shared runtime tail; verify populated upgrades and retain verified
   human/central-subject markers. Use the accepted Base SDK revision.

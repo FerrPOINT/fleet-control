@@ -3218,6 +3218,7 @@ impl FleetRepository for PostgresFleetRepository {
         // an unacknowledged error here, not from a stale pre-transaction read.
         let delivery_state = if delivery_state == MessageDeliveryState::Failed
             && runtime_message_id.is_none()
+            && row.delivery_state == "pending"
         {
             let journal = txn
                 .query_one(Statement::from_sql_and_values(
@@ -3227,12 +3228,15 @@ impl FleetRepository for PostgresFleetRepository {
                 ))
                 .await
                 .map_err(|_| AppError::Database("Hermes delivery classification failed".into()))?;
-            let submitted = journal
+            let journaled = journal
                 .map(|row| row.try_get::<String>("", "state"))
                 .transpose()
                 .map_err(|_| AppError::Database("Hermes delivery classification failed".into()))?
-                .is_some_and(|state| matches!(state.as_str(), "submitted" | "accepted"));
-            if submitted {
+                .is_some_and(|state| {
+                    matches!(state.as_str(), "prepared" | "submitted" | "accepted")
+                });
+            if journaled {
+                // Preserve unresolved intent; never reopen historical terminal delivery.
                 MessageDeliveryState::Pending
             } else {
                 delivery_state

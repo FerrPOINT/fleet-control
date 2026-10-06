@@ -17,6 +17,16 @@ It checks private mode-0600 dotenv ownership. These are not OS/tool isolation,
 descendant quiescence or task/PM admission proofs. Unknown-ACK recovery is a
 separate `recovery` case below, not a claim made by the lifecycle case.
 
+The first chat also installs a disposable Fleet PostgreSQL fault after its
+exact prepared intent is committed but before its submission claim can commit.
+The message must remain pending, with no model request or native run ID. A
+second controller must leave that original intent held. Removing only the QA
+fault permits the original child-owning controller to use its one unused permit;
+request bytes/hash/key/origin/credential/generation/deadline stay unchanged.
+The normal terminal and replay assertions still require one inference, run and
+assistant. This is not automatic adoption after controller death or permission
+to repeat an already submitted POST. The fault never touches Hermes SQLite.
+
 ## Lost Acknowledgement And Fleet Process Restart
 
 Pass `--scenario recovery` to select only

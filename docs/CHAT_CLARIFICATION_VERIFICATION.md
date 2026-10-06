@@ -1,5 +1,77 @@
 # Chat Clarification Verification
 
+## Prepared Original-Controller Recovery: 6 October 2026
+
+Source packet atop `f6e856cb7fd054227abf8877ad20cf2ecf8103dd` fixes two
+managed free-chat recovery defects without API/schema/SDK/flag changes:
+pre-submission errors no longer terminally fail a pending message with a saved
+prepared intent, and fresh native facts are compared with the private Fleet
+generation only after original retained-child custody verification. Claim and
+sender still recheck that generation. Already submitted/unknown acceptance never
+gets another permit; historical failed messages are not reopened.
+
+The new actual PostgreSQL regression first fails with Failed vs Pending in0.46s,
+project `sdlc-qa-fleet-prepared-launch-1cc7e7dc6762`, log SHA256
+`8d93c80198f7aa8fffada01b57db98829349914cb9970548a4ee719165991b21`.
+It is retained failure evidence, not acceptance. Preliminary focused project
+`sdlc-qa-fleet-prepared-launch-c348e038b013` passes Rust1.88 fmt/check/strict
+Clippy/OpenAPI equality and16 launch,20 journal and6 prepared HTTP/PG cases;
+log `19fef67277ac7aa909095601457b01ff1198a835f770b07f57a4d25a0062254c`.
+The subsequent historical-failed guard has its own regression in the final
+full suite. Both preliminary projects clean up with independent exact ps empty.
+Final Linux/PostgreSQL project `sdlc-qa-fleet-prepared-launch-142ca30faa65`
+passes Rust1.88 fmt, locked/offline all-target check, strict all-target Clippy
+and generated OpenAPI byte equality. It executes469 distinct component cases:
+API44, app21, domain26, infra156, managed-settings1, foundation206, shared14
+and migration-registry1. Foundation duration843.09s; both new delivery
+regressions execute against PostgreSQL. Cargo reports477 passes, but eight
+migration tests return early without their dedicated DB and are not acceptance.
+Twenty-nine opt-ins are ignored. No clean CLI/up/down, populated historical
+upgrade or central-profile gate is rerun here; their previous final-source
+evidence remains separate. Log SHA256
+`62be9d9a6e7e315cdafa8247aae4320f81e7719bb81dd359265324d2e2b0ee89`.
+Finally cleanup and independent exact Compose ps confirm an empty project.
+
+Renewed actual native lifecycle project `sdlc-qa-fleet-native-6886dc92f33e`
+passes in81.44s. A disposable Fleet PostgreSQL trigger refuses the first chat's
+submission claim after intent commit. Pending/error, no submitted timestamp or
+native ID and no model request are observed. A second controller leaves the
+same prepared request held. Removing only the QA fault allows the original
+child-owning controller to submit with unchanged run/key/bytes/hash/origin/
+credential/capabilities/deadline and launch/PID. The existing two-HOME/SOUL/cwd/
+ports, cross-token denial, single inference/run/mirror, native restart history
+and tracked-parent stop assertions also pass. No Hermes SQLite is edited.
+Log SHA256 `31ee536b9319e8e333124a4dbf2bccb00865c714a2b47d672cf8e6ec5238195d`;
+report `01a40269c748490b4d44c26531f65fc021f1d5f614059ee1c0f0bdee86e3d5aa`.
+
+The separate native lost-ACK regression project
+`sdlc-qa-fleet-native-00eea27e5d7a` passes in26.80s on the same binary SHA256
+`728ed4e34c5b172965e28d8637a5bbd7f94935190353b411a3588c5b78ac5a6a`.
+Two actual Fleet processes and one surviving Hermes gateway recover the already
+terminal run by original-key GET: one observed native POST/inference/mirror,
+unchanged dispatch journal and no SSE or redispatch. The four committed Base
+recovery files and13770 pinned bbaf7af source files are verified before execution.
+Log `11b9f24fed1a409cbe748992f90e4e85b918b9989c9124bb4b231b645efca05e`;
+report `899570f2c3e5c300b01719ea2c5dc413218c6c778164e5abc04360c966530281`.
+
+Both cases use accepted SDKcbb4e99, launcher Base5b7c569 and deterministic
+loopback inference only. All33 runtime and six test-source fingerprints match
+current source bytes. Both own projects have cleanup0, independent exact ps
+empty and their temporary image tags removed. Full control/approval selectors,
+frontend/browser/screenshot captures and migration upgrade gates are not rerun
+by these two native scenarios; their previous evidence remains separate.
+Host harness units pass36 cases. README and all115 Markdown files validate;
+the existing135 screenshot manifest, nine controller fixtures and three composer
+fixtures verify without recapture or a claim of live PM acceptance.
+
+This is original-controller prepared recovery and submitted-terminal GET
+recovery, not managed custody transfer after Fleet death, loaded-generation/
+host-container/descendant proof or task/PM admission. Existing Fleet PR47 still
+has one new000010 migration and current main conflicts; its old green CI does
+not certify this source packet. Ordered release/exact-head CI/reviews,
+compatible Tracker/Workflow producers, PM tools/resume and seven-agent Forge/
+deployment acceptance remain open. No accepted runtime resources are changed.
+
 ## Main Reconciliation And First Prompt: 6 October 2026
 
 Candidate integrates Fleet `6135afd027f58b25b778742859822c8f7996972c`

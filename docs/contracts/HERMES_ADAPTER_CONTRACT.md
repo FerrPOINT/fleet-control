@@ -48,7 +48,13 @@ lost-ACK recovery, tools/approvals and task/PM admission remain separate gates.
 
 Prepared journals may recover the one original POST through their still-unused
 transactional permit, with exact saved bytes/key/context and fresh protocol
-facts. This is not POST replay for submitted/unknown acceptance. Readback paths
+facts. Pending delivery remains pending when its saved prepared intent encounters
+a pre-submission error; existing failed delivery remains terminal. For managed
+launches, retained original child/generation verification precedes native probes.
+Only after that verification is the private `fleet_launch` binding included in
+the comparison with freshly normalized native protocol facts. Hermes metadata
+cannot supply or change that binding. Claim and actual submission recheck it.
+This is not POST replay for submitted/unknown acceptance. Readback paths
 remain non-dispatch; task/PM records require their independent admission.
 See [ADR 0020](../adr/0020-prepared-dispatch-restart-recovery.md).
 

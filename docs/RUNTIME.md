@@ -180,7 +180,13 @@ Hermes:
   sends saved bytes, not reconstructed prompt/model/options. An unknown response
   keeps pending delivery with an error; neither the original key nor the fixed
   recovery horizon permits another POST. An independent prepared-intent worker
-  recovers only an unconsumed original permit, never a submitted/legacy record.
+  recovers only an unconsumed original permit, never a submitted or unjournaled
+  legacy record.
+  Pending delivery with a saved prepared intent keeps its diagnostic and waiting
+  state on pre-submission failure. Existing failed messages are never reopened.
+  Managed recovery first verifies retained original child/generation custody,
+  then compares the normalized fresh native facts with the private Fleet binding.
+  A fresh controller cannot adopt a managed PID through this worker.
   It verifies frozen request/context and fresh protocol facts, then claims the
   existing run under drain/capacity/deadline locks. A prepared uncertain outbox
   becomes dispatching only with that permit. Concurrent workers have one winner;

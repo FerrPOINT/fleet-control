@@ -137,6 +137,96 @@ async fn managed_launch(p: &JournalFixture) -> app::runtime_launch::RuntimeLaunc
 }
 
 #[tokio::test]
+async fn journal_prepared_delivery_failure_preserves_original_single_use_permit() {
+    let Some(p) = setup().await else { return };
+    let original = prepare(&p).await.unwrap();
+    p.repo
+        .update_session_message_delivery(
+            p.draft.message_id,
+            MessageDeliveryState::Failed,
+            None,
+            Some("claim failed before submission".into()),
+        )
+        .await
+        .unwrap();
+    p.repo
+        .finish_message_dispatch(p.draft.message_id, true, Some("claim failed".into()))
+        .await
+        .unwrap();
+    let message = p
+        .repo
+        .list_session_messages(p.draft.session_id)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|message| message.id == p.draft.message_id)
+        .unwrap();
+    assert_eq!(message.delivery_state, MessageDeliveryState::Pending);
+    assert!(message.runtime_message_id.is_none());
+    let held = p
+        .repo
+        .get_hermes_dispatch_intent(p.draft.message_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(held.state, "prepared");
+    assert!(!held.submission_attempted);
+    assert_eq!(held.request_body, original.request_body);
+    assert_eq!(held.capabilities, original.capabilities);
+    assert_eq!(held.idempotency_key, original.idempotency_key);
+    assert!(held.submitted_at.is_none());
+    assert_eq!(held.request_hash, original.request_hash);
+    assert_eq!(held.recovery_deadline, original.recovery_deadline);
+    let claimed = claim(&p).await.unwrap().unwrap();
+    assert_eq!(claimed.run.id, original.run.id);
+    assert_eq!(claimed.request_body, original.request_body);
+    assert_eq!(claimed.recovery_deadline, original.recovery_deadline);
+    assert!(claim(&p).await.unwrap().is_none());
+}
+
+#[tokio::test]
+async fn journal_legacy_failed_prepared_delivery_is_not_reopened_by_error() {
+    let Some(p) = setup().await else { return };
+    let original = prepare(&p).await.unwrap();
+    sql(
+        &p,
+        "UPDATE session_messages SET delivery_state='failed' WHERE id=$1",
+        vec![p.draft.message_id.into()],
+    )
+    .await;
+    p.repo
+        .update_session_message_delivery(
+            p.draft.message_id,
+            MessageDeliveryState::Failed,
+            None,
+            Some("historical failure remains terminal".into()),
+        )
+        .await
+        .unwrap();
+    let message = p
+        .repo
+        .list_session_messages(p.draft.session_id)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|message| message.id == p.draft.message_id)
+        .unwrap();
+    assert_eq!(message.delivery_state, MessageDeliveryState::Failed);
+    assert!(claim(&p).await.is_err());
+    let held = p
+        .repo
+        .get_hermes_dispatch_intent(message.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(held.state, "prepared");
+    assert!(!held.submission_attempted);
+    assert_eq!(held.request_body, original.request_body);
+    assert_eq!(held.capabilities, original.capabilities);
+    assert_eq!(held.recovery_deadline, original.recovery_deadline);
+}
+
+#[tokio::test]
 async fn journal_managed_dispatch_requires_original_launch_binding_before_claim() {
     let Some(mut p) = setup().await else { return };
     let binding = managed_launch(&p).await;

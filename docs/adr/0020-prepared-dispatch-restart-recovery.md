@@ -25,6 +25,15 @@ perform the one original POST, through the same submission/ACK/session readback
 path as the normal dispatcher. A prepared uncertain outbox may become dispatching
 only in that permit transaction. Submitted/accepted receipts never reset.
 
+For a managed gateway, the original retained child and private launch generation
+must match the committed launch journal before any native probe. Hermes does not
+advertise `fleet_launch`: retain that private comparison field only after the
+custody check, then compare all fresh native protocol facts without dropping
+identity checks. The DB claim and actual sender independently recheck generation.
+A pending message with a committed prepared intent remains pending on a
+pre-submission error, with its diagnostic preserved. An existing historical
+failed message cannot become pending through this classification.
+
 The readback worker remains separate and never submits runs. Unknown HTTP
 acceptance after the permit remains held and may only use compatible original-key
 readback. No-journal, failed delivery, expired, archived, drained, task-bound or
@@ -41,6 +50,10 @@ original request, model/options, run/key and recovery deadline remain immutable.
 Failed or stale records stay available for explicit reconciliation; no automatic
 capacity release or destructive repair is added. Managed runtime/config/OS proof
 and task/PM admission remain independent release gates.
+The managed-generation check also means a new Fleet controller cannot use this
+worker to adopt a surviving untracked gateway after process death. Trusted host
+boundary reconciliation is still required; legacy fixture restart evidence is
+not proof of automatic managed custody transfer.
 
 ## Alternatives
 

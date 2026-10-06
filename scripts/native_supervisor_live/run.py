@@ -151,6 +151,7 @@ def main():
                   for name in ['backend/infra/tests/native_supervisor_live.rs',
                                'backend/infra/tests/support/native_approvals.rs',
                                'backend/infra/tests/support/native_control_restart.rs',
+                               'backend/infra/tests/support/native_prepared_launch.rs',
                                'backend/infra/tests/support/native_approval_restart.rs',
                                'backend/infra/tests/support/native_approval_recovery.rs']},
               'fleet_runtime_sources_sha256':{name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest()
@@ -159,6 +160,7 @@ def main():
                                'backend/app/src/runtime_launch.rs', 'backend/infra/src/runtime_launches.rs',
                                'backend/infra/src/message_dispatch.rs',
                                'backend/infra/src/runtime/launch_journal.rs', 'backend/infra/src/config_revisions.rs',
+                               'backend/infra/src/runtime/prepared_dispatch.rs',
                                'backend/infra/src/configuration_disk.rs',
                                'backend/infra/src/pm_credentials.rs',
                                'backend/infra/src/runtime/activation_journal.rs',

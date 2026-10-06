@@ -44,7 +44,13 @@ or native durable event-replay guarantees.
 
 Prepared initial-delivery recovery is separate from accepted/unknown readback.
 It can consume the original free-chat permit once after current identity/drain/
-protocol/deadline checks; it cannot repeat submitted, failed or legacy work.
+protocol/deadline checks; it cannot repeat submitted/failed work or backfill
+unjournaled legacy records.
+An error while a pending message has a saved prepared intent keeps delivery
+pending with its error, not a fabricated terminal failure. Historical failed
+messages are not reopened. A managed launch must still be owned by the original
+controller's retained child before native probing and before submission. Its
+private Fleet generation is not a Hermes capability or permission to adopt a PID.
 No task/PM admission or Java capability is added; see
 [ADR 0020](../adr/0020-prepared-dispatch-restart-recovery.md).
 

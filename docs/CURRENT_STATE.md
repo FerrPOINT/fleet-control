@@ -1,5 +1,27 @@
 # Current State
 
+## Prepared Original-Controller Recovery: 6 October 2026
+
+The source packet atop `f6e856c` preserves pending delivery after a saved
+prepared intent encounters a pre-submission error, without reopening historical
+failed messages. Fresh Hermes capabilities retain the private Fleet launch
+binding only after original retained-child custody verification; claim and
+sender still recheck it. Submitted/unknown outcomes never receive a new permit.
+
+Actual native acceptance passes the prepared-claim fault, foreign-controller
+hold and original-controller recovery within the two-home lifecycle (81.44s).
+A separate two-Fleet-process lost-202 case passes GET-only recovery (26.80s)
+with one observed POST/inference/mirror. Both use the same recorded binary,
+accepted SDK and deterministic loopback model. Full source fingerprints,
+Linux/PostgreSQL results and cleanup are recorded in the
+[verification ledger](CHAT_CLARIFICATION_VERIFICATION.md#prepared-original-controller-recovery-6-october-2026).
+The final Linux gate passes469 distinct component cases, strict all-target
+Clippy and OpenAPI equality; ignored/no-DB gates are separately identified.
+These are free-chat runtime checks, not PM/deployment acceptance, host isolation
+or managed child-custody transfer after controller death. No API, schema, SDK,
+UI, accepted runtime image or installed feature flag changes belong to this
+packet. Ordered release, exact-head CI/review and remaining SDLC gates stay open.
+
 ## Main Reconciliation And Composer: 6 October 2026
 
 The integration source reconciles Fleet `6135afd` with accepted main `3c6b8ef`:

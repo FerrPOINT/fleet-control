@@ -31,6 +31,9 @@ mod native_approvals;
 #[path = "support/native_control_restart.rs"]
 mod native_control_restart;
 
+#[path = "support/native_prepared_launch.rs"]
+mod native_prepared_launch;
+
 fn native_configuration(mut config: AppConfig) -> Arc<AppConfig> {
     let controller_root = Path::new(&config.fleet.agents_root)
         .parent()
@@ -350,10 +353,23 @@ async fn scenario(
             runtime_message_id: None,
             idempotency_key: Some(Uuid::new_v4().to_string()),
         };
+        if i == 0 {
+            native_prepared_launch::hold_submission(session.id).await;
+        }
         let message = repo
             .create_session_message(session.id, request.clone(), owner)
             .await
             .unwrap();
+        if i == 0 {
+            native_prepared_launch::release_submission(
+                repo.clone(),
+                config.clone(),
+                message.id,
+                model.clone(),
+                &prompt,
+            )
+            .await;
+        }
         let run = terminal(&repo, session.id).await;
         assert!(run.runtime_run_id.is_some());
         assert!(run.runtime_session_id.is_some());
@@ -502,7 +518,7 @@ async fn managed_native_gateway_isolates_home_soul_messages_and_restart_history(
     );
     assert_eq!(model.requests.lock().await.len(), 2);
     println!(
-        "Managed native gateway cases passed: two homes/SOUL/models, cross-token denial, idempotent messages, terminal mirrors, restart readback, tracked parent stop. No task/PM or process-tree attestation."
+        "Managed native gateway cases passed: two homes/SOUL/models, cross-token denial, original prepared-claim recovery with a foreign controller held, idempotent messages, terminal mirrors, restart readback, tracked parent stop. No task/PM or process-tree attestation."
     );
 }
 
