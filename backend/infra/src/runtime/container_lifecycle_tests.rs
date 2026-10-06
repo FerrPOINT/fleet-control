@@ -677,6 +677,90 @@ async fn container_lifecycle_unknown_creation_reuses_exact_intent_and_rejects_ch
 
 #[cfg(target_os = "linux")]
 #[tokio::test]
+async fn prepared_container_rejects_changed_credentials_and_recipe_before_launch_claim() {
+    let Some((repo, agent, _, config, root)) = lifecycle_tests::fixture(AgentKind::Hermes).await
+    else {
+        return;
+    };
+    let config = fake_creation(&config, &agent, false).await;
+    let original = lifecycle_tests::supervisor(Arc::new(config.clone()), repo.clone());
+    let binding = original
+        .prepared_container(&agent, LaunchPhase::Regular)
+        .await
+        .unwrap();
+    let private = root.join("controller");
+    let intent_path = private.join(format!("{}.container-creation.json", agent.id));
+    let prepared_path = private.join(format!("{}.container-prepared.json", agent.id));
+    let intent = tokio::fs::read(&intent_path).await.unwrap();
+    let prepared = tokio::fs::read(&prepared_path).await.unwrap();
+    for field in [
+        "token",
+        "image",
+        "entrypoint",
+        "user",
+        "memory",
+        "network",
+        "cors",
+    ] {
+        let mut changed = config.clone();
+        let provision = changed
+            .fleet
+            .container_control
+            .as_mut()
+            .unwrap()
+            .provisioning
+            .as_mut()
+            .unwrap();
+        match field {
+            "token" => changed.fleet.runtime_token_secret = "changed-after-prepare".into(),
+            "image" => provision.image_id = format!("sha256:{}", "c".repeat(64)),
+            "entrypoint" => provision.entrypoint = vec!["/different/hermes".into()],
+            "user" => provision.user = "10002:10002".into(),
+            "memory" => provision.memory_bytes += 1,
+            "network" => provision.network_internal = false,
+            "cors" => changed
+                .server
+                .cors_allowed_origins
+                .push("https://changed.test".into()),
+            _ => unreachable!(),
+        }
+        let runtime = lifecycle_tests::supervisor(Arc::new(changed), repo.clone());
+        assert!(
+            matches!(
+                runtime.start_locked(&agent, LaunchPhase::Regular).await,
+                Err(AppError::Unavailable(_))
+            ),
+            "{field}"
+        );
+        assert!(!private.join("start-effect").exists(), "{field}");
+        assert_eq!(tokio::fs::read(&intent_path).await.unwrap(), intent);
+        assert_eq!(tokio::fs::read(&prepared_path).await.unwrap(), prepared);
+        assert!(
+            repo.get_open_runtime_launch(agent.id)
+                .await
+                .unwrap()
+                .is_none(),
+            "{field}"
+        );
+    }
+    let same = original
+        .prepared_container(&agent, LaunchPhase::Regular)
+        .await
+        .unwrap();
+    assert_eq!(same.id, binding.id);
+    assert_eq!(
+        tokio::fs::read_to_string(private.join("prepare-effect"))
+            .await
+            .unwrap(),
+        "1"
+    );
+    assert_eq!(tokio::fs::read(&intent_path).await.unwrap(), intent);
+    assert_eq!(tokio::fs::read(&prepared_path).await.unwrap(), prepared);
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
 async fn container_restart_requires_original_exit_and_preserves_previous_generation() {
     let Some((repo, agent, _, config, root)) = lifecycle_tests::fixture(AgentKind::Hermes).await
     else {

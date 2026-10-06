@@ -98,15 +98,14 @@ fn held() -> AppError {
 }
 
 impl LocalRuntimeSupervisor {
-    async fn create_container(
+    fn container_intent(
         &self,
         agent: &Agent,
-        root: &Path,
-        prepared_path: &Path,
-        intent_path: &Path,
+        generation: Uuid,
+        operation_id: Uuid,
         revision: Option<i64>,
         revision_hash: Option<String>,
-    ) -> Result<(), AppError> {
+    ) -> Result<ContainerCreationIntent, AppError> {
         let config = self
             .config
             .fleet
@@ -119,25 +118,6 @@ impl LocalRuntimeSupervisor {
                 "agent containers require sdlc1, sdlc2 or an owned temporary QA project",
             ));
         }
-        let agents = crate::normalize_path(Path::new(&self.config.fleet.agents_root))?;
-        let base = crate::normalize_path(Path::new(&config.base_root))?;
-        if root.starts_with(&agents)
-            || agents.starts_with(root)
-            || base.starts_with(&agents)
-            || agents.starts_with(&base)
-        {
-            return Err(held());
-        }
-        let previous = read_private_document(root, intent_path).await?;
-        let previous: Option<ContainerCreationIntent> = previous
-            .map(|bytes| serde_json::from_slice(&bytes).map_err(|_| held()))
-            .transpose()?;
-        let generation = previous
-            .as_ref()
-            .map_or_else(Uuid::new_v4, |value| value.generation);
-        let operation_id = previous
-            .as_ref()
-            .map_or_else(Uuid::new_v4, |value| value.operation_id);
         if generation.is_nil() || operation_id.is_nil() {
             return Err(held());
         }
@@ -146,7 +126,7 @@ impl LocalRuntimeSupervisor {
             .api_port
             .filter(|value| (1024..=65535).contains(value))
             .ok_or_else(held)?;
-        let intent = ContainerCreationIntent {
+        Ok(ContainerCreationIntent {
             agent_id: agent.id,
             generation,
             operation_id,
@@ -198,7 +178,45 @@ impl LocalRuntimeSupervisor {
             },
             source_sha256: config.source_sha256.clone(),
             context: config.context.clone(),
-        };
+        })
+    }
+
+    async fn create_container(
+        &self,
+        agent: &Agent,
+        root: &Path,
+        prepared_path: &Path,
+        intent_path: &Path,
+        revision: Option<i64>,
+        revision_hash: Option<String>,
+    ) -> Result<(), AppError> {
+        let config = self
+            .config
+            .fleet
+            .container_control
+            .as_ref()
+            .ok_or_else(held)?;
+        let agents = crate::normalize_path(Path::new(&self.config.fleet.agents_root))?;
+        let base = crate::normalize_path(Path::new(&config.base_root))?;
+        if root.starts_with(&agents)
+            || agents.starts_with(root)
+            || base.starts_with(&agents)
+            || agents.starts_with(&base)
+        {
+            return Err(held());
+        }
+        let previous: Option<ContainerCreationIntent> = read_private_document(root, intent_path)
+            .await?
+            .map(|bytes| serde_json::from_slice(&bytes).map_err(|_| held()))
+            .transpose()?;
+        let generation = previous
+            .as_ref()
+            .map_or_else(Uuid::new_v4, |value| value.generation);
+        let operation_id = previous
+            .as_ref()
+            .map_or_else(Uuid::new_v4, |value| value.operation_id);
+        let intent =
+            self.container_intent(agent, generation, operation_id, revision, revision_hash)?;
         if let Some(previous) = previous {
             if serde_json::to_value(previous).map_err(|_| held())?
                 != serde_json::to_value(&intent).map_err(|_| held())?
@@ -369,7 +387,7 @@ impl LocalRuntimeSupervisor {
         Ok(format!("http://{host}:{port}"))
     }
 
-    async fn prepared_container(
+    pub(super) async fn prepared_container(
         &self,
         agent: &Agent,
         phase: LaunchPhase,
@@ -484,6 +502,41 @@ impl LocalRuntimeSupervisor {
             || prepared.configuration_sha256 != revision_hash
         {
             return Err(held());
+        }
+        let automatic = self
+            .config
+            .fleet
+            .container_control
+            .as_ref()
+            .ok_or_else(held)?
+            .provisioning
+            .is_some();
+        let intent_bytes = read_private_document(&root, &intent_path).await?;
+        if automatic || intent_bytes.is_some() {
+            // A prepared receipt is not permission to start an obsolete recipe or token.
+            let intent: ContainerCreationIntent =
+                serde_json::from_slice(&intent_bytes.ok_or_else(held)?).map_err(|_| held())?;
+            let expected = self.container_intent(
+                agent,
+                intent.generation,
+                intent.operation_id,
+                revision_number,
+                revision_hash.clone(),
+            )?;
+            if serde_json::to_value(&intent).map_err(|_| held())?
+                != serde_json::to_value(expected).map_err(|_| held())?
+            {
+                return Err(held());
+            }
+            container_control::validate_preparation(
+                &container_control::ContainerPreparation {
+                    state: "prepared".into(),
+                    policy: prepared.container.policy.clone(),
+                    registration: prepared.container.registration.clone(),
+                },
+                &intent.policy,
+                intent.operation_id,
+            )?;
         }
         let command_sha256 = crate::runtime_launches::snapshot_hash(
             &serde_json::to_value(&prepared.container).map_err(AppError::internal)?,

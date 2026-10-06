@@ -2,6 +2,15 @@
 
 ## October SDLC Gate
 
+Prepared automatic generations now check the entire original recipe and derived
+API token before observe/DB claim/start; prepared metadata cannot silently accept
+changed process settings. Seven drift cases and unchanged replay pass in the
+fresh503-case Rust1.88/PG gate with29 ignored, fmt/check/strict Clippy and exact
+cleanup. This closes the prepared-recipe comparison gap, not controller bridge
+access, model credential attestation, loaded config or container activation.
+Operator-prepared compatibility remains explicit; an automatic intent cannot
+be silently converted by disabling provisioning. See the verification ledger.
+
 The captured-source utility loader fix has host behavioral and final502-case
 Rust1.88/PG evidence, not actual Fleet/Docker/Hermes acceptance. Reject
 symlink/junction source paths and never fall back to cached code
@@ -26,11 +35,14 @@ fresh502-case gate passes. The earlier partial174-unit pass remains historical. 
 and Fleet/Hermes live acceptance remain separate requirements, not closed gaps.
 
 Current Base protocol source is PR150
-`60415307038468618c15b168630d3ac9ac09b50d` is Draft pending its own CI.
+`60415307038468618c15b168630d3ac9ac09b50d` is ready/mergeable on main with
+[nine successful exact-head jobs](https://github.com/FerrPOINT/services-base/actions/runs/37449729086).
+Checks/head were reread after ready; reviews/threads are empty. No merge/install
+is implied by this utility PR status.
 Base real-Hermes startup/stop now passes separately, without model inference
 or Rust Fleet supervisor/chat/config acceptance. Prior3fe7e28 CI eventually
-passed all nine jobs after a failed messaging-core attempt; its success is not
-substituted for this newer head.
+passed all nine jobs after a failed messaging-core attempt; that historical
+success is not substituted for the newer head's own CI.
 Prior1d19105 had nine successful exact-head CI37432291311 jobs. Fresh Fleet
 Rust1.88/PG gate passes502 cases with29 ignored; Base native replacement/
 creation-crash/readback and v1 regression pass separately.

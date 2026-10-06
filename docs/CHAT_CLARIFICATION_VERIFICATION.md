@@ -1,8 +1,46 @@
 # Chat Clarification Verification
 
+## Prepared Container Recipe Guard: 6 October 2026
+
+The follow-up reconstructs the current automatic recipe using the original
+generation/operation IDs before claiming a saved prepared generation. It checks
+the complete creation intent and reuses the original preparation validator for
+registration/policy, allowing only the allocated network ID. Obsolete process
+settings or derived runtime API credentials cannot reach observe/claim/start.
+Missing intent or disabled automatic provisioning also holds an existing
+automatic generation; explicit legacy operator documents remain compatible.
+The original private files are never rewritten to match new settings.
+
+The new Linux/PostgreSQL regression exercises token, image, entrypoint, user,
+memory, network and CORS changes after successful preparation. Every changed
+case has no start effect or DB launch, while original files/generation remain
+unchanged and the unchanged recipe still validates. Base is a subprocess fixture,
+not actual Docker/Hermes, and this does not attest model secrets or loaded config.
+
+Fresh Rust1.88/PostgreSQL full workspace gate passes503 tests,0 failed,29 ignored,
+fmt, locked/offline all-target check and strict Clippy. All288 frozen inputs are
+unchanged. Project `sdlc-qa-fleet-container-control-044c488dcee1` exits0 with exact
+cleanup; independent container/network queries are empty. Evidence SHA256:
+
+- Source manifest: `8fe0184e88c6908c84b77f45b097673b3e3fcd7f9f280c149915f071be29019b`.
+- Full log: `2c3215d3431bea57b7d2c10a61f8a7c71b21ac39aedd0f1e6af2809418e54397`.
+- Report: `f3a6ff4dda0763a3e58c44906a6a250468b505854a8a79454f714b3725974165`.
+
+The first focused attempt, projecta98fc10bcfce/report directory0a611e612c89,
+failed compilation because the regression could not access a private method.
+The method is now parent-module-visible, not a public runtime API. That attempt
+cleaned its own resources; it is not evidence of a behavioral pre-fix failure.
+Host loader/README/native harness safety suites total64 PASS. README and the
+117-file local Markdown checker pass;135 existing fixture screenshot hashes
+verify across three viewports. No new browser/live UI evidence is produced.
+Docker audit has no violations on desktop-linux38/sdlc2-runner0, but sdlc1-runner
+is unavailable: complete=false. Accepted images/services, SDK, public schema and
+migrations are unchanged. Fleet container model/chat, loaded revision,
+drain/activation/rollback, admission/PM and complete SDLC remain required.
+
 ## Captured Base Source Loader Candidate: 6 October 2026
 
-Unpublished hardening compiles the three captured SHA256-verified Base sources,
+Published hardening compiles the three captured SHA256-verified Base sources,
 not a second filesystem import or cached bytecode. Captures are bounded to1 MiB
 per file and all source-path components reject symlinks/junctions. The synthetic
 package has no checkout search path; the existing binary-stdin Base contract,

@@ -1,8 +1,19 @@
 # Current State
 
+## Prepared Container Recipe Guard: 6 October 2026
+
+Saved automatic generations now revalidate their original intent against current
+process settings and derived API credentials before observe/launch claim/start.
+Seven drift cases preserve private files and cannot start or claim a launch.
+The unchanged recipe still validates. The fresh Rust1.88/PG workspace gate passes
+503 tests with29 ignored, fmt/check/strict Clippy and exact own cleanup. See
+[scoped evidence](CHAT_CLARIFICATION_VERIFICATION.md#prepared-container-recipe-guard-6-october-2026).
+This is fixture-backed consumer evidence, not actual Fleet/container model/chat,
+configuration activation or PM acceptance. Accepted services/images are unchanged.
+
 ## Captured Utility Source Candidate: 6 October 2026
 
-The unpublished Docker-client hardening executes the captured hash-pinned Base
+The published Docker-client hardening executes the captured hash-pinned Base
 source bytes rather than reimporting files/cached bytecode. Six host behavior
 tests and an actual Base import/typed rejection smoke cover the fixed Python
 bootstrap. All four Linux source-loader regressions and the final Rust1.88/PG
@@ -46,7 +57,10 @@ after Engine recovery; the final502-case follow-up gate passes separately. See
 The494-case published packet below predates this follow-up and must not certify it.
 
 Base [PR150](https://github.com/FerrPOINT/services-base/pull/150) now publishes
-`60415307038468618c15b168630d3ac9ac09b50d` as Draft awaiting its own CI.
+`60415307038468618c15b168630d3ac9ac09b50d` as ready/mergeable on main with
+[nine successful exact-head jobs](https://github.com/FerrPOINT/services-base/actions/runs/37449729086).
+The head/checks were reread after ready; reviews/threads are empty. No merge or
+accepted runtime installation has been performed.
 It includes a separate container-only launcher without weakening native loopback.
 The standalone Base gate now starts/stops two real Hermes gateways, verifies13770
 pinned source files, health/capabilities and cross-token denial. Final report

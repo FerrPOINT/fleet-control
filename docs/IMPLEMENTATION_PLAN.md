@@ -2,6 +2,13 @@
 
 ## Current SDLC Scope
 
+Prepared-generation recipe checking is now implemented: original process/policy,
+derived runtime API token and registration are revalidated before claim/start.
+The new seven-case regression and fresh503-test Rust1.88/PG workspace gate pass
+with29 ignored, fmt/check/strict Clippy and exact cleanup. The502-case source-loader
+gate below is retained as prior evidence. Current fixture-backed verification does
+not replace the next actual Fleet/container model/chat and config lifecycle gates.
+
 The captured-source Base utility loader follow-up closes the file-hash/import
 gap: fixed isolated Python compiles the captured pinned bytes, not cached code
 or reread checkout files. Host behavioral coverage is available and added to CI;
@@ -35,10 +42,11 @@ This gate includes the initial preparation consumer and fake-Base PG fixtures,
 not actual container/Hermes or full PM acceptance. Do not relabel the
 ignored/live gates as complete. The prior490-case gate remains historical.
 
-Read-only remote recheck: Base PR150 at1d19105 is ready/CLEAN with nine green
-CI37432291311 jobs; PR144 is merged at main63fff28. This certifies the private
-preparation/endpoint utility, not Fleet/Hermes live acceptance. Native creation
-controller exits and v1 regression are recorded separately from Rust fixtures.
+Base PR150 at6041530 is ready/mergeable with nine successful exact-head jobs in
+CI37449729086; checks were reread after ready and reviews/threads are empty.
+PR144 is merged at main63fff28. This certifies the shared utility, not installed
+Fleet/Hermes acceptance. Native real-Hermes startup/stop and synthetic creation
+controller exits/v1 regression are recorded separately from Rust fixtures.
 
 ## Historical Native Packet
 

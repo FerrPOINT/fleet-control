@@ -141,12 +141,12 @@ pub struct ContainerProcess {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContainerPreparation {
-    state: String,
+    pub(super) state: String,
     pub policy: Value,
     pub registration: ContainerRegistration,
 }
 
-fn validate_preparation(
+pub(super) fn validate_preparation(
     prepared: &ContainerPreparation,
     policy: &Value,
     operation_id: Uuid,

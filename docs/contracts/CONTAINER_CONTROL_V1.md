@@ -103,6 +103,18 @@ writes the prepared document, then separately commits the immutable DB launch be
 sole start. Existing operator-prepared documents remain compatible when provisioning
 is absent. Partial files fail closed and are never overwritten.
 
+Before claiming a previously prepared automatic generation, Fleet reconstructs
+the current recipe using the original generation/operation IDs and compares its
+complete process, derived token, policy, paths, revision and source/context with
+the saved creation intent. It then validates the prepared registration/policy
+against that intent, allowing only Base's originally allocated network ID.
+Missing intent or recipe/credential drift blocks before observe, launch claim or
+start; it never edits the old files or silently creates another generation.
+Disabling automatic provisioning does not turn an existing automatic intent into
+an operator-prepared compatibility launch. Historical operator documents without
+an automatic intent retain their explicit trusted-operator path. This guard is
+not proof of loaded configuration, current model credentials or agent readiness.
+
 After an original confirmed namespace exit closes the launch, the next candidate
 uses the count of immutable agent launch-history rows as its preparation ordinal.
 The initial ordinal0 retains the filenames above; later ordinals use
