@@ -18,19 +18,34 @@ pub struct CurrentUser {
     pub id: Uuid,
     pub role: SystemRole,
     pub is_system_admin: bool,
+    // Some records a verified central identity and its write scope, never a local role grant.
+    pub central_write: Option<bool>,
 }
 
 impl CurrentUser {
     pub fn can_operate_fleet(&self) -> bool {
-        self.role.can_operate_fleet()
+        self.central_write.is_some() || self.role.can_operate_fleet()
     }
 
     pub fn can_read_all_sessions(&self) -> bool {
-        self.role.can_read_all_sessions()
+        self.central_write.is_some() || self.role.can_read_all_sessions()
     }
 
     pub fn can_manage_users(&self) -> bool {
-        self.role.is_admin()
+        self.central_write.is_some() || self.role.is_admin()
+    }
+
+    pub fn permissions(&self) -> Vec<String> {
+        let Some(can_write) = self.central_write else {
+            return self.role.permissions();
+        };
+        let mut permissions = SystemRole::Admin.permissions();
+        permissions.retain(|permission| {
+            permission != "rbac:manage"
+                && (can_write
+                    || (!permission.ends_with(":manage") && permission != "sessions:write_own"))
+        });
+        permissions
     }
 }
 
@@ -61,8 +76,8 @@ pub async fn require_auth(
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.strip_prefix("Bearer "))
         .ok_or(AppError::Unauthorized)?;
-    // Central fleet auth-server first (ES256 via JWKS); legacy HS256 access
-    // tokens remain valid during the migration window.
+    // Central validation is fail-closed; legacy tokens are accepted only without
+    // central configuration. Request scopes precede human permission checks.
     match central_auth::check_token(token).await {
         central_auth::CentralCheck::Validated(central, display_name) => {
             if !central.allows_service("fleet-control", req.method().as_str()) {
@@ -73,6 +88,7 @@ pub async fn require_auth(
                 id: user.id,
                 role: user.system_role,
                 is_system_admin: user.system_role.is_admin(),
+                central_write: Some(central.allows_service("fleet-control", "POST")),
             });
             return Ok(next.run(req).await);
         }
@@ -106,6 +122,7 @@ pub async fn require_auth(
         id: user.id,
         role: user.system_role,
         is_system_admin: user.is_system_admin,
+        central_write: None,
     });
     Ok(next.run(req).await)
 }
@@ -140,43 +157,59 @@ async fn find_or_link_central_user(
     if email.is_empty() {
         return Err(AppError::Unauthorized);
     }
-    let user = ctx
-        .repo
+    ctx.repo
         .find_or_create_central_user(&central.user_id, &email, display_name)
-        .await?;
-    if std::env::var("FLEET_CONTROL_AUTH__BOOTSTRAP_ADMIN_SUB")
-        .ok()
-        .as_deref()
-        == Some(central.user_id.as_str())
-        && !ctx
-            .repo
-            .list_users()
-            .await?
-            .iter()
-            .any(|user| user.is_active && user.system_role == SystemRole::Admin)
-    {
-        ctx.repo
-            .update_user_role(
-                user.id,
-                domain::UpdateUserRoleRequest {
-                    role: SystemRole::Admin,
-                },
-            )
-            .await?;
-        ctx.repo
-            .insert_audit(
-                Some(user.id),
-                "rbac.bootstrap",
-                "user",
-                Some(user.id.to_string()),
-                serde_json::json!({"source":"configured_central_subject"}),
-            )
-            .await?;
-        return ctx
-            .repo
-            .find_user_by_id(user.id)
-            .await?
-            .ok_or(AppError::Unauthorized);
+        .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn principal(role: SystemRole, central_write: Option<bool>) -> CurrentUser {
+        CurrentUser {
+            id: Uuid::new_v4(),
+            role,
+            is_system_admin: role.is_admin(),
+            central_write,
+        }
     }
-    Ok(user)
+
+    #[test]
+    fn verified_central_permissions_ignore_historical_roles_without_promoting_them() {
+        for role in [SystemRole::User, SystemRole::Operator, SystemRole::Admin] {
+            let user = principal(role, Some(true));
+            assert!(require_operator(&user).is_ok());
+            assert!(require_admin(&user).is_ok());
+            assert!(user.can_read_all_sessions());
+            assert!(user.permissions().contains(&"agents:manage".into()));
+            assert!(!user.permissions().contains(&"rbac:manage".into()));
+            assert_eq!(user.role, role);
+            assert_eq!(user.is_system_admin, role.is_admin());
+        }
+    }
+
+    #[test]
+    fn central_read_permissions_never_advertise_write_actions() {
+        let user = principal(SystemRole::User, Some(false));
+        // Request scopes are checked before this principal is constructed.
+        assert!(user.can_operate_fleet());
+        assert!(user.can_read_all_sessions());
+        let permissions = user.permissions();
+        assert!(permissions.contains(&"sessions:read_all".into()));
+        assert!(permissions.contains(&"logs:read".into()));
+        assert!(!permissions.iter().any(|value| value.ends_with(":manage")));
+        assert!(!permissions.contains(&"sessions:write_own".into()));
+    }
+
+    #[test]
+    fn standalone_roles_keep_their_historical_checks() {
+        let user = principal(SystemRole::User, None);
+        assert!(require_operator(&user).is_err());
+        assert!(require_admin(&user).is_err());
+        assert!(!user.can_read_all_sessions());
+        for role in [SystemRole::User, SystemRole::Operator, SystemRole::Admin] {
+            assert_eq!(principal(role, None).permissions(), role.permissions());
+        }
+    }
 }

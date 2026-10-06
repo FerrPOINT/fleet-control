@@ -35,8 +35,9 @@ carries `x-request-id`, and application logs include request method, path,
 status and latency in the same format as the rest of the SDLC fleet.
 
 Central ES256 validation uses `sdlc-auth-core` with JWKS. Local users are linked
-only by verified central subject and retain their stored role. Central mode
-disables local credential fallback; there is no effective-admin bypass. Standalone
+only by verified central subject and retain their stored role as history. Central
+permissions depend on verified identity and request scopes, not that role; no
+bootstrap promotion is performed. Central mode disables local credential fallback. Standalone
 legacy HMAC mode retains strict issuer/audience validation for fleet claims.
 
 Central profile names come from Base's live verified profile metadata, not the
@@ -59,8 +60,14 @@ fresh-install-only migrator.
 
 ## Security Boundary
 
-`SystemRole = admin | operator | user` is enforced in the backend. Frontend
-permission gates are convenience only.
+Central users have equal control-plane permissions; PAT service scopes,
+authentication, activity checks and private session ownership remain enforced.
+Shared leader-scoped sessions do not require a local role grant. Private sessions
+remain owner-only for central users of every historical role. Machine runtime
+credentials remain separate. Local role mutation is disabled in central mode.
+
+`SystemRole = admin | operator | user` is enforced only in standalone legacy mode.
+Frontend permission gates are convenience only.
 
 - `admin` can manage users, roles, settings, RBAC, sessions and runtime
   infrastructure.

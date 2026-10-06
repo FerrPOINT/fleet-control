@@ -1331,7 +1331,7 @@
           {
             "name": "user_id",
             "in": "query",
-            "description": "Comma-separated user ids, or all for admin. Omit for current user.",
+            "description": "Comma-separated user ids, or all for central users and legacy operators/admins. Central private sessions remain owner-only. Omit for current user.",
             "required": false,
             "schema": {
               "type": "string"

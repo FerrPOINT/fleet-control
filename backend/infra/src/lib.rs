@@ -1279,6 +1279,16 @@ impl FleetRepository for PostgresFleetRepository {
         } else if !filter.include_all_users {
             return Ok(Vec::new());
         }
+        if let Some(owner) = filter.private_user_id {
+            query = query.filter(
+                sea_orm::Condition::any()
+                    .add(
+                        agent_session::Column::Visibility
+                            .eq(SessionVisibility::LeaderScoped.as_str()),
+                    )
+                    .add(agent_session::Column::UserId.eq(owner)),
+            );
+        }
         let sessions = query
             .limit(200)
             .all(&self.db)
@@ -2175,11 +2185,12 @@ impl FleetRepository for PostgresFleetRepository {
             .await
             .map_err(AppError::database)?
             .ok_or(AppError::Unauthorized)?;
-        if !actor.is_active
-            || (actor_user_id != session.user_id
-                && !parse_system_role(&actor.system_role, actor.is_system_admin)
-                    .can_operate_fleet())
-        {
+        let can_write_other = if actor.central_sub.is_some() {
+            session.visibility == SessionVisibility::LeaderScoped.as_str()
+        } else {
+            parse_system_role(&actor.system_role, actor.is_system_admin).can_operate_fleet()
+        };
+        if !actor.is_active || (actor_user_id != session.user_id && !can_write_other) {
             return Err(AppError::Forbidden);
         }
         if let Some(key) = idempotency_key.as_ref()

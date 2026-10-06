@@ -31,7 +31,7 @@ pub struct SessionQuery {
     params(
         ("agent_id" = Option<Uuid>, Query, description = "Limit sessions to one agent"),
         ("leader_agent_id" = Option<Uuid>, Query, description = "Limit sessions to one leader"),
-        ("user_id" = Option<String>, Query, description = "Comma-separated user ids, or all for admin. Omit for current user.")
+        ("user_id" = Option<String>, Query, description = "Comma-separated user ids, or all for central users and legacy operators/admins. Central private sessions remain owner-only. Omit for current user.")
     ),
     responses((status = 200, body = Vec<AgentSession>))
 )]
@@ -48,6 +48,7 @@ pub async fn list_sessions(
                 user_ids,
                 leader_agent_id: query.leader_agent_id,
                 include_all_users,
+                private_user_id: user.central_write.map(|_| user.id),
             })
             .await?,
     ))
@@ -136,6 +137,7 @@ mod tests {
             id: Uuid::new_v4(),
             role: domain::SystemRole::User,
             is_system_admin: false,
+            central_write: None,
         };
         let (ids, include_all) = parse_user_filter(None, &current).expect("filter");
 
@@ -149,10 +151,112 @@ mod tests {
             id: Uuid::new_v4(),
             role: domain::SystemRole::User,
             is_system_admin: false,
+            central_write: None,
         };
         let err = parse_user_filter(Some("all"), &current).expect_err("forbidden");
 
         assert!(matches!(err, AppError::Forbidden));
+    }
+
+    #[test]
+    fn central_user_can_select_other_users_without_a_local_role() {
+        let current = crate::middleware::CurrentUser {
+            id: Uuid::new_v4(),
+            role: domain::SystemRole::User,
+            is_system_admin: false,
+            central_write: Some(true),
+        };
+        assert!(parse_user_filter(Some("all"), &current).unwrap().1);
+        let other = Uuid::new_v4();
+        assert_eq!(
+            parse_user_filter(Some(&other.to_string()), &current)
+                .unwrap()
+                .0,
+            vec![other]
+        );
+    }
+
+    fn session(owner: Uuid, visibility: domain::SessionVisibility) -> AgentSession {
+        let agent = Uuid::new_v4();
+        AgentSession {
+            id: Uuid::new_v4(),
+            agent_id: agent,
+            primary_agent_id: agent,
+            agent_name: "agent1".into(),
+            primary_agent_name: "agent1".into(),
+            user_id: owner,
+            user_email: "owner@example.test".into(),
+            user_username: "owner".into(),
+            user_display_name: "Owner".into(),
+            leader_agent_id: None,
+            leader_agent_name: None,
+            parent_session_id: None,
+            created_by_leader_agent_id: None,
+            visibility,
+            title: "Session".into(),
+            task_key: None,
+            state: domain::SessionState::Active,
+            namespace_id: None,
+            external_session_id: None,
+            last_message_preview: None,
+            created_at: "2026-10-06".into(),
+            updated_at: "2026-10-06".into(),
+        }
+    }
+
+    #[test]
+    fn private_owner_boundary_does_not_depend_on_central_historical_role() {
+        for role in [
+            domain::SystemRole::User,
+            domain::SystemRole::Operator,
+            domain::SystemRole::Admin,
+        ] {
+            let current = crate::middleware::CurrentUser {
+                id: Uuid::new_v4(),
+                role,
+                is_system_admin: role.is_admin(),
+                central_write: Some(true),
+            };
+            let own = session(current.id, domain::SessionVisibility::Private);
+            assert!(ensure_session_read_access(&own, &current).is_ok());
+            assert!(ensure_session_write_access(&own, &current).is_ok());
+            let private = session(Uuid::new_v4(), domain::SessionVisibility::Private);
+            assert!(ensure_session_read_access(&private, &current).is_err());
+            assert!(ensure_session_write_access(&private, &current).is_err());
+            let shared = session(Uuid::new_v4(), domain::SessionVisibility::LeaderScoped);
+            assert!(ensure_session_read_access(&shared, &current).is_ok());
+            assert!(ensure_session_write_access(&shared, &current).is_ok());
+        }
+    }
+
+    #[test]
+    fn session_stream_principal_stays_active_and_bound_to_original_user() {
+        let mut principal = app::auth::UserRecord {
+            id: Uuid::new_v4(),
+            email: "stream@example.test".into(),
+            username: "stream".into(),
+            display_name: "Stream".into(),
+            password_hash: "!".into(),
+            refresh_token_hash: None,
+            system_role: domain::SystemRole::User,
+            is_system_admin: false,
+            is_active: true,
+        };
+        assert!(session_stream_user_matches(&principal, principal.id));
+        assert!(!session_stream_user_matches(&principal, Uuid::new_v4()));
+        principal.is_active = false;
+        assert!(!session_stream_user_matches(&principal, principal.id));
+    }
+
+    #[test]
+    fn session_stream_legacy_subject_must_match_original_user() {
+        let id = Uuid::new_v4();
+        assert!(session_stream_subject_matches(&id.to_string(), id));
+        assert!(!session_stream_subject_matches(
+            &Uuid::new_v4().to_string(),
+            id
+        ));
+        assert!(!session_stream_subject_matches("not-a-uuid", id));
     }
 }
 
@@ -390,22 +494,40 @@ pub async fn stream_session(
         move |(ctx, user, token, mut cursor, mut queue)| async move {
             loop {
                 let valid_token = match crate::middleware::central_auth::check_token(&token).await {
-                    crate::middleware::central_auth::CentralCheck::Validated(central, _) => {
-                        central.allows_service("fleet-control", "GET")
+                    crate::middleware::central_auth::CentralCheck::Validated(central, name) => {
+                        if !central.allows_service("fleet-control", "GET") {
+                            return None;
+                        }
+                        let email = central.email.as_deref()?;
+                        let principal = ctx
+                            .repo
+                            .find_or_create_central_user(&central.user_id, email, &name)
+                            .await
+                            .ok()?;
+                        session_stream_user_matches(&principal, user.id)
                     }
                     crate::middleware::central_auth::CentralCheck::FallThrough
                         if std::env::var_os("FLEET_CONTROL_AUTH__CENTRAL_JWKS_URI").is_none() =>
                     {
-                        ctx.auth.validate_access_token(&token).await.is_ok()
+                        ctx.auth
+                            .validate_access_token(&token)
+                            .await
+                            .is_ok_and(|claims| {
+                                session_stream_subject_matches(&claims.sub, user.id)
+                            })
                     }
                     _ => false,
                 };
                 let principal = ctx.repo.find_user_by_id(user.id).await.ok().flatten()?;
-                if !valid_token || !principal.is_active {
+                if !valid_token || !session_stream_user_matches(&principal, user.id) {
                     return None;
                 }
                 let session = ctx.repo.get_session(session_id).await.ok()?;
-                if session.user_id != user.id && !principal.system_role.can_read_all_sessions() {
+                if ensure_session_read_access(&session, &user).is_err()
+                    || (user.central_write.is_none()
+                        && session.user_id != user.id
+                        && !principal.system_role.can_read_all_sessions())
+                {
                     return None;
                 }
                 if let Some(event) = queue.pop_front() {
@@ -534,10 +656,25 @@ fn ensure_run_belongs_to_session(run: &SessionAgentRun, session_id: Uuid) -> Res
     Ok(())
 }
 
+fn session_stream_user_matches(principal: &app::auth::UserRecord, expected_user_id: Uuid) -> bool {
+    principal.id == expected_user_id && principal.is_active
+}
+
+fn session_stream_subject_matches(subject: &str, expected_user_id: Uuid) -> bool {
+    subject.parse::<Uuid>().ok() == Some(expected_user_id)
+}
+
 fn ensure_session_read_access(
     session: &AgentSession,
     user: &crate::middleware::CurrentUser,
 ) -> Result<(), AppError> {
+    if user.central_write.is_some() && session.visibility == domain::SessionVisibility::Private {
+        return if session.user_id == user.id {
+            Ok(())
+        } else {
+            Err(AppError::Forbidden)
+        };
+    }
     if user.can_read_all_sessions() || session.user_id == user.id {
         return Ok(());
     }
@@ -548,6 +685,13 @@ fn ensure_session_write_access(
     session: &AgentSession,
     user: &crate::middleware::CurrentUser,
 ) -> Result<(), AppError> {
+    if user.central_write.is_some() && session.visibility == domain::SessionVisibility::Private {
+        return if session.user_id == user.id {
+            Ok(())
+        } else {
+            Err(AppError::Forbidden)
+        };
+    }
     if user.can_operate_fleet() || session.user_id == user.id {
         return Ok(());
     }

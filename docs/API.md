@@ -48,6 +48,12 @@ RBAC:
 применяются только к legacy-режиму. Runtime/service credentials остаются
 отдельной машинной границей.
 
+`/users/me/permissions` возвращает центральные права независимо от сохранённых
+`system_role` и `is_system_admin`. Эти исторические поля не повышаются при входе.
+Для личного токена `fleet-control:read` write-controls не объявляются, а backend
+отклоняет мутации до выполнения handler. Назначение локальной роли всегда
+возвращает `403` в central mode; bootstrap subject больше не выдаёт роль.
+
 - `admin`: all users, settings, RBAC, sessions and runtime actions.
 - `operator`: agents, leaders, executors, runtime, config, skills, deployments,
   logs and all sessions.
@@ -90,8 +96,10 @@ agent authorship и различия central/legacy permissions; наличие 
 - `GET /sessions?agent_id={agent_id}&leader_agent_id={leader_id}&user_id={id1,id2}`
   lists sessions by primary agent, selected leader and user filter.
 - Omitting `user_id` returns only the current user's sessions.
-- `user_id=all` returns all users only for admin/operator; normal users are
-  forbidden from expanding beyond themselves.
+- Central users may select other users or `user_id=all` without local roles.
+  Private sessions remain owner-only in list, detail, messages and SSE; shared
+  leader-scoped sessions are accessible to all active central users. The private
+  filter is applied before the list limit. Legacy expansion requires admin/operator.
 - `POST /sessions` creates a session owned by the authenticated user. Use
   `primary_agent_id`; legacy `agent_id` is still accepted.
 - `POST /sessions` is idempotent by `idempotency_key`; replay returns the
@@ -185,12 +193,13 @@ rollback записываются в `audit_log` в одной PostgreSQL-тра
 
 `POST /deployments/jobs` также принимает отдельные продуктовые операции Service Pulse:
 
-| `job_kind` | Обязательные поля | Результат |
-|---|---|---|
-| `product_deploy` | `environment: "demo"`, точный 40-символьный `commit_sha`, UUID `idempotency_key`, `title` | Forge deployment для commit из защищённого `main` |
-| `product_rollback` | `environment: "demo"`, UUID успешного `previous_release_id`, UUID `idempotency_key`, `title` | Отдельный Forge rollback deployment |
+| `job_kind`         | Обязательные поля                                                                            | Результат                                         |
+| ------------------ | -------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `product_deploy`   | `environment: "demo"`, точный 40-символьный `commit_sha`, UUID `idempotency_key`, `title`    | Forge deployment для commit из защищённого `main` |
+| `product_rollback` | `environment: "demo"`, UUID успешного `previous_release_id`, UUID `idempotency_key`, `title` | Отдельный Forge rollback deployment               |
 
 Для этих видов `agent_id`, `runtime_kind` и произвольный `detail` не допускаются. Повтор с тем же ключом и тем же содержимым возвращает исходный job, изменение параметров даёт `409`. `detail` ответа содержит связанный Forge deployment/pipeline ID и `health_verified`; `completed` возможен только после успеха pipeline и самостоятельной HTTP-проверки Pulse API/UI. Ошибка Forge, отмена, 30-минутный таймаут или провал health завершают job как `failed` с `last_error`. Переходы и ключ идемпотентности хранятся в PostgreSQL и восстанавливаются после рестарта. Для локального стенда задаются `FLEET_CONTROL_FLEET__PULSE_HEALTH_URL` и `FLEET_CONTROL_FLEET__PULSE_UI_URL`.
+
 - `POST /settings/retention/review` — запустить проход stale-folder review сейчас (operator, audited): возвращает `stale_agent_ids` archived-агентов старше `fleet.retention.stale_archived_days`, порог и время прохода
 
 Управляемая версия накладывается на deployment/env baseline при следующем
@@ -200,7 +209,6 @@ rollback записываются в `audit_log` в одной PostgreSQL-тра
 The frontend build regenerates TypeScript types from `openapi/openapi.json`.
 The OpenAPI JSON is regenerated from Rust source before release. Native Windows
 regeneration requires MSVC `link.exe`; WSL/Linux generation is supported.
-
 
 ## Fleet alerts (monitoring, Phase 3)
 
