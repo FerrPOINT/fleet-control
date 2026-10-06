@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -1122,6 +1122,70 @@ describe('production chat', () => {
         expect.objectContaining({ expected_question_version: 2, comment: 'Ответ старой редакции' }),
       ),
     )
+  })
+  it.each(['renamed', 'replaced'] as const)(
+    'preserves the original selected label when the new question option is %s',
+    async (change) => {
+      const { client } = renderPage('clarification')
+      fireEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))
+      const nextOption = {
+        ...question.options[0]!,
+        id: change === 'renamed' ? 'project' : 'everyone',
+        label: 'Все пользователи',
+      }
+      client.setQueryData(['clarifications', 'session1'], {
+        questions: [{ ...question, version: 2, options: [nextOption] }],
+      })
+      const retained = await screen.findByRole('alert')
+      expect(within(retained).getByText('Участники проекта')).toBeVisible()
+      expect(within(retained).queryByText('Все пользователи')).not.toBeInTheDocument()
+      expect(screen.getByRole('radio', { name: /Все пользователи/ })).not.toBeChecked()
+      expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+      expect(chats.answerClarification).not.toHaveBeenCalled()
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Перенести черновик и проверить новый вопрос' }),
+      )
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      if (change === 'renamed') {
+        expect(screen.getByRole('radio', { name: /Все пользователи/ })).toBeChecked()
+        fireEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+        await waitFor(() =>
+          expect(chats.answerClarification).toHaveBeenCalledWith(
+            'session1',
+            'q1',
+            expect.objectContaining({
+              expected_question_version: 2,
+              selected_option_ids: ['project'],
+            }),
+          ),
+        )
+      } else {
+        expect(screen.getByRole('radio', { name: /Все пользователи/ })).not.toBeChecked()
+        expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+      }
+    },
+  )
+  it('retains the reviewed version labels after transferring a draft and receiving another version', async () => {
+    const { client } = renderPage('clarification')
+    fireEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))
+    const update = (version: number, label: string) =>
+      client.setQueryData(['clarifications', 'session1'], {
+        questions: [{ ...question, version, options: [{ ...question.options[0]!, label }] }],
+      })
+    update(2, 'Все пользователи')
+    await screen.findByRole('alert')
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Перенести черновик и проверить новый вопрос' }),
+    )
+    expect(screen.getByRole('radio', { name: /Все пользователи/ })).toBeChecked()
+    update(3, 'Только администраторы')
+    const retained = await screen.findByRole('alert')
+    expect(within(retained).getByText('Все пользователи')).toBeVisible()
+    expect(within(retained).queryByText('Участники проекта')).not.toBeInTheDocument()
+    expect(within(retained).queryByText('Только администраторы')).not.toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: /Только администраторы/ })).not.toBeChecked()
+    expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+    expect(chats.answerClarification).not.toHaveBeenCalled()
   })
   it('disables cached permissions after a failed context refresh', async () => {
     const { client } = renderPage('clarification')
