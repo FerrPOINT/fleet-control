@@ -205,6 +205,11 @@ or safe-descendant proof follows from this QA acceptance.
   it never installs or retags accepted runtime images.
 - Explicit existing build-cache volume names. No cache or accepted volume is
   deleted; these are external Compose volumes, not QA database storage.
+- The target cache must contain the original Swagger UI5.17.14 archive with
+  SHA256 `481244d0812097b11fbaeef79f71d942b171617f9c9f9514e63acbe13e71ccdc`.
+  Build copies only matching bytes into disposable `/tmp`, rechecks the copy,
+  and sets the build-script URL to that local file. Missing/tampered archive
+  blocks compilation; the internal network is not opened for a download.
 
 ```powershell
 python scripts/native_supervisor_live/run.py `
@@ -220,6 +225,10 @@ python scripts/native_supervisor_live/run.py `
 The build service uses Rust1.88, locked/offline dependencies, fmt/all-target check
 and strict native-test Clippy. Compiler JSON supplies exactly one executable; the
 native service hashes and runs that binary with the selected exact test name.
+Compiled artifacts use `/cache/<owned-Compose-project>`, recorded in the evidence
+report. Every invocation starts with an unused target directory even when mounted
+source timestamps predate another checkout's artifacts. Registry/toolchain caches
+remain shared; existing target directories and external volumes are preserved.
 The final gate requires one named
 test passed, no failures/ignored tests and the complete source preflight; a zero
 exit with zero tests is rejected. PostgreSQL17.6 and both HOME directories are

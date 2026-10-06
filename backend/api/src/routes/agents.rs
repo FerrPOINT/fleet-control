@@ -342,19 +342,26 @@ pub async fn agent_health(
     let agent = ctx.repo.get_agent(agent_id).await?;
     let previous_status = Some(agent.status.as_str().to_string());
     let response = ctx.runtime.health(&agent).await?;
-    record_health_transition(
-        ctx.clone(),
-        agent.id,
-        previous_status,
-        response.status.as_str(),
-    );
+    let persisted_status = ctx.repo.get_agent(agent.id).await?.status;
+    // A foreign controller can report observational degradation without owning a state transition.
+    if response.status == persisted_status {
+        record_health_transition(
+            ctx.clone(),
+            agent.id,
+            previous_status,
+            response.status.as_str(),
+        );
+    }
     ctx.repo
         .insert_audit(
             Some(user.id),
             "agent.health",
             "agent",
             Some(agent.id.to_string()),
-            serde_json::json!({ "status": response.status.as_str() }),
+            serde_json::json!({
+                "status": response.status.as_str(),
+                "persisted_status": persisted_status.as_str(),
+            }),
         )
         .await?;
     Ok(Json(response))

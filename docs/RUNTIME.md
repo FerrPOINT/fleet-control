@@ -1,5 +1,23 @@
 # Runtime
 
+## Original-Controller Observation And Liveness
+
+A replica without the original managed launch returns an observational degraded
+health response without writing agent/runtime/journal metadata belonging to the
+other controller. That observation cannot revoke the original controller's
+pending delivery or heartbeat. It does not adopt the child or attest that the
+old controller is dead; explicit reconciliation remains necessary.
+The HTTP health action still records its audit, with observed and persisted
+statuses. A nonpersisted observation cannot emit a shared health-transition
+alert; only a response matching fresh stored state enters that alert path.
+
+Managed generation verification now calls `try_wait` on the retained original
+child before reading its PID. An unreaped exited process with a cached PID
+cannot authorize prepared/actual dispatch. The check retains the launch and
+child for normal exit reconciliation; it does not invent a namespace-empty
+receipt, clear capacity or prove liveness after the observation. Host boundary,
+loaded configuration and task/PM admission remain independent requirements.
+
 ## Pre-Spawn Launch Identity
 
 The supervisor commits an immutable agent/configuration/controller launch in

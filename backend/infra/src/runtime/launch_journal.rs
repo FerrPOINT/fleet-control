@@ -17,13 +17,17 @@ impl LocalRuntimeSupervisor {
         &self,
         agent: Uuid,
     ) -> Result<Option<Uuid>, AppError> {
-        let child_pid = self
-            .children
-            .lock()
-            .await
-            .get(&agent)
-            .and_then(Child::id)
-            .and_then(|pid| i32::try_from(pid).ok());
+        let child_pid = match self.children.lock().await.get_mut(&agent) {
+            Some(child) => {
+                if child.try_wait().map_err(AppError::internal)?.is_some() {
+                    return Err(AppError::Unavailable(
+                        "original gateway process has exited; dispatch remains held".into(),
+                    ));
+                }
+                child.id().and_then(|pid| i32::try_from(pid).ok())
+            }
+            None => None,
+        };
         let Some(persisted) = self.repo.get_open_runtime_launch(agent).await? else {
             // Existing unjournaled runtimes remain legacy, not boundary/admission evidence.
             if self.launches.lock().await.contains_key(&agent) {

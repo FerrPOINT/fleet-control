@@ -44,6 +44,139 @@ fn runtime_launch_dispatch_binding_rejects_untrusted_shape_and_noncanonical_ids(
     }
 }
 
+async fn runtime_launch_snapshot(repo: &crate::PostgresFleetRepository, agent: Uuid) -> Value {
+    repo.db
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT jsonb_build_object('agent',to_jsonb(a),'runtime',to_jsonb(r),
+                'launch',to_jsonb(l)) AS snapshot
+             FROM agents a JOIN agent_runtime r ON r.agent_id=a.id
+             JOIN runtime_launches l ON l.agent_id=a.id WHERE a.id=$1",
+            [agent.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get("", "snapshot")
+        .unwrap()
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn runtime_launch_foreign_health_preserves_original_controller_state() {
+    let Some((repo, agent, owner, config, root)) = fixture(AgentKind::Hermes).await else {
+        return;
+    };
+    let runtime = supervisor(config.clone(), repo.clone());
+    let original = bind(&runtime, &agent).await;
+    let child = command().kill_on_drop(true).spawn().unwrap();
+    let pid = i32::try_from(child.id().unwrap()).unwrap();
+    runtime.children.lock().await.insert(agent.id, child);
+    runtime
+        .record_native_spawn(agent.id, Some(pid))
+        .await
+        .unwrap();
+    repo.update_agent_status(agent.id, AgentStatus::Running)
+        .await
+        .unwrap();
+    let before = runtime_launch_snapshot(&repo, agent.id).await;
+    let foreign = Arc::new(supervisor(config.clone(), repo.clone()));
+    assert_eq!(
+        foreign.health_locked(&agent).await.unwrap().status,
+        AgentStatus::Degraded
+    );
+    assert_eq!(runtime_launch_snapshot(&repo, agent.id).await, before);
+    let (events, _) = broadcast::channel(16);
+    let (restart_tx, _) = tokio::sync::mpsc::channel(1);
+    let context = Arc::new(app::AppContext::new(
+        config,
+        repo.clone(),
+        Arc::new(crate::FilesystemProvisioner),
+        foreign,
+        events,
+        restart_tx,
+    ));
+    let response = api::routes::agents::agent_health(
+        axum::extract::State(context),
+        axum::Extension(api::middleware::CurrentUser {
+            id: owner,
+            role: domain::SystemRole::Operator,
+            is_system_admin: false,
+        }),
+        axum::extract::Path(agent.id),
+    )
+    .await
+    .unwrap();
+    assert_eq!(response.0.status, AgentStatus::Degraded);
+    // The route records audit, but an observational response must not publish agent-down alerts.
+    sleep(Duration::from_secs(1)).await;
+    assert!(
+        repo.list_fleet_alerts(None)
+            .await
+            .unwrap()
+            .iter()
+            .all(|alert| alert.agent_id != Some(agent.id))
+    );
+    assert_eq!(runtime_launch_snapshot(&repo, agent.id).await, before);
+    assert_eq!(
+        runtime.gateway_launch_generation(agent.id).await.unwrap(),
+        Some(original.id)
+    );
+    runtime.stop_locked(&agent).await.unwrap();
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn runtime_launch_dead_retained_child_cannot_authorize_dispatch_generation() {
+    let Some((repo, agent, _, config, root)) = fixture(AgentKind::Hermes).await else {
+        return;
+    };
+    let runtime = supervisor(config, repo.clone());
+    let original = bind(&runtime, &agent).await;
+    let mut child = command().kill_on_drop(true).spawn().unwrap();
+    let pid = i32::try_from(child.id().unwrap()).unwrap();
+    runtime
+        .record_native_spawn(agent.id, Some(pid))
+        .await
+        .unwrap();
+    child.start_kill().unwrap();
+    // Observe native exit without reaping the retained Child: its cached ID is still present.
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let stat = tokio::fs::read_to_string(format!("/proc/{pid}/stat"))
+                .await
+                .unwrap();
+            if stat.rsplit_once(") ").unwrap().1.split_whitespace().next() == Some("Z") {
+                break;
+            }
+            sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(child.id(), Some(pid as u32));
+    runtime.children.lock().await.insert(agent.id, child);
+    let before = runtime_launch_snapshot(&repo, agent.id).await;
+    assert!(matches!(
+        runtime.gateway_launch_generation(agent.id).await,
+        Err(AppError::Unavailable(_))
+    ));
+    assert!(
+        runtime
+            .verify_dispatch_launch(
+                agent.id,
+                &json!({"fleet_launch":{"version":1,"launch_id":original.id}})
+            )
+            .await
+            .is_err()
+    );
+    assert_eq!(runtime_launch_snapshot(&repo, agent.id).await, before);
+    assert!(runtime.children.lock().await.contains_key(&agent.id));
+    runtime.stop_locked(&agent).await.unwrap();
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
 #[tokio::test]
 async fn runtime_launch_prepared_dispatch_cannot_follow_gateway_replacement() {
     let Some((repo, agent, _, config, root)) = fixture(AgentKind::Hermes).await else {

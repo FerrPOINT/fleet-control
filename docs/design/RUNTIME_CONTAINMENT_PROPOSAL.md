@@ -7,6 +7,15 @@ project. No installed runtime, image pin, mount or Compose group changes here.
 
 ## Standalone Base Primitive: 5 October 2026
 
+Current release candidate after main reconciliation is
+[PR144](https://github.com/FerrPOINT/services-base/pull/144), head
+`a0f7044a95838504394d31bcf3f8d6cc682600c9`:
+[CI37406268902](https://github.com/FerrPOINT/services-base/actions/runs/37406268902)
+passes all nine jobs. The original boundary/bootstrap bytes are preserved;
+accepted Auth/Java/backup/drill changes remain. This supersedes older release
+heads below, not their scoped native evidence. Fleet consumption, selected
+containment policy and loaded-generation/descendant acceptance remain open.
+
 Base [e6dcb3ca2c3cb4e2563f7bc13b443822ead3df10](https://github.com/FerrPOINT/services-base/commit/e6dcb3ca2c3cb4e2563f7bc13b443822ead3df10)
 implements the host-only original-ID utility, not Fleet lifecycle. Its
 [v1 contract](https://github.com/FerrPOINT/services-base/blob/e6dcb3ca2c3cb4e2563f7bc13b443822ead3df10/docs/platform/RUNTIME_BOUNDARY.md)

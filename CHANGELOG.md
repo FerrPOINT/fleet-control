@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- Reject dispatch from an exited retained gateway child despite its cached PID.
+  Keep foreign-controller health observational without rewriting the original
+  runtime; suppress nonpersisted health-transition alerts while preserving audit.
+  Verify native QA from fresh per-project Rust artifacts and a pinned offline
+  Swagger archive instead of another checkout's compiled cache.
+
 - Recover a managed prepared prompt only through its original retained child
   and unused dispatch permit; restore the verified private generation during
   fresh native-fact comparison. Preserve pending/error after pre-submission

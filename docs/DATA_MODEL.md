@@ -1,5 +1,10 @@
 # Data Model
 
+Original-controller liveness verification does not add a migration or mutate
+launch identity: an exited retained child leaves reconciliation holds intact.
+Foreign health observation preserves agent/runtime/launch rows; its separate
+request audit records observed and persisted statuses without claiming custody.
+
 ## Runtime Launches
 
 Additive `000017` introduces internal `runtime_launches`: immutable UUID/agent/

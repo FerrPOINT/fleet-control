@@ -2,6 +2,14 @@
 
 ## Current SDLC Scope
 
+The reconciled foundational release PR47 now has five green exact-head CI jobs
+at `5f20540`, but stays Draft for missing live PM acceptance. Base PR144 has nine
+green jobs at `a0f7044`; its host primitive still is not a Fleet consumer.
+The separate integration follow-up rejects dead retained-child dispatch and
+foreign-controller runtime overwrites/false HTTP health-transition alerts.
+Its fresh compilation, component and native evidence must be accepted separately;
+neither foundational CI nor fixture screenshots certify the later runtime tail.
+
 The pre-spawn native launch journal `000017` binds agent/config/controller before
 execution and holds unknown outcomes across Fleet replicas. Component validation
 is recorded separately; this does not complete the host-boundary integration,

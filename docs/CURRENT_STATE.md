@@ -1,5 +1,29 @@
 # Current State
 
+## Launch Liveness And Observational Health: 6 October 2026
+
+The integration follow-up atop4d4307d rejects dispatch from a retained exited
+gateway, preserves foreign-controller agent/runtime/journal rows and prevents
+nonpersisted HTTP health-transition alerts while retaining the request audit.
+Actual counterfactual tests fail before each fix. Final focused Linux/PG gate
+passes229 cases, fmt/check/strict Clippy and exact OpenAPI; one renderer export
+is ignored. The activation-lock setup has retained timing failures followed by
+isolated/final passes without increasing its deadline. See
+[scoped evidence and limitations](CHAT_CLARIFICATION_VERIFICATION.md#original-launch-liveness-and-health-observation-6-october-2026).
+
+The native harness now refuses existing compiled targets and pins the offline
+Swagger archive instead of relying on another checkout's artifacts. Its38 host
+cases pass. Renewed native lifecycle passes in59.28s on a freshly compiled
+binary with34 runtime-source fingerprints verified: two homes, prepared recovery,
+idempotent messages, native restart and tracked-parent stop. This uses loopback
+inference, not PM/SDLC or descendant acceptance. Own exact cleanup is verified;
+global Docker audit is incomplete because sdlc1-runner is unavailable. Independent
+Fleet PR47 head5f20540 has five green CI jobs and remains Draft. Base PR144
+heada0f7044 has nine green jobs and is ready for review, not merged/installed.
+Neither release head certifies this integration tail or closes host-boundary,
+loaded-generation/descendant, first-step admission, PM tools/resume or deployment
+acceptance. Earlier release-head/conflict statements below are dated history.
+
 ## Prepared Original-Controller Recovery: 6 October 2026
 
 The source packet atop `f6e856c` preserves pending delivery after a saved

@@ -197,7 +197,9 @@ async fn activation_keeps_lifecycle_lock_through_file_readback_and_event_persist
     repo.request_config_activation(agent.id, revision.revision, owner)
         .await
         .unwrap();
-    repo.claim_config_activation().await.unwrap().unwrap();
+    let claimed = repo.claim_config_activation().await.unwrap().unwrap();
+    assert_eq!(claimed.agent_id, agent.id);
+    assert_eq!(claimed.revision, revision.revision);
     let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
         .await
         .unwrap();
@@ -217,7 +219,7 @@ async fn activation_keeps_lifecycle_lock_through_file_readback_and_event_persist
         (result, journal)
     });
     let soul = PathBuf::from(&agent.paths.config).join("SOUL.md");
-    timeout(Duration::from_secs(5), async {
+    let file_readback = timeout(Duration::from_secs(5), async {
         loop {
             if activation.is_finished() {
                 let (result, _journal) = (&mut activation).await.unwrap();
@@ -229,8 +231,35 @@ async fn activation_keeps_lifecycle_lock_through_file_readback_and_event_persist
             sleep(Duration::from_millis(10)).await;
         }
     })
-    .await
-    .unwrap();
+    .await;
+    if file_readback.is_err() {
+        let waits = repo
+            .db
+            .query_all(Statement::from_string(
+                DatabaseBackend::Postgres,
+                "SELECT state, wait_event_type, wait_event FROM pg_stat_activity
+             WHERE datname=current_database() AND pid<>pg_backend_pid()"
+                    .to_owned(),
+            ))
+            .await
+            .unwrap();
+        let waits = waits
+            .into_iter()
+            .map(|row| {
+                (
+                    row.try_get::<Option<String>>("", "state").unwrap(),
+                    row.try_get::<Option<String>>("", "wait_event_type")
+                        .unwrap(),
+                    row.try_get::<Option<String>>("", "wait_event").unwrap(),
+                )
+            })
+            .collect::<Vec<_>>();
+        panic!(
+            "activation readback deadline: journal_exists={}, soul_exists={}, postgres_waits={waits:?}",
+            journal_path(&supervisor, &agent).exists(),
+            soul.exists(),
+        );
+    }
     assert!(!activation.is_finished());
     let worker = supervisor.clone();
     let stale = agent.clone();

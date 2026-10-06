@@ -2,6 +2,14 @@
 
 ## October SDLC Gate
 
+Release reconciliation now has independent exact-head evidence: Fleet PR47
+`5f20540ee33ff9451196e0cbe0149c337c35ae42` passes five CI jobs and remains Draft;
+Base PR144 `a0f7044a95838504394d31bcf3f8d6cc682600c9` passes nine jobs and is
+ready for review, not human-approved or merged. Both preserve current accepted
+main changes. This supersedes older head/conflict observations below, not the
+remaining ordered runtime releases or full PM/SDLC acceptance. Base boundary
+still is not consumed by Fleet; Java chat/control remain phase two.
+
 Automatic SDLC remains blocked. See the exhaustive owner/stage table in
 [SDLC_IMPLEMENTATION.md](SDLC_IMPLEMENTATION.md). Foundation changes do not close
 machine identity/project authorization, task binding, PM requirements/publication,

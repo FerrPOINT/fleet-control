@@ -1,5 +1,16 @@
 # Operations
 
+For a journaled launch owned by another controller, health returns observational
+degraded without changing persisted runtime/heartbeat/capabilities. Inspect the
+original controller rather than treating that response as a failed process or
+permission to restart. Its audited observed/persisted statuses stay distinct;
+the observational response must not create an `agent_down` transition alert.
+The recorded owner must still retain its actual live
+child; `try_wait` rejects an exited retained process before dispatch. A numeric
+PID, HTTP health or a missing controller handle never authorizes adoption.
+Do not clear the launch hold manually to bypass reconciliation. A waited parent
+still does not prove that all descendants or remote side effects have stopped.
+
 ## Unknown Runtime Launch
 
 With migration `000017`, a controller can leave an original `claimed` or

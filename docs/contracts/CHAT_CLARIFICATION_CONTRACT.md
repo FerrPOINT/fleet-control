@@ -6,6 +6,13 @@ Status: agreed target contract; deployment compatibility must be verified.
 
 ### Producer Release Compatibility: 5 October 2026
 
+Read-only remote recheck on6 October preserves the same exact heads below:
+Tracker PR114 remains open/conflicting with main; Workflow PR90 remains open
+on master. Neither publication is an installed predispatch-admission receipt.
+The newer foundational Fleet PR47 has seven-schema parity with Tracker114;
+the later integration extension below still does not. Do not confuse the two
+Fleet source packets or enable routing from a foundational CI result.
+
 Fresh fetched Tracker PR114 head `8c80a41fae3bf1c10439ddb7e536b05bf320340d`
 does not contain the local unpublished Analysis/routing/reservation extension.
 Exact Git-blob OpenAPI comparison fails three of the seven accepted Fleet

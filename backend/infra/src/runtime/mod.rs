@@ -2167,6 +2167,14 @@ impl LocalRuntimeSupervisor {
         }
         if !tracked && let Some(original) = self.repo.get_open_runtime_launch(agent.id).await? {
             let detail = "Original gateway launch requires controller reconciliation";
+            if original.binding.controller_id != self.controller_id {
+                // Observation by another replica cannot revoke the original controller's custody.
+                return Ok(RuntimeOperationResponse {
+                    agent_id: agent.id,
+                    status: AgentStatus::Degraded,
+                    message: detail.into(),
+                });
+            }
             let updated = self
                 .repo
                 .update_runtime_state(

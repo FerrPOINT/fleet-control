@@ -1,5 +1,78 @@
 # Chat Clarification Verification
 
+## Original Launch Liveness And Health Observation: 6 October 2026
+
+The integration follow-up atop `4d4307d9e92ac9c05f1ea11548d090b0b2c2a504`
+closes three confirmed defects: a retained exited child with a cached PID cannot
+authorize generation/dispatch; foreign-controller health cannot overwrite the
+original agent/runtime/launch; HTTP observation cannot publish a nonpersisted
+health-transition alert. The request audit retains observed/persisted statuses.
+No schema, SDK, UI, installed runtime or feature flag changes are made.
+
+Actual PostgreSQL/native-child counterfactual project9302027c3f3f first fails
+both custody/liveness assertions (16 PASS/2 FAIL,4.40s), log
+`e4869e3307e1ed162914794319e167b01e03d0afd10e7008d412c888fd8adffc`.
+The separate HTTP-route regression0b0ed1592c97 first fails on a false agent-down
+alert (17 PASS/1 FAIL,8.40s), log
+`fcf1c8fb7006187c9a9c3c36296322e273e3f58a9a9568776bfd211a1c09cba5`.
+These are retained regression evidence, not acceptance.
+
+Final isolated Linux/PostgreSQL projectcfceb2ce2f86 passes Rust1.88 fmt,
+locked/offline all-target check, strict all-target Clippy and byte-exact
+generated OpenAPI. It executes229 distinct cases: API44, infra158, original
+dispatch journal21 and prepared HTTP/recovery6; synthetic renderer export1 is
+ignored. Infra duration47.26s, journal10.66s, recovery18.34s. Log SHA256
+`f87e71e7f5236535e5c3e51c402b2a118482e7d3c8d9a10aee831928086fd747`.
+Finally cleanup and independent exact Compose ps confirm an empty project.
+This focused gate does not rerun the entire foundation/migration/central-profile
+suite or native control/approval selectors.
+
+Two preceding broad runs4e7b13e83f53 and3933dc0bfdb0 fail the existing5-second
+activation-file setup wait. They remain failures, not green acceptance:
+logs `d11edf96ac50a242cb2612b71bd06496a5d3754e403eef6dac0278c7305d34e6`
+and `d702303ffbe78e19a4d6e28904456a179584d6d4b9d1cf956695b8a01a78d98a`.
+The isolated unchanged assertion passes in1.81s; the final suite preserves the
+deadline and lock assertions, adds exact claimed-agent/revision checks and safe
+PostgreSQL wait-state diagnostics. The earlier timing variability is not
+silently classified as a product fix or stable repeated acceptance.
+
+Native QA now refuses an existing compiled target and uses a fresh owned-project
+directory. This exposed the Swagger build script's hidden network dependency:
+project42dfb94c9b80 fails before any native scenario. Matching5.17.14 archive
+bytes are now copied/readback-checked against SHA256
+`481244d0812097b11fbaeef79f71d942b171617f9c9f9514e63acbe13e71ccdc` and consumed
+locally; the internal network is not opened. Host harness tests pass38 cases.
+Interrupted5aaf3276d125/bb8f0de9ad6c have no final acceptance; their exact owned
+resources were independently inspected and cleaned before new attempts.
+
+Renewed actual native projectccce318d5021 passes the two-HOME/SOUL/model,
+cross-token, prepared-claim/original-controller recovery, idempotent messages,
+terminal mirrors, restart-readback and tracked-parent stop case in59.28s.
+The build passes fmt/all-target check/strict native-test Clippy; compiler JSON
+has `fresh=false` at its unique target directory. Native binary SHA256
+`f495b4bb62c870f94ab78b284b274d42b2665694abc45a91b14a24d2a6b2071e`,
+log `cc0f91dbd38ed91c35f6a8e4dd536efdd8af5d016e4eae95aa8ba12430132eff`,
+report `9a94d630575d878fb60f2f31e6335707f7289dbe1a4d26ea3f3f5fd7354493da`.
+All34 runtime/six native-test/seven harness fingerprints match current bytes;
+13770 Hermes bbaf7af files, accepted SDKcbb4e99 and Base launcherbe04b61 are
+verified. Model inference is deterministic loopback, not an actual PM flow.
+Exact finally cleanup0, independent empty ps and both temporary tag removals
+are verified. No Hermes SQLite is edited by Fleet.
+
+README/all115 Markdown files and existing135 screenshot/nine controller/three
+control fixture hashes verify, without new UI/browser capture or live-PM claims.
+Post-cleanup Docker audit checks desktop36 and sdlc2-runner0 with no violations,
+but sdlc1-runner is unavailable: complete=false, exit1, not global acceptance.
+Accepted images/HOME/volumes/pins/secrets/flags and other repositories are unchanged.
+
+Independent release evidence is separate: Fleet PR47 head5f20540 passes all5
+jobs in CI37403348790 and remains Draft; Base PR144 heada0f7044 passes all9 in
+CI37406268902, ready for review but not approved/merged. They preserve accepted
+main changes and do not certify this newer integration packet. Older release
+head/conflict observations below are historical. Base host-boundary consumption,
+loaded generation/descendants, Tracker/Workflow first-step admission, PM tools/
+resume, ordered runtime releases and seven-agent Forge/deployment remain open.
+
 ## Prepared Original-Controller Recovery: 6 October 2026
 
 Source packet atop `f6e856cb7fd054227abf8877ad20cf2ecf8103dd` fixes two

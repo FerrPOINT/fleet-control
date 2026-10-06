@@ -15,6 +15,7 @@ import re
 ROOT = Path(__file__).resolve().parents[2]
 PIN = 'bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3'
 TASK = 'fleet-native-supervisor'
+SWAGGER_ARCHIVE_SHA256 = '481244d0812097b11fbaeef79f71d942b171617f9c9f9514e63acbe13e71ccdc'
 TEST_NAMES = {
     'lifecycle':'managed_native_gateway_isolates_home_soul_messages_and_restart_history',
     'recovery':'managed_native_lost_ack_recovers_original_run_across_fleet_processes',
@@ -64,6 +65,12 @@ def source_dockerfile(alias):
     if not re.fullmatch('sdlc-qa-fleet-native-[a-f0-9]{12}-deps:qa', alias):
         raise RuntimeError('QA source layer requires its owned dependency alias')
     return f'FROM {alias}\nADD source.tar /opt/hermes/\n'
+
+
+def build_target_directory(project):
+    if not re.fullmatch('sdlc-qa-fleet-native-[a-f0-9]{12}', project):
+        raise RuntimeError('Native compilation requires its owned Compose project')
+    return '/cache/' + project
 
 
 def verify_source_layer(dependency, staged):
@@ -126,6 +133,7 @@ def main():
         raise RuntimeError('Managed gateway requires a non-root dependency image user')
     args.artifacts.mkdir(parents=True, exist_ok=True)
     project = 'sdlc-qa-fleet-native-' + uuid.uuid4().hex[:12]
+    target_directory = build_target_directory(project)
     directory = Path(tempfile.mkdtemp(prefix=project+'-',dir=args.artifacts)).resolve()
     scripts = Path(__file__).resolve().parent
     compose_path = directory / 'compose.json'
@@ -140,7 +148,7 @@ def main():
     dependency_alias = project + '-deps:qa'
     (context/'Dockerfile').write_text(source_dockerfile(dependency_alias),encoding='utf-8')
     qa_image = project + '-source:qa'
-    report = {'project':project,'result':'failed','native_source_sha':PIN,'source_archive_sha256':hashlib.sha256(archive).hexdigest(),
+    report = {'project':project,'cargo_target_directory':target_directory,'swagger_archive_sha256':SWAGGER_ARCHIVE_SHA256,'result':'failed','native_source_sha':PIN,'source_archive_sha256':hashlib.sha256(archive).hexdigest(),
               'scenario':args.scenario, 'test_name':TEST_NAMES[args.scenario],
               'dependency_image_id':image['Id'],'image_user':image['Config']['User'],'base_sdk_sha':sdk_pin,'launcher_base_sha':base_head,
               'launcher_sha256':hashlib.sha256(launcher).hexdigest(),
@@ -155,7 +163,7 @@ def main():
                                'backend/infra/tests/support/native_approval_restart.rs',
                                'backend/infra/tests/support/native_approval_recovery.rs']},
               'fleet_runtime_sources_sha256':{name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest()
-                  for name in ['backend/api/src/routes/approvals.rs',
+                  for name in ['backend/api/src/routes/approvals.rs', 'backend/api/src/routes/agents.rs',
                                'backend/app/src/lib.rs', 'backend/infra/src/lib.rs',
                                'backend/app/src/runtime_launch.rs', 'backend/infra/src/runtime_launches.rs',
                                'backend/infra/src/message_dispatch.rs',
@@ -194,7 +202,8 @@ def main():
         healthcheck={'test':['CMD','pg_isready','-U','native_qa','-d','fleet_native_test'],'interval':'1s','timeout':'2s','retries':30})
     build = service('rust-native-test-build')
     build.update(image='rust:1.88.0-bookworm',working_dir='/work/fleet-control/backend',entrypoint=['bash','/qa/build.sh'],
-        environment={'RUSTUP_TOOLCHAIN':'1.88.0','CARGO_TARGET_DIR':'/cache/final','CARGO_BUILD_JOBS':'2',
+        environment={'RUSTUP_TOOLCHAIN':'1.88.0','CARGO_TARGET_DIR':target_directory,'CARGO_BUILD_JOBS':'2',
+            'FLEET_NATIVE_SWAGGER_SHA256':SWAGGER_ARCHIVE_SHA256,
             'CARGO_INCREMENTAL':'0','CARGO_PROFILE_DEV_DEBUG':'0','CARGO_PROFILE_TEST_DEBUG':'0'},
         volumes=[dict(bind(ROOT,'/work/fleet-control'),read_only=False),bind(args.base_sdk.resolve(),'/work/services-base'),
             bind(scripts/'build.sh','/qa/build.sh'),'target:/cache','cargo:/usr/local/cargo','rustup:/usr/local/rustup'])

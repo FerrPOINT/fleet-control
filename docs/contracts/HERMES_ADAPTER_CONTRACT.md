@@ -6,6 +6,14 @@ pending delivery unchanged instead of claiming and failing another process's
 prompt. Actual submission still requires retained child custody and the pinned
 generation; no process adoption or unknown-command replay is introduced.
 
+Retained-child verification observes `try_wait` before using its cached PID:
+an unreaped exited native child cannot authorize generation or HTTP dispatch.
+This is a current process observation, not host boot/config/descendant proof.
+A foreign controller's managed health response is degraded/read-only and cannot
+overwrite the original owner's runtime status, heartbeat or capabilities.
+The Fleet health request audit remains; nonpersisted degradation does not
+generate an `agent_down` alert.
+
 Additive000016 implements original approval context/claim and atomic historical
 ACK completion, separate from the legacy pending-request lifecycle. Context is
 fixed before a possible effect; old uncertain decisions never acquire it later.

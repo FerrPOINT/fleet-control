@@ -42,6 +42,19 @@ def archive(name, symlink=False):
 
 
 class SafetyTests(unittest.TestCase):
+    def test_swagger_archive_has_an_exact_pinned_checksum(self):
+        self.assertEqual(runner.SWAGGER_ARCHIVE_SHA256,
+                         '481244d0812097b11fbaeef79f71d942b171617f9c9f9514e63acbe13e71ccdc')
+
+    def test_compiled_artifacts_are_unique_to_each_owned_project(self):
+        first = 'sdlc-qa-fleet-native-aaaaaaaaaaaa'
+        second = 'sdlc-qa-fleet-native-bbbbbbbbbbbb'
+        self.assertEqual(runner.build_target_directory(first), '/cache/' + first)
+        self.assertNotEqual(runner.build_target_directory(first), runner.build_target_directory(second))
+        for project in ['sdlc1', first + '/../final', '/cache/final', first + '\n']:
+            with self.subTest(project=project), self.assertRaises(RuntimeError):
+                runner.build_target_directory(project)
+
     def test_scenarios_select_distinct_exact_tests(self):
         self.assertEqual(set(runner.TEST_NAMES), {'lifecycle', 'recovery', 'controls', 'control-outcomes', 'control-restart', 'approvals', 'approval-recovery', 'approval-outcomes', 'approval-restart', 'combined-recovery', 'combined-controls'})
         self.assertEqual(len(set(runner.TEST_NAMES.values())), 11)

@@ -1,5 +1,12 @@
 # Agent Runtime Contract
 
+Generation checks require the retained original child to be nonterminal by
+process `try_wait`, not just a cached numeric PID. Failure preserves custody
+and launch metadata for reconciliation, without a dispatch permit or boundary
+quiescence receipt. Another controller's managed health observation cannot
+rewrite agent/runtime/journal state or emit a nonpersisted transition alert.
+The HTTP request audit remains separate and records observed/persisted statuses.
+
 Original approval decisions now have a private additive000016 journal, single-use
 claim and atomic witnessed receipt/audit. The opt-in HTTP approval sender/GET worker
 is connected. Legacy decisions remain unchanged and cannot be backfilled;

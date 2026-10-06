@@ -1,5 +1,11 @@
 # API
 
+Managed health observation by a non-owning controller can return degraded
+without changing shared agent/runtime/launch state. The health audit records
+both observed `status` and fresh `persisted_status`; a nonpersisted observation
+does not enter the HTTP health-transition alert path. Public response schemas
+and generated OpenAPI remain unchanged by this custody/liveness fix.
+
 Runtime actions now use the internal [pre-spawn launch journal](contracts/RUNTIME_LAUNCH_JOURNAL_V1.md).
 There is no public launch-claim/ACK/reset endpoint or new API schema. Unresolved
 original launches can return existing unavailable/conflict responses instead of

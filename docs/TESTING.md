@@ -1,5 +1,13 @@
 # Testing
 
+The launch-custody regressions use actual PostgreSQL and native Unix children:
+a foreign controller's health and HTTP audit leave original runtime rows and
+alerts unchanged; an exited unreaped child with a cached PID cannot authorize
+generation/dispatch. They are process/custody checks, not host isolation or PM
+admission. Failed counterfactual gates are retained separately from acceptance.
+The native harness builds into a fresh per-project target directory and requires
+the checksum-pinned local Swagger archive; cache reuse cannot certify new source.
+
 Native launch journal tests additionally cover atomic metadata failure, original
 ACK readback with retained child custody and prepared-intent generation fencing.
 PostgreSQL fixtures require `FLEET_TEST_DATABASE_URL`; absent opt-in database
