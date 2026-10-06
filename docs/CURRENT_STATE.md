@@ -1,5 +1,25 @@
 # Current State
 
+## Native Provider Rotation And Input Custody: 7 October 2026
+
+Fresh actual Rust/Base/Docker acceptance passes for two pinned Hermes gateways,
+six real model runs and six original creation intents checked against their
+PostgreSQL fences. Model-observed hashes prove static provider-key rotation only
+after drain, the unchanged peer after restart and restored key/SOUL after real
+readiness timeout/rollback. Private inputs retain original bytes/hash and custody.
+The separate Base log probe reads all six exited generations, counts only.
+
+Formatting, strict all-target Clippy, fresh test compilation,16 host driver cases,
+six source-loader cases and docs checks pass. All306 frozen source inputs match;
+own Compose resources/volumes/aliases are cleaned and permanent runtime is unchanged.
+See [exact native evidence](CHAT_CLARIFICATION_VERIFICATION.md#native-provider-rotation-and-original-input-custody-7-october-2026).
+The earlier546-case ordinary gate below is not relabeled as this new native run.
+
+This changes acceptance tests/report validation and docs, not production API,
+migrations, SDK/UI or installed agents. All effective credential sources/reloads,
+production log collector/recovery, task admission/first step and live PM/Forge
+remain open. Healthy gateways and completed free-chat runs do not prove SDLC.
+
 ## Original Container Environment Input: 7 October 2026
 
 New automatic container intents freeze a private exact dotenv input/hash before

@@ -34,7 +34,12 @@ The opt-in [owned Docker acceptance driver](CONTAINER_SUPERVISOR_ACCEPTANCE.md)
 executes the real Rust supervisor and two source-pinned Hermes gateways using a
 controlled local model. It validates loaded SOUL isolation, duplicate-message
 replay, active-run configuration drain, fresh activation/restart generations and
-original namespace stop. Its ignored test is not automatically part of the
+original namespace stop. A named custom provider with `key_env` lets the endpoint
+check native authorization hashes before/after rotation, including the unchanged
+peer and readiness rollback. Original retained dotenv intents are checked against
+their generation/operation/DB hash and private file custody. These are static
+provider checks, not all effective-secret sources or production redaction.
+Its ignored test is not automatically part of the
 ordinary workspace count. Live outcomes and source/log hashes are recorded in
 [verification](CHAT_CLARIFICATION_VERIFICATION.md), not inferred from compilation.
 
@@ -43,9 +48,10 @@ and distinct previous-revision restoration. The separate `--log-readback`
 extension executes Base's actual private `logs` action for every original exited
 generation after the scenario, persisting counts only. It does not invoke Rust's
 log client or certify production ingestion/redaction/complete history. Neither
-flag implies the other. Fourteen no-Docker driver safety tests include a failed
+flag implies the other. Sixteen no-Docker driver safety tests include a failed
 extension overriding earlier baseline success and incomplete/overclaimed evidence
-refusal. Invocation, source inputs and cleanup are in the acceptance runbook.
+refusal, including exact five/six-run and four/six-intent scope and typed boolean
+claims/counts. Invocation, source inputs and cleanup are in the acceptance runbook.
 
 ## Container Configuration Candidate
 

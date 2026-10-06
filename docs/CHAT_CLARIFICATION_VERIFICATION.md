@@ -1,5 +1,63 @@
 # Chat Clarification Verification
 
+## Native Provider Rotation And Original Input Custody: 7 October 2026
+
+The expanded ignored supervisor scenario runs two actual pinned Hermes gateways,
+the real Rust supervisor and original Base/Engine with UID999 mapped-volume
+custody. The local model is an explicitly named custom provider using `key_env`,
+not a host-gating bypass for a vendor key. Six real `/v1/runs` finish with one
+final mirror each. The model verifies received authorization hashes: original
+key for both initial runs and the held run, rotated key after Developer activation
+and after readiness rollback, original key after the peer's fresh restart.
+The held run drains before any dotenv change. No raw authorization is reported.
+
+All six retained creation intents match PostgreSQL generation/operation/intent
+hash, exact original dotenv digest and expected per-agent API/provider inputs.
+Private files remain UID999/mode0600/single-link; the initial document remains
+byte-identical after rotation. Real readiness timeout retires the candidate and
+restores a distinct previous-revision generation; its final native run proves
+the restored SOUL and provider key. Base's separate private log probe verifies
+six nonempty original exited generations, persisting counts only.
+
+Project `sdlc-qa-fleet-container-live-a8ca318a4ef2` passes fresh Rust1.88 formatting,
+locked offline workspace/all-target strict Clippy, test-profile compilation and
+the actual ignored test:1 passed,0 failed/ignored in374.26 seconds. The306 captured
+inputs remain unchanged. Source baseline is Fleetd50c694 plus the captured test/
+driver changes; Base control7bf2df1, SDKcbb4e99 and Hermesbbaf7af are unchanged.
+This is not a fresh run of the ordinary546-case workspace suite.
+
+- Source manifest SHA256:
+  `3b46d9e0fbe41e96890900ef6582a47a909a90849e9e6c4fd643896ed205fcd2`.
+- Build log SHA256:
+  `5b6419e18626506bd5ccd095ad39a28031c676358e20276c5b1ac1ade68503b0`.
+- Live log SHA256:
+  `d765a902575780433b5a4651c1f3705337088ba36b53638fbf749bf5a27bdf30`.
+- Live report SHA256:
+  `f625af9857d5c8ae9c3084774abc836d46a74774f901369fca87a70c0b081583`.
+- Overall report SHA256:
+  `86ca86e98f9cf290bfdee127e1d08d918d033b289bdcc4b546fced4a76b2991d`.
+
+Private artifacts: workspace
+`.local/fleet-dotenv-native-evidence-20261007/sdlc-qa-fleet-container-live-a8ca318a4ef2-g76dtqzi/`.
+The exact owned Compose cleanup removes only this invocation's containers,
+networks, three disposable volumes and image aliases. Independent inventories
+are empty; permanent runtime lifecycle is unchanged. Sixteen host driver cases,
+six source-loader cases, README and127 Markdown checks pass.
+
+The earlier owned `460585ed396a` invocation failed during compilation because
+this SeaORM build does not expose `DatabaseConnection::clone`; it never reached
+Hermes. It remains failed evidence with verified cleanup/source/runtime preservation.
+The corrected test opens its own read connection instead of enabling a dependency
+feature. No test assertion, readiness deadline or Hermes host restriction was
+weakened to obtain the passing result.
+
+No production API, migration, SDK, UI or installed runtime change. The driver
+now rejects missing/mistyped/overclaimed flags and wrong baseline/rollback counts.
+This closes native static-provider rotation and original input custody, not
+every effective/external/managed secret source, later reload, production Rust
+log ingestion/redaction, controller recovery or task/PM/Forge/live SDLC.
+All reports retain `sdlc_acceptance=false`; no full merge-ready claim follows.
+
 ## Original Container Environment Input: 7 October 2026
 
 New automatic creation intents preserve exact guarded dotenv bytes/hash before

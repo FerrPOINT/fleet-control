@@ -21,6 +21,14 @@ credential sanitization, external sources and managed overlays. Those values
 and later reloads still need a trustworthy per-launch redaction protocol before
 raw Docker bytes may be mirrored. See [container contract](contracts/CONTAINER_CONTROL_V1.md).
 
+The owned native gate additionally checks a static named custom provider via
+`key_env`; it must preserve Hermes's vendor-key host restriction, not disable it
+for a local endpoint. The model checker retains only authorization hashes in
+memory and verifies rotation after drain and the unchanged peer. Private intent
+checks compare original input and DB fences without printing credential values.
+Even successful native checks cannot authorize production log collection: they
+do not attest every external/managed credential source or later native reload.
+
 ## Private Raw Docker Log Boundary
 
 The additive Base `logs` response is controller-private and may contain secrets.

@@ -1,5 +1,21 @@
 # Gap Register
 
+## Native Static Provider Proof; Full Collector Still Open
+
+The fresh owned two-agent Docker scenario now proves actual native provider-key
+rotation after drain, unchanged peer credentials after restart, restored key/SOUL
+after readiness rollback and custody of six original dotenv intents against DB
+fences. Six real Hermes/model runs pass; all306 captured inputs match and exact
+owned cleanup is verified. See
+[evidence](CHAT_CLARIFICATION_VERIFICATION.md#native-provider-rotation-and-original-input-custody-7-october-2026).
+
+This is a static named custom provider proof, not closure of every effective
+external/managed source, interpolation/sanitization or later reload. Raw Docker
+pages still have no production DB/API/SSE caller. Complete resolved-value custody,
+private partial checkpoints, atomic original-range/cursor commits, crash replay
+and bounded retention/admission before collection. Controller recovery and
+predispatch/PM/Forge requirements remain open; no installed flag is enabled.
+
 ## Original Dotenv Input Custody; Resolved Secrets Still Open
 
 New automatic intents freeze exact guarded dotenv bytes/hash before create and

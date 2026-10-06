@@ -1,5 +1,17 @@
 # Implementation Plan
 
+## Verified Native Credential And Input Slice
+
+The fresh actual two-agent Rust/Base/Docker gate verifies six native model runs,
+static provider rotation after drain, peer/restart isolation and real readiness
+rollback. Six retained dotenv creation intents match original PostgreSQL fences.
+This advances launch/input acceptance but does not enable a collector or replace
+the coherent production flow below. All effective secret sources/reloads, bounded
+retention, atomic private checkpoint/range commits, controller recovery and
+predispatch/PM/Forge acceptance remain mandatory. See
+[native evidence](CHAT_CLARIFICATION_VERIFICATION.md#native-provider-rotation-and-original-input-custody-7-october-2026).
+No migration, API, SDK, UI or installed runtime change accompanies this test packet.
+
 ## Next Runtime Work After Private Log Transport
 
 Base source [d0eedc1](https://github.com/FerrPOINT/services-base/commit/d0eedc16336386ca1a8827387d806d9c9a89b919)

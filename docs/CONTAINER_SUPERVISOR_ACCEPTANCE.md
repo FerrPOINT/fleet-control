@@ -61,6 +61,24 @@ After completion, a fresh activation generation must load the new SOUL; the
 other agent's generation remains unchanged. Restarting the peer also creates a
 fresh generation and preserves its effective SOUL.
 
+The local endpoint is a named `custom:fleet-owned-model` provider with
+`key_env: HERMES_CUSTOM_API_KEY`, backed by Fleet `secret_ref` inputs. The native
+Hermes host gate must not be bypassed by sending `OPENAI_API_KEY` to an arbitrary
+custom host. The endpoint records only SHA256 of its received authorization in
+memory. Each request must use the original key until drain completes, the
+replacement agent must then use the rotated key, and the peer must retain its
+original key after restart. Raw authorization is not printed or included in
+the live report.
+
+After confirmed stop, the test reads every original private creation intent and
+its PostgreSQL preparation fence. It verifies generation/operation, canonical
+intent hash, UID999/mode0600/single-link custody, exact original dotenv digest
+and expected per-agent API/provider input. The original document must remain
+byte-identical during replacement. Baseline acceptance requires four retained
+intents; the readiness extension requires six. This proves static provider/input
+custody in the exercised native path, not all effective credentials, external
+secret stores, managed overlays, reload behavior or production log redaction.
+
 ## Optional Readiness Failure
 
 Add `--readiness-rollback` to the same owned command to run a separate fault
@@ -75,7 +93,8 @@ drained without promoting its effective revision. The test requires the actual
 readiness error and deadline, confirmed original and failed-candidate namespace
 exit, a distinct rollback launch bound to the previous revision, byte-identical
 managed files and verified effective readback. The peer must be unchanged.
-A sixth real Hermes/model run must observe the restored SOUL and mirror once;
+A sixth real Hermes/model run must observe the restored SOUL and rotated provider
+credential and mirror once;
 the private activation journal must be retired only after settlement.
 
 The live report's `readiness_rollback` must match the explicit driver option;
@@ -110,6 +129,9 @@ have separate reports and acceptance scopes.
 The private invocation directory retains frozen sources, source hashes, image and
 build logs, `live.log`, the sanitized `evidence/live-report.json` and `report.json`.
 Only a passed live report can set actual Rust/Hermes acceptance fields true.
+The driver requires all isolation/drain/replacement/provider/custody flags,
+typed counts and exact baseline/rollback scope; missing or false claims, boolean
+counts and reports claiming SDLC or raw-credential evidence are rejected.
 Permanent `sdlc1`, `sdlc2` and `sdlc-common` lifecycle facts are compared before and
 after. The gate does not read installed secret values.
 
