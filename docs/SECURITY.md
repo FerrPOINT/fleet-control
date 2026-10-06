@@ -46,8 +46,14 @@
 - Backend RBAC is authoritative. The UI hides sections using
   `/api/v1/users/me/permissions`, but every protected route still checks the
   current role.
-- SSE rechecks token validity, active user, ownership and current role while
-  replaying events. No bearer token is placed in a stream URL.
+- Session SSE rechecks token validity, active user, ownership and current role
+  while replaying events. Global `/api/v1/events` also rechecks the bearer token,
+  its subject binding and service read scope before delivering each event and
+  once per second while idle. Revocation, expiry, disabled users, Auth outage or
+  database errors close the stream without a local fallback. Legacy mode also
+  rechecks the current stored operator role. Central private session events are
+  owner-only; leader-scoped events remain shared. No bearer token is placed in
+  a stream URL.
 - Human message requests cannot supply an agent author or runtime message ID.
   A scoped machine assignment protocol is still unimplemented, not a fallback
   permission granted to human or runtime clients.

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+- Global Fleet SSE revalidates the original bearer identity, activity and read
+  scope during idle and before every delivery. Revocation and Auth failure close
+  held streams; central private session events remain owner-only, and standalone
+  streams recheck current local roles.
+
 - Central profiles use the confirmed current name from the same JWT/PAT
   activity check. Same-sub ID, local roles and historical same-email users are
   preserved; missing names fail closed and unchanged profiles avoid a write.
