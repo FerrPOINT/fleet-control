@@ -364,7 +364,10 @@ central owner and concrete assigned PM. Legacy creation system messages/pending 
 placeholders are not user history; existing prompts or observed runs reject adoption.
 Task binding is not inferred from task_key/title. A database trigger forbids changes to
 bound session owner/agent/visibility/leader. Application routes reject handoff/leader
-assignment and unverified generic prompt/steer. History uses an internal immutable
+assignment and unverified generic prompt/steer. Reading task context preserves that
+immutable binding after PM reassignment and requires fresh Tracker project access;
+its permission flags are attenuated for an absent or different assigned agent.
+No binding, assignment or run record is rewritten by this read. History uses an internal immutable
 `session_messages.append_sequence` identity allocation order and validates that the
 public UUID cursor belongs to the session. The bigint is not added to message DTOs.
 Gaps are allowed: allocation order is neither transaction commit order nor an SSE

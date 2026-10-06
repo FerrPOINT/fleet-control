@@ -1,0 +1,170 @@
+{
+  "baseline": "77fc54320f7aa39b3d2688adfcd2aadcf9bf6403",
+  "baselineMergedAt": "c02f60ebdceebaa4255352d27893976fc26c1389",
+  "sourceByteConvention": "Git blob/LF text bytes; CRLF checkout is normalized for comparison",
+  "sourceSha256": {
+    "backend/api/src/routes/task_chats.rs": "9e3b4634c5b8dd79201ea8cc555675a3b8f69e5b8819523b6cdc8201b355e481",
+    "backend/infra/tests/sdlc_foundation.rs": "3d555c372500f950d67d9f71235fb609306170387caed61ce1105488e0a8ee6e",
+    "frontend/src/pages/chat-detail/index.test.tsx": "33379c25ed298a5b2095b519c777021a29aa48454fe5cf0ae147a387de0ca39d",
+    "docs/API.md": "af613fb9dee915a2e62fba4a9f59eb317e8a04e10d39b5a5ef2995cc46733215",
+    "docs/DATA_MODEL.md": "4c20696868929f9775cc8fe5d520ed6348603fdb359f9883d7bf1b2e013d8973",
+    "docs/CHATS_PM_CONSUMER_HANDOFF_20261006.md": "5b16cad7287aa84f10ed9b7dee38eb1583de8bab4e57078c755a2b4acf063625"
+  },
+  "frontendProductionUnchanged": true,
+  "frontendProductionSha256": {
+    "frontend/src/pages/chat-detail/index.tsx": "76d3bb9dbe2298772a341f1127cb2da4b358f54e16c387147d8ce7028abe9983",
+    "frontend/src/api/task-chats.ts": "f478e58cedf2313ad3a71d8445329f7b658b2aae424acbba5dcd1bdb6bc049f9"
+  },
+  "unitPassed": 269,
+  "unitFiles": 31,
+  "browserPassed": 36,
+  "browsers": [
+    "chromium",
+    "firefox",
+    "webkit"
+  ],
+  "browserFixtureOnly": true,
+  "liveAcceptance": false,
+  "nativeWorkflowProjectionImplemented": false,
+  "newSchemaOrSecretStorage": false,
+  "runtimeModified": false,
+  "beforeFix": {
+    "route": "GET /api/v1/sessions/{session_id}/task-context",
+    "afterPmReassignment": 409,
+    "expected": 200,
+    "compose": {
+      "project": "sdlc-qa-chats-pm-f55e6c627f02",
+      "sourceFiles": 323,
+      "installedRuntimeChanged": false,
+      "exitCode": 101,
+      "cleanupExitCode": 0,
+      "remainingContainers": "",
+      "remainingNetworks": ""
+    },
+    "gateLogSha256": "190de2692817766433ad682b7d6e33d9cee87131648540832caf2166809eb2bb"
+  },
+  "backend": {
+    "toolchain": "1.88.0",
+    "passed": 13,
+    "groups": [
+      6,
+      4,
+      1,
+      1,
+      1
+    ],
+    "compose": {
+      "project": "sdlc-qa-chats-pm-268bda0a28e1",
+      "sourceFiles": 323,
+      "installedRuntimeChanged": false,
+      "exitCode": 0,
+      "cleanupExitCode": 0,
+      "remainingContainers": "",
+      "remainingNetworks": ""
+    },
+    "gateLogSha256": "d8c67a58f5838fa1ac5d596104ca5efa3bfb68f60b7c8a6d1a81cf24e50c1acb",
+    "sourceManifestSha256": "4649e7430f131a5965cec5c349de32198858076b39c60bc3b3726cb618ecdf33",
+    "commands": [
+      "cargo fmt --all --check",
+      "cargo check --locked --offline --workspace --all-targets",
+      "cargo clippy --locked --offline -p api --all-targets -- -D warnings",
+      "cargo test --locked --offline -p api --lib routes::task_chats -- --test-threads=1",
+      "cargo test --locked --offline -p infra --test sdlc_foundation task_binding -- --test-threads=1",
+      "cargo test --locked --offline -p infra --test sdlc_foundation message_history -- --test-threads=1",
+      "cargo test --locked --offline -p infra --test sdlc_foundation task_approval_history_survives_reassignment -- --test-threads=1",
+      "cargo test --locked --offline -p infra --test sdlc_foundation concurrent_idempotency_and_private_message_authorization -- --test-threads=1"
+    ]
+  },
+  "httpAssertions": [
+    "reassignment read=200, immutable binding preserved",
+    "matching assignment preserves flags; missing/replaced assignment clears both flags",
+    "old-agent answer and confirmation=409",
+    "non-200 successful Tracker context=503",
+    "revoked project read=403 and stream closed"
+  ],
+  "frontendCommands": [
+    "pnpm typecheck",
+    "pnpm lint",
+    "pnpm format:check",
+    "pnpm test",
+    "pnpm openapi:check",
+    "pnpm openapi:compat",
+    "pnpm markdown:check"
+  ],
+  "dockerGroupsAudit": {
+    "complete": false,
+    "observedViolations": [],
+    "checkedEndpoints": [
+      "desktop-linux",
+      "sdlc2-runner"
+    ],
+    "unavailableEndpoint": "sdlc1-runner"
+  },
+  "logSha256": {
+    "unit": "a423393a8d16aac7f56aaf230157350ca8a8eaa9eca56fc134a3e9de7d703778",
+    "browser": "8a8c1148dd19c1b456f21e82781031ff9ff4323bee146ac13a32538172398a21"
+  },
+  "projectionAudit": {
+    "workflowHead": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+    "trackerHead": "8c80a41fae3bf1c10439ddb7e536b05bf320340d",
+    "exactWorkflowBlobs": [
+      {
+        "artifact": "workflow-project_workflow-application-pm_execution.py",
+        "repo": "FerrPOINT/project-workflow",
+        "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+        "path": "project_workflow/application/pm_execution.py",
+        "gitBlob": "0f3a244a3c2ad5c4b15962c8ee8cf0d020d68778",
+        "sha256": "fbe8e3b73582186bfab12c1353721a517e93f8b206ad70df7637dac4567557e0"
+      },
+      {
+        "artifact": "workflow-project_workflow-domain-pm_execution.py",
+        "repo": "FerrPOINT/project-workflow",
+        "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+        "path": "project_workflow/domain/pm_execution.py",
+        "gitBlob": "c48c49e896753aecfd339abd17632baea84e1ce2",
+        "sha256": "8930cff19031e88366b5cc3c091dc71d11c1cbaea74b08f56a99f456f9b9a2e7"
+      },
+      {
+        "artifact": "workflow-project_workflow-domain-runtime_assignment.py",
+        "repo": "FerrPOINT/project-workflow",
+        "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+        "path": "project_workflow/domain/runtime_assignment.py",
+        "gitBlob": "26f10f68a0fbda9050cd4bfcd5015a91af9a1185",
+        "sha256": "6ed9affea573dd6e4e25f3bfd901310786ab83971a1f3c9d58908330d4190596"
+      },
+      {
+        "artifact": "workflow-project_workflow-interfaces-ui-routes-pm_api.py",
+        "repo": "FerrPOINT/project-workflow",
+        "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+        "path": "project_workflow/interfaces/ui/routes/pm_api.py",
+        "gitBlob": "795149e71560aa9aaaa106a7104af1fe7b44a436",
+        "sha256": "c59ec113327b4b507ff3ce934094414868ca6efc3acef6d7737ad6513972201f"
+      },
+      {
+        "artifact": "workflow-project_workflow-interfaces-ui-routes-runtime_api.py",
+        "repo": "FerrPOINT/project-workflow",
+        "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+        "path": "project_workflow/interfaces/ui/routes/runtime_api.py",
+        "gitBlob": "b4a6f9f48fec59a1d33d52dfe0faa60a295ec399",
+        "sha256": "0455db61a1112fbff872facf2bb4c928d078cd9496a209f39f8f4a6d3a1f524c"
+      }
+    ],
+    "integrationSourceSha256": {
+      "backend/domain/src/pm_execution.rs": "3994f3ceec606ec9e2bbbe7e1a23b97dc8aa1f5c950f24a3eee7065c9611e404",
+      "backend/domain/src/pm_draft.rs": "6e55c162ee23fb62818feec34b4cf8291d048bb276053935d4689dba73a6de13",
+      "backend/domain/src/pm_credentials.rs": "8a0f27219578df5a576d13e3d60fdf333140db1c29510b1dbda8b806f41a38c2",
+      "backend/shared/src/config.rs": "a33fa6c37f78f1af63520774cbe78836877dd2166a5133821b1344137d9e0928",
+      "backend/migration/src/m20261001_000010_task_chats.rs": "61ebd300d84fbfce700bdbe99e5db503f5ad7af7ed5988105cb4b14e86a9b2c1"
+    },
+    "missing": "runtime-owned resolver for current accepted identity/run/cursor and protected Workflow runtime-role bearer plus matching execution token",
+    "historyUsesNativeRows": true,
+    "stageInferenceAllowed": false,
+    "modelDispatchAuthorized": false
+  },
+  "checkerLineEndings": {
+    "commit": "77fc54320f7aa39b3d2688adfcd2aadcf9bf6403",
+    "gitBlobSha256": "9094807e9f6c10f821215ca3dd543f5a08890b1a4b4fb01fbc2e0b590d981e5f",
+    "crlfCheckoutSha256": "aaacda532bb05efc1e557d99c7926f6e371a0aa0d315cccf727b7b5135210993",
+    "semanticDrift": false
+  }
+}

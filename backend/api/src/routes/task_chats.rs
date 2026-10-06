@@ -312,9 +312,20 @@ pub async fn task_context(
     Path(id): Path<Uuid>,
     headers: HeaderMap,
 ) -> Result<Json<SessionTaskContext>, AppError> {
-    Ok(Json(
-        load_task_context(&ctx, &user, id, &headers, true).await?,
-    ))
+    let mut context = load_task_context(&ctx, &user, id, &headers, false).await?;
+    // Reading the immutable chat must survive reassignment. Tracker's task-wide
+    // permissions cannot grant commands from a chat bound to another PM agent.
+    if let (Some(binding), Some(tracker)) = (&context.binding, &mut context.tracker)
+        && tracker
+            .assignment
+            .as_ref()
+            .map(|assignment| assignment.agent_id)
+            != Some(binding.agent_id)
+    {
+        tracker.permissions.can_answer = false;
+        tracker.permissions.can_confirm = false;
+    }
+    Ok(Json(context))
 }
 
 pub(super) async fn load_task_context(

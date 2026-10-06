@@ -298,6 +298,11 @@ Base path: `/api/v1`.
 - `POST /sessions/{id}/task-binding`: explicit owner binding to assigned concrete PM.
 - `GET /sessions/{id}/task-context`: verified binding and Tracker context; unbound chat
   returns null context, dependency failure is not an empty successful SDLC response.
+  Reads survive PM reassignment with fresh Tracker project access. If the current
+  assignment is absent or belongs to another agent, the gateway returns the bound
+  context with `can_answer=false` and `can_confirm=false`; write routes still check
+  the current concrete agent. Tracker task-wide permission flags never authorize
+  a command from a historical chat.
 - `GET /sessions/{id}/chat-controls`: authoritative ownership/capability/dispatch gates.
 - `GET /sessions/{id}/history?before={messageUuid}&limit=50`: latest-first pages, each
   page returned in server allocation order, independent of host timestamps; maximum

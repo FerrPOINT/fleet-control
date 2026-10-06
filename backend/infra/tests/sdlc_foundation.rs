@@ -1847,8 +1847,8 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
         requirement_revision: None,
         waiting_reason: None,
         permissions: domain::TrackerPermissions {
-            can_answer: false,
-            can_confirm: false,
+            can_answer: true,
+            can_confirm: true,
         },
         assignment: Some(domain::TrackerPmAssignment {
             assignment_id: Uuid::new_v4(),
@@ -1863,6 +1863,9 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
     let list_check = revoked.clone();
     let context_accepted = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let context_status_check = context_accepted.clone();
+    let assignment_state = Arc::new(std::sync::atomic::AtomicU8::new(0));
+    let assignment_check = assignment_state.clone();
+    let original_agent = binding.agent_id;
     let project = binding.project_id;
     let instance = binding.tracker_instance_id.clone();
     let tracker = axum::Router::new()
@@ -1878,8 +1881,13 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
             move |axum::extract::Path(id): axum::extract::Path<Uuid>,
                   headers: axum::http::HeaderMap| {
                 let check = check.clone();
-                let context = context.clone();
+                let mut context = context.clone();
                 let context_status_check = context_status_check.clone();
+                match assignment_check.load(Ordering::SeqCst) {
+                    1 => context.assignment.as_mut().unwrap().agent_id = original_agent,
+                    2 => context.assignment = None,
+                    _ => {}
+                }
                 async move {
                     assert_eq!(id, context.task_id);
                     assert!(
@@ -1975,6 +1983,18 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
             axum::routing::get(api::routes::task_chats::controls),
         )
         .route(
+            "/api/v1/sessions/{session_id}/task-context",
+            axum::routing::get(api::routes::task_chats::task_context),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/clarifications/{question_id}/answers",
+            axum::routing::post(api::routes::task_chats::answer),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/requirements/{revision}/confirm",
+            axum::routing::post(api::routes::task_chats::confirm),
+        )
+        .route(
             "/api/v1/sessions/{session_id}/clarifications",
             axum::routing::get(api::routes::task_chats::clarifications),
         )
@@ -1998,6 +2018,9 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
             "/api/v1/sessions/{session_id}/approvals/{approval_id}/decision",
             axum::routing::get(api::routes::approvals::read).post(api::routes::approvals::decide),
         )
+        .layer(axum::Extension(api::middleware::VerifiedCentralSubject(
+            binding.owner_subject.clone(),
+        )))
         .layer(axum::Extension(api::middleware::VerifiedHumanSession))
         .layer(axum::Extension(api::middleware::CurrentUser {
             id: session.user_id,
@@ -2036,6 +2059,7 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
         "/runs",
         "/history",
         "/chat-controls",
+        "/task-context",
         "/clarifications",
         "/requirements",
     ] {
@@ -2051,8 +2075,65 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
             "historical chat read failed after reassignment: {suffix}"
         );
     }
+    let context = client
+        .get(format!("{session_url}/task-context"))
+        .bearer_auth("verified-owner-fixture")
+        .send()
+        .await
+        .unwrap()
+        .json::<serde_json::Value>()
+        .await
+        .unwrap();
+    assert_eq!(
+        context["binding"]["agent_id"],
+        serde_json::json!(binding.agent_id)
+    );
+    assert_ne!(
+        context["tracker"]["assignment"]["agent_id"],
+        context["binding"]["agent_id"]
+    );
+    assert_eq!(context["tracker"]["permissions"]["can_answer"], false);
+    assert_eq!(context["tracker"]["permissions"]["can_confirm"], false);
+    for (state, permitted) in [(1, true), (2, false)] {
+        assignment_state.store(state, Ordering::SeqCst);
+        let current = client
+            .get(format!("{session_url}/task-context"))
+            .bearer_auth("verified-owner-fixture")
+            .send()
+            .await
+            .unwrap()
+            .json::<serde_json::Value>()
+            .await
+            .unwrap();
+        assert_eq!(current["tracker"]["permissions"]["can_answer"], permitted);
+        assert_eq!(current["tracker"]["permissions"]["can_confirm"], permitted);
+    }
+    assignment_state.store(0, Ordering::SeqCst);
+    for (path, body) in [
+        (
+            format!("clarifications/{}/answers", Uuid::new_v4()),
+            serde_json::json!({"expected_question_version":1,"requirement_revision":1,"selected_option_ids":[],"text":"Original answer","comment":null,"idempotency_key":"old-chat-answer"}),
+        ),
+        (
+            "requirements/1/confirm".into(),
+            serde_json::json!({"content_hash":"original-hash","idempotency_key":"old-chat-confirm"}),
+        ),
+    ] {
+        assert_eq!(
+            client
+                .post(format!("{session_url}/{path}"))
+                .bearer_auth("verified-owner-fixture")
+                .json(&body)
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            reqwest::StatusCode::CONFLICT,
+            "old chat gained write authority after reassignment: {path}"
+        );
+    }
     context_accepted.store(true, Ordering::SeqCst);
-    for suffix in ["/clarifications", "/requirements"] {
+    for suffix in ["/task-context", "/clarifications", "/requirements"] {
         assert_eq!(
             client
                 .get(format!("{session_url}{suffix}"))
@@ -2178,6 +2259,7 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
         "/chat-controls",
         "/clarifications",
         "/requirements",
+        "/task-context",
     ] {
         assert_eq!(
             client

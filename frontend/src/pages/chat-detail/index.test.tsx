@@ -752,6 +752,35 @@ describe('production chat', () => {
     expect(await screen.findByRole('radio', { name: /Участники проекта/ })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
   })
+  it('keeps task documents and drafts readable after the bound PM is replaced', async () => {
+    const { client } = renderPage('clarification')
+    const comment = await screen.findByLabelText('Комментарий')
+    fireEvent.change(comment, { target: { value: 'Original unsaved note' } })
+    vi.mocked(chats.getTaskContext).mockResolvedValue({
+      ...context,
+      tracker: {
+        ...context.tracker!,
+        assignment: {
+          assignment_id: 'replacement-assignment',
+          execution_id: 'replacement-execution',
+          agent_id: 'replacement-agent',
+          version: 2,
+          machine_subject: 'replacement-pm',
+        },
+        permissions: { can_answer: false, can_confirm: false },
+      },
+    })
+    await client.invalidateQueries({ queryKey: ['task-context', 'session1'] })
+    await waitFor(() => expect(comment).toBeDisabled())
+    expect(comment).toHaveValue('Original unsaved note')
+    expect(screen.getByRole('radio', { name: /Участники проекта/ })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+    expect(chats.answerClarification).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('tab', { name: /Требования/ }))
+    await screen.findByText('Настоящие требования')
+    expect(screen.getByRole('checkbox', { name: /Подтверждаю цель/ })).toBeDisabled()
+    expect(chats.confirmRequirements).not.toHaveBeenCalled()
+  })
   it('replays the exact answer key after unknown acceptance without editable payload', async () => {
     vi.mocked(chats.answerClarification).mockRejectedValue(new Error('Connection interrupted'))
     renderPage('clarification')

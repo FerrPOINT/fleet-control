@@ -98,6 +98,80 @@ credential contracts; source reading is not consumer integration. Full owner,
 operator denial, restart, partial-success and actual PM model acceptance remain
 required. None of those dependencies grants permission to enable dispatch here.
 
+## Read-only task context follow-up after 77fc543
+
+Runtime integration `c02f60ebdceebaa4255352d27893976fc26c1389` already merged
+`77fc54320f7aa39b3d2688adfcd2aadcf9bf6403`. This next append-only packet fixes a
+consumer gateway defect: `/task-context` returned 409 after PM reassignment while
+the same chat's authorized history, questions and requirements remained readable.
+The HTTP regression reproduced 409 instead of 200 before the fix.
+
+The context read now retains its original immutable binding and uses fresh Tracker
+project access. An absent assignment or another assigned agent forces both context
+write flags false. A matching assignment preserves the producer's flags. No flag
+is elevated, no binding is changed, and answer/confirmation write preflights still
+reject the old agent with 409. Project revocation still denies context with 403;
+upstream HTTP 202 still becomes 503. The frontend regression preserves the draft
+and readable requirements while disabling answer/consent after refreshed context.
+
+The current packet's [validation](assets/design/chats-pm-context/validation.json)
+records 269 unit checks and the fresh PostgreSQL/HTTP backend gates separately
+from previous source packets. The existing browser scenarios still use fixture
+API and do not prove a real Workflow projection. Historical manifests remain
+historical; their backend hashes do not attest this changed gateway/test source.
+The frontend production components and approved composition are unchanged.
+Both owned QA projects were cleaned. The fresh workspace Docker-group audit found
+no violations on its two reachable endpoints but could not check `sdlc1-runner`;
+it is incomplete, not a global audit pass.
+
+### Exact Workflow projection boundary
+
+Workflow90 remains at `e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37`; its five exact
+implementation blobs were re-read. `POST /internal/runtime/v1/pm/readback` accepts
+the ten-field PMIdentity. Runtime-role credentials also require the current
+`X-Workflow-Execution-Token`. Assignment-role readback may return an execution
+token for an active execution when scope/readback configuration is available.
+`GET /internal/runtime/history?task=...&n=...&session_run_id=...` requires the PM
+runtime-role bearer, current execution token and exact current Fleet run UUID;
+`n` is 1..200. An assignment or catalog credential cannot read that history.
+History returns actual persisted phase/transition records; a Tracker stage is
+not one of those records. No step POST is needed or permitted for this read.
+
+Existing durable Fleet fields, also inspected at integration `c02f60e`:
+
+- `task_chat_bindings`: immutable Tracker instance/project/task/root/agent/owner
+  plus session ID. This is chat identity, not a Workflow execution token.
+- `pm_run_bindings.reservation`: full PMIdentity, session/run IDs, binding ref,
+  dispatch operation key, optional checkpoint ref and fence. The row also stores
+  accepted Hermes run/session refs and terminal observation. It has no Workflow
+  execution token or protected handle to one.
+- `pm_draft_creation_operations.operation.reservation`: Tracker execution ordinal,
+  execution/assignment IDs and version, assignment operation key and input ref.
+  The credential journal stores the Tracker-only issuance intent/receipt; it does
+  not grant Workflow runtime access or retain its execution token.
+- `SdlcWorkflowConfig.read_pat` authorizes namespace-binding readback. The legacy
+  catalog token and namespace binding proof are not PM runtime-role credentials.
+
+The minimal missing runtime-owned contract is a server resolver for the authorized
+session's accepted PM identity/run/cursor, plus protected credential handles for
+the PM runtime-role bearer and its matching execution token. Its identity must
+match the immutable chat and its token must match current Workflow binding,
+Hermes run, fence and session-run UUID. The runtime owner must define persistence,
+rotation and read authority; this packet adds no schema or secret storage.
+Waiting must retain a genuinely issued matching scope; resume-pending or stale
+scope must explicitly deny history until a valid scope exists. The browser must
+receive only sanitized native records, never tokens or authority-selected refs.
+Fresh owner/operator session authorization and Tracker project access precede
+every read. It cannot choose a run by timestamp, use a catalog/PAT fallback, mint
+scope from examples or enable model dispatch. Projection is therefore still
+unimplemented pending that contract, rather than exposed as an always-empty API.
+
+For evidence reproduction on Windows, source hashes identify Git blob/LF bytes.
+The committed `verify-chat-contract.mjs` blob in `77fc543` and its remote GitHub
+blob both hash to `9094807e9f6c10f821215ca3dd543f5a08890b1a4b4fb01fbc2e0b590d981e5f`;
+its CRLF checkout hashes to `aaacda532bb05efc1e557d99c7926f6e371a0aa0d315cccf727b7b5135210993`.
+These differ only in line endings; no checker change after capture is claimed.
+
 ## Implemented
 
 - Unknown answer outcomes hold every question and stale-draft transfer in the
