@@ -5,15 +5,19 @@
 Docker is the selected runtime architecture, not an open user choice. The
 private [container control client](contracts/CONTAINER_CONTROL_V1.md) now has an
 opt-in supervisor consumer with pre-exec DB binding, original endpoint/ACK,
-namespace stop, health and dispatch generation checks. It requires an operator-
-prepared registration; native fallback is forbidden. Do not count this or Base
-protocol QA as completed automatic container lifecycle. Guarded Compose
-create/rendering, daemon path mapping, trusted bridge access, log capture,
+namespace stop, health and dispatch generation checks. Automatic first-generation
+preparation saves an original private intent and consumes Base's guarded
+render/create/register; operator-prepared generations remain compatible. Native
+fallback is forbidden. Do not count this or Base protocol QA as completed
+automatic container lifecycle. Daemon path mapping, UID/file access, trusted bridge access, log capture,
 loaded config, controller recovery and config drain/rollback remain mandatory.
 
 Current Base protocol source is PR150
-`4cfdfa9e45216c6c499580541eb8c3d1bb37ccc8`, ready/CLEAN, nine green CI37420102732 jobs;
-the following176e ready/green observation is historical. Full Fleet remains
+`1d191055bb88eae4cacc8aeb6642e1a3882f90d6`, ready/CLEAN with nine successful
+exact-head CI37432291311 jobs. Fresh Fleet Rust1.88/PG gate passes494 cases with
+29 ignored; Base native creation-crash/readback and v1 regression pass separately.
+The previous4cfdfa9/176e green
+observations are historical. Full Fleet remains
 not merge-ready; no installed image, migration or automation is changed here.
 
 ## Historical Release Evidence

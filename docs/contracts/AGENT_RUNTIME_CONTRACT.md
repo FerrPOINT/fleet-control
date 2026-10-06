@@ -10,9 +10,11 @@ original namespace exit authorizes stop completion. A daemon PID is metadata,
 never a host kill target. Missing/uncertain/foreign registration fails closed,
 without native fallback, automatic start replay or controller takeover.
 
-An operator-prepared private generation is still required. Compose creation,
-controller network access, logs and Docker configuration activation/rollback
-are not complete; readiness is not SDLC admission. Java is unchanged. Statements
+Automatic first-generation Compose preparation now uses a private original
+intent and Base prepare receipt before the DB start claim. Operator-prepared
+generations remain compatible. Controller/daemon mount mapping, UID/file access,
+controller network access, logs, new-generation restart and Docker configuration
+activation/rollback are not complete; readiness is not SDLC admission. Java is unchanged. Statements
 below about retained children and process `try_wait` describe the legacy native
 path only, not container custody or Docker acceptance evidence.
 

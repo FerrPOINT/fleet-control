@@ -5036,7 +5036,7 @@ async fn provision_hermes(agent: &Agent, config: &AppConfig) -> Result<(), AppEr
         .await
         .map_err(AppError::internal)?;
     let mut content = json!({"profile":agent.name,"runtime":"hermes",
-        "terminal":{"cwd":agent.paths.workspace},"fleet_control":{"agent_id":agent.id,
+        "terminal":{"cwd":configuration_renderer::workspace(agent, config)},"fleet_control":{"agent_id":agent.id,
             "api_port":agent.api_port,"dashboard_port":agent.dashboard_port}});
     configuration_renderer::native_listener(agent, config, &mut content)?;
     write_if_missing(
@@ -5143,7 +5143,7 @@ pub(crate) async fn configuration_files(
             "terminal configuration must be an object",
         ));
     }
-    content["terminal"]["cwd"] = json!(agent.paths.workspace);
+    content["terminal"]["cwd"] = json!(configuration_renderer::workspace(agent, config));
     if renderer == 2 {
         configuration_renderer::native_listener(agent, config, &mut content)?;
     }

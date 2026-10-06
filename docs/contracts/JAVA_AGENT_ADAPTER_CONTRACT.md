@@ -5,6 +5,8 @@ bindings. It neither containerizes Java nor adds Java chat/control/SDLC
 capabilities. Existing Java local jar lifecycle/readiness remains unchanged.
 Java Docker lifecycle will need its own image/launch and acceptance contract;
 Hermes original container receipts cannot authorize a Java launch.
+The new automatic first-generation preparation path is likewise Hermes-only;
+Java never obtains its image/process/config bindings or preparation receipt.
 
 The original approval journal (000016) likewise adds no Java chat/control or
 machine admission. Its claim requires an accepted concrete Hermes free chat;

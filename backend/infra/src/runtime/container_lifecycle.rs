@@ -4,10 +4,11 @@ use container_control::{
     ContainerControl, ContainerLaunchFiles, ContainerObservation, ContainerReceipt,
     ContainerReceiptState, ControlSource,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::Path;
+use tokio::io::AsyncWriteExt;
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct PreparedContainer {
     agent_id: Uuid,
@@ -18,6 +19,78 @@ struct PreparedContainer {
     container: RuntimeContainerBinding,
 }
 
+// Resolved runtime credentials are only persisted in private controller storage.
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ContainerCreationIntent {
+    agent_id: Uuid,
+    generation: Uuid,
+    operation_id: Uuid,
+    paths: domain::AgentPaths,
+    api_port: Option<i32>,
+    configuration_revision: Option<i64>,
+    configuration_sha256: Option<String>,
+    policy: Value,
+    process: container_control::ContainerProcess,
+    source_sha256: [String; 3],
+    context: String,
+}
+
+async fn private_document(
+    root: &Path,
+    path: &Path,
+    value: &impl Serialize,
+) -> Result<(), AppError> {
+    if path.parent() != Some(root) {
+        return Err(held());
+    }
+    crate::reject_symlink_components(root, path)
+        .await
+        .map_err(|_| held())?;
+    let bytes = serde_json::to_vec(value).map_err(|_| held())?;
+    if bytes.len() > 64 * 1024 {
+        return Err(held());
+    }
+    let mut options = tokio::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    options.mode(0o600);
+    let mut file = options.open(path).await.map_err(|_| held())?;
+    file.write_all(&bytes).await.map_err(|_| held())?;
+    file.sync_all().await.map_err(|_| held())?;
+    tokio::fs::File::open(root)
+        .await
+        .map_err(|_| held())?
+        .sync_all()
+        .await
+        .map_err(|_| held())
+}
+
+async fn read_private_document(root: &Path, path: &Path) -> Result<Option<Vec<u8>>, AppError> {
+    crate::reject_symlink_components(root, path)
+        .await
+        .map_err(|_| held())?;
+    let meta = match tokio::fs::symlink_metadata(path).await {
+        Ok(meta) => meta,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(_) => return Err(held()),
+    };
+    if path.parent() != Some(root) || !meta.is_file() || meta.len() > 64 * 1024 {
+        return Err(held());
+    }
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::fs::MetadataExt;
+        if meta.mode() & 0o777 != 0o600
+            || meta.nlink() != 1
+            || meta.uid() != tokio::fs::metadata(root).await.map_err(|_| held())?.uid()
+        {
+            return Err(held());
+        }
+    }
+    Ok(Some(tokio::fs::read(path).await.map_err(|_| held())?))
+}
+
 fn held() -> AppError {
     AppError::Unavailable(
         "original agent container requires reconciliation; no native fallback".into(),
@@ -25,6 +98,154 @@ fn held() -> AppError {
 }
 
 impl LocalRuntimeSupervisor {
+    async fn create_container(
+        &self,
+        agent: &Agent,
+        root: &Path,
+        prepared_path: &Path,
+        revision: Option<i64>,
+        revision_hash: Option<String>,
+    ) -> Result<(), AppError> {
+        let config = self
+            .config
+            .fleet
+            .container_control
+            .as_ref()
+            .ok_or_else(held)?;
+        let provisioning = config.provisioning.as_ref().ok_or_else(held)?;
+        let agents = crate::normalize_path(Path::new(&self.config.fleet.agents_root))?;
+        let base = crate::normalize_path(Path::new(&config.base_root))?;
+        if root.starts_with(&agents)
+            || agents.starts_with(root)
+            || base.starts_with(&agents)
+            || agents.starts_with(&base)
+        {
+            return Err(held());
+        }
+        let path = root.join(format!("{}.container-creation.json", agent.id));
+        let previous = read_private_document(root, &path).await?;
+        let previous: Option<ContainerCreationIntent> = previous
+            .map(|bytes| serde_json::from_slice(&bytes).map_err(|_| held()))
+            .transpose()?;
+        let generation = previous
+            .as_ref()
+            .map_or_else(Uuid::new_v4, |value| value.generation);
+        let operation_id = previous
+            .as_ref()
+            .map_or_else(Uuid::new_v4, |value| value.operation_id);
+        if generation.is_nil() || operation_id.is_nil() {
+            return Err(held());
+        }
+        let service = format!("{}-runtime-{}", agent.name, generation.simple());
+        let port = agent
+            .api_port
+            .filter(|value| (1024..=65535).contains(value))
+            .ok_or_else(held)?;
+        let intent = ContainerCreationIntent {
+            agent_id: agent.id,
+            generation,
+            operation_id,
+            paths: agent.paths.clone(),
+            api_port: agent.api_port,
+            configuration_revision: revision,
+            configuration_sha256: revision_hash,
+            policy: json!({"contract_version":2, "project":provisioning.project,"service":service,
+                "resource_id":agent.id,"generation":generation,"image_id":provisioning.image_id,
+                "task":provisioning.task,"purpose":provisioning.purpose,
+                "mounts":[
+                    {"type":"bind","source":agent.paths.runtime,"destination":"/runtime","read_only":true},
+                    {"type":"bind","source":agent.paths.config,"destination":"/config","read_only":false},
+                    {"type":"bind","source":agent.paths.workspace,"destination":"/workspace","read_only":false},
+                    {"type":"bind","source":agent.paths.logs,"destination":"/logs","read_only":false}],
+                "network":{"id":"0".repeat(64),"name":format!("{}-{service}", provisioning.project),
+                    "internal":provisioning.network_internal}}),
+            process: container_control::ContainerProcess {
+                user: provisioning.user.clone(),
+                entrypoint: provisioning.entrypoint.clone(),
+                command: vec![
+                    "serve".into(),
+                    "--host".into(),
+                    "0.0.0.0".into(),
+                    "--port".into(),
+                    port.to_string(),
+                ],
+                environment: std::collections::BTreeMap::from([
+                    ("HOME".into(), "/config".into()),
+                    ("HERMES_HOME".into(), "/config".into()),
+                    ("HERMES_SERVE_HEADLESS".into(), "1".into()),
+                    ("API_SERVER_ENABLED".into(), "true".into()),
+                    ("API_SERVER_HOST".into(), "0.0.0.0".into()),
+                    ("API_SERVER_PORT".into(), port.to_string()),
+                    (
+                        "API_SERVER_KEY".into(),
+                        crate::agent_runtime_token(&self.config, agent.id)?,
+                    ),
+                    (
+                        "API_SERVER_CORS_ORIGINS".into(),
+                        self.config.server.cors_allowed_origins.join(","),
+                    ),
+                    ("PYTHONDONTWRITEBYTECODE".into(), "1".into()),
+                ]),
+                working_dir: "/workspace".into(),
+                pids_limit: provisioning.pids_limit,
+                memory_bytes: provisioning.memory_bytes,
+                nano_cpus: provisioning.nano_cpus,
+            },
+            source_sha256: config.source_sha256.clone(),
+            context: config.context.clone(),
+        };
+        if let Some(previous) = previous {
+            if serde_json::to_value(previous).map_err(|_| held())?
+                != serde_json::to_value(&intent).map_err(|_| held())?
+            {
+                return Err(held());
+            }
+        } else {
+            private_document(root, &path, &intent).await?;
+        }
+        let name = format!("{}.{}", agent.id, generation);
+        let files = ContainerLaunchFiles {
+            policy: intent.policy,
+            compose: root.join(format!("{name}.compose.json")),
+            journal: root.join(format!("{name}.launch.sqlite")),
+            stop_journal: root.join(format!("{name}.stop.sqlite")),
+        };
+        let control = ContainerControl::new(
+            config.python.clone().into(),
+            ControlSource {
+                root: config.base_root.clone().into(),
+                sha256: config.source_sha256.clone(),
+            },
+            config.context.clone(),
+        )?;
+        let prepared = control
+            .prepare(
+                &files,
+                &intent.process,
+                operation_id,
+                &root.join(format!("{name}.create.json")),
+                &root.join(format!("{name}.create.sqlite")),
+            )
+            .await?;
+        let document = PreparedContainer {
+            agent_id: agent.id,
+            paths: agent.paths.clone(),
+            api_port: agent.api_port,
+            configuration_revision: revision,
+            configuration_sha256: intent.configuration_sha256,
+            container: RuntimeContainerBinding {
+                registration: prepared.registration,
+                policy: prepared.policy,
+                compose: files.compose.to_string_lossy().into_owned(),
+                journal: files.journal.to_string_lossy().into_owned(),
+                stop_journal: files.stop_journal.to_string_lossy().into_owned(),
+                source_sha256: config.source_sha256.clone(),
+                context: config.context.clone(),
+            },
+        };
+        private_document(root, prepared_path, &document).await
+    }
+
     pub(super) fn container_control(
         &self,
         binding: &RuntimeContainerBinding,
@@ -186,27 +407,6 @@ impl LocalRuntimeSupervisor {
         ))
         .await?;
         let path = root.join(format!("{}.container-prepared.json", agent.id));
-        crate::reject_symlink_components(&root, &path)
-            .await
-            .map_err(|_| held())?;
-        let metadata = tokio::fs::symlink_metadata(&path)
-            .await
-            .map_err(|_| held())?;
-        if !metadata.is_file() || metadata.len() > 16_384 {
-            return Err(held());
-        }
-        #[cfg(target_os = "linux")]
-        {
-            use std::os::unix::fs::MetadataExt;
-            if metadata.mode() & 0o777 != 0o600
-                || metadata.uid() != tokio::fs::metadata(&root).await.map_err(|_| held())?.uid()
-            {
-                return Err(held());
-            }
-        }
-        let prepared: PreparedContainer =
-            serde_json::from_slice(&tokio::fs::read(path).await.map_err(|_| held())?)
-                .map_err(|_| held())?;
         let (phase, revision) = match phase {
             LaunchPhase::Regular => (
                 "regular",
@@ -229,6 +429,34 @@ impl LocalRuntimeSupervisor {
                 )
             })
             .transpose()?;
+        if read_private_document(&root, &path).await?.is_none() {
+            if phase != "regular" {
+                return Err(held());
+            }
+            self.create_container(agent, &root, &path, revision_number, revision_hash.clone())
+                .await?;
+        }
+        crate::reject_symlink_components(&root, &path)
+            .await
+            .map_err(|_| held())?;
+        let metadata = tokio::fs::symlink_metadata(&path)
+            .await
+            .map_err(|_| held())?;
+        if !metadata.is_file() || metadata.len() > 16_384 {
+            return Err(held());
+        }
+        #[cfg(target_os = "linux")]
+        {
+            use std::os::unix::fs::MetadataExt;
+            if metadata.mode() & 0o777 != 0o600
+                || metadata.uid() != tokio::fs::metadata(&root).await.map_err(|_| held())?.uid()
+            {
+                return Err(held());
+            }
+        }
+        let prepared: PreparedContainer =
+            serde_json::from_slice(&tokio::fs::read(path).await.map_err(|_| held())?)
+                .map_err(|_| held())?;
         if prepared.agent_id != agent.id
             || serde_json::to_value(&prepared.paths).map_err(AppError::internal)?
                 != serde_json::to_value(&agent.paths).map_err(AppError::internal)?

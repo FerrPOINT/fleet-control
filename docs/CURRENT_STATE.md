@@ -9,19 +9,28 @@ The candidate private Rust client and its
 start/read-only observe/stop over the Base stdin/stdout protocol. They are
 now routed from LocalRuntimeSupervisor when operator Docker configuration is
 selected: immutable DB binding before start, original ACK/endpoint readback,
-health, namespace-confirmed stop and dispatch-generation checks. This consumer
-requires a private operator-prepared Compose registration; missing/unknown
+health, namespace-confirmed stop and dispatch-generation checks. Optional private
+provisioning configuration now connects automatic first-generation Compose
+render/create/register: original credential-bearing intent before Base create,
+closed matching receipt, prepared document and DB binding before start. Existing
+operator-prepared generations remain compatible; missing/unknown
 preparation never falls back to native execution. Legacy native remains only
 with no Docker configuration. Installed enablement has not changed.
-Compose create/rendering, trusted Fleet network connection, daemon path mapping,
-container logs, loaded config and configuration drain/rollback remain open.
+Trusted Fleet network connection, daemon path mapping, UID/file access, container
+logs, loaded config, new-generation restart and configuration drain/rollback remain open.
 
 Base [PR150](https://github.com/FerrPOINT/services-base/pull/150) now publishes
-`4cfdfa9e45216c6c499580541eb8c3d1bb37ccc8`, ready for review/CLEAN with
-[nine successful exact-head CI jobs](https://github.com/FerrPOINT/services-base/actions/runs/37420102732).
-Local314 Python cases pass303/skip11; native two-container endpoint/readback
-passes with source fingerprints and exact owned cleanup. Earlier v1 bootstrap/
-crash evidence refers to unchanged historical bootstrap bytes.
+`1d191055bb88eae4cacc8aeb6642e1a3882f90d6`, ready for review/CLEAN with all nine
+[exact-head CI jobs successful](https://github.com/FerrPOINT/services-base/actions/runs/37432291311).
+Local329 Python cases pass318/skip11; native two-container automatic preparation,
+endpoint/readback, start/stop and sibling pass with source fingerprints and exact
+owned cleanup. A fresh native v1 bootstrap/crash regression also passes with
+these bootstrap bytes. Actual creation-controller exits before and after the
+create effect verify original-key holds/readback without agent execution or a
+second create. The fresh Rust1.88/PG consumer gate passes494 tests,0 failed,
+29 ignored, with all288 source inputs unchanged, fmt/check/strict Clippy PASS.
+[Evidence and retained failures](CHAT_CLARIFICATION_VERIFICATION.md#automatic-container-preparation-6-october-2026)
+separate fake-Base Rust fixtures from native Base utility checks.
 These are utility tests, not Fleet/Hermes/PM or seven-agent SDLC acceptance.
 No API/schema/SDK/image pin, frontend or accepted runtime deployment is changed.
 

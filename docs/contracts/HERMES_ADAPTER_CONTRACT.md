@@ -8,7 +8,11 @@ launch and observed original running namespace, not from Hermes-supplied fields
 or a newly discovered PID/address. Unknown start remains held and cannot fall
 back to native launch or loopback HTTP. Base endpoint validation alone proves
 neither network reachability nor loaded configuration, model access or SDLC
-readiness. Automatic Compose provisioning and live container acceptance remain.
+readiness. Automatic first-generation Compose preparation now saves the original
+private intent and consumes Base's never-started preparation receipt before DB
+claim/start. It uses /config and /workspace inside the container and binds only
+the isolated bridge, without published ports. Daemon mount translation, UID/file
+access, controller bridge connectivity and actual Hermes container acceptance remain.
 
 Retained-child checks below apply to the legacy native path. Container config
 activation is explicitly unavailable before file/stop effects until safe

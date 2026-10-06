@@ -20,7 +20,7 @@ pub(crate) fn native_listener(
     api.remove("key");
     api.remove("cors_origins");
     let extra = object(api, "extra")?;
-    extra.insert("host".into(), json!("127.0.0.1"));
+    extra.insert("host".into(), json!(listener_host(config)));
     extra.insert("port".into(), json!(port));
     // Empty dotenv CORS does not override YAML in the native bridge.
     extra.insert(
@@ -65,14 +65,21 @@ pub(crate) fn env(agent: &Agent, config: &AppConfig) -> Result<String, AppError>
         .ok_or_else(|| AppError::validation("managed Hermes API port is required"))?;
     let mut env = String::from("# Managed by Fleet Control renderer v2.\n");
     for (key, value) in [
-        ("HERMES_HOME", agent.paths.config.clone()),
+        (
+            "HERMES_HOME",
+            if config.fleet.container_control.is_some() {
+                "/config".into()
+            } else {
+                agent.paths.config.clone()
+            },
+        ),
         ("HERMES_SERVE_HEADLESS", "1".into()),
         ("API_SERVER_ENABLED", "true".into()),
         (
             "API_SERVER_KEY",
             crate::agent_runtime_token(config, agent.id)?,
         ),
-        ("API_SERVER_HOST", "127.0.0.1".into()),
+        ("API_SERVER_HOST", listener_host(config).into()),
         ("API_SERVER_PORT", port.to_string()),
         (
             "API_SERVER_CORS_ORIGINS",
@@ -85,6 +92,22 @@ pub(crate) fn env(agent: &Agent, config: &AppConfig) -> Result<String, AppError>
         env.push('\n');
     }
     Ok(env)
+}
+
+fn listener_host(config: &AppConfig) -> &'static str {
+    if config.fleet.container_control.is_some() {
+        "0.0.0.0"
+    } else {
+        "127.0.0.1"
+    }
+}
+
+pub(crate) fn workspace(agent: &Agent, config: &AppConfig) -> String {
+    if agent.kind == domain::AgentKind::Hermes && config.fleet.container_control.is_some() {
+        "/workspace".into()
+    } else {
+        agent.paths.workspace.clone()
+    }
 }
 
 #[cfg(test)]
@@ -151,5 +174,34 @@ mod tests {
             assert!(native_listener(&agent, &AppConfig::default(), &mut json!({})).is_err());
             assert!(env(&agent, &AppConfig::default()).is_err());
         }
+    }
+
+    #[test]
+    fn container_listener_uses_only_container_paths_and_bridge_address() {
+        let agent = crate::tests::test_agent(
+            Path::new("/controller-visible/agents"),
+            Uuid::new_v4(),
+            AgentStatus::Ready,
+        );
+        let mut config = AppConfig::default();
+        config.fleet.runtime_token_secret = "fixture-only-not-production".into();
+        config.fleet.container_control = Some(shared::config::ContainerControlConfig {
+            python: "python3".into(),
+            base_root: "/trusted/base".into(),
+            source_sha256: ["a".repeat(64), "b".repeat(64), "c".repeat(64)],
+            context: "default".into(),
+            provisioning: None,
+        });
+        let mut content = json!({});
+        native_listener(&agent, &config, &mut content).unwrap();
+        assert_eq!(
+            content["platforms"]["api_server"]["extra"]["host"],
+            "0.0.0.0"
+        );
+        assert_eq!(workspace(&agent, &config), "/workspace");
+        let env = env(&agent, &config).unwrap();
+        assert!(env.contains("HERMES_HOME=\"/config\"\n"));
+        assert!(env.contains("API_SERVER_HOST=\"0.0.0.0\"\n"));
+        assert!(!env.contains("controller-visible"));
     }
 }

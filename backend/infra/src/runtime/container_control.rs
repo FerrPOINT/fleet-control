@@ -103,6 +103,56 @@ pub struct ContainerLaunchFiles {
     pub stop_journal: PathBuf,
 }
 
+// Resolved credentials remain private. Never derive Debug or expose this as an API DTO.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContainerProcess {
+    pub user: String,
+    pub entrypoint: Vec<String>,
+    pub command: Vec<String>,
+    pub environment: std::collections::BTreeMap<String, String>,
+    pub working_dir: String,
+    pub pids_limit: u32,
+    pub memory_bytes: u64,
+    pub nano_cpus: u64,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContainerPreparation {
+    state: String,
+    pub policy: Value,
+    pub registration: ContainerRegistration,
+}
+
+fn validate_preparation(
+    prepared: &ContainerPreparation,
+    policy: &Value,
+    operation_id: Uuid,
+) -> Result<(), AppError> {
+    validate_registration(&prepared.registration)?;
+    let mut expected = policy.clone();
+    let network_id = prepared.policy["network"]["id"].as_str().ok_or_else(held)?;
+    if policy["network"]["id"] != "0".repeat(64)
+        || !hash(network_id)
+        || network_id == "0".repeat(64)
+    {
+        return Err(held());
+    }
+    expected["network"]["id"] = json!(network_id);
+    if prepared.state != "prepared"
+        || prepared.policy != expected
+        || prepared.registration.contract_version != 2
+        || prepared.registration.operation_id != operation_id
+        || prepared.registration.policy_sha256 != canonical_hash(&prepared.policy)?
+        || prepared.policy["resource_id"] != json!(prepared.registration.resource_id)
+        || prepared.policy["generation"] != json!(prepared.registration.generation)
+    {
+        return Err(held());
+    }
+    Ok(())
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Envelope {
@@ -323,6 +373,41 @@ impl ContainerControl {
         Ok(registration)
     }
 
+    /// Creates but never starts the process. Fleet must persist its DB binding before start.
+    pub async fn prepare(
+        &self,
+        files: &ContainerLaunchFiles,
+        process: &ContainerProcess,
+        operation_id: Uuid,
+        creation_compose: &std::path::Path,
+        creation_journal: &std::path::Path,
+    ) -> Result<ContainerPreparation, AppError> {
+        if operation_id.is_nil()
+            || !creation_compose.is_absolute()
+            || !creation_journal.is_absolute()
+            || creation_compose.parent() != files.compose.parent()
+            || creation_journal.parent() != files.compose.parent()
+        {
+            return Err(held());
+        }
+        let (status, value) = self
+            .call(
+                files,
+                "prepare",
+                json!({
+                    "process":process, "operation_id":operation_id,
+                    "creation_compose":creation_compose, "creation_journal":creation_journal,
+                }),
+            )
+            .await?;
+        if status != 0 {
+            return Err(held());
+        }
+        let prepared: ContainerPreparation = serde_json::from_value(value).map_err(|_| held())?;
+        validate_preparation(&prepared, &files.policy, operation_id)?;
+        Ok(prepared)
+    }
+
     pub async fn observe(
         &self,
         files: &ContainerLaunchFiles,
@@ -478,6 +563,46 @@ mod tests {
             canonical_hash(&json!({"z":{"y":2,"a":1},"a":0})).unwrap(),
             "83881ff50a9a61481c4ed5e19aa8d7610ccfa1705bf25a25c1a00aa713949461"
         );
+    }
+
+    #[test]
+    fn preparation_accepts_only_original_policy_with_allocated_bridge_id() {
+        let mut registration = original();
+        let input = json!({"contract_version":2,"resource_id":registration.resource_id,
+            "generation":registration.generation,"mounts":[{"source":"/owned/config"}],
+            "network":{"id":"0".repeat(64),"name":"original-bridge","internal":true}});
+        let mut policy = input.clone();
+        policy["network"]["id"] = json!("1".repeat(64));
+        registration.policy_sha256 = canonical_hash(&policy).unwrap();
+        let original = ContainerPreparation {
+            state: "prepared".into(),
+            policy,
+            registration,
+        };
+        validate_preparation(&original, &input, original.registration.operation_id).unwrap();
+        for field in [
+            "mount",
+            "bridge",
+            "generation",
+            "state",
+            "hash",
+            "operation",
+        ] {
+            let mut changed: ContainerPreparation = serde_json::from_value(json!({
+                "state":original.state,"policy":original.policy,"registration":original.registration})).unwrap();
+            match field {
+                "mount" => changed.policy["mounts"][0]["source"] = json!("/other-agent/config"),
+                "bridge" => changed.policy["network"]["internal"] = json!(false),
+                "generation" => changed.registration.generation = Uuid::new_v4(),
+                "state" => changed.state = "held".into(),
+                "hash" => changed.registration.policy_sha256 = "0".repeat(64),
+                _ => changed.registration.operation_id = Uuid::new_v4(),
+            }
+            assert!(
+                validate_preparation(&changed, &input, original.registration.operation_id).is_err(),
+                "{field}"
+            );
+        }
     }
 
     fn original() -> ContainerRegistration {

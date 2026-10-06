@@ -12,11 +12,22 @@ legacy native deployment, not container readiness. These fields are deployment
 configuration, not user-editable agent settings; Python/Base paths must be
 protected operator executables. No example signing key or runtime token is needed.
 
-Preparation currently requires a closed private document in CONTROLLER_ROOT;
-the exact shape and held states are described in the
+The optional `[fleet.container_control.provisioning]` table enables automatic
+first-generation preparation when the private prepared file is missing. Required
+operator fields: project (sdlc1/sdlc2 or owned QA), image_id (exact sha256 image),
+numeric non-root user, explicit entrypoint array, pids_limit, memory_bytes,
+nano_cpus, network_internal, task and purpose. No value is supplied by agent UI,
+chat input or model tools. The source must support Base's private prepare action;
+all three exact executable hashes must match the tested checkout. No SDK/image
+pin is upgraded implicitly. Without provisioning the compatibility path requires
+an operator-prepared document. The closed shapes and held states are in the
 [private contract](contracts/CONTAINER_CONTROL_V1.md#supervisor-binding).
-Automated rendering, controller bridge attachment, daemon mount translation and
-new-generation config rollback remain open. Keep installed enablement off until
+Creation intent is private and credential-bearing; do not commit it or include
+it in API/log/audit responses. HOME/HERMES_HOME=/config and cwd=/workspace are
+container paths; listener0.0.0.0 has no host port publishing. Current mounts require
+the same canonical host paths seen by the daemon. UID/file access, controller
+bridge attachment, daemon mount translation and new-generation config rollback
+remain open. Keep installed enablement off until
 real Fleet/Hermes container acceptance; this packet changes no accepted mounts,
 images, ports, flags or secrets.
 

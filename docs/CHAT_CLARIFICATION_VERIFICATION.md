@@ -1,6 +1,63 @@
 # Chat Clarification Verification
 
-## Full Workspace Consumer Gate: 6 October 2026
+## Automatic Container Preparation: 6 October 2026
+
+Fresh project `sdlc-qa-fleet-container-control-4f2035449da9` passes Rust1.88
+fmt, locked/offline all-target workspace check, strict all-target Clippy and
+`cargo test --workspace -- --nocapture --test-threads=1`:494 passed,0 failed,
+29 ignored. All288 frozen inputs still match the integration worktree and the
+exact pinned Base SDKcbb4e99 checkout, not the newer Base runtime utility branch.
+Explicit disposable PostgreSQL exercises normal repository/HTTP fixtures.
+Ignored native/producers, dedicated large-keyset, central-profile/directory,
+migration-lineage and message-order profiles are not certified by this run.
+
+The four additional tests cover container listener/path rendering, strict
+prepared-policy readback, automatic creation with a DB binding before unknown
+start, and unknown preparation recovery with changed-credential rejection.
+The last two use a fake Base subprocess and actual PostgreSQL; they are not
+Docker/Hermes acceptance. A private intent pins original generation, credentials,
+paths, process and source before Base prepare. Changed input holds; no native
+fallback, unknown-start retry or agent-ID substitution is introduced.
+
+| Evidence | SHA256 |
+| --- | --- |
+| frozen source manifest | `362ed864a55c8db9006e9e0c216195bde79c63b6624c11812250825a8a7d67ce` |
+| full workspace log | `5efc9bb6cef73689f39e572f04a8ad34712146321086929866d427a63991c1bb` |
+| full workspace report | `0f654631eb3de7ec9ea0d43150e1fe8482965f0f71436c19ad4b281f2c20c2af` |
+
+The preliminary project952029dc5d9b remains FAILED: a test-fixture byte-budget
+expression used Python-style exponentiation in Rust and failed compilation.
+Only that expression was corrected to integer multiplication; production guards,
+deadlines and assertions were not relaxed. Both exact projects are cleaned;
+independent Compose ps is empty. No UI/screenshot/browser evidence is added.
+
+Base [PR150](https://github.com/FerrPOINT/services-base/pull/150), exact head
+`1d191055bb88eae4cacc8aeb6642e1a3882f90d6`, is independently ready/CLEAN with
+[nine successful CI jobs](https://github.com/FerrPOINT/services-base/actions/runs/37432291311).
+Its native automatic preparation gate uses projectf419b751ba90: two isolated
+synthetic HTTP agents, cross-token denial, original endpoint/start/stop/sibling
+checks, plus actual controller exits before and after create. Before-create
+recovery holds; after-create recovery registers the same never-started container.
+Both retain the original claim/key and never execute the agent or repeat create.
+All six executable fingerprints match the published raw Git blobs; the report's
+base_head5c06b7a records its precommit baseline, not the final certified source.
+Native v1 bootstrap project77631c0e9015 separately verifies unchanged launch
+and start-crash behavior with all five source fingerprints matching final bytes.
+
+| Independent Base utility report | SHA256 |
+| --- | --- |
+| native automatic preparation and creation-controller faults | `868628d2a799b73c78c143b5e9daf8d2407617ef8e209e7f8a37127597088c49` |
+| native v1 bootstrap and startup-controller faults | `c48b86dd32b981c16250e0cfacb70052463bf285150e106a584602b854b70f1e` |
+
+Base host329 cases pass318/skip11; scoped runtime92 pass91/skip1. Exact owned
+cleanup is verified. These utility gates do not prove Fleet Rust plus real Hermes,
+controller bridge attachment, daemon path mapping, UID/file access, Docker logs,
+new-generation restart, loaded-config attestation or config drain/rollback.
+Task admission/first step, PM tools/resume, Forge receipts and seven-agent
+deployment acceptance remain required. No merge, install, public API/schema,
+SDK/image pin or accepted runtime change belongs to this packet.
+
+## Historical Full Workspace Consumer Gate: 6 October 2026
 
 Fresh project `sdlc-qa-fleet-container-control-b1b8968dd75f` passes Rust1.88
 fmt, locked/offline all-target workspace check, strict all-target Clippy and

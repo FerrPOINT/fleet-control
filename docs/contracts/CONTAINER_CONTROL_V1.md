@@ -1,8 +1,9 @@
 # Private Container Control v1
 
 Status: private client and opt-in supervisor routing are implemented in the
-integration candidate. Automated Compose preparation, installed enablement and
-live Fleet/Hermes acceptance remain incomplete. Native execution is not
+integration candidate. Automatic first-generation preparation is connected
+behind private deployment configuration; installed enablement and live
+Fleet/Hermes acceptance remain incomplete. Native execution is not
 silently relabelled Docker.
 
 ## Ownership
@@ -52,16 +53,42 @@ client alone does not enforce this transaction or provide Tracker/Workflow
 admission. The supervisor now commits this binding before invoking start.
 Its Rust methods are controller-internal, not public HTTP API.
 
+Prepare adds process/operation_id/creation_compose/creation_journal. Base renders
+one immutable generation-specific service and owns its bridge creation. Fleet
+validates a closed prepared receipt and permits only the network ID to change
+from the unallocated zero sentinel; all original policy fields and registration
+hash/identity must match. A held receipt cannot reach DB claim/start. Base commits
+an original payload/Engine claim before its one Compose create. An unknown create
+may recover only a never-started exact generation through readback; absence stays
+held without another create. This is preparation, not health or execution admission.
+
 ## Supervisor Binding
 
 Operator configuration `fleet.container_control` selects Docker without native
-fallback. The controller currently reads an operator-prepared mode0600 file
+fallback. The controller reads a private mode0600 file
 `<controller_root>/<agent_uuid>.container-prepared.json`, with closed fields:
 agent_id, paths, api_port, configuration_revision, configuration_sha256, container.
 Container fields are registration, policy, compose, journal, stop_journal,
 source_sha256 (three Base file hashes) and context. No public API accepts this
 document. Controller storage is an existing mode0700 directory outside agent
 storage; links, overlapping roots, foreign ownership and relative paths fail.
+
+When the deployment has `container_control.provisioning`, a missing document
+triggers automatic preparation. Fleet persists an exclusive mode0600
+`<agent_uuid>.container-creation.json` before calling Base. It contains the original
+agent/paths/revision, generation/operation UUIDs, policy/process and source/context
+pins; resolved secrets never appear in Debug/public DTO/DB receipts. Restart after
+a failed prepare uses that same intent, not a new UUID. Changed revision, credentials,
+paths or operator process settings conflict before another create. On success Fleet
+writes the prepared document, then separately commits the immutable DB launch before
+sole start. Existing operator-prepared documents remain compatible when provisioning
+is absent. Partial files fail closed and are never overwritten.
+
+Process uses HOME/HERMES_HOME=/config, cwd=/workspace, serve host0.0.0.0 inside its
+sole bridge, derived per-agent token and image-owned explicit entrypoint. No ports
+are published. Renderer v2 writes container-visible config paths/address in Docker
+mode; native mode retains its loopback/address/layout. This is not certification
+of UID/file permissions, controller bridge connectivity or loaded revision.
 
 The registration resource equals the immutable agent UUID; generation equals
 the Fleet launch UUID. Compose project is sdlc1/sdlc2 or an owned QA project.
@@ -94,11 +121,11 @@ and rollback are implemented; native gateway exit is not used as substitute.
 
 ## Remaining Wiring And Acceptance
 
-Required next integration: guarded single-agent Compose rendering/create,
-credential rendering/isolation, explicit trusted Fleet bridge access,
+Required next integration: trusted daemon/controller mount mapping and UID/file
+access checks, actual Hermes container acceptance, explicit trusted Fleet bridge access,
 container stdout/stderr capture, controller takeover and loaded-generation
 attestation, plus receipt-based configuration drain/activation/rollback. The
-current prepared-container consumer is not automatic provisioning. Java control remains
+first-generation preparation does not complete the container lifecycle. Java control remains
 phase2. No public OpenAPI, database migration, SDK pin or installed image changes
 are implied by the client.
 

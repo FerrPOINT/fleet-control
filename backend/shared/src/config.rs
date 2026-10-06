@@ -226,6 +226,23 @@ pub struct ContainerControlConfig {
     pub base_root: String,
     pub source_sha256: [String; 3],
     pub context: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provisioning: Option<ContainerProvisioningConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContainerProvisioningConfig {
+    pub project: String,
+    pub image_id: String,
+    pub user: String,
+    pub entrypoint: Vec<String>,
+    pub pids_limit: u32,
+    pub memory_bytes: u64,
+    pub nano_cpus: u64,
+    pub network_internal: bool,
+    pub task: String,
+    pub purpose: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

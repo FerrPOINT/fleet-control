@@ -6,22 +6,26 @@ Docker consumer is now connected in the integration candidate: immutable
 container registration/paths/config/context/source pins precede Base start;
 start/health/stop and every Hermes endpoint use original container receipts.
 Unknown start stays claimed and cannot resend or fall back to native Hermes.
-This requires a private operator-prepared generation. Next implement guarded
-Compose rendering/create, trusted controller bridge attachment, daemon source
-mapping, logs, new-generation restart and namespace-based config rollback.
+Automatic first-generation preparation now saves a private original intent
+before Base render/create/register and writes its matching prepared document.
+Operator-prepared generations remain a compatibility path. Next implement
+trusted controller bridge attachment, daemon source mapping, UID/file access,
+logs, new-generation restart and namespace-based config rollback.
 Do not enable installed Docker mode or label automatic provisioning complete.
 Task admission, producer first step, PM tools/resume and real Forge/seven-agent
 acceptance remain separate required gates.
 
-The full fresh Rust1.88/PG candidate gate passes490 tests with29 explicitly
+The full fresh Rust1.88/PG candidate gate passes494 tests with29 explicitly
 ignored profiles, all-target check/strict Clippy and fmt. See
 [verification and retained failure](CHAT_CLARIFICATION_VERIFICATION.md).
-This proves neither automatic provisioning nor actual container/Hermes or
-full PM acceptance; do not relabel the ignored/live gates as complete.
+This gate includes the initial preparation consumer and fake-Base PG fixtures,
+not actual container/Hermes or full PM acceptance. Do not relabel the
+ignored/live gates as complete. The prior490-case gate remains historical.
 
-Read-only remote recheck: Base PR150 at4cfdfa9 is ready/CLEAN with nine green
-CI37420102732 jobs; PR144 is merged at main63fff28. This certifies the endpoint
-utility, not the Fleet consumer. Its validation/publication remains separate.
+Read-only remote recheck: Base PR150 at1d19105 is ready/CLEAN with nine green
+CI37432291311 jobs; PR144 is merged at main63fff28. This certifies the private
+preparation/endpoint utility, not Fleet/Hermes live acceptance. Native creation
+controller exits and v1 regression are recorded separately from Rust fixtures.
 
 ## Historical Native Packet
 

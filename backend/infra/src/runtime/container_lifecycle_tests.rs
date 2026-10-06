@@ -180,6 +180,7 @@ print(json.dumps({'protocol_version':1,'action':r['action'],'result':result}));s
         base_root: base.to_string_lossy().into_owned(),
         source_sha256: container.source_sha256.clone(),
         context: container.context.clone(),
+        provisioning: None,
     });
     launch.command_sha256 =
         crate::runtime_launches::snapshot_hash(&serde_json::to_value(&container).unwrap()).unwrap();
@@ -395,5 +396,178 @@ async fn container_lifecycle_original_ack_authorizes_generation_and_namespace_st
             .unwrap(),
         "1"
     );
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+async fn fake_creation(config: &AppConfig, agent: &Agent, unknown: bool) -> AppConfig {
+    let (mut config, _) = fake_control(config, binding(agent, Uuid::new_v4()), false).await;
+    let root = Path::new(&config.fleet.controller_root);
+    tokio::fs::remove_file(root.join(format!("{}.container-prepared.json", agent.id)))
+        .await
+        .unwrap();
+    let program = r#"import sys,json,hashlib
+from pathlib import Path
+r=json.load(sys.stdin);root=Path(r['journal']).parent
+digest=lambda v:hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+if r['action']=='prepare':
+ intent=json.loads((root/(r['policy']['resource_id']+'.container-creation.json')).read_bytes())
+ assert intent['generation']==r['policy']['generation'] and intent['operation_id']==r['operation_id']
+ assert r['process']['environment']['HERMES_HOME']=='/config' and r['process']['working_dir']=='/workspace'
+ if not (root/'prepare-effect').exists():(root/'prepare-effect').write_text('1')
+ if (root/'prepare-unknown').exists():
+  result={'state':'held','operation_id':r['operation_id'],'resource_id':r['policy']['resource_id'],'generation':r['policy']['generation']}
+ else:
+  policy=r['policy'];policy['network']['id']='1'*64
+  reg={'contract_version':2,'operation_id':r['operation_id'],'container_id':'a'*64,'resource_id':policy['resource_id'],'generation':policy['generation'],'engine':{'ID':'original-engine','KernelVersion':'original-kernel','ServerVersion':'29'},'policy_sha256':digest(policy),'inventory_sha256':'c'*64,'running_inventory_sha256':'d'*64,'compose_sha256':'e'*64,'network_sha256':'f'*64}
+  result={'state':'prepared','policy':policy,'registration':reg}
+else:
+ reg=r['registration'];result={k:reg[k] for k in ('contract_version','operation_id','container_id','resource_id','generation')}
+ result.update(registration_sha256=digest(reg),state='registered',observation='never_started',snapshot=None)
+ if r['action']=='start':(root/'start-effect').write_text('1')
+ if (root/'start-effect').exists():result.update(state='held',observation='unavailable')
+print(json.dumps({'protocol_version':1,'action':r['action'],'result':result}));sys.exit(2 if result['state']=='held' else 0)
+"#;
+    let control = config.fleet.container_control.as_mut().unwrap();
+    let source = Path::new(&control.base_root).join("scripts/runtime_control.py");
+    tokio::fs::write(source, program).await.unwrap();
+    control.source_sha256[2] = hex::encode(Sha256::digest(program.as_bytes()));
+    control.provisioning = Some(shared::config::ContainerProvisioningConfig {
+        project: "sdlc-qa-container-create-aaaaaaaaaaaa".into(),
+        image_id: format!("sha256:{}", "b".repeat(64)),
+        user: "10001:10001".into(),
+        entrypoint: vec!["/usr/bin/hermes".into()],
+        pids_limit: 128,
+        memory_bytes: 512 * 1024 * 1024,
+        nano_cpus: 1_000_000_000,
+        network_internal: true,
+        task: "container-creation".into(),
+        purpose: "consumer-test".into(),
+    });
+    if unknown {
+        tokio::fs::write(root.join("prepare-unknown"), "1")
+            .await
+            .unwrap();
+    }
+    config
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn container_lifecycle_automatic_creation_binds_before_start_and_holds_unknown_start() {
+    let Some((repo, agent, _, config, root)) = lifecycle_tests::fixture(AgentKind::Hermes).await
+    else {
+        return;
+    };
+    let config = fake_creation(&config, &agent, false).await;
+    let runtime = lifecycle_tests::supervisor(Arc::new(config), repo.clone());
+    assert!(
+        runtime
+            .start_locked(&agent, LaunchPhase::Regular)
+            .await
+            .is_err()
+    );
+    let launch = repo
+        .get_open_runtime_launch(agent.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(launch.state, "claimed");
+    let private = root.join("controller");
+    let intent: Value = serde_json::from_slice(
+        &tokio::fs::read(private.join(format!("{}.container-creation.json", agent.id)))
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(intent["generation"], json!(launch.binding.id));
+    assert_eq!(intent["process"]["environment"]["HOME"], "/config");
+    assert!(
+        private
+            .join(format!("{}.container-prepared.json", agent.id))
+            .exists()
+    );
+    assert!(
+        runtime
+            .start_locked(
+                &repo.get_agent(agent.id).await.unwrap(),
+                LaunchPhase::Regular
+            )
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        tokio::fs::read_to_string(private.join("prepare-effect"))
+            .await
+            .unwrap(),
+        "1"
+    );
+    assert_eq!(
+        tokio::fs::read_to_string(private.join("start-effect"))
+            .await
+            .unwrap(),
+        "1"
+    );
+    assert!(runtime.children.lock().await.is_empty());
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn container_lifecycle_unknown_creation_reuses_exact_intent_and_rejects_changed_credentials()
+{
+    let Some((repo, agent, _, config, root)) = lifecycle_tests::fixture(AgentKind::Hermes).await
+    else {
+        return;
+    };
+    let mut config = fake_creation(&config, &agent, true).await;
+    let runtime = lifecycle_tests::supervisor(Arc::new(config.clone()), repo.clone());
+    assert!(
+        runtime
+            .start_locked(&agent, LaunchPhase::Regular)
+            .await
+            .is_err()
+    );
+    let path = root.join(format!("controller/{}.container-creation.json", agent.id));
+    let original = tokio::fs::read(&path).await.unwrap();
+    assert!(
+        repo.get_open_runtime_launch(agent.id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        runtime
+            .start_locked(&agent, LaunchPhase::Regular)
+            .await
+            .is_err()
+    );
+    assert_eq!(tokio::fs::read(&path).await.unwrap(), original);
+    config.fleet.runtime_token_secret = "different-secret-must-not-replace-pending-intent".into();
+    let changed = lifecycle_tests::supervisor(Arc::new(config), repo.clone());
+    assert!(
+        changed
+            .start_locked(&agent, LaunchPhase::Regular)
+            .await
+            .is_err()
+    );
+    assert_eq!(tokio::fs::read(&path).await.unwrap(), original);
+    tokio::fs::remove_file(root.join("controller/prepare-unknown"))
+        .await
+        .unwrap();
+    assert!(
+        runtime
+            .start_locked(&agent, LaunchPhase::Regular)
+            .await
+            .is_err()
+    );
+    let launch = repo
+        .get_open_runtime_launch(agent.id)
+        .await
+        .unwrap()
+        .unwrap();
+    let intent: Value = serde_json::from_slice(&original).unwrap();
+    assert_eq!(intent["generation"], json!(launch.binding.id));
+    assert!(runtime.children.lock().await.is_empty());
     tokio::fs::remove_dir_all(root).await.unwrap();
 }
