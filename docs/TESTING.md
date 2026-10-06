@@ -1,5 +1,15 @@
 # Testing
 
+## Actual Container Supervisor Gate
+
+The opt-in [owned Docker acceptance driver](CONTAINER_SUPERVISOR_ACCEPTANCE.md)
+executes the real Rust supervisor and two source-pinned Hermes gateways using a
+controlled local model. It validates loaded SOUL isolation, duplicate-message
+replay, active-run configuration drain, fresh activation/restart generations and
+original namespace stop. Its ignored test is not automatically part of the
+ordinary workspace count. Live outcomes and source/log hashes are recorded in
+[verification](CHAT_CLARIFICATION_VERIFICATION.md), not inferred from compilation.
+
 ## Container Configuration Candidate
 
 The Linux-only `runtime::container_configuration_tests` use disposable

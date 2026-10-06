@@ -14,6 +14,103 @@ pub(crate) fn snapshot_hash(value: &serde_json::Value) -> Result<String, AppErro
     )))
 }
 
+fn valid_endpoint_origin(origin: &str, port: i32) -> bool {
+    let Ok(url) = reqwest::Url::parse(origin) else {
+        return false;
+    };
+    let Some(host) = url
+        .host_str()
+        .and_then(|host| host.parse::<std::net::Ipv4Addr>().ok())
+    else {
+        return false;
+    };
+    (host.is_private() || host == std::net::Ipv4Addr::LOCALHOST)
+        && (1024..=65535).contains(&port)
+        && origin == format!("http://{host}:{port}")
+}
+
+pub(super) async fn record_endpoint(
+    repo: &PostgresFleetRepository,
+    binding: &RuntimeLaunchBinding,
+    pid: i32,
+    origin: &str,
+) -> Result<(), AppError> {
+    validate_container_binding(binding)?;
+    if binding.container.is_none()
+        || pid <= 0
+        || !valid_endpoint_origin(origin, binding.api_port.unwrap_or_default())
+    {
+        return Err(AppError::validation("invalid original container endpoint"));
+    }
+    let txn = repo.db.begin().await.map_err(AppError::database)?;
+    txn.query_one(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT id FROM agents WHERE id=$1 FOR NO KEY UPDATE",
+        [binding.agent_id.into()],
+    ))
+    .await
+    .map_err(AppError::database)?
+    .ok_or_else(|| AppError::not_found("agent", binding.agent_id))?;
+    let record = txn
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT state,pid,binding FROM runtime_launches WHERE id=$1 AND agent_id=$2 FOR UPDATE",
+            [binding.id.into(), binding.agent_id.into()],
+        ))
+        .await
+        .map_err(AppError::database)?
+        .ok_or_else(|| AppError::conflict("original container launch is missing"))?;
+    if record
+        .try_get::<String>("", "state")
+        .map_err(AppError::database)?
+        != "gateway_started"
+        || record
+            .try_get::<Option<i32>>("", "pid")
+            .map_err(AppError::database)?
+            != Some(pid)
+        || record
+            .try_get::<serde_json::Value>("", "binding")
+            .map_err(AppError::database)?
+            != serde_json::to_value(binding).map_err(AppError::internal)?
+    {
+        return Err(AppError::conflict(
+            "original container endpoint custody changed",
+        ));
+    }
+    if let Some(previous) = txn
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT origin,pid FROM runtime_launch_endpoints WHERE launch_id=$1",
+            [binding.id.into()],
+        ))
+        .await
+        .map_err(AppError::database)?
+    {
+        if previous
+            .try_get::<String>("", "origin")
+            .map_err(AppError::database)?
+            != origin
+            || previous
+                .try_get::<i32>("", "pid")
+                .map_err(AppError::database)?
+                != pid
+        {
+            return Err(AppError::conflict(
+                "original container endpoint is immutable",
+            ));
+        }
+    } else {
+        txn.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "INSERT INTO runtime_launch_endpoints(launch_id,origin,pid) VALUES($1,$2,$3)",
+            [binding.id.into(), origin.into(), pid.into()],
+        ))
+        .await
+        .map_err(AppError::database)?;
+    }
+    txn.commit().await.map_err(AppError::database)
+}
+
 pub(crate) fn valid_agent_container_project(name: &str) -> bool {
     matches!(name, "sdlc1" | "sdlc2")
         || name.strip_prefix("sdlc-qa-").is_some_and(|suffix| {
@@ -673,4 +770,36 @@ pub(super) async fn observe(
         return txn.commit().await.map_err(AppError::database);
     }
     Err(AppError::conflict("original gateway observation changed"))
+}
+
+#[cfg(test)]
+mod endpoint_tests {
+    use super::valid_endpoint_origin;
+
+    #[test]
+    fn endpoint_shape_is_canonical_private_ipv4_and_exact_port() {
+        for host in ["10.0.0.2", "172.18.0.2", "192.168.1.2", "127.0.0.1"] {
+            assert!(valid_endpoint_origin(
+                &format!("http://{host}:29100"),
+                29100
+            ));
+        }
+        for origin in [
+            "http://8.8.8.8:29100",
+            "http://0.0.0.0:29100",
+            "http://169.254.169.254:29100",
+            "http://172.18.0.2:29101",
+            "https://172.18.0.2:29100",
+            "http://172.18.0.2:29100/",
+            "http://172.18.0.2:29100/?x=1",
+            "http://user@172.18.0.2:29100",
+            "http://localhost:29100",
+            "http://[::1]:29100",
+            "http://2130706433:29100",
+            "http://172.18.0.2:029100",
+        ] {
+            assert!(!valid_endpoint_origin(origin, 29100), "{origin}");
+        }
+        assert!(!valid_endpoint_origin("http://10.0.0.2:100", 100));
+    }
 }

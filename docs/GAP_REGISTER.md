@@ -1,5 +1,20 @@
 # Gap Register
 
+## Current Docker Acceptance Boundary
+
+The endpoint-sealing candidate now has real UID 999/mapped-volume Rust/Hermes
+evidence for isolated chat, loaded SOUL, once-only mirror/replay, drain and fresh
+activation/restart generations. The earlier localhost-only dispatch blocker is
+fixed in additive `000019`. Actual readiness-failure rollback, controller restart
+and private-journal loss/restore, Docker logs, producer/task/PM admission and full
+SDLC remain open. Fresh broad workspace verification passes526 tests (30 explicit
+opt-in ignores), fmt/check/strict Clippy; separate migrations pass19 cases without
+ignores. Ordered release/exact-head CI and populated endpoint downgrade refusal
+still need separate evidence. Historical
+"actual Docker/model/config not yet proven" statements below predate this packet;
+do not treat them as current basic-chat status or as proof of the remaining paths.
+See [exact verification](CHAT_CLARIFICATION_VERIFICATION.md#actual-docker-supervisor-chat-and-configuration-6-october-2026).
+
 ## Combined Browser Gate: 6 October 2026
 
 Integration `c02f60e` passes 268 frontend unit tests and 35/36 canonical

@@ -105,6 +105,131 @@ fn binding(agent: &Agent, controller_id: Uuid) -> RuntimeLaunchBinding {
 }
 
 #[tokio::test]
+async fn container_endpoint_requires_original_started_custody_and_is_immutable() {
+    let Some((repo, agent, _, _, root)) = lifecycle_tests::fixture(AgentKind::Hermes).await else {
+        return;
+    };
+    let launch = binding(&agent, Uuid::new_v4());
+    repo.claim_runtime_launch(&launch).await.unwrap();
+    let origin = format!("http://172.18.0.2:{}", agent.api_port.unwrap());
+    assert!(
+        repo.record_container_endpoint(&launch, 12345, &origin)
+            .await
+            .is_err()
+    );
+    repo.observe_runtime_launch(&launch, "gateway_started", Some(12345))
+        .await
+        .unwrap();
+    let (first, replay) = tokio::join!(
+        repo.record_container_endpoint(&launch, 12345, &origin),
+        repo.record_container_endpoint(&launch, 12345, &origin)
+    );
+    first.unwrap();
+    replay.unwrap();
+    assert!(
+        repo.record_container_endpoint(&launch, 12346, &origin)
+            .await
+            .is_err()
+    );
+    let other = format!("http://172.18.0.3:{}", agent.api_port.unwrap());
+    assert!(
+        repo.record_container_endpoint(&launch, 12345, &other)
+            .await
+            .is_err()
+    );
+    let mut foreign = launch.clone();
+    foreign.controller_id = Uuid::new_v4();
+    assert!(
+        repo.record_container_endpoint(&foreign, 12345, &origin)
+            .await
+            .is_err()
+    );
+    for sql in [
+        "UPDATE runtime_launch_endpoints SET origin=origin WHERE launch_id=$1",
+        "DELETE FROM runtime_launch_endpoints WHERE launch_id=$1",
+    ] {
+        assert!(
+            repo.db
+                .execute(sea_orm::Statement::from_sql_and_values(
+                    sea_orm::DatabaseBackend::Postgres,
+                    sql,
+                    [launch.id.into()]
+                ))
+                .await
+                .is_err()
+        );
+    }
+    assert!(
+        repo.db
+            .execute_unprepared("TRUNCATE runtime_launch_endpoints")
+            .await
+            .is_err()
+    );
+    repo.observe_runtime_launch(&launch, "gateway_exited", Some(12345))
+        .await
+        .unwrap();
+    assert!(
+        repo.record_container_endpoint(&launch, 12345, &origin)
+            .await
+            .is_err()
+    );
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[tokio::test]
+async fn container_dispatch_origin_requires_sealed_generation_not_an_arbitrary_private_ip() {
+    let Some((repo, agent, _, _, root)) = lifecycle_tests::fixture(AgentKind::Hermes).await else {
+        return;
+    };
+    let launch = binding(&agent, Uuid::new_v4());
+    repo.claim_runtime_launch(&launch).await.unwrap();
+    repo.observe_runtime_launch(&launch, "gateway_started", Some(12345))
+        .await
+        .unwrap();
+    let origin = format!("http://172.18.0.2:{}", agent.api_port.unwrap());
+    let caps = json!({"fleet_launch":{"version":1,"launch_id":launch.id}});
+    let repo_ref = &repo;
+    let check = |address: String, capabilities: Value| async move {
+        let row = repo_ref
+            .db
+            .query_one(sea_orm::Statement::from_sql_and_values(
+                sea_orm::DatabaseBackend::Postgres,
+                "SELECT fleet_hermes_origin_matches($1,$2,$3) AS matched",
+                [agent.id.into(), address.into(), capabilities.into()],
+            ))
+            .await
+            .unwrap()
+            .unwrap();
+        row.try_get::<bool>("", "matched").unwrap()
+    };
+    assert!(!check(origin.clone(), caps.clone()).await);
+    repo.record_container_endpoint(&launch, 12345, &origin)
+        .await
+        .unwrap();
+    assert!(check(origin.clone(), caps.clone()).await);
+    for address in [
+        format!("http://127.0.0.1:{}", agent.api_port.unwrap()),
+        format!("http://172.18.0.3:{}", agent.api_port.unwrap()),
+        "http://8.8.8.8:29100".into(),
+    ] {
+        assert!(!check(address, caps.clone()).await);
+    }
+    assert!(!check(origin.clone(), json!({})).await);
+    assert!(
+        !check(
+            origin.clone(),
+            json!({"fleet_launch":{"version":1,"launch_id":Uuid::new_v4()}})
+        )
+        .await
+    );
+    repo.observe_runtime_launch(&launch, "gateway_exited", Some(12345))
+        .await
+        .unwrap();
+    assert!(!check(origin, caps).await);
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[tokio::test]
 async fn container_lifecycle_binding_rejects_cross_agent_mounts_identity_and_sources() {
     let Some((_, agent, _, _, root)) = lifecycle_tests::fixture(AgentKind::Hermes).await else {
         return;

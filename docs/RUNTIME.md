@@ -1,5 +1,21 @@
 # Runtime
 
+## Container Endpoint Authority
+
+Container HTTP origins are not user settings. After the original Base guard
+verifies the running namespace, the owning supervisor seals its exact origin
+against launch generation and PID in `runtime_launch_endpoints`. Exact readback
+replays succeed; origin, PID or custody drift holds dispatch. Journal prepare and
+claim join this record and private `fleet_launch` ID, while native free chats stay
+localhost-only. No missing proof authorizes a host fallback or unknown prompt
+resend. See [ADR 0030](adr/0030-generation-bound-container-endpoint.md).
+
+The actual two-container controlled-model gate now verifies basic chat, loaded
+SOUL isolation, drain and fresh activation/restart. Actual Docker rollback,
+controller restart/lost-private-journal recovery and log ingestion remain distinct
+open gates; task/PM admission is still fail-closed. Details:
+[acceptance runbook](CONTAINER_SUPERVISOR_ACCEPTANCE.md).
+
 ## Container Configuration Replacement Candidate
 
 Configuration admission now runs before both create and start. A regular

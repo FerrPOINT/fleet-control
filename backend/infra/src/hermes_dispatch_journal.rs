@@ -82,7 +82,15 @@ pub(super) async fn prepare(
         txn.commit().await.map_err(database_error)?;
         return Ok(intent);
     }
-    validate_current(&txn, &agent, &session, &run, &draft.origin).await?;
+    validate_current(
+        &txn,
+        &agent,
+        &session,
+        &run,
+        &draft.origin,
+        &draft.capabilities,
+    )
+    .await?;
     let expected_role =
         if agent.product_role == "leader" || session.leader_agent_id == Some(agent.id) {
             SessionRunRole::Leader
@@ -169,7 +177,7 @@ pub(super) async fn claim(
         txn.commit().await.map_err(database_error)?;
         return Ok(None);
     }
-    validate_current(&txn, &agent, &session, &run, &origin).await?;
+    validate_current(&txn, &agent, &session, &run, &origin, &result.capabilities).await?;
     validate_launch_generation(&txn, agent.id, &result.capabilities).await?;
     if run.run_role != frozen_role
         || run.runtime_session_id.as_deref()
@@ -462,6 +470,7 @@ async fn validate_current(
     session: &agent_session::Model,
     run: &session_agent_run::Model,
     origin: &str,
+    capabilities: &Value,
 ) -> Result<(), AppError> {
     if agent.kind != "hermes"
         || agent.status != "running"
@@ -469,7 +478,6 @@ async fn validate_current(
         || agent
             .api_port
             .is_none_or(|port| !(1024..=65535).contains(&port))
-        || origin != format!("http://127.0.0.1:{}", agent.api_port.unwrap_or_default())
         || run.state != "pending"
         || run.runtime_run_id.is_some()
         || session.agent_id != agent.id
@@ -478,6 +486,20 @@ async fn validate_current(
     {
         return Err(AppError::conflict(
             "Hermes runtime/dispatch identity is no longer current",
+        ));
+    }
+    let address = txn
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT fleet_hermes_origin_matches($1,$2,$3) AS matched",
+            [agent.id.into(), origin.into(), capabilities.clone().into()],
+        ))
+        .await
+        .map_err(database_error)?
+        .ok_or_else(|| AppError::internal("missing Hermes origin authority"))?;
+    if !column::<bool>(&address, "matched")? {
+        return Err(AppError::conflict(
+            "Hermes origin is not bound to the current runtime",
         ));
     }
     let row = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,

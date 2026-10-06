@@ -1,5 +1,19 @@
 # Implementation Plan
 
+## Current Actual Docker Proof
+
+Real original-Engine/UID 999 Rust Fleet/Hermes/chat/config acceptance now passes
+for two mapped-volume agents and five controlled-model runs. Additive `000019`
+binds the actual Base endpoint to original launch/PID and removes the old
+localhost-only container-dispatch assumption without an arbitrary endpoint setter.
+Fresh broad/migration gates pass526 workspace cases (30 explicit opt-in ignores),
+fmt/check/strict Clippy and19 migration cases without ignores. Publish this scoped
+candidate and preserve the ordered one-migration-per-release-PR boundary, then
+prove actual Docker readiness rollback, controller recovery/private-journal loss,
+logs and the unchanged producer/PM/Forge requirements. No installed opt-in or
+"full merge-ready" claim follows from this one gate. See
+[verification](CHAT_CLARIFICATION_VERIFICATION.md#actual-docker-supervisor-chat-and-configuration-6-october-2026).
+
 ## Current SDLC Scope
 
 The current focused-tested candidate implements container configuration replacement

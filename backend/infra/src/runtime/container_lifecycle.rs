@@ -490,7 +490,11 @@ impl LocalRuntimeSupervisor {
             .api_port
             .filter(|port| (1..=65535).contains(port))
             .ok_or_else(held)?;
-        Ok(format!("http://{host}:{port}"))
+        let origin = format!("http://{host}:{port}");
+        self.repo
+            .record_container_endpoint(&launch.binding, launch.pid.ok_or_else(held)?, &origin)
+            .await?;
+        Ok(origin)
     }
 
     async fn validate_container_agent_paths(&self, agent: &Agent) -> Result<PathBuf, AppError> {

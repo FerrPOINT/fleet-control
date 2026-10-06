@@ -1,5 +1,19 @@
 # Current State
 
+## Actual Docker Chat And Configuration Candidate
+
+The current endpoint-sealing packet passes real Rust Fleet -> two source-pinned
+Hermes containers -> controlled-model chat: five completed native runs, isolated
+loaded SOUL, once-only mirrors/message replay, active-run drain, new configuration
+generation and peer restart. UID 999 named-volume custody and original namespace
+stop are verified. Own QA resources are removed and installed services unchanged.
+This closes the basic real mapped-volume/chat/loaded-config proof, not actual
+rollback, controller recovery/logs, PM admission or automatic SDLC. Fresh broad
+Rust checks pass526 tests (30 explicit opt-in ignores), fmt/check/strict Clippy;
+the separate19-case migration gate passes without ignores. Ordered release/CI
+and the remaining live gates are still required; no full release readiness is declared.
+See [exact evidence](CHAT_CLARIFICATION_VERIFICATION.md#actual-docker-supervisor-chat-and-configuration-6-october-2026).
+
 ## Chats And Workflow Readiness: 6 October 2026
 
 Chats uses the production agent/task directory and dialogue/clarification/

@@ -16,7 +16,9 @@ controller, the new private mapping resolves local AgentPaths to original
 named-volume subpaths and binds proof/file/digest before start; it does not use
 daemon-root binds or rslave fallback. Every endpoint/observe/control-lifecycle
 lookup retains that original proof. Actual Rust Fleet UID/file/model access,
-controller restart and Hermes container acceptance remain required.
+isolated chat, configuration drain/replacement and restart pass the controlled-model
+[container acceptance](../CONTAINER_SUPERVISOR_ACCEPTANCE.md). Controller crash,
+private-journal loss and readiness-failure rollback still require live acceptance.
 Confirmed original namespace exit permits a new history-ordinal generation;
 unknown preparation/start keeps its original intent/claim and cannot advance it.
 Previous generation files are preserved, not rewritten or restarted.
@@ -27,8 +29,16 @@ fallback. Resolved credentials remain private files, never database columns.
 Original file restore/readback is distinct from unimplemented controller takeover.
 
 Retained-child checks below apply to the legacy native path. Container config
-activation is explicitly unavailable before file/stop effects until safe
-new-generation activation/rollback exists; native evidence does not certify it.
+activation uses original namespace stop before file effects and a new generation;
+unknown custody retains drain and recovery evidence. Its rollback has focused
+PostgreSQL/fake-Base tests, not actual Docker failure-injection acceptance.
+Native evidence does not certify the container path.
+
+Additive000019 seals the Base-verified bridge origin to the original started
+launch and PID. Dispatch preparation and submission require that exact origin
+and private Fleet launch ID; an arbitrary private address is not authority.
+Endpoint history is immutable and blocks downgrade until reconciled. This adds
+no task/PM admission, new public endpoint setter or fallback to localhost.
 
 The automatic queue selector now respects the original acknowledged controller
 in the [launch journal](RUNTIME_LAUNCH_JOURNAL_V1.md). Foreign controllers leave

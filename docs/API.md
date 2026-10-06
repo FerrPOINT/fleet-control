@@ -1,5 +1,14 @@
 # API
 
+## Container Endpoint Custody
+
+There is no public endpoint setter. The internal runtime supervisor resolves the
+original namespace through Base and seals its origin against its durable launch
+generation/PID before container dispatch. Private `fleet_launch` facts and this
+immutable record must match. Existing message routes and public DTOs are unchanged;
+native free-chat origins remain localhost-only. Candidate acceptance is tracked
+in [ADR 0030](adr/0030-generation-bound-container-endpoint.md).
+
 The owner clarification/confirmation gateway accepts only exact-200 receipts
 matching its original task/question/version/revision/content and owner. An
 unrelated success or nil receipt identity returns dependency uncertainty (503),

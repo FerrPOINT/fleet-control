@@ -1,5 +1,17 @@
 # Operations
 
+## Endpoint Custody Conflict
+
+`Hermes origin is not bound to the current runtime` means the current original
+launch/PID, sealed Base endpoint and dispatch generation do not agree. Preserve
+the launch, endpoint and command journals; do not edit/delete a sealed row,
+replace the origin, mark an unknown submission pending again or retry its POST.
+Check original controller/Engine/network custody and durable readbacks first.
+Endpoint loss or drift requires reconciliation, not fresh endpoint discovery as
+authority. A new generation is permitted only after confirmed old namespace
+termination and the normal configuration/start gates. Installed Docker rollout
+still requires the remaining recovery acceptance in [GAP_REGISTER](GAP_REGISTER.md).
+
 ## Container Configuration Replacement Candidate
 
 Use the existing draft/validate/activate flow; changing a stopped configuration

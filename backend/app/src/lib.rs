@@ -579,6 +579,16 @@ pub trait FleetRepository: Send + Sync {
             "runtime launch journal is unavailable".into(),
         ))
     }
+    async fn record_container_endpoint(
+        &self,
+        _binding: &runtime_launch::RuntimeLaunchBinding,
+        _pid: i32,
+        _origin: &str,
+    ) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "runtime endpoint custody is unavailable".into(),
+        ))
+    }
     async fn next_container_launch_ordinal(&self, _agent_id: Uuid) -> Result<i64, AppError> {
         Err(AppError::Unavailable(
             "runtime launch history is unavailable".into(),

@@ -2,8 +2,11 @@
 
 Status: private client and opt-in supervisor routing are implemented in the
 integration candidate. Automatic generation preparation is connected
-behind private deployment configuration; installed enablement and live
-Fleet/Hermes acceptance remain incomplete. Native execution is not
+behind private deployment configuration. Real Rust/Docker/Hermes controlled-model
+free chat, isolation, drain/replacement and restart pass the
+[owned gate](../CONTAINER_SUPERVISOR_ACCEPTANCE.md). Installed enablement,
+actual readiness-failure rollback and controller recovery remain incomplete.
+Native execution is not
 silently relabelled Docker.
 
 ## Ownership
@@ -15,8 +18,15 @@ Unknown preparation or start blocks rollback file mutation/spawn and retains
 the private activation journal. Stopped config readback is not runtime readiness.
 See [ADR0029](../adr/0029-container-configuration-generation-replacement.md);
 31 focused Linux/PostgreSQL cases and strict Clippy pass. Full workspace fmt,
-check, strict Clippy and523 cases pass with29 explicit ignores. Real-runtime
-acceptance remains pending, not inferred from prior lifecycle evidence.
+check, strict Clippy and523 cases pass with29 explicit ignores in the earlier
+configuration packet. Its fake-boundary rollback evidence is not actual Docker
+failure-injection acceptance. The new real gate is recorded separately above.
+
+Fleet's additive000019 now seals the Base-verified endpoint to the original
+started launch/PID before use. Dispatch requires the exact sealed origin and
+private launch ID, not merely a private IP address. This is a Fleet database
+guard, not a changed Base wire protocol or user-facing endpoint setter. See
+[ADR0030](../adr/0030-generation-bound-container-endpoint.md).
 
 Automatic preparation additionally uses Fleet's000018 pre-create DB fence,
 before private intent creation and Base prepare. It commits original agent/

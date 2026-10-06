@@ -2,6 +2,19 @@
 
 ## Container Candidate
 
+The real [container acceptance](../CONTAINER_SUPERVISOR_ACCEPTANCE.md) verifies
+two UID999 Hermes containers, isolated SOUL/model input, once-only free-chat
+delivery, configuration drain/replacement and restart through the Rust supervisor.
+The model is controlled locally; this is not task/PM or full SDLC acceptance.
+Readiness-failure rollback, controller crash/private-journal recovery and Docker
+log ingestion remain separate live gates.
+
+Additive000019 persists a Base-verified bridge origin against the original
+started launch/PID. The dispatch journal requires that exact endpoint and private
+launch ID; private IP shape alone grants no HTTP permission. The immutable
+endpoint record cannot be rewritten for a replacement generation or removed to
+enable downgrade. No public API or Base protocol changes are introduced.
+
 The opt-in Hermes supervisor consumes [Container Control](CONTAINER_CONTROL_V1.md)
 for start/health/stop and every runtime HTTP endpoint. Its original registration,
 effective configuration, paths, controller and source/context pins are immutable

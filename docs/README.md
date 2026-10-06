@@ -34,6 +34,7 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 - [Actual credential interoperability harness](../scripts/pm_credentials_live/README.md)
 - [Native Hermes protocol acceptance harness](../scripts/hermes_protocol_live/README.md)
 - [Managed native supervisor acceptance harness](../scripts/native_supervisor_live/README.md)
+- [Actual Docker supervisor and loaded-config acceptance](CONTAINER_SUPERVISOR_ACCEPTANCE.md)
 - [SDLC_IMPLEMENTATION.md](SDLC_IMPLEMENTATION.md) — реализация нового SDLC, границы и оставшаяся приёмка.
 
 - [TZ.md](TZ.md)
@@ -64,6 +65,7 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 - [ADR.md](ADR.md)
 - [Durable container pre-create fence](adr/0028-durable-container-precreate-fence.md)
 - [Container configuration generation replacement](adr/0029-container-configuration-generation-replacement.md)
+- [Generation-bound container endpoint](adr/0030-generation-bound-container-endpoint.md)
 
 ## API And Database
 

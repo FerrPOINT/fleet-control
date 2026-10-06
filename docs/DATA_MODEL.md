@@ -1,5 +1,20 @@
 # Data Model
 
+## Internal Container Endpoint Identity
+
+The candidate additive migration `000019` stores `runtime_launch_endpoints`:
+`launch_id` (primary key/FK to the original runtime launch), canonical `origin`,
+original `pid` and `created_at`. The owning controller records it only after Base
+verifies the original running namespace. Exact replay succeeds; changed or
+foreign custody and update/delete/truncate fail. Dispatch joins its current
+generation and private `fleet_launch` identity. This is not a public endpoint
+setting, mutable status projection or authorization to resend an unknown prompt.
+Native free chats remain localhost-only. See
+[ADR 0030](adr/0030-generation-bound-container-endpoint.md) for limits and downgrade
+protection. The real controlled-model chat and fresh workspace/migration gates
+pass; ordered release, populated endpoint downgrade refusal and the remaining
+recovery paths still require separate evidence.
+
 Chats/PM consumer recovery adds no database table or migration. Original answer
 and exact revision/hash confirmation commands stay in session-scoped browser
 memory across tab changes; draft text/keys are not persisted in browser storage.

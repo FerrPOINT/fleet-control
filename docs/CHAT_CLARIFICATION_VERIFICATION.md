@@ -1,5 +1,73 @@
 # Chat Clarification Verification
 
+## Actual Docker Supervisor Chat And Configuration: 6 October 2026
+
+Owned project `sdlc-qa-fleet-container-live-e823d8ddeef4` passes the opt-in real
+Rust-supervisor/Hermes scenario: 1 passed, 0 failures/ignores, 289.11 seconds.
+The controller runs as UID 999 on the original Engine, using separate agent
+subpaths in its own named volume. Both source-pinned Hermes containers perform
+five actual `/v1/runs` against a controlled local model. Each final answer is
+mirrored once. The model observes isolated SOUL, and the wrong peer token is
+denied. Identical message replay creates no second model call or run. A held
+response proves drain before file/replacement effects; the new generation loads
+the replacement SOUL, the peer is unchanged, and peer restart creates a fresh
+generation with its original SOUL. Both original namespaces are confirmed stopped.
+
+The first actual attempt exposed the old localhost-only Rust and DB journal rule.
+Additive `000019` now seals the Base-verified endpoint to original launch/PID;
+preparation/submission require that exact origin and private launch ID. Earlier
+failed preflight/Clippy/live attempts remain preserved. The initial nested-network
+cleanup issue was separately recovered on its original Engine, then fixed with
+referenced cleanup-only services and a regression. No failed gate is relabeled.
+
+The successful gate verifies all 13,770 pinned Hermes source files, frozen 302
+Fleet/SDK/control inputs and Rust 1.88 fmt/all-target strict Clippy before fresh
+test compilation. SDK pin is `cbb4e99230420dc2659431b1c9fb5090e5c940f0`, Base
+control source `424ad76b1fc0c976e465e9de272f71a3b03a45b6`, Hermes source
+`bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3`. Source manifest SHA256:
+`f89cf50ce73468cdddfa16fd73b19eb955b1a1a778be67da97d37db0595271b8`;
+build log SHA256:
+`7c533a5ee6a79e0fcc6a5d7158eac92d6197a5f51146562a356533405cd8ebe6`;
+live log SHA256:
+`45c53cac6a327b82cb9790a1713a79c03d4e1459459987d4db6f062f2c253127`;
+report SHA256:
+`d00466f6fca607acb58a3a7e629bdf0dd56e7bf68c7471068e0fb0ecb1f73f41`.
+The gate captured this packet before publication over `9c3cad0`, not that parent
+alone. Own containers/networks/three disposable volumes and image aliases are
+removed; independent original-Engine inventories are empty. Captured sources and
+permanent `sdlc1`/`sdlc2`/`sdlc-common` lifecycle facts are unchanged. Eight no-Docker
+driver safety tests and 122 Markdown files pass.
+
+Fresh Linux/Rust 1.88 workspace verification in owned project
+`sdlc-qa-fleet-container-control-c8139d6fcc21` passes fmt, all-target check,
+all-target strict Clippy and 526 tests in 36 result groups, 0 failures and 30
+explicit opt-in ignores. The separately successful actual Docker test is one of
+those ignores in the ordinary suite. New PostgreSQL cases verify original
+endpoint custody, concurrent identical replay, immutable endpoint history and
+rejection of arbitrary origin/generation.
+
+The separate migration gate `sdlc-qa-fleet-container-control-52953f25be44`
+passes all 19 cases with no failures/ignores on ten disposable databases. Fresh
+canonical/split installs, empty latest down/up and populated historical upgrades
+pass; this does not certify downgrade of populated endpoint history. Both gates
+freeze the same 293 backend/SDK inputs, unchanged after execution, manifest SHA256
+`ad852f623273603b445456a0b3b6e97bb60e7543d4f946cc878f903f82f05adb`.
+Workspace log/report SHA256:
+`ee586947eef5688cd53b606a2e819a7ac67b0a30693c51a2b9d50d85edb5d687` /
+`cf4363fd26f4355adc397c8adc0f224b635fe5d8b8c81a5fb4a98ba24211a00b`;
+migration log/report SHA256:
+`40f3bd3902e3bce1165be5e6649c3a753b2c33f7a2603eca9b9b4b8c4ef9af7e` /
+`9d4e9da5b893de3ade02c59cb06f069a44cd16ef95caa0a1c90cca6f4a411568`.
+Owned resources are removed; independent original-Engine inventories are empty.
+No API/frontend/SDK pin or installed runtime changes follow from these gates.
+
+This is real controlled-model Docker/free-chat/config evidence, not installed
+enablement, actual Docker readiness rollback, controller restart/private-journal
+loss recovery, Docker log ingestion, task admission, live PM or full SDLC
+acceptance. Ordered release PRs and exact-head CI remain required; local PASS is
+not an installed release. See [runbook](CONTAINER_SUPERVISOR_ACCEPTANCE.md) and
+[ADR 0030](adr/0030-generation-bound-container-endpoint.md).
+
 ## Combined Chats Follow-Up: 6 October 2026
 
 Normal merge `c02f60ebdceebaa4255352d27893976fc26c1389` preserves container

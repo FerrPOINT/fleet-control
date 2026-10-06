@@ -1,5 +1,16 @@
 # Security
 
+## Container Dispatch Origin
+
+The private original namespace endpoint is sealed to a launch/PID after Base
+custody validation, not supplied by a chat client. Runtime and DB admission
+require this exact origin/generation. Private IP shape alone is insufficient;
+missing/foreign/changed custody fails closed. Canonical IPv4/port checks reject
+public, link-local, credential-bearing, hostname and alternate-form URLs.
+Endpoint update/delete/truncate and destructive downgrade are blocked. This
+does not replace human/machine RBAC, project ownership, fencing or PM admission.
+See [ADR 0030](adr/0030-generation-bound-container-endpoint.md).
+
 The private Docker utility candidate captures and hashes three bounded Base
 source files, rejecting symlink/junction path components. Isolated Python
 compiles exactly those captured bytes; cached bytecode, package initialization
