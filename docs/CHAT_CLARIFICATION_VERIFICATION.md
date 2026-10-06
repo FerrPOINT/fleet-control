@@ -1,5 +1,41 @@
 # Chat Clarification Verification
 
+## Rust Named-Volume Consumer: 6 October 2026
+
+Source `d924799be5ec77935b71decce20059f22b919e10` implements closed mapping DTOs,
+read-only resolution and private protocol2/policy3 lifecycle in Fleet. Original
+mapping/file/digest bind intent, preparation, registration and DB launch; daemon
+projections are not host binds. Current controller/root, local marker/path guards,
+Engine/digest, original recipe and private proof stay authoritative. Native
+records preserve omitted fields. Unknown start cannot dispatch a second effect.
+
+Fresh owned project `sdlc-qa-fleet-container-control-edc53a6eb393` passes the
+Rust1.88 locked/offline Linux/PostgreSQL workspace gate: fmt, all-target check,
+strict Clippy and509 passed/0 failed/29 explicitly ignored in34 test groups.
+Three new control units and two PG lifecycle cases cover projection/recipe,
+digest/Engine/downgrade/sibling guards, original replay, changed controller/file,
+unknown preparation/start, original ACK recovery and namespace stop. Base in
+these consumer cases is a pinned fixture, not actual Docker/Hermes inference.
+
+All288 captured inputs remain unchanged; five changed backend Git blobs are
+raw-exact with passed bytes. Source manifest SHA256:
+`5f9cb0f8ae3a479fe8f7106230ffee02c22ebf2387f1e1bb59fe3cf0ad83c410`.
+Gate log SHA256:
+`8a43fb18dc8fc38abaebc6896c4ff7856ef7a035785018d970deea065b4aa9be`.
+Report SHA256:
+`db2b0ef1762c1feed43a5801ce64effa2cc6e13ac48ac3a98937502b1752be28`.
+Own down exits0 and separate original-Engine container/network inventories are
+empty. OpenAPI generated-client parity and117 Markdown links pass; no API/SDK/
+migration/UI/screenshot or installed-runtime changes. Preliminary compile
+and Clippy failures are retained separately; both own projects are clean and
+their partial checks are not substituted for this final gate.
+
+Actual Rust Fleet mapped Hermes/model/chat, config drain/activation/rollback,
+logs, controller restart/takeover and private journal loss/restore remain live
+gates. The published read-only producers still lack accepted predispatch/first-
+step authority; PM/Forge/seven-agent acceptance and ordered release PRs remain.
+The Base utility evidence below is distinct from this consumer gate.
+
 ## Named-Volume Subpath Lifecycle: 6 October 2026
 
 Base sourcee083651 / published98a5bbd adds private protocol2/boundary policy3.

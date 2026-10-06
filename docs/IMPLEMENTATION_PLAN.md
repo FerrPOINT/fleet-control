@@ -2,13 +2,24 @@
 
 ## Current SDLC Scope
 
-Next Rust runtime packet must consume Base protocol2/boundary policy3 named-volume
-subpaths, not projected daemon-root bind paths. Basee083651/98a5bbd has native
-UID999 lifecycle proof0a1f2bdd97e1 and30 Linux cases; original mapping file/hash
-must be bound in Fleet creation intent, registration and launch provenance.
-Reject protocol downgrade/changed proof and preserve local AgentPaths/marker checks.
-Base PR150 is ready/mergeable with9 SUCCESS jobs exact CI37465043730, reread after
-ready with no reviews/threads; the evidence below is historical. No merge/install.
+Fleet source `d924799be5ec77935b71decce20059f22b919e10` now consumes private
+protocol2/boundary policy3 named-volume subpaths. Original mapping/file/hash are
+bound in creation intent, prepared receipt, registration and DB launch provenance.
+Fresh guards preserve local AgentPaths/marker ownership; protocol downgrade,
+changed controller/proof, sibling mounts and unknown-start resend are denied.
+The fresh Rust1.88/Linux/PG gate passes509 tests with29 explicit ignores and
+fmt/check/strict Clippy; see [verification](CHAT_CLARIFICATION_VERIFICATION.md).
+No SDK/public API/migration/deployment flag changes or installed rollout.
+
+Next prove actual Rust Fleet -> named-volume Hermes -> model/chat with the real
+controller UID, then safe new-generation config drain/activation/rollback, logs,
+controller restart reconciliation and the remaining producer admission/PM/Forge
+gates. Private-controller document/journal loss and restore must also be tested
+before rollout; preserved-file replay is not proof of storage-loss recovery.
+Base PR150 remains ready/mergeable on98a5bbd with9 SUCCESS jobs CI37465043730;
+it is not merged/installed. The full SDLC goal remains open.
+
+## Historical Runtime Gates
 
 Base follow-up2bcf3d2 now proves read-only named-volume mapping with real UID999
 controller files, original snapshot/Engine/volume hashes and drift rejection.

@@ -2,6 +2,23 @@
 
 ## October SDLC Gate
 
+The named-volume consumer is implemented in Fleet source
+`d924799be5ec77935b71decce20059f22b919e10`: original mapping in intent/prepared/DB
+binding, private protocol2/policy3 and exact per-agent volume subpaths. Its
+Rust1.88/Linux/PG gate passes509 tests with29 explicit ignores, fmt/check/strict
+Clippy and exact cleanup/source evidence. This closes the source mapping/binding
+gap, not actual Rust Fleet mapped Hermes/model/config acceptance. Current Base
+PR150 is98a5bbd, ready/MERGEABLE with9 SUCCESS jobs CI37465043730, not installed.
+
+Required next: real controller UID/filesystem/model/chat; prepared replacement,
+config drain/activation/rollback; logs and controller restart reconciliation;
+private-controller intent/journal loss and restore without a replacement effect;
+producer admission/first step/scoped tools, PM resume, Forge and seven-agent
+acceptance. The preserved-file replay tests do not prove storage-loss recovery.
+Full Fleet is not merge-ready. No installed flag/image/volume is changed.
+
+### Historical Consumer Gates
+
 Prepared automatic generations now check the entire original recipe and derived
 API token before observe/DB claim/start; prepared metadata cannot silently accept
 changed process settings. Seven drift cases and unchanged replay pass in the
@@ -34,7 +51,7 @@ verified after Engine recovery, without permanent lifecycle changes; the final
 fresh502-case gate passes. The earlier partial174-unit pass remains historical. Real Docker restart
 and Fleet/Hermes live acceptance remain separate requirements, not closed gaps.
 
-Current Base protocol source is PR150
+The historical Base protocol source was PR150
 `60415307038468618c15b168630d3ac9ac09b50d` is ready/mergeable on main with
 [nine successful exact-head jobs](https://github.com/FerrPOINT/services-base/actions/runs/37449729086).
 Checks/head were reread after ready; reviews/threads are empty. No merge/install
@@ -96,22 +113,15 @@ and central-subject proofs. This closes local reconciliation, not release:
 ordered one-migration packets and exact-head CI/review remain mandatory. Do not
 put all predecessor migrations into the new single-migration release packet.
 
-The [runtime containment proposal](design/RUNTIME_CONTAINMENT_PROPOSAL.md)
-records the recommended per-agent container boundary and delegated-cgroup
-alternative. Base standalone original-ID stop/readback is implemented. The
-main-based [Base PR144](https://github.com/FerrPOINT/services-base/pull/144),
-head `dd2d0755266ef9081528702767006ba08e32d841`, adds pre-exec registration and
-single-start/crash holds with actual namespace acceptance and44 Linux tests.
-The linked proposal records exact fingerprints, release status and trust limits.
-This candidate is not installed and Fleet lifecycle has not integrated its host
-registry. Fleet now has a separate pre-spawn native agent/config/controller
-PostgreSQL journal ([contract](contracts/RUNTIME_LAUNCH_JOURNAL_V1.md)); it prevents
-duplicate controller launches and holds unknown outcomes, but is not a container
-or loaded-generation receipt. Host persistence, generation fencing, drain, activation/rollback and
-receipt commit/recovery remain. Accepted Compose/images/readiness policy are
-unchanged. The accepted profile SDK pin does not install this boundary.
-Safe Fleet descendant stop and loaded-generation acceptance
-remain open until this integration and its own adversarial tests pass.
+The selected boundary is direct Fleet-managed per-agent Docker in sdlc1/sdlc2,
+not the historical cgroup alternative in the
+[containment proposal](design/RUNTIME_CONTAINMENT_PROPOSAL.md). Base PR144 is
+merged; PR150 is a separate utility candidate. Fleet's existing pre-spawn
+[journal](contracts/RUNTIME_LAUNCH_JOURNAL_V1.md) now stores original container
+provenance and the named-volume consumer above; source/fixture verification
+does not prove installed custody, loaded config or storage-loss recovery.
+Actual safe stop/restart, controller recovery, drain/activation/rollback and
+receipt persistence remain live gates. The SDK pin does not install the utility.
 
 ## PM Clarification Slice
 

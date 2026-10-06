@@ -1,6 +1,24 @@
 # Current State
 
-## Current Named-Volume Lifecycle Candidate
+## Current Rust Named-Volume Consumer
+
+Source `d924799be5ec77935b71decce20059f22b919e10` adds typed original mapping,
+private protocol2/policy3 forwarding, per-agent volume subpaths and immutable
+intent/prepared/DB provenance. Native records omit the new fields unchanged.
+Fresh Rust1.88/Linux/PostgreSQL gate:509 passed,0 failed,29 explicitly ignored;
+fmt, all-target check and strict Clippy pass.288 inputs remain unchanged, all
+five changed backend blobs match the tested bytes. Own project
+`sdlc-qa-fleet-container-control-edc53a6eb393` is independently verified clean.
+OpenAPI client and117 Markdown link checks pass. UI/screenshots/public DTOs,
+SDK pin, migrations and installed runtime are unchanged.
+
+This is a fake-Base consumer gate, not actual Rust Fleet mapped Hermes/model/chat
+or config activation acceptance. Controller restart remains held, not takeover.
+Private journal loss/restore, live lifecycle/config/logs, producer admission,
+PM continuation, Forge and seven-agent SDLC acceptance remain. Full Fleet is not
+merge-ready; ordered release packets and exact-head CI/review still apply.
+
+## Base Named-Volume Prerequisite Evidence
 
 Base sourcee083651 / published98a5bbd implements private protocol2/boundary policy3
 with original named-volume subpaths, immutable mapping file/hash and fresh guards.
@@ -14,7 +32,7 @@ nine executable blobs match published98a5bbd. It submits no inference and does n
 prove policy3 mapped Hermes. PR150 is ready/MERGEABLE: all9 exact-head jobs
 CI37465043730 SUCCESS, reread after ready; reviews/threads empty. Remote body
 matches current main template3/7/2. Earlier ready/CI observations below are historical.
-Rust Fleet consumer/pins/UI/API/DB are unchanged; actual mapped Hermes/model/chat,
+At that Base-only gate Rust consumer/pins/UI/API/DB were unchanged. Actual mapped Hermes/model/chat,
 config drain/activation/rollback and predispatch admission remain incomplete.
 
 ## Named-Volume Mapping Prerequisite: 6 October 2026
