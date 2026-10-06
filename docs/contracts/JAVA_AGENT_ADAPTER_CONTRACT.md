@@ -70,6 +70,10 @@ Current launch: `java -jar agentN/runtime/backend.jar --spring.profiles.active=n
 The jar is supplied externally; a missing jar is a validation error. Readiness
 uses `/actuator/health/readiness` with the Java service's db-only readiness contract.
 
+Native stdout/stderr uses the shared redacted process-log repository; each write
+acknowledges its own persisted row, independently of other writers. See
+[Logging Standards](../LOGGING_STANDARDS.md). No Java chat capability is added.
+
 Expected launch inputs:
 
 - `AGENT_SERVER_PORT`

@@ -459,6 +459,9 @@ Tables:
 - `workflow_bindings`: per-agent namespace/workflow link. `binding_status` is computed from the live Project Workflow catalog: `connected` for an exact ID/name match, `stale` for a removed or renamed persisted selection, and `unbound` when no selection exists.
 - `agent_events`: audit-friendly event stream for UI invalidation.
 - `agent_logs`: bounded process/runtime log records.
+  Insert acknowledgements return the stored UUID, agent, stream, redacted message
+  and timestamp from the same PostgreSQL statement. No latest-row lookup, schema
+  change, generation cursor or Docker ingestion table is introduced by this fix.
 - `audit_log`: immutable operator action audit for agent changes, runtime
   actions, config/skill edits, leader assignments, handoff and message writes.
 

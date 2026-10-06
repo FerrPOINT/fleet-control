@@ -187,6 +187,11 @@ PID or desired state; an old request snapshot cannot overwrite a newer stop.
 Readiness uses an absolute 60-second deadline including probes and sleeps, not
 poll-count accounting. Individual HTTP probes are bounded to three seconds.
 
+The shared process-log repository returns the exact persisted redacted row from
+`INSERT ... RETURNING`, not a latest-log lookup. Concurrent streams do not change
+that acknowledgement. See [Logging Standards](../LOGGING_STANDARDS.md); this is
+not a durable generation cursor or Docker collection receipt.
+
 All adapters use the common agent layout:
 
 ```text

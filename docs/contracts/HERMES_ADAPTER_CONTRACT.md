@@ -209,6 +209,10 @@ stopping Hermes or writing files. Declared profile and numeric namespace IDs
 are not native-loaded profile proof. A readback outage before mutation releases
 drain after recording a failed revision; unverified rollback remains drained.
 
+Native stdout/stderr writes use the shared repository's exact persisted-row
+acknowledgement after redaction. See [Logging Standards](../LOGGING_STANDARDS.md).
+This does not implement production Docker collection, replay or secret snapshots.
+
 Session control:
 
 - Fleet stores transcript/control mirrors in `session_messages`.

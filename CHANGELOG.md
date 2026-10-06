@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Process-log inserts return their own persisted redacted row atomically, even
+  when another stdout/stderr writer has already inserted a newer log. PostgreSQL
+  regressions cover deterministic interleaving, 64 writers and rejected inserts.
+
 - Reject dispatch from an exited retained gateway child despite its cached PID.
   Keep foreign-controller health observational without rewriting the original
   runtime; suppress nonpersisted health-transition alerts while preserving audit.

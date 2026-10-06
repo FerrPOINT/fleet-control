@@ -477,6 +477,9 @@ Runtime:
 - `GET /deployments/jobs/{job_id}`
 - `POST /deployments/jobs/{job_id}/cancel`
 - `GET /logs`
+  returns persisted redacted process records. Internal writes acknowledge the
+  exact inserted row, even if another stream has already written a newer row;
+  public response fields and ordering are unchanged.
 - `GET /events` as SSE
 - `GET /events/recent`
 - `GET /audit-log`
