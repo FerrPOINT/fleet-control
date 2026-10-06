@@ -2,6 +2,14 @@
 
 ## Current SDLC Scope
 
+Chats through `0ecee7e` and runtime parent `7564e2e` are normally merged in the
+integration candidate. Combined-tree gates pass511 workspace tests with29
+explicit ignores,18 fully configured migration tests,259 frontend tests and33
+fixture browser cases;21 preview screenshots are regenerated. See the
+[combined evidence](CHAT_CLARIFICATION_VERIFICATION.md#combined-chats-and-runtime-candidate-6-october-2026).
+This is not main/installed acceptance; later parallel Chats changes need another
+scoped integration. The real runtime/producer/PM/Forge requirements below remain.
+
 Fleet source `d924799be5ec77935b71decce20059f22b919e10` now consumes private
 protocol2/boundary policy3 named-volume subpaths. Original mapping/file/hash are
 bound in creation intent, prepared receipt, registration and DB launch provenance.

@@ -1,6 +1,18 @@
 # Gap Register
 
+Independent Chats/PM consumer recovery is tracked in the
+[6 October handoff](CHATS_PM_CONSUMER_HANDOFF_20261006.md): unknown owner-command
+holds, exact receipts, stale data and reconnect refresh have focused evidence.
+This does not close real PM delivery/resume, predispatch admission, Workflow
+step/checkpoint projection or live authenticated browser acceptance below.
+
 ## October SDLC Gate
+
+The combined runtime/Chats source through runtime parent `7564e2e` and consumer
+`0ecee7e` now passes511 Rust workspace cases (29 explicit ignores),18 isolated
+migration cases with no skips,259 frontend cases and33 fixture browser cases.
+All21 preview images are regenerated. This closes integration verification of
+that packet, not the live requirements below or later parallel consumer changes.
 
 The named-volume consumer is implemented in Fleet source
 `d924799be5ec77935b71decce20059f22b919e10`: original mapping in intent/prepared/DB

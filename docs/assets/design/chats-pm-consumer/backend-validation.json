@@ -1,0 +1,50 @@
+{
+  "baseline": "08c6c56229ee308050176293e34d65f087b5b112",
+  "baseRevision": "cbb4e99230420dc2659431b1c9fb5090e5c940f0",
+  "toolchain": "Rust 1.88.0",
+  "commands": [
+    "rustc --version",
+    "cargo fmt --all --check",
+    "cargo check --locked --offline --workspace --all-targets",
+    "cargo clippy --locked --offline -p api --all-targets -- -D warnings",
+    "cargo test --locked --offline -p api --lib routes::task_chats -- --test-threads=1",
+    "cargo test --locked --offline -p infra --test sdlc_foundation task_binding -- --test-threads=1",
+    "cargo test --locked --offline -p infra --test sdlc_foundation message_history -- --test-threads=1",
+    "cargo test --locked --offline -p infra --test sdlc_foundation task_approval_history_survives_reassignment -- --test-threads=1",
+    "cargo test --locked --offline -p infra --test sdlc_foundation concurrent_idempotency_and_private_message_authorization -- --test-threads=1"
+  ],
+  "testGroups": {
+    "apiTaskChats": 6,
+    "taskBinding": 4,
+    "messageHistory": 1,
+    "historyAfterReassignmentAndAccessRevocation": 1,
+    "concurrentIdempotencyAndPrivateAuthorization": 1
+  },
+  "includesNon200ContextHTTPRegression": true,
+  "qaSourceFiles": 323,
+  "qaSourceManifestSha256": "2bc5d3ff697cf478581ea0e05b2ec44540bf97619f63a84976dd2a30a2b2044a",
+  "gateLogSha256": "8aeba1fb4845ad0b0462ed1192e053f08097adb76c5cc41a7de4f9157a833800",
+  "sourceSha256": {
+    "backend/api/src/routes/task_chats.rs": "914213bee1ded7827cc945f5940dd168ca9daaa7c0db342937c2c8be48897214",
+    "backend/infra/tests/sdlc_foundation.rs": "e64c016ac065165e53feff1c0d343a7b5c1694ffeda6d45bf641eb8ae9f85e42"
+  },
+  "compose": {
+    "project": "sdlc-qa-chats-pm-8085a04b394b",
+    "sourceFiles": 323,
+    "installedRuntimeChanged": false,
+    "exitCode": 0,
+    "cleanupExitCode": 0,
+    "remainingContainers": "",
+    "remainingNetworks": ""
+  },
+  "liveAcceptance": false,
+  "earlierWorkspaceDockerGroupsAudit": {
+    "complete": false,
+    "observedViolations": [],
+    "unavailableEndpoint": "sdlc1-runner",
+    "checkedEndpoints": [
+      "desktop-linux",
+      "sdlc2-runner"
+    ]
+  }
+}

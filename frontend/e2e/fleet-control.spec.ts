@@ -230,6 +230,7 @@ test('PM chat clarification preserves explicit answers and exact confirmation', 
   let answered = false
   let finalPublished = false
   let confirmed = false
+  let questionMode = 'single'
   const savedAnswer = {
     id: '00000000-0000-4000-8000-000000000506',
     question_id: question.id,
@@ -290,7 +291,11 @@ test('PM chat clarification preserves explicit answers and exact confirmation', 
       })
     if (path.endsWith('/clarifications'))
       return fulfill(route, {
-        questions: [answered ? { ...question, state: 'answered', answer: savedAnswer } : question],
+        questions: [
+          answered
+            ? { ...question, state: 'answered', answer: savedAnswer }
+            : { ...question, mode: questionMode },
+        ],
       })
     if (path.endsWith('/requirements'))
       return fulfill(route, {
@@ -318,6 +323,33 @@ test('PM chat clarification preserves explicit answers and exact confirmation', 
     return route.fallback()
   })
   await page.goto(`/chats/${ids.session}?tab=clarification`)
+  await expect(page.getByRole('radio', { name: /Участники проекта/ })).toBeVisible()
+  // Current production controller with fixture APIs, never live PM acceptance.
+  for (const viewport of [
+    { width: 375, height: 812 },
+    { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+  ]) {
+    await page.setViewportSize(viewport)
+    for (const mode of ['single', 'multiple', 'text']) {
+      questionMode = mode
+      await expect(page.getByText(question.rationale, { exact: true })).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+      if (mode !== 'text')
+        await expect(
+          page.getByRole(mode === 'single' ? 'radio' : 'checkbox', { name: /Участники проекта/ }),
+        ).not.toBeChecked()
+      else await expect(page.getByLabel('Ваш ответ', { exact: true })).toHaveValue('')
+      await page.screenshot({
+        path: testInfo.outputPath(`consumer-${mode}-${viewport.width}.png`),
+        fullPage: true,
+        scale: 'css',
+        animations: 'disabled',
+      })
+    }
+  }
+  questionMode = 'single'
+  await expect(page.getByRole('radio', { name: /Участники проекта/ })).toBeVisible()
   const choice = page.getByRole('radio', { name: /Участники проекта/ })
   await expect(choice).toBeVisible()
   await expect(choice).not.toBeChecked()
@@ -338,6 +370,29 @@ test('PM chat clarification preserves explicit answers and exact confirmation', 
   const confirm = page.getByRole('button', { name: 'Подтвердить редакцию 2' })
   await expect(confirm).toBeDisabled()
   await page.getByRole('checkbox', { name: /Подтверждаю цель/ }).check()
+  for (const viewport of [
+    { width: 375, height: 812 },
+    { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await expect(confirm).toBeEnabled()
+    await confirm.scrollIntoViewIfNeeded()
+    await page.screenshot({
+      path: testInfo.outputPath(`consumer-confirmation-${viewport.width}.png`),
+      fullPage: true,
+      scale: 'css',
+      animations: 'disabled',
+    })
+    await page.getByText('Сравнить с редакцией 1', { exact: true }).click()
+    await page.screenshot({
+      path: testInfo.outputPath(`consumer-diff-${viewport.width}.png`),
+      fullPage: true,
+      scale: 'css',
+      animations: 'disabled',
+    })
+    await page.getByText('Сравнить с редакцией 1', { exact: true }).click()
+  }
   await confirm.click()
   await expect.poll(() => commands.length).toBe(2)
   expect(commands[1].body).toMatchObject({

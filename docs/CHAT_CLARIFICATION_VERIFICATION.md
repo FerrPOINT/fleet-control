@@ -1,5 +1,57 @@
 # Chat Clarification Verification
 
+## Combined Chats And Runtime Candidate: 6 October 2026
+
+Integration merges runtime parent `7564e2e2ad8e1246cb54f38ca2d11fd765d58fd1`
+with Chats `0ecee7eaac7fca4ec60bc813d02ae5e037bd3a67`; all three independent
+consumer commits and both published histories are preserved. Only the
+CURRENT_STATE introduction conflicted; both source-specific blocks survive.
+This gate is for this exact combined source, not later parallel Chats changes.
+
+Fresh owned project `sdlc-qa-fleet-container-control-14d3d92374e8` passes locked,
+offline Rust1.88/Linux/PostgreSQL fmt, all-target check, strict Clippy and the
+workspace tests:511 passed,0 failed,29 explicitly ignored in34 result groups.
+The original mapping fake-Base consumer and merged owner-command gateway
+regressions execute together. All288 captured inputs remain unchanged.
+Source manifest SHA256:
+`9e9b4b6fe07713ee46923beae88f2bf4619529b16a1ab07e95f2f074da53a019`.
+Log SHA256:
+`dd0df251315981f7145edc3368d449b4327fdc62cada4c92fba7b3d195db726f`.
+Report SHA256:
+`3ad746b5c8dabe83e915677e1a5081e7640d2b348dd2983c1c966900e6fc5009`.
+
+Separate project `sdlc-qa-fleet-container-control-9f0f57e17d2e` executes all18
+migration tests with0 ignores and0 failures, using nine distinct disposable
+PostgreSQL databases for lineage, transcript order and each journal upgrade.
+Captured source identities equal the workspace gate; log SHA256:
+`faa15e69f67fead620b3190e35433b6e2a60d8111110d1d7f341253a24c4470a`;
+report SHA256:
+`7d549879752466c27519e9e81c5b7fcc4bb549e5daaf8fca77f2c7a2ef1dc984`.
+Its first attempt `sdlc-qa-fleet-container-control-539b49c4624f` failed because
+the harness omitted the dedicated empty message-order DB. That failure is
+retained separately; the corrected gate supplies every required isolated DB.
+Both successful projects and that failed project have independently empty
+original-Engine container/network inventories. No permanent resources changed.
+
+Node22/pnpm10 combined-tree typecheck, lint, format,259 Vitest cases and build
+pass. The existing >500 KiB bundle warning remains. The full Chats/Fleet browser
+suite passes33 fixture cases in Chromium/Firefox/WebKit. The21 consumer preview
+screenshots are regenerated and source/hash/dimension verified. Desktop dialogue
+and mobile single-choice clarification were visually inspected. Base's installed
+UI checker, OpenAPI generated-client/compatibility, seven local contract checks,
+README,118 Markdown files and six captured-source loader tests pass.
+WebKit fixture teardown still emits mock-upstream proxy warnings; this is not
+evidence of a live upstream. Preview remains `liveAcceptance=false`.
+
+Read-only recheck preserves Tracker114 `8c80a41` (open Draft, conflicting) and
+Workflow90 `e4fba60` (open Draft, mergeable), with the documented three-schema
+drift and missing installed predispatch authority. Base PR150 remains ready,
+mergeable on `98a5bbd`, with nine successful exact-head CI jobs, not installed.
+No giant integration-tail PR, release, SDK pin or deployment switch is implied.
+Mapped real Hermes/model/chat, config drain/replacement/rollback, logs/controller
+recovery, private-intent loss/restore, producer admission/first step, PM tools/
+continuation and Forge/seven-agent deployment acceptance remain open.
+
 ## Rust Named-Volume Consumer: 6 October 2026
 
 Source `d924799be5ec77935b71decce20059f22b919e10` implements closed mapping DTOs,

@@ -1,0 +1,34 @@
+[
+  {
+    "artifact": "tracker-openapi.json",
+    "repo": "FerrPOINT/task-tracker",
+    "head": "8c80a41fae3bf1c10439ddb7e536b05bf320340d",
+    "path": "openapi/openapi.json",
+    "gitBlob": "63c1db271fd0167d8c25ddc47c0575c93bd82f3d",
+    "sha256": "361672c7cbc04d7aaf9116480715c293fc8841671d2e6a026d618abc93c9722f"
+  },
+  {
+    "artifact": "tracker-sdlc.rs",
+    "repo": "FerrPOINT/task-tracker",
+    "head": "8c80a41fae3bf1c10439ddb7e536b05bf320340d",
+    "path": "backend/app/src/sdlc.rs",
+    "gitBlob": "a797067ca86913bfab1ea22c22dba6b4724d701a",
+    "sha256": "689d0764d7207fd20a156776f2f67074fd2260ddce1268a8bc15abda85228362"
+  },
+  {
+    "artifact": "workflow-openapi.json",
+    "repo": "FerrPOINT/project-workflow",
+    "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+    "path": "docs/pm-continuation-openapi.json",
+    "gitBlob": "f6b74b10be434b8eab071db2afa5792be2873813",
+    "sha256": "580cebfc6c5ad62606ac5c3458429aab19651493d6df312caa369822e31a34e4"
+  },
+  {
+    "artifact": "workflow-contract.md",
+    "repo": "FerrPOINT/project-workflow",
+    "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+    "path": "docs/pm-continuation-contract.md",
+    "gitBlob": "db678cb87d1e64af5e07026ed06ec1a4c8dd81a4",
+    "sha256": "d5c361ecf438686a8459ed7b0c2e46005c5335e18f6fbae0d5d3e60498f68828"
+  }
+]

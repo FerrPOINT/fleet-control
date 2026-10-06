@@ -1,5 +1,27 @@
 # Current State
 
+## Combined Chats And Runtime Candidate: 6 October 2026
+
+The normal merge preserves runtime parent `7564e2e` and all three Chats commits
+through `0ecee7eaac7fca4ec60bc813d02ae5e037bd3a67`, without rewriting either
+published history. The only merge conflict was this introduction; both source
+ledgers remain. Fresh combined-tree Rust1.88/Linux/PostgreSQL gate:511 passed,
+0 failed,29 explicit ignores, fmt/all-target check/strict Clippy pass. A separate
+isolated migration gate runs18 tests with0 ignores across nine disposable DBs.
+All288 captured backend/SDK inputs match between the two successful gates.
+
+Frontend typecheck/lint/format/build and259 tests pass;33 fixture browser cases
+pass in Chromium/Firefox/WebKit. The21 consumer preview images are regenerated
+from this combined tree, manifest-verified and kept explicitly non-live; desktop
+dialogue and mobile clarification were visually inspected. Generated-client,
+OpenAPI compatibility/local contract checks, Base UI and118 Markdown files pass.
+See [scope and evidence](CHAT_CLARIFICATION_VERIFICATION.md#combined-chats-and-runtime-candidate-6-october-2026).
+
+This is an integration branch, not a released/installed build or full merge-ready
+SDLC. Actual mapped Hermes/model/chat, container config lifecycle/logs/recovery,
+producer admission, PM continuation and Forge acceptance remain required.
+New independent Chats changes after `0ecee7e` require their own merge and checks.
+
 ## Current Rust Named-Volume Consumer
 
 Source `d924799be5ec77935b71decce20059f22b919e10` adds typed original mapping,
@@ -94,6 +116,18 @@ CI37456080881, reread after ready; no reviews/threads. Runtime/config activation
 daemon-path/UID/logs, container chat and PM admission/resume remain incomplete.
 Chats/PM consumer has a separate user-requested task/worktree; its existence is
 not delivery evidence. See [verification](CHAT_CLARIFICATION_VERIFICATION.md).
+
+## Independent Chats/PM Consumer: 6 October 2026
+
+The independent consumer packet retains original unknown answer/confirmation
+commands across question, tab and document changes, verifies Tracker receipts,
+preserves authorized read history after agent reassignment, and refreshes context
+and permissions on reconnect. Stale data stays readable with disabled mutations.
+Frontend component/browser evidence and exact external dependencies are recorded
+in [the handoff](CHATS_PM_CONSUMER_HANDOFF_20261006.md). Preview screenshots remain
+explicitly non-live. Published Tracker114 and Workflow90 do not supply installed
+predispatch admission. PM tools/delivery/resume, Workflow step projection and live
+owner acceptance remain; this is not full Chats/SDLC release readiness.
 
 ## Prepared Container Recipe Guard: 6 October 2026
 

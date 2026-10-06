@@ -489,9 +489,14 @@ async fn proxy(
         .request(binding.task_id, &["context".into()], headers, None)
         .await?;
     if context_status != StatusCode::OK {
+        if context_status.is_success() {
+            return Err(context_error(context_status));
+        }
         return Ok((context_status, Json(context)));
     }
-    check_current_agent(&context, binding.agent_id)?;
+    if write {
+        check_current_agent(&context, binding.agent_id)?;
+    }
     if check_context(
         context,
         &gateway,
@@ -503,15 +508,25 @@ async fn proxy(
         return Err(AppError::conflict("Tracker binding identity changed"));
     }
     let response_path = path.clone();
+    let original_body = body.clone();
     let (status, value) = gateway
         .request(binding.task_id, &path, headers, body)
         .await?;
     let value = if status.is_success() {
+        if status != StatusCode::OK {
+            return Err(AppError::Unavailable(
+                "Tracker command acceptance requires exact response readback".into(),
+            ));
+        }
         match response_path.last().map(String::as_str) {
             Some("clarifications") => typed_response::<domain::TrackerClarifications>(value)?,
-            Some("answers") => typed_response::<domain::TrackerAnswer>(value)?,
+            Some("answers") => {
+                checked_answer_response(&binding, &response_path, original_body, value)?
+            }
             Some("revisions") => typed_response::<domain::TrackerRequirements>(value)?,
-            Some("confirm") => typed_response::<domain::TrackerConfirmation>(value)?,
+            Some("confirm") => {
+                checked_confirmation_response(&binding, &response_path, original_body, value)?
+            }
             _ => {
                 return Err(AppError::Unavailable(
                     "unsupported Tracker response contract".into(),
@@ -522,6 +537,60 @@ async fn proxy(
         value
     };
     Ok((status, Json(value)))
+}
+
+fn receipt_mismatch() -> AppError {
+    AppError::Unavailable("Tracker receipt does not match the original command".into())
+}
+
+fn checked_answer_response(
+    binding: &TaskChatBinding,
+    path: &[String],
+    body: Option<Value>,
+    value: Value,
+) -> Result<Value, AppError> {
+    let request: ClarificationAnswerRequest =
+        serde_json::from_value(body.ok_or_else(receipt_mismatch)?)
+            .map_err(|_| receipt_mismatch())?;
+    let answer: domain::TrackerAnswer = decode_response(value)?;
+    let mut selected = request.selected_option_ids;
+    let mut acknowledged = answer.selected_option_ids.clone();
+    selected.sort();
+    acknowledged.sort();
+    if path.get(1) != Some(&answer.question_id.to_string())
+        || answer.question_version != request.expected_question_version
+        || answer.requirement_revision != request.requirement_revision
+        || answer.author_subject != binding.owner_subject
+        || selected != acknowledged
+        || answer.text != request.text
+        || answer.comment != request.comment
+        || answer.id.is_nil()
+    {
+        return Err(receipt_mismatch());
+    }
+    serde_json::to_value(answer).map_err(AppError::internal)
+}
+
+fn checked_confirmation_response(
+    binding: &TaskChatBinding,
+    path: &[String],
+    body: Option<Value>,
+    value: Value,
+) -> Result<Value, AppError> {
+    let request: ConfirmRequirementsRequest =
+        serde_json::from_value(body.ok_or_else(receipt_mismatch)?)
+            .map_err(|_| receipt_mismatch())?;
+    let receipt: domain::TrackerConfirmation = decode_response(value)?;
+    if path.get(1) != Some(&receipt.revision.to_string())
+        || receipt.task_id != binding.task_id
+        || receipt.owner_subject != binding.owner_subject
+        || receipt.content_hash != request.content_hash
+        || receipt.id.is_nil()
+        || !matches!(receipt.stage, domain::TrackerStage::Backlog)
+    {
+        return Err(receipt_mismatch());
+    }
+    serde_json::to_value(receipt).map_err(AppError::internal)
 }
 
 fn decode_response<T: DeserializeOwned>(value: Value) -> Result<T, AppError> {
@@ -598,6 +667,79 @@ pub async fn history(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn receipt_binding() -> TaskChatBinding {
+        let task = Uuid::new_v4();
+        TaskChatBinding {
+            tracker_instance_id: "tracker".into(),
+            project_id: Uuid::new_v4(),
+            task_id: task,
+            root_task_id: task,
+            agent_id: Uuid::new_v4(),
+            owner_subject: "owner".into(),
+        }
+    }
+
+    #[test]
+    fn answer_receipt_must_match_original_owner_question_version_revision_and_choices() {
+        let binding = receipt_binding();
+        let question = Uuid::new_v4();
+        let option = Uuid::new_v4();
+        let body = serde_json::json!({"expected_question_version":2,"requirement_revision":3,"selected_option_ids":[option],"text":null,"comment":null,"idempotency_key":"original"});
+        let value = serde_json::json!({"id":Uuid::new_v4(),"question_id":question,"question_version":2,"requirement_revision":3,"selected_option_ids":[option],"text":null,"comment":null,"author_subject":"owner","created_at":"2026-10-06T00:00:00Z"});
+        let path = vec![
+            "clarifications".into(),
+            question.to_string(),
+            "answers".into(),
+        ];
+        assert!(
+            checked_answer_response(&binding, &path, Some(body.clone()), value.clone()).is_ok()
+        );
+        for (field, wrong) in [
+            ("question_id", serde_json::json!(Uuid::new_v4())),
+            ("question_version", serde_json::json!(1)),
+            ("requirement_revision", serde_json::json!(4)),
+            ("author_subject", serde_json::json!("operator")),
+            ("selected_option_ids", serde_json::json!([Uuid::new_v4()])),
+            ("text", serde_json::json!("unrelated answer")),
+            ("comment", serde_json::json!("unrelated comment")),
+            ("id", serde_json::json!(Uuid::nil())),
+        ] {
+            let mut altered = value.clone();
+            altered[field] = wrong;
+            assert!(matches!(
+                checked_answer_response(&binding, &path, Some(body.clone()), altered),
+                Err(AppError::Unavailable(_))
+            ));
+        }
+    }
+
+    #[test]
+    fn confirmation_receipt_cannot_acknowledge_another_task_owner_revision_hash_or_stage() {
+        let binding = receipt_binding();
+        let body = serde_json::json!({"content_hash":"a".repeat(64),"idempotency_key":"original"});
+        let value = serde_json::json!({"id":Uuid::new_v4(),"task_id":binding.task_id,"revision":3,"content_hash":"a".repeat(64),"owner_subject":"owner","created_at":"2026-10-06T00:00:00Z","stage":"Backlog"});
+        let path = vec!["requirements".into(), "3".into(), "confirm".into()];
+        assert!(
+            checked_confirmation_response(&binding, &path, Some(body.clone()), value.clone())
+                .is_ok()
+        );
+        for (field, wrong) in [
+            ("task_id", serde_json::json!(Uuid::new_v4())),
+            ("revision", serde_json::json!(4)),
+            ("owner_subject", serde_json::json!("operator")),
+            ("content_hash", serde_json::json!("b".repeat(64))),
+            ("stage", serde_json::json!("Analysis")),
+            ("id", serde_json::json!(Uuid::nil())),
+        ] {
+            let mut altered = value.clone();
+            altered[field] = wrong;
+            assert!(matches!(
+                checked_confirmation_response(&binding, &path, Some(body.clone()), altered),
+                Err(AppError::Unavailable(_))
+            ));
+        }
+    }
     #[test]
     fn replacement_pm_invalidates_old_binding_and_errors_keep_their_class() {
         let agent = Uuid::new_v4();
