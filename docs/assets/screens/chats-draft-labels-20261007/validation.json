@@ -1,0 +1,148 @@
+{
+  "consumerBaseline": "717aaba4f0ee8b6812eda5651dc17b82cc9ef229",
+  "integratedBaseline": "f7f88582fc4977e971fd75601b8b7b0ddab1a684",
+  "baselineFrontendAndBrowserApiIdentical": true,
+  "basePin": "cbb4e99230420dc2659431b1c9fb5090e5c940f0",
+  "sourceByteConvention": "Git blob/LF bytes",
+  "sourceSha256": {
+    "frontend/src/pages/chat-detail/index.tsx": "d4413508bd8ed523ef91954b66012334f43fc7c269fcff16fa99af99b80df0e9",
+    "frontend/src/pages/chat-detail/index.test.tsx": "96fd74ecb9afb13652cacc0e13bc5c843a74f8a78d8ba0f623ff2f932c7817d2",
+    "frontend/e2e/fleet-control.spec.ts": "90b8d9941874c7a2a9fb7a85d3c10d46ddaf95927921a70bff35f07dc7475444",
+    "docs/CHATS_PM_FINAL_HANDOFF_20261006.md": "71786a13be3f6d724b07500e7c4b4a155534d1e2326f805a64e2b171464eda13"
+  },
+  "scope": "Retained answer option labels across question versions; existing explicit transfer and answer flow",
+  "backendChanged": false,
+  "runtimeChanged": false,
+  "apiChanged": false,
+  "sdkChanged": false,
+  "producerChanged": false,
+  "productionPmDraftFormAdded": false,
+  "pmDraftDesignApproved": false,
+  "liveAcceptance": false,
+  "unitPassed": 292,
+  "unitFiles": 31,
+  "chatUnitCases": 54,
+  "browserUniqueCasesPassed": 57,
+  "browserProjects": ["chromium", "firefox", "webkit"],
+  "browserFullRun": {
+    "passed": 56,
+    "failed": 1,
+    "failure": "Legacy Chromium Page.captureScreenshot protocol error; no code change"
+  },
+  "browserFocusedRecheck": {
+    "project": "chromium",
+    "workers": 1,
+    "passed": 2,
+    "uniqueCase": "legacy session permits the first prompt but holds a pending delivery after reload"
+  },
+  "browserWorkers": 3,
+  "browserOrigin": "http://localhost:24173",
+  "fixtureOnly": true,
+  "ownedFixturePreviewStopped": true,
+  "beforeFix": {
+    "unitFailed": 2,
+    "sourceSha256": "0b07e7692a3a97d3c5f4ef589b6dbf0205fce6f52b3e7805d71fee026c1cde22",
+    "logSha256": "fb3151f41bdd8bb049496c62ed8f186105266589feaf62378a89871f75d73a57",
+    "observed": "A retained selection displayed the new option label or the removed option UUID instead of the original label"
+  },
+  "logSha256": {
+    "chat-draft-label-all-unit.log": "8e9a137ab3420add3bac5ae429646fc6bd5dbb095a0b7070d1181a912b1e38e8",
+    "chat-draft-label-browser.log": "e0ef429f9a2c86fd91466101a846d43137bf4752e7279d8f751c4faab2e0a0f4",
+    "chat-draft-label-build.log": "a959f72c602bb5443fd80eec596615e1048c5a9b6ba7a20f6fdee60d654e368d",
+    "chat-draft-label-lint.log": "fea2ca52c435e20a7e93d4541868d89dc441a99a8ebb4d3e82613b6932415200",
+    "chat-draft-label-ui.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "chat-draft-label-render-recheck.log": "ce8e3d285f816b3509c2cd33d9865b8fabef71868c8b1cb9f02039984f87fbd7"
+  },
+  "initialBrowserFixtureFailure": {
+    "failed": 3,
+    "passed": 54,
+    "cause": "New replaced-option fixture referenced nonexistent ids.qa; corrected to canonical ids.tester",
+    "logSha256": "24a493c791c56ac733260639621446da90f8e84da778743bd22880ddf7148553"
+  },
+  "browserScenario": {
+    "originalLabelsRetained": true,
+    "draftCommentRetained": true,
+    "noAutomaticTransferOrAnswer": true,
+    "explicitNewVersionAnswer": true,
+    "pageerrorFiltered": false
+  },
+  "screenshots": [
+    {
+      "file": "chat-draft-renamed-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "a8306c2550ee8e3c250b383c10483f192c7145348065a616ed2b4f838609b609",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-draft-renamed-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "7afc9bf6031407efcf9839fadfc124e6951a6228349040e4bc5c602b5412fbda",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-draft-renamed-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "a58587bcc0833a800aed3b9ae4ee740400b2052ec2877f1d3925228230a66c4f",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-draft-replaced-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "9b4ce2fde10fbe35f3d2249b608d4df66f1f93dea1da1b4d74c05aa0832d6731",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-draft-replaced-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "7f690329858d834c5cfd190778dee22054d901611722d934a249fb5bb19fbd67",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-draft-replaced-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "a4cb78071880b91b41a442bd0c238a3ac14b6b52c20d0cc04ebca220d63f57d0",
+      "browser": "chromium",
+      "fixtureOnly": true
+    }
+  ],
+  "capturesIncludeScrolledActions": true,
+  "tracker114": {
+    "head": "8c80a41fae3bf1c10439ddb7e536b05bf320340d",
+    "state": "OPEN"
+  },
+  "workflow90": {
+    "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+    "state": "OPEN"
+  },
+  "checksPassed": [
+    "pnpm test",
+    "pnpm build (including tsc --noEmit)",
+    "pnpm lint",
+    "installed Base UI contract checker",
+    "56 full fixture browser passes plus two unchanged focused repeats of the remaining legacy case"
+  ],
+  "limits": [
+    "PM Draft design approval is still pending",
+    "No browser Workflow projection or read-only attempt cursor is published",
+    "Native admission, publication, delivery, checkpoint/resume/rebind are separate runtime/producer acceptance",
+    "Original combined Base WebKit navigation diagnostic remains open",
+    "No exact-head independent branch CI"
+  ],
+  "warnings": [
+    "One full-run Chromium screenshot protocol error did not recur in two unchanged focused repeats",
+    "Existing Vite chunk-size warning",
+    "Fixture teardown may request absent upstream; no pageerror suppression"
+  ],
+  "screenshotsVisuallyReviewed": true
+}

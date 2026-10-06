@@ -737,6 +737,154 @@ test('PM chat clarification preserves explicit answers and exact confirmation', 
   await expect(page).toHaveURL(/tab=clarification/)
   expect(errors).toEqual([])
 })
+for (const change of ['renamed', 'replaced'] as const) {
+  test(`clarification retains the original label when its option is ${change}`, async ({
+    page,
+  }, info) => {
+    const state = createState()
+    await installMocks(page, state)
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    const question = {
+      id: '00000000-0000-4000-8000-000000000501',
+      request_id: '00000000-0000-4000-8000-000000000502',
+      task_id: ids.session,
+      root_task_id: ids.session,
+      assignment_id: '00000000-0000-4000-8000-000000000503',
+      execution_id: '00000000-0000-4000-8000-000000000504',
+      agent_id: ids.dev,
+      assignment_version: 1,
+      checkpoint_id: '00000000-0000-4000-8000-000000000505',
+      author_subject: ids.dev,
+      created_at: now,
+      version: 1,
+      requirement_revision: 1,
+      text: 'Кто может просматривать задачи?',
+      rationale: 'Фиксируем границы доступа.',
+      required: true,
+      mode: 'single',
+      state: 'open',
+      answer: null,
+      requirement_reference: 'REQ-1',
+      recommended_option_id: ids.dev,
+      options: [
+        {
+          id: ids.dev,
+          label: 'Участники проекта',
+          consequences: 'Только проект.',
+          is_custom: false,
+        },
+      ],
+    }
+    let updated = false
+    const nextOption = {
+      ...question.options[0]!,
+      id: change === 'renamed' ? ids.dev : ids.tester,
+      label: 'Все пользователи',
+    }
+    const commands: Record<string, unknown>[] = []
+    await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
+      const path = new URL(route.request().url()).pathname
+      if (path.endsWith('/task-context'))
+        return fulfill(route, {
+          binding: {
+            tracker_instance_id: 'fixture-tracker',
+            project_id: ids.dev,
+            task_id: ids.session,
+            root_task_id: ids.session,
+            agent_id: ids.dev,
+            owner_subject: ids.user,
+          },
+          tracker: {
+            contract_version: 1,
+            tracker_instance_id: 'fixture-tracker',
+            project_id: ids.dev,
+            task_id: ids.session,
+            root_task_id: ids.session,
+            owner_subject: ids.user,
+            stage: 'Clarification',
+            requirement_revision: 1,
+            waiting_reason: 'Требуется ответ',
+            assignment: null,
+            permissions: { can_answer: true, can_confirm: false },
+          },
+        })
+      if (path.endsWith('/clarifications'))
+        return fulfill(route, {
+          questions: [updated ? { ...question, version: 2, options: [nextOption] } : question],
+        })
+      if (path.endsWith('/requirements')) return fulfill(route, { revisions: [] })
+      if (route.request().method() === 'POST' && path.endsWith('/answers')) {
+        const body = route.request().postDataJSON()
+        commands.push(body)
+        return fulfill(route, {
+          id: ids.tester,
+          question_id: question.id,
+          question_version: 2,
+          requirement_revision: 1,
+          selected_option_ids: body.selected_option_ids,
+          text: null,
+          comment: body.comment,
+          author_subject: ids.user,
+          created_at: now,
+        })
+      }
+      return route.fallback()
+    })
+    await page.goto(`/chats/${ids.session}?tab=clarification`)
+    await page.getByRole('radio', { name: /Участники проекта/ }).check()
+    await page.getByLabel('Комментарий', { exact: true }).fill('Ответ исходной версии')
+    updated = true
+    await expect(page.getByRole('radio', { name: /Все пользователи/ })).toBeVisible({
+      timeout: 15000,
+    })
+    const retained = page.getByRole('alert').filter({ hasText: 'Несохранённый ответ' })
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await expect(retained.getByText('Участники проекта', { exact: true })).toBeVisible()
+      await expect(retained.getByText('Все пользователи', { exact: true })).toHaveCount(0)
+      await expect(page.getByRole('radio', { name: /Все пользователи/ })).not.toBeChecked()
+      await expect(page.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+      expect(commands).toEqual([])
+      await retained.scrollIntoViewIfNeeded()
+      await page.screenshot({
+        path: info.outputPath(`chat-draft-${change}-${viewport.width}.png`),
+        fullPage: true,
+        animations: 'disabled',
+        scale: 'css',
+      })
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      ).toBe(true)
+    }
+    await page.getByRole('button', { name: 'Перенести черновик и проверить новый вопрос' }).click()
+    await expect(retained).toHaveCount(0)
+    await expect(page.getByLabel('Комментарий', { exact: true })).toHaveValue(
+      'Ответ исходной версии',
+    )
+    if (change === 'replaced') {
+      await expect(page.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+      await page.getByRole('radio', { name: /Все пользователи/ }).check()
+    }
+    await expect(page.getByRole('radio', { name: /Все пользователи/ })).toBeChecked()
+    await page.getByRole('button', { name: 'Сохранить ответ' }).click()
+    await expect.poll(() => commands.length).toBe(1)
+    expect(commands[0]).toMatchObject({
+      expected_question_version: 2,
+      selected_option_ids: [nextOption.id],
+      comment: 'Ответ исходной версии',
+      idempotency_key: expect.any(String),
+    })
+    expect(errors).toEqual([])
+  })
+}
+
 test('long chat history restores reading and tail positions across tabs', async ({
   page,
 }, testInfo) => {

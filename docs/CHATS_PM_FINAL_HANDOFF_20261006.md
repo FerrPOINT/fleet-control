@@ -2,22 +2,39 @@
 
 Production Chats implements dialogue, structured answers and exact-revision
 confirmation. Full live PM acceptance remains open. This inspection starts at
-consumer `96bb6d02d5353d2da5de32f7172eab237d5f46ca`; Base remains pinned to
-`cbb4e99230420dc2659431b1c9fb5090e5c940f0`. Published sources were re-fetched
-and verified against Git blobs: [Tracker114](https://github.com/FerrPOINT/task-tracker/pull/114)
+consumer `717aaba4f0ee8b6812eda5651dc17b82cc9ef229`, already integrated in
+published Fleet `f7f88582fc4977e971fd75601b8b7b0ddab1a684`. Fleet's frontend
+and browser API snapshot are identical at those two commits. Base remains pinned
+to `cbb4e99230420dc2659431b1c9fb5090e5c940f0`. Producer head checks on
+7 October 2026 match the previously verified source blobs:
+[Tracker114](https://github.com/FerrPOINT/task-tracker/pull/114)
 at `8c80a41fae3bf1c10439ddb7e536b05bf320340d`,
 [Workflow90](https://github.com/FerrPOINT/project-workflow/pull/90)
 at `e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37`; both remain open.
 
 The earlier [answer/confirmation packet](assets/screens/chats-authority-20261006/validation.json)
-holds commands during failed context/document GET retries. This follow-up closes
+holds commands during failed context/document GET retries. Integrated `717aaba` closes
 the same cached-success window for prompt/steer controls and the active run's
 command journal: pending or failed journal reads hold steer/stop, and a fresh
 unresolved receipt keeps that hold. A successful current controls read is required
 for message submission. Drafts and captured original retry payload/keys survive.
-Four new regressions failed before the fix; current source hashes, local checks
+Four regressions failed before that fix; its source hashes, local checks
 and fixture captures are in
 [command freshness validation](assets/screens/chats-command-freshness-20261006/validation.json).
+
+This follow-up fixes a separate question-version display defect: the retained
+selected answer previously used labels from the new version, or fell back to
+an option UUID after replacement. Drafts now retain their original labels.
+Explicit transfer still filters out removed option IDs and captures the reviewed
+version's labels, so another version change preserves the correct intermediate
+draft. No transfer or answer POST occurs automatically. Two regressions failed
+before the fix; renamed/replaced options, repeated version changes, original
+commands and captures are recorded in
+[draft label validation](assets/screens/chats-draft-labels-20261007/validation.json).
+The two new browser cases passed in all three engines. The full fixture run had
+56 passes and one legacy Chromium `Page.captureScreenshot` protocol failure;
+two focused repeats of that unchanged case passed. The record preserves both
+the original failure and the rechecks.
 
 The [PM Draft proposal](design/PM_DRAFT_CREATION_PREVIEW.md) was published in
 `96bb6d0`, with a separate clickable entry, 11 component cases, 12 isolated browser

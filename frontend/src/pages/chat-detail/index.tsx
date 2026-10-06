@@ -73,6 +73,13 @@ function requestKey() {
   return crypto.randomUUID()
 }
 type ConfirmationCommand = { revision: number; hash: string; key: string }
+type AnswerDraft = {
+  selected: string[]
+  text: string
+  comment: string
+  key: string
+  optionLabels: Record<string, string>
+}
 type ConfirmationResult = Awaited<ReturnType<typeof confirmRequirements>>
 type ConfirmationMutation = UseMutationResult<ConfirmationResult, Error, ConfirmationCommand>
 function unknownOutcome(error: unknown) {
@@ -152,9 +159,7 @@ function ChatWorkspace({ id }: { id: string }) {
   })
   const [contextOpen, setContextOpen] = useState(false)
   const contextTrigger = useRef<HTMLButtonElement>(null)
-  const [drafts, setDrafts] = useState<
-    Record<string, { selected: string[]; text: string; comment: string; key: string }>
-  >({})
+  const [drafts, setDrafts] = useState<Record<string, AnswerDraft>>({})
   const [body, setBody] = useState('')
   const [messageKey, setMessageKey] = useState(requestKey)
   const [delta, setDelta] = useState<Record<string, string>>({})
@@ -204,7 +209,13 @@ function ChatWorkspace({ id }: { id: string }) {
     questionList.find((question) => question.state === 'open') ??
     questionList[0]
   const questionKey = selectedQuestion ? `${selectedQuestion.id}:${selectedQuestion.version}` : ''
-  const draft = drafts[questionKey] ?? { selected: [], text: '', comment: '', key: '' }
+  const draft = drafts[questionKey] ?? {
+    selected: [],
+    text: '',
+    comment: '',
+    key: '',
+    optionLabels: {},
+  }
   const dirty =
     confirmation.isPending ||
     confirmationUncertain ||
@@ -410,6 +421,9 @@ function ChatWorkspace({ id }: { id: string }) {
         ...(current[questionKey] ?? { selected: [], text: '', comment: '', key: requestKey() }),
         key: requestKey(),
         ...change,
+        optionLabels: Object.fromEntries(
+          (selectedQuestion?.options ?? []).map((option) => [option.id, option.label]),
+        ),
       },
     }))
   const switchTab = (value: string) =>
@@ -872,11 +886,7 @@ function ChatWorkspace({ id }: { id: string }) {
                         <p>{previous.comment}</p>
                         <p>
                           {previous.selected
-                            .map(
-                              (optionId) =>
-                                selectedQuestion?.options.find((option) => option.id === optionId)
-                                  ?.label ?? optionId,
-                            )
+                            .map((optionId) => previous.optionLabels[optionId] ?? optionId)
                             .join(', ')}
                         </p>
                         <Button
@@ -900,6 +910,12 @@ function ChatWorkspace({ id }: { id: string }) {
                               next[questionKey] = {
                                 ...previous,
                                 key: requestKey(),
+                                optionLabels: Object.fromEntries(
+                                  (selectedQuestion?.options ?? []).map((option) => [
+                                    option.id,
+                                    option.label,
+                                  ]),
+                                ),
                                 selected: previous.selected.filter((id) =>
                                   selectedQuestion?.options.some((option) => option.id === id),
                                 ),
