@@ -53,12 +53,14 @@
 - Backend authentication, request scopes and ownership checks are authoritative.
   The UI hides sections using `/api/v1/users/me/permissions`; historical human
   roles constrain only standalone legacy requests.
-- Session SSE rechecks token validity, active user, ownership and standalone roles while
-  replaying events. No bearer token is placed in a stream URL.
-- The global `/api/v1/events` stream currently checks access only at connection
-  time. Revoking a PAT does not stop that open stream; this is a release-blocking
-  [known defect](https://github.com/FerrPOINT/fleet-control/issues/52), not a
-  completed session-revocation guarantee.
+- Session SSE rechecks token validity, active user, ownership and standalone roles
+  while replaying events. Global `/api/v1/events` also rechecks the bearer token,
+  its subject binding and service read scope before delivering each event and
+  once per second while idle. Revocation, expiry, disabled users, Auth outage or
+  database errors close the stream without a local fallback. Legacy mode also
+  rechecks the current stored operator role. Central private session events are
+  owner-only; leader-scoped events remain shared. No bearer token is placed in
+  a stream URL.
 - Human message requests cannot supply an agent author or runtime message ID.
   A scoped machine assignment protocol is still unimplemented, not a fallback
   permission granted to human or runtime clients.

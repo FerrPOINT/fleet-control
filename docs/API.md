@@ -149,7 +149,11 @@ Runtime:
 - `GET /deployments/jobs/{job_id}`
 - `POST /deployments/jobs/{job_id}/cancel`
 - `GET /logs`
-- `GET /events` as SSE
+- `GET /events` as SSE. The bearer token is revalidated before delivery and once
+  per second while idle. Revocation, expiry, disabled users or Auth unavailability
+  terminate the existing connection; the client must authenticate again.
+  Central private session events are owner-only. `fleet` event names and payload
+  shapes are unchanged; no token is accepted through URL query parameters.
 - `GET /events/recent`
 - `GET /audit-log`
 
