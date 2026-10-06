@@ -54,7 +54,10 @@
   The UI hides sections using `/api/v1/users/me/permissions`; historical human
   roles constrain only standalone legacy requests.
 - Session SSE rechecks token validity, active user, ownership and standalone roles
-  while replaying events. Global `/api/v1/events` also rechecks the bearer token,
+  while replaying events. It also binds the revalidated central profile or legacy
+  token subject to the original user before returning queued events. An active
+  token for a different user cannot retain a private session stream.
+  Global `/api/v1/events` also rechecks the bearer token,
   its subject binding and service read scope before delivering each event and
   once per second while idle. Revocation, expiry, disabled users, Auth outage or
   database errors close the stream without a local fallback. Legacy mode also

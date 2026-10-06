@@ -228,6 +228,36 @@ mod tests {
             assert!(ensure_session_write_access(&shared, &current).is_ok());
         }
     }
+
+    #[test]
+    fn session_stream_principal_stays_active_and_bound_to_original_user() {
+        let mut principal = app::auth::UserRecord {
+            id: Uuid::new_v4(),
+            email: "stream@example.test".into(),
+            username: "stream".into(),
+            display_name: "Stream".into(),
+            password_hash: "!".into(),
+            refresh_token_hash: None,
+            system_role: domain::SystemRole::User,
+            is_system_admin: false,
+            is_active: true,
+        };
+        assert!(session_stream_user_matches(&principal, principal.id));
+        assert!(!session_stream_user_matches(&principal, Uuid::new_v4()));
+        principal.is_active = false;
+        assert!(!session_stream_user_matches(&principal, principal.id));
+    }
+
+    #[test]
+    fn session_stream_legacy_subject_must_match_original_user() {
+        let id = Uuid::new_v4();
+        assert!(session_stream_subject_matches(&id.to_string(), id));
+        assert!(!session_stream_subject_matches(
+            &Uuid::new_v4().to_string(),
+            id
+        ));
+        assert!(!session_stream_subject_matches("not-a-uuid", id));
+    }
 }
 
 #[utoipa::path(get, path = "/api/v1/sessions/{session_id}", tag = "sessions", params(("session_id" = Uuid, Path)), responses((status = 200, body = AgentSession)))]
@@ -464,18 +494,32 @@ pub async fn stream_session(
         move |(ctx, user, token, mut cursor, mut queue)| async move {
             loop {
                 let valid_token = match crate::middleware::central_auth::check_token(&token).await {
-                    crate::middleware::central_auth::CentralCheck::Validated(central, _) => {
-                        central.allows_service("fleet-control", "GET")
+                    crate::middleware::central_auth::CentralCheck::Validated(central, name) => {
+                        if !central.allows_service("fleet-control", "GET") {
+                            return None;
+                        }
+                        let email = central.email.as_deref()?;
+                        let principal = ctx
+                            .repo
+                            .find_or_create_central_user(&central.user_id, email, &name)
+                            .await
+                            .ok()?;
+                        session_stream_user_matches(&principal, user.id)
                     }
                     crate::middleware::central_auth::CentralCheck::FallThrough
                         if std::env::var_os("FLEET_CONTROL_AUTH__CENTRAL_JWKS_URI").is_none() =>
                     {
-                        ctx.auth.validate_access_token(&token).await.is_ok()
+                        ctx.auth
+                            .validate_access_token(&token)
+                            .await
+                            .is_ok_and(|claims| {
+                                session_stream_subject_matches(&claims.sub, user.id)
+                            })
                     }
                     _ => false,
                 };
                 let principal = ctx.repo.find_user_by_id(user.id).await.ok().flatten()?;
-                if !valid_token || !principal.is_active {
+                if !valid_token || !session_stream_user_matches(&principal, user.id) {
                     return None;
                 }
                 let session = ctx.repo.get_session(session_id).await.ok()?;
@@ -610,6 +654,14 @@ fn ensure_run_belongs_to_session(run: &SessionAgentRun, session_id: Uuid) -> Res
         return Err(AppError::not_found("session_agent_run", run.id));
     }
     Ok(())
+}
+
+fn session_stream_user_matches(principal: &app::auth::UserRecord, expected_user_id: Uuid) -> bool {
+    principal.id == expected_user_id && principal.is_active
+}
+
+fn session_stream_subject_matches(subject: &str, expected_user_id: Uuid) -> bool {
+    subject.parse::<Uuid>().ok() == Some(expected_user_id)
 }
 
 fn ensure_session_read_access(

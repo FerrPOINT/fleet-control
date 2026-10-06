@@ -6,6 +6,8 @@
   Personal token scopes remain enforced, private sessions remain owner-only,
   shared sessions permit central users, and bootstrap/role mutation cannot
   promote historical profiles. Standalone legacy RBAC is preserved.
+- Session SSE remains bound to the original validated user during replay and
+  idle checks; a still-active token rebound to another subject closes the stream.
 - Global Fleet SSE revalidates the original bearer identity, activity and read
   scope during idle and before every delivery. Revocation and Auth failure close
   held streams; central private session events remain owner-only, and standalone
