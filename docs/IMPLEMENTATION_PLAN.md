@@ -2,6 +2,14 @@
 
 ## Current SDLC Scope
 
+Next Rust runtime packet must consume Base protocol2/boundary policy3 named-volume
+subpaths, not projected daemon-root bind paths. Basee083651/98a5bbd has native
+UID999 lifecycle proof0a1f2bdd97e1 and30 Linux cases; original mapping file/hash
+must be bound in Fleet creation intent, registration and launch provenance.
+Reject protocol downgrade/changed proof and preserve local AgentPaths/marker checks.
+Base PR150 is ready/mergeable with9 SUCCESS jobs exact CI37465043730, reread after
+ready with no reviews/threads; the evidence below is historical. No merge/install.
+
 Base follow-up2bcf3d2 now proves read-only named-volume mapping with real UID999
 controller files, original snapshot/Engine/volume hashes and drift rejection.
 This is not yet a Fleet consumer: persist the original mapping in creation intent,

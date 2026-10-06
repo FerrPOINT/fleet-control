@@ -1,5 +1,22 @@
 # Current State
 
+## Current Named-Volume Lifecycle Candidate
+
+Base sourcee083651 / published98a5bbd implements private protocol2/boundary policy3
+with original named-volume subpaths, immutable mapping file/hash and fresh guards.
+Native0a1f2bdd97e1 passes create/replay/attach/start/endpoint/namespace stop and
+30 Linux control cases: UID999, readonly runtime, own RW areas, no socket,
+local symlink denial. Seven changed executable blobs match the passed frozen bytes.
+All own resources removed and permanent runtime unchanged. Final merged Base host
+408 cases:396 PASS/12 skips;26 Node contracts and README/hub PASS. Fresh two-real-
+Hermes host-bind gate90158c9d02aa passes startup/attachment/health/cross-token/stop;
+nine executable blobs match published98a5bbd. It submits no inference and does not
+prove policy3 mapped Hermes. PR150 is ready/MERGEABLE: all9 exact-head jobs
+CI37465043730 SUCCESS, reread after ready; reviews/threads empty. Remote body
+matches current main template3/7/2. Earlier ready/CI observations below are historical.
+Rust Fleet consumer/pins/UI/API/DB are unchanged; actual mapped Hermes/model/chat,
+config drain/activation/rollback and predispatch admission remain incomplete.
+
 ## Named-Volume Mapping Prerequisite: 6 October 2026
 
 Base candidate2bcf3d2 adds read-only resolve_mounts, proven inside a real trusted

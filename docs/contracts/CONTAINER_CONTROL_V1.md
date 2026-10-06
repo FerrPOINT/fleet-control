@@ -85,6 +85,18 @@ Docker configuration and is not container or SDLC acceptance.
 
 ### Named-Volume Mapping Prerequisite
 
+Current Base sourcee083651 / candidate98a5bbd implements the next layer:
+private protocol2 + boundary policy3 uses external named-volume subpaths,
+not bind sources inside Docker's own data root. Each mount has type=volume,
+source=original volume name, subpath=agentN/area, destination=/area and RO flag.
+The immutable mapping_file precedes create; preparation/registration seal
+mount_mapping_sha256 and all effects/readbacks revalidate the original proof.
+Old protocol1 cannot service mapped registrations. Native own-volume lifecycle
+0a1f2bdd97e1 passes with UID999, no socket, local symlink denial and exact cleanup.
+The read-only-only evidence below is historical. Rust still needs typed policy3,
+mapping/file/hash binding and consumer tests; existing policy2 bindings stay held
+for this path. Do not replace binds with rslave or claim installed acceptance.
+
 Base adds read-only resolve_mounts with explicit controller/local_root alongside
 the common policy/compose/journal/context. Exact controller inventory and Engine
 are read twice; the mounted root must be one writable local named volume of the

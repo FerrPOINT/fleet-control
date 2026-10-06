@@ -1,5 +1,35 @@
 # Chat Clarification Verification
 
+## Named-Volume Subpath Lifecycle: 6 October 2026
+
+Base sourcee083651 / published98a5bbd adds private protocol2/boundary policy3.
+Docker rejected rprivate bind sources inside its own data root; rslave was not
+accepted as fallback. Exact external named-volume subpaths now identify one
+agent's four areas. Immutable mapping file/hash binds preparation/registration;
+fresh original controller/Engine/volume/local guards precede effects and readback.
+Protocol1 downgrade, root/sibling/foreign/options drift and lost ACK do not grant
+another effect. Existing host-bind policy1/2 explicitly sets rprivate.
+
+Native0a1f2bdd97e1 PASS:30 Linux control cases/no skips and actual mapped
+create/replay/attach/start/endpoint/namespace stop. Synthetic runtime UID/GID999,
+RO runtime/RW own areas/no socket/agents root, local symlink denial before start.
+10 frozen inputs unchanged; seven changed staged/published blobs raw-exact.
+Report SHA256179a98a283848967f96decf630271f8c0b61dc5a5bcb9095a93c7d2c16273853.
+Own Compose cleanup/volume/tag deletion/permanent freeze pass. After normal merge
+main846a5fa,408 host cases:396 PASS/12 skips;26 Node contract cases, README/hub pass.
+Fresh two-real-Hermes host-bind project90158c9d02aa also PASS:13770 pinned source
+files, trusted peer attachments, authenticated health/capabilities/cross-token
+denial and two original namespace exits. Nine executable inputs are unchanged
+and raw-exact with published98a5bbd. Report SHA256
+54236e2d41987825709277f829234e8b3053b4d1e10e694c14701bf5e77dc29c.
+Exact cleanup0, removed own tags and independent project inventories verified.
+No Rust Fleet,
+mapped Hermes model/chat/config/PM acceptance; the two-real-Hermes host-bind
+regression is a distinct gate. Current PR150 is ready/MERGEABLE with all9
+exact-head CI37465043730 jobs SUCCESS, reread after ready. Reviews/threads empty;
+remote body matches main template3/7/2. It is not merged/installed.
+The previous read-only/ready observations below remain historical.
+
 ## Named-Volume Mapping Prerequisite: 6 October 2026
 
 Base source735d74b / published2bcf3d29b7b46ebe0f556b9143c21ae1cd7d4e26 adds
