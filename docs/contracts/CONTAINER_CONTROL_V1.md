@@ -4,10 +4,31 @@ Status: private client and opt-in supervisor routing are implemented in the
 integration candidate. Automatic generation preparation is connected
 behind private deployment configuration. Real Rust/Docker/Hermes controlled-model
 free chat, isolation, drain/replacement and restart pass the
-[owned gate](../CONTAINER_SUPERVISOR_ACCEPTANCE.md). Installed enablement,
-actual readiness-failure rollback and controller recovery remain incomplete.
+[owned gate](../CONTAINER_SUPERVISOR_ACCEPTANCE.md), including the explicit
+controlled candidate-readiness-timeout rollback. Installed enablement,
+controller recovery and Docker log ingestion remain incomplete.
 Native execution is not
 silently relabelled Docker.
+
+## Private Log Tail Candidate
+
+The Rust client adds `log_tail` for the versioned Base `logs` operation. It uses
+the same captured-source hashes, explicit context, original registration and
+mapped-file guards. The response must contain an acknowledged original running
+or exited receipt and exactly two valid base64 streams, at most 32 KiB together.
+Never-started, held, foreign, extra-field, malformed or oversized responses fail
+closed. Raw bytes deliberately have no `Debug` or public DTO implementation.
+
+This is controller-private diagnostic transport, not production log ingestion.
+Callers must still establish current launch custody and redact resolved credentials
+before persistence/API/audit. It is not wired to health polling or public logs yet;
+existing pinned Base versions reject the unknown action without fallback. Bounded
+tail reads do not certify durable pagination, complete history or rotation recovery.
+The actual Base diagnostic gate reads four acknowledged exited originals from
+two real Hermes agents without persisting raw output; see
+[evidence](../CHAT_CLARIFICATION_VERIFICATION.md#actual-private-base-docker-log-readback-6-october-2026).
+That probe calls Base directly, not the Rust client. Actual Rust ingestion,
+redaction and durable generation-bound collection remain open.
 
 ## Ownership
 

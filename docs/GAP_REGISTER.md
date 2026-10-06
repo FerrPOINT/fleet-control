@@ -1,5 +1,24 @@
 # Gap Register
 
+## Private Docker Log Readback Verified; Ingestion Still Open
+
+Actual Base `logs` reads now pass for four original exited generations from two
+real Hermes agents after the Rust chat/config scenario. Raw output is not
+persisted. Rust's closed private client passes the broad528-test Linux gate,
+but is not invoked by the actual readback probe and is not a production collector.
+Do not close Docker log ingestion from this transport proof.
+
+Remaining: generation-bound current custody; exact resolved per-launch credential
+redaction before storage/SSE/API/audit; durable cursor/replay/deduplication with
+explicit overflow/rotation; restart/interrupted activation/private-journal
+recovery; actual Rust ingestion acceptance and authorized public diagnostics.
+Task admission/first workflow step, PM tools/delivery/resume, seven-agent/Forge
+acceptance and the combined WebKit case retain their existing open status.
+Base prerequisite PR150 is currently conflicting; the published logs branch
+contains that predecessor and is not a small main release PR. No pins, installed
+services or readonly producers are changed to bypass these gates.
+See [evidence](CHAT_CLARIFICATION_VERIFICATION.md#actual-private-base-docker-log-readback-6-october-2026).
+
 ## Controlled Docker Readiness Rollback Verified
 
 The explicit `--readiness-rollback` extension now verifies actual candidate boot

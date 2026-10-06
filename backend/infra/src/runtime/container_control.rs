@@ -206,6 +206,47 @@ struct Endpoint {
     host: std::net::Ipv4Addr,
 }
 
+// Raw stdout/stderr may contain credentials; never derive Debug or expose an API DTO.
+pub struct ContainerLogTail {
+    pub receipt: ContainerReceipt,
+    pub stdout: Vec<u8>,
+    pub stderr: Vec<u8>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LogEnvelope {
+    receipt: ContainerReceipt,
+    stdout_base64: String,
+    stderr_base64: String,
+}
+
+fn decode_logs(
+    status: i32,
+    value: Value,
+    original: &ContainerRegistration,
+) -> Result<ContainerLogTail, AppError> {
+    let envelope: LogEnvelope = serde_json::from_value(value).map_err(|_| held())?;
+    validate_receipt(&envelope.receipt, original, status, "logs")?;
+    if envelope.receipt.state != ContainerReceiptState::Observed {
+        return Err(held());
+    }
+    let stdout = STANDARD
+        .decode(envelope.stdout_base64)
+        .map_err(|_| held())?;
+    let stderr = STANDARD
+        .decode(envelope.stderr_base64)
+        .map_err(|_| held())?;
+    if stdout.len() + stderr.len() > 32 * 1024 {
+        return Err(held());
+    }
+    Ok(ContainerLogTail {
+        receipt: envelope.receipt,
+        stdout,
+        stderr,
+    })
+}
+
 fn held() -> AppError {
     AppError::Unavailable(
         "original Docker operation requires reconciliation; no automatic resend".into(),
@@ -794,6 +835,24 @@ impl ContainerControl {
         Ok(())
     }
 
+    /// Private bounded tail, not durable ingestion. Caller must redact before any storage or API.
+    pub async fn log_tail(
+        &self,
+        files: &ContainerLaunchFiles,
+        original: &ContainerRegistration,
+        tail: u16,
+    ) -> Result<ContainerLogTail, AppError> {
+        if !(1..=200).contains(&tail) {
+            return Err(held());
+        }
+        validate_registration(original)?;
+        validate_mapping_registration(&files.policy, files.mount_mapping.as_ref(), original)?;
+        let (status, value) = self
+            .call(files, "logs", json!({"registration":original,"tail":tail}))
+            .await?;
+        decode_logs(status, value, original)
+    }
+
     /// Caller must commit the registration in Fleet's authoritative launch journal first.
     pub async fn start(
         &self,
@@ -1196,6 +1255,59 @@ mod tests {
         value.observation = ContainerObservation::Unavailable;
         validate_receipt(&value, &original, 2, "start").unwrap();
         assert!(validate_receipt(&value, &original, 0, "start").is_err());
+    }
+
+    fn log_envelope(original: &ContainerRegistration) -> Value {
+        json!({"receipt":{"contract_version":original.contract_version,
+            "operation_id":original.operation_id,"container_id":original.container_id,
+            "resource_id":original.resource_id,"generation":original.generation,
+            "registration_sha256":canonical_hash(original).unwrap(),
+            "state":"observed","observation":"running","snapshot":receipt(original).snapshot},
+            "stdout_base64":STANDARD.encode(b"output\xff"),"stderr_base64":STANDARD.encode(b"error\n")})
+    }
+
+    #[test]
+    fn log_tail_preserves_binary_streams_and_exact_original_receipt() {
+        let original = original();
+        for state in ["running", "namespace_exited"] {
+            let mut value = log_envelope(&original);
+            value["receipt"]["observation"] = json!(state);
+            let logs = decode_logs(0, value, &original).unwrap();
+            assert_eq!(logs.stdout, b"output\xff");
+            assert_eq!(logs.stderr, b"error\n");
+            assert_eq!(logs.receipt.generation, original.generation);
+        }
+    }
+
+    #[test]
+    fn log_tail_rejects_unknown_foreign_malformed_and_oversized_output() {
+        let original = original();
+        for field in [
+            "unknown",
+            "foreign",
+            "missing",
+            "extra",
+            "base64",
+            "oversized",
+        ] {
+            let mut value = log_envelope(&original);
+            match field {
+                "unknown" => {
+                    value["receipt"]["state"] = json!("held");
+                    value["receipt"]["observation"] = json!("unavailable");
+                    value["receipt"]["snapshot"] = Value::Null;
+                }
+                "foreign" => value["receipt"]["generation"] = json!(Uuid::new_v4()),
+                "missing" => {
+                    value.as_object_mut().unwrap().remove("stderr_base64");
+                }
+                "extra" => value["credentials"] = json!("do-not-adopt"),
+                "base64" => value["stderr_base64"] = json!("%%%"),
+                _ => value["stdout_base64"] = json!(STANDARD.encode(vec![b'x'; 32 * 1024 + 1])),
+            }
+            assert!(decode_logs(0, value, &original).is_err(), "{field}");
+        }
+        assert!(decode_logs(2, log_envelope(&original), &original).is_err());
     }
 
     #[test]

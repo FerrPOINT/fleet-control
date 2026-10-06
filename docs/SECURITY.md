@@ -1,5 +1,22 @@
 # Security
 
+## Private Raw Docker Log Boundary
+
+The additive Base `logs` response is controller-private and may contain secrets.
+Only original acknowledged registrations with fresh pre/post custody checks are
+read; arbitrary IDs, never-started or held namespaces are denied. Linux pipe
+reads concurrently drain both streams with a32-KiB/five-second bound; failure
+discards partial output. Rust accepts only the closed original receipt and two
+valid bounded base64 streams. Its raw type has no Debug/public DTO implementation.
+
+No production persistence, API, SSE or audit consumes these raw bytes yet.
+Integration must redact exact resolved per-launch credentials, not only regex
+markers or today's possibly rotated environment, and maintain generation-bound
+provenance. The actual diagnostic probe persists counts only. Agents do not gain
+Docker or private-controller access. This does not prove cross-user tool/SessionDB
+isolation or full runtime recovery; those existing gates remain open. See
+[ADR0031](adr/0031-private-bounded-container-log-readback.md).
+
 ## Container Dispatch Origin
 
 The private original namespace endpoint is sealed to a launch/PID after Base

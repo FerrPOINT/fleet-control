@@ -1,5 +1,89 @@
 # Chat Clarification Verification
 
+## Actual Private Base Docker Log Readback: 6 October 2026
+
+Owned project `sdlc-qa-fleet-container-live-453211827a97` passes the corrected
+`--log-readback` gate. The real Rust/two-Hermes/five-model-prompt scenario passes
+1 test,0 failures/ignores in339.76 seconds; fresh Rust1.88 fmt/all-target strict
+Clippy and test compilation pass first. All304 frozen inputs and13,770 staged
+Hermes source files are verified. Source baseline is Fleet dad9c3b plus this
+captured delta, SDK cbb4e99230420dc2659431b1c9fb5090e5c940f0, Base control
+69831aa4d3e52312c7cc7e252c4bf01e36a950cc and Hermes
+bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3.
+
+The post-stop probe verifies captured Base source hashes and executes the real
+`logs` operation with each original registration, mapped files and journal.
+Four exited generations belonging to two agents have acknowledged original
+receipts and nonempty output. No raw stdout/stderr is printed or persisted;
+`log-readback.log` is empty. The sanitized evidence explicitly retains
+`fleet_log_ingestion=false`, `raw_logs_persisted=false`, `sdlc_acceptance=false`.
+This is actual Base transport, not actual Rust-client invocation or production
+Fleet ingestion/redaction/cursor/rotation acceptance. Readiness rollback is not
+enabled in this run; its separate earlier result is unchanged.
+
+- Source manifest: `d4f109eca19a197bb90cacf9da4ccce4f13ce0d35bd725cf89999ecb490ac822`.
+- Build log: `7f35861785dd34443fab54a32d669a5227f753dd057b2e2d3bf2cf8fe42de3bd`.
+- Live log: `2595674a4dc2d210542a52eb6aa51177448d29a0f89b18ed7e293d5915f7de9c`.
+- Sanitized log evidence: `a5cdea0a87c1d9bf9ab8304eb1f1e2725b2cf835ad359a1b48b6a7daa2e85e3c`.
+- Final report: `8c69fd040200660a7be7da3b4ca630d2b53cb9859d1944069f8e4ad059605ed7`.
+
+Private artifacts: workspace `.local/fleet-container-supervisor-live/`
+`sdlc-qa-fleet-container-live-453211827a97-c409sbww`. Original Engine is
+16c44abc-0244-4ba4-879a-b3df5140ef02; controller image
+sha256:aa5f47d0a8759b0a97f7e0d06a2f1b6aa42cbeaa6d1b670ab6071f70751b9f8b,
+Hermes source image
+sha256:dea7a9936db4582acdcc4a3bb12292c4e65087f545e34c906ca159322c4e0542.
+Exact Compose cleanup removes containers/networks, the three owned disposable
+volumes and own image aliases. Independent container/network/volume inventories
+are empty. Captured sources and permanent runtime lifecycle facts are unchanged.
+The earlier failed extension remains failed; it is not relabeled by this run.
+
+Final workspace Docker-group audit checks40 desktop-linux containers and zero
+sdlc2-runner containers with no violations. sdlc1-runner is unavailable, so the
+audit correctly exits1 with `complete=false`; this is not a global Docker PASS.
+
+## Private Log Client Linux Gate: 6 October 2026
+
+The additive Rust `log_tail` client and its two closed-response regressions pass
+a fresh full Linux/Rust1.88/PostgreSQL gate:528 passed,0 failed,30 explicit
+opt-in ignores in36 result groups. Formatting, all-target check and strict
+all-target Clippy pass. Owned project
+`sdlc-qa-fleet-container-control-a262dbf97328` is cleaned; independent original
+Engine container/network inventories are empty. All293 backend/SDK inputs are
+rechecked against the current bytes after the gate. This is not actual Docker
+log ingestion or PM acceptance; no migration, public schema, UI or pin changes.
+
+| Evidence                  | SHA-256                                                            |
+| ------------------------- | ------------------------------------------------------------------ |
+| 293-input source manifest | `c79b5c5d2fefc677f4b197e580478a6d66258e7e8d54fa3ff4b240b0a9fab712` |
+| Full gate log             | `5d843fd753dd3dae5b181bcaef3af0ea06a4fa1338ac81ff81d8134186f2998d` |
+| Full gate report          | `b1baf44ba7eb4cad688820ad50b897355ea418673b3dece950ccb25d17d5a290` |
+
+Private evidence: workspace `.local/fleet-container-control-checks-62abd55541b3`.
+Base control source69831aa4d3e52312c7cc7e252c4bf01e36a950cc is separately
+published and tested:120 Linux runtime cases without skips,63 Rust tests with14
+explicit broker/JWKS/documentation opt-ins ignored,13 Node and83 UI cases,
+typecheck/lint and README/hub/unchanged mirror manifest checks. Its owned
+`sdlc-qa-base-ledger-d82803b15286` resources are independently absent. Source163
+inputs SHA256 `08dc167d66e6a28ae7c4277a63a9a23677051dd17c78f8de440e0f0a8ca6758a`;
+gate log SHA256 `c8f5a09a7e8c0c6416ded70efa14d33122040c5500e40db073770d0f9bce0beb`.
+These source/pipe tests alone do not prove actual Docker logs.
+
+The first actual log extension attempt,
+`sdlc-qa-fleet-container-live-3746c164eaa4`, passed its real five-run scenario,
+then failed because its driver called an undefined function before the log
+probe. Its final report remains failed,cleaned with source/permanent runtime
+unchanged; it is not log acceptance. The corrected driver has14 passing safety
+units, including failure-state retention and insufficient/overclaimed evidence
+refusal. Combined loader/README/driver checks pass23 host cases.
+
+Fresh remote inspection finds Base prerequisite PR150 still OPEN onmain at
+424ad76b1fc0c976e465e9de272f71a3b03a45b6 with9 successful exact-head checks,
+but now CONFLICTING against main e4f0cda89c18bd625fa4cedcfe6284a568aaa573.
+The new logs source branch is not a main release PR: main lacks runtime_control.py
+and its diff includes the prerequisite. No stacked/oversized release, unrelated
+dependency edit, pin change or installed opt-in is performed.
+
 ## Actual Docker Readiness Rollback: 6 October 2026
 
 Owned project `sdlc-qa-fleet-container-live-0763697334fb` passes the actual

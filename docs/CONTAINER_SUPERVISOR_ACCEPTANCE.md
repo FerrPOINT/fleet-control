@@ -86,6 +86,25 @@ Neither scenario restarts the Fleet controller, restores lost private journals,
 tests actual Docker log ingestion or admits task-bound PM assignments. Focused fake
 boundary tests for those paths are separate evidence, not substitutes.
 
+## Optional Private Log Readback
+
+Add `--log-readback` with a tracked-clean Base control checkout implementing
+the private `logs` action. After the real five-run scenario stops its original
+namespaces, the [probe](../scripts/container_supervisor_live/log_readback.py)
+checks the captured Base source hashes and reads every original prepared
+generation through its exact registration, context, mapping and journal.
+At least four exited generations belonging to both agents must be verified;
+at least two must have nonempty output. The probe never prints or persists
+raw stdout/stderr, only counts and transport receipt assertions.
+
+This proves Base's actual bounded Docker log transport, not a live invocation
+of the Rust `log_tail` client, Fleet database ingestion, credential redaction,
+complete history, cursor/deduplication or rotation recovery. The driver resets
+overall acceptance to failed before this extension and promotes it only after
+verified log evidence; the preceding five-run success alone is insufficient.
+The option does not opt in readiness rollback automatically. The two extensions
+have separate reports and acceptance scopes.
+
 ## Evidence And Cleanup
 
 The private invocation directory retains frozen sources, source hashes, image and

@@ -10,6 +10,15 @@ original namespace stop. Its ignored test is not automatically part of the
 ordinary workspace count. Live outcomes and source/log hashes are recorded in
 [verification](CHAT_CLARIFICATION_VERIFICATION.md), not inferred from compilation.
 
+The explicit `--readiness-rollback` extension verifies real candidate boot-timeout
+and distinct previous-revision restoration. The separate `--log-readback`
+extension executes Base's actual private `logs` action for every original exited
+generation after the scenario, persisting counts only. It does not invoke Rust's
+log client or certify production ingestion/redaction/complete history. Neither
+flag implies the other. Fourteen no-Docker driver safety tests include a failed
+extension overriding earlier baseline success and incomplete/overclaimed evidence
+refusal. Invocation, source inputs and cleanup are in the acceptance runbook.
+
 ## Container Configuration Candidate
 
 The Linux-only `runtime::container_configuration_tests` use disposable

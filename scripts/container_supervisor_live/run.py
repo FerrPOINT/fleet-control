@@ -120,6 +120,23 @@ def cleanup_nested(helper, directory, write_json, checked):
         raise RuntimeError('Own Compose resources remain after cleanup')
 
 
+def verify_log_readback(helper, directory, report, logged):
+    report['state'] = 'failed'
+    logged(helper.command + ['exec', '-T', 'fleet-backend', 'python3', '-I', '-B',
+                            '/qa-fixtures/log_readback.py'], 'log-readback.log', 180)
+    logs = json.loads((directory / 'evidence/log-readback.json').read_bytes())
+    if (logs.get('state') != 'passed' or logs.get('actual_base_log_readback') is not True
+            or logs.get('fleet_log_ingestion') is not False or logs.get('raw_logs_persisted') is not False
+            or logs.get('sdlc_acceptance') is not False or logs.get('agents') != 2
+            or type(logs.get('original_exited_generations')) is not int
+            or logs['original_exited_generations'] < 4
+            or type(logs.get('nonempty_generations')) is not int
+            or not 2 <= logs['nonempty_generations'] <= logs['original_exited_generations']):
+        raise RuntimeError('Private Base log readback evidence is incomplete')
+    report.update(state='passed', log_readback=logs,
+                  log_readback_log_sha256=sha(directory / 'log-readback.log'))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('base-sdk', 'base-control', 'hermes-source', 'artifacts'):
@@ -128,6 +145,8 @@ def main():
         parser.add_argument('--' + name, required=True)
     parser.add_argument('--readiness-rollback', action='store_true',
                         help='Inject an owned candidate boot delay and verify actual Docker rollback')
+    parser.add_argument('--log-readback', action='store_true',
+                        help='Verify private Base log reads from the stopped original generations')
     args = parser.parse_args()
     sdk = args.base_sdk.resolve()
     base = args.base_control.resolve()
@@ -186,6 +205,7 @@ def main():
               'base_sdk_sha': sdk_pin, 'base_control_sha': git(base, 'rev-parse', 'HEAD').decode().strip(),
               'hermes_revision': PIN, 'source_files': len(manifest), 'source_sha256': sha(directory / 'source-manifest.json'),
               'readiness_rollback_requested': args.readiness_rollback,
+              'log_readback_requested': args.log_readback,
               'actual_rust_supervisor': False, 'actual_docker_hermes': False, 'sdlc_acceptance': False}
     before = permanent_state(docker)
 
@@ -288,6 +308,8 @@ def main():
             raise RuntimeError('Actual Rust/Hermes evidence is incomplete')
         report.update(state='passed', actual_rust_supervisor=True, actual_docker_hermes=True,
                       live=live, build_log_sha256=sha(directory / 'build.log'), live_log_sha256=sha(directory / 'live.log'))
+        if args.log_readback:
+            verify_log_readback(helper, directory, report, logged)
     finally:
         try:
             if helper is not None:

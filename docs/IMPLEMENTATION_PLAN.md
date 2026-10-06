@@ -1,5 +1,24 @@
 # Implementation Plan
 
+## Next Runtime Work After Private Log Transport
+
+Private Base Docker log readback now passes on four original exited generations
+of two actual Hermes agents. Rust's typed client is implemented and passes the
+fresh528-case Linux gate, but this is not production ingestion. Connect it only
+with current launch custody, exact resolved per-launch secret redaction and
+generation-bound durable cursor/deduplication/overflow/rotation semantics;
+then prove actual Rust-to-Base ingestion and authorized API/stream output.
+Complete interrupted activation/controller recovery and the unchanged
+predispatch/first-step/PM/Forge acceptance next. Do not invent missing producer
+authority or use a healthy runtime as SDLC readiness.
+
+Keep Base control source69831aa separate from SDK pin cbb4e99. Its prerequisite
+PR150 is currently conflicting against main; retain ordered release rather than
+publishing a predecessor-heavy log-only main PR. Fleet's historical migrations
+still require the agreed one-migration-per-release-PR order. Nothing is installed
+or enabled from this packet. See
+[verification](CHAT_CLARIFICATION_VERIFICATION.md#actual-private-base-docker-log-readback-6-october-2026).
+
 ## Current Actual Docker Proof
 
 Real original-Engine/UID 999 Rust Fleet/Hermes/chat/config acceptance now passes

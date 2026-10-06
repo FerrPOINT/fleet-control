@@ -19,8 +19,11 @@ does not start a runtime. A running agent drains and waits for run/outbox
 quiescence before the original controller stops its namespace and starts a
 new generation. A readiness failure restores prior files and starts a distinct
 rollback generation, not the exited container. 31 focused Linux/PostgreSQL
-cases and strict Clippy pass; full workspace gates pass 523 cases with 29 explicit
-ignores. Live acceptance remains pending.
+cases and strict Clippy pass. The subsequent owned real Docker gate verifies
+the controlled boot-timeout rollback, exact previous files and loaded SOUL,
+peer isolation and once-only follow-up chat; see
+[verification](CHAT_CLARIFICATION_VERIFICATION.md#actual-docker-readiness-rollback-6-october-2026).
+This does not prove interrupted activation or controller takeover.
 Do not enable the installed Docker path from this document.
 
 Unknown prepare/start/stop or a foreign controller retains drain and the private
@@ -459,7 +462,6 @@ See [clock evidence](CHAT_CLARIFICATION_VERIFICATION.md#journal-clock-order-repa
 Use idempotency keys when retrying session/message create calls. If the previous
 payload differs, the API returns `409` and the operator should create a new
 intent instead of replaying the old key.
-
 
 ## OIDC authentication mode
 

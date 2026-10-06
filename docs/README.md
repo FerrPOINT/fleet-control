@@ -66,6 +66,7 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 - [Durable container pre-create fence](adr/0028-durable-container-precreate-fence.md)
 - [Container configuration generation replacement](adr/0029-container-configuration-generation-replacement.md)
 - [Generation-bound container endpoint](adr/0030-generation-bound-container-endpoint.md)
+- [Private bounded container log readback](adr/0031-private-bounded-container-log-readback.md)
 
 ## API And Database
 

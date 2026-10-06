@@ -141,6 +141,57 @@ class SafetyTests(unittest.TestCase):
         self.assertFalse((self.home / 'frozen/unrelated.txt').exists())
 
 
+class LogReadbackTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.home = Path(self.temporary.name)
+        (self.home / 'evidence').mkdir()
+        self.helper = SimpleNamespace(command=['docker', '--context', 'owned-test',
+            'compose', '-p', 'sdlc-qa-owned', '-f', '/owned/compose.json'])
+        self.report = {'state': 'passed', 'actual_rust_supervisor': True}
+        self.evidence = {'state': 'passed', 'actual_base_log_readback': True, 'agents': 2,
+            'original_exited_generations': 4, 'nonempty_generations': 2,
+            'raw_logs_persisted': False, 'fleet_log_ingestion': False, 'sdlc_acceptance': False}
+
+    def logged(self, command, name, timeout):
+        self.assertEqual(self.report['state'], 'failed')
+        self.assertEqual(command, self.helper.command + ['exec', '-T', 'fleet-backend',
+            'python3', '-I', '-B', '/qa-fixtures/log_readback.py'])
+        self.assertEqual((name, timeout), ('log-readback.log', 180))
+        (self.home / name).write_bytes(b'bounded private probe\n')
+        (self.home / 'evidence/log-readback.json').write_text(json.dumps(self.evidence))
+
+    def test_probe_uses_existing_compose_command_and_publishes_only_verified_evidence(self):
+        runner.verify_log_readback(self.helper, self.home, self.report, self.logged)
+        self.assertEqual(self.report['state'], 'passed')
+        self.assertEqual(self.report['log_readback'], self.evidence)
+        self.assertEqual(self.report['log_readback_log_sha256'],
+            hashlib.sha256(b'bounded private probe\n').hexdigest())
+
+    def test_probe_failure_cannot_retain_baseline_success(self):
+        with self.assertRaisesRegex(RuntimeError, 'probe failed'):
+            runner.verify_log_readback(self.helper, self.home, self.report,
+                lambda *_: (_ for _ in ()).throw(RuntimeError('probe failed')))
+        self.assertEqual(self.report['state'], 'failed')
+        self.assertNotIn('log_readback', self.report)
+
+    def test_missing_or_insufficient_or_overclaimed_evidence_never_passes(self):
+        for key, value in (('state', 'failed'), ('actual_base_log_readback', False),
+                           ('agents', 1), ('original_exited_generations', 3),
+                           ('nonempty_generations', 0), ('nonempty_generations', True),
+                           ('raw_logs_persisted', True), ('fleet_log_ingestion', True),
+                           ('sdlc_acceptance', True)):
+            with self.subTest(key=key, value=value):
+                original = dict(self.evidence)
+                self.evidence[key] = value
+                with self.assertRaisesRegex(RuntimeError, 'evidence is incomplete'):
+                    runner.verify_log_readback(self.helper, self.home, self.report, self.logged)
+                self.assertEqual(self.report['state'], 'failed')
+                self.assertNotIn('log_readback', self.report)
+                self.evidence = original
+
+
 class ReadinessFaultTests(unittest.TestCase):
     def setUp(self):
         source = ROOT / 'scripts/container_supervisor_live/readiness_fault.py'

@@ -10,11 +10,17 @@ claim join this record and private `fleet_launch` ID, while native free chats st
 localhost-only. No missing proof authorizes a host fallback or unknown prompt
 resend. See [ADR 0030](adr/0030-generation-bound-container-endpoint.md).
 
-The actual two-container controlled-model gate now verifies basic chat, loaded
-SOUL isolation, drain and fresh activation/restart. Actual Docker rollback,
-controller restart/lost-private-journal recovery and log ingestion remain distinct
-open gates; task/PM admission is still fail-closed. Details:
+The actual two-container controlled-model gate verifies basic chat, loaded
+SOUL isolation, drain, fresh activation/restart and the separately opted-in
+controlled readiness-timeout rollback. Controller restart/lost-private-journal
+recovery and production log ingestion remain distinct open gates; task/PM
+admission is still fail-closed. Details:
 [acceptance runbook](CONTAINER_SUPERVISOR_ACCEPTANCE.md).
+
+The new private `log_tail` client verifies the original acknowledged receipt and
+two bounded binary streams. It is not a public logs DTO or production collector;
+current launch custody and resolved-secret redaction are required before any
+persistence. See [ADR0031](adr/0031-private-bounded-container-log-readback.md).
 
 ## Container Configuration Replacement Candidate
 
@@ -26,9 +32,10 @@ readback and fresh Docker generations. Stopped agents do not implicitly start.
 Unknown creation/start/stop holds drain and candidate files; no rollback spawn
 or native fallback is allowed until original custody is reconciled. See
 [ADR0029](adr/0029-container-configuration-generation-replacement.md).
-All31 focused Linux/PostgreSQL cases and strict Clippy pass; the full workspace
-gate passes523 cases with29 explicit ignores and fmt/check/Clippy. Real mapped Hermes/model/config acceptance remains pending;
-the earlier gates below do not verify this new source.
+The original31 focused Linux/PostgreSQL cases and strict Clippy pass. Subsequent
+actual mapped Hermes/model/config and controlled rollback evidence is recorded
+in [verification](CHAT_CLARIFICATION_VERIFICATION.md). Earlier counts below
+remain historical; they do not certify controller takeover or every failure mode.
 
 ## Container Preparation Custody
 

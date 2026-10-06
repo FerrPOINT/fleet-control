@@ -1,5 +1,26 @@
 # Current State
 
+## Private Docker Log Transport: 6 October 2026
+
+The private Rust `log_tail` client is implemented with closed original receipts,
+binary streams and a32-KiB limit, deliberately without a public logs DTO.
+Fresh Linux/PostgreSQL fmt/check/strict Clippy and528 tests pass;30 special
+opt-in cases are ignored. The actual two-Hermes Docker gate passes its five
+real controlled-model prompts and then Base log readback from four original
+exited generations. All four have nonempty output; no raw logs are persisted.
+Fourteen driver safety tests and23 combined loader/README/driver tests pass.
+Owned resources are removed and permanent runtime remains unchanged.
+
+Actual Rust-client invocation, production ingestion/resolved-secret redaction,
+durable generation cursor/deduplication/rotation and controller recovery remain
+open. There is no new migration, public schema, UI screenshot, SDK pin or
+installed opt-in. Base control source69831aa is published, not released; its
+prerequisite PR150 is currently conflicting with main despite9 successful
+exact-head checks. Do not treat previous mergeability as current readiness.
+Task/PM first-step admission and full SDLC remain unaccepted. Exact sources,
+hashes, failed-attempt retention and boundaries are in
+[verification](CHAT_CLARIFICATION_VERIFICATION.md#actual-private-base-docker-log-readback-6-october-2026).
+
 ## Actual Docker Readiness Rollback: 6 October 2026
 
 The opt-in fault extension now passes on real Rust Fleet and two source-pinned

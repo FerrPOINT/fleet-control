@@ -1,5 +1,16 @@
 # Traceability
 
+Private Docker diagnostic logs: [ADR0031](adr/0031-private-bounded-container-log-readback.md),
+[private contract](contracts/CONTAINER_CONTROL_V1.md), Rust
+`runtime/container_control::log_tail` and its two binary/closed-receipt cases.
+Base source69831aa contains eight focused request/pipe cases, including original
+receipt drift, byte overflow, concurrent pipes and reader timeout/reaping.
+The actual owned `--log-readback` probe checks four exited generations after
+real Rust/Hermes chat/config acceptance; it invokes Base directly, not the Rust
+client. Fourteen driver safety cases include extension failure-state retention.
+[Exact evidence](CHAT_CLARIFICATION_VERIFICATION.md#actual-private-base-docker-log-readback-6-october-2026)
+does not close production log ingestion/redaction/cursor/rotation or PM/SDLC.
+
 Pre-spawn launch journal: [ADR0026](adr/0026-pre-spawn-runtime-launch-journal.md),
 [internal contract](contracts/RUNTIME_LAUNCH_JOURNAL_V1.md), additive000017,
 `runtime_launches` and `runtime/launch_journal`. PostgreSQL/controller cases in
