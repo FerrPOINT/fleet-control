@@ -8,6 +8,11 @@ step/checkpoint projection or live authenticated browser acceptance below.
 
 ## October SDLC Gate
 
+Consumer `d592a0d` is now included: HTTP408 keeps the original command uncertain.
+Fresh262 frontend tests and33 fixture browser cases pass;21 previews are
+regenerated. All288 backend/SDK inputs still match the511-case workspace and
+18-case migration gates below. This does not close real runtime/PM acceptance.
+
 The combined runtime/Chats source through runtime parent `7564e2e` and consumer
 `0ecee7e` now passes511 Rust workspace cases (29 explicit ignores),18 isolated
 migration cases with no skips,259 frontend cases and33 fixture browser cases.

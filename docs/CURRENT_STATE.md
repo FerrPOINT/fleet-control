@@ -1,5 +1,19 @@
 # Current State
 
+## Current HTTP Timeout Follow-Up
+
+The latest normal merge also includes Chats
+`d592a0d06f71176861c8b75da2b012b133187aae`: HTTP408 preserves the original
+unknown answer, confirmation and free-chat command instead of permitting a new
+payload/key. Fresh combined-tree frontend gates pass262 tests, lint/format/build
+and33 Chromium/Firefox/WebKit fixture browser cases, including timeout then
+exact original-command retries. All21 preview images are regenerated again.
+All288 backend/SDK source files remain byte-identical to the successful511-case
+Rust and18-case migration gates below; these are retained evidence, not reruns.
+See [follow-up verification](CHAT_CLARIFICATION_VERIFICATION.md#http-timeout-follow-up-6-october-2026).
+Full live/runtime/PM/Forge acceptance is still open; main and installation remain
+unchanged. The following blocks retain the earlier packet-specific evidence.
+
 ## Combined Chats And Runtime Candidate: 6 October 2026
 
 The normal merge preserves runtime parent `7564e2e` and all three Chats commits

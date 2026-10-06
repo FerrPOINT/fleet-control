@@ -1,5 +1,27 @@
 # Chat Clarification Verification
 
+## HTTP Timeout Follow-Up: 6 October 2026
+
+The second normal merge adds consumer
+`d592a0d06f71176861c8b75da2b012b133187aae` on top of the published combined
+candidate `c2b383fdd45725cc9bd00ea5ea4111cfca51daa5`. HTTP408 is an unknown
+command outcome: the captured original payload/key survives a saved answer or
+confirmation and an explicit retry cannot become a fresh command. Three unit
+regressions and the browser answer/confirmation lost-ACK scenario cover it.
+
+Fresh integration-tree262 Vitest cases, build/typecheck, lint and format pass;
+all33 fixture browser cases pass in Chromium/Firefox/WebKit. The21 preview
+images are regenerated from this new run and source/hash/dimension verified;
+preview is not live PM acceptance. OpenAPI client and Base UI checks pass.
+The published source identity review remains conditional compatibility on the
+shared Tracker/Workflow identity subset, not proof of deployed continuation.
+
+All288 backend/SDK source files are hash-compared with the preceding successful
+Rust511-case and migration18-case frozen manifests and remain byte-identical.
+Those backend results are retained exact-source evidence, not a new Rust run.
+No backend, schema, runtime, SDK pin or accepted deployment changed in this
+follow-up. The same real runtime/config/recovery/producer/PM/Forge gates remain.
+
 ## Combined Chats And Runtime Candidate: 6 October 2026
 
 Integration merges runtime parent `7564e2e2ad8e1246cb54f38ca2d11fd765d58fd1`

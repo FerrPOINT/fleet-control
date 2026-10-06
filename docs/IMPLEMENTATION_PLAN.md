@@ -2,6 +2,12 @@
 
 ## Current SDLC Scope
 
+The current candidate additionally merges consumer `d592a0d` (HTTP408 remains
+unknown). Fresh262 frontend tests and33 fixture browser cases pass, with
+regenerated21-image preview evidence. All288 backend/SDK bytes match the
+previous successful workspace/migration gates; no backend rerun is claimed.
+The live acceptance requirements remain unchanged.
+
 Chats through `0ecee7e` and runtime parent `7564e2e` are normally merged in the
 integration candidate. Combined-tree gates pass511 workspace tests with29
 explicit ignores,18 fully configured migration tests,259 frontend tests and33

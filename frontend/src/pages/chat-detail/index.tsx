@@ -76,7 +76,9 @@ type ConfirmationCommand = { revision: number; hash: string; key: string }
 type ConfirmationResult = Awaited<ReturnType<typeof confirmRequirements>>
 type ConfirmationMutation = UseMutationResult<ConfirmationResult, Error, ConfirmationCommand>
 function unknownOutcome(error: unknown) {
-  return Boolean(error) && (!(error instanceof ApiError) || error.status >= 500)
+  return (
+    Boolean(error) && (!(error instanceof ApiError) || error.status === 408 || error.status >= 500)
+  )
 }
 async function refreshHistory(client: QueryClient, id: string) {
   const queryKey = ['chat-history', id]

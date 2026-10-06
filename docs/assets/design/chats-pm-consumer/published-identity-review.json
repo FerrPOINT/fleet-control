@@ -1,0 +1,81 @@
+{
+  "workflowHead": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+  "publishedSources": [
+    {
+      "artifact": "workflow-project_workflow-application-pm_execution.py",
+      "repo": "FerrPOINT/project-workflow",
+      "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+      "path": "project_workflow/application/pm_execution.py",
+      "gitBlob": "0f3a244a3c2ad5c4b15962c8ee8cf0d020d68778",
+      "sha256": "fbe8e3b73582186bfab12c1353721a517e93f8b206ad70df7637dac4567557e0"
+    },
+    {
+      "artifact": "workflow-project_workflow-domain-pm_execution.py",
+      "repo": "FerrPOINT/project-workflow",
+      "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+      "path": "project_workflow/domain/pm_execution.py",
+      "gitBlob": "c48c49e896753aecfd339abd17632baea84e1ce2",
+      "sha256": "8930cff19031e88366b5cc3c091dc71d11c1cbaea74b08f56a99f456f9b9a2e7"
+    },
+    {
+      "artifact": "workflow-project_workflow-domain-runtime_assignment.py",
+      "repo": "FerrPOINT/project-workflow",
+      "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+      "path": "project_workflow/domain/runtime_assignment.py",
+      "gitBlob": "26f10f68a0fbda9050cd4bfcd5015a91af9a1185",
+      "sha256": "6ed9affea573dd6e4e25f3bfd901310786ab83971a1f3c9d58908330d4190596"
+    },
+    {
+      "artifact": "workflow-project_workflow-interfaces-ui-routes-pm_api.py",
+      "repo": "FerrPOINT/project-workflow",
+      "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+      "path": "project_workflow/interfaces/ui/routes/pm_api.py",
+      "gitBlob": "795149e71560aa9aaaa106a7104af1fe7b44a436",
+      "sha256": "c59ec113327b4b507ff3ce934094414868ca6efc3acef6d7737ad6513972201f"
+    },
+    {
+      "artifact": "workflow-project_workflow-interfaces-ui-routes-runtime_api.py",
+      "repo": "FerrPOINT/project-workflow",
+      "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+      "path": "project_workflow/interfaces/ui/routes/runtime_api.py",
+      "gitBlob": "b4a6f9f48fec59a1d33d52dfe0faa60a295ec399",
+      "sha256": "0455db61a1112fbff872facf2bb4c928d078cd9496a209f39f8f4a6d3a1f524c"
+    }
+  ],
+  "fleetValidator": {
+    "path": "backend/domain/src/pm_execution.rs",
+    "sha256": "3994f3ceec606ec9e2bbbe7e1a23b97dc8aa1f5c950f24a3eee7065c9611e404"
+  },
+  "classification": "conditional compatibility on shared identity subset; source review only",
+  "workflowConstraints": {
+    "task": "bounded opaque key",
+    "mostRefs": "bounded opaque strings",
+    "agent_ref": "canonical non-nil lowercase UUID"
+  },
+  "fleetConstraints": {
+    "task": "SDLC-<positive canonical ordinal>",
+    "canonicalNonNilUuidRefs": [
+      "execution_ref",
+      "tracker_project_ref",
+      "task_ref",
+      "root_ref",
+      "agent_ref",
+      "assignment_ref"
+    ],
+    "tracker_instance_ref": "nonempty no whitespace/control, at most 128 bytes",
+    "assignment_operation_key": "ASCII graphic at most 128 bytes",
+    "assignment_revision": "positive int64"
+  },
+  "sourceFindings": [
+    "Runtime assign passes received assignment_ref, business_task_ref and root_task_ref to TaskService.",
+    "PM identity locks and compares these refs against persisted assignment; tracker refs must match namespace ownership.",
+    "PM bind stores supplied execution_ref; inspected paths do not generate incompatible prefixed refs."
+  ],
+  "requiredIntegration": "Use owner-issued refs satisfying both validators and configured namespace task key; prove this through persisted enrollment, assignment and runtime reservation. Do not rewrite refs or invent UUIDs in browser.",
+  "liveAcceptance": false,
+  "runtimeValidatorModified": false,
+  "limitations": [
+    "Published examples alone are not evidence of deployed identities.",
+    "This source review does not attest TaskService deployment, provisioning or full producer/runtime compatibility."
+  ]
+}

@@ -13,8 +13,25 @@ Consumer code commit:
 Documentation/evidence commit `e4ee22227112a9512210a1c98ad037e02e0a854b`
 and its append-only consumer review follow-up belong to the same independent
 [branch](https://github.com/FerrPOINT/fleet-control/tree/feat/chats-pm-consumer-20261006).
-Integrate the two original commits followed by the review follow-up. Published
+Integrate the two original commits followed by `0ecee7e` and the HTTP 408
+follow-up at this branch's tip. Published
 history is preserved; do not merge the entire historical runtime tail into main.
+
+## Краткая таблица готовности
+
+| Область | Реализовано и проверено | Что требуется для настоящего PM |
+| --- | --- | --- |
+| Chats, история и доступ | Consumer UI; 262 unit-теста и 33 браузерных случая с fixture API. 13 Rust/PG/HTTP тестов проверяют gateway, binding, private history и отзыв доступа. | Реальная задача владельца и установленный совместимый Tracker; fixture-вход не подтверждает live-права. |
+| Ответ владельца | Single/multiple/text без предвыбора; точный receipt. HTTP 408 удерживает формы; явный повтор сохраняет исходные payload/key, даже после сохранения ответа. | Tracker `POST /api/v1/issues/{id}/sdlc/clarifications/{question_id}/answers`, durable answer event/outbox и доверенный runtime consumer этого события. |
+| Подтверждение требований | Согласие на конкретные revision/hash; проверка owner и Backlog receipt; после timeout повторяется исходная команда. | Tracker `POST /api/v1/issues/{id}/sdlc/requirements/{revision}/confirm`, настоящий prerequisite verifier и опубликованный контракт требуемого перехода. |
+| Первый PM запуск | Task send/steer закрыты без полномочий; UI не подменяет admission. | Tracker owner CAS/reservation + Workflow predispatch claim/first-step + effective Fleet config и Base delegated credential. Опубликованный PM bind требует уже работающий run и не заменяет predispatch admission. |
+| Checkpoint | Опубликованный контракт прочитан; реальная запись не подтверждена consumer-тестами. | Workflow `POST /internal/runtime/v1/pm/checkpoint`: immutable PMIdentity, operation key, version/fence, текущий run/binding/Hermes ref, checkpoint/request/version/revision; runtime bearer и текущий execution token. |
+| Resume и неизвестный исход | Consumer сохраняет неопределённость команд; Workflow orchestration в этом пакете отсутствует. | Доверенный Fleet `GET /internal/runtime/v1/pm/runs/{session_run_id}` подтверждает terminal старого run; Workflow POST `pm/resume` резервирует один новый UUID, runtime запускает его один раз, POST `pm/rebind` связывает его; POST `pm/readback` сверяет исходный operation key. Нужен durable runtime journal. |
+| Workflow на экране | Проверены опубликованные поля, cursor и identity; шаги не выдумываются из Tracker stage. | Авторизованная Fleet projection из Workflow `POST /internal/runtime/v1/pm/readback` и настоящих step/history. Identity и токен берутся из server records; execution token не передаётся браузеру. |
+
+Браузерные случаи используют тестовый SSO/API. Отдельный чат Codex уже работает
+параллельно с runtime-чатом; вход пользователя в Fleet не требуется для этой
+доработки. Live PM acceptance остаётся отдельной интеграционной проверкой.
 
 ## Implemented
 
@@ -53,6 +70,11 @@ history is preserved; do not merge the entire historical runtime tail into main.
   have seven additional consumer regressions. The same uncertainty guard protects
   a free-chat prompt after a denied retry; its original payload/key stays frozen
   until an acknowledged original message arrives. Unknown steer stays held.
+- HTTP 408 is also an unknown outcome for answer, confirmation and free-chat
+  prompt. Three stateful regressions reproduced unlocked forms before the fix.
+  The browser fixture saves the answer/confirmation before returning 408, then
+  accepts only the original explicit retry with identical payload/key; refreshed
+  business permissions can already deny a new answer/confirmation at that point.
 
 ## Verification And Evidence
 
@@ -64,7 +86,7 @@ Source locations: [Chats](../frontend/src/pages/chat-detail/index.tsx),
 
 Node 22.20.0, pnpm 10.28.1, frozen lockfile and Base
 `cbb4e99230420dc2659431b1c9fb5090e5c940f0` are used. Frontend typecheck, lint,
-259 Vitest tests, build, format, OpenAPI generated-client/compatibility and seven
+262 Vitest tests, build, format, OpenAPI generated-client/compatibility and seven
 local chat-contract comparisons pass. The seven-schema local snapshot is not
 proof of parity with published Tracker114; see the producer boundary below.
 The build still reports the existing production chunk-size warning (>500 KiB).
@@ -90,7 +112,8 @@ was incomplete because `sdlc1-runner` was unavailable; it is not a global audit 
 Chromium/Firefox/WebKit pass 33 fixture browser cases across the full
 `fleet-control.spec.ts` and `chats-directory.spec.ts`: PM questions,
 exact confirmation, keyboard tabs/drawer/Escape, three viewports, history order,
-legacy first prompt and held delivery after reload. Screenshots for dialogue,
+legacy first prompt and held delivery after reload. The PM case also checks
+effect-applied/lost-ACK HTTP 408 recovery for answer and confirmation. Screenshots for dialogue,
 single/multiple/text (no preselection), requirements, confirmation and diff use
 375x812, 1920x1080 and 2560x1440. Their source/hash manifest and preview files are
 kept in [consumer evidence](assets/design/chats-pm-consumer/manifest.json).
@@ -103,6 +126,11 @@ current consumer source and the successful 33-case run.
 records source/log hashes and exact commands. WebKit emits fixture teardown proxy
 warnings against the absent mock upstream at `127.0.0.1:3456`; all 33 cases pass.
 This is browser component acceptance and does not attest that upstream service.
+The HTTP 408 follow-up runs on its own strict-port preview at
+`http://localhost:24173`, stopped in the runner's finally block. Its preliminary
+shared-preview disappearance and 127.0.0.1/localhost fixture SSO origin mismatch
+are recorded separately from the final result. No runtime login is required for
+these fixture tests.
 
 The installed Fleet `http://127.0.0.1:7742/chats` was opened through the browser
 without changing runtime. It redirected to the real SDLC login; no authenticated
@@ -155,6 +183,22 @@ The existing integration contract snapshot differs from three published Tracker
 schemas; passing its local verifier must not be presented as deployed parity.
 Neither open PR, source capability nor runtime health supplies installed admission.
 
+The published Workflow implementation also accepts a broader PMIdentity than
+Fleet's runtime validator. Workflow treats task and most refs as opaque bounded
+strings; Fleet requires `SDLC-<positive canonical ordinal>` and canonical non-nil
+UUIDs for execution_ref, tracker_project_ref, task_ref, root_ref, agent_ref and
+assignment_ref. Workflow's inspected assign/bind paths accept supplied refs and
+compare them to persisted assignment/namespace records; PM bind does not replace
+them with generated opaque identifiers. This is conditional compatibility on a
+shared subset, not proof that every published Workflow identity works in Fleet.
+Its illustrative `PM-1`/`execution:one` values cannot be passed to Fleet as-is.
+The server adapter must use genuine owner-issued refs satisfying both validators
+and the namespace's task-key contract; browser normalization or invented UUIDs
+would break identity. Runtime/producer owners must verify that provisioning.
+[Identity review](assets/design/chats-pm-consumer/published-identity-review.json)
+records the five exact published implementation blobs and Fleet validator hash.
+No runtime validator is changed by this consumer packet.
+
 ## Required Runtime/Producer Handoff
 
 Task chat send/steer remains fail-closed. To finish the PM vertical slice, producer
@@ -177,8 +221,8 @@ owners and the runtime task must supply the following exact, persisted authoriti
    native readback. Reserve one new UUID and original resume operation key; rebind
    that exact run once. Late answers cannot target a later run or replacement fence.
 4. **Workflow presentation source**: persisted PMIdentity's task, execution_ref,
-   tracker_instance_ref/project_ref, task_ref/root_ref, concrete agent_ref,
-   assignment_operation_key/ref/revision; authenticated Workflow90 POST
+   tracker_instance_ref, tracker_project_ref, task_ref, root_ref, concrete agent_ref,
+   assignment_operation_key, assignment_ref, assignment_revision; authenticated Workflow90 POST
    `/internal/runtime/v1/pm/readback` with that immutable identity and optional
    original operation_key. Browser input cannot synthesize these refs. Required
    projection: contract_version, state/version/fence, session_run_id/binding_ref/
@@ -206,12 +250,12 @@ Fleet 000010/11 ->12 ->13 ->14 ->15 ->16 and producer release order from existin
 Tracker/Workflow/Forge release heads and exact-head CI must be verified separately.
 PR47, Base PR150 and unrelated release branches are unchanged.
 
-The published integration target observed during review is
+The historical published integration target observed for the `0ecee7e` review is
 `8295fa8da84593d271a867c8cc692a2f4e03f77a`; it descends from this packet's baseline
 and preserves the same Base pin. Its scoped overlap is `docs/CURRENT_STATE.md`:
 both branches add introductions. Keep the runtime owner's new introductory sections
 and this consumer introduction, preserving the shared historical body. Apply the
-original code commit, original documentation commit, then this review follow-up;
+original code commit, original documentation commit, `0ecee7e`, then the HTTP 408 follow-up;
 rerun integrated checks after resolving that documentation overlap. Use a temporary
 Git index for the dry run; the actual integration checkout must remain untouched.
 The [completed dry-run evidence](assets/design/chats-pm-consumer/integration-review.json)
@@ -219,6 +263,9 @@ records one initial documentation conflict and no remaining conflicts after this
 resolution; all source changes apply. It does not claim an integrated build or
 live acceptance. The exact target may advance during the runtime task, so repeat
 the scoped application/check on its actual head before integration.
+The runtime chat now owns that integration and its fresh checks; the earlier
+dry-run artifact is preserved as historical evidence, not updated to claim its
+current head or acceptance of this follow-up.
 
 No independent-branch CI run exists: Fleet CI triggers only pushes/PRs for main.
 This source packet has local consumer validation; merge readiness still requires

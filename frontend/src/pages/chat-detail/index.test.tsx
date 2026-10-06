@@ -172,6 +172,61 @@ beforeEach(() => {
   })
 })
 describe('production chat', () => {
+  it.each(['answer', 'confirmation', 'prompt'] as const)(
+    'holds a timed-out %s and retries its original command',
+    async (command) => {
+      const isAnswer = command === 'answer'
+      const isPrompt = command === 'prompt'
+      const mutation = isAnswer
+        ? chats.answerClarification
+        : isPrompt
+          ? fleet.createSessionMessage
+          : chats.confirmRequirements
+      vi.mocked(mutation).mockRejectedValue(new ApiError(408, 'Command timed out'))
+      if (isPrompt) {
+        vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+        vi.mocked(chats.getChatControls).mockResolvedValue({
+          can_send: true,
+          can_steer: false,
+          can_stop: false,
+          active_run_id: null,
+          blocked_reason: null,
+        })
+      }
+      renderPage(isAnswer ? 'clarification' : isPrompt ? 'dialogue' : 'requirements')
+      if (isPrompt)
+        await userEvent.type(await screen.findByLabelText('Сообщение агенту'), 'Original prompt')
+      else
+        await userEvent.click(
+          isAnswer
+            ? await screen.findByRole('radio', { name: /Участники проекта/ })
+            : await screen.findByRole('checkbox', { name: /Подтверждаю цель/ }),
+        )
+      const submitName = isAnswer
+        ? 'Сохранить ответ'
+        : isPrompt
+          ? 'Отправить сообщение'
+          : 'Подтвердить редакцию 3'
+      await userEvent.click(screen.getByRole('button', { name: submitName }))
+      await screen.findByText('Command timed out')
+      expect(
+        isAnswer
+          ? screen.getByLabelText('Комментарий')
+          : isPrompt
+            ? screen.getByLabelText('Сообщение агенту')
+            : screen.getByRole('checkbox', { name: /Подтверждаю цель/ }),
+      ).toBeDisabled()
+      const retryName = isAnswer
+        ? 'Повторить исходный ответ'
+        : isPrompt
+          ? submitName
+          : 'Повторить исходное подтверждение'
+      await waitFor(() => expect(screen.getByRole('button', { name: retryName })).toBeEnabled())
+      await userEvent.click(screen.getByRole('button', { name: retryName }))
+      await waitFor(() => expect(mutation).toHaveBeenCalledTimes(2))
+      expect(vi.mocked(mutation).mock.calls[1]).toEqual(vi.mocked(mutation).mock.calls[0])
+    },
+  )
   it('preserves the original prompt after a denied retry until its matching receipt arrives', async () => {
     vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
     vi.mocked(chats.getChatControls).mockResolvedValue({
