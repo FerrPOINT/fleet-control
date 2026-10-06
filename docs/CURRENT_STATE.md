@@ -1,5 +1,27 @@
 # Current State
 
+## Named-Volume Mapping Prerequisite: 6 October 2026
+
+Base candidate2bcf3d2 adds read-only resolve_mounts, proven inside a real trusted
+QA controller with its own Compose named volume and UID999. It returns daemon
+sources from original controller mounts/volume metadata, not guessed paths.
+Controller/Engine/volume drift, sibling paths, nested mounts, aliases and links
+fail closed. No create/start/journal mutation is authorized by this receipt.
+
+Final Base host390 cases:378 PASS/12 skips; Linux control21 PASS without skips.
+Mapping QA4e80cc716581 cleanup/source/freeze pass; a fresh two-real-Hermes
+startup/attachment/namespace-stop gate20f7b57334b7 also passes with nine published
+raw-exact source inputs. No inference, Rust Fleet or PM acceptance is claimed.
+Base PR150 is ready/mergeable with nine successful exact-head CI37461023808 jobs
+on2bcf3d2, reread after ready; no reviews/threads. Former green
+368cfb8 below is historical. Fleet runtime code/pins/UI are unchanged in this packet.
+
+Next connect the original mapping to private creation intent and validate it at
+every guarded lifecycle effect; current Base lifecycle still checks daemon bind
+sources as local paths. Real Hermes runtime UID access, config activation/rollback,
+container chat/logs and predispatch admission remain incomplete. No installed
+volumes, filesystem ownership, service lifecycle or image pins changed.
+
 ## Runtime Reconciliation And Mount Evidence: 6 October 2026
 
 Runtime integration remains published at cf4b08e. Base PR150 candidate368cfb8

@@ -2,6 +2,15 @@
 
 ## Current SDLC Scope
 
+Base follow-up2bcf3d2 now proves read-only named-volume mapping with real UID999
+controller files, original snapshot/Engine/volume hashes and drift rejection.
+This is not yet a Fleet consumer: persist the original mapping in creation intent,
+revalidate before all effects and extend Base guarded lifecycle validation to
+use the corresponding local paths. Do not merely replace policy sources and
+bypass existing path guards. CI37461023808 passes all nine jobs for this new
+ready/mergeable candidate, reread after ready with no reviews/threads;
+the ready368cfb8 observation below is historical. See current verification.
+
 The current published runtime integration is cf4b08e, including trusted Fleet
 bridge attachment. Its full Rust1.88/Linux/PG gate passes504 tests with29 ignored;
 the earlier503/502 gates below are historical. The attachment fixture is not

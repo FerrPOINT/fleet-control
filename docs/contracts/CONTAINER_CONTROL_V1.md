@@ -83,6 +83,23 @@ Docker configuration and is not container or SDLC acceptance.
 
 ## Supervisor Binding
 
+### Named-Volume Mapping Prerequisite
+
+Base adds read-only resolve_mounts with explicit controller/local_root alongside
+the common policy/compose/journal/context. Exact controller inventory and Engine
+are read twice; the mounted root must be one writable local named volume of the
+same project, without options or nested/aliased mounts. Existing local directories
+and symlink/private-root guards precede and follow readback. Four projected bind
+sources identify one agentN, not sibling or private controller storage.
+
+The receipt contains state=resolved, controller/snapshot/engine/local_root,
+volume_name/volume_sha256, mounts and input_policy_sha256. It never carries raw
+inspect/env or writes a journal. It is a private prerequisite, not a launch permit.
+The Rust consumer does not yet invoke it or bind it in original creation intent;
+mapped lifecycle validation must preserve local guarded-path checks. Do not pass
+the returned daemon paths to existing local guarded_mount_sources and pretend
+the namespace gap is closed. Installed opt-in and full runtime remain held.
+
 ### Trusted Fleet Bridge Attachment Candidate
 
 Private optional `fleet.container_control.bridge_controller` contains full

@@ -1,5 +1,43 @@
 # Chat Clarification Verification
 
+## Named-Volume Mapping Prerequisite: 6 October 2026
+
+Base source735d74b / published2bcf3d29b7b46ebe0f556b9143c21ae1cd7d4e26 adds
+read-only resolve_mounts and retains accepted main999b0e4 by normal merge.
+It validates exact controller image/service/PID/inventory/Engine and selected
+real local named-volume metadata. Four mapped areas must belong to the same
+agentN; nested/aliased mounts, foreign volume/project, links, path escape and
+intermediate/readback drift reject without create/start/files/journal writes.
+Raw env/inspect inventories are hashed, never returned in the receipt.
+
+Final mapping project `sdlc-qa-mount-mapping-4e80cc716581` PASS, UID999:
+real daemon/controller path difference, positive filesystem read/write, unchanged
+mapping replay;21 Linux control tests with no skips. All8 frozen files unchanged;
+four changed executable published Git blobs raw-exact with the passed inputs.
+Report SHA256 `cb09d6cab2ad2213472ac252bb7d8f1e03b5ea801c495adf32518fff0f2059fb`.
+Own down, exact disposable volume/tag removal, source/permanent freeze and
+independent project container/network/volume inventories all pass. First030de
+failed in disposable initialization before the mapping call, then cleaned; QA
+chown order was corrected without changing installed ownership or guards.
+
+Fresh real-Hermes project `sdlc-qa-hermes-container-20f7b57334b7` PASS with the
+new Base control bytes: original trusted-peer attachment before two starts,
+13770 pinned source files, health/capabilities/cross-token denial and two original
+namespace_exited receipts. Nine executable inputs remain unchanged and raw-exact
+with published2bcf3d2. Report SHA256
+`cbd4b46928b33f8ed167fc8358afd65af940361560393e2f67f561cab5990504`.
+Cleanup0, containers/networks empty and own derived tags removed, independently
+checked. No inference submitted; this is not Rust Fleet/model/chat/PM acceptance.
+
+After main merge:390 host cases,378 PASS/12 explicit skips,26 Node contract tests,
+README/hub/mirror validation PASS. Base PR150 is ready/mergeable with nine
+successful exact-head CI37461023808 jobs, reread after ready; reviews/threads
+empty. Remote body verified3 headings/7 checklist items/2 comments from current
+main template. Old CI37458583952 does not certify the new code. No merge/install.
+Fleet runtime code/source pins, API, DB, UI and screenshots were not changed.
+Original mapping intent plus mapped-lifecycle guard/consumer wiring are still
+required; current lifecycle cannot use the daemon projection as a local path.
+
 ## Current Mount Evidence And Base Reconciliation: 6 October 2026
 
 Base PR150 head368cfb8205e9cac578a353ddfb5a1e83befa4484 normally merges main475c694.
