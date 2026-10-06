@@ -1,5 +1,49 @@
 # Chat Clarification Verification
 
+## Verified Base Log Source Pages: 7 October 2026
+
+Published Base control head
+[`d0eedc16336386ca1a8827387d806d9c9a89b919`](https://github.com/FerrPOINT/services-base/commit/d0eedc16336386ca1a8827387d806d9c9a89b919)
+adds private `log_page`, strict cursors/pages and tracked native QA. The original
+namespace readback encloses the scan; page identity is stream-local byte offset
+and SHA256 of the consumed prefix, not message content/timestamp deduplication.
+The current Fleet consumer remains the earlier private tail method: this packet
+does not claim runtime collector integration or change SDKcbb4e99.
+
+Fresh owned Linux project `sdlc-qa-base-log-pages-9e4d6c1714d3` passes all137
+runtime cases,0 skipped, including17 new cursor/protocol/pipe cases and all8
+existing tail cases.81 captured inputs match current source; source manifest
+SHA256 `4c05cc93b0d37d90bf1250b378afc1620e68be911164818bcc1f9817f1431179`,
+log SHA256 `26af3f5c64b97ae716fe8d94357f32246cf1364c419b2d8d3e3e545f6cf370ff`.
+
+The actual Docker driver uses existing immutable Rust/Python and CLI images,
+an isolated non-root synthetic source and a trusted checker with Docker access.
+Project `sdlc-qa-base-log-source-71f7ce2627ff` verifies3000 stdout and2000 stderr
+records (141044/94000 timestamped bytes),9 pages, identical original-range replay,
+empty-poll/no-advance, changed-prefix rejection and reads after exact Compose
+stop. A second genuine source with max-size1k is rejected as rotating, before
+and after stop. Native source manifest SHA256
+`459b6d72f20a959a679885761c7e5cc6c2eedbf31f53bf4deddeb26ab8936b33`;
+probe SHA256 `63cc65b693a0a4b4985b946138539ae6827065a19eea95be8a00968c9e27ec25`.
+Both owned final projects have empty container/network inventories; own parent
+image aliases are removed, shared images/caches/volumes preserved. Only counts
+and hashes are saved, no raw logs. Preliminary failed setup reports remain
+FAILED/cleaned; native proof required correcting invalid explicit max-size=-1
+to a strict effective inspected json-file policy with no rotation capacity.
+
+Artifacts: workspace `.local/base-runtime-log-pages-7a2776674174/` and
+`.local/base-log-pages-native-evidence-20261007/log-pages-u7xxwa2h/`.
+Base README/hub/mirror-manifest checks pass. CI now includes both log suites,
+but no new exact-head remote CI is claimed: the candidate branch has no PR and
+still depends on open PR150. No main merge, installed source/log-driver change,
+new Fleet migration/DTO/UI/screenshots or full Rust/SDLC gate is claimed.
+
+Remaining: actual Rust/private protocol ingestion, immutable resolved-secret
+snapshot, partial credential chunks, atomic cursor/batch/private-checkpoint
+recovery, bounded disk/retention policy and authorized public diagnostics.
+Original controller takeover/activation recovery and task admission/PM/Forge
+acceptance remain unchanged; native byte-range proof is not their completion.
+
 ## Atomic Process Log Acknowledgement: 7 October 2026
 
 Main-based [PR55](https://github.com/FerrPOINT/fleet-control/pull/55), head

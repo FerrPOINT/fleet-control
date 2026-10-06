@@ -28,6 +28,14 @@ and rotation/gap handling still need implementation and actual acceptance.
 
 ## Private Docker Log Readback Verified; Ingestion Still Open
 
+Base sourced0eedc1 additionally implements checked source pages. Its137 Linux
+cases and actual5000-record Docker paging/replay/exited-source/rotation-denial
+proof close the repeated-tail transport limitation only for the explicit inspected
+append-only profile. They do not prove durable Fleet cursor commits, secret
+redaction, retention supervision or recovery. See
+[source-page evidence](CHAT_CLARIFICATION_VERIFICATION.md#verified-base-log-source-pages-7-october-2026)
+and [collector sequence](IMPLEMENTATION_PLAN.md#next-runtime-work-after-private-log-transport).
+
 Actual Base `logs` reads now pass for four original exited generations from two
 real Hermes agents after the Rust chat/config scenario. Raw output is not
 persisted. Rust's closed private client passes the broad528-test Linux gate,

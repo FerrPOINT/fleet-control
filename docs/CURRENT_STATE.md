@@ -1,5 +1,20 @@
 # Current State
 
+## Verified Base Log Source Pages: 7 October 2026
+
+Base control sourced0eedc1 adds verified byte-range/prefix cursors instead of
+repeated tails. Fresh137 Linux runtime tests pass without skips. Native Docker
+CLI reads3000 stdout/2000 stderr records over9 pages, supports original-range
+replay and empty poll, reads after stop and rejects actual rotating logging.
+Own QA resources are cleaned; no raw logs, installed runtime or SDK pin changes.
+See [verification](CHAT_CLARIFICATION_VERIFICATION.md#verified-base-log-source-pages-7-october-2026).
+
+This operation is not yet a Fleet Rust collector. The durable DB/checkpoint
+transaction, original resolved secrets, bounded source policy, authorized API/SSE
+acceptance and existing PM/Forge/recovery requirements remain open. Base PR150
+is the open prerequisite; this candidate is not installed or independently
+main-release-ready. No new full Fleet/Rust/UI gate is claimed for this docs update.
+
 ## Atomic Process Log Acknowledgement: 7 October 2026
 
 The shared process-log repository now returns the exact persisted redacted row

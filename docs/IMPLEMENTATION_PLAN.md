@@ -2,6 +2,35 @@
 
 ## Next Runtime Work After Private Log Transport
 
+Base source [d0eedc1](https://github.com/FerrPOINT/services-base/commit/d0eedc16336386ca1a8827387d806d9c9a89b919)
+now implements closed private `log_page`: per-stream byte offset and verified
+SHA256 prefix,16 KiB pages, bounded64 MiB scan and double original readback.
+All137 Linux runtime cases pass without skips; native Docker CLI reads all5000
+synthetic records before/after stop and rejects a real rotating source. This is
+source/transport evidence, not a Fleet collector or release. See
+[evidence](CHAT_CLARIFICATION_VERIFICATION.md#verified-base-log-source-pages-7-october-2026).
+The utility still depends on open Base PR150; SDK pin remainscbb4e99.
+
+Implement the remaining collector as one coherent generation-bound flow:
+
+1. Freeze actual resolved launch credentials in private controller storage before
+   execution; never reconstruct old secrets from the current rotated environment.
+2. Validate original launch/controller/registration and retain partial line/UTF8/
+   secret chunks privately. A staged raw checkpoint must be durable before the DB
+   transaction references it; it must not become a public log or plaintext DB field.
+3. Atomically commit redacted source ranges, durable cursor/version and delivery
+   events under the original launch fence. Identical content is not dedup identity.
+   A failed/unknown commit reconciles the original range; it does not skip forward.
+4. Restore the exact referenced private checkpoint after crash. Preserve the old
+   checkpoint until the new DB commit is confirmed; missing/tampered state holds
+   collection instead of adopting a new generation or discarding backlog.
+5. Define bounded disk/retention supervision before enabling this append-only
+   source. The utility does not change runtime logging settings; overflow/rotation
+   or unsupported effective driver is a hold, never an empty successful poll.
+6. Prove actual Rust -> Base -> PostgreSQL ingestion, secret rotation/split handling,
+   duplicate replay/crash recovery and authorized API/SSE. Keep migration releases
+   in order; this transport packet adds no migration or public API.
+
 The shared repository log-acknowledgement race is fixed and verified on both
 main-based and runtime source. See
 [the PostgreSQL evidence](CHAT_CLARIFICATION_VERIFICATION.md#atomic-process-log-acknowledgement-7-october-2026).
