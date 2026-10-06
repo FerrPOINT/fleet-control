@@ -311,6 +311,7 @@ fleet-control/
 
 - [docs/README.md](docs/README.md) — обзор документации.
 - [docs/CHAT.md](docs/CHAT.md) — полный контракт чатов и сессий, текущие ограничения и критерии приёмки.
+- [Chats / PM API readiness](docs/CHATS_PM_API_ACCEPTANCE_20261007.md) — проверенные исправления consumer, опубликованные endpoints и оставшаяся live-приёмка без подмены её fixture-тестами.
 - [docs/TZ.md](docs/TZ.md), [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md) — scope и требования.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/FRONTEND_ARCHITECTURE.md](docs/FRONTEND_ARCHITECTURE.md), [docs/contracts](docs/contracts) — архитектура и контракты.
 - [docs/DATA_MODEL.md](docs/DATA_MODEL.md), [docs/API.md](docs/API.md), [docs/ENV.md](docs/ENV.md) — технические справочники.
