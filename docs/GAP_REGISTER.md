@@ -26,8 +26,12 @@ fresh502-case gate passes. The earlier partial174-unit pass remains historical. 
 and Fleet/Hermes live acceptance remain separate requirements, not closed gaps.
 
 Current Base protocol source is PR150
-`3fe7e2859c0fd7ae47bacaf74cb887125010550f` is Draft pending its own CI;
-prior1d19105 had nine successful exact-head CI37432291311 jobs. Fresh Fleet
+`60415307038468618c15b168630d3ac9ac09b50d` is Draft pending its own CI.
+Base real-Hermes startup/stop now passes separately, without model inference
+or Rust Fleet supervisor/chat/config acceptance. Prior3fe7e28 CI eventually
+passed all nine jobs after a failed messaging-core attempt; its success is not
+substituted for this newer head.
+Prior1d19105 had nine successful exact-head CI37432291311 jobs. Fresh Fleet
 Rust1.88/PG gate passes502 cases with29 ignored; Base native replacement/
 creation-crash/readback and v1 regression pass separately.
 The previous4cfdfa9/176e green

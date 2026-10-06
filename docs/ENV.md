@@ -27,7 +27,12 @@ it in API/log/audit responses. Original filenames apply at history ordinal0;
 later closed generations use `<agent_uuid>.<ordinal>.container-creation.json`
 and the corresponding prepared filename. Unknown open launches never advance
 the ordinal; old files are retained. HOME/HERMES_HOME=/config and cwd=/workspace are
-container paths; listener0.0.0.0 has no host port publishing. Current mounts require
+container paths; listener0.0.0.0 has no host port publishing. Use the separate
+Base container launcher `/opt/fleet-hermes/bin/hermes-container` in a verified
+candidate image, not its loopback-only `/opt/fleet-hermes/bin/hermes` launcher.
+This explicit entrypoint is operator-owned and cannot be changed by chat/model
+input. Base's standalone real-gateway startup gate does not prove the Fleet
+supervisor or loaded configuration. Current mounts require
 the same canonical host paths seen by the daemon. UID/file access, controller
 bridge attachment, daemon mount translation and new-generation config rollback
 remain open. Keep installed enablement off until

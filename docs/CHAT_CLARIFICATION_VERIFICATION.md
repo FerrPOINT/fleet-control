@@ -51,6 +51,14 @@ All288 frozen source inputs match the working bytes. Evidence SHA256:
 - Full log: `972e72354818faaa52e8df41973b257006033462a6baa921691739de32b45978`.
 - Final report: `903199385c57d7efa7aa78f7caf995bc855cb2ba084e094af0d5e8e2abfefac0`.
 
+Published integration commit `f0d2839` preserves all eight changed backend inputs
+byte-for-byte against the tested manifest. The all-input Git comparison has281
+raw-exact blobs and seven pre-existing checkout CRLF-only differences: Cargo.lock,
+the two backend Dockerfiles, dev users.sql, two .gitkeep files, and Base Auth's
+0001_users_sessions.sql. Normalizing only CRLF to LF proves those seven equal;
+there are no other differences. The502-case gate uses its frozen working bytes,
+not an assertion that all288 release blobs were byte-identical.
+
 Agent project validation rejects sdlc-common/demo/build and invalid QA names
 before intent/create/launch. Java with Docker configuration returns the existing
 Unavailable503 error before files/process/DB effects; native Java remains legacy

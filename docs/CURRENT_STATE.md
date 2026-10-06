@@ -46,8 +46,14 @@ after Engine recovery; the final502-case follow-up gate passes separately. See
 The494-case published packet below predates this follow-up and must not certify it.
 
 Base [PR150](https://github.com/FerrPOINT/services-base/pull/150) now publishes
-`3fe7e2859c0fd7ae47bacaf74cb887125010550f` as Draft awaiting its own CI.
-The QA follow-up verifies replacement generation, preserved original registry,
+`60415307038468618c15b168630d3ac9ac09b50d` as Draft awaiting its own CI.
+It includes a separate container-only launcher without weakening native loopback.
+The standalone Base gate now starts/stops two real Hermes gateways, verifies13770
+pinned source files, health/capabilities and cross-token denial. Final report
+`176e64c4aef60d73f234df8800f67c95bbbbbd1d791fd75b6d8696f6335e7ae6`
+has9 matching executable fingerprints and exact cleanup. It submits no inference
+and does not certify this Rust Fleet supervisor/chat/config/PM path.
+The earlier QA follow-up verifies replacement generation, preserved original registry,
 sealed-IP HTTP and live sibling, not actual Hermes. Prior head
 `1d191055bb88eae4cacc8aeb6642e1a3882f90d6` was ready for review/CLEAN with all nine
 [exact-head CI jobs successful](https://github.com/FerrPOINT/services-base/actions/runs/37432291311).
