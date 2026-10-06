@@ -94,6 +94,7 @@ if (process.argv.includes('--verify')) {
         liveAcceptance: false,
         baseline: '08c6c56229ee308050176293e34d65f087b5b112',
         browsersVerified: ['chromium', 'firefox', 'webkit'],
+        baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:4173',
         command:
           'pnpm exec playwright test e2e/fleet-control.spec.ts e2e/chats-directory.spec.ts --workers=1',
         sourceSha256,

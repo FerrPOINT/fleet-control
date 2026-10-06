@@ -7,10 +7,11 @@
     "firefox",
     "webkit"
   ],
+  "baseURL": "http://localhost:24173",
   "command": "pnpm exec playwright test e2e/fleet-control.spec.ts e2e/chats-directory.spec.ts --workers=1",
   "sourceSha256": {
-    "frontend/src/pages/chat-detail/index.tsx": "4d801da7b225e71c5b066585a815552402a5b7ace96bbbd4445c155ca6be94bd",
-    "frontend/e2e/fleet-control.spec.ts": "4b68ab134e7e21d6a0f4a1720dda7d9f2b648f6bab8c1f0b839420a4fc32cfae"
+    "frontend/src/pages/chat-detail/index.tsx": "76d3bb9dbe2298772a341f1127cb2da4b358f54e16c387147d8ce7028abe9983",
+    "frontend/e2e/fleet-control.spec.ts": "351620e6ed261aaf007e55811b84193154476ce9ec1f3894638e5c3c4be40aaf"
   },
   "screenshots": [
     {
@@ -245,7 +246,7 @@
         "width": 2560,
         "height": 1440
       },
-      "sha256": "d68f25cab26acd6ae69e1090bd61d3b6dee849dd96bb490ffa1fa65defdb295e"
+      "sha256": "2bf3b4058f54b2e0bb75c0690138e121da6497d3d0773bdd466bae100e5728d7"
     },
     {
       "file": "preview/requirements-2560.png",

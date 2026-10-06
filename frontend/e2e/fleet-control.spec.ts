@@ -307,9 +307,13 @@ test('PM chat clarification preserves explicit answers and exact confirmation', 
       commands.push({ path, body: route.request().postDataJSON() })
       if (path.endsWith('/answers')) {
         answered = true
+        if (commands.filter((command) => command.path.endsWith('/answers')).length === 1)
+          return fulfill(route, { error: { message: 'Answer receipt timed out' } }, 408)
         return fulfill(route, savedAnswer)
       }
       confirmed = true
+      if (commands.filter((command) => command.path.endsWith('/confirm')).length === 1)
+        return fulfill(route, { error: { message: 'Confirmation receipt timed out' } }, 408)
       return fulfill(route, {
         id: '00000000-0000-4000-8000-000000000507',
         task_id: ids.session,
@@ -361,8 +365,12 @@ test('PM chat clarification preserves explicit answers and exact confirmation', 
   await page.getByRole('tab', { name: /Уточнения/ }).click()
   await expect(page.getByLabel('Комментарий', { exact: true })).toHaveValue('Только внутри проекта')
   await page.getByRole('button', { name: 'Сохранить ответ' }).click()
+  await expect(page.getByText('Answer receipt timed out')).toBeVisible()
+  await expect(page.getByLabel('Комментарий', { exact: true })).toBeDisabled()
+  await page.getByRole('button', { name: 'Повторить исходный ответ' }).click()
   await expect(page.getByText('Ответ сохранён. Требования ещё не опубликованы.')).toBeVisible()
-  expect(commands).toHaveLength(1)
+  expect(commands).toHaveLength(2)
+  expect(commands[1]).toEqual(commands[0])
   // A separate fixture PM publication is not an automatic side effect of saving the answer.
   finalPublished = true
   await page.reload()
@@ -394,8 +402,12 @@ test('PM chat clarification preserves explicit answers and exact confirmation', 
     await page.getByText('Сравнить с редакцией 1', { exact: true }).click()
   }
   await confirm.click()
-  await expect.poll(() => commands.length).toBe(2)
-  expect(commands[1].body).toMatchObject({
+  await expect(page.getByText('Confirmation receipt timed out')).toBeVisible()
+  await expect(page.getByRole('checkbox', { name: /Подтверждаю цель/ })).toBeDisabled()
+  await page.getByRole('button', { name: 'Повторить исходное подтверждение' }).click()
+  await expect.poll(() => commands.length).toBe(4)
+  expect(commands[3]).toEqual(commands[2])
+  expect(commands[3].body).toMatchObject({
     content_hash: 'b'.repeat(64),
     idempotency_key: expect.any(String),
   })
