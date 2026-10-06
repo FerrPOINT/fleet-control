@@ -3,7 +3,7 @@ import { mkdir, writeFile, readFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 
-const origin = 'http://127.0.0.1:55496'
+const origin = 'http://127.0.0.1:55498'
 const directory = new URL('../../docs/assets/design/pm-draft/', import.meta.url)
 await mkdir(directory, { recursive: true })
 const browser = await chromium.launch()
@@ -29,8 +29,12 @@ try {
       await page.getByRole('heading', { name: 'Новая задача с PM' }).waitFor()
       await page.evaluate(() => document.fonts.ready)
       if (state === 'form') {
-        await page.getByLabel('Проект', { exact: true }).selectOption('portal')
-        await page.getByLabel('Project Manager', { exact: true }).selectOption('agent3')
+        await page
+          .getByLabel('Проект', { exact: true })
+          .selectOption({ label: 'UX · Портал заявок' })
+        await page
+          .getByLabel('Project Manager', { exact: true })
+          .selectOption({ label: 'agent3 · Project Manager · Hermes' })
         await page.getByLabel('Название задачи').fill('Портал заявок сотрудников')
         await page
           .getByLabel('Исходный запрос')

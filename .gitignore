@@ -2,6 +2,7 @@
 node_modules
 dist
 chat-preview-dist
+pm-draft-preview-dist
 *.log
 .env
 .env.local
