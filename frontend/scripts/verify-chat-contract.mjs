@@ -76,7 +76,11 @@ function main() {
     if (!isDeepStrictEqual(current, contract))
       throw new Error('Tracker differs from the accepted v1 snapshot')
   }
-  console.log('Verified seven generated PM chat wire contracts against Tracker v1.')
+  console.log(
+    tracker !== -1
+      ? 'Verified seven Fleet DTOs against the accepted snapshot and provided Tracker source.'
+      : 'Verified seven Fleet DTOs against the accepted local snapshot; published Tracker source was not provided.',
+  )
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) main()

@@ -10,6 +10,122 @@ const first = '00000000-0000-4000-8000-000000000201'
 const last = '00000000-0000-4000-8000-000000000202'
 const now = '2026-10-01T12:00:00Z'
 
+test('unknown private chat creation keeps its original agent and command after closing the dialog', async ({
+  page,
+}, testInfo) => {
+  await mockLogin(page)
+  const commands: Record<string, unknown>[] = []
+  let created: AgentSession | undefined
+  await page.route('**/api/v1/**', async (route) => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    if (path === '/api/v1/users/me')
+      return route.fulfill({
+        json: {
+          id: owner,
+          email: 'owner@example.test',
+          username: 'owner',
+          display_name: 'Directory owner',
+        },
+      })
+    if (path === '/api/v1/users/me/permissions')
+      return route.fulfill({
+        json: {
+          user_id: owner,
+          role: 'user',
+          is_system_admin: false,
+          permissions: ['sessions:read_own', 'sessions:write_own', 'agents:read_directory'],
+        },
+      })
+    if (path === '/api/v1/sessions' && request.method() === 'POST') {
+      const body = request.postDataJSON()
+      commands.push(body)
+      created ??= session(first, dev, body.title)
+      if (commands.length === 1)
+        return route.fulfill({
+          status: 408,
+          json: { error: { message: 'Creation receipt timed out' } },
+        })
+      expect(body).toEqual(commands[0])
+      return route.fulfill({ json: created })
+    }
+    if (path === `/api/v1/sessions/${first}`) return route.fulfill({ json: created })
+    if (path === '/api/v1/agent-directory')
+      return route.fulfill({
+        json: [agent(dev, 1, 'Directory developer'), agent(qa, 2, 'Directory reviewer')],
+      })
+    if (path === '/api/v1/chats/directory') {
+      const selected = new URL(request.url()).searchParams.get('agent_id') ?? dev
+      return route.fulfill({
+        json: {
+          agents: [
+            {
+              agent: agent(dev, 1, 'Directory developer'),
+              matching_session_count: created ? 1 : 0,
+            },
+            { agent: agent(qa, 2, 'Directory reviewer'), matching_session_count: 0 },
+          ],
+          selected_agent_id: selected,
+          items: selected === dev && created ? [created] : [],
+          next_before: null,
+        },
+      })
+    }
+    if (path.endsWith('/task-context'))
+      return route.fulfill({ json: { binding: null, tracker: null } })
+    if (path.endsWith('/chat-controls'))
+      return route.fulfill({
+        json: { active_run_id: null, can_send: true, can_steer: false, can_stop: false },
+      })
+    if (path.endsWith('/runs') || path.endsWith('/approvals')) return route.fulfill({ json: [] })
+    if (path.endsWith('/history')) return route.fulfill({ json: { items: [], next_before: null } })
+    if (path.endsWith('/stream'))
+      return route.fulfill({ contentType: 'text/event-stream', body: ': creation fixture\n\n' })
+    return route.fulfill({ json: {} })
+  })
+  await page.goto('/chats')
+  await page.getByRole('button', { name: 'Новый чат', exact: true }).click()
+  const title = page.getByRole('textbox', { name: 'Название', exact: true })
+  await title.fill('Original private chat')
+  await page.getByRole('button', { name: 'Создать сессию', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Результат создания чата пока неизвестен')
+  await expect(title).toBeDisabled()
+  await page.getByRole('button', { name: 'Закрыть', exact: true }).click()
+  await page
+    .getByRole('navigation', { name: 'Агенты', exact: true })
+    .getByRole('button', { name: /Directory reviewer/ })
+    .click()
+  await expect(page.getByRole('heading', { name: 'Directory reviewer', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Новый чат', exact: true }).click()
+  await expect(page.getByRole('dialog')).toHaveAccessibleName('Новый чат · Directory developer')
+  await expect(title).toHaveValue('Original private chat')
+  await expect(title).toBeDisabled()
+  for (const viewport of [
+    { width: 375, height: 812 },
+    { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+  ]) {
+    await page.setViewportSize(viewport)
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
+    ).toBe(true)
+    await page.screenshot({
+      path: testInfo.outputPath(`creation-unknown-${viewport.width}.png`),
+      fullPage: true,
+      animations: 'disabled',
+      scale: 'css',
+    })
+  }
+  await page.getByRole('button', { name: 'Создать сессию', exact: true }).click()
+  await expect(
+    page.getByRole('heading', { name: 'Original private chat', exact: true }),
+  ).toBeVisible()
+  expect(commands).toHaveLength(2)
+  expect(commands[1]).toEqual(commands[0])
+})
+
 function agent(id: string, ordinal: number, displayName: string): AgentDirectoryItem {
   return {
     id,

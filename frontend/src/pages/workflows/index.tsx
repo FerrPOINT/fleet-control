@@ -122,6 +122,7 @@ export function WorkflowsPage() {
                   agent={agentsById.get(binding.agent_id)}
                   catalog={catalog.data}
                   catalogLoading={catalog.isLoading}
+                  catalogUnavailable={catalog.isError}
                 />
               ))}
             </div>
@@ -137,11 +138,13 @@ function BindingRow({
   agent,
   catalog,
   catalogLoading,
+  catalogUnavailable,
 }: {
   binding: WorkflowBinding
   agent?: Agent
   catalog?: WorkflowCatalog
   catalogLoading: boolean
+  catalogUnavailable: boolean
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -186,7 +189,7 @@ function BindingRow({
                 id={`namespace-${binding.id}`}
                 className="mt-1 h-10 w-full min-w-0 rounded-md border border-border bg-background px-2 text-sm text-text-primary"
                 value={namespaceId}
-                disabled={!catalog?.namespaces.length || rebind.isPending}
+                disabled={catalogUnavailable || !catalog?.namespaces.length || rebind.isPending}
                 onChange={(event) => setSelectedNamespaceId(event.target.value)}
               >
                 {!namespaceId ? (
@@ -204,10 +207,10 @@ function BindingRow({
             <Button
               type="button"
               variant="outline"
-              disabled={!selectedNamespace || rebind.isPending}
+              disabled={catalogUnavailable || !selectedNamespace || rebind.isPending}
               aria-busy={rebind.isPending}
               onClick={() => {
-                if (selectedNamespace) rebind.mutate(selectedNamespace)
+                if (!catalogUnavailable && selectedNamespace) rebind.mutate(selectedNamespace)
               }}
             >
               {rebind.isPending ? t('workflows.rebinding') : t('workflows.rebind')}

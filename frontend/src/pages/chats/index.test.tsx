@@ -8,6 +8,7 @@ import * as directory from '@/api/chats-directory'
 import * as auth from '@/api/auth'
 import type { AgentDirectoryItem, AgentSession, UserResponse } from '@/api/types'
 import { useAuthStore } from '@/shared/auth/store'
+import { ApiError } from '@sdlc/ui/lib'
 
 vi.mock('@/api/fleet', () => ({ createSession: vi.fn() }))
 vi.mock('@/api/chats-directory', () => ({ getChatsDirectory: vi.fn() }))
@@ -114,9 +115,75 @@ beforeEach(() => {
     { id: owner, display_name: 'Owner' },
     { id: other, display_name: 'Other' },
   ] as UserResponse[])
-  vi.mocked(fleet.createSession).mockResolvedValue(session)
+  vi.mocked(fleet.createSession).mockReset().mockResolvedValue(session)
 })
 describe('server-scoped ChatsPage', () => {
+  it.each([408, 503, 0])('holds uncertain creation (%s) through a denied retry', async (status) => {
+    vi.mocked(fleet.createSession)
+      .mockRejectedValueOnce(
+        status ? new ApiError(status, 'unknown creation') : new Error('offline'),
+      )
+      .mockRejectedValueOnce(new ApiError(409, 'retry denied'))
+      .mockResolvedValueOnce({ ...session, title: 'Original chat' })
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: 'Новый чат' }))
+    const title = screen.getByLabelText('Название')
+    fireEvent.change(title, { target: { value: 'Original chat' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Создать сессию' }))
+    await screen.findByRole('alert')
+    expect(title).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Создать сессию' }))
+    await waitFor(() => expect(fleet.createSession).toHaveBeenCalledTimes(2))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Создать сессию' })).toBeEnabled(),
+    )
+    expect(title).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Создать сессию' }))
+    await waitFor(() =>
+      expect(screen.getByTestId('location')).toHaveTextContent(`/chats/${session.id}`),
+    )
+    const calls = vi.mocked(fleet.createSession).mock.calls
+    expect(calls[1]).toEqual(calls[0])
+    expect(calls[2]).toEqual(calls[0])
+  })
+  it('keeps the original creation when directory refresh loses its selected agent', async () => {
+    vi.mocked(fleet.createSession).mockRejectedValueOnce(new ApiError(503, 'unknown'))
+    const client = renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: 'Новый чат' }))
+    fireEvent.change(screen.getByLabelText('Название'), { target: { value: 'Original chat' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Создать сессию' }))
+    await screen.findByRole('alert')
+    fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }))
+    vi.mocked(directory.getChatsDirectory).mockRejectedValue(new Error('directory offline'))
+    await client.invalidateQueries({ queryKey: ['chats-directory'] })
+    await screen.findByRole('alert')
+    vi.mocked(directory.getChatsDirectory).mockResolvedValue(page([testerSession], tester.id))
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Новый чат' }))
+    expect(screen.getByRole('dialog')).toHaveAccessibleName('Новый чат · Developer')
+    expect(screen.getByLabelText('Название')).toHaveValue('Original chat')
+    expect(screen.getByLabelText('Название')).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Создать сессию' }))
+    await waitFor(() => expect(fleet.createSession).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(fleet.createSession).mock.calls[1]).toEqual(
+      vi.mocked(fleet.createSession).mock.calls[0],
+    )
+  })
+  it('allows a revised title after a definite initial creation rejection', async () => {
+    vi.mocked(fleet.createSession).mockRejectedValueOnce(new ApiError(400, 'invalid title'))
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: 'Новый чат' }))
+    fireEvent.change(screen.getByLabelText('Название'), { target: { value: 'Rejected chat' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Создать сессию' }))
+    await screen.findByRole('alert')
+    expect(screen.getByLabelText('Название')).toBeEnabled()
+    fireEvent.change(screen.getByLabelText('Название'), { target: { value: 'Revised chat' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Создать сессию' }))
+    await waitFor(() => expect(fleet.createSession).toHaveBeenCalledTimes(2))
+    const calls = vi.mocked(fleet.createSession).mock.calls
+    expect(calls[1]![0].title).toBe('Revised chat')
+    expect(calls[1]![0].idempotency_key).not.toBe(calls[0]![0].idempotency_key)
+  })
   it('defaults to mine and uses server counts, not current page lengths', async () => {
     renderPage()
     const link = await screen.findByRole('link', { name: /Implement login/ })
