@@ -40,6 +40,7 @@ pub struct SessionListFilter {
     pub user_ids: Vec<Uuid>,
     pub leader_agent_id: Option<Uuid>,
     pub include_all_users: bool,
+    pub private_user_id: Option<Uuid>,
 }
 
 #[derive(Debug, Clone)]

@@ -62,6 +62,8 @@ Important constraints:
 - `users.system_role` is `admin`, `operator` or `user`; `is_system_admin` is a
   derived legacy alias for `admin`. В центральном режиме эти поля не
   ограничивают людей и сохраняются только для совместимости.
+- Central authentication never promotes these fields. Central role mutations
+  are disabled; private session ownership is independent of historical role.
 - `agents.ordinal` and `agents.name` are unique.
 - `agent_skills` is unique by `(agent_id, name)`.
 - `agents.product_role` is `leader` or `executor`.
@@ -79,7 +81,7 @@ Important constraints:
 - `agent_sessions.visibility` is `private` or `leader_scoped`.
 - `session_messages` requires exactly one author shape: user, agent or system.
 - `(session_messages.session_id, session_messages.created_by_user_id,
-  session_messages.idempotency_key)` is unique when a user idempotency key is
+session_messages.idempotency_key)` is unique when a user idempotency key is
   supplied.
 - `session_agent_runs` tracks each runtime participant independently.
 - `workflow_bindings` is unique by `agent_id`.

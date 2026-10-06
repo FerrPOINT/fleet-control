@@ -18,7 +18,12 @@ function renderCallback() {
   )
 }
 
-function responses(role: 'user' | 'operator', permissionUser = 'local-user', status = 200) {
+function responses(
+  role: 'user' | 'operator',
+  permissionUser = 'local-user',
+  status = 200,
+  permissions = ['sessions:read_own', 'agents:read_directory'],
+) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string) => {
@@ -28,7 +33,7 @@ function responses(role: 'user' | 'operator', permissionUser = 'local-user', sta
             user_id: permissionUser,
             role,
             is_system_admin: false,
-            permissions: ['sessions:read_own', 'agents:read_directory'],
+            permissions,
           }),
           { status },
         )
@@ -89,6 +94,17 @@ describe('SSO callback authorization', () => {
       'Профиль и права пользователя не совпадают',
     )
     expect(useAuthStore.getState().token).toBeNull()
+  })
+
+  it('uses central backend permissions without rewriting the historical user role', async () => {
+    responses('user', 'local-user', 200, ['agents:manage', 'settings:manage', 'sessions:read_all'])
+    renderCallback()
+    expect(await screen.findByRole('heading', { name: 'Chats destination' })).toBeVisible()
+    expect(useAuthStore.getState()).toMatchObject({
+      systemRole: 'user',
+      isSystemAdmin: false,
+      permissions: ['agents:manage', 'settings:manage', 'sessions:read_all'],
+    })
   })
 
   it('fails closed when permissions cannot be verified', async () => {
