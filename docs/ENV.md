@@ -13,7 +13,7 @@ configuration, not user-editable agent settings; Python/Base paths must be
 protected operator executables. No example signing key or runtime token is needed.
 
 The optional `[fleet.container_control.provisioning]` table enables automatic
-first-generation preparation when the private prepared file is missing. Required
+generation preparation when the current ordinal's private prepared file is missing. Required
 operator fields: project (sdlc1/sdlc2 or owned QA), image_id (exact sha256 image),
 numeric non-root user, explicit entrypoint array, pids_limit, memory_bytes,
 nano_cpus, network_internal, task and purpose. No value is supplied by agent UI,
@@ -23,7 +23,10 @@ pin is upgraded implicitly. Without provisioning the compatibility path requires
 an operator-prepared document. The closed shapes and held states are in the
 [private contract](contracts/CONTAINER_CONTROL_V1.md#supervisor-binding).
 Creation intent is private and credential-bearing; do not commit it or include
-it in API/log/audit responses. HOME/HERMES_HOME=/config and cwd=/workspace are
+it in API/log/audit responses. Original filenames apply at history ordinal0;
+later closed generations use `<agent_uuid>.<ordinal>.container-creation.json`
+and the corresponding prepared filename. Unknown open launches never advance
+the ordinal; old files are retained. HOME/HERMES_HOME=/config and cwd=/workspace are
 container paths; listener0.0.0.0 has no host port publishing. Current mounts require
 the same canonical host paths seen by the daemon. UID/file access, controller
 bridge attachment, daemon mount translation and new-generation config rollback

@@ -1965,6 +1965,11 @@ impl LocalRuntimeSupervisor {
     ) -> Result<RuntimeOperationResponse, AppError> {
         let fresh = self.repo.get_agent(agent.id).await?;
         let agent = &fresh;
+        if agent.kind == AgentKind::JavaAgent && self.config.fleet.container_control.is_some() {
+            return Err(AppError::Unavailable(
+                "Java Agent Docker runtime is not implemented; native fallback is forbidden".into(),
+            ));
+        }
         if agent.kind == AgentKind::Hermes
             && (self.config.fleet.container_control.is_some()
                 || self
@@ -2470,7 +2475,8 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
             return Err(AppError::conflict("agent configuration is draining"));
         }
         self.stop_locked(agent).await?;
-        self.start_locked(agent, LaunchPhase::Regular).await
+        let stopped = self.repo.get_agent(agent.id).await?;
+        self.start_locked(&stopped, LaunchPhase::Regular).await
     }
 
     async fn health(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {

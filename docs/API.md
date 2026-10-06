@@ -7,11 +7,13 @@ For an original container launch, runtime `pid` is the Docker-daemon init PID
 from its durable ACK, not a process Fleet may signal on the backend host.
 Start/health require original running namespace evidence and Hermes readiness;
 stop requires original namespace exit. Unknown start fails closed without retry
-or native fallback. Automatic first-generation preparation is internal to start
+or native fallback. Automatic generation preparation is internal to start
 when private provisioning config is present: saved original intent, Base create/
 register receipt, then DB binding before process start. No public field selects
 an image, Docker policy, process credential or operation key. Docker config
-activation/new-generation replacement remain unavailable; see
+activation remains unavailable. Restart prepares another generation only after
+original namespace exit and closed DB history; an unknown launch cannot advance
+its preparation key. This is not controller takeover or installed acceptance; see
 [Container Control](contracts/CONTAINER_CONTROL_V1.md).
 
 Managed health observation by a non-owning controller can return degraded

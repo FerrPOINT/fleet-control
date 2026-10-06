@@ -1,5 +1,20 @@
 # Testing
 
+## Pinned Container Utility Loader
+
+Run `python -B -m unittest scripts.tests.test_container_control_loader -v` without
+Docker. These six tests execute the exact bootstrap extracted from Rust source,
+including a valid poisoned cache proven readable by a normal import, source
+replacement after capture, binary stdin, pinned dependency imports, initializer
+exclusion, unpinned module rejection and original source encoding. CI runs this
+command independently of container checks. It is not a duplicate implementation
+or a substitute for Rust compilation and actual container lifecycle acceptance.
+
+On Linux, the infra Rust tests additionally exercise real ContainerControl calls
+with pinned fixtures, hash/path drift and the1-MiB source bound. Execute these
+within the normal Rust1.88/PostgreSQL workspace gate before publishing the
+updated runtime packet; previous gate results do not cover new source bytes.
+
 The launch-custody regressions use actual PostgreSQL and native Unix children:
 a foreign controller's health and HTTP audit leave original runtime rows and
 alerts unchanged; an exited unreaped child with a cached PID cannot authorize

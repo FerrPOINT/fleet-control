@@ -2,6 +2,14 @@
 
 ## Current SDLC Scope
 
+The captured-source Base utility loader follow-up closes the file-hash/import
+gap: fixed isolated Python compiles the captured pinned bytes, not cached code
+or reread checkout files. Host behavioral coverage is available and added to CI;
+all four Linux Rust regressions and the final502-case workspace gate pass.
+This cannot replace controller attachment, filesystem mapping or actual Hermes
+container/PM acceptance. Previous own QA cleanup is now verified on the original
+Engine; the final full gate exits0 with exact own cleanup and288 matching inputs.
+
 Docker consumer is now connected in the integration candidate: immutable
 container registration/paths/config/context/source pins precede Base start;
 start/health/stop and every Hermes endpoint use original container receipts.
@@ -10,7 +18,12 @@ Automatic first-generation preparation now saves a private original intent
 before Base render/create/register and writes its matching prepared document.
 Operator-prepared generations remain a compatibility path. Next implement
 trusted controller bridge attachment, daemon source mapping, UID/file access,
-logs, new-generation restart and namespace-based config rollback.
+logs and namespace-based config rollback. The follow-up history-ordinal restart
+candidate now preserves previous files and creates a new generation only after
+confirmed original exit; its new full Rust/PG gate was interrupted by host disk
+exhaustion/Docker unavailability. Own project3b96063dfdea is now verified clean;
+the final502-case gate passes without relabelling the partial174-unit pass. Real Docker
+restart/Fleet/Hermes acceptance remains required.
 Do not enable installed Docker mode or label automatic provisioning complete.
 Task admission, producer first step, PM tools/resume and real Forge/seven-agent
 acceptance remain separate required gates.

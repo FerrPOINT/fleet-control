@@ -11,7 +11,7 @@ native process authority, and a stopped generation cannot be reused for restart.
 See [Container Control](contracts/CONTAINER_CONTROL_V1.md) for validation and
 remaining automatic generation/configuration work.
 
-Automatic first-generation preparation adds no PostgreSQL table. Its original
+Automatic generation preparation adds no PostgreSQL table. Its original
 creation intent is an exclusive private controller document, containing the
 agent/paths/config revision, generation/operation UUIDs, process and source/context
 pins. Resolved env credentials remain outside DB/public DTOs. Base uses a separate
@@ -20,6 +20,14 @@ committed create claim and prepared receipt. This is not Hermes SessionDB or a
 business assignment queue. Only a matching prepared receipt precedes the existing
 Fleet runtime-launch DB claim and sole process start; unknown creation cannot
 allocate a replacement intent or change effective configuration.
+
+The next preparation ordinal is a single-snapshot count of immutable
+runtime_launches rows for the agent, with outstanding claimed/started rows
+rejected. It does not order by wall-clock timestamps or mutate old bindings.
+An original namespace-exit receipt closes a Docker launch before another ordinal
+can prepare a new generation. Unknown preparation retains its ordinal until DB
+claim; unknown start retains the outstanding launch. Ordinal-specific private
+files preserve prior generations without an overwrite/reset/head-pointer API.
 
 Original-controller liveness verification does not add a migration or mutate
 launch identity: an exited retained child leaves reconciliation holds intact.

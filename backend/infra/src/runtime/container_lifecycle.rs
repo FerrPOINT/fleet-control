@@ -103,6 +103,7 @@ impl LocalRuntimeSupervisor {
         agent: &Agent,
         root: &Path,
         prepared_path: &Path,
+        intent_path: &Path,
         revision: Option<i64>,
         revision_hash: Option<String>,
     ) -> Result<(), AppError> {
@@ -113,6 +114,11 @@ impl LocalRuntimeSupervisor {
             .as_ref()
             .ok_or_else(held)?;
         let provisioning = config.provisioning.as_ref().ok_or_else(held)?;
+        if !crate::runtime_launches::valid_agent_container_project(&provisioning.project) {
+            return Err(AppError::validation(
+                "agent containers require sdlc1, sdlc2 or an owned temporary QA project",
+            ));
+        }
         let agents = crate::normalize_path(Path::new(&self.config.fleet.agents_root))?;
         let base = crate::normalize_path(Path::new(&config.base_root))?;
         if root.starts_with(&agents)
@@ -122,8 +128,7 @@ impl LocalRuntimeSupervisor {
         {
             return Err(held());
         }
-        let path = root.join(format!("{}.container-creation.json", agent.id));
-        let previous = read_private_document(root, &path).await?;
+        let previous = read_private_document(root, intent_path).await?;
         let previous: Option<ContainerCreationIntent> = previous
             .map(|bytes| serde_json::from_slice(&bytes).map_err(|_| held()))
             .transpose()?;
@@ -201,7 +206,7 @@ impl LocalRuntimeSupervisor {
                 return Err(held());
             }
         } else {
-            private_document(root, &path, &intent).await?;
+            private_document(root, intent_path, &intent).await?;
         }
         let name = format!("{}.{}", agent.id, generation);
         let files = ContainerLaunchFiles {
@@ -406,7 +411,14 @@ impl LocalRuntimeSupervisor {
             &self.config.fleet.controller_root,
         ))
         .await?;
-        let path = root.join(format!("{}.container-prepared.json", agent.id));
+        let ordinal = self.repo.next_container_launch_ordinal(agent.id).await?;
+        let suffix = if ordinal == 0 {
+            agent.id.to_string()
+        } else {
+            format!("{}.{ordinal}", agent.id)
+        };
+        let path = root.join(format!("{suffix}.container-prepared.json"));
+        let intent_path = root.join(format!("{suffix}.container-creation.json"));
         let (phase, revision) = match phase {
             LaunchPhase::Regular => (
                 "regular",
@@ -433,8 +445,15 @@ impl LocalRuntimeSupervisor {
             if phase != "regular" {
                 return Err(held());
             }
-            self.create_container(agent, &root, &path, revision_number, revision_hash.clone())
-                .await?;
+            self.create_container(
+                agent,
+                &root,
+                &path,
+                &intent_path,
+                revision_number,
+                revision_hash.clone(),
+            )
+            .await?;
         }
         crate::reject_symlink_components(&root, &path)
             .await

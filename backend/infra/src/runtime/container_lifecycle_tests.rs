@@ -6,6 +6,31 @@ use app::runtime_launch::{
 use sha2::{Digest, Sha256};
 use std::path::Path;
 
+#[test]
+fn agent_container_projects_exclude_shared_infrastructure_and_unowned_names() {
+    for name in ["sdlc1", "sdlc2", "sdlc-qa-container-test-123abc"] {
+        assert!(crate::runtime_launches::valid_agent_container_project(name));
+    }
+    for name in [
+        "sdlc-common",
+        "sdlc-demo",
+        "sdlc-build-container-test-123abc",
+        "sdlc-qa-",
+        "sdlc-qa--invalid",
+        "sdlc-qa-Uppercase",
+        "sdlc-qa-test/foreign",
+        "",
+    ] {
+        assert!(
+            !crate::runtime_launches::valid_agent_container_project(name),
+            "{name}"
+        );
+    }
+    assert!(!crate::runtime_launches::valid_agent_container_project(
+        &format!("sdlc-qa-{}", "a".repeat(128))
+    ));
+}
+
 fn binding(agent: &Agent, controller_id: Uuid) -> RuntimeLaunchBinding {
     let generation = Uuid::new_v4();
     let registration = ContainerRegistration {
@@ -411,7 +436,8 @@ from pathlib import Path
 r=json.load(sys.stdin);root=Path(r['journal']).parent
 digest=lambda v:hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':')).encode()).hexdigest()
 if r['action']=='prepare':
- intent=json.loads((root/(r['policy']['resource_id']+'.container-creation.json')).read_bytes())
+ intents=[json.loads(p.read_bytes()) for p in root.glob(r['policy']['resource_id']+'*.container-creation.json')]
+ intent=next(v for v in intents if v['generation']==r['policy']['generation'])
  assert intent['generation']==r['policy']['generation'] and intent['operation_id']==r['operation_id']
  assert r['process']['environment']['HERMES_HOME']=='/config' and r['process']['working_dir']=='/workspace'
  if not (root/'prepare-effect').exists():(root/'prepare-effect').write_text('1')
@@ -419,13 +445,22 @@ if r['action']=='prepare':
   result={'state':'held','operation_id':r['operation_id'],'resource_id':r['policy']['resource_id'],'generation':r['policy']['generation']}
  else:
   policy=r['policy'];policy['network']['id']='1'*64
-  reg={'contract_version':2,'operation_id':r['operation_id'],'container_id':'a'*64,'resource_id':policy['resource_id'],'generation':policy['generation'],'engine':{'ID':'original-engine','KernelVersion':'original-kernel','ServerVersion':'29'},'policy_sha256':digest(policy),'inventory_sha256':'c'*64,'running_inventory_sha256':'d'*64,'compose_sha256':'e'*64,'network_sha256':'f'*64}
+  reg={'contract_version':2,'operation_id':r['operation_id'],'container_id':digest(policy['generation']),'resource_id':policy['resource_id'],'generation':policy['generation'],'engine':{'ID':'original-engine','KernelVersion':'original-kernel','ServerVersion':'29'},'policy_sha256':digest(policy),'inventory_sha256':'c'*64,'running_inventory_sha256':'d'*64,'compose_sha256':'e'*64,'network_sha256':'f'*64}
   result={'state':'prepared','policy':policy,'registration':reg}
 else:
  reg=r['registration'];result={k:reg[k] for k in ('contract_version','operation_id','container_id','resource_id','generation')}
  result.update(registration_sha256=digest(reg),state='registered',observation='never_started',snapshot=None)
- if r['action']=='start':(root/'start-effect').write_text('1')
- if (root/'start-effect').exists():result.update(state='held',observation='unavailable')
+ started=root/(reg['generation']+'.started');stopped=root/(reg['generation']+'.stopped')
+ if r['action']=='start':
+  (root/'start-effect').write_text('1');started.write_text('1')
+ if started.exists():
+  result.update(state='held',observation='unavailable')
+  if r['action']!='start' and (root/'recover-start').exists():
+   snap={'contract_version':2,'container_id':reg['container_id'],'engine':reg['engine'],'policy_sha256':reg['policy_sha256'],'inventory_sha256':reg['running_inventory_sha256'],'started_at':'2026-10-06T12:00:00.123456789Z','init_pid':12345,'network_sha256':reg['network_sha256']}
+   result.update(state='observed',observation='namespace_exited' if stopped.exists() else 'running',snapshot=snap)
+   if r['action']=='stop':
+    stopped.write_text('1');result={k:reg[k] for k in ('contract_version','container_id','resource_id','generation')}
+    result.update(operation_id=r['operation_id'],snapshot_sha256=digest(snap),state='observed',observation='namespace_exited')
 print(json.dumps({'protocol_version':1,'action':r['action'],'result':result}));sys.exit(2 if result['state']=='held' else 0)
 "#;
     let control = config.fleet.container_control.as_mut().unwrap();
@@ -450,6 +485,74 @@ print(json.dumps({'protocol_version':1,'action':r['action'],'result':result}));s
             .unwrap();
     }
     config
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn invalid_agent_project_is_rejected_before_intent_prepare_or_launch() {
+    let Some((repo, agent, _, config, root)) = lifecycle_tests::fixture(AgentKind::Hermes).await
+    else {
+        return;
+    };
+    let mut config = fake_creation(&config, &agent, false).await;
+    config
+        .fleet
+        .container_control
+        .as_mut()
+        .unwrap()
+        .provisioning
+        .as_mut()
+        .unwrap()
+        .project = "sdlc-common".into();
+    let runtime = lifecycle_tests::supervisor(Arc::new(config), repo.clone());
+    let result = runtime.start_locked(&agent, LaunchPhase::Regular).await;
+    let private = root.join("controller");
+    assert!(matches!(result, Err(AppError::Validation(_))));
+    assert!(!private.join("prepare-effect").exists());
+    assert!(!private.join("start-effect").exists());
+    assert!(
+        !private
+            .join(format!("{}.container-creation.json", agent.id))
+            .exists()
+    );
+    assert!(
+        repo.get_open_runtime_launch(agent.id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(repo.get_agent(agent.id).await.unwrap().status, agent.status);
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[tokio::test]
+async fn java_cannot_fall_back_to_native_when_docker_mode_is_selected() {
+    let Some((repo, agent, _, config, root)) = lifecycle_tests::fixture(AgentKind::JavaAgent).await
+    else {
+        return;
+    };
+    let mut config = (*config).clone();
+    config.fleet.container_control = Some(shared::config::ContainerControlConfig {
+        python: "must-not-execute".into(),
+        base_root: root.join("unavailable-base").to_string_lossy().into_owned(),
+        source_sha256: ["a".repeat(64), "b".repeat(64), "c".repeat(64)],
+        context: "desktop-linux".into(),
+        provisioning: None,
+    });
+    let runtime = lifecycle_tests::supervisor(Arc::new(config), repo.clone());
+    let result = runtime.start_locked(&agent, LaunchPhase::Regular).await;
+    assert!(matches!(result, Err(AppError::Unavailable(detail))
+        if detail == "Java Agent Docker runtime is not implemented; native fallback is forbidden"));
+    assert!(runtime.children.lock().await.is_empty());
+    assert!(
+        repo.get_open_runtime_launch(agent.id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(repo.get_agent(agent.id).await.unwrap().runtime.pid, None);
+    assert_eq!(repo.get_agent(agent.id).await.unwrap().status, agent.status);
+    tokio::fs::remove_dir_all(root).await.unwrap();
 }
 
 #[cfg(target_os = "linux")]
@@ -568,6 +671,98 @@ async fn container_lifecycle_unknown_creation_reuses_exact_intent_and_rejects_ch
         .unwrap();
     let intent: Value = serde_json::from_slice(&original).unwrap();
     assert_eq!(intent["generation"], json!(launch.binding.id));
+    assert!(runtime.children.lock().await.is_empty());
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn container_restart_requires_original_exit_and_preserves_previous_generation() {
+    let Some((repo, agent, _, config, root)) = lifecycle_tests::fixture(AgentKind::Hermes).await
+    else {
+        return;
+    };
+    let config = fake_creation(&config, &agent, false).await;
+    let runtime = lifecycle_tests::supervisor(Arc::new(config), repo.clone());
+    assert!(
+        runtime
+            .start_locked(&agent, LaunchPhase::Regular)
+            .await
+            .is_err()
+    );
+    let original = repo
+        .get_open_runtime_launch(agent.id)
+        .await
+        .unwrap()
+        .unwrap();
+    let private = root.join("controller");
+    let intent_path = private.join(format!("{}.container-creation.json", agent.id));
+    let prepared_path = private.join(format!("{}.container-prepared.json", agent.id));
+    let original_intent = tokio::fs::read(&intent_path).await.unwrap();
+    let original_prepared = tokio::fs::read(&prepared_path).await.unwrap();
+    let next_path = private.join(format!("{}.1.container-creation.json", agent.id));
+    let starting = repo.get_agent(agent.id).await.unwrap();
+    assert!(repo.next_container_launch_ordinal(agent.id).await.is_err());
+    assert!(runtime.restart(&starting).await.is_err());
+    assert!(!next_path.exists());
+    assert_eq!(
+        repo.get_open_runtime_launch(agent.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .binding
+            .id,
+        original.binding.id
+    );
+
+    // The fake Base resolves only its original ACK and attests namespace exit.
+    tokio::fs::write(private.join("recover-start"), "1")
+        .await
+        .unwrap();
+    assert!(runtime.restart(&starting).await.is_err());
+    let next = repo
+        .get_open_runtime_launch(agent.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_ne!(next.binding.id, original.binding.id);
+    assert_ne!(
+        next.binding
+            .container
+            .as_ref()
+            .unwrap()
+            .registration
+            .container_id,
+        original
+            .binding
+            .container
+            .as_ref()
+            .unwrap()
+            .registration
+            .container_id
+    );
+    assert_eq!(next.state, "claimed");
+    assert!(next_path.exists());
+    assert_eq!(
+        tokio::fs::read(&intent_path).await.unwrap(),
+        original_intent
+    );
+    assert_eq!(
+        tokio::fs::read(&prepared_path).await.unwrap(),
+        original_prepared
+    );
+    let next_intent = tokio::fs::read(&next_path).await.unwrap();
+    tokio::fs::remove_file(private.join("recover-start"))
+        .await
+        .unwrap();
+    let fresh = repo.get_agent(agent.id).await.unwrap();
+    assert!(
+        runtime
+            .start_locked(&fresh, LaunchPhase::Regular)
+            .await
+            .is_err()
+    );
+    assert_eq!(tokio::fs::read(&next_path).await.unwrap(), next_intent);
     assert!(runtime.children.lock().await.is_empty());
     tokio::fs::remove_dir_all(root).await.unwrap();
 }

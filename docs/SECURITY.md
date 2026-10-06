@@ -1,5 +1,15 @@
 # Security
 
+The private Docker utility candidate captures and hashes three bounded Base
+source files, rejecting symlink/junction path components. Isolated Python
+compiles exactly those captured bytes; cached bytecode, package initialization
+and unpinned checkout-module imports cannot replace them. Source credentials
+and the private request remain stdin-only and are not logged. The interpreter,
+standard library and operator-controlled source storage remain trusted; these
+checks do not create an OS sandbox or grant agents Docker access. See the
+[private transport contract](contracts/CONTAINER_CONTROL_V1.md) and its scoped
+[pending release evidence](CHAT_CLARIFICATION_VERIFICATION.md#captured-base-source-loader-candidate-6-october-2026).
+
 The `000017` launch journal is controller-only PostgreSQL data. No public caller
 can submit a launch binding, mark spawn/exit or choose controller identity.
 Source identity is validated under agent/config locks; command/configuration

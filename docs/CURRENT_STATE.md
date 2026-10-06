@@ -1,5 +1,22 @@
 # Current State
 
+## Captured Utility Source Candidate: 6 October 2026
+
+The unpublished Docker-client hardening executes the captured hash-pinned Base
+source bytes rather than reimporting files/cached bytecode. Six host behavior
+tests and an actual Base import/typed rejection smoke cover the fixed Python
+bootstrap. All four Linux source-loader regressions and the final Rust1.88/PG
+workspace gate pass:502 tests,0 failed,29 ignored, fmt/check/strict Clippy.
+The final packet additionally rejects invalid agent Compose projects before
+preparation and blocks Java Docker start with503 before any native fallback.
+Docker recovered on the original Engine; the interrupted
+exact own QA project is now verified clean without permanent lifecycle changes.
+The final gate independently verifies288 source inputs and exact own cleanup.
+The published494-case gate below certifies only its older source, not this or
+the restart follow-up. This source packet is not installed or live Hermes acceptance.
+See [scoped evidence](CHAT_CLARIFICATION_VERIFICATION.md#captured-base-source-loader-candidate-6-october-2026).
+No installed agent, public schema, SDK pin or screenshots changed.
+
 ## Docker Lifecycle Integration: 6 October 2026
 
 The container decision is fixed: one concrete agent, one container in its
@@ -17,10 +34,22 @@ operator-prepared generations remain compatible; missing/unknown
 preparation never falls back to native execution. Legacy native remains only
 with no Docker configuration. Installed enablement has not changed.
 Trusted Fleet network connection, daemon path mapping, UID/file access, container
-logs, loaded config, new-generation restart and configuration drain/rollback remain open.
+logs, loaded config, live new-generation restart acceptance and configuration
+drain/rollback remain open. A follow-up candidate now uses immutable launch-history
+ordinals to prepare a different generation after confirmed original namespace
+exit, retaining old intent/prepared files. Unknown launches cannot advance that
+ordinal. Its new full Rust/PG attempt was interrupted after host disk exhaustion
+and Docker Engine unavailability. The new restart regression and174 infra units
+pass, but its full gate did not complete. Exact-project cleanup was later verified
+after Engine recovery; the final502-case follow-up gate passes separately. See
+[interruption evidence](CHAT_CLARIFICATION_VERIFICATION.md#history-ordinal-restart-candidate-6-october-2026).
+The494-case published packet below predates this follow-up and must not certify it.
 
 Base [PR150](https://github.com/FerrPOINT/services-base/pull/150) now publishes
-`1d191055bb88eae4cacc8aeb6642e1a3882f90d6`, ready for review/CLEAN with all nine
+`3fe7e2859c0fd7ae47bacaf74cb887125010550f` as Draft awaiting its own CI.
+The QA follow-up verifies replacement generation, preserved original registry,
+sealed-IP HTTP and live sibling, not actual Hermes. Prior head
+`1d191055bb88eae4cacc8aeb6642e1a3882f90d6` was ready for review/CLEAN with all nine
 [exact-head CI jobs successful](https://github.com/FerrPOINT/services-base/actions/runs/37432291311).
 Local329 Python cases pass318/skip11; native two-container automatic preparation,
 endpoint/readback, start/stop and sibling pass with source fingerprints and exact

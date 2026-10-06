@@ -1,5 +1,103 @@
 # Chat Clarification Verification
 
+## Captured Base Source Loader Candidate: 6 October 2026
+
+Unpublished hardening compiles the three captured SHA256-verified Base sources,
+not a second filesystem import or cached bytecode. Captures are bounded to1 MiB
+per file and all source-path components reject symlinks/junctions. The synthetic
+package has no checkout search path; the existing binary-stdin Base contract,
+64-KiB request/output bounds and60-second deadline are preserved. The already
+resolved base640.22 dependency moves from dev-only to normal infra dependencies;
+no lockfile, SDK pin, migration or public DTO changes are required.
+
+`python -B -m unittest scripts.tests.test_container_control_loader -v` verifies
+six behaviors: binary stdin/pinned imports, valid poisoned bytecode (the old
+import path is independently proven to read it), replacement after capture,
+package initializer exclusion, unpinned module rejection and source encoding.
+The exact Rust-owned bootstrap is exercised, not a duplicate Python loader.
+The same test command is added to CI. This is host bootstrap behavior, not Rust
+client compilation or Docker/Hermes acceptance.
+All six loader behaviors pass independently on Windows and WSL/Linux. The
+Windows loader/README/native protocol/native supervisor suites total64 passing
+tests; Rust1.88 fmt and README structural verification also pass. These suites
+do not run the new Rust client tests or confirm previous QA resource cleanup.
+
+An independent host smoke loads the actual three Base PR150 executable sources
+and reaches its expected typed invalid-request rejection with no stderr or Docker
+effect. Their hashes match the published files:
+`a20cee93e7e6c27ba542872f208424facc15d030758e9c02d0f104c152aa109a`,
+`64d8f829aced830058134c90bd36f7263e8607dbceb85cda64692961f0f9986e`,
+`8b8537cb450b7c6bfdf55e1c5773756b3115d8686cd2939d27b6d0ffb1d2dd3a`.
+This import/rejection smoke does not test a successful container operation.
+
+Four new Linux Rust regressions cover poisoned cache, missing package authority,
+hash/path drift and an oversized hash-pinned source. All four pass in the final
+fresh full Rust1.88/PG gate, together with history-ordinal restart and three new
+project/Java pre-effect guards. The final gate passes502 tests,0 failed,29 ignored;
+fmt, locked/offline all-target check and strict Clippy pass. At the
+initial check, desktop-linux reported a missing pipe. The original Engine then
+returned with identity `16c44abc-0244-4ba4-879a-b3df5140ef02`; exact-project
+recovery revalidated manifest/owner/purpose and cleaned only
+`sdlc-qa-fleet-container-control-3b96063dfdea`. Independent container/network/
+volume inventories are empty; permanent sdlc1/sdlc2/sdlc-common lifecycle states
+match before/after cleanup. Recovery report SHA256:
+`8ef8785b5d6b45f8abae927502c0b02763e742cd115f0b0a4321ecfa7bf31fa0`.
+The interruption below remains historical evidence, not a successful full gate.
+The final project `sdlc-qa-fleet-container-control-1436cae1a772` exits0 and cleans
+its own containers/networks; independent exact-project inventories are empty.
+All288 frozen source inputs match the working bytes. Evidence SHA256:
+
+- Source manifest: `8c6ccacfaf750d63e650aeaa2e3854d0e4d7f98b60dc2a1c0b24b64d7ed1b900`.
+- Full log: `972e72354818faaa52e8df41973b257006033462a6baa921691739de32b45978`.
+- Final report: `903199385c57d7efa7aa78f7caf995bc855cb2ba084e094af0d5e8e2abfefac0`.
+
+Agent project validation rejects sdlc-common/demo/build and invalid QA names
+before intent/create/launch. Java with Docker configuration returns the existing
+Unavailable503 error before files/process/DB effects; native Java remains legacy
+only with no Docker configuration. No public501/not_implemented DTO is introduced.
+These are Rust/PostgreSQL and fake-Base client tests, not real Docker/Hermes,
+loaded config, PM or SDLC acceptance. Do not reuse494-case evidence for these
+changed bytes or declare full merge readiness from this component gate.
+
+## History-Ordinal Restart Candidate: 6 October 2026
+
+Unpublished follow-up prepares a different generation after confirmed original
+namespace exit using an immutable DB-history ordinal. Old intent/prepared files
+are preserved; unknown preparation/start cannot advance the ordinal. Fresh
+Rust1.88/PG project3b96063dfdea completes fmt, locked all-target check/strict
+Clippy and174 infra unit cases with1 ignored. The new regression
+`container_restart_requires_original_exit_and_preserves_previous_generation`
+passes with PostgreSQL and fake Base; it is not actual Docker/Hermes acceptance.
+
+The full workspace gate did not complete. Host C reached zero free bytes;
+Docker observations stalled and the log stopped during a later dispatch test.
+Own CLI processes were interrupted, driver exit1. Cleanup's Engine identity
+read timed out after90 seconds, leaving `cleanup-required`; final ps stalled
+and was interrupted. No cleanup/absence/whole-suite success is claimed. Resolve
+only exact project `sdlc-qa-fleet-container-control-3b96063dfdea` using its private
+Compose metadata after Docker recovery, before any new QA. Do not restart or
+prune accepted workspace resources. The local driver now bounds final read-only
+observations and records unknown, not false emptiness, on observation failure.
+
+All288 frozen source inputs were independently revalidated after interruption.
+Source manifest SHA256:
+`d633aed1470d9e4b370f5db85011d76954927a023129f782047fab8866589824`.
+Partial log SHA256:
+`2fe96231726ff11f6dce3e10185fa9262dc9a66ba4a784f726459037d40216e3`.
+The post-interruption record is separate from the missing original final report.
+The previous published494-case gate remains valid only for its earlier source.
+
+Independent Base native project5feb2f40bc15 failed its existing30-second
+first-stopped HTTP probe before reaching replacement. Exact cleanup exit0,
+empty ps/networks and independent ps were verified. Report SHA256:
+`6b0e5ddde773b51212bf47b21ee7c54d13916f59a661d84d2576e3fb064363a1`.
+The QA follow-up probes Base's sealed RFC1918 endpoint rather than unbounded DNS
+resolution; separate DNS-isolation assertions and all original deadlines remain.
+Its final status is assigned only after replacement checks. Those changes need
+a fresh native gate; the observed timeout's cause is not claimed proven.
+Base scoped runtime92 cases pass91/skip1. These results do not close bridge
+attachment, daemon paths, file access, config drain/rollback or full SDLC gates.
+
 ## Automatic Container Preparation: 6 October 2026
 
 Fresh project `sdlc-qa-fleet-container-control-4f2035449da9` passes Rust1.88

@@ -2,6 +2,13 @@
 
 ## October SDLC Gate
 
+The captured-source utility loader fix has host behavioral and final502-case
+Rust1.88/PG evidence, not actual Fleet/Docker/Hermes acceptance. Reject
+symlink/junction source paths and never fall back to cached code
+or unpinned checkout imports. The selected interpreter/stdlib and Base storage
+still require trusted operator ownership. This fix does not close container
+connectivity, process/file isolation or loaded-config attestation.
+
 Docker is the selected runtime architecture, not an open user choice. The
 private [container control client](contracts/CONTAINER_CONTROL_V1.md) now has an
 opt-in supervisor consumer with pre-exec DB binding, original endpoint/ACK,
@@ -11,11 +18,18 @@ render/create/register; operator-prepared generations remain compatible. Native
 fallback is forbidden. Do not count this or Base protocol QA as completed
 automatic container lifecycle. Daemon path mapping, UID/file access, trusted bridge access, log capture,
 loaded config, controller recovery and config drain/rollback remain mandatory.
+The follow-up candidate implements history-ordinal replacement after original
+confirmed namespace exit. Its original full Rust/PG attempt was interrupted by
+host disk exhaustion/Docker unavailability. Exact original-project cleanup is
+verified after Engine recovery, without permanent lifecycle changes; the final
+fresh502-case gate passes. The earlier partial174-unit pass remains historical. Real Docker restart
+and Fleet/Hermes live acceptance remain separate requirements, not closed gaps.
 
 Current Base protocol source is PR150
-`1d191055bb88eae4cacc8aeb6642e1a3882f90d6`, ready/CLEAN with nine successful
-exact-head CI37432291311 jobs. Fresh Fleet Rust1.88/PG gate passes494 cases with
-29 ignored; Base native creation-crash/readback and v1 regression pass separately.
+`3fe7e2859c0fd7ae47bacaf74cb887125010550f` is Draft pending its own CI;
+prior1d19105 had nine successful exact-head CI37432291311 jobs. Fresh Fleet
+Rust1.88/PG gate passes502 cases with29 ignored; Base native replacement/
+creation-crash/readback and v1 regression pass separately.
 The previous4cfdfa9/176e green
 observations are historical. Full Fleet remains
 not merge-ready; no installed image, migration or automation is changed here.

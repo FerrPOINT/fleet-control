@@ -1426,6 +1426,9 @@ impl FleetRepository for PostgresFleetRepository {
     ) -> Result<Option<app::runtime_launch::RuntimeLaunchRecord>, AppError> {
         runtime_launches::open(self, agent).await
     }
+    async fn next_container_launch_ordinal(&self, agent: Uuid) -> Result<i64, AppError> {
+        runtime_launches::next_container_ordinal(self, agent).await
+    }
     async fn observe_runtime_launch(
         &self,
         binding: &app::runtime_launch::RuntimeLaunchBinding,

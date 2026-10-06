@@ -1,7 +1,7 @@
 # Private Container Control v1
 
 Status: private client and opt-in supervisor routing are implemented in the
-integration candidate. Automatic first-generation preparation is connected
+integration candidate. Automatic generation preparation is connected
 behind private deployment configuration; installed enablement and live
 Fleet/Hermes acceptance remain incomplete. Native execution is not
 silently relabelled Docker.
@@ -19,12 +19,24 @@ Compose project. The Docker socket is never available inside agent containers.
 `infra::runtime::container_control::ContainerControl` invokes isolated Python
 with a fixed bootstrap and an operator-selected Base root. Before every call it
 checks SHA256 of runtime_boundary.py, runtime_bootstrap.py and runtime_control.py.
-The bootstrap skips package initialization and does not inherit PYTHONPATH or
-model/provider secrets. Docker context is explicit; conflicting host/TLS env
+The follow-up candidate captures each source once (maximum1 MiB), rejects
+symlink/junction components from the filesystem root, and hashes the captured
+bytes. The private child wrapper carries exactly those three sources as base64
+plus the original request. Its fixed loader compiles those bytes in dependency
+order; it never rereads checkout modules or accepts cached bytecode. The synthetic
+scripts package has an empty search path: package initialization and unpinned
+checkout imports are unavailable. Python runs with isolated mode and bytecode
+writes disabled; `-B` alone would not prevent cached-code reads. The standard
+library and selected interpreter remain operator-trusted, not agent-supplied.
+The bootstrap does not inherit PYTHONPATH or model/provider secrets.
+Docker context is explicit; conflicting host/TLS env
 is passed to Base's rejecting guard, not silently used as a fallback endpoint.
 
-Only structured stdin is used, never a caller-provided shell command. Request
-and both output streams are bounded to64 KiB, overall deadline60 seconds. A
+Only structured stdin is used, never a caller-provided shell command. The original
+Base request and both output streams remain bounded to64 KiB. The Fleet-only
+source wrapper is separately bounded by three1-MiB captures plus base64/JSON
+encoding; it is not a new Base/public protocol. Binary stdin is restored for
+Base's existing request reader. Overall deadline remains60 seconds. A
 timeout/unknown exit yields reconciliation-required, without resend. Native
 stderr/inspect/env are never returned through AppError. The common subprocess
 is private backend code, not an agent tool or publicly configurable command.
@@ -62,6 +74,13 @@ an original payload/Engine claim before its one Compose create. An unknown creat
 may recover only a never-started exact generation through readback; absence stays
 held without another create. This is preparation, not health or execution admission.
 
+Before writing creation intent or calling prepare, Fleet permits agent projects
+only in sdlc1/sdlc2 or an owned valid sdlc-qa-* project. Shared infrastructure,
+demo/build names and malformed QA suffixes are rejected before effects. Java
+with Docker configuration fails with existing Unavailable503; native fallback
+is forbidden. The existing Java native lifecycle is available only without
+Docker configuration and is not container or SDLC acceptance.
+
 ## Supervisor Binding
 
 Operator configuration `fleet.container_control` selects Docker without native
@@ -83,6 +102,18 @@ paths or operator process settings conflict before another create. On success Fl
 writes the prepared document, then separately commits the immutable DB launch before
 sole start. Existing operator-prepared documents remain compatible when provisioning
 is absent. Partial files fail closed and are never overwritten.
+
+After an original confirmed namespace exit closes the launch, the next candidate
+uses the count of immutable agent launch-history rows as its preparation ordinal.
+The initial ordinal0 retains the filenames above; later ordinals use
+`<agent_uuid>.<ordinal>.container-creation.json` and the corresponding prepared
+filename. One database snapshot counts history and rejects any outstanding
+claimed/started launch. No timestamp, filesystem reset or mutable head pointer
+selects a new generation. A create uncertainty before DB claim stays on the same
+ordinal/intent. A start uncertainty retains the open DB launch and cannot create
+the next ordinal. Old files/containers are preserved, never restarted or deleted.
+Operator-prepared compatibility generations must use the current ordinal filename;
+new-generation Docker restart remains subject to live acceptance.
 
 Process uses HOME/HERMES_HOME=/config, cwd=/workspace, serve host0.0.0.0 inside its
 sole bridge, derived per-agent token and image-owned explicit entrypoint. No ports
@@ -115,7 +146,7 @@ All Hermes HTTP paths, including acceptance/control/PM readback, use the origina
 container endpoint. HTTP readiness is separate from namespace identity. Stop
 uses a stable generation-bound operation key and original snapshot hash; only
 positive namespace exit closes the DB launch. A stopped generation is never
-restarted: restart needs a newly prepared generation. Docker configuration
+restarted: restart prepares a new generation after confirmed exit. Docker configuration
 activation is deliberately held before file changes until replacement creation
 and rollback are implemented; native gateway exit is not used as substitute.
 
@@ -125,7 +156,7 @@ Required next integration: trusted daemon/controller mount mapping and UID/file
 access checks, actual Hermes container acceptance, explicit trusted Fleet bridge access,
 container stdout/stderr capture, controller takeover and loaded-generation
 attestation, plus receipt-based configuration drain/activation/rollback. The
-first-generation preparation does not complete the container lifecycle. Java control remains
+generation preparation does not complete the container lifecycle. Java control remains
 phase2. No public OpenAPI, database migration, SDK pin or installed image changes
 are implied by the client.
 
@@ -135,3 +166,10 @@ recorded in [verification](../CHAT_CLARIFICATION_VERIFICATION.md): Rust1.88 fmt,
 workspace all-target check/strict Clippy and six client units pass. Neither
 substitutes for real container supervisor, PM,
 seven-agent SDLC or deployed application acceptance.
+
+The newer captured-source loader has six host behavioral checks, including a
+demonstrably valid poisoned cache and post-capture file replacement. Its Linux
+Rust source/hash/path/size regressions and the final502-case workspace gate pass,
+including project/Java pre-effect guards and history-ordinal restart. Previous
+six client units and494-case evidence cover only older bytes; see the latest
+verification section. Real Fleet/Docker/Hermes acceptance remains required.

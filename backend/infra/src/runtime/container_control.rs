@@ -1,5 +1,6 @@
 //! Private Base subprocess protocol. No Docker command or credential is agent-supplied.
 pub use app::runtime_launch::{ContainerEngineIdentity as EngineIdentity, ContainerRegistration};
+use base64::{Engine, engine::general_purpose::STANDARD};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -12,8 +13,28 @@ use tokio::{
 use uuid::Uuid;
 
 const LIMIT: usize = 64 * 1024;
+const SOURCE_LIMIT: usize = 1024 * 1024;
 const DEADLINE: Duration = Duration::from_secs(60);
-const BOOTSTRAP: &str = "import runpy,sys,types; from pathlib import Path; p=types.ModuleType('scripts'); p.__path__=[str(Path(sys.argv[1])/'scripts')]; sys.modules['scripts']=p; runpy.run_module('scripts.runtime_control',run_name='__main__')";
+// Compile captured, hash-checked bytes; never import checkout files or cached bytecode.
+const BOOTSTRAP: &str = r#"import base64,io,json,sys,types
+from pathlib import Path
+payload=json.load(sys.stdin)
+request=json.dumps(payload['request'],ensure_ascii=False,separators=(',',':')).encode('utf-8')
+sys.stdin=io.TextIOWrapper(io.BytesIO(request),encoding='utf-8')
+package=types.ModuleType('scripts')
+package.__path__=[]
+sys.modules['scripts']=package
+for name,source in zip(('runtime_boundary','runtime_bootstrap','runtime_control'),payload['sources'],strict=True):
+    qualified='scripts.'+name
+    module=types.ModuleType('__main__' if name=='runtime_control' else qualified)
+    module.__package__='scripts'
+    module.__file__=str(Path(sys.argv[1])/'scripts'/(name+'.py'))
+    sys.modules[qualified]=module
+    setattr(package,name,module)
+    if name=='runtime_control':
+        sys.modules['__main__']=module
+    exec(compile(base64.b64decode(source,validate=True),module.__file__,'exec'),module.__dict__)
+"#;
 
 #[derive(Debug, Clone)]
 pub struct ControlSource {
@@ -250,6 +271,8 @@ impl ContainerControl {
         action: &str,
         extra: Value,
     ) -> Result<(i32, Value), AppError> {
+        let mut sources = Vec::with_capacity(3);
+        let filesystem_root = self.source.root.ancestors().last().ok_or_else(held)?;
         for (name, expected) in [
             "runtime_boundary.py",
             "runtime_bootstrap.py",
@@ -259,16 +282,27 @@ impl ContainerControl {
         .zip(&self.source.sha256)
         {
             let path = self.source.root.join("scripts").join(name);
+            crate::reject_symlink_components(filesystem_root, &path)
+                .await
+                .map_err(|_| held())?;
             let meta = tokio::fs::symlink_metadata(&path)
                 .await
                 .map_err(|_| held())?;
-            if !meta.is_file() || meta.len() > 1024 * 1024 {
+            if !meta.is_file() || meta.len() > SOURCE_LIMIT as u64 {
                 return Err(held());
             }
-            let bytes = tokio::fs::read(&path).await.map_err(|_| held())?;
-            if hex::encode(Sha256::digest(bytes)) != *expected {
+            let mut bytes = Vec::new();
+            tokio::fs::File::open(&path)
+                .await
+                .map_err(|_| held())?
+                .take((SOURCE_LIMIT + 1) as u64)
+                .read_to_end(&mut bytes)
+                .await
+                .map_err(|_| held())?;
+            if bytes.len() > SOURCE_LIMIT || hex::encode(Sha256::digest(&bytes)) != *expected {
                 return Err(held());
             }
+            sources.push(STANDARD.encode(bytes));
         }
         let mut request = json!({"protocol_version":1, "action":action, "context":self.context,
             "policy":files.policy, "compose":files.compose, "journal":files.journal});
@@ -284,13 +318,14 @@ impl ContainerControl {
             .as_object_mut()
             .ok_or_else(held)?
             .extend(extra.as_object().ok_or_else(held)?.clone());
-        let payload = serde_json::to_vec(&request).map_err(|_| held())?;
-        if payload.len() > LIMIT {
+        if serde_json::to_vec(&request).map_err(|_| held())?.len() > LIMIT {
             return Err(held());
         }
+        let payload = serde_json::to_vec(&json!({"sources":sources,"request":request}))
+            .map_err(|_| held())?;
         let mut command = Command::new(&self.python);
         command
-            .args(["-I", "-c", BOOTSTRAP])
+            .args(["-I", "-B", "-c", BOOTSTRAP])
             .arg(&self.source.root)
             .env_clear()
             .stdin(Stdio::piped())
@@ -730,5 +765,150 @@ mod tests {
     async fn native_output_is_bounded_and_cannot_become_a_receipt() {
         assert!(bounded(&vec![b'x'; LIMIT + 1][..]).await.is_err());
         assert_eq!(bounded(&b"receipt"[..]).await.unwrap(), b"receipt");
+    }
+
+    #[cfg(unix)]
+    async fn source_fixture() -> (ContainerControl, ContainerLaunchFiles) {
+        let root = std::env::temp_dir().join(format!("fleet-control-source-{}", Uuid::new_v4()));
+        let scripts = root.join("scripts");
+        tokio::fs::create_dir_all(&scripts).await.unwrap();
+        let contents = [
+            "VALUE='verified'\n",
+            "from scripts.runtime_boundary import VALUE\n",
+            "import json,sys\nfrom scripts.runtime_bootstrap import VALUE\nr=json.load(sys.stdin.buffer)\nprint(json.dumps({'protocol_version':1,'action':r['action'],'result':VALUE}))\n",
+        ];
+        let names = ["runtime_boundary", "runtime_bootstrap", "runtime_control"];
+        let mut hashes = Vec::new();
+        for (name, content) in names.iter().zip(contents) {
+            tokio::fs::write(scripts.join(format!("{name}.py")), content)
+                .await
+                .unwrap();
+            hashes.push(hex::encode(Sha256::digest(content.as_bytes())));
+        }
+        let control = ContainerControl::new(
+            "python3".into(),
+            ControlSource {
+                root: root.clone(),
+                sha256: hashes.try_into().unwrap(),
+            },
+            "desktop-linux".into(),
+        )
+        .unwrap();
+        let files = ContainerLaunchFiles {
+            policy: json!({}),
+            compose: root.join("compose.json"),
+            journal: root.join("journal.json"),
+            stop_journal: root.join("stop.json"),
+        };
+        (control, files)
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn pinned_sources_ignore_valid_poisoned_bytecode_and_package_initializers() {
+        let (control, files) = source_fixture().await;
+        let scripts = control.source.root.join("scripts");
+        tokio::fs::write(
+            scripts.join("__init__.py"),
+            "raise RuntimeError('untrusted package')",
+        )
+        .await
+        .unwrap();
+        let poison = Command::new("python3")
+            .args([
+                "-I",
+                "-c",
+                r#"import os,py_compile,sys
+from pathlib import Path
+p=Path(sys.argv[1])
+original=p.read_bytes()
+p.write_bytes(original.replace(b'verified',b'poisoned'))
+py_compile.compile(str(p),doraise=True)
+stat=p.stat()
+p.write_bytes(original)
+os.utime(p,ns=(stat.st_atime_ns,stat.st_mtime_ns))
+"#,
+            ])
+            .arg(scripts.join("runtime_boundary.py"))
+            .status()
+            .await
+            .unwrap();
+        let result = control.call(&files, "observe", json!({})).await;
+        tokio::fs::remove_dir_all(&control.source.root)
+            .await
+            .unwrap();
+        assert!(poison.success());
+        assert_eq!(result.unwrap(), (0, json!("verified")));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn checkout_modules_outside_pinned_sources_cannot_be_imported() {
+        let (mut control, files) = source_fixture().await;
+        let scripts = control.source.root.join("scripts");
+        let changed = "from scripts.unpinned import VALUE\n";
+        tokio::fs::write(scripts.join("runtime_bootstrap.py"), changed)
+            .await
+            .unwrap();
+        tokio::fs::write(scripts.join("unpinned.py"), "VALUE='untrusted'\n")
+            .await
+            .unwrap();
+        control.source.sha256[1] = hex::encode(Sha256::digest(changed.as_bytes()));
+        let result = control.call(&files, "observe", json!({})).await;
+        tokio::fs::remove_dir_all(&control.source.root)
+            .await
+            .unwrap();
+        assert!(result.is_err());
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn source_hash_drift_and_parent_symlinks_are_rejected_before_execution() {
+        let (control, files) = source_fixture().await;
+        let scripts = control.source.root.join("scripts");
+        let source = scripts.join("runtime_boundary.py");
+        let original = tokio::fs::read(&source).await.unwrap();
+        tokio::fs::write(&source, "VALUE='changed'\n")
+            .await
+            .unwrap();
+        let drift = control.call(&files, "observe", json!({})).await;
+        tokio::fs::write(source, original).await.unwrap();
+        let alias = control.source.root.join("linked-root");
+        std::os::unix::fs::symlink(&control.source.root, &alias).unwrap();
+        let mut aliased = control.clone();
+        aliased.source.root = alias.clone();
+        let linked_root = aliased.call(&files, "observe", json!({})).await;
+        tokio::fs::remove_file(alias).await.unwrap();
+        let moved = control.source.root.join("moved-scripts");
+        tokio::fs::rename(&scripts, &moved).await.unwrap();
+        std::os::unix::fs::symlink(&moved, &scripts).unwrap();
+        let linked = control.call(&files, "observe", json!({})).await;
+        tokio::fs::remove_file(scripts).await.unwrap();
+        tokio::fs::remove_dir_all(&control.source.root)
+            .await
+            .unwrap();
+        assert!(drift.is_err());
+        assert!(linked_root.is_err());
+        assert!(linked.is_err());
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn even_hash_pinned_sources_cannot_exceed_the_capture_limit() {
+        let (mut control, files) = source_fixture().await;
+        let mut bytes = b"VALUE='verified'\n".to_vec();
+        bytes.resize(SOURCE_LIMIT + 1, b' ');
+        control.source.sha256[0] = hex::encode(Sha256::digest(&bytes));
+        tokio::fs::write(
+            control.source.root.join("scripts/runtime_boundary.py"),
+            bytes,
+        )
+        .await
+        .unwrap();
+        let result = control.call(&files, "observe", json!({})).await;
+        tokio::fs::remove_dir_all(&control.source.root)
+            .await
+            .unwrap();
+        assert!(result.is_err());
     }
 }

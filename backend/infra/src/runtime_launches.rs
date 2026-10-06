@@ -14,6 +14,20 @@ pub(crate) fn snapshot_hash(value: &serde_json::Value) -> Result<String, AppErro
     )))
 }
 
+pub(crate) fn valid_agent_container_project(name: &str) -> bool {
+    matches!(name, "sdlc1" | "sdlc2")
+        || name.strip_prefix("sdlc-qa-").is_some_and(|suffix| {
+            suffix
+                .as_bytes()
+                .first()
+                .is_some_and(u8::is_ascii_alphanumeric)
+                && name.len() <= 128
+                && name
+                    .bytes()
+                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+        })
+}
+
 pub(crate) fn validate_container_binding(binding: &RuntimeLaunchBinding) -> Result<(), AppError> {
     let Some(container) = &binding.container else {
         return Ok(());
@@ -36,19 +50,10 @@ pub(crate) fn validate_container_binding(binding: &RuntimeLaunchBinding) -> Resu
             != Some(binding.agent_id.to_string().as_str())
         || policy.get("generation").and_then(serde_json::Value::as_str)
             != Some(binding.id.to_string().as_str())
-        || !matches!(
-            policy.get("project").and_then(serde_json::Value::as_str),
-            Some("sdlc1" | "sdlc2")
-        ) && !policy
+        || !policy
             .get("project")
             .and_then(serde_json::Value::as_str)
-            .is_some_and(|name| {
-                name.starts_with("sdlc-qa-")
-                    && name.len() <= 128
-                    && name.bytes().all(|byte| {
-                        byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-'
-                    })
-            })
+            .is_some_and(valid_agent_container_project)
         || container.source_sha256.iter().any(|hash| !valid_hash(hash))
         || container.context.is_empty()
         || container.context.len() > 128
@@ -321,6 +326,36 @@ pub(super) async fn open(
             state: row.try_get("", "state").map_err(AppError::database)?,
             pid: row.try_get("", "pid").map_err(AppError::database)?,
         })).transpose()
+}
+
+pub(super) async fn next_container_ordinal(
+    repo: &PostgresFleetRepository,
+    agent: Uuid,
+) -> Result<i64, AppError> {
+    // History cannot be deleted. One read snapshot avoids clock-dependent ordering
+    // and keeps unknown preparation on the same key until a launch is claimed.
+    let row = repo
+        .db
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT count(*) AS ordinal,
+                count(*) FILTER (WHERE state IN ('claimed','gateway_started')) AS outstanding
+                FROM runtime_launches WHERE agent_id=$1",
+            [agent.into()],
+        ))
+        .await
+        .map_err(AppError::database)?
+        .ok_or_else(|| AppError::Unavailable("runtime launch history is unavailable".into()))?;
+    if row
+        .try_get::<i64>("", "outstanding")
+        .map_err(AppError::database)?
+        != 0
+    {
+        return Err(AppError::Unavailable(
+            "original runtime launch requires reconciliation".into(),
+        ));
+    }
+    row.try_get("", "ordinal").map_err(AppError::database)
 }
 
 pub(super) async fn guard_runtime_patch(
