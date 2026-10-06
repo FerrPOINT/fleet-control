@@ -191,6 +191,11 @@ function ChatWorkspace({ id }: { id: string }) {
   const canResolveApprovals =
     useAuthStore((state) => state.permissions.includes('agents:manage')) || owner
   const context = task.data?.tracker
+  const taskFresh = task.isSuccess && !task.isFetching && task.failureCount === 0
+  const questionsFresh =
+    questions.isSuccess && !questions.isFetching && questions.failureCount === 0
+  const requirementsFresh =
+    requirements.isSuccess && !requirements.isFetching && requirements.failureCount === 0
   const questionList = questions.data?.questions ?? []
   const selectedQuestion =
     questionList.find((question) => question.id === params.get('question')) ??
@@ -784,8 +789,8 @@ function ChatWorkspace({ id }: { id: string }) {
                         className="fc-chat-question"
                         disabled={
                           !owner ||
-                          task.isError ||
-                          questions.isError ||
+                          !taskFresh ||
+                          !questionsFresh ||
                           !context?.permissions.can_answer ||
                           selectedQuestion.state !== 'open' ||
                           answer.isPending ||
@@ -878,8 +883,8 @@ function ChatWorkspace({ id }: { id: string }) {
                           variant="outline"
                           disabled={
                             !owner ||
-                            task.isError ||
-                            questions.isError ||
+                            !taskFresh ||
+                            !questionsFresh ||
                             !context?.permissions.can_answer ||
                             selectedQuestion?.state !== 'open' ||
                             answer.isPending ||
@@ -920,10 +925,8 @@ function ChatWorkspace({ id }: { id: string }) {
                       variant="outline"
                       disabled={
                         !owner ||
-                        task.isError ||
-                        task.isFetching ||
-                        questions.isError ||
-                        questions.isFetching ||
+                        !taskFresh ||
+                        !questionsFresh ||
                         answer.isPending ||
                         !answer.variables
                       }
@@ -940,10 +943,9 @@ function ChatWorkspace({ id }: { id: string }) {
                   disabled={
                     !selectedQuestion ||
                     !owner ||
-                    task.isError ||
-                    questions.isError ||
+                    !taskFresh ||
+                    !questionsFresh ||
                     !context?.permissions.can_answer ||
-                    (answerUncertain && (task.isFetching || questions.isFetching)) ||
                     (answerUncertain && answer.variables?.questionKey !== questionKey) ||
                     !draft.key ||
                     !canSubmitAnswer(selectedQuestion, draft.selected, draft.text) ||
@@ -1000,19 +1002,13 @@ function ChatWorkspace({ id }: { id: string }) {
                       currentRevision={context?.requirement_revision ?? null}
                       canConfirm={
                         owner &&
-                        !task.isError &&
-                        !requirements.isError &&
+                        taskFresh &&
+                        requirementsFresh &&
                         Boolean(context?.permissions.can_confirm)
                       }
                       confirmation={confirmation}
                       confirmationUncertain={confirmationUncertain}
-                      canReplayConfirmation={
-                        owner &&
-                        task.isSuccess &&
-                        !task.isFetching &&
-                        requirements.isSuccess &&
-                        !requirements.isFetching
-                      }
+                      canReplayConfirmation={owner && taskFresh && requirementsFresh}
                     />
                   </>
                 )}

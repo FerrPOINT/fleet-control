@@ -172,6 +172,59 @@ beforeEach(() => {
   })
 })
 describe('production chat', () => {
+  it.each([
+    ['answer', 'task-context'],
+    ['answer', 'clarifications'],
+    ['confirmation', 'task-context'],
+    ['confirmation', 'requirements'],
+  ] as const)('holds %s while the failed %s read is retrying', async (command, source) => {
+    const isAnswer = command === 'answer'
+    const { client } = renderPage(isAnswer ? 'clarification' : 'requirements', 1)
+    await userEvent.click(
+      isAnswer
+        ? await screen.findByRole('radio', { name: /Участники проекта/ })
+        : await screen.findByRole('checkbox', { name: /Подтверждаю цель/ }),
+    )
+    const submit = screen.getByRole('button', {
+      name: isAnswer ? 'Сохранить ответ' : 'Подтвердить редакцию 3',
+    })
+    await waitFor(() => expect(submit).toBeEnabled())
+    let resolveRetry!: () => void
+    function holdRead<T>(read: (id: string) => Promise<T>, fresh: T) {
+      vi.mocked(read)
+        .mockRejectedValueOnce(new ApiError(503, 'Authority refresh unavailable'))
+        .mockImplementationOnce(async () => {
+          await new Promise<void>((resolve) => {
+            resolveRetry = resolve
+          })
+          return fresh
+        })
+    }
+    if (source === 'task-context') holdRead(chats.getTaskContext, context)
+    else if (source === 'clarifications')
+      holdRead(chats.getClarifications, { questions: [question] })
+    else holdRead(chats.getRequirements, { revisions: [revision] })
+    let refresh!: Promise<unknown>
+    await act(async () => {
+      refresh = client.invalidateQueries({ queryKey: [source, 'session1'] })
+    })
+    await waitFor(() => expect(resolveRetry).toBeTypeOf('function'), { timeout: 3000 })
+    expect(client.getQueryState([source, 'session1'])?.status).toBe('success')
+    expect(submit).toBeDisabled()
+    fireEvent.click(submit)
+    expect(chats.answerClarification).not.toHaveBeenCalled()
+    expect(chats.confirmRequirements).not.toHaveBeenCalled()
+    await act(async () => {
+      resolveRetry()
+      await refresh
+    })
+    await waitFor(() => expect(submit).toBeEnabled())
+    expect(
+      isAnswer
+        ? screen.getByRole('radio', { name: /Участники проекта/ })
+        : screen.getByRole('checkbox', { name: /Подтверждаю цель/ }),
+    ).toBeChecked()
+  })
   it('restores the reading position after visiting clarification without losing the answer draft', async () => {
     vi.mocked(chats.getChatHistory).mockResolvedValue({
       items: [message('reading', 'A retained history message')],

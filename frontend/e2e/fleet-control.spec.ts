@@ -306,6 +306,8 @@ test('PM chat clarification preserves explicit answers and exact confirmation', 
   let finalPublished = false
   let confirmed = false
   let questionMode = 'single'
+  let unavailableRead: 'task-context' | 'requirements' | null = null
+  let failedReads = 0
   const savedAnswer = {
     id: '00000000-0000-4000-8000-000000000506',
     question_id: question.id,
@@ -320,6 +322,10 @@ test('PM chat clarification preserves explicit answers and exact confirmation', 
   const commands: { path: string; body: unknown }[] = []
   await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
     const path = new URL(route.request().url()).pathname
+    if (unavailableRead && path.endsWith(`/${unavailableRead}`)) {
+      failedReads += 1
+      return fulfill(route, { error: { message: 'PM read unavailable' } }, 503)
+    }
     if (path.endsWith('/approvals')) return fulfill(route, [])
     if (path.endsWith('/task-context'))
       return fulfill(route, {
@@ -435,6 +441,29 @@ test('PM chat clarification preserves explicit answers and exact confirmation', 
   await expect(page.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
   await choice.check()
   await page.getByLabel('Комментарий', { exact: true }).fill('Только внутри проекта')
+  const answer = page.getByRole('button', { name: 'Сохранить ответ' })
+  await expect(answer).toBeEnabled()
+  unavailableRead = 'task-context'
+  await expect.poll(() => failedReads, { timeout: 15000 }).toBeGreaterThan(0)
+  for (const viewport of [
+    { width: 375, height: 812 },
+    { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await expect(answer).toBeDisabled()
+    await expect(page.getByLabel('Комментарий', { exact: true })).toHaveValue(
+      'Только внутри проекта',
+    )
+    await page.screenshot({
+      path: testInfo.outputPath(`consumer-answer-held-${viewport.width}.png`),
+      fullPage: true,
+      animations: 'disabled',
+    })
+  }
+  expect(commands).toEqual([])
+  unavailableRead = null
+  await expect(answer).toBeEnabled({ timeout: 15000 })
   await page.getByRole('tab', { name: /Диалог/ }).click()
   await expect(page).toHaveURL(/tab=dialogue/)
   await page.getByRole('tab', { name: /Уточнения/ }).click()
@@ -476,6 +505,27 @@ test('PM chat clarification preserves explicit answers and exact confirmation', 
     })
     await page.getByText('Сравнить с редакцией 1', { exact: true }).click()
   }
+  const previousFailedReads = failedReads
+  unavailableRead = 'requirements'
+  await expect.poll(() => failedReads, { timeout: 15000 }).toBeGreaterThan(previousFailedReads)
+  for (const viewport of [
+    { width: 375, height: 812 },
+    { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await expect(confirm).toBeDisabled()
+    await expect(page.getByRole('checkbox', { name: /Подтверждаю цель/ })).toBeChecked()
+    await confirm.scrollIntoViewIfNeeded()
+    await page.screenshot({
+      path: testInfo.outputPath(`consumer-confirmation-held-${viewport.width}.png`),
+      fullPage: true,
+      animations: 'disabled',
+    })
+  }
+  expect(commands).toHaveLength(2)
+  unavailableRead = null
+  await expect(confirm).toBeEnabled({ timeout: 15000 })
   await confirm.click()
   await expect(page.getByText('Confirmation receipt timed out')).toBeVisible()
   await expect(page.getByRole('checkbox', { name: /Подтверждаю цель/ })).toBeDisabled()
