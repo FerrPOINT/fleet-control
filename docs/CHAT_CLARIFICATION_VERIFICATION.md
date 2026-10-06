@@ -1,5 +1,53 @@
 # Chat Clarification Verification
 
+## Combined Chats Follow-Up: 6 October 2026
+
+Normal merge `c02f60ebdceebaa4255352d27893976fc26c1389` preserves container
+configuration parent `fce4df739fcd7f5294d376e53ec0377d66b043f1` and consumer
+parent `77fc54320f7aa39b3d2688adfcd2aadcf9bf6403`. All 291 backend/SDK inputs
+remain identical to the passing 523-case configuration gate below; this is
+retained exact-source Rust evidence, not a fresh post-merge Rust run.
+
+A separate clean Git checkout at this merge and Base pin
+`cbb4e99230420dc2659431b1c9fb5090e5c940f0` passes frozen install, API client
+generation, typecheck, lint, format, 268 frontend tests in 31 files, OpenAPI
+client/compatibility, local chat contracts, build and Markdown links.
+Compatibility uses real `origin/main` at
+`3c6b8ef7bdb08f799ca30e0a5d7537914ce40ab6`; local chat-contract success does
+not resolve the three published Tracker schema differences. Pinned Base and
+its installed UI snapshot verify; the Base UI checker passes 38 route patterns.
+The 235 frontend/OpenAPI/SDK inputs remain unchanged. Manifest SHA256:
+`a1cbcb06373e4f1e8fcbcbcb7cc6ba401667c86e7be3c07e6e8be0d27408107a`;
+unit log SHA256:
+`51f2d794b234bbfa8544f942e5ac1d8f744f9fed8f1d5387d0b6c05df8190b1b`.
+
+The proper canonical-localhost, same-origin fixture run passes 35 of 36 cases:
+Chromium and Firefox pass all 12 each. WebKit passes the PM form, answer,
+confirmation and screenshot actions but its final no-page-error assertion
+reports a session SSE access-control error. This is an open browser gate, not
+a green suite or established root cause. Browser log SHA256:
+`da172373d081c5e7f38554601c700a6193e0740fc7ef59f9ca88203c63cdbe01`;
+report SHA256:
+`6e7983e1d75c7edfe1f2a845652e078a73b8b01d13c225acb6e01d8db25fc7c0`.
+The independent Chats task receives this exact reproduction; no error filter
+or production authorization bypass was added. Earlier archive/ref and
+127.0.0.1/cross-origin harness failures are preserved separately. The interrupted
+intermediate browser run and its descendants were explicitly stopped; every
+owned preview terminated. No candidate was installed and no Docker runtime changed.
+
+All 13 review source Git blobs and 10 captured review image hashes match.
+One raw working-file discrepancy is only CRLF; LF/Git-blob identity matches.
+Historical screenshots are not relabeled as fresh live acceptance. Fresh
+Chromium mobile clarification and desktop dialogue were visually inspected;
+the full 21-image publisher was not run because the browser gate failed.
+README and 120 Markdown files pass. Global Docker grouping audit is incomplete:
+available engines have no reported violations, but `sdlc1-runner` is unavailable.
+
+Live PM publication/admission/first step, durable answer delivery and
+checkpoint/resume/rebind/history remain unaccepted. Real mapped-volume
+Hermes/model/config lifecycle and complete recovery remain open as below.
+This integration branch is not a full merge-ready release PR.
+
 ## Container Configuration Replacement: 6 October 2026
 
 The candidate adds exact phase/revision/hash admission before preparation as
@@ -43,7 +91,8 @@ Real mapped-volume
 Hermes/model/config lifecycle, loaded configuration evidence, complete interrupted
 activation reconciliation/takeover, producer admission/PM/Forge/seven-agent
 acceptance and ordered release PR gates remain open. Existing UI evidence below
-belongs to its original source; Chats follow-up 77fc543 is not yet integrated.
+belongs to its original source. Chats follow-up `77fc543` was subsequently
+normally merged into `c02f60e`; fresh frontend evidence is recorded separately.
 
 ## Durable Container Pre-Create Fence: 6 October 2026
 

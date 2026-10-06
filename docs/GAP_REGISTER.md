@@ -1,5 +1,15 @@
 # Gap Register
 
+## Combined Browser Gate: 6 October 2026
+
+Integration `c02f60e` passes 268 frontend unit tests and 35/36 canonical
+same-origin browser fixture cases. WebKit reports a session SSE page error at
+the end of the PM clarification case, after its form and confirmation checks.
+Root cause is not established. The independent Chats task owns reproduction;
+do not suppress page errors or treat prior standalone 36-case evidence as a
+passing combined gate. Live PM and actual Docker acceptance remain separate.
+See [exact verification](CHAT_CLARIFICATION_VERIFICATION.md#combined-chats-follow-up-6-october-2026).
+
 Independent Chats/PM consumer recovery is tracked in the
 [6 October handoff](CHATS_PM_CONSUMER_HANDOFF_20261006.md): unknown owner-command
 holds, exact receipts, stale data and reconnect refresh have focused evidence.

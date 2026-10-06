@@ -1,5 +1,25 @@
 # Current State
 
+## Chats And Workflow Readiness: 6 October 2026
+
+Chats uses the production agent/task directory and dialogue/clarification/
+requirements controllers. The independent follow-up `77fc543` is normally
+merged into runtime integration `c02f60e`, without replaying prior commits.
+Unknown private-chat creation preserves its original command; a failed Workflow
+catalog refresh forbids rebind from cached options.
+
+This is not a completed live PM workflow. Structured PM publication, producer
+predispatch authority/first step, durable answer delivery, terminal readback,
+checkpoint/resume/rebind and the authorized workflow history projection remain
+required. Fixture tests and screenshots do not verify these operations.
+The independent Chats/PM task continues separately from Docker runtime work.
+See [consumer scope and dependencies](CHATS_PM_CONSUMER_HANDOFF_20261006.md).
+Fresh combined checks pass 268 frontend tests and the source/API/UI gates.
+The canonical same-origin browser fixture gate is 35/36: the remaining WebKit
+PM SSE page-error assertion needs investigation. No full browser acceptance,
+new live PM evidence or release readiness is claimed. See
+[combined verification](CHAT_CLARIFICATION_VERIFICATION.md#combined-chats-follow-up-6-october-2026).
+
 ## Verified Container Configuration Replacement Candidate
 
 The next candidate connects configuration drain/activation/rollback to original
