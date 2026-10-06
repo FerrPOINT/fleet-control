@@ -1,5 +1,11 @@
 # Gap Register
 
+Independent Chats/PM consumer recovery is tracked in the
+[6 October handoff](CHATS_PM_CONSUMER_HANDOFF_20261006.md): unknown owner-command
+holds, exact receipts, stale data and reconnect refresh have focused evidence.
+This does not close real PM delivery/resume, predispatch admission, Workflow
+step/checkpoint projection or live authenticated browser acceptance below.
+
 ## October SDLC Gate
 
 Prepared automatic generations now check the entire original recipe and derived

@@ -1,5 +1,12 @@
 # Data Model
 
+Chats/PM consumer recovery adds no database table or migration. Original answer
+and exact revision/hash confirmation commands stay in session-scoped browser
+memory across tab changes; draft text/keys are not persisted in browser storage.
+Reload relies on existing authorized Tracker state, not reconstruction of those
+private command keys. Durable PM delivery/resume remains a separate journal gate:
+[consumer handoff](CHATS_PM_CONSUMER_HANDOFF_20261006.md).
+
 The existing private runtime-launch journal's immutable JSON binding may include
 an optional `container` object: original Base registration, protected policy,
 Compose/start/stop journal locations, source hashes and explicit Docker context.

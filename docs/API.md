@@ -1,5 +1,12 @@
 # API
 
+The owner clarification/confirmation gateway accepts only exact-200 receipts
+matching its original task/question/version/revision/content and owner. An
+unrelated success or nil receipt identity returns dependency uncertainty (503),
+never an acknowledgement. Read-only questions/revisions use immutable binding
+and fresh project access after reassignment; writes retain current-agent checks.
+No DTO/path change: [consumer handoff](CHATS_PM_CONSUMER_HANDOFF_20261006.md).
+
 Hermes container control is an operator-configured candidate behind existing
 runtime action routes, not a new public controller API. No registration, policy,
 Compose path, source pin or prepared-generation document is exposed publicly.

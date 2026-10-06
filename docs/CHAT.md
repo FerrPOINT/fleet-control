@@ -1,5 +1,19 @@
 # Чаты и сессии Fleet Control
 
+## Восстановление owner-команд: 6 октября 2026
+
+Unknown answer удерживает новые ответы и перенос старого черновика во всём чате;
+явный повтор использует исходные question/version/revision/payload/key после
+readback. Confirmation хранится на уровне сессии и переживает смену вкладки.
+Новая редакция сбрасывает согласие; неизвестное подтверждение не разрешает
+подтвердить её. Gateway сверяет успешный receipt с исходной командой и owner.
+Сохранённые вопросы/требования остаются видимыми после failed refresh, с явным
+stale-состоянием и заблокированными действиями. Reconnect обновляет не только
+transcript, но и controls/права/контекст. Legacy sessions сохранены.
+Подробные границы, screenshots и producer/runtime зависимости:
+[Chats/PM consumer handoff](CHATS_PM_CONSUMER_HANDOFF_20261006.md).
+PM admission, tools/delivery/resume и live owner-приёмка этим packet не закрыты.
+
 ## Первая отправка: 6 октября 2026
 
 Legacy `/sessions/:id` теперь читает те же серверные `chat-controls`, что и

@@ -1,0 +1,49 @@
+{
+  "baseline": "08c6c56229ee308050176293e34d65f087b5b112",
+  "baseRevision": "cbb4e99230420dc2659431b1c9fb5090e5c940f0",
+  "toolchain": "Rust 1.88.0",
+  "commands": [
+    "rustc --version",
+    "cargo fmt --all --check",
+    "cargo check --locked --offline --workspace --all-targets",
+    "cargo clippy --locked --offline -p api --all-targets -- -D warnings",
+    "cargo test --locked --offline -p api --lib routes::task_chats -- --test-threads=1",
+    "cargo test --locked --offline -p infra --test sdlc_foundation task_binding -- --test-threads=1",
+    "cargo test --locked --offline -p infra --test sdlc_foundation message_history -- --test-threads=1",
+    "cargo test --locked --offline -p infra --test sdlc_foundation task_approval_history_survives_reassignment -- --test-threads=1",
+    "cargo test --locked --offline -p infra --test sdlc_foundation concurrent_idempotency_and_private_message_authorization -- --test-threads=1"
+  ],
+  "testGroups": {
+    "apiTaskChats": 6,
+    "taskBinding": 4,
+    "messageHistory": 1,
+    "historyAfterReassignmentAndAccessRevocation": 1,
+    "concurrentIdempotencyAndPrivateAuthorization": 1
+  },
+  "qaSourceFiles": 323,
+  "qaSourceManifestSha256": "7b63aa8b6a91ab849318f5e3c8937798de96d52212b87b1e6ad1000a0ce65a3e",
+  "gateLogSha256": "0dcc50d5ea7878f0d021a53f13cb0f262f85466facd8f7d1fc7a62e4151cd39d",
+  "sourceSha256": {
+    "backend/api/src/routes/task_chats.rs": "e7e79fc42ed510b988bf9cc3e1dd3ee4c31facd841a7c1a51b32edcaf39ba0ae",
+    "backend/infra/tests/sdlc_foundation.rs": "82a55b2d47ea758ee8e2de24fb99d3bcd79020eed7165e5db53b2d03351f4e82"
+  },
+  "compose": {
+    "project": "sdlc-qa-chats-pm-a5e340cfa678",
+    "sourceFiles": 323,
+    "installedRuntimeChanged": false,
+    "exitCode": 0,
+    "cleanupExitCode": 0,
+    "remainingContainers": "",
+    "remainingNetworks": ""
+  },
+  "dockerGroupsAudit": {
+    "complete": false,
+    "observedViolations": [],
+    "unavailableEndpoint": "sdlc1-runner",
+    "checkedEndpoints": [
+      "desktop-linux",
+      "sdlc2-runner"
+    ]
+  },
+  "liveAcceptance": false
+}

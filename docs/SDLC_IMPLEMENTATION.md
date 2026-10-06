@@ -1,5 +1,11 @@
 # SDLC: реализация и оставшаяся приёмка
 
+Отдельный Chats/PM consumer packet от 6 октября сохраняет исходные unknown
+owner-команды и confirmation между вкладками, сверяет receipts и не скрывает
+stale-вопросы/редакции. См. [scoped handoff](CHATS_PM_CONSUMER_HANDOFF_20261006.md).
+Task send/steer остаются fail-closed; это не PM dispatch/Workflow resume или
+приёмка всей стадии. Исторические runtime evidence ниже не заменяют эти gates.
+
 Дата: 4 октября 2026. Статус: частичная реализация foundation; автоматический
 SDLC не включён. Этот документ уточняет исторические отметки `done` в
 IMPLEMENTATION_PLAN и CURRENT_STATE. Они не являются приёмкой нового SDLC.

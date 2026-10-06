@@ -1,5 +1,17 @@
 # Current State
 
+## Independent Chats/PM Consumer: 6 October 2026
+
+The independent consumer packet retains original unknown answer/confirmation
+commands across question, tab and document changes, verifies Tracker receipts,
+preserves authorized read history after agent reassignment, and refreshes context
+and permissions on reconnect. Stale data stays readable with disabled mutations.
+Frontend component/browser evidence and exact external dependencies are recorded
+in [the handoff](CHATS_PM_CONSUMER_HANDOFF_20261006.md). Preview screenshots remain
+explicitly non-live. Published Tracker114 and Workflow90 do not supply installed
+predispatch admission. PM tools/delivery/resume, Workflow step projection and live
+owner acceptance remain; this is not full Chats/SDLC release readiness.
+
 ## Prepared Container Recipe Guard: 6 October 2026
 
 Saved automatic generations now revalidate their original intent against current
