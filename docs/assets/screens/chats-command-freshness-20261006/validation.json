@@ -1,0 +1,151 @@
+{
+  "consumerBaseline": "96bb6d02d5353d2da5de32f7172eab237d5f46ca",
+  "basePin": "cbb4e99230420dc2659431b1c9fb5090e5c940f0",
+  "sourceByteConvention": "Git blob/LF bytes",
+  "sourceSha256": {
+    "frontend/src/pages/chat-detail/index.tsx": "0b07e7692a3a97d3c5f4ef589b6dbf0205fce6f52b3e7805d71fee026c1cde22",
+    "frontend/src/pages/chat-detail/index.test.tsx": "84037469ce1a0484f9eb55083cc1588a7a5c36c465277f4cd23b4aaf9cf660b1",
+    "frontend/e2e/fleet-control.spec.ts": "a033e2a1a2d32b4eaa3b51b8f8d7fdaf7327eeba9f1ce3e68bc5b942cb51ca6d",
+    "docs/CHATS_PM_FINAL_HANDOFF_20261006.md": "1fe789d8b60f4bc97399d08b54793536f05bab8fdff49ac3d0da3ee95524b6f3"
+  },
+  "scope": "Existing prompt/steer/stop freshness guards, tests, reviewed captures and compact handoff update",
+  "backendChanged": false,
+  "runtimeChanged": false,
+  "sdkChanged": false,
+  "producerChanged": false,
+  "productionPmDraftFormAdded": false,
+  "pmDraftDesignApproved": false,
+  "liveAcceptance": false,
+  "unitPassed": 289,
+  "unitFiles": 31,
+  "chatUnitCases": 51,
+  "browserPassed": 51,
+  "browserProjects": ["chromium", "firefox", "webkit"],
+  "browserWorkers": 3,
+  "browserOrigin": "http://localhost:24173",
+  "fixtureOnly": true,
+  "ownedFixturePreviewStopped": true,
+  "beforeFix": {
+    "unitFailed": 4,
+    "sourceSha256": "4d64c96536a9982a01405d8d0716ac17562149bd6711fd0b56a6bdb3a1d8ec54",
+    "logSha256": "8bec59f3e1ff46da9c0095ecdcd3d924642a08140f745fcac4fbd18426d8d750",
+    "observed": "Cached successful controls or command reads left prompt/steer/stop enabled after the first failed GET while its retry remained pending"
+  },
+  "logSha256": {
+    "chat-command-freshness-all-unit.log": "14a6d0816d8df7272bbbf3c71447fb9dc56f25ae379d341beae741da3d19b51b",
+    "chat-command-freshness-browser.log": "b48968cd6dfe9c4ee4eb2d73f7029fd49a34476d73a5486d3f5ea0b6b5b78f65",
+    "chat-command-freshness-build.log": "d3f05c58d449abe61657d97bfe37e1ac147c016cda450328d67e87b1b8cf18a7",
+    "chat-command-freshness-lint.log": "fea2ca52c435e20a7e93d4541868d89dc441a99a8ebb4d3e82613b6932415200",
+    "chat-command-freshness-ui.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "chat-command-freshness-theme.log": "19c09b8614b31ebe0c3316b80778654a964971b9d06b6958071d6f5c9d052e3c"
+  },
+  "browserScenario": {
+    "failedControlsHoldPromptAndSteer": true,
+    "failedCommandReadHoldsSteerAndStop": true,
+    "freshUnresolvedReceiptKeepsHold": true,
+    "draftRetained": true,
+    "postsDuringNewScenarios": 0,
+    "pageerrorFiltered": false
+  },
+  "screenshots": [
+    {
+      "file": "chat-prompt-controls-held-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "4460e715bd13a97fa4ac0820e277b91822162d76ebf7b4cdf3840bf6be597eb1",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-prompt-controls-held-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "d354f7df5571dc9ea7288e8bb34c9972f2304eadcc549c52c04fe0f706a62143",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-prompt-controls-held-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "5d406b12544a05bdcaaa8eaff8b7616b80b2b0bb17bd120b39b6f8414af6f180",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-steer-controls-held-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "05adc5afe2b68b5f807e947672cd8a45c36c46ca70d64997b1f64d8d57b1f09d",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-steer-controls-held-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "75b0a4f545dc5a5fca980b40ab71487548bf33234132ccb7a85a540edb586f2a",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-steer-controls-held-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "2cf7e60dfb9f269b33317fcc6cd213aaad88d9ee7490465c6264c57631070015",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-command-read-held-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "7d83ac4cc1c4cafff3b0d29bd8a35cca1ef727ecde6db6cad40c2d211554aadc",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-command-read-held-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "23cdfa5e457258e1c47ea670e3273d502aa3f076122ec74d5fbaf03c3e92f2e9",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-command-read-held-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "7f58de909c8f75144dac891d8a5c3956d28d170d8821ff3c404bd6c6ca0d1934",
+      "browser": "chromium",
+      "fixtureOnly": true
+    }
+  ],
+  "tracker114": {
+    "head": "8c80a41fae3bf1c10439ddb7e536b05bf320340d",
+    "state": "OPEN"
+  },
+  "workflow90": {
+    "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+    "state": "OPEN"
+  },
+  "checksPassed": [
+    "pnpm test",
+    "pnpm build (including tsc --noEmit)",
+    "pnpm lint",
+    "installed Base UI contract checker",
+    "effective theme checker",
+    "owned production-controller fixture browser suite"
+  ],
+  "limits": [
+    "Original PM Draft design question is pending; parallel-work authorization does not approve the new flow",
+    "First-step admission, native delivery/checkpoint/resume/rebind and authorized Workflow projection remain runtime/producer dependencies",
+    "Original combined Base WebKit navigation diagnostic remains open",
+    "No exact-head independent branch CI"
+  ],
+  "warnings": [
+    "Existing Vite chunk-size warning",
+    "Fixture teardown may request absent upstream; no pageerror suppression"
+  ],
+  "screenshotsVisuallyReviewed": true
+}

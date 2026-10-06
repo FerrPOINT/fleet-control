@@ -173,6 +173,78 @@ beforeEach(() => {
 })
 describe('production chat', () => {
   it.each([
+    ['prompt', 'controls'],
+    ['steer', 'controls'],
+    ['steer', 'commands'],
+    ['stop', 'commands'],
+  ] as const)('holds %s during failed %s read retry', async (command, source) => {
+    vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+    const available = {
+      can_send: command === 'prompt',
+      can_steer: command === 'steer',
+      can_stop: command === 'stop',
+      active_run_id: command === 'prompt' ? null : 'run-original',
+      blocked_reason: null,
+    }
+    vi.mocked(chats.getChatControls).mockResolvedValue(available)
+    const { client } = renderPage('dialogue', 1)
+    if (command !== 'stop')
+      await userEvent.type(
+        await screen.findByLabelText(
+          command === 'steer' ? 'Уточнение активному запуску' : 'Сообщение агенту',
+        ),
+        'Keep original draft',
+      )
+    const button = await screen.findByRole('button', {
+      name:
+        command === 'stop'
+          ? 'Остановить запуск'
+          : command === 'steer'
+            ? 'Передать уточнение запуску'
+            : 'Отправить сообщение',
+    })
+    await waitFor(() => expect(button).toBeEnabled())
+    let resolveRetry!: () => void
+    function holdRead<T>(read: (...args: string[]) => Promise<T>, fresh: T) {
+      vi.mocked(read)
+        .mockRejectedValueOnce(new ApiError(503, 'Read retry pending'))
+        .mockImplementationOnce(async () => {
+          await new Promise<void>((resolve) => {
+            resolveRetry = resolve
+          })
+          return fresh
+        })
+    }
+    if (source === 'controls') holdRead(chats.getChatControls, available)
+    else holdRead(fleet.listRuntimeControls, [])
+    const key =
+      source === 'controls'
+        ? ['chat-controls', 'session1']
+        : ['runtime-controls', 'session1', 'run-original']
+    let refresh!: Promise<unknown>
+    await act(async () => {
+      refresh = client.invalidateQueries({ queryKey: key })
+    })
+    await waitFor(() => expect(resolveRetry).toBeTypeOf('function'), { timeout: 3000 })
+    expect(client.getQueryState(key)?.status).toBe('success')
+    expect(button).toBeDisabled()
+    fireEvent.click(button)
+    expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+    expect(fleet.steerSessionRun).not.toHaveBeenCalled()
+    expect(fleet.stopSessionRun).not.toHaveBeenCalled()
+    await act(async () => {
+      resolveRetry()
+      await refresh
+    })
+    await waitFor(() => expect(button).toBeEnabled())
+    if (command !== 'stop')
+      expect(
+        screen.getByLabelText(
+          command === 'steer' ? 'Уточнение активному запуску' : 'Сообщение агенту',
+        ),
+      ).toHaveValue('Keep original draft')
+  })
+  it.each([
     ['answer', 'task-context'],
     ['answer', 'clarifications'],
     ['confirmation', 'task-context'],

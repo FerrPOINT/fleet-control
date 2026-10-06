@@ -2,20 +2,28 @@
 
 Production Chats implements dialogue, structured answers and exact-revision
 confirmation. Full live PM acceptance remains open. This inspection starts at
-consumer `bf9b05d2c5b213d1a8c8f9c4abac2d17c08196f5`; Base remains pinned to
+consumer `96bb6d02d5353d2da5de32f7172eab237d5f46ca`; Base remains pinned to
 `cbb4e99230420dc2659431b1c9fb5090e5c940f0`. Published sources were re-fetched
 and verified against Git blobs: [Tracker114](https://github.com/FerrPOINT/task-tracker/pull/114)
 at `8c80a41fae3bf1c10439ddb7e536b05bf320340d`,
 [Workflow90](https://github.com/FerrPOINT/project-workflow/pull/90)
 at `e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37`; both remain open.
 
-One consumer defect is fixed here: a failed context, question or requirements
-refresh retained cached query success during automatic GET retries and left
-answer/confirmation enabled. The controls now require successful fresh reads,
-no fetch in progress and zero failed attempts. Draft/consent and readable data
-remain retained; original uncertain commands keep their original payload/key.
-The four regressions failed before the fix. Current checks and UI captures are in
-[validation.json](assets/screens/chats-authority-20261006/validation.json).
+The earlier [answer/confirmation packet](assets/screens/chats-authority-20261006/validation.json)
+holds commands during failed context/document GET retries. This follow-up closes
+the same cached-success window for prompt/steer controls and the active run's
+command journal: pending or failed journal reads hold steer/stop, and a fresh
+unresolved receipt keeps that hold. A successful current controls read is required
+for message submission. Drafts and captured original retry payload/keys survive.
+Four new regressions failed before the fix; current source hashes, local checks
+and fixture captures are in
+[command freshness validation](assets/screens/chats-command-freshness-20261006/validation.json).
+
+The [PM Draft proposal](design/PM_DRAFT_CREATION_PREVIEW.md) was published in
+`96bb6d0`, with a separate clickable entry, 11 component cases, 12 isolated browser
+cases and 20 reviewed captures. Its previously sent design question remains
+pending. Parallel frontend authorization is not explicit approval of that new
+creation/recovery flow. Existing approved Chats fixes continue independently.
 
 | Remaining contract / owner                                          | Concrete missing integration or fields                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

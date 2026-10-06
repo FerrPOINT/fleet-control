@@ -115,6 +115,7 @@ function ChatWorkspace({ id }: { id: string }) {
     queryFn: () => getChatControls(id),
     refetchInterval: 10000,
   })
+  const controlsFresh = controls.isSuccess && !controls.isFetching && controls.failureCount === 0
   const runs = useQuery({
     queryKey: ['session-runs', id],
     queryFn: () => listSessionAgentRuns(id),
@@ -126,8 +127,9 @@ function ChatWorkspace({ id }: { id: string }) {
   const runtimeCommands = useRuntimeControls(id, controlRunId)
   const controlHeld =
     Boolean(controls.data?.active_run_id) &&
-    (runtimeCommands.isPending ||
-      runtimeCommands.isError ||
+    (!runtimeCommands.isSuccess ||
+      runtimeCommands.isFetching ||
+      runtimeCommands.failureCount > 0 ||
       runtimeCommands.data?.some(isUnresolvedControl))
   const history = useInfiniteQuery({
     queryKey: ['chat-history', id],
@@ -376,16 +378,14 @@ function ChatWorkspace({ id }: { id: string }) {
   })
   const canStop =
     owner &&
-    controls.isSuccess &&
-    !controls.isFetching &&
-    controls.failureCount === 0 &&
+    controlsFresh &&
     Boolean(controls.data?.can_stop && controls.data.active_run_id) &&
     !stop.isPending &&
     !controlHeld
   const uncertainSteer = messageUncertain && message.variables?.kind === 'steer'
   const canSubmitMessage =
     owner &&
-    !controls.isError &&
+    controlsFresh &&
     !message.isPending &&
     !uncertainSteer &&
     !controlHeld &&
