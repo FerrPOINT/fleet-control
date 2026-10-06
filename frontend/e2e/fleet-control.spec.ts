@@ -172,6 +172,235 @@ test('durable runtime controls hold unknown commands after reload', async ({ pag
   expect(errors).toEqual([])
 })
 
+for (const operation of ['prompt', 'steer'] as const) {
+  test(`chat ${operation} holds stale controls until a successful read`, async ({ page }, info) => {
+    const state = createState()
+    const run = makeRun(ids.session, state.agents[0])
+    state.runsBySession[ids.session] = operation === 'steer' ? [run] : []
+    await installMocks(page, state)
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    let unavailable = false
+    let failedReads = 0
+    const posts: string[] = []
+    await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
+      const request = route.request()
+      const path = new URL(request.url()).pathname
+      if (request.method() === 'POST') posts.push(path)
+      if (path.endsWith('/chat-controls')) {
+        if (unavailable) {
+          failedReads += 1
+          return fulfill(route, { error: { message: 'Controls refresh unavailable' } }, 503)
+        }
+        return fulfill(route, {
+          can_send: operation === 'prompt',
+          can_steer: operation === 'steer',
+          can_stop: false,
+          active_run_id: operation === 'steer' ? run.id : null,
+          blocked_reason: null,
+        })
+      }
+      return route.fallback()
+    })
+    await page.goto(`/chats/${ids.session}`)
+    const input = page.getByLabel(
+      operation === 'prompt' ? 'Сообщение агенту' : 'Уточнение активному запуску',
+      { exact: true },
+    )
+    await input.fill('Keep the original draft')
+    const button = page.getByRole('button', {
+      name: operation === 'prompt' ? 'Отправить сообщение' : 'Передать уточнение запуску',
+      exact: true,
+    })
+    await expect(button).toBeEnabled()
+    unavailable = true
+    await expect.poll(() => failedReads, { timeout: 15000 }).toBeGreaterThan(0)
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await expect(button).toBeDisabled()
+      await expect(input).toHaveValue('Keep the original draft')
+      await page.screenshot({
+        path: info.outputPath(`chat-${operation}-controls-held-${viewport.width}.png`),
+        fullPage: true,
+        animations: 'disabled',
+      })
+    }
+    expect(posts).toEqual([])
+    unavailable = false
+    await expect(button).toBeEnabled({ timeout: 15000 })
+    expect(errors).toEqual([])
+  })
+}
+
+test('chat steer and stop hold a failed command read and its unresolved fresh receipt', async ({
+  page,
+}, info) => {
+  await page.setViewportSize({ width: 1920, height: 1080 })
+  const state = createState()
+  const run = makeRun(ids.session, state.agents[0])
+  state.runsBySession[ids.session] = [run]
+  await installMocks(page, state)
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  let unavailable = false
+  let failedReads = 0
+  let unresolved = false
+  const posts: string[] = []
+  await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    if (request.method() === 'POST') posts.push(path)
+    if (path.endsWith('/chat-controls'))
+      return fulfill(route, {
+        can_send: false,
+        can_steer: true,
+        can_stop: true,
+        active_run_id: run.id,
+        blocked_reason: null,
+      })
+    if (path.endsWith('/controls')) {
+      if (unavailable) {
+        failedReads += 1
+        return fulfill(route, { error: { message: 'Command read unavailable' } }, 503)
+      }
+      return fulfill(
+        route,
+        unresolved
+          ? [
+              {
+                id: '00000000-0000-4000-8000-000000000909',
+                session_id: ids.session,
+                session_run_id: run.id,
+                agent_id: ids.dev,
+                actor_user_id: ids.user,
+                operation: 'steer',
+                state: 'uncertain',
+                acknowledgement: null,
+                observed_run_state: null,
+                created_at: now,
+                updated_at: now,
+              },
+            ]
+          : [],
+      )
+    }
+    return route.fallback()
+  })
+  await page.goto(`/chats/${ids.session}`)
+  const input = page.getByLabel('Уточнение активному запуску', { exact: true })
+  await input.fill('Keep this guidance')
+  const steer = page.getByRole('button', { name: 'Передать уточнение запуску', exact: true })
+  const stop = page.getByRole('button', { name: 'Остановить запуск', exact: true })
+  await expect(steer).toBeEnabled()
+  await expect(stop).toBeEnabled()
+  unavailable = true
+  await page.getByRole('button', { name: 'Проверить команды', exact: true }).click()
+  await expect.poll(() => failedReads).toBeGreaterThan(0)
+  for (const viewport of [
+    { width: 375, height: 812 },
+    { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await expect(steer).toBeDisabled()
+    await expect(stop).toBeDisabled()
+    await expect(input).toHaveValue('Keep this guidance')
+    await page.screenshot({
+      path: info.outputPath(`chat-command-read-held-${viewport.width}.png`),
+      fullPage: true,
+      animations: 'disabled',
+    })
+  }
+  unresolved = true
+  unavailable = false
+  await expect(page.getByText('Исход неизвестен, повторная отправка запрещена')).toBeVisible({
+    timeout: 15000,
+  })
+  await expect(steer).toBeDisabled()
+  await expect(stop).toBeDisabled()
+  expect(posts).toEqual([])
+  expect(errors).toEqual([])
+})
+
+test('chat stop holds stale permissions and uses the refreshed active run', async ({
+  page,
+}, testInfo) => {
+  const state = createState()
+  const original = makeRun(ids.session, state.agents[0])
+  state.runsBySession[ids.session] = [original]
+  await installMocks(page, state)
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  let unavailable = false
+  let failedReads = 0
+  let activeRunId = original.id
+  const currentRunId = '00000000-0000-4000-8000-000000000902'
+  const commands: { path: string; key: string | undefined }[] = []
+  await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    if (path.endsWith('/chat-controls')) {
+      if (unavailable) {
+        failedReads += 1
+        return fulfill(route, { error: { message: 'Stop authority unavailable' } }, 503)
+      }
+      return fulfill(route, {
+        can_send: false,
+        can_steer: false,
+        can_stop: true,
+        active_run_id: activeRunId,
+        blocked_reason: null,
+      })
+    }
+    if (path.endsWith('/stop') && request.method() === 'POST') {
+      commands.push({ path, key: request.headers()['idempotency-key'] })
+      return fulfill(route, {
+        session_id: ids.session,
+        run_id: currentRunId,
+        runtime_run_id: 'native-fixture',
+        accepted: false,
+        state: 'running',
+        message: 'Fixture stop outcome unknown',
+      })
+    }
+    return route.fallback()
+  })
+  await page.goto(`/chats/${ids.session}`)
+  const stop = page.getByRole('button', { name: 'Остановить запуск', exact: true })
+  await expect(stop).toBeEnabled()
+  unavailable = true
+  // Wait for the real controller's controls refresh. Keep the cached
+  // successful body while the read fails; do not reload away the cache.
+  await expect.poll(() => failedReads, { timeout: 15000 }).toBeGreaterThan(0)
+  await expect(stop).toBeDisabled()
+  for (const viewport of [
+    { width: 375, height: 812 },
+    { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await expect(stop).toBeDisabled()
+    await page.screenshot({
+      path: testInfo.outputPath(`chat-stop-held-${viewport.width}.png`),
+      fullPage: true,
+      animations: 'disabled',
+    })
+  }
+  expect(commands).toEqual([])
+  activeRunId = currentRunId
+  unavailable = false
+  await expect(stop).toBeEnabled()
+  await stop.click()
+  await expect.poll(() => commands.length).toBe(1)
+  expect(commands[0].path).toBe(`/api/v1/sessions/${ids.session}/runs/${currentRunId}/stop`)
+  expect(commands[0].key).toBeTruthy()
+  expect(errors).toEqual([])
+})
+
 test('PM chat clarification preserves explicit answers and exact confirmation', async ({
   page,
 }, testInfo) => {
@@ -231,6 +460,8 @@ test('PM chat clarification preserves explicit answers and exact confirmation', 
   let finalPublished = false
   let confirmed = false
   let questionMode = 'single'
+  let unavailableRead: 'task-context' | 'requirements' | null = null
+  let failedReads = 0
   const savedAnswer = {
     id: '00000000-0000-4000-8000-000000000506',
     question_id: question.id,
@@ -245,6 +476,10 @@ test('PM chat clarification preserves explicit answers and exact confirmation', 
   const commands: { path: string; body: unknown }[] = []
   await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
     const path = new URL(route.request().url()).pathname
+    if (unavailableRead && path.endsWith(`/${unavailableRead}`)) {
+      failedReads += 1
+      return fulfill(route, { error: { message: 'PM read unavailable' } }, 503)
+    }
     if (path.endsWith('/approvals')) return fulfill(route, [])
     if (path.endsWith('/task-context'))
       return fulfill(route, {
@@ -360,6 +595,29 @@ test('PM chat clarification preserves explicit answers and exact confirmation', 
   await expect(page.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
   await choice.check()
   await page.getByLabel('Комментарий', { exact: true }).fill('Только внутри проекта')
+  const answer = page.getByRole('button', { name: 'Сохранить ответ' })
+  await expect(answer).toBeEnabled()
+  unavailableRead = 'task-context'
+  await expect.poll(() => failedReads, { timeout: 15000 }).toBeGreaterThan(0)
+  for (const viewport of [
+    { width: 375, height: 812 },
+    { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await expect(answer).toBeDisabled()
+    await expect(page.getByLabel('Комментарий', { exact: true })).toHaveValue(
+      'Только внутри проекта',
+    )
+    await page.screenshot({
+      path: testInfo.outputPath(`consumer-answer-held-${viewport.width}.png`),
+      fullPage: true,
+      animations: 'disabled',
+    })
+  }
+  expect(commands).toEqual([])
+  unavailableRead = null
+  await expect(answer).toBeEnabled({ timeout: 15000 })
   await page.getByRole('tab', { name: /Диалог/ }).click()
   await expect(page).toHaveURL(/tab=dialogue/)
   await page.getByRole('tab', { name: /Уточнения/ }).click()
@@ -401,6 +659,27 @@ test('PM chat clarification preserves explicit answers and exact confirmation', 
     })
     await page.getByText('Сравнить с редакцией 1', { exact: true }).click()
   }
+  const previousFailedReads = failedReads
+  unavailableRead = 'requirements'
+  await expect.poll(() => failedReads, { timeout: 15000 }).toBeGreaterThan(previousFailedReads)
+  for (const viewport of [
+    { width: 375, height: 812 },
+    { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await expect(confirm).toBeDisabled()
+    await expect(page.getByRole('checkbox', { name: /Подтверждаю цель/ })).toBeChecked()
+    await confirm.scrollIntoViewIfNeeded()
+    await page.screenshot({
+      path: testInfo.outputPath(`consumer-confirmation-held-${viewport.width}.png`),
+      fullPage: true,
+      animations: 'disabled',
+    })
+  }
+  expect(commands).toHaveLength(2)
+  unavailableRead = null
+  await expect(confirm).toBeEnabled({ timeout: 15000 })
   await confirm.click()
   await expect(page.getByText('Confirmation receipt timed out')).toBeVisible()
   await expect(page.getByRole('checkbox', { name: /Подтверждаю цель/ })).toBeDisabled()
@@ -458,6 +737,77 @@ test('PM chat clarification preserves explicit answers and exact confirmation', 
   await expect(page).toHaveURL(/tab=clarification/)
   expect(errors).toEqual([])
 })
+test('long chat history restores reading and tail positions across tabs', async ({
+  page,
+}, testInfo) => {
+  const state = createState()
+  await installMocks(page, state)
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  const items = Array.from({ length: 40 }, (_, index) => ({
+    ...makeMessage(
+      ids.session,
+      `History entry ${index + 1}\n${'Long retained history text. '.repeat(25)}`,
+    ),
+    id: `00000000-0000-4000-8000-${String(index + 1000).padStart(12, '0')}`,
+  }))
+  await page.route(`**/api/v1/sessions/${ids.session}/history**`, (route) =>
+    fulfill(route, { items, next_before: null }),
+  )
+  let submitted = 0
+  await page.route(`**/api/v1/sessions/${ids.session}/messages`, (route) => {
+    if (route.request().method() === 'POST') submitted += 1
+    return route.fallback()
+  })
+  await page.goto(`/chats/${ids.session}?tab=dialogue`)
+  const dialogue = page.getByRole('tab', { name: /Диалог/ })
+  const clarification = page.getByRole('tab', { name: /Уточнения/ })
+  const transcript = page.locator('.fc-chat-panel .fc-chat-scroll')
+  const prompt = page.getByLabel('Сообщение агенту', { exact: true })
+  await expect(prompt).toBeEnabled()
+  await prompt.fill('Retained original composer draft')
+  for (const viewport of [
+    { width: 375, height: 812 },
+    { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await expect(page.locator('.fc-chat-message')).toHaveCount(40)
+    const readingTop = await transcript.evaluate((node) => {
+      node.scrollTop = (node.scrollHeight - node.clientHeight) * 0.45
+      node.dispatchEvent(new Event('scroll'))
+      return node.scrollTop
+    })
+    expect(readingTop).toBeGreaterThan(100)
+    await clarification.click()
+    await expect(clarification).toHaveAttribute('aria-selected', 'true')
+    await dialogue.click()
+    await expect(dialogue).toHaveAttribute('aria-selected', 'true')
+    await expect
+      .poll(() => transcript.evaluate((node) => node.scrollTop))
+      .toBeCloseTo(readingTop, 0)
+    await expect(prompt).toHaveValue('Retained original composer draft')
+    await page.screenshot({
+      path: testInfo.outputPath(`chat-reading-restored-${viewport.width}.png`),
+      fullPage: true,
+      animations: 'disabled',
+    })
+    await transcript.evaluate((node) => {
+      node.scrollTop = node.scrollHeight
+      node.dispatchEvent(new Event('scroll'))
+    })
+    await clarification.click()
+    await dialogue.click()
+    await expect
+      .poll(() =>
+        transcript.evaluate((node) => node.scrollHeight - node.clientHeight - node.scrollTop),
+      )
+      .toBeLessThanOrEqual(1)
+  }
+  expect(submitted).toBe(0)
+  expect(errors).toEqual([])
+})
+
 test('chat history preserves server order after clock rollback and page overlap', async ({
   page,
 }) => {

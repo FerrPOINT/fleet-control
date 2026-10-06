@@ -1,5 +1,28 @@
 # Gap Register
 
+## Integrated Consumer And Current Release Boundary
+
+Consumer717aaba is included in the runtime source without replaying its earlier
+commits. Fresh289 unit and60 Chromium/Firefox/WebKit fixture cases pass, along
+with build/typecheck/lint/format, existing OpenAPI/client equality, Markdown links
+and135-screen verification. The9 committed command-freshness views match fresh
+captures. This proves the consumer fixes, not live PM publication/delivery/resume.
+PM Draft production wiring still awaits explicit preview approval.
+Combined Rust/PostgreSQL fmt/check/strict Clippy and528 tests also pass, with30
+explicit opt-in ignores and293 unchanged inputs. No new actual Docker/Hermes
+or migration acceptance is claimed by this combined source gate.
+
+The prior combined35/36 failure and SDK navigation reproduction remain evidence:
+no Base stream lifecycle fix or dependency upgrade has occurred. Do not close
+that finding solely because this fresh same-origin repeat is60/60.
+
+Production Docker log ingestion also needs a repository concurrency fix:
+`insert_log` inserts its UUID and then searches only the latest agent log. A
+concurrent insert can make that read return `not_found` despite a committed row.
+Use the inserted row's authoritative result and add a deterministic PostgreSQL
+race regression before declaring concurrent stdout/stderr ingestion complete.
+No runtime collector, migration or log cursor is added by this consumer merge.
+
 ## Private Docker Log Readback Verified; Ingestion Still Open
 
 Actual Base `logs` reads now pass for four original exited generations from two
@@ -14,8 +37,9 @@ explicit overflow/rotation; restart/interrupted activation/private-journal
 recovery; actual Rust ingestion acceptance and authorized public diagnostics.
 Task admission/first workflow step, PM tools/delivery/resume, seven-agent/Forge
 acceptance and the combined WebKit case retain their existing open status.
-Base prerequisite PR150 is currently conflicting; the published logs branch
-contains that predecessor and is not a small main release PR. No pins, installed
+Base prerequisite PR150 is ready/MERGEABLE at7d7323a with9 SUCCESS checks in
+CI37528638132 after recheck, but remains open. The published logs branch contains
+that predecessor and is not a small main release PR. No pins, installed
 services or readonly producers are changed to bypass these gates.
 See [evidence](CHAT_CLARIFICATION_VERIFICATION.md#actual-private-base-docker-log-readback-6-october-2026).
 

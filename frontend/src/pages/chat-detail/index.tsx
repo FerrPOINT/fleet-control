@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useBlocker, useParams, useSearchParams } from 'react-router'
 import {
   useInfiniteQuery,
@@ -115,6 +115,7 @@ function ChatWorkspace({ id }: { id: string }) {
     queryFn: () => getChatControls(id),
     refetchInterval: 10000,
   })
+  const controlsFresh = controls.isSuccess && !controls.isFetching && controls.failureCount === 0
   const runs = useQuery({
     queryKey: ['session-runs', id],
     queryFn: () => listSessionAgentRuns(id),
@@ -126,8 +127,9 @@ function ChatWorkspace({ id }: { id: string }) {
   const runtimeCommands = useRuntimeControls(id, controlRunId)
   const controlHeld =
     Boolean(controls.data?.active_run_id) &&
-    (runtimeCommands.isPending ||
-      runtimeCommands.isError ||
+    (!runtimeCommands.isSuccess ||
+      runtimeCommands.isFetching ||
+      runtimeCommands.failureCount > 0 ||
       runtimeCommands.data?.some(isUnresolvedControl))
   const history = useInfiniteQuery({
     queryKey: ['chat-history', id],
@@ -178,6 +180,11 @@ function ChatWorkspace({ id }: { id: string }) {
   })
   const transcript = useRef<HTMLDivElement>(null)
   const following = useRef(true)
+  const readingPosition = useRef(0)
+  const attachTranscript = useCallback((node: HTMLDivElement | null) => {
+    transcript.current = node
+    if (node) node.scrollTop = following.current ? node.scrollHeight : readingPosition.current
+  }, [])
   const [newMessages, setNewMessages] = useState(false)
   const tab = ['dialogue', 'clarification', 'requirements'].includes(params.get('tab') ?? '')
     ? params.get('tab')!
@@ -186,6 +193,11 @@ function ChatWorkspace({ id }: { id: string }) {
   const canResolveApprovals =
     useAuthStore((state) => state.permissions.includes('agents:manage')) || owner
   const context = task.data?.tracker
+  const taskFresh = task.isSuccess && !task.isFetching && task.failureCount === 0
+  const questionsFresh =
+    questions.isSuccess && !questions.isFetching && questions.failureCount === 0
+  const requirementsFresh =
+    requirements.isSuccess && !requirements.isFetching && requirements.failureCount === 0
   const questionList = questions.data?.questions ?? []
   const selectedQuestion =
     questionList.find((question) => question.id === params.get('question')) ??
@@ -364,10 +376,16 @@ function ChatWorkspace({ id }: { id: string }) {
       stopSessionRun(id, command.runId, command.key),
     onSuccess: invalidate,
   })
+  const canStop =
+    owner &&
+    controlsFresh &&
+    Boolean(controls.data?.can_stop && controls.data.active_run_id) &&
+    !stop.isPending &&
+    !controlHeld
   const uncertainSteer = messageUncertain && message.variables?.kind === 'steer'
   const canSubmitMessage =
     owner &&
-    !controls.isError &&
+    controlsFresh &&
     !message.isPending &&
     !uncertainSteer &&
     !controlHeld &&
@@ -560,12 +578,14 @@ function ChatWorkspace({ id }: { id: string }) {
             )}
             <TabsContent value="dialogue" className="fc-chat-panel">
               <div
-                ref={transcript}
+                ref={attachTranscript}
                 className="fc-chat-scroll"
                 onScroll={() => {
                   const node = transcript.current
-                  if (node)
+                  if (node) {
+                    readingPosition.current = node.scrollTop
                     following.current = node.scrollHeight - node.scrollTop - node.clientHeight < 48
+                  }
                 }}
               >
                 {history.isError && <ReadableError error={history.error} />}
@@ -704,10 +724,10 @@ function ChatWorkspace({ id }: { id: string }) {
                       variant="outline"
                       aria-label="Остановить запуск"
                       title="Остановить запуск"
-                      disabled={stop.isPending || Boolean(controlHeld)}
+                      disabled={!canStop}
                       onClick={() => {
                         const runId = controls.data?.active_run_id
-                        if (!runId) return
+                        if (!canStop || !runId) return
                         const key = stopKeys.current.get(runId) ?? requestKey()
                         stopKeys.current.set(runId, key)
                         stop.mutate({ runId, key })
@@ -769,8 +789,8 @@ function ChatWorkspace({ id }: { id: string }) {
                         className="fc-chat-question"
                         disabled={
                           !owner ||
-                          task.isError ||
-                          questions.isError ||
+                          !taskFresh ||
+                          !questionsFresh ||
                           !context?.permissions.can_answer ||
                           selectedQuestion.state !== 'open' ||
                           answer.isPending ||
@@ -863,8 +883,8 @@ function ChatWorkspace({ id }: { id: string }) {
                           variant="outline"
                           disabled={
                             !owner ||
-                            task.isError ||
-                            questions.isError ||
+                            !taskFresh ||
+                            !questionsFresh ||
                             !context?.permissions.can_answer ||
                             selectedQuestion?.state !== 'open' ||
                             answer.isPending ||
@@ -905,10 +925,8 @@ function ChatWorkspace({ id }: { id: string }) {
                       variant="outline"
                       disabled={
                         !owner ||
-                        task.isError ||
-                        task.isFetching ||
-                        questions.isError ||
-                        questions.isFetching ||
+                        !taskFresh ||
+                        !questionsFresh ||
                         answer.isPending ||
                         !answer.variables
                       }
@@ -925,10 +943,9 @@ function ChatWorkspace({ id }: { id: string }) {
                   disabled={
                     !selectedQuestion ||
                     !owner ||
-                    task.isError ||
-                    questions.isError ||
+                    !taskFresh ||
+                    !questionsFresh ||
                     !context?.permissions.can_answer ||
-                    (answerUncertain && (task.isFetching || questions.isFetching)) ||
                     (answerUncertain && answer.variables?.questionKey !== questionKey) ||
                     !draft.key ||
                     !canSubmitAnswer(selectedQuestion, draft.selected, draft.text) ||
@@ -985,19 +1002,13 @@ function ChatWorkspace({ id }: { id: string }) {
                       currentRevision={context?.requirement_revision ?? null}
                       canConfirm={
                         owner &&
-                        !task.isError &&
-                        !requirements.isError &&
+                        taskFresh &&
+                        requirementsFresh &&
                         Boolean(context?.permissions.can_confirm)
                       }
                       confirmation={confirmation}
                       confirmationUncertain={confirmationUncertain}
-                      canReplayConfirmation={
-                        owner &&
-                        task.isSuccess &&
-                        !task.isFetching &&
-                        requirements.isSuccess &&
-                        !requirements.isFetching
-                      }
+                      canReplayConfirmation={owner && taskFresh && requirementsFresh}
                     />
                   </>
                 )}

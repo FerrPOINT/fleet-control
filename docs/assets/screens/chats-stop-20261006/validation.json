@@ -1,0 +1,229 @@
+{
+  "consumerBaseline": "e33cb4824e0f07416958e0a0a21d83bffa760a9b",
+  "basePin": "cbb4e99230420dc2659431b1c9fb5090e5c940f0",
+  "sourceByteConvention": "Git blob/LF bytes; CRLF checkout normalized for comparison",
+  "sourceSha256": {
+    "frontend/src/pages/chat-detail/index.tsx": "fb3ecb41f7fdba7a8a82db3fadcdd570165bf065136ab02d2110edeae75af8ef",
+    "frontend/src/pages/chat-detail/index.test.tsx": "a7fb927f1b8e65958486e44d03cf3d786aba7f3ae10a4e6c9b7912ccb9d57dab",
+    "frontend/e2e/fleet-control.spec.ts": "5ac355bbf11b266dc3fc5babdf953a64b587de9b1c624fefd29267746ea3cb01",
+    "docs/CHATS_PM_PROJECTION_STOP_FOLLOWUP_20261006.md": "70f1cd96b90f899a50bd8eba3b0df39d28b7edfdaced1ce28a42ed07dab10264"
+  },
+  "sourceChanges": "Chats stop UI guards, unit/browser fixtures, docs and screenshots only",
+  "runtimeChanged": false,
+  "backendChanged": false,
+  "producerChanged": false,
+  "sdkChanged": false,
+  "livePmAcceptance": false,
+  "executionProjectionImplemented": false,
+  "unitFiles": 31,
+  "unitPassed": 273,
+  "chatUnitCases": 42,
+  "browserPassed": 39,
+  "browserProjects": ["chromium", "firefox", "webkit"],
+  "browserWorkers": 3,
+  "browserOrigin": "http://localhost:24173",
+  "browserFixtureOnly": true,
+  "ownedPreviewStopped": true,
+  "beforeFix": [
+    {
+      "failedCases": 3,
+      "source": "e33cb48 production before owner/success/run guards",
+      "logSha256": "ec86564e7e6596c6e970959201829b0b13d145884ba3f1f62b02466ebbb40f73"
+    },
+    {
+      "failedCases": 1,
+      "source": "initial owner/success/run fix without isFetching/failureCount guards",
+      "logSha256": "340f552ef5736118eaffdf21c135f41ba1f6b67e212d634c75d50c7e1f0d4c0d"
+    }
+  ],
+  "logSha256": {
+    "stop-unit.log": "cd83e4281b371c529beff3ba69024bde1b2b5d598a7078f94c9cc1d53a207d50",
+    "stop-browser.log": "9cab82bc3c35208327b0b2004f2e7f3ccd542bbb9ba675140d7e833505a05514",
+    "stop-typecheck.log": "9a399d466b5264ca3c9ddcb500a1f7b91188f1de895c0df5bbf6ed8ceb31bcdd",
+    "stop-lint.log": "fea2ca52c435e20a7e93d4541868d89dc441a99a8ebb4d3e82613b6932415200",
+    "stop-build.log": "d62adcf35e7c1bb3b8180737f1245ca218565d7474b3d82a39c87d6789676ca0",
+    "stop-format.log": "c09453a4f31198bf26b546e902529b737b98a8cbc6caa833e3c5f007a1a5583b",
+    "stop-ui.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stop-theme.log": "19c09b8614b31ebe0c3316b80778654a964971b9d06b6958071d6f5c9d052e3c"
+  },
+  "checksPassed": [
+    "pnpm test",
+    "pnpm typecheck",
+    "pnpm lint",
+    "pnpm build",
+    "pnpm format:check",
+    "pnpm openapi:check",
+    "pnpm openapi:compat (8 tests)",
+    "installed Base check-ui-contract --repo .. --require-installed",
+    "pnpm theme:check http://localhost:24173",
+    "owned Playwright fixture suite",
+    "pnpm markdown:check (120 files)"
+  ],
+  "producerSources": [
+    {
+      "artifact": "tracker-openapi.json",
+      "repo": "FerrPOINT/task-tracker",
+      "head": "8c80a41fae3bf1c10439ddb7e536b05bf320340d",
+      "path": "openapi/openapi.json",
+      "gitBlob": "63c1db271fd0167d8c25ddc47c0575c93bd82f3d",
+      "sha256": "361672c7cbc04d7aaf9116480715c293fc8841671d2e6a026d618abc93c9722f"
+    },
+    {
+      "artifact": "tracker-sdlc.rs",
+      "repo": "FerrPOINT/task-tracker",
+      "head": "8c80a41fae3bf1c10439ddb7e536b05bf320340d",
+      "path": "backend/app/src/sdlc.rs",
+      "gitBlob": "a797067ca86913bfab1ea22c22dba6b4724d701a",
+      "sha256": "689d0764d7207fd20a156776f2f67074fd2260ddce1268a8bc15abda85228362"
+    },
+    {
+      "artifact": "workflow-openapi.json",
+      "repo": "FerrPOINT/project-workflow",
+      "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+      "path": "docs/pm-continuation-openapi.json",
+      "gitBlob": "f6b74b10be434b8eab071db2afa5792be2873813",
+      "sha256": "580cebfc6c5ad62606ac5c3458429aab19651493d6df312caa369822e31a34e4"
+    },
+    {
+      "artifact": "workflow-contract.md",
+      "repo": "FerrPOINT/project-workflow",
+      "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+      "path": "docs/pm-continuation-contract.md",
+      "gitBlob": "db678cb87d1e64af5e07026ed06ec1a4c8dd81a4",
+      "sha256": "d5c361ecf438686a8459ed7b0c2e46005c5335e18f6fbae0d5d3e60498f68828"
+    },
+    {
+      "artifact": "workflow-project_workflow-application-pm_execution.py",
+      "repo": "FerrPOINT/project-workflow",
+      "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+      "path": "project_workflow/application/pm_execution.py",
+      "gitBlob": "0f3a244a3c2ad5c4b15962c8ee8cf0d020d68778",
+      "sha256": "fbe8e3b73582186bfab12c1353721a517e93f8b206ad70df7637dac4567557e0"
+    },
+    {
+      "artifact": "workflow-project_workflow-domain-pm_execution.py",
+      "repo": "FerrPOINT/project-workflow",
+      "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+      "path": "project_workflow/domain/pm_execution.py",
+      "gitBlob": "c48c49e896753aecfd339abd17632baea84e1ce2",
+      "sha256": "8930cff19031e88366b5cc3c091dc71d11c1cbaea74b08f56a99f456f9b9a2e7"
+    },
+    {
+      "artifact": "workflow-project_workflow-domain-runtime_assignment.py",
+      "repo": "FerrPOINT/project-workflow",
+      "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+      "path": "project_workflow/domain/runtime_assignment.py",
+      "gitBlob": "26f10f68a0fbda9050cd4bfcd5015a91af9a1185",
+      "sha256": "6ed9affea573dd6e4e25f3bfd901310786ab83971a1f3c9d58908330d4190596"
+    },
+    {
+      "artifact": "workflow-project_workflow-interfaces-ui-routes-pm_api.py",
+      "repo": "FerrPOINT/project-workflow",
+      "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+      "path": "project_workflow/interfaces/ui/routes/pm_api.py",
+      "gitBlob": "795149e71560aa9aaaa106a7104af1fe7b44a436",
+      "sha256": "c59ec113327b4b507ff3ce934094414868ca6efc3acef6d7737ad6513972201f"
+    },
+    {
+      "artifact": "workflow-project_workflow-interfaces-ui-routes-runtime_api.py",
+      "repo": "FerrPOINT/project-workflow",
+      "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+      "path": "project_workflow/interfaces/ui/routes/runtime_api.py",
+      "gitBlob": "b4a6f9f48fec59a1d33d52dfe0faa60a295ec399",
+      "sha256": "0455db61a1112fbff872facf2bb4c928d078cd9496a209f39f8f4a6d3a1f524c"
+    }
+  ],
+  "contextFields": [
+    "assignment",
+    "contract_version",
+    "owner_subject",
+    "permissions",
+    "project_id",
+    "requirement_revision",
+    "root_task_id",
+    "stage",
+    "task_id",
+    "tracker_instance_id",
+    "waiting_reason"
+  ],
+  "assignmentFields": [
+    "agent_id",
+    "assignment_id",
+    "execution_id",
+    "machine_subject",
+    "version"
+  ],
+  "pmReadbackFields": [
+    "binding_ref",
+    "checkpoint",
+    "contract_version",
+    "fence",
+    "hermes_run_ref",
+    "identity",
+    "resume_delivered",
+    "resume_operation_key",
+    "resume_session_run_id",
+    "session_run_id",
+    "state",
+    "terminal_readback",
+    "version",
+    "workflow_step_allowed"
+  ],
+  "historyLacksAttemptNumber": true,
+  "screenshots": [
+    {
+      "file": "chat-stop-held-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "7e801091e2df42c2bce64720c16d95fad05846eb421f4b29d889b1930cd9151c",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-stop-held-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "a1979b1c2b06069e7dbf536a1d9cddfbd5f668400873cc10845de161cb70b425",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-stop-held-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "890084490ed030f62f44fcf72d07a307aae945556cbef3ea4fdc61fb17dbd89c",
+      "browser": "chromium",
+      "fixtureOnly": true
+    }
+  ],
+  "preliminaryBrowserRuns": [
+    {
+      "logSha256": "5251497f23a4d29e405a36d940d59872cc108efc87e1c433d00c28eb167ef72b",
+      "passed": 36,
+      "failed": 3,
+      "reason": "New fixture waited for final error before allowing production poll/retry backoff; replaced with observed failed-read count and held state."
+    },
+    {
+      "logSha256": "2212b6c10d8f83cb664d9ab599c0b3a6fc54137b75c8ea87f95302d02d99e14f",
+      "passed": 36,
+      "failed": 3,
+      "reason": "New fixture waited for final error before allowing production poll/retry backoff; replaced with observed failed-read count and held state."
+    }
+  ],
+  "uiCheckerInvocation": {
+    "packageScriptUsable": false,
+    "reason": "Read-only sibling Base lacks node_modules/typescript",
+    "executed": "node node_modules/@sdlc/ui/scripts/check-ui-contract.mjs --repo .. --require-installed"
+  },
+  "warnings": [
+    "Existing Vite chunk-size warning",
+    "Fixture teardown requests may reach absent upstream; no pageerror filtering"
+  ],
+  "limitations": [
+    "No native Workflow projection or execution token authority supplied by task-context",
+    "Native assignment/bind attempt_number has no read-only owner projection",
+    "Prior combined c02f60e WebKit 35/36 finding remains open for Base owner",
+    "No exact-head CI for independent consumer branch; counts are fixture validation"
+  ],
+  "screenshotsVisuallyReviewed": true
+}

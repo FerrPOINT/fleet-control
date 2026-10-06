@@ -1,0 +1,203 @@
+{
+  "consumerBaseline": "bf9b05d2c5b213d1a8c8f9c4abac2d17c08196f5",
+  "basePin": "cbb4e99230420dc2659431b1c9fb5090e5c940f0",
+  "sourceByteConvention": "Git blob/LF bytes; CRLF checkout normalized for comparison",
+  "sourceSha256": {
+    "frontend/src/pages/chat-detail/index.tsx": "4d64c96536a9982a01405d8d0716ac17562149bd6711fd0b56a6bdb3a1d8ec54",
+    "frontend/src/pages/chat-detail/index.test.tsx": "5cd5940c84b252bad082fcb13be6e47a62eb6f69bc91121659ce8f82fe8e382a",
+    "frontend/e2e/fleet-control.spec.ts": "1d56dec0aebcf8b1d981fc614a1128ac735ae51c512faae100ff9e971ab54d18",
+    "docs/CHATS_PM_FINAL_HANDOFF_20261006.md": "8c8afcbc8c547b5c47218d6c2f9b236d0a92e5ed9ccdac9ae6e66926aabc1b56"
+  },
+  "scope": "Existing answer/confirmation freshness guards, regressions, UI evidence and compact final handoff",
+  "runtimeChanged": false,
+  "backendChanged": false,
+  "sdkChanged": false,
+  "producerChanged": false,
+  "liveAcceptance": false,
+  "workflowProjectionImplemented": false,
+  "pmDraftCreationUiImplemented": false,
+  "unitPassed": 278,
+  "unitFiles": 31,
+  "chatUnitCases": 47,
+  "browserPassed": 42,
+  "browserWorkers": 3,
+  "browserProjects": ["chromium", "firefox", "webkit"],
+  "browserOrigin": "http://localhost:24173",
+  "fixtureOnly": true,
+  "ownedPreviewStopped": true,
+  "beforeFix": {
+    "consumerSourceSha256": "a8866565374508d251b97c94a03c13a64a3d66082a6dae21ecada33d69a56d44",
+    "unitFailed": 4,
+    "unitLogSha256": "e6d939ca70848632f604590102c5311bcf701c7b1239812d62b751bad6b110a6",
+    "observed": "Cached successful context/questions/requirements kept answer or confirmation enabled during failed-read retry"
+  },
+  "logSha256": {
+    "authority-all-unit.log": "fee7907e2b3db72206a645d3d87164b8d493d5677a76be4b28f81b83ff035bc8",
+    "authority-browser.log": "1fba95d9ec3508860648d25b6c6a281f31b31dbb4850bd50a327132c4f29d821",
+    "authority-typecheck.log": "9a399d466b5264ca3c9ddcb500a1f7b91188f1de895c0df5bbf6ed8ceb31bcdd",
+    "authority-lint.log": "fea2ca52c435e20a7e93d4541868d89dc441a99a8ebb4d3e82613b6932415200",
+    "authority-build.log": "4fedb7e440bd9e1ba0017374aa826e25543753f593463ffaad8929039b9fd2e1",
+    "authority-ui.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "authority-theme.log": "19c09b8614b31ebe0c3316b80778654a964971b9d06b6958071d6f5c9d052e3c",
+    "authority-openapi.log": "0c1fac15d231af6bb5af5d6d955591472e4c72c562f0993dd7dee289eda8ade0",
+    "authority-compat.log": "75308984531c4f4f3c9ad1923e3768db73648d328a5ca3a218bc14ee82cac840",
+    "authority-contract.log": "9ec376406d7050217ad79ec4cbd2f1827d418d54f68dfbaf2ee9bdf7c5aa95d4"
+  },
+  "checksPassed": [
+    "pnpm test",
+    "pnpm lint",
+    "pnpm build (including tsc --noEmit)",
+    "installed Base check-ui-contract --repo .. --require-installed",
+    "pnpm theme:check http://localhost:24173",
+    "pnpm openapi:check",
+    "pnpm openapi:compat",
+    "pnpm chat:contract (local accepted snapshot)",
+    "owned Playwright fixture suite"
+  ],
+  "screenshots": [
+    {
+      "file": "consumer-answer-held-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "c3e06798d0254f3a4faa327c7ea69dc41e9a637fbd017878fdacd723c104374b",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "consumer-answer-held-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "19954b13a674c35133fe6de3e9891bd1ccb739c5bf17777bd7a0ac1911c53df5",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "consumer-answer-held-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "e1674262d43ec87620ea7d71928495b1b760b88e7c5bd407afd575787300c0cd",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "consumer-confirmation-held-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "85785012b052056cf57535b3cca94848eaab31fbe0382272bf92cc4e539a24c2",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "consumer-confirmation-held-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "8375b2d60d7089febd0fdad9b418e53364a9922d2e187332b892cd564d6ebc0c",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "consumer-confirmation-held-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "59024d5f7e84b29f84c1b989c85e980378b75c7eff7f15b40ae8906245c8d606",
+      "browser": "chromium",
+      "fixtureOnly": true
+    }
+  ],
+  "screenshotsVisuallyReviewed": true,
+  "browserScenario": {
+    "viewports": [375, 1920, 2560],
+    "answerHeldAfter503": true,
+    "confirmationHeldAfter503": true,
+    "draftAndConsentRetained": true,
+    "successfulReadRestoresControls": true,
+    "originalUnknownCommandRetriesRetained": true,
+    "pageerrorFiltered": false
+  },
+  "publishedSources": [
+    {
+      "artifact": "tracker-openapi.json",
+      "repo": "FerrPOINT/task-tracker",
+      "head": "8c80a41fae3bf1c10439ddb7e536b05bf320340d",
+      "path": "openapi/openapi.json",
+      "gitBlob": "63c1db271fd0167d8c25ddc47c0575c93bd82f3d",
+      "sha256": "361672c7cbc04d7aaf9116480715c293fc8841671d2e6a026d618abc93c9722f"
+    },
+    {
+      "artifact": "tracker-sdlc.rs",
+      "repo": "FerrPOINT/task-tracker",
+      "head": "8c80a41fae3bf1c10439ddb7e536b05bf320340d",
+      "path": "backend/app/src/sdlc.rs",
+      "gitBlob": "a797067ca86913bfab1ea22c22dba6b4724d701a",
+      "sha256": "689d0764d7207fd20a156776f2f67074fd2260ddce1268a8bc15abda85228362"
+    },
+    {
+      "artifact": "workflow-openapi.json",
+      "repo": "FerrPOINT/project-workflow",
+      "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+      "path": "docs/pm-continuation-openapi.json",
+      "gitBlob": "f6b74b10be434b8eab071db2afa5792be2873813",
+      "sha256": "580cebfc6c5ad62606ac5c3458429aab19651493d6df312caa369822e31a34e4"
+    },
+    {
+      "artifact": "workflow-contract.md",
+      "repo": "FerrPOINT/project-workflow",
+      "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+      "path": "docs/pm-continuation-contract.md",
+      "gitBlob": "db678cb87d1e64af5e07026ed06ec1a4c8dd81a4",
+      "sha256": "d5c361ecf438686a8459ed7b0c2e46005c5335e18f6fbae0d5d3e60498f68828"
+    },
+    {
+      "artifact": "workflow-project_workflow-application-pm_execution.py",
+      "repo": "FerrPOINT/project-workflow",
+      "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+      "path": "project_workflow/application/pm_execution.py",
+      "gitBlob": "0f3a244a3c2ad5c4b15962c8ee8cf0d020d68778",
+      "sha256": "fbe8e3b73582186bfab12c1353721a517e93f8b206ad70df7637dac4567557e0"
+    },
+    {
+      "artifact": "workflow-project_workflow-domain-pm_execution.py",
+      "repo": "FerrPOINT/project-workflow",
+      "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+      "path": "project_workflow/domain/pm_execution.py",
+      "gitBlob": "c48c49e896753aecfd339abd17632baea84e1ce2",
+      "sha256": "8930cff19031e88366b5cc3c091dc71d11c1cbaea74b08f56a99f456f9b9a2e7"
+    },
+    {
+      "artifact": "workflow-project_workflow-domain-runtime_assignment.py",
+      "repo": "FerrPOINT/project-workflow",
+      "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+      "path": "project_workflow/domain/runtime_assignment.py",
+      "gitBlob": "26f10f68a0fbda9050cd4bfcd5015a91af9a1185",
+      "sha256": "6ed9affea573dd6e4e25f3bfd901310786ab83971a1f3c9d58908330d4190596"
+    },
+    {
+      "artifact": "workflow-project_workflow-interfaces-ui-routes-pm_api.py",
+      "repo": "FerrPOINT/project-workflow",
+      "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+      "path": "project_workflow/interfaces/ui/routes/pm_api.py",
+      "gitBlob": "795149e71560aa9aaaa106a7104af1fe7b44a436",
+      "sha256": "c59ec113327b4b507ff3ce934094414868ca6efc3acef6d7737ad6513972201f"
+    },
+    {
+      "artifact": "workflow-project_workflow-interfaces-ui-routes-runtime_api.py",
+      "repo": "FerrPOINT/project-workflow",
+      "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+      "path": "project_workflow/interfaces/ui/routes/runtime_api.py",
+      "gitBlob": "b4a6f9f48fec59a1d33d52dfe0faa60a295ec399",
+      "sha256": "0455db61a1112fbff872facf2bb4c928d078cd9496a209f39f8f4a6d3a1f524c"
+    }
+  ],
+  "limits": [
+    "PM Draft API has no production UI caller",
+    "First-step admission, structured PM publication, delivery and trusted resume/rebind remain runtime/producer integration dependencies",
+    "No native Workflow projection or live PM acceptance",
+    "Published Tracker parity has three additive Fleet DTO differences",
+    "Original combined WebKit navigation finding remains with Base owner",
+    "No independent-branch exact-head CI"
+  ],
+  "warnings": [
+    "Existing Vite chunk-size warning",
+    "Fixture teardown can request absent upstream; no pageerror suppression"
+  ]
+}

@@ -105,7 +105,7 @@ const revision: chats.RequirementsRevision = {
     prerequisites: [],
   },
 }
-function renderPage(tab = 'dialogue') {
+function renderPage(tab = 'dialogue', queryRetries: false | number = false) {
   const router = createMemoryRouter(
     [
       { path: '/chats/:sessionId', element: <ChatDetailPage /> },
@@ -114,7 +114,7 @@ function renderPage(tab = 'dialogue') {
     { initialEntries: [`/chats/session1?tab=${tab}`] },
   )
   const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    defaultOptions: { queries: { retry: queryRetries }, mutations: { retry: false } },
   })
   render(
     <QueryClientProvider client={client}>
@@ -172,6 +172,255 @@ beforeEach(() => {
   })
 })
 describe('production chat', () => {
+  it.each([
+    ['prompt', 'controls'],
+    ['steer', 'controls'],
+    ['steer', 'commands'],
+    ['stop', 'commands'],
+  ] as const)('holds %s during failed %s read retry', async (command, source) => {
+    vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+    const available = {
+      can_send: command === 'prompt',
+      can_steer: command === 'steer',
+      can_stop: command === 'stop',
+      active_run_id: command === 'prompt' ? null : 'run-original',
+      blocked_reason: null,
+    }
+    vi.mocked(chats.getChatControls).mockResolvedValue(available)
+    const { client } = renderPage('dialogue', 1)
+    if (command !== 'stop')
+      await userEvent.type(
+        await screen.findByLabelText(
+          command === 'steer' ? 'Уточнение активному запуску' : 'Сообщение агенту',
+        ),
+        'Keep original draft',
+      )
+    const button = await screen.findByRole('button', {
+      name:
+        command === 'stop'
+          ? 'Остановить запуск'
+          : command === 'steer'
+            ? 'Передать уточнение запуску'
+            : 'Отправить сообщение',
+    })
+    await waitFor(() => expect(button).toBeEnabled())
+    let resolveRetry!: () => void
+    function holdRead<T>(read: (...args: string[]) => Promise<T>, fresh: T) {
+      vi.mocked(read)
+        .mockRejectedValueOnce(new ApiError(503, 'Read retry pending'))
+        .mockImplementationOnce(async () => {
+          await new Promise<void>((resolve) => {
+            resolveRetry = resolve
+          })
+          return fresh
+        })
+    }
+    if (source === 'controls') holdRead(chats.getChatControls, available)
+    else holdRead(fleet.listRuntimeControls, [])
+    const key =
+      source === 'controls'
+        ? ['chat-controls', 'session1']
+        : ['runtime-controls', 'session1', 'run-original']
+    let refresh!: Promise<unknown>
+    await act(async () => {
+      refresh = client.invalidateQueries({ queryKey: key })
+    })
+    await waitFor(() => expect(resolveRetry).toBeTypeOf('function'), { timeout: 3000 })
+    expect(client.getQueryState(key)?.status).toBe('success')
+    expect(button).toBeDisabled()
+    fireEvent.click(button)
+    expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+    expect(fleet.steerSessionRun).not.toHaveBeenCalled()
+    expect(fleet.stopSessionRun).not.toHaveBeenCalled()
+    await act(async () => {
+      resolveRetry()
+      await refresh
+    })
+    await waitFor(() => expect(button).toBeEnabled())
+    if (command !== 'stop')
+      expect(
+        screen.getByLabelText(
+          command === 'steer' ? 'Уточнение активному запуску' : 'Сообщение агенту',
+        ),
+      ).toHaveValue('Keep original draft')
+  })
+  it.each([
+    ['answer', 'task-context'],
+    ['answer', 'clarifications'],
+    ['confirmation', 'task-context'],
+    ['confirmation', 'requirements'],
+  ] as const)('holds %s while the failed %s read is retrying', async (command, source) => {
+    const isAnswer = command === 'answer'
+    const { client } = renderPage(isAnswer ? 'clarification' : 'requirements', 1)
+    await userEvent.click(
+      isAnswer
+        ? await screen.findByRole('radio', { name: /Участники проекта/ })
+        : await screen.findByRole('checkbox', { name: /Подтверждаю цель/ }),
+    )
+    const submit = screen.getByRole('button', {
+      name: isAnswer ? 'Сохранить ответ' : 'Подтвердить редакцию 3',
+    })
+    await waitFor(() => expect(submit).toBeEnabled())
+    let resolveRetry!: () => void
+    function holdRead<T>(read: (id: string) => Promise<T>, fresh: T) {
+      vi.mocked(read)
+        .mockRejectedValueOnce(new ApiError(503, 'Authority refresh unavailable'))
+        .mockImplementationOnce(async () => {
+          await new Promise<void>((resolve) => {
+            resolveRetry = resolve
+          })
+          return fresh
+        })
+    }
+    if (source === 'task-context') holdRead(chats.getTaskContext, context)
+    else if (source === 'clarifications')
+      holdRead(chats.getClarifications, { questions: [question] })
+    else holdRead(chats.getRequirements, { revisions: [revision] })
+    let refresh!: Promise<unknown>
+    await act(async () => {
+      refresh = client.invalidateQueries({ queryKey: [source, 'session1'] })
+    })
+    await waitFor(() => expect(resolveRetry).toBeTypeOf('function'), { timeout: 3000 })
+    expect(client.getQueryState([source, 'session1'])?.status).toBe('success')
+    expect(submit).toBeDisabled()
+    fireEvent.click(submit)
+    expect(chats.answerClarification).not.toHaveBeenCalled()
+    expect(chats.confirmRequirements).not.toHaveBeenCalled()
+    await act(async () => {
+      resolveRetry()
+      await refresh
+    })
+    await waitFor(() => expect(submit).toBeEnabled())
+    expect(
+      isAnswer
+        ? screen.getByRole('radio', { name: /Участники проекта/ })
+        : screen.getByRole('checkbox', { name: /Подтверждаю цель/ }),
+    ).toBeChecked()
+  })
+  it('restores the reading position after visiting clarification without losing the answer draft', async () => {
+    vi.mocked(chats.getChatHistory).mockResolvedValue({
+      items: [message('reading', 'A retained history message')],
+      next_before: null,
+    })
+    const { router } = renderPage()
+    await screen.findByText('A retained history message')
+    const original = document.querySelector<HTMLDivElement>('.fc-chat-panel .fc-chat-scroll')!
+    Object.defineProperties(original, {
+      scrollHeight: { value: 1200 },
+      clientHeight: { value: 400 },
+    })
+    original.scrollTop = 240
+    fireEvent.scroll(original)
+    await userEvent.click(screen.getByRole('tab', { name: /Уточнения/ }))
+    await waitFor(() => expect(router.state.location.search).toContain('tab=clarification'))
+    fireEvent.change(await screen.findByLabelText('Комментарий'), {
+      target: { value: 'Original answer draft' },
+    })
+    await userEvent.click(screen.getByRole('tab', { name: /Диалог/ }))
+    await waitFor(() => expect(router.state.location.search).toContain('tab=dialogue'))
+    const returned = document.querySelector<HTMLDivElement>('.fc-chat-panel .fc-chat-scroll')!
+    expect(returned).not.toBe(original)
+    expect(returned.scrollTop).toBe(240)
+    await userEvent.click(screen.getByRole('tab', { name: /Уточнения/ }))
+    expect(await screen.findByLabelText('Комментарий')).toHaveValue('Original answer draft')
+    expect(chats.answerClarification).not.toHaveBeenCalled()
+  })
+  it('holds stop after the first failed controls read while its retry is still pending', async () => {
+    vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+    const available = {
+      can_send: false,
+      can_steer: false,
+      can_stop: true,
+      active_run_id: 'run-original',
+      blocked_reason: null,
+    }
+    vi.mocked(chats.getChatControls).mockResolvedValue(available)
+    const { client } = renderPage('dialogue', 1)
+    const stop = await screen.findByRole('button', { name: 'Остановить запуск' })
+    await waitFor(() => expect(stop).toBeEnabled())
+    let resolveRetry!: (value: typeof available) => void
+    vi.mocked(chats.getChatControls)
+      .mockRejectedValueOnce(new ApiError(503, 'Retrying controls'))
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveRetry = resolve
+          }),
+      )
+    let refresh!: Promise<unknown>
+    await act(async () => {
+      refresh = client.invalidateQueries({ queryKey: ['chat-controls', 'session1'] })
+    })
+    await waitFor(() => expect(resolveRetry).toBeTypeOf('function'), { timeout: 3000 })
+    expect(client.getQueryState(['chat-controls', 'session1'])?.status).toBe('success')
+    expect(stop).toBeDisabled()
+    fireEvent.click(stop)
+    expect(fleet.stopSessionRun).not.toHaveBeenCalled()
+    await act(async () => {
+      resolveRetry(available)
+      await refresh
+    })
+    await waitFor(() => expect(stop).toBeEnabled())
+  })
+  it('holds a cached stop permission after a failed refresh and recovers only from fresh controls', async () => {
+    vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+    const available = {
+      can_send: false,
+      can_steer: false,
+      can_stop: true,
+      active_run_id: 'run-original',
+      blocked_reason: null,
+    }
+    vi.mocked(chats.getChatControls).mockResolvedValue(available)
+    const { client } = renderPage()
+    const stop = await screen.findByRole('button', { name: 'Остановить запуск' })
+    await waitFor(() => expect(stop).toBeEnabled())
+    vi.mocked(chats.getChatControls).mockRejectedValue(new Error('Stop authority unavailable'))
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ['chat-controls', 'session1'] })
+    })
+    await screen.findByText('Stop authority unavailable')
+    expect(stop).toBeDisabled()
+    fireEvent.click(stop)
+    expect(fleet.stopSessionRun).not.toHaveBeenCalled()
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      ...available,
+      active_run_id: 'run-current',
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Проверить доступность отправки' }))
+    await waitFor(() => expect(stop).toBeEnabled())
+    await userEvent.click(stop)
+    await waitFor(() =>
+      expect(fleet.stopSessionRun).toHaveBeenCalledWith(
+        'session1',
+        'run-current',
+        expect.any(String),
+      ),
+    )
+  })
+  it.each(['different-owner', 'missing-run'] as const)(
+    'does not issue a stop with cached controls for %s',
+    async (condition) => {
+      vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+      vi.mocked(chats.getChatControls).mockResolvedValue({
+        can_send: false,
+        can_steer: false,
+        can_stop: true,
+        active_run_id: condition === 'missing-run' ? null : 'run-original',
+        blocked_reason: null,
+      })
+      if (condition === 'different-owner') useAuthStore.setState({ userId: 'operator' })
+      const { client } = renderPage()
+      const stop = await screen.findByRole('button', { name: 'Остановить запуск' })
+      if (condition === 'different-owner')
+        await waitFor(() =>
+          expect(client.getQueryData(['runtime-controls', 'session1', 'run-original'])).toEqual([]),
+        )
+      expect(stop).toBeDisabled()
+      fireEvent.click(stop)
+      expect(fleet.stopSessionRun).not.toHaveBeenCalled()
+    },
+  )
   it.each(['answer', 'confirmation', 'prompt'] as const)(
     'holds a timed-out %s and retries its original command',
     async (command) => {
@@ -751,6 +1000,35 @@ describe('production chat', () => {
     renderPage('clarification')
     expect(await screen.findByRole('radio', { name: /Участники проекта/ })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+  })
+  it('keeps task documents and drafts readable after the bound PM is replaced', async () => {
+    const { client } = renderPage('clarification')
+    const comment = await screen.findByLabelText('Комментарий')
+    fireEvent.change(comment, { target: { value: 'Original unsaved note' } })
+    vi.mocked(chats.getTaskContext).mockResolvedValue({
+      ...context,
+      tracker: {
+        ...context.tracker!,
+        assignment: {
+          assignment_id: 'replacement-assignment',
+          execution_id: 'replacement-execution',
+          agent_id: 'replacement-agent',
+          version: 2,
+          machine_subject: 'replacement-pm',
+        },
+        permissions: { can_answer: false, can_confirm: false },
+      },
+    })
+    await client.invalidateQueries({ queryKey: ['task-context', 'session1'] })
+    await waitFor(() => expect(comment).toBeDisabled())
+    expect(comment).toHaveValue('Original unsaved note')
+    expect(screen.getByRole('radio', { name: /Участники проекта/ })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+    expect(chats.answerClarification).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('tab', { name: /Требования/ }))
+    await screen.findByText('Настоящие требования')
+    expect(screen.getByRole('checkbox', { name: /Подтверждаю цель/ })).toBeDisabled()
+    expect(chats.confirmRequirements).not.toHaveBeenCalled()
   })
   it('replays the exact answer key after unknown acceptance without editable payload', async () => {
     vi.mocked(chats.answerClarification).mockRejectedValue(new Error('Connection interrupted'))

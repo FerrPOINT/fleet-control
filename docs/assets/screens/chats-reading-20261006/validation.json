@@ -1,0 +1,115 @@
+{
+  "consumerBaseline": "e79ca2b1db591220dc1e280fdf06de88418e2784",
+  "basePin": "cbb4e99230420dc2659431b1c9fb5090e5c940f0",
+  "sourceByteConvention": "Git blob/LF bytes; CRLF checkout normalized for comparison",
+  "sourceSha256": {
+    "frontend/src/pages/chat-detail/index.tsx": "a8866565374508d251b97c94a03c13a64a3d66082a6dae21ecada33d69a56d44",
+    "frontend/src/pages/chat-detail/index.test.tsx": "05933d6c0c8e220e21d428599848242c83918099b08fdc9f887aa4a33574d1b1",
+    "frontend/e2e/fleet-control.spec.ts": "2ab6cce10d6b00c592a059202b18073d82e934ab0815e04cdf92cc1c5d67aea1",
+    "docs/CHATS_READING_POSITION_FOLLOWUP_20261006.md": "53eb64160e2fae7f121bd8cc5cc4edea97d7abb8a8bdfe739f10f5cb20f305a5"
+  },
+  "scope": "One transcript tab-return position fix, focused unit/browser regression and evidence",
+  "runtimeChanged": false,
+  "backendChanged": false,
+  "sdkChanged": false,
+  "producerChanged": false,
+  "liveAcceptance": false,
+  "workflowProjectionImplemented": false,
+  "unitPassed": 274,
+  "unitFiles": 31,
+  "chatUnitCases": 43,
+  "browserPassed": 42,
+  "browserWorkers": 3,
+  "browserProjects": ["chromium", "firefox", "webkit"],
+  "browserOrigin": "http://localhost:24173",
+  "fixtureOnly": true,
+  "ownedPreviewStopped": true,
+  "beforeFix": {
+    "consumerSourceSha256": "fb3ecb41f7fdba7a8a82db3fadcdd570165bf065136ab02d2110edeae75af8ef",
+    "unitFailed": 1,
+    "browserFailed": 3,
+    "unitLogSha256": "4e48e5872afd5875295dd35fadc12ec8244694a6d4cecf972c734e7d611a015c",
+    "browserLogSha256": "9feee4a34134d41a50803f8a3fda0acb513303ee219d77f4b78f607d48486822",
+    "observed": "Tab return reset middle reading position to zero"
+  },
+  "logSha256": {
+    "reading-unit.log": "5e887de5ccd35659f6d81571a4700f2ab56e1f1c3cdd9c8f82456ab5b4d1a6f0",
+    "reading-browser.log": "8481d99bac588cd613bbb2d539517a5f12e54fc77197c6ec9b59892cf01fb1d3",
+    "reading-typecheck.log": "9a399d466b5264ca3c9ddcb500a1f7b91188f1de895c0df5bbf6ed8ceb31bcdd",
+    "reading-lint.log": "fea2ca52c435e20a7e93d4541868d89dc441a99a8ebb4d3e82613b6932415200",
+    "reading-build.log": "8ae7f31dc7f1abc1954c214e6599b8b992f9a1811471b86169da082ade88c616",
+    "reading-ui.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "reading-theme.log": "19c09b8614b31ebe0c3316b80778654a964971b9d06b6958071d6f5c9d052e3c",
+    "reading-format.log": "c09453a4f31198bf26b546e902529b737b98a8cbc6caa833e3c5f007a1a5583b",
+    "reading-markdown.log": "c07bf60ac5897ce30583b8b27912f33c69f3c0e47595129eade2b5dce78f81d2",
+    "reading-openapi.log": "cc1d015e92dc33dbb86c72610656cad895969f463056c23a06dc1f909eb1a92c",
+    "reading-compat.log": "2999c9e95f800d92eedeac3be71d6c5f26d94bbefbcd6bcd0d1cdf0bee88a540"
+  },
+  "checksPassed": [
+    "pnpm test",
+    "pnpm typecheck",
+    "pnpm lint",
+    "pnpm build",
+    "installed Base check-ui-contract --repo .. --require-installed",
+    "pnpm theme:check http://localhost:24173",
+    "owned Playwright fixture suite",
+    "pnpm format:check",
+    "pnpm markdown:check",
+    "pnpm openapi:check",
+    "pnpm openapi:compat (8 tests)"
+  ],
+  "screenshots": [
+    {
+      "file": "chat-reading-restored-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "d2672e84308f2accb5686d2be3d688e7c3a851a4247aaa06758edb9e475fa638",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-reading-restored-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "356ff1230eca39c022edb61f626c5efd03dfbad9531325397430c74c9ca7c782",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-reading-restored-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "5d4e622d258829921d9a2cb11d6c0e438b38aefb074ce1af17f185c156a411e3",
+      "browser": "chromium",
+      "fixtureOnly": true
+    }
+  ],
+  "browserScenario": {
+    "historyMessages": 40,
+    "viewports": [375, 1920, 2560],
+    "restoresMiddle": true,
+    "restoresFollowingTail": true,
+    "composerDraftRetained": true,
+    "commandsSubmitted": 0,
+    "pageerrorFiltered": false
+  },
+  "preservedExistingCoverage": [
+    "Concrete history cursor/order and overlap",
+    "Reconnect/message refresh while older page pending",
+    "Question version conflict/draft retention",
+    "Unknown original-command retry and strict receipt state",
+    "Read-only/reassignment/failed-refresh permissions"
+  ],
+  "limits": [
+    "Scroll position remains in page memory; no reload/session-navigation persistence or anchor restoration",
+    "Native SSE reset/replay, durable reconciliation and genuine PM execution/receipt acceptance remain owner dependencies",
+    "Original combined WebKit 35/36 navigation finding remains with Base owner",
+    "No independent-branch exact-head CI; browser checks use fixture APIs"
+  ],
+  "warnings": [
+    "Existing Vite chunk-size warning",
+    "Fixture teardown may request absent upstream; no pageerror suppression"
+  ],
+  "screenshotsVisuallyReviewed": true,
+  "protectedLogRoot": "C:/git/azhukov/sdlc/.local/chats-pm/fleet-control/frontend/node_modules/.cache/consumer-review-20261006"
+}

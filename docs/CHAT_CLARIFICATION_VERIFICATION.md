@@ -1,5 +1,74 @@
 # Chat Clarification Verification
 
+## Integrated Chats Consumer And Base Release Gates: 7 October 2026
+
+The seven remaining consumer commits through
+`717aaba4f0ee8b6812eda5651dc17b82cc9ef229` merge normally with runtime integration
+`e45d3e244b38ec8727b1e09b84a31b9eb05093e5`, without conflicts, new migrations,
+OpenAPI DTO changes, dependency pins or installed runtime changes. The consumer
+includes its previously published backend task-context authorization fix and
+expanded PostgreSQL regression; its other changes are UI/tests/docs and the
+separate unapproved PM Draft preview, not PM runtime orchestration.
+
+Fresh combined Rust1.88/PostgreSQL gate
+`sdlc-qa-fleet-container-control-f99a5321f68d` passes fmt, all-target check,
+strict all-target Clippy and528 tests in36 result groups, with30 explicit
+opt-in ignores. The expanded task-context/reassignment PG regression passes.
+All293 captured backend/SDK inputs are rechecked against the final bytes.
+Own Compose containers/networks are removed; independent exact-project
+inventories are empty. This is not a new actual Docker/Hermes or migration gate.
+
+- Source manifest SHA256:
+  `83da949c33f5ae8a9c80d9bd3d2f7951bce6ce01dedc32c9deb7200a93e7fe40`.
+- Full gate log SHA256:
+  `fc2eb2dc5c4713b643975cab5e112602780629b7c358325f7532eb45b6617cd7`.
+- Final report SHA256:
+  `d4052c2e2509aed63f86b9b40698569b5ef0d9398aafa70568e1f4c81b05f8ce`.
+
+Private artifacts: workspace `.local/fleet-container-control-checks-931d2902e70a/`.
+Workspace Docker audit checks65 desktop-linux containers and0 on sdlc2-runner
+with no violations. sdlc1-runner remains unavailable, so `complete=false` and
+exit1 are retained; this is not a global Docker audit PASS.
+
+Combined frontend verification passes289 unit tests, build/typecheck, lint,
+Prettier, checked-in OpenAPI/client equality and127 Markdown documents. The
+135-screen manifest and all9 validator tests pass. The actual three-browser
+fixture command selects `fleet-control.spec.ts`, `chats-directory.spec.ts` and
+`task-approvals.spec.ts`:60 PASS,0 unexpected/skipped/flaky in453.83 seconds.
+It uses the combined production bundle, pinned SDK and same-origin fixture
+APIs/SSO, not actual Tracker, Workflow, Hermes or installed user credentials.
+
+Private artifacts: workspace `.local/fleet-combined-browser-20261006/`;
+`final-report.json` SHA256
+`c7bb3af284d7fddb47a275191cdc1d5894a81fb879c856ba1758f40da1f8f991`.
+The final captures are retained separately from `initial-cross-origin-interrupted`.
+That first run failed and was stopped after a cross-origin fixture setup mismatch;
+its results are not relabeled. The successful run preserves the original page-error
+and authorization assertions. Its owned preview is stopped and port4178 has no
+listener after cleanup.
+
+All9 committed
+[command-freshness views](assets/screens/chats-command-freshness-20261006/validation.json)
+match fresh Chromium screenshots byte-for-byte at375/1920/2560 widths. Fresh
+desktop dialogue and mobile clarification are visually inspected. The original
+35/36 WebKit failure and
+[navigation diagnostic](CHATS_PM_WEBKIT_STREAM_DIAGNOSTIC_20261006.md) remain;
+60/60 is a verified repeat, not a semantic Base SDK fix or live PM acceptance.
+
+Base PR150 is independently ready/MERGEABLE at
+`7d7323a59d744d50f9b101a3568adb3d59ee9683`: CI37528638132 passes all9 jobs,
+including messaging/OTLP/PostgreSQL/MSRV and packaged UI checks. Local gates pass
+63 Rust/PG tests with14 explicit ignores,181 Linux Python without skips,
+443 host cases with12 platform skips, and13 Node/83 Vitest. Its exact-head checks
+remain green after marking ready; no reviews/threads are present. The PR is open,
+not merged; private log utility69831aa remains a separate dependent source branch.
+Base SDK pin cbb4e99 and installed services are unchanged.
+
+This packet does not complete production Docker log ingestion, original-custody
+restart/interrupted activation recovery, producer parity/predispatch first-step
+authority, PM structured tools/answer delivery/checkpoint/rebind, authorized
+Workflow projection, Forge or seven-agent SDLC. No new live PM claim follows.
+
 ## Actual Private Base Docker Log Readback: 6 October 2026
 
 Owned project `sdlc-qa-fleet-container-live-453211827a97` passes the corrected

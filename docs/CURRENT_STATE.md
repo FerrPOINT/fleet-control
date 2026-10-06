@@ -1,5 +1,33 @@
 # Current State
 
+## Integrated Chats Consumer: 7 October 2026
+
+The seven remaining commits through consumer
+`717aaba4f0ee8b6812eda5651dc17b82cc9ef229` are normally integrated with runtime
+source `e45d3e244b38ec8727b1e09b84a31b9eb05093e5`, preserving both histories.
+Historical task-context reads survive PM reassignment without gaining answer/
+confirmation permissions. Fresh permission and command-journal reads gate
+send/steer/stop; drafts and original unknown-command identities survive retries.
+Transcript reading positions survive tab switches. PM Draft remains an isolated
+preview awaiting explicit design approval; it has no production creation caller.
+
+Combined frontend checks pass289 unit cases, build/typecheck, lint, format,
+OpenAPI/client equality and127 Markdown documents. The fresh same-origin fixture
+gate passes60 cases across Chromium/Firefox/WebKit, with no skips/flaky results.
+The135-screen manifest and9 validator tests pass; all9 command-freshness screenshots
+match fresh Chromium captures byte-for-byte. Desktop dialogue and mobile
+clarification are visually inspected. This is not a live Tracker/Hermes PM run.
+Fresh combined Rust1.88/PostgreSQL verification passes528 tests with30 explicit
+opt-in ignores, fmt/check/strict all-target Clippy and the reassignment regression.
+All293 captured backend/SDK files remain unchanged; owned resources are removed.
+See [combined evidence](CHAT_CLARIFICATION_VERIFICATION.md#integrated-chats-consumer-and-base-release-gates-7-october-2026).
+
+The earlier35/36 WebKit failure and its independent navigation diagnostic are
+retained. A successful repeat is not a Base SDK navigation fix: the pin remains
+unchanged. Real predispatch authority/first step, PM structured publication,
+durable answer delivery, checkpoint/resume/rebind, authorized workflow projection
+and full SDLC still require implementation and live acceptance.
+
 ## Private Docker Log Transport: 6 October 2026
 
 The private Rust `log_tail` client is implemented with closed original receipts,
@@ -15,8 +43,10 @@ Actual Rust-client invocation, production ingestion/resolved-secret redaction,
 durable generation cursor/deduplication/rotation and controller recovery remain
 open. There is no new migration, public schema, UI screenshot, SDK pin or
 installed opt-in. Base control source69831aa is published, not released; its
-prerequisite PR150 is currently conflicting with main despite9 successful
-exact-head checks. Do not treat previous mergeability as current readiness.
+prerequisite PR150 is now ready/MERGEABLE at
+`7d7323a59d744d50f9b101a3568adb3d59ee9683`, with9 successful exact-head checks
+in CI37528638132 and no review threads after recheck. It is open, not merged;
+the log branch still contains that predecessor and is not a standalone release.
 Task/PM first-step admission and full SDLC remain unaccepted. Exact sources,
 hashes, failed-attempt retention and boundaries are in
 [verification](CHAT_CLARIFICATION_VERIFICATION.md#actual-private-base-docker-log-readback-6-october-2026).

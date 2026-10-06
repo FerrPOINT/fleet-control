@@ -1,0 +1,210 @@
+{
+  "consumerBaseline": "590d00d1895097cf44569de184b275bfbe539a29",
+  "basePin": "cbb4e99230420dc2659431b1c9fb5090e5c940f0",
+  "sourceByteConvention": "Git blob/LF bytes",
+  "sourceSha256": {
+    ".gitignore": "f051876feaf7f26122ba30644ff0f877746b676c4c5fe550e29577f7c730f5e7",
+    "frontend/vite.pm-draft-preview.config.ts": "6c95151677137ab36d57a8b701919889f03951de2506c6054f054ccabb50aac7",
+    "frontend/playwright.pm-draft-preview.config.ts": "c67df20ca3e33758348049efe8bc9dd370ac21ac658569d245b10054aa1490b9",
+    "frontend/src/previews/pm-draft/fixtures.ts": "8427b56905d5a4dbf67cfa018f2dc768b4843f896304e14befa4947c533aed78",
+    "frontend/src/previews/pm-draft/preview.tsx": "c53dc87dc3e5ec12fedf7d72847717850d8bdc8b7b0217df5a44906df66cace1",
+    "frontend/src/previews/pm-draft/preview.test.tsx": "3988bdecc15eb62adf28aca28112272ae83d51246cf574397978ac346f51b0ba",
+    "frontend/preview-e2e/pm-draft-preview.spec.ts": "d4563a9188af3633151d11391edd3d47e92f2b3a2429755dd89601da8c0d6301",
+    "frontend/scripts/capture-pm-draft-preview.mjs": "809e5b43fe085f1ff5381284171706e6f883162102928847f2e7aff02f482393",
+    "docs/design/PM_DRAFT_CREATION_PREVIEW.md": "73c19b638f68a467178e4893ecf7889a228fa2409a310be43877ea394045297f"
+  },
+  "entry": "http://127.0.0.1:55498/pm-draft-preview.html#/",
+  "evidence": "Isolated fictional design proposal; memory-only commands and generated DTO types",
+  "approved": false,
+  "liveAcceptance": false,
+  "productionMutationFormsAdded": false,
+  "apiRequests": 0,
+  "externalRequests": 0,
+  "pageerrorFiltered": false,
+  "unitPassed": 285,
+  "unitFiles": 31,
+  "previewUnitCases": 11,
+  "browserPassed": 12,
+  "browserProjects": ["chromium", "firefox", "webkit"],
+  "viewports": [375, 768, 1920, 2560],
+  "checks": [
+    "Normal creation/preparation/chat navigation",
+    "Original project/key lookup and exact request replay after explicit absence",
+    "Unknown continuation reconciled by original operation ID",
+    "Incomplete draft has no saved task or chat",
+    "Awaiting admission has saved task/chat and no dispatch",
+    "Read-only, denied and unavailable holds",
+    "Empty filtered directory cursor",
+    "Keyboard navigation, Back/Forward and retained input",
+    "Axe accessibility without excluded rules",
+    "No form/draft/entity data in URL or storage",
+    "Isolated preview build; production build excludes preview fixture markers"
+  ],
+  "logSha256": {
+    "draft-preview-all-unit.log": "e8656838b1eb386c482c3f0d3638585d792975e27d1ce8ad47425951cc86dde5",
+    "draft-preview-browser.log": "d73273fd41f32fb35b18caa276cd651ebc972190508e92ccdcc0df3f1f695f65",
+    "draft-preview-build.log": "ccee547db7628b4092fe32aedffa72b0b1a7befafd2e58f91d7647ab2cae045a",
+    "draft-preview-production-build.log": "98f358d3a3ac43a6e5cd570330ac5459f0f899bf2e0f7bbb63928cbdfa9f05a5",
+    "draft-preview-lint.log": "fea2ca52c435e20a7e93d4541868d89dc441a99a8ebb4d3e82613b6932415200",
+    "draft-preview-ui.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "draft-preview-typecheck.log": "9a399d466b5264ca3c9ddcb500a1f7b91188f1de895c0df5bbf6ed8ceb31bcdd"
+  },
+  "tracker114": {
+    "head": "8c80a41fae3bf1c10439ddb7e536b05bf320340d",
+    "state": "OPEN"
+  },
+  "workflow90": {
+    "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+    "state": "OPEN"
+  },
+  "entries": [
+    {
+      "file": "awaiting-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "browser": "chromium",
+      "sha256": "5972a4f0a95e242270864fbbb60cd516557991cff027ced277a82e8836ffdc7c"
+    },
+    {
+      "file": "awaiting-375.png",
+      "width": 375,
+      "height": 812,
+      "browser": "chromium",
+      "sha256": "d16d31b1ac3deb2d3b6cdf4d839b443258966afffcd70172af60deb934ad54ba"
+    },
+    {
+      "file": "chat-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "browser": "chromium",
+      "sha256": "bd8c4bd7b39b77bf41919dfd8f4adb2e9038f651b74354a65ef1d4903a9cbc5c"
+    },
+    {
+      "file": "chat-375.png",
+      "width": 375,
+      "height": 812,
+      "browser": "chromium",
+      "sha256": "2b2896bf2b0bbf3d871baa8168c5115dc3c785bcfec3586e27c9420eb0256d36"
+    },
+    {
+      "file": "denied-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "browser": "chromium",
+      "sha256": "3b1aade150cc0452b7b51715a2721200ffb26589ab9a790b5ab53e56be8fc417"
+    },
+    {
+      "file": "denied-375.png",
+      "width": 375,
+      "height": 856,
+      "browser": "chromium",
+      "sha256": "d5a83acfa6b4f759b70080182cabfb3d0443826d135c2b12b0b9fc1a39a70c5d"
+    },
+    {
+      "file": "incomplete-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "browser": "chromium",
+      "sha256": "1b136074a3bacaa8fdd68797675e0b2329a42481661fb02f587a0ac0b82e6258"
+    },
+    {
+      "file": "incomplete-375.png",
+      "width": 375,
+      "height": 812,
+      "browser": "chromium",
+      "sha256": "649a27c74e5096af8d17890e8e071347b14522a615ab0bd412c9cf1a780a2c0f"
+    },
+    {
+      "file": "list-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "browser": "chromium",
+      "sha256": "ec3006d28b4655a14909f8e7a22541cf16de00689e09e4ba761c978f850ee9e8"
+    },
+    {
+      "file": "list-375.png",
+      "width": 375,
+      "height": 812,
+      "browser": "chromium",
+      "sha256": "5309cccdac92581ff80e4c30ce51e600990034d1f68d17b356649a8eb0c20cc4"
+    },
+    {
+      "file": "readonly-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "browser": "chromium",
+      "sha256": "3a9ebf38b66f3c35bff9bc47cd2b506f8bcb5beda7003b2fa8afde0f31b146cd"
+    },
+    {
+      "file": "readonly-375.png",
+      "width": 375,
+      "height": 856,
+      "browser": "chromium",
+      "sha256": "edf7bf36800d61575eed09afbcda76cfc90ef753340b1457db6f74b3aa8f1c58"
+    },
+    {
+      "file": "unavailable-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "browser": "chromium",
+      "sha256": "af20527bbbfb088b8635b9b9bd9da08cfd78e08ac248bc4d2809b03c2bd62191"
+    },
+    {
+      "file": "unavailable-375.png",
+      "width": 375,
+      "height": 868,
+      "browser": "chromium",
+      "sha256": "00fa79558f94d8d6729f1020e748f072cb8328875f4359d2a8a019094d28cc4b"
+    },
+    {
+      "file": "uncertain-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "browser": "chromium",
+      "sha256": "476f71e0f618cae0caba7d86dfd9b5a5b91acfef0078363eec694929c9d4b779"
+    },
+    {
+      "file": "uncertain-375.png",
+      "width": 375,
+      "height": 812,
+      "browser": "chromium",
+      "sha256": "177518ad068eba080ac07240dc6237a735584ec73980f1a09a8a131b8e0958c0"
+    },
+    {
+      "file": "form-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "browser": "chromium",
+      "sha256": "9442a1caf99a637301dbbc37316a3c88540ccb689e60895b2911a50f83d27a7f"
+    },
+    {
+      "file": "form-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "browser": "chromium",
+      "sha256": "1a1a9c807f7026083e75c067d1b2097a2fe7060e1c97a9260d42877af5597fc9"
+    },
+    {
+      "file": "form-375.png",
+      "width": 375,
+      "height": 812,
+      "browser": "chromium",
+      "sha256": "c51b1b3003119439276a36bb7991d8629da0ef6f1cbfa128a3de855318805a51"
+    },
+    {
+      "file": "form-768.png",
+      "width": 768,
+      "height": 1024,
+      "browser": "chromium",
+      "sha256": "4f0380ff5e4a5fced174bc3de32d3438d43ec7743a541cd45f0d1df20da114c6"
+    }
+  ],
+  "limitations": [
+    "Preview state parameters seed examples on document load; this does not prove durable recovery after reload",
+    "Live effective permissions and PM eligibility must be rechecked server-side",
+    "First dispatch, event delivery, checkpoint/resume/rebind and native Workflow projection remain runtime/producer dependencies",
+    "No exact-head branch CI"
+  ],
+  "screenshotsVisuallyReviewed": true,
+  "capturesIncludeScrolledActions": true
+}
