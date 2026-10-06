@@ -1,5 +1,20 @@
 # Testing
 
+## Original Container Environment Input
+
+Three `runtime::container_environment::tests` check exact escaped/interpolated
+bytes without native interpretation, missing versus empty, stale rendered input,
+invalid UTF8/oversize/nonfile and Unix symlink/hardlink/outside-root denial.
+Three new PostgreSQL lifecycle cases verify precreate input freezing, rejected
+rotation and snapshot removal without another prepare, exact original recovery,
+prepared-start drift/deletion holds, private file permissions and serialized
+intent overflow before any DB claim or create. A fourth configuration case
+requires the actual file to match the activated revision before preparation.
+The bounded fake Base also reads the snapshot at physical prepare time to prove
+ordering. These are real supervisor/PG tests, not Docker/native resolved-secret
+acceptance. All require a fresh captured Linux workspace gate; original effective
+native credentials and production redaction remain separate requirements.
+
 ## Private Source-Page Client
 
 Eight new Rust component cases in `runtime::container_control::tests` cover

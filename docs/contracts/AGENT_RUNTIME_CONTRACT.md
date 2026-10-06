@@ -2,6 +2,13 @@
 
 ## Container Candidate
 
+New automatic intents preserve the exact guarded dotenv input/hash in private
+controller storage before create and under the immutable preparation DB hash.
+Revision-bound input must match its rendered file; retry/start reject drift.
+Legacy intents are not backfilled. This preserves original input after credential
+rotation, not native resolved-secret coverage; no collector, public DTO or
+migration is added. See [input contract](CONTAINER_CONTROL_V1.md).
+
 The real [container acceptance](../CONTAINER_SUPERVISOR_ACCEPTANCE.md) verifies
 two UID999 Hermes containers, isolated SOUL/model input, once-only free-chat
 delivery, configuration drain/replacement and restart through the Rust supervisor.

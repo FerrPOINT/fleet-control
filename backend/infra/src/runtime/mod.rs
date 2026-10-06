@@ -29,6 +29,7 @@ mod approval_snapshot;
 #[cfg(all(test, target_os = "linux"))]
 mod container_configuration_tests;
 pub mod container_control;
+mod container_environment;
 mod container_lifecycle;
 #[cfg(test)]
 mod container_lifecycle_tests;

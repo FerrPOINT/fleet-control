@@ -40,6 +40,8 @@ struct ContainerCreationIntent {
     mount_mapping: Option<container_control::ContainerMountMapping>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     mapping_file: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    environment_snapshot: Option<container_environment::ContainerEnvironmentSnapshot>,
 }
 
 fn apply_mapping(
@@ -128,6 +130,9 @@ impl LocalRuntimeSupervisor {
         ordinal: i64,
         configuration: &app::runtime_launch::RuntimeConfigurationClaim,
     ) -> Result<(), AppError> {
+        if serde_json::to_vec(intent).map_err(|_| held())?.len() > 64 * 1024 {
+            return Err(held());
+        }
         self.repo
             .claim_container_preparation(
                 &app::runtime_launch::RuntimeContainerPreparation {
@@ -228,7 +233,46 @@ impl LocalRuntimeSupervisor {
             bridge_controller: config.bridge_controller.clone(),
             mount_mapping: None,
             mapping_file: None,
+            environment_snapshot: None,
         })
+    }
+
+    async fn capture_container_environment(
+        &self,
+        intent: &mut ContainerCreationIntent,
+    ) -> Result<(), AppError> {
+        let expected = if let Some(revision) = intent.configuration_revision {
+            let revision = self
+                .repo
+                .get_config_revision(intent.agent_id, revision)
+                .await?;
+            let hash = crate::runtime_launches::snapshot_hash(
+                &serde_json::to_value(&revision.snapshot).map_err(|_| held())?,
+            )?;
+            if intent.configuration_sha256.as_ref() != Some(&hash) {
+                return Err(held());
+            }
+            let agent = self.repo.get_agent(intent.agent_id).await?;
+            let files = crate::configuration_files(&agent, &self.config, &revision).await?;
+            Some(
+                files
+                    .into_iter()
+                    .find(|(path, _)| path.file_name().is_some_and(|name| name == ".env"))
+                    .ok_or_else(held)?
+                    .1,
+            )
+        } else {
+            None
+        };
+        intent.environment_snapshot = Some(
+            container_environment::capture(
+                Path::new(&self.config.fleet.agents_root),
+                Path::new(&intent.paths.config),
+                expected.as_deref(),
+            )
+            .await?,
+        );
+        Ok(())
     }
 
     async fn create_container(
@@ -272,6 +316,13 @@ impl LocalRuntimeSupervisor {
             configuration.revision,
             configuration.sha256.clone(),
         )?;
+        // Legacy intents retain their original hash; never backfill rotated input.
+        if previous
+            .as_ref()
+            .is_none_or(|value| value.environment_snapshot.is_some())
+        {
+            self.capture_container_environment(&mut intent).await?;
+        }
         let name = format!("{}.{}", agent.id, generation);
         let control = ContainerControl::new(
             config.python.clone().into(),
@@ -698,6 +749,9 @@ impl LocalRuntimeSupervisor {
                 revision_number,
                 revision_hash.clone(),
             )?;
+            if intent.environment_snapshot.is_some() {
+                self.capture_container_environment(&mut expected).await?;
+            }
             if let Some(mapping) = intent.mount_mapping.clone() {
                 let controller = expected.bridge_controller.as_ref().ok_or_else(held)?;
                 container_control::validate_mount_mapping(

@@ -1,5 +1,26 @@
 # Security
 
+## Original Container Environment Input
+
+New automatic creation intents include a private versioned snapshot of the exact
+guarded `.env` UTF8 bytes and SHA256, including explicit missing/empty distinctions.
+For a configuration revision these bytes must match its freshly rendered input.
+The snapshot is included in the existing immutable database intent hash before
+Docker create; raw bytes exist only in the mode0600 controller document outside
+agent mounts, not in public DTOs, Debug, database fields, logs or events. Input and
+complete serialized intent limits are checked before claiming the database fence.
+Preparation retries and start reconstruct and compare the original input, so a
+rotated/deleted file holds rather than rewriting original credentials. Removing
+the optional field from an already claimed document cannot bypass the DB hash.
+
+Legacy intents without this field retain their original hashes, not a backfilled
+snapshot from today's environment. They cannot establish original dotenv input
+for a future collector. This is launch-input custody, not a resolved-secret or
+native runtime attestation: the pinned Hermes loader applies dotenv expansion,
+credential sanitization, external sources and managed overlays. Those values
+and later reloads still need a trustworthy per-launch redaction protocol before
+raw Docker bytes may be mirrored. See [container contract](contracts/CONTAINER_CONTROL_V1.md).
+
 ## Private Raw Docker Log Boundary
 
 The additive Base `logs` response is controller-private and may contain secrets.

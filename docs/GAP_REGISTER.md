@@ -1,5 +1,22 @@
 # Gap Register
 
+## Original Dotenv Input Custody; Resolved Secrets Still Open
+
+New automatic intents freeze exact guarded dotenv bytes/hash before create and
+under the immutable preparation DB hash. Revision-bound starts require rendered
+file equality; retries/start reject rotated or missing input. Legacy intent hashes
+are preserved without backfill. No collector or public raw-data path is enabled.
+Native dotenv expansion/sanitization, external/managed sources, reloads and actual
+resolved-value redaction remain open; file custody does not establish runtime
+secret coverage. See [security](SECURITY.md#original-container-environment-input)
+and [implementation sequence](IMPLEMENTATION_PLAN.md#next-runtime-work-after-private-log-transport).
+
+The exact input-custody packet passes546 Linux/PG workspace cases,30 explicit
+opt-in ignores and fmt/check/strict Clippy; all295 frozen inputs match and own
+QA resources are cleaned. These results do not close native effective-secret,
+actual Docker ingestion or live SDLC acceptance. See
+[verification](CHAT_CLARIFICATION_VERIFICATION.md#original-container-environment-input-7-october-2026).
+
 ## Integrated Consumer And Current Release Boundary
 
 Consumer14982e1 is included in the runtime source without replaying its earlier

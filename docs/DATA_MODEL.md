@@ -1,5 +1,12 @@
 # Data Model
 
+Automatic creation intents now optionally include a private versioned dotenv
+input snapshot. Its exact bytes/hash participate in the existing canonical
+`runtime_container_preparations.intent_sha256`, not a new plaintext DB column or
+migration. Historical hashes/documents are retained without backfill. This is
+not an effective-secret, source cursor or collector checkpoint table. See
+[input contract](contracts/CONTAINER_CONTROL_V1.md).
+
 ## Internal Container Endpoint Identity
 
 The candidate additive migration `000019` stores `runtime_launch_endpoints`:

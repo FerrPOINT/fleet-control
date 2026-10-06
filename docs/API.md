@@ -1,5 +1,10 @@
 # API
 
+Original container dotenv bytes/hash remain exclusively inside the private
+creation intent. Existing public routes, DTOs and generated OpenAPI are unchanged;
+environment drift produces existing reconciliation errors, not raw secret output.
+No public log ingestion endpoint is enabled by this input-custody change.
+
 ## Container Endpoint Custody
 
 There is no public endpoint setter. The internal runtime supervisor resolves the

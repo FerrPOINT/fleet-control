@@ -1,5 +1,13 @@
 # Hermes Adapter Contract
 
+Automatic container launch input now includes a private exact dotenv snapshot
+before create, frozen by the preparation intent hash and checked before start.
+Native Hermes dotenv interpolation, credential sanitization, external sources,
+managed overlays and reloads are not attested by that input snapshot. Resolved
+secret redaction remains a blocker for the production Docker log collector.
+No Hermes wire protocol, delegated PM credential persistence or public API
+changes follow from this input-custody guard; Java behavior is unchanged.
+
 The opt-in [container consumer](CONTAINER_CONTROL_V1.md) uses the original Base
 registration/ACK/bridge endpoint for all Hermes requests, including health,
 capabilities, dispatch, readback, streams and controls. The public adapter

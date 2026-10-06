@@ -20,6 +20,14 @@ straight into generic `insert_log` or advance cursors in memory only.
 
 Implement the remaining collector as one coherent generation-bound flow:
 
+The original-input prerequisite now freezes guarded dotenv bytes/hash in each
+new automatic private creation intent before create. Revision-bound launches
+match the rendered file and retry/start checks reject drift. Historical intents
+are not backfilled. This is not completion of item1: the pinned native loader
+interpolates/sanitizes credentials and can apply external/managed sources. Prove
+and freeze its actual effective values without storing delegated child credentials
+or relying on the current environment; the collector remains disabled.
+
 1. Freeze actual resolved launch credentials in private controller storage before
    execution; never reconstruct old secrets from the current rotated environment.
 2. Validate original launch/controller/registration and retain partial line/UTF8/

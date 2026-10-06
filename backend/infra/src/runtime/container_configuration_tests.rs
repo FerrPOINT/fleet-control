@@ -202,6 +202,56 @@ async fn stopped_container_configuration_activates_without_spawning_or_native_pa
 }
 
 #[tokio::test]
+async fn container_creation_requires_dotenv_bytes_from_the_claimed_configuration_revision() {
+    let Some((repo, agent, owner, config, root)) =
+        lifecycle_tests::fixture(AgentKind::Hermes).await
+    else {
+        return;
+    };
+    let config = container_lifecycle_tests::fake_creation(&config, &agent, false).await;
+    let runtime = lifecycle_tests::supervisor(Arc::new(config), repo.clone());
+    let revision = draft(&repo, &agent, owner, "Environment snapshot candidate").await;
+    claim(&repo, &revision, owner).await;
+    apply(&runtime, &revision).await.unwrap();
+    let envfile = Path::new(&agent.paths.config).join(".env");
+    let original = tokio::fs::read(&envfile).await.unwrap();
+    tokio::fs::write(&envfile, "API_SERVER_KEY=foreign\n")
+        .await
+        .unwrap();
+    assert!(
+        runtime
+            .prepared_container(&agent, LaunchPhase::Regular)
+            .await
+            .is_err()
+    );
+    assert!(
+        !repo
+            .has_pending_container_preparation(agent.id)
+            .await
+            .unwrap()
+    );
+    assert!(!root.join("controller/prepare-calls").exists());
+    tokio::fs::write(&envfile, &original).await.unwrap();
+    runtime
+        .prepared_container(&agent, LaunchPhase::Regular)
+        .await
+        .unwrap();
+    let intent: Value = serde_json::from_slice(
+        &tokio::fs::read(root.join(format!("controller/{}.container-creation.json", agent.id)))
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        intent["environment_snapshot"]["dotenv"],
+        String::from_utf8(original).unwrap()
+    );
+    assert_eq!(intent["configuration_revision"], revision.revision);
+    assert!(!root.join("controller/start-effect").exists());
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[tokio::test]
 async fn missing_pending_intent_prevents_configuration_files_and_journal_mutation() {
     let Some((repo, agent, owner, config, root)) =
         lifecycle_tests::fixture(AgentKind::Hermes).await

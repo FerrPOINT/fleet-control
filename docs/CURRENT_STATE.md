@@ -1,5 +1,21 @@
 # Current State
 
+## Original Container Environment Input: 7 October 2026
+
+New automatic container intents freeze a private exact dotenv input/hash before
+create, include it in the existing DB preparation fence and compare it again
+before retry/start. Revision-bound launches require rendered input equality;
+legacy intents are not backfilled. No public API, migration, SDK, UI, installed
+runtime or production collector change is made. Native effective credentials,
+reload coverage and actual Docker log ingestion remain separate acceptance.
+See [security boundary](SECURITY.md#original-container-environment-input).
+
+The fresh full Linux/Rust1.88/PostgreSQL gate passes546 workspace cases in37
+groups, with30 explicit opt-in ignores, fmt/check/strict Clippy and295 unchanged
+captured inputs. Seven new regressions cover input custody and pre-effect holds;
+owned QA resources are cleaned. Six host loader cases, README and127 Markdown
+checks pass. See [exact evidence](CHAT_CLARIFICATION_VERIFICATION.md#original-container-environment-input-7-october-2026).
+
 ## Private Rust Source-Page Client: 7 October 2026
 
 Fleet now implements private `ContainerControl::log_page`, with closed original

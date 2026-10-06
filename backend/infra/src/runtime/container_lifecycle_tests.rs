@@ -583,6 +583,11 @@ elif r['action']=='prepare':
  intents=[json.loads(p.read_bytes()) for p in root.glob(r['policy']['resource_id']+'*.container-creation.json')]
  intent=next(v for v in intents if v['generation']==r['policy']['generation'])
  assert intent['generation']==r['policy']['generation'] and intent['operation_id']==r['operation_id']
+ if 'environment_snapshot' in intent:
+  snapshot=intent['environment_snapshot'];assert snapshot['version']==1
+  envfile=Path(intent['paths']['config'])/'.env'
+  assert snapshot['dotenv']==(envfile.read_text() if envfile.exists() else None)
+  assert snapshot['dotenv_sha256']==(hashlib.sha256(envfile.read_bytes()).hexdigest() if envfile.exists() else None)
  assert r['process']['environment']['HERMES_HOME']=='/config' and r['process']['working_dir']=='/workspace'
  if not (root/'prepare-effect').exists():(root/'prepare-effect').write_text('1')
  if (root/'prepare-unknown').exists():
@@ -641,6 +646,173 @@ print(json.dumps({'protocol_version':r['protocol_version'],'action':r['action'],
             .unwrap();
     }
     config
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn pending_container_freezes_dotenv_before_create_and_rejects_rotation_or_snapshot_removal() {
+    let Some((repo, agent, _, config, root)) = lifecycle_tests::fixture(AgentKind::Hermes).await
+    else {
+        return;
+    };
+    let config = fake_creation(&config, &agent, true).await;
+    let runtime = lifecycle_tests::supervisor(Arc::new(config), repo.clone());
+    let envfile = Path::new(&agent.paths.config).join(".env");
+    let original_env = "PROVIDER_TOKEN=\"generation-old-credential\"\n";
+    tokio::fs::write(&envfile, original_env).await.unwrap();
+    assert!(
+        runtime
+            .prepared_container(&agent, LaunchPhase::Regular)
+            .await
+            .is_err()
+    );
+    let private = root.join("controller");
+    let intent_path = private.join(format!("{}.container-creation.json", agent.id));
+    let original = tokio::fs::read(&intent_path).await.unwrap();
+    let mut intent: Value = serde_json::from_slice(&original).unwrap();
+    assert_eq!(intent["environment_snapshot"]["dotenv"], original_env);
+    assert_eq!(
+        intent["environment_snapshot"]["dotenv_sha256"],
+        hex::encode(Sha256::digest(original_env.as_bytes()))
+    );
+    let calls = tokio::fs::read(private.join("prepare-calls"))
+        .await
+        .unwrap();
+    tokio::fs::write(&envfile, "PROVIDER_TOKEN=\"rotated-credential\"\n")
+        .await
+        .unwrap();
+    assert!(
+        runtime
+            .prepared_container(&agent, LaunchPhase::Regular)
+            .await
+            .is_err()
+    );
+    assert_eq!(tokio::fs::read(&intent_path).await.unwrap(), original);
+    assert_eq!(
+        tokio::fs::read(private.join("prepare-calls"))
+            .await
+            .unwrap(),
+        calls
+    );
+    // Removing the optional field cannot turn a claimed new intent into a legacy one.
+    intent
+        .as_object_mut()
+        .unwrap()
+        .remove("environment_snapshot");
+    tokio::fs::write(&intent_path, serde_json::to_vec(&intent).unwrap())
+        .await
+        .unwrap();
+    assert!(
+        runtime
+            .prepared_container(&agent, LaunchPhase::Regular)
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        tokio::fs::read(private.join("prepare-calls"))
+            .await
+            .unwrap(),
+        calls
+    );
+    tokio::fs::write(&intent_path, original).await.unwrap();
+    tokio::fs::write(&envfile, original_env).await.unwrap();
+    tokio::fs::remove_file(private.join("prepare-unknown"))
+        .await
+        .unwrap();
+    let prepared = runtime
+        .prepared_container(&agent, LaunchPhase::Regular)
+        .await
+        .unwrap();
+    assert_eq!(json!(prepared.id), intent["generation"]);
+    assert!(!private.join("start-effect").exists());
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn prepared_container_rechecks_dotenv_before_start_and_preserves_private_original() {
+    let Some((repo, agent, _, config, root)) = lifecycle_tests::fixture(AgentKind::Hermes).await
+    else {
+        return;
+    };
+    let config = fake_creation(&config, &agent, false).await;
+    let runtime = lifecycle_tests::supervisor(Arc::new(config), repo);
+    let envfile = Path::new(&agent.paths.config).join(".env");
+    let body = "TOKEN=\"generation-original\"\n";
+    tokio::fs::write(&envfile, body).await.unwrap();
+    let prepared = runtime
+        .prepared_container(&agent, LaunchPhase::Regular)
+        .await
+        .unwrap();
+    let private = root.join("controller");
+    let path = private.join(format!("{}.container-creation.json", agent.id));
+    let bytes = tokio::fs::read(&path).await.unwrap();
+    let metadata = tokio::fs::metadata(&path).await.unwrap();
+    use std::os::unix::fs::MetadataExt;
+    assert_eq!(metadata.mode() & 0o777, 0o600);
+    for current in [Some("TOKEN=rotated"), None] {
+        if let Some(current) = current {
+            tokio::fs::write(&envfile, current).await.unwrap();
+        } else {
+            tokio::fs::remove_file(&envfile).await.unwrap();
+        }
+        assert!(
+            runtime
+                .start_locked(&agent, LaunchPhase::Regular)
+                .await
+                .is_err()
+        );
+        assert!(!private.join("start-effect").exists());
+        assert_eq!(tokio::fs::read(&path).await.unwrap(), bytes);
+    }
+    tokio::fs::write(&envfile, body).await.unwrap();
+    assert_eq!(
+        runtime
+            .prepared_container(&agent, LaunchPhase::Regular)
+            .await
+            .unwrap()
+            .id,
+        prepared.id
+    );
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn oversized_private_environment_intent_is_rejected_before_database_claim_or_create() {
+    let Some((repo, agent, _, config, root)) = lifecycle_tests::fixture(AgentKind::Hermes).await
+    else {
+        return;
+    };
+    let config = fake_creation(&config, &agent, false).await;
+    let runtime = lifecycle_tests::supervisor(Arc::new(config), repo.clone());
+    // The input itself fits; JSON escaping would overflow the existing private document cap.
+    tokio::fs::write(
+        Path::new(&agent.paths.config).join(".env"),
+        "\n".repeat(40 * 1024),
+    )
+    .await
+    .unwrap();
+    assert!(
+        runtime
+            .prepared_container(&agent, LaunchPhase::Regular)
+            .await
+            .is_err()
+    );
+    assert!(
+        !repo
+            .has_pending_container_preparation(agent.id)
+            .await
+            .unwrap()
+    );
+    let private = root.join("controller");
+    assert!(!private.join("prepare-calls").exists());
+    assert!(
+        !private
+            .join(format!("{}.container-creation.json", agent.id))
+            .exists()
+    );
+    tokio::fs::remove_dir_all(root).await.unwrap();
 }
 
 #[cfg(target_os = "linux")]

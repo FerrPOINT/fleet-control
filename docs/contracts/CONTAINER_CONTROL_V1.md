@@ -269,6 +269,25 @@ writes the prepared document, then separately commits the immutable DB launch be
 sole start. Existing operator-prepared documents remain compatible when provisioning
 is absent. Partial files fail closed and are never overwritten.
 
+New intents additionally contain optional private `environment_snapshot` with
+closed `version=1`, `dotenv` and `dotenv_sha256` fields. Present input is the exact
+guarded UTF8 file, not a re-parsed environment; absent file uses both nullable
+fields, while an empty file retains the SHA256 empty digest. Reads reject links,
+nonfiles, hardlinks, invalid UTF8 and input beyond64 KiB. A revision-bound launch
+requires the current file to equal that revision's rendered `.env`; its snapshot
+identity is rechecked against the requested configuration hash. The complete
+serialized intent must still fit the existing64-KiB private-file limit before
+DB claim. Original bytes/hash are frozen by that same precreate intent fence.
+
+Retry and prepared-start checks include this input snapshot. File drift or
+deletion cannot create/start an obsolete recipe; the original private document
+remains unchanged. Historical intents lacking the optional field are not
+backfilled and remain unsupported as original dotenv evidence for collection.
+Deleting the field from a claimed new intent still violates its DB hash. This
+does not prove which secrets Hermes actually loaded: dotenv interpolation,
+ASCII sanitization, external sources and managed overlays require separate
+native evidence and resolved-value custody before production redaction.
+
 Before claiming a previously prepared automatic generation, Fleet reconstructs
 the current recipe using the original generation/operation IDs and compares its
 complete process, derived token, policy, paths, revision and source/context with

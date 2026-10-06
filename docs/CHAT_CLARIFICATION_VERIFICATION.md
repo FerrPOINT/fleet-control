@@ -1,5 +1,46 @@
 # Chat Clarification Verification
 
+## Original Container Environment Input: 7 October 2026
+
+New automatic creation intents preserve exact guarded dotenv bytes/hash before
+Docker create, including missing/empty identity, under the existing immutable
+preparation DB hash. Revision-bound inputs match the rendered file; retries and
+prepared starts reject drift. Original documents are retained and historical
+intents are not backfilled. The complete serialized private-document limit is
+checked before the DB claim, not after a potentially unrecoverable reservation.
+
+Seven new regressions pass: exact raw input without interpreting interpolation;
+missing/empty/invalid/oversized/nonfile handling; symlink/hardlink/outside-root
+denial; pending rotation/snapshot-removal hold and original recovery; prepared
+start drift/deletion with retained private bytes; serialized overflow before
+claim/create; and activated-revision file equality before preparation. Fake Base
+reads the saved snapshot at prepare time. These use actual Rust/PG custody, not
+real Docker or native resolved-secret acceptance.
+
+Fresh Linux/Rust1.88.0/PostgreSQL project
+`sdlc-qa-fleet-container-control-fb3acdec10fc` passes fmt, locked offline all-target
+check, strict all-target Clippy and546 workspace cases in37 result groups, with
+zero failures and30 explicitly ignored opt-in cases. All295 captured backend/SDK
+inputs remain unchanged. Own containers/networks are cleaned and independently
+queried empty. Six host source-loader cases, README and127 Markdown checks pass.
+
+- Source manifest SHA256:
+  `5ef037e8209b165ab3e816a88a3e8f3ab337381265450e2a859440b0351447d4`.
+- Full gate log SHA256:
+  `19754262834fb992ef3ba9af75954ce1903098769564fc7946b913fb7f6c03cf`.
+- Report SHA256:
+  `fe3499d693bc1fb794b9955b85c3ac8f20a4ffbf34096fd1bce319e4be207c03`.
+- Executed environment-input source SHA256:
+  `277d78a98b35f99b998cf365ce1b0bb48bfa238a7f26be0a5604949cd4dcbc0d`.
+
+Private artifacts: workspace `.local/fleet-container-control-checks-c2c82ca061c7/`.
+No migration, public DTO/OpenAPI, SDK, frontend or installed runtime change. This
+input snapshot does not attest native dotenv expansion/sanitization, external
+sources/managed overlays or reloads. Original effective credentials, production
+collector/private checkpoints/atomic cursor recovery, bounded source policy and
+controller/task/PM/Forge/live acceptance remain open. Prior UI and native Docker
+packets are not relabeled as new proof. No full merge-ready claim follows.
+
 ## Private Rust Source-Page Client: 7 October 2026
 
 The runtime packet adds private `ContainerControl::log_page` to the existing
