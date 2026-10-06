@@ -16,6 +16,8 @@ use uuid::Uuid;
 
 const LIMIT: usize = 64 * 1024;
 const SOURCE_LIMIT: usize = 1024 * 1024;
+const LOG_PAGE_BYTES: usize = 16 * 1024;
+const LOG_SCAN_BYTES: u64 = 64 * 1024 * 1024;
 const DEADLINE: Duration = Duration::from_secs(60);
 // Compile captured, hash-checked bytes; never import checkout files or cached bytecode.
 const BOOTSTRAP: &str = r#"import base64,io,json,sys,types
@@ -211,6 +213,139 @@ pub struct ContainerLogTail {
     pub receipt: ContainerReceipt,
     pub stdout: Vec<u8>,
     pub stderr: Vec<u8>,
+}
+
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContainerLogCursor {
+    pub offset: u64,
+    pub sha256: String,
+}
+
+impl Default for ContainerLogCursor {
+    fn default() -> Self {
+        Self {
+            offset: 0,
+            sha256: hex::encode(Sha256::digest([])),
+        }
+    }
+}
+
+#[derive(Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContainerLogCursors {
+    pub stdout: ContainerLogCursor,
+    pub stderr: ContainerLogCursor,
+}
+
+// Source pages remain raw/private until the generation-bound collector redacts them.
+pub struct ContainerLogStreamPage {
+    pub start_cursor: ContainerLogCursor,
+    pub next_cursor: ContainerLogCursor,
+    pub source_bytes: u64,
+    pub has_more: bool,
+    pub body: Vec<u8>,
+}
+
+pub struct ContainerLogPage {
+    pub receipt: ContainerReceipt,
+    pub stdout: ContainerLogStreamPage,
+    pub stderr: ContainerLogStreamPage,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LogStreamEnvelope {
+    start_cursor: ContainerLogCursor,
+    next_cursor: ContainerLogCursor,
+    source_bytes: u64,
+    has_more: bool,
+    body_base64: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LogStreamsEnvelope {
+    stdout: LogStreamEnvelope,
+    stderr: LogStreamEnvelope,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LogPageEnvelope {
+    receipt: ContainerReceipt,
+    streams: LogStreamsEnvelope,
+}
+
+fn validate_log_cursor(cursor: &ContainerLogCursor) -> Result<(), AppError> {
+    if cursor.offset > LOG_SCAN_BYTES
+        || !hash(&cursor.sha256)
+        || (cursor.offset == 0 && cursor != &ContainerLogCursor::default())
+    {
+        return Err(held());
+    }
+    Ok(())
+}
+
+fn decode_log_stream(
+    value: LogStreamEnvelope,
+    requested: &ContainerLogCursor,
+) -> Result<ContainerLogStreamPage, AppError> {
+    validate_log_cursor(requested)?;
+    validate_log_cursor(&value.next_cursor)?;
+    if value.start_cursor != *requested
+        || value.source_bytes > LOG_SCAN_BYTES
+        || value.body_base64.len() > LOG_PAGE_BYTES.div_ceil(3) * 4
+    {
+        return Err(held());
+    }
+    let body = STANDARD.decode(value.body_base64).map_err(|_| held())?;
+    let remaining = value
+        .source_bytes
+        .checked_sub(requested.offset)
+        .ok_or_else(held)?;
+    let next_offset = requested
+        .offset
+        .checked_add(body.len() as u64)
+        .ok_or_else(held)?;
+    if body.len() as u64 != remaining.min(LOG_PAGE_BYTES as u64)
+        || value.next_cursor.offset != next_offset
+        || value.has_more != (value.source_bytes > next_offset)
+        || (body.is_empty() && value.next_cursor != *requested)
+        || (requested.offset == 0 && value.next_cursor.sha256 != hex::encode(Sha256::digest(&body)))
+    {
+        return Err(held());
+    }
+    Ok(ContainerLogStreamPage {
+        start_cursor: value.start_cursor,
+        next_cursor: value.next_cursor,
+        source_bytes: value.source_bytes,
+        has_more: value.has_more,
+        body,
+    })
+}
+
+fn decode_log_page(
+    status: i32,
+    value: Value,
+    original: &ContainerRegistration,
+    cursors: &ContainerLogCursors,
+) -> Result<ContainerLogPage, AppError> {
+    let envelope: LogPageEnvelope = serde_json::from_value(value).map_err(|_| held())?;
+    validate_receipt(&envelope.receipt, original, status, "log_page")?;
+    if envelope.receipt.state != ContainerReceiptState::Observed {
+        return Err(held());
+    }
+    let stdout = decode_log_stream(envelope.streams.stdout, &cursors.stdout)?;
+    let stderr = decode_log_stream(envelope.streams.stderr, &cursors.stderr)?;
+    if stdout.source_bytes + stderr.source_bytes > LOG_SCAN_BYTES {
+        return Err(held());
+    }
+    Ok(ContainerLogPage {
+        receipt: envelope.receipt,
+        stdout,
+        stderr,
+    })
 }
 
 #[derive(Deserialize)]
@@ -853,6 +988,27 @@ impl ContainerControl {
         decode_logs(status, value, original)
     }
 
+    /// Verified source ranges only. No cursor is committed or raw byte exposed publicly here.
+    pub async fn log_page(
+        &self,
+        files: &ContainerLaunchFiles,
+        original: &ContainerRegistration,
+        cursors: &ContainerLogCursors,
+    ) -> Result<ContainerLogPage, AppError> {
+        validate_log_cursor(&cursors.stdout)?;
+        validate_log_cursor(&cursors.stderr)?;
+        validate_registration(original)?;
+        validate_mapping_registration(&files.policy, files.mount_mapping.as_ref(), original)?;
+        let (status, value) = self
+            .call(
+                files,
+                "log_page",
+                json!({"registration": original, "cursors": cursors}),
+            )
+            .await?;
+        decode_log_page(status, value, original, cursors)
+    }
+
     /// Caller must commit the registration in Fleet's authoritative launch journal first.
     pub async fn start(
         &self,
@@ -1308,6 +1464,287 @@ mod tests {
             assert!(decode_logs(0, value, &original).is_err(), "{field}");
         }
         assert!(decode_logs(2, log_envelope(&original), &original).is_err());
+    }
+
+    fn log_cursor(prefix: &[u8]) -> ContainerLogCursor {
+        ContainerLogCursor {
+            offset: prefix.len() as u64,
+            sha256: hex::encode(Sha256::digest(prefix)),
+        }
+    }
+
+    fn log_page_envelope(
+        original: &ContainerRegistration,
+        cursors: &ContainerLogCursors,
+        stdout: &[u8],
+        stderr: &[u8],
+    ) -> Value {
+        let stream = |source: &[u8], cursor: &ContainerLogCursor| {
+            let start = usize::try_from(cursor.offset).unwrap();
+            let end = (start + LOG_PAGE_BYTES).min(source.len());
+            json!({"start_cursor":cursor,"next_cursor":log_cursor(&source[..end]),
+                "source_bytes":source.len(),"has_more":source.len()>end,
+                "body_base64":STANDARD.encode(&source[start..end])})
+        };
+        json!({"receipt":log_envelope(original)["receipt"],
+            "streams":{"stdout":stream(stdout,&cursors.stdout),"stderr":stream(stderr,&cursors.stderr)}})
+    }
+
+    #[test]
+    fn log_pages_preserve_binary_bytes_and_original_generation_before_and_after_exit() {
+        let original = original();
+        let cursors = ContainerLogCursors::default();
+        for observation in ["running", "namespace_exited"] {
+            let mut value = log_page_envelope(&original, &cursors, b"output\xff", b"error\n");
+            value["receipt"]["observation"] = json!(observation);
+            let page = decode_log_page(0, value, &original, &cursors).unwrap();
+            assert_eq!(page.stdout.body, b"output\xff");
+            assert_eq!(page.stderr.body, b"error\n");
+            assert!(page.stdout.next_cursor == log_cursor(b"output\xff"));
+            assert!(page.stderr.next_cursor == log_cursor(b"error\n"));
+            assert!(!page.stdout.has_more && !page.stderr.has_more);
+            assert_eq!(page.receipt.generation, original.generation);
+        }
+    }
+
+    #[test]
+    fn log_page_ranges_replay_without_content_deduplication_or_loss() {
+        let original = original();
+        let stdout = b"same record\n".repeat(4000);
+        let stderr = b"same record\n".repeat(2000);
+        let mut cursors = ContainerLogCursors::default();
+        let mut captured = (Vec::new(), Vec::new());
+        loop {
+            let envelope = log_page_envelope(&original, &cursors, &stdout, &stderr);
+            let page = decode_log_page(0, envelope.clone(), &original, &cursors).unwrap();
+            let replay = decode_log_page(0, envelope, &original, &cursors).unwrap();
+            assert_eq!(page.stdout.body, replay.stdout.body);
+            assert_eq!(page.stderr.body, replay.stderr.body);
+            assert!(page.stdout.next_cursor == replay.stdout.next_cursor);
+            assert!(page.stderr.next_cursor == replay.stderr.next_cursor);
+            assert!(page.stdout.start_cursor == cursors.stdout);
+            assert!(page.stderr.start_cursor == cursors.stderr);
+            captured.0.extend(&page.stdout.body);
+            captured.1.extend(&page.stderr.body);
+            cursors.stdout = page.stdout.next_cursor;
+            cursors.stderr = page.stderr.next_cursor;
+            if !page.stdout.has_more && !page.stderr.has_more {
+                break;
+            }
+        }
+        assert_eq!(captured, (stdout, stderr));
+    }
+
+    #[test]
+    fn empty_log_page_retains_exact_cursors_and_is_not_terminal_evidence() {
+        let original = original();
+        let cursors = ContainerLogCursors {
+            stdout: log_cursor(b"out"),
+            stderr: log_cursor(b"err"),
+        };
+        let value = log_page_envelope(&original, &cursors, b"out", b"err");
+        let page = decode_log_page(0, value.clone(), &original, &cursors).unwrap();
+        assert!(page.stdout.body.is_empty() && page.stderr.body.is_empty());
+        assert!(page.stdout.next_cursor == cursors.stdout);
+        assert!(page.stderr.next_cursor == cursors.stderr);
+        assert_eq!(page.receipt.observation, ContainerObservation::Running);
+        let mut changed = value;
+        changed["streams"]["stdout"]["next_cursor"]["sha256"] = json!("a".repeat(64));
+        assert!(decode_log_page(0, changed, &original, &cursors).is_err());
+    }
+
+    #[test]
+    fn log_cursors_are_closed_bounded_and_require_exact_empty_digest() {
+        let empty = ContainerLogCursor::default();
+        validate_log_cursor(&empty).unwrap();
+        assert_eq!(
+            empty.sha256,
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+        for value in [
+            ContainerLogCursor {
+                offset: LOG_SCAN_BYTES + 1,
+                sha256: "a".repeat(64),
+            },
+            ContainerLogCursor {
+                offset: 0,
+                sha256: "a".repeat(64),
+            },
+            ContainerLogCursor {
+                offset: 1,
+                sha256: "A".repeat(64),
+            },
+            ContainerLogCursor {
+                offset: 1,
+                sha256: "unverified".into(),
+            },
+        ] {
+            assert!(validate_log_cursor(&value).is_err());
+        }
+        for offset in [json!(-1), json!(true), json!(0.5), json!("1"), Value::Null] {
+            assert!(
+                serde_json::from_value::<ContainerLogCursor>(json!({
+                    "offset":offset,"sha256":empty.sha256
+                }))
+                .is_err()
+            );
+        }
+        for extra in [
+            json!({"stdout":empty}),
+            json!({"stdout":empty,"stderr":empty,"adopt":true}),
+        ] {
+            assert!(serde_json::from_value::<ContainerLogCursors>(extra).is_err());
+        }
+        assert!(
+            serde_json::from_value::<ContainerLogCursor>(json!({
+                "offset":0,"sha256":empty.sha256,"adopt":true
+            }))
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn log_page_rejects_foreign_unacknowledged_and_open_envelopes() {
+        let original = original();
+        let cursors = ContainerLogCursors::default();
+        for field in [
+            "generation",
+            "operation",
+            "engine",
+            "snapshot",
+            "state",
+            "missing",
+            "extra",
+            "streams",
+        ] {
+            let mut value = log_page_envelope(&original, &cursors, b"out", b"err");
+            match field {
+                "generation" => value["receipt"]["generation"] = json!(Uuid::new_v4()),
+                "operation" => value["receipt"]["operation_id"] = json!(Uuid::new_v4()),
+                "engine" => value["receipt"]["snapshot"]["engine"]["id"] = json!("foreign"),
+                "snapshot" => value["receipt"]["snapshot"] = Value::Null,
+                "state" => {
+                    value["receipt"]["state"] = json!("held");
+                    value["receipt"]["observation"] = json!("unavailable");
+                    value["receipt"]["snapshot"] = Value::Null;
+                }
+                "missing" => {
+                    value.as_object_mut().unwrap().remove("receipt");
+                }
+                "extra" => value["credentials"] = json!("not-public"),
+                _ => value["streams"]["merged"] = json!({}),
+            }
+            assert!(
+                decode_log_page(0, value, &original, &cursors).is_err(),
+                "{field}"
+            );
+        }
+        assert!(
+            decode_log_page(
+                2,
+                log_page_envelope(&original, &cursors, b"out", b"err"),
+                &original,
+                &cursors
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn log_page_rejects_malformed_ranges_flags_digests_and_payloads() {
+        let original = original();
+        let cursors = ContainerLogCursors::default();
+        for field in [
+            "start",
+            "next",
+            "source",
+            "bool_source",
+            "missing",
+            "extra",
+            "base64",
+            "too_large",
+            "digest",
+            "more",
+            "bool",
+            "short",
+        ] {
+            let mut value = log_page_envelope(&original, &cursors, b"out", b"err");
+            let stream = &mut value["streams"]["stdout"];
+            match field {
+                "start" => stream["start_cursor"] = json!(log_cursor(b"foreign")),
+                "next" => stream["next_cursor"]["offset"] = json!(4),
+                "source" => stream["source_bytes"] = json!(2),
+                "bool_source" => stream["source_bytes"] = json!(true),
+                "missing" => {
+                    stream.as_object_mut().unwrap().remove("has_more");
+                }
+                "extra" => stream["ignored"] = json!(true),
+                "base64" => stream["body_base64"] = json!("%%%"),
+                "too_large" => {
+                    stream["body_base64"] = json!(STANDARD.encode(vec![b'x'; LOG_PAGE_BYTES + 1]))
+                }
+                "digest" => stream["next_cursor"]["sha256"] = json!("a".repeat(64)),
+                "more" => stream["has_more"] = json!(true),
+                "bool" => stream["has_more"] = json!(0),
+                _ => stream["source_bytes"] = json!(LOG_PAGE_BYTES + 1),
+            }
+            assert!(
+                decode_log_page(0, value, &original, &cursors).is_err(),
+                "{field}"
+            );
+        }
+    }
+
+    #[test]
+    fn log_page_caps_scan_aggregate_even_when_each_stream_is_valid() {
+        let original = original();
+        let cursors = ContainerLogCursors::default();
+        let bytes = vec![b'x'; LOG_PAGE_BYTES];
+        let mut value = log_page_envelope(&original, &cursors, &bytes, &bytes);
+        for name in ["stdout", "stderr"] {
+            value["streams"][name]["source_bytes"] = json!(LOG_SCAN_BYTES / 2);
+            value["streams"][name]["has_more"] = json!(true);
+        }
+        decode_log_page(0, value.clone(), &original, &cursors).unwrap();
+        value["streams"]["stderr"]["source_bytes"] = json!(LOG_SCAN_BYTES / 2 + 1);
+        assert!(decode_log_page(0, value, &original, &cursors).is_err());
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn log_page_client_roundtrips_exact_cursors_and_denies_invalid_input_before_source_read()
+    {
+        let (mut control, files) = source_fixture().await;
+        let original = original();
+        let cursors = ContainerLogCursors {
+            stdout: log_cursor(b"past"),
+            stderr: ContainerLogCursor::default(),
+        };
+        let envelope = log_page_envelope(&original, &cursors, b"past\xfffuture", b"err");
+        let source = format!(
+            "import json,sys\nr=json.load(sys.stdin.buffer)\nassert r['action']=='log_page'\nassert r['cursors']==json.loads({:?})\nassert r['registration']==json.loads({:?})\nprint(json.dumps({{'protocol_version':r['protocol_version'],'action':r['action'],'result':json.loads({:?})}}))\n",
+            serde_json::to_string(&cursors).unwrap(),
+            serde_json::to_string(&original).unwrap(),
+            serde_json::to_string(&envelope).unwrap()
+        );
+        tokio::fs::write(
+            control.source.root.join("scripts/runtime_control.py"),
+            &source,
+        )
+        .await
+        .unwrap();
+        control.source.sha256[2] = hex::encode(Sha256::digest(source.as_bytes()));
+        let result = control.log_page(&files, &original, &cursors).await;
+        tokio::fs::remove_dir_all(&control.source.root)
+            .await
+            .unwrap();
+        let page = result.unwrap();
+        assert_eq!(page.stdout.body, b"\xfffuture");
+        assert_eq!(page.stderr.body, b"err");
+        assert!(page.stdout.start_cursor == cursors.stdout);
+        let mut invalid = cursors;
+        invalid.stderr.sha256 = "a".repeat(64);
+        assert!(control.log_page(&files, &original, &invalid).await.is_err());
     }
 
     #[test]

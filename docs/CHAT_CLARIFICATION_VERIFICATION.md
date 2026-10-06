@@ -1,5 +1,46 @@
 # Chat Clarification Verification
 
+## Private Rust Source-Page Client: 7 October 2026
+
+The runtime packet adds private `ContainerControl::log_page` to the existing
+hash-captured subprocess transport. It validates closed original receipts,
+typed bounded stdout/stderr cursors, exact requested start/advancement, initial
+digest, empty-poll identity and source lengths. Binary payloads stay private,
+without Debug/public serialization; no source cursor or raw byte enters the DB.
+
+Eight new Rust cases pass: binary/exited receipts; repeated-record paging/replay;
+empty poll without completion; cursor shape/digest/bounds; foreign/held/open
+receipts; malformed body/range/flags/digest; aggregate scan bound; actual Unix
+subprocess roundtrip with pinned wire fixtures. That fixture is not real Base,
+Docker, secret-redaction or durable collector acceptance.
+
+Fresh Rust1.88.0/disposable PostgreSQL project
+`sdlc-qa-fleet-container-control-98e8bed8d774` passes fmt, locked offline all-target
+check, strict all-target Clippy and539 workspace cases across37 result groups.
+Thirty existing special opt-in cases remain explicitly ignored. All294 captured
+backend/SDK inputs match final source. The own project is cleaned; independent
+container/network queries are empty. Six host source-loader cases, README and
+127 Markdown-link checks also pass.
+
+- Source manifest SHA256:
+  `b398880af17a30a3afb1d1f5faf08d3192fca0f9d466dc5154afadf9ae6c8342`.
+- Full gate log SHA256:
+  `29ea73bd8234a8352d85a60cc8d9c223cb2f83c22d8e3918ecc447d970ce70a8`.
+- Report SHA256:
+  `53b170bdf5b5ac1f9bdc93e0764735ba319611d0aedb21911df0925ff1290fc5`.
+- Executed container-control disk source SHA256:
+  `b5619c9ee931c8146c446af9b029fa63f08d1102749d26dad1194252931030b5`.
+
+Private artifacts: workspace `.local/fleet-container-control-checks-1ae26285d858/`.
+No new migration/public API, SDK pin, frontend or installed runtime change.
+The prior292/66 consumer packet is not relabeled a new UI or live PM run.
+The current Base-generated protected spec rejects `logging`, while its page
+reader requires an explicit blocking non-rotating profile. Bounded source
+storage/retention must precede compatible policy admission and actual
+Rust-to-Base/Docker/DB/authorized-stream acceptance. Original resolved-secret
+snapshots, private partial checkpoints, atomic cursor/range recovery, controller
+recovery and task/PM/Forge requirements remain open. No full merge-ready claim.
+
 ## Integrated Clarification Draft Labels: 7 October 2026
 
 The independent consumer commit

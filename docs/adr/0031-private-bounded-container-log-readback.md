@@ -34,6 +34,14 @@ closed response fields, original receipt, base64 and combined byte limit.
 Raw output deliberately implements neither `Debug` nor a public serialized DTO.
 No public API, database schema, deployment pin or business scheduler changes.
 
+For replayable source transport use the additive closed `log_page` envelope:
+per-stream requested/next byte offset and SHA256 prefix,16-KiB binary pages and
+64-MiB aggregate scan bound. Fleet verifies the exact start, length, advancement,
+initial digest, empty-poll identity and original receipt. Base verifies the
+existing prefix against the actual source before returning later ranges; a
+page alone cannot recompute a noninitial prefix hash. This is source transport,
+not a committed collector cursor or completion proof.
+
 ## Consequences
 
 This is a diagnostic transport foundation. It is not connected to production
@@ -47,6 +55,12 @@ The private utility and Rust client need compatible source versions; an older
 Base rejecting `logs` must fail closed, without native or arbitrary-ID fallback.
 Windows pipe readback is deliberately unsupported; the trusted controller runs
 on Linux. Agents never receive the Docker socket or raw controller response.
+
+The source-page profile additionally requires an explicitly inspected blocking
+non-rotating non-TTY source. Ordinary generated runtime specs do not yet admit
+that logging policy. Do not relax the protected Compose allowlist or install
+unbounded logging just to pass readback: the production source needs an accepted
+bounded-storage/retention policy and its own recovery gate first.
 
 ## Alternatives
 

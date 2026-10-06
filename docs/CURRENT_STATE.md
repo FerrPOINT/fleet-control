@@ -1,5 +1,26 @@
 # Current State
 
+## Private Rust Source-Page Client: 7 October 2026
+
+Fleet now implements private `ContainerControl::log_page`, with closed original
+receipt/cursors, bounded binary pages, exact range advancement and empty-poll
+identity. Raw page types have no Debug/public serialization. Eight new component
+cases include an actual Unix subprocess using pinned wire fixtures, not real
+Base/Docker collection.
+
+The fresh Linux/Rust1.88/PostgreSQL gate passes539 tests in37 result groups with
+30 explicit opt-in ignores, fmt/all-target check/strict Clippy. All294 captured
+backend/SDK inputs remain unchanged; owned containers/networks are removed.
+Six host source-loader cases, README and127 Markdown checks pass. See
+[evidence](CHAT_CLARIFICATION_VERIFICATION.md#private-rust-source-page-client-7-october-2026).
+
+No migration, public API, SDK pin, UI or installed runtime change. Production
+collection still needs original resolved secrets, private partial checkpoints,
+atomic source-range/cursor/DB commits and actual authorized diagnostics. The
+current protected generated Compose profile does not admit the required logging
+policy; bounded storage/retention must be accepted before source enablement.
+Controller recovery, task/PM admission and Forge/live SDLC remain open.
+
 ## Integrated Clarification Draft Labels: 7 October 2026
 
 Consumer `14982e15e9597e3bf7d6a9490381e0b99f7f120f` is normally merged into

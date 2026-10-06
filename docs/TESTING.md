@@ -1,5 +1,18 @@
 # Testing
 
+## Private Source-Page Client
+
+Eight new Rust component cases in `runtime::container_control::tests` cover
+binary ranges and original receipt before/after exit, identical-record paging
+and replay, empty-poll cursor preservation, closed/typed/bounded cursors, foreign
+or held receipts, malformed page metadata/body/digests, aggregate scan bounds
+and a real Unix subprocess roundtrip through pinned protocol fixtures.
+The subprocess fixture is not actual Base/Docker acceptance. An invalid cursor is
+rejected before execution; raw pages never enter public DTOs or the log DB.
+Run these in the full Linux/Rust1.88/PostgreSQL workspace gate; no earlier count
+proves the new source. Results belong in
+[verification](CHAT_CLARIFICATION_VERIFICATION.md).
+
 ## Actual Container Supervisor Gate
 
 The opt-in [owned Docker acceptance driver](CONTAINER_SUPERVISOR_ACCEPTANCE.md)

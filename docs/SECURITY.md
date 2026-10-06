@@ -9,6 +9,14 @@ reads concurrently drain both streams with a32-KiB/five-second bound; failure
 discards partial output. Rust accepts only the closed original receipt and two
 valid bounded base64 streams. Its raw type has no Debug/public DTO implementation.
 
+The private Rust `log_page` client additionally accepts stream-local byte offsets
+and SHA256 prefix cursors. It checks the closed original receipt, requested start,
+16-KiB body limit,64-MiB aggregate source bound, exact advancement and empty-poll
+identity. Raw page types have neither Debug nor public serialization. Noninitial
+prefix validation depends on the hash-pinned Base reader, which checks the original
+source and rejects rotating/nonblocking/TTY profiles. Neither an empty page nor
+`has_more=false` is runtime completion. This client does not commit a cursor.
+
 No production persistence, API, SSE or audit consumes these raw bytes yet.
 Integration must redact exact resolved per-launch credentials, not only regex
 markers or today's possibly rotated environment, and maintain generation-bound

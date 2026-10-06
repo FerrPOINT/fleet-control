@@ -13,6 +13,15 @@ Controller crash/private-journal recovery and production Docker log ingestion
 remain open live gates. That controlled failure does not certify every rollback
 failure mode or installed rollout.
 
+Private source-page transport now has a Rust consumer with closed per-stream
+offset/prefix cursors and original-registration receipts. It preserves binary
+bytes and repeated identical records; replay and empty polls do not advance any
+persisted state. This is not yet a production collector. Original resolved-secret
+snapshots, partial private checkpoints, atomic DB cursor/batch commits, bounded
+source retention and actual authorized diagnostics remain required. The Base
+source pin and effective inspected non-rotating profile are mandatory; there is
+no fallback to tails, current env or an arbitrary replacement container.
+
 Additive000019 persists a Base-verified bridge origin against the original
 started launch/PID. The dispatch journal requires that exact endpoint and private
 launch ID; private IP shape alone grants no HTTP permission. The immutable

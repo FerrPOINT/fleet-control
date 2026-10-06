@@ -30,6 +30,35 @@ two real Hermes agents without persisting raw output; see
 That probe calls Base directly, not the Rust client. Actual Rust ingestion,
 redaction and durable generation-bound collection remain open.
 
+## Private Source Pages
+
+Rust `log_page` sends the existing protected request with `action=log_page`,
+original `registration` and closed `cursors={stdout,stderr}`. Each cursor has
+`offset` (integer from 0 to 64 MiB) and lowercase 64-character `sha256`; offset 0 requires
+the SHA256 of empty bytes. No caller-supplied container name, file or command
+is accepted. Source/context/mount guards remain the original launch's.
+
+The closed result is `{receipt,streams:{stdout,stderr}}`. Each stream has
+`start_cursor`, `next_cursor`, `source_bytes`, boolean `has_more` and
+`body_base64`. Start must equal the requested cursor, body must equal the
+bounded available range (maximum 16 KiB), next offset advances by exactly its
+decoded length and both source lengths together cannot exceed 64 MiB. Initial
+digest is recomputed locally; a noninitial digest is verified against the actual
+prefix by the pinned Base reader. Empty polls preserve the exact cursor.
+Raw binary page types have no Debug/public serialization. Receipt must identify
+the same acknowledged running/exited namespace; held, drift or malformed data
+returns reconciliation, not empty success.
+
+Base checks the original receipt before/after its concurrent bounded scan and
+requires an explicitly inspected blocking non-rotating non-TTY json-file source.
+The current generated Compose allowlist does not admit that logging profile;
+production source admission needs a bounded-storage/retention contract first.
+Do not enable unlimited logging to bypass this gap. `has_more=false` is current
+snapshot EOF, not runtime or SDLC completion. No cursor/DB commit, secret masking,
+production ingestion, installed pin or public API is changed by this client.
+Eight component cases include a real Unix subprocess with pinned wire fixtures;
+they are not the actual Rust-to-Base/Docker/DB collection gate.
+
 ## Ownership
 
 The configuration-replacement candidate checks phase/revision/hash before

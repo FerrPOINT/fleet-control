@@ -2,19 +2,20 @@
 
 ## Integrated Consumer And Current Release Boundary
 
-Consumer717aaba is included in the runtime source without replaying its earlier
-commits. Fresh289 unit and60 Chromium/Firefox/WebKit fixture cases pass, along
+Consumer14982e1 is included in the runtime source without replaying its earlier
+commits. The latest frontend packet passes292 unit and66 Chromium/Firefox/WebKit fixture cases, along
 with build/typecheck/lint/format, existing OpenAPI/client equality, Markdown links
-and135-screen verification. The9 committed command-freshness views match fresh
-captures. This proves the consumer fixes, not live PM publication/delivery/resume.
+and135-screen verification. Six draft-label captures match the latest Chromium
+screenshots; the preceding9 command-freshness views also have exact fresh proof.
+This proves the consumer fixes, not live PM publication/delivery/resume.
 PM Draft production wiring still awaits explicit preview approval.
-Combined Rust/PostgreSQL fmt/check/strict Clippy and528 tests also pass, with30
-explicit opt-in ignores and293 unchanged inputs. No new actual Docker/Hermes
+The latest combined Rust/PostgreSQL fmt/check/strict Clippy gate passes539 tests,
+with30 explicit opt-in ignores and294 unchanged inputs. No new actual Docker/Hermes
 or migration acceptance is claimed by this combined source gate.
 
 The prior combined35/36 failure and SDK navigation reproduction remain evidence:
 no Base stream lifecycle fix or dependency upgrade has occurred. Do not close
-that finding solely because this fresh same-origin repeat is60/60.
+that finding solely because the latest same-origin repeat is66/66.
 
 The repository log-acknowledgement race is fixed: `insert_log` now returns its
 own persisted redacted row from PostgreSQL `INSERT ... RETURNING`. The original
@@ -35,6 +36,19 @@ append-only profile. They do not prove durable Fleet cursor commits, secret
 redaction, retention supervision or recovery. See
 [source-page evidence](CHAT_CLARIFICATION_VERIFICATION.md#verified-base-log-source-pages-7-october-2026)
 and [collector sequence](IMPLEMENTATION_PLAN.md#next-runtime-work-after-private-log-transport).
+
+Fleet now has a private Rust source-page client with strict receipt/cursor/page
+decoding and binary payloads. It does not yet feed a production collector or
+commit source progress. Its component protocol fixture cannot close the actual
+Rust-to-Base/Docker/DB/authorized-stream acceptance. No log-driver/pin change
+or raw output publication is enabled by this implementation.
+
+The protected Base-generated Compose profile currently rejects a `logging`
+field, while `log_page` requires an explicitly inspected non-rotating blocking
+json-file source. A production bounded-storage/retention contract must precede
+source-policy admission; neither an unlimited daemon default nor a relaxed
+allowlist is an accepted substitute. Native synthetic Engine proof does not
+close that generated-runtime compatibility gap.
 
 Actual Base `logs` reads now pass for four original exited generations from two
 real Hermes agents after the Rust chat/config scenario. Raw output is not

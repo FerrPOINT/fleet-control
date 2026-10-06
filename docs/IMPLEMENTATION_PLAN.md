@@ -11,6 +11,13 @@ source/transport evidence, not a Fleet collector or release. See
 [evidence](CHAT_CLARIFICATION_VERIFICATION.md#verified-base-log-source-pages-7-october-2026).
 The utility still depends on open Base PR150; SDK pin remainscbb4e99.
 
+Fleet's private Rust client now decodes the same closed `log_page` envelope,
+validates exact requested range/original receipt and retains raw binary bytes
+without Debug/public serialization. This establishes the transport consumer,
+not a DB collector or actual Rust-to-Base/Docker ingestion acceptance. The
+generation-bound production flow below remains mandatory; do not wire pages
+straight into generic `insert_log` or advance cursors in memory only.
+
 Implement the remaining collector as one coherent generation-bound flow:
 
 1. Freeze actual resolved launch credentials in private controller storage before
