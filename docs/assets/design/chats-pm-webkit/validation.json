@@ -1,0 +1,87 @@
+{
+  "consumerBaseline": "afbfb59eb144d51e0ffeada6f51906a114bb9422",
+  "combinedGateHead": "c02f60ebdceebaa4255352d27893976fc26c1389",
+  "basePin": "cbb4e99230420dc2659431b1c9fb5090e5c940f0",
+  "sdkGitBlobSha256": "9e964b76c7f12a91e81259b20caa05ff5685ba0380933d08e29a21893ef01807",
+  "sourceByteConvention": "Git blob/LF text bytes; CRLF checkout normalized for comparison",
+  "sourceSha256": {
+    "docs/CHATS_PM_WEBKIT_STREAM_DIAGNOSTIC_20261006.md": "9df3cf8871ac535ebf71b495440804773ab5f06f1d71bf2391e9b2aa09da48ba",
+    "frontend/scripts/diagnose-event-stream-navigation.mjs": "7fa2696ac596d24cb23f5fe912590ce07173eedb40b42944b49bf0618466693e",
+    "frontend/src/pages/chat-detail/index.tsx": "76d3bb9dbe2298772a341f1127cb2da4b358f54e16c387147d8ce7028abe9983",
+    "frontend/e2e/fleet-control.spec.ts": "e57f7eb06c986ecd9cfd88feb1ae9854494c1610944729da827547d7abc8bdfb"
+  },
+  "productionChanged": false,
+  "pageErrorAssertionChanged": false,
+  "errorsFilteredOrSuppressed": false,
+  "installedRuntimeChanged": false,
+  "livePmAcceptance": false,
+  "parentGate": {
+    "passed": 35,
+    "total": 36,
+    "logSha256": "da172373d081c5e7f38554601c700a6193e0740fc7ef59f9ca88203c63cdbe01",
+    "protectedLog": "C:\\git\\azhukov\\sdlc\\.local\\fleet-chats-browser-checks-4bd94b1e7166\\browser-fixtures.log",
+    "status": "unresolved"
+  },
+  "ownPmRepeat": {
+    "passed": 6,
+    "project": "webkit",
+    "workers": 1,
+    "origin": "http://localhost:24173",
+    "pageErrors": 0,
+    "logSha256": "a26f01252ddabc3b529370feb54a9042a7ed8dc26b27efbdc124e22b5bb8a871",
+    "diagnosticSourceSha256LF": "08773693a67c5e493d40290c7dcf5d3da207afe04bcfdcab3ffe90ad3216fd7e",
+    "protectedLog": "C:\\git\\azhukov\\sdlc\\.local\\chats-pm\\fleet-control\\frontend\\node_modules\\.cache\\consumer-review-20261006\\webkit-repro.log",
+    "fixtureOnly": true
+  },
+  "minimal": {
+    "purpose": "WebKit pageerror while a caught authenticated SSE fetch races with navigation",
+    "source": "@sdlc/ui installed event-stream.ts, transpiled without semantic edits",
+    "sdkSourceSha256LF": "9e964b76c7f12a91e81259b20caa05ff5685ba0380933d08e29a21893ef01807",
+    "playwrightVersion": "1.61.1",
+    "nodeVersion": "v22.20.0",
+    "reproduced": true,
+    "productAcceptance": false
+  },
+  "minimalControls": [
+    {
+      "mode": "healthy",
+      "iterations": 50,
+      "pageErrors": 0,
+      "unhandledPromiseRejections": 0,
+      "failedRequests": 38,
+      "failedRequestKinds": ["Load request cancelled"],
+      "firstPageError": null
+    },
+    {
+      "mode": "pending-navigation",
+      "iterations": 50,
+      "pageErrors": 5,
+      "unhandledPromiseRejections": 0,
+      "failedRequests": 36,
+      "failedRequestKinds": ["Load request cancelled"],
+      "firstPageError": {
+        "message": "/localhost:52759/stream due to access control checks.",
+        "stack": "Fetch API cannot load http://localhost:52759/stream due to access control checks.\n    at unknown (http://localhost:52759/:76:41)\n    at unknown (http://localhost:52759/:133:50)"
+      }
+    },
+    {
+      "mode": "disposed-before-navigation",
+      "iterations": 50,
+      "pageErrors": 0,
+      "unhandledPromiseRejections": 0,
+      "failedRequests": 50,
+      "failedRequestKinds": ["Load request cancelled"],
+      "firstPageError": null
+    }
+  ],
+  "minimalReportSha256": "eb2f8a02d171fc3dbb2be9688c1685f818e280286acc93d621b2ea3bc0670921",
+  "minimalProtectedReport": "C:\\git\\azhukov\\sdlc\\.local\\chats-pm\\fleet-control\\frontend\\node_modules\\.cache\\consumer-review-20261006\\webkit-transport-report.json",
+  "minimalLogSha256": "8e402369ae674b5a4641bcc755f87094736e1dd027b6899e8e31afed24be6bff",
+  "minimalExitCode": 0,
+  "limitations": [
+    "Matching browser message reproduced at a navigation boundary; original combined-test interleaving is not traced.",
+    "Controls prove explicit early disposal; automatic pagehide alone has not been established as a complete fix.",
+    "No Base change or pin upgrade; original unfiltered exact-head gate must still be reassessed by its owner."
+  ],
+  "ownedProcessesStopped": true
+}
