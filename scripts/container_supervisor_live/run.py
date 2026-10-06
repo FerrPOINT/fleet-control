@@ -126,6 +126,8 @@ def main():
         parser.add_argument('--' + name, type=Path, required=True)
     for name in ('rust-image', 'docker-image', 'hermes-image', 'postgres-image', 'context'):
         parser.add_argument('--' + name, required=True)
+    parser.add_argument('--readiness-rollback', action='store_true',
+                        help='Inject an owned candidate boot delay and verify actual Docker rollback')
     args = parser.parse_args()
     sdk = args.base_sdk.resolve()
     base = args.base_control.resolve()
@@ -183,6 +185,7 @@ def main():
     report = {'state': 'failed', 'project': project, 'fleet_head': git(ROOT, 'rev-parse', 'HEAD').decode().strip(),
               'base_sdk_sha': sdk_pin, 'base_control_sha': git(base, 'rev-parse', 'HEAD').decode().strip(),
               'hermes_revision': PIN, 'source_files': len(manifest), 'source_sha256': sha(directory / 'source-manifest.json'),
+              'readiness_rollback_requested': args.readiness_rollback,
               'actual_rust_supervisor': False, 'actual_docker_hermes': False, 'sdlc_acceptance': False}
     before = permanent_state(docker)
 
@@ -250,6 +253,7 @@ def main():
                     'FLEET_TEST_DATABASE_URL': f'postgresql://fleet_qa:{password}@postgres:5432/fleet_container'},
                 'volumes': [volume('agents', '/agents'), volume('controller', '/controller'), volume('compiled', '/out', True),
                     bind(directory / 'input/base-control', '/base-control'), bind(directory / 'proof', '/qa'),
+                    bind(frozen, '/qa-fixtures'),
                     bind(directory / 'evidence', '/evidence', False),
                     bind('/var/run/docker.sock', '/var/run/docker.sock')]},
         }, volumes={'agents': {}, 'controller': {}, 'compiled': {}}, networks={'fleet': {'internal': True}},
@@ -266,10 +270,12 @@ def main():
             raise RuntimeError('Live Fleet controller identity differs')
         write_json(directory / 'proof/controller-proof.json', {
             'engine_id': helper.identity, 'agents_volume': project + '_agents', 'model_host': item['Name'].lstrip('/'),
+            'readiness_rollback': args.readiness_rollback,
             'control': {'python': 'python3', 'base_root': '/base-control', 'context': 'default',
                 'source_sha256': [sha(directory / 'input/base-control' / name) for name in CONTROL_FILES],
                 'provisioning': {'project': project, 'image_id': hermes_image, 'user': '999:999',
-                    'entrypoint': ['/opt/hermes/.venv/bin/python', '/runtime/hermes-container.py'],
+                    'entrypoint': ['/opt/hermes/.venv/bin/python', '/runtime/readiness-fault.py'
+                                   if args.readiness_rollback else '/runtime/hermes-container.py'],
                     'pids_limit': 128, 'memory_bytes': 1073741824, 'nano_cpus': 1000000000,
                     'network_internal': True, 'task': TASK, 'purpose': PURPOSE},
                 'bridge_controller': {'container_id': cid, 'image_id': controller_image, 'service': 'fleet-backend'}}})
@@ -277,7 +283,8 @@ def main():
                                  '--nocapture', '--test-threads=1'], 'live.log', 1200)
         live = json.loads((directory / 'evidence/live-report.json').read_bytes())
         if (live.get('state') != 'passed' or not live.get('actual_rust_supervisor')
-                or not live.get('actual_docker_hermes') or live.get('sdlc_acceptance') is not False):
+                or not live.get('actual_docker_hermes') or live.get('sdlc_acceptance') is not False
+                or live.get('readiness_rollback') is not args.readiness_rollback):
             raise RuntimeError('Actual Rust/Hermes evidence is incomplete')
         report.update(state='passed', actual_rust_supervisor=True, actual_docker_hermes=True,
                       live=live, build_log_sha256=sha(directory / 'build.log'), live_log_sha256=sha(directory / 'live.log'))

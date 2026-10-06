@@ -1,5 +1,56 @@
 # Chat Clarification Verification
 
+## Actual Docker Readiness Rollback: 6 October 2026
+
+Owned project `sdlc-qa-fleet-container-live-0763697334fb` passes the actual
+Rust/Docker gate with explicit `--readiness-rollback`: 1 passed, 0 failed,
+0 ignored in 405.80 seconds. Source baseline is Fleet
+`b7fe9084c861c68d528b976e7ce09bb012878f49` plus the captured test-only delta;
+SDK `cbb4e99230420dc2659431b1c9fb5090e5c940f0`, Base control
+`424ad76b1fc0c976e465e9de272f71a3b03a45b6` and Hermes
+`bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3` are unchanged. Fresh Rust 1.88 fmt,
+all-target strict Clippy and exact integration-test compilation pass. All 13,770
+tracked staged Hermes files and 303 frozen gate inputs are verified.
+
+The QA-only wrapper delegates ordinary boots to the pinned production launcher;
+an explicitly marked candidate delays boot 120 seconds, exceeding the unchanged
+60-second readiness deadline. The real acknowledged candidate remains drained
+without effective-revision promotion and then fails for readiness. Both the
+original and failed candidate report original-context namespace exit. A distinct
+rollback launch restores the previous revision, byte-identical `config.yaml`,
+`SOUL.md` and `.env`, effective filesystem verification and the previous loaded
+SOUL. The peer generation is unchanged. A sixth actual Hermes/model prompt
+completes and mirrors once; the activation journal is retired. Cross-agent token
+denial and idempotent message replay still pass. The model endpoint is controlled;
+this proves runtime transport/isolation, not model quality or live PM.
+
+| Evidence | SHA-256 |
+| --- | --- |
+| 303-input source manifest | `6d3b817776fbaaf60ba0d2c3969549d139d1ec40e5cb7436ffb0e4e255cc597c` |
+| Build log | `0a86f47cdae793ebc76044ec3fe949f57d5dd27c0fe69be69ce0473df58e5a73` |
+| Live log | `5038788cf6ed268a9c8dad392c15b0393588298eec389f51d7f86cfc2d5fbf47` |
+| Final report | `67e7b11452615c4d491077bde3eb7dea7d315dd9eb1d0597a114fdb961b8a734` |
+
+Private artifacts are in workspace `.local/fleet-container-supervisor-live/`
+`sdlc-qa-fleet-container-live-0763697334fb-kw_mlrun`. Controller image is
+`sha256:076f31d5379ec5ba92d85b93d2d7006a5fe47b0eafaa400f52d9829945052816`;
+Hermes source image is
+`sha256:f42cb0b1115b587eb21c650ab9f1120c94911fc6234748c634faff929622f193`.
+Original Engine `16c44abc-0244-4ba4-879a-b3df5140ef02` is unchanged. Exact owned
+Compose cleanup removes containers, networks, all three disposable volumes and
+image aliases. Independent Engine inventories are empty. Sources and permanent
+runtime lifecycle facts remain unchanged.
+
+All 11 driver/fixture safety units pass, including ordinary argument preservation,
+owned fault timing and unreadable-config refusal. The earlier owned attempt
+`sdlc-qa-fleet-container-live-8b07fea89928` was stopped during compilation to fix
+the test's expected readiness error; it is retained as failed, cleaned evidence,
+not actual scenario acceptance. No production runtime, migration, UI or pin is
+changed. Prior 526-test/19-migration results below remain historical production
+evidence. Controller crash, interrupted activation/private-journal recovery,
+actual Docker log ingestion, producer admission, PM tools/delivery/resume and
+full SDLC remain open. Instructions: [Container supervisor gate](CONTAINER_SUPERVISOR_ACCEPTANCE.md).
+
 ## Actual Docker Supervisor Chat And Configuration: 6 October 2026
 
 Owned project `sdlc-qa-fleet-container-live-e823d8ddeef4` passes the opt-in real

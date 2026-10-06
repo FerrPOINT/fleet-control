@@ -141,5 +141,40 @@ class SafetyTests(unittest.TestCase):
         self.assertFalse((self.home / 'frozen/unrelated.txt').exists())
 
 
+class ReadinessFaultTests(unittest.TestCase):
+    def setUp(self):
+        source = ROOT / 'scripts/container_supervisor_live/readiness_fault.py'
+        spec = importlib.util.spec_from_file_location('readiness_fault', source)
+        self.fault = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.fault)
+
+    def test_ordinary_boot_delegates_without_delay_and_preserves_arguments(self):
+        args = ['qa.py', 'serve', '--host', '0.0.0.0', '--port', '29105']
+        with patch.object(self.fault.Path, 'read_text', return_value='Normal SOUL'), \
+                patch.object(self.fault.time, 'sleep') as sleep, \
+                patch.object(self.fault.os, 'execv') as execute, \
+                patch.object(self.fault.sys, 'argv', args):
+            self.fault.main()
+        sleep.assert_not_called()
+        execute.assert_called_once_with(self.fault.sys.executable,
+            [self.fault.sys.executable, '/runtime/hermes-container.py', *args[1:]])
+
+    def test_marker_delays_boot_before_original_launcher_exec(self):
+        effects = []
+        with patch.object(self.fault.Path, 'read_text', return_value='CONTAINER_QA_READINESS_DELAY'), \
+                patch.object(self.fault.time, 'sleep', side_effect=lambda seconds: effects.append(seconds)), \
+                patch.object(self.fault.os, 'execv', side_effect=lambda *_: effects.append('exec')), \
+                patch('builtins.print'):
+            self.fault.main()
+        self.assertEqual(effects, [120, 'exec'])
+
+    def test_unreadable_fixture_configuration_never_executes(self):
+        with patch.object(self.fault.Path, 'read_text', side_effect=OSError('unreadable')), \
+                patch.object(self.fault.os, 'execv') as execute:
+            with self.assertRaises(OSError):
+                self.fault.main()
+        execute.assert_not_called()
+
+
 if __name__ == '__main__':
     unittest.main()

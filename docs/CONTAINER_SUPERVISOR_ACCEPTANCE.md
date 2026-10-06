@@ -61,9 +61,29 @@ After completion, a fresh activation generation must load the new SOUL; the
 other agent's generation remains unchanged. Restarting the peer also creates a
 fresh generation and preserves its effective SOUL.
 
-This scenario does not yet inject readiness failure to prove actual Docker
-rollback, restart the Fleet controller, restore lost private journals, test
-actual Docker log ingestion or admit task-bound PM assignments. Focused fake
+## Optional Readiness Failure
+
+Add `--readiness-rollback` to the same owned command to run a separate fault
+extension. The test-only [boot wrapper](../scripts/container_supervisor_live/readiness_fault.py)
+delegates normal launches to the captured Base launcher with the exact argv.
+Only the explicitly marked QA candidate delays gateway boot for 120 seconds,
+beyond Fleet's 60-second readiness deadline. It does not replace Hermes HTTP,
+modify its source, shorten production deadlines or run against installed agents.
+
+The candidate must have an original Docker start acknowledgement and remain
+drained without promoting its effective revision. The test requires the actual
+readiness error and deadline, confirmed original and failed-candidate namespace
+exit, a distinct rollback launch bound to the previous revision, byte-identical
+managed files and verified effective readback. The peer must be unchanged.
+A sixth real Hermes/model run must observe the restored SOUL and mirror once;
+the private activation journal must be retired only after settlement.
+
+The live report's `readiness_rollback` must match the explicit driver option;
+the five-run baseline cannot certify this extension. Outcomes still require
+the private logs/report and source identities listed below.
+
+Neither scenario restarts the Fleet controller, restores lost private journals,
+tests actual Docker log ingestion or admits task-bound PM assignments. Focused fake
 boundary tests for those paths are separate evidence, not substitutes.
 
 ## Evidence And Cleanup

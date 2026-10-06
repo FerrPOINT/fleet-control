@@ -1,5 +1,19 @@
 # Gap Register
 
+## Controlled Docker Readiness Rollback Verified
+
+The explicit `--readiness-rollback` extension now verifies actual candidate boot
+timeout, original namespace termination, distinct previous-revision rollback,
+byte-identical managed files, effective SOUL and once-only sixth real chat.
+Peer isolation, journal retirement and owned cleanup are verified. This is a
+controlled QA boot delay beyond the real production deadline, not acceptance of
+every failure mode. Controller restart/interrupted activation, lost private
+journals, actual Docker logs, task admission and live PM remain open. No rollout
+or full release-readiness claim follows. The readiness-failure gap in the earlier
+baseline below is closed only for this specific scenario; other historical
+statements retain their original scope.
+See [exact evidence](CHAT_CLARIFICATION_VERIFICATION.md#actual-docker-readiness-rollback-6-october-2026).
+
 ## Current Docker Acceptance Boundary
 
 The endpoint-sealing candidate now has real UID 999/mapped-volume Rust/Hermes

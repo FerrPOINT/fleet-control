@@ -1,5 +1,24 @@
 # Current State
 
+## Actual Docker Readiness Rollback: 6 October 2026
+
+The opt-in fault extension now passes on real Rust Fleet and two source-pinned
+UID 999 Hermes containers. A QA-only boot delay exceeds the unchanged production
+readiness deadline. The candidate fails without effective-revision promotion;
+original and failed namespaces exit, a distinct rollback generation restores
+the previous managed bytes and loaded SOUL, and the peer is unchanged. Six real
+Hermes/model prompts finish with once-only mirrors; the activation journal is
+retired after settlement. Fresh fmt/all-target strict Clippy and all 11 driver
+safety tests pass. All 303 captured inputs and permanent runtime facts are
+unchanged after the gate; its owned resources are removed.
+
+This closes controlled candidate boot-timeout rollback, not controller crash,
+private-journal loss/restore, Docker log ingestion, task/PM admission or full
+SDLC. No production source, migration, UI, dependency pin or installed service
+is changed in this test-only packet. Earlier broad 526-test/19-migration results
+below remain prior production evidence, not a fresh full run of this packet.
+See [exact rollback evidence](CHAT_CLARIFICATION_VERIFICATION.md#actual-docker-readiness-rollback-6-october-2026).
+
 ## Actual Docker Chat And Configuration Candidate
 
 The current endpoint-sealing packet passes real Rust Fleet -> two source-pinned

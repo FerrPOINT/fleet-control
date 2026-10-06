@@ -34,6 +34,8 @@ struct Proof {
     model_host: String,
     engine_id: String,
     agents_volume: String,
+    #[serde(default)]
+    readiness_rollback: bool,
 }
 
 #[derive(Default)]
@@ -175,6 +177,25 @@ async fn create_agent(repo: &PostgresFleetRepository, config: &AppConfig, name: 
     )
     .await
     .unwrap();
+    if config
+        .fleet
+        .container_control
+        .as_ref()
+        .unwrap()
+        .provisioning
+        .as_ref()
+        .unwrap()
+        .entrypoint
+        .iter()
+        .any(|part| part == "/runtime/readiness-fault.py")
+    {
+        tokio::fs::copy(
+            "/qa-fixtures/readiness_fault.py",
+            Path::new(&agent.paths.runtime).join("readiness-fault.py"),
+        )
+        .await
+        .unwrap();
+    }
     for skill in repo.list_agent_skills(agent.id).await.unwrap() {
         if skill.state == domain::SkillState::Enabled {
             repo.update_agent_skill(agent.id, skill.name.clone(), domain::UpdateSkillRequest {
@@ -554,6 +575,185 @@ async fn scenario(
         "CONTAINER_SOUL_A_NEW",
     )
     .await;
+
+    if proof.readiness_rollback {
+        readiness_rollback(repo, config, proof, port, model, owner, agents).await;
+    }
+}
+
+async fn readiness_rollback(
+    repo: &PostgresFleetRepository,
+    config: &AppConfig,
+    proof: &Proof,
+    port: u16,
+    model: &Model,
+    owner: Uuid,
+    agents: &[Agent],
+) {
+    let agent = &agents[0];
+    let original = repo
+        .get_open_runtime_launch(agent.id)
+        .await
+        .unwrap()
+        .unwrap();
+    let peer = repo
+        .get_open_runtime_launch(agents[1].id)
+        .await
+        .unwrap()
+        .unwrap();
+    let effective = repo
+        .get_effective_config_revision(agent.id)
+        .await
+        .unwrap()
+        .unwrap();
+    let mut files = Vec::new();
+    for name in ["config.yaml", "SOUL.md", ".env"] {
+        let path = Path::new(&agent.paths.config).join(name);
+        files.push((path.clone(), tokio::fs::read(path).await.unwrap()));
+    }
+    let started = tokio::time::Instant::now();
+    let revision = request_activation(
+        repo,
+        agent.id,
+        owner,
+        configuration(&proof.model_host, port, "CONTAINER_QA_READINESS_DELAY"),
+    )
+    .await;
+    let candidate = timeout(Duration::from_secs(90), async {
+        loop {
+            if let Some(launch) = repo.get_open_runtime_launch(agent.id).await.unwrap()
+                && launch.binding.phase == "activation"
+                && launch.binding.configuration_revision == Some(revision)
+                && launch.state == "gateway_started"
+            {
+                break launch;
+            }
+            sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .expect("delayed candidate was not acknowledged");
+    assert_ne!(candidate.binding.id, original.binding.id);
+    assert!(repo.agent_is_draining(agent.id).await.unwrap());
+    assert_eq!(
+        repo.get_effective_config_revision(agent.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .revision,
+        effective.revision
+    );
+    assert!(
+        tokio::fs::read_to_string(Path::new(&agent.paths.config).join("SOUL.md"))
+            .await
+            .unwrap()
+            .contains("CONTAINER_QA_READINESS_DELAY")
+    );
+    timeout(Duration::from_secs(150), async {
+        loop {
+            let current = repo.get_config_revision(agent.id, revision).await.unwrap();
+            if current.state == "failed" && !current.draining {
+                assert!(
+                    current
+                        .last_error
+                        .as_deref()
+                        .is_some_and(|error| error.contains("did not become ready")),
+                    "wrong failure: {:?}",
+                    current.last_error
+                );
+                break;
+            }
+            sleep(Duration::from_millis(100)).await;
+        }
+    })
+    .await
+    .expect("Docker readiness rollback did not settle");
+    assert!(started.elapsed() >= Duration::from_secs(60));
+    let rollback = repo
+        .get_open_runtime_launch(agent.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(rollback.binding.phase, "rollback");
+    assert_eq!(
+        rollback.binding.configuration_revision,
+        Some(effective.revision)
+    );
+    assert_ne!(rollback.binding.id, candidate.binding.id);
+    assert_ne!(rollback.binding.id, original.binding.id);
+    assert_eq!(
+        repo.get_open_runtime_launch(agents[1].id)
+            .await
+            .unwrap()
+            .unwrap()
+            .binding
+            .id,
+        peer.binding.id
+    );
+    for (path, body) in files {
+        assert!(
+            tokio::fs::read(path).await.unwrap() == body,
+            "original managed bytes were not restored"
+        );
+    }
+    FilesystemProvisioner
+        .verify_effective_configuration(
+            &repo.get_agent(agent.id).await.unwrap(),
+            config,
+            &repo
+                .get_effective_config_revision(agent.id)
+                .await
+                .unwrap()
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert!(
+        !tokio::fs::try_exists(
+            Path::new(&config.fleet.controller_root).join(format!("{}.activation.json", agent.id))
+        )
+        .await
+        .unwrap()
+    );
+    for retired in [&original, &candidate] {
+        let boundary = retired.binding.container.as_ref().unwrap();
+        let control = ContainerControl::new(
+            proof.control.python.clone().into(),
+            ControlSource {
+                root: proof.control.base_root.clone().into(),
+                sha256: boundary.source_sha256.clone(),
+            },
+            boundary.context.clone(),
+        )
+        .unwrap();
+        let files = ContainerLaunchFiles {
+            policy: boundary.policy.clone(),
+            compose: boundary.compose.clone().into(),
+            journal: boundary.journal.clone().into(),
+            stop_journal: boundary.stop_journal.clone().into(),
+            mount_mapping: boundary.mount_mapping.clone(),
+            mapping_file: boundary.mapping_file.clone().map(Into::into),
+        };
+        let observed = control
+            .observe(&files, &boundary.registration)
+            .await
+            .unwrap();
+        assert_eq!(
+            observed.observation,
+            infra::runtime::container_control::ContainerObservation::NamespaceExited
+        );
+    }
+    let prompt = format!("container-after-rollback-{}", Uuid::new_v4());
+    let (session, _, _) = send(repo, agent.id, owner, &prompt).await;
+    assert_answer(
+        repo,
+        model,
+        session,
+        &prompt,
+        "CONTAINER_SOUL_A_NEW",
+        "CONTAINER_QA_READINESS_DELAY",
+    )
+    .await;
 }
 
 #[tokio::test]
@@ -629,14 +829,16 @@ async fn real_container_supervisor_isolates_chat_and_drains_configuration_replac
         clean,
         "original namespace termination unconfirmed; outer Compose cleanup is mandatory"
     );
-    assert_eq!(model.calls.lock().await.len(), 5);
+    let prompts = if proof.readiness_rollback { 6 } else { 5 };
+    assert_eq!(model.calls.lock().await.len(), prompts);
     let report = json!({"state":"passed","actual_rust_supervisor":true,"actual_docker_hermes":true,
         "controlled_model":true,"sdlc_acceptance":false,"agents":2,"controller_uid":999,
         "mapped_volume":proof.agents_volume,"engine_id":proof.engine_id,
         "isolated_soul_and_mirror":true,"cross_agent_token_denied":true,
         "idempotent_messages":true,"drain_before_file_effects":true,
         "loaded_replacement_soul":true,"peer_unchanged":true,"fresh_restart_generation":true,
-        "confirmed_namespace_stop":true,"model_prompts":5});
+        "confirmed_namespace_stop":true,"model_prompts":prompts,
+        "readiness_rollback":proof.readiness_rollback});
     tokio::fs::write(
         "/evidence/live-report.json",
         serde_json::to_vec_pretty(&report).unwrap(),
