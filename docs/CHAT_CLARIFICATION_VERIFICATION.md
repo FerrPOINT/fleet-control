@@ -10,6 +10,13 @@ negative control fails specifically with false `NotFound` after an agent-scoped
 AFTER INSERT trigger creates a newer row. It is an expected negative result,
 not a failed fixed-source test or evidence from thread scheduling probability.
 
+[Exact-head CI37534175874](https://github.com/FerrPOINT/fleet-control/actions/runs/37534175874)
+passes all5 jobs: backend PostgreSQL/migration smoke/OpenAPI, minimum Rust,
+docs, authenticated Compose and frontend including three-browser fixtures and
+generated screenshot manifest. After ready-for-review, PR55 remains
+OPEN/ready/MERGEABLE/CLEAN with all5 checks SUCCESS and no reviews/threads.
+This is scoped source readiness, not a merged/installed or full SDLC release.
+
 Fresh Linux/Rust1.88/PostgreSQL project `sdlc-qa-fleet-log-identity-3d43a05a59be`
 passes fmt, locked all-target check, strict Clippy,96 workspace tests and generated
 OpenAPI equality. Ten historical lineage/profile cases remain explicitly ignored;

@@ -10,6 +10,8 @@ Its local main-based gate passes96 workspace cases with10 explicit opt-in ignore
 fmt/check/strict Clippy and regenerated OpenAPI equality. Original-code negative
 control reproduces the exact false `NotFound`. The runtime source separately
 passes all three PG cases without ignores and strict all-target Clippy.
+PR55 is ready/MERGEABLE/CLEAN on exact headfdbd7dd with5 successful CI jobs,
+rechecked after ready. It remains open, not merged or installed.
 See [verification](CHAT_CLARIFICATION_VERIFICATION.md#atomic-process-log-acknowledgement-7-october-2026).
 
 This is not production Docker ingestion. Generation-bound cursor/replay,
