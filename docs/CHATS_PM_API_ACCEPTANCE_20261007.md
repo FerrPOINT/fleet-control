@@ -51,6 +51,19 @@ and the current server-only `X-Workflow-Execution-Token`; these credentials
 must not become browser fields. First dispatch additionally needs genuine
 predispatch authority; the postdispatch PM bind is insufficient.
 
+Exact Workflow command DTO fields from the published source:
+
+- `PMCommand`: the ten identity fields, `operation_key`, `expected_version`,
+  `expected_fence`, `binding_ref`, `hermes_run_ref`, `session_run_id`.
+- `PMCheckpoint`: those fields plus `checkpoint_ref`,
+  `clarification_request_ref`, `clarification_version`, `requirements_revision`.
+- `PMResume`: the checkpoint fields plus `answer_event_ref`,
+  `new_session_run_id`.
+- `PMRebind`: the command fields plus `checkpoint_ref`, `resume_operation_key`,
+  `new_binding_ref`, `new_hermes_run_ref`, `new_session_run_id`.
+- `PMReadback`: the identity fields and optional `operation_key`; current state
+  and a historical exact operation result must be distinguished.
+
 ## Combined live sequence
 
 1. Create one real Draft/chat and recover the same identity after lost ACK;
