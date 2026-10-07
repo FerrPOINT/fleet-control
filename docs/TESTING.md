@@ -1,5 +1,22 @@
 # Testing
 
+## Signed Configuration Recovery
+
+With a disposable `FLEET_TEST_DATABASE_URL`, run
+`cargo test -p infra --lib runtime::activation_recovery:: -- --test-threads=1`.
+The private-loader cases are
+`cargo test -p infra --lib runtime::activation_journal:: -- --test-threads=1`;
+retain `activation_lock`, lifecycle and container-configuration regressions too.
+Linux Rust1.88 remains the authoritative platform. Require the expected case
+count and actual PostgreSQL execution: returning early without the database is
+not evidence. Signature tamper, secret rotation, unsigned legacy, snapshot/drain
+changes, committed-file acknowledgement and failed DB settlement must preserve
+the correct files/hold. Existing effective configuration must survive rollback.
+These component and controlled-runtime tests do not replace real running-Hermes
+crash, unknown-command reconciliation, loaded-readiness or backup-loss acceptance.
+Keep configuration recovery disabled in installed deployments until those gates
+pass; see [ADR0035](adr/0035-signed-configuration-recovery.md).
+
 ## Recovered Namespace Stop
 
 `infra --lib runtime::controller_stop_tests::` now includes seven PostgreSQL /

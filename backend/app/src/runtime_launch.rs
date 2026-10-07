@@ -2,6 +2,17 @@ use domain::{AgentKind, AgentPaths};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ConfigurationRollbackClaim {
+    pub agent_id: Uuid,
+    pub revision: i64,
+    pub candidate_sha256: String,
+    pub effective_revision: Option<i64>,
+    pub effective_sha256: Option<String>,
+    pub journal_sha256: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContainerEngineIdentity {

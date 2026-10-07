@@ -1,5 +1,13 @@
 # Traceability
 
+Interrupted configuration recovery: [ADR0035](adr/0035-signed-configuration-recovery.md),
+`runtime/activation_journal.rs` signed identity/private loader and
+`runtime/activation_recovery.rs` guarded restore/acknowledgement; repository
+rollback transaction preserves effective head and writes one digest-only audit.
+Stopped-agent, tamper/rotation and settlement-failure regressions are component
+evidence, not actual running-Hermes crash or model/SDLC acceptance. Rollout remains
+default-off pending the [recovery gap](GAP_REGISTER.md#interrupted-configuration-activation).
+
 Recovered namespace stop candidate: [ADR0034](adr/0034-recovered-controller-namespace-stop.md),
 additive000022, `infra/controller_stop_delivery` and trusted `runtime/controller_stop`.
 Six `runtime/controller_stop_tests` cases cover once-only concurrent claim,

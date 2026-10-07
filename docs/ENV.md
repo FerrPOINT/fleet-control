@@ -77,11 +77,36 @@ there pending platform integration. Linux remains the authoritative gate.
 
 Preserve this storage across Fleet restarts and backups. Existing v1 journals in
 agent config are not moved or deleted automatically; they block new activation
-until reviewed reconciliation. New private documents are v2, include the original
-agent/revision/config location and keep sensitive file backups. No automatic
-crash takeover, reset or per-agent container enablement follows from this setting.
+until reviewed reconciliation. New private documents are signed v3, include the
+original candidate/effective snapshot identity, controller/launch and canonical
+locations, and keep sensitive file backups. Existing private v2 documents are
+not upgraded or adopted. No automatic crash takeover, reset or per-agent
+container enablement follows from this storage setting.
 Installed mounts/Compose/image pins have not been changed. See
 [operations](OPERATIONS.md#private-activation-recovery-storage).
+
+## Configuration Activation Recovery
+
+`FLEET_CONTROL_FLEET__CONFIGURATION_RECOVERY_ENABLED` defaults to `false`, including
+old configuration files which omit it. It is independent of custody recovery.
+When explicitly enabled, the existing configuration worker inspects retained
+Hermes journals between fresh activation claims; it adds no business scheduler.
+Only authenticated v3 journals under the original private root are eligible.
+The HMAC uses `FLEET_CONTROL_FLEET__RUNTIME_TOKEN_SECRET`: keep the original secret
+and root with protected backups. Rotation before reconciliation holds retained
+journals; it does not authorize rewriting or re-signing them. HMAC authenticates
+the document but does not encrypt its secret-bearing file backups.
+
+Recovery rechecks current desired/effective snapshots, drain/claim, active runs
+and uncertain message deliveries. Unknown container preparation, unavailable
+original stop/custody proof or native process uncertainty retain the hold without
+replaying unknown commands. A running rollback requires validated original
+namespace exit and fresh rollback-generation readiness. Committed files can be
+acknowledged only with matching bytes and runtime state. This flag grants no
+task/PM admission, model permit, Java recovery or Windows activation support.
+Do not enable it in accepted deployments before live interrupted-Hermes
+acceptance; installed flags, image pins and mounts are unchanged. See
+[ADR0035](adr/0035-signed-configuration-recovery.md).
 
 ## Hermes Original-Key Recovery
 

@@ -629,6 +629,21 @@ pub(super) async fn open(
         })).transpose()
 }
 
+pub(super) async fn by_id(
+    repo: &PostgresFleetRepository,
+    launch_id: Uuid,
+) -> Result<Option<RuntimeLaunchRecord>, AppError> {
+    repo.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT binding,state,pid,EXISTS(SELECT 1 FROM runtime_controller_recoveries e WHERE e.launch_id=runtime_launches.id) AS controller_recovery
+         FROM runtime_launches WHERE id=$1", [launch_id.into()]))
+        .await.map_err(AppError::database)?.map(|row| Ok(RuntimeLaunchRecord {
+            binding: serde_json::from_value(row.try_get("", "binding").map_err(AppError::database)?).map_err(AppError::internal)?,
+            state: row.try_get("", "state").map_err(AppError::database)?,
+            pid: row.try_get("", "pid").map_err(AppError::database)?,
+            controller_recovery: row.try_get("", "controller_recovery").map_err(AppError::database)?,
+        })).transpose()
+}
+
 pub(super) async fn next_container_ordinal(
     repo: &PostgresFleetRepository,
     agent: Uuid,

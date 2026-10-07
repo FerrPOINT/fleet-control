@@ -47,8 +47,9 @@ or changing its generation would violate immutable custody.
 
 No new migration or Base wire-protocol change is required. Generation history,
 prepared receipts and private journals remain immutable. Interrupted activation
-still needs explicit reconciliation; this decision does not implement takeover
-or loss recovery. Any new recovery path still requires exact-source named-volume
+uses the separate default-off [signed-v3 reconciler](0035-signed-configuration-recovery.md);
+this decision alone does not implement takeover or loss recovery. The new
+recovery path still requires exact-source named-volume
 Hermes/model evidence in addition to fake-Base supervisor/PostgreSQL regressions.
 
 ## Alternatives

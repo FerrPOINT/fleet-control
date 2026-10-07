@@ -415,6 +415,121 @@ pub(super) async fn draining(repo: &PostgresFleetRepository, id: Uuid) -> Result
         .map(|value| value.unwrap_or(false))
 }
 
+pub(super) async fn settle_rollback(
+    repo: &PostgresFleetRepository,
+    claim: &app::runtime_launch::ConfigurationRollbackClaim,
+    settle: bool,
+) -> Result<(), AppError> {
+    let txn = repo.db.begin().await.map_err(AppError::database)?;
+    txn.query_one(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT id FROM agents WHERE id=$1 AND archived_at IS NULL FOR UPDATE",
+        [claim.agent_id.into()],
+    ))
+    .await
+    .map_err(AppError::database)?
+    .ok_or_else(|| AppError::conflict("configuration recovery agent changed"))?;
+    let row = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT h.desired_revision,h.effective_revision,h.draining,r.state,r.claimed_at IS NOT NULL AS claimed,
+            r.snapshot AS candidate_snapshot,e.snapshot AS effective_snapshot
+         FROM agent_config_heads h JOIN agent_config_revisions r ON r.agent_id=h.agent_id AND r.revision=$2
+         LEFT JOIN agent_config_revisions e ON e.agent_id=h.agent_id AND e.revision=h.effective_revision
+         WHERE h.agent_id=$1 FOR UPDATE OF h,r", [claim.agent_id.into(),claim.revision.into()]))
+        .await.map_err(AppError::database)?.ok_or_else(|| AppError::conflict("configuration recovery head is unavailable"))?;
+    let hash = |snapshot: serde_json::Value| -> Result<String, AppError> {
+        let snapshot: domain::AgentConfigurationSnapshot =
+            serde_json::from_value(snapshot).map_err(AppError::internal)?;
+        crate::runtime_launches::snapshot_hash(
+            &serde_json::to_value(snapshot).map_err(AppError::internal)?,
+        )
+    };
+    if row
+        .try_get::<i64>("", "desired_revision")
+        .map_err(AppError::database)?
+        != claim.revision
+        || row
+            .try_get::<Option<i64>>("", "effective_revision")
+            .map_err(AppError::database)?
+            != claim.effective_revision
+        || hash(
+            row.try_get("", "candidate_snapshot")
+                .map_err(AppError::database)?,
+        )? != claim.candidate_sha256
+        || row
+            .try_get::<Option<serde_json::Value>>("", "effective_snapshot")
+            .map_err(AppError::database)?
+            .map(hash)
+            .transpose()?
+            != claim.effective_sha256
+        || !row
+            .try_get::<bool>("", "claimed")
+            .map_err(AppError::database)?
+    {
+        return Err(AppError::conflict(
+            "configuration recovery snapshot changed",
+        ));
+    }
+    let state: String = row.try_get("", "state").map_err(AppError::database)?;
+    let drained: bool = row.try_get("", "draining").map_err(AppError::database)?;
+    if state == "failed" && !drained {
+        let receipt = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT payload FROM audit_log WHERE action='agent_config.recovery_rollback' AND entity_id=$1 AND payload->>'journal_sha256'=$2",
+            [claim.agent_id.to_string().into(),claim.journal_sha256.clone().into()]))
+            .await.map_err(AppError::database)?;
+        if receipt.is_some_and(|row| {
+            row.try_get::<serde_json::Value>("", "payload").ok() == serde_json::to_value(claim).ok()
+        }) {
+            return Ok(());
+        }
+        return Err(AppError::conflict(
+            "configuration recovery receipt is unavailable",
+        ));
+    }
+    if !drained || !matches!(state.as_str(), "activating" | "failed") {
+        return Err(AppError::conflict("configuration recovery state changed"));
+    }
+    let busy = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT EXISTS(SELECT 1 FROM session_agent_runs WHERE agent_id=$1 AND state IN ('pending','running','waiting','stopping'))
+             OR EXISTS(SELECT 1 FROM message_dispatch_outbox WHERE agent_id=$1 AND state IN ('pending','dispatching','uncertain')) AS busy",
+        [claim.agent_id.into()])).await.map_err(AppError::database)?.ok_or_else(|| AppError::internal("missing configuration recovery guard"))?;
+    if busy
+        .try_get::<bool>("", "busy")
+        .map_err(AppError::database)?
+    {
+        return Err(AppError::Unavailable(
+            "configuration recovery requires session reconciliation".into(),
+        ));
+    }
+    if !settle {
+        return txn.commit().await.map_err(AppError::database);
+    }
+    txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "UPDATE agent_config_revisions SET state='failed',last_error=COALESCE(last_error,'Interrupted activation rolled back') WHERE agent_id=$1 AND revision=$2",
+        [claim.agent_id.into(),claim.revision.into()])).await.map_err(AppError::database)?;
+    txn.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE agent_config_heads SET draining=false WHERE agent_id=$1 AND desired_revision=$2",
+        [claim.agent_id.into(), claim.revision.into()],
+    ))
+    .await
+    .map_err(AppError::database)?;
+    txn.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "INSERT INTO audit_log(id,actor_user_id,action,entity_type,entity_id,payload,created_at)
+         VALUES($1,NULL,'agent_config.recovery_rollback','agent_config',$2,$3,now())",
+        [
+            Uuid::new_v4().into(),
+            claim.agent_id.to_string().into(),
+            serde_json::to_value(claim)
+                .map_err(AppError::internal)?
+                .into(),
+        ],
+    ))
+    .await
+    .map_err(AppError::database)?;
+    txn.commit().await.map_err(AppError::database)
+}
+
 /// Caller holds the agent row lock shared by run reservations and activation.
 pub(super) async fn guard_identity_change(
     txn: &sea_orm::DatabaseTransaction,

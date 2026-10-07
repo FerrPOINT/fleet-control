@@ -5,6 +5,12 @@
 SDLC implementation is in progress, not production accepted. Current scope and
 remaining blockers: [SDLC implementation](docs/SDLC_IMPLEMENTATION.md).
 
+Interrupted configuration reconciliation is an explicit default-off integration
+candidate: signed private v3 journals bind exact snapshots and original runtime
+identity; unknown commands and unsigned legacy journals remain held. Stopped-agent
+restore is component-tested, not running-Hermes crash acceptance or SDLC readiness.
+See [configuration recovery](docs/adr/0035-signed-configuration-recovery.md).
+
 Native launch identity is now journaled before spawn, with atomic gateway
 observations and generation-pinned free-chat dispatch. Lost acknowledgements
 do not authorize a new launch or message replay. This is integration source,

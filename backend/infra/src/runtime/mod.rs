@@ -25,6 +25,7 @@ use uuid::Uuid;
 mod acceptance_readback;
 mod activation_journal;
 mod activation_lock;
+mod activation_recovery;
 mod approval_outcome;
 mod approval_snapshot;
 #[cfg(all(test, target_os = "linux"))]
@@ -257,7 +258,10 @@ impl LocalRuntimeSupervisor {
                                 }
                             }
                         }
-                        Ok(None) => sleep(Duration::from_secs(1)).await,
+                        Ok(None) => {
+                            supervisor.recover_pending_configurations().await;
+                            sleep(Duration::from_secs(1)).await;
+                        },
                         Err(error) => {
                             tracing::warn!("configuration activation queue failed: {error}");
                             sleep(Duration::from_secs(2)).await;
@@ -324,6 +328,29 @@ impl LocalRuntimeSupervisor {
             ));
         }
         let files = crate::configuration_files(&agent, &self.config, revision).await?;
+        let effective = self.repo.get_effective_config_revision(agent.id).await?;
+        let identity = activation_journal::ActivationIdentity {
+            agent_id: agent.id,
+            revision: revision.revision,
+            candidate_sha256: crate::runtime_launches::snapshot_hash(
+                &serde_json::to_value(&revision.snapshot).map_err(AppError::internal)?,
+            )?,
+            effective_revision: effective.as_ref().map(|effective| effective.revision),
+            effective_sha256: effective
+                .as_ref()
+                .map(|effective| {
+                    crate::runtime_launches::snapshot_hash(
+                        &serde_json::to_value(&effective.snapshot).map_err(AppError::internal)?,
+                    )
+                })
+                .transpose()?,
+            controller_id: self.controller_id,
+            original_launch: self
+                .repo
+                .get_open_runtime_launch(agent.id)
+                .await?
+                .map(|launch| launch.binding),
+        };
         let mut backups = Vec::new();
         for (path, _) in &files {
             let old = activation_journal::read_backup(
@@ -340,11 +367,11 @@ impl LocalRuntimeSupervisor {
                     config_directory: std::path::Path::new(&agent.paths.config),
                     controller_root: std::path::Path::new(&self.config.fleet.controller_root),
                 },
-                agent.id,
-                revision.revision,
+                identity,
                 running,
                 &files,
                 &backups,
+                &self.config.fleet.runtime_token_secret,
                 activation_lock,
             )
             .await?,

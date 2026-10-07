@@ -352,15 +352,25 @@ identity. It does not change desired configuration JSON or grant runtime admissi
 Hermes activation writes an exclusive, size-bounded, sensitive controller-side
 `<controller_root>/<agent-uuid>.activation.json` before stop/file mutation. The
 operator-provisioned Linux root must be private and outside every agent path;
-it is not an agent-config field or a runtime mount. Version2 records original
-agents/config locations, agent/revision, prior runtime state, relative managed paths,
-previous bytes (hex) and expected hashes/absence. It is not a DB migration,
+it is not an agent-config field or a runtime mount. Signed version3 records original
+agents/config locations, candidate/effective snapshot revisions and hashes,
+controller/launch, prior runtime state, relative managed paths, previous bytes
+(hex) and expected hashes/absence. It is not a DB migration,
 new source of configuration authority or runtime/Workflow completion receipt.
 The existing revision/head transaction remains authoritative; only after its
 verified result commits can the byte-identical journal be removed. Interrupted
-operations keep recovery material without automatic claim takeover.
+operations keep recovery material without automatic claim takeover. Opt-in
+reconciliation authenticates the original document and checks current heads
+again. Rollback settlement locks the agent/head/revision, excludes active runs
+and unresolved delivery, marks the candidate failed and preserves the effective
+head. One existing `audit_log` row with action `agent_config.recovery_rollback`
+stores only agent/revision, candidate/effective hashes and the original journal
+digest; identical replay does not append another row. No backup bytes, runtime
+secret or launch credentials enter that audit. The rollback claim is internal,
+not a public API DTO or a source of model/Workflow authorization.
 Existing `config/.fleet-activation-journal.json` v1 remains an explicit blocker:
-it is not moved, rewritten, deleted or upgraded automatically. An empty/missing/
+it is not moved, rewritten, deleted or upgraded automatically. Private unsigned
+v2 is likewise held, not upgraded. An empty/missing/
 unsafe controller root holds new activation before file/runtime effects. No DB
 migration or automatic Windows ACL fallback is introduced.
 No new schema/renderer version is needed for Linux directory durability. Managed

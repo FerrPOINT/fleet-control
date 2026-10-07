@@ -1,5 +1,34 @@
 # Current State
 
+## Signed Activation Recovery: 7 October 2026
+
+The integration candidate now writes authenticated v3 activation journals and
+reopens them under the private per-agent OS lock. It checks exact candidate and
+previous effective snapshots, original controller/launch, canonical roots and
+rendered plan. A separate default-off flag enables bounded reconciliation in the
+existing worker. Stopped rollback restores files/absence, preserves effective
+configuration and commits one digest-only audit. Committed candidates are only
+acknowledged after matching readback. Unknown commands, unsigned legacy,
+rotated secrets or changed state keep the hold without replay or auto-upgrade.
+
+Fresh `sdlc-qa-fleet-config-4d44b2d5b905` passes Rust1.88 fmt, locked/offline
+workspace/all-target check and strict Clippy; four lock cases (one subprocess
+helper),13 journal, seven recovery, five config-revision, seven lifecycle and
+nine controlled container-configuration cases:45 passed,0 failed/ignored.
+Recovery cases use actual disposable PostgreSQL and include effective-head
+preservation, changed drain/snapshot, DB settlement failure/replay and disabled/
+rotated/uncertain holds. All320 captured inputs match. Owned Compose resources
+are removed; root Docker audit is complete with35 desktop containers,0 on both
+runner endpoints and no violations. README and134-document local link checks pass.
+
+This is not actual running-Hermes crash, loaded-readiness, PM continuation or
+full SDLC acceptance. No public API, migration, SDK pin, installed flag/image/
+mount or Java lifecycle is changed. Current recovery gaps and ordered main
+release remain required. Older entries below retain their historical source
+heads and boundaries, not the latest implementation status. See
+[ADR0035](adr/0035-signed-configuration-recovery.md) and
+[exact evidence](CHAT_CLARIFICATION_VERIFICATION.md#signed-activation-recovery-7-october-2026).
+
 ## Activation Process Exclusion: 7 October 2026
 
 The integration candidate now holds a controller-private per-agent Linux

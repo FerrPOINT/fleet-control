@@ -1,5 +1,9 @@
 # Java Agent Adapter Contract
 
+Hermes signed-v3 configuration recovery adds no Java configuration/recovery
+capability. Java runtime lifecycle and phase-2 chat limits remain unchanged;
+the new default-off flag skips Java agents and creates no journal for them.
+
 The private [controller recovery storage](CONTROLLER_RECOVERY_V1.md) is limited
 to the mapped container Hermes path. It does not adopt Java processes or change
 their existing lifecycle/readiness contract. Java SDLC chat/control admission

@@ -1,5 +1,10 @@
 # API
 
+Signed-v3 configuration recovery is an internal, default-off reconciliation
+path. It adds no public endpoint, DTO, OpenAPI route or force-release operation;
+its rollback claim and secret-bearing journal must never be exposed through
+runtime/settings responses. See [ADR0035](adr/0035-signed-configuration-recovery.md).
+
 Controller recovery epochs are internal repository operations, not new public
 agent/runtime actions. Requests, witness hashes and lease state are not browser
 DTOs. Any outstanding recovery fences existing queue/permit/endpoint/lifecycle

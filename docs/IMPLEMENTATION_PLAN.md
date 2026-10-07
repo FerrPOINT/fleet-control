@@ -1,5 +1,31 @@
 # Implementation Plan
 
+## Signed Activation Reconciliation Follow-Up
+
+The integration candidate implements a closed signed-v3 journal, original
+candidate/effective snapshot and launch binding, protected restart loader and
+default-off reconciliation in the existing activator. Stopped rollback and
+committed-candidate acknowledgement preserve database authority; failed
+settlement retains drain/journal and replay uses one digest-only audit. Legacy
+v1/v2, rotated secrets, changed snapshots/drain and unknown commands stay held.
+See [ADR0035](adr/0035-signed-configuration-recovery.md) and
+[verification](CHAT_CLARIFICATION_VERIFICATION.md).
+
+Next acceptance remains actual running named-volume Hermes crashes around stop,
+start and settlement, original unknown-command readback and recovered-owner
+loaded/readiness proof. No installed flag, public API, migration or Java lifecycle
+is changed. Keep this component distinct from pre-model Tracker/Workflow
+admission, PM tools/answer delivery/checkpoint/rebind, complete Forge receipts and
+ordered main release; the full goal is not reduced to this recovery slice.
+
+The parallel Chats/PM consumer is published at `f58db4e` on
+`fix/chats-session-recovery-20261007`. Its source/evidence changes relative to
+integration `03c26d2` are frontend-only plus task documentation/screenshots.
+Reported 446 unit and 96 browser-fixture tests are not live PM acceptance; the
+release packet retains its eight main-integration conflicts and prerequisites.
+Combine verified sources without rewriting either history, then verify exact
+hashes/contract boundaries and repeat combined release gates before readiness.
+
 ## Current Run-State Follow-Up
 
 Validated original namespace exit now has an atomic candidate for cancelling

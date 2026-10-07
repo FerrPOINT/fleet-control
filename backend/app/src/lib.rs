@@ -597,6 +597,14 @@ pub trait FleetRepository: Send + Sync {
             "controller recovery journal is unavailable".into(),
         ))
     }
+    async fn get_runtime_launch(
+        &self,
+        _launch_id: Uuid,
+    ) -> Result<Option<runtime_launch::RuntimeLaunchRecord>, AppError> {
+        Err(AppError::Unavailable(
+            "runtime launch history is unavailable".into(),
+        ))
+    }
     async fn read_controller_recovery(
         &self,
         _id: Uuid,
@@ -811,6 +819,22 @@ pub trait FleetRepository: Send + Sync {
         reconciled: bool,
     ) -> Result<(), AppError>;
     async fn agent_is_draining(&self, agent_id: Uuid) -> Result<bool, AppError>;
+    async fn settle_configuration_rollback(
+        &self,
+        _claim: &runtime_launch::ConfigurationRollbackClaim,
+    ) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "configuration rollback recovery is unavailable".into(),
+        ))
+    }
+    async fn verify_configuration_rollback(
+        &self,
+        _claim: &runtime_launch::ConfigurationRollbackClaim,
+    ) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "configuration rollback recovery is unavailable".into(),
+        ))
+    }
     async fn update_agent_config(
         &self,
         agent_id: Uuid,

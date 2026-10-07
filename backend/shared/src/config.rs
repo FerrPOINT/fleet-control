@@ -267,6 +267,9 @@ pub struct FleetConfig {
     /// Resume original controller custody only; not a model or SDLC admission flag.
     #[serde(default)]
     pub controller_recovery_enabled: bool,
+    /// Opt-in reconciliation of signed configuration journals; never grants task admission.
+    #[serde(default)]
+    pub configuration_recovery_enabled: bool,
     /// Operator opt-in. Missing Docker preparation never falls back to a host process.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub container_control: Option<ContainerControlConfig>,
@@ -373,6 +376,7 @@ impl AppConfig {
             .set_default("fleet.agents_root", "./data/agents")?
             .set_default("fleet.controller_root", "")?
             .set_default("fleet.controller_recovery_enabled", false)?
+            .set_default("fleet.configuration_recovery_enabled", false)?
             .set_default("fleet.hermes_source", "../прототипы/hermes")?
             .set_default("fleet.hermes_command", "hermes")?
             .set_default("fleet.hermes_recovery_extension_enabled", false)?
@@ -526,6 +530,7 @@ impl Default for FleetConfig {
             agents_root: "./data/agents".to_string(),
             controller_root: String::new(),
             controller_recovery_enabled: false,
+            configuration_recovery_enabled: false,
             container_control: None,
             hermes_source: "../прототипы/hermes".to_string(),
             hermes_command: "hermes".to_string(),

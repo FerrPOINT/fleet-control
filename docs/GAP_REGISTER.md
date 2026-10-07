@@ -9,12 +9,17 @@ lock nor a changed backup authorizes another writer or RAM-only rollback.
 This addresses cooperative cross-process exclusion in the same protected
 controller storage, not distributed custody or complete restart recovery.
 
-Still required: a trusted restarted-controller loader that binds the original
-journal to desired/effective snapshot revisions and original launch history;
-safe cessation/readback of old or uncertain native preparation/start/stop;
-reconciliation of interrupted settlement; recovered-owner loaded-config and
-readiness proof; actual named-volume Hermes crash acceptance. Existing v2 or
-partial journals must remain held until those proofs exist. A released OS lock,
+The default-off signed-v3 loader now binds the retained document to exact
+desired/effective snapshot hashes and original controller/launch. Stopped-agent
+restore, committed-candidate acknowledgement, settlement-failure replay and
+tampered/rotated/uncertain holds have focused PostgreSQL/file regressions.
+Running rollback requires existing custody/stop controls, original namespace-exit
+observation and fresh rollback readiness; unknown commands are not resent.
+
+Still required: actual running named-volume Hermes crash acceptance at stop,
+candidate start and DB settlement; recovered-owner loaded-config/readiness proof;
+old/uncertain native preparation/start/stop reconciliation and backup-loss drills.
+Existing v2 or partial journals remain held without automatic upgrade. A released OS lock,
 healthy HTTP process or unchanged PID is not sufficient. No installed rollout
 or SDLC admission is enabled by this primitive. Exact checks are recorded in
 [verification](CHAT_CLARIFICATION_VERIFICATION.md).

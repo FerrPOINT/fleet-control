@@ -177,8 +177,10 @@ An empty/missing/unsafe root prevents file/runtime mutations and keeps the claim
 activation drained for reconciliation. Do not resolve this by releasing its DB
 claim or retrying under a new revision/key.
 
-Private `<agent-uuid>.activation.json` v2 documents contain original locations,
-revision, expected hashes and previous runtime files, including resolved secrets.
+Private `<agent-uuid>.activation.json` v3 documents contain original locations,
+candidate/effective snapshot identity, controller/launch, expected hashes and
+previous runtime files, including resolved secrets. A domain-separated HMAC
+authenticates the complete payload with the original runtime-token secret.
 Include the directory in protected backups; exclude it from API, logs, agent
 mounts and screenshots. Preserve partial/retained documents. A successful DB
 result precedes byte-identical acknowledgement; changing owner/mode, linking or
@@ -197,9 +199,23 @@ changed durable backup documents even when the old process still has RAM copies.
 Any `.fleet-activation-journal.json` v1 in agent config remains a blocker: do not
 auto-move it to the new directory, delete it, rewrite it or infer a successful
 rollback. A reviewed operator recovery must establish original DB/files/runtime
-state and safe descendant/remote-effect cessation first. No repair/reset endpoint
-or automated takeover is introduced by this packet. Windows ACL durability and
-actual Fleet container-boundary integration remain separate release gates.
+state and safe descendant/remote-effect cessation first. Unsigned private v2
+documents remain held too; do not upgrade, relocate or re-sign them. No public
+repair/reset endpoint is introduced. Windows ACL durability and actual running
+Hermes interrupted-activation acceptance remain separate release gates.
+
+The default-off `FLEET_CONTROL_FLEET__CONFIGURATION_RECOVERY_ENABLED` enables only
+the signed-v3 reconciler in the existing activation worker. Keep the original
+root, lock inode, journal and runtime-token secret together. Rotation, changed
+snapshot or unknown preparation holds recovery before file effects. Before
+enabling it, verify backups and exact-source live acceptance in disposable QA.
+Stopped-agent recovery restores original bytes/absence without implicitly
+starting it. A previously running agent requires original namespace-exit proof
+and new rollback readiness; degraded foreign-owner health is insufficient.
+Unknown native commands are not repeated. Transaction failure retains drain and
+journal even if files have already been restored. Read the existing digest-only
+`agent_config.recovery_rollback` audit after confirmed settlement; never attach
+the private document as evidence. No model/PM/stage completion is implied.
 
 Installed Compose/mounts/images are not changed. Existing non-activation reads,
 legacy chat history and runtime controls do not gain task admission from this
@@ -366,9 +382,9 @@ Fleet task-bound prompt/steer remains blocked until verified workflow orchestrat
 Save a config draft, validate it, then explicitly activate. Desired and effective
 revisions can differ. During drain, do not force changes beneath active runs.
 Before stopping a tracked runtime or changing managed files, activation creates
-`<controller_root>/<agent-uuid>.activation.json` v2 exclusively, persists previous
-bytes, canonical source locations, expected file hashes, agent/revision identity
-and prior running state, and fsyncs
+`<controller_root>/<agent-uuid>.activation.json` v3 exclusively, authenticates
+previous bytes, canonical locations, expected hashes, candidate/effective
+snapshots, original controller/launch and prior running state, and fsyncs
 the file (and parent directory on Linux). An existing or incomplete journal
 blocks another activation; it is not overwritten. Backups are limited to 8 MiB
 total, 128 files and a 24 MiB serialized journal. Successful application or verified
@@ -388,8 +404,8 @@ logs, screenshots or support reports. Do not delete it to bypass a blocked agent
 If activation fails and rollback is unconfirmed, keep the drain in place and
 inspect the last error. Crash recovery/operator reconciliation is not yet a public
 API; do not edit state rows to fabricate readiness.
-This slice preserves restart recovery evidence; it does not automatically reclaim
-an interrupted activation or prove OS process-tree quiescence. Windows private
+Only the opt-in signed-journal reconciler may settle a matching interrupted
+operation; storage alone does not prove OS process-tree quiescence. Windows private
 storage ACLs are not certified: activation is held before file/runtime effects.
 Linux is the private-storage and durability gate.
 

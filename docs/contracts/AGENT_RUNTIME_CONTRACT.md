@@ -154,14 +154,21 @@ lookup redispatch, task/PM authority or Java behavior is introduced.
 Hermes configuration activation persists an exclusive local backup journal before
 stop/file effects. Only the exact journal can be acknowledged after the database
 activation result commits and rollback/application is verified. Existing, partial
-or changed journals hold further activation; no automatic crash takeover follows.
+or changed journals hold further activation; storage grants no crash takeover.
 Journal content is sensitive local recovery data, never a public runtime receipt.
-Version 2 requires operator-provisioned private Linux controller storage outside
+Signed version3 requires operator-provisioned private Linux controller storage outside
 the agents root and every agent mount, with canonical source locations and
 owner/permission/link guards. Missing/unsafe storage and legacy agent-local
 journals keep drain without automatic adoption or relocation. This is not an OS
 boundary for a runtime using the same controller identity; see
 [private storage](../ENV.md#private-controller-storage).
+Default-off signed recovery checks exact candidate/effective snapshot hashes,
+original controller/launch and rendered plan under the same per-agent OS lock.
+Stopped rollback preserves effective state; running rollback needs original
+namespace exit and fresh readiness. Unknown native commands, unsigned v1/v2 and
+rotated secrets stay held, not redispatched or upgraded. Digest-only settlement
+audit is not an execution permit. Actual interrupted-running-Hermes acceptance
+remains open; see [ADR0035](../adr/0035-signed-configuration-recovery.md).
 Linux apply/rollback persist parent directory entries after file rename/unlink,
 including every new skill-directory ancestor. A failed barrier holds journal/drain
 instead of acknowledging effective state. This does not certify Windows directory

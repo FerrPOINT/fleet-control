@@ -499,7 +499,7 @@ impl LocalRuntimeSupervisor {
         Ok(persisted)
     }
 
-    async fn observe_container(
+    pub(super) async fn observe_container(
         &self,
         launch: &RuntimeLaunchRecord,
     ) -> Result<ContainerReceipt, AppError> {

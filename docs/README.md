@@ -29,6 +29,7 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 - [ADR: fenced controller recovery epochs](adr/0032-fenced-controller-recovery-epochs.md)
 - [ADR: original controller delivery and historical outcome](adr/0033-original-controller-delivery-outcome.md)
 - [ADR: recovered controller namespace stop](adr/0034-recovered-controller-namespace-stop.md)
+- [ADR: signed configuration recovery](adr/0035-signed-configuration-recovery.md)
 - [Private container lifecycle client](contracts/CONTAINER_CONTROL_V1.md)
 - [ADR: pre-spawn runtime launch binding](adr/0026-pre-spawn-runtime-launch-journal.md)
 - [Durable runtime command ADR](adr/0021-durable-runtime-control-commands.md)

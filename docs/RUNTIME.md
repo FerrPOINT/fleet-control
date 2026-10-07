@@ -19,10 +19,36 @@ this does not certify distributed/NFS locking or authorize relocating storage.
 Rollback first verifies the exact persisted journal and decodes its original
 backup entries; a missing/changed document cannot fall back to in-memory bytes.
 Ownership is checked before each file mutation and settlement. This is a
-necessary recovery primitive, not automatic interrupted-activation recovery:
-original native acceptance, namespace exit, candidate/effective revision binding
-and recovered-owner readiness still need their own reconciler and live evidence.
+necessary recovery primitive, not proof of native acceptance or loaded readiness.
 Windows activation remains fail-closed. No API, migration or deployment change.
+
+## Signed Interrupted Configuration Recovery
+
+New activation journals use authenticated v3 payloads with exact candidate and
+previous effective snapshot hashes, original controller/launch and canonical
+locations. A distinct default-off configuration recovery flag connects the
+existing activator to the private loader; it acquires the same OS/lifecycle locks,
+validates the HMAC and rendered plan, then reconciles the original operation.
+Legacy v1/v2, changed bytes/roots/snapshots and rotated secrets remain held.
+
+Stopped activations restore and durably read back original backup bytes/absence
+before an atomic failed-revision settlement. That transaction rechecks claim,
+head, snapshot hashes and absence of active runs or pending/uncertain dispatch,
+preserves the effective revision and writes one digest-only audit. If persistence
+fails, drain and journal remain; replay uses the same signed identity. A committed
+candidate is only acknowledged after exact file and runtime readback, never
+reapplied. Stopped agents do not acquire an implicit start.
+
+For previously running agents, unknown preparation or unconfirmed process state
+prevents file restoration. Only the original or revision-bound replacement
+container can be stopped through the existing custody controls. Restoration
+requires original launch history and validated namespace-exit observation;
+rollback uses a fresh generation and readiness before settlement. Native orphan
+processes and recovered-owner degraded health cannot substitute for these proofs.
+No unknown start/stop command is resent. The stopped recovery and transaction
+boundaries have PostgreSQL regressions; actual running Hermes crash/recovered
+readiness acceptance remains open. See [ADR0035](adr/0035-signed-configuration-recovery.md)
+and [gap register](GAP_REGISTER.md#interrupted-configuration-activation).
 
 ## Namespace Exit And Chat State
 

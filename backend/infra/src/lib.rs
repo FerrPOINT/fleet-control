@@ -1429,6 +1429,12 @@ impl FleetRepository for PostgresFleetRepository {
     ) -> Result<Option<app::runtime_launch::RuntimeLaunchRecord>, AppError> {
         runtime_launches::open(self, agent).await
     }
+    async fn get_runtime_launch(
+        &self,
+        launch_id: Uuid,
+    ) -> Result<Option<app::runtime_launch::RuntimeLaunchRecord>, AppError> {
+        runtime_launches::by_id(self, launch_id).await
+    }
     async fn reserve_controller_recovery(
         &self,
         request: &app::runtime_launch::ControllerRecoveryRequest,
@@ -1652,6 +1658,19 @@ impl FleetRepository for PostgresFleetRepository {
     }
     async fn agent_is_draining(&self, id: Uuid) -> Result<bool, AppError> {
         config_revisions::draining(self, id).await
+    }
+
+    async fn settle_configuration_rollback(
+        &self,
+        claim: &app::runtime_launch::ConfigurationRollbackClaim,
+    ) -> Result<(), AppError> {
+        config_revisions::settle_rollback(self, claim, true).await
+    }
+    async fn verify_configuration_rollback(
+        &self,
+        claim: &app::runtime_launch::ConfigurationRollbackClaim,
+    ) -> Result<(), AppError> {
+        config_revisions::settle_rollback(self, claim, false).await
     }
 
     async fn list_agent_skills(&self, agent_id: Uuid) -> Result<Vec<domain::AgentSkill>, AppError> {

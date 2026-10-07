@@ -1,5 +1,50 @@
 # Chat Clarification Verification
 
+## Signed Activation Recovery: 7 October 2026
+
+Packet `sdlc-qa-fleet-config-4d44b2d5b905` captures Fleet03c26d2 plus the signed
+v3 private loader, default-off reconciliation and atomic digest-only rollback
+settlement. SDK remains `cbb4e99230420dc2659431b1c9fb5090e5c940f0`.
+Rust1.88 fmt, locked/offline workspace/all-target check and strict Clippy pass.
+Four lock cases (one actual subprocess helper),13 journal, seven PostgreSQL
+recovery, five config-revision, seven lifecycle and nine controlled container
+configuration cases pass:45 passed,0 failed/ignored. The PostgreSQL path actually
+runs; no missing-database early return is credited.
+
+Recovery tests prove stopped restore without implicit spawn, preserved existing
+effective snapshot/model/files, committed-candidate acknowledgement, changed
+drain/snapshot rejection before backup writes, disabled/rotated/uncertain holds
+and transactional failure after file restore. Injected audit failure rolls back
+DB settlement, preserving drain/journal; retry settles once. Private-loader
+tests reject forged backup, rotated secret, changed plan and unsigned v2, and
+accept a bounded signed journal larger than the individual-file backup limit.
+The preceding43-case packet `a99bb05f3e47` also passed but lacks the final two
+effective-head/drain cases; do not substitute its source hashes for this gate.
+
+All320 frozen inputs match after execution. Source manifest SHA256:
+`8467ca09d0720147c72da465634187ab56043b01c162390c22c07f3e4e20cf4f`.
+Gate log SHA256:
+`655be7b6f3bdd13e06c27d5f0892fa0c839593650082d432761e596f2164237c`.
+Harness SHA256:
+`66c5bc7f8fc403c685453f91f456341702cb65f3adedeb6871e1321f1d37fd0b`.
+Compose SHA256:
+`eb79e6d55e4499293812d978cff369a442585f93ef2c77ea1983825fc3d6c6e8`.
+Private logs/manifests are in workspace `.local/fleet-config-settlement-20261007`.
+Exact owned containers/network are removed and independently absent. Root Docker
+audit is complete:35 desktop containers,0 on both runners, no violations. No
+accepted volume, image, runtime, source pin or secret is replaced. README and
+local links in134 Markdown documents pass. Public API/OpenAPI, migrations and
+frontend are byte-unchanged by the runtime patch; no new UI evidence is claimed.
+
+These are component/filesystem/PostgreSQL and controlled-runtime regressions,
+not actual running-Hermes crash/recovered-owner readiness acceptance. Pending
+preparation, native orphan uncertainty, unsigned legacy and rotated credentials
+stay held. No force-release endpoint, PM/model permit or SDLC completion follows.
+Actual named-volume stop/start/settlement crash and backup-loss gates remain in
+[GAP_REGISTER](GAP_REGISTER.md#interrupted-configuration-activation). The default
+flag is not enabled in any installed deployment. Earlier dated sections retain
+their original heads and scope; they are not evidence for this new source.
+
 ## Activation Process Exclusion: 7 October 2026
 
 Gate `sdlc-qa-fleet-config-4c2f6c7d17f4` captures Fleet54a4e14 plus the
