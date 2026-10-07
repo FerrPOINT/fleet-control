@@ -1,5 +1,25 @@
 # Current State
 
+## Producer Merge And Stop Health Regression: 7 October 2026
+
+Base runtime-control PR166 is merged into main as3a48de8. Exact PR head04f5527
+and the main merge each pass all10 CI checks. No installed SDK, image, volume or
+original launch source was changed.
+
+New actual stop packets retain all six successful custody phases and reach
+epoch3 after a third physical Fleet restart. Packet1f947520ed8f fails its
+immediate stop assertion. Packet7dcc9e260024 then confirms the first stop, but
+fails because the regular health watcher overwrites confirmed `gateway_exited`
+metadata with `unhealthy`. Neither is full stop acceptance; own cleanup and
+unchanged sources/permanent runtime are verified. A narrow candidate guard keeps
+the confirmed stopped/archived, PID-free, desired-stopped namespace proof
+observational instead of probing or adopting an old TCP port. Its regression
+passes the stale running snapshot to repeated normal health calls and requires
+all stopped metadata to stay byte-equivalent. Fresh strict/all-target and six
+stop/22 migration checks pass with0 ignores, as do34 host tests and133 Markdown
+link checks; exact hashes are in the verification ledger. Renewed actual
+acceptance is still required; the old success/failure packets are not relabelled.
+
 ## Recovered Namespace Stop Candidate: 7 October 2026
 
 Candidate000022 adds a stable original-generation stop intent and once-only

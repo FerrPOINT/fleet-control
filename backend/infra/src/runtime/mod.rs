@@ -2278,6 +2278,21 @@ impl LocalRuntimeSupervisor {
             });
         }
 
+        // A closed namespace proof must not become an unhealthy TCP probe or port adoption.
+        if !tracked
+            && finished.is_none()
+            && matches!(agent.status, AgentStatus::Stopped | AgentStatus::Archived)
+            && agent.runtime.desired_state == DesiredState::Stopped
+            && agent.runtime.pid.is_none()
+            && agent.runtime.health_status.as_deref() == Some("gateway_exited")
+        {
+            return Ok(RuntimeOperationResponse {
+                agent_id: agent.id,
+                status: agent.status,
+                message: "Original container namespace exit remains confirmed".into(),
+            });
+        }
+
         if let Some(exit) = finished {
             let detail = format!("process exited with {exit}");
             let updated = self

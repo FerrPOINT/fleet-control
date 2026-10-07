@@ -8,6 +8,11 @@ redacted atomic outcome; expired/drifted claim denial; foreign/native-expired
 owner denial; successful stop; lost post-exit reply resolved by read-only observe;
 unknown pre-exit acceptance retained without a second kill or model permit;
 late confirmed exit readback preserves expired custody without renewal.
+The successful-stop case additionally calls normal health three times using a
+stale running snapshot: stopped status, confirmed namespace health and every
+persisted runtime metadata field must remain unchanged, without TCP probing or
+port adoption. Actual packet7dcc9e260024 exposed this regression; component
+repair does not replace renewed live two-namespace acceptance.
 These are component tests, not actual Docker stop or PM/SDLC acceptance. The
 test requires `FLEET_TEST_DATABASE_URL`; the accepted runtime is never used.
 Migration000022 retains populated history and adds no legacy authority. The
@@ -20,6 +25,20 @@ cases without skips, including both accepted foundation histories and populated
 the changed follow-up; actual Docker stop remains an unpassed acceptance gate.
 
 ## Actual Docker Controller Custody Gate
+
+For recovered namespace containment, add `--controller-stop` to
+`--controller-recovery` with the same immutable source/image arguments. This
+additional mode first requires every original Rust/native custody proof. It
+then waits for the real lease to expire, restarts the same Fleet container a
+third time, admits its startup-driven epoch3 owner and calls the normal runtime
+stop for both original agents. Neither container is replaced or restarted.
+Engine exit/PID0, closed native exit readback, immutable launch identity,
+once-only stop outcome/audit and unchanged chat/dispatch/pending approval must
+all pass. The native probe is read-only and checks journal bytes before/after;
+it does not repeat stop. Reports explicitly deny resumed execution and SDLC
+acceptance. This mode is incompatible with rollback/log scenarios and cannot
+run without the complete custody gate. Retain failures and exact cleanup facts
+in the [verification ledger](CHAT_CLARIFICATION_VERIFICATION.md).
 
 Use `scripts/container_supervisor_live/run.py --controller-recovery` with the
 same required exact-image/source arguments as the existing container gate.

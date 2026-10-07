@@ -15,9 +15,13 @@ heads documented in the evidence ledger. Preserve the 30-second lease, exact
 source hashes and effect fences; no historical-only fallback or in-place
 active-controller source upgrade is allowed.
 
-Base runtime-control release is now [PR166](https://github.com/FerrPOINT/services-base/pull/166),
-head04f5527, reconciled normally with main875cac2. This publishes the native
-prerequisite, not an installed SDK pin or permission for restored execution.
+Base runtime-control [PR166](https://github.com/FerrPOINT/services-base/pull/166)
+is merged into main as `3a48de8c5696dd20b78c94205d9feb7dbb69c8e0`,
+from verified head04f5527 with10 successful CI checks and no review findings.
+Post-merge CI run37620081039 also passes all10 checks on exact merge3a48de8.
+This publishes the native prerequisite, not an installed SDK pin or permission
+for restored execution. The live stop packet retains exact source04f5527;
+merging the producer does not silently upgrade an existing launch's source hash.
 Fleet's thirteen additive runtime/chat migrations still require ordered release
 packets after the accepted foundations; see [migration lineage](MIGRATIONS.md).
 
@@ -30,6 +34,14 @@ without custody renewal and both migration foundations. Actual
 two-Hermes stop acceptance, session/control/approval reconciliation and interrupted
 activation remain required. Do not relabel the earlier custody-only proof or
 publish the accumulated thirteen-migration branch as one main PR.
+
+Actual stop packets1f947520ed8f and7dcc9e260024 retain the six custody proofs
+but fail the added stop gate; the latter exposes the background health probe
+overwriting a confirmed namespace exit. The narrow terminal-proof guard now
+passes strict/all-target checks and six-stop/22-migration regression tests.
+Repeat the complete `--controller-recovery --controller-stop` gate on this
+repaired source before closing stop acceptance. A lost reply may use the
+claimed-command read-only path, never a second kill or a longer lease.
 
 Independent browser boundary [Fleet56](https://github.com/FerrPOINT/fleet-control/pull/56)
 is merged into main as940b7de. Retain PR-head test evidence separately from

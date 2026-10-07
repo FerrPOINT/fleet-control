@@ -1,5 +1,75 @@
 # Chat Clarification Verification
 
+## Actual Recovered Namespace Stop Gate: 7 October 2026
+
+The new opt-in `--controller-recovery --controller-stop` packet preserves every
+custody phase and adds a third same-CID controller restart, explicit current-owner
+stop of both original namespaces and independent read-only native/Engine exit
+proof. Session/run/dispatch/transcript/pending approval must remain unchanged;
+the evidence explicitly denies resumed execution and SDLC acceptance.
+
+First packet `sdlc-qa-fleet-container-live-30eb594450be` failed during strict
+all-target Clippy: the new test used `assert_eq!` for a private command type
+without `Debug`. No live assertions ran. The repair uses a Boolean equality
+assertion rather than exposing private command data through a debug formatter.
+Source identity, cleanup and unchanged permanent runtime are retained in the
+failed report; this packet is not acceptance. The repaired actual gate must pass
+before closing namespace-stop acceptance. Host driver/loader/README tests pass
+34 cases and the Markdown checker passes133 files; these are not a substitute
+for that gate.
+
+Base runtime-control PR166 is merged at `2026-10-07T12:18:38Z`, main merge
+`3a48de8c5696dd20b78c94205d9feb7dbb69c8e0`, exact reviewed head
+`04f5527e705c5f838ae5c041efa988d14e1e6329`. Fresh GitHub readback confirms
+MERGED after10/10 successful CI checks, a clean merge state and no review
+findings. This is producer publication, not a new consumer SDK pin, installed
+image, launch source substitution or restored model/SDLC authority. Current QA
+continues using the separately frozen source04f5527.
+Post-merge CI run `37620081039` independently passes all10 checks on the exact
+main merge3a48de8; fresh commit check-runs readback confirms completed/success
+for every check, not a replay of the PR-head result.
+
+Repaired packet `sdlc-qa-fleet-container-live-1f947520ed8f` passes fmt, strict
+workspace/all-target Clippy, the closed live-heartbeat wire regression and all
+six original Rust/native custody phases. It reaches acknowledged live epoch3
+for both original namespaces after the third physical restart. Its first normal
+stop returns reconciliation-required, and the original test's immediate-success
+assertion fails. Stop, exit and full packet acceptance are NOT claimed; captured
+sources and permanent runtime remain unchanged and own cleanup is complete.
+The next test uses the existing claimed-command read-only settlement path after
+an uncertain response; it cannot send another kill or revive authority. A still
+running namespace must keep this gate failed. No timeout/lease/security fence is
+weakened, and no production code is changed by this test follow-up.
+
+Packet `sdlc-qa-fleet-container-live-7dcc9e260024` passes strict checks, the wire
+regression and all six custody proofs, then fails after its first successful
+normal runtime stop: a regular health probe rewrites `gateway_exited` to
+`unhealthy`. There is no uncertain-stop readback diagnostic in this packet;
+the earlier error is not substituted as its cause. No full two-namespace stop
+or SDLC acceptance is claimed. Source identity, permanent runtime and owned
+cleanup remain verified. The next production candidate returns the persisted
+terminal namespace fact without TCP probing when no tracked/open launch exists
+and status, desired state, PID and confirmed health proof all agree. Other health
+paths stay unchanged. The focused PostgreSQL stop test now exercises three
+normal health calls using the old running snapshot and checks unchanged metadata.
+Fresh checks and actual acceptance must independently validate this repair.
+
+The repaired component packet `sdlc-qa-fleet-container-control-833fc592dce7`
+passes Rust1.88 fmt, locked/offline strict workspace/all-target Clippy, all six
+PostgreSQL stop cases (including repeated stale-snapshot health) and all22
+migration cases with0 ignores. All309 captured backend/native inputs remain
+unchanged. Manifest SHA256:
+`44ed9d28f8065cc76229e6f19fc846e6083a2ad7d3e09f89393c3da0256f02a3`.
+Gate log SHA256:
+`561bb248a3df51cc2000fbd76f899eae178966063b33a80b1a0c672de13fddb1`.
+Owned containers/networks are removed, accepted runtime is unchanged. Host
+driver/loader/README tests pass34 cases; README validation and133 Markdown link
+checks pass. No public API, migration, SDK pin or UI changed. The real packet
+above remains failed: renewed actual two-namespace acceptance is still required,
+as are session/control/approval, activation, PM/producer/Forge and ordered
+single-migration release gates. This is verified component repair, not full
+merge readiness or installed enablement.
+
 ## Recovered Namespace Stop Candidate: 7 October 2026
 
 Initial full gate `sdlc-qa-fleet-container-control-2917a1944d57` passes fmt,

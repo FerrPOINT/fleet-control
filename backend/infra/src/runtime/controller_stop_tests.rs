@@ -169,6 +169,21 @@ async fn recovered_stop_checks_native_lease_and_current_owner_before_dispatch() 
         .unwrap();
     let result = runtime.stop_container_locked(&agent).await.unwrap();
     assert_eq!(result.status, AgentStatus::Stopped);
+    let stopped = repo.get_agent(agent.id).await.unwrap();
+    let before = serde_json::to_value(&stopped.runtime).unwrap();
+    for _ in 0..3 {
+        // Deliberately pass the old running snapshot as the background watcher does.
+        let health = app::RuntimeSupervisor::health(&runtime, &agent)
+            .await
+            .unwrap();
+        assert_eq!(health.status, AgentStatus::Stopped);
+        let observed = repo.get_agent(agent.id).await.unwrap();
+        assert_eq!(
+            observed.runtime.health_status.as_deref(),
+            Some("gateway_exited")
+        );
+        assert_eq!(serde_json::to_value(&observed.runtime).unwrap(), before);
+    }
     assert!(
         repo.get_open_runtime_launch(agent.id)
             .await

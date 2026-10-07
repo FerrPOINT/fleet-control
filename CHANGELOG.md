@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+- Preserve a confirmed recovered namespace exit during subsequent health checks;
+  do not replace stopped metadata with an unhealthy TCP probe or adopt its old
+  port. Add repeated stale-snapshot health regression coverage.
+
+- Add opt-in real recovered-owner stop acceptance after the complete custody
+  gate and a third physical controller restart. Verify both original namespace
+  exits without changing chat/dispatch/approval state or claiming SDLC success.
+
 - Add a default-off recovered-controller namespace stop candidate: retain one
   original-generation intent and dispatch claim, require fresh DB/native custody,
   and settle only validated original exit with runtime metadata and redacted audit.

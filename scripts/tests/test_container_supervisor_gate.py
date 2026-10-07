@@ -198,7 +198,7 @@ class CustodyTests(unittest.TestCase):
 
     def test_each_selected_case_is_exact_and_cannot_run_all_ignored_cases(self):
         helper = SimpleNamespace(command=['docker', 'compose', '-p', 'sdlc-qa-owned'])
-        for phase in (None, 'prepare', 'recover-1', 'expired', 'recover-2', 'freeze-1', 'freeze-2'):
+        for phase in (None, 'prepare', 'recover-1', 'expired', 'recover-2', 'freeze-1', 'freeze-2', 'stop'):
             command = runner.test_command(helper, phase)
             self.assertEqual(command[-5:], [runner.CUSTODY_TEST if phase else runner.BASELINE_TEST,
                 '--exact', '--ignored', '--nocapture', '--test-threads=1'])
@@ -306,6 +306,145 @@ class CustodyTests(unittest.TestCase):
                 'FLEET_CONTAINER_RECOVERY_PHASE=freeze-1',
                 'FLEET_CONTAINER_RECOVERY_PHASE=freeze-2')) for command in effects), 2)
             sleep.assert_called_once_with(31)
+
+
+class RecoveredStopTests(unittest.TestCase):
+    def evidence(self, native=False):
+        positive = ('original_namespaces_exited', 'original_snapshots_unchanged',
+            'native_journals_unchanged', 'read_only_exit_proof') if native else (
+            'actual_startup_worker', 'current_owner_namespace_stop', 'competing_logical_controller_denied',
+            'original_launch_identity_retained', 'immutable_stop_delivery', 'single_outcome_audit',
+            'session_dispatch_transcript_approval_unchanged', 'approval_target_unchanged')
+        value = dict.fromkeys(positive, True)
+        value.update(state='passed', agents=2, raw_receipts_persisted=False,
+                     resumed_execution=False, sdlc_acceptance=False)
+        if not native:
+            value['epoch'] = 3
+            value['uncertain_stop_readbacks'] = 0
+        return value
+
+    def test_stop_evidence_cannot_overclaim_execution_or_omit_any_assertion(self):
+        for native in (False, True):
+            value = self.evidence(native)
+            runner.validate_stop_evidence(value, native)
+            for key in value:
+                for invalid in (None, 'true', True if type(value[key]) is int else not value[key]):
+                    with self.subTest(native=native, key=key, invalid=invalid):
+                        with self.assertRaisesRegex(RuntimeError, 'stop evidence is incomplete'):
+                            runner.validate_stop_evidence(dict(value, **{key: invalid}), native)
+        for valid in (1, 2):
+            runner.validate_stop_evidence(dict(self.evidence(), uncertain_stop_readbacks=valid))
+        for invalid in (-1, 3):
+            with self.assertRaisesRegex(RuntimeError, 'stop evidence is incomplete'):
+                runner.validate_stop_evidence(dict(self.evidence(), uncertain_stop_readbacks=invalid))
+
+    def test_stop_requires_original_container_image_and_start_with_zero_pid(self):
+        before = {'fleet-backend': dict(Id='fleet', Image='image', pid=12, started_at='third'),
+                  'agent1-runtime-a': dict(Id='one', Image='hermes', pid=20, started_at='one'),
+                  'agent2-runtime-b': dict(Id='two', Image='hermes', pid=30, started_at='two')}
+        after = {key: dict(item, pid=0) if key != 'fleet-backend' else dict(item)
+                 for key, item in before.items()}
+        runner.validate_stopped(before, after)
+        for service, key, value in (('fleet-backend', 'pid', 13),
+                                   ('agent1-runtime-a', 'Id', 'replacement'),
+                                   ('agent1-runtime-a', 'Image', 'different'),
+                                   ('agent2-runtime-b', 'started_at', 'restarted'),
+                                   ('agent2-runtime-b', 'pid', False),
+                                   ('agent2-runtime-b', 'pid', 30)):
+            broken = {name: dict(item) for name, item in after.items()}
+            broken[service][key] = value
+            with self.assertRaises(RuntimeError):
+                runner.validate_stopped(before, broken)
+
+    def test_stopped_snapshot_requires_engine_exit_not_a_zero_pid_running_namespace(self):
+        helper = SimpleNamespace(project='owned', docker=['docker'], resources=lambda _: ['fleet', 'one', 'two'])
+        items = []
+        for service in ('fleet-backend', 'agent1-runtime-' + 'a' * 32, 'agent2-runtime-' + 'b' * 32):
+            items.append(dict(Id=service, Image='image', Config={'Labels': {
+                'com.docker.compose.project': 'owned', 'sdlc.task': runner.TASK,
+                'sdlc.purpose': runner.PURPOSE, 'com.docker.compose.service': service}},
+                State=dict(Running=service == 'fleet-backend', Pid=10 if service == 'fleet-backend' else 0,
+                           Status='running' if service == 'fleet-backend' else 'exited', StartedAt='original')))
+        checked = lambda *_: json.dumps(items)
+        runner.custody_snapshot(helper, checked, stopped=True)
+        for key, value in (('Running', True), ('Pid', False), ('Pid', 1), ('Status', 'dead')):
+            original = dict(items[1]['State'])
+            items[1]['State'][key] = value
+            with self.assertRaisesRegex(RuntimeError, 'requested state'):
+                runner.custody_snapshot(helper, checked, stopped=True)
+            items[1]['State'] = original
+
+    def test_stop_gate_requires_third_restart_and_both_stop_proofs_after_all_custody_phases(self):
+        for native_failure in (False, True):
+            with self.subTest(native_failure=native_failure), tempfile.TemporaryDirectory() as folder:
+                home = Path(folder)
+                (home / 'evidence').mkdir()
+                helper = SimpleNamespace(command=['docker', 'compose', '-p', 'sdlc-qa-owned'])
+                alive = [True]
+                process = SimpleNamespace(poll=lambda: None if alive[0] else 137,
+                                          wait=lambda **_: None, returncode=137)
+                original = {'fleet-backend': dict(Id='fleet', Image='image', pid=10, started_at='zero'),
+                            'agent1-runtime-a': dict(Id='one', Image='hermes', pid=20, started_at='one'),
+                            'agent2-runtime-b': dict(Id='two', Image='hermes', pid=30, started_at='two')}
+                snapshots = [original]
+                for epoch in (1, 2):
+                    current = {key: dict(item) for key, item in original.items()}
+                    current['fleet-backend'].update(pid=10 + epoch, started_at=str(epoch))
+                    snapshots.append(current)
+                third = {key: dict(item) for key, item in original.items()}
+                third['fleet-backend'].update(pid=13, started_at='three')
+                stopped = {key: dict(item, pid=0) if key != 'fleet-backend' else dict(item)
+                           for key, item in third.items()}
+                effects, report = [], dict(state='passed')
+
+                def logged(command, name, timeout):
+                    self.assertEqual(report['state'], 'failed')
+                    effects.append(command)
+                    if 'restart' in command:
+                        alive[0] = False
+                        return
+                    if 'FLEET_CONTAINER_RECOVERY_PHASE=stop' in command:
+                        value = self.evidence()
+                        target = 'custody-stop.json'
+                    elif '/qa-fixtures/stop_probe.py' in command:
+                        value = self.evidence(native=True)
+                        value['native_journals_unchanged'] = not native_failure
+                        target = 'custody-native-stop.json'
+                    else:
+                        if any(item.startswith('FLEET_CONTAINER_RECOVERY_PHASE=freeze-') for item in command):
+                            return
+                        native = '/qa-fixtures/custody_probe.py' in command
+                        expired = '--expired' in command if native else 'FLEET_CONTAINER_RECOVERY_PHASE=expired' in command
+                        epoch = int(command[-1]) if native and not expired else (
+                            2 if 'FLEET_CONTAINER_RECOVERY_PHASE=recover-2' in command else 1)
+                        value = CustodyTests().evidence(native, expired, epoch)
+                        suffix = 'expired' if expired else 'epoch' + str(epoch)
+                        target = ('custody-native-' if native else 'custody-') + suffix + '.json'
+                    (home / 'evidence' / target).write_text(json.dumps(value))
+
+                with patch.object(runner.subprocess, 'Popen', return_value=process), \
+                        patch.object(runner.subprocess, 'run', return_value=SimpleNamespace(returncode=0)), \
+                        patch.object(runner.time, 'sleep') as sleep, \
+                        patch.object(runner, 'custody_snapshot', side_effect=[
+                            *snapshots, snapshots[-1], third, stopped]) as snapshot:
+                    if native_failure:
+                        with self.assertRaisesRegex(RuntimeError, 'stop evidence is incomplete'):
+                            runner.verify_controller_recovery(helper, home, report, logged,
+                                lambda *_: self.fail('Unexpected forced stop'), controller_stop=True)
+                    else:
+                        runner.verify_controller_recovery(helper, home, report, logged,
+                            lambda *_: self.fail('Unexpected forced stop'), controller_stop=True)
+                    self.assertEqual(sleep.call_args_list, [unittest.mock.call(31), unittest.mock.call(31)])
+                    self.assertEqual(snapshot.call_args_list[-1].kwargs, {'stopped': True})
+                self.assertEqual(len(report['controller_recovery']), 6)
+                self.assertEqual(sum('restart' in command for command in effects), 3)
+                self.assertEqual(len(effects), 13)
+                self.assertEqual(report['state'], 'failed' if native_failure else 'passed')
+                if native_failure:
+                    self.assertNotIn('controller_stop', report)
+                else:
+                    self.assertEqual(report['stop_physical_snapshots'], [third, stopped])
+                    self.assertFalse(report['controller_stop']['sdlc_acceptance'])
 
 
 class LogReadbackTests(unittest.TestCase):

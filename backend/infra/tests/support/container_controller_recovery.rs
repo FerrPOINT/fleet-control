@@ -159,7 +159,7 @@ fn control(
     )
 }
 
-async fn state(repo: &PostgresFleetRepository, config: &AppConfig, context: &Context) {
+async fn session_state(repo: &PostgresFleetRepository, context: &Context) {
     assert_eq!(context.agents.len(), 2);
     assert_eq!(context.launches.len(), 2);
     assert_eq!(context.pids.len(), 2);
@@ -196,6 +196,23 @@ async fn state(repo: &PostgresFleetRepository, config: &AppConfig, context: &Con
         dispatch_hash(repo, context.message).await,
         context.dispatch_sha256
     );
+    let target = Path::new(
+        &repo
+            .get_agent(context.agents[0])
+            .await
+            .unwrap()
+            .paths
+            .workspace,
+    )
+    .join(TARGET);
+    assert_eq!(
+        tokio::fs::metadata(target).await.unwrap().mode() & 0o777,
+        0o600
+    );
+}
+
+async fn state(repo: &PostgresFleetRepository, config: &AppConfig, context: &Context) {
+    session_state(repo, context).await;
     for ((id, binding), pid) in context
         .agents
         .iter()
@@ -228,19 +245,6 @@ async fn state(repo: &PostgresFleetRepository, config: &AppConfig, context: &Con
     assert_eq!(native["run_id"], context.native_run);
     assert_eq!(native["status"], "waiting_for_approval");
     assert_eq!(native["session_id"], context.native_session);
-    let target = Path::new(
-        &repo
-            .get_agent(context.agents[0])
-            .await
-            .unwrap()
-            .paths
-            .workspace,
-    )
-    .join(TARGET);
-    assert_eq!(
-        tokio::fs::metadata(target).await.unwrap().mode() & 0o777,
-        0o600
-    );
 }
 
 async fn prepare(
@@ -563,6 +567,11 @@ async fn recover(
         .unwrap();
     assert_eq!(replay.id, context.message);
     state(&repo, &config, &context).await;
+    if epoch == 3 {
+        stop_original_namespaces(&runtime, &repo, &config, &context).await;
+        runtime.quiesce_controller_recovery().await.unwrap();
+        return;
+    }
     runtime.quiesce_controller_recovery().await.unwrap();
     save(&format!("custody-epoch{epoch}.json"), &proofs).await;
     tokio::fs::write(
@@ -573,6 +582,145 @@ async fn recover(
         "native_run_waiting_for_approval":true,"new_owner_execution_held":true,
         "competing_logical_controller_denied":true,"message_replay_did_not_dispatch":true,
         "sdlc_acceptance":false,"resumed_execution":false}))
+        .unwrap(),
+    )
+    .await
+    .unwrap();
+}
+
+async fn stop_original_namespaces(
+    runtime: &LocalRuntimeSupervisor,
+    repo: &PostgresFleetRepository,
+    config: &AppConfig,
+    context: &Context,
+) {
+    let mut database = config.database.clone();
+    database.url = std::env::var("FLEET_TEST_DATABASE_URL").unwrap();
+    let db = infra::connect_database(database).await.unwrap();
+    let mut proofs = Vec::new();
+    let mut uncertain_readbacks = 0;
+    for ((id, binding), pid) in context
+        .agents
+        .iter()
+        .zip(&context.launches)
+        .zip(&context.pids)
+    {
+        // Renewal is the real owner protocol, not an extended test-only deadline.
+        let renewed = runtime.heartbeat_container_controller(*id).await.unwrap();
+        assert!(renewed.epoch == 3 && renewed.lease_valid);
+        assert!(
+            repo.read_controller_stop(binding.id)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let agent = repo.get_agent(*id).await.unwrap();
+        let stopped = match runtime.stop(&agent).await {
+            Ok(stopped) => stopped,
+            Err(shared::AppError::Unavailable(_)) => {
+                let retained = repo.read_controller_stop(binding.id).await.unwrap();
+                let owner = repo
+                    .current_controller_recovery(binding.id)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                tokio::fs::write("/evidence/custody-stop-readback.json", serde_json::to_vec(&json!({
+                    "stop_intent_retained":retained.is_some(),
+                    "stop_claim_retained":retained.as_ref().is_some_and(|value| value.dispatch_command.is_some()),
+                    "stop_outcome_retained":retained.as_ref().is_some_and(|value| value.native_outcome.is_some()),
+                    "owner_lease_valid":owner.lease_valid,"sdlc_acceptance":false})).unwrap()).await.unwrap();
+                let retained = retained.expect("unknown stop did not retain an original intent");
+                assert!(
+                    retained.dispatch_command.is_some(),
+                    "unclaimed failure cannot become a stop retry"
+                );
+                uncertain_readbacks += 1;
+                // The production claimed-command path only observes; it cannot resend stop.
+                runtime
+                    .stop(&agent)
+                    .await
+                    .expect("original namespace exit was not confirmed")
+            }
+            Err(_) => panic!("non-reconcilable runtime stop failure"),
+        };
+        assert_eq!(stopped.status, AgentStatus::Stopped);
+        assert!(repo.get_open_runtime_launch(*id).await.unwrap().is_none());
+        let saved = repo
+            .read_controller_stop(binding.id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(saved.intent.launch_sha256, hash(binding));
+        assert_eq!(saved.intent.pid, *pid);
+        assert_eq!(saved.intent.operation_id, binding.id);
+        let admitted = saved.dispatch_command.as_ref().unwrap();
+        assert_eq!(admitted.epoch, 3);
+        assert!(admitted.request == renewed.request);
+        let outcome = saved.native_outcome.as_ref().unwrap();
+        assert!(outcome["kind"] == "stop" || outcome["kind"] == "observe");
+        assert_eq!(outcome["receipt"]["observation"], "namespace_exited");
+        assert_eq!(
+            repo.get_agent(*id).await.unwrap().status,
+            AgentStatus::Stopped
+        );
+        let row = db
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT binding,state,pid FROM runtime_launches WHERE id=$1",
+                [binding.id.into()],
+            ))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            hash(&row.try_get::<Value>("", "binding").unwrap()),
+            hash(binding)
+        );
+        assert_eq!(
+            row.try_get::<String>("", "state").unwrap(),
+            "gateway_exited"
+        );
+        assert_eq!(row.try_get::<i32>("", "pid").unwrap(), *pid);
+        let row = db
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT pid,desired_state,health_status FROM agent_runtime WHERE agent_id=$1",
+                [(*id).into()],
+            ))
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(row.try_get::<Option<i32>>("", "pid").unwrap().is_none());
+        assert_eq!(
+            row.try_get::<String>("", "desired_state").unwrap(),
+            "stopped"
+        );
+        assert_eq!(
+            row.try_get::<String>("", "health_status").unwrap(),
+            "gateway_exited"
+        );
+        // Exact replay is historical settlement, never another physical stop.
+        repo.settle_controller_stop(binding.id, outcome)
+            .await
+            .unwrap();
+        let row = db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT count(*) AS count FROM audit_log WHERE action='runtime.controller_stop.outcome' AND entity_id=$1",
+            [binding.id.to_string().into()])).await.unwrap().unwrap();
+        assert_eq!(row.try_get::<i64>("", "count").unwrap(), 1);
+        proofs.push(json!({"intent":saved.intent,"command":admitted,"outcome":outcome}));
+    }
+    session_state(repo, context).await;
+    save("custody-stops.json", &proofs).await;
+    tokio::fs::write(
+        "/evidence/custody-stop.json",
+        serde_json::to_vec(&json!({
+        "state":"passed","agents":2,"epoch":3,"actual_startup_worker":true,
+        "current_owner_namespace_stop":true,"competing_logical_controller_denied":true,
+        "original_launch_identity_retained":true,"immutable_stop_delivery":true,
+        "single_outcome_audit":true,"session_dispatch_transcript_approval_unchanged":true,
+        "approval_target_unchanged":true,"resumed_execution":false,
+        "uncertain_stop_readbacks":uncertain_readbacks,
+        "sdlc_acceptance":false,"raw_receipts_persisted":false}))
         .unwrap(),
     )
     .await
@@ -692,6 +840,7 @@ async fn real_controller_startup_maintains_custody_without_granting_execution() 
         match phase.as_str() {
             "recover-1" => recover(repo, config, context, 1).await,
             "recover-2" => recover(repo, config, context, 2).await,
+            "stop" => recover(repo, config, context, 3).await,
             "expired" => expired(repo, config, context).await,
             _ => panic!("unknown own custody phase"),
         }
