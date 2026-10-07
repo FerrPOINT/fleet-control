@@ -1,5 +1,24 @@
 # Current State
 
+## Original Controller Delivery Candidate: 7 October 2026
+
+Migration000021 and the trusted supervisor recovery entry add exact retained
+commands, once-only native dispatch and original-key ACK reconciliation on top of
+000020. A historical positive outcome can commit after lease expiry without
+renewing authority or changing the original launch. No HTTP recovery action,
+automatic worker, SDK/source pin, installed flag or model permit changes.
+Base protocol3 source is separately published at
+[3facb28](https://github.com/FerrPOINT/services-base/commit/3facb289d449c6a9a2a3863e31a661a661235299),
+not automatically selected by Fleet. See [contract](contracts/CONTROLLER_RECOVERY_V1.md).
+
+Fresh Linux/Rust1.88/PostgreSQL fmt/all-target check/strict Clippy and568 tests
+pass in39 groups, with30 explicit opt-in ignores. All303 frozen inputs match;
+OpenAPI is unchanged and exact owned Compose cleanup is independently verified.
+See [evidence](CHAT_CLARIFICATION_VERIFICATION.md#original-controller-delivery-and-historical-outcome-7-october-2026).
+The562-case gate below covers the preceding000020 commit only. Dual-lease heartbeat/new-owner effects,
+interrupted activation, actual Fleet/Base/ongoing-Hermes restart and task/PM/Forge
+acceptance remain blockers; this entry is not a merge-ready or installed claim.
+
 ## Fenced Controller Recovery Storage: 7 October 2026
 
 Additive migration000020 and the private repository reserve/readback/heartbeat/

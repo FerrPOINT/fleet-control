@@ -4,6 +4,8 @@ The private [controller recovery storage](CONTROLLER_RECOVERY_V1.md) is limited
 to the mapped container Hermes path. It does not adopt Java processes or change
 their existing lifecycle/readiness contract. Java SDLC chat/control admission
 remains capability-gated independently.
+Migration000021's native delivery/ACK flow is also Hermes-only; it introduces no
+Java recovery worker, lifecycle change, chat capability or installed opt-in.
 
 The optional Base container-control consumer currently accepts only Hermes
 bindings. It neither containerizes Java nor adds Java chat/control/SDLC

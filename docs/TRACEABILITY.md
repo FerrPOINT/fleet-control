@@ -1,5 +1,15 @@
 # Traceability
 
+Original native delivery candidate: [ADR0033](adr/0033-original-controller-delivery-outcome.md),
+additive000021, `infra/controller_recovery_delivery`, closed
+`runtime/controller_recovery_wire` and trusted `controller_recovery_worker` entry.
+Three PostgreSQL delivery cases cover concurrent claim/replay, strict drift and
+atomic audit, and real expiry without renewal. Two supervisor cases cover lost
+native ACK and committed claim with no ACK; both retain original launch/fences.
+`migration/tests/controller_recovery_delivery` verifies additive upgrade, empty
+restore and retained-history refusal. Automatic startup, dual live-lease effects
+and ongoing-Hermes acceptance remain separate requirements.
+
 Controller recovery storage candidate: [ADR0032](adr/0032-fenced-controller-recovery-epochs.md),
 [internal contract](contracts/CONTROLLER_RECOVERY_V1.md), additive000020 and
 `infra/controller_recovery` reserve/readback/heartbeat/receipt operations.

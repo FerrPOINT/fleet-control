@@ -147,6 +147,24 @@ pub struct ControllerRecoveryRecord {
     pub native_receipt_sha256: Option<String>,
 }
 
+/// Frozen private native input. Its initial deadline is not the mutable owner lease.
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ControllerRecoveryCommand {
+    pub request: ControllerRecoveryRequest,
+    pub epoch: i64,
+    pub lease_version: i64,
+    pub lease_expires_at: String,
+}
+
+#[derive(Clone)]
+pub struct ControllerRecoveryDelivery {
+    pub command: ControllerRecoveryCommand,
+    pub dispatch_claimed: bool,
+    pub native_receipt: Option<serde_json::Value>,
+    pub native_receipt_sha256: Option<String>,
+}
+
 /// Durable pre-create fence; the private intent (including credentials) stays on disk.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

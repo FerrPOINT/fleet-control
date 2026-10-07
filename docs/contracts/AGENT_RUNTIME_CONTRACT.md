@@ -7,6 +7,10 @@ fenced proposed-owner epochs while retaining original launch identity. Any epoch
 holds original queue/permit/endpoint/lifecycle effects. Storage acknowledgement
 is not native ownership; a Base epoch journal, fresh dual-fence consumer and live
 restart/interrupted-activation acceptance are still required before new effects.
+Candidate000021 adds a trusted recovery entry, one committed native dispatch and
+closed original-key outcome reconciliation. Saving a historical ACK after expiry
+does not enable restored effects. Automatic startup and dual heartbeat are not
+connected; the installed runtime and selected source pins remain unchanged.
 
 Private controller restart observation is a read-only degraded-health witness,
 not restored ownership. It checks exact original mapping/registration/DB ACK and

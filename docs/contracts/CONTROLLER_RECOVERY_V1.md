@@ -1,8 +1,11 @@
 # Controller Recovery V1
 
-Status: internal Fleet storage candidate. Native handover and actual restart
-acceptance are not implemented by this storage contract. No public endpoint,
-automatic recovery worker, installed opt-in or new model dispatch is enabled.
+Status: internal Fleet recovery candidate. Migration000021 adds durable native
+delivery and a trusted supervisor entry point on top of000020. No public endpoint,
+automatic startup worker, installed opt-in or new model dispatch is enabled.
+Base native protocol3 is published separately at
+[3facb28](https://github.com/FerrPOINT/services-base/commit/3facb289d449c6a9a2a3863e31a661a661235299).
+The SDK/source pins are unchanged; this commit is not automatically installed.
 
 ## Original Identity And Epochs
 
@@ -42,12 +45,52 @@ remains historical after expiry or supersession; `lease_valid` is only a snapsho
 not permission to perform an effect. Unknown commit outcomes require original
 command readback rather than a new command ID.
 
-The internal acknowledgement operation stores one original native receipt hash
+The legacy internal acknowledgement operation stores one original native receipt hash
 under exact controller/lease-version CAS before expiry. Identical receipt replay
 is read-only; a changed receipt conflicts. Storage acknowledgement does not
 validate a raw Base response or restore runtime custody by itself. The future
 caller must verify a closed, original-generation Base handover receipt and its
-durable private epoch journal before invoking this operation.
+durable private epoch journal before invoking this operation. The new supervisor
+flow uses the atomic delivery/outcome operation below, not this legacy hash-only
+operation as proof of native custody.
+
+## Durable Native Delivery And Historical Outcome
+
+`runtime_controller_recovery_deliveries` retains the exact initial closed command:
+`request`, `epoch`, `lease_version=1`, and original `lease_expires_at`. Its canonical
+SHA256 is immutable. This body is distinct from subsequent DB heartbeat versions;
+it is the original-key identity used for readback, never a renewed live permit.
+
+Before the native command, Fleet commits a once-only `dispatch_claimed` bit under
+the same agent-row lock. Only the first claim may call Base `recover_controller`.
+All errors and later invocations use `read_controller_recovery` with the exact
+retained body. A crash after claim but before the native call stays held if no ACK
+exists. Absence, timeout, EOF or lease expiry never resets the bit or redispatches.
+These Base actions use the existing trusted stdin/stdout helper protocol3,
+not a new HTTP endpoint. References to original-key GET describe read-only
+reconciliation, not an HTTP route implemented by this helper.
+
+Fleet validates the closed native receipt, command/hash, original registration
+and launch, physical controller snapshot, original agent PID and restart witness.
+Receipt bytes/hash, acknowledged owner state and one redacted audit row commit in
+one transaction. An exact replay is read-only; a changed outcome conflicts.
+The command is bounded to16KiB and native receipt to64KiB. Neither body is public.
+
+A positive historical ACK may be saved after DB lease expiry, but only for its
+previously claimed original command. This operation leaves the lease version and
+deadline unchanged. It does not revive authority, release capacity, change the
+original launch, bypass old-owner fences or enable a model/run. A successor still
+requires the acknowledged expired predecessor and distinct physical restart.
+
+The trusted `recover_container_controller` entry obtains the Base restart witness,
+reserves/retains/claims once, then reconciles by original readback. It is not exposed
+through HTTP or called automatically by the reconciler. Startup policy, dual
+DB/native heartbeat and fresh effect admission, interrupted activation settlement
+and actual ongoing Hermes acceptance remain required before automatic enablement.
+
+Migration000021 is additive. Delete/truncate, identity relabel, claim reset and
+receipt replacement fail. Downgrade refuses if either ownership or delivery history
+is nonempty. Only when both are empty does it restore the exact000020 schema/guard.
 
 ## Current Effect Fence
 
@@ -69,15 +112,15 @@ clear-history or reset-owner operation.
 
 Complete the same flow, not a second ownership scheme:
 
-1. Retain the original command identity privately before reserving; revalidate
-   original source/configuration, stopped old controller and Base restart witness.
-2. Issue a closed Base handover command bound to this exact DB epoch/lease and
-   original generation. Base must preserve its original mapping/start journals
-   and record a separate immutable private owner epoch before granting effects.
-3. Reconcile an unknown Base acknowledgement by original read-only GET. Expiry
-   or EOF must never allocate another epoch or resend an uncertain effect.
-4. Verify the exact native receipt, commit its hash, then require fresh live DB
-   lease and Base epoch checks at every queue/permit/lifecycle/control effect.
+1. Connect an explicit startup recovery policy and current-source compatibility
+   to the trusted entry point. A missing original journal or changed physical
+   container must stay held; source upgrade is not an implicit recovery action.
+2. Maintain both DB and native leases at10-second cadence with fresh exact-owner
+   version checks. Preserve historical command identity across every heartbeat.
+3. Reconcile interruption between DB claim/native acceptance/receipt commit using
+   original readback only, including actual OS crashes rather than lost-reply mocks.
+4. Require fresh live DB lease and Base epoch checks at every
+   queue/permit/lifecycle/control effect after verified receipt commit.
    Do not authorize from `lease_valid`, cached ACK or an in-memory owner map alone.
 5. Recover original dispatch/control/approval and activation checkpoints before
    admitting new work. Confirm safe namespace exit before replacement or rollback.

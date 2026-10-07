@@ -636,6 +636,48 @@ pub trait FleetRepository: Send + Sync {
             "runtime endpoint custody is unavailable".into(),
         ))
     }
+    async fn retain_controller_recovery_command(
+        &self,
+        _command: &runtime_launch::ControllerRecoveryCommand,
+    ) -> Result<runtime_launch::ControllerRecoveryDelivery, AppError> {
+        Err(AppError::Unavailable(
+            "controller delivery journal is unavailable".into(),
+        ))
+    }
+    async fn read_controller_recovery_delivery(
+        &self,
+        _id: Uuid,
+    ) -> Result<Option<runtime_launch::ControllerRecoveryDelivery>, AppError> {
+        Err(AppError::Unavailable(
+            "controller delivery journal is unavailable".into(),
+        ))
+    }
+    async fn current_controller_recovery(
+        &self,
+        _launch_id: Uuid,
+    ) -> Result<Option<runtime_launch::ControllerRecoveryRecord>, AppError> {
+        Err(AppError::Unavailable(
+            "controller recovery journal is unavailable".into(),
+        ))
+    }
+    async fn claim_controller_recovery_dispatch(
+        &self,
+        _id: Uuid,
+        _controller: Uuid,
+    ) -> Result<bool, AppError> {
+        Err(AppError::Unavailable(
+            "controller delivery journal is unavailable".into(),
+        ))
+    }
+    async fn settle_controller_recovery_outcome(
+        &self,
+        _id: Uuid,
+        _receipt: &serde_json::Value,
+    ) -> Result<runtime_launch::ControllerRecoveryRecord, AppError> {
+        Err(AppError::Unavailable(
+            "controller delivery journal is unavailable".into(),
+        ))
+    }
     async fn next_container_launch_ordinal(&self, _agent_id: Uuid) -> Result<i64, AppError> {
         Err(AppError::Unavailable(
             "runtime launch history is unavailable".into(),

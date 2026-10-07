@@ -600,7 +600,7 @@ elif r['action']=='prepare':
   reg={'contract_version':policy['contract_version'],'operation_id':r['operation_id'],'container_id':digest(policy['generation']),'resource_id':policy['resource_id'],'generation':policy['generation'],'engine':{'ID':'original-engine','KernelVersion':'original-kernel','ServerVersion':'29'},'policy_sha256':digest(policy),'inventory_sha256':'c'*64,'running_inventory_sha256':'d'*64,'compose_sha256':'e'*64,'network_sha256':'f'*64}
   if r['protocol_version']==2:reg['mount_mapping_sha256']=digest(r['mount_mapping'])
   result={'state':'prepared','policy':policy,'registration':reg}
-elif r['action']=='observe_controller_restart':
+elif r['action'] in ('observe_controller_restart','recover_controller','read_controller_recovery'):
  reg=r['registration'];mapping=r['mount_mapping']
  assert (root/'controller-restart').exists() and (root/(reg['generation']+'.started')).exists()
  assert (root/'known-start').exists() and not (root/(reg['generation']+'.unknown')).exists()
@@ -610,6 +610,17 @@ elif r['action']=='observe_controller_restart':
  receipt.update(registration_sha256=digest(reg),state='observed',observation='running',snapshot=snap)
  current=dict(mapping['snapshot'],started_at='2026-10-07T12:00:00Z',init_pid=987)
  result={'contract_version':1,'state':'controller_restart_observed','original_mapping_sha256':digest(mapping),'registration_sha256':digest(reg),'original_controller_snapshot':mapping['snapshot'],'current_controller_snapshot':current,'receipt':receipt}
+ if r['action']!='observe_controller_restart':
+  assert r['protocol_version']==3 and Path(r['recovery_journal']).parent==root
+  command=r['recovery'];assert command['request']['controller_snapshot']==current
+  ack=root/(command['request']['id']+'.recovery-ack.json')
+  if r['action']=='recover_controller':
+   with (root/'recovery-calls').open('a') as calls:calls.write(command['request']['id']+'\n')
+   result={'contract_version':1,'state':'controller_recovered','request_sha256':digest(command),'recovery':command,'witness':result}
+   assert not ack.exists();ack.write_text(json.dumps(result));ack.chmod(0o600)
+   if (root/'recovery-unknown').exists():raise RuntimeError('Original ACK reply lost')
+  else:
+   result=json.loads(ack.read_bytes());assert result['recovery']==command
 elif r['action']=='attach_controller':
  reg=r['registration']
  if (root/'attach-unknown').exists():
@@ -1194,6 +1205,403 @@ type RecoveryFixture = (
     app::runtime_launch::ControllerRecoveryRequest,
     std::path::PathBuf,
 );
+
+#[cfg(target_os = "linux")]
+fn recovery_command(
+    record: &app::runtime_launch::ControllerRecoveryRecord,
+) -> app::runtime_launch::ControllerRecoveryCommand {
+    app::runtime_launch::ControllerRecoveryCommand {
+        request: record.request.clone(),
+        epoch: record.epoch,
+        lease_version: record.lease_version,
+        lease_expires_at: record.lease_expires_at.clone(),
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn recovery_receipt(
+    command: &app::runtime_launch::ControllerRecoveryCommand,
+    launch: &RuntimeLaunchBinding,
+) -> Value {
+    let container = launch.container.as_ref().unwrap();
+    let reg = &container.registration;
+    let mapping = container.mount_mapping.as_ref().unwrap();
+    json!({"contract_version":1,"state":"controller_recovered","request_sha256":container_control::canonical_hash(command).unwrap(),
+        "recovery":command,"witness":{"contract_version":1,"state":"controller_restart_observed",
+        "original_mapping_sha256":container_control::canonical_hash(mapping).unwrap(),
+        "registration_sha256":container_control::canonical_hash(reg).unwrap(),
+        "original_controller_snapshot":mapping.snapshot,"current_controller_snapshot":command.request.controller_snapshot,
+        "receipt":{"contract_version":reg.contract_version,"operation_id":reg.operation_id,"container_id":reg.container_id,
+        "resource_id":reg.resource_id,"generation":reg.generation,"registration_sha256":container_control::canonical_hash(reg).unwrap(),
+        "state":"observed","observation":"running","snapshot":{"contract_version":reg.contract_version,"container_id":reg.container_id,
+        "engine":reg.engine,"policy_sha256":reg.policy_sha256,"inventory_sha256":reg.running_inventory_sha256,
+        "started_at":"2026-10-06T12:00:00.123456789Z","init_pid":command.request.agent_pid,"network_sha256":reg.network_sha256}}}})
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn controller_delivery_retains_one_original_body_and_one_concurrent_dispatch_claim() {
+    let Some((repo, _, _, launch, request, root)) = recovery_fixture().await else {
+        return;
+    };
+    let record = repo.reserve_controller_recovery(&request).await.unwrap();
+    let command = recovery_command(&record);
+    let mut tasks = tokio::task::JoinSet::new();
+    for _ in 0..16 {
+        let repo = repo.clone();
+        let command = command.clone();
+        tasks.spawn(async move {
+            repo.retain_controller_recovery_command(&command)
+                .await
+                .unwrap()
+        });
+    }
+    while let Some(result) = tasks.join_next().await {
+        assert!(result.unwrap().command == command);
+    }
+    let mut conflict = command.clone();
+    conflict.lease_expires_at = "2030-01-01T00:00:00+00:00".into();
+    assert!(matches!(
+        repo.retain_controller_recovery_command(&conflict).await,
+        Err(AppError::Conflict(_))
+    ));
+    let mut claims = tokio::task::JoinSet::new();
+    for _ in 0..16 {
+        let repo = repo.clone();
+        claims.spawn(async move {
+            repo.claim_controller_recovery_dispatch(request.id, request.controller_id)
+                .await
+                .unwrap()
+        });
+    }
+    let mut winners = 0;
+    while let Some(result) = claims.join_next().await {
+        winners += u32::from(result.unwrap());
+    }
+    assert_eq!(winners, 1);
+    assert!(
+        repo.claim_controller_recovery_dispatch(request.id, Uuid::new_v4())
+            .await
+            .is_err()
+    );
+    let retained = repo
+        .read_controller_recovery_delivery(request.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(retained.dispatch_claimed && retained.native_receipt.is_none());
+    assert!(retained.command == command);
+    assert_eq!(
+        serde_json::to_value(
+            repo.get_open_runtime_launch(request.agent_id)
+                .await
+                .unwrap()
+                .unwrap()
+                .binding
+        )
+        .unwrap(),
+        serde_json::to_value(launch).unwrap()
+    );
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn controller_delivery_rejects_unclaimed_or_drifted_receipt_and_commits_one_redacted_audit() {
+    let Some((repo, _, _, launch, request, root)) = recovery_fixture().await else {
+        return;
+    };
+    let record = repo.reserve_controller_recovery(&request).await.unwrap();
+    let command = recovery_command(&record);
+    repo.retain_controller_recovery_command(&command)
+        .await
+        .unwrap();
+    let receipt = recovery_receipt(&command, &launch);
+    assert!(
+        repo.settle_controller_recovery_outcome(request.id, &receipt)
+            .await
+            .is_err()
+    );
+    assert!(
+        repo.claim_controller_recovery_dispatch(request.id, request.controller_id)
+            .await
+            .unwrap()
+    );
+    for drift in [
+        "command",
+        "pid",
+        "epoch",
+        "extra",
+        "missing",
+        "original",
+        "registration",
+        "timestamp",
+    ] {
+        let mut changed = receipt.clone();
+        match drift {
+            "command" => changed["recovery"]["lease_version"] = json!(2),
+            "pid" => changed["witness"]["receipt"]["snapshot"]["init_pid"] = json!(9),
+            "epoch" => {
+                changed["witness"]["current_controller_snapshot"]["started_at"] = json!("other")
+            }
+            "extra" => changed["secret"] = json!("never-store-native-secret"),
+            "missing" => {
+                changed.as_object_mut().unwrap().remove("witness");
+            }
+            "original" => changed["witness"]["original_mapping_sha256"] = json!("a".repeat(64)),
+            "registration" => changed["witness"]["receipt"]["generation"] = json!(Uuid::new_v4()),
+            _ => changed["recovery"]["lease_expires_at"] = json!("2000-01-01T00:00:00+00:00"),
+        }
+        assert!(
+            repo.settle_controller_recovery_outcome(request.id, &changed)
+                .await
+                .is_err(),
+            "{drift}"
+        );
+    }
+    let result = repo
+        .settle_controller_recovery_outcome(request.id, &receipt)
+        .await
+        .unwrap();
+    let replay = repo
+        .settle_controller_recovery_outcome(request.id, &receipt)
+        .await
+        .unwrap();
+    assert_eq!(result.native_receipt_sha256, replay.native_receipt_sha256);
+    assert_eq!(result.lease_version, record.lease_version);
+    assert_eq!(result.lease_expires_at, record.lease_expires_at);
+    let audit = repo
+        .db
+        .query_one(sea_orm::Statement::from_sql_and_values(
+            sea_orm::DatabaseBackend::Postgres,
+            "SELECT count(*) AS count, min(payload::text) AS payload FROM audit_log
+         WHERE action='runtime.controller_recovery.outcome' AND entity_id=$1",
+            [request.id.to_string().into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(audit.try_get::<i64>("", "count").unwrap(), 1);
+    assert!(
+        !audit
+            .try_get::<String>("", "payload")
+            .unwrap()
+            .contains("never-store")
+    );
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn controller_delivery_historical_ack_after_real_expiry_does_not_revive_owner() {
+    let Some((repo, _, _, launch, request, root)) = recovery_fixture().await else {
+        return;
+    };
+    let record = repo.reserve_controller_recovery(&request).await.unwrap();
+    let command = recovery_command(&record);
+    repo.retain_controller_recovery_command(&command)
+        .await
+        .unwrap();
+    assert!(
+        repo.claim_controller_recovery_dispatch(request.id, request.controller_id)
+            .await
+            .unwrap()
+    );
+    let receipt = recovery_receipt(&command, &launch);
+    tokio::time::sleep(std::time::Duration::from_secs(31)).await;
+    let result = repo
+        .settle_controller_recovery_outcome(request.id, &receipt)
+        .await
+        .unwrap();
+    assert_eq!(result.state, "acknowledged");
+    assert!(!result.lease_valid);
+    assert_eq!(result.lease_version, 1);
+    assert_eq!(result.lease_expires_at, record.lease_expires_at);
+    assert!(
+        !repo
+            .claim_controller_recovery_dispatch(request.id, request.controller_id)
+            .await
+            .unwrap()
+    );
+    assert!(
+        repo.heartbeat_controller_recovery(request.id, request.controller_id, 1)
+            .await
+            .is_err()
+    );
+    let mut successor = request.clone();
+    successor.id = Uuid::new_v4();
+    successor.controller_id = Uuid::new_v4();
+    successor.predecessor_id = Some(request.id);
+    assert!(repo.reserve_controller_recovery(&successor).await.is_err());
+    successor.controller_snapshot.started_at = "2026-10-07T13:00:00Z".into();
+    assert_eq!(
+        repo.reserve_controller_recovery(&successor)
+            .await
+            .unwrap()
+            .epoch,
+        2
+    );
+    let historical = repo
+        .read_controller_recovery_delivery(request.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(historical.command == command);
+    assert_eq!(historical.native_receipt, Some(receipt));
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn controller_worker_recovers_original_native_ack_without_repeating_unknown_dispatch() {
+    let Some((repo, agent, _, config, root)) = lifecycle_tests::fixture(AgentKind::Hermes).await
+    else {
+        return;
+    };
+    let config = with_mapping_controller(fake_creation(&config, &agent, false).await);
+    let first = lifecycle_tests::supervisor(Arc::new(config.clone()), repo.clone());
+    let launch = first
+        .prepared_container(&agent, LaunchPhase::Regular)
+        .await
+        .unwrap();
+    repo.claim_runtime_launch(&launch).await.unwrap();
+    repo.observe_runtime_launch(&launch, "gateway_started", Some(12345))
+        .await
+        .unwrap();
+    for name in [
+        format!("{}.started", launch.id),
+        "known-start".into(),
+        "controller-restart".into(),
+        "recovery-unknown".into(),
+    ] {
+        tokio::fs::write(root.join("controller").join(name), "1")
+            .await
+            .unwrap();
+    }
+    let second = lifecycle_tests::supervisor(Arc::new(config), repo.clone());
+    let result = second.recover_container_controller(agent.id).await.unwrap();
+    assert_eq!(result.state, "acknowledged");
+    assert_eq!(result.request.controller_id, second.controller_id);
+    assert_ne!(result.request.controller_id, launch.controller_id);
+    assert_eq!(result.epoch, 1);
+    let replay = second.recover_container_controller(agent.id).await.unwrap();
+    assert_eq!(result.native_receipt_sha256, replay.native_receipt_sha256);
+    assert_eq!(
+        tokio::fs::read_to_string(root.join("controller/recovery-calls"))
+            .await
+            .unwrap()
+            .lines()
+            .count(),
+        1
+    );
+    let delivery = repo
+        .read_controller_recovery_delivery(result.request.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(delivery.dispatch_claimed && delivery.native_receipt.is_some());
+    assert_eq!(
+        serde_json::to_value(
+            repo.get_open_runtime_launch(agent.id)
+                .await
+                .unwrap()
+                .unwrap()
+                .binding
+        )
+        .unwrap(),
+        serde_json::to_value(launch).unwrap()
+    );
+    assert!(second.gateway_launch_generation(agent.id).await.is_err());
+    assert!(second.children.lock().await.is_empty());
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn controller_worker_holds_claimed_command_without_native_ack_and_never_redispatches() {
+    let Some((repo, agent, _, config, root)) = lifecycle_tests::fixture(AgentKind::Hermes).await
+    else {
+        return;
+    };
+    let config = with_mapping_controller(fake_creation(&config, &agent, false).await);
+    let first = lifecycle_tests::supervisor(Arc::new(config.clone()), repo.clone());
+    let launch = first
+        .prepared_container(&agent, LaunchPhase::Regular)
+        .await
+        .unwrap();
+    repo.claim_runtime_launch(&launch).await.unwrap();
+    repo.observe_runtime_launch(&launch, "gateway_started", Some(12345))
+        .await
+        .unwrap();
+    for name in [
+        format!("{}.started", launch.id),
+        "known-start".into(),
+        "controller-restart".into(),
+    ] {
+        tokio::fs::write(root.join("controller").join(name), "1")
+            .await
+            .unwrap();
+    }
+    let second = lifecycle_tests::supervisor(Arc::new(config), repo.clone());
+    let container = launch.container.as_ref().unwrap();
+    let control = second.container_control(container).unwrap();
+    let files = second.container_files(container).await.unwrap();
+    let witness = control
+        .observe_controller_restart(&files, &container.registration)
+        .await
+        .unwrap();
+    let record = repo
+        .reserve_controller_recovery(&app::runtime_launch::ControllerRecoveryRequest {
+            id: Uuid::new_v4(),
+            launch_id: launch.id,
+            agent_id: agent.id,
+            original_controller_id: launch.controller_id,
+            controller_id: second.controller_id,
+            predecessor_id: None,
+            launch_sha256: container_control::canonical_hash(&launch).unwrap(),
+            mapping_sha256: container_control::canonical_hash(
+                container.mount_mapping.as_ref().unwrap(),
+            )
+            .unwrap(),
+            registration_sha256: container_control::canonical_hash(&container.registration)
+                .unwrap(),
+            controller_snapshot: witness.current_controller_snapshot,
+            agent_pid: 12345,
+        })
+        .await
+        .unwrap();
+    let command = recovery_command(&record);
+    repo.retain_controller_recovery_command(&command)
+        .await
+        .unwrap();
+    assert!(
+        repo.claim_controller_recovery_dispatch(record.request.id, second.controller_id)
+            .await
+            .unwrap()
+    );
+    // Crash after the durable claim but before the native call is indistinguishable from lost acceptance.
+    for _ in 0..2 {
+        assert!(second.recover_container_controller(agent.id).await.is_err());
+    }
+    assert!(!root.join("controller/recovery-calls").exists());
+    let delivery = repo
+        .read_controller_recovery_delivery(record.request.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(delivery.dispatch_claimed && delivery.native_receipt.is_none());
+    assert_eq!(
+        repo.read_controller_recovery(record.request.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .state,
+        "reserved"
+    );
+    assert!(second.children.lock().await.is_empty());
+    assert!(second.gateway_launch_generation(agent.id).await.is_err());
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
 
 #[cfg(target_os = "linux")]
 async fn recovery_fixture() -> Option<RecoveryFixture> {

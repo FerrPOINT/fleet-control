@@ -1,5 +1,18 @@
 # Testing
 
+Candidate000021 adds PostgreSQL tests for concurrent retained-command replay,
+exactly one dispatch claim, closed receipt drift, one audit/outcome, expired
+historical ACK without lease renewal and unchanged original launch. Trusted
+supervisor tests use controlled Python Base responses for lost ACK and committed
+claim with no ACK; both deny redispatch/model permission. The migration test owns
+its own schema and checks additive upgrade, empty restore and populated downgrade
+refusal with production guards enabled. These are component tests, not actual
+ongoing Hermes/Fleet OS-crash acceptance. Fresh Linux/Rust1.88/PostgreSQL fmt,
+all-target check, strict Clippy and568 tests pass with30 explicit opt-in ignores
+and303 unchanged inputs. OpenAPI matches; exact own Compose cleanup is verified.
+See [evidence](CHAT_CLARIFICATION_VERIFICATION.md#original-controller-delivery-and-historical-outcome-7-october-2026).
+The previous562-case evidence below does not cover these changed bytes.
+
 Controller epoch storage cases use isolated PostgreSQL and controlled Base
 preparation, not a real Docker takeover. They cover concurrent replay, changed
 original hashes/PID/snapshot, owner/version heartbeat and once-only receipt,

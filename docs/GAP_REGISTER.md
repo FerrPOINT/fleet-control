@@ -1,5 +1,23 @@
 # Gap Register
 
+## Native Controller Delivery Follow-Up
+
+Candidate000021 implements the missing private original-command custody,
+once-only dispatch claim and closed native ACK/outcome transaction, including
+historical receipt after expiry without renewal. Its trusted supervisor entry
+uses Base protocol3, separately published at3facb28; installed/source pins remain
+unchanged. The fresh568-case Linux/PostgreSQL gate passes with30 explicit ignores,
+303 matching inputs and unchanged OpenAPI; see
+[evidence](CHAT_CLARIFICATION_VERIFICATION.md#original-controller-delivery-and-historical-outcome-7-october-2026).
+The historical562-case packet below retains its preceding scope.
+
+Still required: startup recovery policy,10-second dual DB/native heartbeat,
+fresh current-epoch checks on new-owner effects, interrupted activation settlement,
+actual Fleet OS-crash/ongoing-Hermes acceptance and release-head CI. Missing ACK
+after committed claim stays held; no reset, redispatch or capacity release exists.
+Source upgrade/new physical container/journal loss have no implicit recovery rule.
+See [contract](contracts/CONTROLLER_RECOVERY_V1.md).
+
 ## Controller Epoch Storage Verified; Native Custody Remains
 
 Migration000020 and private reserve/readback/heartbeat/receipt primitives now

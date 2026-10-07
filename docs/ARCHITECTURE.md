@@ -4,6 +4,13 @@ Current SDLC scope and unimplemented gates are tracked in
 [SDLC implementation](SDLC_IMPLEMENTATION.md). Automatic SDLC remains disabled;
 legacy leaders are preserved, not part of the current delivery scope.
 
+Controller recovery now separates immutable original launch, DB owner epoch and
+private native delivery. One committed claim precedes the sole native handover;
+original-key readback settles receipt/owner outcome/audit atomically. Historical
+ACK after expiry cannot renew a lease or enable effects. The trusted entry is not
+an automatic startup worker; new-owner dispatch/control still requires live dual
+fences and actual acceptance. See [contract](contracts/CONTROLLER_RECOVERY_V1.md).
+
 ## Chat Clarification Boundary
 
 `/chats/:sessionId` renders real Fleet history and authenticated durable runtime stream.

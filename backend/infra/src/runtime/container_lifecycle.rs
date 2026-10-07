@@ -427,7 +427,7 @@ impl LocalRuntimeSupervisor {
         )
     }
 
-    async fn container_files(
+    pub(super) async fn container_files(
         &self,
         binding: &RuntimeContainerBinding,
     ) -> Result<ContainerLaunchFiles, AppError> {

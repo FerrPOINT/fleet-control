@@ -7,9 +7,12 @@ agent-row lock, rather than replacing the original launch controller. DB-clock
 leases and versioned heartbeats fence the storage saga; unknown reservations
 stay held after expiry. Any recovery record fences original generation/queue/
 permit/endpoint/lifecycle writes. A saved native receipt hash is not actual Base
-ownership, so the new-owner effect path remains disabled. Connect the private
-Base epoch, readback/heartbeat and original run/configuration checkpoint recovery
-before actual restart acceptance. See
+ownership, so the new-owner effect path remains disabled. Candidate000021 connects
+the trusted entry's private initial command, once-only dispatch and closed native
+original-key readback/outcome transaction. Saving a historical ACK after expiry
+does not renew the lease. Connect dual DB/native heartbeat, fresh new-owner effect
+checks and original run/configuration checkpoint settlement before automatic
+startup or actual ongoing-Hermes restart acceptance. See
 [contract](contracts/CONTROLLER_RECOVERY_V1.md).
 
 ## Controller Restart Observation

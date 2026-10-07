@@ -6,6 +6,7 @@ mod config_revisions;
 mod configuration_disk;
 mod configuration_renderer;
 mod controller_recovery;
+mod controller_recovery_delivery;
 mod effective_configuration;
 pub mod entities;
 mod hermes_approval_recovery;
@@ -1465,6 +1466,38 @@ impl FleetRepository for PostgresFleetRepository {
     }
     async fn next_container_launch_ordinal(&self, agent: Uuid) -> Result<i64, AppError> {
         runtime_launches::next_container_ordinal(self, agent).await
+    }
+    async fn retain_controller_recovery_command(
+        &self,
+        command: &app::runtime_launch::ControllerRecoveryCommand,
+    ) -> Result<app::runtime_launch::ControllerRecoveryDelivery, AppError> {
+        controller_recovery_delivery::retain(self, command).await
+    }
+    async fn read_controller_recovery_delivery(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<app::runtime_launch::ControllerRecoveryDelivery>, AppError> {
+        controller_recovery_delivery::read(&self.db, id).await
+    }
+    async fn claim_controller_recovery_dispatch(
+        &self,
+        id: Uuid,
+        controller: Uuid,
+    ) -> Result<bool, AppError> {
+        controller_recovery_delivery::claim(self, id, controller).await
+    }
+    async fn current_controller_recovery(
+        &self,
+        launch_id: Uuid,
+    ) -> Result<Option<app::runtime_launch::ControllerRecoveryRecord>, AppError> {
+        controller_recovery_delivery::current(&self.db, launch_id).await
+    }
+    async fn settle_controller_recovery_outcome(
+        &self,
+        id: Uuid,
+        receipt: &Value,
+    ) -> Result<app::runtime_launch::ControllerRecoveryRecord, AppError> {
+        controller_recovery_delivery::settle(self, id, receipt).await
     }
     async fn record_container_endpoint(
         &self,

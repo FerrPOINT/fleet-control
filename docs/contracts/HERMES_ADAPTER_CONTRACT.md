@@ -6,6 +6,11 @@ fences original-owner Hermes delivery and generation operations, even after a
 stored ACK. Native takeover, original-key outcome readback and fresh DB/native
 lease authority are required before the recovered owner may dispatch or control
 a run. Storage/component tests are not actual Hermes recovery acceptance.
+Candidate000021 connects native handover/original-key ACK through a trusted
+supervisor entry, without enabling new-owner model/control effects. Missing ACK
+after the one committed claim stays held; expiry never permits another dispatch.
+Dual live-lease heartbeat, automatic startup and actual ongoing-Hermes acceptance
+remain separate release gates. No Hermes SQLite write or public endpoint is added.
 
 Automatic container launch input now includes a private exact dotenv snapshot
 before create, frozen by the preparation intent hash and checked before start.

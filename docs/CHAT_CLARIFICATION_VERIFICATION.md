@@ -1,5 +1,54 @@
 # Chat Clarification Verification
 
+## Original Controller Delivery And Historical Outcome: 7 October 2026
+
+The follow-up owns one new migration000021, private delivery/outcome repository
+ports, closed native protocol3 receipt validation and a trusted supervisor entry.
+Published000020 bytes, original launch/controller identity, SDK/source pins,
+frontend, public API and installed runtime/flags remain unchanged.
+
+Command: `python -B .local/fleet-container-control-gate-20261006.py full`.
+Exact disposable project: `sdlc-qa-fleet-container-control-859880763d3d`.
+Private artifacts: `.local/fleet-container-control-checks-cc0e9cdad08a/`.
+Linux Rust1.88 fmt/locked offline all-target check/strict Clippy and full workspace
+gate pass:568 passed,0 failed,30 explicit opt-in ignores across39 result groups.
+The report records `actual_docker_hermes_acceptance=false` and
+`installed_runtime_changed=false`. All303 captured inputs independently match
+current bytes. Generated OpenAPI matches the checked-in SHA256. Driver cleanup
+and independent exact-project container/network queries confirm empty inventory.
+
+Three new PostgreSQL delivery cases prove16-way command replay, exactly one claim,
+payload conflict, strict closed receipt drift, once-only outcome/hash-only audit,
+real31-second expiry and historical ACK without version/deadline renewal. The
+expired ACK cannot authorize heartbeat/redispatch; same-physical successor stays
+held. Two supervisor cases use controlled Python Base responses: lost native ACK
+recovers by original readback with one native call; claim-before-call crash with
+no ACK stays held across repeated entry attempts, with no native call/model permit.
+They do not prove actual Fleet OS-crash or ongoing Hermes/container acceptance.
+The migration case proves additive upgrade, empty restore and nonempty history
+retention without disabling guards. Java lifecycle remains unchanged.
+
+| Artifact | SHA256 |
+| --- | --- |
+| `source-manifest.json` | `55b82bf6b0c32402cdacbbc11ab0038e6e2721aecefbeb64216ff85425d5fc01` |
+| `gate.log` | `ebbbf0d2e61f222856a22df589492c27c8578c69ae301de54999e79fabecd638` |
+| `report.json` | `18e2350695a14615b39084121489abfaa74010cfe0833104f3c432d5b1ed5956` |
+| generated/checked-in OpenAPI | `76a27c806961bc142543445e34f10525485cbcf2f0b66ac2fe5d093fc808a10f` |
+
+Earlier focused packets `2dd3b980ba8d` (formatting) and `d72055b5a48c` (missing
+type qualification) failed and were cleaned; they are not passing evidence.
+The earlier `c33dc0585a7b` packet failed before container creation while Docker
+was unavailable; after Engine recovery, independent exact-project queries are
+empty. No installed service recreation, volume replacement or global prune.
+
+Base native protocol3 is separately published at
+[3facb28](https://github.com/FerrPOINT/services-base/commit/3facb289d449c6a9a2a3863e31a661a661235299).
+Its native restart packet is separate from this Rust/PG component proof, and its
+source is not automatically selected by unchanged Fleet pins. Automatic startup,
+dual DB/native heartbeat and effect admission, interrupted activation, production
+logs, task/PM/Forge acceptance and ordered release-head CI remain open. This
+candidate is not installed, merged or a complete SDLC acceptance claim.
+
 ## Fenced Controller Recovery Storage: 7 October 2026
 
 The candidate adds only migration000020, private request/record/repository

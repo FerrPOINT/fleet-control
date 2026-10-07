@@ -1,5 +1,17 @@
 # Data Model
 
+Migration000021 adds `runtime_controller_recovery_deliveries`, keyed by recovery
+UUID: immutable closed initial command/canonical SHA256, irreversible dispatch
+claim, nullable paired native receipt/SHA256. No users, prompts, tokens or public
+DTOs are added. Agent-row locking serializes repository transitions. Exactly one
+native command may follow its committed claim; unknown acceptance only reads back.
+Receipt, historical owner acknowledgement and hash-only audit commit atomically.
+Positive readback after expiry leaves the original lease/version unchanged.
+SQL guards deny erase/relabel/reset/replacement; downgrade requires both recovery
+tables empty before restoring the exact000020 schema. No legacy backfill.
+See [contract](contracts/CONTROLLER_RECOVERY_V1.md) and
+[ADR0033](adr/0033-original-controller-delivery-outcome.md).
+
 ## Controller Recovery Epochs
 
 Additive candidate000020 adds `runtime_controller_recoveries`: original launch/

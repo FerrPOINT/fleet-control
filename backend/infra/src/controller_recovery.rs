@@ -6,7 +6,7 @@ use sea_orm::{
 use shared::AppError;
 use uuid::Uuid;
 
-fn held() -> AppError {
+pub(crate) fn held() -> AppError {
     AppError::Unavailable("original controller recovery remains fenced".into())
 }
 
@@ -17,7 +17,7 @@ fn hash(value: &str) -> bool {
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
-fn decode(row: QueryResult) -> Result<ControllerRecoveryRecord, AppError> {
+pub(crate) fn decode(row: QueryResult) -> Result<ControllerRecoveryRecord, AppError> {
     let request: ControllerRecoveryRequest =
         serde_json::from_value(row.try_get("", "request").map_err(AppError::database)?)
             .map_err(|_| held())?;
@@ -64,10 +64,10 @@ fn decode(row: QueryResult) -> Result<ControllerRecoveryRecord, AppError> {
     })
 }
 
-const COLUMNS: &str = "id,launch_id,agent_id,controller_id,predecessor_id,request,request_sha256,epoch,state,lease_version,lease_expires_at,
+pub(crate) const COLUMNS: &str = "id,launch_id,agent_id,controller_id,predecessor_id,request,request_sha256,epoch,state,lease_version,lease_expires_at,
     lease_expires_at>clock_timestamp() AS lease_valid,native_receipt_sha256";
 
-async fn read<C: ConnectionTrait>(
+pub(crate) async fn read<C: ConnectionTrait>(
     db: &C,
     id: Uuid,
 ) -> Result<Option<ControllerRecoveryRecord>, AppError> {
@@ -82,7 +82,7 @@ async fn read<C: ConnectionTrait>(
     .transpose()
 }
 
-async fn lock_agent(txn: &DatabaseTransaction, agent: Uuid) -> Result<(), AppError> {
+pub(crate) async fn lock_agent(txn: &DatabaseTransaction, agent: Uuid) -> Result<(), AppError> {
     txn.query_one(Statement::from_sql_and_values(
         DatabaseBackend::Postgres,
         "SELECT id FROM agents WHERE id=$1 FOR UPDATE",

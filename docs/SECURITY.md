@@ -6,13 +6,21 @@ The recovery request stores identifiers, original hashes and non-secret physical
 snapshot only. It is controller-private and has no human HTTP entry point. The
 repository validates original launch/controller/mapping/registration/PID and
 requires a distinct same-container start, but it cannot independently inspect
-Docker: the future consumer must obtain the verified Base witness first.
+Docker: the trusted000021 entry obtains the verified Base witness first.
 Thirty-second DB-clock leases cannot be renewed by a stale owner/version or
 revived after expiry. Unknown reservations remain held; identical readback does
 not extend authority. Every recovery epoch fences old queue/permit/lifecycle
 paths; storage acknowledgement does not enable new effects. Native dual-fence
 integration and live competing-owner acceptance remain required. See
 [private contract](contracts/CONTROLLER_RECOVERY_V1.md).
+
+The new private delivery has no Debug/public serialization for its retained
+receipt. Canonical hashes and closed native proof are checked before saving;
+unknown fields or drift never become a stored outcome. Only one durable claim
+permits native handover, and claim-before-call crash holds rather than retries.
+Historical ACK, owner state and hash-only audit commit atomically, without
+changing lease/version or granting model/control permission. Automatic recovery,
+source upgrade and journal-loss fallback remain disabled.
 
 ## Controller Restart Witness Is Not Authority
 

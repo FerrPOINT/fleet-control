@@ -27,6 +27,7 @@ mod m20261006_000017_runtime_launches;
 mod m20261006_000018_container_preparations;
 mod m20261006_000019_runtime_endpoints;
 mod m20261007_000020_controller_recovery;
+mod m20261007_000021_controller_recovery_delivery;
 
 pub struct Migrator;
 
@@ -126,5 +127,6 @@ fn runtime_followups() -> Vec<Box<dyn MigrationTrait>> {
         Box::new(m20261006_000018_container_preparations::Migration),
         Box::new(m20261006_000019_runtime_endpoints::Migration),
         Box::new(m20261007_000020_controller_recovery::Migration),
+        Box::new(m20261007_000021_controller_recovery_delivery::Migration),
     ]
 }

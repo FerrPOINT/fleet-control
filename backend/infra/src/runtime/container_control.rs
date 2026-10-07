@@ -68,7 +68,7 @@ pub struct ContainerSnapshot {
     pub network_sha256: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ContainerObservation {
     NeverStarted,
@@ -77,7 +77,7 @@ pub enum ContainerObservation {
     Unavailable,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ContainerReceiptState {
     Registered,
@@ -85,7 +85,7 @@ pub enum ContainerReceiptState {
     Held,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContainerReceipt {
     pub contract_version: u8,
@@ -163,7 +163,7 @@ struct ControllerAttachment {
 }
 
 /// Read-only custody witness, never a lease or permission to adopt a launch.
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct ControllerRestartObservation {
     contract_version: u8,
@@ -171,11 +171,11 @@ pub(super) struct ControllerRestartObservation {
     original_mapping_sha256: String,
     registration_sha256: String,
     original_controller_snapshot: app::runtime_launch::MountMappingSnapshot,
-    current_controller_snapshot: app::runtime_launch::MountMappingSnapshot,
+    pub(super) current_controller_snapshot: app::runtime_launch::MountMappingSnapshot,
     pub(super) receipt: ContainerReceipt,
 }
 
-fn decode_controller_restart(
+pub(super) fn decode_controller_restart(
     status: i32,
     value: Value,
     mapping: &ContainerMountMapping,
@@ -708,6 +708,19 @@ impl ContainerControl {
         action: &str,
         extra: Value,
     ) -> Result<(i32, Value), AppError> {
+        self.call_with_owner(files, action, extra, None).await
+    }
+
+    pub(super) async fn call_with_owner(
+        &self,
+        files: &ContainerLaunchFiles,
+        action: &str,
+        extra: Value,
+        owner: Option<(
+            &app::runtime_launch::ControllerRecoveryCommand,
+            &std::path::Path,
+        )>,
+    ) -> Result<(i32, Value), AppError> {
         let mut sources = Vec::with_capacity(3);
         let filesystem_root = self.source.root.ancestors().last().ok_or_else(held)?;
         for (name, expected) in [
@@ -741,7 +754,7 @@ impl ContainerControl {
             }
             sources.push(STANDARD.encode(bytes));
         }
-        let protocol_version = match (&files.mount_mapping, &files.mapping_file) {
+        let mut protocol_version = match (&files.mount_mapping, &files.mapping_file) {
             (None, None) if files.policy["contract_version"] != 3 => 1,
             (Some(mapping), Some(path)) if action != "resolve_mounts" => {
                 local_mapping_policy(&files.policy, mapping)?;
@@ -755,11 +768,40 @@ impl ContainerControl {
             }
             _ => return Err(held()),
         };
+        if let Some((_, journal)) = owner {
+            if protocol_version != 2
+                || !journal.is_absolute()
+                || journal.parent() != files.journal.parent()
+                || [&files.compose, &files.journal, &files.stop_journal]
+                    .iter()
+                    .any(|path| path.as_path() == journal)
+                || files.mapping_file.as_deref() == Some(journal)
+                || !matches!(
+                    action,
+                    "recover_controller"
+                        | "read_controller_recovery"
+                        | "heartbeat_controller"
+                        | "observe"
+                        | "start"
+                        | "endpoint"
+                        | "stop"
+                        | "logs"
+                        | "log_page"
+                )
+            {
+                return Err(held());
+            }
+            protocol_version = 3;
+        }
         let mut request = json!({"protocol_version":protocol_version, "action":action, "context":self.context,
             "policy":files.policy, "compose":files.compose, "journal":files.journal});
-        if protocol_version == 2 {
+        if protocol_version >= 2 {
             request["mount_mapping"] = json!(files.mount_mapping);
             request["mapping_file"] = json!(files.mapping_file);
+        }
+        if let Some((command, journal)) = owner {
+            request["recovery"] = json!(command);
+            request["recovery_journal"] = json!(journal);
         }
         if !files.compose.is_absolute()
             || !files.journal.is_absolute()

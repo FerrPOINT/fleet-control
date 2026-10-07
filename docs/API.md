@@ -6,6 +6,9 @@ DTOs. Any outstanding recovery fences existing queue/permit/endpoint/lifecycle
 effects with reconciliation errors. No public force-unlock, owner reset or
 takeover API is enabled; OpenAPI remains unchanged by this storage candidate.
 See [the private contract](contracts/CONTROLLER_RECOVERY_V1.md).
+The000021 trusted supervisor entry and private delivery/outcome repository ports
+are not public routes. Raw original command, native witness, private journal and
+receipt body must never be exposed through agent DTOs, logs or browser streams.
 
 Original container dotenv bytes/hash remain exclusively inside the private
 creation intent. Existing public routes, DTOs and generated OpenAPI are unchanged;

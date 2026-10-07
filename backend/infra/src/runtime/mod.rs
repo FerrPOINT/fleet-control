@@ -36,6 +36,8 @@ mod container_lifecycle_tests;
 mod control_outcome_readback;
 #[doc(hidden)]
 pub mod control_outcome_wire;
+pub(crate) mod controller_recovery_wire;
+mod controller_recovery_worker;
 mod hermes_wire;
 mod launch_journal;
 #[cfg(test)]

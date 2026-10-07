@@ -32,6 +32,8 @@
 - [0029-container-configuration-generation-replacement.md](adr/0029-container-configuration-generation-replacement.md)
 - [0030-generation-bound-container-endpoint.md](adr/0030-generation-bound-container-endpoint.md)
 - [0031-private-bounded-container-log-readback.md](adr/0031-private-bounded-container-log-readback.md)
+- [0032-fenced-controller-recovery-epochs.md](adr/0032-fenced-controller-recovery-epochs.md)
+- [0033-original-controller-delivery-outcome.md](adr/0033-original-controller-delivery-outcome.md)
 
 Records 0008 and 0009 describe historical migration stages. Their status notes
 point to the current shared dependency and central identity architecture.
