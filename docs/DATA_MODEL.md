@@ -51,6 +51,12 @@ Tables:
 - `workflow_bindings`: per-agent namespace/workflow link. `binding_status` is computed from the live Project Workflow catalog: `connected` for an exact ID/name match, `stale` for a removed or renamed persisted selection, and `unbound` when no selection exists.
 - `agent_events`: audit-friendly event stream for UI invalidation.
 - `agent_logs`: bounded process/runtime log records.
+- `fleet_alerts`: persisted health incidents. The historical migration 000006
+  permits `heartbeat_stale`, not `agent_heartbeat_stale`. Heartbeat insertion
+  locks the owning agent row, reuses an open/acknowledged incident, and permits
+  a new identity only after resolution. Resolution and its redacted audit are
+  atomic; an audit failure leaves the incident active. No migration is needed
+  for this correction.
 - `audit_log`: immutable operator action audit for agent changes, runtime
   actions, config/skill edits, leader assignments, handoff and message writes.
 

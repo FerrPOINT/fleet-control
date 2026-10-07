@@ -22,6 +22,24 @@ fresh database. Fixture Playwright cases run on Chromium, Firefox and WebKit;
 live cases require `SDLC_LIVE_QA=1`. Screenshots are fixture evidence, not a real
 seven-agent PM/decomposition/Rework/deployment acceptance.
 
+## Heartbeat Incident Regression
+
+`backend/infra/tests/heartbeat_alerts.rs` requires `FLEET_TEST_DATABASE_URL`
+pointing at a disposable PostgreSQL instance. Run explicitly:
+
+```bash
+cargo test --locked -p infra --test heartbeat_alerts -- --test-threads=1
+```
+
+Five cases cover actual canonical-kind persistence, acknowledged deduplication,
+fresh recovery without a status transition, a new incident after recovery,
+unknown/future/nonrunning retention, concurrent insertion identity, explicit
+health recovery, and atomic rollback when the resolution audit fails. The audit
+failure fixture installs a task-owned trigger restricted to its own agent; it
+must never run against an accepted runtime database. UI tests check canonical
+and legacy display labels. These are monitoring regressions, not Hermes/model,
+PM workflow or full SDLC acceptance.
+
 Chat/session acceptance scenarios `C-01` through `C-15` and their current
 source-review gaps are defined in [CHAT.md](CHAT.md). Existing frontend unit
 checks are not evidence of live runtime delivery or backend permission closure.

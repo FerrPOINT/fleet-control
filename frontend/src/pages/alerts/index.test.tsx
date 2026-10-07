@@ -114,6 +114,24 @@ describe('AlertsPage', () => {
     expect(screen.getByRole('button', { name: 'Открытые' })).toHaveAttribute('aria-pressed', 'true')
   })
 
+  it.each(['heartbeat_stale', 'agent_heartbeat_stale'])(
+    'localizes the %s heartbeat kind without displaying its wire identifier',
+    async (kind) => {
+      vi.mocked(fleet.listFleetAlerts).mockResolvedValue([{ ...alertsFixture[0]!, kind }])
+      renderPage()
+
+      expect(
+        await screen.findByRole('heading', { name: 'Нет свежего сигнала агента' }),
+      ).toBeVisible()
+      expect(
+        screen.getByRole('button', {
+          name: 'Подтвердить получение оповещения «Нет свежего сигнала агента»',
+        }),
+      ).toBeVisible()
+      expect(screen.queryByText(kind)).not.toBeInTheDocument()
+    },
+  )
+
   it('distinguishes a load failure from an empty result and retries', async () => {
     vi.mocked(fleet.listFleetAlerts)
       .mockRejectedValueOnce(new Error('offline'))
