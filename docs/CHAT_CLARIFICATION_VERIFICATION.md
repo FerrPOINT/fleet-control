@@ -1,5 +1,51 @@
 # Chat Clarification Verification
 
+## Integrated Chats And Runtime Candidate: 7 October 2026
+
+Normal merge `49c11f54f7322bcb671b41b2cdf4b50264713eff` includes runtime
+`9a11bde9d4ae7df8a2621746597a235b1edfc499` and original-key UI consumer
+`16b751679db3a32e921603acc64e9e9aa4f7c350`. Exact backend tree remains
+`d5e37d93cd877b5c0cbd2ef8dbe80222b5c26d2b`, identical to the runtime head.
+Exact frontend tree is `4dc8741a3d3400ddbca2a630eeeea8823f584fe0`, identical
+to the published consumer. The full555-case Linux gate below therefore covers
+the unchanged backend bytes; it was not rerun or relabelled after this UI merge.
+
+Fresh integrated `pnpm test` passes352 cases in32 files. Build/typecheck, lint,
+formatting, OpenAPI/client equality and8 compatibility cases pass. Vite retains
+its existing large-chunk advisory and Vitest retains the existing localstorage
+warning. The135-screen baseline and9 validator cases pass. Existing controller
+and runtime-control evidence verifiers pass separately.
+
+Fresh integrated browser command
+`pnpm exec playwright test fleet-control.spec.ts chats-directory.spec.ts --workers=3`
+passes all72 selected cases in Chromium/Firefox/WebKit in2.2 minutes, with no
+retries. Playwright owns the temporary4173 preview and stops it after execution.
+The fixture proxy also logged unhandled/cancelled requests to its deliberately
+absent3456 backend; this is not a zero-network-error or live-system gate. No
+pageerror filtering or Base SDK update was used. README and128 Markdown files
+pass their validators after the documentation update.
+
+Twenty-four imported PNGs pass SHA256 and dimension checks, with15 source hashes
+checked against their exact historical Git blobs rather than the newest file:
+[original-key consumer](assets/screens/chats-control-key-lookup-20261007/validation.json),
+[session recovery](assets/screens/chats-session-recovery-20261007/validation.json),
+[catalog freshness](assets/screens/workflow-catalog-freshness-20261007/validation.json).
+Their manifests retain `fixtureOnly=true`, `liveAcceptance=false`. Fresh mobile
+stop-held and desktop steer-ACK captures were opened and inspected without
+overlap; they show the retained draft/unknown stop and cleared acknowledged
+steer error. They are controlled fixture data, not live PM or runtime acceptance.
+
+Imported original-key identity is still component-memory state. Browser reload
+and logout/identity/service isolation are being verified independently, not
+asserted by this merge. The pinned Base direct SSE denial/WebKit finding remains
+open even after successful fixture repeats. Actual public-route native reply
+loss, ownership transfer/interrupted activation, production logs, producer
+admission/first-step, PM delivery/checkpoint/rebind and complete SDLC remain open.
+No migration, SDK/source pin, installed image or opt-in changes accompany this
+source integration. Base PR150 remains an open conflicting main dependency at
+7d7323a59d744d50f9b101a3568adb3d59ee9683; Fleet PR55 is a separate clean main
+packet atfdbd7dd2c6cf1d9a66651fba5c0bf92a66047529. Neither is changed here.
+
 ## Original Controller Restart Observation: 7 October 2026
 
 Base published source

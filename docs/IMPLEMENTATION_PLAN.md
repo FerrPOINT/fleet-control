@@ -1,5 +1,24 @@
 # Implementation Plan
 
+## After Integrating The Original-Key Chats Consumer
+
+Normal merge49c11f5 combines the independently published Chats16b7516 and
+runtime9a11bde without modifying backend bytes. Original-key recovery is now
+production frontend behavior, not a remaining adapter wiring task. See
+[combined verification](CHAT_CLARIFICATION_VERIFICATION.md#integrated-chats-and-runtime-candidate-7-october-2026).
+
+The separate Chats task next proves browser reload/logout/identity-change
+recovery using only opaque command identity and server-authorized GET. It must
+not store raw guidance, transcript or credentials, release uncertainty from a
+local cache, or duplicate a POST. Resolve the pinned SDK stream-denial finding
+separately; successful component/fixture rechecks do not close it.
+
+Runtime work continues below: durable fenced controller transfer and interrupted
+activation, original-generation bounded/redacted collection, exact producer
+admission/first-step authority, PM checkpoint/delivery and actual Forge/SDLC
+acceptance. Keep the compatible published release lineage and one-migration
+boundary; no installed opt-in follows from merging source or fixture screenshots.
+
 ## Controller Ownership Recovery After Read-Only Witness
 
 The Base same-container restart observer is published at
@@ -27,8 +46,8 @@ The verified-human original-key GET is implemented and covered by the fresh
 551-case full gate. The local client is generated from Rust OpenAPI. See
 [consumer contract](contracts/HERMES_RUN_CONTROL_V1.md#fleet-command-journal)
 and [verification](CHAT_CLARIFICATION_VERIFICATION.md#original-key-control-lookup-7-october-2026).
-The independent Chats task owns UI integration: retain original key/run/input,
-hash the same Rust-normalized semantic payload, and release a pending hold only
+The published Chats16b7516 consumer, now included in49c11f5, retains original
+key/run/input, hashes the same Rust-normalized semantic payload and releases a pending hold only
 from a fresh exact accepted receipt. Unknown,404 or terminal-without-ACK must not
 become a second POST. Keep actual native reply-loss/restart acceptance separate
 from these component tests; no installed runtime flag changes accompany this GET.

@@ -1,5 +1,33 @@
 # Current State
 
+## Integrated Chats And Runtime Candidate: 7 October 2026
+
+Normal merge `49c11f54f7322bcb671b41b2cdf4b50264713eff` combines runtime
+`9a11bde9d4ae7df8a2621746597a235b1edfc499` and the published Chats consumer
+`16b751679db3a32e921603acc64e9e9aa4f7c350`, without replay or history rewriting.
+The original-key GET now has a production consumer: original actor/session/run/
+agent/key and Rust-normalized payload remain fixed, with no second POST on an
+unknown result. Stop acknowledgement preserves an unrelated composer draft and
+does not assert runtime termination. Fresh session/catalog reads retain mutation
+holds until the exact authorized receipt is available.
+
+The integrated source passes352 frontend cases in32 files, build/typecheck,
+lint, formatting, OpenAPI/client equality and8 compatibility cases. A fresh
+72-case Chromium/Firefox/WebKit fixture run passes without retries. Its backend
+tree is byte-identical to the555-case runtime gate below; that gate is not a new
+Rust invocation after the UI merge. The135-screen baseline and its9 validator
+cases pass. Separately,24 imported fixture PNGs and15 historical source hashes
+match their three dated manifests. See
+[integration evidence](CHAT_CLARIFICATION_VERIFICATION.md#integrated-chats-and-runtime-candidate-7-october-2026).
+
+Browser-reload recovery remains separate work; the imported original-key identity
+is retained in component memory, not yet proven across a reload. The Base SDK
+direct SSE denial/WebKit finding remains open. Actual PM publication/answer
+delivery/checkpoint/rebind, predispatch admission and full controller transfer
+still require live acceptance. No migration, installed flag, SDK/source pin or
+accepted runtime image changes accompany this merge. Older dated consumer gaps
+below describe their original packets, not the current UI wiring status.
+
 ## Original Controller Restart Observation: 7 October 2026
 
 Base candidate

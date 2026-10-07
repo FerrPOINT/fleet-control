@@ -1,5 +1,26 @@
 # Gap Register
 
+## Integrated Original-Key Consumer; Reload And Live Gates Remain
+
+Normal merge49c11f5 includes published Chats16b7516 beside runtime9a11bde.
+The original-key read-only GET is now wired into production ChatDetail, with
+Rust-compatible digest, original scope preservation, unknown/404/409 holds and
+no repeat POST. Fresh352-unit frontend/build/lint/format/OpenAPI gates and72
+Chromium/Firefox/WebKit fixture cases pass;
+backend bytes retain the exact555-case runtime gate. See
+[combined evidence](CHAT_CLARIFICATION_VERIFICATION.md#integrated-chats-and-runtime-candidate-7-october-2026).
+This closes the missing UI consumer, not browser reload or OS/runtime recovery.
+
+Remaining: safely retain opaque original command identity across a browser reload,
+reject logout/identity/service drift and revalidate server access without storing
+raw prompts or credentials. The independent Chats task owns that frontend work.
+Keep the existing direct SSE denial/WebKit finding open; a green repeated fixture
+run does not repair the pinned SDK. Native public-route reply loss, controller
+ownership transfer, generation-bound production collection, producer admission,
+PM checkpoint/delivery and actual end-to-end SDLC are still required. Neither the
+24 imported fixture captures nor the135-screen baseline are live PM evidence.
+Earlier dated consumer entries below remain historical packet evidence.
+
 ## Controller Restart Witness; Ownership Recovery Remains
 
 Base source9171fe6 adds read-only same-controller restart observation and passes
@@ -18,7 +39,7 @@ container ID/source upgrade/lost journal need explicit compatible recovery, not
 fallback. Base PR150 now conflicts with main and remains an independent release
 dependency; do not relabel the published integration branch as main-ready.
 
-## Original-Key Control Lookup; Consumer And Live Proof Remain
+## Original-Key Control Lookup; Live Proof Remains
 
 Public GET now recovers an existing receipt without the lost command UUID, using
 the authenticated original actor/key and exact semantic payload digest. Three
@@ -27,8 +48,9 @@ revocation and foreign actor/scope denial; two domain cases fix the hash contrac
 The full551-case gate and generated specification pass. See
 [verification](CHAT_CLARIFICATION_VERIFICATION.md#original-key-control-lookup-7-october-2026).
 
-The Chats task must still wire this route using its retained original input/key/run
-and Rust-compatible trimming, without a native resend on404 or unknown outcomes.
+The published Chats16b7516 consumer is included by normal merge49c11f5; see the
+current integration entry above. Browser reload still requires a separate safe
+identity/readback flow without a native resend on404 or unknown outcomes.
 Controlled HTTP and repository reconstruction are not real Hermes acceptance or
 Fleet OS-restart proof for this route. Existing native recovery evidence remains
 separate. This additive route does not close task admission, PM delivery/resume,

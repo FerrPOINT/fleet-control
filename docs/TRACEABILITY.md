@@ -1,5 +1,16 @@
 # Traceability
 
+Integrated original-key UI consumer: normal merge49c11f5 combines runtime9a11bde
+and published Chats16b7516. `api/runtime-control-lookup.ts` canonicalizes the
+Rust-compatible semantic digest; `pages/chat-detail` fixes original command scope
+and releases a hold only after authorized fresh ACK. Its API/unit/browser cases
+cover lost initial receipt ID, stale reads, changed active run and preservation
+of an unrelated composer draft, without another POST. The frontend tree matches
+16b7516; backend tree matches9a11bde. See
+[combined evidence](CHAT_CLARIFICATION_VERIFICATION.md#integrated-chats-and-runtime-candidate-7-october-2026).
+Reload persistence, direct SSE denial, native public-route acceptance and actual
+PM/admission/controller recovery remain separate requirements.
+
 Controller restart observation:
 [private contract](contracts/CONTAINER_CONTROL_V1.md#original-controller-restart-observation),
 `container_control::observe_controller_restart`, closed witness decoder and
