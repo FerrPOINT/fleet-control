@@ -94,3 +94,14 @@ checkpoint/one-successor rebind and authorized Workflow projection still require
 their own evidence. OS restart/lost tab identity discovery and direct SSE
 authorization callbacks remain the precise gaps in the
 [acceptance boundary register](CHATS_PM_BLOCKERS_20261007.md).
+
+## Publication result
+
+Implementation commit `5c273b3a95df77485aff7bd277b75b12ba3374ea` is saved locally.
+Four Git push attempts, including HTTP/1.1, were rejected by GitHub with
+`Internal Server Error`; the separate Git object API also returned HTTP500.
+Fresh remote readback still has consumer branch
+`94e889d2632517936597af5835e45cb607d78c4b`. No force push or ref replacement was
+performed. The source/evidence and a Git format-patch of the implementation are
+retained in the owned checkout. Publication is blocked by the remote service;
+this packet must not be described as a published consumer release.
