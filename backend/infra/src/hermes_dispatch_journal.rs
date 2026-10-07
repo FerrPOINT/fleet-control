@@ -320,7 +320,8 @@ async fn validate_launch_generation(
 ) -> Result<(), AppError> {
     let expected = crate::runtime_launches::dispatch_launch_id(capabilities)?;
     let current = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
-        "SELECT id,state FROM runtime_launches WHERE agent_id=$1 AND state IN ('claimed','gateway_started')",
+        "SELECT id,state,EXISTS(SELECT 1 FROM runtime_controller_recoveries e WHERE e.launch_id=runtime_launches.id) AS recovery
+         FROM runtime_launches WHERE agent_id=$1 AND state IN ('claimed','gateway_started')",
         [agent.into()])).await.map_err(database_error)?;
     let actual = current
         .as_ref()
@@ -329,6 +330,7 @@ async fn validate_launch_generation(
     if expected != actual
         || current.as_ref().is_some_and(|row| {
             column::<String>(row, "state").ok().as_deref() != Some("gateway_started")
+                || column::<bool>(row, "recovery").ok() != Some(false)
         })
     {
         return Err(AppError::Unavailable(

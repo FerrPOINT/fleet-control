@@ -12,6 +12,9 @@ impl PostgresFleetRepository {
                 JOIN session_messages m ON m.id = o.message_id
                 JOIN agent_sessions s ON s.id = m.session_id
                 WHERE o.state = 'pending' AND a.status = 'running' AND a.kind = 'hermes'
+                  AND NOT EXISTS(SELECT 1 FROM runtime_controller_recoveries e
+                    JOIN runtime_launches l ON l.id=e.launch_id WHERE l.agent_id=a.id
+                    AND l.state IN ('claimed','gateway_started'))
                   AND ($1::uuid IS NULL
                     OR NOT EXISTS (SELECT 1 FROM runtime_launches l WHERE l.agent_id=a.id AND l.state IN ('claimed','gateway_started'))
                     OR EXISTS (SELECT 1 FROM runtime_launches l WHERE l.agent_id=a.id

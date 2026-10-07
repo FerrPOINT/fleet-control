@@ -1,5 +1,12 @@
 # Hermes Adapter Contract
 
+Private controller recovery storage follows
+[Controller Recovery V1](CONTROLLER_RECOVERY_V1.md). Any outstanding epoch
+fences original-owner Hermes delivery and generation operations, even after a
+stored ACK. Native takeover, original-key outcome readback and fresh DB/native
+lease authority are required before the recovered owner may dispatch or control
+a run. Storage/component tests are not actual Hermes recovery acceptance.
+
 Automatic container launch input now includes a private exact dotenv snapshot
 before create, frozen by the preparation intent hash and checked before start.
 Native Hermes dotenv interpolation, credential sanitization, external sources,

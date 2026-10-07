@@ -2,6 +2,12 @@
 
 ## Container Candidate
 
+Fleet's separate [controller recovery journal](CONTROLLER_RECOVERY_V1.md) stores
+fenced proposed-owner epochs while retaining original launch identity. Any epoch
+holds original queue/permit/endpoint/lifecycle effects. Storage acknowledgement
+is not native ownership; a Base epoch journal, fresh dual-fence consumer and live
+restart/interrupted-activation acceptance are still required before new effects.
+
 Private controller restart observation is a read-only degraded-health witness,
 not restored ownership. It checks exact original mapping/registration/DB ACK and
 PID without mutating the old launch or authorizing gateway effects. The Base

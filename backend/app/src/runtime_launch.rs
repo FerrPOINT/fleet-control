@@ -114,6 +114,37 @@ pub struct RuntimeLaunchRecord {
     pub binding: RuntimeLaunchBinding,
     pub state: String,
     pub pid: Option<i32>,
+    /// An ownership saga fences original-owner effects, even when its lease expires.
+    pub controller_recovery: bool,
+}
+
+/// Controller-private request. Hashes refer to original witnesses, never raw secrets.
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ControllerRecoveryRequest {
+    pub id: Uuid,
+    pub launch_id: Uuid,
+    pub agent_id: Uuid,
+    pub original_controller_id: Uuid,
+    pub controller_id: Uuid,
+    pub predecessor_id: Option<Uuid>,
+    pub launch_sha256: String,
+    pub mapping_sha256: String,
+    pub registration_sha256: String,
+    pub controller_snapshot: MountMappingSnapshot,
+    pub agent_pid: i32,
+}
+
+/// Storage acknowledgement is not a native owner permit or SDLC readiness.
+#[derive(Clone)]
+pub struct ControllerRecoveryRecord {
+    pub request: ControllerRecoveryRequest,
+    pub epoch: i64,
+    pub state: String,
+    pub lease_version: i64,
+    pub lease_expires_at: String,
+    pub lease_valid: bool,
+    pub native_receipt_sha256: Option<String>,
 }
 
 /// Durable pre-create fence; the private intent (including credentials) stays on disk.

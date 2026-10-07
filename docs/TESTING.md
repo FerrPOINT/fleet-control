@@ -1,5 +1,17 @@
 # Testing
 
+Controller epoch storage cases use isolated PostgreSQL and controlled Base
+preparation, not a real Docker takeover. They cover concurrent replay, changed
+original hashes/PID/snapshot, owner/version heartbeat and once-only receipt,
+original queue/endpoint/observation fences, real31-second lease expiry and SQL
+history retention. The migration case uses its own disposable schema for
+upgrade/empty down/up and retained-history downgrade refusal without disabling
+production triggers. The fresh Linux/PostgreSQL562-case gate passes with30
+explicit opt-in ignores and298 unchanged inputs; native takeover and full SDLC
+still require separate acceptance. See
+[exact evidence](CHAT_CLARIFICATION_VERIFICATION.md#fenced-controller-recovery-storage-7-october-2026). Contract:
+[Controller Recovery V1](contracts/CONTROLLER_RECOVERY_V1.md).
+
 ## Controller Restart Observation
 
 Three private client cases cover same-controller/recycled-PID readback, original

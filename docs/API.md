@@ -1,5 +1,12 @@
 # API
 
+Controller recovery epochs are internal repository operations, not new public
+agent/runtime actions. Requests, witness hashes and lease state are not browser
+DTOs. Any outstanding recovery fences existing queue/permit/endpoint/lifecycle
+effects with reconciliation errors. No public force-unlock, owner reset or
+takeover API is enabled; OpenAPI remains unchanged by this storage candidate.
+See [the private contract](contracts/CONTROLLER_RECOVERY_V1.md).
+
 Original container dotenv bytes/hash remain exclusively inside the private
 creation intent. Existing public routes, DTOs and generated OpenAPI are unchanged;
 environment drift produces existing reconciliation errors, not raw secret output.

@@ -1,5 +1,24 @@
 # Gap Register
 
+## Controller Epoch Storage Verified; Native Custody Remains
+
+Migration000020 and private reserve/readback/heartbeat/receipt primitives now
+pass the fresh562-case Linux/PostgreSQL gate. Concurrent identical reservations
+retain one original request/epoch/lease; heartbeat requires live exact-owner CAS;
+history is immutable and original runtime/dispatch effects remain fenced even
+after a stored ACK. Real31-second expiry does not revive a lease or retry unknown
+acceptance. The migration test retains original data and refuses nonempty
+downgrade. See [verification](CHAT_CLARIFICATION_VERIFICATION.md#fenced-controller-recovery-storage-7-october-2026).
+
+Next connect actual Base private owner epochs and original-key outcome readback
+to the Fleet worker, with a fresh DB lease and native physical custody before
+every effect. An ACK hash is not permission. Reconcile lost replies and interrupted
+activation without changing original launch/config/source identity. Historical
+positive outcomes after lease expiry need a verified readback disposition, not
+lease revival or a replacement command. Prove actual ongoing-Hermes restart and
+competing-owner denial before enabling recovery. Existing controller recreation,
+source upgrade/lost-journal, collector, admission and live PM/Forge gaps stay open.
+
 ## Integrated Original-Key Consumer; Reload And Live Gates Remain
 
 Normal merge49c11f5 includes published Chats16b7516 beside runtime9a11bde.

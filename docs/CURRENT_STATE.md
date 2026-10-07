@@ -1,5 +1,29 @@
 # Current State
 
+## Fenced Controller Recovery Storage: 7 October 2026
+
+Additive migration000020 and the private repository reserve/readback/heartbeat/
+receipt operations retain the original launch and append immutable recovery
+epochs. The agent-row lock serializes reservation, dispatch and lifecycle
+changes; a30-second PostgreSQL-clock lease uses exact-owner/version CAS. Any
+recovery epoch blocks original-owner queue/permit/endpoint/lifecycle effects.
+Lease expiry does not retry an unknown native acceptance or release capacity.
+See [the contract](contracts/CONTROLLER_RECOVERY_V1.md).
+
+Fresh Linux/Rust1.88/PostgreSQL fmt/check/strict Clippy and562 workspace cases
+pass in38 groups, with30 explicit opt-in ignores. Six component cases cover
+concurrency, original identity, heartbeat/ACK, effects fencing, real31-second
+expiry and SQL history guards. The additional migration case verifies additive
+upgrade, empty down/up and refusal to erase retained history. All298 frozen
+inputs match; OpenAPI stays byte-identical and exact owned Compose cleanup is
+independently verified. See [evidence](CHAT_CLARIFICATION_VERIFICATION.md#fenced-controller-recovery-storage-7-october-2026).
+
+This is storage/component evidence, not an actual native handover or recovery
+worker. A saved receipt hash never enables new-owner effects. Base native epochs,
+original-key outcome recovery, fresh dual-fence checks, interrupted activation,
+production logs and task/PM admission remain required. No SDK/source pin,
+installed opt-in, accepted runtime image or frontend change accompanies it.
+
 ## Integrated Chats And Runtime Candidate: 7 October 2026
 
 Normal merge `49c11f54f7322bcb671b41b2cdf4b50264713eff` combines runtime

@@ -1,5 +1,52 @@
 # Chat Clarification Verification
 
+## Fenced Controller Recovery Storage: 7 October 2026
+
+The candidate adds only migration000020, private request/record/repository
+operations and original-owner effects fences. Original launch identity and
+controller metadata remain immutable. No HTTP entry point, native worker,
+installed flag, SDK/source pin, frontend or accepted runtime image changes.
+
+Command: `python -B .local/fleet-container-control-gate-20261006.py full`.
+Exact disposable project: `sdlc-qa-fleet-container-control-8aa68a2fea71`.
+Artifact directory: `.local/fleet-container-control-checks-6a3d59daddd0/`.
+Rust1.88 Linux fmt/locked offline all-target check/strict Clippy and the full
+workspace test gate pass:562 passed,0 failed,30 explicit opt-in ignores across
+38 result groups. The report explicitly records
+`actual_docker_hermes_acceptance=false` and `installed_runtime_changed=false`.
+
+Six new PostgreSQL cases use controlled Base preparation, not Docker takeover.
+They cover16 concurrent identical reservations and conflicting payloads, changed
+original identity, version/owner heartbeat and once-only ACK, independent DB
+readback, original queue/endpoint/observation fences, real31-second lease expiry,
+unknown acceptance hold and predecessor checks, and direct SQL history guards.
+The new migration case owns a disposable schema: original agents/launches remain
+unchanged on upgrade, empty down/up works, nonempty downgrade refuses without
+losing history. No production trigger or clock bypass is used.
+
+All298 captured inputs retain their original hashes. Generated OpenAPI is
+byte-identical to the checked-in file. The driver reports exact own cleanup;
+independent Docker container/network queries for this project return empty.
+No global prune, permanent volume replacement or installed service restart.
+
+| Artifact | SHA256 |
+| --- | --- |
+| `source-manifest.json` | `58c936cf9212a857290e38ac758bf1e7e813afedf7276c5ed15fbf3aa7d52472` |
+| `gate.log` | `751375e069e4ae3fac2a1f0ced460ba168985f20ed8f3bf012680e7bd2bc899f` |
+| `report.json` | `481771660672c0b0040795826d419dc3e4fb0338b0da983c1f2731920b74b2cd` |
+| generated OpenAPI | `76a27c806961bc142543445e34f10525485cbcf2f0b66ac2fe5d093fc808a10f` |
+
+Earlier focused project `sdlc-qa-fleet-container-control-b929d33c93b9`, artifacts
+`.local/fleet-container-control-checks-d7920a373f8c/`, failed compilation because
+a test attempted to clone `DatabaseConnection`. It was cleaned and is not a
+passing result; the corrected test opens an independent real connection.
+
+The storage ACK is not native custody. Actual Base handover/original-key receipt,
+DB/native dual-fence worker, unknown-outcome reconciliation, interrupted
+activation, production collection, admission and PM/Forge acceptance remain open.
+Older frontend352/72 and native restart packets below retain their original
+scope and are not relabelled as new evidence for this storage change.
+
 ## Integrated Chats And Runtime Candidate: 7 October 2026
 
 Normal merge `49c11f54f7322bcb671b41b2cdf4b50264713eff` includes runtime

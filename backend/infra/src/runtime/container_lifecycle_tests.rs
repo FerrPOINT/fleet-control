@@ -497,6 +497,7 @@ async fn container_lifecycle_original_ack_authorizes_generation_and_namespace_st
             binding: launch.clone(),
             state: "claimed".into(),
             pid: None,
+            controller_recovery: false,
         },
     );
     let container = launch.container.as_ref().unwrap();
@@ -1182,6 +1183,440 @@ fn with_mapping_controller(mut config: AppConfig) -> AppConfig {
         service: "fleet-backend".into(),
     });
     config
+}
+
+#[cfg(target_os = "linux")]
+type RecoveryFixture = (
+    Arc<crate::PostgresFleetRepository>,
+    Agent,
+    Uuid,
+    RuntimeLaunchBinding,
+    app::runtime_launch::ControllerRecoveryRequest,
+    std::path::PathBuf,
+);
+
+#[cfg(target_os = "linux")]
+async fn recovery_fixture() -> Option<RecoveryFixture> {
+    let (repo, agent, owner, config, root) = lifecycle_tests::fixture(AgentKind::Hermes).await?;
+    let config = with_mapping_controller(fake_creation(&config, &agent, false).await);
+    let runtime = lifecycle_tests::supervisor(Arc::new(config), repo.clone());
+    let launch = runtime
+        .prepared_container(&agent, LaunchPhase::Regular)
+        .await
+        .unwrap();
+    repo.claim_runtime_launch(&launch).await.unwrap();
+    repo.observe_runtime_launch(&launch, "gateway_started", Some(12345))
+        .await
+        .unwrap();
+    let container = launch.container.as_ref().unwrap();
+    let mapping = container.mount_mapping.as_ref().unwrap();
+    let mut snapshot = mapping.snapshot.clone();
+    snapshot.started_at = "2026-10-07T12:00:00Z".into();
+    let request = app::runtime_launch::ControllerRecoveryRequest {
+        id: Uuid::new_v4(),
+        launch_id: launch.id,
+        agent_id: agent.id,
+        original_controller_id: launch.controller_id,
+        controller_id: Uuid::new_v4(),
+        predecessor_id: None,
+        launch_sha256: crate::runtime_launches::snapshot_hash(
+            &serde_json::to_value(&launch).unwrap(),
+        )
+        .unwrap(),
+        mapping_sha256: container_control::canonical_hash(mapping).unwrap(),
+        registration_sha256: container_control::canonical_hash(&container.registration).unwrap(),
+        controller_snapshot: snapshot,
+        agent_pid: 12345,
+    };
+    Some((repo, agent, owner, launch, request, root))
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn controller_recovery_concurrent_replays_preserve_one_epoch_and_original_launch() {
+    let Some((repo, agent, _, launch, request, root)) = recovery_fixture().await else {
+        return;
+    };
+    let before = serde_json::to_value(repo.get_agent(agent.id).await.unwrap()).unwrap();
+    let mut tasks = tokio::task::JoinSet::new();
+    for _ in 0..16 {
+        let repo = repo.clone();
+        let request = request.clone();
+        tasks.spawn(async move { repo.reserve_controller_recovery(&request).await.unwrap() });
+    }
+    let mut expiry = None;
+    while let Some(result) = tasks.join_next().await {
+        let result = result.unwrap();
+        assert_eq!(result.request.id, request.id);
+        assert_eq!(result.epoch, 1);
+        assert_eq!(result.state, "reserved");
+        assert_eq!(result.lease_version, 1);
+        assert!(result.native_receipt_sha256.is_none());
+        assert_eq!(
+            expiry.get_or_insert(result.lease_expires_at.clone()),
+            &result.lease_expires_at
+        );
+    }
+    let persisted = repo
+        .get_open_runtime_launch(agent.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(persisted.controller_recovery);
+    assert_eq!(
+        serde_json::to_value(persisted.binding).unwrap(),
+        serde_json::to_value(launch).unwrap()
+    );
+    assert_eq!(persisted.pid, Some(12345));
+    assert_eq!(
+        serde_json::to_value(repo.get_agent(agent.id).await.unwrap()).unwrap(),
+        before
+    );
+    let mut changed = request.clone();
+    changed.controller_id = Uuid::new_v4();
+    assert!(matches!(
+        repo.reserve_controller_recovery(&changed).await,
+        Err(AppError::Conflict(_))
+    ));
+    changed.id = Uuid::new_v4();
+    assert!(repo.reserve_controller_recovery(&changed).await.is_err());
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn controller_recovery_rejects_changed_original_identity_before_reservation() {
+    let Some((repo, _, _, _, request, root)) = recovery_fixture().await else {
+        return;
+    };
+    for field in [
+        "pid",
+        "launch",
+        "mapping",
+        "registration",
+        "inventory",
+        "container",
+        "start",
+        "owner",
+        "predecessor",
+    ] {
+        let mut changed = request.clone();
+        match field {
+            "pid" => changed.agent_pid += 1,
+            "launch" => changed.launch_sha256 = "f".repeat(64),
+            "mapping" => changed.mapping_sha256 = "f".repeat(64),
+            "registration" => changed.registration_sha256 = "f".repeat(64),
+            "inventory" => changed.controller_snapshot.inventory_sha256 = "f".repeat(64),
+            "container" => changed.controller_snapshot.container_id = "f".repeat(64),
+            "start" => changed.controller_snapshot.started_at = "2026-10-06T12:00:00Z".into(),
+            "owner" => changed.original_controller_id = Uuid::new_v4(),
+            "predecessor" => changed.predecessor_id = Some(Uuid::new_v4()),
+            _ => unreachable!(),
+        }
+        assert!(
+            repo.reserve_controller_recovery(&changed).await.is_err(),
+            "{field}"
+        );
+        assert!(
+            repo.read_controller_recovery(request.id)
+                .await
+                .unwrap()
+                .is_none()
+        );
+    }
+    repo.reserve_controller_recovery(&request).await.unwrap();
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn controller_recovery_heartbeat_and_ack_require_exact_owner_and_lease_version() {
+    let Some((repo, _, _, _, request, root)) = recovery_fixture().await else {
+        return;
+    };
+    let original = repo.reserve_controller_recovery(&request).await.unwrap();
+    assert!(
+        repo.heartbeat_controller_recovery(request.id, Uuid::new_v4(), 1)
+            .await
+            .is_err()
+    );
+    let heartbeat = repo
+        .heartbeat_controller_recovery(request.id, request.controller_id, 1)
+        .await
+        .unwrap();
+    assert_eq!(heartbeat.lease_version, 2);
+    assert!(heartbeat.lease_expires_at > original.lease_expires_at);
+    assert!(
+        repo.heartbeat_controller_recovery(request.id, request.controller_id, 1)
+            .await
+            .is_err()
+    );
+    assert!(
+        repo.acknowledge_controller_recovery(request.id, request.controller_id, 1, &"a".repeat(64))
+            .await
+            .is_err()
+    );
+    assert!(
+        repo.acknowledge_controller_recovery(request.id, Uuid::new_v4(), 2, &"a".repeat(64))
+            .await
+            .is_err()
+    );
+    let acknowledged = repo
+        .acknowledge_controller_recovery(request.id, request.controller_id, 2, &"a".repeat(64))
+        .await
+        .unwrap();
+    assert_eq!(acknowledged.state, "acknowledged");
+    let replay = repo
+        .acknowledge_controller_recovery(request.id, request.controller_id, 2, &"a".repeat(64))
+        .await
+        .unwrap();
+    assert_eq!(replay.lease_expires_at, acknowledged.lease_expires_at);
+    assert_eq!(replay.lease_version, acknowledged.lease_version);
+    assert!(
+        repo.acknowledge_controller_recovery(request.id, request.controller_id, 2, &"b".repeat(64))
+            .await
+            .is_err()
+    );
+    let other = crate::PostgresFleetRepository::new(
+        crate::connect_database(shared::DatabaseConfig {
+            url: std::env::var("FLEET_TEST_DATABASE_URL").unwrap(),
+            max_connections: 2,
+            min_connections: 1,
+            connect_timeout_seconds: 10,
+            idle_timeout_seconds: 60,
+        })
+        .await
+        .unwrap(),
+    );
+    let readback = other
+        .read_controller_recovery(request.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(readback.request == request);
+    assert_eq!(
+        readback.native_receipt_sha256,
+        acknowledged.native_receipt_sha256
+    );
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn controller_recovery_reservation_fences_original_outbox_endpoint_and_observations() {
+    let Some((repo, agent, owner, launch, request, root)) = recovery_fixture().await else {
+        return;
+    };
+    repo.update_agent_status(agent.id, AgentStatus::Running)
+        .await
+        .unwrap();
+    let session = repo
+        .create_session(
+            domain::CreateSessionRequest {
+                primary_agent_id: Some(agent.id),
+                agent_id: None,
+                title: "Recovery fence".into(),
+                task_key: None,
+                leader_agent_id: None,
+                parent_session_id: None,
+                namespace_id: None,
+                idempotency_key: Some(Uuid::new_v4().to_string()),
+            },
+            owner,
+        )
+        .await
+        .unwrap();
+    let message = repo
+        .create_session_message(
+            session.id,
+            domain::CreateSessionMessageRequest {
+                body: "do not dispatch through an unresolved owner".into(),
+                author_agent_id: None,
+                message_kind: Some(MessageKind::UserPrompt),
+                runtime_message_id: None,
+                idempotency_key: Some(Uuid::new_v4().to_string()),
+            },
+            owner,
+        )
+        .await
+        .unwrap();
+    repo.reserve_controller_recovery(&request).await.unwrap();
+    assert!(
+        repo.claim_controller_message_dispatch(launch.controller_id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        repo.claim_controller_message_dispatch(request.controller_id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(repo.claim_message_dispatch().await.unwrap().is_none());
+    assert_eq!(
+        repo.db
+            .query_one(sea_orm::Statement::from_sql_and_values(
+                sea_orm::DatabaseBackend::Postgres,
+                "SELECT state FROM message_dispatch_outbox WHERE message_id=$1",
+                [message.id.into()]
+            ))
+            .await
+            .unwrap()
+            .unwrap()
+            .try_get::<String>("", "state")
+            .unwrap(),
+        "pending"
+    );
+    assert!(
+        repo.record_container_endpoint(
+            &launch,
+            12345,
+            &format!("http://172.18.0.2:{}", agent.api_port.unwrap())
+        )
+        .await
+        .is_err()
+    );
+    assert!(
+        repo.observe_runtime_launch(&launch, "gateway_exited", Some(12345))
+            .await
+            .is_err()
+    );
+    repo.acknowledge_controller_recovery(request.id, request.controller_id, 1, &"a".repeat(64))
+        .await
+        .unwrap();
+    // A DB acknowledgement alone is not a Base permit or a new generation.
+    assert!(
+        repo.claim_controller_message_dispatch(request.controller_id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        repo.observe_runtime_launch(&launch, "gateway_exited", Some(12345))
+            .await
+            .is_err()
+    );
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn controller_recovery_expiry_never_retries_unknown_acceptance_and_fences_successor() {
+    let Some((repo, _, _, _, request, root)) = recovery_fixture().await else {
+        return;
+    };
+    let Some((other, _, _, _, acknowledged_request, other_root)) = recovery_fixture().await else {
+        return;
+    };
+    repo.reserve_controller_recovery(&request).await.unwrap();
+    other
+        .reserve_controller_recovery(&acknowledged_request)
+        .await
+        .unwrap();
+    other
+        .acknowledge_controller_recovery(
+            acknowledged_request.id,
+            acknowledged_request.controller_id,
+            1,
+            &"a".repeat(64),
+        )
+        .await
+        .unwrap();
+    // Use the real PostgreSQL clock; production triggers are not disabled for testing.
+    tokio::time::sleep(Duration::from_secs(31)).await;
+    let expired = repo.reserve_controller_recovery(&request).await.unwrap();
+    assert!(!expired.lease_valid);
+    assert_eq!(expired.lease_version, 1);
+    assert!(
+        repo.heartbeat_controller_recovery(request.id, request.controller_id, 1)
+            .await
+            .is_err()
+    );
+    assert!(
+        repo.acknowledge_controller_recovery(request.id, request.controller_id, 1, &"a".repeat(64))
+            .await
+            .is_err()
+    );
+    let mut successor = request.clone();
+    successor.id = Uuid::new_v4();
+    successor.controller_id = Uuid::new_v4();
+    successor.predecessor_id = Some(request.id);
+    successor.controller_snapshot.started_at = "2026-10-08T12:00:00Z".into();
+    assert!(repo.reserve_controller_recovery(&successor).await.is_err());
+    let mut next = acknowledged_request.clone();
+    next.id = Uuid::new_v4();
+    next.controller_id = Uuid::new_v4();
+    next.predecessor_id = Some(acknowledged_request.id);
+    // Expired DB lease without a distinct physical controller start is not cessation.
+    assert!(other.reserve_controller_recovery(&next).await.is_err());
+    next.controller_snapshot.started_at = "2026-10-08T12:00:00Z".into();
+    let result = other.reserve_controller_recovery(&next).await.unwrap();
+    assert_eq!(result.epoch, 2);
+    assert_eq!(
+        other
+            .read_controller_recovery(acknowledged_request.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .state,
+        "superseded"
+    );
+    assert!(
+        other
+            .heartbeat_controller_recovery(
+                acknowledged_request.id,
+                acknowledged_request.controller_id,
+                1
+            )
+            .await
+            .is_err()
+    );
+    tokio::fs::remove_dir_all(root).await.unwrap();
+    tokio::fs::remove_dir_all(other_root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn controller_recovery_sql_history_cannot_be_erased_relabelled_or_unbounded() {
+    let Some((repo, _, _, _, request, root)) = recovery_fixture().await else {
+        return;
+    };
+    repo.reserve_controller_recovery(&request).await.unwrap();
+    for change in [
+        "controller_id='00000000-0000-4000-8000-000000000099'",
+        "epoch=2",
+        "request='{}'::jsonb",
+        "request_sha256=repeat('b',64)",
+        "state='superseded'",
+        "lease_expires_at=clock_timestamp()+interval '1 hour',lease_version=lease_version+1",
+        "state='acknowledged',acknowledged_at=clock_timestamp()",
+    ] {
+        assert!(
+            repo.db
+                .execute_unprepared(&format!(
+                    "UPDATE runtime_controller_recoveries SET {change} WHERE id='{}'",
+                    request.id
+                ))
+                .await
+                .is_err(),
+            "{change}"
+        );
+    }
+    for operation in [
+        "DELETE FROM runtime_controller_recoveries",
+        "TRUNCATE runtime_controller_recoveries",
+    ] {
+        assert!(repo.db.execute_unprepared(operation).await.is_err());
+    }
+    let original = repo
+        .read_controller_recovery(request.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(original.request == request);
+    assert_eq!(original.state, "reserved");
+    tokio::fs::remove_dir_all(root).await.unwrap();
 }
 
 #[cfg(target_os = "linux")]

@@ -57,6 +57,7 @@ impl LocalRuntimeSupervisor {
             AppError::Unavailable("gateway launch is not owned by this controller".into())
         })?;
         if persisted.state != "gateway_started"
+            || persisted.controller_recovery
             || !matches!(original.state.as_str(), "claimed" | "gateway_started")
             || child_pid.is_none()
             || child_pid != original.pid
@@ -152,6 +153,7 @@ impl LocalRuntimeSupervisor {
                 binding,
                 state: "claimed".into(),
                 pid: None,
+                controller_recovery: false,
             },
         );
         Ok(())

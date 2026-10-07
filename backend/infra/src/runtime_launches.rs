@@ -54,16 +54,20 @@ pub(super) async fn record_endpoint(
     let record = txn
         .query_one(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
-            "SELECT state,pid,binding FROM runtime_launches WHERE id=$1 AND agent_id=$2 FOR UPDATE",
+        "SELECT state,pid,binding,EXISTS(SELECT 1 FROM runtime_controller_recoveries e WHERE e.launch_id=runtime_launches.id) AS recovery
+         FROM runtime_launches WHERE id=$1 AND agent_id=$2 FOR UPDATE",
             [binding.id.into(), binding.agent_id.into()],
         ))
         .await
         .map_err(AppError::database)?
         .ok_or_else(|| AppError::conflict("original container launch is missing"))?;
     if record
-        .try_get::<String>("", "state")
+        .try_get::<bool>("", "recovery")
         .map_err(AppError::database)?
-        != "gateway_started"
+        || record
+            .try_get::<String>("", "state")
+            .map_err(AppError::database)?
+            != "gateway_started"
         || record
             .try_get::<Option<i32>>("", "pid")
             .map_err(AppError::database)?
@@ -614,12 +618,14 @@ pub(super) async fn open(
     agent: Uuid,
 ) -> Result<Option<RuntimeLaunchRecord>, AppError> {
     repo.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
-        "SELECT binding,state,pid FROM runtime_launches WHERE agent_id=$1 AND state IN ('claimed','gateway_started')",
+        "SELECT binding,state,pid,EXISTS(SELECT 1 FROM runtime_controller_recoveries e WHERE e.launch_id=runtime_launches.id) AS controller_recovery
+         FROM runtime_launches WHERE agent_id=$1 AND state IN ('claimed','gateway_started')",
         [agent.into()])).await.map_err(AppError::database)?.map(|row| Ok(RuntimeLaunchRecord {
             binding: serde_json::from_value(row.try_get("", "binding").map_err(AppError::database)?)
                 .map_err(AppError::internal)?,
             state: row.try_get("", "state").map_err(AppError::database)?,
             pid: row.try_get("", "pid").map_err(AppError::database)?,
+            controller_recovery: row.try_get("", "controller_recovery").map_err(AppError::database)?,
         })).transpose()
 }
 
@@ -659,11 +665,20 @@ pub(super) async fn guard_runtime_patch(
     patch: &RuntimeStatePatch,
 ) -> Result<(), AppError> {
     let Some(original) = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
-        "SELECT state,pid FROM runtime_launches WHERE agent_id=$1 AND state IN ('claimed','gateway_started')",
+        "SELECT state,pid,EXISTS(SELECT 1 FROM runtime_controller_recoveries e WHERE e.launch_id=runtime_launches.id) AS recovery
+         FROM runtime_launches WHERE agent_id=$1 AND state IN ('claimed','gateway_started')",
         [agent.into()])).await.map_err(AppError::database)? else {
         return Ok(());
     };
     let state: String = original.try_get("", "state").map_err(AppError::database)?;
+    if original
+        .try_get::<bool>("", "recovery")
+        .map_err(AppError::database)?
+    {
+        return Err(AppError::Unavailable(
+            "controller recovery fences runtime metadata".into(),
+        ));
+    }
     let pid: Option<i32> = original.try_get("", "pid").map_err(AppError::database)?;
     let status = patch.status.as_str();
     let running = patch.desired_state.as_str() == "running";
@@ -703,6 +718,20 @@ pub(super) async fn observe(
     .await
     .map_err(AppError::database)?
     .ok_or_else(|| AppError::not_found("agent", binding.agent_id))?;
+    if txn
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT id FROM runtime_controller_recoveries WHERE launch_id=$1 LIMIT 1",
+            [binding.id.into()],
+        ))
+        .await
+        .map_err(AppError::database)?
+        .is_some()
+    {
+        return Err(AppError::Unavailable(
+            "controller recovery fences original lifecycle observations".into(),
+        ));
+    }
     let changed = txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "UPDATE runtime_launches SET state=$2,pid=$3,observed_at=now()
             WHERE id=$1 AND binding=$4 AND (state='claimed' OR (state='gateway_started' AND $2='gateway_exited' AND pid=$3))",

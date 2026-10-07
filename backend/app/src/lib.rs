@@ -589,6 +589,43 @@ pub trait FleetRepository: Send + Sync {
             "runtime launch journal is unavailable".into(),
         ))
     }
+    async fn reserve_controller_recovery(
+        &self,
+        _request: &runtime_launch::ControllerRecoveryRequest,
+    ) -> Result<runtime_launch::ControllerRecoveryRecord, AppError> {
+        Err(AppError::Unavailable(
+            "controller recovery journal is unavailable".into(),
+        ))
+    }
+    async fn read_controller_recovery(
+        &self,
+        _id: Uuid,
+    ) -> Result<Option<runtime_launch::ControllerRecoveryRecord>, AppError> {
+        Err(AppError::Unavailable(
+            "controller recovery journal is unavailable".into(),
+        ))
+    }
+    async fn heartbeat_controller_recovery(
+        &self,
+        _id: Uuid,
+        _controller: Uuid,
+        _version: i64,
+    ) -> Result<runtime_launch::ControllerRecoveryRecord, AppError> {
+        Err(AppError::Unavailable(
+            "controller recovery journal is unavailable".into(),
+        ))
+    }
+    async fn acknowledge_controller_recovery(
+        &self,
+        _id: Uuid,
+        _controller: Uuid,
+        _version: i64,
+        _native_receipt_sha256: &str,
+    ) -> Result<runtime_launch::ControllerRecoveryRecord, AppError> {
+        Err(AppError::Unavailable(
+            "controller recovery journal is unavailable".into(),
+        ))
+    }
     async fn record_container_endpoint(
         &self,
         _binding: &runtime_launch::RuntimeLaunchBinding,

@@ -1,5 +1,16 @@
 # Operations
 
+## Controller Recovery Reservation
+
+`original controller recovery remains fenced` is not a successful restart. Keep
+the original command, launch/endpoint, Base mapping/journals and any activation
+checkpoint. An expired `reserved` epoch may still have an unknown native outcome;
+do not allocate another command, delete it, extend it manually or restore the old
+controller UUID. Readback is historical and does not renew its30-second lease.
+The storage candidate has no public recovery/force-unlock endpoint or connected
+native takeover worker. Do not populate the table manually to enable execution.
+See [required native integration](contracts/CONTROLLER_RECOVERY_V1.md#required-native-integration).
+
 ## Controller Restart Observation
 
 `Controller restart observed for original agent namespace; ownership transfer

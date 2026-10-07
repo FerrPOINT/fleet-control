@@ -1,5 +1,21 @@
 # Implementation Plan
 
+## Connect Fenced Controller Recovery To Native Custody
+
+The new candidate000020 storage flow reserves immutable recovery epochs under
+the agent-row lock, with exact original hashes/PID, versioned30-second DB-clock
+lease, idempotent readback and held unknown acceptance. Any epoch fences old
+queue/permit/endpoint/lifecycle effects. This is not a native takeover worker.
+Complete the Base handover/private epoch, original-key unknown-ACK GET, once-only
+receipt commit and fresh dual-fence checks in the same flow before new effects.
+Prove actual restart, competing owner and interrupted activation; do not rewrite
+the original launch or use expiry as a redispatch permit. See
+[the exact contract](contracts/CONTROLLER_RECOVERY_V1.md). The fresh562-case
+Linux/PostgreSQL source gate passes; see
+[evidence](CHAT_CLARIFICATION_VERIFICATION.md#fenced-controller-recovery-storage-7-october-2026).
+Resolve an exact historical positive native outcome after lease expiry without
+reviving its authority; then prove the next owner against physical cessation.
+
 ## After Integrating The Original-Key Chats Consumer
 
 Normal merge49c11f5 combines the independently published Chats16b7516 and

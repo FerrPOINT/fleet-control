@@ -1,5 +1,18 @@
 # Traceability
 
+Controller recovery storage candidate: [ADR0032](adr/0032-fenced-controller-recovery-epochs.md),
+[internal contract](contracts/CONTROLLER_RECOVERY_V1.md), additive000020 and
+`infra/controller_recovery` reserve/readback/heartbeat/receipt operations.
+Six PostgreSQL `container_lifecycle_tests::controller_recovery_*` cases cover
+original identity, concurrent requests, version/expiry, held original effects
+and immutable history. `migration/tests/controller_recovery` verifies additive
+upgrade, empty down/up and retained-history refusal in an owned schema. Queue,
+dispatch journal, runtime launch/endpoint and supervisor generation guards
+consume the private recovery marker. This is not a native Base handover or
+automatic worker. The fresh562-case Linux/PostgreSQL source gate passes; real
+restart acceptance remains separate. See
+[evidence](CHAT_CLARIFICATION_VERIFICATION.md#fenced-controller-recovery-storage-7-october-2026).
+
 Integrated original-key UI consumer: normal merge49c11f5 combines runtime9a11bde
 and published Chats16b7516. `api/runtime-control-lookup.ts` canonicalizes the
 Rust-compatible semantic digest; `pages/chat-detail` fixes original command scope

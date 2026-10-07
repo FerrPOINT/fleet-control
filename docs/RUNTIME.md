@@ -1,5 +1,17 @@
 # Runtime
 
+## Controller Recovery Storage
+
+Candidate000020 retains separate immutable proposed-owner epochs under the same
+agent-row lock, rather than replacing the original launch controller. DB-clock
+leases and versioned heartbeats fence the storage saga; unknown reservations
+stay held after expiry. Any recovery record fences original generation/queue/
+permit/endpoint/lifecycle writes. A saved native receipt hash is not actual Base
+ownership, so the new-owner effect path remains disabled. Connect the private
+Base epoch, readback/heartbeat and original run/configuration checkpoint recovery
+before actual restart acceptance. See
+[contract](contracts/CONTROLLER_RECOVERY_V1.md).
+
 ## Controller Restart Observation
 
 The opt-in mapped container consumer can read Base's original-controller restart

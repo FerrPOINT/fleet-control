@@ -489,6 +489,7 @@ impl LocalRuntimeSupervisor {
         let launches = self.launches.lock().await;
         let original = launches.get(&agent).ok_or_else(held)?;
         if persisted.binding.controller_id != self.controller_id
+            || persisted.controller_recovery
             || persisted.binding.container.is_none()
             || serde_json::to_value(&persisted.binding).map_err(AppError::internal)?
                 != serde_json::to_value(&original.binding).map_err(AppError::internal)?
@@ -850,6 +851,7 @@ impl LocalRuntimeSupervisor {
                 binding: binding.clone(),
                 state: "claimed".into(),
                 pid: None,
+                controller_recovery: false,
             },
         );
         self.repo

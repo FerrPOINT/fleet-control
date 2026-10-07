@@ -1,5 +1,20 @@
 # Data Model
 
+## Controller Recovery Epochs
+
+Additive candidate000020 adds `runtime_controller_recoveries`: original launch/
+agent, command/proposed controller/predecessor UUIDs, positive epoch, closed
+non-secret request/hash, `reserved | acknowledged | superseded`, DB-clock lease
+expiry/version and nullable once-only native receipt hash/ack time. Original
+runtime_launches binding is unchanged; historical data is not backfilled. Unique
+launch/epoch and one-current-record indexes fence concurrent reservations.
+Heartbeat cannot revive expiry; unknown reservations cannot be discarded.
+Delete/truncate/relabel and nonempty downgrade fail. Any outstanding recovery
+holds existing dispatch/lifecycle paths; storage ACK alone grants no runtime
+ownership. See [contract](contracts/CONTROLLER_RECOVERY_V1.md) and
+[ADR0032](adr/0032-fenced-controller-recovery-epochs.md). Native integration and
+actual restart acceptance remain separate gates.
+
 Automatic creation intents now optionally include a private versioned dotenv
 input snapshot. Its exact bytes/hash participate in the existing canonical
 `runtime_container_preparations.intent_sha256`, not a new plaintext DB column or

@@ -1,5 +1,19 @@
 # Security
 
+## Controller Epoch Storage Is Not Native Authority
+
+The recovery request stores identifiers, original hashes and non-secret physical
+snapshot only. It is controller-private and has no human HTTP entry point. The
+repository validates original launch/controller/mapping/registration/PID and
+requires a distinct same-container start, but it cannot independently inspect
+Docker: the future consumer must obtain the verified Base witness first.
+Thirty-second DB-clock leases cannot be renewed by a stale owner/version or
+revived after expiry. Unknown reservations remain held; identical readback does
+not extend authority. Every recovery epoch fences old queue/permit/lifecycle
+paths; storage acknowledgement does not enable new effects. Native dual-fence
+integration and live competing-owner acceptance remain required. See
+[private contract](contracts/CONTROLLER_RECOVERY_V1.md).
+
 ## Controller Restart Witness Is Not Authority
 
 The private restart observer is read-only and retains original source/context,

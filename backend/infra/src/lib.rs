@@ -5,6 +5,7 @@ mod chats_directory;
 mod config_revisions;
 mod configuration_disk;
 mod configuration_renderer;
+mod controller_recovery;
 mod effective_configuration;
 pub mod entities;
 mod hermes_approval_recovery;
@@ -1425,6 +1426,42 @@ impl FleetRepository for PostgresFleetRepository {
         agent: Uuid,
     ) -> Result<Option<app::runtime_launch::RuntimeLaunchRecord>, AppError> {
         runtime_launches::open(self, agent).await
+    }
+    async fn reserve_controller_recovery(
+        &self,
+        request: &app::runtime_launch::ControllerRecoveryRequest,
+    ) -> Result<app::runtime_launch::ControllerRecoveryRecord, AppError> {
+        PostgresFleetRepository::reserve_controller_recovery(self, request).await
+    }
+    async fn read_controller_recovery(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<app::runtime_launch::ControllerRecoveryRecord>, AppError> {
+        PostgresFleetRepository::read_controller_recovery(self, id).await
+    }
+    async fn heartbeat_controller_recovery(
+        &self,
+        id: Uuid,
+        controller: Uuid,
+        version: i64,
+    ) -> Result<app::runtime_launch::ControllerRecoveryRecord, AppError> {
+        PostgresFleetRepository::heartbeat_controller_recovery(self, id, controller, version).await
+    }
+    async fn acknowledge_controller_recovery(
+        &self,
+        id: Uuid,
+        controller: Uuid,
+        version: i64,
+        native_receipt_sha256: &str,
+    ) -> Result<app::runtime_launch::ControllerRecoveryRecord, AppError> {
+        PostgresFleetRepository::acknowledge_controller_recovery(
+            self,
+            id,
+            controller,
+            version,
+            native_receipt_sha256,
+        )
+        .await
     }
     async fn next_container_launch_ordinal(&self, agent: Uuid) -> Result<i64, AppError> {
         runtime_launches::next_container_ordinal(self, agent).await
