@@ -25,6 +25,11 @@ Reported 446 unit and 96 browser-fixture tests are not live PM acceptance; the
 release packet retains its eight main-integration conflicts and prerequisites.
 Combine verified sources without rewriting either history, then verify exact
 hashes/contract boundaries and repeat combined release gates before readiness.
+Normal merge `cb137879` now performs that source combination: backend/OpenAPI
+remain byte-identical to the runtime packet and frontend/screens to the consumer
+packet. Post-merge hashes and local docs checks pass. Main still has eight
+integration conflicts and thirteen ordered migration releases; combined live
+gates and the full acceptance scope above are not replaced by source matching.
 
 ## Current Run-State Follow-Up
 

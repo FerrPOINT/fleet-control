@@ -1,5 +1,28 @@
 # Chat Clarification Verification
 
+## Chats Runtime Composition: 7 October 2026
+
+Merge `cb1378797314b7061a4e1a16d8092b717d6fa8f6` preserves both verified source
+histories: runtime `a67e1d87eb70a0c0af96b4adb612463912175af5` and published
+consumer `f58db4eb0a4e73dd1eeb8275953c9cb0c596180b`. Runtime backend, Base pin and
+OpenAPI have an empty diff from the45-case packet; the entire frontend and its
+new screenshots have an empty diff from the consumer packet. All320 captured
+runtime file hashes, three frontend Git-blob hashes and nine PNG hashes match.
+The consumer manifest records446 unit and96 three-engine browser-fixture cases;
+source identity is independently checked, not relabelled as a combined live run.
+Three captures (unavailable375, stale375 and recovered1920) were additionally
+opened and visually inspected after publication. They exercise fixture-backed
+production controllers, not real PM question publication or continuation.
+
+README and local links in135 Markdown documents pass after merge. Read-only
+`git merge-tree` against main `c8093aace07e54436893c5f7e35df1f968690266` still
+finds eight conflicts: CHANGELOG, session routes, app repository trait and API,
+data-model, local-setup, security and testing docs. The working tree is clean;
+no conflicted preview is built or installed. The accumulated thirteen migrations
+remain subject to ordered main release, not one giant PR. No installed runtime,
+producer scope or accepted feature flag changes; full live PM/Workflow, recovered
+Hermes readiness and Forge/SDLC acceptance remain required.
+
 ## Signed Activation Recovery: 7 October 2026
 
 Packet `sdlc-qa-fleet-config-4d44b2d5b905` captures Fleet03c26d2 plus the signed

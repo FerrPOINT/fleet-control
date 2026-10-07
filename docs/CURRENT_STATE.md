@@ -1,5 +1,25 @@
 # Current State
 
+## Chats Consumer Integration: 7 October 2026
+
+Normal merge `cb1378797314b7061a4e1a16d8092b717d6fa8f6` combines verified runtime
+commit `a67e1d87eb70a0c0af96b4adb612463912175af5` with published parallel Chats/PM
+head `f58db4eb0a4e73dd1eeb8275953c9cb0c596180b`. No history was rewritten.
+Backend/Base pin/OpenAPI exactly match the runtime-tested tree; frontend and
+its screenshots exactly match the consumer-tested tree. All320 runtime inputs,
+three frontend source blob hashes and nine screenshot hashes were independently
+rechecked after merge. Three mobile/desktop captures were visually inspected;
+they remain fixture evidence, not native PM acceptance. README and135-document
+local link checks pass on the combined source.
+
+Consumer evidence records446 unit and96 Chromium/Firefox/WebKit fixture cases;
+these are not newly rerun combined live gates. Current main `c8093aace` still
+has eight merge-preview conflicts with the combined candidate, and the thirteen
+runtime/chat migrations require ordered release packets. No giant main PR,
+installed update or whole-product merge readiness is claimed. See
+[consumer packet](CHATS_PM_RELEASE_PACKET_20261007.md) and
+[composition evidence](CHAT_CLARIFICATION_VERIFICATION.md#chats-runtime-composition-7-october-2026).
+
 ## Signed Activation Recovery: 7 October 2026
 
 The integration candidate now writes authenticated v3 activation journals and
