@@ -1,0 +1,140 @@
+{
+  "readOnly": true,
+  "candidateInstalled": false,
+  "runtimeModified": false,
+  "liveAcceptance": false,
+  "integrationHead": "03c26d20c51b1c5562295c0a6e5975a64da4bc01",
+  "mainHead": "c8093aace07e54436893c5f7e35df1f968690266",
+  "producerReadback": {
+    "tracker": {
+      "baseRefName": "main",
+      "headRefOid": "357caa7a60a717eb7b0ac72f286b793326992931",
+      "isDraft": true,
+      "mergeStateStatus": "CLEAN",
+      "state": "OPEN",
+      "statusCheckRollup": [],
+      "url": "https://github.com/FerrPOINT/task-tracker/pull/114"
+    },
+    "workflow": {
+      "baseRefName": "master",
+      "headRefOid": "44e718358d3a8fd339f9ccaa8a26c17d52454623",
+      "isDraft": true,
+      "mergeStateStatus": "CLEAN",
+      "state": "OPEN",
+      "statusCheckRollup": [],
+      "url": "https://github.com/FerrPOINT/project-workflow/pull/90"
+    }
+  },
+  "trackerOpenapiGitBlobSha": "65899d6f037b0383ac526def5c75e1d474fa94d6",
+  "trackerOpenapiSha256": "7a1131a653ad06898170318b25dea9f78760e07f4f58a0d91b081800efbf074e",
+  "constraintAwareSchemaComparison": {
+    "TrackerTaskContext": {
+      "matches": false,
+      "differences": [
+        {
+          "path": "/properties/assignment/oneOf/0/additionalProperties",
+          "fleet": "ABSENT",
+          "tracker": false
+        }
+      ]
+    },
+    "TrackerQuestion": {
+      "matches": false,
+      "differences": [
+        {
+          "path": "/properties/options/items/additionalProperties",
+          "fleet": "ABSENT",
+          "tracker": false
+        }
+      ]
+    },
+    "TrackerAnswer": {
+      "matches": true,
+      "differences": []
+    },
+    "TrackerRequirementsRevision": {
+      "matches": false,
+      "differences": [
+        {
+          "path": "/additionalProperties",
+          "fleet": "ABSENT",
+          "tracker": false
+        },
+        {
+          "path": "/properties/revision/maximum",
+          "fleet": "ABSENT",
+          "tracker": 9007199254740991
+        },
+        {
+          "path": "/properties/revision/minimum",
+          "fleet": "ABSENT",
+          "tracker": 1
+        }
+      ]
+    },
+    "TrackerConfirmation": {
+      "matches": true,
+      "differences": []
+    },
+    "ClarificationAnswerRequest": {
+      "matches": true,
+      "differences": []
+    },
+    "ConfirmRequirementsRequest": {
+      "matches": true,
+      "differences": []
+    }
+  },
+  "installedFleetPublicSchema": {
+    "status": 200,
+    "contentType": "application/json",
+    "sha256": "5bd080865f5b244467e09bcfa5b34b52df1b5848b996985e57f623135fd7c322",
+    "pathCount": 67,
+    "matchesEarlierSchema": true
+  },
+  "installedImages": [
+    {
+      "container": "sdlc1-fleet-web-1",
+      "imageId": "sha256:0054023ff56875b62e6e53ed83bf85ede7242ebe6936f39a6fc1e1611c4497e5",
+      "sourceRevision": null,
+      "matchesEarlierImage": true
+    },
+    {
+      "container": "sdlc1-fleet-backend-1",
+      "imageId": "sha256:c0f6b1a5d2c0b8d824e253b8874d33bd92398d0cb8545dcb04446c1dd8e71572",
+      "sourceRevision": "b23ba7259c3a65e0d374dc672886e447dc693292",
+      "matchesEarlierImage": true
+    },
+    {
+      "container": "sdlc1-task-backend-1",
+      "imageId": "sha256:7dd8fcbd39759e230ff14e760aefadfe327dd4a413b0a800cfbde9e5871498b4",
+      "sourceRevision": "a1f67ce088bb6f2c0b1046de0c17bc1194f48c9d",
+      "matchesEarlierImage": true
+    },
+    {
+      "container": "sdlc1-project-workflow-backend-1",
+      "imageId": "sha256:60bd12794ddfec362849ad363d8f028791caf6aacb235ce6df6dae68751d6760",
+      "sourceRevision": "3d04ebb99a4f575aa4a3fa6d59f5fa17f3be61c7-dirty-f531dc6dc62b",
+      "matchesEarlierImage": true
+    }
+  ],
+  "browserAudit": "Earlier authenticated read-only observation is retained as historical; this follow-up does not claim a fresh browser PM execution.",
+  "mainMergePreview": {
+    "exitCode": 1,
+    "conflictingPaths": [
+      "CHANGELOG.md",
+      "backend/api/src/routes/sessions.rs",
+      "backend/app/src/lib.rs",
+      "docs/API.md",
+      "docs/DATA_MODEL.md",
+      "docs/LOCAL_SETUP.md",
+      "docs/SECURITY.md",
+      "docs/TESTING.md"
+    ]
+  },
+  "baseSourceStatusReference": {
+    "available": false,
+    "searched": "Pinned and workspace Base sources, local skills/plugin files and callable tool metadata",
+    "replacementEvidence": "Exact pinned Base checkout verified; this does not substitute for an unavailable broader status reference."
+  }
+}

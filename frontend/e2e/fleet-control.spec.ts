@@ -465,6 +465,143 @@ test('chat stop holds stale permissions and uses the refreshed active run', asyn
   expect(errors).toEqual([])
 })
 
+reloadTest(
+  'PM context denial stays unknown and preserves the owner draft after recovery',
+  async ({ page, streamUrl }, info) => {
+    const state = createState()
+    await installMocks(page, state)
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    await page.route(`**/api/v1/sessions/${ids.session}/stream`, (route) =>
+      route.continue({ url: streamUrl }),
+    )
+    let unavailable = true
+    let writes = 0
+    const binding = {
+      tracker_instance_id: 'fixture-tracker',
+      project_id: ids.dev,
+      task_id: ids.session,
+      root_task_id: ids.session,
+      agent_id: ids.dev,
+      owner_subject: ids.user,
+    }
+    await page.route(`**/api/v1/sessions/${ids.session}/**`, (route) => {
+      const path = new URL(route.request().url()).pathname
+      if (route.request().method() === 'POST') writes += 1
+      if (path.endsWith('/task-context'))
+        return unavailable
+          ? fulfill(route, { error: { message: 'Fixture task context denied' } }, 403)
+          : fulfill(route, {
+              binding,
+              tracker: {
+                contract_version: 1,
+                ...binding,
+                stage: 'Clarification',
+                requirement_revision: 1,
+                waiting_reason: 'Требуется ответ владельца',
+                assignment: null,
+                permissions: { can_answer: true, can_confirm: false },
+              },
+            })
+      if (path.endsWith('/chat-controls'))
+        return fulfill(route, {
+          can_send: false,
+          can_steer: false,
+          can_stop: false,
+          active_run_id: null,
+          blocked_reason: 'workflow_assignment_required',
+        })
+      if (path.endsWith('/clarifications'))
+        return fulfill(route, {
+          questions: [
+            {
+              id: ids.session,
+              request_id: ids.session,
+              task_id: ids.session,
+              root_task_id: ids.session,
+              assignment_id: ids.session,
+              execution_id: ids.session,
+              agent_id: ids.dev,
+              assignment_version: 1,
+              checkpoint_id: ids.session,
+              author_subject: ids.dev,
+              created_at: now,
+              version: 1,
+              requirement_revision: 1,
+              text: 'Кто видит задачи?',
+              rationale: 'Уточняем границы доступа.',
+              required: true,
+              mode: 'text',
+              options: [],
+              recommended_option_id: null,
+              requirement_reference: 'REQ-1',
+              state: 'open',
+              answer: null,
+            },
+          ],
+        })
+      if (path.endsWith('/requirements')) return fulfill(route, { revisions: [] })
+      return route.fallback()
+    })
+    const notify = async () => {
+      const response = await fetch(streamUrl.replace('/stream', '/notify'), {
+        headers: { Authorization: 'Bearer qa-access-token' },
+      })
+      expect(response.status).toBe(204)
+    }
+    const captures = async (phase: string) => {
+      for (const viewport of [
+        { width: 375, height: 812 },
+        { width: 1920, height: 1080 },
+        { width: 2560, height: 1440 },
+      ]) {
+        await page.setViewportSize(viewport)
+        if (phase !== 'unavailable')
+          await page.getByLabel('Ваш ответ', { exact: true }).scrollIntoViewIfNeeded()
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+          ),
+        ).toBe(true)
+        await page.screenshot({
+          path: info.outputPath(`pm-context-${phase}-${viewport.width}.png`),
+          fullPage: true,
+          animations: 'disabled',
+        })
+      }
+    }
+    await page.goto(`/chats/${ids.session}?tab=requirements`)
+    await expect(
+      page.getByRole('tabpanel').getByText('Fixture task context denied', { exact: true }),
+    ).toBeVisible()
+    await expect(page.getByText('Нет привязки к SDLC', { exact: true })).not.toBeVisible()
+    await expect(page.getByText('Пока нет редакции', { exact: true })).not.toBeVisible()
+    await expect(page.getByText('Не назначен', { exact: true })).not.toBeVisible()
+    await captures('unavailable')
+    unavailable = false
+    await notify()
+    await expect(page.getByText('PM пока не подготовил требования', { exact: true })).toBeVisible()
+    await page.getByRole('tab', { name: /Уточнения/ }).click()
+    const answer = page.getByLabel('Ваш ответ', { exact: true })
+    await expect(answer).toBeEnabled()
+    await answer.fill('Только участники проекта')
+    unavailable = true
+    await notify()
+    await expect(answer).toBeDisabled()
+    await expect(answer).toHaveValue('Только участники проекта')
+    await expect(page.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+    await expect(page.getByText('Не назначен', { exact: true })).not.toBeVisible()
+    await captures('stale')
+    unavailable = false
+    await notify()
+    await expect(answer).toBeEnabled()
+    await expect(answer).toHaveValue('Только участники проекта')
+    await captures('recovered')
+    expect(writes).toBe(0)
+    expect(errors).toEqual([])
+  },
+)
+
 for (const operation of ['answer', 'confirmation'] as const) {
   reloadTest(
     `PM ${operation} holds a late acknowledgement after session access loss`,

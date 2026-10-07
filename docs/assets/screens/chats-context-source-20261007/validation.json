@@ -1,0 +1,216 @@
+{
+  "consumerParent": "03c26d20c51b1c5562295c0a6e5975a64da4bc01",
+  "initialIntegrationMerge": "54a4e1458386dcf640a93b2e7a75a05009756d4e",
+  "previousPublishedConsumer": "94e889d2632517936597af5835e45cb607d78c4b",
+  "basePin": "cbb4e99230420dc2659431b1c9fb5090e5c940f0",
+  "scope": "Unknown task context is not absent requirements/assignment/binding; retain bound draft and restore authority through fresh reads without POST",
+  "sourceByteConvention": "Git blob/LF bytes",
+  "sourceSha256": {
+    "frontend/src/pages/chat-detail/index.tsx": "a9bdb61ac8f989f5bb03af7e86f54a30b513ec133b0877c385b73e895aca6042",
+    "frontend/src/pages/chat-detail/index.test.tsx": "8da0d262f86d1a69cc25cea5581cfb83c2555ca833b0fefacfb553115a10bf1a",
+    "frontend/e2e/fleet-control.spec.ts": "d0898fa78194fe20471141c27c04eb859a9f4f691f0a9eefbd1a9275ee0b4e16",
+    "docs/CHATS_PM_BLOCKERS_20261007.md": "8c2de0e196024afeead08583a7016332df45fb382f47670b175b5068d8a3fa46",
+    "docs/CHATS_PM_FINAL_HANDOFF_20261006.md": "7a5a64848c7edbcbc81b127c5dc626943f00f0fa2caf1771699c40f93227e2ec",
+    "docs/CHATS_PM_RELEASE_PACKET_20261007.md": "522cf60888ecd88181d3b5294b1f63a6e192d4c588648cd9df3737f0ff935abd",
+    "docs/assets/screens/chats-context-source-20261007/read-only-release.json": "cedd3004d45c3445e67e48dca7ab597729566a40bddc5dd397ea9a3fda5210bf"
+  },
+  "checks": {
+    "unit": {
+      "file": "context-source-unit.log",
+      "sha256": "d85db6f7b859d1f9b1da259a5028489d25972786321aca619ea96853a6852adb",
+      "passed": 446,
+      "status": "passed"
+    },
+    "build": {
+      "file": "context-source-build.log",
+      "sha256": "4d27d4dc0b5ee7f9f32ddce3a80c3bb1539828d16a62fa2374d1c0efbd272ea2",
+      "status": "passed"
+    },
+    "lint": {
+      "file": "context-source-lint.log",
+      "sha256": "fea2ca52c435e20a7e93d4541868d89dc441a99a8ebb4d3e82613b6932415200",
+      "status": "passed"
+    },
+    "ui": {
+      "file": "context-source-ui.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": "passed"
+    },
+    "openapi": {
+      "file": "context-source-openapi.log",
+      "sha256": "c1f097888c90bab4d1f05815b914f82c4b0a0cc036435289462c223f1f6ee50c",
+      "status": "passed"
+    },
+    "compat": {
+      "file": "context-source-compat.log",
+      "sha256": "9eb07e5d8e0b9ce10f6aa9bb768d6f9ebf38c563361778e3a232e827548a211a",
+      "status": "passed"
+    },
+    "contract": {
+      "file": "context-source-contract.log",
+      "sha256": "e2d4dc3f110c1e16afeef8454ff19995e1d21c5c6027726bc9bd88e25a0e0d29",
+      "status": "passed"
+    },
+    "theme": {
+      "file": "context-source-theme.log",
+      "sha256": "4d196e7703a978a29fe1fb493d55cd828998b13f802edb1892b3cd8be4f6a064",
+      "status": "passed"
+    },
+    "format": {
+      "file": "context-source-format.log",
+      "sha256": "f20510a9da4717c51c4cffee6d0dd88d6c9a723d0a83711d01216f5b48961283",
+      "status": "passed"
+    },
+    "markdown": {
+      "file": "context-source-markdown.log",
+      "sha256": "dafd5a8eee602ab2aff305684ccdcc8f9cea2e4a66fee07fc8e6057511734973",
+      "status": "passed"
+    },
+    "browser-full": {
+      "file": "context-source-browser-full.log",
+      "sha256": "bd84e1e38031e6e247100ff452a6c4074d063d1e37b93040b26af31b567eed1e",
+      "passed": 96,
+      "status": "passed"
+    }
+  },
+  "browserProjects": ["chromium", "firefox", "webkit"],
+  "browserFiles": [
+    "e2e/fleet-control.spec.ts",
+    "e2e/chats-directory.spec.ts",
+    "e2e/task-approvals.spec.ts"
+  ],
+  "workers": 3,
+  "retries": 0,
+  "screenshots": [
+    {
+      "file": "pm-context-unavailable-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "853442f89d0547303fc58b935add2e12dfc205b51da4ba4e26060e5d865328de",
+      "reviewed": true
+    },
+    {
+      "file": "pm-context-unavailable-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "5efaffab8d3445ba451b1ce87af312b3bfaed0f7df6d9433da0c7376886e7551",
+      "reviewed": true
+    },
+    {
+      "file": "pm-context-unavailable-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "72934be1f7af5d3c438946dd19d950284710060cf880c14027a6f49921dc6295",
+      "reviewed": true
+    },
+    {
+      "file": "pm-context-stale-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "70feeafa20bd9335a3d7d4abc79aad08456a2d901f0b70dfe8d2977fb8f7c6e2",
+      "reviewed": true
+    },
+    {
+      "file": "pm-context-stale-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "cf4217555b920ac328e04ef01883bcac98413d93ff0bf0a2941c68596472be48",
+      "reviewed": true
+    },
+    {
+      "file": "pm-context-stale-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "233fc61c915547a3f391d580b672eb7f63de01d46db74cede346146186fef656",
+      "reviewed": true
+    },
+    {
+      "file": "pm-context-recovered-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "a9141094ae91daeb1f2f51120f9eb3b3e5a34de675dbccb4fd478ccc49f72531",
+      "reviewed": true
+    },
+    {
+      "file": "pm-context-recovered-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "d99e63e6116a03e113558c8954e046d5e1ff7259c4886d3e2cdc22ee44ffafcd",
+      "reviewed": true
+    },
+    {
+      "file": "pm-context-recovered-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "21c3f2f53f5581419b1493bf1d657d6f84a100c0ff21d79e08ea03e98ac6b8d3",
+      "reviewed": true
+    }
+  ],
+  "developmentRuns": {
+    "before": {
+      "file": "context-source-before.log",
+      "sha256": "934429aa5d1153233ebd37cf9c16e2adaa56059c0f54f5be9832778c5bc880c9",
+      "passed": 2,
+      "failed": 2,
+      "skipped": 146
+    },
+    "unit-locator-before": {
+      "file": "context-source-unit-locator-before.log",
+      "sha256": "6dd2363c4b01d792dbe6e8e88a410cb51ce80e249f264027502096eb7cab6a9a",
+      "passed": 441,
+      "failed": 3
+    },
+    "unit-mount-before": {
+      "file": "context-source-unit-mount-before.log",
+      "sha256": "c1d8be86eec1e9273f24fb1833fef9f02f226bc87a4817165f13e8434363d00c",
+      "passed": 442,
+      "failed": 2
+    },
+    "unit-before-cached-unbound": {
+      "file": "context-source-unit-before-cached-unbound.log",
+      "sha256": "e0c59ca5254cc22b2a524cf08f6268cbb9cb5cb8860942636d83c3f3148a0267",
+      "passed": 444
+    },
+    "unit-cached-locator-before": {
+      "file": "context-source-unit-cached-locator-before.log",
+      "sha256": "131a093e3eb06895bdd33886a039b473844583a97e03d1191e8342d8d489b4fc",
+      "passed": 445,
+      "failed": 1
+    },
+    "browser-focused": {
+      "file": "context-source-browser-focused.log",
+      "sha256": "ef1b50793010570be4e5ae4ca1aba545682e940676722e14cc056f0eaaf58c53",
+      "passed": 3
+    },
+    "browser-before-cached-unbound": {
+      "file": "context-source-browser-before-cached-unbound.log",
+      "sha256": "be8d95ea0a3316690d12375952d6d65d9e9cf149b2c2d191c4131ef086267b1b",
+      "passed": 96
+    },
+    "build-before-cached-unbound": {
+      "file": "context-source-build-before-cached-unbound.log",
+      "sha256": "8a02d6656ee72cc7f94f6e13e6e4ec5fca437f70ea46f62dd4b6e76ba1d9b4f3"
+    },
+    "lint-before-cached-unbound": {
+      "file": "context-source-lint-before-cached-unbound.log",
+      "sha256": "fea2ca52c435e20a7e93d4541868d89dc441a99a8ebb4d3e82613b6932415200"
+    },
+    "markdown-before-manifest": {
+      "file": "context-source-markdown-before-manifest.log",
+      "sha256": "1c52386da7371692c308a0e17326db46d357cda11a9abe95374cedf0a8d2825a"
+    }
+  },
+  "developmentContext": {
+    "unitLocatorFailures": "Duplicate error/empty-state locators were scoped to the active tab; awaited tab mount and asynchronous QueryClient notification. No product assertion was removed. These runs are not claimed as a demonstrated baseline regression.",
+    "earlierGreenRuns": "444 unit and 96 browser cases passed before the final cached-unbound/error-display adjustment. Final source has 446 unit and 96 browser cases.",
+    "markdownFailure": "New validation link preceded manifest generation; the failed pre-manifest link run is retained.",
+    "focusedBrowser": "Three-engine context scenario passed before the final error-display adjustment; final complete browser gate and screenshots cover the final production source."
+  },
+  "fixtureEvidence": true,
+  "liveAcceptance": false,
+  "installedRuntimeChanged": false,
+  "producerScopeChanged": false,
+  "mainMergeReady": false,
+  "transportNoiseObserved": true,
+  "releaseReadback": "read-only-release.json"
+}

@@ -36,13 +36,18 @@ do not validate the candidate frontend or native PM execution.
 
 ## Required producer contracts and release evidence
 
-Runtime integration
-[`5970cde`](https://github.com/FerrPOINT/fleet-control/commit/5970cdeeff5663d201d2f394e759d29932b07700)
-adds private fenced controller-recovery storage. Its API/OpenAPI/frontend are
-unchanged; it does not implement native takeover or the browser discovery
-projection below. A stored receipt hash cannot grant new-owner runtime effects.
-This consumer follow-up and the earlier `b466a67` reload packet remain separate
-from that integration head.
+The consumer branch now includes published runtime integration
+[`03c26d2`](https://github.com/FerrPOINT/fleet-control/commit/03c26d20c51b1c5562295c0a6e5975a64da4bc01)
+through an ordinary fast-forward merge. Earlier consumer commits `16b7516`,
+`b466a67` and `94e889d` remain in its history. Runtime-owned recovery/stop
+acceptance is documented in the integration verification ledger; this consumer
+packet does not retest or extend it. Browser discovery of forgotten control
+identity and native PM execution remain separate contracts.
+
+The [current consumer release packet](CHATS_PM_RELEASE_PACKET_20261007.md)
+records the new context-source fix, current producer heads, constraint-aware
+schema differences, unchanged installed images and the conflicted main merge
+preview. The earlier installed-system/browser observations above are historical.
 
 | Boundary / owner                                                | Required evidence before the browser can claim completion                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

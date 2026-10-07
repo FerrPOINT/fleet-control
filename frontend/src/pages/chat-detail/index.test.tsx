@@ -193,6 +193,83 @@ beforeEach(() => {
   })
 })
 describe('production chat', () => {
+  it.each(['pending', 'failed'] as const)(
+    'does not present absent task facts as authoritative while context is %s',
+    async (state) => {
+      if (state === 'pending')
+        vi.mocked(chats.getTaskContext).mockReturnValue(new Promise(() => {}))
+      else
+        vi.mocked(chats.getTaskContext).mockRejectedValue(
+          new ApiError(503, 'Task context unavailable'),
+        )
+      renderPage()
+      await screen.findByRole('heading', { name: 'Task' })
+      if (state === 'failed')
+        await waitFor(() =>
+          expect(screen.getAllByText('Контекст не обновлён').length).toBeGreaterThan(0),
+        )
+      expect(screen.queryByText('Пока нет редакции')).not.toBeInTheDocument()
+      expect(screen.queryByText('Не назначен')).not.toBeInTheDocument()
+      expect(screen.queryByText('Нет привязки к SDLC')).not.toBeInTheDocument()
+    },
+  )
+  it.each(['clarification', 'requirements'])(
+    'shows initial context failure rather than an unbound %s workspace',
+    async (tab) => {
+      vi.mocked(chats.getTaskContext).mockRejectedValue(
+        new ApiError(503, 'Task context unavailable'),
+      )
+      renderPage(tab)
+      expect(
+        await within(await screen.findByRole('tabpanel')).findByText('Task context unavailable'),
+      ).toBeVisible()
+      expect(screen.queryByText('Нет привязки к SDLC')).not.toBeInTheDocument()
+      expect(screen.queryByText('Свободный чат: уточнения не привязаны')).not.toBeInTheDocument()
+      expect(chats.getClarifications).not.toHaveBeenCalled()
+      expect(chats.getRequirements).not.toHaveBeenCalled()
+    },
+  )
+  it('marks failed context reads without discarding the answer draft or declaring no assignment', async () => {
+    const { client } = renderPage('clarification')
+    fireEvent.change(await screen.findByLabelText('Комментарий'), {
+      target: { value: 'Keep owner draft' },
+    })
+    vi.mocked(chats.getTaskContext).mockRejectedValue(new ApiError(503, 'Task context unavailable'))
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ['task-context', 'session1'] })
+    })
+    expect(screen.getByLabelText('Комментарий')).toHaveValue('Keep owner draft')
+    await waitFor(() => expect(screen.getByLabelText('Комментарий')).toBeDisabled())
+    expect(screen.queryByText('Не назначен')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Контекст не обновлён').length).toBeGreaterThan(1)
+    vi.mocked(chats.getTaskContext).mockResolvedValue(context)
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ['task-context', 'session1'] })
+    })
+    expect(screen.getByLabelText('Комментарий')).toHaveValue('Keep owner draft')
+    await waitFor(() => expect(screen.getByLabelText('Комментарий')).toBeEnabled())
+    expect(chats.answerClarification).not.toHaveBeenCalled()
+  })
+  it.each(['clarification', 'requirements'])(
+    'does not reuse a cached unbound %s result after context access is denied',
+    async (tab) => {
+      vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+      const { client } = renderPage(tab)
+      await within(await screen.findByRole('tabpanel')).findByText(
+        tab === 'clarification' ? 'Свободный чат: уточнения не привязаны' : 'Нет привязки к SDLC',
+      )
+      vi.mocked(chats.getTaskContext).mockRejectedValue(new ApiError(403, 'Task context denied'))
+      await act(async () => {
+        await client.invalidateQueries({ queryKey: ['task-context', 'session1'] })
+      })
+      expect(
+        await within(await screen.findByRole('tabpanel')).findByText('Task context denied'),
+      ).toBeVisible()
+      expect(screen.queryByText('Свободный чат: уточнения не привязаны')).not.toBeInTheDocument()
+      expect(screen.queryByText('Нет привязки к SDLC')).not.toBeInTheDocument()
+      expect(screen.getAllByText('Task context denied')).toHaveLength(1)
+    },
+  )
   it('removes the actual clarification form and cached task after another user signs in', async () => {
     renderPage('clarification', false, true)
     await screen.findByRole('radio', { name: /Участники проекта/ })
