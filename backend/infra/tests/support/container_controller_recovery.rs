@@ -26,6 +26,7 @@ struct Context {
     endpoint: String,
     approval: Uuid,
     transcript_sha256: String,
+    transcript_content_sha256: String,
     dispatch_sha256: String,
 }
 
@@ -159,7 +160,18 @@ fn control(
     )
 }
 
-async fn session_state(repo: &PostgresFleetRepository, context: &Context) {
+fn transcript_content_hash(messages: &[domain::SessionMessage]) -> String {
+    let mut value = json!(messages);
+    for message in value.as_array_mut().unwrap() {
+        let object = message.as_object_mut().unwrap();
+        for field in ["delivery_state", "delivery_error", "replayed"] {
+            object.remove(field);
+        }
+    }
+    hash(&value)
+}
+
+async fn session_state(repo: &PostgresFleetRepository, context: &Context, stopped: bool) {
     assert_eq!(context.agents.len(), 2);
     assert_eq!(context.launches.len(), 2);
     assert_eq!(context.pids.len(), 2);
@@ -180,18 +192,42 @@ async fn session_state(repo: &PostgresFleetRepository, context: &Context) {
         run.runtime_run_id.as_deref(),
         Some(context.native_run.as_str())
     );
-    assert!(matches!(
-        run.state,
-        SessionRunState::Running | SessionRunState::Waiting
-    ));
+    if stopped {
+        assert_eq!(run.state, SessionRunState::Cancelled);
+        assert_eq!(
+            run.last_error.as_deref(),
+            Some("Original runtime namespace exit confirmed")
+        );
+    } else {
+        assert!(matches!(
+            run.state,
+            SessionRunState::Running | SessionRunState::Waiting
+        ));
+    }
     let approvals = repo.list_session_approvals(context.session).await.unwrap();
     assert_eq!(approvals.len(), 1);
     assert_eq!(approvals[0].id, context.approval);
-    assert_eq!(approvals[0].state, domain::RuntimeApprovalState::Pending);
-    assert_eq!(
-        hash(&repo.list_session_messages(context.session).await.unwrap()),
-        context.transcript_sha256
-    );
+    let messages = repo.list_session_messages(context.session).await.unwrap();
+    if stopped {
+        assert_eq!(approvals[0].state, domain::RuntimeApprovalState::Cancelled);
+        assert!(approvals[0].resolved_by_user_id.is_none());
+        assert!(approvals[0].resolved_at.is_some());
+        assert_eq!(
+            messages
+                .iter()
+                .find(|message| message.id == context.message)
+                .unwrap()
+                .delivery_state,
+            domain::MessageDeliveryState::Completed
+        );
+        assert_eq!(
+            transcript_content_hash(&messages),
+            context.transcript_content_sha256
+        );
+    } else {
+        assert_eq!(approvals[0].state, domain::RuntimeApprovalState::Pending);
+        assert_eq!(hash(&messages), context.transcript_sha256);
+    }
     assert_eq!(
         dispatch_hash(repo, context.message).await,
         context.dispatch_sha256
@@ -212,7 +248,7 @@ async fn session_state(repo: &PostgresFleetRepository, context: &Context) {
 }
 
 async fn state(repo: &PostgresFleetRepository, config: &AppConfig, context: &Context) {
-    session_state(repo, context).await;
+    session_state(repo, context, false).await;
     for ((id, binding), pid) in context
         .agents
         .iter()
@@ -445,6 +481,9 @@ async fn prepare(
         endpoint,
         approval: approval.id,
         transcript_sha256: hash(&repo.list_session_messages(session).await.unwrap()),
+        transcript_content_sha256: transcript_content_hash(
+            &repo.list_session_messages(session).await.unwrap(),
+        ),
         dispatch_sha256: dispatch_hash(&repo, message.id).await,
     };
     state(&repo, &config, &context).await;
@@ -700,16 +739,25 @@ async fn stop_original_namespaces(
             "gateway_exited"
         );
         // Exact replay is historical settlement, never another physical stop.
+        let cursor = repo.session_event_cursor(context.session).await.unwrap();
         repo.settle_controller_stop(binding.id, outcome)
             .await
             .unwrap();
+        assert_eq!(
+            cursor,
+            repo.session_event_cursor(context.session).await.unwrap()
+        );
         let row = db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
             "SELECT count(*) AS count FROM audit_log WHERE action='runtime.controller_stop.outcome' AND entity_id=$1",
             [binding.id.to_string().into()])).await.unwrap().unwrap();
         assert_eq!(row.try_get::<i64>("", "count").unwrap(), 1);
         proofs.push(json!({"intent":saved.intent,"command":admitted,"outcome":outcome}));
     }
-    session_state(repo, context).await;
+    session_state(repo, context, true).await;
+    let row = db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT count(*) AS count FROM audit_log WHERE action='runtime.namespace_exit.run_cancelled' AND entity_id=$1",
+        [context.run.to_string().into()])).await.unwrap().unwrap();
+    assert_eq!(row.try_get::<i64>("", "count").unwrap(), 1);
     save("custody-stops.json", &proofs).await;
     tokio::fs::write(
         "/evidence/custody-stop.json",
@@ -717,7 +765,9 @@ async fn stop_original_namespaces(
         "state":"passed","agents":2,"epoch":3,"actual_startup_worker":true,
         "current_owner_namespace_stop":true,"competing_logical_controller_denied":true,
         "original_launch_identity_retained":true,"immutable_stop_delivery":true,
-        "single_outcome_audit":true,"session_dispatch_transcript_approval_unchanged":true,
+        "single_outcome_audit":true,"original_dispatch_transcript_content_unchanged":true,
+        "accepted_run_cancelled":true,"pending_approval_cancelled_without_grant":true,
+        "terminal_events_once":true,
         "approval_target_unchanged":true,"resumed_execution":false,
         "uncertain_stop_readbacks":uncertain_readbacks,
         "sdlc_acceptance":false,"raw_receipts_persisted":false}))

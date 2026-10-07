@@ -1,5 +1,17 @@
 # Runtime
 
+## Namespace Exit And Chat State
+
+The recovered-stop follow-up atomically cancels known accepted free-chat runs
+with exact original launch/endpoint provenance. Pending approvals are cancelled
+without a permission grant; prompt content and accepted dispatch history stay
+unchanged. Existing durable events expose the terminal state to Chats. Replay
+does not reopen or duplicate events. Legacy/unknown/task/PM runs and uncertain
+native decisions remain held, not silently successful. See
+[the recovery contract](contracts/CONTROLLER_RECOVERY_V1.md#generation-bound-free-chat-interruption).
+This follow-up requires its own actual acceptance; the previous namespace-only
+gate did not settle sessions and is not substituted as that evidence.
+
 ## Controller Recovery Storage
 
 Candidate000020 retains separate immutable proposed-owner epochs under the same

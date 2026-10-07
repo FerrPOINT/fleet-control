@@ -1,5 +1,20 @@
 # Gap Register
 
+## Known Run Interruption After Namespace Exit
+
+Implemented candidate: atomically cancel accepted free-chat runs and pending
+approvals only with exact original dispatch/endpoint provenance and validated
+namespace exit. This is not a permission grant, native command ACK, assistant
+result or PM stage receipt. Legacy/unknown/task/PM rows and uncertain journals
+remain held. Existing durable events and a per-run audit expose the change;
+exact replay must leave the cursor unchanged.
+
+Seven PostgreSQL stop cases,22 migration cases, strict checks,178 frontend tests
+and34 host cases pass. Actual Docker/Hermes acceptance remains required.
+Earlier packet9777599d297a proves namespace exit only and deliberately
+preserved active session state. Do not substitute that proof for this change.
+No new migration or installed rollout is introduced.
+
 ## Recovered Namespace Stop Candidate
 
 **Closed for actual current-owner namespace containment only.** Project

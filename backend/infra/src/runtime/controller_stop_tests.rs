@@ -2,6 +2,219 @@ use super::*;
 use sea_orm::{ConnectionTrait, DatabaseBackend, Statement};
 
 #[tokio::test]
+async fn recovered_namespace_exit_cancels_only_accepted_generation_and_replays_without_events() {
+    for unknown in [false, true] {
+        let Some((repo, agent, user, config, root)) =
+            lifecycle_tests::fixture(AgentKind::Hermes).await
+        else {
+            return;
+        };
+        let mut config = container_lifecycle_tests::with_mapping_controller(
+            container_lifecycle_tests::fake_creation(&config, &agent, false).await,
+        );
+        config.fleet.controller_recovery_enabled = true;
+        let first = lifecycle_tests::supervisor(Arc::new(config.clone()), repo.clone());
+        let launch = first
+            .prepared_container(&agent, LaunchPhase::Regular)
+            .await
+            .unwrap();
+        repo.claim_runtime_launch(&launch).await.unwrap();
+        repo.observe_runtime_launch(&launch, "gateway_started", Some(12345))
+            .await
+            .unwrap();
+        repo.update_agent_status(agent.id, AgentStatus::Running)
+            .await
+            .unwrap();
+        let origin = format!("http://172.18.0.2:{}", agent.api_port.unwrap());
+        repo.record_container_endpoint(&launch, 12345, &origin)
+            .await
+            .unwrap();
+        let session = repo
+            .create_session(
+                domain::CreateSessionRequest {
+                    primary_agent_id: Some(agent.id),
+                    agent_id: None,
+                    title: "Owned namespace stop".into(),
+                    task_key: None,
+                    leader_agent_id: None,
+                    parent_session_id: None,
+                    namespace_id: None,
+                    idempotency_key: Some(Uuid::new_v4().to_string()),
+                },
+                user,
+            )
+            .await
+            .unwrap();
+        let message = repo
+            .create_session_message(
+                session.id,
+                domain::CreateSessionMessageRequest {
+                    body: "Keep this original prompt".into(),
+                    author_agent_id: None,
+                    message_kind: Some(domain::MessageKind::UserPrompt),
+                    runtime_message_id: None,
+                    idempotency_key: Some(Uuid::new_v4().to_string()),
+                },
+                user,
+            )
+            .await
+            .unwrap();
+        repo.db
+            .execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "UPDATE message_dispatch_outbox SET state='dispatching' WHERE message_id=$1",
+                [message.id.into()],
+            ))
+            .await
+            .unwrap();
+        let requested = format!("fleet:{}:{}", session.id, agent.id);
+        let caps = json!({"object":"hermes.api_server.capabilities","platform":"hermes-agent",
+            "auth":{"type":"bearer","required":true},
+            "runtime":{"mode":"server_agent","tool_execution":"server","split_runtime":false},
+            "features":{"run_submission":true,"run_status":true,"run_events_sse":true,"run_stop":true,
+                "runs_idempotency":{"supported":true,"durable":true,"retention_seconds":86400}},
+            "endpoints":{"runs":{"method":"POST","path":"/v1/runs"},
+                "run_status":{"method":"GET","path":"/v1/runs/{run_id}"},
+                "run_events":{"method":"GET","path":"/v1/runs/{run_id}/events"},
+                "run_stop":{"method":"POST","path":"/v1/runs/{run_id}/stop"}},
+            "fleet_launch":{"version":1,"launch_id":launch.id}});
+        let prepared = repo
+            .prepare_hermes_dispatch(app::HermesDispatchDraft {
+                message_id: message.id,
+                session_id: session.id,
+                agent_id: agent.id,
+                run_role: SessionRunRole::Primary,
+                requested_session_id: requested.clone(),
+                input: message.body.clone(),
+                origin: origin.clone(),
+                credential_fingerprint: "a".repeat(64),
+                capabilities: caps,
+            })
+            .await
+            .unwrap();
+        repo.claim_hermes_submission(message.id, origin, "a".repeat(64))
+            .await
+            .unwrap()
+            .unwrap();
+        let native = format!("run_{}", Uuid::new_v4().simple());
+        repo.accept_hermes_run(message.id, prepared.run.id, native.clone())
+            .await
+            .unwrap();
+        repo.pin_hermes_run_session(
+            prepared.run.id,
+            native.clone(),
+            requested,
+            "native-owned-session".into(),
+        )
+        .await
+        .unwrap();
+        let approval = repo
+            .upsert_runtime_approval_request(app::RuntimeApprovalCreate {
+                session_id: session.id,
+                session_run_id: prepared.run.id,
+                agent_id: agent.id,
+                runtime_run_id: native.clone(),
+                runtime_approval_id: Some("owned-request".into()),
+                prompt: "Permission remains ungranted".into(),
+                detail: json!({}),
+            })
+            .await
+            .unwrap();
+        let legacy = Uuid::new_v4();
+        repo.db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "INSERT INTO session_agent_runs(id,session_id,agent_id,run_role,state,runtime_run_id,runtime_session_id)
+             VALUES($1,$2,$3,'primary','waiting','legacy-run','legacy-session')",
+            [legacy.into(),session.id.into(),agent.id.into()])).await.unwrap();
+        let mut expected_transcript = repo.list_session_messages(session.id).await.unwrap();
+        let expected_prompt = expected_transcript
+            .iter_mut()
+            .find(|stored| stored.id == message.id)
+            .unwrap();
+        expected_prompt.delivery_state = domain::MessageDeliveryState::Completed;
+        expected_prompt.delivery_error = None;
+        for marker in [
+            format!("{}.started", launch.id),
+            "known-start".into(),
+            "controller-restart".into(),
+        ] {
+            tokio::fs::write(root.join("controller").join(marker), "1")
+                .await
+                .unwrap();
+        }
+        let runtime = lifecycle_tests::supervisor(Arc::new(config), repo.clone());
+        runtime
+            .recover_container_controller(agent.id)
+            .await
+            .unwrap();
+        if unknown {
+            tokio::fs::write(root.join("controller/stop-before-exit-unknown"), "1")
+                .await
+                .unwrap();
+            assert!(runtime.stop_container_locked(&agent).await.is_err());
+            assert_eq!(
+                repo.get_session_agent_run(prepared.run.id)
+                    .await
+                    .unwrap()
+                    .state,
+                SessionRunState::Running
+            );
+            assert_eq!(
+                repo.list_session_approvals(session.id).await.unwrap()[0].state,
+                domain::RuntimeApprovalState::Pending
+            );
+            tokio::fs::write(
+                root.join("controller")
+                    .join(format!("{}.stopped", launch.id)),
+                "1",
+            )
+            .await
+            .unwrap();
+        }
+        runtime.stop_container_locked(&agent).await.unwrap();
+        let stopped = repo.get_session_agent_run(prepared.run.id).await.unwrap();
+        assert_eq!(stopped.state, SessionRunState::Cancelled);
+        assert_eq!(stopped.runtime_run_id.as_deref(), Some(native.as_str()));
+        assert_eq!(
+            stopped.last_error.as_deref(),
+            Some("Original runtime namespace exit confirmed")
+        );
+        assert_eq!(
+            repo.get_session_agent_run(legacy).await.unwrap().state,
+            SessionRunState::Waiting
+        );
+        let approvals = repo.list_session_approvals(session.id).await.unwrap();
+        assert_eq!(approvals[0].id, approval.id);
+        assert_eq!(approvals[0].state, domain::RuntimeApprovalState::Cancelled);
+        assert!(approvals[0].resolved_by_user_id.is_none());
+        let transcript = repo.list_session_messages(session.id).await.unwrap();
+        assert_eq!(
+            serde_json::to_value(&transcript).unwrap(),
+            serde_json::to_value(expected_transcript).unwrap()
+        );
+        let before = repo.session_event_cursor(session.id).await.unwrap();
+        let outcome = repo
+            .read_controller_stop(launch.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .native_outcome
+            .unwrap();
+        for _ in 0..3 {
+            repo.settle_controller_stop(launch.id, &outcome)
+                .await
+                .unwrap();
+        }
+        let after = repo.session_event_cursor(session.id).await.unwrap();
+        assert_eq!(before, after);
+        let row = repo.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT count(*) AS count FROM audit_log WHERE action='runtime.namespace_exit.run_cancelled' AND entity_id=$1",
+            [prepared.run.id.to_string().into()])).await.unwrap().unwrap();
+        assert_eq!(row.try_get::<i64>("", "count").unwrap(), 1);
+        tokio::fs::remove_dir_all(root).await.unwrap();
+    }
+}
+
+#[tokio::test]
 async fn recovered_stop_has_one_concurrent_claim_and_immutable_redacted_outcome() {
     let Some((repo, agent, _, owner, root)) =
         container_lifecycle_tests::controller_heartbeat_fixture().await

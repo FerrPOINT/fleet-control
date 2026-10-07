@@ -15,8 +15,11 @@ namespace reconciliation. If it remains running or unavailable, the action stays
 held and does not send another stop. An expired lease cannot authorize new stop,
 but does not invalidate independently confirmed exit of a previously claimed
 operation. Confirmed original exit commits
-one outcome and stopped runtime metadata. This does not complete the chat/task,
-resolve a pending tool approval or release unknown message/control acceptance.
+one outcome and stopped runtime metadata. The follow-up also cancels known
+accepted free-chat runs bound to that generation and their pending approvals,
+without granting permission or sending an approval. Durable events refresh the
+chat. It does not complete the chat/task or settle unknown message/control/
+decision acceptance; legacy and task/PM runs require their own proof.
 Keep these blockers visible; automatic restart/configuration takeover and
 restored PM workflow remain separate gates. No installed enablement follows
 from source tests. See [contract](contracts/CONTROLLER_RECOVERY_V1.md#recovered-namespace-stop-candidate).

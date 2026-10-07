@@ -1,5 +1,35 @@
 # Chat Clarification Verification
 
+## Generation-Bound Cancellation Component Gate: 7 October 2026
+
+Follow-up project `sdlc-qa-fleet-container-control-6a4c40e2889e` passes Rust1.88
+fmt, strict locked/offline workspace/all-target Clippy, seven PostgreSQL stop
+cases and22 migration cases with0 ignores. The new scenario exercises both
+normal stop and unknown pre-exit acceptance followed by original-exit readback:
+only accepted generation-bound runs cancel; pending approvals cancel without
+permission/actor attribution; legacy-unbound runs stay held; transcript content
+is retained and repeated settlement does not advance the durable cursor/audit.
+All309 captured inputs match. Manifest SHA256:
+`4093039313e14f9738727d7cc801920e02626709c8376b59b84424a7b0d33072`.
+Gate log SHA256:
+`fbf1e6e481705ba280ec470a484b148f56566cc14690627ffc59b47527103b28`.
+Owned cleanup is complete and accepted runtime is unchanged.
+
+Earlier follow-up projectsfeaa103934fb andd2306f0c4a0d remain failed/cleaned:
+the first fails test compilation due to wrong method signatures; the second
+passes the six existing cases but fails an incorrect one-message expectation
+which omitted the standard session-created message. The repair compares the
+entire original transcript with only the expected delivery change, rather than
+discarding the creation record or relaxing content preservation.
+
+Two existing Chats/approval files pass178 frontend tests; all34 host tests,
+README validation and133 Markdown link checks pass. Root Docker audit is
+complete without violations. No new migration/public API/SDK/UI component is
+introduced. Actual Docker acceptance of this changed session settlement remains
+required; the earlier namespace-only proof below is not substituted. Unknown
+commands, task/PM terminal authority, config recovery, Forge and ordered release
+remain open. Screenshots/live PM acceptance are not claimed by these tests.
+
 ## Verified Recovered Namespace Stop: 7 October 2026
 
 Actual Compose project `sdlc-qa-fleet-container-live-9777599d297a` passes the

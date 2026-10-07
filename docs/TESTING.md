@@ -2,7 +2,7 @@
 
 ## Recovered Namespace Stop
 
-`infra --lib runtime::controller_stop_tests::` runs six isolated PostgreSQL /
+`infra --lib runtime::controller_stop_tests::` now includes seven PostgreSQL /
 controlled-native cases: one concurrent claim; strict receipt drift and one
 redacted atomic outcome; expired/drifted claim denial; foreign/native-expired
 owner denial; successful stop; lost post-exit reply resolved by read-only observe;
@@ -15,6 +15,11 @@ port adoption. Actual packet7dcc9e260024 exposed this regression; component
 repair does not replace renewed live two-namespace acceptance.
 These are component tests, not actual Docker stop or PM/SDLC acceptance. The
 test requires `FLEET_TEST_DATABASE_URL`; the accepted runtime is never used.
+The new case exercises accepted generation cancellation, pending approval
+cancellation without attribution/grant, preserved legacy-unbound runs, pre-exit
+unknown acceptance hold and original-exit readback. Repeated exit settlement
+must leave the durable cursor unchanged and retain one run audit. Actual Docker
+acceptance of this changed session settlement is independently required.
 Migration000022 retains populated history and adds no legacy authority. The
 `migration` package explicitly enables existing workspace UUID features in its
 dev-dependencies, so isolated migration tests do not depend on workspace feature
@@ -22,7 +27,8 @@ unification. No dependency version or production dependency was added.
 The final strict workspace/all-target gate passes six stop cases and22 migration
 cases without skips, including both accepted foundation histories and populated
 000022 downgrade refusal. Retain the initial582-case full gate separately from
-the changed follow-up; actual Docker stop remains an unpassed acceptance gate.
+the changed follow-up. Actual namespace-only stop packet9777599d297a passes;
+it does not certify the newer run/approval settlement behavior.
 
 ## Actual Docker Controller Custody Gate
 
@@ -33,8 +39,9 @@ then waits for the real lease to expire, restarts the same Fleet container a
 third time, admits its startup-driven epoch3 owner and calls the normal runtime
 stop for both original agents. Neither container is replaced or restarted.
 Engine exit/PID0, closed native exit readback, immutable launch identity,
-once-only stop outcome/audit and unchanged chat/dispatch/pending approval must
-all pass. The native probe is read-only and checks journal bytes before/after;
+once-only stop outcome/audit, cancelled accepted run/pending approval, unchanged
+dispatch/transcript content and no repeated terminal event must all pass.
+The native probe is read-only and checks journal bytes before/after;
 it does not repeat stop. Reports explicitly deny resumed execution and SDLC
 acceptance. This mode is incompatible with rollback/log scenarios and cannot
 run without the complete custody gate. Retain failures and exact cleanup facts

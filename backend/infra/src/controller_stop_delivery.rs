@@ -262,6 +262,8 @@ pub(crate) async fn settle(
             ));
         }
         // An old receipt cannot overwrite a later launch's runtime metadata.
+        settle_free_chat_runs(&txn, &original).await?;
+        txn.commit().await.map_err(AppError::database)?;
         return Ok(saved);
     }
     if original.state != "gateway_started" {
@@ -307,7 +309,87 @@ pub(crate) async fn settle(
         [Uuid::new_v4().into(), launch_id.to_string().into(),
          json!({"native_outcome_sha256":canonical_hash(outcome)?,"recovery_id":command.request.id}).into()]))
         .await.map_err(AppError::database)?;
+    settle_free_chat_runs(&txn, &original).await?;
     let saved = read(&txn, launch_id).await?.ok_or_else(owners::held)?;
     txn.commit().await.map_err(AppError::database)?;
     Ok(saved)
+}
+
+async fn settle_free_chat_runs(
+    txn: &DatabaseTransaction,
+    original: &RuntimeLaunchRecord,
+) -> Result<(), AppError> {
+    // A namespace exit proves interruption, not an assistant result or a control ACK.
+    let runs = txn.query_all(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT r.id,r.session_id,j.message_id FROM session_agent_runs r
+         JOIN hermes_dispatch_journal j ON j.run_id=r.id AND j.agent_id=r.agent_id AND j.session_id=r.session_id
+         JOIN runtime_launch_endpoints e ON e.launch_id=$1 AND e.origin=j.origin AND e.pid=$3
+         JOIN session_messages m ON m.id=j.message_id AND m.session_id=r.session_id
+         JOIN message_dispatch_outbox o ON o.message_id=m.id AND o.agent_id=r.agent_id
+         JOIN agent_sessions s ON s.id=r.session_id AND s.agent_id=r.agent_id
+         WHERE r.agent_id=$2 AND r.state IN ('pending','running','waiting','stopping')
+           AND r.runtime_run_id IS NOT NULL AND r.runtime_session_id IS NOT NULL
+           AND j.state='accepted' AND j.capabilities->'fleet_launch'=$4
+           AND j.run_role=r.run_role AND j.submitted_at IS NOT NULL AND j.accepted_at IS NOT NULL
+           AND m.runtime_message_id=r.runtime_run_id AND m.delivery_state='dispatched' AND o.state='dispatched'
+           AND NOT EXISTS(SELECT 1 FROM task_chat_bindings b WHERE b.session_id=r.session_id)
+           AND NOT EXISTS(SELECT 1 FROM pm_run_bindings b WHERE b.session_run_id=r.id OR b.session_id=r.session_id)
+         ORDER BY r.session_id,r.id LIMIT 101",
+        [original.binding.id.into(),original.binding.agent_id.into(),original.pid.into(),
+         json!({"version":1,"launch_id":original.binding.id}).into()]))
+        .await.map_err(AppError::database)?;
+    if runs.len() > 100 {
+        return Err(owners::held());
+    }
+    for row in runs {
+        let run: Uuid = row.try_get("", "id").map_err(AppError::database)?;
+        let session: Uuid = row.try_get("", "session_id").map_err(AppError::database)?;
+        let message: Uuid = row.try_get("", "message_id").map_err(AppError::database)?;
+        // Match the agent -> session -> run ordering used by acceptance/control writers.
+        txn.query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT id FROM agent_sessions WHERE id=$1 FOR NO KEY UPDATE",
+            [session.into()],
+        ))
+        .await
+        .map_err(AppError::database)?
+        .ok_or_else(owners::held)?;
+        txn.query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT id FROM session_agent_runs WHERE id=$1 FOR UPDATE",
+            [run.into()],
+        ))
+        .await
+        .map_err(AppError::database)?
+        .ok_or_else(owners::held)?;
+        let changed = txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "UPDATE session_agent_runs SET state='cancelled',
+             last_error='Original runtime namespace exit confirmed',last_event_at=clock_timestamp(),updated_at=clock_timestamp()
+             WHERE id=$1 AND state IN ('pending','running','waiting','stopping')", [run.into()]))
+            .await.map_err(AppError::database)?;
+        if changed.rows_affected() != 1 {
+            continue;
+        }
+        txn.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE session_messages SET delivery_state='completed',delivery_error=NULL
+             WHERE id=$1 AND delivery_state='dispatched'",
+            [message.into()],
+        ))
+        .await
+        .map_err(AppError::database)?;
+        txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "UPDATE runtime_approval_requests a SET state='cancelled',resolved_by_user_id=NULL,resolved_at=clock_timestamp()
+             FROM session_agent_runs r WHERE r.id=$1 AND a.session_run_id=r.id AND a.session_id=r.session_id
+               AND a.agent_id=r.agent_id AND a.runtime_run_id=r.runtime_run_id AND a.state='pending'", [run.into()]))
+            .await.map_err(AppError::database)?;
+        // Existing row triggers append durable run/message/approval events in this same transaction.
+        txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "INSERT INTO audit_log(id,actor_user_id,action,entity_type,entity_id,payload,created_at)
+             VALUES($1,NULL,'runtime.namespace_exit.run_cancelled','session_agent_run',$2,$3,clock_timestamp())",
+            [Uuid::new_v4().into(),run.to_string().into(),
+             json!({"launch_id":original.binding.id,"session_id":session,"reason":"namespace_exit"}).into()]))
+            .await.map_err(AppError::database)?;
+    }
+    Ok(())
 }

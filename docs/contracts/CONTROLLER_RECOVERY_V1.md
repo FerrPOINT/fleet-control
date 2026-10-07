@@ -207,9 +207,28 @@ history after custody expiry without renewing authority. Replay cannot change a
 later launch's runtime metadata. SQL guards prevent erasure, relabelling, claim
 reset and outcome replacement; populated downgrade fails.
 
+### Generation-Bound Free-Chat Interruption
+
+The follow-up settles known accepted free-chat runs in that same transaction.
+It requires the exact original launch UUID in the immutable dispatch capability,
+sealed launch endpoint/PID, accepted journal and matching run/message/outbox.
+Missing, submitted/unknown, legacy-unbound and task/PM bindings are not inferred.
+At most100 matching active runs are processed with agent/session/run lock order.
+
+Those runs become `cancelled`, not successful. The already accepted prompt's
+delivery completes without creating an assistant reply or changing its content.
+Matching pending approvals become `cancelled`, with no human decision attributed
+and no native approval sent. Unknown decision/control journals remain unchanged.
+Existing triggers append durable run/message/approval events atomically; a
+redacted per-run audit records the original launch. Exact exit replay can settle
+previously held original-generation rows, but cannot create another event for
+an already terminal run or overwrite a later generation's runtime metadata.
+This adds no migration or independent completion journal. Live acceptance of
+this follow-up must remain separate from the earlier namespace-only stop proof.
+
 This candidate does not grant model dispatch, steer, approval, task assignment,
 checkpoint resume or automatic configuration takeover. It does not mark a chat,
-Hermes run or SDLC stage successful. Unresolved session dispatch/control/approval
+Hermes run or SDLC stage successful. Unknown dispatch/control/approval, task/PM
 and interrupted activation still require separate reconciliation. Component
 fixtures and the earlier custody gate are not actual new-owner stop evidence.
 

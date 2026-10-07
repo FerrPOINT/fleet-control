@@ -314,7 +314,8 @@ class RecoveredStopTests(unittest.TestCase):
             'native_journals_unchanged', 'read_only_exit_proof') if native else (
             'actual_startup_worker', 'current_owner_namespace_stop', 'competing_logical_controller_denied',
             'original_launch_identity_retained', 'immutable_stop_delivery', 'single_outcome_audit',
-            'session_dispatch_transcript_approval_unchanged', 'approval_target_unchanged')
+            'original_dispatch_transcript_content_unchanged', 'accepted_run_cancelled',
+            'pending_approval_cancelled_without_grant', 'terminal_events_once', 'approval_target_unchanged')
         value = dict.fromkeys(positive, True)
         value.update(state='passed', agents=2, raw_receipts_persisted=False,
                      resumed_execution=False, sdlc_acceptance=False)

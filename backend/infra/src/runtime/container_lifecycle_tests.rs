@@ -1387,7 +1387,7 @@ async fn trusted_bridge_attachment_precedes_launch_and_unknown_blocks_start() {
 }
 
 #[cfg(target_os = "linux")]
-fn with_mapping_controller(mut config: AppConfig) -> AppConfig {
+pub(super) fn with_mapping_controller(mut config: AppConfig) -> AppConfig {
     config
         .fleet
         .container_control

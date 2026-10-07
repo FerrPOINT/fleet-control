@@ -79,7 +79,8 @@ def validate_stop_evidence(value, native=False):
                 'native_journals_unchanged', 'read_only_exit_proof') if native else (
         'actual_startup_worker', 'current_owner_namespace_stop', 'competing_logical_controller_denied',
         'original_launch_identity_retained', 'immutable_stop_delivery', 'single_outcome_audit',
-        'session_dispatch_transcript_approval_unchanged', 'approval_target_unchanged')
+        'original_dispatch_transcript_content_unchanged', 'accepted_run_cancelled',
+        'pending_approval_cancelled_without_grant', 'terminal_events_once', 'approval_target_unchanged')
     counts = {'agents': 2} if native else {'agents': 2, 'epoch': 3}
     if (not isinstance(value, dict) or value.get('state') != 'passed'
             or any(value.get(key) is not True for key in positive)

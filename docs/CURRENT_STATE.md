@@ -1,5 +1,22 @@
 # Current State
 
+## Generation-Bound Run Cancellation Follow-Up
+
+The follow-up connects validated recovered namespace exit to cancellation of
+known accepted free-chat runs and pending approvals, in the same transaction.
+It preserves transcript content/native identities, leaves legacy/unknown/task/PM
+bindings and decision journals untouched, and uses existing durable row events.
+Exact replay must not move the event cursor or add a second run audit. No new
+migration, API, SDK pin or UI component is introduced.
+
+Frontend chat/approval regressions pass178 tests and all34 host cases pass.
+Fresh Rust1.88 fmt/strict all-target Clippy, seven PostgreSQL stop cases and22
+migration cases pass without ignores and with unchanged309 inputs/owned cleanup.
+Actual Docker acceptance of this changed path remains required;
+the earlier namespace-only packet below is not that
+evidence. Initial follow-up attempts retain test-compilation/transcript-fixture
+failures and cleaned temporary projects, not a substituted passing result.
+
 ## Published Namespace Stop Acceptance: 7 October 2026
 
 Fleet93d036b is published in `feat/hermes-runtime-integration-20261004`, not main.

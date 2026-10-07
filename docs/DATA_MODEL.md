@@ -16,6 +16,14 @@ only independently validated original namespace exit can settle it. This does
 not fabricate session completion or release unresolved Hermes acceptance.
 See [controller recovery](contracts/CONTROLLER_RECOVERY_V1.md).
 
+The follow-up uses that validated exit outcome to cancel only known accepted
+free-chat runs whose journal contains the exact original launch and sealed
+endpoint. Existing run/message/approval rows and durable event triggers change
+atomically with the exit. Prompt content and runtime identities are retained;
+no assistant result or native control ACK is fabricated. Legacy/unknown/task/PM
+rows and unresolved decision journals remain untouched. Exact replay adds no
+terminal events/audits. No additional table or migration is introduced.
+
 Migration000021 adds `runtime_controller_recovery_deliveries`, keyed by recovery
 UUID: immutable closed initial command/canonical SHA256, irreversible dispatch
 claim, nullable paired native receipt/SHA256. No users, prompts, tokens or public
