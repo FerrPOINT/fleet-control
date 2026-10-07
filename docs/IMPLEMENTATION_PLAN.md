@@ -7,9 +7,13 @@ known accepted free-chat runs and pending approvals without granting permission.
 Existing durable events drive Chats; replay must preserve the cursor and audit.
 Fresh strict/seven-stop/22-migration component gates pass. Published807e1e2
 packet5df02ed3fe1b failed on the preparation Compose-exec timeout, before
-custody/stop acceptance, and cleaned its owned resources. Diagnose that bounded
-probe failure and complete actual Docker acceptance for this changed behavior;
-the earlier namespace-only stop proof deliberately retained session state.
+custody/stop acceptance, and cleaned its owned resources. Bounded read-only
+observation retries preserve the original total deadline and live process;
+39 host cases pass. Actual packet067e06b0c94a on published2d69908 now passes
+custody, recovered-owner stop and generation-bound run/approval cancellation
+with preserved transcript and once-only terminal events/audit. Its probe needed
+0 retries; it does not establish the cause of the earlier stall. The earlier
+namespace-only stop proof deliberately retained session state.
 Unknown command outcomes, task/PM terminal authority, interrupted activation,
 producer admission and Forge remain separate required work. Keep the full SDLC
 goal and ordered release scope; no new migration/SDK/UI change is introduced.

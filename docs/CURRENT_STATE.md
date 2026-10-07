@@ -17,8 +17,15 @@ Fleet807e1e2 is published in the feature branch, not main. Actual packet
 exec exceeded its15-second timeout. No recovery/stop/session-settlement success
 is established by that packet. Its report confirms owned cleanup, unchanged
 sources and unchanged permanent runtime; an independent project-container
-readback is empty. Actual Docker acceptance remains required; the earlier
-namespace-only packet below is not that evidence.
+readback is empty. Fresh actual packet067e06b0c94a on published2d69908 passes
+all six custody phases, three physical Fleet restarts and both recovered-owner
+stops. Known accepted runs and pending approvals cancel without a permission
+grant; transcript content and dispatch/native identities remain unchanged;
+terminal events/audit occur once. Independent native/Engine exit proofs pass.
+All322 frozen inputs, owned cleanup and permanent runtime preservation pass.
+The readiness probe needed0 retries. Earlier namespace-only evidence is not
+substituted for this acceptance. PM/task terminal authority and full SDLC remain
+open.
 Initial follow-up attempts retain test-compilation/transcript-fixture
 failures and cleaned temporary projects, not a substituted passing result.
 

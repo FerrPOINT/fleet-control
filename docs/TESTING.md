@@ -19,12 +19,14 @@ The new case exercises accepted generation cancellation, pending approval
 cancellation without attribution/grant, preserved legacy-unbound runs, pre-exit
 unknown acceptance hold and original-exit readback. Repeated exit settlement
 must leave the durable cursor unchanged and retain one run audit. Actual Docker
-acceptance of this changed session settlement is independently required.
+packet067e06b0c94a on published2d69908 independently passes this changed session
+settlement, all custody phases, both stops and native/Engine exit proofs.
+No unknown command ACK, task/PM completion or full SDLC is inferred.
 Migration000022 retains populated history and adds no legacy authority. The
 `migration` package explicitly enables existing workspace UUID features in its
 dev-dependencies, so isolated migration tests do not depend on workspace feature
 unification. No dependency version or production dependency was added.
-The final strict workspace/all-target gate passes six stop cases and22 migration
+The earlier strict workspace/all-target gate passes six stop cases and22 migration
 cases without skips, including both accepted foundation histories and populated
 000022 downgrade refusal. Retain the initial582-case full gate separately from
 the changed follow-up. Actual namespace-only stop packet9777599d297a passes;

@@ -2,7 +2,7 @@
 
 ## Known Run Interruption After Namespace Exit
 
-Implemented candidate: atomically cancel accepted free-chat runs and pending
+**Verified for known accepted free-chat runs only.** Atomically cancel runs and pending
 approvals only with exact original dispatch/endpoint provenance and validated
 namespace exit. This is not a permission grant, native command ACK, assistant
 result or PM stage receipt. Legacy/unknown/task/PM rows and uncertain journals
@@ -10,7 +10,12 @@ remain held. Existing durable events and a per-run audit expose the change;
 exact replay must leave the cursor unchanged.
 
 Seven PostgreSQL stop cases,22 migration cases, strict checks,178 frontend tests
-and34 host cases pass. Actual Docker/Hermes acceptance remains required.
+and34 host cases pass. Renewed host coverage passes39 cases. Actual packet
+067e06b0c94a on published2d69908 verifies cancellation, preserved content/native
+identity and single terminal events/audit after both original namespaces exit.
+It passes every custody phase and independent native/Engine observation, with
+source integrity, owned cleanup and permanent runtime preservation. This does
+not close unknown command outcomes, task/PM terminal authority or full SDLC.
 Packet5df02ed3fe1b on published Fleet807e1e2 failed during readiness preparation
 with a15-second Compose-exec timeout, before custody/stop assertions. Owned
 cleanup, source integrity and permanent runtime preservation pass; that does

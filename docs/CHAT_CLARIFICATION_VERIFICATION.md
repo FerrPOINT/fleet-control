@@ -1,5 +1,33 @@
 # Chat Clarification Verification
 
+## Actual Generation-Bound Cancellation: 7 October 2026
+
+Project `sdlc-qa-fleet-container-live-067e06b0c94a` passes at published Fleet
+`2d69908eba39cae6c3dee99bcf192f4d809afef2`, Base control
+`04f5527e705c5f838ae5c041efa988d14e1e6329` and SDK
+`cbb4e99230420dc2659431b1c9fb5090e5c940f0`.
+Fresh strict Rust1.88 build/checks and every custody phase pass. After three
+same-CID physical Fleet restarts, both normal stops prove original namespace
+exit and cancel known accepted free-chat runs/pending approvals without grants.
+Transcript content/native identity and dispatch are unchanged; repeated settlement
+does not duplicate terminal events/audit. Independent native/Engine exit proof
+passes without rewriting native journals or changing the protected approval target.
+No uncertain stop readback or readiness observation timeout was needed.
+
+All322 frozen inputs match. Manifest SHA256:
+`975fec4b39b95c9a872bbfc49318b468185dd6be1d54664fef2ade33c1f73936`.
+Build log SHA256:
+`b2443a45344419c3deb75ad01a09c7b9b1efd188b5d82043d61409abae76ab5a`.
+Owned resources/image aliases are removed, independent project inventory is
+empty and permanent runtime is unchanged. Root Docker audit is complete:
+35 desktop containers, both runners empty, no violations.
+
+This proves actual free-chat interruption settlement, not native command ACK,
+unknown/PM/task terminal authority, restored model execution, a real PM provider
+conversation or complete SDLC. Installed rollout and ordered main release remain
+open. Packet5df02ed3fe1b remains failed; this separate pass does not diagnose
+its Compose observation stall. Host safety coverage passes39 cases.
+
 ## Bounded Custody Observation: 7 October 2026
 
 Actual packet5df02ed3fe1b on published Fleet807e1e2 failed when the read-only
