@@ -1,5 +1,57 @@
 # Chat Clarification Verification
 
+## Browser Authentication Release: 7 October 2026
+
+Independent release source9b42e777eac64383b8bd397fe347b02beb1dd3f7 is based on
+main1ff9066206f28e8a49b2c290511c4f52adf7c105, with no backend, migration,
+OpenAPI, package/lock or Base pin changes. [Fleet56](https://github.com/FerrPOINT/fleet-control/pull/56)
+targets main, is non-Draft, mergeable/clean and has five successful exact-head
+CI jobs in [run37575299434](https://github.com/FerrPOINT/fleet-control/actions/runs/37575299434).
+Ready-state readback confirms the same head/checks. No unresolved review thread
+was present at release readback; merge/deployment remain separate gates.
+
+Fresh Node22.20.0/pnpm10.28.1 frozen installation uses Base
+f04af5fd5906ad6ac7e24c7f18e919a5d8a04965. All73 installed SDK source/script/
+package inputs match Git/LF bytes. All150 unit tests in23 files and18 fixture
+browser cases pass, with no retry/skip/unexpected/flaky browser result.
+Typecheck, lint, formatting, build, API generation/drift/compatibility, Markdown,
+README and135 baseline manifest entries pass. The owned preview is stopped.
+
+Main release artifacts are in the private fleet-browser-auth-release-843a9d7
+QA directory. Browser APIs and signed SSO are fixtures, not live identity
+or Hermes acceptance. Main's existing chunk-size warning remains unchanged.
+The integrated runtime checkout retains its own cbb4e99 pin; results from main
+must not be attributed to those different bytes or SDK.
+
+Before implementing the boundary,11 focused tests reproduced cache/late-response/
+SSO isolation failures. The boundary adds fresh-generation cache/form ownership,
+original request token capture, post-body authority checks and late401 isolation.
+It preserves memory-only credentials and opaque original-control uncertainty.
+Clarification/backend/workflow readiness, Base SSE401/403 callbacks and PM
+original-command discovery after reload remain separate requirements.
+
+Integrated candidate validation retains the unchanged cbb4e99 SDK pin. All147
+frontend Git/LF inputs match the owned checkout; all73 installed SDK inputs
+match the exact clean Base revision. After final source formatting,439 units
+in35 files pass. All84 selected browser cases pass in187.1s, with no retry,
+skip, unexpected/flaky case or report-level error. Typecheck/lint/format/build,
+API drift/eight compatibility cases, seven local-snapshot DTOs/two verifier
+cases, nine manifest verifier cases/135 baseline images, pinned UI validation
+and132 Markdown link files pass. Published Tracker compatibility is not implied.
+
+Private final reports in fleet-chats-final-3217793 QA: unit SHA256
+4c6645f6129016947fe3be8a80d50e4ac16e854b8e0ba88766b481b633f50621;
+browser SHA256 e3987239b7248fb0a7e9a048320dad7403fa5f515f64dbe5bdf8479f1b5455fa.
+Fresh375 clarification and1920 dialogue fixture screenshots were opened and
+inspected. Preview fallback connection-refused logs remain fixture noise,
+not zero-network-error/live acceptance. The owned4173 listener is absent.
+Historical browser files were retained outside the frontend formatting tree,
+without altering report/image bytes. No installed service was changed.
+
+The local read-only Docker grouping audit reports no violations on checked
+desktop-linux/sdlc2-runner, but complete=false because sdlc1-runner is
+unavailable. This operational gap is retained rather than reported as passing.
+
 ## Chats Reload And Identity Integration: 7 October 2026
 
 Inputs: runtime46df7aa43943b3e2ca7e66b109a5038deb512763 and

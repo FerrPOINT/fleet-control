@@ -2,15 +2,29 @@
 
 ## Browser Sign-Out Is Scoped To Its Original Login
 
-Deferred pagehide cleanup checks the original token/user identity and pending
+Deferred pagehide cleanup checks the original generation/token/user identity and pending
 sign-out state. A newer login is not erased by an old callback; repeated clicks
 do not repeat central navigation. A navigation exception removes its deferred
 callback, restores the same login's pending flag and emits only a fixed generic
 error. No raw exception or credential is persisted or returned.
 
-This shell behavior does not prove isolation of a global query cache, component
-draft or late API/permissions callback after a same-SPA user switch. That wider
-negative acceptance remains open in [the gap register](GAP_REGISTER.md).
+Every login/logout advances a memory-only authentication generation. Query
+caches and mounted forms belong to that generation; a new login clears the
+previous cache and remounts forms, even with the same subject and token.
+Pending sign-out preserves the draft but suspends new API requests. A navigation
+failure restores that original login without erasing its draft.
+
+API requests retain their original token and recheck generation/subject after
+body parsing on success and error. A late401 cannot erase the next login;
+permission responses must match the current subject and SSO completion cannot
+replace a newer login. Generation, credentials and pending sign-out are not
+persisted in local storage.
+
+AuthContextChangedError is deliberately not a definite HTTP rejection.
+Unknown original stop/steer recovery metadata remains held across remount;
+cache reset never grants redispatch. PM original-command discovery after
+reload, Base SSE revocation callbacks, backend ownership and runtime/OS
+isolation remain independent gates in [the gap register](GAP_REGISTER.md).
 
 ## Controller Epoch Storage Is Not Native Authority
 

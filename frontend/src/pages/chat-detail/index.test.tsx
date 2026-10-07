@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ChatDetailPage } from './index'
+import { AuthBoundary } from '@/app/auth-boundary'
 import * as fleet from '@/api/fleet'
 import * as chats from '@/api/task-chats'
 import * as controlLookup from '@/api/runtime-control-lookup'
@@ -114,7 +115,7 @@ const revision: chats.RequirementsRevision = {
   },
 }
 const originalIssuer = ssoConfig.issuer
-function renderPage(tab = 'dialogue', queryRetries: false | number = false) {
+function renderPage(tab = 'dialogue', queryRetries: false | number = false, isolatedAuth = false) {
   const router = createMemoryRouter(
     [
       { path: '/chats/:sessionId', element: <ChatDetailPage /> },
@@ -126,9 +127,15 @@ function renderPage(tab = 'dialogue', queryRetries: false | number = false) {
     defaultOptions: { queries: { retry: queryRetries }, mutations: { retry: false } },
   })
   const view = render(
-    <QueryClientProvider client={client}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>,
+    isolatedAuth ? (
+      <AuthBoundary>
+        <RouterProvider router={router} />
+      </AuthBoundary>
+    ) : (
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    ),
   )
   return { router, client, ...view }
 }
@@ -186,6 +193,55 @@ beforeEach(() => {
   })
 })
 describe('production chat', () => {
+  it('removes the actual clarification form and cached task after another user signs in', async () => {
+    renderPage('clarification', false, true)
+    await screen.findByRole('radio', { name: /Участники проекта/ })
+    fireEvent.change(screen.getByLabelText('Комментарий'), {
+      target: { value: 'Private owner answer' },
+    })
+    vi.mocked(fleet.getSession).mockRejectedValue(new ApiError(403, 'Forbidden'))
+    act(() =>
+      useAuthStore
+        .getState()
+        .setAuth({ token: 'other-token', userId: 'other', email: 'other@example.test' }),
+    )
+    expect(screen.queryByDisplayValue('Private owner answer')).not.toBeInTheDocument()
+    expect(screen.queryByText('TASK-1')).not.toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Forbidden')
+    expect(chats.answerClarification).not.toHaveBeenCalled()
+  })
+
+  it('retains original unknown control metadata when the authorization boundary removes a chat', async () => {
+    vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      can_send: false,
+      can_steer: true,
+      can_stop: true,
+      active_run_id: 'run-original',
+    })
+    vi.mocked(fleet.steerSessionRun).mockRejectedValueOnce(new Error('Unknown acceptance'))
+    renderPage('dialogue', false, true)
+    fireEvent.change(await screen.findByLabelText('Уточнение активному запуску'), {
+      target: { value: 'Original private guidance' },
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Передать уточнение запуску' }))
+    await waitFor(() => expect(fleet.steerSessionRun).toHaveBeenCalledTimes(1))
+    const original = readControlRecovery('session1')
+    expect(original.state).toBe('pending')
+    vi.mocked(fleet.getSession).mockRejectedValue(new ApiError(403, 'Forbidden'))
+    act(() =>
+      useAuthStore
+        .getState()
+        .setAuth({ token: 'other-token', userId: 'other', email: 'other@example.test' }),
+    )
+    expect(screen.queryByDisplayValue('Original private guidance')).not.toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Forbidden')
+    expect(readControlRecovery('session1')).toEqual(original)
+    expect(JSON.stringify(original)).not.toContain('Original private guidance')
+    expect(JSON.stringify(original)).not.toContain('fixture-token')
+    expect(fleet.steerSessionRun).toHaveBeenCalledTimes(1)
+  })
+
   it.each(
     (['answer', 'confirmation'] as const).flatMap((command) =>
       (['logout', 'signing-out', 'another-actor', 'another-service'] as const).map((access) => ({

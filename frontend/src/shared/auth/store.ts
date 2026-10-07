@@ -75,6 +75,7 @@ function readStoredAuth(): {
 // read it and silently extend the session (audit r4, P1).
 interface AuthState {
   token: string | null
+  authVersion: number
   signingOut: boolean
   userId: string | null
   email: string | null
@@ -112,6 +113,7 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       token: initial.token,
+      authVersion: 0,
       signingOut: false,
       userId: initial.userId,
       email: initial.email,
@@ -121,7 +123,8 @@ export const useAuthStore = create<AuthState>()(
       isSystemAdmin: initial.isSystemAdmin,
       permissions: initial.permissions,
       setAuth: (payload) =>
-        set({
+        set((state) => ({
+          authVersion: state.authVersion + 1,
           token: payload.token,
           signingOut: false,
           userId: payload.userId,
@@ -131,7 +134,7 @@ export const useAuthStore = create<AuthState>()(
           systemRole: payload.systemRole ?? (payload.isSystemAdmin ? 'admin' : 'user'),
           isSystemAdmin: Boolean(payload.isSystemAdmin ?? payload.systemRole === 'admin'),
           permissions: payload.permissions ?? [],
-        }),
+        })),
       setUser: (payload) =>
         set((state) => ({
           userId: payload.userId ?? state.userId,
@@ -144,7 +147,8 @@ export const useAuthStore = create<AuthState>()(
         })),
       startSignOut: () => set({ signingOut: true }),
       logout: () => {
-        set({
+        set((state) => ({
+          authVersion: state.authVersion + 1,
           token: null,
           signingOut: false,
           userId: null,
@@ -154,7 +158,7 @@ export const useAuthStore = create<AuthState>()(
           systemRole: 'user',
           isSystemAdmin: false,
           permissions: [],
-        })
+        }))
       },
     }),
     {
@@ -185,3 +189,15 @@ export const useAuthStore = create<AuthState>()(
     },
   ),
 )
+
+export type AuthScope = Pick<AuthState, 'token' | 'userId' | 'authVersion'>
+
+export function isCurrentAuth(scope: AuthScope): boolean {
+  const current = useAuthStore.getState()
+  return (
+    !current.signingOut &&
+    current.authVersion === scope.authVersion &&
+    current.token === scope.token &&
+    current.userId === scope.userId
+  )
+}

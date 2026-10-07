@@ -1,5 +1,28 @@
 # Current State
 
+## Browser Authentication Release: 7 October 2026
+
+The generation-scoped cache/form boundary, original-token API response guards,
+permission subject checks and stale SSO/sign-out protection are published as an
+independent main-targeted [Fleet56](https://github.com/FerrPOINT/fleet-control/pull/56)
+at9b42e777eac64383b8bd397fe347b02beb1dd3f7. Fresh main validation passes150
+unit tests and18 Chromium/Firefox/WebKit fixture cases, without retries/skips.
+Typecheck/lint/format/build, API drift/compatibility, README, Markdown links and
+135 baseline manifest entries pass. All73 installed SDK inputs match main's
+unchanged pinned f04af5fd5906ad6ac7e24c7f18e919a5d8a04965.
+
+The integrated chat adds negative tests for clarification draft removal and
+retention of original unknown-control metadata without a second POST.
+The integrated candidate passes439 unit cases in35 files and84 selected
+three-browser fixtures with no retries/skips, plus the frontend/contract gates.
+All147 frontend Git/LF inputs and73 installed cbb4e99 SDK inputs are verified.
+Fleet56 is now non-Draft, main-mergeable and clean with all five CI checks
+successful at its exact head. Publication is not merge, deployment or full
+PM/runtime acceptance.
+Base SSE callbacks and authoritative PM command discovery after remount remain
+separate gaps. The following older integration entry records its original
+pre-boundary evidence; see [current verification](CHAT_CLARIFICATION_VERIFICATION.md#browser-authentication-release-7-october-2026).
+
 ## Chats Reload And Identity Integration: 7 October 2026
 
 The runtime candidate46df7aa now incorporates published Chats94e889d by normal

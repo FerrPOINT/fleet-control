@@ -10,13 +10,22 @@ from clearing a newer login, duplicate sign-out and failed-navigation deadlock.
 The fresh exact-pin frontend suite passes413 cases. See
 [verification](CHAT_CLARIFICATION_VERIFICATION.md#chats-reload-and-identity-integration-7-october-2026).
 
-Remaining browser privacy gate: the global QueryClient has no identity reset,
-permissions use an unscoped cache key, and request/auth callbacks and component
-drafts need explicit same-SPA identity-switch acceptance. These are identified
-risks, not evidence of authorized cross-user server reads. Do not claim full
-browser ownership isolation from the scoped PM/control or shell tests alone.
+The previously missing browser boundary is now implemented: generation-scoped
+cache/form reset, original-token result guards, scoped permissions and obsolete
+SSO callback rejection. Independent main PR56 passes150 unit and18 three-browser
+fixture cases with main's own unchanged Base pin. Integrated chat tests cover
+private clarification draft removal and unchanged original-control custody.
+Integrated validation passes439 units and84 three-browser fixtures; Fleet56
+is non-Draft/main-mergeable with five green exact-head CI jobs. This closes
+the identified REST/cache/form source gap, not OS/tool isolation,
+live identity/SSE acceptance or restart-safe PM command discovery after remount.
 Runtime recovery, published producer contracts, actual PM workflow, Forge live
 acceptance and ordered main-release PR conflicts remain separate blockers.
+
+The read-only local Docker grouping audit finds no violation on checked
+endpoints, but returns incomplete because sdlc1-runner is unavailable.
+It is not an all-endpoint success or installed runtime acceptance. Existing
+containers/volumes and runtime pins were not changed by this browser release.
 
 ## Native Controller Delivery Follow-Up
 

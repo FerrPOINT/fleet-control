@@ -8,9 +8,12 @@ their original-key and unknown-outcome holds. The four shell regression fixes
 are tested with the actual pinned Base SDK, not a cached sibling SDK checkout.
 See [evidence](CHAT_CLARIFICATION_VERIFICATION.md#chats-reload-and-identity-integration-7-october-2026).
 
-Next close same-SPA identity isolation for query caches, permissions, in-flight
-auth callbacks and private drafts, with negative cross-user tests. Do not discard
-an unresolved original command and treat local cache reset as a redispatch permit.
+Same-SPA identity isolation now has a generation-keyed cache/form boundary,
+scoped permissions, original-token request guards and stale SSO checks. The
+independent main release is [Fleet56](https://github.com/FerrPOINT/fleet-control/pull/56);
+its source publication is not a merge or CI-success claim. Retain the unresolved
+original command across reset; implement authoritative PM command discovery
+after remount before claiming complete PM recovery.
 Keep actual producer/PM/runtime/Forge acceptance and ordered main-release work
 below; a source-branch push does not enable or deploy automatic SDLC.
 

@@ -30,28 +30,88 @@ const desktop = {
 
 function renderShell(path = '/chats/session-1') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(
-    <QueryClientProvider client={client}>
-      <ThemeProvider>
-        <MemoryRouter initialEntries={[path]}>
-          <Routes>
-            <Route element={<AppShell />}>
-              <Route path="/" element={<h1>Dashboard content</h1>} />
-              <Route path="/agents/new" element={<h1>Create agent content</h1>} />
-              <Route path="/agents/:agentId/edit" element={<h1>Edit agent content</h1>} />
-              <Route path="/settings" element={<h1>Settings content</h1>} />
-              <Route path="/agents/:agentId/runtime" element={<h1>Runtime content</h1>} />
-              <Route path="/sessions/:sessionId" element={<h1>Session content</h1>} />
-              <Route path="/chats/:sessionId" element={<h1>Session content</h1>} />
-            </Route>
-          </Routes>
-        </MemoryRouter>
-      </ThemeProvider>
-    </QueryClientProvider>,
-  )
+  return {
+    client,
+    ...render(
+      <QueryClientProvider client={client}>
+        <ThemeProvider>
+          <MemoryRouter initialEntries={[path]}>
+            <Routes>
+              <Route element={<AppShell />}>
+                <Route path="/" element={<h1>Dashboard content</h1>} />
+                <Route path="/agents/new" element={<h1>Create agent content</h1>} />
+                <Route path="/agents/:agentId/edit" element={<h1>Edit agent content</h1>} />
+                <Route path="/settings" element={<h1>Settings content</h1>} />
+                <Route path="/agents/:agentId/runtime" element={<h1>Runtime content</h1>} />
+                <Route path="/sessions/:sessionId" element={<h1>Session content</h1>} />
+                <Route path="/chats/:sessionId" element={<h1>Session content</h1>} />
+              </Route>
+            </Routes>
+          </MemoryRouter>
+        </ThemeProvider>
+      </QueryClientProvider>,
+    ),
+  }
 }
 
 describe('AppShell', () => {
+  it('does not apply a late permissions response to a newer login', async () => {
+    let resolve!: (value: Awaited<ReturnType<typeof getCurrentUserPermissions>>) => void
+    vi.mocked(getCurrentUserPermissions).mockImplementationOnce(
+      () =>
+        new Promise((settle) => {
+          resolve = settle
+        }),
+    )
+    const { client } = renderShell()
+    await waitFor(() => expect(getCurrentUserPermissions).toHaveBeenCalledTimes(1))
+    act(() =>
+      useAuthStore
+        .getState()
+        .setAuth({ token: 'new-token', userId: 'user-2', email: 'new@example.test' }),
+    )
+    await act(async () =>
+      resolve({ user_id: 'user-1', role: 'operator', is_system_admin: false, permissions }),
+    )
+    await waitFor(() => expect(client.isFetching()).toBe(0))
+    expect(useAuthStore.getState().userId).toBe('user-2')
+    expect(useAuthStore.getState().permissions).toEqual([])
+  })
+
+  it('rejects a permissions response belonging to another profile', async () => {
+    vi.mocked(getCurrentUserPermissions).mockResolvedValueOnce({
+      user_id: 'foreign-user',
+      role: 'admin',
+      is_system_admin: true,
+      permissions: ['users:manage'],
+    })
+    const { client } = renderShell()
+    await waitFor(() => expect(getCurrentUserPermissions).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(client.isFetching()).toBe(0))
+    expect(useAuthStore.getState().userId).toBe('user-1')
+    expect(useAuthStore.getState().isSystemAdmin).toBe(false)
+  })
+
+  it('reloads permissions after a new login by the same user', async () => {
+    renderShell()
+    await waitFor(() => expect(getCurrentUserPermissions).toHaveBeenCalledTimes(1))
+    vi.mocked(getCurrentUserPermissions).mockResolvedValue({
+      user_id: 'user-1',
+      role: 'user',
+      is_system_admin: false,
+      permissions: ['agents:read_directory'],
+    })
+    act(() =>
+      useAuthStore
+        .getState()
+        .setAuth({ token: 'new-token', userId: 'user-1', email: 'new@example.test' }),
+    )
+    await waitFor(() =>
+      expect(useAuthStore.getState().permissions).toEqual(['agents:read_directory']),
+    )
+    expect(getCurrentUserPermissions).toHaveBeenCalledTimes(2)
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
     desktop.matches = false

@@ -1,6 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('Fleet auth storage migration', () => {
+  it('changes the memory authority generation for every login and logout, not profile or pending sign-out', async () => {
+    const { useAuthStore } = await import('./store')
+    const original = useAuthStore.getState().authVersion
+    const login = { token: 'same-token', userId: 'owner', email: 'owner@example.test' }
+    useAuthStore.getState().setAuth(login)
+    expect(useAuthStore.getState().authVersion).toBe(original + 1)
+    useAuthStore.getState().setAuth(login)
+    expect(useAuthStore.getState().authVersion).toBe(original + 2)
+    useAuthStore.getState().setUser({ displayName: 'Owner' })
+    useAuthStore.getState().startSignOut()
+    expect(useAuthStore.getState().authVersion).toBe(original + 2)
+    expect(JSON.parse(localStorage.getItem('fleet-control-auth')!).state).not.toHaveProperty(
+      'authVersion',
+    )
+    useAuthStore.getState().logout()
+    expect(useAuthStore.getState().authVersion).toBe(original + 3)
+  })
+
   it('keeps sign-out authority suspension in memory and never persists it or credentials', async () => {
     const { useAuthStore } = await import('./store')
     useAuthStore
