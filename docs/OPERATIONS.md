@@ -344,6 +344,17 @@ Down/reapply retains messages but reconstructs positions from timestamps, so it
 can change the order of post-upgrade messages after a clock rollback. Use this
 cycle only in disposable QA. Production recovery requires a verified backup
 restoring the order column or a reviewed forward migration, not blind down/up.
+## Heartbeat Incidents
+
+Monitor canonical `heartbeat_stale` incidents in Fleet alerts. Acknowledging
+records that an operator saw the incident; it does not assert recovery. A
+running agent must report a nonfuture health timestamp within ten minutes to
+resolve its heartbeat incident automatically. Missing timestamps, clock skew
+into the future, and stopped/degraded/failed statuses retain the incident.
+Investigate health collection and clock synchronization rather than treating
+unknown monitoring as healthy. Resolution and its redacted audit are one
+transaction; an audit/storage failure must be retried, not reported as success.
+This health signal does not authorize SDLC execution or prove workflow readiness.
 
 ## SDLC Foundation Recovery
 

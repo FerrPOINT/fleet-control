@@ -1661,6 +1661,19 @@ The merged eleven-file schema passed clean up, pending migration 000010 down,
 reapply and status on an isolated PostgreSQL 17 database. This feature owns only
 one new migration. Disposable QA database ownership was verified before cleanup;
 accepted runtimes, images and volumes were not changed.
+## October 7 Heartbeat Monitoring Candidate
+
+A separate main-based patch corrects the canonical heartbeat alert kind,
+concurrent incident deduplication, fresh-heartbeat resolution without a status
+transition, and atomic resolution/audit. Five new PostgreSQL cases pass, as do
+the full 99-case workspace suite and 10 explicitly executed opt-in cases.
+Frontend passes 160 unit tests and the three-engine heartbeat browser case;
+nine fixture screenshots cover the required viewports.
+
+Rust-generated OpenAPI is byte-identical. Owned QA cleanup and all 165 frozen
+source hashes are verified. Its SDK remains main's exact `875cac2` pin, not the historical/integration
+`cbb4e99` pin described below. See [scope and remaining release checks](HEARTBEAT_ALERT_VERIFICATION.md). This monitoring correction does not enable
+runtime recovery or automatic SDLC; installed/live acceptance remains separate.
 
 ## October 5 Profile Integration Candidate
 

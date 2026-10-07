@@ -557,6 +557,12 @@ Tables:
   Insert acknowledgements return the stored UUID, agent, stream, redacted message
   and timestamp from the same PostgreSQL statement. No latest-row lookup, schema
   change, generation cursor or Docker ingestion table is introduced by this fix.
+- `fleet_alerts`: persisted health incidents. The historical migration 000006
+  permits `heartbeat_stale`, not `agent_heartbeat_stale`. Heartbeat insertion
+  locks the owning agent row, reuses an open/acknowledged incident, and permits
+  a new identity only after resolution. Resolution and its redacted audit are
+  atomic; an audit failure leaves the incident active. No migration is needed
+  for this correction.
 - `audit_log`: immutable operator action audit for agent changes, runtime
   actions, config/skill edits, leader assignments, handoff and message writes.
 
