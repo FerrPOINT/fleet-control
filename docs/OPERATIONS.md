@@ -1,5 +1,17 @@
 # Operations
 
+## Controller Restart Observation
+
+`Controller restart observed for original agent namespace; ownership transfer
+remains required` is degraded diagnostic evidence, not running/readiness or
+permission to resume. Preserve the original mapping, Compose, private SQLite,
+launch and endpoint records. Do not restore an old controller UUID, rewrite
+mapping hashes, kill by PID or issue a replacement generation. The new private
+observer is available only from a compatible exact Base source; no installed
+pins or rollout flags are changed by this candidate. Full fenced ownership
+transfer and interrupted-activation recovery remain open in
+[GAP_REGISTER](GAP_REGISTER.md).
+
 ## Endpoint Custody Conflict
 
 `Hermes origin is not bound to the current runtime` means the current original

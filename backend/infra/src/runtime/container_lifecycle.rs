@@ -826,6 +826,9 @@ impl LocalRuntimeSupervisor {
         phase: LaunchPhase,
     ) -> Result<RuntimeOperationResponse, AppError> {
         if let Some(existing) = self.repo.get_open_runtime_launch(agent.id).await? {
+            if existing.binding.controller_id != self.controller_id {
+                return Err(held());
+            }
             if existing.binding.container.is_some() {
                 return self.health_container_locked(agent).await;
             }
@@ -993,6 +996,48 @@ impl LocalRuntimeSupervisor {
         &self,
         agent: &Agent,
     ) -> Result<RuntimeOperationResponse, AppError> {
+        let persisted = self
+            .repo
+            .get_open_runtime_launch(agent.id)
+            .await?
+            .ok_or_else(held)?;
+        if persisted.binding.controller_id != self.controller_id {
+            let binding = persisted.binding.container.as_ref().ok_or_else(held)?;
+            if persisted.state != "gateway_started" || persisted.pid.is_none() {
+                return Err(held());
+            }
+            let proof = self
+                .container_control(binding)?
+                .observe_controller_restart(
+                    &self.container_files(binding).await?,
+                    &binding.registration,
+                )
+                .await?;
+            let fresh = self
+                .repo
+                .get_open_runtime_launch(agent.id)
+                .await?
+                .ok_or_else(held)?;
+            if fresh.state != persisted.state
+                || fresh.pid != persisted.pid
+                || serde_json::to_value(&fresh.binding).map_err(AppError::internal)?
+                    != serde_json::to_value(&persisted.binding).map_err(AppError::internal)?
+                || proof
+                    .receipt
+                    .snapshot
+                    .as_ref()
+                    .and_then(|snapshot| i32::try_from(snapshot.init_pid).ok())
+                    != persisted.pid
+            {
+                return Err(held());
+            }
+            // Observation cannot grant new custody, mutate the old ACK or release capacity.
+            return Ok(RuntimeOperationResponse {
+                agent_id: agent.id,
+                status: AgentStatus::Degraded,
+                message: "Controller restart observed for original agent namespace; ownership transfer remains required".into(),
+            });
+        }
         let launch = self.owned_container_launch(agent.id).await?;
         let receipt = self.observe_container(&launch).await?;
         if receipt.state != ContainerReceiptState::Observed {

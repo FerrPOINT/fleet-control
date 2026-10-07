@@ -162,6 +162,63 @@ struct ControllerAttachment {
     network_id: String,
 }
 
+/// Read-only custody witness, never a lease or permission to adopt a launch.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct ControllerRestartObservation {
+    contract_version: u8,
+    state: String,
+    original_mapping_sha256: String,
+    registration_sha256: String,
+    original_controller_snapshot: app::runtime_launch::MountMappingSnapshot,
+    current_controller_snapshot: app::runtime_launch::MountMappingSnapshot,
+    pub(super) receipt: ContainerReceipt,
+}
+
+fn decode_controller_restart(
+    status: i32,
+    value: Value,
+    mapping: &ContainerMountMapping,
+    original: &ContainerRegistration,
+) -> Result<ControllerRestartObservation, AppError> {
+    let result: ControllerRestartObservation = serde_json::from_value(value).map_err(|_| held())?;
+    let current = &result.current_controller_snapshot;
+    if status != 0
+        || result.contract_version != 1
+        || result.state != "controller_restart_observed"
+        || original.contract_version != 3
+        || result.original_mapping_sha256 != canonical_hash(mapping)?
+        || original.mount_mapping_sha256.as_ref() != Some(&result.original_mapping_sha256)
+        || result.registration_sha256 != canonical_hash(original)?
+        || result.original_controller_snapshot != mapping.snapshot
+        || current.container_id != mapping.controller.container_id
+        || current.inventory_sha256 != mapping.snapshot.inventory_sha256
+        || current.init_pid == 0
+        || current.started_at == mapping.snapshot.started_at
+        || current.started_at.is_empty()
+        || current.started_at.starts_with("0001-")
+        || current.started_at.len() > 128
+        || !current
+            .started_at
+            .bytes()
+            .all(|byte| byte.is_ascii_graphic())
+        || result.receipt.state != ContainerReceiptState::Observed
+        || !matches!(
+            result.receipt.observation,
+            ContainerObservation::Running | ContainerObservation::NamespaceExited
+        )
+    {
+        return Err(held());
+    }
+    validate_receipt(
+        &result.receipt,
+        original,
+        status,
+        "observe_controller_restart",
+    )?;
+    Ok(result)
+}
+
 pub(super) fn validate_preparation(
     prepared: &ContainerPreparation,
     policy: &Value,
@@ -887,6 +944,27 @@ impl ContainerControl {
         self.receipt(files, original, "observe").await
     }
 
+    pub(super) async fn observe_controller_restart(
+        &self,
+        files: &ContainerLaunchFiles,
+        original: &ContainerRegistration,
+    ) -> Result<ControllerRestartObservation, AppError> {
+        let mapping = files.mount_mapping.as_ref().ok_or_else(held)?;
+        if files.mapping_file.is_none() || original.contract_version != 3 {
+            return Err(held());
+        }
+        validate_registration(original)?;
+        validate_mapping_registration(&files.policy, Some(mapping), original)?;
+        let (status, value) = self
+            .call(
+                files,
+                "observe_controller_restart",
+                json!({"registration": original}),
+            )
+            .await?;
+        decode_controller_restart(status, value, mapping, original)
+    }
+
     pub async fn endpoint(
         &self,
         files: &ContainerLaunchFiles,
@@ -1368,6 +1446,169 @@ mod tests {
         prepared.registration.mount_mapping_sha256 = Some(canonical_hash(&mapping).unwrap());
         prepared.registration.contract_version = 2;
         assert!(validate_registration(&prepared.registration).is_err());
+    }
+
+    fn restart_fixture() -> (Value, ContainerMountMapping, ContainerRegistration, Value) {
+        let (local, mapping) = mapping_fixture();
+        let mut policy = mapped_policy(&local, &mapping).unwrap();
+        policy["network"]["id"] = json!("1".repeat(64));
+        let mut original = original();
+        original.contract_version = 3;
+        original.resource_id = serde_json::from_value(policy["resource_id"].clone()).unwrap();
+        original.generation = serde_json::from_value(policy["generation"].clone()).unwrap();
+        original.policy_sha256 = canonical_hash(&policy).unwrap();
+        original.mount_mapping_sha256 = Some(canonical_hash(&mapping).unwrap());
+        let mut observed = log_envelope(&original)["receipt"].clone();
+        observed["contract_version"] = json!(3);
+        observed["snapshot"]["contract_version"] = json!(3);
+        let mut current = serde_json::to_value(&mapping.snapshot).unwrap();
+        current["started_at"] = json!("2026-10-07T12:00:00.123456789Z");
+        let envelope = json!({"contract_version":1,"state":"controller_restart_observed",
+            "original_mapping_sha256":canonical_hash(&mapping).unwrap(),
+            "registration_sha256":canonical_hash(&original).unwrap(),
+            "original_controller_snapshot":mapping.snapshot,
+            "current_controller_snapshot":current,"receipt":observed});
+        (policy, mapping, original, envelope)
+    }
+
+    #[test]
+    fn controller_restart_readback_accepts_recycled_pid_and_original_exited_namespace() {
+        let (_, mapping, original, envelope) = restart_fixture();
+        for observation in ["running", "namespace_exited"] {
+            let mut value = envelope.clone();
+            value["receipt"]["observation"] = json!(observation);
+            let result = decode_controller_restart(0, value, &mapping, &original).unwrap();
+            assert_eq!(
+                result.current_controller_snapshot.init_pid,
+                mapping.snapshot.init_pid
+            );
+            assert_eq!(result.receipt.generation, original.generation);
+        }
+    }
+
+    #[test]
+    fn controller_restart_readback_rejects_scope_epoch_ack_and_closed_field_drift() {
+        let (_, mapping, original, envelope) = restart_fixture();
+        for drift in [
+            "version",
+            "state",
+            "mapping",
+            "registration",
+            "original_epoch",
+            "container",
+            "inventory",
+            "pid",
+            "pid_only",
+            "timestamp",
+            "held",
+            "never_started",
+            "generation",
+            "namespace",
+            "missing",
+            "extra",
+            "nested_extra",
+        ] {
+            let mut value = envelope.clone();
+            match drift {
+                "version" => value["contract_version"] = json!(2),
+                "state" => value["state"] = json!("adopted"),
+                "mapping" => value["original_mapping_sha256"] = json!("0".repeat(64)),
+                "registration" => value["registration_sha256"] = json!("0".repeat(64)),
+                "original_epoch" => value["original_controller_snapshot"]["init_pid"] = json!(123),
+                "container" => {
+                    value["current_controller_snapshot"]["container_id"] = json!("0".repeat(64))
+                }
+                "inventory" => {
+                    value["current_controller_snapshot"]["inventory_sha256"] = json!("0".repeat(64))
+                }
+                "pid" => value["current_controller_snapshot"]["init_pid"] = json!(0),
+                "pid_only" => {
+                    value["current_controller_snapshot"]["init_pid"] = json!(123);
+                    value["current_controller_snapshot"]["started_at"] =
+                        json!(mapping.snapshot.started_at);
+                }
+                "timestamp" => {
+                    value["current_controller_snapshot"]["started_at"] =
+                        json!("0001-01-01T00:00:00Z")
+                }
+                "held" => {
+                    value["receipt"]["state"] = json!("held");
+                    value["receipt"]["observation"] = json!("unavailable");
+                    value["receipt"]["snapshot"] = Value::Null;
+                }
+                "never_started" => {
+                    value["receipt"]["state"] = json!("registered");
+                    value["receipt"]["observation"] = json!("never_started");
+                    value["receipt"]["snapshot"] = Value::Null;
+                }
+                "generation" => value["receipt"]["generation"] = json!(Uuid::new_v4()),
+                "namespace" => value["receipt"]["snapshot"]["container_id"] = json!("0".repeat(64)),
+                "missing" => {
+                    value
+                        .as_object_mut()
+                        .unwrap()
+                        .remove("original_controller_snapshot");
+                }
+                "extra" => value["takeover"] = json!(true),
+                _ => value["current_controller_snapshot"]["credentials"] = json!("never-store"),
+            }
+            assert!(
+                decode_controller_restart(0, value, &mapping, &original).is_err(),
+                "{drift}"
+            );
+        }
+        for status in [1, 2, -1] {
+            assert!(
+                decode_controller_restart(status, envelope.clone(), &mapping, &original).is_err()
+            );
+        }
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn controller_restart_client_roundtrips_original_mapped_request_without_lifecycle_effects()
+     {
+        let (mut control, mut files) = source_fixture().await;
+        let (policy, mapping, original, envelope) = restart_fixture();
+        files.policy = policy;
+        files.mount_mapping = Some(mapping.clone());
+        files.mapping_file = Some(control.source.root.join("mapping.json"));
+        let source = format!(
+            "import json,sys\nr=json.load(sys.stdin.buffer)\nassert r['protocol_version']==2 and r['action']=='observe_controller_restart'\nassert r['registration']==json.loads({:?})\nassert r['mount_mapping']==json.loads({:?})\nprint(json.dumps({{'protocol_version':2,'action':r['action'],'result':json.loads({:?})}}))\n",
+            serde_json::to_string(&original).unwrap(),
+            serde_json::to_string(&mapping).unwrap(),
+            serde_json::to_string(&envelope).unwrap()
+        );
+        let path = control.source.root.join("scripts/runtime_control.py");
+        tokio::fs::write(&path, &source).await.unwrap();
+        control.source.sha256[2] = hex::encode(Sha256::digest(source.as_bytes()));
+        let result = control
+            .observe_controller_restart(&files, &original)
+            .await
+            .unwrap();
+        assert_eq!(result.receipt.generation, original.generation);
+        // Closed observation request never asks the source to claim, attach or stop.
+        tokio::fs::write(&path, "raise RuntimeError('must not execute')")
+            .await
+            .unwrap();
+        files.mapping_file = None;
+        assert!(
+            control
+                .observe_controller_restart(&files, &original)
+                .await
+                .is_err()
+        );
+        files.mapping_file = Some(control.source.root.join("mapping.json"));
+        files.mount_mapping = None;
+        assert!(
+            control
+                .observe_controller_restart(&files, &original)
+                .await
+                .is_err()
+        );
+        tokio::fs::remove_dir_all(control.source.root)
+            .await
+            .unwrap();
     }
 
     fn receipt(original: &ContainerRegistration) -> ContainerReceipt {

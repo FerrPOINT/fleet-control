@@ -1,5 +1,17 @@
 # Runtime
 
+## Controller Restart Observation
+
+The opt-in mapped container consumer can read Base's original-controller restart
+witness and return degraded health without taking custody. It verifies the old
+mapping/registration, distinct same-controller Engine start and fresh immutable
+DB launch/ACK/PID. No runtime state, endpoint, capacity or configuration is changed;
+no Hermes call is permitted. See
+[private contract](contracts/CONTAINER_CONTROL_V1.md#original-controller-restart-observation).
+This does not yet restore execution after Fleet restart. Durable fenced owner
+transfer, interrupted activation and source/recreation/storage recovery require
+their own implementation and actual supervisor acceptance.
+
 ## Container Endpoint Authority
 
 Container HTTP origins are not user settings. After the original Base guard

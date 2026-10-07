@@ -1,5 +1,82 @@
 # Chat Clarification Verification
 
+## Original Controller Restart Observation: 7 October 2026
+
+Base published source
+[9171fe6b1b6b05b9504d33fb881f274c0b5541e0](https://github.com/FerrPOINT/services-base/commit/9171fe6b1b6b05b9504d33fb881f274c0b5541e0)
+adds read-only protocol2 restart observation. Actual own native Compose project
+`sdlc-qa-mount-mapping-0b0ee9958950` passes38 Linux control cases, restarts the
+same physical controller and proves unchanged original UID999 synthetic agent
+namespace plus private journal bytes. Observer replay succeeds; ordinary
+observe/start/endpoint/stop remain denied. All11 frozen inputs match, own
+containers/networks/two disposable volumes/three aliases are removed and
+permanent runtime is unchanged. This is not a real Fleet process or Hermes model.
+
+- Base native report SHA256:
+  `e8fcac83e0add31841ab442aa8c6fad6ec8707538859d11af1649c7c0a37104d`.
+- Native manifest SHA256:
+  `6abcefae36b3bf42db0305b3d8bb6d1c78ae8c1a7e96d7004c80f08b9b8ea944`.
+- Native restart probe log SHA256:
+  `2eac8bf9b739f32208ceccd1ade03d12e78056f2bb063c71ac141be8d669e84f`.
+
+Private native artifacts: Base repo
+`.local/mapping-live/sdlc-qa-mount-mapping-0b0ee9958950-cahz202p/`.
+The earlier `0b08215de800` and `003a2e52d704` attempts remain failed, cleaned
+QA-harness evidence; they did not reach the controller restart assertion.
+No production guard was weakened to repair initialization/ownership checks.
+
+The separate full Base Linux/Rust1.88/PostgreSQL gate
+`sdlc-qa-base-ledger-136ff8acea1c` passes fmt/locked strict all-target Clippy,
+63 Rust cases with14 explicit opt-in ignores and145 Linux runtime cases without
+skips. All164 captured inputs match and own resources are cleaned. Frontend
+13 Node/83 UI cases, typecheck/lint and README/hub checks pass.
+Manifest SHA256
+`c0a300d695216749b05b98c35c069583bb7df8ca931a2284158d7dae6623a3ff`,
+gate log SHA256
+`75f7fad6fb3677519e0d516e6a9bb32804f55933542f0eada339ad0a8c2f951c`.
+Private artifacts: workspace `.local/base-ledger-checks-1b4a9bb3cc15/`.
+
+Fleet adds three closed client/subprocess cases and one PostgreSQL supervisor
+case. A separate restarted supervisor reads original evidence, reports degraded
+health and does not mutate agent/launch/files or obtain start/stop/gateway
+generation authority; original ACK/PID/source drift remain denied. This is not
+the actual Rust-to-Base/Docker controller takeover gate. No migration, public
+API, SDK/source pin, UI or installed runtime change is introduced. Durable owner
+transfer, interrupted activation, recreated controller/lost journal/source upgrade,
+production collection, predispatch/PM/Forge and full live SDLC remain open.
+
+Fresh Fleet project `sdlc-qa-fleet-container-control-bc612f06c2ac` passes
+Linux/Rust1.88 fmt, locked offline all-target check/strict Clippy and555 workspace
+cases in37 result groups, with zero failures and30 explicit opt-in ignores.
+All295 captured backend/SDK inputs remain unchanged; owned containers/networks
+are removed and independently queried empty. Baseline is Fleetf1891aa plus the
+three captured runtime/client/test changes, unchanged SDKcbb4e99. Rust-generated
+OpenAPI is byte-identical to the committed specification; this private witness
+adds no public path or DTO.
+
+- Fleet source manifest SHA256:
+  `f9577c39e1054a222515a7236abc0239b9d932931e6beae01a34acc1afaaa9f3`.
+- Full gate log SHA256:
+  `74019412d2e9a2f161e242ebcea307bcc91bcaae55c85b0ac5c15f7afc026b2a`.
+- Report SHA256:
+  `635805327cc3350d6db1b503294f86947fe26e5f2078bf6d926991b83139915e`.
+- Exported OpenAPI SHA256:
+  `76a27c806961bc142543445e34f10525485cbcf2f0b66ac2fe5d093fc808a10f`.
+
+Private artifacts: workspace `.local/fleet-container-control-checks-ae060a953134/`.
+Three earlier projects stay failed/interrupted evidence, with exact own cleanup:
+`4e5be8163f8e` and `4ee56898c0c1` stopped at test compilation (private helper and
+unqualified path type); `e1e69c41a69c` was deliberately stopped through its
+verified exact Compose manifest before correcting a mock-only missing-file
+assertion. The successful test checks the actually persisted preparation/mapping
+documents and call ledger; real Compose/SQLite byte preservation remains Base's
+separate native proof. No production source guard was weakened.
+
+Fresh existing frontend checks pass292 unit cases in31 files, typecheck, lint,
+formatting, README and127 Markdown links. The135-screen manifest and9 verifier
+cases pass. No new browser capture or live runtime/PM UI acceptance is claimed
+for this backend-only packet.
+
 ## Original-Key Control Lookup: 7 October 2026
 
 The additive human GET recovers the original actor/key receipt when an initial

@@ -1,5 +1,23 @@
 # Gap Register
 
+## Controller Restart Witness; Ownership Recovery Remains
+
+Base source9171fe6 adds read-only same-controller restart observation and passes
+actual owned Compose restart, unchanged original namespace/journals and closed
+lifecycle effects. Fleet consumes the closed witness for degraded health only,
+under fresh original DB binding/ACK/PID checks. It does not restore custody,
+release capacity, change effective configuration or dispatch. See
+[verification](CHAT_CLARIFICATION_VERIFICATION.md#original-controller-restart-observation-7-october-2026).
+
+Next implement durable fenced owner transfer with original launch/registration,
+current controller epoch, DB lease/CAS and immutable takeover history. Crash and
+interrupted activation must reconcile original checkpoint/config/unknown command
+before any effect; never restore a prior random controller UUID. Prove actual
+Fleet/Base/Docker restart with ongoing run and denial of competing owner. New
+container ID/source upgrade/lost journal need explicit compatible recovery, not
+fallback. Base PR150 now conflicts with main and remains an independent release
+dependency; do not relabel the published integration branch as main-ready.
+
 ## Original-Key Control Lookup; Consumer And Live Proof Remain
 
 Public GET now recovers an existing receipt without the lost command UUID, using

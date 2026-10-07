@@ -1,5 +1,17 @@
 # Security
 
+## Controller Restart Witness Is Not Authority
+
+The private restart observer is read-only and retains original source/context,
+mapping/file and registration custody. Same controller ID and PID alone do not
+prove restart; distinct Engine start and unchanged immutable inventory/storage
+are required. Fleet checks the original DB ACK/PID again after readback. The
+response never grants an ownership lease or rewrites the old controller UUID;
+foreign controllers still cannot dispatch, stop, start or activate. Health remains
+degraded and no nonpersisted transition is treated as a DB state change. Missing
+private storage is not rebuilt. See
+[contract](contracts/CONTAINER_CONTROL_V1.md#original-controller-restart-observation).
+
 ## Original Runtime Control Key Lookup
 
 Control recovery by original key is human-only and actor-scoped even with

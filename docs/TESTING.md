@@ -1,5 +1,22 @@
 # Testing
 
+## Controller Restart Observation
+
+Three private client cases cover same-controller/recycled-PID readback, original
+running/exited namespace, closed result/hash/epoch/scope/ACK denials and a real
+Unix subprocess using frozen wire fixtures. One PostgreSQL supervisor case uses
+a separate restarted supervisor, original DB ACK and controlled Base source:
+health remains degraded, old launch/runtime/files remain exact, source/PID drift
+is denied and start/stop/dispatch custody stays closed. These are not an actual
+Fleet OS-process/Docker restart or restored execution.
+
+Base's separate native Compose scenario restarts the same physical controller
+while the original UID999 synthetic agent remains running, preserves exact
+journal bytes and denies observe/start/endpoint/stop. It passes38 Linux control
+cases; Base full gate passes63 Rust cases (14 explicit ignores) and145 Linux
+runtime cases without skips. Exact provenance and Fleet gate results belong in
+[verification](CHAT_CLARIFICATION_VERIFICATION.md#original-controller-restart-observation-7-october-2026).
+
 ## Original-Key Runtime Control Readback
 
 Two domain cases fix canonical UTF8 hash vectors (stop/null, steer, Unicode/

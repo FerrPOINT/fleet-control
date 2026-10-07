@@ -1,5 +1,26 @@
 # Implementation Plan
 
+## Controller Ownership Recovery After Read-Only Witness
+
+The Base same-container restart observer is published at
+[9171fe6](https://github.com/FerrPOINT/services-base/commit/9171fe6b1b6b05b9504d33fb881f274c0b5541e0).
+Actual native proof retains the original running synthetic agent and byte-exact
+journals with lifecycle effects denied. Fleet's typed consumer verifies original
+mapping/registration plus fresh immutable DB launch/ACK/PID for degraded health;
+this is not adoption. See
+[evidence](CHAT_CLARIFICATION_VERIFICATION.md#original-controller-restart-observation-7-october-2026).
+
+Complete recovery with a durable CAS/lease owner record and immutable controller
+epoch history, without rewriting original launch identity. Only exact retained
+private source/config/launch witnesses and confirmed old controller cessation
+may authorize the new owner. Reconcile activation checkpoints and unknown native
+commands before resuming; a lost journal, competing owner, new container ID or
+source-policy upgrade must remain held until its explicit recovery rule is proven.
+Validate real Fleet/Base/Docker recovery and ongoing run before installed opt-in.
+Keep release migrations isolated and ordered. Base PR150 remains a prerequisite
+and currently conflicts with main; do not fold its unrelated history into a new
+release PR or change the installed SDK pin from these utility tests.
+
 ## Public Control Recovery Consumer Handoff
 
 The verified-human original-key GET is implemented and covered by the fresh

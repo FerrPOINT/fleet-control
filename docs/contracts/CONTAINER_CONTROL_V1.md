@@ -10,6 +10,37 @@ controller recovery and Docker log ingestion remain incomplete.
 Native execution is not
 silently relabelled Docker.
 
+## Original Controller Restart Observation
+
+Base candidate
+[9171fe6b1b6b05b9504d33fb881f274c0b5541e0](https://github.com/FerrPOINT/services-base/commit/9171fe6b1b6b05b9504d33fb881f274c0b5541e0)
+adds private protocol2 `observe_controller_restart`. Only original mapped
+policy3/registration/files are accepted. A fresh Engine observation must prove
+a distinct `StartedAt` of the same controller ID, immutable inventory, Engine,
+named volume and mount projection. Base reads the original agent ACK twice and
+does not rewrite mapping/registration/SQLite, attach, claim, start or stop.
+
+The closed result contains `contract_version=1`,
+`state=controller_restart_observed`, `original_mapping_sha256`,
+`registration_sha256`, `original_controller_snapshot`,
+`current_controller_snapshot` and original `receipt`. Fleet checks both hashes,
+exact original snapshot, same controller/inventory, valid distinct start and an
+acknowledged original running/exited namespace. A recycled controller PID is
+allowed only with distinct Engine start; PID-only change is denied. Extra/missing
+fields, unknown ACK, source drift and unmapped legacy requests remain held.
+
+The restarted supervisor may report this witness as degraded health only when
+the fresh immutable DB launch/ACK/PID remain exact before/after the read. It does
+not cache ownership, write runtime state, release capacity or call Hermes. All
+mutating lifecycle and dispatch paths still require original controller custody.
+This is **not ownership transfer or complete crash recovery**. New controller
+ID/source upgrade, lost storage, interrupted activation, durable ownership fence
+and actual Fleet/Base/Docker restart acceptance remain separate gates. The SDK
+and installed source pins are unchanged; older source rejects this action.
+
+See [verification](../CHAT_CLARIFICATION_VERIFICATION.md#original-controller-restart-observation-7-october-2026)
+and [operations](../OPERATIONS.md#controller-restart-observation).
+
 ## Private Log Tail Candidate
 
 The Rust client adds `log_tail` for the versioned Base `logs` operation. It uses

@@ -1,5 +1,27 @@
 # Current State
 
+## Original Controller Restart Observation: 7 October 2026
+
+Base candidate
+[9171fe6](https://github.com/FerrPOINT/services-base/commit/9171fe6b1b6b05b9504d33fb881f274c0b5541e0)
+has actual same-container Compose restart evidence: original synthetic agent
+namespace and private journal bytes remain unchanged, while mutating lifecycle
+stays denied. Fleet now decodes the closed witness and checks the immutable DB
+launch/ACK/PID before returning read-only degraded health. It does not adopt
+ownership or permit model/runtime effects. See
+[verification](CHAT_CLARIFICATION_VERIFICATION.md#original-controller-restart-observation-7-october-2026).
+
+Fresh Linux/Rust1.88/PostgreSQL fmt/check/strict Clippy and555 workspace cases
+pass in37 groups with30 explicit opt-in ignores. All295 captured inputs match;
+own Compose resources are removed and OpenAPI remains byte-identical. Four new
+client/supervisor cases pass, not actual Fleet/Base/Docker takeover acceptance.
+
+Full fenced controller transfer, interrupted configuration activation, missing
+journals, source upgrade/recreation, production logs and task/PM admission remain
+open. SDK/source pins and installed runtime are unchanged. Base PR150 is still
+an open prerequisite and the fresh GitHub check now reports main conflicts;
+historical green CI does not make that dependency merge-ready.
+
 ## Original-Key Control Lookup: 7 October 2026
 
 The candidate adds a verified-human, actor-scoped read-only control lookup when

@@ -2,6 +2,14 @@
 
 ## Container Candidate
 
+Private controller restart observation is a read-only degraded-health witness,
+not restored ownership. It checks exact original mapping/registration/DB ACK and
+PID without mutating the old launch or authorizing gateway effects. The Base
+utility has actual same-container Compose restart evidence; the Fleet consumer
+has separate typed/subprocess/PostgreSQL tests. Full supervisor takeover,
+interrupted activation and missing-journal recovery remain open. See
+[restart contract](CONTAINER_CONTROL_V1.md#original-controller-restart-observation).
+
 New automatic intents preserve the exact guarded dotenv input/hash in private
 controller storage before create and under the immutable preparation DB hash.
 Revision-bound input must match its rendered file; retry/start reject drift.

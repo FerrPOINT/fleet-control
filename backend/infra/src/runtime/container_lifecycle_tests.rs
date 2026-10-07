@@ -574,6 +574,8 @@ if r['protocol_version']==2:
  raw=json.dumps(mapping,sort_keys=True,separators=(',',':'))
  if r['action']=='prepare' and not file.exists():file.write_text(raw);file.chmod(0o600)
  assert file.read_text()==raw
+ if (root/'controller-restart').exists() and r['action']!='observe_controller_restart':
+  raise RuntimeError('Original mapped controller epoch changed')
 if r['action']=='resolve_mounts':
  mounts=[dict(m,source='/daemon/volumes/own/_data/'+m['source'][len(r['local_root'])+1:]) for m in r['policy']['mounts']]
  result={'state':'resolved','controller':r['controller'],'snapshot':{'container_id':r['controller']['container_id'],'started_at':'2026-10-06T12:00:00Z','init_pid':999,'inventory_sha256':'a'*64},'engine':{'ID':'original-engine','KernelVersion':'original-kernel','ServerVersion':'29'},'local_root':r['local_root'],'volume_name':'qa_owned_agents','volume_sha256':'b'*64,'mounts':mounts,'input_policy_sha256':digest(r['policy'])}
@@ -597,6 +599,16 @@ elif r['action']=='prepare':
   reg={'contract_version':policy['contract_version'],'operation_id':r['operation_id'],'container_id':digest(policy['generation']),'resource_id':policy['resource_id'],'generation':policy['generation'],'engine':{'ID':'original-engine','KernelVersion':'original-kernel','ServerVersion':'29'},'policy_sha256':digest(policy),'inventory_sha256':'c'*64,'running_inventory_sha256':'d'*64,'compose_sha256':'e'*64,'network_sha256':'f'*64}
   if r['protocol_version']==2:reg['mount_mapping_sha256']=digest(r['mount_mapping'])
   result={'state':'prepared','policy':policy,'registration':reg}
+elif r['action']=='observe_controller_restart':
+ reg=r['registration'];mapping=r['mount_mapping']
+ assert (root/'controller-restart').exists() and (root/(reg['generation']+'.started')).exists()
+ assert (root/'known-start').exists() and not (root/(reg['generation']+'.unknown')).exists()
+ receipt={k:reg[k] for k in ('contract_version','operation_id','container_id','resource_id','generation')}
+ snap={'contract_version':reg['contract_version'],'container_id':reg['container_id'],'engine':reg['engine'],'policy_sha256':reg['policy_sha256'],'inventory_sha256':reg['running_inventory_sha256'],'started_at':'2026-10-06T12:00:00.123456789Z','init_pid':12345,'network_sha256':reg['network_sha256']}
+ if (root/'restart-agent-drift').exists():snap['init_pid']+=1
+ receipt.update(registration_sha256=digest(reg),state='observed',observation='running',snapshot=snap)
+ current=dict(mapping['snapshot'],started_at='2026-10-07T12:00:00Z',init_pid=987)
+ result={'contract_version':1,'state':'controller_restart_observed','original_mapping_sha256':digest(mapping),'registration_sha256':digest(reg),'original_controller_snapshot':mapping['snapshot'],'current_controller_snapshot':current,'receipt':receipt}
 elif r['action']=='attach_controller':
  reg=r['registration']
  if (root/'attach-unknown').exists():
@@ -1170,6 +1182,132 @@ fn with_mapping_controller(mut config: AppConfig) -> AppConfig {
         service: "fleet-backend".into(),
     });
     config
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn controller_restart_health_observes_original_ack_without_granting_new_custody() {
+    let Some((repo, agent, _, config, root)) = lifecycle_tests::fixture(AgentKind::Hermes).await
+    else {
+        return;
+    };
+    let config = with_mapping_controller(fake_creation(&config, &agent, false).await);
+    let runtime = lifecycle_tests::supervisor(Arc::new(config.clone()), repo.clone());
+    let launch = runtime
+        .prepared_container(&agent, LaunchPhase::Regular)
+        .await
+        .unwrap();
+    repo.claim_runtime_launch(&launch).await.unwrap();
+    let container = launch.container.as_ref().unwrap();
+    let private = root.join("controller");
+    tokio::fs::write(private.join("known-start"), "1")
+        .await
+        .unwrap();
+    let launch_files = container_control::ContainerLaunchFiles {
+        policy: container.policy.clone(),
+        compose: container.compose.clone().into(),
+        journal: container.journal.clone().into(),
+        stop_journal: container.stop_journal.clone().into(),
+        mount_mapping: container.mount_mapping.clone(),
+        mapping_file: container
+            .mapping_file
+            .as_ref()
+            .map(std::path::PathBuf::from),
+    };
+    let started = runtime
+        .container_control(container)
+        .unwrap()
+        .start(&launch_files, &container.registration)
+        .await
+        .unwrap();
+    repo.observe_runtime_launch(
+        &launch,
+        "gateway_started",
+        Some(started.snapshot.unwrap().init_pid as i32),
+    )
+    .await
+    .unwrap();
+    tokio::fs::write(private.join("controller-restart"), "1")
+        .await
+        .unwrap();
+    let retained = repo
+        .get_open_runtime_launch(agent.id)
+        .await
+        .unwrap()
+        .unwrap();
+    let agent_before = serde_json::to_value(repo.get_agent(agent.id).await.unwrap()).unwrap();
+    let files = [
+        private
+            .join(format!("{}.container-prepared.json", agent.id))
+            .to_string_lossy()
+            .into_owned(),
+        container.mapping_file.clone().unwrap(),
+        private.join("start-calls").to_string_lossy().into_owned(),
+    ];
+    let mut original_bytes = Vec::new();
+    for path in &files {
+        original_bytes.push(tokio::fs::read(path).await.unwrap());
+    }
+    let restarted = lifecycle_tests::supervisor(Arc::new(config.clone()), repo.clone());
+    assert_ne!(restarted.controller_id, launch.controller_id);
+    for _ in 0..2 {
+        let result = restarted.health_locked(&agent).await.unwrap();
+        assert_eq!(result.status, AgentStatus::Degraded);
+        assert!(
+            result
+                .message
+                .contains("ownership transfer remains required")
+        );
+    }
+    assert!(restarted.gateway_launch_generation(agent.id).await.is_err());
+    assert!(restarted.stop_locked(&agent).await.is_err());
+    assert!(
+        restarted
+            .start_locked(&agent, LaunchPhase::Regular)
+            .await
+            .is_err()
+    );
+    assert!(restarted.launches.lock().await.is_empty());
+    assert!(restarted.children.lock().await.is_empty());
+    let after = repo
+        .get_open_runtime_launch(agent.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        serde_json::to_value(after.binding).unwrap(),
+        serde_json::to_value(&retained.binding).unwrap()
+    );
+    assert_eq!(after.state, retained.state);
+    assert_eq!(after.pid, retained.pid);
+    assert_eq!(
+        serde_json::to_value(repo.get_agent(agent.id).await.unwrap()).unwrap(),
+        agent_before
+    );
+    for (path, bytes) in files.iter().zip(&original_bytes) {
+        assert_eq!(&tokio::fs::read(path).await.unwrap(), bytes);
+    }
+    tokio::fs::write(private.join("restart-agent-drift"), "1")
+        .await
+        .unwrap();
+    assert!(restarted.health_locked(&agent).await.is_err());
+    tokio::fs::remove_file(private.join("restart-agent-drift"))
+        .await
+        .unwrap();
+    let mut changed_config = config;
+    changed_config
+        .fleet
+        .container_control
+        .as_mut()
+        .unwrap()
+        .source_sha256[2] = "0".repeat(64);
+    let changed = lifecycle_tests::supervisor(Arc::new(changed_config), repo.clone());
+    assert!(changed.health_locked(&agent).await.is_err());
+    assert_eq!(
+        serde_json::to_value(repo.get_agent(agent.id).await.unwrap()).unwrap(),
+        agent_before
+    );
+    tokio::fs::remove_dir_all(root).await.unwrap();
 }
 
 #[cfg(target_os = "linux")]

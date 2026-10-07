@@ -1,5 +1,16 @@
 # Traceability
 
+Controller restart observation:
+[private contract](contracts/CONTAINER_CONTROL_V1.md#original-controller-restart-observation),
+`container_control::observe_controller_restart`, closed witness decoder and
+`container_lifecycle::health_container_locked` original DB ACK/PID checks.
+Three client/subprocess cases and one PostgreSQL supervisor case distinguish
+read-only degraded health from new ownership and retain lifecycle/generation
+holds. Base source9171fe6 has separate actual same-container Compose restart
+evidence with original synthetic agent/journal preservation. See
+[exact evidence](CHAT_CLARIFICATION_VERIFICATION.md#original-controller-restart-observation-7-october-2026).
+Full fenced transfer, interrupted activation and actual Fleet recovery remain open.
+
 Public original-key control recovery:
 [consumer contract](contracts/HERMES_RUN_CONTROL_V1.md#fleet-command-journal),
 `sessions::lookup_control`, indexed `runtime_controls::lookup` and two domain
