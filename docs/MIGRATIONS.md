@@ -30,9 +30,9 @@ files and applied ledger entries are not rewritten or renamed. On each status,
 up or down operation, the stored ledger selects its original foundation;
 unknown versions or a mixture of split and combined histories fail closed.
 
-Both registries append the same ordered nine runtime/chat migrations
-`000010_task_chats` through `000018_container_preparations`: nineteen entries for a
-canonical installation, twenty-two for a split installation. Full migration
+Both registries append the same ordered twelve runtime/chat migrations
+`000010_task_chats` through `000021_controller_recovery_delivery`: twenty-two entries for a
+canonical installation, twenty-five for a split installation. Full migration
 names, not ordinal suffixes alone, identify a step. A matching numeric suffix
 does not replace a historical split step with a newer runtime release.
 
@@ -61,6 +61,23 @@ lost preparation provenance. Test its clean upgrade and populated-history
 preservation using `FLEET_CONTAINER_PREPARATION_MIGRATION_TEST_DATABASE_URL`.
 Release this single migration in an ordered packet after its runtime-launch
 dependency, never as part of the accumulated integration tail.
+
+## Endpoint And Controller Recovery Follow-Ups
+
+`000019_runtime_endpoints` adds original-generation endpoint/attachment receipts;
+`000020_controller_recovery` adds immutable recovery epochs and DB-clock custody;
+`000021_controller_recovery_delivery` adds original native commands, once-only
+claims, retained outcomes and audit. These are three separate additive steps,
+not replacements for preparation000018 or the accepted foundations.
+
+Each must follow its predecessor in a release packet with at most one new
+migration. Recovery/history rows prevent destructive downgrade. A historical
+positive receipt after expiry does not renew custody, authorize model/control
+effects or permit redispatch. See
+[controller recovery contract](contracts/CONTROLLER_RECOVERY_V1.md).
+The registry in `backend/migration/src/lib.rs` is authoritative for exact names;
+the lineage suite derives counts from its ordered follow-ups and checks both
+accepted foundations without changing prior ledger entries.
 
 ## Journal Time Ordering
 
