@@ -1,0 +1,190 @@
+{
+  "consumerBaseline": "14982e15e9597e3bf7d6a9490381e0b99f7f120f",
+  "integratedPublishedBaseline": "abcf8224b47051bec1d9e48fab2781ffcdef4db0",
+  "baselineFrontendAndBrowserApiIdentical": true,
+  "additionalIntegrationCheckoutInspected": "d50c6947bdaf60dea73b096a71b1f09d69220392",
+  "additionalCheckoutFrontendAndBrowserApiIdentical": true,
+  "basePin": "cbb4e99230420dc2659431b1c9fb5090e5c940f0",
+  "sourceByteConvention": "Git blob/LF bytes",
+  "sourceSha256": {
+    "frontend/src/pages/chat-detail/index.tsx": "53eb82ad1f486cb3155ddaf12543e266b41b311fb7bc46e69bdd9c635c8b61d8",
+    "frontend/src/pages/chat-detail/index.test.tsx": "b92cacecbc71b6934a7f9c0578ffb60e8fffdc788742c98f49fd1f6760933342",
+    "frontend/e2e/fleet-control.spec.ts": "8663cc2051bce935f0676efe7f341b7b9eb9944fc1505d1ce8ca45bb66de6228",
+    "docs/CHATS_PM_FINAL_HANDOFF_20261006.md": "841140dd490c0564a2c4e19a77e259388ecea28091f2bbe3a95aba755dfba5be"
+  },
+  "scope": "Fresh session access, GET reconciliation of original known steer receipt, visible-content new-message indicator",
+  "backendChanged": false,
+  "runtimeChanged": false,
+  "apiChanged": false,
+  "sdkChanged": false,
+  "producerChanged": false,
+  "productionPmDraftFormAdded": false,
+  "pmDraftDesignApproved": false,
+  "liveAcceptance": false,
+  "unitPassed": 309,
+  "unitFiles": 31,
+  "chatUnitCases": 71,
+  "newChatUnitCases": 17,
+  "browserPassed": 63,
+  "browserProjects": ["chromium", "firefox", "webkit"],
+  "browserWorkers": 3,
+  "browserOrigin": "http://localhost:24173",
+  "fixtureOnly": true,
+  "ownedFixturePreviewStopped": true,
+  "beforeFix": [
+    {
+      "log": "chat-session-access-before.log",
+      "failed": 6,
+      "stage": "Baseline production session access; reconnect/event and cached-success retry regressions",
+      "logSha256": "561781d6cf01bcbba1ea0bae849bde971b5d1a34b9d5860e0de4ab6f02e13a20"
+    },
+    {
+      "log": "chat-session-access-recovery-before.log",
+      "failed": 1,
+      "stage": "Baseline production; explicit access GET recovery",
+      "logSha256": "f63718aaf1f6688ef4f3b3a26b47d8d7ed7fac236c2adab322a13164e434bba2"
+    },
+    {
+      "log": "chat-steer-receipt-before.log",
+      "failed": 2,
+      "stage": "After session freshness fix, before original receipt recovery; initial fixture omitted required session_id, corrected before final validation",
+      "logSha256": "edfcc5fa51c289678fb7d0a9663b880916ad5b5819482c6eb8bc6c5dd01e101d"
+    },
+    {
+      "log": "chat-stream-reading-before.log",
+      "failed": 2,
+      "stage": "After session/receipt fixes, before visible-content indicator fix",
+      "logSha256": "8ecff39f24cf9626c89bff5f5c7c5c9147758e97c3a34ef6bbc338b76b0da92f"
+    }
+  ],
+  "baselineProductionSha256": "d4413508bd8ed523ef91954b66012334f43fc7c269fcff16fa99af99b80df0e9",
+  "logSha256": {
+    "chat-session-access-unit.log": "a85b1181768cf4e148e95d1c92357b1a297fd93323102c73efde3c33e28c8e3d",
+    "chat-session-access-all-unit.log": "014b7c3f36c5aea36334c0a21f608566d40f6be7ffe192b8309cb47d4b5ff16f",
+    "chat-session-access-browser.log": "4f6121f46ee27cdf52cddf6237cee379507752372e22c9effd2c8c9d168f8ea1",
+    "chat-session-access-build.log": "d624b4444306c2eb95c5158376747415fb318762d0086325054bf171b15759de",
+    "chat-session-access-lint.log": "fea2ca52c435e20a7e93d4541868d89dc441a99a8ebb4d3e82613b6932415200",
+    "chat-session-access-ui.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "initialBuildFixtureFailure": {
+    "cause": "RuntimeRunControlResponse fixture lacked required session_id; corrected in unit/browser fixtures and response scope validation before final checks",
+    "logSha256": "20aa36f63089ecdde27437d86c4b998a644b760c9af000e8172c39e4678d391a"
+  },
+  "browserScenario": {
+    "cachedSessionRetryHoldsAnswer": true,
+    "sessionDenialHidesWorkspace": true,
+    "explicitAccessGetRestoresDraftWithoutPost": true,
+    "knownOriginalSteerAcknowledgementWithoutSecondPost": true,
+    "pageerrorFiltered": false
+  },
+  "unitAdditionalAcceptance": [
+    "session denial disposes the authenticated stream",
+    "cached-success session retry holds prompt, answer and confirmation",
+    "original command receipt resolves after active run changes",
+    "wrong ID/run/actor and terminal without acknowledgement remain held",
+    "reconnect/inactive delta do not announce new messages; active delta does"
+  ],
+  "screenshots": [
+    {
+      "file": "chat-session-read-held-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "5c546d27b50c67d979a96b02803c02fbd3134fbe74b2d698bb8f76cc26688d87",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-session-read-held-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "3a58b1105c8f93ee2f8687bd04f61d30f6934b5d0c600ad66604efa64722a40e",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-session-read-held-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "d197d06cd1738a32b8205685007813c21eb3c08053f2deeb83b890b6f0239812",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-session-access-denied-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "ff13a6549fc14e9d099a3df44aa86f906d286da75b5286a08a16029e965bf78d",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-session-access-denied-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "b6a60e4428debf1fa880f94b63063c950761087ba88d8c87365d3df866926d5c",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-session-access-denied-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "42ffe3be9976d332e60ef84ac91a32e6ccb80226dce87020677e6904a79d9c00",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-steer-confirmed-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "a8530eb568883b9f3645b69a8bb8d7c69e105317fbd252bd074377af60482669",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-steer-confirmed-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "8ab6db4271f5d14751539d98fed9c2ffa5be939460eb6245c7d39a7866434f28",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-steer-confirmed-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "78fc0bfe12b639744c03ccec22479ee46817076394dab2161032ffcdb4ff7b53",
+      "browser": "chromium",
+      "fixtureOnly": true
+    }
+  ],
+  "screenshotsVisuallyReviewed": true,
+  "tracker114": {
+    "head": "8c80a41fae3bf1c10439ddb7e536b05bf320340d",
+    "state": "OPEN"
+  },
+  "workflow90": {
+    "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+    "state": "OPEN"
+  },
+  "checksPassed": [
+    "309 unit cases",
+    "pnpm build including tsc --noEmit",
+    "pnpm lint",
+    "installed Base UI contract checker",
+    "pinned Base verification",
+    "63 fixture browser cases across three engines"
+  ],
+  "limits": [
+    "PM Draft design approval is still pending",
+    "No original-key steer lookup exists when the initial receipt ID is lost",
+    "Base SDK direct SSE HTTP 401/403 has no consumer status callback",
+    "Native PM admission/publication/delivery/projection/checkpoint/resume remain live integration acceptance",
+    "Original combined Base WebKit pending-fetch navigation diagnostic remains open",
+    "No exact-head independent branch CI"
+  ],
+  "warnings": [
+    "Existing Vite chunk-size warning",
+    "Fixture teardown may issue unhandled late GET requests to absent upstream; no pageerror suppression"
+  ]
+}

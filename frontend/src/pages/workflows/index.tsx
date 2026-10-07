@@ -122,7 +122,9 @@ export function WorkflowsPage() {
                   agent={agentsById.get(binding.agent_id)}
                   catalog={catalog.data}
                   catalogLoading={catalog.isLoading}
-                  catalogUnavailable={catalog.isError}
+                  catalogUnavailable={
+                    !catalog.isSuccess || catalog.isFetching || catalog.failureCount > 0
+                  }
                 />
               ))}
             </div>

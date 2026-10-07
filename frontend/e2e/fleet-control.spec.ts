@@ -1,5 +1,5 @@
 import { expect, test, type Page, type Route } from '@playwright/test'
-import { generateKeyPairSync, sign } from 'node:crypto'
+import { createHash, generateKeyPairSync, sign } from 'node:crypto'
 import AxeBuilder from '@axe-core/playwright'
 
 const now = '2026-09-01T10:00:00+03:00'
@@ -884,6 +884,465 @@ for (const change of ['renamed', 'replaced'] as const) {
     expect(errors).toEqual([])
   })
 }
+
+test('chat revalidates session access on stream reconnect and preserves the denied answer draft', async ({
+  page,
+}, info) => {
+  test.setTimeout(60000)
+  const state = createState()
+  await installMocks(page, state)
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  const question = {
+    id: '00000000-0000-4000-8000-000000000501',
+    request_id: '00000000-0000-4000-8000-000000000502',
+    task_id: ids.session,
+    root_task_id: ids.session,
+    assignment_id: '00000000-0000-4000-8000-000000000503',
+    execution_id: '00000000-0000-4000-8000-000000000504',
+    agent_id: ids.dev,
+    assignment_version: 1,
+    checkpoint_id: '00000000-0000-4000-8000-000000000505',
+    author_subject: ids.dev,
+    created_at: now,
+    version: 1,
+    requirement_revision: 1,
+    text: 'Кто может просматривать задачи?',
+    rationale: 'Фиксируем границы доступа.',
+    required: true,
+    mode: 'single',
+    state: 'open',
+    answer: null,
+    requirement_reference: 'REQ-1',
+    recommended_option_id: ids.dev,
+    options: [
+      { id: ids.dev, label: 'Участники проекта', consequences: 'Только проект.', is_custom: false },
+    ],
+  }
+  let phase: 'ready' | 'retry' | 'denied' | 'recovered' = 'ready'
+  let failedReads = 0
+  let heldReads = 0
+  let releaseRead!: () => void
+  const gate = new Promise<void>((resolve) => {
+    releaseRead = resolve
+  })
+  const commands: string[] = []
+  await page.route(`**/api/v1/sessions/${ids.session}`, async (route) => {
+    if (phase === 'retry') {
+      if (failedReads++ === 0)
+        return fulfill(route, { error: { message: 'Session read retry pending' } }, 503)
+      heldReads += 1
+      await gate
+    }
+    if (phase === 'denied')
+      return fulfill(route, { error: { message: 'Session access revoked' } }, 403)
+    return fulfill(route, {
+      ...state.sessions[0],
+      title: phase === 'recovered' ? 'Recovered session' : state.sessions[0].title,
+    })
+  })
+  await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (route.request().method() === 'POST') commands.push(path)
+    if (path.endsWith('/task-context'))
+      return fulfill(route, {
+        binding: {
+          tracker_instance_id: 'fixture-tracker',
+          project_id: ids.dev,
+          task_id: ids.session,
+          root_task_id: ids.session,
+          agent_id: ids.dev,
+          owner_subject: ids.user,
+        },
+        tracker: {
+          contract_version: 1,
+          tracker_instance_id: 'fixture-tracker',
+          project_id: ids.dev,
+          task_id: ids.session,
+          root_task_id: ids.session,
+          owner_subject: ids.user,
+          stage: 'Clarification',
+          requirement_revision: 1,
+          waiting_reason: 'Требуется ответ',
+          assignment: null,
+          permissions: { can_answer: true, can_confirm: false },
+        },
+      })
+    if (path.endsWith('/clarifications')) return fulfill(route, { questions: [question] })
+    if (path.endsWith('/requirements')) return fulfill(route, { revisions: [] })
+    if (path.endsWith('/chat-controls'))
+      return fulfill(route, {
+        can_send: false,
+        can_steer: false,
+        can_stop: false,
+        active_run_id: null,
+        blocked_reason: 'workflow_assignment_required',
+      })
+    return route.fallback()
+  })
+  try {
+    await page.goto(`/chats/${ids.session}?tab=clarification`)
+    const choice = page.getByRole('radio', { name: /Участники проекта/ })
+    await choice.check()
+    await page.getByLabel('Комментарий', { exact: true }).fill('Preserve this answer draft')
+    const save = page.getByRole('button', { name: 'Сохранить ответ' })
+    await expect(save).toBeEnabled()
+    phase = 'retry'
+    await expect.poll(() => heldReads, { timeout: 15000 }).toBeGreaterThan(0)
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await expect(choice).toBeChecked()
+      await expect(choice).toBeDisabled()
+      await expect(save).toBeDisabled()
+      await expect(page.getByLabel('Комментарий', { exact: true })).toHaveValue(
+        'Preserve this answer draft',
+      )
+      await page.screenshot({
+        path: info.outputPath(`chat-session-read-held-${viewport.width}.png`),
+        fullPage: true,
+        animations: 'disabled',
+        scale: 'css',
+      })
+    }
+    expect(commands).toEqual([])
+    phase = 'denied'
+    releaseRead()
+    await expect(page.getByText('Session access revoked', { exact: true })).toBeVisible()
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await expect(page.getByRole('tab', { name: /Уточнения/ })).toHaveCount(0)
+      await expect(page.getByText('Preserve this answer draft', { exact: true })).toHaveCount(0)
+      await expect(page.getByRole('button', { name: 'Проверить доступ к чату' })).toBeEnabled()
+      await page.screenshot({
+        path: info.outputPath(`chat-session-access-denied-${viewport.width}.png`),
+        fullPage: true,
+        animations: 'disabled',
+        scale: 'css',
+      })
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      ).toBe(true)
+    }
+    phase = 'recovered'
+    await page.getByRole('button', { name: 'Проверить доступ к чату' }).click()
+    await expect(page.getByRole('heading', { name: 'Recovered session' })).toBeVisible()
+    await expect(choice).toBeChecked()
+    await expect(page.getByLabel('Комментарий', { exact: true })).toHaveValue(
+      'Preserve this answer draft',
+    )
+    await expect(save).toBeEnabled()
+    expect(commands).toEqual([])
+    expect(errors).toEqual([])
+  } finally {
+    releaseRead()
+  }
+})
+
+for (const operation of ['steer', 'stop'] as const) {
+  test(`chat recovers lost initial ${operation} ID through scoped original-key GET without another POST`, async ({
+    page,
+  }, info) => {
+    test.setTimeout(60000)
+    const state = createState()
+    const originalRun = '00000000-0000-4000-8000-000000000701'
+    const nextRun = '00000000-0000-4000-8000-000000000702'
+    state.runsBySession[ids.session] = [
+      {
+        ...makeRun(ids.session, state.agents[0]),
+        id: originalRun,
+        state: 'running',
+        runtime_run_id: 'native-original-run',
+      },
+      {
+        ...makeRun(ids.session, state.agents[0]),
+        id: nextRun,
+        state: 'running',
+        runtime_run_id: 'native-successor-run',
+      },
+    ]
+    await installMocks(page, state)
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    let phase: 'missing' | 'conflict' | 'uncertain' | 'acknowledged' = 'missing'
+    let activeRun = originalRun
+    let newRunReads = 0
+    let posts = 0
+    let originalKey = ''
+    const rawInput = '\u0085\ufeffkeep scope\ufeff\u0085'
+    const semanticInput = operation === 'steer' ? '\ufeffkeep scope\ufeff' : null
+    const digest = createHash('sha256')
+      .update(JSON.stringify({ input: semanticInput, operation }), 'utf8')
+      .digest('hex')
+    const receipt = {
+      id: '00000000-0000-4000-8000-000000000703',
+      session_id: ids.session,
+      session_run_id: originalRun,
+      agent_id: ids.dev,
+      actor_user_id: ids.user,
+      operation,
+      state: 'uncertain',
+      acknowledgement: null,
+      observed_run_state: null,
+      created_at: now,
+      updated_at: now,
+    }
+    await page.route(`**/api/v1/sessions/${ids.session}/chat-controls`, (route) => {
+      if (activeRun === nextRun) newRunReads += 1
+      return fulfill(route, {
+        can_send: false,
+        can_steer: true,
+        can_stop: true,
+        active_run_id: activeRun,
+      })
+    })
+    await page.route(`**/api/v1/sessions/${ids.session}/runs/**/controls`, (route) =>
+      fulfill(route, []),
+    )
+    await page.route(`**/api/v1/sessions/${ids.session}/runs/**/controls/lookup?**`, (route) => {
+      expect(route.request().method()).toBe('GET')
+      expect(new URL(route.request().url()).pathname).toBe(
+        `/api/v1/sessions/${ids.session}/runs/${originalRun}/controls/lookup`,
+      )
+      expect(route.request().headers()['idempotency-key']).toBe(originalKey)
+      const query = new URL(route.request().url()).searchParams
+      expect([...query.keys()]).toEqual(['operation', 'payload_sha256'])
+      expect(query.get('operation')).toBe(operation)
+      expect(query.get('payload_sha256')).toBe(digest)
+      if (phase === 'missing')
+        return fulfill(route, { error: { message: 'Original key not found' } }, 404)
+      if (phase === 'conflict')
+        return fulfill(route, { error: { message: 'Original payload conflict' } }, 409)
+      return fulfill(route, {
+        ...receipt,
+        state: phase,
+        acknowledgement:
+          phase === 'acknowledged' ? (operation === 'steer' ? 'steered' : 'stopping') : null,
+      })
+    })
+    await page.route(`**/api/v1/sessions/${ids.session}/runs/**/${operation}`, (route) => {
+      expect(route.request().method()).toBe('POST')
+      expect(new URL(route.request().url()).pathname).toBe(
+        `/api/v1/sessions/${ids.session}/runs/${originalRun}/${operation}`,
+      )
+      expect(route.request().postDataJSON()).toEqual(
+        operation === 'steer' ? { input: rawInput } : {},
+      )
+      posts += 1
+      originalKey = route.request().headers()['idempotency-key'] ?? ''
+      expect(originalKey).not.toBe('')
+      // The fixture commits the original command, then loses its receipt ID.
+      return operation === 'steer'
+        ? fulfill(route, { error: { message: 'Original acknowledgement lost' } }, 503)
+        : fulfill(route, {}, 200)
+    })
+    await page.goto(`/chats/${ids.session}`)
+    const input = page.getByLabel('Уточнение активному запуску', { exact: true })
+    await input.fill(operation === 'steer' ? rawInput : 'Retained composer draft')
+    const action = page.getByRole('button', {
+      name: operation === 'steer' ? 'Передать уточнение запуску' : 'Остановить запуск',
+      exact: true,
+    })
+    await expect(action).toBeEnabled()
+    await action.click()
+    await expect(page.getByText('Original key not found', { exact: true })).toBeVisible()
+    const check = page.getByRole('button', {
+      name: operation === 'steer' ? 'Проверить исходное уточнение' : 'Проверить исходную остановку',
+      exact: true,
+    })
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await expect(action).toBeDisabled()
+      await expect(input).toBeDisabled()
+      await expect(input).toHaveValue(operation === 'steer' ? rawInput : 'Retained composer draft')
+      expect(posts).toBe(1)
+      await page.screenshot({
+        path: info.outputPath(`chat-control-key-${operation}-held-${viewport.width}.png`),
+        fullPage: true,
+        animations: 'disabled',
+        scale: 'css',
+      })
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      ).toBe(true)
+    }
+    phase = 'conflict'
+    await expect(check).toBeEnabled()
+    await check.click()
+    await expect(page.getByText('Original payload conflict', { exact: true })).toBeVisible()
+    await expect(action).toBeDisabled()
+    expect(posts).toBe(1)
+    phase = 'uncertain'
+    activeRun = nextRun
+    await expect(check).toBeEnabled()
+    await check.click()
+    await expect(page.getByText('Original payload conflict', { exact: true })).toHaveCount(0)
+    await expect.poll(() => newRunReads).toBeGreaterThan(0)
+    await expect(action).toBeDisabled()
+    await expect(input).toHaveValue(operation === 'steer' ? rawInput : 'Retained composer draft')
+    expect(posts).toBe(1)
+    phase = 'acknowledged'
+    // The unresolved receipt already polls GET. Its fresh ACK may remove the
+    // recovery button before another manual click; neither path sends POST.
+    await expect(
+      page.getByText(
+        operation === 'steer'
+          ? 'Runtime подтвердил исходное уточнение. Состояние запуска проверяется отдельно.'
+          : 'Runtime подтвердил исходную остановку. Завершение запуска проверяется отдельно.',
+        { exact: true },
+      ),
+    ).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText('Original acknowledgement lost', { exact: true })).toHaveCount(0)
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await expect(input).toBeEnabled()
+      await expect(input).toHaveValue(operation === 'steer' ? '' : 'Retained composer draft')
+      expect(posts).toBe(1)
+      await page.screenshot({
+        path: info.outputPath(`chat-control-key-${operation}-ack-${viewport.width}.png`),
+        fullPage: true,
+        animations: 'disabled',
+        scale: 'css',
+      })
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      ).toBe(true)
+    }
+    expect(errors).toEqual([])
+  })
+}
+
+test('chat composer recovers from the exact known steer acknowledgement without another POST', async ({
+  page,
+}, info) => {
+  const state = createState()
+  const runId = '00000000-0000-4000-8000-000000000601'
+  state.runsBySession[ids.session] = [
+    {
+      ...makeRun(ids.session, state.agents[0]),
+      id: runId,
+      state: 'running',
+      runtime_run_id: 'native-original-run',
+    },
+  ]
+  await installMocks(page, state)
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  let submitted = false
+  let confirmed = false
+  let posts = 0
+  const receipt = {
+    id: '00000000-0000-4000-8000-000000000602',
+    actor_user_id: ids.user,
+    agent_id: ids.dev,
+    session_id: ids.session,
+    session_run_id: runId,
+    operation: 'steer',
+    state: 'uncertain',
+    acknowledgement: null,
+    observed_run_state: null,
+    created_at: now,
+    updated_at: now,
+  }
+  await page.route(`**/api/v1/sessions/${ids.session}/chat-controls`, (route) =>
+    fulfill(route, {
+      can_send: false,
+      can_steer: true,
+      can_stop: true,
+      active_run_id: runId,
+    }),
+  )
+  await page.route(`**/api/v1/sessions/${ids.session}/runs/${runId}/controls`, (route) =>
+    fulfill(
+      route,
+      submitted
+        ? [
+            {
+              ...receipt,
+              state: confirmed ? 'acknowledged' : 'uncertain',
+              acknowledgement: confirmed ? 'steered' : null,
+            },
+          ]
+        : [],
+    ),
+  )
+  await page.route(`**/api/v1/sessions/${ids.session}/runs/${runId}/steer`, (route) => {
+    expect(route.request().method()).toBe('POST')
+    expect(route.request().postDataJSON()).toEqual({ input: 'Original scoped guidance' })
+    expect(route.request().headers()['idempotency-key']).toEqual(expect.any(String))
+    posts += 1
+    submitted = true
+    return fulfill(route, {
+      accepted: false,
+      session_id: ids.session,
+      run_id: runId,
+      runtime_run_id: 'native-original-run',
+      state: 'running',
+      message: 'Outcome is being checked',
+      command: receipt,
+    })
+  })
+  await page.goto(`/chats/${ids.session}`)
+  const input = page.getByLabel('Уточнение активному запуску', { exact: true })
+  await input.fill('Original scoped guidance')
+  await page.getByRole('button', { name: 'Передать уточнение запуску' }).click()
+  await expect(page.getByText(/Исход уточнения запуску неизвестен/)).toBeVisible()
+  await expect(input).toBeDisabled()
+  expect(posts).toBe(1)
+  confirmed = true
+  await expect(
+    page.getByText(
+      'Runtime подтвердил исходное уточнение. Состояние запуска проверяется отдельно.',
+      { exact: true },
+    ),
+  ).toBeVisible()
+  for (const viewport of [
+    { width: 375, height: 812 },
+    { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await expect(input).toHaveValue('')
+    await expect(input).toBeEnabled()
+    await expect(page.getByRole('button', { name: 'Передать уточнение запуску' })).toBeDisabled()
+    await page.screenshot({
+      path: info.outputPath(`chat-steer-confirmed-${viewport.width}.png`),
+      fullPage: true,
+      animations: 'disabled',
+      scale: 'css',
+    })
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
+    ).toBe(true)
+  }
+  await input.fill('New explicit guidance')
+  await expect(page.getByRole('button', { name: 'Передать уточнение запуску' })).toBeEnabled()
+  expect(posts).toBe(1)
+  expect(errors).toEqual([])
+})
 
 test('long chat history restores reading and tail positions across tabs', async ({
   page,
@@ -2176,6 +2635,78 @@ test('uses the shared work-area geometry across semantic page modes', async ({
         fullPage: true,
       })
     }
+  }
+})
+
+test('workflow rebind holds a cached catalog during GET retry and preserves its namespace', async ({
+  page,
+}, info) => {
+  const state = createState()
+  await installMocks(page, state)
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  let retry = false
+  let failedReads = 0
+  let heldReads = 0
+  let release!: () => void
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const commands: unknown[] = []
+  await page.route('**/api/v1/workflow-catalog', async (route) => {
+    if (retry) {
+      if (failedReads++ === 0)
+        return fulfill(route, { error: { message: 'Catalog GET retry pending' } }, 503)
+      heldReads += 1
+      await gate
+    }
+    return route.fallback()
+  })
+  await page.route('**/api/v1/workflow-bindings/*', (route) => {
+    if (route.request().method() === 'PUT') commands.push(route.request().postDataJSON())
+    return route.fallback()
+  })
+  try {
+    await page.goto('/workflows')
+    const namespace = page.getByLabel('Новое пространство для Developer Hermes')
+    const rebind = page.getByRole('button', { name: 'Перепривязать', exact: true })
+    await expect(rebind).toBeEnabled()
+    await namespace.selectOption('1')
+    retry = true
+    await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')))
+    await expect.poll(() => heldReads, { timeout: 15000 }).toBeGreaterThan(0)
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await expect(namespace).toHaveValue('1')
+      await expect(namespace).toBeDisabled()
+      await expect(rebind).toBeDisabled()
+      expect(commands).toEqual([])
+      await page.screenshot({
+        path: info.outputPath(`workflow-catalog-retry-held-${viewport.width}.png`),
+        fullPage: true,
+        animations: 'disabled',
+        scale: 'css',
+      })
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      ).toBe(true)
+    }
+    retry = false
+    release()
+    await expect(rebind).toBeEnabled()
+    await expect(namespace).toHaveValue('1')
+    expect(commands).toEqual([])
+    await rebind.click()
+    await expect.poll(() => commands).toEqual([{ namespace_id: '1', workflow_id: '1' }])
+    expect(errors).toEqual([])
+  } finally {
+    release()
   }
 })
 
