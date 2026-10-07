@@ -191,7 +191,7 @@ class CustodyTests(unittest.TestCase):
         else:
             value.update(agents=2, epoch=epoch, minimum_lease_version=4, actual_startup_worker=True,
                 native_live_observation=True, original_launches_unchanged=True,
-                native_run_waiting_for_approval=True, new_owner_effects_held=True,
+                native_run_waiting_for_approval=True, new_owner_execution_held=True,
                 competing_logical_controller_denied=True, message_replay_did_not_dispatch=True,
                 resumed_execution=False)
         return value

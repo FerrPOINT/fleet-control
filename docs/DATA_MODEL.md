@@ -1,5 +1,21 @@
 # Data Model
 
+## Original Namespace Stop After Recovery
+
+Candidate000022 adds `runtime_controller_stop_deliveries`, keyed by original
+launch UUID. The closed immutable intent fixes launch/agent/operation IDs,
+original launch and namespace snapshot hashes and PID. The stop operation ID
+equals the launch UUID, matching the existing Base native stop journal.
+The separately retained dispatch command fixes the admitted recovery owner,
+epoch, lease version/deadline; its nullable paired hash becomes immutable after
+the once-only claim. The nullable closed native outcome/hash commits together
+with original launch `gateway_exited`, stopped runtime metadata and one hash-only
+audit row. Replays do not overwrite later runtime state. No prompt, token or
+public receipt-submission API is introduced. Unknown acceptance remains held;
+only independently validated original namespace exit can settle it. This does
+not fabricate session completion or release unresolved Hermes acceptance.
+See [controller recovery](contracts/CONTROLLER_RECOVERY_V1.md).
+
 Migration000021 adds `runtime_controller_recovery_deliveries`, keyed by recovery
 UUID: immutable closed initial command/canonical SHA256, irreversible dispatch
 claim, nullable paired native receipt/SHA256. No users, prompts, tokens or public

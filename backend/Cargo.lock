@@ -2088,6 +2088,7 @@ dependencies = [
  "sea-orm-migration",
  "serde_json",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

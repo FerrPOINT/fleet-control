@@ -1,5 +1,43 @@
 # Chat Clarification Verification
 
+## Recovered Namespace Stop Candidate: 7 October 2026
+
+Initial full gate `sdlc-qa-fleet-container-control-2917a1944d57` passes fmt,
+locked/offline all-target check, strict workspace/all-target Clippy and582 tests
+with31 explicit opt-in ignores. All five initial stop cases pass.308 captured
+inputs are unchanged; source manifest SHA256:
+`b0e2904cd278ff6b61dcdffb5977c3be0b5117c817cc86ed4ce4ed696e1056b9`.
+Gate log SHA256:
+`8fce18e6a6eae387df7aca8262501edd81129ab3f591169cf8f3212d522b6d9b`.
+Regenerated OpenAPI matches the repository exactly:
+`76a27c806961bc142543445e34f10525485cbcf2f0b66ac2fe5d093fc808a10f`.
+Owned containers/network are removed, accepted runtime is unchanged. This is
+component evidence, not actual Docker stop or complete PM/SDLC acceptance.
+
+The separately captured new migration test first failed to compile in isolated
+package mode at project `0eedd5164114`: existing migration tests used UUIDv4 but
+relied on workspace feature unification. No assertions executed or passed there;
+cleanup is confirmed. The follow-up adds only existing workspace `uuid` as a
+test dependency, preserving all dependency versions/production dependencies.
+
+The current follow-up also adds claimed-stop read-only exit settlement after
+lease expiry without renewal and a sixth PostgreSQL/controlled-native case.
+The custody driver now distinguishes execution holds from explicit namespace
+containment and checks competitor stop denial, without stopping agents merely
+to prove custody. Thirty driver/loader/README host tests and133 Markdown link
+checks pass. Follow-up gate `sdlc-qa-fleet-container-control-0e8650b749e6` passes
+fmt/strict workspace-all-target Clippy, all six stop cases and all22 migration
+cases with0 ignores. It includes both accepted foundations, standalone migration
+compilation,000022 upgrade/empty down/reapply and populated history guards.
+All309 inputs match; source manifest SHA256:
+`2749e3c05d700b91967d289e9e4d3c3e65f3cfc5fa57d1c08f367ec2577161b0`.
+Gate log SHA256:
+`e325321a68eb5b751fa2fd4aacb2b7dbb0c11ad102e5bb151067b505dba1c3ad`.
+Owned cleanup is confirmed. Root Docker audit is complete with no violations;
+permanent resources remain untouched. The initial full result above is retained
+separately, not relabelled as a rerun of the follow-up. Real stop,
+session/control/approval, activation and PM/Forge acceptance remain open.
+
 ## Combined Live Native Heartbeat: 7 October 2026
 
 Base producer `8bf0634103fc88f831d0b8725506929c18ab6d32` is published on its

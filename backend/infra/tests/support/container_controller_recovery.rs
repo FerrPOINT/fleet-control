@@ -516,10 +516,12 @@ async fn recover(
             renewed.native_receipt_sha256.as_deref(),
             Some(original_receipt_hash.as_str())
         );
-        let agent = repo.get_agent(*id).await.unwrap();
         assert!(
-            runtime.stop(&agent).await.is_err(),
-            "custody cannot grant a new-owner stop effect"
+            repo.read_controller_stop(renewed.request.launch_id)
+                .await
+                .unwrap()
+                .is_none(),
+            "custody heartbeat cannot dispatch namespace stop"
         );
         proofs.push(
             json!({"initial":delivery.command,"current":command(&renewed),
@@ -531,6 +533,12 @@ async fn recover(
     let (events, _) = tokio::sync::broadcast::channel(32);
     let competitor = LocalRuntimeSupervisor::new(Arc::new(competitor_config), repo.clone(), events);
     for id in &context.agents {
+        assert!(
+            competitor
+                .stop(&repo.get_agent(*id).await.unwrap())
+                .await
+                .is_err()
+        );
         assert!(competitor.recover_container_controller(*id).await.is_err());
         assert!(
             competitor
@@ -562,7 +570,7 @@ async fn recover(
         serde_json::to_vec(&json!({
         "state":"passed","epoch":epoch,"actual_startup_worker":true,"minimum_lease_version":4,
         "native_live_observation":true,"agents":2,"original_launches_unchanged":true,
-        "native_run_waiting_for_approval":true,"new_owner_effects_held":true,
+        "native_run_waiting_for_approval":true,"new_owner_execution_held":true,
         "competing_logical_controller_denied":true,"message_replay_did_not_dispatch":true,
         "sdlc_acceptance":false,"resumed_execution":false}))
         .unwrap(),

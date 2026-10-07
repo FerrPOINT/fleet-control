@@ -960,6 +960,14 @@ impl LocalRuntimeSupervisor {
         &self,
         agent: &Agent,
     ) -> Result<RuntimeOperationResponse, AppError> {
+        if self
+            .repo
+            .get_open_runtime_launch(agent.id)
+            .await?
+            .is_some_and(|launch| launch.controller_recovery)
+        {
+            return self.stop_recovered_container_locked(agent).await;
+        }
         let launch = self.owned_container_launch(agent.id).await?;
         let original = self.observe_container(&launch).await?;
         let snapshot = original.snapshot.as_ref().ok_or_else(held)?;

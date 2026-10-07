@@ -79,7 +79,7 @@ def validate_custody_evidence(value, epoch=None, native=False, expired=False):
         ('same_physical_start_cannot_take_over', 'expired_db_lease_not_revived',
          'native_run_waiting_for_approval') if expired else (
         'actual_startup_worker', 'native_live_observation', 'original_launches_unchanged',
-        'native_run_waiting_for_approval', 'new_owner_effects_held',
+        'native_run_waiting_for_approval', 'new_owner_execution_held',
         'competing_logical_controller_denied', 'message_replay_did_not_dispatch'))
     expected = {'sdlc_acceptance': False}
     counts = {}

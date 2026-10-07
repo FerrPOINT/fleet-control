@@ -38,6 +38,9 @@ mod control_outcome_readback;
 pub mod control_outcome_wire;
 pub(crate) mod controller_recovery_wire;
 mod controller_recovery_worker;
+mod controller_stop;
+#[cfg(all(test, target_os = "linux"))]
+mod controller_stop_tests;
 mod hermes_wire;
 mod launch_journal;
 #[cfg(test)]

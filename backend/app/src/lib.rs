@@ -683,6 +683,39 @@ pub trait FleetRepository: Send + Sync {
             "runtime launch history is unavailable".into(),
         ))
     }
+    async fn retain_controller_stop(
+        &self,
+        _command: &runtime_launch::ControllerRecoveryCommand,
+    ) -> Result<runtime_launch::ControllerStopDelivery, AppError> {
+        Err(AppError::Unavailable(
+            "controller stop journal is unavailable".into(),
+        ))
+    }
+    async fn read_controller_stop(
+        &self,
+        _launch_id: Uuid,
+    ) -> Result<Option<runtime_launch::ControllerStopDelivery>, AppError> {
+        Err(AppError::Unavailable(
+            "controller stop journal is unavailable".into(),
+        ))
+    }
+    async fn claim_controller_stop(
+        &self,
+        _command: &runtime_launch::ControllerRecoveryCommand,
+    ) -> Result<bool, AppError> {
+        Err(AppError::Unavailable(
+            "controller stop journal is unavailable".into(),
+        ))
+    }
+    async fn settle_controller_stop(
+        &self,
+        _launch_id: Uuid,
+        _outcome: &serde_json::Value,
+    ) -> Result<runtime_launch::ControllerStopDelivery, AppError> {
+        Err(AppError::Unavailable(
+            "controller stop journal is unavailable".into(),
+        ))
+    }
     async fn claim_container_preparation(
         &self,
         _preparation: &runtime_launch::RuntimeContainerPreparation,

@@ -1172,19 +1172,60 @@ impl ContainerControl {
             )
             .await?;
         let receipt: ContainerStopReceipt = serde_json::from_value(value).map_err(|_| held())?;
-        if receipt.contract_version != original.contract_version
-            || receipt.operation_id != operation_id
-            || receipt.container_id != original.container_id
-            || receipt.resource_id != original.resource_id
-            || receipt.generation != original.generation
-            || receipt.snapshot_sha256 != snapshot_sha256
-            || status != 0
-            || receipt.state != ContainerReceiptState::Observed
-            || receipt.observation != ContainerObservation::NamespaceExited
-        {
-            return Err(held());
-        }
+        validate_stop_receipt(&receipt, original, operation_id, &snapshot_sha256, status)?;
         Ok(receipt)
+    }
+
+    pub(super) async fn observe_with_owner(
+        &self,
+        files: &ContainerLaunchFiles,
+        original: &ContainerRegistration,
+        command: &app::runtime_launch::ControllerRecoveryCommand,
+        journal: &std::path::Path,
+    ) -> Result<ContainerReceipt, AppError> {
+        validate_registration(original)?;
+        validate_mapping_registration(&files.policy, files.mount_mapping.as_ref(), original)?;
+        let (status, value) = self
+            .call_with_owner(
+                files,
+                "observe",
+                json!({"registration":original}),
+                Some((command, journal)),
+            )
+            .await?;
+        let receipt = serde_json::from_value(value).map_err(|_| held())?;
+        validate_receipt(&receipt, original, status, "observe")?;
+        Ok(receipt)
+    }
+
+    pub(super) async fn stop_with_owner(
+        &self,
+        files: &ContainerLaunchFiles,
+        original: &ContainerRegistration,
+        command: &app::runtime_launch::ControllerRecoveryCommand,
+        journal: &std::path::Path,
+        intent: &app::runtime_launch::ControllerStopIntent,
+    ) -> Result<Value, AppError> {
+        validate_registration(original)?;
+        validate_mapping_registration(&files.policy, files.mount_mapping.as_ref(), original)?;
+        let (status, value) = self
+            .call_with_owner(
+                files,
+                "stop",
+                json!({"registration":original,"operation_id":intent.operation_id,
+                "stop_journal":files.stop_journal}),
+                Some((command, journal)),
+            )
+            .await?;
+        let receipt = serde_json::from_value(value.clone()).map_err(|_| held())?;
+        validate_stop_receipt(
+            &receipt,
+            original,
+            intent.operation_id,
+            &intent.snapshot_sha256,
+            status,
+        )?;
+        Ok(value)
     }
 }
 
@@ -1201,7 +1242,7 @@ async fn bounded(reader: impl AsyncRead + Unpin) -> Result<Vec<u8>, AppError> {
     Ok(output)
 }
 
-pub(super) fn validate_receipt(
+pub(crate) fn validate_receipt(
     receipt: &ContainerReceipt,
     original: &ContainerRegistration,
     status: i32,
@@ -1240,6 +1281,28 @@ pub(super) fn validate_receipt(
         _ => false,
     };
     if !valid {
+        return Err(held());
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_stop_receipt(
+    receipt: &ContainerStopReceipt,
+    original: &ContainerRegistration,
+    operation_id: Uuid,
+    snapshot_sha256: &str,
+    status: i32,
+) -> Result<(), AppError> {
+    if receipt.contract_version != original.contract_version
+        || receipt.operation_id != operation_id
+        || receipt.container_id != original.container_id
+        || receipt.resource_id != original.resource_id
+        || receipt.generation != original.generation
+        || receipt.snapshot_sha256 != snapshot_sha256
+        || status != 0
+        || receipt.state != ContainerReceiptState::Observed
+        || receipt.observation != ContainerObservation::NamespaceExited
+    {
         return Err(held());
     }
     Ok(())

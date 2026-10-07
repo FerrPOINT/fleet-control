@@ -18,8 +18,18 @@ active-controller source upgrade is allowed.
 Base runtime-control release is now [PR166](https://github.com/FerrPOINT/services-base/pull/166),
 head04f5527, reconciled normally with main875cac2. This publishes the native
 prerequisite, not an installed SDK pin or permission for restored execution.
-Fleet's twelve additive runtime/chat migrations still require ordered release
+Fleet's thirteen additive runtime/chat migrations still require ordered release
 packets after the accepted foundations; see [migration lineage](MIGRATIONS.md).
+
+Candidate000022 connects explicit recovered-owner namespace stop with a stable
+intent, once-only dispatch claim, current DB/native authority and validated
+original exit settlement. The initial full captured packet passed582 tests,
+strict checks and exact OpenAPI. The follow-up passes strict workspace/all-target
+Clippy, six stop cases and22 migration cases without skips, including late exit
+without custody renewal and both migration foundations. Actual
+two-Hermes stop acceptance, session/control/approval reconciliation and interrupted
+activation remain required. Do not relabel the earlier custody-only proof or
+publish the accumulated thirteen-migration branch as one main PR.
 
 Independent browser boundary [Fleet56](https://github.com/FerrPOINT/fleet-control/pull/56)
 is merged into main as940b7de. Retain PR-head test evidence separately from

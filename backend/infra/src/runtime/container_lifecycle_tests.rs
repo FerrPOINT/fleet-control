@@ -778,6 +778,7 @@ elif r['action'] in ('observe_controller_restart','recover_controller','read_con
  snap={'contract_version':reg['contract_version'],'container_id':reg['container_id'],'engine':reg['engine'],'policy_sha256':reg['policy_sha256'],'inventory_sha256':reg['running_inventory_sha256'],'started_at':'2026-10-06T12:00:00.123456789Z','init_pid':12345,'network_sha256':reg['network_sha256']}
  if (root/'restart-agent-drift').exists():snap['init_pid']+=1
  receipt.update(registration_sha256=digest(reg),state='observed',observation='running',snapshot=snap)
+ if (root/(reg['generation']+'.stopped')).exists():receipt['observation']='namespace_exited'
  current=dict(mapping['snapshot'],started_at='2026-10-07T12:00:00Z',init_pid=987)
  result={'contract_version':1,'state':'controller_restart_observed','original_mapping_sha256':digest(mapping),'registration_sha256':digest(reg),'original_controller_snapshot':mapping['snapshot'],'current_controller_snapshot':current,'receipt':receipt}
  if r['action']!='observe_controller_restart':
@@ -838,8 +839,16 @@ else:
    snap={'contract_version':reg['contract_version'],'container_id':reg['container_id'],'engine':reg['engine'],'policy_sha256':reg['policy_sha256'],'inventory_sha256':reg['running_inventory_sha256'],'started_at':'2026-10-06T12:00:00.123456789Z','init_pid':12345,'network_sha256':reg['network_sha256']}
    result.update(state='observed',observation='namespace_exited' if stopped.exists() else 'running',snapshot=snap)
    if r['action']=='stop':
+    if 'recovery' in r:
+     command=r['recovery'];assert r['protocol_version']==3
+     assert json.loads((root/(command['request']['id']+'.recovery-lease.json')).read_bytes())==command
+     assert not (root/'native-lease-expired').exists()
+     assert datetime.fromisoformat(command['lease_expires_at'])>datetime.now(timezone.utc)
+     with (root/'owner-stop-calls').open('a') as calls:calls.write(r['operation_id']+'\n')
+     if (root/'stop-before-exit-unknown').exists():raise RuntimeError('Stop acceptance unknown')
     stopped.write_text('1');result={k:reg[k] for k in ('contract_version','container_id','resource_id','generation')}
     result.update(operation_id=r['operation_id'],snapshot_sha256=digest(snap),state='observed',observation='namespace_exited')
+    if (root/'stop-after-exit-unknown').exists():raise RuntimeError('Stop reply lost after exit')
  if r['action']=='endpoint' and result['state']=='observed' and result['observation']=='running':
   result={'host':(root/'endpoint-host').read_text(),'receipt':result}
 print(json.dumps({'protocol_version':r['protocol_version'],'action':r['action'],'result':result}));sys.exit(2 if result.get('state')=='held' else 0)
@@ -1403,7 +1412,7 @@ type RecoveryFixture = (
 );
 
 #[cfg(target_os = "linux")]
-fn recovery_command(
+pub(super) fn recovery_command(
     record: &app::runtime_launch::ControllerRecoveryRecord,
 ) -> app::runtime_launch::ControllerRecoveryCommand {
     app::runtime_launch::ControllerRecoveryCommand {
@@ -1848,7 +1857,7 @@ type HeartbeatFixture = (
 );
 
 #[cfg(target_os = "linux")]
-async fn controller_heartbeat_fixture() -> Option<HeartbeatFixture> {
+pub(super) async fn controller_heartbeat_fixture() -> Option<HeartbeatFixture> {
     let (repo, agent, _, config, root) = lifecycle_tests::fixture(AgentKind::Hermes).await?;
     let mut config = with_mapping_controller(fake_creation(&config, &agent, false).await);
     config.fleet.controller_recovery_enabled = true;

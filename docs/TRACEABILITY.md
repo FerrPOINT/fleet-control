@@ -1,5 +1,15 @@
 # Traceability
 
+Recovered namespace stop candidate: [ADR0034](adr/0034-recovered-controller-namespace-stop.md),
+additive000022, `infra/controller_stop_delivery` and trusted `runtime/controller_stop`.
+Six `runtime/controller_stop_tests` cases cover once-only concurrent claim,
+receipt/owner/lease drift, immutable audited settlement and both unknown-stop
+outcomes without a second kill and late exit without renewing expired custody.
+`migration/tests/controller_stop_delivery` checks
+additive history preservation, empty down/up and populated guards. Component
+verification and actual Docker stop acceptance remain separately recorded;
+neither proves PM continuation or SDLC stage completion.
+
 Original native delivery candidate: [ADR0033](adr/0033-original-controller-delivery-outcome.md),
 additive000021, `infra/controller_recovery_delivery`, closed
 `runtime/controller_recovery_wire` and trusted `controller_recovery_worker` entry.

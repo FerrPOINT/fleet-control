@@ -165,6 +165,25 @@ pub struct ControllerRecoveryDelivery {
     pub native_receipt_sha256: Option<String>,
 }
 
+/// Stable namespace termination intent; current lease envelopes are not its identity.
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ControllerStopIntent {
+    pub launch_id: Uuid,
+    pub agent_id: Uuid,
+    pub operation_id: Uuid,
+    pub launch_sha256: String,
+    pub snapshot_sha256: String,
+    pub pid: i32,
+}
+
+#[derive(Clone)]
+pub struct ControllerStopDelivery {
+    pub intent: ControllerStopIntent,
+    pub dispatch_command: Option<ControllerRecoveryCommand>,
+    pub native_outcome: Option<serde_json::Value>,
+}
+
 /// Durable pre-create fence; the private intent (including credentials) stays on disk.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

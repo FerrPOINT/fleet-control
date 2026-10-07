@@ -30,9 +30,9 @@ files and applied ledger entries are not rewritten or renamed. On each status,
 up or down operation, the stored ledger selects its original foundation;
 unknown versions or a mixture of split and combined histories fail closed.
 
-Both registries append the same ordered twelve runtime/chat migrations
-`000010_task_chats` through `000021_controller_recovery_delivery`: twenty-two entries for a
-canonical installation, twenty-five for a split installation. Full migration
+Both registries append the same ordered thirteen runtime/chat migrations
+`000010_task_chats` through `000022_controller_stop_delivery`: twenty-three entries for a
+canonical installation, twenty-six for a split installation. Full migration
 names, not ordinal suffixes alone, identify a step. A matching numeric suffix
 does not replace a historical split step with a newer runtime release.
 
@@ -78,6 +78,19 @@ effects or permit redispatch. See
 The registry in `backend/migration/src/lib.rs` is authoritative for exact names;
 the lineage suite derives counts from its ordered follow-ups and checks both
 accepted foundations without changing prior ledger entries.
+
+## Recovered Controller Stop
+
+`000022_controller_stop_delivery` follows000021 as its own additive release.
+It retains one immutable original-generation namespace stop intent, one claimed
+custody envelope and one validated native exit outcome. Claims require the exact
+current acknowledged DB lease; an already claimed unknown command is never
+redispatched. A positive historical exit outcome can settle without renewing
+the lease. Outcome, original launch exit, runtime status and redacted audit commit
+atomically. Session/run/control/approval reconciliation remains separate.
+Delete, truncate, identity edits, claim reset and outcome replacement are denied;
+empty down/reapply is allowed, populated downgrade is refused. No legacy launch
+or session is backfilled. See the [recovery contract](contracts/CONTROLLER_RECOVERY_V1.md).
 
 ## Journal Time Ordering
 

@@ -1,5 +1,26 @@
 # Operations
 
+## Recovered Namespace Stop
+
+With candidate000022 and compatible original Base source, the normal authorized
+runtime stop action can contain the original recovered namespace. It requires
+fresh current DB/native custody; configuration drain protections still apply.
+A saved stop intent/claim is not confirmation that the process exited. Preserve
+the intent, custody envelope, Base stop journal and original launch/registration.
+Never reset/delete a claim, issue a new operation ID or invoke a manual Docker
+kill to manufacture a successful receipt.
+
+After a lost reply, repeat the authorized action only for read-only original
+namespace reconciliation. If it remains running or unavailable, the action stays
+held and does not send another stop. An expired lease cannot authorize new stop,
+but does not invalidate independently confirmed exit of a previously claimed
+operation. Confirmed original exit commits
+one outcome and stopped runtime metadata. This does not complete the chat/task,
+resolve a pending tool approval or release unknown message/control acceptance.
+Keep these blockers visible; automatic restart/configuration takeover and
+restored PM workflow remain separate gates. No installed enablement follows
+from source tests. See [contract](contracts/CONTROLLER_RECOVERY_V1.md#recovered-namespace-stop-candidate).
+
 ## Controller Recovery Reservation
 
 `original controller recovery remains fenced` is not a successful restart. Keep

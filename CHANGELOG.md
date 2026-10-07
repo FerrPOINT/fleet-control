@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- Add a default-off recovered-controller namespace stop candidate: retain one
+  original-generation intent and dispatch claim, require fresh DB/native custody,
+  and settle only validated original exit with runtime metadata and redacted audit.
+  Lost replies use read-only observation, never a second kill. Session/workflow
+  completion, unknown Hermes acceptance and interrupted activation stay separate.
+
 - Process-log inserts return their own persisted redacted row atomically, even
   when another stdout/stderr writer has already inserted a newer log. PostgreSQL
   regressions cover deterministic interleaving, 64 writers and rejected inserts.

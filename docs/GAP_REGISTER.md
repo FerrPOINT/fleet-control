@@ -1,5 +1,18 @@
 # Gap Register
 
+## Recovered Namespace Stop Candidate
+
+Candidate000022 implements stable intent/once-only dispatch and validated
+original exit settlement under current DB/native custody. Initial full582-case
+verification and the separate final six-stop/22-migration strict gate pass;
+earlier custody-only evidence does not certify actual stop of this changed path.
+Actual stopped namespace and unknown-reply/expired historical readback,
+session/control/approval and interrupted activation reconciliation remain gates.
+No model/task admission is enabled. Fresh mainc8093aa also changes the accepted
+Base SDK pin; current source verification uses the explicitly captured candidate
+pin, not that main head. Ordered single-migration releases and exact-main-head
+checks remain required before merge-ready.
+
 ## Docker Approval And Live Custody Acceptance
 
 **Closed for approval-wait custody only.** Actual project `2c9e86b1c29a` passes

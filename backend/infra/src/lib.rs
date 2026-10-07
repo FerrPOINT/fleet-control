@@ -7,6 +7,7 @@ mod configuration_disk;
 mod configuration_renderer;
 mod controller_recovery;
 mod controller_recovery_delivery;
+mod controller_stop_delivery;
 mod effective_configuration;
 pub mod entities;
 mod hermes_approval_recovery;
@@ -1498,6 +1499,31 @@ impl FleetRepository for PostgresFleetRepository {
         receipt: &Value,
     ) -> Result<app::runtime_launch::ControllerRecoveryRecord, AppError> {
         controller_recovery_delivery::settle(self, id, receipt).await
+    }
+    async fn retain_controller_stop(
+        &self,
+        command: &app::runtime_launch::ControllerRecoveryCommand,
+    ) -> Result<app::runtime_launch::ControllerStopDelivery, AppError> {
+        controller_stop_delivery::retain(self, command).await
+    }
+    async fn read_controller_stop(
+        &self,
+        launch_id: Uuid,
+    ) -> Result<Option<app::runtime_launch::ControllerStopDelivery>, AppError> {
+        controller_stop_delivery::read(&self.db, launch_id).await
+    }
+    async fn claim_controller_stop(
+        &self,
+        command: &app::runtime_launch::ControllerRecoveryCommand,
+    ) -> Result<bool, AppError> {
+        controller_stop_delivery::claim(self, command).await
+    }
+    async fn settle_controller_stop(
+        &self,
+        launch_id: Uuid,
+        outcome: &serde_json::Value,
+    ) -> Result<app::runtime_launch::ControllerStopDelivery, AppError> {
+        controller_stop_delivery::settle(self, launch_id, outcome).await
     }
     async fn record_container_endpoint(
         &self,

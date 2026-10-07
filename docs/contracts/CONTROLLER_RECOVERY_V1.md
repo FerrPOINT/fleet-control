@@ -164,14 +164,54 @@ exposes a private `controller_recovery` marker, not a public DTO. Original
 supervisor generation checks, endpoint writes, lifecycle observations, runtime
 metadata updates, controller-scoped/unscoped queue claims and dispatch permit
 preparation/consumption reject that outstanding generation while recovery exists.
-Even a stored acknowledgement does not open a new-owner path in this candidate.
-Original messages stay queued, launch/PID/configuration history stays unchanged
-and no replacement generation or model request is created.
+Even a stored acknowledgement does not open a new-owner execution path. The
+explicit namespace-containment exception below requires separate fresh proof
+and a once-only stop journal; it is not model/control/SDLC authority.
+Original messages stay queued and no model request is created. Custody alone
+preserves launch/PID/configuration history; only independently confirmed original
+namespace exit may settle the explicit stop path below.
 
 Database triggers reject identity/receipt relabelling, illegal transitions,
 unbounded/stale heartbeat, delete and truncate. Retained history prevents
 downgrade; an empty clean-schema down/up is allowed. There is no force-unlock,
 clear-history or reset-owner operation.
+
+## Recovered Namespace Stop Candidate
+
+Additive000022 introduces one narrowly scoped new-owner path: explicit stop of
+the original container namespace. Public runtime authorization and configuration
+drain guards stay unchanged. Recovery must be enabled, with an acknowledged
+current logical owner, exact original launch/config/path/port/source binding,
+validated retained recovery receipt and live DB lease. Base owner-aware protocol3
+observe checks the exact live native boot-clock lease and physical controller;
+Fleet then rereads its exact DB owner/version/deadline and launch. A cached ACK
+or `lease_valid` snapshot alone is never sufficient.
+
+The stable intent fixes original launch/agent/PID, launch/snapshot SHA256 and
+operation ID equal to the launch UUID. The custody envelope is stored separately
+on a once-only dispatch claim. A current successor can claim a never-dispatched
+intent; an existing claim is not reset or replaced. Base stop checks native
+authority again before its physical effect. A timeout, crash or lost reply leaves
+the claim intact. Subsequent calls only observe: a still-running namespace is
+held, never killed again; independently witnessed original namespace exit may
+settle even after the admitted lease expired. This previously claimed read-only
+path uses Base's fresh original restart/namespace witness, not a live effects
+permit. It cannot claim, stop, renew or adopt a running namespace. Changed
+generation, snapshot, registration or outcome fails closed.
+
+The private trusted repository operation validates a closed original stop receipt
+or original namespace-exited observation. It atomically stores outcome/hash,
+changes only the original launch to `gateway_exited`, updates stopped runtime
+metadata and appends one redacted audit row. Late positive settlement can retain
+history after custody expiry without renewing authority. Replay cannot change a
+later launch's runtime metadata. SQL guards prevent erasure, relabelling, claim
+reset and outcome replacement; populated downgrade fails.
+
+This candidate does not grant model dispatch, steer, approval, task assignment,
+checkpoint resume or automatic configuration takeover. It does not mark a chat,
+Hermes run or SDLC stage successful. Unresolved session dispatch/control/approval
+and interrupted activation still require separate reconciliation. Component
+fixtures and the earlier custody gate are not actual new-owner stop evidence.
 
 ## Required Native Integration
 

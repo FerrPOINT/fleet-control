@@ -1,5 +1,24 @@
 # Current State
 
+## Recovered Namespace Stop Candidate: 7 October 2026
+
+Candidate000022 adds a stable original-generation stop intent and once-only
+dispatch journal. The supervisor requires current DB custody plus fresh Base
+native owner/physical proof; only validated original namespace exit changes
+runtime status. Lost replies never authorize a second kill. Six new PostgreSQL
+and controlled-native tests cover concurrent claims, immutable outcomes, drift,
+expiry, foreign owner, native expiry and unknown acceptance/readback, including
+late positive exit after expiry without lease renewal. The initial full captured
+packet passed582 tests with31 opt-in ignores, strict checks and exact OpenAPI;
+the follow-up passes strict workspace/all-target Clippy, six stop cases and22
+migration cases with0 ignores and unchanged309 inputs. Thirty host driver tests,
+133 Markdown link checks and root Docker audit also pass. Both gates are cleaned;
+see the exact hashes in the verification ledger.
+Earlier custody
+evidence below does not cover this new stop path. Session/control/approval and
+activation reconciliation, PM/producer compatibility, Forge and ordered release
+remain open. No UI, installed runtime or default-off policy has changed.
+
 ## Verified Docker Custody: 7 October 2026
 
 Actual owned gate `sdlc-qa-fleet-container-live-2c9e86b1c29a` passes all six

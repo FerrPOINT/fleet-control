@@ -1,5 +1,24 @@
 # Testing
 
+## Recovered Namespace Stop
+
+`infra --lib runtime::controller_stop_tests::` runs six isolated PostgreSQL /
+controlled-native cases: one concurrent claim; strict receipt drift and one
+redacted atomic outcome; expired/drifted claim denial; foreign/native-expired
+owner denial; successful stop; lost post-exit reply resolved by read-only observe;
+unknown pre-exit acceptance retained without a second kill or model permit;
+late confirmed exit readback preserves expired custody without renewal.
+These are component tests, not actual Docker stop or PM/SDLC acceptance. The
+test requires `FLEET_TEST_DATABASE_URL`; the accepted runtime is never used.
+Migration000022 retains populated history and adds no legacy authority. The
+`migration` package explicitly enables existing workspace UUID features in its
+dev-dependencies, so isolated migration tests do not depend on workspace feature
+unification. No dependency version or production dependency was added.
+The final strict workspace/all-target gate passes six stop cases and22 migration
+cases without skips, including both accepted foundation histories and populated
+000022 downgrade refusal. Retain the initial582-case full gate separately from
+the changed follow-up; actual Docker stop remains an unpassed acceptance gate.
+
 ## Actual Docker Controller Custody Gate
 
 Use `scripts/container_supervisor_live/run.py --controller-recovery` with the

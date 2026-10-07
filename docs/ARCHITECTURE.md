@@ -1,5 +1,14 @@
 # Architecture
 
+Recovered-controller containment is a narrow candidate path, not general runtime
+adoption. The supervisor admits one original-generation namespace stop only
+after fresh DB/native custody proof. A stable stop intent and claimed envelope
+are separate from immutable launch/recovery history. Lost acceptance becomes
+read-only physical namespace observation, never another kill. Validated exit,
+stopped runtime metadata and redacted audit commit atomically; session/approval,
+task/workflow and interrupted configuration reconciliation remain independent.
+See [ADR0034](adr/0034-recovered-controller-namespace-stop.md).
+
 Current SDLC scope and unimplemented gates are tracked in
 [SDLC implementation](SDLC_IMPLEMENTATION.md). Automatic SDLC remains disabled;
 legacy leaders are preserved, not part of the current delivery scope.
