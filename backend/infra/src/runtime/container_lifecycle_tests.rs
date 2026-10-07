@@ -230,6 +230,173 @@ async fn container_dispatch_origin_requires_sealed_generation_not_an_arbitrary_p
 }
 
 #[tokio::test]
+async fn container_approval_recovery_requires_the_accepted_sealed_gateway_origin() {
+    let Some((repo, agent, owner, _, root)) = lifecycle_tests::fixture(AgentKind::Hermes).await
+    else {
+        return;
+    };
+    let launch = binding(&agent, Uuid::new_v4());
+    repo.claim_runtime_launch(&launch).await.unwrap();
+    repo.observe_runtime_launch(&launch, "gateway_started", Some(12345))
+        .await
+        .unwrap();
+    let origin = format!("http://172.18.0.2:{}", agent.api_port.unwrap());
+    repo.record_container_endpoint(&launch, 12345, &origin)
+        .await
+        .unwrap();
+    let session = repo
+        .create_session(
+            domain::CreateSessionRequest {
+                primary_agent_id: Some(agent.id),
+                agent_id: None,
+                title: "Container approval recovery".into(),
+                task_key: None,
+                leader_agent_id: None,
+                parent_session_id: None,
+                namespace_id: None,
+                idempotency_key: Some(Uuid::new_v4().to_string()),
+            },
+            owner,
+        )
+        .await
+        .unwrap();
+    let message = repo
+        .create_session_message(
+            session.id,
+            domain::CreateSessionMessageRequest {
+                body: "Perform the requested owned action".into(),
+                author_agent_id: None,
+                message_kind: Some(domain::MessageKind::UserPrompt),
+                runtime_message_id: None,
+                idempotency_key: Some(Uuid::new_v4().to_string()),
+            },
+            owner,
+        )
+        .await
+        .unwrap();
+    repo.db
+        .execute(sea_orm::Statement::from_sql_and_values(
+            sea_orm::DatabaseBackend::Postgres,
+            "UPDATE message_dispatch_outbox SET state='dispatching' WHERE message_id=$1",
+            [message.id.into()],
+        ))
+        .await
+        .unwrap();
+    repo.update_agent_status(agent.id, AgentStatus::Running)
+        .await
+        .unwrap();
+    let requested = format!("fleet:{}:{}", session.id, agent.id);
+    let capabilities = json!({
+        "object":"hermes.api_server.capabilities", "platform":"hermes-agent",
+        "auth":{"type":"bearer","required":true},
+        "runtime":{"mode":"server_agent","tool_execution":"server","split_runtime":false},
+        "features":{"run_submission":true,"run_status":true,"run_events_sse":true,"run_stop":true,
+            "runs_idempotency":{"supported":true,"durable":true,"retention_seconds":86400}},
+        "endpoints":{"runs":{"method":"POST","path":"/v1/runs"},
+            "run_status":{"method":"GET","path":"/v1/runs/{run_id}"},
+            "run_events":{"method":"GET","path":"/v1/runs/{run_id}/events"},
+            "run_stop":{"method":"POST","path":"/v1/runs/{run_id}/stop"}},
+        "fleet_launch":{"version":1,"launch_id":launch.id}
+    });
+    let fingerprint = "a".repeat(64);
+    repo.prepare_hermes_dispatch(app::HermesDispatchDraft {
+        message_id: message.id,
+        session_id: session.id,
+        agent_id: agent.id,
+        run_role: SessionRunRole::Primary,
+        requested_session_id: requested.clone(),
+        input: message.body,
+        origin: origin.clone(),
+        credential_fingerprint: fingerprint.clone(),
+        capabilities,
+    })
+    .await
+    .unwrap();
+    let run = repo
+        .claim_hermes_submission(message.id, origin.clone(), fingerprint.clone())
+        .await
+        .unwrap()
+        .unwrap()
+        .run;
+    let native_id = format!("run_{}", Uuid::new_v4().simple());
+    let effective = format!("native:{}", Uuid::new_v4());
+    repo.accept_hermes_run(message.id, run.id, native_id.clone())
+        .await
+        .unwrap();
+    repo.pin_hermes_run_session(run.id, native_id.clone(), requested, effective.clone())
+        .await
+        .unwrap();
+    let request = app::RuntimeApprovalCreate {
+        session_id: session.id,
+        session_run_id: run.id,
+        agent_id: agent.id,
+        runtime_run_id: native_id.clone(),
+        runtime_approval_id: Some("container-recovered-approval".into()),
+        prompt: "Review this owned action".into(),
+        detail: json!({"event":"approval.request","run_id":native_id,
+            "request_id":"container-recovered-approval","choices":["once","deny"]}),
+    };
+    for rejected_origin in [
+        format!("http://127.0.0.1:{}", agent.api_port.unwrap()),
+        format!("http://172.18.0.3:{}", agent.api_port.unwrap()),
+    ] {
+        assert!(
+            repo.recover_hermes_approval(
+                request.clone(),
+                effective.clone(),
+                rejected_origin,
+                fingerprint.clone()
+            )
+            .await
+            .is_err()
+        );
+    }
+    let (approval, created) = repo
+        .recover_hermes_approval(
+            request.clone(),
+            effective.clone(),
+            origin.clone(),
+            fingerprint.clone(),
+        )
+        .await
+        .unwrap();
+    assert!(created);
+    assert!(
+        !repo
+            .recover_hermes_approval(
+                request.clone(),
+                effective.clone(),
+                origin.clone(),
+                fingerprint.clone()
+            )
+            .await
+            .unwrap()
+            .1
+    );
+    assert_eq!(
+        repo.list_session_approvals(session.id).await.unwrap().len(),
+        1
+    );
+    assert_eq!(
+        repo.get_session_agent_run(run.id).await.unwrap().state,
+        SessionRunState::Waiting
+    );
+    repo.observe_runtime_launch(&launch, "gateway_exited", Some(12345))
+        .await
+        .unwrap();
+    assert!(
+        repo.recover_hermes_approval(request, effective, origin, fingerprint)
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        repo.list_session_approvals(session.id).await.unwrap()[0].id,
+        approval.id
+    );
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[tokio::test]
 async fn container_lifecycle_binding_rejects_cross_agent_mounts_identity_and_sources() {
     let Some((_, agent, _, _, root)) = lifecycle_tests::fixture(AgentKind::Hermes).await else {
         return;

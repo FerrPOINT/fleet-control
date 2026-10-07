@@ -66,10 +66,6 @@ pub(super) async fn record(
         || run.runtime_run_id.as_deref() != Some(req.runtime_run_id.as_str())
         || run.runtime_session_id.as_deref() != Some(native_session_id.as_str())
         || !matches!(run.state.as_str(), "running" | "waiting" | "stopping")
-        || agent
-            .api_port
-            .map(|port| format!("http://127.0.0.1:{port}"))
-            != Some(origin.clone())
     {
         return Err(AppError::conflict(
             "approval snapshot current identity changed",
@@ -81,6 +77,7 @@ pub(super) async fn record(
             "SELECT 1 FROM hermes_dispatch_journal j
          WHERE j.run_id=$1 AND j.session_id=$2 AND j.agent_id=$3 AND j.state='accepted'
            AND j.origin=$4 AND j.credential_fingerprint=$5
+           AND fleet_hermes_origin_matches(j.agent_id,j.origin,j.capabilities)
            AND NOT EXISTS(SELECT 1 FROM task_chat_bindings b WHERE b.session_id=$2)
            AND NOT EXISTS(SELECT 1 FROM pm_run_bindings b WHERE b.session_run_id=$1)",
             [
