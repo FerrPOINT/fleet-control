@@ -4,6 +4,27 @@ Status: agreed target contract; deployment compatibility must be verified.
 
 ## Identity And Ownership
 
+### Producer Release Readback: 7 October 2026
+
+Tracker PR114 is now Draft against main at
+`357caa7a60a717eb7b0ac72f286b793326992931`, with a clean merge state and no
+checks reported by the fresh PR readback. Its committed OpenAPI includes
+Analysis and `expected_routing_policy_version`. Those missing-field findings
+below describe the earlier head, not the current producer.
+
+Comparison with Fleet93d036b, after mapping producer schema references to Fleet
+names, matches six accepted schemas: context, confirmation, confirmation command,
+question, answer command and questions response. Requirements revision still
+differs: Tracker declares `additionalProperties: false` and revision range
+1..9007199254740991; Fleet's response schema does not declare those restrictions.
+Required-field order also differs and is not itself a behavioral incompatibility.
+Exact full-schema parity and live acceptance are not claimed.
+
+Workflow PR90 remains Draft at `e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37`
+against master. Its historical two CI checks pass, but the previously inspected
+running-callback bind is not proof of predispatch admission/checkpoint support.
+Both producer PRs remain open; new source publication is not installed rollout.
+
 ### Producer Release Compatibility: 5 October 2026
 
 Read-only remote recheck on6 October preserves the same exact heads below:

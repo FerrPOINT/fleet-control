@@ -2,22 +2,23 @@
 
 ## Recovered Namespace Stop Candidate
 
-Actual packets1f947520ed8f and7dcc9e260024 pass the six custody phases but fail
-the new stop gate. The latter confirms its first namespace stop and exposes
-health metadata being rewritten to `unhealthy` after its launch closes. A narrow
-terminal-proof health guard and stale-snapshot regression pass fresh strict
-all-target checks, six PostgreSQL stop cases and22 migration cases without
-skips. Full actual two-namespace acceptance remains required.
-This is a product defect, not permission to relax the stop assertion or retry a
-claimed kill. Base prerequisite PR166 is merged with10/10 post-merge CI; this
-does not close Fleet stop or whole-product readiness.
+**Closed for actual current-owner namespace containment only.** Project
+9777599d297a at published Fleet93d036b passes all six custody phases, three
+physical Fleet restarts, both normal stops and independent native/Engine exit
+proof. Frozen sources, cleanup and unchanged accepted runtime are verified.
+See the [evidence](CHAT_CLARIFICATION_VERIFICATION.md).
+Earlier packets1f947520ed8f and7dcc9e260024 remain failed; the latter exposed
+the health overwrite fixed by the verified terminal-proof guard. Base PR166 is
+merged with10/10 main checks. Neither this closure nor the producer merge is
+whole-product readiness.
 
 Candidate000022 implements stable intent/once-only dispatch and validated
 original exit settlement under current DB/native custody. Initial full582-case
 verification and the separate final six-stop/22-migration strict gate pass;
-earlier custody-only evidence does not certify actual stop of this changed path.
-Actual stopped namespace and unknown-reply/expired historical readback,
-session/control/approval and interrupted activation reconciliation remain gates.
+earlier custody-only evidence is not substituted for the actual stop proof above.
+Live lost-stop-reply acceptance remains separate: this successful packet has0
+uncertain readbacks. Session/control/approval terminal settlement, resumed
+execution and interrupted activation reconciliation remain gates.
 No model/task admission is enabled. Fresh mainc8093aa also changes the accepted
 Base SDK pin; current source verification uses the explicitly captured candidate
 pin, not that main head. Ordered single-migration releases and exact-main-head
@@ -31,7 +32,7 @@ DB/native expiry, unchanged original processes/run/transcript/journals and
 exact source/owned cleanup. See the [verification ledger](CHAT_CLARIFICATION_VERIFICATION.md).
 Fresh component checks pass 56 cases. No accepted deployment was changed and
 recovery stays default-off. Resumed execution, fresh effect admission, safe
-new-owner stop, interrupted activation, PM/producer/Forge acceptance and ordered
+new-owner controls, interrupted activation, PM/producer/Forge acceptance and ordered
 release are still open; this scoped closure is not whole-product readiness.
 
 ### Historical Failed Packets

@@ -30,17 +30,19 @@ intent, once-only dispatch claim, current DB/native authority and validated
 original exit settlement. The initial full captured packet passed582 tests,
 strict checks and exact OpenAPI. The follow-up passes strict workspace/all-target
 Clippy, six stop cases and22 migration cases without skips, including late exit
-without custody renewal and both migration foundations. Actual
-two-Hermes stop acceptance, session/control/approval reconciliation and interrupted
-activation remain required. Do not relabel the earlier custody-only proof or
+without custody renewal and both migration foundations. Actual project9777599d297a
+now passes all six custody phases, three restarts and both normal Hermes stops
+with independent native/Engine proof at published Fleet93d036b. Live lost-reply
+acceptance, session/control/approval reconciliation and interrupted activation
+remain required. Do not relabel the earlier custody-only proof or
 publish the accumulated thirteen-migration branch as one main PR.
 
 Actual stop packets1f947520ed8f and7dcc9e260024 retain the six custody proofs
 but fail the added stop gate; the latter exposes the background health probe
 overwriting a confirmed namespace exit. The narrow terminal-proof guard now
 passes strict/all-target checks and six-stop/22-migration regression tests.
-Repeat the complete `--controller-recovery --controller-stop` gate on this
-repaired source before closing stop acceptance. A lost reply may use the
+The complete `--controller-recovery --controller-stop` gate now passes on the
+repaired source; hashes and closure scope are in the verification ledger. A lost reply may use the
 claimed-command read-only path, never a second kill or a longer lease.
 
 Independent browser boundary [Fleet56](https://github.com/FerrPOINT/fleet-control/pull/56)

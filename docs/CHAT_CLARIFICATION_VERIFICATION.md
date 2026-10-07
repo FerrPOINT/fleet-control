@@ -1,5 +1,41 @@
 # Chat Clarification Verification
 
+## Verified Recovered Namespace Stop: 7 October 2026
+
+Actual Compose project `sdlc-qa-fleet-container-live-9777599d297a` passes the
+complete `--controller-recovery --controller-stop` gate at published Fleet
+`93d036bcd9affe26f18f69aa899caf783eebc6e7`, Base control source
+`04f5527e705c5f838ae5c041efa988d14e1e6329` and SDK
+`cbb4e99230420dc2659431b1c9fb5090e5c940f0`.
+
+Fresh Rust1.88 fmt, strict locked/offline workspace/all-target Clippy and the
+closed heartbeat wire test pass before the actual scenario. All six custody
+phases pass, including physical restarts, live versions4+, real expiry and
+read-only native proofs. A third same-CID Fleet restart establishes epoch3;
+both normal supervisor stops then pass without an uncertain-stop readback.
+The stop test passes1 case with0 failures/ignores in148.43 seconds.
+
+Independent native and Docker Engine observations confirm both original
+namespaces exited with PID0, without substituting container/image/start identity.
+Original launch identity, immutable stop delivery, one outcome audit per stop,
+session/run/dispatch/transcript/pending approval and protected target remain
+unchanged. Native verification is read-only and does not rewrite journals.
+
+All322 frozen source files match. Source JSON manifest SHA256:
+`50712473f70dd8e00aa499759c335c6e6926ca5dbf356bd38d9f57af4058bd77`.
+Build log SHA256:
+`0c0724759ee21ffc664dd5c5f74b7579e9ad41e16be145e3c3b458d5e393822c`.
+Owned containers/networks/disposable volumes and image aliases are removed;
+accepted runtime is unchanged. Independent project inventory is empty and root
+Docker audit is complete with35 desktop containers, both runners empty and no
+violations. Raw native receipts and credentials are not published.
+
+This closes actual current-owner namespace containment, not session terminal
+settlement, lost-stop-reply live acceptance, resumed execution, config activation,
+PM/Workflow/Forge or the ordered main release. The model response is controlled
+test input, not a real PM conversation. Recovery remains default-off; no installed
+pin, public API or UI changed. Earlier failed packets remain failed.
+
 ## Actual Recovered Namespace Stop Gate: 7 October 2026
 
 The new opt-in `--controller-recovery --controller-stop` packet preserves every

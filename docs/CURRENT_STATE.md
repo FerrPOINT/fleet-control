@@ -1,5 +1,22 @@
 # Current State
 
+## Published Namespace Stop Acceptance: 7 October 2026
+
+Fleet93d036b is published in `feat/hermes-runtime-integration-20261004`, not main.
+Actual project9777599d297a passes all six custody phases, three physical Fleet
+restarts, both normal recovered-owner Hermes stops and independent native/Engine
+exit proof. All322 sources match, owned cleanup is complete and the accepted
+runtime is unchanged. The root Docker audit also passes. Exact hashes and scope
+are in the [verification ledger](CHAT_CLARIFICATION_VERIFICATION.md).
+
+Base PR166 is merged with10/10 main checks. Whole-product readiness is NOT
+established: PM/workflow acceptance, resumed control/session reconciliation,
+config activation, Forge and ordered main releases remain open. No new UI or
+screenshots are claimed. Earlier failed stop packets below retain their outcome.
+Fresh Tracker114 head357caa7 includes Analysis/routing; six top-level schemas
+match, requirements-revision restrictions still differ. See the updated
+[contract](contracts/CHAT_CLARIFICATION_CONTRACT.md).
+
 ## Producer Merge And Stop Health Regression: 7 October 2026
 
 Base runtime-control PR166 is merged into main as3a48de8. Exact PR head04f5527
@@ -17,8 +34,8 @@ observational instead of probing or adopting an old TCP port. Its regression
 passes the stale running snapshot to repeated normal health calls and requires
 all stopped metadata to stay byte-equivalent. Fresh strict/all-target and six
 stop/22 migration checks pass with0 ignores, as do34 host tests and133 Markdown
-link checks; exact hashes are in the verification ledger. Renewed actual
-acceptance is still required; the old success/failure packets are not relabelled.
+link checks; exact hashes are in the verification ledger. The later renewed
+actual stop acceptance is documented above; these failed packets are not relabelled.
 
 ## Recovered Namespace Stop Candidate: 7 October 2026
 
