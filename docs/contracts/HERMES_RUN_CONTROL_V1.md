@@ -62,6 +62,37 @@ GET receipt/list routes enforce session/project access. The latest 100 receipts
 omit guidance, keys, credentials and upstream payloads. UI preserves input and
 blocks new commands while unresolved, including after reload.
 
+Fleet also exposes read-only original-key lookup at
+`GET /api/v1/sessions/{session_id}/runs/{run_id}/controls/lookup`. Require a current
+verified human, fresh session/project access, one original `Idempotency-Key`
+header and closed query `operation`, `payload_sha256`. The latter is lowercase
+SHA256 of compact sorted-key UTF8 JSON `{"input":...,"operation":...}` using the
+existing Rust-trimmed steer input or null for stop. Actor comes from auth, never
+query JSON. The original actor/key unique index finds historical commands beyond
+the100-item list, including terminal runs. Wrong session/run/agent or another
+actor's key returns404; changed own payload/operation returns409. No key, guidance,
+hash, credential or native context is added to the public receipt.
+
+This GET never sends or reserves a control, claims a permit, updates state or
+triggers native reconciliation. Persisted uncertain/submitted/reserved receipts
+remain unresolved; terminal_observed without native ACK is not acceptance.
+Unknown/404 readback cannot authorize a second POST: the original request may
+still be in transit. Consumer recovery must preserve the original key/input/run
+and require a fresh exact ACK before clearing its hold.
+
+For a browser computing the digest, normalize the original submitted string
+using Rust's Unicode White_Space set: U+0009..000D,0020,0085,00A0,1680,
+2000..200A,2028,2029,202F,205F,3000. Do not blindly use JavaScript `trim`
+(its treatment of0085/FEFF differs). Preserve all internal characters. Encode
+`JSON.stringify({input: semanticInput, operation})` using `TextEncoder`, then
+SHA256 and lowercase hex. Stop uses null, not an empty string or absent key.
+Canonical vectors:
+
+- `{"input":null,"operation":"stop"}`:
+  `ea123901799860e917ce433b72c621c4afffe4c866497c1bfb38507816f8048f`.
+- `{"input":"keep scope","operation":"steer"}`:
+  `836755e924913fa3776aeec3253eb2f9ba7c4d473e44deb16e87bbdd93f9f1b2`.
+
 Bounded background reconciliation observes the independently committed original
 run/prompt terminal packet. It rejects an unclaimed reservation, or records
 terminal_observed for submitted/uncertain. It never claims unknown guidance was
@@ -70,11 +101,13 @@ Native per-command acceptance lookup and safe cancellation of abandoned reserved
 commands are not implemented by this ledger; final source/native/CI evidence must
 be read separately in the verification ledger.
 
-An opt-in Base [control outcome producer](HERMES_CONTROL_OUTCOME_V1.md) now
-provides a separate single-send ACK lookup contract. Production Fleet has not
-yet persisted its original epoch/raw-body context or integrated that readback.
-Do not enable the producer on installed Fleet, upgrade historical intents into
-witnesses, or treat native-only acceptance as consumer recovery.
+The opt-in Base [control outcome producer](HERMES_CONTROL_OUTCOME_V1.md) has a
+separate single-send ACK lookup contract. Fleet's candidate persists original
+epoch/raw-body context and integrates a separately gated background readback.
+The public original-key GET only reads its committed receipt; it never starts
+that worker or reads Hermes itself. Ordered release and installed acceptance
+remain required. Do not upgrade historical intents into witnesses or treat
+native-only acceptance as consumer recovery.
 
 ## Approvals And Phase 2
 

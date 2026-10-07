@@ -1,5 +1,17 @@
 # Implementation Plan
 
+## Public Control Recovery Consumer Handoff
+
+The verified-human original-key GET is implemented and covered by the fresh
+551-case full gate. The local client is generated from Rust OpenAPI. See
+[consumer contract](contracts/HERMES_RUN_CONTROL_V1.md#fleet-command-journal)
+and [verification](CHAT_CLARIFICATION_VERIFICATION.md#original-key-control-lookup-7-october-2026).
+The independent Chats task owns UI integration: retain original key/run/input,
+hash the same Rust-normalized semantic payload, and release a pending hold only
+from a fresh exact accepted receipt. Unknown,404 or terminal-without-ACK must not
+become a second POST. Keep actual native reply-loss/restart acceptance separate
+from these component tests; no installed runtime flag changes accompany this GET.
+
 ## Verified Native Credential And Input Slice
 
 The fresh actual two-agent Rust/Base/Docker gate verifies six native model runs,

@@ -1,5 +1,21 @@
 # Gap Register
 
+## Original-Key Control Lookup; Consumer And Live Proof Remain
+
+Public GET now recovers an existing receipt without the lost command UUID, using
+the authenticated original actor/key and exact semantic payload digest. Three
+fresh PostgreSQL/HTTP cases cover reconstruction, uncertainty, terminal history,
+revocation and foreign actor/scope denial; two domain cases fix the hash contract.
+The full551-case gate and generated specification pass. See
+[verification](CHAT_CLARIFICATION_VERIFICATION.md#original-key-control-lookup-7-october-2026).
+
+The Chats task must still wire this route using its retained original input/key/run
+and Rust-compatible trimming, without a native resend on404 or unknown outcomes.
+Controlled HTTP and repository reconstruction are not real Hermes acceptance or
+Fleet OS-restart proof for this route. Existing native recovery evidence remains
+separate. This additive route does not close task admission, PM delivery/resume,
+production logs, ordered release or installed acceptance.
+
 ## Native Static Provider Proof; Full Collector Still Open
 
 The fresh owned two-agent Docker scenario now proves actual native provider-key

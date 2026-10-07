@@ -75,6 +75,7 @@ pub mod routes;
         routes::sessions::stop_session_run,
         routes::sessions::read_control,
         routes::sessions::list_controls,
+        routes::sessions::lookup_control,
         routes::sessions::resolve_session_run_approval,
         routes::task_chats::bind_task_chat,
         routes::task_chats::task_context,
@@ -479,6 +480,10 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         .route(
             "/api/v1/sessions/{session_id}/runs/{run_id}/controls",
             get(routes::sessions::list_controls),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/runs/{run_id}/controls/lookup",
+            get(routes::sessions::lookup_control),
         )
         .route(
             "/api/v1/sessions/{session_id}/runs/{run_id}/approval",

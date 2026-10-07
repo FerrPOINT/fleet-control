@@ -93,7 +93,7 @@ Preflight validation failures remain errors. See
 ## Durable Free-Chat Controls
 
 Steer and stop require an authenticated `Idempotency-Key` header (valid reference,
-1..128 characters). The same actor/key, run, operation and normalized payload
+1..128 characters, exactly one header value). The same actor/key, run, operation and normalized payload
 replays the existing command; a changed payload/identity is `409`. Actor identity
 comes from authentication, not JSON. Both mutations additionally require verified
 human-session proof; a sessionless principal receives `403` before session/run
@@ -110,12 +110,34 @@ An ACK-persistence failure can return an error while the journal remains submitt
 
 - `GET /sessions/{session_id}/runs/{run_id}/controls`: latest 100 receipts, newest first.
 - `GET /sessions/{session_id}/runs/{run_id}/controls/{command_id}`: exact receipt.
+- `GET /sessions/{session_id}/runs/{run_id}/controls/lookup?operation=steer|stop&payload_sha256=<hash>`:
+  original-key readback when the POST reply/command ID was lost. The original
+  `Idempotency-Key` stays in the header; actor is derived from the current verified
+  human session. Only that actor's key is searched, even for an admin/operator.
+  Current session/project authorization is mandatory. The indexed read is not
+  restricted to the newest100 commands or to an active run.
+
+Lookup hash is lowercase SHA256 of compact UTF8 JSON with sorted keys:
+`{"input":<normalized-steer-text-or-null>,"operation":"steer-or-stop"}`.
+Steer uses the existing Rust `str::trim` semantics before native dispatch; preserve
+the captured semantic input, not a newly edited draft. Unicode is not ASCII-expanded
+or otherwise normalized; stop input is `null`. Unknown query fields/operation,
+missing/duplicate key and noncanonical digest are rejected. Same scope/key with
+changed payload/operation returns409; no own scoped receipt returns404. Foreign
+actor keys never return somebody else's receipt, even with read-all permission.
+
+Lookup performs no native HTTP, dispatch/claim/reconciliation, journal mutation,
+audit/event insertion or run-state update. It preserves uncertain/submitted/
+reserved states and works for an original terminal run. A404 is not permission
+to resend: the initial POST may still arrive or commit later. Release a consumer
+hold only from an exact original receipt with validated native acknowledgement;
+`terminal_observed` without ACK is not proof that guidance was accepted.
 
 The required header is an explicit incompatible security migration for legacy
 unkeyed controls, not an ordinary additive API change. See
 [versioning and client migration](API_VERSIONING.md#explicit-runtime-security-migrations).
 
-Both require current session/project read access and exact session/run identity.
+All receipt routes require current session/project read access and exact session/run identity.
 Receipts expose IDs, actor, operation, state, ACK and timestamps, not command input,
 key, native credential/context or upstream response. Durable `runtime_control_changed`
 session events notify consumers to read the authorized receipt; events are not ACKs.

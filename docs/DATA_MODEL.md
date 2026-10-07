@@ -175,6 +175,15 @@ Legacy run-wide approval has no adapter bypass. See the
 
 ## Runtime Control Commands
 
+Original-key public readback uses the existing unique
+`runtime_control_commands(actor_user_id,idempotency_key)` index and immutable
+`payload_sha256`, session/run/agent and operation. The caller supplies only its
+own authenticated key and canonical semantic payload digest. Lookup returns the
+existing redacted receipt without raw key/input/context or a new database field.
+It rechecks active-user/session authorization in a read transaction and never
+claims, changes journal/run state or appends audit/SSE events. No migration is
+needed; older original records remain readable after their run terminates.
+
 Additive `m20261005_000013_runtime_controls` follows dispatch journal 000012;
 historical migration bytes and legacy transcripts are unchanged. A command stores
 immutable Fleet session/run/agent/actor, actor-scoped key, semantic payload hash,

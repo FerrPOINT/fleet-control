@@ -1,5 +1,25 @@
 # Testing
 
+## Original-Key Runtime Control Readback
+
+Two domain cases fix canonical UTF8 hash vectors (stop/null, steer, Unicode/
+escaping/whitespace) and closed query/digest validation. The existing API key
+case additionally rejects duplicate header values. Three PostgreSQL/HTTP cases
+check a discarded reply without command ID, readback through a fresh repository,
+concurrent reads without new events, original terminal-run access, unchanged
+native POST count, wrong session/run/agent/key/payload/operation, user/operator/
+admin actor scope, actual local token middleware, active-user revocation and
+closed query/header validation. Uncertain native acceptance stays unresolved;
+terminal observation without ACK does not become command success. The existing
+sessionless-principal case also rejects a forged human header on this GET.
+
+Run the full workspace gate or the focused `runtime_control_` integration filter
+with an owned disposable `FLEET_TEST_DATABASE_URL`; missing DB is not acceptance.
+These tests use controlled HTTP, not live Hermes or a Fleet OS-process restart.
+The original-key GET never invokes native recovery; only persisted receipts are
+read. Exact results and generated OpenAPI belong in
+[verification](CHAT_CLARIFICATION_VERIFICATION.md).
+
 ## Original Container Environment Input
 
 Three `runtime::container_environment::tests` check exact escaped/interpolated

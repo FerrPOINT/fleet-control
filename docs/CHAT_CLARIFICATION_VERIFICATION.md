@@ -1,5 +1,59 @@
 # Chat Clarification Verification
 
+## Original-Key Control Lookup: 7 October 2026
+
+The additive human GET recovers the original actor/key receipt when an initial
+reply loses its command UUID. Closed operation/digest input, fresh human/session/
+project checks and the existing actor/key unique index enforce exact scope. It
+returns no key/input/hash/native credential context and never dispatches, reserves,
+mutates or reconciles a command. Historical terminal receipts remain readable.
+
+Two domain cases verify canonical UTF8 hash vectors and query validation. Three
+new PostgreSQL/controlled-HTTP cases prove concurrent/fresh-repository lookup,
+lost reply ID, scope/payload conflicts, unrelated user/operator/admin key denial,
+revocation and terminal uncertainty without another native POST. Unknown ACK
+remains unaccepted even after an independently committed terminal mirror.
+These are not an actual Fleet OS restart or native Hermes reply-loss scenario.
+
+Fresh project `sdlc-qa-fleet-container-control-af2745dcc72d` passes Rust1.88 fmt,
+locked offline all-target check/strict Clippy and551 workspace cases in37 result
+groups: zero failures,30 explicit opt-in ignores. All295 captured source inputs
+match after execution. Rust exports the updated OpenAPI after the tests; its
+only added public path is the original-key GET. Source baseline is Fleet3f7d4e5
+plus the captured lookup changes, with unchanged SDKcbb4e99. Owned Compose
+containers/networks are cleaned and independently queried empty.
+
+- Source manifest SHA256:
+  `b18f50fb07362f3b83fb7af647f048c43dc911ad79e754a200b59150cf758c0e`.
+- Full gate log SHA256:
+  `7bf1055c5d8b20f4f5d789feaa7ba863210fa7c605dfde4683c99287776bc3cd`.
+- Report SHA256:
+  `f8dbdb9daf4a7050d6dadb1aa91f2f6d8c6c658786a28bc8ce39d73af705824c`.
+- Rust-generated OpenAPI SHA256:
+  `76a27c806961bc142543445e34f10525485cbcf2f0b66ac2fe5d093fc808a10f`.
+
+Private artifacts: workspace `.local/fleet-container-control-checks-fb914e36cd7c/`.
+After regenerating the ignored local TypeScript client, fresh OpenAPI/client
+equality, eight compatibility cases, typecheck/build, lint, frontend formatting
+and292 unit cases pass. README and127 Markdown links pass; the existing135-screen
+manifest passes its nine validator cases. No screenshots or browser/live PM
+scenarios were newly captured/run for this backend-only route. Vite retains its
+existing large-chunk advisory. An additional root-doc/OpenAPI Prettier probe is
+not green: the same six Markdown files and exporter JSON were already unformatted
+at3f7d4e5. This packet does not rewrite unrelated historical formatting or alter
+the native Rust export bytes; it is not a claim of a complete repository gate.
+
+The earlier owned focused run `sdlc-qa-fleet-container-control-bb9c422b6bde`
+remains failed evidence (44 integration passes,1 failure,2 ignores): the test
+incorrectly expected terminal observation from a run flag without a committed
+mirror. The corrected test uses the real independent terminal commit. No backend
+terminal guard was weakened; both invocations verified exact owned cleanup.
+
+No migration, SDK pin, production UI or installed runtime change. Consumer
+original-key wiring and actual native/OS-restart acceptance of this route are
+still required. Neither this gate nor earlier native packets establish complete
+PM delivery/resume, assignment admission, production log collection or SDLC.
+
 ## Native Provider Rotation And Original Input Custody: 7 October 2026
 
 The expanded ignored supervisor scenario runs two actual pinned Hermes gateways,

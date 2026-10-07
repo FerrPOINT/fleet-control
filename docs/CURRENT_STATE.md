@@ -1,5 +1,20 @@
 # Current State
 
+## Original-Key Control Lookup: 7 October 2026
+
+The candidate adds a verified-human, actor-scoped read-only control lookup when
+the initial reply loses the command ID. It checks original run/agent/key/payload,
+returns only the existing redacted receipt and performs no native effect. Unknown
+or404 results never authorize another POST; terminal observation is not an ACK.
+The Rust-generated OpenAPI and generated local client include the new GET.
+
+Fresh Linux/Rust1.88/PostgreSQL fmt/check/strict Clippy and551 workspace cases
+pass in37 groups, with30 explicit opt-in ignores. All295 frozen inputs match;
+owned Compose containers/networks are removed. See
+[exact evidence](CHAT_CLARIFICATION_VERIFICATION.md#original-key-control-lookup-7-october-2026).
+No migration, SDK pin, installed runtime or production UI change. Consumer wiring,
+native reply-loss/OS-restart proof for this public route and live PM remain open.
+
 ## Native Provider Rotation And Input Custody: 7 October 2026
 
 Fresh actual Rust/Base/Docker acceptance passes for two pinned Hermes gateways,

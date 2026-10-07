@@ -1,5 +1,17 @@
 # Security
 
+## Original Runtime Control Key Lookup
+
+Control recovery by original key is human-only and actor-scoped even with
+read-all permission. Backend rechecks current session/project access and active
+database user authorization; browser-supplied actor IDs and unknown query fields
+are rejected. Key stays in a single bounded header; the query carries only the
+canonical semantic payload digest. No prompt, key, digest or runtime credential
+is returned in the receipt. The indexed GET performs no native request or state
+mutation. A404, reserved/uncertain/submitted receipt or unacknowledged terminal
+observation cannot justify redispatch. See
+[control contract](contracts/HERMES_RUN_CONTROL_V1.md#fleet-command-journal).
+
 ## Original Container Environment Input
 
 New automatic creation intents include a private versioned snapshot of the exact

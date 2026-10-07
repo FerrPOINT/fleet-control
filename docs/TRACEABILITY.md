@@ -1,5 +1,14 @@
 # Traceability
 
+Public original-key control recovery:
+[consumer contract](contracts/HERMES_RUN_CONTROL_V1.md#fleet-command-journal),
+`sessions::lookup_control`, indexed `runtime_controls::lookup` and two domain
+hash/query cases. Three PostgreSQL/HTTP `runtime_run_control` lookup cases cover
+lost receipt identity, concurrent/reconstructed readers, original actor/payload,
+terminal/uncertain state and access revocation without another native POST.
+[Exact551-case evidence](CHAT_CLARIFICATION_VERIFICATION.md#original-key-control-lookup-7-october-2026)
+is not UI wiring, native reply-loss or OS-restart acceptance of this public route.
+
 Private Docker diagnostic logs: [ADR0031](adr/0031-private-bounded-container-log-readback.md),
 [private contract](contracts/CONTAINER_CONTROL_V1.md), Rust
 `runtime/container_control::log_tail` and its two binary/closed-receipt cases.
