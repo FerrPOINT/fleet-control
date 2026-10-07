@@ -30,9 +30,10 @@ CUSTODY_TEST = 'controller_recovery::real_controller_startup_maintains_custody_w
 def test_command(helper, phase=None):
     command = helper.command + ['exec', '-T']
     if phase is not None:
-        if phase not in ('prepare', 'recover-1', 'expired', 'recover-2'):
+        if phase not in ('prepare', 'recover-1', 'expired', 'recover-2', 'freeze-1', 'freeze-2'):
             raise RuntimeError('Unknown own custody phase')
-        command += ['-e', 'FLEET_CONTAINER_RECOVERY_PHASE=' + phase]
+        command += ['-e', 'FLEET_CONTAINER_RECOVERY_PHASE=' + phase,
+                    '-e', 'RUST_LOG=infra::runtime::controller_recovery_worker=warn']
     return command + ['fleet-backend', '/out/fleet-container-live',
                       CUSTODY_TEST if phase else BASELINE_TEST, '--exact', '--ignored',
                       '--nocapture', '--test-threads=1']
@@ -132,12 +133,17 @@ def verify_controller_recovery(helper, directory, report, logged, checked):
             elif phase == 'recover-2':
                 logged(helper.command + ['restart', '-t', '1', 'fleet-backend'], 'custody-restart2.log', 60)
                 validate_restart(first, custody_snapshot(helper, checked))
-            logged(test_command(helper, phase), 'custody-' + phase + '.log', 120)
+            logged(test_command(helper, phase), 'custody-' + phase + '.log',
+                   180 if phase.startswith('recover-') else 120)
             epoch = 2 if phase == 'recover-2' else 1
             suffix = 'expired' if phase == 'expired' else 'epoch' + str(epoch)
             value = json.loads((directory / 'evidence' / ('custody-' + suffix + '.json')).read_bytes())
             validate_custody_evidence(value, epoch=epoch, expired=phase == 'expired')
             evidence[suffix] = value
+            if phase != 'expired':
+                # Read the final exact DB version only after its worker has exited.
+                freeze = 'freeze-' + str(epoch)
+                logged(test_command(helper, freeze), 'custody-' + freeze + '.log', 30)
             command = helper.command + ['exec', '-T', 'fleet-backend', 'python3', '-I', '-B',
                 '/qa-fixtures/custody_probe.py', '--epoch', str(epoch)]
             if phase == 'expired':

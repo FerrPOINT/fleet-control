@@ -33,11 +33,18 @@ queue/permit/endpoint/lifecycle effects. Candidate000021 now retains the origina
 native command, commits one dispatch claim and saves a validated original-key ACK
 atomically with owner outcome and audit. Its trusted entry point is now connected
 to an explicit default-off startup worker with10-second dual heartbeat and an
-8-second per-agent cycle deadline. Last-version catch-up precedes DB renewal;
+8-second initial recovery and20-second heartbeat budgets. Last-version catch-up precedes DB renewal;
 native live observation is mandatory before and after extension. Base handover/
 private epoch source is published at3facb28; pins and installed runtime remain
 unchanged. Complete fresh dual-fence effect admission and interrupted activation settlement before
 enabling restored execution.
+The actual two-agent gate exposed budget starvation from repeating the initial
+handshake before every heartbeat. The follow-up separates initial reconciliation
+from renewal and directs acknowledged owners to the full dual-lease heartbeat.
+The observed native critical path exceeded the former8-second heartbeat budget;
+the new20-second execution budget remains below the unchanged30-second lease.
+It retains expiry guards and the once-only dispatch claim. Require live
+two-restart/expiry evidence before accepting this change as restored custody.
 Prove actual restart, competing owner and interrupted activation; do not rewrite
 the original launch or use expiry as a redispatch permit. See
 [the exact contract](contracts/CONTROLLER_RECOVERY_V1.md). The fresh562-case

@@ -16,6 +16,10 @@ launch/PID/run/dispatch/transcript and actual DB/native lease expiry without
 revival. No approval is granted and no new-owner effect is enabled. All six
 Rust/native phase reports and physical process snapshots are required before
 the final report may pass. Failure remains failure even when cleanup succeeds.
+The90-second renewal observation window does not extend the30-second lease.
+After each worker process exits, a read-only freeze phase captures the final
+exact DB version into a separate private file before the native probe. This
+prevents a concurrent heartbeat from making the probe's snapshot obsolete.
 
 This is approval-wait custody, not active inference-connection survival, resumed
 execution, task/PM workflow or deployment acceptance. The existing rollback and

@@ -38,8 +38,24 @@ runtime mutations. Unique launch/epoch and one-current-epoch indexes provide
 cross-replica fences. A lease lasts at most30 seconds on PostgreSQL's clock.
 Heartbeat requires the exact controller and current lease version; it increments
 the version and cannot revive an expired lease. The opt-in worker cadence is10
-seconds, with an8-second cycle deadline and one in-flight cycle per agent.
+seconds, with one in-flight cycle per agent. Initial recovery is bounded to8
+seconds; the four-call dual heartbeat has a20-second budget, below the unchanged
+30-second lease duration. Ticks during an active cycle are skipped, not queued.
 No caller-supplied clock is trusted.
+
+Initial recovery/readback and heartbeat are separate worker cycles. Once this
+logical controller has an acknowledged record, the worker invokes heartbeat
+directly instead of repeating the initial restart witness and historical ACK
+readback. Heartbeat still validates the original receipt, physical identity and
+both live leases before renewal; a stored ACK alone never permits effects.
+For an already claimed command of this logical owner, reconciliation reads the
+retained original command directly; Base readback supplies its own fresh stable
+physical witness. New reservations still require the full restart witness.
+An acknowledged predecessor may reuse its validated immutable stored receipt
+as historical evidence; new epoch acceptance still requires Base's fresh native
+checks, expired prior custody and a distinct physical controller start.
+Cancellation diagnostics contain only agent ID, static stage and elapsed time,
+not native command bodies, receipts, credentials or transcript.
 
 Identical command/request replay returns the original epoch and expiry without
 renewal or native action. Changed payload for that command conflicts. Readback
@@ -84,8 +100,10 @@ deadline unchanged. It does not revive authority, release capacity, change the
 original launch, bypass old-owner fences or enable a model/run. A successor still
 requires the acknowledged expired predecessor and distinct physical restart.
 
-The trusted `recover_container_controller` entry obtains the Base restart witness,
-reserves/retains/claims once, then reconciles by original readback. It is not exposed
+The trusted `recover_container_controller` entry obtains the Base restart witness
+before a new reservation, reserves/retains/claims once, then reconciles by original
+readback. Previously claimed commands skip pre-reservation work, not Base's
+native readback validation. The entry is not exposed
 through HTTP. The explicit default-off startup policy calls it for existing
 Hermes container launches owned by a previous logical controller. It does not
 create or relabel a launch. Fresh effect admission, interrupted activation

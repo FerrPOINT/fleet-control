@@ -8,6 +8,40 @@ use uuid::Uuid;
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(10);
 const RECOVERY_CYCLE_TIMEOUT: Duration = Duration::from_secs(8);
+const HEARTBEAT_CYCLE_TIMEOUT: Duration = Duration::from_secs(20);
+
+struct RecoveryProgress {
+    agent_id: Uuid,
+    stage: &'static str,
+    started: std::time::Instant,
+    completed: bool,
+}
+
+impl RecoveryProgress {
+    fn new(agent_id: Uuid, stage: &'static str) -> Self {
+        Self {
+            agent_id,
+            stage,
+            started: std::time::Instant::now(),
+            completed: false,
+        }
+    }
+
+    fn stage(&mut self, stage: &'static str) {
+        self.stage = stage;
+        self.started = std::time::Instant::now();
+    }
+}
+
+impl Drop for RecoveryProgress {
+    fn drop(&mut self) {
+        if !self.completed {
+            tracing::warn!(agent_id=%self.agent_id, stage=self.stage,
+                elapsed_ms=self.started.elapsed().as_millis(),
+                "controller recovery step remains held");
+        }
+    }
+}
 
 fn held() -> AppError {
     AppError::Unavailable("controller recovery requires original-key reconciliation".into())
@@ -53,7 +87,7 @@ impl LocalRuntimeSupervisor {
                                 }
                                 let worker = supervisor.clone();
                                 jobs.spawn(async move {
-                                    let result = tokio::time::timeout(RECOVERY_CYCLE_TIMEOUT,
+                                    let result = tokio::time::timeout(HEARTBEAT_CYCLE_TIMEOUT,
                                         worker.reconcile_controller_recovery(agent.id)).await;
                                     (agent.id, matches!(result, Ok(Ok(()))))
                                 });
@@ -79,13 +113,32 @@ impl LocalRuntimeSupervisor {
         {
             return Ok(());
         }
-        let record = self.recover_container_controller(agent_id).await?;
+        if let Some(record) = self
+            .repo
+            .current_controller_recovery(launch.binding.id)
+            .await?
+        {
+            if record.request.controller_id == self.controller_id && record.state == "acknowledged"
+            {
+                // Heartbeat revalidates the retained receipt and both live leases itself.
+                // Replaying the initial handshake here can starve that bounded renewal.
+                return self
+                    .heartbeat_container_controller(agent_id)
+                    .await
+                    .map(|_| ());
+            }
+        }
+        let record = tokio::time::timeout(
+            RECOVERY_CYCLE_TIMEOUT,
+            self.recover_container_controller(agent_id),
+        )
+        .await
+        .map_err(|_| held())??;
         if record.state != "acknowledged" || !record.lease_valid {
             return Err(held());
         }
-        self.heartbeat_container_controller(agent_id)
-            .await
-            .map(|_| ())
+        // Initial ACK is history, not an effects permit. Renew on the next cycle.
+        Ok(())
     }
 
     /// Reconcile the last native version before renewing PostgreSQL; never skip an uncertain heartbeat.
@@ -93,8 +146,10 @@ impl LocalRuntimeSupervisor {
         &self,
         agent_id: Uuid,
     ) -> Result<ControllerRecoveryRecord, AppError> {
+        let mut progress = RecoveryProgress::new(agent_id, "heartbeat.lock");
         let lock = self.lifecycle_lock(agent_id).await;
         let _guard = lock.lock().await;
+        progress.stage("heartbeat.original_context");
         let launch = self
             .repo
             .get_open_runtime_launch(agent_id)
@@ -151,12 +206,15 @@ impl LocalRuntimeSupervisor {
             lease_expires_at: record.lease_expires_at.clone(),
         };
         // Exact replay catches up a native write whose reply or DB acknowledgement was lost.
+        progress.stage("heartbeat.native_replay");
         control
             .heartbeat_controller(&files, &launch, &current, &journal)
             .await?;
+        progress.stage("heartbeat.native_before");
         control
             .verify_live_controller(&files, &launch, &current, &journal, receipt)
             .await?;
+        progress.stage("heartbeat.database_cas");
         let renewed = self
             .repo
             .heartbeat_controller_recovery(
@@ -171,12 +229,15 @@ impl LocalRuntimeSupervisor {
             lease_version: renewed.lease_version,
             lease_expires_at: renewed.lease_expires_at.clone(),
         };
+        progress.stage("heartbeat.native_next");
         control
             .heartbeat_controller(&files, &launch, &next, &journal)
             .await?;
+        progress.stage("heartbeat.native_after");
         control
             .verify_live_controller(&files, &launch, &next, &journal, receipt)
             .await?;
+        progress.stage("heartbeat.database_readback");
         let latest = self
             .repo
             .current_controller_recovery(launch.binding.id)
@@ -192,6 +253,7 @@ impl LocalRuntimeSupervisor {
         {
             return Err(held());
         }
+        progress.completed = true;
         Ok(latest)
     }
 
@@ -201,8 +263,10 @@ impl LocalRuntimeSupervisor {
         &self,
         agent_id: Uuid,
     ) -> Result<ControllerRecoveryRecord, AppError> {
+        let mut progress = RecoveryProgress::new(agent_id, "recovery.lock");
         let lock = self.lifecycle_lock(agent_id).await;
         let _guard = lock.lock().await;
+        progress.stage("recovery.original_context");
         let launch = self
             .repo
             .get_open_runtime_launch(agent_id)
@@ -230,12 +294,39 @@ impl LocalRuntimeSupervisor {
             .parent()
             .ok_or_else(held)?
             .join(format!("{}.controller-epochs.sqlite", launch.binding.id));
-        let witness = control
-            .observe_controller_restart(&files, &container.registration)
-            .await?;
+        progress.stage("recovery.database_owner");
         let previous = self
             .repo
             .current_controller_recovery(launch.binding.id)
+            .await?;
+        if let Some(record) = previous.as_ref() {
+            if record.request.controller_id == self.controller_id {
+                if let Some(delivery) = self
+                    .repo
+                    .read_controller_recovery_delivery(record.request.id)
+                    .await?
+                {
+                    if delivery.dispatch_claimed {
+                        // The native GET validates its own physical witness. Do not replay
+                        // pre-reservation work or send this already-claimed command again.
+                        progress.stage("recovery.native_readback");
+                        let receipt = control
+                            .read_controller_recovery(&files, &launch, &delivery.command, &journal)
+                            .await?;
+                        progress.stage("recovery.database_settlement");
+                        let settled = self
+                            .repo
+                            .settle_controller_recovery_outcome(record.request.id, &receipt)
+                            .await?;
+                        progress.completed = true;
+                        return Ok(settled);
+                    }
+                }
+            }
+        }
+        progress.stage("recovery.native_restart_witness");
+        let witness = control
+            .observe_controller_restart(&files, &container.registration)
             .await?;
         let mut predecessor = None;
         let record = if let Some(record) = previous {
@@ -253,9 +344,29 @@ impl LocalRuntimeSupervisor {
                 if !delivery.dispatch_claimed {
                     return Err(held());
                 }
-                let receipt = control
-                    .read_controller_recovery(&files, &launch, &delivery.command, &journal)
-                    .await?;
+                progress.stage("recovery.predecessor_native_readback");
+                let receipt = if record.state == "acknowledged" {
+                    let receipt = delivery.native_receipt.ok_or_else(held)?;
+                    if delivery.command.request != record.request
+                        || delivery.command.epoch != record.epoch
+                        || delivery.native_receipt_sha256 != record.native_receipt_sha256
+                        || record.native_receipt_sha256.as_deref()
+                            != Some(container_control::canonical_hash(&receipt)?.as_str())
+                    {
+                        return Err(held());
+                    }
+                    super::controller_recovery_wire::validate_receipt(
+                        &receipt,
+                        &delivery.command,
+                        &launch,
+                    )?;
+                    receipt
+                } else {
+                    control
+                        .read_controller_recovery(&files, &launch, &delivery.command, &journal)
+                        .await?
+                };
+                progress.stage("recovery.predecessor_settlement");
                 let settled = self
                     .repo
                     .settle_controller_recovery_outcome(record.request.id, &receipt)
@@ -275,6 +386,7 @@ impl LocalRuntimeSupervisor {
         let record = match record {
             Some(record) => record,
             None => {
+                progress.stage("recovery.database_reservation");
                 self.repo
                     .reserve_controller_recovery(&ControllerRecoveryRequest {
                         id: Uuid::new_v4(),
@@ -296,6 +408,7 @@ impl LocalRuntimeSupervisor {
                     .await?
             }
         };
+        progress.stage("recovery.retain_command");
         let delivery = match self
             .repo
             .read_controller_recovery_delivery(record.request.id)
@@ -313,21 +426,28 @@ impl LocalRuntimeSupervisor {
                     .await?
             }
         };
+        progress.stage("recovery.dispatch_claim");
         if self
             .repo
             .claim_controller_recovery_dispatch(record.request.id, self.controller_id)
             .await?
         {
             // One committed claim precedes this sole native call. An error becomes GET, never a second recover.
+            progress.stage("recovery.native_dispatch");
             let _unknown_or_ack = control
                 .recover_controller(&files, &launch, &delivery.command, &journal)
                 .await;
         }
+        progress.stage("recovery.native_readback");
         let receipt = control
             .read_controller_recovery(&files, &launch, &delivery.command, &journal)
             .await?;
-        self.repo
+        progress.stage("recovery.database_settlement");
+        let settled = self
+            .repo
             .settle_controller_recovery_outcome(record.request.id, &receipt)
-            .await
+            .await?;
+        progress.completed = true;
+        Ok(settled)
     }
 }

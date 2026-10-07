@@ -198,7 +198,7 @@ class CustodyTests(unittest.TestCase):
 
     def test_each_selected_case_is_exact_and_cannot_run_all_ignored_cases(self):
         helper = SimpleNamespace(command=['docker', 'compose', '-p', 'sdlc-qa-owned'])
-        for phase in (None, 'prepare', 'recover-1', 'expired', 'recover-2'):
+        for phase in (None, 'prepare', 'recover-1', 'expired', 'recover-2', 'freeze-1', 'freeze-2'):
             command = runner.test_command(helper, phase)
             self.assertEqual(command[-5:], [runner.CUSTODY_TEST if phase else runner.BASELINE_TEST,
                 '--exact', '--ignored', '--nocapture', '--test-threads=1'])
@@ -279,6 +279,9 @@ class CustodyTests(unittest.TestCase):
                 if 'restart' in command:
                     alive[0] = False
                     return
+                if any(item in command for item in ('FLEET_CONTAINER_RECOVERY_PHASE=freeze-1',
+                                                    'FLEET_CONTAINER_RECOVERY_PHASE=freeze-2')):
+                    return
                 native = '/qa-fixtures/custody_probe.py' in command
                 expired = '--expired' in command if native else 'FLEET_CONTAINER_RECOVERY_PHASE=expired' in command
                 epoch = int(command[-1]) if native and not expired else (
@@ -298,7 +301,10 @@ class CustodyTests(unittest.TestCase):
             self.assertFalse(report['resumed_execution'])
             self.assertEqual(len(report['controller_recovery']), 6)
             self.assertEqual(sum('restart' in command for command in effects), 2)
-            self.assertEqual(len(effects), 8)
+            self.assertEqual(len(effects), 10)
+            self.assertEqual(sum(any(item in command for item in (
+                'FLEET_CONTAINER_RECOVERY_PHASE=freeze-1',
+                'FLEET_CONTAINER_RECOVERY_PHASE=freeze-2')) for command in effects), 2)
             sleep.assert_called_once_with(31)
 
 

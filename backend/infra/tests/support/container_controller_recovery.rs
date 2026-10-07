@@ -467,11 +467,17 @@ async fn recover(
     let config = Arc::new(config);
     let (events, _) = tokio::sync::broadcast::channel(32);
     let runtime = LocalRuntimeSupervisor::new(config.clone(), repo.clone(), events);
-    let records = timeout(Duration::from_secs(45), async {
+    let records = timeout(Duration::from_secs(90), async {
         loop {
             let mut records = Vec::new();
+            let mut observed = Vec::new();
             for binding in &context.launches {
                 if let Some(record) = repo.current_controller_recovery(binding.id).await.unwrap() {
+                    let delivery = repo.read_controller_recovery_delivery(record.request.id).await.unwrap();
+                    observed.push(json!({"state":record.state,"epoch":record.epoch,
+                        "lease_version":record.lease_version,"lease_valid":record.lease_valid,
+                        "native_receipt_present":record.native_receipt_sha256.is_some(),
+                        "dispatch_claimed":delivery.as_ref().is_some_and(|value| value.dispatch_claimed)}));
                     if record.state == "acknowledged"
                         && record.lease_valid
                         && record.epoch == epoch
@@ -479,8 +485,13 @@ async fn recover(
                     {
                         records.push(record);
                     }
+                } else {
+                    observed.push(json!({"state":"absent"}));
                 }
             }
+            tokio::fs::write(format!("/evidence/custody-recover-{epoch}-progress.json"),
+                serde_json::to_vec(&json!({"agents":observed,"raw_receipts_persisted":false,
+                    "sdlc_acceptance":false})).unwrap()).await.unwrap();
             if records.len() == context.agents.len() {
                 break records;
             }
@@ -604,9 +615,43 @@ async fn expired(repo: Arc<PostgresFleetRepository>, config: AppConfig, context:
     .unwrap();
 }
 
+async fn freeze(repo: Arc<PostgresFleetRepository>, context: Context, epoch: i64) {
+    let saved: Vec<Value> = read(&format!("custody-epoch{epoch}.json")).await;
+    assert_eq!(saved.len(), context.launches.len());
+    let mut proofs = Vec::new();
+    for (binding, previous) in context.launches.iter().zip(saved) {
+        let record = repo
+            .current_controller_recovery(binding.id)
+            .await
+            .unwrap()
+            .unwrap();
+        let delivery = repo
+            .read_controller_recovery_delivery(record.request.id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(record.state == "acknowledged" && record.lease_valid && record.epoch == epoch);
+        assert_eq!(json!(delivery.command), previous["initial"]);
+        assert!(record.lease_version >= previous["current"]["lease_version"].as_i64().unwrap());
+        let digest = hash(delivery.native_receipt.as_ref().unwrap());
+        assert_eq!(json!(digest), previous["receipt_sha256"]);
+        assert_eq!(
+            record.native_receipt_sha256.as_deref(),
+            Some(digest.as_str())
+        );
+        proofs.push(
+            json!({"initial":delivery.command,"current":command(&record),
+            "receipt_sha256":digest}),
+        );
+    }
+    // No supervisor exists in this process: the preceding worker has exited.
+    save(&format!("custody-epoch{epoch}-frozen.json"), &proofs).await;
+}
+
 #[tokio::test]
 #[ignore = "requires owned Compose phases, actual controller restarts and real waiting Hermes run"]
 async fn real_controller_startup_maintains_custody_without_granting_execution() {
+    shared::telemetry::init_tracing("fleet-custody-qa");
     assert_eq!(
         std::env::var("FLEET_CONTAINER_SUPERVISOR_TEST").as_deref(),
         Ok("1")
@@ -631,6 +676,10 @@ async fn real_controller_startup_maintains_custody_without_granting_execution() 
     } else {
         let config: AppConfig = read("custody-config.json").await;
         let context: Context = read("custody-context.json").await;
+        if phase == "freeze-1" || phase == "freeze-2" {
+            freeze(repo, context, if phase == "freeze-1" { 1 } else { 2 }).await;
+            return;
+        }
         match phase.as_str() {
             "recover-1" => recover(repo, config, context, 1).await,
             "recover-2" => recover(repo, config, context, 2).await,

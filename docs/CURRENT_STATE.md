@@ -1,5 +1,31 @@
 # Current State
 
+## Live Restart Renewal Follow-Up: 7 October 2026
+
+Published brancha1dc91b includes the origin fix and isolated custody driver.
+Subsequent actual two-agent runs mirrored a genuine pending approval, preserved
+the original Hermes processes and restarted Fleet in the same container. The
+full recovery gate still failed: original-key readback acknowledged epoch1,
+but both leases remained at version1 and expired. Safe static-stage diagnostics
+showed initial handshake work starving the bounded heartbeat cycle.
+
+The candidate separates initial recovery/readback from heartbeat and sends an
+already acknowledged owner directly through the existing dual-lease validation.
+The10-second ticks,30-second lease, once-only native claim, default-off policy
+and effect fences are unchanged. Initial recovery remains bounded to8 seconds;
+dual heartbeat now has20 seconds because its four native checks exceeded the
+former8-second budget. A regression verifies that
+renewal does not depend on replaying the handshake while physical agent drift
+still blocks DB renewal. This entry records implementation, not a passing live
+gate or main release. The latest actual attempt reached live version4 for both
+agents and passed the first Rust recovery scenario, but its final freeze rejected
+expired custody. The full two-restart/native/expiry gate remains failed; keep
+recovery default-off. See the [verification ledger](CHAT_CLARIFICATION_VERIFICATION.md).
+Fresh validation of the changed backend passes strict all-target Clippy and54
+focused PostgreSQL/component cases without failures or skips. All304 captured
+inputs match and own Compose cleanup is confirmed;30 host safety tests, README
+and132 Markdown files also pass. These do not replace the failed live gate.
+
 ## Docker Approval Recovery Follow-Up: 7 October 2026
 
 The isolated live custody gate is now available as
@@ -37,7 +63,8 @@ now passes all five jobs at940b7de. The larger runtime/PM release remains separa
 
 The custody candidate now connects an explicit default-off supervisor startup
 worker to retained recovery and dual DB/native heartbeat. One per-agent cycle
-runs every10 seconds with an8-second deadline. Exact persisted-version catch-up
+runs on10-second ticks (initial8-second budget, heartbeat20 seconds in the
+follow-up above). Exact persisted-version catch-up
 and live native observations prevent a historical ACK or unknown native delivery
 from skipping a lease version. No migration, public API, SDK/image pin, installed
 flag or new model/effect permission changes. Fresh Linux/PostgreSQL fmt/check/

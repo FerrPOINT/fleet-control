@@ -15,9 +15,23 @@ restriction in favor of the accepted journal's sealed origin authority. This
 does not weaken run/session/credential identity, enable approvals or recover
 missed historical events.
 
-The full live custody gate is still unverified. The next captured preparation
-stopped at an unknown original Docker operation and correctly refused resend;
-both failed projects were cleaned and permanent runtime resources stayed
+After published origin fix7817646, two actual preparations mirrored the pending
+approval and reached a physical same-CID Fleet restart with both Hermes agents
+unchanged. The full gate still failed: epoch1 was acknowledged by original
+readback, but repeated handshake work exhausted the8-second renewal cycle and
+both leases expired at version1. Redacted stage diagnostics distinguish this
+from missing native acceptance. The candidate separates initial recovery from
+heartbeat. Actual native verification exceeded the original heartbeat budget;
+the candidate gives heartbeat20 seconds while retaining8-second initial recovery,
+the30-second lease and all expiry guards. It does not reset claims or enable
+new-owner work.
+The latest candidate reached live version4 on both agents and passed the first
+Rust recovery scenario, but final read-only freeze found expired custody. This
+leaves continuous maintenance during concurrent verification and final native
+snapshot/readback unresolved. The second restart and all six native/expiry
+reports have not passed; do not accept the intermediate phase report as a full
+gate or enable recovery in accepted deployments.
+All failed projects were cleaned and permanent runtime resources stayed
 unchanged. Component success cannot close this live gate. Recovered execution,
 interrupted activation, PM/producer compatibility and ordered release remain
 separate blockers. Keep recovery default-off.

@@ -30,7 +30,7 @@ def main():
     from scripts.runtime_boundary import BoundaryError, canonical, digest
     from scripts.runtime_control import execute
     context = private('custody-context.json')
-    owners = private(f'custody-epoch{args.epoch}.json')
+    owners = private(f'custody-epoch{args.epoch}-frozen.json')
     assert len(owners) == len(context['launches']) == 2
 
     def call(request, action, command):

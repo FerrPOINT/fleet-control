@@ -1,5 +1,72 @@
 # Chat Clarification Verification
 
+## Actual Restart Renewal Diagnosis: 7 October 2026
+
+Published Fleeta1dc91b/Base control3facb28/Base SDKcbb4e99/Hermesbbaf7af inputs
+were exercised in owned Compose project387ec3394f19. Real preparation mirrored
+a pending approval after one model response; the driver then proved a physical
+same-CID Fleet restart while both original Hermes processes remained unchanged.
+The recovery phase failed its unchanged45-second assertion. This is partial
+live evidence, not a successful custody, resumed execution or PM gate.
+
+Project8e762881127f repeated that flow with static worker-stage diagnostics and
+typed DB progress. The initial native call was interrupted at the8-second cycle
+budget. Original-key readback subsequently acknowledged both epoch1 records,
+without redispatch. Repeating the initial handshake then exhausted renewal
+cycles at native replay/live observation; both DB leases expired at version1.
+Diagnostics contain no command, secret, transcript or raw native receipt.
+
+Both reports confirm exact owned cleanup, unchanged source inputs and unchanged
+permanent runtime. The second manifest SHA256 is
+e2fed2c7f6fa94f074f4cdd3d662b099feb94f441236630464ca77076da53661.
+Their failed result is retained, not relabeled after a source fix.
+
+The initial follow-up separates reconciliation from heartbeat and avoids initial
+handshake replay for the acknowledged logical owner. That packet's deadline,
+cadence, lease duration, native/DB checks and effect fences remain unchanged.
+A new PostgreSQL/component regression denies physical drift on this path.
+Fresh verification of these changed bytes is required before publication claims.
+
+Projectc06ebc606453 tested the initial separation but still failed: repeating the
+pre-reservation witness before original-key readback delayed acknowledgement
+until the initial lease was nearly expired. The next candidate sends an already
+claimed same-owner command directly to Base readback, which performs its own
+fresh physical checks. New reservations retain the original witness requirement.
+No native command is resent. This intermediate failure is not accepted evidence.
+
+Project5f6bf957effb proved that even direct heartbeat could not complete its four
+mandatory native calls within8 seconds. Both leases expired without revival.
+The next candidate retains8-second initial recovery but bounds heartbeat to20
+seconds, below the unchanged30-second lease. The live test allows90 seconds to
+observe three actual renewals; it still requires version4, exact native/DB
+readback and all six phase reports. A separate read-only process freezes the
+final DB version after worker exit, preserving the original proof file. An
+acknowledged predecessor uses validated stored historical evidence; acceptance
+of the next epoch still requires fresh Base checks. This is not a passing gate.
+
+Projectfe97a0b30f2f compiled these changed bytes with fmt/strict all-target Clippy.
+Both agents reached acknowledged, live epoch1/version4. The first Rust recovery
+scenario returned PASS in144.05 seconds, but its subsequent read-only freeze
+rejected expired custody. The overall report is FAILED, not a two-restart pass;
+no native/expiry/second-restart completion is claimed. The interaction between
+manual verification, background maintenance and final snapshot remains open.
+All316 inputs match (manifest SHA256
+7a0e7f8b8022a171cea0b86a43a10d3eafce43572490d46cfd274b14b32006e6).
+Exact cleanup, removed own image tags and unchanged permanent runtime are
+confirmed. Recovery remains default-off and new-owner execution remains fenced.
+
+Fresh focused Linux/Rust1.88/PostgreSQL gate959aba659bdf passes formatting,
+strict workspace/all-target Clippy and54 tests (9 configuration,39 container
+lifecycle/recovery,6 lifecycle), with zero failures or ignores. The new renewal
+regression and claimed original-key readback regression both pass. All304 inputs
+match, manifest SHA256
+c903315c254d704017e4bf0be0aa8d3abd9457e55f2346c11849cc0b70eaa19f,
+gate-log SHA256
+69f8995889810dc4de796197c3310accc2a90213dd58decf0583c8bd167fb439.
+Exit0 and exact owned Compose cleanup are confirmed. This is a focused component
+gate, not a rerun of the former574-case workspace gate or a passing Docker gate.
+README validation,30 host safety cases and132 Markdown link checks pass.
+
 ## Actual Docker Custody Preparation: 7 October 2026
 
 The origin fix is published as78176461d83f2c82baf1c38687470a50a6426b68 on the
@@ -16,7 +83,8 @@ Private artifact319d4190ed22 records source manifest SHA256
 cb686e8f4c59490d54c84d07f8b8984adfe3a34a5a1aeafd6ab966a9aa95b3d0 and
 gate-log SHA256:0a933b67446bc4836c9fabb76ff3ae5f7022e625a3c0fa19502ba67ac1ba4885.
 Exit0 and exact-project cleanup are independently confirmed. The complete live
-custody gate has not been rerun after this fix and is not accepted.
+custody gate had not been rerun at this packet's completion. The later actual
+restart attempts above still do not establish a passing complete gate.
 
 The new `--controller-recovery` gate uses exact test selectors and six required
 phase/probe reports. It rejects resumed-model, safe-stop and SDLC claims. Host

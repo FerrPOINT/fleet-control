@@ -8,7 +8,9 @@ Prefix: `FLEET_CONTROL_`.
 legacy configuration files which omit it. When explicitly enabled with a trusted
 `fleet.container_control.bridge_controller`, supervisor startup schedules custody
 reconciliation immediately and every10 seconds. Each agent has one in-flight
-cycle, bounded to8 seconds; missed ticks are skipped. The current Base executable
+cycle; initial recovery is bounded to8 seconds and dual heartbeat to20 seconds.
+The30-second lease and all expiry checks remain unchanged; missed ticks are
+skipped. The current Base executable
 must support protocol3 recovery/heartbeat and match the original private source,
 mapping and registration. Changing this flag does not select a newer Base source.
 

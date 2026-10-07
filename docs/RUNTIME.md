@@ -11,7 +11,10 @@ ownership, so the new-owner effect path remains disabled. Candidate000021 connec
 the trusted entry's private initial command, once-only dispatch and closed native
 original-key readback/outcome transaction. Saving a historical ACK after expiry
 does not renew the lease. An explicit default-off startup worker now connects
-dual DB/native heartbeat at10-second cadence, with one8-second cycle per agent.
+dual DB/native heartbeat on10-second ticks, with one in-flight cycle per agent.
+Initial recovery has an8-second budget; the four-call heartbeat has20 seconds,
+below the unchanged30-second lease. Acknowledged owners do not repeat the initial
+handshake, and claimed commands use original-key readback without redispatch.
 It replays the last persisted heartbeat before extending PostgreSQL, checks live
 native custody before and after extension, and never treats a historical ACK as
 authority. Fresh new-owner effect checks and original run/configuration checkpoint

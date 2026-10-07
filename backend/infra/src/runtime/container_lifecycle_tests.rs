@@ -769,6 +769,8 @@ elif r['action']=='prepare':
   if r['protocol_version']==2:reg['mount_mapping_sha256']=digest(r['mount_mapping'])
   result={'state':'prepared','policy':policy,'registration':reg}
 elif r['action'] in ('observe_controller_restart','recover_controller','read_controller_recovery','heartbeat_controller') or (r['action']=='observe' and 'recovery' in r):
+ if (root/'hold-recovery-handshake').exists():assert r['action'] not in ('observe_controller_restart','recover_controller','read_controller_recovery')
+ if (root/'hold-reservation-witness').exists():assert r['action']!='observe_controller_restart'
  reg=r['registration'];mapping=r['mount_mapping']
  assert (root/'controller-restart').exists() and (root/(reg['generation']+'.started')).exists()
  assert (root/'known-start').exists() and not (root/(reg['generation']+'.unknown')).exists()
@@ -1673,6 +1675,9 @@ async fn controller_worker_recovers_original_native_ack_without_repeating_unknow
     assert_eq!(result.request.controller_id, second.controller_id);
     assert_ne!(result.request.controller_id, launch.controller_id);
     assert_eq!(result.epoch, 1);
+    tokio::fs::write(root.join("controller/hold-reservation-witness"), "1")
+        .await
+        .unwrap();
     let replay = second.recover_container_controller(agent.id).await.unwrap();
     assert_eq!(result.native_receipt_sha256, replay.native_receipt_sha256);
     assert_eq!(
@@ -1920,6 +1925,66 @@ async fn controller_heartbeat_catches_up_lost_native_ack_without_skipping_a_vers
     );
     assert!(runtime.gateway_launch_generation(agent.id).await.is_err());
     assert!(runtime.children.lock().await.is_empty());
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn controller_reconciliation_renews_acknowledged_owner_without_replaying_handshake() {
+    let Some((repo, agent, runtime, original, root)) = controller_heartbeat_fixture().await else {
+        return;
+    };
+    let delivery = repo
+        .read_controller_recovery_delivery(original.request.id)
+        .await
+        .unwrap()
+        .unwrap();
+    tokio::fs::write(root.join("controller/hold-recovery-handshake"), "1")
+        .await
+        .unwrap();
+    runtime
+        .reconcile_controller_recovery(agent.id)
+        .await
+        .unwrap();
+    let renewed = repo
+        .read_controller_recovery(original.request.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(renewed.lease_version, 2);
+    assert!(renewed.lease_valid && renewed.request == original.request);
+    assert_eq!(
+        tokio::fs::read_to_string(root.join("controller/heartbeat-calls"))
+            .await
+            .unwrap(),
+        "1\n2\n"
+    );
+    let retained = repo
+        .read_controller_recovery_delivery(original.request.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(
+        retained.command == delivery.command && retained.native_receipt == delivery.native_receipt
+    );
+    tokio::fs::write(root.join("controller/restart-agent-drift"), "1")
+        .await
+        .unwrap();
+    assert!(
+        runtime
+            .reconcile_controller_recovery(agent.id)
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        repo.read_controller_recovery(original.request.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .lease_version,
+        2
+    );
+    assert!(runtime.gateway_launch_generation(agent.id).await.is_err());
     tokio::fs::remove_dir_all(root).await.unwrap();
 }
 
