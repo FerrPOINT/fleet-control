@@ -1,5 +1,20 @@
 # Chat Clarification Verification
 
+## Bounded Custody Observation: 7 October 2026
+
+Actual packet5df02ed3fe1b on published Fleet807e1e2 failed when the read-only
+Compose readiness probe exceeded15 seconds, before custody/stop acceptance.
+Its preparation process was interrupted only during owned cleanup. The failed
+packet confirms source integrity, owned cleanup and unchanged permanent runtime;
+it does not prove session cancellation or establish why the observation stalled.
+
+The driver now retries only this read-only probe while the same preparation
+process is live, within the original240-second total deadline. It never repeats
+preparation/dispatch, extends runtime leases or changes production deadlines.
+Invalid proof, process exit and late readiness still fail. Each subprocess is
+bounded by the remaining budget. Five new host cases exercise those boundaries;
+all39 host tests pass. A fresh actual gate is still required.
+
 ## Generation-Bound Cancellation Component Gate: 7 October 2026
 
 Follow-up project `sdlc-qa-fleet-container-control-6a4c40e2889e` passes Rust1.88

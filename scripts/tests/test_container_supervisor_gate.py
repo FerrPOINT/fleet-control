@@ -141,6 +141,90 @@ class SafetyTests(unittest.TestCase):
         self.assertFalse((self.home / 'frozen/unrelated.txt').exists())
 
 
+class CustodyReadinessTests(unittest.TestCase):
+    def setUp(self):
+        self.helper = SimpleNamespace(command=['docker', 'compose', '-p', 'sdlc-qa-owned'])
+        self.now = 0
+        self.alive = True
+        self.process = SimpleNamespace(poll=lambda: None if self.alive else 137)
+
+    def observe(self, results):
+        with patch.object(runner.time, 'monotonic', side_effect=lambda: self.now), \
+                patch.object(runner.time, 'sleep', side_effect=self.sleep), \
+                patch.object(runner.subprocess, 'run', side_effect=results) as run:
+            value = runner.wait_for_custody_ready(self.helper, self.process)
+        return value, run
+
+    def sleep(self, seconds):
+        self.now += seconds
+
+    def test_timeout_only_repeats_read_only_probe_of_same_live_preparation(self):
+        calls = []
+
+        def results(command, **kwargs):
+            calls.append((command, kwargs))
+            if len(calls) == 1:
+                self.now += 15
+                raise runner.subprocess.TimeoutExpired(command, kwargs['timeout'])
+            return SimpleNamespace(returncode=0)
+
+        value, run = self.observe(results)
+        self.assertEqual(value, 1)
+        self.assertEqual(run.call_count, 2)
+        self.assertEqual(calls[0], calls[1])
+        self.assertEqual(calls[0][0][len(self.helper.command):4 + len(self.helper.command)],
+                         ['exec', '-T', 'fleet-backend', 'python3'])
+        self.assertNotIn('restart', calls[0][0])
+        self.assertNotIn('FLEET_CONTAINER_RECOVERY_PHASE=prepare', calls[0][0])
+
+    def test_timeout_does_not_renew_deadline_or_accept_another_process(self):
+        for dead in (False, True):
+            with self.subTest(dead=dead):
+                self.now, self.alive = 0, True
+                calls = []
+
+                def results(command, **kwargs):
+                    calls.append(kwargs['timeout'])
+                    self.now += kwargs['timeout']
+                    self.alive = not dead
+                    raise runner.subprocess.TimeoutExpired(command, kwargs['timeout'])
+
+                with self.assertRaisesRegex(RuntimeError, 'terminated' if dead else 'deadline expired'):
+                    self.observe(results)
+                self.assertEqual(sum(calls), 15 if dead else 240)
+
+    def test_not_ready_polls_but_invalid_proof_fails_without_retry(self):
+        value, run = self.observe([SimpleNamespace(returncode=3), SimpleNamespace(returncode=0)])
+        self.assertEqual((value, run.call_count, self.now), (0, 2, 1))
+        with self.assertRaisesRegex(RuntimeError, 'not proven'):
+            self.observe([SimpleNamespace(returncode=1)])
+
+    def test_late_ready_or_process_exit_during_probe_is_not_success(self):
+        for dead in (False, True):
+            with self.subTest(dead=dead):
+                self.now, self.alive = 0, True
+
+                def results(*_, **kwargs):
+                    self.now = 1 if dead else 241
+                    self.alive = not dead
+                    return SimpleNamespace(returncode=0)
+
+                with self.assertRaisesRegex(RuntimeError, 'terminated' if dead else 'deadline expired'):
+                    self.observe(results)
+
+    def test_probe_timeout_is_limited_to_remaining_budget(self):
+        timeouts = []
+
+        def results(*_, **kwargs):
+            timeouts.append(kwargs['timeout'])
+            self.now += 238 if len(timeouts) == 1 else 0
+            return SimpleNamespace(returncode=3 if len(timeouts) == 1 else 0)
+
+        value, run = self.observe(results)
+        self.assertEqual((value, run.call_count), (0, 2))
+        self.assertEqual(timeouts, [15, 1])
+
+
 class LiveEvidenceTests(unittest.TestCase):
     def evidence(self, rollback=False):
         result = {key: True for key in ('actual_rust_supervisor', 'actual_docker_hermes',

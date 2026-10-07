@@ -129,27 +129,44 @@ def validate_custody_evidence(value, epoch=None, native=False, expired=False):
         raise RuntimeError('Actual controller custody evidence is incomplete')
 
 
+def wait_for_custody_ready(helper, prepare):
+    deadline = time.monotonic() + 240
+    probe = ('import json,pathlib,sys; p=pathlib.Path("/controller/custody-ready.json"); '
+             'sys.exit(3) if not p.exists() else None; v=json.loads(p.read_bytes()); '
+             'assert v["state"]=="ready" and type(v["actual_model_calls"]) is int '
+             'and v["actual_model_calls"]==1 and v["native_waiting_for_approval"] is True')
+    timeouts = 0
+    while True:
+        if prepare.poll() is not None:
+            raise RuntimeError('Custody preparation terminated before actual controller restart')
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise RuntimeError('Real Hermes approval-wait preparation deadline expired')
+        try:
+            result = subprocess.run(helper.command + ['exec', '-T', 'fleet-backend',
+                'python3', '-I', '-B', '-c', probe], capture_output=True, timeout=min(15, remaining))
+        except subprocess.TimeoutExpired:
+            # Only the read-only probe repeats; the live preparation is never redispatched.
+            timeouts += 1
+            continue
+        if prepare.poll() is not None:
+            raise RuntimeError('Custody preparation terminated before actual controller restart')
+        if time.monotonic() >= deadline:
+            raise RuntimeError('Real Hermes approval-wait preparation deadline expired')
+        if result.returncode == 0:
+            return timeouts
+        if result.returncode != 3:
+            raise RuntimeError('Real Hermes approval-wait preparation was not proven')
+        time.sleep(min(1, max(0, deadline - time.monotonic())))
+
+
 def verify_controller_recovery(helper, directory, report, logged, checked, controller_stop=False):
     report['state'] = 'failed'
     prepare = None
     try:
         with (directory / 'custody-prepare.log').open('wb') as stream:
             prepare = subprocess.Popen(test_command(helper, 'prepare'), stdout=stream, stderr=subprocess.STDOUT)
-            deadline = time.monotonic() + 240
-            probe = ('import json,pathlib,sys; p=pathlib.Path("/controller/custody-ready.json"); '
-                     'sys.exit(3) if not p.exists() else None; v=json.loads(p.read_bytes()); '
-                     'assert v["state"]=="ready" and type(v["actual_model_calls"]) is int '
-                     'and v["actual_model_calls"]==1 and v["native_waiting_for_approval"] is True')
-            while True:
-                if prepare.poll() is not None:
-                    raise RuntimeError('Custody preparation terminated before actual controller restart')
-                result = subprocess.run(helper.command + ['exec', '-T', 'fleet-backend',
-                    'python3', '-I', '-B', '-c', probe], capture_output=True, timeout=15)
-                if result.returncode == 0:
-                    break
-                if result.returncode != 3 or time.monotonic() >= deadline:
-                    raise RuntimeError('Real Hermes approval-wait preparation was not proven')
-                time.sleep(1)
+            report['custody_readiness_probe_timeouts'] = wait_for_custody_ready(helper, prepare)
             original = custody_snapshot(helper, checked)
             logged(helper.command + ['restart', '-t', '1', 'fleet-backend'], 'custody-restart1.log', 60)
             prepare.wait(timeout=30)
