@@ -45,8 +45,12 @@ receipt. Canonical hashes and closed native proof are checked before saving;
 unknown fields or drift never become a stored outcome. Only one durable claim
 permits native handover, and claim-before-call crash holds rather than retries.
 Historical ACK, owner state and hash-only audit commit atomically, without
-changing lease/version or granting model/control permission. Automatic recovery,
-source upgrade and journal-loss fallback remain disabled.
+changing lease/version or granting model/control permission. The default-off
+custody worker renews only an exact current DB/native lease, after reconciling
+the stored version and obtaining a live native observation. A historical native
+ACK cannot renew DB authority; DB expiry prevents native calls. Worker failures
+emit fixed messages without raw helper output. New-owner effects, installed
+recovery, source upgrade and journal-loss fallback remain disabled.
 
 ## Controller Restart Witness Is Not Authority
 

@@ -1,8 +1,9 @@
 # Controller Recovery V1
 
 Status: internal Fleet recovery candidate. Migration000021 adds durable native
-delivery and a trusted supervisor entry point on top of000020. No public endpoint,
-automatic startup worker, installed opt-in or new model dispatch is enabled.
+delivery and a trusted supervisor entry point on top of000020. A subsequent
+default-off startup worker maintains custody; no public endpoint, installed
+opt-in or new model dispatch is enabled.
 Base native protocol3 is published separately at
 [3facb28](https://github.com/FerrPOINT/services-base/commit/3facb289d449c6a9a2a3863e31a661a661235299).
 The SDK/source pins are unchanged; this commit is not automatically installed.
@@ -36,8 +37,9 @@ The same agent-row lock serializes claims with launch, queue, configuration and
 runtime mutations. Unique launch/epoch and one-current-epoch indexes provide
 cross-replica fences. A lease lasts at most30 seconds on PostgreSQL's clock.
 Heartbeat requires the exact controller and current lease version; it increments
-the version and cannot revive an expired lease. Intended worker cadence is10
-seconds, but the worker is not yet connected. No caller-supplied clock is trusted.
+the version and cannot revive an expired lease. The opt-in worker cadence is10
+seconds, with an8-second cycle deadline and one in-flight cycle per agent.
+No caller-supplied clock is trusted.
 
 Identical command/request replay returns the original epoch and expiry without
 renewal or native action. Changed payload for that command conflicts. Readback
@@ -84,13 +86,38 @@ requires the acknowledged expired predecessor and distinct physical restart.
 
 The trusted `recover_container_controller` entry obtains the Base restart witness,
 reserves/retains/claims once, then reconciles by original readback. It is not exposed
-through HTTP or called automatically by the reconciler. Startup policy, dual
-DB/native heartbeat and fresh effect admission, interrupted activation settlement
-and actual ongoing Hermes acceptance remain required before automatic enablement.
+through HTTP. The explicit default-off startup policy calls it for existing
+Hermes container launches owned by a previous logical controller. It does not
+create or relabel a launch. Fresh effect admission, interrupted activation
+settlement and actual ongoing Hermes acceptance remain required before enabling
+restored execution.
 
 Migration000021 is additive. Delete/truncate, identity relabel, claim reset and
 receipt replacement fail. Downgrade refuses if either ownership or delivery history
 is nonempty. Only when both are empty does it restore the exact000020 schema/guard.
+
+## Dual-Lease Heartbeat
+
+The mutable current lease is separate from the immutable initial delivery body
+and native receipt. A cycle first sends the exact stored current version to the
+native heartbeat action, then performs a live native `observe`. Only then may
+PostgreSQL CAS extend the lease. Fleet sends the exact new DB version/deadline to
+native storage and observes again before returning a successful cycle. A final
+DB read verifies the same acknowledged owner, version, deadline and receipt hash.
+
+A crash after DB extension but before native delivery is reconciled by delivering
+that stored version before another extension. A native commit with a lost reply
+is reconciled by exact read-only replay. Equal-version historical ACKs are not
+live authority: native expiry must fail observation before DB renewal. DB expiry
+prevents native calls and cannot be revived. Changed ACKs, foreign owner or
+physical/source/journal drift hold the cycle; no fallback or fresh recovery ID
+is created. Timeouts preserve the original unknown outcome and effect fences.
+
+The worker starts only with `fleet.controller_recovery_enabled=true` and a trusted
+bridge controller configuration. The default and accepted deployment flags remain
+false. It does not skip configuration-draining agents: custody maintenance is
+separate from permitting new work. Tests of helper fixtures are not actual OS
+crash or running-Hermes acceptance.
 
 ## Current Effect Fence
 
@@ -112,11 +139,12 @@ clear-history or reset-owner operation.
 
 Complete the same flow, not a second ownership scheme:
 
-1. Connect an explicit startup recovery policy and current-source compatibility
-   to the trusted entry point. A missing original journal or changed physical
+1. Validate the implemented default-off startup policy against actual original
+   source and process restarts. A missing original journal or changed physical
    container must stay held; source upgrade is not an implicit recovery action.
-2. Maintain both DB and native leases at10-second cadence with fresh exact-owner
-   version checks. Preserve historical command identity across every heartbeat.
+2. Prove the implemented dual heartbeat and unknown-version catch-up against
+   actual native custody at10-second cadence. Preserve historical command
+   identity across every heartbeat.
 3. Reconcile interruption between DB claim/native acceptance/receipt commit using
    original readback only, including actual OS crashes rather than lost-reply mocks.
 4. Require fresh live DB lease and Base epoch checks at every

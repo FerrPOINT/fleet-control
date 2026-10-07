@@ -1,5 +1,21 @@
 # Gap Register
 
+## Current Publication And Recovery Boundary
+
+[Fleet56](https://github.com/FerrPOINT/fleet-control/pull/56) is merged into main
+as940b7de. That independent browser fix is no longer waiting for merge.
+Integrated runtime/PM source is not yet released into main, and existing producer
+contract/runtime/Forge acceptance blockers remain. Deployment was not changed.
+
+The startup custody worker and dual heartbeat are implemented behind
+`FLEET_CONTROL_FLEET__CONTROLLER_RECOVERY_ENABLED=false`. Component tests exercise
+DB/native interrupted delivery, malformed ACK, foreign owner and real DB expiry.
+The fresh full Linux/PostgreSQL gate passes573 cases with30 explicit opt-in
+ignores and unchanged OpenAPI. These tests do not prove actual background cadence
+or ongoing Hermes OS-crash recovery.
+Fresh recovered-effect admission and interrupted activation remain required;
+default-off custody maintenance cannot be advertised as resumed execution.
+
 ## Current Chats Integration And Identity Boundary
 
 Published consumer94e889d is integrated with runtime46df7aa without changing
@@ -16,7 +32,7 @@ SSO callback rejection. Independent main PR56 passes150 unit and18 three-browser
 fixture cases with main's own unchanged Base pin. Integrated chat tests cover
 private clarification draft removal and unchanged original-control custody.
 Integrated validation passes439 units and84 three-browser fixtures; Fleet56
-is non-Draft/main-mergeable with five green exact-head CI jobs. This closes
+is merged into main with five green post-merge CI jobs. This closes
 the identified REST/cache/form source gap, not OS/tool isolation,
 live identity/SSE acceptance or restart-safe PM command discovery after remount.
 Runtime recovery, published producer contracts, actual PM workflow, Forge live
@@ -38,7 +54,10 @@ unchanged. The fresh568-case Linux/PostgreSQL gate passes with30 explicit ignore
 [evidence](CHAT_CLARIFICATION_VERIFICATION.md#original-controller-delivery-and-historical-outcome-7-october-2026).
 The historical562-case packet below retains its preceding scope.
 
-Still required: startup recovery policy,10-second dual DB/native heartbeat,
+Startup custody policy and10-second dual DB/native heartbeat are now implemented
+behind a default-off flag, with exact current-version catch-up and live native
+observation. Their current component verification is recorded in the ledger;
+implementation is not installed/native acceptance. Still required:
 fresh current-epoch checks on new-owner effects, interrupted activation settlement,
 actual Fleet OS-crash/ongoing-Hermes acceptance and release-head CI. Missing ACK
 after committed claim stays held; no reset, redispatch or capacity release exists.

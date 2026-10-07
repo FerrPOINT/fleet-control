@@ -1,5 +1,12 @@
 # Implementation Plan
 
+## Publication Readback
+
+Independent browser boundary [Fleet56](https://github.com/FerrPOINT/fleet-control/pull/56)
+is merged into main as940b7de. Retain PR-head test evidence separately from
+post-merge CI/deployment. The integrated runtime/PM branch and its migration
+release order remain separate work; do not bundle them into this completed fix.
+
 ## Current Integration Follow-Up
 
 Chats94e889d and runtime46df7aa are combined by normal merge. Tab reload recovery
@@ -11,7 +18,7 @@ See [evidence](CHAT_CLARIFICATION_VERIFICATION.md#chats-reload-and-identity-inte
 Same-SPA identity isolation now has a generation-keyed cache/form boundary,
 scoped permissions, original-token request guards and stale SSO checks. The
 independent main release is [Fleet56](https://github.com/FerrPOINT/fleet-control/pull/56);
-its source publication is not a merge or CI-success claim. Retain the unresolved
+it is merged with all five post-merge main CI jobs successful. Retain the unresolved
 original command across reset; implement authoritative PM command discovery
 after remount before claiming complete PM recovery.
 Keep actual producer/PM/runtime/Forge acceptance and ordered main-release work
@@ -24,10 +31,12 @@ the agent-row lock, with exact original hashes/PID, versioned30-second DB-clock
 lease, idempotent readback and held unknown acceptance. Any epoch fences old
 queue/permit/endpoint/lifecycle effects. Candidate000021 now retains the original
 native command, commits one dispatch claim and saves a validated original-key ACK
-atomically with owner outcome and audit. Its trusted entry point is not connected
-to automatic startup. Base handover/private epoch source is published at3facb28;
-pins and installed runtime remain unchanged. Complete10-second dual heartbeat,
-fresh dual-fence effect admission and interrupted activation settlement before
+atomically with owner outcome and audit. Its trusted entry point is now connected
+to an explicit default-off startup worker with10-second dual heartbeat and an
+8-second per-agent cycle deadline. Last-version catch-up precedes DB renewal;
+native live observation is mandatory before and after extension. Base handover/
+private epoch source is published at3facb28; pins and installed runtime remain
+unchanged. Complete fresh dual-fence effect admission and interrupted activation settlement before
 enabling restored execution.
 Prove actual restart, competing owner and interrupted activation; do not rewrite
 the original launch or use expiry as a redispatch permit. See

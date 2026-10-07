@@ -1,14 +1,62 @@
 # Chat Clarification Verification
 
+## Browser Boundary Main Merge: 7 October 2026
+
+[Fleet56](https://github.com/FerrPOINT/fleet-control/pull/56) was squash-merged at
+05:44:12 UTC as940b7de42b942bc90f600bc1c17a0c6e369f9679. Fresh remote metadata
+returns MERGED and fetched-main ancestry confirms that exact commit. There were
+no review comments or unresolved threads; all five PR-head CI jobs passed before
+merge. Separate [post-merge CI run37577799221](https://github.com/FerrPOINT/fleet-control/actions/runs/37577799221)
+passes all five jobs at exact main940b7de; head readback matches the merge commit.
+No accepted container, mount, image, secret, volume or deployment flag changed.
+
+## Controller Startup And Dual Heartbeat Candidate: 7 October 2026
+
+Adds no migration or public API. Explicit default-off startup schedules a
+10-second cadence with an8-second per-agent deadline. Exact current-version
+native replay and live observation precede DB CAS renewal, then the renewed
+native lease and final DB state are verified. Original recovery delivery and
+receipt remain immutable; missing/expired/foreign custody never grants work.
+
+New cases cover closed heartbeat ACK validation, default-off legacy config,
+DB commit before native delivery, native commit with lost reply, malformed ACK,
+foreign logical owner and historical positive native ACK with expired custody.
+Real31-second PostgreSQL expiry retains production triggers. These are component
+tests with a helper fixture, not an actual controller/Hermes restart or installed
+automatic SDLC acceptance.
+
+Fresh frozen-source Linux/Rust1.88/PostgreSQL fmt, all-target check, strict Clippy,
+workspace tests and OpenAPI generation pass. There are573 passes in39 result
+groups, zero failures and30 explicit opt-in ignores requiring dedicated databases
+or live infrastructure. All303 staged inputs match the source after completion.
+Generated OpenAPI is byte-identical to this integration branch's existing spec;
+it does not establish compatibility with main or the published Tracker producer.
+README/three validator cases and132 Markdown files also pass, with Node22.20.0
+used for the final link check. No frontend, schema migration, SDK pin or accepted
+runtime changes occur in this packet.
+
+Private artifacts: fleet-container-control-checks-6261f279e4bb. Source manifest
+SHA256:7cf88fdecdba8c7cbf15203737e52b0fde38157c087ecd54a732b366f4136289;
+gate log:53a1006a695d89cafe3cb2d2a3f81bc00452f1e4d3b517aabe447aa17423c989;
+OpenAPI:76a27c806961bc142543445e34f10525485cbcf2f0b66ac2fe5d093fc808a10f.
+The gate exits0 and independently confirms no remaining containers/networks in
+its exact owned Compose project. The preceding compile failure at private
+request comparison is retained in d78ef7877e71; its owned cleanup also passed.
+No Debug implementation was added to expose the private request.
+
+Actual background cadence, ongoing Hermes OS-crash acceptance, recovered-effect
+admission, interrupted activation and release-head CI remain separate gates.
+
 ## Browser Authentication Release: 7 October 2026
 
 Independent release source9b42e777eac64383b8bd397fe347b02beb1dd3f7 is based on
 main1ff9066206f28e8a49b2c290511c4f52adf7c105, with no backend, migration,
 OpenAPI, package/lock or Base pin changes. [Fleet56](https://github.com/FerrPOINT/fleet-control/pull/56)
-targets main, is non-Draft, mergeable/clean and has five successful exact-head
+targeted main and, at pre-merge readback, was non-Draft/mergeable/clean with five successful exact-head
 CI jobs in [run37575299434](https://github.com/FerrPOINT/fleet-control/actions/runs/37575299434).
 Ready-state readback confirms the same head/checks. No unresolved review thread
-was present at release readback; merge/deployment remain separate gates.
+was present at release readback. The subsequent main merge is recorded above;
+deployment remains separate.
 
 Fresh Node22.20.0/pnpm10.28.1 frozen installation uses Base
 f04af5fd5906ad6ac7e24c7f18e919a5d8a04965. All73 installed SDK source/script/

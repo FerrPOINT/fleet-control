@@ -112,6 +112,7 @@ impl LocalRuntimeSupervisor {
             }),
         };
         supervisor.spawn_reconciler();
+        supervisor.spawn_controller_recovery();
         supervisor.spawn_message_dispatcher();
         supervisor.spawn_acceptance_readback();
         supervisor.spawn_control_outcome_readback();

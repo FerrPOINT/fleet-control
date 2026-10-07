@@ -2,6 +2,25 @@
 
 Prefix: `FLEET_CONTROL_`.
 
+## Controller Custody Recovery
+
+`FLEET_CONTROL_FLEET__CONTROLLER_RECOVERY_ENABLED` defaults to `false`, including
+legacy configuration files which omit it. When explicitly enabled with a trusted
+`fleet.container_control.bridge_controller`, supervisor startup schedules custody
+reconciliation immediately and every10 seconds. Each agent has one in-flight
+cycle, bounded to8 seconds; missed ticks are skipped. The current Base executable
+must support protocol3 recovery/heartbeat and match the original private source,
+mapping and registration. Changing this flag does not select a newer Base source.
+
+The worker reconciles the retained original recovery command, then catches up the
+last persisted heartbeat version before extending either lease. It requires a
+fresh native live observation, not just a historical positive ACK. Expired leases,
+missing journals, unknown recovery acceptance and changed physical identity stay
+held. This flag maintains custody only: recovered queue/model/lifecycle/config
+effects remain fenced. Do not enable it in accepted deployments before actual
+Fleet/Base/ongoing-Hermes restart acceptance; no installed flag is changed here.
+See [contract](contracts/CONTROLLER_RECOVERY_V1.md).
+
 ## Docker Controller Configuration
 
 The optional operator-owned TOML table `[fleet.container_control]` has python,

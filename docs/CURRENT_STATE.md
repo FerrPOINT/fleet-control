@@ -1,5 +1,26 @@
 # Current State
 
+## Publication And Custody Worker: 7 October 2026
+
+Independent [Fleet56](https://github.com/FerrPOINT/fleet-control/pull/56) is merged
+into main as940b7de42b942bc90f600bc1c17a0c6e369f9679. Git ancestry confirms the
+merge on fetched main; this does not mean the accepted deployment was updated.
+The preceding five green checks belong to PR head9b42e77, not the new main
+commit. Separate [post-merge CI](https://github.com/FerrPOINT/fleet-control/actions/runs/37577799221)
+now passes all five jobs at940b7de. The larger runtime/PM release remains separate.
+
+The custody candidate now connects an explicit default-off supervisor startup
+worker to retained recovery and dual DB/native heartbeat. One per-agent cycle
+runs every10 seconds with an8-second deadline. Exact persisted-version catch-up
+and live native observations prevent a historical ACK or unknown native delivery
+from skipping a lease version. No migration, public API, SDK/image pin, installed
+flag or new model/effect permission changes. Fresh Linux/PostgreSQL fmt/check/
+strict Clippy and573 tests pass in39 groups, with30 explicit opt-in ignores.
+All303 frozen inputs match, OpenAPI is unchanged and owned Compose cleanup is
+confirmed. See the [verification ledger](CHAT_CLARIFICATION_VERIFICATION.md).
+Actual background cadence, ongoing Hermes restart and recovered execution remain
+unverified.
+
 ## Browser Authentication Release: 7 October 2026
 
 The generation-scoped cache/form boundary, original-token API response guards,
@@ -16,9 +37,8 @@ retention of original unknown-control metadata without a second POST.
 The integrated candidate passes439 unit cases in35 files and84 selected
 three-browser fixtures with no retries/skips, plus the frontend/contract gates.
 All147 frontend Git/LF inputs and73 installed cbb4e99 SDK inputs are verified.
-Fleet56 is now non-Draft, main-mergeable and clean with all five CI checks
-successful at its exact head. Publication is not merge, deployment or full
-PM/runtime acceptance.
+Fleet56 subsequently merged into main940b7de with all five post-merge CI checks
+successful. This independent merge is not deployment or full PM/runtime acceptance.
 Base SSE callbacks and authoritative PM command discovery after remount remain
 separate gaps. The following older integration entry records its original
 pre-boundary evidence; see [current verification](CHAT_CLARIFICATION_VERIFICATION.md#browser-authentication-release-7-october-2026).

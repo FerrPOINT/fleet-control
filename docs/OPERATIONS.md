@@ -7,9 +7,31 @@ the original command, launch/endpoint, Base mapping/journals and any activation
 checkpoint. An expired `reserved` epoch may still have an unknown native outcome;
 do not allocate another command, delete it, extend it manually or restore the old
 controller UUID. Readback is historical and does not renew its30-second lease.
-The storage candidate has no public recovery/force-unlock endpoint or connected
-native takeover worker. Do not populate the table manually to enable execution.
+The candidate has no public recovery/force-unlock endpoint. Its default-off
+custody worker now reconciles the original native command and dual heartbeat;
+it does not authorize restored execution. Do not populate the table manually
+to enable execution.
 See [required native integration](contracts/CONTROLLER_RECOVERY_V1.md#required-native-integration).
+
+## Custody Heartbeat Hold
+
+`controller recovery cycle remains held` does not mean that native work stopped.
+Preserve the immutable initial delivery/receipt, current DB lease and private
+native journal. A missing reply may follow a committed heartbeat; the next cycle
+must catch up the exact stored version before another renewal. Do not delete
+history, reset the original dispatch claim, edit a deadline or allocate a fresh
+recovery ID to bypass uncertainty. A historical positive ACK cannot revive either
+expired lease or attest namespace exit.
+
+Keep `FLEET_CONTROL_FLEET__CONTROLLER_RECOVERY_ENABLED=false` in accepted
+deployments until actual Fleet/Base/ongoing-Hermes acceptance. Candidate enablement
+requires the compatible original trusted Base source and bridge registration;
+it is not a source upgrade or force-adoption command. Disabling the worker stops
+future custody cycles after the next Fleet backend restart, not the agent process;
+already persisted history and unknown outcomes remain. No model, queue, control
+or activation permission is granted by a successful heartbeat. See
+[environment](ENV.md#controller-custody-recovery) and
+[dual lease contract](contracts/CONTROLLER_RECOVERY_V1.md#dual-lease-heartbeat).
 
 ## Controller Restart Observation
 

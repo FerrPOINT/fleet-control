@@ -10,9 +10,13 @@ permit/endpoint/lifecycle writes. A saved native receipt hash is not actual Base
 ownership, so the new-owner effect path remains disabled. Candidate000021 connects
 the trusted entry's private initial command, once-only dispatch and closed native
 original-key readback/outcome transaction. Saving a historical ACK after expiry
-does not renew the lease. Connect dual DB/native heartbeat, fresh new-owner effect
-checks and original run/configuration checkpoint settlement before automatic
-startup or actual ongoing-Hermes restart acceptance. See
+does not renew the lease. An explicit default-off startup worker now connects
+dual DB/native heartbeat at10-second cadence, with one8-second cycle per agent.
+It replays the last persisted heartbeat before extending PostgreSQL, checks live
+native custody before and after extension, and never treats a historical ACK as
+authority. Fresh new-owner effect checks and original run/configuration checkpoint
+settlement remain required before restored execution or actual ongoing-Hermes
+restart acceptance. See
 [contract](contracts/CONTROLLER_RECOVERY_V1.md).
 
 ## Controller Restart Observation

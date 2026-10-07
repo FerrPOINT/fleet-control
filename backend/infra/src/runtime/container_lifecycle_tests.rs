@@ -567,6 +567,7 @@ pub(super) async fn fake_creation(config: &AppConfig, agent: &Agent, unknown: bo
     let program = r#"import sys,json,hashlib
 from pathlib import Path
 r=json.load(sys.stdin);root=Path(r['journal']).parent
+from datetime import datetime,timezone
 digest=lambda v:hashlib.sha256(json.dumps(v,sort_keys=True,separators=(',',':')).encode()).hexdigest()
 if r['protocol_version']==2:
  assert r['policy']['contract_version']==3
@@ -600,7 +601,7 @@ elif r['action']=='prepare':
   reg={'contract_version':policy['contract_version'],'operation_id':r['operation_id'],'container_id':digest(policy['generation']),'resource_id':policy['resource_id'],'generation':policy['generation'],'engine':{'ID':'original-engine','KernelVersion':'original-kernel','ServerVersion':'29'},'policy_sha256':digest(policy),'inventory_sha256':'c'*64,'running_inventory_sha256':'d'*64,'compose_sha256':'e'*64,'network_sha256':'f'*64}
   if r['protocol_version']==2:reg['mount_mapping_sha256']=digest(r['mount_mapping'])
   result={'state':'prepared','policy':policy,'registration':reg}
-elif r['action'] in ('observe_controller_restart','recover_controller','read_controller_recovery'):
+elif r['action'] in ('observe_controller_restart','recover_controller','read_controller_recovery','heartbeat_controller') or (r['action']=='observe' and 'recovery' in r):
  reg=r['registration'];mapping=r['mount_mapping']
  assert (root/'controller-restart').exists() and (root/(reg['generation']+'.started')).exists()
  assert (root/'known-start').exists() and not (root/(reg['generation']+'.unknown')).exists()
@@ -614,13 +615,34 @@ elif r['action'] in ('observe_controller_restart','recover_controller','read_con
   assert r['protocol_version']==3 and Path(r['recovery_journal']).parent==root
   command=r['recovery'];assert command['request']['controller_snapshot']==current
   ack=root/(command['request']['id']+'.recovery-ack.json')
+  lease=root/(command['request']['id']+'.recovery-lease.json')
   if r['action']=='recover_controller':
    with (root/'recovery-calls').open('a') as calls:calls.write(command['request']['id']+'\n')
    result={'contract_version':1,'state':'controller_recovered','request_sha256':digest(command),'recovery':command,'witness':result}
    assert not ack.exists();ack.write_text(json.dumps(result));ack.chmod(0o600)
+   lease.write_text(json.dumps(command))
    if (root/'recovery-unknown').exists():raise RuntimeError('Original ACK reply lost')
-  else:
+  elif r['action']=='read_controller_recovery':
    result=json.loads(ack.read_bytes());assert result['recovery']==command
+  elif r['action']=='heartbeat_controller':
+   original=json.loads(ack.read_bytes())['recovery'];previous=json.loads(lease.read_bytes())
+   assert command['request']==original['request'] and command['epoch']==original['epoch']
+   with (root/'heartbeat-calls').open('a') as calls:calls.write(str(command['lease_version'])+'\n')
+   if command!=previous:
+    assert command['lease_version']==previous['lease_version']+1
+    assert not (root/'native-lease-expired').exists()
+    assert datetime.fromisoformat(previous['lease_expires_at'])>datetime.now(timezone.utc)
+    assert datetime.fromisoformat(command['lease_expires_at'])>datetime.fromisoformat(previous['lease_expires_at'])
+    lease.write_text(json.dumps(command))
+    if (root/'heartbeat-unknown').exists():
+     (root/'heartbeat-unknown').unlink();raise RuntimeError('Heartbeat ACK reply lost')
+   result={'state':'controller_heartbeat','recovery_id':command['request']['id'],'lease_version':command['lease_version'],'lease_expires_at':command['lease_expires_at']}
+   if (root/'heartbeat-malformed').exists():result['lease_version']+=1
+  else:
+   assert json.loads(lease.read_bytes())==command
+   assert not (root/'native-lease-expired').exists()
+   assert datetime.fromisoformat(command['lease_expires_at'])>datetime.now(timezone.utc)
+   result=receipt
 elif r['action']=='attach_controller':
  reg=r['registration']
  if (root/'attach-unknown').exists():
@@ -1637,6 +1659,209 @@ async fn recovery_fixture() -> Option<RecoveryFixture> {
         agent_pid: 12345,
     };
     Some((repo, agent, owner, launch, request, root))
+}
+
+#[cfg(target_os = "linux")]
+type HeartbeatFixture = (
+    Arc<crate::PostgresFleetRepository>,
+    Agent,
+    LocalRuntimeSupervisor,
+    app::runtime_launch::ControllerRecoveryRecord,
+    std::path::PathBuf,
+);
+
+#[cfg(target_os = "linux")]
+async fn controller_heartbeat_fixture() -> Option<HeartbeatFixture> {
+    let (repo, agent, _, config, root) = lifecycle_tests::fixture(AgentKind::Hermes).await?;
+    let mut config = with_mapping_controller(fake_creation(&config, &agent, false).await);
+    config.fleet.controller_recovery_enabled = true;
+    let first = lifecycle_tests::supervisor(Arc::new(config.clone()), repo.clone());
+    let launch = first
+        .prepared_container(&agent, LaunchPhase::Regular)
+        .await
+        .unwrap();
+    repo.claim_runtime_launch(&launch).await.unwrap();
+    repo.observe_runtime_launch(&launch, "gateway_started", Some(12345))
+        .await
+        .unwrap();
+    for name in [
+        format!("{}.started", launch.id),
+        "known-start".into(),
+        "controller-restart".into(),
+    ] {
+        tokio::fs::write(root.join("controller").join(name), "1")
+            .await
+            .unwrap();
+    }
+    let second = lifecycle_tests::supervisor(Arc::new(config), repo.clone());
+    let record = second.recover_container_controller(agent.id).await.unwrap();
+    Some((repo, agent, second, record, root))
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn controller_heartbeat_catches_up_lost_native_ack_without_skipping_a_version() {
+    let Some((repo, agent, runtime, original, root)) = controller_heartbeat_fixture().await else {
+        return;
+    };
+    let before = repo
+        .read_controller_recovery_delivery(original.request.id)
+        .await
+        .unwrap()
+        .unwrap();
+    tokio::fs::write(root.join("controller/heartbeat-unknown"), "1")
+        .await
+        .unwrap();
+    assert!(
+        runtime
+            .heartbeat_container_controller(agent.id)
+            .await
+            .is_err()
+    );
+    let pending = repo
+        .read_controller_recovery(original.request.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(pending.lease_version, 2);
+    let recovered = runtime
+        .heartbeat_container_controller(agent.id)
+        .await
+        .unwrap();
+    assert_eq!(recovered.lease_version, 3);
+    assert!(recovered.request == original.request);
+    let after = repo
+        .read_controller_recovery_delivery(original.request.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(after.command == before.command && after.native_receipt == before.native_receipt);
+    assert_eq!(after.native_receipt_sha256, before.native_receipt_sha256);
+    assert_eq!(
+        tokio::fs::read_to_string(root.join("controller/heartbeat-calls"))
+            .await
+            .unwrap(),
+        "1\n2\n2\n3\n"
+    );
+    assert_eq!(
+        tokio::fs::read_to_string(root.join("controller/recovery-calls"))
+            .await
+            .unwrap()
+            .lines()
+            .count(),
+        1
+    );
+    assert!(runtime.gateway_launch_generation(agent.id).await.is_err());
+    assert!(runtime.children.lock().await.is_empty());
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn controller_heartbeat_recovers_db_commit_before_native_delivery_and_holds_bad_ack() {
+    let Some((repo, agent, runtime, original, root)) = controller_heartbeat_fixture().await else {
+        return;
+    };
+    repo.heartbeat_controller_recovery(original.request.id, runtime.controller_id, 1)
+        .await
+        .unwrap();
+    // The process died after the DB extension, before native version2 was delivered.
+    let recovered = runtime
+        .heartbeat_container_controller(agent.id)
+        .await
+        .unwrap();
+    assert_eq!(recovered.lease_version, 3);
+    assert_eq!(
+        tokio::fs::read_to_string(root.join("controller/heartbeat-calls"))
+            .await
+            .unwrap(),
+        "2\n3\n"
+    );
+    tokio::fs::write(root.join("controller/heartbeat-malformed"), "1")
+        .await
+        .unwrap();
+    assert!(
+        runtime
+            .heartbeat_container_controller(agent.id)
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        repo.read_controller_recovery(original.request.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .lease_version,
+        3
+    );
+    let foreign = lifecycle_tests::supervisor(runtime.config.clone(), repo.clone());
+    assert!(
+        foreign
+            .heartbeat_container_controller(agent.id)
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        tokio::fs::read_to_string(root.join("controller/heartbeat-calls"))
+            .await
+            .unwrap(),
+        "2\n3\n3\n"
+    );
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn controller_heartbeat_never_renews_from_historical_native_ack_or_expired_db_lease() {
+    let Some((repo, agent, runtime, original, root)) = controller_heartbeat_fixture().await else {
+        return;
+    };
+    let mut disabled = runtime.clone();
+    let mut config = (*runtime.config).clone();
+    config.fleet.controller_recovery_enabled = false;
+    disabled.config = Arc::new(config);
+    disabled
+        .reconcile_controller_recovery(agent.id)
+        .await
+        .unwrap();
+    assert!(!root.join("controller/heartbeat-calls").exists());
+    tokio::fs::write(root.join("controller/native-lease-expired"), "1")
+        .await
+        .unwrap();
+    assert!(
+        runtime
+            .heartbeat_container_controller(agent.id)
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        repo.read_controller_recovery(original.request.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .lease_version,
+        1
+    );
+    let calls = tokio::fs::read_to_string(root.join("controller/heartbeat-calls"))
+        .await
+        .unwrap();
+    assert_eq!(calls, "1\n");
+    // Production DB triggers and the real clock remain active.
+    tokio::time::sleep(Duration::from_secs(31)).await;
+    assert!(
+        runtime
+            .heartbeat_container_controller(agent.id)
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        tokio::fs::read_to_string(root.join("controller/heartbeat-calls"))
+            .await
+            .unwrap(),
+        calls
+    );
+    assert!(runtime.gateway_launch_generation(agent.id).await.is_err());
+    tokio::fs::remove_dir_all(root).await.unwrap();
 }
 
 #[cfg(target_os = "linux")]

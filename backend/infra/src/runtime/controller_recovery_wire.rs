@@ -13,6 +13,48 @@ fn held() -> AppError {
     AppError::Unavailable("original native controller ownership remains fenced".into())
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn heartbeat_accepts_only_exact_closed_owner_version_and_deadline() {
+        let id = uuid::Uuid::new_v4();
+        let command: ControllerRecoveryCommand = serde_json::from_value(serde_json::json!({
+            "request": {"id":id,"launch_id":uuid::Uuid::new_v4(),"agent_id":uuid::Uuid::new_v4(),
+                "original_controller_id":uuid::Uuid::new_v4(),"controller_id":uuid::Uuid::new_v4(),
+                "predecessor_id":null,"launch_sha256":"a".repeat(64),"mapping_sha256":"b".repeat(64),
+                "registration_sha256":"c".repeat(64),"agent_pid":12345,
+                "controller_snapshot":{"container_id":"d".repeat(64),"started_at":"2026-10-07T12:00:00Z",
+                    "init_pid":987,"inventory_sha256":"e".repeat(64)}},
+            "epoch":1,"lease_version":2,"lease_expires_at":"2026-10-07T12:00:30+00:00"
+        })).unwrap();
+        let original = serde_json::json!({"state":"controller_heartbeat","recovery_id":id,
+            "lease_version":2,"lease_expires_at":command.lease_expires_at});
+        validate_heartbeat(original.clone(), &command).unwrap();
+        for (key, value) in [
+            ("state", serde_json::json!("controller_recovered")),
+            ("recovery_id", serde_json::json!(uuid::Uuid::new_v4())),
+            ("lease_version", serde_json::json!(1)),
+            ("lease_version", serde_json::json!(true)),
+            (
+                "lease_expires_at",
+                serde_json::json!("2026-10-07T12:00:31+00:00"),
+            ),
+            ("extra", serde_json::json!(null)),
+        ] {
+            let mut changed = original.clone();
+            changed[key] = value;
+            assert!(validate_heartbeat(changed, &command).is_err(), "{key}");
+        }
+        for key in ["state", "recovery_id", "lease_version", "lease_expires_at"] {
+            let mut changed = original.clone();
+            changed.as_object_mut().unwrap().remove(key);
+            assert!(validate_heartbeat(changed, &command).is_err(), "{key}");
+        }
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RecoveryReceipt {
@@ -21,6 +63,27 @@ struct RecoveryReceipt {
     request_sha256: String,
     recovery: Value,
     witness: Value,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct HeartbeatReceipt {
+    state: String,
+    recovery_id: uuid::Uuid,
+    lease_version: i64,
+    lease_expires_at: String,
+}
+
+fn validate_heartbeat(value: Value, command: &ControllerRecoveryCommand) -> Result<(), AppError> {
+    let receipt: HeartbeatReceipt = serde_json::from_value(value).map_err(|_| held())?;
+    if receipt.state != "controller_heartbeat"
+        || receipt.recovery_id != command.request.id
+        || receipt.lease_version != command.lease_version
+        || receipt.lease_expires_at != command.lease_expires_at
+    {
+        return Err(held());
+    }
+    Ok(())
 }
 
 pub(crate) fn validate_command(
@@ -115,6 +178,66 @@ pub(crate) fn validate_receipt(
 }
 
 impl ContainerControl {
+    pub(super) async fn heartbeat_controller(
+        &self,
+        files: &ContainerLaunchFiles,
+        launch: &RuntimeLaunchRecord,
+        command: &ControllerRecoveryCommand,
+        journal: &Path,
+    ) -> Result<(), AppError> {
+        validate_command(command, launch)?;
+        let original = &launch
+            .binding
+            .container
+            .as_ref()
+            .ok_or_else(held)?
+            .registration;
+        let (status, value) = self
+            .call_with_owner(
+                files,
+                "heartbeat_controller",
+                serde_json::json!({"registration": original}),
+                Some((command, journal)),
+            )
+            .await?;
+        if status != 0 {
+            return Err(held());
+        }
+        validate_heartbeat(value, command)
+    }
+
+    /// A historical heartbeat ACK alone cannot prove a live native lease.
+    pub(super) async fn verify_live_controller(
+        &self,
+        files: &ContainerLaunchFiles,
+        launch: &RuntimeLaunchRecord,
+        command: &ControllerRecoveryCommand,
+        journal: &Path,
+        original_receipt: &Value,
+    ) -> Result<(), AppError> {
+        validate_command(command, launch)?;
+        let original = &launch
+            .binding
+            .container
+            .as_ref()
+            .ok_or_else(held)?
+            .registration;
+        let (status, value) = self
+            .call_with_owner(
+                files,
+                "observe",
+                serde_json::json!({"registration": original}),
+                Some((command, journal)),
+            )
+            .await?;
+        let receipt = serde_json::from_value(value.clone()).map_err(|_| held())?;
+        super::container_control::validate_receipt(&receipt, original, status, "observe")?;
+        if status != 0 || value != original_receipt["witness"]["receipt"] {
+            return Err(held());
+        }
+        Ok(())
+    }
+
     pub async fn recover_controller(
         &self,
         files: &ContainerLaunchFiles,

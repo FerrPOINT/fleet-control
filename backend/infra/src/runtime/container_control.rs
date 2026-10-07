@@ -1200,7 +1200,7 @@ async fn bounded(reader: impl AsyncRead + Unpin) -> Result<Vec<u8>, AppError> {
     Ok(output)
 }
 
-fn validate_receipt(
+pub(super) fn validate_receipt(
     receipt: &ContainerReceipt,
     original: &ContainerRegistration,
     status: i32,
