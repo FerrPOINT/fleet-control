@@ -5,7 +5,9 @@ This frontend follow-up contains the production Chats fixes from
 The separate PR branch starts at the published runtime integration
 `d50c6947bdaf60dea73b096a71b1f09d69220392`; only frontend tests/UI and
 documentation differ. At `c93a83f`, its entire frontend tree was identical
-to `80e8b2c`; the current follow-up additionally fixes catalog-read freshness.
+to `80e8b2c`; subsequent follow-ups fix catalog-read freshness and consume the
+published original-key control lookup described below. Producer `f1891aa` was
+merged normally before regenerating the ignored API types from its OpenAPI.
 No runtime, Base controller, producer or OpenAPI changes are proposed here.
 
 The 309 unit cases and 63 three-engine browser cases in the
@@ -22,6 +24,53 @@ without an automatic PUT. This is ordinary agent/workflow binding;
 it does not implement native PM checkpoint/rebind or a real step projection.
 Its source hashes, unit/browser results and reviewed captures are in the
 [catalog freshness packet](assets/screens/workflow-catalog-freshness-20261007/validation.json).
+
+## Original-key control recovery
+
+Published Fleet producer
+[`f1891aa`](https://github.com/FerrPOINT/fleet-control/commit/f1891aade512a20f395d83c450999fb654a4f505)
+defines `GET /api/v1/sessions/{session_id}/runs/{run_id}/controls/lookup`.
+The request sends exactly one `Idempotency-Key` header and only `operation`
+(`steer` or `stop`) and `payload_sha256` query fields. The server authenticates
+the human actor and checks fresh session/project access against the original
+session/run/agent. Another actor, key or scope returns 404; the same actor/key
+with a changed operation or payload returns 409. This journal read cannot
+reserve a command, dispatch it or trigger a native worker. The primary
+[contract](https://github.com/FerrPOINT/fleet-control/blob/f1891aade512a20f395d83c450999fb654a4f505/docs/contracts/HERMES_RUN_CONTROL_V1.md)
+and [producer evidence](https://github.com/FerrPOINT/fleet-control/blob/f1891aade512a20f395d83c450999fb654a4f505/docs/CHAT_CLARIFICATION_VERIFICATION.md#original-key-control-lookup-7-october-2026)
+describe the server acceptance separately from this consumer's fixture checks.
+
+The consumer retains the original submitted string, key, actor, agent and run
+after a lost/invalid initial reply. It hashes compact UTF-8 JSON with sorted
+keys `{input,operation}`: stop uses null; steer uses the published Rust
+`str::trim` Unicode White_Space semantics. U+0085 is trimmed and U+FEFF is
+preserved; JavaScript `trim()` would produce a different identity. The golden
+stop digest is `ea123901799860e917ce433b72c621c4afffe4c866497c1bfb38507816f8048f`;
+steer `keep scope` is
+`836755e924913fa3776aeec3253eb2f9ba7c4d473e44deb16e87bbdd93f9f1b2`.
+Neither raw guidance nor the original key is placed in the query.
+
+Only a fresh, exactly scoped `acknowledged` receipt, or `terminal_observed`
+with a nonempty native acknowledgement, releases the hold. A cached ACK during
+a pending/failed GET, 404/409, reserved/submitted/uncertain state, wrong scope
+or terminal state without ACK keeps the draft and original identity. Changing
+the active run does not change the lookup target. Invalid 2xx initial replies
+also retain the hold. The explicit recovery button repeats GET only; no second
+POST occurs. Stop recovery preserves an unrelated composer draft and reports
+command acknowledgement separately from actual run termination.
+
+The [control-key packet](assets/screens/chats-control-key-lookup-20261007/validation.json)
+records 352 unit cases in 32 files (105 ChatDetail, seven lookup API cases),
+72 browser cases across three engines and 12 reviewed responsive captures.
+The record also preserves an earlier run with 70 passes and two WebKit failures:
+an existing PM fixture SSE access-control error and a stop-fixture race where
+polling accepted ACK before the manual click. The stop fixture now awaits fresh
+polling ACK; three focused WebKit cases pass without filtering errors or
+changing the SDK. The SSE diagnostic remains open.
+Original client command identity is retained in component memory only; full
+browser reload or OS restart recovery is not established. This does not close
+native delivery/checkpoint/resume, live PM acceptance, the Base direct-SSE
+denial callback or the separate WebKit pending-fetch diagnostic.
 
 ## Current producer source
 

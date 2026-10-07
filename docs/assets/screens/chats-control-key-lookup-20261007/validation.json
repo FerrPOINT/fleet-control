@@ -1,0 +1,222 @@
+{
+  "consumerBaseline": "b7cc237a4bded8d25b3b7170c12fcb7f66a44810",
+  "publishedProducer": "f1891aade512a20f395d83c450999fb654a4f505",
+  "publishedDependencyMerge": "c4749dc72cd61ad6be77814eb13d062b1d6de5a1",
+  "basePin": "cbb4e99230420dc2659431b1c9fb5090e5c940f0",
+  "scope": "Recover lost initial steer/stop receipt by scoped original-key read-only GET",
+  "sourceByteConvention": "Git blob/LF bytes",
+  "sourceSha256": {
+    "frontend/src/api/runtime-control-lookup.ts": "164480982aa52d014cff9448b98e1e9e4848ae16d77f26bad63b74c14cd0a330",
+    "frontend/src/api/runtime-control-lookup.test.ts": "6ae5710e66752340f5fcde06d01987bf0c0c0dc55c1f02e90e438719d65644f4",
+    "frontend/src/pages/chat-detail/index.tsx": "73e55de4320f23f82b3c1be245dea023aaa0f81d35fd7f3bc5e881af5508cf12",
+    "frontend/src/pages/chat-detail/index.test.tsx": "84b574bd9cc8260d19e4377d3a789ef53a1cf139d9e05f5dcbed1b107fab35a8",
+    "frontend/e2e/fleet-control.spec.ts": "c74842719258e32609f0746062526b885c6d5a59d07f5218e9b68441a6ed5eff",
+    "docs/CHATS_PM_FINAL_HANDOFF_20261006.md": "6624ba2fd790f51f4d144c21d269567850c8eee61f1f960e5b0b74481301a4be",
+    "docs/CHATS_PM_API_ACCEPTANCE_20261007.md": "d231a1f84244262ff7df5e4af514c553d6bb809923327d78ebe0ab41acc042d4"
+  },
+  "beforeFix": {
+    "failedUnitCases": 2,
+    "skippedUnselectedUnitCases": 71,
+    "logSha256": "9d1a85e760e5aed90c3401b3cc2b9a10256d19d829757da2b9d79a24dcdaf3f5"
+  },
+  "developmentRegressionLogs": {
+    "control-key-lookup-fixture-before.log": {
+      "failed": 2,
+      "passed": 78
+    },
+    "control-key-lookup-stop-field-before.log": {
+      "failed": 11,
+      "passed": 101
+    },
+    "control-key-lookup-stale-error-before.log": {
+      "failed": 6,
+      "skippedUnselected": 99
+    }
+  },
+  "unitPassed": 352,
+  "unitFiles": 32,
+  "chatDetailUnitCases": 105,
+  "lookupApiUnitCases": 7,
+  "browserPassed": 72,
+  "browserProjects": ["chromium", "firefox", "webkit"],
+  "browserWorkers": 3,
+  "browserOrigin": "http://localhost:24173",
+  "preservedEarlierBrowserRun": {
+    "passed": 70,
+    "failed": 2,
+    "logSha256": "04f15827d34980ee71435e35e72a379d11fc7fa03636e85e3b217428bd4ae0e2",
+    "failures": [
+      "WebKit existing PM fixture SSE access-control pageerror",
+      "WebKit new stop fixture expected a manual button after polling already accepted ACK"
+    ],
+    "resolution": "Stop fixture now awaits fresh polling ACK; no error filtering or SDK changes"
+  },
+  "focusedWebkitRecheck": {
+    "passed": 3,
+    "workers": 1,
+    "logSha256": "7fcefd04b088bb4b39cfc554b7c181aeddfb6d129ee22224c55675e1adefb3ed",
+    "cases": [
+      "Existing PM clarification/confirmation",
+      "Original-key steer",
+      "Original-key stop"
+    ]
+  },
+  "fixtureOnly": true,
+  "liveAcceptance": false,
+  "ownedBackendChanged": false,
+  "ownedRuntimeChanged": false,
+  "ownedProducerChanged": false,
+  "ownedOpenApiChanged": false,
+  "sdkChanged": false,
+  "productionPmDraftFormAdded": false,
+  "pmDraftDesignApproved": false,
+  "ownedFixturePreviewStopped": true,
+  "browserAcceptance": {
+    "originalKeyAndRunPreserved": true,
+    "closedQueryAndOneIdempotencyHeader": true,
+    "rustTrimDigestMatchesServer": true,
+    "404And409HoldDraft": true,
+    "uncertainReceiptHoldsDraft": true,
+    "freshScopedAckReleasesHold": true,
+    "invalidInitial2xxHolds": true,
+    "activeRunChangeKeepsOriginalLookupTarget": true,
+    "stopAckPreservesUnrelatedComposerDraft": true,
+    "recoveredAckClearsOriginalTransportError": true,
+    "controlPostCountPerCase": 1,
+    "pageerrorFiltered": false,
+    "documentOverflow": false
+  },
+  "screenshotsVisuallyReviewed": true,
+  "screenshots": [
+    {
+      "file": "chat-control-key-steer-held-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "a3a251ed83b55e8c6ce54f650e58a067e12afd3e8fbd65e5b1ae56252681db97",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-control-key-steer-held-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "a7ab8a4cb115132f5d941a8b10cdd66f414157cffd714f64840e8dbfdfd1ed5a",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-control-key-steer-held-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "acbc67c3cd451fad4ca4b34fd23528943ec3977aa6d3bef358961c421b0edbd9",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-control-key-steer-ack-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "a8530eb568883b9f3645b69a8bb8d7c69e105317fbd252bd074377af60482669",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-control-key-steer-ack-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "b9151658cab5278979b8f9c953a44d86f73b0600f65bdf88b1e9fb4512e53381",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-control-key-steer-ack-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "06f0336d03d073c9a0a50927467821e10b14a2ad0d6dffbb8d66bb987cd6156f",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-control-key-stop-held-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "25b6167f3a0f9ed6fe76e2a1785d885deaa252ee177d65b294535a9cfd6d9647",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-control-key-stop-held-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "fbf8427e904d5cd66e9b8c1461b941b24438a9aab7ad3d6fb433a24ff4298f21",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-control-key-stop-held-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "19fbfcd415b5bd42c613c4614ccc9108734a9f04296b694c93e3dd970cd9c2d5",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-control-key-stop-ack-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "8e719b66f89c385e6cea62ede2221b1926c179b385dee58350d890ea27e865a6",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-control-key-stop-ack-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "fc507a26b2734c85ae3e8053c7279876991d394ed5f2889ba513e892bebc137b",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "chat-control-key-stop-ack-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "a7081cd9808744a67230b028eadf6ef3b56abfa1672fe014766816cf644bd6bd",
+      "browser": "chromium",
+      "fixtureOnly": true
+    }
+  ],
+  "logSha256": {
+    "control-key-lookup-all-unit.log": "faa3a99ed3f12f9c1236f9610ebfd726260d874e18c00b1cacd14c4c3cce8ae2",
+    "control-key-lookup-build.log": "1e9bb364530a73a24814487d0e7286dbdce30d9863ad0ef6062ffc0da83140b0",
+    "control-key-lookup-lint.log": "fea2ca52c435e20a7e93d4541868d89dc441a99a8ebb4d3e82613b6932415200",
+    "control-key-lookup-ui.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "control-key-lookup-browser.log": "d89a70240202c3a7fa16199b47905dbb14eac954dcbf1271db5dae29f1d64bea"
+  },
+  "developmentLogSha256": {
+    "control-key-lookup-fixture-before.log": "892b85ec8bae04a50a2cdf50c056198b6d6a8a10f0756c03c127f4fbe6891554",
+    "control-key-lookup-stop-field-before.log": "70f4189b0947c74592755339f1f9122816e4448e1f92ef88f908d06eec4a549d",
+    "control-key-lookup-stale-error-before.log": "fd96cdc94bf0a3ff4131e55c8fc67dd32806bd964a209180cbe87faa7aa84ed7"
+  },
+  "checksPassed": [
+    "352 unit cases",
+    "build including TypeScript",
+    "lint",
+    "installed Base UI contract checker",
+    "pinned Base verification",
+    "Prettier",
+    "128 Markdown files checked",
+    "72 three-engine fixture browser cases"
+  ],
+  "limits": [
+    "Original client key/input/run survive in component memory only; no full browser reload or OS restart proof",
+    "Command ACK is distinct from run terminal state or native PM continuation",
+    "Native delivery/checkpoint/resume and actual browser step projection remain live acceptance",
+    "PM Draft design and separate PR target remain unapproved",
+    "Base direct SSE denial callback and pending-fetch WebKit diagnostic remain open",
+    "No exact-head independent branch CI"
+  ],
+  "warnings": [
+    "Existing Vite chunk-size warning",
+    "Fixture teardown can request absent upstream; no pageerror suppression"
+  ]
+}

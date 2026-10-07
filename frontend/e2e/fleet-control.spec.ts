@@ -1,5 +1,5 @@
 import { expect, test, type Page, type Route } from '@playwright/test'
-import { generateKeyPairSync, sign } from 'node:crypto'
+import { createHash, generateKeyPairSync, sign } from 'node:crypto'
 import AxeBuilder from '@axe-core/playwright'
 
 const now = '2026-09-01T10:00:00+03:00'
@@ -1047,6 +1047,191 @@ test('chat revalidates session access on stream reconnect and preserves the deni
     releaseRead()
   }
 })
+
+for (const operation of ['steer', 'stop'] as const) {
+  test(`chat recovers lost initial ${operation} ID through scoped original-key GET without another POST`, async ({
+    page,
+  }, info) => {
+    test.setTimeout(60000)
+    const state = createState()
+    const originalRun = '00000000-0000-4000-8000-000000000701'
+    const nextRun = '00000000-0000-4000-8000-000000000702'
+    state.runsBySession[ids.session] = [
+      {
+        ...makeRun(ids.session, state.agents[0]),
+        id: originalRun,
+        state: 'running',
+        runtime_run_id: 'native-original-run',
+      },
+      {
+        ...makeRun(ids.session, state.agents[0]),
+        id: nextRun,
+        state: 'running',
+        runtime_run_id: 'native-successor-run',
+      },
+    ]
+    await installMocks(page, state)
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    let phase: 'missing' | 'conflict' | 'uncertain' | 'acknowledged' = 'missing'
+    let activeRun = originalRun
+    let newRunReads = 0
+    let posts = 0
+    let originalKey = ''
+    const rawInput = '\u0085\ufeffkeep scope\ufeff\u0085'
+    const semanticInput = operation === 'steer' ? '\ufeffkeep scope\ufeff' : null
+    const digest = createHash('sha256')
+      .update(JSON.stringify({ input: semanticInput, operation }), 'utf8')
+      .digest('hex')
+    const receipt = {
+      id: '00000000-0000-4000-8000-000000000703',
+      session_id: ids.session,
+      session_run_id: originalRun,
+      agent_id: ids.dev,
+      actor_user_id: ids.user,
+      operation,
+      state: 'uncertain',
+      acknowledgement: null,
+      observed_run_state: null,
+      created_at: now,
+      updated_at: now,
+    }
+    await page.route(`**/api/v1/sessions/${ids.session}/chat-controls`, (route) => {
+      if (activeRun === nextRun) newRunReads += 1
+      return fulfill(route, {
+        can_send: false,
+        can_steer: true,
+        can_stop: true,
+        active_run_id: activeRun,
+      })
+    })
+    await page.route(`**/api/v1/sessions/${ids.session}/runs/**/controls`, (route) =>
+      fulfill(route, []),
+    )
+    await page.route(`**/api/v1/sessions/${ids.session}/runs/**/controls/lookup?**`, (route) => {
+      expect(route.request().method()).toBe('GET')
+      expect(new URL(route.request().url()).pathname).toBe(
+        `/api/v1/sessions/${ids.session}/runs/${originalRun}/controls/lookup`,
+      )
+      expect(route.request().headers()['idempotency-key']).toBe(originalKey)
+      const query = new URL(route.request().url()).searchParams
+      expect([...query.keys()]).toEqual(['operation', 'payload_sha256'])
+      expect(query.get('operation')).toBe(operation)
+      expect(query.get('payload_sha256')).toBe(digest)
+      if (phase === 'missing')
+        return fulfill(route, { error: { message: 'Original key not found' } }, 404)
+      if (phase === 'conflict')
+        return fulfill(route, { error: { message: 'Original payload conflict' } }, 409)
+      return fulfill(route, {
+        ...receipt,
+        state: phase,
+        acknowledgement:
+          phase === 'acknowledged' ? (operation === 'steer' ? 'steered' : 'stopping') : null,
+      })
+    })
+    await page.route(`**/api/v1/sessions/${ids.session}/runs/**/${operation}`, (route) => {
+      expect(route.request().method()).toBe('POST')
+      expect(new URL(route.request().url()).pathname).toBe(
+        `/api/v1/sessions/${ids.session}/runs/${originalRun}/${operation}`,
+      )
+      expect(route.request().postDataJSON()).toEqual(
+        operation === 'steer' ? { input: rawInput } : {},
+      )
+      posts += 1
+      originalKey = route.request().headers()['idempotency-key'] ?? ''
+      expect(originalKey).not.toBe('')
+      // The fixture commits the original command, then loses its receipt ID.
+      return operation === 'steer'
+        ? fulfill(route, { error: { message: 'Original acknowledgement lost' } }, 503)
+        : fulfill(route, {}, 200)
+    })
+    await page.goto(`/chats/${ids.session}`)
+    const input = page.getByLabel('Уточнение активному запуску', { exact: true })
+    await input.fill(operation === 'steer' ? rawInput : 'Retained composer draft')
+    const action = page.getByRole('button', {
+      name: operation === 'steer' ? 'Передать уточнение запуску' : 'Остановить запуск',
+      exact: true,
+    })
+    await expect(action).toBeEnabled()
+    await action.click()
+    await expect(page.getByText('Original key not found', { exact: true })).toBeVisible()
+    const check = page.getByRole('button', {
+      name: operation === 'steer' ? 'Проверить исходное уточнение' : 'Проверить исходную остановку',
+      exact: true,
+    })
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await expect(action).toBeDisabled()
+      await expect(input).toBeDisabled()
+      await expect(input).toHaveValue(operation === 'steer' ? rawInput : 'Retained composer draft')
+      expect(posts).toBe(1)
+      await page.screenshot({
+        path: info.outputPath(`chat-control-key-${operation}-held-${viewport.width}.png`),
+        fullPage: true,
+        animations: 'disabled',
+        scale: 'css',
+      })
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      ).toBe(true)
+    }
+    phase = 'conflict'
+    await expect(check).toBeEnabled()
+    await check.click()
+    await expect(page.getByText('Original payload conflict', { exact: true })).toBeVisible()
+    await expect(action).toBeDisabled()
+    expect(posts).toBe(1)
+    phase = 'uncertain'
+    activeRun = nextRun
+    await expect(check).toBeEnabled()
+    await check.click()
+    await expect(page.getByText('Original payload conflict', { exact: true })).toHaveCount(0)
+    await expect.poll(() => newRunReads).toBeGreaterThan(0)
+    await expect(action).toBeDisabled()
+    await expect(input).toHaveValue(operation === 'steer' ? rawInput : 'Retained composer draft')
+    expect(posts).toBe(1)
+    phase = 'acknowledged'
+    // The unresolved receipt already polls GET. Its fresh ACK may remove the
+    // recovery button before another manual click; neither path sends POST.
+    await expect(
+      page.getByText(
+        operation === 'steer'
+          ? 'Runtime подтвердил исходное уточнение. Состояние запуска проверяется отдельно.'
+          : 'Runtime подтвердил исходную остановку. Завершение запуска проверяется отдельно.',
+        { exact: true },
+      ),
+    ).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText('Original acknowledgement lost', { exact: true })).toHaveCount(0)
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await expect(input).toBeEnabled()
+      await expect(input).toHaveValue(operation === 'steer' ? '' : 'Retained composer draft')
+      expect(posts).toBe(1)
+      await page.screenshot({
+        path: info.outputPath(`chat-control-key-${operation}-ack-${viewport.width}.png`),
+        fullPage: true,
+        animations: 'disabled',
+        scale: 'css',
+      })
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      ).toBe(true)
+    }
+    expect(errors).toEqual([])
+  })
+}
 
 test('chat composer recovers from the exact known steer acknowledgement without another POST', async ({
   page,
