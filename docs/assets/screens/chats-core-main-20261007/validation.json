@@ -89,19 +89,19 @@
   "logs": [
     {
       "path": "docs/assets/screens/chats-core-main-20261007/build.log",
-      "sha256": "1882301fa255785da39751250157bc62c3fa7da400e8dbd7f69099fb3879c5f9"
+      "sha256": "e4b77371ee04a775c56b251583a185ce2efb5c2950eaab2615f26280b2311032"
     },
     {
       "path": "docs/assets/screens/chats-core-main-20261007/test.log",
-      "sha256": "107baf7df7ac42948d050e889f17d1ba6908b5fc60833c6f16591dc709540d97"
+      "sha256": "bd3c0da020bea1c693f129d20f573d4a4b9b2138997ecbdd39ea657b8913acf2"
     },
     {
       "path": "docs/assets/screens/chats-core-main-20261007/lint.log",
-      "sha256": "344c37a6f75b243e8bd63ed0afcd0d2f113bf14fafaa72a03646c852f217e125"
+      "sha256": "365d9c800d64b2b0f8d43cdd16eb527216f6c1f0b341be50a2f8ad4d518758bf"
     },
     {
       "path": "docs/assets/screens/chats-core-main-20261007/format-check.log",
-      "sha256": "9f3ac0ed63bf678486d86508432d9239421fe40e9dfa767cedaac7286a0eae6e"
+      "sha256": "1d98c531c47ec2ae7a9818c34052a1f966e1ebb1c56af6723c0e362046bc1aae"
     },
     {
       "path": "docs/assets/screens/chats-core-main-20261007/ui-check.log",
@@ -109,7 +109,7 @@
     },
     {
       "path": "docs/assets/screens/chats-core-main-20261007/theme-check.log",
-      "sha256": "4c644f88a2c001f10a5d3381e3ed9c96fcdb001d35cfbca7fb856d225b655535"
+      "sha256": "361938b14c38cf49d07d6e9535b9829bcaecc9b26388cd5ea9259b39a7487f11"
     },
     {
       "path": "docs/assets/screens/chats-core-main-20261007/openapi-check.log",
@@ -121,15 +121,15 @@
     },
     {
       "path": "docs/assets/screens/chats-core-main-20261007/markdown-check.log",
-      "sha256": "426e20611569ea9a1f8d3e96fd8989432eb604bfeb8194a5db54e7f5254bda51"
+      "sha256": "01150e6586afa5cc1f72606c0126aee87f7310c00ec62f90768050ed4719cd02"
     },
     {
       "path": "docs/assets/screens/chats-core-main-20261007/screenshots-verify.log",
-      "sha256": "505f3e2258f3896275e2e24b0ab7fc51e66847fafb8404fe388ca042535e1e9a"
+      "sha256": "587c96e9c70b6d594a99247c8412217fd90f9cb01631a853e11bb61ec1f4f35f"
     },
     {
       "path": "docs/assets/screens/chats-core-main-20261007/browser-all.log",
-      "sha256": "bd1a6726ff5e7aa2504d5b7653515a820c74b5b8349a4d4739dfc7759df08f85"
+      "sha256": "959a32ff2a9090e557ac69c360b3cc6634da78d9097dd520eb13a677e642b03e"
     }
   ],
   "screenshots": [
