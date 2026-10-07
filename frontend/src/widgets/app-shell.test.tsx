@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { ThemeProvider } from '@sdlc/ui/lib'
 import { endSso } from '@sdlc/ui/sso'
+import { toast } from 'sonner'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppShell } from './app-shell'
 import { getCurrentUserPermissions } from '@/api/auth'
@@ -10,6 +11,7 @@ import { useAuthStore } from '@/shared/auth/store'
 
 vi.mock('@/api/auth', () => ({ getCurrentUserPermissions: vi.fn() }))
 vi.mock('@sdlc/ui/sso', () => ({ endSso: vi.fn() }))
+vi.mock('sonner', () => ({ toast: { error: vi.fn() } }))
 
 const permissions = [
   'sessions:read_all',
@@ -63,6 +65,7 @@ describe('AppShell', () => {
     )
     useAuthStore.setState({
       token: 'test-token',
+      signingOut: false,
       userId: 'user-1',
       email: 'operator@example.test',
       username: 'operator',
@@ -180,12 +183,64 @@ describe('AppShell', () => {
   })
 
   it('starts central sign-out before any local login reroute', async () => {
+    vi.mocked(endSso).mockImplementationOnce(() => {
+      expect(useAuthStore.getState().token).toBe('test-token')
+    })
     renderShell()
     fireEvent.keyDown(await screen.findByRole('button', { name: 'Аккаунт' }), { key: 'ArrowDown' })
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Выйти' }))
 
+    expect(useAuthStore.getState().signingOut).toBe(true)
     expect(useAuthStore.getState().token).toBe('test-token')
+    fireEvent(window, new Event('pagehide'))
+    expect(useAuthStore.getState().token).toBeNull()
+    expect(useAuthStore.getState().userId).toBeNull()
     expect(endSso).toHaveBeenCalledWith(expect.objectContaining({ clientId: 'fleet-control' }))
+  })
+
+  it.each(['user-1', 'user-2'])(
+    'does not clear a newer login for %s on stale pagehide',
+    async (userId) => {
+      renderShell()
+      fireEvent.keyDown(await screen.findByRole('button', { name: 'Аккаунт' }), {
+        key: 'ArrowDown',
+      })
+      fireEvent.click(await screen.findByRole('menuitem', { name: 'Выйти' }))
+      act(() =>
+        useAuthStore.getState().setAuth({ token: 'new-token', userId, email: 'new@example.test' }),
+      )
+      fireEvent(window, new Event('pagehide'))
+      expect(useAuthStore.getState().token).toBe('new-token')
+      expect(useAuthStore.getState().userId).toBe(userId)
+      expect(useAuthStore.getState().signingOut).toBe(false)
+    },
+  )
+
+  it('does not repeat central navigation while sign-out is pending', async () => {
+    renderShell()
+    for (let attempt = 0; attempt < 2; attempt++) {
+      fireEvent.keyDown(await screen.findByRole('button', { name: 'Аккаунт' }), {
+        key: 'ArrowDown',
+      })
+      fireEvent.click(await screen.findByRole('menuitem', { name: 'Выйти' }))
+    }
+    expect(endSso).toHaveBeenCalledTimes(1)
+    fireEvent(window, new Event('pagehide'))
+    expect(useAuthStore.getState().token).toBeNull()
+  })
+
+  it('retains login and removes deferred cleanup when central navigation fails', async () => {
+    vi.mocked(endSso).mockImplementationOnce(() => {
+      throw new Error('private navigation detail')
+    })
+    renderShell()
+    fireEvent.keyDown(await screen.findByRole('button', { name: 'Аккаунт' }), { key: 'ArrowDown' })
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Выйти' }))
+    expect(useAuthStore.getState().signingOut).toBe(false)
+    expect(useAuthStore.getState().token).toBe('test-token')
+    fireEvent(window, new Event('pagehide'))
+    expect(useAuthStore.getState().token).toBe('test-token')
+    expect(toast.error).toHaveBeenCalledWith('Не удалось начать выход. Повторите попытку.')
   })
 
   it('closes the drawer after navigation without a duplicate profile', async () => {

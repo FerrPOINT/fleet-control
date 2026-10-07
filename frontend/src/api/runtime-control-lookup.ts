@@ -2,7 +2,7 @@ import { apiRequest } from './client'
 import type { operations } from './generated'
 import type { RuntimeControlReceipt } from './types'
 
-type LookupQuery = operations['lookup_control']['parameters']['query']
+export type RuntimeControlLookupQuery = operations['lookup_control']['parameters']['query']
 export type OriginalRuntimeControl =
   { operation: 'steer'; input: string } | { operation: 'stop'; input: null }
 
@@ -28,12 +28,20 @@ export async function lookupRuntimeControl(
   key: string,
   command: OriginalRuntimeControl,
 ) {
-  const query: LookupQuery = {
+  return lookupRuntimeControlByDigest(sessionId, runId, key, {
     operation: command.operation,
     payload_sha256: await runtimeControlPayloadSha256(command),
-  }
+  })
+}
+
+export function lookupRuntimeControlByDigest(
+  sessionId: string,
+  runId: string,
+  key: string,
+  query: RuntimeControlLookupQuery,
+) {
   return apiRequest<RuntimeControlReceipt>(
-    `/api/v1/sessions/${encodeURIComponent(sessionId)}/runs/${encodeURIComponent(runId)}/controls/lookup?${new URLSearchParams(query)}`,
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/runs/${encodeURIComponent(runId)}/controls/lookup?${new URLSearchParams({ operation: query.operation, payload_sha256: query.payload_sha256 })}`,
     { method: 'GET', headers: { 'Idempotency-Key': key } },
   )
 }

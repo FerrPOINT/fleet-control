@@ -1,5 +1,23 @@
 # Gap Register
 
+## Current Chats Integration And Identity Boundary
+
+Published consumer94e889d is integrated with runtime46df7aa without changing
+backend bytes. Tab-reload original control lookup and late PM ACK identity holds
+are implemented; the historical missing-consumer/reload entries below describe
+older packets. Four additional shell regression cases prevent stale pagehide
+from clearing a newer login, duplicate sign-out and failed-navigation deadlock.
+The fresh exact-pin frontend suite passes413 cases. See
+[verification](CHAT_CLARIFICATION_VERIFICATION.md#chats-reload-and-identity-integration-7-october-2026).
+
+Remaining browser privacy gate: the global QueryClient has no identity reset,
+permissions use an unscoped cache key, and request/auth callbacks and component
+drafts need explicit same-SPA identity-switch acceptance. These are identified
+risks, not evidence of authorized cross-user server reads. Do not claim full
+browser ownership isolation from the scoped PM/control or shell tests alone.
+Runtime recovery, published producer contracts, actual PM workflow, Forge live
+acceptance and ordered main-release PR conflicts remain separate blockers.
+
 ## Native Controller Delivery Follow-Up
 
 Candidate000021 implements the missing private original-command custody,

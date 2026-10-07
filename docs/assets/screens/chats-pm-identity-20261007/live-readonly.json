@@ -1,0 +1,87 @@
+{
+  "readOnly": true,
+  "runtimeModified": false,
+  "candidateInstalled": false,
+  "ownConsumerBaseline": "b466a6741267d729f7f3e30a7e22f84c0622cacf",
+  "probes": [
+    {
+      "product": "fleet",
+      "origin": "http://localhost:7741",
+      "path": "/api-docs/openapi.json",
+      "method": "GET",
+      "authentication": "none",
+      "status": 200,
+      "contentType": "application/json",
+      "sha256": "5bd080865f5b244467e09bcfa5b34b52df1b5848b996985e57f623135fd7c322",
+      "pathCount": 67,
+      "requiredConsumerPathsPresent": [],
+      "requiredConsumerPathsAbsent": [
+        "/api/v1/pm-drafts/operations/{operation_id}",
+        "/api/v1/pm-drafts/operations/{operation_id}/continue",
+        "/api/v1/pm-drafts/projects",
+        "/api/v1/projects/{project_id}/pm-drafts",
+        "/api/v1/projects/{project_id}/pm-drafts/operation",
+        "/api/v1/sessions/{session_id}/chat-controls",
+        "/api/v1/sessions/{session_id}/clarifications",
+        "/api/v1/sessions/{session_id}/clarifications/{question_id}/answers",
+        "/api/v1/sessions/{session_id}/requirements",
+        "/api/v1/sessions/{session_id}/requirements/{revision}/confirm",
+        "/api/v1/sessions/{session_id}/runs/{run_id}/controls/lookup",
+        "/api/v1/sessions/{session_id}/task-context"
+      ],
+      "provesPrivateCapabilities": false
+    },
+    {
+      "product": "tracker",
+      "origin": "http://localhost:7721",
+      "path": "/api-docs/openapi.json",
+      "method": "GET",
+      "authentication": "none",
+      "status": 404
+    },
+    {
+      "product": "workflow",
+      "origin": "http://localhost:7752",
+      "path": "/openapi.json",
+      "method": "GET",
+      "authentication": "none",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "sha256": "1c9d20d8c6061e7f40f6915089c529897462a9641a9ca359bbcc4fded0cd7d93",
+      "jsonDocument": false
+    }
+  ],
+  "images": [
+    {
+      "container": "sdlc1-fleet-web-1",
+      "imageId": "sha256:0054023ff56875b62e6e53ed83bf85ede7242ebe6936f39a6fc1e1611c4497e5",
+      "sourceRevision": null
+    },
+    {
+      "container": "sdlc1-fleet-backend-1",
+      "imageId": "sha256:c0f6b1a5d2c0b8d824e253b8874d33bd92398d0cb8545dcb04446c1dd8e71572",
+      "sourceRevision": "b23ba7259c3a65e0d374dc672886e447dc693292"
+    },
+    {
+      "container": "sdlc1-task-backend-1",
+      "imageId": "sha256:7dd8fcbd39759e230ff14e760aefadfe327dd4a413b0a800cfbde9e5871498b4",
+      "sourceRevision": "a1f67ce088bb6f2c0b1046de0c17bc1194f48c9d"
+    },
+    {
+      "container": "sdlc1-project-workflow-backend-1",
+      "imageId": "sha256:60bd12794ddfec362849ad363d8f028791caf6aacb235ce6df6dae68751d6760",
+      "sourceRevision": "3d04ebb99a4f575aa4a3fa6d59f5fa17f3be61c7-dirty-f531dc6dc62b"
+    }
+  ],
+  "browserObservations": {
+    "authentication": "existing normal SDLC SSO session; no new credentials entered",
+    "fleetChats": "Both visible agents have zero sessions for current owner filter",
+    "fleetWorkflow": "Authenticated /workflows displays access denied",
+    "workflowTasks": "Authenticated /tasks displays no tasks in current namespace",
+    "fleetConsoleErrorsObserved": 0,
+    "mutationsPerformed": false,
+    "provesNativePmAcceptance": false
+  },
+  "runtimeMatchesPreviousReadOnlyEvidence": true,
+  "previousReadOnlyEvidence": "docs/assets/design/chats-pm-review/installed-readonly.json"
+}

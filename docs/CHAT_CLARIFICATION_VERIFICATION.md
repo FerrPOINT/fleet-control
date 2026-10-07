@@ -1,5 +1,61 @@
 # Chat Clarification Verification
 
+## Chats Reload And Identity Integration: 7 October 2026
+
+Inputs: runtime46df7aa43943b3e2ca7e66b109a5038deb512763 and
+Chats94e889d2632517936597af5835e45cb607d78c4b, combined by normal merge,
+plus four shell sign-out regression fixes. Backend tree remains
+4ac2b4b83113fa481ff263c57397fe3da2594d15: the preceding568-case Linux/PostgreSQL
+gate applies to those exact unchanged bytes, not a new invocation after this
+frontend integration. No migration, installed runtime, SDK pin or opt-in changes.
+
+All144 tested frontend inputs match the owned checkout under Git/LF line-ending
+normalization. A raw-byte comparison stopped on CRLF/LF in chat-preview.html;
+the subsequent normalized comparison found no content drift.
+Fresh isolated QA uses verified Node22.20.0 and pnpm10.28.1 with frozen lockfile
+installation. All73 installed Base SDK source/script/package inputs match pinned
+cbb4e99230420dc2659431b1c9fb5090e5c940f0. The original checkout's cached package
+instead came from c083783; its preliminary409-case runs are not release evidence.
+The failed four-case shell regression run is retained separately; the corrected
+focused suite passes21 cases and the full suite passes413 in33 files.
+
+Typecheck, strict lint/semantic classes, formatting, production build, generated
+OpenAPI client equality, eight compatibility cases, seven local-snapshot DTO
+contracts/two verifier cases, pinned Base UI validation,132 Markdown link files,
+135 baseline screenshots/nine verifier cases pass. The contract command explicitly
+does not compare the published Tracker producer; its compatibility gap stays open.
+Vite retains the existing greater-than500KiB main-chunk warning.
+
+The initial browser run retained83 passes and one WebKit timeout: periodic
+command polling disabled manual refresh before the test clicked it. The test now
+waits for the real failed read, preserving disabled controls, draft and zero-POST
+assertions. A fresh complete selected run passes84 Chromium/Firefox/WebKit cases
+without retries, skips, unexpected cases or page-level report errors, in300.6s.
+The fixture preview still logs ECONNREFUSED to its absent fallback API; this is
+not zero-network-error or live backend evidence. The owned preview listener is
+independently absent after completion. Fresh mobile chat and desktop stale-question
+fixture screenshots were opened and inspected, separately from imported captures.
+
+Private QA JSON report hashes: unit
+5f5c3b844dd0b26b742ff37abac5a6cb42c633d4794af96b58e31fe240cb6073;
+browser b46a932dd091b7c3dafbd1d5466bd46912aeeee7614dfbb4265057fca6205734.
+Artifacts remain in the task-owned fleet-chats-final-3217793 QA directory,
+including the preceding failed error context; no installed service was changed.
+
+Two imported dated manifests independently match21 historical Git/LF source
+hashes and24 PNG hashes/dimensions. Mobile375 and desktop1920 clarification images
+were opened and inspected. Their false live-acceptance boundary is unchanged:
+these are historical fixtures, not recaptured current runtime or real PM evidence.
+
+Pending release acceptance remains actual PM tool publication/answer delivery,
+checkpoint/rebind, published producer contracts, full controller restart,
+same-SPA query/draft/late-response privacy and Forge deployment. Source publication
+is not merge/deployment or a declaration of full SDLC readiness.
+Fresh remote readback also reports main conflicts for
+[Fleet47](https://github.com/FerrPOINT/fleet-control/pull/47) at5f20540 and
+[Base150](https://github.com/FerrPOINT/services-base/pull/150) at7d7323a.
+Those separate predecessor PR heads were not changed or marked ready here.
+
 ## Original Controller Delivery And Historical Outcome: 7 October 2026
 
 The follow-up owns one new migration000021, private delivery/outcome repository

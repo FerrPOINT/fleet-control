@@ -1,8 +1,52 @@
 import { expect, test, type Page, type Route } from '@playwright/test'
 import { createHash, generateKeyPairSync, sign } from 'node:crypto'
+import { createServer, type ServerResponse } from 'node:http'
 import AxeBuilder from '@axe-core/playwright'
 
 const now = '2026-09-01T10:00:00+03:00'
+
+const reloadTest = test.extend<{ streamUrl: string }>({
+  streamUrl: async ({ baseURL }, runFixture) => {
+    const responses = new Set<ServerResponse>()
+    const server = createServer((request, response) => {
+      response.setHeader('access-control-allow-origin', new URL(baseURL!).origin)
+      response.setHeader('access-control-allow-headers', 'Authorization, Accept')
+      if (request.method === 'OPTIONS') {
+        response.writeHead(204).end()
+        return
+      }
+      if (request.method !== 'GET' || request.headers.authorization !== 'Bearer qa-access-token') {
+        response.writeHead(403).end()
+        return
+      }
+      if (request.url === '/notify') {
+        for (const stream of responses)
+          stream.write('event: session\ndata: {"type":"session_changed"}\n\n')
+        response.writeHead(204).end()
+        return
+      }
+      response.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store' })
+      response.write(': fixture heartbeat\n\n')
+      responses.add(response)
+      const heartbeat = setInterval(() => response.write(': fixture heartbeat\n\n'), 1000)
+      response.on('close', () => {
+        clearInterval(heartbeat)
+        responses.delete(response)
+      })
+    })
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+    const address = server.address()
+    if (!address || typeof address === 'string') throw new Error('SSE fixture did not bind')
+    try {
+      await runFixture(`http://127.0.0.1:${address.port}/stream`)
+    } finally {
+      for (const response of responses) response.end()
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      )
+    }
+  },
+})
 
 test('legacy session permits the first prompt but holds a pending delivery after reload', async ({
   page,
@@ -69,108 +113,127 @@ test('legacy session permits the first prompt but holds a pending delivery after
   expect(submitted).toBe(1)
 })
 
-test('durable runtime controls hold unknown commands after reload', async ({ page }, testInfo) => {
-  test.setTimeout(90000)
-  const state = createState()
-  const run = { ...makeRun(ids.session, state.agents[0]), state: 'running' }
-  state.runsBySession[ids.session] = [run]
-  await installMocks(page, state)
-  const command = {
-    id: '00000000-0000-4000-8000-000000000901',
-    session_id: ids.session,
-    session_run_id: run.id,
-    agent_id: ids.dev,
-    actor_user_id: ids.user,
-    operation: 'steer',
-    state: 'uncertain',
-    acknowledgement: null,
-    observed_run_state: null,
-    created_at: now,
-    updated_at: now,
-  }
-  let submitted = false
-  const keys: string[] = []
-  await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
-    const request = route.request()
-    const path = new URL(request.url()).pathname
-    if (path.endsWith('/chat-controls'))
-      return fulfill(route, {
-        can_send: false,
-        can_steer: true,
-        can_stop: true,
-        active_run_id: run.id,
-        blocked_reason: null,
-      })
-    if (path.endsWith('/controls')) return fulfill(route, submitted ? [command] : [])
-    if (path.endsWith('/steer') && request.method() === 'POST') {
-      const key = request.headers()['idempotency-key']
-      expect(key).toBeTruthy()
-      keys.push(key)
-      expect(request.postDataJSON()).toEqual({ input: 'Keep the original guidance' })
-      submitted = true
-      return fulfill(route, {
-        session_id: ids.session,
-        run_id: run.id,
-        runtime_run_id: 'native-fixture',
-        accepted: false,
-        state: 'running',
-        message: 'control outcome unknown',
-        command,
-      })
+reloadTest(
+  'durable runtime controls hold unknown commands after reload',
+  async ({ page, streamUrl }, testInfo) => {
+    test.setTimeout(90000)
+    const state = createState()
+    const run = { ...makeRun(ids.session, state.agents[0]), state: 'running' }
+    state.runsBySession[ids.session] = [run]
+    await installMocks(page, state)
+    await page.route(`**/api/v1/sessions/${ids.session}/stream`, (route) =>
+      route.continue({ url: streamUrl }),
+    )
+    const command = {
+      id: '00000000-0000-4000-8000-000000000901',
+      session_id: ids.session,
+      session_run_id: run.id,
+      agent_id: ids.dev,
+      actor_user_id: ids.user,
+      operation: 'steer',
+      state: 'uncertain',
+      acknowledgement: null,
+      observed_run_state: null,
+      created_at: now,
+      updated_at: now,
     }
-    return route.fallback()
-  })
-  const errors: string[] = []
-  page.on('pageerror', (error) => errors.push(error.message))
-  await page.goto(`/chats/${ids.session}?tab=dialogue`)
-  const input = page.getByLabel('Уточнение активному запуску', { exact: true })
-  await expect(input).toBeEnabled()
-  await input.fill('Keep the original guidance')
-  const send = page.getByRole('button', { name: 'Передать уточнение запуску', exact: true })
-  await expect(send).toBeEnabled()
-  await send.click()
-  await expect(
-    page.getByText('Исход команды неизвестен. Проверяется сохранённая запись.'),
-  ).toBeVisible()
-  await expect(input).toHaveValue('Keep the original guidance')
-  await expect(send).toBeDisabled()
-  expect(keys).toHaveLength(1)
-  await page.reload()
-  await expect(send).toBeDisabled()
-  await expect(page.getByRole('button', { name: 'Остановить запуск', exact: true })).toBeDisabled()
-  for (const viewport of [
-    { width: 375, height: 812 },
-    { width: 1920, height: 1080 },
-    { width: 2560, height: 1440 },
-  ]) {
-    await page.setViewportSize(viewport)
-    const context = page.getByRole('button', { name: 'Контекст задачи', exact: true })
-    if (viewport.width === 375) await context.click()
-    const visibleContext =
-      viewport.width === 375
-        ? page.getByRole('dialog', { name: 'Контекст задачи' })
-        : page.locator('.fc-chat-context')
-    const outcome = visibleContext.getByText('Исход неизвестен, повторная отправка запрещена')
-    await expect(outcome).toBeVisible()
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
-      ),
-    ).toBe(true)
-    const a11y = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
-    expect(
-      a11y.violations.filter((issue) => ['serious', 'critical'].includes(issue.impact ?? '')),
-    ).toEqual([])
-    await page.screenshot({
-      path: testInfo.outputPath(`runtime-controls-${viewport.width}.png`),
-      fullPage: true,
-      animations: 'disabled',
+    let submitted = false
+    const keys: string[] = []
+    await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
+      const request = route.request()
+      const path = new URL(request.url()).pathname
+      if (path.endsWith('/chat-controls'))
+        return fulfill(route, {
+          can_send: false,
+          can_steer: true,
+          can_stop: true,
+          active_run_id: run.id,
+          blocked_reason: null,
+        })
+      if (path.endsWith('/controls')) return fulfill(route, submitted ? [command] : [])
+      if (path.endsWith('/controls/lookup')) {
+        expect(request.method()).toBe('GET')
+        expect(request.headers()['idempotency-key']).toBe(keys[0])
+        expect(Object.fromEntries(new URL(request.url()).searchParams)).toEqual({
+          operation: 'steer',
+          payload_sha256: createHash('sha256')
+            .update(JSON.stringify({ input: 'Keep the original guidance', operation: 'steer' }))
+            .digest('hex'),
+        })
+        return fulfill(route, command)
+      }
+      if (path.endsWith('/steer') && request.method() === 'POST') {
+        const key = request.headers()['idempotency-key']
+        expect(key).toBeTruthy()
+        keys.push(key)
+        expect(request.postDataJSON()).toEqual({ input: 'Keep the original guidance' })
+        submitted = true
+        return fulfill(route, {
+          session_id: ids.session,
+          run_id: run.id,
+          runtime_run_id: 'native-fixture',
+          accepted: false,
+          state: 'running',
+          message: 'control outcome unknown',
+          command,
+        })
+      }
+      return route.fallback()
     })
-    if (viewport.width === 375) await page.keyboard.press('Escape')
-  }
-  expect(keys).toHaveLength(1)
-  expect(errors).toEqual([])
-})
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    await page.goto(`/chats/${ids.session}?tab=dialogue`)
+    const input = page.getByLabel('Уточнение активному запуску', { exact: true })
+    await expect(input).toBeEnabled()
+    await input.fill('Keep the original guidance')
+    const send = page.getByRole('button', { name: 'Передать уточнение запуску', exact: true })
+    await expect(send).toBeEnabled()
+    await send.click()
+    await expect(
+      page.getByText('Исход команды неизвестен. Проверяется сохранённая запись.'),
+    ).toBeVisible()
+    await expect(input).toHaveValue('Keep the original guidance')
+    await expect(send).toBeDisabled()
+    expect(keys).toHaveLength(1)
+    await page.reload()
+    await expect(send).toBeDisabled()
+    await expect(
+      page.getByRole('button', { name: 'Остановить запуск', exact: true }),
+    ).toBeDisabled()
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      await page.setViewportSize(viewport)
+      const context = page.getByRole('button', { name: 'Контекст задачи', exact: true })
+      if (viewport.width === 375) await context.click()
+      const visibleContext =
+        viewport.width === 375
+          ? page.getByRole('dialog', { name: 'Контекст задачи' })
+          : page.locator('.fc-chat-context')
+      const outcome = visibleContext.getByText('Исход неизвестен, повторная отправка запрещена')
+      await expect(outcome).toBeVisible()
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      ).toBe(true)
+      const a11y = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+      expect(
+        a11y.violations.filter((issue) => ['serious', 'critical'].includes(issue.impact ?? '')),
+      ).toEqual([])
+      await page.screenshot({
+        path: testInfo.outputPath(`runtime-controls-${viewport.width}.png`),
+        fullPage: true,
+        animations: 'disabled',
+      })
+      if (viewport.width === 375) await page.keyboard.press('Escape')
+    }
+    expect(keys).toHaveLength(1)
+    expect(errors).toEqual([])
+  },
+)
 
 for (const operation of ['prompt', 'steer'] as const) {
   test(`chat ${operation} holds stale controls until a successful read`, async ({ page }, info) => {
@@ -298,8 +361,9 @@ test('chat steer and stop hold a failed command read and its unresolved fresh re
   await expect(steer).toBeEnabled()
   await expect(stop).toBeEnabled()
   unavailable = true
-  await page.getByRole('button', { name: 'Проверить команды', exact: true }).click()
-  await expect.poll(() => failedReads).toBeGreaterThan(0)
+  // The periodic read may already disable manual refresh before the click.
+  // Observe that real read instead of racing its disabled button.
+  await expect.poll(() => failedReads, { timeout: 15000 }).toBeGreaterThan(0)
   for (const viewport of [
     { width: 375, height: 812 },
     { width: 1920, height: 1080 },
@@ -401,342 +465,583 @@ test('chat stop holds stale permissions and uses the refreshed active run', asyn
   expect(errors).toEqual([])
 })
 
-test('PM chat clarification preserves explicit answers and exact confirmation', async ({
-  page,
-}, testInfo) => {
-  test.setTimeout(90000)
-  const state = createState()
-  await installMocks(page, state)
-  const errors: string[] = []
-  page.on('pageerror', (error) => errors.push(error.message))
-  const question = {
-    id: '00000000-0000-4000-8000-000000000501',
-    request_id: '00000000-0000-4000-8000-000000000502',
-    task_id: ids.session,
-    root_task_id: ids.session,
-    assignment_id: '00000000-0000-4000-8000-000000000503',
-    execution_id: '00000000-0000-4000-8000-000000000504',
-    agent_id: ids.dev,
-    assignment_version: 1,
-    checkpoint_id: '00000000-0000-4000-8000-000000000505',
-    author_subject: ids.dev,
-    created_at: now,
-    version: 1,
-    requirement_revision: 1,
-    text: 'Кто может просматривать задачи?',
-    rationale: 'Фиксируем границы доступа.',
-    required: true,
-    mode: 'single',
-    state: 'open',
-    answer: null,
-    requirement_reference: 'REQ-1',
-    recommended_option_id: ids.dev,
-    options: [
-      {
-        id: ids.dev,
-        label: 'Участники проекта',
-        consequences: 'Доступ ограничен проектом.',
-        is_custom: false,
-      },
-    ],
-  }
-  const revision = {
-    revision: 1,
-    author_subject: ids.dev,
-    content_hash: 'a'.repeat(64),
-    created_at: now,
-    goal: 'Рабочий портал задач',
-    scope: ['Управление задачами проекта'],
-    exclusions: ['Публичный доступ'],
-    scenarios: ['Участник создаёт задачу'],
-    acceptance_criteria: ['Другой проект не видит задачу'],
-    constraints: [],
-    dependencies: [],
-    assumptions: [],
-    checklist: ['business-completeness'],
-    prerequisites: ['runtime-ready'],
-  }
-  let answered = false
-  let finalPublished = false
-  let confirmed = false
-  let questionMode = 'single'
-  let unavailableRead: 'task-context' | 'requirements' | null = null
-  let failedReads = 0
-  const savedAnswer = {
-    id: '00000000-0000-4000-8000-000000000506',
-    question_id: question.id,
-    question_version: 1,
-    requirement_revision: 1,
-    selected_option_ids: [ids.dev],
-    text: null,
-    comment: 'Только внутри проекта',
-    author_subject: ids.user,
-    created_at: now,
-  }
-  const commands: { path: string; body: unknown }[] = []
-  await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
-    const path = new URL(route.request().url()).pathname
-    if (unavailableRead && path.endsWith(`/${unavailableRead}`)) {
-      failedReads += 1
-      return fulfill(route, { error: { message: 'PM read unavailable' } }, 503)
-    }
-    if (path.endsWith('/approvals')) return fulfill(route, [])
-    if (path.endsWith('/task-context'))
-      return fulfill(route, {
-        binding: {
-          tracker_instance_id: 'fixture-tracker',
-          project_id: ids.dev,
-          task_id: ids.session,
-          root_task_id: ids.session,
-          agent_id: ids.dev,
-          owner_subject: ids.user,
-        },
-        tracker: {
-          contract_version: 1,
-          tracker_instance_id: 'fixture-tracker',
-          project_id: ids.dev,
-          task_id: ids.session,
-          root_task_id: ids.session,
-          owner_subject: ids.user,
-          stage: confirmed ? 'Backlog' : 'Clarification',
-          requirement_revision: finalPublished ? 2 : 1,
-          waiting_reason: answered ? null : 'Требуется ответ владельца',
-          assignment: {
-            assignment_id: question.assignment_id,
-            execution_id: question.execution_id,
-            agent_id: ids.dev,
-            version: 1,
-            machine_subject: ids.dev,
+for (const operation of ['answer', 'confirmation'] as const) {
+  reloadTest(
+    `PM ${operation} holds a late acknowledgement after session access loss`,
+    async ({ page, streamUrl }, info) => {
+      const state = createState()
+      await installMocks(page, state)
+      const errors: string[] = []
+      page.on('pageerror', (error) => errors.push(error.message))
+      await page.route(`**/api/v1/sessions/${ids.session}/stream`, (route) =>
+        route.continue({ url: streamUrl }),
+      )
+      const question = {
+        id: '00000000-0000-4000-8000-000000000501',
+        request_id: '00000000-0000-4000-8000-000000000502',
+        task_id: ids.session,
+        root_task_id: ids.session,
+        assignment_id: '00000000-0000-4000-8000-000000000503',
+        execution_id: '00000000-0000-4000-8000-000000000504',
+        agent_id: ids.dev,
+        assignment_version: 1,
+        checkpoint_id: '00000000-0000-4000-8000-000000000505',
+        author_subject: ids.dev,
+        created_at: now,
+        version: 1,
+        requirement_revision: 1,
+        text: 'Кто может просматривать задачи?',
+        rationale: 'Фиксируем границы доступа.',
+        required: true,
+        mode: 'single',
+        state: 'open',
+        answer: null,
+        requirement_reference: 'REQ-1',
+        recommended_option_id: ids.dev,
+        options: [
+          {
+            id: ids.dev,
+            label: 'Участники проекта',
+            consequences: 'Доступ ограничен проектом.',
+            is_custom: false,
           },
-          permissions: { can_answer: !answered, can_confirm: finalPublished && !confirmed },
-        },
-      })
-    if (path.endsWith('/chat-controls'))
-      return fulfill(route, {
-        can_send: false,
-        can_steer: false,
-        can_stop: false,
-        active_run_id: null,
-        blocked_reason: 'workflow_assignment_required',
-      })
-    if (path.endsWith('/history'))
-      return fulfill(route, {
-        items: [makeMessage(ids.session, 'Уточним требования перед публикацией.')],
-        next_before: null,
-      })
-    if (path.endsWith('/clarifications'))
-      return fulfill(route, {
-        questions: [
-          answered
-            ? { ...question, state: 'answered', answer: savedAnswer }
-            : { ...question, mode: questionMode },
         ],
-      })
-    if (path.endsWith('/requirements'))
-      return fulfill(route, {
-        revisions: finalPublished
-          ? [revision, { ...revision, revision: 2, content_hash: 'b'.repeat(64) }]
-          : [revision],
-      })
-    if (route.request().method() === 'POST') {
-      commands.push({ path, body: route.request().postDataJSON() })
-      if (path.endsWith('/answers')) {
-        answered = true
-        if (commands.filter((command) => command.path.endsWith('/answers')).length === 1)
-          return fulfill(route, { error: { message: 'Answer receipt timed out' } }, 408)
-        return fulfill(route, savedAnswer)
       }
-      confirmed = true
-      if (commands.filter((command) => command.path.endsWith('/confirm')).length === 1)
-        return fulfill(route, { error: { message: 'Confirmation receipt timed out' } }, 408)
-      return fulfill(route, {
+      const revision = {
+        revision: 1,
+        author_subject: ids.dev,
+        content_hash: 'a'.repeat(64),
+        created_at: now,
+        goal: 'Рабочий портал задач',
+        scope: ['Управление задачами проекта'],
+        exclusions: ['Публичный доступ'],
+        scenarios: ['Участник создаёт задачу'],
+        acceptance_criteria: ['Другой проект не видит задачу'],
+        constraints: [],
+        dependencies: [],
+        assumptions: [],
+        checklist: ['business-completeness'],
+        prerequisites: ['runtime-ready'],
+      }
+      const answerReceipt = {
+        id: '00000000-0000-4000-8000-000000000506',
+        question_id: question.id,
+        question_version: 1,
+        requirement_revision: 1,
+        selected_option_ids: [ids.dev],
+        text: null,
+        comment: 'Только внутри проекта',
+        author_subject: ids.user,
+        created_at: now,
+      }
+      const confirmationReceipt = {
         id: '00000000-0000-4000-8000-000000000507',
         task_id: ids.session,
-        revision: 2,
-        content_hash: 'b'.repeat(64),
+        revision: 1,
+        content_hash: revision.content_hash,
         owner_subject: ids.user,
         created_at: now,
         stage: 'Backlog',
+      }
+      let denied = false
+      let releaseAcknowledgement!: () => void
+      const commands: { path: string; body: unknown }[] = []
+      await page.route(`**/api/v1/sessions/${ids.session}`, (route) =>
+        denied
+          ? fulfill(route, { error: { message: 'PM session access denied' } }, 403)
+          : route.fallback(),
+      )
+      await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
+        const path = new URL(route.request().url()).pathname
+        if (path.endsWith('/task-context'))
+          return fulfill(route, {
+            binding: {
+              tracker_instance_id: 'fixture-tracker',
+              project_id: ids.dev,
+              task_id: ids.session,
+              root_task_id: ids.session,
+              agent_id: ids.dev,
+              owner_subject: ids.user,
+            },
+            tracker: {
+              contract_version: 1,
+              tracker_instance_id: 'fixture-tracker',
+              project_id: ids.dev,
+              task_id: ids.session,
+              root_task_id: ids.session,
+              owner_subject: ids.user,
+              stage: 'Clarification',
+              requirement_revision: 1,
+              waiting_reason: 'Требуется ответ владельца',
+              assignment: null,
+              permissions: { can_answer: true, can_confirm: true },
+            },
+          })
+        if (path.endsWith('/chat-controls'))
+          return fulfill(route, {
+            can_send: false,
+            can_steer: false,
+            can_stop: false,
+            active_run_id: null,
+            blocked_reason: 'workflow_assignment_required',
+          })
+        // Delayed read projection keeps the original form visible; this is fixture evidence.
+        if (path.endsWith('/clarifications')) return fulfill(route, { questions: [question] })
+        if (path.endsWith('/requirements')) return fulfill(route, { revisions: [revision] })
+        if (route.request().method() === 'POST') {
+          commands.push({ path, body: route.request().postDataJSON() })
+          if (commands.length === 1)
+            await new Promise<void>((resolve) => {
+              releaseAcknowledgement = resolve
+            })
+          return fulfill(route, operation === 'answer' ? answerReceipt : confirmationReceipt)
+        }
+        return route.fallback()
       })
+      await page.goto(
+        `/chats/${ids.session}?tab=${operation === 'answer' ? 'clarification' : 'requirements'}`,
+      )
+      await page
+        .getByRole(operation === 'answer' ? 'radio' : 'checkbox', {
+          name: operation === 'answer' ? /Участники проекта/ : /Подтверждаю цель/,
+        })
+        .check()
+      if (operation === 'answer')
+        await page.getByLabel('Комментарий', { exact: true }).fill(answerReceipt.comment)
+      await page
+        .getByRole('button', {
+          name: operation === 'answer' ? 'Сохранить ответ' : 'Подтвердить редакцию 1',
+        })
+        .click()
+      await expect.poll(() => commands.length).toBe(1)
+      denied = true
+      const notification = await fetch(streamUrl.replace('/stream', '/notify'), {
+        headers: { Authorization: 'Bearer qa-access-token' },
+      })
+      expect(notification.status).toBe(204)
+      await expect(page.getByText('PM session access denied', { exact: true })).toBeVisible()
+      const acknowledged = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'POST' &&
+          response.url().endsWith(operation === 'answer' ? '/answers' : '/confirm') &&
+          response.status() === 200,
+      )
+      const deniedReadback = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'GET' &&
+          new URL(response.url()).pathname === `/api/v1/sessions/${ids.session}` &&
+          response.status() === 403,
+      )
+      releaseAcknowledgement()
+      await Promise.all([acknowledged, deniedReadback])
+      // The held ACK invalidates reads while the original owner still has no access.
+      await expect(page.getByRole('button', { name: 'Проверить доступ к чату' })).toBeEnabled()
+      denied = false
+      await page.getByRole('button', { name: 'Проверить доступ к чату' }).click()
+      const retry = page.getByRole('button', {
+        name:
+          operation === 'answer' ? 'Повторить исходный ответ' : 'Повторить исходное подтверждение',
+      })
+      await expect(retry).toBeEnabled()
+      expect(commands).toHaveLength(1)
+      await expect(
+        page.getByText('Подтверждение сохранено. Следующее назначение проверяется отдельно.', {
+          exact: true,
+        }),
+      ).not.toBeVisible()
+      if (operation === 'answer')
+        await expect(page.getByLabel('Комментарий', { exact: true })).toHaveValue(
+          answerReceipt.comment,
+        )
+      for (const phase of ['held', 'acknowledged']) {
+        if (phase === 'acknowledged') {
+          await retry.click()
+          await expect(retry).not.toBeVisible()
+          expect(commands).toHaveLength(2)
+          expect(commands[1]).toEqual(commands[0])
+        }
+        for (const viewport of [
+          { width: 375, height: 812 },
+          { width: 1920, height: 1080 },
+          { width: 2560, height: 1440 },
+        ]) {
+          await page.setViewportSize(viewport)
+          if (phase === 'held') await retry.scrollIntoViewIfNeeded()
+          else if (operation === 'confirmation')
+            await page
+              .getByText('Подтверждение сохранено. Следующее назначение проверяется отдельно.', {
+                exact: true,
+              })
+              .scrollIntoViewIfNeeded()
+          else await page.getByLabel('Комментарий', { exact: true }).scrollIntoViewIfNeeded()
+          expect(
+            await page.evaluate(
+              () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+            ),
+          ).toBe(true)
+          await page.screenshot({
+            path: info.outputPath(`pm-${operation}-${phase}-${viewport.width}.png`),
+            fullPage: true,
+            animations: 'disabled',
+          })
+        }
+      }
+      expect(errors).toEqual([])
+    },
+  )
+}
+
+reloadTest(
+  'PM chat clarification preserves explicit answers and exact confirmation',
+  async ({ page, streamUrl }, testInfo) => {
+    test.setTimeout(90000)
+    const state = createState()
+    await installMocks(page, state)
+    await page.route(`**/api/v1/sessions/${ids.session}/stream`, (route) =>
+      route.continue({ url: streamUrl }),
+    )
+    const notifyPublication = async () => {
+      const response = await fetch(streamUrl.replace('/stream', '/notify'), {
+        headers: { Authorization: 'Bearer qa-access-token' },
+      })
+      expect(response.status).toBe(204)
     }
-    return route.fallback()
-  })
-  await page.goto(`/chats/${ids.session}?tab=clarification`)
-  await expect(page.getByRole('radio', { name: /Участники проекта/ })).toBeVisible()
-  // Current production controller with fixture APIs, never live PM acceptance.
-  for (const viewport of [
-    { width: 375, height: 812 },
-    { width: 1920, height: 1080 },
-    { width: 2560, height: 1440 },
-  ]) {
-    await page.setViewportSize(viewport)
-    for (const mode of ['single', 'multiple', 'text']) {
-      questionMode = mode
-      await expect(page.getByText(question.rationale, { exact: true })).toBeVisible()
-      await expect(page.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
-      if (mode !== 'text')
-        await expect(
-          page.getByRole(mode === 'single' ? 'radio' : 'checkbox', { name: /Участники проекта/ }),
-        ).not.toBeChecked()
-      else await expect(page.getByLabel('Ваш ответ', { exact: true })).toHaveValue('')
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    const question = {
+      id: '00000000-0000-4000-8000-000000000501',
+      request_id: '00000000-0000-4000-8000-000000000502',
+      task_id: ids.session,
+      root_task_id: ids.session,
+      assignment_id: '00000000-0000-4000-8000-000000000503',
+      execution_id: '00000000-0000-4000-8000-000000000504',
+      agent_id: ids.dev,
+      assignment_version: 1,
+      checkpoint_id: '00000000-0000-4000-8000-000000000505',
+      author_subject: ids.dev,
+      created_at: now,
+      version: 1,
+      requirement_revision: 1,
+      text: 'Кто может просматривать задачи?',
+      rationale: 'Фиксируем границы доступа.',
+      required: true,
+      mode: 'single',
+      state: 'open',
+      answer: null,
+      requirement_reference: 'REQ-1',
+      recommended_option_id: ids.dev,
+      options: [
+        {
+          id: ids.dev,
+          label: 'Участники проекта',
+          consequences: 'Доступ ограничен проектом.',
+          is_custom: false,
+        },
+      ],
+    }
+    const revision = {
+      revision: 1,
+      author_subject: ids.dev,
+      content_hash: 'a'.repeat(64),
+      created_at: now,
+      goal: 'Рабочий портал задач',
+      scope: ['Управление задачами проекта'],
+      exclusions: ['Публичный доступ'],
+      scenarios: ['Участник создаёт задачу'],
+      acceptance_criteria: ['Другой проект не видит задачу'],
+      constraints: [],
+      dependencies: [],
+      assumptions: [],
+      checklist: ['business-completeness'],
+      prerequisites: ['runtime-ready'],
+    }
+    let answered = false
+    let finalPublished = false
+    let confirmed = false
+    let questionMode = 'single'
+    let unavailableRead: 'task-context' | 'requirements' | null = null
+    let failedReads = 0
+    const savedAnswer = {
+      id: '00000000-0000-4000-8000-000000000506',
+      question_id: question.id,
+      question_version: 1,
+      requirement_revision: 1,
+      selected_option_ids: [ids.dev],
+      text: null,
+      comment: 'Только внутри проекта',
+      author_subject: ids.user,
+      created_at: now,
+    }
+    const commands: { path: string; body: unknown }[] = []
+    await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
+      const path = new URL(route.request().url()).pathname
+      if (unavailableRead && path.endsWith(`/${unavailableRead}`)) {
+        failedReads += 1
+        return fulfill(route, { error: { message: 'PM read unavailable' } }, 503)
+      }
+      if (path.endsWith('/approvals')) return fulfill(route, [])
+      if (path.endsWith('/task-context'))
+        return fulfill(route, {
+          binding: {
+            tracker_instance_id: 'fixture-tracker',
+            project_id: ids.dev,
+            task_id: ids.session,
+            root_task_id: ids.session,
+            agent_id: ids.dev,
+            owner_subject: ids.user,
+          },
+          tracker: {
+            contract_version: 1,
+            tracker_instance_id: 'fixture-tracker',
+            project_id: ids.dev,
+            task_id: ids.session,
+            root_task_id: ids.session,
+            owner_subject: ids.user,
+            stage: confirmed ? 'Backlog' : 'Clarification',
+            requirement_revision: finalPublished ? 2 : 1,
+            waiting_reason: answered ? null : 'Требуется ответ владельца',
+            assignment: {
+              assignment_id: question.assignment_id,
+              execution_id: question.execution_id,
+              agent_id: ids.dev,
+              version: 1,
+              machine_subject: ids.dev,
+            },
+            permissions: { can_answer: !answered, can_confirm: finalPublished && !confirmed },
+          },
+        })
+      if (path.endsWith('/chat-controls'))
+        return fulfill(route, {
+          can_send: false,
+          can_steer: false,
+          can_stop: false,
+          active_run_id: null,
+          blocked_reason: 'workflow_assignment_required',
+        })
+      if (path.endsWith('/history'))
+        return fulfill(route, {
+          items: [makeMessage(ids.session, 'Уточним требования перед публикацией.')],
+          next_before: null,
+        })
+      if (path.endsWith('/clarifications'))
+        return fulfill(route, {
+          questions: [
+            answered
+              ? { ...question, state: 'answered', answer: savedAnswer }
+              : { ...question, mode: questionMode },
+          ],
+        })
+      if (path.endsWith('/requirements'))
+        return fulfill(route, {
+          revisions: finalPublished
+            ? [revision, { ...revision, revision: 2, content_hash: 'b'.repeat(64) }]
+            : [revision],
+        })
+      if (route.request().method() === 'POST') {
+        commands.push({ path, body: route.request().postDataJSON() })
+        if (path.endsWith('/answers')) {
+          answered = true
+          if (commands.filter((command) => command.path.endsWith('/answers')).length === 1)
+            return fulfill(route, { error: { message: 'Answer receipt timed out' } }, 408)
+          return fulfill(route, savedAnswer)
+        }
+        confirmed = true
+        if (commands.filter((command) => command.path.endsWith('/confirm')).length === 1)
+          return fulfill(route, { error: { message: 'Confirmation receipt timed out' } }, 408)
+        return fulfill(route, {
+          id: '00000000-0000-4000-8000-000000000507',
+          task_id: ids.session,
+          revision: 2,
+          content_hash: 'b'.repeat(64),
+          owner_subject: ids.user,
+          created_at: now,
+          stage: 'Backlog',
+        })
+      }
+      return route.fallback()
+    })
+    await page.goto(`/chats/${ids.session}?tab=clarification`)
+    await expect(page.getByRole('radio', { name: /Участники проекта/ })).toBeVisible()
+    // Current production controller with fixture APIs, never live PM acceptance.
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      await page.setViewportSize(viewport)
+      for (const mode of ['single', 'multiple', 'text']) {
+        questionMode = mode
+        await notifyPublication()
+        await expect(page.getByText(question.rationale, { exact: true })).toBeVisible()
+        await expect(page.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+        if (mode !== 'text')
+          await expect(
+            page.getByRole(mode === 'single' ? 'radio' : 'checkbox', { name: /Участники проекта/ }),
+          ).not.toBeChecked()
+        else await expect(page.getByLabel('Ваш ответ', { exact: true })).toHaveValue('')
+        await page.screenshot({
+          path: testInfo.outputPath(`consumer-${mode}-${viewport.width}.png`),
+          fullPage: true,
+          scale: 'css',
+          animations: 'disabled',
+        })
+      }
+    }
+    questionMode = 'single'
+    await notifyPublication()
+    await expect(page.getByRole('radio', { name: /Участники проекта/ })).toBeVisible()
+    const choice = page.getByRole('radio', { name: /Участники проекта/ })
+    await expect(choice).toBeVisible()
+    await expect(choice).not.toBeChecked()
+    await expect(page.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+    await choice.check()
+    await page.getByLabel('Комментарий', { exact: true }).fill('Только внутри проекта')
+    const answer = page.getByRole('button', { name: 'Сохранить ответ' })
+    await expect(answer).toBeEnabled()
+    unavailableRead = 'task-context'
+    await expect.poll(() => failedReads, { timeout: 15000 }).toBeGreaterThan(0)
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await expect(answer).toBeDisabled()
+      await expect(page.getByLabel('Комментарий', { exact: true })).toHaveValue(
+        'Только внутри проекта',
+      )
       await page.screenshot({
-        path: testInfo.outputPath(`consumer-${mode}-${viewport.width}.png`),
+        path: testInfo.outputPath(`consumer-answer-held-${viewport.width}.png`),
         fullPage: true,
-        scale: 'css',
         animations: 'disabled',
       })
     }
-  }
-  questionMode = 'single'
-  await expect(page.getByRole('radio', { name: /Участники проекта/ })).toBeVisible()
-  const choice = page.getByRole('radio', { name: /Участники проекта/ })
-  await expect(choice).toBeVisible()
-  await expect(choice).not.toBeChecked()
-  await expect(page.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
-  await choice.check()
-  await page.getByLabel('Комментарий', { exact: true }).fill('Только внутри проекта')
-  const answer = page.getByRole('button', { name: 'Сохранить ответ' })
-  await expect(answer).toBeEnabled()
-  unavailableRead = 'task-context'
-  await expect.poll(() => failedReads, { timeout: 15000 }).toBeGreaterThan(0)
-  for (const viewport of [
-    { width: 375, height: 812 },
-    { width: 1920, height: 1080 },
-    { width: 2560, height: 1440 },
-  ]) {
-    await page.setViewportSize(viewport)
-    await expect(answer).toBeDisabled()
+    expect(commands).toEqual([])
+    unavailableRead = null
+    await expect(answer).toBeEnabled({ timeout: 15000 })
+    await page.getByRole('tab', { name: /Диалог/ }).click()
+    await expect(page).toHaveURL(/tab=dialogue/)
+    await page.getByRole('tab', { name: /Уточнения/ }).click()
     await expect(page.getByLabel('Комментарий', { exact: true })).toHaveValue(
       'Только внутри проекта',
     )
-    await page.screenshot({
-      path: testInfo.outputPath(`consumer-answer-held-${viewport.width}.png`),
-      fullPage: true,
-      animations: 'disabled',
-    })
-  }
-  expect(commands).toEqual([])
-  unavailableRead = null
-  await expect(answer).toBeEnabled({ timeout: 15000 })
-  await page.getByRole('tab', { name: /Диалог/ }).click()
-  await expect(page).toHaveURL(/tab=dialogue/)
-  await page.getByRole('tab', { name: /Уточнения/ }).click()
-  await expect(page.getByLabel('Комментарий', { exact: true })).toHaveValue('Только внутри проекта')
-  await page.getByRole('button', { name: 'Сохранить ответ' }).click()
-  await expect(page.getByText('Answer receipt timed out')).toBeVisible()
-  await expect(page.getByLabel('Комментарий', { exact: true })).toBeDisabled()
-  await page.getByRole('button', { name: 'Повторить исходный ответ' }).click()
-  await expect(page.getByText('Ответ сохранён. Требования ещё не опубликованы.')).toBeVisible()
-  expect(commands).toHaveLength(2)
-  expect(commands[1]).toEqual(commands[0])
-  // A separate fixture PM publication is not an automatic side effect of saving the answer.
-  finalPublished = true
-  await page.reload()
-  await page.getByRole('tab', { name: /Требования/ }).click()
-  const confirm = page.getByRole('button', { name: 'Подтвердить редакцию 2' })
-  await expect(confirm).toBeDisabled()
-  await page.getByRole('checkbox', { name: /Подтверждаю цель/ }).check()
-  for (const viewport of [
-    { width: 375, height: 812 },
-    { width: 1920, height: 1080 },
-    { width: 2560, height: 1440 },
-  ]) {
-    await page.setViewportSize(viewport)
-    await expect(confirm).toBeEnabled()
-    await confirm.scrollIntoViewIfNeeded()
-    await page.screenshot({
-      path: testInfo.outputPath(`consumer-confirmation-${viewport.width}.png`),
-      fullPage: true,
-      scale: 'css',
-      animations: 'disabled',
-    })
-    await page.getByText('Сравнить с редакцией 1', { exact: true }).click()
-    await page.screenshot({
-      path: testInfo.outputPath(`consumer-diff-${viewport.width}.png`),
-      fullPage: true,
-      scale: 'css',
-      animations: 'disabled',
-    })
-    await page.getByText('Сравнить с редакцией 1', { exact: true }).click()
-  }
-  const previousFailedReads = failedReads
-  unavailableRead = 'requirements'
-  await expect.poll(() => failedReads, { timeout: 15000 }).toBeGreaterThan(previousFailedReads)
-  for (const viewport of [
-    { width: 375, height: 812 },
-    { width: 1920, height: 1080 },
-    { width: 2560, height: 1440 },
-  ]) {
-    await page.setViewportSize(viewport)
+    await page.getByRole('button', { name: 'Сохранить ответ' }).click()
+    await expect(page.getByText('Answer receipt timed out')).toBeVisible()
+    await expect(page.getByLabel('Комментарий', { exact: true })).toBeDisabled()
+    await page.getByRole('button', { name: 'Повторить исходный ответ' }).click()
+    await expect(page.getByText('Ответ сохранён. Требования ещё не опубликованы.')).toBeVisible()
+    expect(commands).toHaveLength(2)
+    expect(commands[1]).toEqual(commands[0])
+    // A separate fixture PM publication is not an automatic side effect of saving the answer.
+    finalPublished = true
+    await page.reload()
+    await page.getByRole('tab', { name: /Требования/ }).click()
+    const confirm = page.getByRole('button', { name: 'Подтвердить редакцию 2' })
     await expect(confirm).toBeDisabled()
-    await expect(page.getByRole('checkbox', { name: /Подтверждаю цель/ })).toBeChecked()
-    await confirm.scrollIntoViewIfNeeded()
-    await page.screenshot({
-      path: testInfo.outputPath(`consumer-confirmation-held-${viewport.width}.png`),
-      fullPage: true,
-      animations: 'disabled',
-    })
-  }
-  expect(commands).toHaveLength(2)
-  unavailableRead = null
-  await expect(confirm).toBeEnabled({ timeout: 15000 })
-  await confirm.click()
-  await expect(page.getByText('Confirmation receipt timed out')).toBeVisible()
-  await expect(page.getByRole('checkbox', { name: /Подтверждаю цель/ })).toBeDisabled()
-  await page.getByRole('button', { name: 'Повторить исходное подтверждение' }).click()
-  await expect.poll(() => commands.length).toBe(4)
-  expect(commands[3]).toEqual(commands[2])
-  expect(commands[3].body).toMatchObject({
-    content_hash: 'b'.repeat(64),
-    idempotency_key: expect.any(String),
-  })
-  for (const viewport of [
-    { width: 375, height: 812 },
-    { width: 1920, height: 1080 },
-    { width: 2560, height: 1440 },
-  ]) {
-    await page.setViewportSize(viewport)
-    for (const tab of ['dialogue', 'clarification', 'requirements']) {
-      const selectedTab = page.getByRole('tab', {
-        name: tab === 'dialogue' ? /Диалог/ : tab === 'clarification' ? /Уточнения/ : /Требования/,
-      })
-      await selectedTab.click()
-      await expect(page).toHaveURL(new RegExp(`tab=${tab}`))
-      await expect(selectedTab).toHaveAttribute('aria-selected', 'true')
-      expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
-        ),
-      ).toBe(true)
-      const accessibility = await new AxeBuilder({ page })
-        .include('.fc-chat-workbench')
-        .withTags(['wcag2a', 'wcag2aa'])
-        .analyze()
-      expect(
-        accessibility.violations.filter((issue) =>
-          ['serious', 'critical'].includes(issue.impact ?? ''),
-        ),
-      ).toEqual([])
+    await page.getByRole('checkbox', { name: /Подтверждаю цель/ }).check()
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await expect(confirm).toBeEnabled()
+      await confirm.scrollIntoViewIfNeeded()
       await page.screenshot({
-        path: testInfo.outputPath(`pm-chat-${tab}-${viewport.width}.png`),
+        path: testInfo.outputPath(`consumer-confirmation-${viewport.width}.png`),
         fullPage: true,
         scale: 'css',
         animations: 'disabled',
       })
+      await page.getByText('Сравнить с редакцией 1', { exact: true }).click()
+      await page.screenshot({
+        path: testInfo.outputPath(`consumer-diff-${viewport.width}.png`),
+        fullPage: true,
+        scale: 'css',
+        animations: 'disabled',
+      })
+      await page.getByText('Сравнить с редакцией 1', { exact: true }).click()
     }
-  }
-  await page.setViewportSize({ width: 768, height: 1024 })
-  const contextButton = page.getByRole('button', { name: 'Контекст задачи', exact: true })
-  await contextButton.click()
-  await expect(page.getByRole('dialog', { name: 'Контекст задачи' })).toBeVisible()
-  await page.keyboard.press('Escape')
-  await expect(page.getByRole('dialog', { name: 'Контекст задачи' })).not.toBeVisible()
-  await expect(contextButton).toBeFocused()
-  await page.getByRole('tab', { name: /Диалог/ }).click()
-  await page.keyboard.press('ArrowRight')
-  await expect(page).toHaveURL(/tab=clarification/)
-  expect(errors).toEqual([])
-})
+    const previousFailedReads = failedReads
+    unavailableRead = 'requirements'
+    await expect.poll(() => failedReads, { timeout: 15000 }).toBeGreaterThan(previousFailedReads)
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await expect(confirm).toBeDisabled()
+      await expect(page.getByRole('checkbox', { name: /Подтверждаю цель/ })).toBeChecked()
+      await confirm.scrollIntoViewIfNeeded()
+      await page.screenshot({
+        path: testInfo.outputPath(`consumer-confirmation-held-${viewport.width}.png`),
+        fullPage: true,
+        animations: 'disabled',
+      })
+    }
+    expect(commands).toHaveLength(2)
+    unavailableRead = null
+    await expect(confirm).toBeEnabled({ timeout: 15000 })
+    await confirm.click()
+    await expect(page.getByText('Confirmation receipt timed out')).toBeVisible()
+    await expect(page.getByRole('checkbox', { name: /Подтверждаю цель/ })).toBeDisabled()
+    await page.getByRole('button', { name: 'Повторить исходное подтверждение' }).click()
+    await expect.poll(() => commands.length).toBe(4)
+    expect(commands[3]).toEqual(commands[2])
+    expect(commands[3].body).toMatchObject({
+      content_hash: 'b'.repeat(64),
+      idempotency_key: expect.any(String),
+    })
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      await page.setViewportSize(viewport)
+      for (const tab of ['dialogue', 'clarification', 'requirements']) {
+        const selectedTab = page.getByRole('tab', {
+          name:
+            tab === 'dialogue' ? /Диалог/ : tab === 'clarification' ? /Уточнения/ : /Требования/,
+        })
+        await selectedTab.click()
+        await expect(page).toHaveURL(new RegExp(`tab=${tab}`))
+        await expect(selectedTab).toHaveAttribute('aria-selected', 'true')
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+          ),
+        ).toBe(true)
+        const accessibility = await new AxeBuilder({ page })
+          .include('.fc-chat-workbench')
+          .withTags(['wcag2a', 'wcag2aa'])
+          .analyze()
+        expect(
+          accessibility.violations.filter((issue) =>
+            ['serious', 'critical'].includes(issue.impact ?? ''),
+          ),
+        ).toEqual([])
+        await page.screenshot({
+          path: testInfo.outputPath(`pm-chat-${tab}-${viewport.width}.png`),
+          fullPage: true,
+          scale: 'css',
+          animations: 'disabled',
+        })
+      }
+    }
+    await page.setViewportSize({ width: 768, height: 1024 })
+    const contextButton = page.getByRole('button', { name: 'Контекст задачи', exact: true })
+    await contextButton.click()
+    await expect(page.getByRole('dialog', { name: 'Контекст задачи' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog', { name: 'Контекст задачи' })).not.toBeVisible()
+    await expect(contextButton).toBeFocused()
+    await page.getByRole('tab', { name: /Диалог/ }).click()
+    await page.keyboard.press('ArrowRight')
+    await expect(page).toHaveURL(/tab=clarification/)
+    expect(errors).toEqual([])
+  },
+)
 for (const change of ['renamed', 'replaced'] as const) {
   test(`clarification retains the original label when its option is ${change}`, async ({
     page,
@@ -1231,6 +1536,339 @@ for (const operation of ['steer', 'stop'] as const) {
     }
     expect(errors).toEqual([])
   })
+}
+
+for (const operation of ['steer', 'stop'] as const) {
+  reloadTest(
+    `chat restores held ${operation} after real reload and keeps recovery isolated from logout and other actors`,
+    async ({ page, streamUrl }, info) => {
+      test.setTimeout(120000)
+      const state = createState()
+      const originalRun = '00000000-0000-4000-8000-000000000711'
+      const successorRun = '00000000-0000-4000-8000-000000000712'
+      state.runsBySession[ids.session] = [originalRun, successorRun].map((id) => ({
+        ...makeRun(ids.session, state.agents[0]),
+        id,
+        state: 'running',
+        runtime_run_id: `native-${id}`,
+      }))
+      let currentActor = ids.user
+      await installMocks(page, state, () => currentActor)
+      // A real long-lived HTTP stream exercises SDK disposal on document reload;
+      // a finite route.fulfill body artificially reconnects every second.
+      await page.route(`**/api/v1/sessions/${ids.session}/stream`, (route) =>
+        route.continue({ url: streamUrl }),
+      )
+      page.on('dialog', (dialog) => void dialog.accept())
+      const errors: string[] = []
+      page.on('pageerror', (error) => errors.push(error.message))
+      let phase: '404' | '409' | 'terminal-no-ack' | 'wrong-agent' | 'uncertain' | 'ack' = '404'
+      let sessionDenied: 401 | 403 | null = null
+      let activeRun = originalRun
+      let posts = 0
+      let lookups = 0
+      let originalKey = ''
+      const privateInput = '\u0085Private guidance: \ufeffkeep scope\ufeff\u0085'
+      const digest = createHash('sha256')
+        .update(
+          JSON.stringify({
+            input: operation === 'steer' ? 'Private guidance: \ufeffkeep scope\ufeff' : null,
+            operation,
+          }),
+          'utf8',
+        )
+        .digest('hex')
+      const storageKey = `fleet-control.control-recovery.v1:${ids.session}`
+      const stored = () =>
+        page.evaluate((key) => JSON.parse(sessionStorage.getItem(key) ?? 'null'), storageKey)
+      const receipt = {
+        id: '00000000-0000-4000-8000-000000000713',
+        session_id: ids.session,
+        session_run_id: originalRun,
+        agent_id: ids.dev,
+        actor_user_id: ids.user,
+        operation,
+        state: 'acknowledged',
+        acknowledgement: operation === 'steer' ? 'steered' : 'stopping',
+        observed_run_state: null,
+        created_at: now,
+        updated_at: now,
+      }
+      await page.route('**/api/v1/users/me', (route) =>
+        fulfill(route, currentActor === ids.user ? userResponse() : reviewerResponse()),
+      )
+      await page.route('**/api/v1/users/me/permissions', (route) =>
+        fulfill(route, {
+          user_id: currentActor,
+          role: 'admin',
+          is_system_admin: true,
+          permissions: permissions(),
+        }),
+      )
+      await page.route(`**/api/v1/sessions/${ids.session}`, (route) => {
+        const denied = sessionDenied
+        // One expired access token, followed by a genuinely reverified fixture
+        // login. Persistent project denial is exercised separately with 403.
+        if (denied === 401) sessionDenied = null
+        return denied
+          ? fulfill(route, { error: { message: `Session access ${denied}` } }, denied)
+          : fulfill(route, state.sessions[0])
+      })
+      await page.route(`**/api/v1/sessions/${ids.session}/chat-controls`, (route) =>
+        fulfill(route, {
+          can_send: false,
+          can_steer: true,
+          can_stop: true,
+          active_run_id: activeRun,
+        }),
+      )
+      await page.route(`**/api/v1/sessions/${ids.session}/runs/**/controls`, (route) =>
+        fulfill(route, []),
+      )
+      await page.route(`**/api/v1/sessions/${ids.session}/runs/**/controls/lookup?**`, (route) => {
+        lookups += 1
+        const url = new URL(route.request().url())
+        expect(route.request().method()).toBe('GET')
+        expect(url.pathname).toBe(
+          `/api/v1/sessions/${ids.session}/runs/${originalRun}/controls/lookup`,
+        )
+        expect(route.request().headers()['idempotency-key']).toBe(originalKey)
+        expect([...url.searchParams.keys()]).toEqual(['operation', 'payload_sha256'])
+        expect(url.searchParams.get('operation')).toBe(operation)
+        expect(url.searchParams.get('payload_sha256')).toBe(digest)
+        if (phase === '404' || phase === '409')
+          return fulfill(
+            route,
+            { error: { message: `Original command held ${phase}` } },
+            Number(phase),
+          )
+        return fulfill(route, {
+          ...receipt,
+          agent_id: phase === 'wrong-agent' ? ids.tester : ids.dev,
+          state:
+            phase === 'terminal-no-ack'
+              ? 'terminal_observed'
+              : phase === 'uncertain'
+                ? 'uncertain'
+                : 'acknowledged',
+          acknowledgement:
+            phase === 'terminal-no-ack' || phase === 'uncertain' ? null : receipt.acknowledgement,
+        })
+      })
+      await page.route(`**/api/v1/sessions/${ids.session}/runs/**/${operation}`, async (route) => {
+        posts += 1
+        originalKey = route.request().headers()['idempotency-key'] ?? ''
+        expect(originalKey).not.toBe('')
+        expect(route.request().postDataJSON()).toEqual(
+          operation === 'steer' ? { input: privateInput } : {},
+        )
+        const metadata = await stored()
+        expect(metadata).toMatchObject({
+          sessionId: ids.session,
+          runId: originalRun,
+          agentId: ids.dev,
+          actorId: ids.user,
+          operation,
+          key: originalKey,
+          payloadSha256: digest,
+        })
+        expect(Object.keys(metadata).sort()).toEqual([
+          'actorId',
+          'agentId',
+          'key',
+          'operation',
+          'payloadSha256',
+          'runId',
+          'service',
+          'sessionId',
+          'version',
+        ])
+        expect(JSON.stringify(metadata)).not.toContain('Private guidance')
+        expect(JSON.stringify(metadata)).not.toContain('qa-access-token')
+        return fulfill(route, { error: { message: 'Original control reply lost' } }, 503)
+      })
+      await page.goto(`/chats/${ids.session}`)
+      const input = page.getByLabel('Уточнение активному запуску', { exact: true })
+      const action = page.getByRole('button', {
+        name: operation === 'steer' ? 'Передать уточнение запуску' : 'Остановить запуск',
+        exact: true,
+      })
+      const check = page.getByRole('button', {
+        name:
+          operation === 'steer' ? 'Проверить исходное уточнение' : 'Проверить исходную остановку',
+        exact: true,
+      })
+      await input.fill(privateInput)
+      await expect(action).toBeEnabled()
+      await action.click()
+      await expect(page.getByText('Original command held 404', { exact: true })).toBeVisible()
+      const original = await stored()
+      const origin = new URL(page.url()).origin
+      activeRun = successorRun
+      const assertJournalReady = async () => {
+        const journal = page.getByRole('region', {
+          name: 'Команды запуска',
+          includeHidden: true,
+        })
+        await expect(
+          journal.getByRole('button', { name: 'Проверить команды', includeHidden: true }),
+        ).toBeEnabled()
+        await expect(journal.getByText('Команд пока нет', { exact: true })).toBeAttached()
+      }
+      const assertHeld = async () => {
+        await expect(input).toBeVisible()
+        await expect(input).toHaveValue('')
+        await expect(input).toBeDisabled()
+        await expect(action).toBeDisabled()
+        await assertJournalReady()
+        expect(await stored()).toEqual(original)
+        expect(posts).toBe(1)
+      }
+      for (const nextPhase of [
+        '404',
+        '409',
+        'terminal-no-ack',
+        'wrong-agent',
+        'uncertain',
+      ] as const) {
+        // Complete the healthy journal read before intentionally replacing the document.
+        // Pending-fetch navigation is a separate retained SDK diagnostic.
+        await assertJournalReady()
+        phase = nextPhase
+        const before = lookups
+        await page.evaluate(() => {
+          ;(window as Window & { reloadMarker?: string }).reloadMarker = 'old-document'
+        })
+        await page.reload({ waitUntil: 'domcontentloaded' })
+        await expect.poll(() => lookups).toBeGreaterThan(before)
+        await expect(check).toBeEnabled()
+        expect(
+          await page.evaluate(() => (window as Window & { reloadMarker?: string }).reloadMarker),
+        ).toBeUndefined()
+        await assertHeld()
+      }
+      for (const viewport of [
+        { width: 375, height: 812 },
+        { width: 1920, height: 1080 },
+        { width: 2560, height: 1440 },
+      ]) {
+        await page.setViewportSize(viewport)
+        await assertHeld()
+        await page.screenshot({
+          path: info.outputPath(`chat-control-reload-${operation}-held-${viewport.width}.png`),
+          fullPage: true,
+          animations: 'disabled',
+          scale: 'css',
+        })
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+          ),
+        ).toBe(true)
+      }
+      phase = '404'
+      sessionDenied = 403
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await expect(page.getByText('Session access 403', { exact: true })).toBeVisible()
+      await expect(action).toHaveCount(0)
+      expect(await stored()).toEqual(original)
+      sessionDenied = null
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await expect(check).toBeEnabled()
+      await assertHeld()
+      sessionDenied = 401
+      const expiredToken = page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === `/api/v1/sessions/${ids.session}` &&
+          response.status() === 401,
+      )
+      await Promise.all([expiredToken, page.reload({ waitUntil: 'domcontentloaded' })])
+      await expect(check).toBeEnabled({ timeout: 15000 })
+      await assertHeld()
+      expect(await stored()).toEqual(original)
+      expect(posts).toBe(1)
+      sessionDenied = null
+      await page.goto(`${origin}/chats/${ids.session}`)
+      await expect(check).toBeEnabled()
+      await assertHeld()
+      await page.route('**/oidc/logout**', (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'text/html',
+          body: `<!doctype html><script>location.replace(${JSON.stringify(`${origin}/login?logged_out=1`)})</script>`,
+        }),
+      )
+      await page.getByRole('button', { name: 'Аккаунт', exact: true }).click()
+      await page.getByRole('menuitem', { name: /Выйти/ }).click()
+      await expect(page).toHaveURL(/\/login\?logged_out=1/)
+      await expect(
+        page.getByRole('button', { name: 'Войти через SDLC', exact: true }),
+      ).toBeVisible()
+      expect(await stored()).toEqual(original)
+      currentActor = ids.reviewer
+      const beforeOtherActor = lookups
+      await page.goto(`${origin}/chats/${ids.session}`)
+      await expect(
+        page.getByText(
+          'Для сверки исходной команды нужен тот же пользователь и сервис Fleet Control.',
+          { exact: true },
+        ),
+      ).toBeVisible()
+      await expect(check).toBeDisabled()
+      await assertHeld()
+      expect(lookups).toBe(beforeOtherActor)
+      currentActor = ids.user
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await expect(check).toBeEnabled()
+      await assertHeld()
+      const otherService = 'http://localhost:7752/control-recovery-test'
+      await page.route(otherService, (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'text/html',
+          body: '<p>Other service fixture</p>',
+        }),
+      )
+      await page.goto(otherService)
+      expect(await page.evaluate((key) => sessionStorage.getItem(key), storageKey)).toBeNull()
+      await page.goto(`${origin}/chats/${ids.session}`)
+      await expect(check).toBeEnabled()
+      await assertHeld()
+      phase = 'ack'
+      await check.click()
+      await expect(
+        page.getByText(
+          operation === 'steer'
+            ? 'Runtime подтвердил исходное уточнение. Состояние запуска проверяется отдельно.'
+            : 'Runtime подтвердил исходную остановку. Завершение запуска проверяется отдельно.',
+          { exact: true },
+        ),
+      ).toBeVisible()
+      expect(await stored()).toBeNull()
+      expect(posts).toBe(1)
+      for (const viewport of [
+        { width: 375, height: 812 },
+        { width: 1920, height: 1080 },
+        { width: 2560, height: 1440 },
+      ]) {
+        await page.setViewportSize(viewport)
+        await expect(input).toBeEnabled()
+        await expect(input).toHaveValue('')
+        await page.screenshot({
+          path: info.outputPath(`chat-control-reload-${operation}-ack-${viewport.width}.png`),
+          fullPage: true,
+          animations: 'disabled',
+          scale: 'css',
+        })
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+          ),
+        ).toBe(true)
+      }
+      expect(errors).toEqual([])
+    },
+  )
 }
 
 test('chat composer recovers from the exact known steer acknowledgement without another POST', async ({
@@ -1843,7 +2481,7 @@ function createState(): ApiState {
   }
 }
 
-async function installSsoMocks(page: Page) {
+async function installSsoMocks(page: Page, currentSubject: () => string = () => ids.user) {
   const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' })
   const jwk = { ...publicKey.export({ format: 'jwk' }), kid: 'qa', alg: 'ES256', use: 'sig' }
   let issuer = 'http://localhost:7701'
@@ -1869,7 +2507,7 @@ async function installSsoMocks(page: Page) {
       JSON.stringify({
         iss: issuer,
         aud: 'fleet-control',
-        sub: ids.user,
+        sub: currentSubject(),
         email: 'admin@fleet-control.local',
         nonce,
         iat: Math.floor(Date.now() / 1000),
@@ -1902,8 +2540,8 @@ async function installSsoMocks(page: Page) {
   )
 }
 
-async function installMocks(page: Page, state: ApiState) {
-  await installSsoMocks(page)
+async function installMocks(page: Page, state: ApiState, currentSubject?: () => string) {
+  await installSsoMocks(page, currentSubject)
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request()
     const url = new URL(request.url())

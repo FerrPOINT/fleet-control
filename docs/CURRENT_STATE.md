@@ -1,5 +1,29 @@
 # Current State
 
+## Chats Reload And Identity Integration: 7 October 2026
+
+The runtime candidate46df7aa now incorporates published Chats94e889d by normal
+merge. Stop/steer recovery retains bounded opaque original-command metadata
+across tab reload and performs authorized digest-only GET, never a replacement
+POST. Late clarification/confirmation replies are held after identity, service
+or sign-out changes. Four additional shell cases cover newer login preservation,
+duplicate sign-out and navigation failure. Backend bytes remain unchanged.
+
+Fresh validation uses Node22.20.0, pnpm10.28.1 and the actual installed Base SDK
+at pinned cbb4e99 in an isolated checkout. All413 frontend cases in33 files,
+typecheck/build/lint/format, generated API equality, compatibility and contract
+checks pass. All84 selected Chromium/Firefox/WebKit fixture cases pass without
+retries after repairing a polling/manual-refresh test race. Historical fixture
+images remain fixture evidence, not live PM
+acceptance. See [verification](CHAT_CLARIFICATION_VERIFICATION.md#chats-reload-and-identity-integration-7-october-2026).
+
+Publication to a source branch is not merge or deployment. Main-release
+conflicts, actual PM delivery/checkpoint/rebind, producer contract compatibility,
+full runtime restart and Forge acceptance remain open. Same-SPA identity changes
+also require cache, draft and late-response isolation acceptance; the shell fix
+does not establish that wider privacy gate. Older dated entries below retain
+their original source and evidence scope.
+
 ## Original Controller Delivery Candidate: 7 October 2026
 
 Migration000021 and the trusted supervisor recovery entry add exact retained

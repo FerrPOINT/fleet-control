@@ -1,5 +1,19 @@
 # Implementation Plan
 
+## Current Integration Follow-Up
+
+Chats94e889d and runtime46df7aa are combined by normal merge. Tab reload recovery
+and late PM ACK authority checks are no longer missing frontend wiring; retain
+their original-key and unknown-outcome holds. The four shell regression fixes
+are tested with the actual pinned Base SDK, not a cached sibling SDK checkout.
+See [evidence](CHAT_CLARIFICATION_VERIFICATION.md#chats-reload-and-identity-integration-7-october-2026).
+
+Next close same-SPA identity isolation for query caches, permissions, in-flight
+auth callbacks and private drafts, with negative cross-user tests. Do not discard
+an unresolved original command and treat local cache reset as a redispatch permit.
+Keep actual producer/PM/runtime/Forge acceptance and ordered main-release work
+below; a source-branch push does not enable or deploy automatic SDLC.
+
 ## Connect Fenced Controller Recovery To Native Custody
 
 The000020 storage flow reserves immutable recovery epochs under

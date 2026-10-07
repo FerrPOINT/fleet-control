@@ -9,6 +9,7 @@ import {
   TriangleAlert,
 } from 'lucide-react'
 import { useEffect } from 'react'
+import { toast } from 'sonner'
 import { Outlet, useLocation } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -84,7 +85,28 @@ export function AppShell() {
         ? 'detail-with-aside'
         : 'wide'
   function logout() {
-    endSso(ssoConfig)
+    const original = useAuthStore.getState()
+    if (original.signingOut) return
+    useAuthStore.getState().startSignOut()
+    const complete = () => {
+      const current = useAuthStore.getState()
+      if (
+        current.signingOut &&
+        current.token === original.token &&
+        current.userId === original.userId
+      )
+        current.logout()
+    }
+    window.addEventListener('pagehide', complete, { once: true })
+    try {
+      endSso(ssoConfig)
+    } catch {
+      window.removeEventListener('pagehide', complete)
+      const current = useAuthStore.getState()
+      if (current.token === original.token && current.userId === original.userId)
+        useAuthStore.setState({ signingOut: false })
+      toast.error('Не удалось начать выход. Повторите попытку.')
+    }
   }
   return (
     <BaseAppShell

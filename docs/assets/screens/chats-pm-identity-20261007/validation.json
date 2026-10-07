@@ -1,0 +1,277 @@
+{
+  "consumerBaseline": "b466a6741267d729f7f3e30a7e22f84c0622cacf",
+  "publishedIntegrationAtReview": "5970cdeeff5663d201d2f394e759d29932b07700",
+  "publishedProducerSourceSnapshots": {
+    "tracker": {
+      "url": "https://github.com/FerrPOINT/task-tracker/pull/114",
+      "head": "8c80a41fae3bf1c10439ddb7e536b05bf320340d",
+      "base": "main",
+      "state": "OPEN"
+    },
+    "workflow": {
+      "url": "https://github.com/FerrPOINT/project-workflow/pull/90",
+      "head": "e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37",
+      "base": "master",
+      "state": "OPEN"
+    }
+  },
+  "basePin": "cbb4e99230420dc2659431b1c9fb5090e5c940f0",
+  "scope": "Hold late PM answer/confirmation ACKs under changed authority, preserving original actor/service/payload/key for explicit replay",
+  "sourceByteConvention": "Git blob/LF bytes",
+  "sourceSha256": {
+    "frontend/src/pages/chat-detail/index.tsx": "f5c65b001eff8c9543134f4277e411786b53ffd14c978b41be613c5e194113ef",
+    "frontend/src/pages/chat-detail/index.test.tsx": "6d209b5e59230871a57a1b4309d38a9b123ed79b1373ec39b417ec213a5587d1",
+    "frontend/e2e/fleet-control.spec.ts": "ff8de1bc3288a22ee5405a77320fce15b72451ee229cec04baae103dca7be43a",
+    "docs/CHATS_PM_BLOCKERS_20261007.md": "44851078ec9eb5b9c80d06341eeee38586123cc3e5e2a83d1defc79ad929481b",
+    "docs/CHATS_PM_API_ACCEPTANCE_20261007.md": "9d00950118f3299f1e2b33c7e832d913f899aa983dad16960688c6cc0cdf87fb",
+    "docs/CHATS_PM_FINAL_HANDOFF_20261006.md": "962b7374b722d7e36f2fa11962693066500cb192dfa3e7b2823af9dffa1fc956",
+    "docs/assets/screens/chats-pm-identity-20261007/live-readonly.json": "6e16bda9cf343b8cc3287b45efe28e9b55f01c19c702680ae110d2daec4abcbc"
+  },
+  "checks": {
+    "unit": {
+      "sha256": "40e7c6e405d1bc886111967aae3057a7d98b73b5f3fae9cf8ffe696dc5d32b52",
+      "passed": 409,
+      "proxyConnectionRefused": false,
+      "status": "passed"
+    },
+    "build": {
+      "sha256": "86cdef4571b20eacafd58e8f39b0822caa359b8025750915a5ffa3c59686f867",
+      "proxyConnectionRefused": false,
+      "status": "passed"
+    },
+    "lint": {
+      "sha256": "fea2ca52c435e20a7e93d4541868d89dc441a99a8ebb4d3e82613b6932415200",
+      "proxyConnectionRefused": false,
+      "status": "passed"
+    },
+    "ui": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "proxyConnectionRefused": false,
+      "status": "passed"
+    },
+    "theme": {
+      "sha256": "4d196e7703a978a29fe1fb493d55cd828998b13f802edb1892b3cd8be4f6a064",
+      "proxyConnectionRefused": false,
+      "status": "passed"
+    },
+    "openapi": {
+      "sha256": "a6027bf2d5baf272af1ba6b2f3f85ff240bd14164bd624b781127e0af39d472b",
+      "proxyConnectionRefused": false,
+      "status": "passed"
+    },
+    "compat": {
+      "sha256": "bdcb1a13096f212a66dc670a95022502327909675e61cb48986ce5c35dac23a1",
+      "proxyConnectionRefused": false,
+      "status": "passed"
+    },
+    "contract": {
+      "sha256": "b05d403dd1be266a7a635d097903d7b45e3ee40763772d0d5376c9e566636d55",
+      "proxyConnectionRefused": false,
+      "status": "passed"
+    },
+    "browser-focused": {
+      "sha256": "5f32b4a334dcbf3287b04bfc82baa4023ff445e255c1be483dd1c44c6d2b528d",
+      "passed": 15,
+      "proxyConnectionRefused": false,
+      "status": "passed"
+    },
+    "browser-full": {
+      "sha256": "32164d5b7749c2a026d0d61124af9a2b62ab92a8584430f79e3dec9005ba2065",
+      "passed": 84,
+      "proxyConnectionRefused": true,
+      "status": "passed"
+    },
+    "format": {
+      "sha256": "f20510a9da4717c51c4cffee6d0dd88d6c9a723d0a83711d01216f5b48961283",
+      "proxyConnectionRefused": false,
+      "status": "passed"
+    },
+    "markdown": {
+      "sha256": "88391702b937c93ad5300d3aaead9ddf62473f7321dd32f411805f7f13ece978",
+      "proxyConnectionRefused": false,
+      "status": "passed"
+    }
+  },
+  "preservedDevelopmentRuns": {
+    "before": {
+      "sha256": "13e25e77a806eca21e5c659f3bcc4f3b18a8ca7cc5cf5259aca1667b89c9aca0",
+      "failed": 6,
+      "skipped": 136,
+      "proxyConnectionRefused": false
+    },
+    "focused-unit": {
+      "sha256": "aba6ae84f43accfaf6d9715c10491b0e00fc322955afaf9716cbd9673399ea9f",
+      "passed": 142,
+      "proxyConnectionRefused": false
+    },
+    "browser-full-before": {
+      "sha256": "f805125d144417111d6e6394f8bb2cee0ebe36e674bb22315ea1e582775be56b",
+      "passed": 81,
+      "failed": 3,
+      "proxyConnectionRefused": true
+    },
+    "browser-firefox-recheck": {
+      "sha256": "eee2b6619c2dcc5730995e2ffc593ad8fbdff3ec791a410a9f6282e98f9214c2",
+      "passed": 5,
+      "proxyConnectionRefused": false
+    },
+    "browser-restore-race-before": {
+      "sha256": "bd08f54eaa755b4b77e0275c67a97fbe733b0442c69e28592435dc3e73f637ec",
+      "passed": 83,
+      "failed": 1,
+      "proxyConnectionRefused": true
+    },
+    "browser-finite-stream-before": {
+      "sha256": "cc839f46d482e155d9671eea8c3dc75900d04f715061c5d1cb20bee362921df8",
+      "passed": 83,
+      "failed": 1,
+      "proxyConnectionRefused": true
+    },
+    "browser-mode-fixture-before": {
+      "sha256": "6181008271ef18b886e403f07fe6c9b458e545b5a19845d6331dc2265d8d86ae",
+      "passed": 6,
+      "failed": 3,
+      "proxyConnectionRefused": false
+    },
+    "browser-pending-journal-before": {
+      "sha256": "24f1a9c32383d38d72198380ea4da773ac710e677b70406185e56c8178b6891d",
+      "passed": 83,
+      "failed": 1,
+      "proxyConnectionRefused": true
+    }
+  },
+  "developmentFailureContext": {
+    "before": "Six regressions failed on baseline: answer/confirmation ACK after logout, sign-out and another actor. Final suite adds two service-change cases.",
+    "focused-unit": "Earlier focused green run had 142 ChatDetail cases; final has 144.",
+    "browser-full-before": "81 passed, three existing Firefox cases reached their 30-second test wall timeout: work-area geometry, cached Workflow catalog and managed settings. Catalog timed out in screenshot; settings in existing waitForTimeout. All new PM cases passed. No product assertion was relaxed or pageerror filtered.",
+    "browser-firefox-recheck": "Five Firefox cases checked with one worker and unchanged 30-second timeouts: the three failures plus both new PM cases. Only new PM screenshot scroll positions were refined.",
+    "browser-restore-race-before": "83 passed, one new WebKit confirmation test timed out clicking a detached access-check button: access was restored while late-ACK invalidation was still completing. UI snapshot held the original confirmation correctly. Final fixture awaits the late-ACK-triggered session GET 403 before restoring access. No product assertion or error filter was relaxed.",
+    "browser-finite-stream-before": "83 passed, one existing WebKit PM chat test had an unfiltered stream access-control pageerror with its finite closed heartbeat. That healthy PM fixture now uses the existing long-lived HTTP SSE server. No Base SDK transport fix or native acceptance is claimed.",
+    "browser-mode-fixture-before": "Six new cases passed; the three old PM fixtures lacked published-mode notifications after removing closed-stream reconnect churn. The fixture now emits genuine SDK session events when its mode changes; no client API, interval, timeout or assertion changed.",
+    "browser-pending-journal-before": "83 passed, one old WebKit stop-reload case had an unfiltered controls GET access-control pageerror during navigation. The route was present; the healthy reload fixture now awaits journal data and a nonfetching refresh button before intentional document replacement. The separate pending-fetch/navigation SDK diagnostic remains open, and its raw log is preserved."
+  },
+  "unitPassed": 409,
+  "unitFiles": 33,
+  "chatDetailUnitCases": 144,
+  "baseCompatibilityCases": 8,
+  "chatContractCases": 2,
+  "newAuthorityUnitCases": 8,
+  "browserPassed": 84,
+  "browserProjects": ["chromium", "firefox", "webkit"],
+  "browserWorkers": 3,
+  "browserRetries": 0,
+  "newBrowserCasesPassed": 6,
+  "regressionEvidenceUsesFixtures": true,
+  "liveAcceptance": false,
+  "sdkChanged": false,
+  "ownedBackendChanged": false,
+  "ownedRuntimeChanged": false,
+  "ownedProducerChanged": false,
+  "ownedOpenApiChanged": false,
+  "productionPmDraftFormAdded": false,
+  "pmDraftDesignApproved": false,
+  "ownedFixturePreviewStopped": true,
+  "browserAcceptance": {
+    "late2xxWhileFreshSessionReadDeniedHeld": true,
+    "answerDraftPreserved": true,
+    "confirmationNotMarkedSavedWhileUncertain": true,
+    "noAutomaticReplayAfterAccessReturns": true,
+    "explicitReplayHasExactOriginalPathPayloadKey": true,
+    "pageErrorsFiltered": false
+  },
+  "fixtureBoundary": "New browser cases use genuine SDK HTTP SSE events and fresh session GET 403, with a delayed fixture PM read projection; not native PM or live acceptance. Owned ephemeral SSE server closes in finally.",
+  "liveEvidence": "docs/assets/screens/chats-pm-identity-20261007/live-readonly.json",
+  "remaining": [
+    "Real PM task and combined installed release are absent from acceptance evidence.",
+    "Draft form approval, genuine native admission, durable answer delivery, exact requirements parity, checkpoint/resume and authorized Workflow projection remain open.",
+    "Missing-tab control identity discovery and Base direct-stream denial/navigation diagnostics remain open.",
+    "Original PM request identity/private answer stay in component memory; no PM reload persistence added.",
+    "Existing intercepted fixture flows still log preview proxy ECONNREFUSED; raw logs are retained and no live API acceptance is claimed."
+  ],
+  "captures": [
+    {
+      "file": "pm-answer-held-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "0c676170b56fb345de4c830e3613dc667f26a326d54ee627580b0e7750885dc7",
+      "reviewed": true
+    },
+    {
+      "file": "pm-answer-held-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "f791a905309c9f5c67286b348f3e000346c5318962740daaa265c540dd3d3bd1",
+      "reviewed": true
+    },
+    {
+      "file": "pm-answer-held-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "678c460633fa2510b372c515d5e5b13a8c88917f06cc23fbebf94860c836040a",
+      "reviewed": true
+    },
+    {
+      "file": "pm-answer-acknowledged-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "64f5b18564e92fb422329e7b28e88ebffc59423ad55d60823df11206d4c90277",
+      "reviewed": true
+    },
+    {
+      "file": "pm-answer-acknowledged-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "c339a07b9e3e71201d28c7deeea05bbb94101985d1cff0e2e56621e490ec0aee",
+      "reviewed": true
+    },
+    {
+      "file": "pm-answer-acknowledged-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "c19c9a6ee1a9672a202b882be0870a8c8c6c9551aaddb725f9430868216b4f60",
+      "reviewed": true
+    },
+    {
+      "file": "pm-confirmation-held-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "c25d1ff433978a2f699d48277ec3c2cd4bfd762dc2c5184a381b51b262afd8b7",
+      "reviewed": true
+    },
+    {
+      "file": "pm-confirmation-held-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "9950bff4bf92893379571c9333c6c704eb7af32764c9de05f38c38aa8b09701a",
+      "reviewed": true
+    },
+    {
+      "file": "pm-confirmation-held-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "17a5fc98962581e1264ef48c9a74cfe25b7689597240098c0400135b31b1ed53",
+      "reviewed": true
+    },
+    {
+      "file": "pm-confirmation-acknowledged-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "444da40a9412bff3e30d67cae47cade498b13469ec3666534b3dbcd5e7753a92",
+      "reviewed": true
+    },
+    {
+      "file": "pm-confirmation-acknowledged-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "b60b0f29fd488ab251f9bf730fc99b8c6927178154d0e230921185f632853893",
+      "reviewed": true
+    },
+    {
+      "file": "pm-confirmation-acknowledged-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "f893656c944200cd3997372ae066be206fe29ce5beef0d696aad946d1a146ed3",
+      "reviewed": true
+    }
+  ]
+}
