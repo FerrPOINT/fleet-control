@@ -248,6 +248,27 @@ fn preparation_changes_a_draft_only_and_disables_skills_outside_allowlist() {
     );
     assert!(prepared.config.input_errors().is_empty());
     assert!(package.verify_snapshot(&agent, &prepared).is_ok());
+    assert_eq!(prepared.config.config_json["skills"], discovery_policy());
+    for (key, value) in [
+        ("project_discovery", json!(true)),
+        ("trusted_project_dirs", json!(["/workspace"])),
+        ("external_dirs", json!(["/shared/skills"])),
+        ("create_dir", json!("/shared/skills")),
+        ("disabled", json!(["workflow"])),
+        ("platform_disabled", json!({"api_server":["workflow"]})),
+    ] {
+        let mut forged = prepared.clone();
+        forged.config.config_json["skills"][key] = value;
+        assert!(package.verify_snapshot(&agent, &forged).is_err(), "{key}");
+        forged.config.config_json["skills"]
+            .as_object_mut()
+            .unwrap()
+            .remove(key);
+        assert!(
+            package.verify_snapshot(&agent, &forged).is_err(),
+            "missing {key}"
+        );
+    }
     let mut forged = prepared.clone();
     forged.config.soul_md.push_str(" changed");
     assert!(package.verify_snapshot(&agent, &forged).is_err());
@@ -312,6 +333,33 @@ fn preparation_changes_a_draft_only_and_disables_skills_outside_allowlist() {
             .prepare_snapshot(&agent, &binding_fixture(), snapshot)
             .is_err()
     );
+}
+
+#[test]
+fn skill_policy_seals_native_discovery_without_mutating_other_settings() {
+    let mut config = json!({"model":"unchanged", "skills":{
+        "project_discovery":true, "external_dirs":["/outside"],
+        "trusted_project_dirs":["/workspace"], "create_dir":"/outside",
+        "disabled":["workflow"], "platform_disabled":{"api_server":["workflow"]},
+        "max_description_length":123
+    }});
+    seal_skill_discovery(&mut config).unwrap();
+    verify_skill_discovery(&config).unwrap();
+    assert_eq!(config["model"], "unchanged");
+    assert_eq!(config["skills"]["max_description_length"], 123);
+    let previous = config.clone();
+    seal_skill_discovery(&mut config).unwrap();
+    assert_eq!(config, previous);
+    for mut bad in [
+        json!([]),
+        json!({"skills":null}),
+        json!({"skills":[]}),
+        json!({"skills":false}),
+    ] {
+        let before = bad.clone();
+        assert!(seal_skill_discovery(&mut bad).is_err());
+        assert_eq!(bad, before);
+    }
 }
 
 #[test]

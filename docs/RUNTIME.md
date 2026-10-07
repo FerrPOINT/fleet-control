@@ -460,6 +460,32 @@ Hermes:
   hashes are not returned. This observation is not a fenced admission, proof of
   runtime-loaded configuration, or task-specific deployment workspace receipt.
 
+### SDLC Skill Discovery Policy
+
+Preparing a pinned Base package now seals the native `skills` settings in the
+new draft: `project_discovery=false`, empty `trusted_project_dirs`,
+`external_dirs`, `disabled` and `platform_disabled`, and `create_dir=null`.
+Native project discovery can otherwise shadow HOME skills by name; an enabled
+DB allowlist and byte-identical HOME files alone do not exclude those sources.
+Unrelated skill/model settings remain unchanged. Package validation/readback
+requires every sealed field to match; missing fields and later edits fail closed.
+HOME readback additionally rejects unlisted legacy flat `*.md` skills, including
+category subdirectories; native `skill_view` can read them without `SKILL.md`.
+Support Markdown under a verified skill directory is not treated as a separate
+legacy skill. It is not a complete support-file provenance attestation.
+
+This is a configuration revision, not an in-place change of an active agent.
+Previously prepared SDLC package revisions without this policy require explicit
+new draft preparation, validation and drain/activation; there is no historical
+backfill or automatic repair. Free-chat configurations are unaffected.
+
+The optional native renderer gate consumes the actual Rust policy, checks the
+pinned Hermes discovery and lookup helpers, and includes an unsealed negative
+control with real project/external skill directories. This loader-only check
+does not attest the full plugin inventory, live loaded model/tool state,
+assignment lease, first workflow step or SDLC admission. Consequently
+`runtime_ready=false` and both existing admission blockers remain authoritative.
+
 ## Контракт запуска Hermes
 
 Для pinned Hermes `bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3` исходная команда

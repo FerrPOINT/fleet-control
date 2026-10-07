@@ -1,5 +1,31 @@
 # Current State
 
+## Native Skill Discovery Policy: 8 October 2026
+
+Pinned Base preparation now seals project/external/create-dir discovery and
+native disabled-skill settings in a new draft. Snapshot verification rejects
+policy drift; effective HOME verification rejects unlisted legacy flat Markdown.
+No active revision is rewritten: explicit preparation/validation/drain/activation
+is required. Free-chat settings, Java lifecycle, public OpenAPI, migrations and
+installed runtime remain unchanged.
+
+Final Rust1.88/Linux fmt, locked/offline all-target check/strict Clippy and605
+workspace cases pass;32 opt-in cases remain ignored. Separate Git and actual
+renderer-export tests each pass1 case. Actual pinned Hermes native lookup passes
+for two Rust-rendered homes, including unsealed project/external and flat-skill
+negative controls. This is loader evidence without model inference or HTTP skills
+inventory acceptance.329 frozen inputs and unchanged OpenAPI hashes verify;
+exact QA cleanup, complete Docker audit, README and135-document link gates pass.
+
+The first failed Git subprocess case is retained in evidence; it passes unchanged
+in the final standalone/full runs, without a timeout change or asserted root-cause
+fix. Background heartbeat alert persistence still fails in this integration tree.
+Full plugin/model/tool attestation, trusted assignment/first-step authority, PM
+delivery/resume and live SDLC remain open; task dispatch/runtime readiness are
+not enabled. No whole-product merge readiness or new UI acceptance is claimed.
+See [exact evidence](CHAT_CLARIFICATION_VERIFICATION.md#native-skill-discovery-policy-8-october-2026)
+and [remaining gates](GAP_REGISTER.md).
+
 ## Strict Published Chat Contract: 7 October 2026
 
 The chat contract gate now preserves recursive validation constraints instead

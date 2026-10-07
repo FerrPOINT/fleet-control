@@ -1,5 +1,11 @@
 # Data Model
 
+New pinned Hermes package drafts retain sealed native skill discovery settings
+inside existing `config_json.skills`. There is no new column, migration or
+historical backfill. Older package revisions require explicit draft/validate/
+drain/activation before passing the stronger readback. See
+[policy](RUNTIME.md#sdlc-skill-discovery-policy).
+
 ## Original Namespace Stop After Recovery
 
 Candidate000022 adds `runtime_controller_stop_deliveries`, keyed by original

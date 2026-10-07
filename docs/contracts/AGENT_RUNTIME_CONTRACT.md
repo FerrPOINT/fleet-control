@@ -1,5 +1,10 @@
 # Agent Runtime Contract
 
+Pinned Hermes SDLC package preparation seals native project/external skill
+discovery in a new configuration draft and rejects policy drift or unlisted
+legacy flat Markdown on effective readback. See [policy](../RUNTIME.md#sdlc-skill-discovery-policy).
+This adds no admission capability or in-place active-revision rewrite.
+
 ## Container Candidate
 
 Fleet's separate [controller recovery journal](CONTROLLER_RECOVERY_V1.md) stores

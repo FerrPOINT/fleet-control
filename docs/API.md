@@ -1,5 +1,10 @@
 # API
 
+Pinned Base package preparation seals native skill discovery in the existing
+configuration snapshot; missing/edited policy fails existing validation and
+effective readback. No endpoint or OpenAPI schema changes. Configuration health
+still cannot grant SDLC admission. See [policy](RUNTIME.md#sdlc-skill-discovery-policy).
+
 Signed-v3 configuration recovery is an internal, default-off reconciliation
 path. It adds no public endpoint, DTO, OpenAPI route or force-release operation;
 its rollback claim and secret-bearing journal must never be exposed through

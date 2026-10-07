@@ -5,6 +5,7 @@ import inspect
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -45,6 +46,69 @@ def yaml_only_config(home, loader, constructor, platform):
     # The public loader catches YAML errors; call the native layer directly.
     loader(home, data)
     return constructor(data).platforms[platform]
+
+
+def verify_skill_discovery(home, source):
+    from agent import skill_utils
+    from tools import skills_tool
+    for module in (skill_utils, skills_tool):
+        if not Path(module.__file__).resolve().is_relative_to(source):
+            raise RuntimeError('skill discovery imported a different native source')
+    previous_home, previous_cwd = os.environ['HERMES_HOME'], Path.cwd()
+    previous_terminal = os.environ.pop('TERMINAL_CWD', None)
+    try:
+        with tempfile.TemporaryDirectory(prefix='native-skill-policy-') as directory:
+            root = Path(directory)
+            project, external = root / 'project', root / 'external'
+            (project / '.git').mkdir(parents=True)
+            allowed = '---\nname: allowed\ndescription: Synthetic owned fixture\n---\nHOME only\n'
+            for path in (project / '.hermes/skills/allowed/SKILL.md',
+                         project / '.agents/skills/other/SKILL.md',
+                         external / 'external/SKILL.md'):
+                path.parent.mkdir(parents=True)
+                path.write_text(allowed.replace('HOME only', 'Must not be discovered'), encoding='utf-8')
+            sealed, unsealed = root / 'sealed', root / 'unsealed'
+            for path in (sealed, unsealed):
+                (path / 'skills/allowed').mkdir(parents=True)
+                shutil.copyfile(home / 'config.yaml', path / 'config.yaml')
+                (path / 'skills/allowed/SKILL.md').write_text(allowed, encoding='utf-8')
+            config = json.loads((unsealed / 'config.yaml').read_text(encoding='utf-8'))
+            config['skills'].update(project_discovery=True, trusted_project_dirs=[str(project)],
+                                    external_dirs=[str(external)], create_dir=str(external))
+            (unsealed / 'config.yaml').write_text(json.dumps(config), encoding='utf-8')
+            os.chdir(project)
+            os.environ['HERMES_HOME'] = str(unsealed)
+            if (set(skill_utils.get_project_skills_dirs()) != {
+                    project / '.hermes/skills', project / '.agents/skills'}
+                    or skill_utils.get_external_skills_dirs() != [external]
+                    or skill_utils.get_skill_create_dir() != external):
+                raise RuntimeError('native negative control did not discover the extra roots')
+            os.environ['HERMES_HOME'] = str(sealed)
+            if (skill_utils.get_project_skills_dirs() or skill_utils.get_external_skills_dirs()
+                    or skill_utils.get_skill_create_dir() is not None
+                    or skill_utils.get_all_skills_dirs() != [sealed / 'skills']
+                    or skill_utils.get_disabled_skill_names()):
+                raise RuntimeError('native loader did not enforce Rust skill discovery policy')
+            project_dirs, all_dirs, active = skills_tool._skill_search_dirs()
+            skills = skills_tool._find_all_skills()
+            legacy = sealed / 'skills/allowed.md'
+            legacy.write_text('Unlisted legacy skill', encoding='utf-8')
+            if len(skills_tool._collect_skill_candidates('allowed', None, all_dirs)) != 2:
+                raise RuntimeError('native negative control did not expose a legacy skill collision')
+            legacy.unlink()
+            candidates = skills_tool._collect_skill_candidates('allowed', None, all_dirs)
+            if (project_dirs or all_dirs != [sealed / 'skills'] or active != sealed / 'skills'
+                    or [item['name'] for item in skills] != ['allowed']
+                    or len(candidates) != 1
+                    or candidates[0][1] != sealed / 'skills/allowed/SKILL.md'
+                    or candidates[0][1].read_text(encoding='utf-8') != allowed):
+                raise RuntimeError('native lookup accepted a project/external skill shadow')
+            return True
+    finally:
+        os.environ['HERMES_HOME'] = previous_home
+        os.chdir(previous_cwd)
+        if previous_terminal is not None:
+            os.environ['TERMINAL_CWD'] = previous_terminal
 
 
 def child(agent):
@@ -93,8 +157,10 @@ def child(agent):
     credential = hashlib.sha256(adapter._api_key.encode()).hexdigest()
     if credential != agent['credential_sha256'] or get_process_hermes_home() != home:
         raise RuntimeError('native loader did not use isolated managed identity')
+    discovery_verified = verify_skill_discovery(home, source)
     verify_files(agent)
-    return {'home': str(home), 'port': adapter._port, 'credential_sha256': credential}
+    return {'home': str(home), 'port': adapter._port, 'credential_sha256': credential,
+            'native_skill_discovery_policy_verified': discovery_verified}
 
 
 def main():

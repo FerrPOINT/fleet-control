@@ -176,6 +176,20 @@ async fn verify_skill_files(
                 if !expected.contains(name) || !seen.insert(name.to_string()) {
                     return Err(mismatch());
                 }
+            } else if path
+                .extension()
+                .is_some_and(|extension| extension.to_string_lossy().eq_ignore_ascii_case("md"))
+            {
+                // Native skill_view also accepts legacy flat Markdown. Only
+                // support Markdown under a verified package may remain here.
+                let relative = path.strip_prefix(skills_root).map_err(|_| mismatch())?;
+                let components: Vec<_> = relative.components().collect();
+                let package = components
+                    .first()
+                    .and_then(|component| component.as_os_str().to_str());
+                if components.len() < 2 || package.is_none_or(|name| !expected.contains(name)) {
+                    return Err(mismatch());
+                }
             }
         }
     }
@@ -210,6 +224,9 @@ mod tests {
             "bundled/SKILL.md",
             "category/allowed/SKILL.md",
             "allowed/skill.md",
+            "allowed.md",
+            "unlisted.md",
+            "category/allowed.md",
         ] {
             let path = skills.join(relative);
             tokio::fs::create_dir_all(path.parent().unwrap())
@@ -223,6 +240,14 @@ mod tests {
             );
             tokio::fs::remove_file(path).await.unwrap();
         }
+        let support = skills.join("allowed/references/guide.md");
+        tokio::fs::create_dir_all(support.parent().unwrap())
+            .await
+            .unwrap();
+        tokio::fs::write(&support, "package support document")
+            .await
+            .unwrap();
+        verify_skill_files(&root, &skills, &expected).await.unwrap();
         tokio::fs::remove_file(skills.join("allowed/SKILL.md"))
             .await
             .unwrap();

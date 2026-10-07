@@ -1,5 +1,10 @@
 # Hermes Adapter Contract
 
+Pinned Base preparation seals six native skill discovery/disable settings;
+effective validation denies missing or changed policy and legacy Markdown
+outside verified HOME packages. This is not a full loaded plugin/tool inventory
+or first-step receipt. [Policy and upgrade](../RUNTIME.md#sdlc-skill-discovery-policy).
+
 Private controller recovery storage follows
 [Controller Recovery V1](CONTROLLER_RECOVERY_V1.md). Any outstanding epoch
 fences original-owner Hermes delivery and generation operations, even after a

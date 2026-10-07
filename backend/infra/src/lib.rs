@@ -5804,7 +5804,7 @@ mod tests {
                 .provision(&agent, &config)
                 .await
                 .unwrap();
-            let revision = domain::AgentConfigRevision {
+            let mut revision = domain::AgentConfigRevision {
                 agent_id: agent.id,
                 revision: 1,
                 state: "active".into(),
@@ -5825,6 +5825,7 @@ mod tests {
                 draining: false,
                 created_at: now().to_rfc3339(),
             };
+            base_package::seal_skill_discovery(&mut revision.snapshot.config.config_json).unwrap();
             let files = configuration_files(&agent, &config, &revision)
                 .await
                 .unwrap();

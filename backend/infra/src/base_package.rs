@@ -26,6 +26,47 @@ mod tests;
 pub(crate) use tests::binding_fixture;
 const REPOSITORY: &str = "https://github.com/FerrPOINT/services-base.git";
 const MAX_BLOB_BYTES: usize = 262_144;
+
+fn discovery_policy() -> serde_json::Value {
+    serde_json::json!({
+        "project_discovery": false,
+        "trusted_project_dirs": [],
+        "external_dirs": [],
+        "create_dir": null,
+        "disabled": [],
+        "platform_disabled": {}
+    })
+}
+
+pub(crate) fn seal_skill_discovery(config: &mut serde_json::Value) -> Result<(), AppError> {
+    let skills = config
+        .as_object_mut()
+        .ok_or_else(invalid)?
+        .entry("skills")
+        .or_insert_with(|| serde_json::json!({}))
+        .as_object_mut()
+        .ok_or_else(invalid)?;
+    for (key, value) in discovery_policy().as_object().expect("static policy") {
+        skills.insert(key.clone(), value.clone());
+    }
+    Ok(())
+}
+
+fn verify_skill_discovery(config: &serde_json::Value) -> Result<(), AppError> {
+    let skills = config
+        .get("skills")
+        .and_then(serde_json::Value::as_object)
+        .ok_or_else(invalid)?;
+    if discovery_policy()
+        .as_object()
+        .expect("static policy")
+        .iter()
+        .any(|(key, value)| skills.get(key) != Some(value))
+    {
+        return Err(invalid());
+    }
+    Ok(())
+}
 const ROLES: [&str; 7] = [
     "project_manager",
     "analyst",
@@ -573,6 +614,7 @@ impl VerifiedRolePackage {
         )
         .map_err(|_| invalid())?;
         self.verify_binding(agent, &binding)?;
+        verify_skill_discovery(&snapshot.config.config_json)?;
         if agent.kind != AgentKind::Hermes
             || agent.status == AgentStatus::Archived
             || agent
@@ -653,6 +695,9 @@ impl VerifiedRolePackage {
             return Err(invalid());
         }
         snapshot.config.soul_md = self.instruction.clone();
+        // Native project skills precede HOME by name; a DB allowlist alone cannot
+        // prevent shadows, external discovery or configured disabling of Base skills.
+        seal_skill_discovery(&mut snapshot.config.config_json)?;
         snapshot.config.config_json["fleet_sdlc_package"] =
             serde_json::to_value(&self.proof).map_err(|_| invalid())?;
         snapshot.config.config_json["fleet_sdlc_workflow_binding"] =

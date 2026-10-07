@@ -1,5 +1,77 @@
 # Chat Clarification Verification
 
+## Native Skill Discovery Policy: 8 October 2026
+
+Pinned Base package preparation seals all six native discovery/disable fields
+in a new draft. Snapshot verification rejects missing or changed fields while
+preserving unrelated model/skill settings. Effective HOME readback rejects
+unlisted legacy flat Markdown in root/category directories without deleting it;
+package support documents remain allowed, not fully provenance-attested.
+Existing active revisions require explicit preparation/validation/drain/activation.
+No migration, public DTO/OpenAPI, SDK pin, Java lifecycle or installed runtime changes.
+
+The production Rust v2 renderer exporter passes its explicit ignored test and
+produces two synthetic owned homes with the same production policy. Actual native
+project `sdlc-qa-hermes-protocol-ba6a865233fa` passes its single loader case for
+both agents. Pinned Hermes discovers project/external/create roots in the unsealed
+negative control, excludes them with the Rust-rendered policy, and resolves the
+sole HOME document. A temporary flat `allowed.md` produces an actual native
+collision; removing this owned negative fixture restores the sole candidate.
+Both result records report `native_skill_discovery_policy_verified=true`.
+This executes native lookup helpers, not a model run or positive `/v1/skills` HTTP.
+
+Native source `bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3`, archive SHA256
+`571fba4903d9094ade7f6d0ef5dfcee8c068e50f62e65f46611ec3ad65697e02`;
+immutable dependency image
+`aeb97055b0f5aee433e29998eeafd8065b81e70d1fcb69345c520c2bfbf23777`.
+Probe SHA256 `7d8ecea34ee97c20a1643e49e40dd37bd3c52d5a120b07aabea842914797c631`;
+runner `a147aff33e1aa4631b9b4105b0e4b2962a850e0c45418cb54475af2cd7034b0a`;
+completion log `cb81c39da566fa1ad6392187d959bc80edb9a05e96c9a2d729771c6ad5bdae2b`.
+Native cleanup exits0 and exact post-cleanup ps is empty, independently rechecked.
+No private Base instructions or raw credentials are published.
+
+Executed production package source SHA256
+`52d8d323b665fca815722fcd8456cc4906f9a7d76f38045aa57b590b56867f41`;
+package tests `15398529b318769e96646d8623f3378a9d18a12036da4c7617e3fecacc1b5a7f`;
+HOME verifier `139cae9b6d59160bc3a5af51a975581a71be7952d3609aa240cd06dc5f32983b`;
+renderer fixture module `1842378c59a466ec53eb3797caf7248038874f393fbbde35230228c372483196`.
+Generated OpenAPI remains byte-identical, SHA256
+`1f1f4dd872d53925597cf91b98301d940dd85481b857af85b7a325e056e41667`.
+The protocol harness passes17 cases; these are not17 native acceptance cases.
+
+The first source attempt136bca5a975a failed because its QA snapshot omitted
+native/container fixture files. Attempt476f241f7c9b passed fmt/check/strict Clippy,
+but an existing bounded Git subprocess test failed; it is not a successful full
+gate. Both exact QA projects were cleaned. The unchanged Git test subsequently
+passes separately with its original5-second bound. No production timeout was
+weakened and the original failure evidence is retained.
+
+Final source project `sdlc-qa-fleet-skill-85c0930f36d4` exits0: Rust1.88 fmt,
+locked/offline workspace/all-target check and strict Clippy, plus605 workspace
+test cases passed with0 failures and32 explicitly ignored opt-in cases. The
+separate Git regression and renderer exporter each pass1 case; these are not
+added again to the workspace total. The Git case also passes in the full run;
+the earlier failure's cause was not reproduced or declared fixed. The actual
+PostgreSQL17.11 database is disposable, with no published ports or shared volumes.
+All329 frozen backend/SDK/harness inputs match after execution. SDK remains
+`cbb4e99230420dc2659431b1c9fb5090e5c940f0`. Completion log SHA256
+`52b8ae7eee335eee7de959b8aa2afc580a1522341324b9595522587787bdcac9`;
+input manifest `b871110f7800484f0e1bb1e22a4e26aa0a8e4ff76371e4acb77b57063f9943ab`.
+Owned source/native Compose containers and networks are removed. Final Docker
+audit is complete with35 desktop containers,0 on each runner and no violations.
+README and135-document link gates pass; there are no new UI screenshots/tests.
+
+The existing heartbeat alert-kind violation still appears in background worker
+logs and remains an open integration issue. A successful test command does not
+close that operations blocker or prove a clean production deployment.
+
+Full plugin inventory, support-file provenance, loaded model/tool state, trusted
+assignment/first-step authority and live PM delivery/resume remain open. Read-only
+source inspection also identifies the pinned `/v1/skills` argument mismatch;
+loader evidence does not repair or prove that HTTP route. `runtime_ready=false`
+and task dispatch remain closed. This is integration-branch evidence, not a
+main release, CI result for another PR, UI acceptance or full SDLC readiness.
+
 ## Strict Published Chat Contract: 7 October 2026
 
 Final packet `sdlc-qa-fleet-contract-41757574c5a6` passes Rust1.88 fmt,

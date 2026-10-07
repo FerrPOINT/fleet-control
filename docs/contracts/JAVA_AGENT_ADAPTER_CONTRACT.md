@@ -1,5 +1,9 @@
 # Java Agent Adapter Contract
 
+The Hermes [SDLC skill discovery policy](../RUNTIME.md#sdlc-skill-discovery-policy)
+does not apply to Java configuration, skills or readiness. Java lifecycle and
+capability-gated SDLC limitations are unchanged.
+
 Hermes signed-v3 configuration recovery adds no Java configuration/recovery
 capability. Java runtime lifecycle and phase-2 chat limits remain unchanged;
 the new default-off flag skips Java agents and creates no journal for them.
