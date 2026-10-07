@@ -555,6 +555,7 @@ async fn recover(
         .unwrap();
     assert_eq!(replay.id, context.message);
     state(&repo, &config, &context).await;
+    runtime.quiesce_controller_recovery().await.unwrap();
     save(&format!("custody-epoch{epoch}.json"), &proofs).await;
     tokio::fs::write(
         format!("/evidence/custody-epoch{epoch}.json"),

@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import sys
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 
@@ -32,6 +33,7 @@ def main():
     context = private('custody-context.json')
     owners = private(f'custody-epoch{args.epoch}-frozen.json')
     assert len(owners) == len(context['launches']) == 2
+    assert len({launch['id'] for launch in context['launches']}) == 2
 
     def call(request, action, command):
         return execute(dict(request, action=action, recovery=command))['result']
@@ -43,7 +45,8 @@ def main():
             return
         raise AssertionError('Native custody hold was bypassed')
 
-    for launch, owner in zip(context['launches'], owners, strict=True):
+    def verify_agent(pair):
+        launch, owner = pair
         original, current = owner['initial'], owner['current']
         assert current['epoch'] == args.epoch and current['lease_version'] >= 4
         assert current['request'] == original['request'] and original['lease_version'] == 1
@@ -76,6 +79,9 @@ def main():
             denied(request, 'recover_controller', competitor)
             denied(request, 'observe', competitor)
         assert journal.read_bytes() == before, 'Read-only proof or denied contender changed native journal'
+    # Independent journals share the same lease observation window, not sequential deadlines.
+    with ThreadPoolExecutor(max_workers=2) as workers:
+        list(workers.map(verify_agent, zip(context['launches'], owners, strict=True)))
     suffix = 'expired' if args.expired else f'epoch{args.epoch}'
     result = {'state': 'passed', 'agents': 2, 'historical_receipt_unchanged': True,
               'same_version_heartbeat_replay_read_only': True, 'native_journals_unchanged': True,

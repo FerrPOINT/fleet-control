@@ -1,5 +1,44 @@
 # Current State
 
+## Verified Docker Custody: 7 October 2026
+
+Actual owned gate `sdlc-qa-fleet-container-live-2c9e86b1c29a` passes all six
+Rust/native phases: two real isolated Hermes agents, one deterministic model
+response and genuine pending approval, two physical same-CID Fleet restarts,
+startup-driven dual heartbeat to live versions 4+, exact native readback and
+real expiry without revival. Original agent processes, run, dispatch and
+transcript remain unchanged. Graceful worker quiescence settles in-flight native
+heartbeats before final freeze; journals remain byte-identical during probes.
+All 316 captured inputs match, owned resources/tags are removed and accepted
+runtime is unchanged. Exact hashes are in the verification ledger.
+
+This closes approval-wait custody acceptance, not resumed execution, safe
+new-owner stop, interrupted activation, PM/producer compatibility, Forge or the
+ordered main release. Recovery stays default-off. The passed packet is Fleet
+`2a1fc10` plus its frozen candidate diff and published Base `8bf0634`; the fresh
+56-case component gate separately covers the changed production bytes.
+No frontend/screenshots changed in this packet. Full remaining scope stays in
+the [gap register](GAP_REGISTER.md).
+
+## Combined Native Live Heartbeat Candidate: 7 October 2026
+
+The current candidate uses additive Base `heartbeat_controller_live` twice,
+before and after DB CAS, instead of four separate heartbeat/observe calls.
+Each response requires a fresh physical observation, exact live native lease
+and the immutable original namespace receipt. Historical ACK cannot satisfy the
+closed live response. The lease, lock/work budgets, source hash guard and
+default-off recovery policy remain unchanged. Older native executables fail
+closed, not through a historical fallback. Base producer `8bf0634` is published.
+Fresh Fleet formatting/strict all-target Clippy and 55 focused PostgreSQL cases
+pass with matching sources and exact owned cleanup. Actual project `166599cdffe1`
+passed startup maintenance and final DB freeze, then failed native readback after
+worker teardown interrupted a next-version write. The next candidate adds bounded
+worker quiescence in graceful server shutdown and before live-test teardown.
+Fresh fmt/strict all-target Clippy and 56 PostgreSQL/component cases pass; the
+latest actual gate passes within the custody scope above. Prior failures below
+belong to older packets. No SDK pin or
+accepted deployment was changed. See the verification ledger for exact hashes.
+
 ## Heartbeat Lock Contention Follow-Up: 7 October 2026
 
 Runtime branch commit `5b87a71` is published, not merged or deployed. The next

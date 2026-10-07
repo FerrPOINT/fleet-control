@@ -781,6 +781,7 @@ impl ContainerControl {
                     "recover_controller"
                         | "read_controller_recovery"
                         | "heartbeat_controller"
+                        | "heartbeat_controller_live"
                         | "observe"
                         | "start"
                         | "endpoint"

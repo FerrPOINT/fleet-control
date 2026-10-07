@@ -140,6 +140,7 @@ pub(super) fn supervisor(
         controller_id: Uuid::new_v4(),
         launches: Arc::new(Mutex::new(HashMap::new())),
         lifecycle_locks: Arc::new(Mutex::new(HashMap::new())),
+        recovery_worker: Arc::new(super::controller_recovery_worker::RecoveryWorker::default()),
         client: reqwest::Client::new(),
         events,
         alerts: Arc::new(app::RepositoryAlertService { repository: repo }),

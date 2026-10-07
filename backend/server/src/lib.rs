@@ -46,7 +46,7 @@ pub async fn run(
         config.clone(),
         repo.clone(),
         provisioner,
-        runtime,
+        runtime.clone(),
         events,
         restart_tx,
     );
@@ -114,6 +114,9 @@ pub async fn run(
             }
             retention_task.abort();
             if let Some(task) = &tracker_events_task { task.abort(); }
+            if runtime.quiesce_controller_recovery().await.is_err() {
+                warn!("controller custody shutdown requires retained reconciliation");
+            }
             return RunOutcome::Shutdown;
         }
         _ = &mut shutdown => RunOutcome::Shutdown,
@@ -129,6 +132,9 @@ pub async fn run(
     retention_task.abort();
     if let Some(task) = tracker_events_task {
         task.abort();
+    }
+    if runtime.quiesce_controller_recovery().await.is_err() {
+        warn!("controller custody shutdown requires retained reconciliation");
     }
     outcome
 }

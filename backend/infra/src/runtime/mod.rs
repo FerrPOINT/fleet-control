@@ -76,6 +76,7 @@ pub struct LocalRuntimeSupervisor {
     controller_id: Uuid,
     launches: Arc<Mutex<HashMap<Uuid, app::runtime_launch::RuntimeLaunchRecord>>>,
     lifecycle_locks: Arc<Mutex<HashMap<Uuid, Arc<Mutex<()>>>>>,
+    recovery_worker: Arc<controller_recovery_worker::RecoveryWorker>,
     client: reqwest::Client,
     events: broadcast::Sender<FleetEvent>,
     alerts: Arc<app::RepositoryAlertService>,
@@ -99,6 +100,7 @@ impl LocalRuntimeSupervisor {
             controller_id: Uuid::new_v4(),
             launches: Arc::new(Mutex::new(HashMap::new())),
             lifecycle_locks: Arc::new(Mutex::new(HashMap::new())),
+            recovery_worker: Arc::new(controller_recovery_worker::RecoveryWorker::default()),
             client: reqwest::Client::builder()
                 .redirect(reqwest::redirect::Policy::none())
                 .retry(reqwest::retry::never())

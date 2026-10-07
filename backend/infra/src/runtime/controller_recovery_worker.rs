@@ -3,7 +3,12 @@ use app::runtime_launch::{
     ControllerRecoveryCommand, ControllerRecoveryRecord, ControllerRecoveryRequest,
 };
 use shared::AppError;
-use std::{collections::HashSet, time::Duration};
+use std::{
+    collections::HashSet,
+    sync::atomic::{AtomicBool, Ordering},
+    time::Duration,
+};
+use tokio::sync::watch;
 use uuid::Uuid;
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(10);
@@ -11,6 +16,22 @@ const RECOVERY_CYCLE_TIMEOUT: Duration = Duration::from_secs(8);
 const HEARTBEAT_LOCK_TIMEOUT: Duration = Duration::from_secs(20);
 const HEARTBEAT_CYCLE_TIMEOUT: Duration = Duration::from_secs(20);
 const WORKER_CYCLE_TIMEOUT: Duration = Duration::from_secs(41);
+
+pub(super) struct RecoveryWorker {
+    started: AtomicBool,
+    stop: watch::Sender<bool>,
+    finished: watch::Sender<Option<bool>>,
+}
+
+impl Default for RecoveryWorker {
+    fn default() -> Self {
+        Self {
+            started: AtomicBool::new(false),
+            stop: watch::channel(false).0,
+            finished: watch::channel(None).0,
+        }
+    }
+}
 
 struct RecoveryProgress {
     agent_id: Uuid,
@@ -64,13 +85,22 @@ impl LocalRuntimeSupervisor {
         }
         let supervisor = self.clone();
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            if *self.recovery_worker.stop.borrow()
+                || self.recovery_worker.started.swap(true, Ordering::SeqCst)
+            {
+                return;
+            }
+            let mut stop = self.recovery_worker.stop.subscribe();
             handle.spawn(async move {
                 let mut ticks = tokio::time::interval(HEARTBEAT_INTERVAL);
                 ticks.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
                 let mut jobs = tokio::task::JoinSet::new();
                 let mut active = HashSet::new();
                 loop {
+                    if *stop.borrow() { break; }
                     tokio::select! {
+                        biased;
+                        _ = stop.changed() => { break; }
                         result = jobs.join_next(), if !jobs.is_empty() => {
                             match result {
                                 Some(Ok((id, true))) => { active.remove(&id); }
@@ -97,8 +127,32 @@ impl LocalRuntimeSupervisor {
                         }
                     }
                 }
+                let mut settled = true;
+                while let Some(result) = jobs.join_next().await {
+                    settled &= matches!(result, Ok((_, true)));
+                }
+                supervisor.recovery_worker.finished.send_replace(Some(settled));
             });
         }
+    }
+
+    /// Stop scheduling custody cycles and await retained in-flight operations, without granting effects.
+    pub async fn quiesce_controller_recovery(&self) -> Result<(), AppError> {
+        self.recovery_worker.stop.send_replace(true);
+        if !self.recovery_worker.started.load(Ordering::SeqCst) {
+            return Ok(());
+        }
+        let mut finished = self.recovery_worker.finished.subscribe();
+        tokio::time::timeout(WORKER_CYCLE_TIMEOUT + Duration::from_secs(1), async {
+            loop {
+                if let Some(settled) = *finished.borrow_and_update() {
+                    return if settled { Ok(()) } else { Err(held()) };
+                }
+                finished.changed().await.map_err(|_| held())?;
+            }
+        })
+        .await
+        .map_err(|_| held())?
     }
 
     pub(super) async fn reconcile_controller_recovery(
@@ -225,11 +279,7 @@ impl LocalRuntimeSupervisor {
         // Exact replay catches up a native write whose reply or DB acknowledgement was lost.
         progress.stage("heartbeat.native_replay");
         control
-            .heartbeat_controller(&files, &launch, &current, &journal)
-            .await?;
-        progress.stage("heartbeat.native_before");
-        control
-            .verify_live_controller(&files, &launch, &current, &journal, receipt)
+            .heartbeat_controller_live(&files, &launch, &current, &journal, receipt)
             .await?;
         progress.stage("heartbeat.database_cas");
         let renewed = self
@@ -248,11 +298,7 @@ impl LocalRuntimeSupervisor {
         };
         progress.stage("heartbeat.native_next");
         control
-            .heartbeat_controller(&files, &launch, &next, &journal)
-            .await?;
-        progress.stage("heartbeat.native_after");
-        control
-            .verify_live_controller(&files, &launch, &next, &journal, receipt)
+            .heartbeat_controller_live(&files, &launch, &next, &journal, receipt)
             .await?;
         progress.stage("heartbeat.database_readback");
         let latest = self

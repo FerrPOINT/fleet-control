@@ -39,7 +39,7 @@ cross-replica fences. A lease lasts at most30 seconds on PostgreSQL's clock.
 Heartbeat requires the exact controller and current lease version; it increments
 the version and cannot revive an expired lease. The opt-in worker cadence is10
 seconds, with one in-flight cycle per agent. Initial recovery is bounded to8
-seconds; the four-call dual heartbeat has a20-second budget, below the unchanged
+seconds; dual heartbeat has a20-second budget, below the unchanged
 30-second lease duration. Ticks during an active cycle are skipped, not queued.
 Heartbeat lock admission has a separate20-second bound; native work receives
 its full20-second bound only after acquiring the lifecycle lock. The worker
@@ -47,6 +47,21 @@ envelope is41 seconds for both bounds and metadata overhead. Waiting does not
 extend either lease: after admission, expired custody still fails before native
 work. The envelope is a cancellation limit, never a lease or effects permit.
 No caller-supplied clock is trusted.
+Graceful shutdown stops scheduling and drains existing bounded cycles, rather
+than aborting a native write at test/process teardown. The shared drain waits
+at most 42 seconds and does not extend a lease or issue an effects permit.
+An unresolved outcome remains held; forced OS exit still requires original-key
+reconciliation. Exact native live/version readback remains mandatory after drain.
+
+The latest candidate replaces the four separate heartbeat/observe traversals
+with two additive Base protocol3 `heartbeat_controller_live` calls, before and
+after the DB CAS. Each synchronizes only the exact current/next version, then
+obtains fresh original namespace evidence and rechecks the exact live native
+owner/version/deadline. The closed live receipt must match the immutable original
+recovery receipt. Historical heartbeat ACKs, altered snapshots, expired or
+unknown live state cannot substitute for this proof. An older Base executable
+is incompatible with this candidate and fails closed; upgrade is a new verified
+launch, never an alteration of retained source hashes for an active controller.
 
 Initial recovery/readback and heartbeat are separate worker cycles. Once this
 logical controller has an acknowledged record, the worker invokes heartbeat

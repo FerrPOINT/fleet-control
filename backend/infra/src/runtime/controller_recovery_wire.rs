@@ -32,6 +32,35 @@ mod tests {
         let original = serde_json::json!({"state":"controller_heartbeat","recovery_id":id,
             "lease_version":2,"lease_expires_at":command.lease_expires_at});
         validate_heartbeat(original.clone(), &command).unwrap();
+        let anchor = serde_json::json!({"witness":{"receipt":{"observation":"running"}}});
+        let mut live = original.clone();
+        live["state"] = serde_json::json!("controller_heartbeat_live");
+        live["receipt"] = anchor["witness"]["receipt"].clone();
+        validate_live_heartbeat(live.clone(), &command, &anchor).unwrap();
+        assert!(validate_live_heartbeat(original.clone(), &command, &anchor).is_err());
+        for (key, value) in [
+            ("state", serde_json::json!("controller_heartbeat")),
+            ("recovery_id", serde_json::json!(uuid::Uuid::new_v4())),
+            ("lease_version", serde_json::json!(true)),
+            (
+                "lease_expires_at",
+                serde_json::json!("2026-10-07T12:00:31+00:00"),
+            ),
+            (
+                "receipt",
+                serde_json::json!({"observation":"namespace_exited"}),
+            ),
+            ("extra", serde_json::json!(null)),
+        ] {
+            let mut changed = live.clone();
+            changed[key] = value;
+            assert!(
+                validate_live_heartbeat(changed, &command, &anchor).is_err(),
+                "{key}"
+            );
+        }
+        live.as_object_mut().unwrap().remove("receipt");
+        assert!(validate_live_heartbeat(live, &command, &anchor).is_err());
         for (key, value) in [
             ("state", serde_json::json!("controller_recovered")),
             ("recovery_id", serde_json::json!(uuid::Uuid::new_v4())),
@@ -65,6 +94,7 @@ struct RecoveryReceipt {
     witness: Value,
 }
 
+#[cfg(test)]
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct HeartbeatReceipt {
@@ -74,6 +104,34 @@ struct HeartbeatReceipt {
     lease_expires_at: String,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LiveHeartbeatReceipt {
+    state: String,
+    recovery_id: uuid::Uuid,
+    lease_version: i64,
+    lease_expires_at: String,
+    receipt: Value,
+}
+
+fn validate_live_heartbeat(
+    value: Value,
+    command: &ControllerRecoveryCommand,
+    original_receipt: &Value,
+) -> Result<(), AppError> {
+    let receipt: LiveHeartbeatReceipt = serde_json::from_value(value).map_err(|_| held())?;
+    if receipt.state != "controller_heartbeat_live"
+        || receipt.recovery_id != command.request.id
+        || receipt.lease_version != command.lease_version
+        || receipt.lease_expires_at != command.lease_expires_at
+        || receipt.receipt != original_receipt["witness"]["receipt"]
+    {
+        return Err(held());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
 fn validate_heartbeat(value: Value, command: &ControllerRecoveryCommand) -> Result<(), AppError> {
     let receipt: HeartbeatReceipt = serde_json::from_value(value).map_err(|_| held())?;
     if receipt.state != "controller_heartbeat"
@@ -178,36 +236,7 @@ pub(crate) fn validate_receipt(
 }
 
 impl ContainerControl {
-    pub(super) async fn heartbeat_controller(
-        &self,
-        files: &ContainerLaunchFiles,
-        launch: &RuntimeLaunchRecord,
-        command: &ControllerRecoveryCommand,
-        journal: &Path,
-    ) -> Result<(), AppError> {
-        validate_command(command, launch)?;
-        let original = &launch
-            .binding
-            .container
-            .as_ref()
-            .ok_or_else(held)?
-            .registration;
-        let (status, value) = self
-            .call_with_owner(
-                files,
-                "heartbeat_controller",
-                serde_json::json!({"registration": original}),
-                Some((command, journal)),
-            )
-            .await?;
-        if status != 0 {
-            return Err(held());
-        }
-        validate_heartbeat(value, command)
-    }
-
-    /// A historical heartbeat ACK alone cannot prove a live native lease.
-    pub(super) async fn verify_live_controller(
+    pub(super) async fn heartbeat_controller_live(
         &self,
         files: &ContainerLaunchFiles,
         launch: &RuntimeLaunchRecord,
@@ -225,17 +254,15 @@ impl ContainerControl {
         let (status, value) = self
             .call_with_owner(
                 files,
-                "observe",
+                "heartbeat_controller_live",
                 serde_json::json!({"registration": original}),
                 Some((command, journal)),
             )
             .await?;
-        let receipt = serde_json::from_value(value.clone()).map_err(|_| held())?;
-        super::container_control::validate_receipt(&receipt, original, status, "observe")?;
-        if status != 0 || value != original_receipt["witness"]["receipt"] {
+        if status != 0 {
             return Err(held());
         }
-        Ok(())
+        validate_live_heartbeat(value, command, original_receipt)
     }
 
     pub async fn recover_controller(

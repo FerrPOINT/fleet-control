@@ -2,6 +2,18 @@
 
 ## Publication Readback
 
+The actual two-agent custody gate `2c9e86b1c29a` now passes all six phases and
+two physical Fleet restarts with real expiry and unchanged original state.
+Keep its scope distinct from resumed execution, interrupted activation,
+producer PM compatibility and Forge. Those and the ordered release remain
+required; default-off recovery is not enabled by this evidence alone.
+
+The next native-work candidate requires additive Base `heartbeat_controller_live`
+and replaces four separate traversals with two closed live proofs around DB CAS.
+Verify the changed producer and consumer together before the actual two-restart
+gate. Preserve the 30-second lease, exact source hashes and effect fences; no
+historical-only fallback or in-place active-controller source upgrade is allowed.
+
 Independent browser boundary [Fleet56](https://github.com/FerrPOINT/fleet-control/pull/56)
 is merged into main as940b7de. Retain PR-head test evidence separately from
 post-merge CI/deployment. The integrated runtime/PM branch and its migration

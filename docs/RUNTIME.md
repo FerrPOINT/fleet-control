@@ -12,9 +12,18 @@ the trusted entry's private initial command, once-only dispatch and closed nativ
 original-key readback/outcome transaction. Saving a historical ACK after expiry
 does not renew the lease. An explicit default-off startup worker now connects
 dual DB/native heartbeat on10-second ticks, with one in-flight cycle per agent.
-Initial recovery has an8-second budget; the four-call heartbeat has20 seconds,
+Initial recovery has an8-second budget; dual heartbeat has20 seconds,
 below the unchanged30-second lease. Acknowledged owners do not repeat the initial
 handshake, and claimed commands use original-key readback without redispatch.
+The current candidate requires Base `heartbeat_controller_live`: exact version
+sync plus fresh physical/live lease verification in one closed native response.
+Fleet uses two such calls around its DB CAS; historical ACK is not a fallback.
+Graceful server shutdown/restart stops new custody cycles and waits for bounded
+in-flight work through `quiesce_controller_recovery` (at most 42 seconds).
+Concurrent callers share completion, and the same worker cannot be restarted.
+This does not stop agents, grant effects or certify a live lease. Failed or
+interrupted native delivery retains original-key reconciliation; forced OS exit
+can still interrupt a cycle. The public HTTP surface is unchanged.
 Lock admission and native work have separate20-second bounds inside a41-second
 worker envelope. No lease is renewed while waiting; the admitted operation
 rechecks current DB/native custody rather than trusting pre-lock observations.

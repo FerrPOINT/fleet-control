@@ -20,6 +20,7 @@ cd /tmp/src/fleet-control/backend
 rustc --version
 cargo fmt --all --check
 cargo clippy --locked --offline --workspace --all-targets -- -D warnings
+cargo test --locked --offline -p infra --lib runtime::controller_recovery_wire::tests:: -- --nocapture --test-threads=1
 cargo test --locked --offline -p infra --test container_supervisor_live --no-run --message-format=json > /tmp/artifacts.jsonl
 python3 /qa/select_artifact.py /tmp/artifacts.jsonl /out/fleet-container-live
 ldd /out/fleet-container-live

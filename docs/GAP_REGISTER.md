@@ -2,6 +2,27 @@
 
 ## Docker Approval And Live Custody Acceptance
 
+**Closed for approval-wait custody only.** Actual project `2c9e86b1c29a` passes
+all six Rust/native phases, both physical Fleet restarts, versions 4+, real
+DB/native expiry, unchanged original processes/run/transcript/journals and
+exact source/owned cleanup. See the [verification ledger](CHAT_CLARIFICATION_VERIFICATION.md).
+Fresh component checks pass 56 cases. No accepted deployment was changed and
+recovery stays default-off. Resumed execution, fresh effect admission, safe
+new-owner stop, interrupted activation, PM/producer/Forge acceptance and ordered
+release are still open; this scoped closure is not whole-product readiness.
+
+### Historical Failed Packets
+
+The next source candidate uses Base `heartbeat_controller_live` to combine exact
+lease synchronization with fresh physical/live readback, reducing four native
+traversals to two around DB CAS. New Base protocol component cases pass, but the
+actual project `166599cdffe1` passed maintenance/freeze but failed native proof
+after forced worker teardown interrupted a next-version write. The next candidate
+quiesces scheduling and drains bounded in-flight custody cycles before graceful
+shutdown/freeze. Fresh checks and all six phase reports still remain required;
+unknown writes and forced OS termination are not relabeled as graceful success.
+This does not close this gap or authorize recovery/SDLC in accepted deployments.
+
 The current follow-up separates the 20-second lock wait from the 20-second
 native heartbeat budget without extending the 30-second lease. A fresh focused
 gate passes 55 cases, including actual startup-worker contention. The actual

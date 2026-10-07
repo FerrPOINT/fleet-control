@@ -1,5 +1,92 @@
 # Chat Clarification Verification
 
+## Combined Live Native Heartbeat: 7 October 2026
+
+Base producer `8bf0634103fc88f831d0b8725506929c18ab6d32` is published on its
+runtime branch. Additive protocol3 `heartbeat_controller_live` synchronizes the
+exact version, obtains fresh physical readback, then checks exact live native
+owner/version/deadline and returns the original namespace receipt. Historical
+heartbeat replay stays unchanged and cannot satisfy the new closed response.
+Fleet performs two such calls around DB CAS instead of four separate traversals.
+No lease, expiry, effect fence, SDK pin or accepted deployment changes.
+
+Fresh Fleet gate `sdlc-qa-fleet-container-control-74a520b46163` passes formatting,
+strict workspace/all-target Clippy and 55 focused PostgreSQL/component tests
+without failures or ignores. All 304 inputs match and own cleanup is confirmed.
+Source manifest SHA256:
+`f76c2d48bcf5e85cd8a3854298ef13e450f49efb04b74699a11e66eacba87cac`.
+Gate-log SHA256:
+`a3d01bd9f7eaea6e0e031327ee551deb4ebb0a79334bd3e90b20f4606591ddd8`.
+The closed live-wire regression is additionally selected in the actual gate's
+build phase; it was compiled, not executed by the focused selectors above.
+Host driver/loader/README tests pass 30 cases. The native proof now probes two
+independent journals concurrently while retaining every live/expiry and byte
+assertion; it does not renew them. Older packet failures below remain failures.
+
+Actual project `166599cdffe1` passed the closed wire regression and first Rust
+recovery phase in 106.30 seconds. Both agents reached live epoch 1/version 4;
+startup maintenance and the final DB freeze passed. Native epoch-1 proof then
+failed: test runtime teardown interrupted next-version heartbeat between DB CAS
+and native settlement. The read-only probe correctly refused to relabel the
+unsettled version or accept its journal as unchanged. The full report remains
+FAILED; expiry and second-restart reports are not claimed. All 316 inputs match,
+manifest SHA256:
+`aaac7edbbe0952d93388183822dfdbbad64281ee349babdf55e5daccb2c205ac`.
+Own resources/tags are cleaned, sources and permanent runtime are unchanged.
+
+The next candidate adds explicit custody-worker quiescence: no new cycles,
+await every in-flight bounded operation, shared completion for concurrent
+callers, and no restart of the same stopped worker. The server uses it on graceful
+shutdown/restart and the live scenario uses it before process teardown/freeze.
+This is not an effects, safe-agent-stop or lease-validity receipt. Unknown native
+outcomes still require original-key reconciliation; forced OS termination does
+not become graceful. A new PostgreSQL regression verifies the DB-CAS/native-write
+gap, concurrent callers and absence of later renewals.
+
+Fresh quiescence gate `sdlc-qa-fleet-container-control-5af297357e9f` passes fmt,
+strict workspace/all-target Clippy and 56 PostgreSQL/component cases (9 config,
+41 container lifecycle/recovery, 6 lifecycle), without failures or ignores.
+The new DB-CAS/native-write quiescence case passes. All 304 inputs match,
+manifest SHA256:
+`6a63a2a1974e38375581c3e936001261b306ad8ced805289570a0ac39eadb3fb`;
+gate-log SHA256:
+`53884d5e7994ab8fb2c3f1f53a5c0150fbfbd836a170cebb33d372b7e089d9cc`.
+Exit 0 and own container/network cleanup are confirmed. The new actual gate is
+running against these unchanged production bytes at that point.
+
+Final actual project `sdlc-qa-fleet-container-live-2c9e86b1c29a` passes all six
+required Rust/native reports: epoch1, native-epoch1, expired, native-expired,
+epoch2, native-epoch2. The build also executes the closed wire regression.
+Two real Hermes namespaces/PIDs, original launch, native run/session, dispatch
+and transcript stay unchanged across two physical same-CID Fleet restarts.
+Both epochs maintain live versions 4+ through the actual startup worker.
+Expiry cannot renew DB/native authority or admit a same-physical-start takeover;
+competing owner and new-owner effects remain held. Both native live probes and
+the expired probe preserve original journals byte-for-byte after graceful drain.
+
+Inputs: Fleet `2a1fc1056f201dc98f99c0f81f2c6489570fd58c` plus the captured
+candidate diff, Base control `8bf0634103fc88f831d0b8725506929c18ab6d32`,
+Base SDK `cbb4e99230420dc2659431b1c9fb5090e5c940f0`, Hermes
+`bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3`.
+All 316 captured inputs match, source manifest SHA256:
+`0407c7973b554286eb3b03d5a6bbf96bc60f4c3848152f41c4a9c7d50554362f`.
+Build-log SHA256:
+`15a8bcbf7c878e1c3b0e3d3e239c2530f72dbf2cb870cbd88210d2d1b7b9e31e`.
+Final report SHA256:
+`46fa5952855472be457ba21bfbe537cb32baf2ce3191a041f8da1b4b62984226`.
+Private evidence: workspace `.local/fleet-container-supervisor-live/`
+`sdlc-qa-fleet-container-live-2c9e86b1c29a-dihhgta6/`.
+Exit 0, own resource/tag cleanup and unchanged permanent runtime are confirmed.
+
+Preparation's last polling diagnostic predates the first Fleet approval row;
+its `fleet_approval_present=false` is not final acceptance. Preparation waits
+for the actual repository approval and each later state check verifies its
+identity/status. One deterministic model response induces genuine Hermes tool
+approval; no approval is granted. This is actual Hermes approval-wait custody,
+not real-PM reasoning, active inference socket survival, resumed execution,
+new-owner safe stop or SDLC/deployment acceptance. Those flags remain false.
+The failed earlier packets are retained unchanged. Recovery remains default-off.
+
 ## Separate Heartbeat Lock And Work Budgets: 7 October 2026
 
 The candidate after published `5b87a71` separates lifecycle-lock admission

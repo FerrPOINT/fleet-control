@@ -7,6 +7,8 @@ same required exact-image/source arguments as the existing container gate.
 The driver selects one exact ignored Rust test; it never runs all ignored tests
 against the same database. Baseline configuration replacement uses its own exact
 test and cannot accidentally enter the recovery phases.
+The build phase also executes the closed native heartbeat wire regression,
+including rejection of historical, malformed and altered live receipts.
 
 The custody scenario requires two actual pinned Hermes agents, one genuine
 manual terminal approval, a once-only deterministic model response, two actual
@@ -20,11 +22,21 @@ The90-second renewal observation window does not extend the30-second lease.
 After each worker process exits, a read-only freeze phase captures the final
 exact DB version into a separate private file before the native probe. This
 prevents a concurrent heartbeat from making the probe's snapshot obsolete.
+The two independent native journals are probed concurrently after freeze, so
+checking one agent does not consume the other agent's 30-second observation
+window. Each retains all original-key, exact-version, live/expiry, competitor
+and journal-byte assertions. No renewal or lease extension is performed by the
+read-only proof.
 The component contention regression uses actual PostgreSQL and the startup
 worker, holds the lifecycle lock for11 seconds, then delays each of its two
 native heartbeat calls by5 seconds. It requires matching live DB/native version2
 before the next worker tick could conceal an interrupted original cycle. This
 is a scheduler/helper regression, not a Docker or SDLC acceptance result.
+The quiescence regression stops the worker between DB CAS and delayed native
+write, requires concurrent shutdown callers to wait for matching settlement,
+and verifies no later heartbeat or duplicate worker. The actual recovery leg
+quiesces before teardown/freeze; the native proof still requires byte-identical
+journals and exact live versions, without repairing them in the probe.
 
 This is approval-wait custody, not active inference-connection survival, resumed
 execution, task/PM workflow or deployment acceptance. The existing rollback and

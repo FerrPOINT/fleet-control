@@ -14,7 +14,7 @@ not consume the native-work budget. One worker envelope is41 seconds; ticks
 remain skipped while the agent has an in-flight cycle.
 The30-second lease and all expiry checks remain unchanged; missed ticks are
 skipped. The current Base executable
-must support protocol3 recovery/heartbeat and match the original private source,
+must support protocol3 recovery and `heartbeat_controller_live`, and match the original private source,
 mapping and registration. Changing this flag does not select a newer Base source.
 
 The worker reconciles the retained original recovery command, then catches up the

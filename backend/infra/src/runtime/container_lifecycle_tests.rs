@@ -768,7 +768,7 @@ elif r['action']=='prepare':
   reg={'contract_version':policy['contract_version'],'operation_id':r['operation_id'],'container_id':digest(policy['generation']),'resource_id':policy['resource_id'],'generation':policy['generation'],'engine':{'ID':'original-engine','KernelVersion':'original-kernel','ServerVersion':'29'},'policy_sha256':digest(policy),'inventory_sha256':'c'*64,'running_inventory_sha256':'d'*64,'compose_sha256':'e'*64,'network_sha256':'f'*64}
   if r['protocol_version']==2:reg['mount_mapping_sha256']=digest(r['mount_mapping'])
   result={'state':'prepared','policy':policy,'registration':reg}
-elif r['action'] in ('observe_controller_restart','recover_controller','read_controller_recovery','heartbeat_controller') or (r['action']=='observe' and 'recovery' in r):
+elif r['action'] in ('observe_controller_restart','recover_controller','read_controller_recovery','heartbeat_controller','heartbeat_controller_live') or (r['action']=='observe' and 'recovery' in r):
  if (root/'hold-recovery-handshake').exists():assert r['action'] not in ('observe_controller_restart','recover_controller','read_controller_recovery')
  if (root/'hold-reservation-witness').exists():assert r['action']!='observe_controller_restart'
  reg=r['registration'];mapping=r['mount_mapping']
@@ -793,7 +793,7 @@ elif r['action'] in ('observe_controller_restart','recover_controller','read_con
    if (root/'recovery-unknown').exists():raise RuntimeError('Original ACK reply lost')
   elif r['action']=='read_controller_recovery':
    result=json.loads(ack.read_bytes());assert result['recovery']==command
-  elif r['action']=='heartbeat_controller':
+  elif r['action'] in ('heartbeat_controller','heartbeat_controller_live'):
    if (root/'slow-heartbeat').exists():time.sleep(5)
    original=json.loads(ack.read_bytes())['recovery'];previous=json.loads(lease.read_bytes())
    assert command['request']==original['request'] and command['epoch']==original['epoch']
@@ -807,6 +807,10 @@ elif r['action'] in ('observe_controller_restart','recover_controller','read_con
     if (root/'heartbeat-unknown').exists():
      (root/'heartbeat-unknown').unlink();raise RuntimeError('Heartbeat ACK reply lost')
    result={'state':'controller_heartbeat','recovery_id':command['request']['id'],'lease_version':command['lease_version'],'lease_expires_at':command['lease_expires_at']}
+   if r['action']=='heartbeat_controller_live':
+    assert not (root/'native-lease-expired').exists()
+    assert datetime.fromisoformat(command['lease_expires_at'])>datetime.now(timezone.utc)
+    result.update(state='controller_heartbeat_live',receipt=receipt)
    if (root/'heartbeat-malformed').exists():result['lease_version']+=1
   else:
    assert json.loads(lease.read_bytes())==command
@@ -2031,6 +2035,78 @@ async fn controller_startup_heartbeat_has_its_full_budget_after_lifecycle_lock_w
     })
     .await
     .expect("lock contention consumed the native heartbeat budget");
+    assert_eq!(
+        tokio::fs::read_to_string(root.join("controller/heartbeat-calls"))
+            .await
+            .unwrap(),
+        "1\n2\n"
+    );
+    assert!(runtime.gateway_launch_generation(agent.id).await.is_err());
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn controller_worker_quiescence_finishes_native_write_and_stays_stopped() {
+    let Some((repo, agent, runtime, original, root)) = controller_heartbeat_fixture().await else {
+        return;
+    };
+    tokio::fs::write(root.join("controller/slow-heartbeat"), "1")
+        .await
+        .unwrap();
+    runtime.spawn_controller_recovery();
+    runtime.spawn_controller_recovery();
+    tokio::time::timeout(Duration::from_secs(15), async {
+        loop {
+            if repo
+                .read_controller_recovery(original.request.id)
+                .await
+                .unwrap()
+                .unwrap()
+                .lease_version
+                == 2
+            {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .unwrap();
+    let other = runtime.clone();
+    let (first, second) = tokio::join!(
+        runtime.quiesce_controller_recovery(),
+        other.quiesce_controller_recovery(),
+    );
+    first.unwrap();
+    second.unwrap();
+    let lease: serde_json::Value = serde_json::from_slice(
+        &tokio::fs::read(root.join(format!(
+            "controller/{}.recovery-lease.json",
+            original.request.id
+        )))
+        .await
+        .unwrap(),
+    )
+    .unwrap();
+    let record = repo
+        .read_controller_recovery(original.request.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(record.lease_valid && record.lease_version == 2);
+    assert_eq!(lease["lease_version"], 2);
+    assert_eq!(lease["lease_expires_at"], record.lease_expires_at);
+    runtime.spawn_controller_recovery();
+    tokio::time::sleep(Duration::from_secs(11)).await;
+    assert_eq!(
+        repo.read_controller_recovery(original.request.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .lease_version,
+        2
+    );
     assert_eq!(
         tokio::fs::read_to_string(root.join("controller/heartbeat-calls"))
             .await
