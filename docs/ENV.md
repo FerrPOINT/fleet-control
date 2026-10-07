@@ -71,10 +71,10 @@ No automatic PM credential issuance, business transition or dispatch is enabled.
 
 October additions: `FLEET_CONTROL_SECRET__<REFERENCE>` supplies secret refs used
 by config revisions; values are resolved only into per-agent managed `.env`.
-`FLEET_CONTROL_AUTH__BOOTSTRAP_ADMIN_SUB` optionally names an exact verified
-central subject for initial admin provisioning, only while no active local admin
-exists. Remove it after bootstrap; other central users retain stored local roles,
-never implicit admin. Existing runtime derivation key:
+`FLEET_CONTROL_AUTH__BOOTSTRAP_ADMIN_SUB` is retired and ignored. Central users
+have equal control-plane permissions without local role grants; service scopes
+and private ownership still apply. Historical roles are not overwritten.
+Existing runtime derivation key:
 `FLEET_CONTROL_FLEET__RUNTIME_TOKEN_SECRET`.
 
 Required production values:
@@ -95,8 +95,8 @@ Important runtime values:
 - `FLEET_CONTROL_FLEET__JAVA_AGENT_COMMAND`
 - `FLEET_CONTROL_FLEET__AGENT_PORT_BASE`
 - `FLEET_CONTROL_FLEET__AGENT_PORT_STRIDE`
-| `FLEET_CONTROL_FLEET__RETENTION__STALE_ARCHIVED_DAYS` | 30 | Stale threshold (days) for archived agent folders |
-| `FLEET_CONTROL_FLEET__RETENTION__REVIEW_INTERVAL_SECS` | 3600 | Scheduled stale-folder review period (seconds) |
+  | `FLEET_CONTROL_FLEET__RETENTION__STALE_ARCHIVED_DAYS` | 30 | Stale threshold (days) for archived agent folders |
+  | `FLEET_CONTROL_FLEET__RETENTION__REVIEW_INTERVAL_SECS` | 3600 | Scheduled stale-folder review period (seconds) |
 
 ## PM Readback
 

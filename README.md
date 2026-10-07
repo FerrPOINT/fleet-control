@@ -9,7 +9,10 @@ Chat/PM work is in progress: [implementation plan](docs/CHAT_CLARIFICATION_IMPLE
 [contract](docs/contracts/CHAT_CLARIFICATION_CONTRACT.md). Production chat controllers
 use Fleet/Tracker APIs; workflow dispatch/resume and real PM acceptance remain blocked.
 Task-bound reads enforce current Tracker project access, including directory counts
-and stream replay. See the [verification ledger](docs/CHAT_CLARIFICATION_VERIFICATION.md)
+and stream replay. Central private-owner filtering applies to directory rows,
+counts and cursors even with expanded user filters. The seven clarification DTOs
+are validated against nested wire constraints; source parity is not admission.
+See the [verification ledger](docs/CHAT_CLARIFICATION_VERIFICATION.md)
 for PostgreSQL evidence and the remaining live-integration gates.
 Creation recovery now includes owner/key lookup, persisted-operation continuation
 and strict Tracker project choices. The new [creation form proposal](docs/design/PM_DRAFT_CREATION_PREVIEW.md)
@@ -64,7 +67,10 @@ See [migration rules](docs/MIGRATIONS.md#historical-lineages-and-task-chats).
 
 В standalone legacy mode первый зарегистрированный пользователь получает
 `system_role = admin`. При Central Auth локальная регистрация выключена; вход
-не повышает роль, а bootstrap admin требует явно настроенного verified subject.
+не повышает сохранённую роль, а legacy bootstrap-admin subject не выдаёт прав.
+Все активные central users имеют одинаковый control-plane доступ; PAT service
+scopes остаются обязательными. Приватный чат остаётся доступным только владельцу,
+business answer/confirmation нельзя выполнить от имени другого владельца.
 
 В central mode локальный профиль связывается с проверенным `sub`, а актуальное
 имя берётся из той же проверки активности JWT/PAT. Переименование не меняет

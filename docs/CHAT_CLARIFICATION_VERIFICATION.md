@@ -3,6 +3,93 @@
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 
+## Central Privacy And Strict Wire Reconciliation (2026-10-08)
+
+PR47's existing head5f20540 is normally merged with accepted main
+`c8093aace07e54436893c5f7e35df1f968690266`, retaining Base
+`875cac2edf1a18c3a8a59e2f67256d02a8fc04e4`. No history is force-rewritten;
+the fourteen historical main migration blobs remain byte-identical. Only
+task chats000010 is new, unchanged from the previously guarded release packet.
+Later runtime/credential migrations and installed images/flags are excluded.
+
+The shared task-directory relation now retains the central private-owner
+predicate for counts, pages, selected-owner scope and cursor validation.
+The real PostgreSQL regression denies foreign private rows/counts/cursors,
+while preserving standalone legacy expanded scope. The API matrix covers
+all three historical roles and both central service-write states. Task-context,
+history, controls and gateway authorization reuse main's session read guard;
+project checks and owner-only business actions remain separate constraints.
+Main's human/PAT scopes and authentication-generation reset are preserved.
+
+Linux Rust1.88.0/PostgreSQL17.11 passed **196 distinct component cases**:
+181 workspace cases and fifteen explicit opt-in cases (nine lineage, three
+central profile, one directory, one authenticated approval SSE and one
+historical ordering). All fifteen default-ignored cases were actually run
+with owned database URLs. Locked all-target check, strict Clippy and fmt pass.
+Expected SQL denials in negative cases are not gate failures. The frozen 201
+backend/SDK inputs were read back unchanged before exporting the generated
+OpenAPI. The tracked spec is byte-identical to that actual Rust export.
+
+| Evidence artifact | SHA256 |
+| --- | --- |
+| Final backend Compose project `sdlc-qa-fleet-task-chats-289b8a15aead` log | `49b63d2cc92cb212ae1c1925b43713e2c860b2b5ab08768ada49990fd6c141c3` |
+| Actual Rust-generated OpenAPI | `4aca254bde785794e7df09bda41de600e12579b9760060aa86dddafa707cc808` |
+| Tracker PR114 source357caa7 OpenAPI | `7a1131a653ad06898170318b25dea9f78760e07f4f58a0d91b081800efbf074e` |
+| Final frontend/client/browser/screenshot gate log after fixture correction | `9a5f7af683cfc7ca5b8eb20039e06115dfbb43942edb882c02c9779c4e473bf8` |
+| Accepted regenerated 135-screen fixture route manifest | `b3e4cd52f0584790fc75b9d20af55ef4af75322fc1f4b5c51b916b792a726ac3` |
+
+The strict seven-DTO comparison passes against exact Tracker Git source
+`357caa7a60a717eb7b0ac72f286b793326992931`, not a mutable local checkout.
+Closed nested fields and version bounds are checked as validation constraints;
+the checker passes eight regressions including refusing a bad record before
+overwriting the snapshot. This is source parity, not deployed compatibility,
+producer authorization or runnable admission.
+
+Frozen Node22.20.0/pnpm10.28.1 installation, generated-client drift and API
+compatibility, typecheck, lint/semantic classes, formatting, Base shared-UI
+contract/effective-theme contrast and build pass. **257 Vitest cases** pass;
+**36 fixtures** pass in Chromium/Firefox/WebKit, with **27 opt-in live cases
+skipped**. Nine production-controller fixture images were regenerated and
+remain explicitly `liveAcceptance=false`. Desktop clarification and mobile
+dialogue were opened and inspected without obvious overlap. The 135-screen
+fixture manifest was regenerated and verified at 375x812,
+1920x1080 and 2560x1440; all nine controller hashes also passed verification.
+The owning preview exited in `finally` and its listening port was read back empty.
+The production bundle retains its existing greater-than-500kB chunk warning; this gate is not
+a performance or zero-console/network-error acceptance claim.
+
+The initial backend attempt exposed stale Cargo artifacts under the shared
+fixed copy path. Private copied sources are now invalidated before reuse;
+the listed final run recompiled and passed. The first frontend wrapper's
+two-second localhost readiness timeout failed despite a responding preview;
+only its probe was changed to an explicit no-proxy IPv4 read with five seconds.
+The full client/browser gate was rerun with canonical localhost browser origin;
+product assertions and SSO behavior were not weakened.
+
+Visual review then rejected the first full screenshot packet: its legacy helper
+had no current directory/context/history/control routes, and dimensions-only
+verification accepted mock-error screens. The helper now supplies those fixture
+contracts, rejects every unhandled API and requires real fixture list/transcript
+content. The new guard also caught a missing workflow-catalog fixture, which was
+added with its actual catalog shape. Both earlier packets are rejected UI evidence;
+the final full frontend and three-browser/screenshot gate passed after these
+corrections. Fresh mobile catalogue/transcript and desktop catalogue were opened
+and checked as well. Fixture API coverage
+is not evidence of a real backend/PM roundtrip.
+
+Both owned backend Compose projects were removed in `finally`, and containers
+and networks were independently read back absent. Docker grouping audit returned
+complete=true, desktop35 and both runners0, with no violations. This is a dated
+observation, not a permanent inventory. Shared caches, volumes, pins, secrets and
+accepted runtime snapshots were not pruned or replaced.
+
+PR47 remains Draft until its agreed live acceptance: initial Draft creation
+still stops at `awaiting_admission` with dispatch false. Fenced admission/first
+step, real PM structured tools, answer delivery/checkpoint/resume, owner consent
+to Backlog and actual deployment remain open. Source gates do not certify the
+later integration branch. Exact published-head CI is a separate post-push gate;
+older green checks cannot attest this merge.
+
 ## Accepted-Main Reconciliation And Safe Downgrade (2026-10-06)
 
 Release source `5240107596ce9b645a4e30cd9b9506ecfc739905` is reconciled by a

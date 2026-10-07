@@ -298,6 +298,7 @@ async fn targeted_approval_http_requires_human_and_unknown_ack_is_not_repeated()
         id: owner,
         role: domain::SystemRole::User,
         is_system_admin: false,
+        central_write: None,
     };
     let route = format!(
         "/api/v1/sessions/{}/approvals/{}/decision",
@@ -1758,6 +1759,7 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
             id: session.user_id,
             role: domain::SystemRole::User,
             is_system_admin: false,
+            central_write: None,
         }))
         .with_state(ctx);
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -2508,6 +2510,7 @@ async fn task_approval_rechecks_assignment_after_waiting_for_actor_lock() {
             id: session.user_id,
             role: domain::SystemRole::User,
             is_system_admin: false,
+            central_write: None,
         }))
         .with_state(ctx);
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -3002,6 +3005,7 @@ async fn readiness_http_does_not_trust_database_only_effective_revision() {
                     id: owner,
                     role: domain::SystemRole::Operator,
                     is_system_admin: false,
+                    central_write: None,
                 })),
         )
         .nest(
@@ -3010,6 +3014,7 @@ async fn readiness_http_does_not_trust_database_only_effective_revision() {
                 id: owner,
                 role: domain::SystemRole::User,
                 is_system_admin: false,
+                central_write: None,
             })),
         )
         .with_state(ctx);

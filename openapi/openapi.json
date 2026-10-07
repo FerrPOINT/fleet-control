@@ -1681,7 +1681,7 @@
           {
             "name": "user_id",
             "in": "query",
-            "description": "Comma-separated user ids, or all for admin. Omit for current user.",
+            "description": "Comma-separated user ids, or all for central users and legacy operators/admins. Central private sessions remain owner-only. Omit for current user.",
             "required": false,
             "schema": {
               "type": "string"
@@ -4697,6 +4697,15 @@
           "content_hash": {
             "type": "string"
           },
+          "expected_routing_policy_version": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "maximum": 9007199254740991,
+            "minimum": 1
+          },
           "idempotency_key": {
             "type": "string"
           }
@@ -6700,7 +6709,8 @@
             "type": "integer",
             "format": "int64"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "TrackerQuestion": {
         "type": "object",
@@ -6852,7 +6862,8 @@
           "label": {
             "type": "string"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "TrackerQuestionState": {
         "type": "string",
@@ -6953,7 +6964,9 @@
           },
           "revision": {
             "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "maximum": 9007199254740991,
+            "minimum": 1
           },
           "scenarios": {
             "type": "array",
@@ -6967,14 +6980,16 @@
               "type": "string"
             }
           }
-        }
+        },
+        "additionalProperties": false
       },
       "TrackerStage": {
         "type": "string",
         "enum": [
           "Draft",
           "Clarification",
-          "Backlog"
+          "Backlog",
+          "Analysis"
         ]
       },
       "TrackerTaskContext": {

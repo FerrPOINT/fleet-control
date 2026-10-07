@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+- Preserve the central private-owner boundary across task directory counts,
+  pages, expanded owner selections, cursors and task chat read/control routes.
+  Retain accepted central scopes, authentication-generation reset and Base pin.
+- Close all seven Tracker clarification wire schemas, validate safe version
+  bounds and compare nested validation constraints with actual producer source.
+  Keep source compatibility distinct from deployed PM admission acceptance.
+- Update screenshot fixtures for the server-side chat directory, context,
+  history and controls. Refuse capture with any unhandled API route and require
+  the chat list/transcript to load, instead of publishing fixture-error screens.
+
 - Reconcile the task-chat foundation with accepted main without rewriting
   history. Preserve verified central profile names/human-session proofs and
   append the one task-chat migration to both historical database lineages.
@@ -81,6 +91,19 @@
 - Integrate exact-request human tool approvals with immutable command replay,
   stale-assignment protection and no automatic redispatch after an unknown outcome.
   PM structured dispatch/resume and live clarification acceptance remain incomplete.
+- Диалоги apply/rollback настроек возвращают фокус на кнопку preview; новое подтверждение очищает ошибку предыдущей операции. Pending и product-owned preview/retry сохранены. Base закреплён на проверенный SHA для воспроизводимой общей поставки.
+
+- Active Central Auth users can operate Fleet without local role grants.
+  Personal token scopes remain enforced, private sessions remain owner-only,
+  shared sessions permit central users, and bootstrap/role mutation cannot
+  promote historical profiles. Standalone legacy RBAC is preserved.
+- Session SSE remains bound to the original validated user during replay and
+  idle checks; a still-active token rebound to another subject closes the stream.
+- Global Fleet SSE revalidates the original bearer identity, activity and read
+  scope during idle and before every delivery. Revocation and Auth failure close
+  held streams; central private session events remain owner-only, and standalone
+  streams recheck current local roles.
+
 - Central profiles use the confirmed current name from the same JWT/PAT
   activity check. Same-sub ID, local roles and historical same-email users are
   preserved; missing names fail closed and unchanged profiles avoid a write.
@@ -105,6 +128,7 @@
 - Выход направляет браузер в Central Auth до изменения локального auth-state.
 
 ### Added
+
 - Versioned managed Fleet settings API with validated preview, optimistic
   concurrency, explicit restart confirmation, immutable history, atomic audit
   records and rollback-as-a-new-version. The active snapshot is applied on
@@ -114,7 +138,9 @@
   version history and rollback. Failed mutations keep the draft and
   confirmation context available for retry.
 - Streamlined настройки Fleet (#13); локализованный/компактный dashboard (#12).
+
 ### Fixed
+
 - Fleet shell adopts the full-width shared PlatformHeader with a nav-only
   sidebar, one bounded account menu and unchanged central logout ordering.
   Mobile navigation is 44 px, closes after navigation/desktop resize and
@@ -139,6 +165,7 @@
 - Frontend Docker build снова воспроизводим с `pnpm --frozen-lockfile`:
   security overrides синхронизированы между `package.json` и lockfile.
 - Семантика сохранения настроек (#14); метки полей редактора (#11); аудит dev-зависимостей (#15).
+
 ### Security
 
 - HMAC access-token validation now delegates to the shared `sdlc-auth-core::Validator` (`hmac_with_audience` with the configured issuer/audience); the duplicated local decode/validate path is retired. Legacy pre-fleet token fallback and OIDC mode are unchanged.
@@ -164,16 +191,19 @@
 ## [Unreleased]
 
 ### Added
+
 - OIDC/JWKS validation mode: `auth.mode=oidc` — RS256 против JWKS провайдера (кэш + refresh + kid-miss retry), строгие `iss`/`aud`, role-клейм маппинг, HMAC/local login отключены fail-closed.
 
 ## [Unreleased]
 
 ### Added
+
 - Bulk runtime updates/rollback: `POST /api/v1/deployments/jobs/bulk` — один deployment job на агента (≤100), пропуск archived, `rollback` для runtime_update (IMPLEMENTATION_PLAN Phase 3).
 
 ## [Unreleased]
 
 ### Added
+
 - Operator retention policy thresholds + scheduled stale-folder review (IMPLEMENTATION_PLAN Phase 3): `fleet.retention.stale_archived_days` (default 30) / `fleet.retention.review_interval_secs` (default 3600); storage report помечает `stale` + `archived_days`; фоновый review-воркер логирует stale-агентов; `POST /api/v1/settings/retention/review` (operator, audited).
 
 ## 0.2.0 - 2026-09-01

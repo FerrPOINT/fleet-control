@@ -7,7 +7,7 @@
 | Seven independent specializations | `SdlcRole`, migration 000009, create/edit; no seven-agent live acceptance yet |
 | Agent -> own chats | `/chats/:sessionId`, immutable task binding, owner-only persisted Draft/reservation/chat coordinator; actual admitted PM start pending |
 | No new leader orchestration | Main nav and Chats controls exclude it; legacy routes/history preserved |
-| Per-user visibility | Default backend filter, private message authorization regression, SSO stored-role tests |
+| Per-user visibility | Default backend filter; central private-owner guard shared by transcript and task routes; real PostgreSQL directory rows/counts/cursor/multi-owner denial and central role/scope matrix |
 | No duplicate unknown dispatch | Transactional outbox, agent capacity regression; crashed acceptance recovery pending |
 | No completion from EOF | Fake Hermes non-terminal/terminal readback; interrupted is failure, never a fabricated reply |
 | Durable cursor | Migration 000009, session cursor/Last-Event-ID, Base reconnect tests; expiry/reset pending |
@@ -24,7 +24,7 @@
 | Questions, versions, no preselection | Generated DTOs, single/multiple/text validators, stale draft tests | Structured PM tools and real question publication |
 | No unknown-command reinterpretation | Frozen message/answer payloads and keys, uncertain-steer regression | PM delivery readback/rebind |
 | Requirements revision changes revoke UI consent | Revision/hash form identity, full document and comparison, regression test | Trusted exact-revision prerequisite evidence |
-| Wire drift | Rust OpenAPI, generated client, seven-schema Tracker snapshot check | Compatible deployed versions and CI head verification |
+| Wire drift | Rust OpenAPI, generated client, seven closed nested schemas and validation constraints; actual Tracker source357caa7 comparison | Compatible deployed versions and CI head verification |
 | Keyboard/mobile/desktop | Three-browser controller fixtures, axe, Escape focus and tab arrows, generated image hashes | Live production acceptance, not fixture promotion |
 
 The table below describes the legacy baseline, not complete SDLC acceptance.

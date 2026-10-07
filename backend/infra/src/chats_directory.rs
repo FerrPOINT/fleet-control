@@ -16,6 +16,7 @@ WITH scoped AS MATERIALIZED (
     WHERE ($1::boolean OR s.user_id = ANY(ARRAY(SELECT value::uuid FROM jsonb_array_elements_text($2::jsonb))))
       AND (b.session_id IS NULL OR (b.tracker_instance_id=$7::text
            AND b.project_id IN (SELECT value::uuid FROM jsonb_array_elements_text($8::jsonb))))
+      AND ($9::uuid IS NULL OR s.visibility <> 'private' OR s.user_id=$9::uuid)
       AND (s.title ILIKE $3 ESCAPE E'\\' OR COALESCE(s.task_key,'') ILIKE $3 ESCAPE E'\\'
            OR u.display_name ILIKE $3 ESCAPE E'\\')
 ), counts AS (
@@ -104,6 +105,7 @@ impl PostgresFleetRepository {
                     ((filter.limit + 1) as i64).into(),
                     instance.into(),
                     serde_json::json!(projects).into(),
+                    filter.private_user_id.into(),
                 ],
             ))
             .await
@@ -208,6 +210,7 @@ mod tests {
                 before: None,
                 limit: 2,
                 task_project_access: None,
+                private_user_id: None,
             })
             .await
             .unwrap();

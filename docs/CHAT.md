@@ -1,5 +1,16 @@
 # Чаты и сессии Fleet Control
 
+## Проверка task-chat foundation 8 октября 2026
+
+Каталог, счётчики, страницы и курсоры сохраняют private-owner границу
+central identity даже при фильтре «все»/несколько пользователей. Task-context,
+история, controls и gateway применяют общий backend guard доступа к сессии;
+business answer/confirmation доступны только владельцу. Семь DTO уточнений
+проверяются вместе с вложенными validation constraints. Это source-проверка,
+не доказательство admission или живого PM resume. Актуальные результаты:
+[verification ledger](CHAT_CLARIFICATION_VERIFICATION.md),
+[current state](CURRENT_STATE.md). Историческая спецификация ниже сохраняется.
+
 ## Актуализация 1 октября 2026
 
 Новый основной маршрут `/chats`: реальные агенты и внутри их отдельные сессии.

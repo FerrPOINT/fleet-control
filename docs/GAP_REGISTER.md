@@ -1,5 +1,17 @@
 # Gap Register
 
+## Task-Chat Foundation Reconciliation (2026-10-08)
+
+The release packet normally merges accepted mainc8093aa and retains SDK875cac2.
+Task directory counts/pages/cursors and task read/control/gateway routes preserve
+the central private-owner boundary. All seven clarification DTOs are closed and
+their nested validation constraints match actual Tracker source357caa7.
+Only task chats000010 is new; later runtime integration migrations stay outside.
+Current component evidence is recorded in the
+[verification ledger](CHAT_CLARIFICATION_VERIFICATION.md), separately from the
+older observations below. Full PM admission/tools/resume/live acceptance remain
+open; source parity does not close those gaps or authorize model dispatch.
+
 ## Release Foundation Reconciliation (2026-10-06)
 
 PR47 is normally reconciled with accepted main3c6b8ef and SDKcbb4e99, without

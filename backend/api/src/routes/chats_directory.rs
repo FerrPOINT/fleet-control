@@ -59,6 +59,7 @@ fn authorized_filter(
         before: query.before,
         limit: query.limit.unwrap_or(50),
         task_project_access: None,
+        private_user_id: current.central_write.map(|_| current.id),
     };
     filter.validate()?;
     Ok(filter)
@@ -105,6 +106,7 @@ mod tests {
             id: Uuid::new_v4(),
             role,
             is_system_admin: false,
+            central_write: None,
         }
     }
 
@@ -119,6 +121,34 @@ mod tests {
             let filter = authorized_filter(ChatsDirectoryQuery::default(), &current).unwrap();
             assert_eq!(filter.user_ids, vec![current.id]);
             assert!(!filter.include_all_users);
+        }
+    }
+
+    #[test]
+    fn central_directory_retains_private_owner_even_with_expanded_user_scope() {
+        for role in [
+            domain::SystemRole::User,
+            domain::SystemRole::Operator,
+            domain::SystemRole::Admin,
+        ] {
+            for write in [false, true] {
+                let mut current = user(role);
+                current.central_write = Some(write);
+                for scope in [
+                    "all".to_string(),
+                    format!("{},{}", current.id, Uuid::new_v4()),
+                ] {
+                    let filter = authorized_filter(
+                        ChatsDirectoryQuery {
+                            user_id: Some(scope),
+                            ..Default::default()
+                        },
+                        &current,
+                    )
+                    .unwrap();
+                    assert_eq!(filter.private_user_id, Some(current.id));
+                }
+            }
         }
     }
 

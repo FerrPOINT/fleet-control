@@ -1,5 +1,30 @@
 # Current State
 
+## Task-Chat Foundation: 8 October 2026
+
+The PR47 release is reconciled by a normal merge with accepted main
+`c8093aace07e54436893c5f7e35df1f968690266`. It retains the accepted Base pin
+`875cac2edf1a18c3a8a59e2f67256d02a8fc04e4`, central human/PAT permission
+semantics and authentication-generation reset. This packet still adds only
+task chats000010; later runtime/credential migrations are excluded.
+
+The task-chat directory now applies the same central private-owner boundary
+to counts, pages, multi-user selections and cursor validation. Task-context,
+history, controls and gateway authorization reuse the main session read guard.
+Expanded directory scope does not grant access to foreign private transcripts.
+The seven Tracker clarification DTOs are closed and validated; source-contract
+comparison is separate from deployed producer/admission acceptance.
+
+This is a component release, not autonomous PM/SDLC completion. Draft creation
+still ends at `awaiting_admission` with no model dispatch. Fenced first-step
+admission, structured PM tools, answer delivery/checkpoint/resume, live owner
+confirmation-to-Backlog and deployment acceptance remain open. Current gate
+results are recorded in the [verification ledger](CHAT_CLARIFICATION_VERIFICATION.md):
+196 Rust/PostgreSQL component cases, 257 frontend cases, 36 three-browser fixture
+cases and 135 regenerated screenshot entries. The 27 live cases were skipped,
+not accepted. Exact-head CI remains a separate post-push check.
+The dated sections below describe their own older source packets, not this head.
+
 ## Task-Chat Release Reconciliation: 6 October 2026
 
 PR47's foundation source `5240107` is reconciled with accepted main `3c6b8ef`
@@ -31,7 +56,7 @@ below are historical, not acceptance evidence for the new SDLC plan.
 
 New implementation: seven specializations, agent-grouped `/chats`, read-only
 directory, persistent bearer SSE replay, transactional prompt outbox, concurrent
-idempotency, no effective-admin central bypass, versioned configuration activation
+idempotency, historical local-role enforcement, versioned configuration activation
 with drain/readback/rollback and fail-closed SDLC readiness.
 
 Native Windows Rust commands still require MSVC `link.exe`.

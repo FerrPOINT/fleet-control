@@ -26,6 +26,7 @@ fn query(owner: Uuid, agent: Option<Uuid>, search: &str) -> ChatsDirectoryFilter
         before: None,
         limit: 50,
         task_project_access: None,
+        private_user_id: None,
     }
 }
 fn count(page: &ChatsDirectoryPage, agent: Uuid) -> u64 {
@@ -189,6 +190,29 @@ async fn postgres_directory_scope_search_counts_cursor_and_stable_order() {
     let all_page = repo.chats_directory(all.clone()).await.unwrap();
     assert_eq!(count(&all_page, dev), 5);
     assert!(all_page.items.iter().any(|item| item.id == foreign_chat));
+    let mut central = all.clone();
+    central.private_user_id = Some(owner);
+    let central_page = repo.chats_directory(central.clone()).await.unwrap();
+    assert_eq!(count(&central_page, dev), 4);
+    assert_eq!(count(&central_page, foreign_only), 0);
+    assert!(
+        !central_page
+            .items
+            .iter()
+            .any(|item| item.id == foreign_chat)
+    );
+    central.before = Some(foreign_chat);
+    assert!(matches!(
+        repo.chats_directory(central).await,
+        Err(AppError::Validation(_))
+    ));
+    let mut foreign_selected = all.clone();
+    foreign_selected.user_ids = vec![foreign];
+    foreign_selected.include_all_users = false;
+    foreign_selected.private_user_id = Some(owner);
+    let denied = repo.chats_directory(foreign_selected).await.unwrap();
+    assert_eq!(count(&denied, dev), 0);
+    assert!(denied.items.is_empty());
     all.include_all_users = false;
     assert!(matches!(
         repo.chats_directory(all).await,
@@ -394,6 +418,7 @@ async fn postgres_directory_scope_search_counts_cursor_and_stable_order() {
             id: owner,
             role: domain::SystemRole::Operator,
             is_system_admin: true,
+            central_write: None,
         }))
         .with_state(ctx);
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();

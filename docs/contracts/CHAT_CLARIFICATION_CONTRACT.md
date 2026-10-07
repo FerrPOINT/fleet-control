@@ -2,6 +2,19 @@
 
 Status: agreed target contract; deployment compatibility must be verified.
 
+## Source Compatibility Evidence (2026-10-08)
+
+The PR47 foundation reconciled with mainc8093aa retains Base875cac2 and
+matches all seven DTOs in Tracker PR114 source
+`357caa7a60a717eb7b0ac72f286b793326992931`. The comparison includes nested
+closed schemas and validation constraints, not just documentation-free shape.
+Positive versions are bounded by JavaScript's safe integer range; the optional
+confirmation routing-policy version is omitted when absent. `Analysis` is a
+valid context stage. The exported producer OpenAPI SHA256 is
+`7a1131a653ad06898170318b25dea9f78760e07f4f58a0d91b081800efbf074e`.
+This is exact source parity, not deployed compatibility or execution admission.
+Earlier evidence below applies only to its older source packet.
+
 ## Release-Specific Compatibility Evidence (2026-10-06)
 
 The PR47 foundation release, reconciled from5240107 with main3c6b8ef and pinned

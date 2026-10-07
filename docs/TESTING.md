@@ -1,5 +1,27 @@
 # Testing
 
+The central directory regression explicitly executes the real PostgreSQL query
+with expanded and selected-foreign owner filters. It verifies that private rows,
+counts and foreign cursors are denied together, while standalone legacy expanded
+scope remains compatible. The API matrix covers all three historical roles and
+both central service-write states; roles cannot bypass the private-owner filter.
+
+The clarification checker resolves nested schemas and retains validation
+constraints, including boolean schemas, maps, reference siblings and safe version
+bounds. Its eight cases reject loosened schemas and refuse an incompatible
+`--record` before changing the snapshot. After Rust generation, compare actual
+published producer bytes with
+`node frontend/scripts/verify-chat-contract.mjs --tracker <exported-Tracker-openapi>`
+from the repository root. Record the producer commit and artifact hash; a local
+snapshot match alone is not deployed contract or PM admission acceptance.
+
+The screenshot helper mocks the current server-side directory, history,
+task-context and chat-controls APIs. It refuses any unhandled fixture API route
+and requires the list/transcript content before capturing Chats. A PNG count or
+valid image dimensions alone must not turn a mock-error page into UI evidence.
+The independent nine clarification/requirements controller images still use
+their explicit fixture contract and `liveAcceptance=false` manifest.
+
 Historical-lineage upgrade tests and central-profile preservation run explicitly
 in CI after workspace tests, with `--include-ignored`/`--ignored` respectively.
 Use an owned disposable PostgreSQL database; lineage cases create isolated
@@ -224,3 +246,24 @@ order on overview, workspace, leader detail and session detail at
 375/768/1023/1024/1279/1280/1920 px, in all three themes (84 combinations).
 It also runs axe and checks document overflow. DOM unit tests check semantic
 landmarks and primary-before-rail order; they are not CSS geometry evidence.
+
+## Browser Authentication Regression Gate
+
+Run the frontend test, typecheck, lint, format and build gates before release.
+The focused tests are `src/api/client.test.ts`,
+`src/app/auth-boundary.test.tsx`, `src/shared/auth/store.test.ts`,
+`src/widgets/app-shell.test.tsx` and `src/pages/sso-callback/index.test.tsx`.
+They cover late successful/error responses, response-body races, concurrent
+expiration, same-subject reauthentication, cache/draft removal, StrictMode,
+pending/failed sign-out, permission subject mismatch and obsolete SSO completion.
+
+Run `pnpm exec playwright test e2e/fleet-control.spec.ts` in Chromium, Firefox
+and WebKit against the built frontend. These browser flows use mocked API and
+signed SSO responses: they verify UI integration, not live Central Auth,
+Hermes, workflow resume or autonomous SDLC acceptance. Live specifications
+require the separately documented QA setup and are not covered by fixture runs.
+
+Backend ownership and SSE revocation tests remain independently required.
+Discarding an obsolete browser result must never be treated as permission to
+resend an uncertain mutation. Recovery tests must preserve original command
+identity and verify authoritative readback before allowing any new dispatch.
