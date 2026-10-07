@@ -31,6 +31,9 @@ Pinned Base package preparation is available as an operator-only configuration
 draft API, with exact Git hashes and guarded revision writes. It does not install
 the package or enable automatic SDLC. See [API](docs/API.md#pinned-base-package-draft)
 and [configuration](docs/ENV.md).
+Pinned-package HOME readback rejects unattested support files without deleting
+them; native plugin/loaded-instruction inventory remains a separate readiness
+gate. See [runtime boundaries](docs/RUNTIME.md#native-inventory-limits).
 
 Chat/PM work is in progress: [implementation plan](docs/CHAT_CLARIFICATION_IMPLEMENTATION_PLAN.md),
 [contract](docs/contracts/CHAT_CLARIFICATION_CONTRACT.md). Production chat controllers

@@ -1,8 +1,10 @@
 # Hermes Adapter Contract
 
 Pinned Base preparation seals six native skill discovery/disable settings;
-effective validation denies missing or changed policy and legacy Markdown
-outside verified HOME packages. This is not a full loaded plugin/tool inventory
+effective validation denies missing or changed policy and every HOME/skills file
+other than the pinned package's materialized `<name>/SKILL.md`, even support files under an
+allowed skill directory. Unix canonical hard links fail closed without mutation.
+This is not a full loaded plugin/tool inventory
 or first-step receipt. [Policy and upgrade](../RUNTIME.md#sdlc-skill-discovery-policy).
 
 Private controller recovery storage follows

@@ -603,9 +603,12 @@ head, not a successful runtime observation. Workflow admission remains a separat
 blocker; this endpoint cannot authorize PM dispatch.
 For a pinned Base snapshot, readback also revalidates Git provenance and the
 role allowlist, then scans HOME skills (maximum 4096 entries / 16 levels).
-Unlisted/nested/case-aliased skill files, links, special files and missing allowed
-skills fail closed without deleting them. Legacy non-package snapshots preserve
-the previous managed-only verification. `.bundled_manifest` never supplies proof.
+Only the pinned package's materialized `<name>/SKILL.md` files are allowed.
+Unlisted/nested/case-aliased instructions, support/scripts/assets/templates,
+hidden files, links, special files and missing allowed skills fail closed without
+deleting them. Unix hard-linked canonical instructions are rejected as well.
+Legacy non-package snapshots preserve the previous managed-only verification.
+`.bundled_manifest` never supplies proof.
 Project/external/plugin discovery and runtime-loaded settings are not attested. The separate
 `runtime_skill_inventory_not_verified` blocker prevents treating intact managed
 files as proof of complete skill inventory/native provenance.

@@ -160,34 +160,25 @@ async fn verify_skill_files(
                     return Err(mismatch());
                 }
                 pending.push((path, depth + 1));
-            } else if !metadata.is_file() {
+            } else if !metadata.is_file() || entry.file_name() != "SKILL.md" {
                 return Err(mismatch());
-            } else if entry
-                .file_name()
-                .to_string_lossy()
-                .eq_ignore_ascii_case("SKILL.md")
-            {
+            } else {
+                // The pinned package materializes SKILL.md only. Unattested
+                // support/scripts are callable through native skill_view too.
                 let relative = path.strip_prefix(skills_root).map_err(|_| mismatch())?;
                 let components: Vec<_> = relative.components().collect();
-                if components.len() != 2 || entry.file_name() != "SKILL.md" {
+                if components.len() != 2 {
                     return Err(mismatch());
+                }
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::MetadataExt;
+                    if metadata.nlink() != 1 {
+                        return Err(mismatch());
+                    }
                 }
                 let name = components[0].as_os_str().to_str().ok_or_else(mismatch)?;
                 if !expected.contains(name) || !seen.insert(name.to_string()) {
-                    return Err(mismatch());
-                }
-            } else if path
-                .extension()
-                .is_some_and(|extension| extension.to_string_lossy().eq_ignore_ascii_case("md"))
-            {
-                // Native skill_view also accepts legacy flat Markdown. Only
-                // support Markdown under a verified package may remain here.
-                let relative = path.strip_prefix(skills_root).map_err(|_| mismatch())?;
-                let components: Vec<_> = relative.components().collect();
-                let package = components
-                    .first()
-                    .and_then(|component| component.as_os_str().to_str());
-                if components.len() < 2 || package.is_none_or(|name| !expected.contains(name)) {
                     return Err(mismatch());
                 }
             }
@@ -225,8 +216,17 @@ mod tests {
             "category/allowed/SKILL.md",
             "allowed/skill.md",
             "allowed.md",
+            "allowed.MD",
             "unlisted.md",
             "category/allowed.md",
+            "allowed/references/guide.md",
+            "allowed/scripts/helper.py",
+            "allowed/templates/config.yaml",
+            "allowed/assets/fixture.bin",
+            "allowed/extra.txt",
+            "allowed/.hidden",
+            ".metadata.json",
+            "foreign/notes.txt",
         ] {
             let path = skills.join(relative);
             tokio::fs::create_dir_all(path.parent().unwrap())
@@ -240,18 +240,30 @@ mod tests {
             );
             tokio::fs::remove_file(path).await.unwrap();
         }
-        let support = skills.join("allowed/references/guide.md");
-        tokio::fs::create_dir_all(support.parent().unwrap())
-            .await
-            .unwrap();
-        tokio::fs::write(&support, "package support document")
-            .await
-            .unwrap();
         verify_skill_files(&root, &skills, &expected).await.unwrap();
         tokio::fs::remove_file(skills.join("allowed/SKILL.md"))
             .await
             .unwrap();
         assert!(verify_skill_files(&root, &skills, &expected).await.is_err());
+        tokio::fs::remove_dir_all(root).await.unwrap();
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn base_package_skill_readback_rejects_hardlinked_instruction_without_mutation() {
+        let (root, skills, expected) = fixture().await;
+        let instruction = skills.join("allowed/SKILL.md");
+        let alias = root.join("outside-skill.md");
+        tokio::fs::hard_link(&instruction, &alias).await.unwrap();
+        assert!(verify_skill_files(&root, &skills, &expected).await.is_err());
+        for path in [&instruction, &alias] {
+            assert_eq!(
+                tokio::fs::read_to_string(path).await.unwrap(),
+                "# allowed\n"
+            );
+        }
+        tokio::fs::remove_file(alias).await.unwrap();
+        verify_skill_files(&root, &skills, &expected).await.unwrap();
         tokio::fs::remove_dir_all(root).await.unwrap();
     }
 

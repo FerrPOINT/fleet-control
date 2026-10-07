@@ -469,15 +469,49 @@ Native project discovery can otherwise shadow HOME skills by name; an enabled
 DB allowlist and byte-identical HOME files alone do not exclude those sources.
 Unrelated skill/model settings remain unchanged. Package validation/readback
 requires every sealed field to match; missing fields and later edits fail closed.
-HOME readback additionally rejects unlisted legacy flat `*.md` skills, including
-category subdirectories; native `skill_view` can read them without `SKILL.md`.
-Support Markdown under a verified skill directory is not treated as a separate
-legacy skill. It is not a complete support-file provenance attestation.
+Within HOME/skills, readback permits only the materialized `<name>/SKILL.md` files.
+Unlisted legacy Markdown, support documents, scripts, binary/template files and
+hidden files are rejected, including those under an allowed skill directory:
+native `skill_view(file_path=...)` can read such bytes without another `SKILL.md`.
+The pinned package contains no attested support files; accepting future packages
+with support requires an explicit versioned inventory contract. Unix readback
+also rejects a canonical instruction with more than one hard link. Rejection is
+read-only and preserves the unexpected files. Empty directories remain subject
+to the existing entry/depth bounds. This does not prevent mutation after readback
+or attest files outside the managed HOME tree.
 
 This is a configuration revision, not an in-place change of an active agent.
 Previously prepared SDLC package revisions without this policy require explicit
 new draft preparation, validation and drain/activation; there is no historical
 backfill or automatic repair. Free-chat configurations are unaffected.
+
+### Native Inventory Limits
+
+Read-only source review of pinned Hermes `bbaf7af5` confirms that the HOME seal
+does not close every native instruction source. Python plugin registrations may
+point outside HOME; project plugin activation uses an independent environment
+gate. Installed entry points, deferred platform plugins and lazy memory providers
+can add skills. Managed configuration can override user settings, and a
+context-local profile home can override the launch environment. Native listing
+and callable lookup have different aliases/collision rules. Preprocessing, plugin
+hooks and frozen session prompts can change the instructions actually delivered.
+
+An eventual owner-side inventory endpoint must use already initialized runtime
+handles and a captured configuration generation. It must not call discovery,
+reload, lazy provider initialization, config-loader refresh or skill preprocessing
+while claiming an observational read. Native `skills_list` and qualified
+`skill_view` do not meet that requirement. Installing the endpoint plugin itself
+is a separate explicit configuration change, not a read-only operation.
+
+Required evidence includes original runtime incarnation, effective revision and
+resolved HOME/profile/cwd; source owners, canonical names/aliases and ambiguity;
+bounded exact captured bytes/hashes; active preprocessing, handlers/hooks and
+frozen session prompt state. Unknown lazy registrations, unstable generations or
+unaccounted transformations must return incomplete rather than grant readiness.
+Authentication identifies the responder, not the safety of arbitrary loaded code.
+This is a source-audit requirement, not an implemented endpoint or positive
+native inventory acceptance. Tracker assignment/Workflow first-step authority
+remain separate gates; `runtime_ready=false` and task dispatch stay closed.
 
 The optional native renderer gate consumes the actual Rust policy, checks the
 pinned Hermes discovery and lookup helpers, and includes an unsealed negative

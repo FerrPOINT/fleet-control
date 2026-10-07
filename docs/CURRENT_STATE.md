@@ -1,5 +1,34 @@
 # Current State
 
+## Closed Pinned Skill Files: 8 October 2026
+
+Within Base-backed HOME/skills, effective readback now permits only the pinned
+package's materialized canonical `SKILL.md`. Unattested support files, scripts,
+assets, templates and hidden files fail closed without deletion; Unix canonical
+hard links are rejected. Free chats and Java are unchanged. No migration, public
+API, producer source or accepted runtime is changed.
+
+Final Rust1.88/Linux fmt, locked/offline workspace/all-target check and strict
+Clippy pass.21 focused regressions and1 explicit renderer export pass; configured
+private Git checks actually prepare/materialize/read back all seven roles and
+reject28 support fixtures. This is filesystem evidence with synthetic Workflow
+mapping, not seven live agents or first-step authority.333 frozen inputs match;
+OpenAPI is byte-identical. The actual pinned Hermes helper independently reads
+synthetic unlisted support files in two rendered homes. That single native loader
+case runs no model, private instructions or positive HTTP inventory acceptance.
+Exact QA cleanup, Docker audit,17 harness tests, README and135-doc links pass.
+Earlier QA failures remain recorded. No new UI screenshots or whole-suite CI
+acceptance is claimed.
+
+Source audit and independent review preserve the unresolved plugin/lazy-provider,
+managed/profile config, preprocessing/hook and frozen-session inventory boundary.
+There are no actionable P1/P2 review findings in this packet; Unix-only link
+checks, TOCTOU observation and opt-in Git coverage remain limitations. The known
+heartbeat integration issue, trusted assignment/first-step, PM tools/delivery/
+resume, Forge and ordered main release remain open. `runtime_ready=false` and
+task dispatch stay closed. See [exact evidence](CHAT_CLARIFICATION_VERIFICATION.md#closed-pinned-skill-files-8-october-2026)
+and [remaining gates](GAP_REGISTER.md).
+
 ## Native Skill Discovery Policy: 8 October 2026
 
 Pinned Base preparation now seals project/external/create-dir discovery and

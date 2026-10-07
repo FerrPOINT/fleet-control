@@ -5,6 +5,9 @@ inside existing `config_json.skills`. There is no new column, migration or
 historical backfill. Older package revisions require explicit draft/validate/
 drain/activation before passing the stronger readback. See
 [policy](RUNTIME.md#sdlc-skill-discovery-policy).
+The pinned package's skill hashes authorize only materialized `SKILL.md` files,
+not adjacent support files. The stricter physical inventory check adds no schema
+or support-file backfill; rejection preserves those files and blocks readiness.
 
 ## Original Namespace Stop After Recovery
 

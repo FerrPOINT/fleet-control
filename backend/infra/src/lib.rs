@@ -6019,6 +6019,78 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn base_package_effective_readback_all_roles_rejects_unattested_support() {
+        let Ok(checkout) = std::env::var("FLEET_TEST_BASE_PACKAGE_CHECKOUT") else {
+            return;
+        };
+        for role in [
+            domain::SdlcRole::ProjectManager,
+            domain::SdlcRole::Analyst,
+            domain::SdlcRole::Architect,
+            domain::SdlcRole::Developer,
+            domain::SdlcRole::Reviewer,
+            domain::SdlcRole::Tester,
+            domain::SdlcRole::DevOps,
+        ] {
+            let (root, mut agent, mut config, mut revision) = effective_config_fixture().await;
+            config.fleet.base_package_checkout = checkout.clone();
+            agent.sdlc_role = Some(role);
+            agent.namespace_id = Some("123".into());
+            agent.workflow_id = Some("456".into());
+            let package = base_package::VerifiedRolePackage::read(Path::new(&checkout), role)
+                .await
+                .unwrap();
+            let mut binding = base_package::binding_fixture();
+            binding.role_key = package.proof().role.clone();
+            binding.namespace_name = package.proof().namespace.clone();
+            binding.profile = package.proof().profile.clone();
+            binding.workflow_key = format!("hermes-sdlc:{}", binding.role_key);
+            let skills = Path::new(&agent.paths.config).join("skills");
+            tokio::fs::remove_dir_all(&skills).await.unwrap();
+            revision.snapshot.skills.clear();
+            revision.snapshot = package
+                .prepare_snapshot(&agent, &binding, revision.snapshot)
+                .unwrap();
+            install_effective_fixture(&agent, &config, &revision).await;
+            FilesystemProvisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .unwrap();
+            let name = package.proof().skill_sha256.keys().next().unwrap();
+            for relative in [
+                "references/guide.md",
+                "scripts/helper.py",
+                "assets/fixture.bin",
+                "templates/config.yaml",
+            ] {
+                let extra = skills.join(name).join(relative);
+                tokio::fs::create_dir_all(extra.parent().unwrap())
+                    .await
+                    .unwrap();
+                tokio::fs::write(&extra, "unattested support fixture")
+                    .await
+                    .unwrap();
+                assert!(
+                    FilesystemProvisioner
+                        .verify_effective_configuration(&agent, &config, &revision)
+                        .await
+                        .is_err()
+                );
+                assert_eq!(
+                    tokio::fs::read_to_string(&extra).await.unwrap(),
+                    "unattested support fixture"
+                );
+                tokio::fs::remove_file(extra).await.unwrap();
+            }
+            FilesystemProvisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .unwrap();
+            tokio::fs::remove_dir_all(root).await.unwrap();
+        }
+    }
+
+    #[tokio::test]
     async fn effective_configuration_requires_correct_snapshot_marker_and_workspace() {
         let (root, mut agent, config, revision) = effective_config_fixture().await;
         for mode in 0..7 {

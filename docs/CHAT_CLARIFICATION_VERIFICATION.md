@@ -1,12 +1,94 @@
 # Chat Clarification Verification
 
+## Closed Pinned Skill Files: 8 October 2026
+
+Within HOME/skills, effective readback permits only the pinned package's materialized
+`<name>/SKILL.md` files. Unattested support documents, scripts, assets, templates
+and hidden files are rejected even under an allowed skill directory. Unix
+canonical hard links fail closed. Every negative case preserves the unexpected
+bytes; no repair, purge, migration or installed-runtime change is performed.
+Free-chat/non-package verification and Java lifecycle are unchanged.
+
+The actual private Git pin `4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58` contains14
+canonical `SKILL.md` files and no support files. An offline private bundle from
+Base main `3a48de8c5696dd20b78c94205d9feb7dbb69c8e0` supplies that exact object,
+with production Git provenance verification, not worktree or HEAD fallback.
+Bundle SHA256 `a14b341d2c2d67c03454ad3fe8e705da68be740404a229bd0fa7e12b4cc6b0c7`;
+the bundle and package instructions remain private.
+
+Production package preparation/materialization/readback passes for all seven
+roles, with four support-file negative cases per role. These are filesystem/Git
+checks with synthetic Workflow binding metadata, not seven live agents or actual
+Workflow admission. The Git/all-role tests return without work when
+`FLEET_TEST_BASE_PACKAGE_CHECKOUT` is absent; only this explicitly configured
+offline Git gate proves their coverage, not a generic green workspace run.
+The separate native renderer case uses two synthetic homes,
+the actual Rust exporter and pinned Hermes. Native `skill_view` reads injected
+Markdown, Python and `.bin` asset files containing UTF-8 fixture bytes, confirming
+why an allowed directory alone does not prove support-file provenance. No such
+file is executed; no private instructions, model inference, paid provider or
+positive HTTP inventory are involved.
+
+Native project `sdlc-qa-hermes-protocol-cfd339b86922` passes1 case/two agents.
+Both records report `native_skill_discovery_policy_verified=true`. Hermes source
+`bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3`, archive SHA256
+`571fba4903d9094ade7f6d0ef5dfcee8c068e50f62e65f46611ec3ad65697e02`, image
+`aeb97055b0f5aee433e29998eeafd8065b81e70d1fcb69345c520c2bfbf23777` stay pinned.
+Probe SHA256 `6cd04c5723701620226eef87b864e3072285b70b6a4942423ed1ed1500a94180`;
+runner `a147aff33e1aa4631b9b4105b0e4b2962a850e0c45418cb54475af2cd7034b0a`;
+completion log `44f9452e98f2c48c1d88666cb9bf064a47dae655a6a1fb5592e21174e95bea1a`.
+Exact native cleanup/readback exit0 with no owned containers remaining.
+
+The first source project2802d973016f failed before compilation because cloning a
+bundle containing only a remote ref produced an empty bare repository. The QA
+helper now initializes a bare repository and fetches that explicit bundle ref;
+production Git commands and bounds are unchanged. Projectcdb6c4a92164 passes
+fmt/check/strict Clippy,21 focused regressions and1 explicit renderer export,
+but its final host-input guard fails after a harness README edit during execution.
+It is retained as a failed packet, not a complete passing source gate. Both exact
+projects are cleaned; neither failure is erased or counted as a passing gate.
+
+Final project `sdlc-qa-fleet-support-d073d67aa5f1` exits0: Rust1.88 fmt,
+locked/offline workspace/all-target check and strict Clippy;12 package,4 physical
+inventory,3 effective-configuration and2 pinned Git readback tests pass21 distinct
+focused cases,0 failed. The configured Git cases really execute; the seven-role
+loop checks28 support-file rejections. A separate explicit renderer export
+passes1 case. Full workspace/PostgreSQL/frontend/browser suites were not rerun
+for this narrow filesystem change; earlier evidence is not relabeled as this gate.
+All333 frozen backend/SDK/harness/QA-helper/bundle inputs match after execution.
+SDK remains `cbb4e99230420dc2659431b1c9fb5090e5c940f0`.
+Source verifier SHA256 `9bb8c6a8fd6c391a285b38a3c6d2273d016063829d000f35752e2b710b9c22e4`;
+production materialization/test module
+`b7892f244320caba17c83828ffb36cec168792a625b3978d2d1a170fe2c4d034`.
+Completion log `489c50a5b9559a9b2fb002b19c4ffe0cd2b829f59ce9b799e3ef788bc7865f6c`;
+input manifest `5fdec11f8c9490f2aeaddaed6d32443d108665401a322b00019caabf5ce430b4`.
+Generated OpenAPI is byte-identical, SHA256
+`1f1f4dd872d53925597cf91b98301d940dd85481b857af85b7a325e056e41667`.
+Exact final Compose down and owned-container/network readback pass. Complete
+workspace Docker audit reports38 desktop containers,0 on both runners and no
+violations; parallel task-owned QA is permitted, not modified by this packet.
+The protocol harness passes17 unit cases. README and135-document link gates pass.
+There are no UI changes, new screenshots, installed upgrades or main-release CI
+claims in this packet.
+
+Independent source audit identifies plugin roots/entry points, lazy providers,
+managed/profile config, preprocessing/hooks and frozen session instructions as
+separate unclosed native inventory routes. See [inventory limits](RUNTIME.md#native-inventory-limits).
+No owner-side inventory endpoint is implemented by this packet. The existing
+heartbeat integration issue, assignment/first-step authority, PM delivery/resume
+and live SDLC remain open. Neither filesystem evidence nor authenticated metadata
+changes `runtime_ready=false` or enables task dispatch.
+Independent read-only review found no actionable P1/P2 in this packet; the Unix
+scope, TOCTOU observation and opt-in coverage limitations remain explicit.
+
 ## Native Skill Discovery Policy: 8 October 2026
 
 Pinned Base package preparation seals all six native discovery/disable fields
 in a new draft. Snapshot verification rejects missing or changed fields while
 preserving unrelated model/skill settings. Effective HOME readback rejects
 unlisted legacy flat Markdown in root/category directories without deleting it;
-package support documents remain allowed, not fully provenance-attested.
+At this earlier packet, package support documents remained allowed, not fully
+provenance-attested; the later closed-files packet above supersedes that allowance.
 Existing active revisions require explicit preparation/validation/drain/activation.
 No migration, public DTO/OpenAPI, SDK pin, Java lifecycle or installed runtime changes.
 

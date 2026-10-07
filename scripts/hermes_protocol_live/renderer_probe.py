@@ -103,6 +103,15 @@ def verify_skill_discovery(home, source):
                     or candidates[0][1] != sealed / 'skills/allowed/SKILL.md'
                     or candidates[0][1].read_text(encoding='utf-8') != allowed):
                 raise RuntimeError('native lookup accepted a project/external skill shadow')
+            for relative in ('references/guide.md', 'scripts/helper.py', 'assets/fixture.bin'):
+                support = sealed / 'skills/allowed' / relative
+                support.parent.mkdir(parents=True, exist_ok=True)
+                support.write_text('Synthetic unattested support file', encoding='utf-8')
+                viewed = json.loads(skills_tool.skill_view('allowed', file_path=relative, preprocess=False))
+                if (viewed.get('success') is not True
+                        or viewed.get('content') != 'Synthetic unattested support file'):
+                    raise RuntimeError('native negative control did not read unlisted support bytes')
+                support.unlink()
             return True
     finally:
         os.environ['HERMES_HOME'] = previous_home

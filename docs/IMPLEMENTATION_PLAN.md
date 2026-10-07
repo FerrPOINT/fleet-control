@@ -1,5 +1,20 @@
 # Implementation Plan
 
+## Pinned Skill Readback Follow-Up
+
+The integration candidate closes physical HOME/skills to the pinned package's
+materialized canonical files. Seven-role production Git/materialization tests
+and native synthetic support-file readback are recorded in the
+[verification ledger](CHAT_CLARIFICATION_VERIFICATION.md#closed-pinned-skill-files-8-october-2026).
+No new migration, producer source, accepted runtime or task dispatch is changed.
+Next native inventory work must use captured initialized owner state and explicit
+incompleteness for plugins/lazy sources, managed/profile settings, transformations
+and frozen session instructions; see [runtime limits](RUNTIME.md#native-inventory-limits).
+Trusted Tracker assignment/Workflow first-step authority, scoped PM tool delivery/
+checkpoint/resume, complete Forge acceptance and the ordered main release remain
+separate mandatory gates. Do not bundle the integration migration tail into a
+foundation PR or equate this file observation with pre-model admission.
+
 ## Signed Activation Reconciliation Follow-Up
 
 The integration candidate implements a closed signed-v3 journal, original
