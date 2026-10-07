@@ -7272,7 +7272,8 @@
             "type": "integer",
             "format": "int64"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "TrackerQuestion": {
         "type": "object",
@@ -7424,7 +7425,8 @@
           "label": {
             "type": "string"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "TrackerQuestionState": {
         "type": "string",
@@ -7525,7 +7527,9 @@
           },
           "revision": {
             "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "maximum": 9007199254740991,
+            "minimum": 1
           },
           "scenarios": {
             "type": "array",
@@ -7539,7 +7543,8 @@
               "type": "string"
             }
           }
-        }
+        },
+        "additionalProperties": false
       },
       "TrackerStage": {
         "type": "string",

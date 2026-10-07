@@ -500,6 +500,10 @@ Tracker. Fleet reads them through an authorized gateway and an opt-in authentica
 metadata projection worker. Neither projection nor this migration performs a PM
 resume saga or dispatches prompts. The owner-issued initial Draft reservation is
 coordinated separately by the creation ledger; runtime admission remains unwired.
+The requirements response is a closed, flat Tracker projection, not a local aggregate:
+all document fields remain required, additional fields are rejected, and its revision
+must be an integer in `1..9007199254740991`. This hardening changes deserialization
+and generated schemas, not storage, ownership or confirmation authority.
 
 Tables:
 

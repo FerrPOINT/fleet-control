@@ -12,13 +12,18 @@ checks reported by the fresh PR readback. Its committed OpenAPI includes
 Analysis and `expected_routing_policy_version`. Those missing-field findings
 below describe the earlier head, not the current producer.
 
-Comparison with Fleet93d036b, after mapping producer schema references to Fleet
-names, matches six accepted schemas: context, confirmation, confirmation command,
-question, answer command and questions response. Requirements revision still
-differs: Tracker declares `additionalProperties: false` and revision range
-1..9007199254740991; Fleet's response schema does not declare those restrictions.
-Required-field order also differs and is not itself a behavioral incompatibility.
-Exact full-schema parity and live acceptance are not claimed.
+The earlier Fleet93d036b comparison checked shape but did not recursively retain
+validation constraints. The strict checker found three differing DTOs: context
+(nested PM assignment), question (nested options), and requirements revision.
+Fleet now rejects unknown fields in these three closed structures and enforces
+the requirements revision range1..9007199254740991. Fresh Rust-generated OpenAPI
+and the recorded snapshot match all seven compared DTOs against this exact
+published Tracker head, recursively including validation constraints. The source
+OpenAPI blob is `65899d6f037b0383ac526def5c75e1d474fa94d6`.
+Required-field ordering is canonicalized; documentation annotations alone are
+ignored. Recording incompatible schemas fails before replacing the snapshot.
+This closes these source-schema differences, not deployed/live acceptance or
+predispatch authority. See [scoped evidence](../CHAT_CLARIFICATION_VERIFICATION.md#strict-published-chat-contract-7-october-2026).
 
 Workflow PR90 was Draft at `e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37`
 in the earlier readback. Fresh readback now finds Draft/master/clean at

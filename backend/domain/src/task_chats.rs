@@ -108,10 +108,12 @@ pub enum TrackerQuestionState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct TrackerPmAssignment {
     pub assignment_id: Uuid,
     pub execution_id: Uuid,
     pub agent_id: Uuid,
+    #[serde(deserialize_with = "tracker_version")]
     pub version: i64,
     pub machine_subject: String,
 }
@@ -138,6 +140,7 @@ pub struct TrackerTaskContext {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct TrackerQuestionOption {
     pub id: Uuid,
     pub label: String,
@@ -186,7 +189,10 @@ pub struct TrackerQuestion {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct TrackerRequirementsRevision {
+    #[serde(deserialize_with = "tracker_version")]
+    #[schema(minimum = 1, maximum = 9007199254740991i64)]
     pub revision: i64,
     pub content_hash: String,
     pub goal: String,
@@ -201,6 +207,14 @@ pub struct TrackerRequirementsRevision {
     pub prerequisites: Vec<String>,
     pub author_subject: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+fn tracker_version<'de, D: serde::Deserializer<'de>>(d: D) -> Result<i64, D::Error> {
+    let value = i64::deserialize(d)?;
+    if !(1..=9_007_199_254_740_991).contains(&value) {
+        return Err(serde::de::Error::custom("invalid Tracker version"));
+    }
+    Ok(value)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -228,6 +242,84 @@ pub struct TrackerRequirements {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn nested_tracker_assignment_and_options_preserve_closed_wire_contracts() {
+        let assignment = json!({"assignment_id":Uuid::new_v4(),"execution_id":Uuid::new_v4(),
+            "agent_id":Uuid::new_v4(),"version":1,"machine_subject":"pm"});
+        serde_json::from_value::<TrackerPmAssignment>(assignment.clone()).unwrap();
+        let mut extra = assignment.clone();
+        extra["dispatch_allowed"] = json!(true);
+        assert!(serde_json::from_value::<TrackerPmAssignment>(extra).is_err());
+        for version in [
+            json!(0),
+            json!(-1),
+            json!(9_007_199_254_740_992i64),
+            json!(1.0),
+        ] {
+            let mut raw = assignment.clone();
+            raw["version"] = version;
+            assert!(serde_json::from_value::<TrackerPmAssignment>(raw).is_err());
+        }
+        let option = json!({"id":Uuid::new_v4(),"label":"Option","consequences":"Impact"});
+        assert!(
+            !serde_json::from_value::<TrackerQuestionOption>(option.clone())
+                .unwrap()
+                .is_custom
+        );
+        let mut custom = option.clone();
+        custom["is_custom"] = json!(true);
+        assert!(
+            serde_json::from_value::<TrackerQuestionOption>(custom)
+                .unwrap()
+                .is_custom
+        );
+        let mut extra = option;
+        extra["recommended"] = json!(true);
+        assert!(serde_json::from_value::<TrackerQuestionOption>(extra).is_err());
+    }
+
+    #[test]
+    fn requirements_revision_matches_strict_tracker_wire_and_safe_bounds() {
+        let document = json!({"revision":1,"content_hash":"a".repeat(64),"goal":"Deliver",
+            "scope":[],"exclusions":[],"scenarios":[],"acceptance_criteria":[],
+            "constraints":[],"dependencies":[],"assumptions":[],"checklist":[],
+            "prerequisites":[],"author_subject":Uuid::new_v4(),"created_at":"2026-10-07T12:00:00Z"});
+        for revision in [1, 9_007_199_254_740_991i64] {
+            let mut raw = document.clone();
+            raw["revision"] = json!(revision);
+            assert_eq!(
+                serde_json::from_value::<TrackerRequirementsRevision>(raw)
+                    .unwrap()
+                    .revision,
+                revision
+            );
+        }
+        for revision in [
+            json!(0),
+            json!(-1),
+            json!(9_007_199_254_740_992i64),
+            json!("1"),
+            json!(1.0),
+            json!(true),
+            serde_json::Value::Null,
+        ] {
+            let mut raw = document.clone();
+            raw["revision"] = revision;
+            assert!(serde_json::from_value::<TrackerRequirementsRevision>(raw).is_err());
+        }
+        let mut extra = document.clone();
+        extra["dispatch_allowed"] = json!(true);
+        assert!(serde_json::from_value::<TrackerRequirementsRevision>(extra).is_err());
+        for name in document.as_object().unwrap().keys() {
+            let mut missing = document.clone();
+            missing.as_object_mut().unwrap().remove(name);
+            assert!(
+                serde_json::from_value::<TrackerRequirementsRevision>(missing).is_err(),
+                "{name}"
+            );
+        }
+    }
 
     #[test]
     fn confirmation_routing_opt_in_is_explicit_and_preserves_legacy_wire() {

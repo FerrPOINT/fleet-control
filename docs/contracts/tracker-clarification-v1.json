@@ -1,24 +1,31 @@
 {
   "TrackerTaskContext": {
-    "type": "object",
-    "required": [
-      "contract_version",
-      "owner_subject",
-      "permissions",
-      "project_id",
-      "root_task_id",
-      "stage",
-      "task_id",
-      "tracker_instance_id"
-    ],
     "properties": {
       "assignment": {
         "oneOf": [
           {
-            "type": "null"
-          },
-          {
-            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "agent_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "assignment_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "execution_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "machine_subject": {
+                "type": "string"
+              },
+              "version": {
+                "format": "int64",
+                "type": "integer"
+              }
+            },
             "required": [
               "agent_id",
               "assignment_id",
@@ -26,43 +33,22 @@
               "machine_subject",
               "version"
             ],
-            "properties": {
-              "agent_id": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "assignment_id": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "execution_id": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "machine_subject": {
-                "type": "string"
-              },
-              "version": {
-                "type": "integer",
-                "format": "int64"
-              }
-            }
+            "type": "object"
+          },
+          {
+            "type": "null"
           }
         ]
       },
       "contract_version": {
-        "type": "integer",
-        "format": "int32"
+        "format": "int32",
+        "minimum": 0,
+        "type": "integer"
       },
       "owner_subject": {
         "type": "string"
       },
       "permissions": {
-        "type": "object",
-        "required": [
-          "can_answer",
-          "can_confirm"
-        ],
         "properties": {
           "can_answer": {
             "type": "boolean"
@@ -70,35 +56,40 @@
           "can_confirm": {
             "type": "boolean"
           }
-        }
+        },
+        "required": [
+          "can_answer",
+          "can_confirm"
+        ],
+        "type": "object"
       },
       "project_id": {
-        "type": "string",
-        "format": "uuid"
+        "format": "uuid",
+        "type": "string"
       },
       "requirement_revision": {
+        "format": "int64",
         "type": [
           "integer",
           "null"
-        ],
-        "format": "int64"
+        ]
       },
       "root_task_id": {
-        "type": "string",
-        "format": "uuid"
+        "format": "uuid",
+        "type": "string"
       },
       "stage": {
-        "type": "string",
         "enum": [
           "Analysis",
           "Backlog",
           "Clarification",
           "Draft"
-        ]
+        ],
+        "type": "string"
       },
       "task_id": {
-        "type": "string",
-        "format": "uuid"
+        "format": "uuid",
+        "type": "string"
       },
       "tracker_instance_id": {
         "type": "string"
@@ -109,10 +100,202 @@
           "string"
         ]
       }
-    }
+    },
+    "required": [
+      "contract_version",
+      "owner_subject",
+      "permissions",
+      "project_id",
+      "root_task_id",
+      "stage",
+      "task_id",
+      "tracker_instance_id"
+    ],
+    "type": "object"
   },
   "TrackerQuestion": {
-    "type": "object",
+    "properties": {
+      "agent_id": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "answer": {
+        "oneOf": [
+          {
+            "properties": {
+              "author_subject": {
+                "type": "string"
+              },
+              "comment": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "created_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "question_id": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "question_version": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "requirement_revision": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "selected_option_ids": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "text": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              }
+            },
+            "required": [
+              "author_subject",
+              "created_at",
+              "id",
+              "question_id",
+              "question_version",
+              "requirement_revision",
+              "selected_option_ids"
+            ],
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "assignment_id": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "assignment_version": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "author_subject": {
+        "type": "string"
+      },
+      "checkpoint_id": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "type": "string"
+      },
+      "execution_id": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "id": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "mode": {
+        "enum": [
+          "multiple",
+          "single",
+          "text"
+        ],
+        "type": "string"
+      },
+      "options": {
+        "items": {
+          "additionalProperties": false,
+          "properties": {
+            "consequences": {
+              "type": "string"
+            },
+            "id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "is_custom": {
+              "type": "boolean"
+            },
+            "label": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "consequences",
+            "id",
+            "label"
+          ],
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "rationale": {
+        "type": "string"
+      },
+      "recommended_option_id": {
+        "format": "uuid",
+        "type": [
+          "null",
+          "string"
+        ]
+      },
+      "request_id": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "required": {
+        "type": "boolean"
+      },
+      "requirement_reference": {
+        "type": [
+          "null",
+          "string"
+        ]
+      },
+      "requirement_revision": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "root_task_id": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "state": {
+        "enum": [
+          "answered",
+          "cancelled",
+          "open",
+          "superseded"
+        ],
+        "type": "string"
+      },
+      "task_id": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "text": {
+        "type": "string"
+      },
+      "version": {
+        "format": "int64",
+        "type": "integer"
+      }
+    },
     "required": [
       "agent_id",
       "assignment_id",
@@ -134,199 +317,9 @@
       "text",
       "version"
     ],
-    "properties": {
-      "agent_id": {
-        "type": "string",
-        "format": "uuid"
-      },
-      "answer": {
-        "oneOf": [
-          {
-            "type": "null"
-          },
-          {
-            "type": "object",
-            "required": [
-              "author_subject",
-              "created_at",
-              "id",
-              "question_id",
-              "question_version",
-              "requirement_revision",
-              "selected_option_ids"
-            ],
-            "properties": {
-              "author_subject": {
-                "type": "string"
-              },
-              "comment": {
-                "type": [
-                  "null",
-                  "string"
-                ]
-              },
-              "created_at": {
-                "type": "string",
-                "format": "date-time"
-              },
-              "id": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "question_id": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "question_version": {
-                "type": "integer",
-                "format": "int64"
-              },
-              "requirement_revision": {
-                "type": "integer",
-                "format": "int64"
-              },
-              "selected_option_ids": {
-                "type": "array",
-                "items": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              },
-              "text": {
-                "type": [
-                  "null",
-                  "string"
-                ]
-              }
-            }
-          }
-        ]
-      },
-      "assignment_id": {
-        "type": "string",
-        "format": "uuid"
-      },
-      "assignment_version": {
-        "type": "integer",
-        "format": "int64"
-      },
-      "author_subject": {
-        "type": "string"
-      },
-      "checkpoint_id": {
-        "type": "string",
-        "format": "uuid"
-      },
-      "created_at": {
-        "type": "string",
-        "format": "date-time"
-      },
-      "execution_id": {
-        "type": "string",
-        "format": "uuid"
-      },
-      "id": {
-        "type": "string",
-        "format": "uuid"
-      },
-      "mode": {
-        "type": "string",
-        "enum": [
-          "multiple",
-          "single",
-          "text"
-        ]
-      },
-      "options": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "consequences",
-            "id",
-            "label"
-          ],
-          "properties": {
-            "consequences": {
-              "type": "string"
-            },
-            "id": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "is_custom": {
-              "type": "boolean"
-            },
-            "label": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "rationale": {
-        "type": "string"
-      },
-      "recommended_option_id": {
-        "type": [
-          "null",
-          "string"
-        ],
-        "format": "uuid"
-      },
-      "request_id": {
-        "type": "string",
-        "format": "uuid"
-      },
-      "required": {
-        "type": "boolean"
-      },
-      "requirement_reference": {
-        "type": [
-          "null",
-          "string"
-        ]
-      },
-      "requirement_revision": {
-        "type": "integer",
-        "format": "int64"
-      },
-      "root_task_id": {
-        "type": "string",
-        "format": "uuid"
-      },
-      "state": {
-        "type": "string",
-        "enum": [
-          "answered",
-          "cancelled",
-          "open",
-          "superseded"
-        ]
-      },
-      "task_id": {
-        "type": "string",
-        "format": "uuid"
-      },
-      "text": {
-        "type": "string"
-      },
-      "version": {
-        "type": "integer",
-        "format": "int64"
-      }
-    }
+    "type": "object"
   },
   "TrackerAnswer": {
-    "type": "object",
-    "required": [
-      "author_subject",
-      "created_at",
-      "id",
-      "question_id",
-      "question_version",
-      "requirement_revision",
-      "selected_option_ids"
-    ],
     "properties": {
       "author_subject": {
         "type": "string"
@@ -338,31 +331,31 @@
         ]
       },
       "created_at": {
-        "type": "string",
-        "format": "date-time"
+        "format": "date-time",
+        "type": "string"
       },
       "id": {
-        "type": "string",
-        "format": "uuid"
+        "format": "uuid",
+        "type": "string"
       },
       "question_id": {
-        "type": "string",
-        "format": "uuid"
+        "format": "uuid",
+        "type": "string"
       },
       "question_version": {
-        "type": "integer",
-        "format": "int64"
+        "format": "int64",
+        "type": "integer"
       },
       "requirement_revision": {
-        "type": "integer",
-        "format": "int64"
+        "format": "int64",
+        "type": "integer"
       },
       "selected_option_ids": {
-        "type": "array",
         "items": {
-          "type": "string",
-          "format": "uuid"
-        }
+          "format": "uuid",
+          "type": "string"
+        },
+        "type": "array"
       },
       "text": {
         "type": [
@@ -370,10 +363,95 @@
           "string"
         ]
       }
-    }
+    },
+    "required": [
+      "author_subject",
+      "created_at",
+      "id",
+      "question_id",
+      "question_version",
+      "requirement_revision",
+      "selected_option_ids"
+    ],
+    "type": "object"
   },
   "TrackerRequirementsRevision": {
-    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "acceptance_criteria": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "assumptions": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "author_subject": {
+        "type": "string"
+      },
+      "checklist": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "constraints": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "content_hash": {
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "type": "string"
+      },
+      "dependencies": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "exclusions": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "goal": {
+        "type": "string"
+      },
+      "prerequisites": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "revision": {
+        "format": "int64",
+        "maximum": 9007199254740991,
+        "minimum": 1,
+        "type": "integer"
+      },
+      "scenarios": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "scope": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      }
+    },
     "required": [
       "acceptance_criteria",
       "assumptions",
@@ -390,82 +468,42 @@
       "scenarios",
       "scope"
     ],
+    "type": "object"
+  },
+  "TrackerConfirmation": {
     "properties": {
-      "acceptance_criteria": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
-      },
-      "assumptions": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
-      },
-      "author_subject": {
-        "type": "string"
-      },
-      "checklist": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
-      },
-      "constraints": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
-      },
       "content_hash": {
         "type": "string"
       },
       "created_at": {
-        "type": "string",
-        "format": "date-time"
-      },
-      "dependencies": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
-      },
-      "exclusions": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
-      },
-      "goal": {
+        "format": "date-time",
         "type": "string"
       },
-      "prerequisites": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
+      "id": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "owner_subject": {
+        "type": "string"
       },
       "revision": {
-        "type": "integer",
-        "format": "int64"
+        "format": "int64",
+        "type": "integer"
       },
-      "scenarios": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
+      "stage": {
+        "enum": [
+          "Analysis",
+          "Backlog",
+          "Clarification",
+          "Draft"
+        ],
+        "type": "string"
       },
-      "scope": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
+      "task_id": {
+        "format": "uuid",
+        "type": "string"
       }
-    }
-  },
-  "TrackerConfirmation": {
-    "type": "object",
+    },
     "required": [
       "content_hash",
       "created_at",
@@ -475,48 +513,10 @@
       "stage",
       "task_id"
     ],
-    "properties": {
-      "content_hash": {
-        "type": "string"
-      },
-      "created_at": {
-        "type": "string",
-        "format": "date-time"
-      },
-      "id": {
-        "type": "string",
-        "format": "uuid"
-      },
-      "owner_subject": {
-        "type": "string"
-      },
-      "revision": {
-        "type": "integer",
-        "format": "int64"
-      },
-      "stage": {
-        "type": "string",
-        "enum": [
-          "Analysis",
-          "Backlog",
-          "Clarification",
-          "Draft"
-        ]
-      },
-      "task_id": {
-        "type": "string",
-        "format": "uuid"
-      }
-    }
+    "type": "object"
   },
   "ClarificationAnswerRequest": {
-    "type": "object",
-    "required": [
-      "expected_question_version",
-      "idempotency_key",
-      "requirement_revision",
-      "selected_option_ids"
-    ],
+    "additionalProperties": false,
     "properties": {
       "comment": {
         "type": [
@@ -525,22 +525,22 @@
         ]
       },
       "expected_question_version": {
-        "type": "integer",
-        "format": "int64"
+        "format": "int64",
+        "type": "integer"
       },
       "idempotency_key": {
         "type": "string"
       },
       "requirement_revision": {
-        "type": "integer",
-        "format": "int64"
+        "format": "int64",
+        "type": "integer"
       },
       "selected_option_ids": {
-        "type": "array",
         "items": {
-          "type": "string",
-          "format": "uuid"
-        }
+          "format": "uuid",
+          "type": "string"
+        },
+        "type": "array"
       },
       "text": {
         "type": [
@@ -548,28 +548,38 @@
           "string"
         ]
       }
-    }
+    },
+    "required": [
+      "expected_question_version",
+      "idempotency_key",
+      "requirement_revision",
+      "selected_option_ids"
+    ],
+    "type": "object"
   },
   "ConfirmRequirementsRequest": {
-    "type": "object",
-    "required": [
-      "content_hash",
-      "idempotency_key"
-    ],
+    "additionalProperties": false,
     "properties": {
       "content_hash": {
         "type": "string"
       },
       "expected_routing_policy_version": {
+        "format": "int64",
+        "maximum": 9007199254740991,
+        "minimum": 1,
         "type": [
           "integer",
           "null"
-        ],
-        "format": "int64"
+        ]
       },
       "idempotency_key": {
         "type": "string"
       }
-    }
+    },
+    "required": [
+      "content_hash",
+      "idempotency_key"
+    ],
+    "type": "object"
   }
 }

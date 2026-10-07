@@ -768,6 +768,16 @@ scoped PM runtime and trusted readiness verifier; see the plan/gap register.
 `pnpm chat:contract` checks generated Fleet wire schemas against the pinned Tracker contract
 and runs the checker tests. `pnpm chat:evidence:verify` verifies the nine controller images,
 route/view/viewport identity and content hashes. These gates also run in frontend CI.
+The checker retains recursive validation constraints, reference siblings and closed
+object policy; it ignores documentation only. Its eight cases cover bounds/patterns,
+nested maps (including documentation-like and prototype-like property names), boolean
+schemas, missing/external/recursive references, meaningful drift in seven DTOs and
+rejection before `--record` overwrites an accepted snapshot. Exact published-source
+comparison requires `--tracker <tracker-openapi.json>`; a local snapshot pass does not
+prove release compatibility or PM admission. Domain tests exercise requirements
+revision safe integer bounds and rejection of missing/unknown fields independently
+of the schema checker, plus closed nested PM assignments/options, assignment safe
+versions and the preserved optional `is_custom=false` default.
 
 ## SDLC Foundation Checks
 

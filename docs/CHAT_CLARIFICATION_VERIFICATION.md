@@ -1,5 +1,57 @@
 # Chat Clarification Verification
 
+## Strict Published Chat Contract: 7 October 2026
+
+Final packet `sdlc-qa-fleet-contract-41757574c5a6` passes Rust1.88 fmt,
+locked/offline workspace/all-target check and strict Clippy. It executes46 API
+and30 domain cases:76 passed,0 failed/ignored, then generates OpenAPI through the
+actual `gen-openapi` binary. All321 frozen backend/SDK inputs are unchanged;
+SDK pin remains `cbb4e99230420dc2659431b1c9fb5090e5c940f0`. Exact owned Compose
+containers/network are removed. Root audit completes with35 desktop containers,
+0 on both runners and no violations; no permanent runtime is updated.
+
+The verifier preserves constraints recursively and rejects missing/external/
+recursive references. Eight Node cases exercise constraints, nested names,
+reference siblings and rejection before replacing a snapshot. The old checker
+missed three differing DTOs. Rust now rejects unknown PM assignment, option and
+requirements fields; requirements and assignment versions are JS-safe positive
+integers. Optional `is_custom=false` behavior remains intact. All seven compared
+schemas match published Tracker114
+`357caa7a60a717eb7b0ac72f286b793326992931`, using exact OpenAPI Git blob
+`65899d6f037b0383ac526def5c75e1d474fa94d6`; the accepted snapshot is regenerated
+only after that match. The TypeScript generator produces byte-identical client
+code. This is producer-source parity, not installed or live interoperability.
+
+Final frontend gates use Node22.20.0/pnpm10.28.1: generate/typecheck/lint/format/
+build, generated API equality, compatibility (eight cases), strict chat contract
+(eight cases), screenshot verifier (nine cases),135 screenshot manifests and
+nine controller-fixture hashes all pass. The unchanged UI tree also passes446
+Vitest cases; no new browser E2E or live screenshot is claimed. Vite retains its
+existing advisory about a724KB main chunk; this patch does not change the bundle.
+README validation/three cases and135-document local link checks pass.
+Final frontend log SHA256:
+`5268ae0c156de9bdc8e4792fa2a383e25836f8e3f745c9ab5724d6d592ed4161`.
+
+Final source manifest SHA256:
+`f5472f6e409cf54e07609bdb7ce39cf820f1f26847c16279007546bbf0d62d13`.
+Final Rust log SHA256:
+`9336911cf847353fb1db7526b8ca112738f1233fb524ee5c1aabb87c0863ed8f`.
+Published Tracker OpenAPI SHA256:
+`7a1131a653ad06898170318b25dea9f78760e07f4f58a0d91b081800efbf074e`.
+Private artifacts reside under workspace `.local/fleet-contract-strict-final-20261007`.
+
+Earlier packet12f43dd09e22 completes the full backend tests:603 passed,0 failed,
+32 ignored, including disposable PostgreSQL/HTTP regressions. Its export command
+uses the wrong binary spelling and fails afterward; it remains a failed packet,
+not substituted final acceptance. Its log SHA256 is
+`9672b0b21f593452058306446459b5eace7c928f362027bbd227c2c3a73b4e9b`;
+owned cleanup and321 source hashes pass. Final source adds the two nested closed
+DTO guards and their test; the complete backend suite is not relabelled as an
+exact-final-head rerun. The first run additionally reveals the real heartbeat
+alert persistence mismatch documented in the gap register, not an expected
+negative fixture. Neither this boundary fix nor frontend fixtures close that
+operations blocker, fenced admission/first step, native PM or full SDLC acceptance.
+
 ## Candidate Running Activation Crash: 7 October 2026
 
 Packet `sdlc-qa-fleet-container-live-5a3b6ccf9139` freezes integration469787c plus

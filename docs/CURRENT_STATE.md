@@ -1,5 +1,28 @@
 # Current State
 
+## Strict Published Chat Contract: 7 October 2026
+
+The chat contract gate now preserves recursive validation constraints instead
+of comparing only field shape. Its eight regression cases pass. Fresh generated
+Rust OpenAPI and the accepted snapshot match all seven compared DTOs against
+published Tracker114 head357caa7, including closed nested PM assignments/options
+and requirements revision bounds. The generated TypeScript client remains
+byte-identical. Final Linux Rust1.88 fmt, locked/offline all-target check/strict
+Clippy and76 domain/API cases pass with0 ignored; owned cleanup and321 frozen
+source hashes pass. The earlier full backend test run passed603 cases with32
+ignored, but its separate export step failed; it is not a passing final packet.
+Frontend generation/typecheck/lint/format/build/API drift/compatibility and exact
+published-source contract checks pass on Node22.20.0/pnpm10.28.1. The unchanged UI
+passes446 unit cases;135 screenshot and nine controller-fixture hashes verify.
+No new browser E2E or live PM screenshot acceptance is claimed.
+
+That run also exposes a genuine heartbeat-alert database kind mismatch, now an
+open operations blocker. Source-schema parity does not close it or prove PM
+admission, first Workflow step, live continuation, deployment or whole-product
+merge readiness. No runtime pin, migration, UI or installed flag is changed.
+See [exact scope](CHAT_CLARIFICATION_VERIFICATION.md#strict-published-chat-contract-7-october-2026)
+and [heartbeat blocker](GAP_REGISTER.md#heartbeat-alert-persistence-7-october-2026).
+
 ## Candidate Running Crash Acceptance: 7 October 2026
 
 Actual packet5a3b6ccf9139 passes physical Fleet restart after candidate readiness

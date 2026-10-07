@@ -390,7 +390,15 @@ The separate PM Draft boundary checks exact captured Tracker reservation/readbac
 bytes, required nulls, canonical UUIDs and the canonical command envelope hash.
 Use `node scripts/verify-chat-contract.mjs --tracker <tracker-openapi.json>` to check the
 actual sibling build before rollout. Wire checks cover field names, required fields,
-types/nullability, UUID/date formats and enums; semantic gates have separate backend tests.
+types/nullability, UUID/date formats, enums and recursive validation constraints,
+including additional-property policy, numeric/string/collection bounds and reference
+siblings. Only documentation annotations are ignored. External, missing and recursive
+schema references fail closed; field names are never treated as documentation.
+Recording a producer snapshot first verifies every compared Fleet DTO; an incompatible
+producer cannot overwrite the accepted snapshot. Requirements revision responses reject
+unknown fields and revisions outside `1..9007199254740991`. Other semantic gates have
+separate backend tests. Source parity alone is not deployed compatibility, predispatch
+admission, first Workflow step or permission to invoke a model.
 
 Auth:
 
