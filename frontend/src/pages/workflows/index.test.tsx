@@ -48,8 +48,8 @@ const catalog = {
   ],
 } as WorkflowCatalog
 
-function renderPage() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+function renderPage(retry: boolean | number = false) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry, retryDelay: 1 } } })
   const result = render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
@@ -67,6 +67,52 @@ describe('WorkflowsPage', () => {
     vi.mocked(fleet.listWorkflowBindings).mockResolvedValue(bindings)
     vi.mocked(fleet.getWorkflowCatalog).mockResolvedValue(catalog)
   })
+
+  it.each(['pending read', 'failed retry'] as const)(
+    'holds cached rebind choices during a catalog %s until a fresh success',
+    async (phase) => {
+      const { client } = renderPage(2)
+      const selector = await screen.findByLabelText('Новое пространство для First Agent')
+      const button = screen.getAllByRole('button', { name: 'Перепривязать' })[0]!
+      await waitFor(() => expect(button).toBeEnabled())
+      fireEvent.change(selector, { target: { value: 'namespace-2' } })
+      let finish!: (value: WorkflowCatalog) => void
+      const pending = new Promise<WorkflowCatalog>((resolve) => {
+        finish = resolve
+      })
+      if (phase === 'failed retry')
+        vi.mocked(fleet.getWorkflowCatalog).mockRejectedValueOnce(new Error('catalog GET 503'))
+      vi.mocked(fleet.getWorkflowCatalog).mockReturnValueOnce(pending)
+      const refresh = client.invalidateQueries({ queryKey: ['workflow-catalog'] })
+      try {
+        await waitFor(() =>
+          expect(fleet.getWorkflowCatalog).toHaveBeenCalledTimes(phase === 'failed retry' ? 3 : 2),
+        )
+        expect(client.getQueryState(['workflow-catalog'])?.status).toBe('success')
+        expect(client.getQueryState(['workflow-catalog'])?.fetchFailureCount).toBe(
+          phase === 'failed retry' ? 1 : 0,
+        )
+        expect(selector).toHaveValue('namespace-2')
+        expect(selector).toBeDisabled()
+        expect(button).toBeDisabled()
+        fireEvent.click(button)
+        expect(fleet.rebindWorkflowBinding).not.toHaveBeenCalled()
+      } finally {
+        finish(catalog)
+        await refresh
+      }
+      await waitFor(() => expect(button).toBeEnabled())
+      expect(selector).toHaveValue('namespace-2')
+      expect(fleet.rebindWorkflowBinding).not.toHaveBeenCalled()
+      fireEvent.click(button)
+      await waitFor(() =>
+        expect(fleet.rebindWorkflowBinding).toHaveBeenCalledWith('agent-1', {
+          namespace_id: 'namespace-2',
+          workflow_id: 'workflow-2',
+        }),
+      )
+    },
+  )
 
   it('filters bindings by agent and status without losing the full list', async () => {
     renderPage()

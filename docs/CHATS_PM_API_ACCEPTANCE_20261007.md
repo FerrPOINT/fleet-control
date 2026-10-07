@@ -4,7 +4,8 @@ This frontend follow-up contains the production Chats fixes from
 [`80e8b2c`](https://github.com/FerrPOINT/fleet-control/commit/80e8b2cac3c3cb63c3f5271a06c2b6eeff338156).
 The separate PR branch starts at the published runtime integration
 `d50c6947bdaf60dea73b096a71b1f09d69220392`; only frontend tests/UI and
-documentation differ. Its entire frontend tree is identical to `80e8b2c`.
+documentation differ. At `c93a83f`, its entire frontend tree was identical
+to `80e8b2c`; the current follow-up additionally fixes catalog-read freshness.
 No runtime, Base controller, producer or OpenAPI changes are proposed here.
 
 The 309 unit cases and 63 three-engine browser cases in the
@@ -12,6 +13,15 @@ The 309 unit cases and 63 three-engine browser cases in the
 exercise fixture APIs. The packet's source hashes describe its original
 consumer commit; the integration branch also preserves the parent's existing
 handoff paragraph. These checks do not establish live PM acceptance.
+
+The Workflow catalog follow-up holds the namespace selector and ordinary
+binding rebind button while a cached catalog GET is pending or retrying after 503. The prior implementation checked only final query error state, so a
+cached-success retry could still submit a stale selection. Two regressions
+failed before the fix. A fresh successful GET restores the selected namespace
+without an automatic PUT. This is ordinary agent/workflow binding;
+it does not implement native PM checkpoint/rebind or a real step projection.
+Its source hashes, unit/browser results and reviewed captures are in the
+[catalog freshness packet](assets/screens/workflow-catalog-freshness-20261007/validation.json).
 
 ## Current producer source
 

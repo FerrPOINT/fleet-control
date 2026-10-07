@@ -1,0 +1,100 @@
+{
+  "consumerBaseline": "c93a83fe53283f6f5ea370cb4781d8def5abd37f",
+  "integrationBranchBaseline": "d50c6947bdaf60dea73b096a71b1f09d69220392",
+  "basePin": "cbb4e99230420dc2659431b1c9fb5090e5c940f0",
+  "scope": "Hold cached Workflow catalog rebind choices during pending and failed-retry GET",
+  "sourceByteConvention": "Git blob/LF bytes",
+  "sourceSha256": {
+    "frontend/src/pages/workflows/index.tsx": "d102a07ada4dbfcb8a06fe676448ea7922fc9583c98374042a0e21ad56cf5458",
+    "frontend/src/pages/workflows/index.test.tsx": "13677170669c5313069252e81de4e2d856e71194f08fae48b161f204ba4c517d",
+    "frontend/e2e/fleet-control.spec.ts": "1faa254f98af7b3283b763fca2000373756b1337a5aa8c7819d3b327ddcfae61",
+    "docs/CHATS_PM_API_ACCEPTANCE_20261007.md": "8ba9920f836574f78e3d91b9c9dacb389efaa49fdfed1f846eecdcb0033e06c2"
+  },
+  "beforeFix": {
+    "failedUnitCases": 2,
+    "sourceSha256": "6de051e5f350652c05750ce4fb76ce4f9d2de5532c9e65cce22026f0b8ef89ed",
+    "logSha256": "318966dff60fa6df4abb277e597027b9bc9bc65eb1065f4a3e1ad8566a90c239",
+    "cachedQueryStatus": "success",
+    "pendingFetchFailureCounts": [0, 1]
+  },
+  "unitPassed": 311,
+  "unitFiles": 31,
+  "workflowUnitCases": 7,
+  "browserPassed": 66,
+  "browserProjects": ["chromium", "firefox", "webkit"],
+  "browserWorkers": 3,
+  "browserOrigin": "http://localhost:24173",
+  "fixtureOnly": true,
+  "liveAcceptance": false,
+  "backendChanged": false,
+  "runtimeChanged": false,
+  "producerChanged": false,
+  "apiChanged": false,
+  "sdkChanged": false,
+  "productionPmDraftFormAdded": false,
+  "pmDraftDesignApproved": false,
+  "ownedFixturePreviewStopped": true,
+  "browserAcceptance": {
+    "failedGetRetryHoldsRebind": true,
+    "namespaceRetained": true,
+    "freshGetEnablesExplicitRebind": true,
+    "noAutomaticPut": true,
+    "pageerrorFiltered": false,
+    "documentOverflow": false
+  },
+  "screenshotsVisuallyReviewed": true,
+  "screenshots": [
+    {
+      "file": "workflow-catalog-retry-held-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "1b7734d9772305f49155c3f75315b8d017257ba8af64828c8bcf4a169c0792ff",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "workflow-catalog-retry-held-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "8b7424686cd7a9875cb22179efd256b40e03fb4ac1a7f762064566e9a54924da",
+      "browser": "chromium",
+      "fixtureOnly": true
+    },
+    {
+      "file": "workflow-catalog-retry-held-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "15aaf59dbaedacfba208ba680125b58b9171a6e8c4802779dadddd704ab98d5a",
+      "browser": "chromium",
+      "fixtureOnly": true
+    }
+  ],
+  "logSha256": {
+    "workflow-catalog-freshness-unit.log": "fdc43ab43aa4af9f0fd514bd68024696ffd62a8ce533ad070fdbb33162f6ce95",
+    "workflow-catalog-freshness-all-unit.log": "ceeb91d4b65a0fd88ea2fa32a55d128c8bcfb86cf28176d1e8610513294a3afa",
+    "workflow-catalog-freshness-build.log": "013d1ef53a331c01d6b7e77cbacf14ca67c43385e10ea2a5355c30cf38df1659",
+    "workflow-catalog-freshness-lint.log": "fea2ca52c435e20a7e93d4541868d89dc441a99a8ebb4d3e82613b6932415200",
+    "workflow-catalog-freshness-ui.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "workflow-catalog-freshness-browser.log": "3c0fce693e792321dcf9f9abdcf5fc607261c1179530091387a866a9659f7eb9"
+  },
+  "checksPassed": [
+    "311 unit cases",
+    "build including TypeScript",
+    "lint",
+    "installed Base UI contract checker",
+    "pinned Base verification",
+    "66 three-engine fixture browser cases"
+  ],
+  "limits": [
+    "Ordinary workflow binding is distinct from native PM rebind",
+    "Native delivery/checkpoint/resume and actual browser step projection remain live integration acceptance",
+    "Original-key control lookup waits for a published producer SHA/contract",
+    "PM Draft design and separate PR target remain unapproved",
+    "Base direct SSE denial callback and pending-fetch WebKit diagnostic remain open",
+    "No exact-head independent branch CI"
+  ],
+  "warnings": [
+    "Existing Vite chunk-size warning",
+    "Fixture teardown can request absent upstream; no pageerror suppression"
+  ]
+}

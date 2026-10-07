@@ -2453,6 +2453,78 @@ test('uses the shared work-area geometry across semantic page modes', async ({
   }
 })
 
+test('workflow rebind holds a cached catalog during GET retry and preserves its namespace', async ({
+  page,
+}, info) => {
+  const state = createState()
+  await installMocks(page, state)
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  let retry = false
+  let failedReads = 0
+  let heldReads = 0
+  let release!: () => void
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const commands: unknown[] = []
+  await page.route('**/api/v1/workflow-catalog', async (route) => {
+    if (retry) {
+      if (failedReads++ === 0)
+        return fulfill(route, { error: { message: 'Catalog GET retry pending' } }, 503)
+      heldReads += 1
+      await gate
+    }
+    return route.fallback()
+  })
+  await page.route('**/api/v1/workflow-bindings/*', (route) => {
+    if (route.request().method() === 'PUT') commands.push(route.request().postDataJSON())
+    return route.fallback()
+  })
+  try {
+    await page.goto('/workflows')
+    const namespace = page.getByLabel('Новое пространство для Developer Hermes')
+    const rebind = page.getByRole('button', { name: 'Перепривязать', exact: true })
+    await expect(rebind).toBeEnabled()
+    await namespace.selectOption('1')
+    retry = true
+    await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')))
+    await expect.poll(() => heldReads, { timeout: 15000 }).toBeGreaterThan(0)
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await expect(namespace).toHaveValue('1')
+      await expect(namespace).toBeDisabled()
+      await expect(rebind).toBeDisabled()
+      expect(commands).toEqual([])
+      await page.screenshot({
+        path: info.outputPath(`workflow-catalog-retry-held-${viewport.width}.png`),
+        fullPage: true,
+        animations: 'disabled',
+        scale: 'css',
+      })
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      ).toBe(true)
+    }
+    retry = false
+    release()
+    await expect(rebind).toBeEnabled()
+    await expect(namespace).toHaveValue('1')
+    expect(commands).toEqual([])
+    await rebind.click()
+    await expect.poll(() => commands).toEqual([{ namespace_id: '1', workflow_id: '1' }])
+    expect(errors).toEqual([])
+  } finally {
+    release()
+  }
+})
+
 test('workflow bindings rebind only to a workflow in the selected namespace', async ({
   page,
 }, testInfo) => {
