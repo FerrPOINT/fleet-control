@@ -2,6 +2,16 @@
 
 ## Docker Approval And Live Custody Acceptance
 
+The current follow-up separates the 20-second lock wait from the 20-second
+native heartbeat budget without extending the 30-second lease. A fresh focused
+gate passes 55 cases, including actual startup-worker contention. The actual
+two-agent gate `ed7980b311ea` failed first recovery: both DB leases reached
+version 2, native-next work remained held, and custody expired. Source identity
+and own cleanup passed, not acceptance. The remaining native work/renewal path
+must be resolved without reviving expired leases or weakening physical checks;
+all six phase reports are still required. Component success alone does not
+enable recovery or new-owner effects.
+
 The new opt-in exact-selector custody gate requires two real isolated Hermes
 agents, a genuine pending manual approval, two physical Fleet controller
 restarts, live dual heartbeat and expiry without lease revival. It must also

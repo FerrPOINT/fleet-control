@@ -41,6 +41,11 @@ the version and cannot revive an expired lease. The opt-in worker cadence is10
 seconds, with one in-flight cycle per agent. Initial recovery is bounded to8
 seconds; the four-call dual heartbeat has a20-second budget, below the unchanged
 30-second lease duration. Ticks during an active cycle are skipped, not queued.
+Heartbeat lock admission has a separate20-second bound; native work receives
+its full20-second bound only after acquiring the lifecycle lock. The worker
+envelope is41 seconds for both bounds and metadata overhead. Waiting does not
+extend either lease: after admission, expired custody still fails before native
+work. The envelope is a cancellation limit, never a lease or effects permit.
 No caller-supplied clock is trusted.
 
 Initial recovery/readback and heartbeat are separate worker cycles. Once this

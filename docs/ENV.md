@@ -9,6 +9,9 @@ legacy configuration files which omit it. When explicitly enabled with a trusted
 `fleet.container_control.bridge_controller`, supervisor startup schedules custody
 reconciliation immediately and every10 seconds. Each agent has one in-flight
 cycle; initial recovery is bounded to8 seconds and dual heartbeat to20 seconds.
+Lifecycle-lock admission is separately bounded to20 seconds, so waiting does
+not consume the native-work budget. One worker envelope is41 seconds; ticks
+remain skipped while the agent has an in-flight cycle.
 The30-second lease and all expiry checks remain unchanged; missed ticks are
 skipped. The current Base executable
 must support protocol3 recovery/heartbeat and match the original private source,

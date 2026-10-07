@@ -1,5 +1,26 @@
 # Current State
 
+## Heartbeat Lock Contention Follow-Up: 7 October 2026
+
+Runtime branch commit `5b87a71` is published, not merged or deployed. The next
+candidate separates the bounded lifecycle-lock wait from native heartbeat work:
+20 seconds each, within a 41-second worker envelope. The 30-second lease is
+unchanged; time spent waiting grants no authority and expired custody cannot be
+renewed. The body revalidates the original binding and both live leases.
+
+Fresh Linux/Rust 1.88/PostgreSQL validation passes formatting, strict workspace
+all-target Clippy and 55 focused cases with no failures or ignores. The new
+regression runs the actual startup worker under lock contention and requires
+matching live DB/native renewal before a later tick can hide starvation.
+All 304 captured inputs match and owned Compose resources are cleaned.
+The unchanged two-agent Docker gate failed against these candidate bytes:
+both records reached DB version 2, but native-next work did not complete and
+custody expired. Exact source and owned cleanup are confirmed. The separate
+lock budget fixes the tested contention case, not actual continuous renewal.
+Recovery stays default-off, and custody does not
+permit resumed model execution or establish PM/SDLC acceptance. See the
+[verification ledger](CHAT_CLARIFICATION_VERIFICATION.md).
+
 ## Live Restart Renewal Follow-Up: 7 October 2026
 
 Published brancha1dc91b includes the origin fix and isolated custody driver.

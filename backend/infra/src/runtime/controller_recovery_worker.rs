@@ -8,7 +8,9 @@ use uuid::Uuid;
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(10);
 const RECOVERY_CYCLE_TIMEOUT: Duration = Duration::from_secs(8);
+const HEARTBEAT_LOCK_TIMEOUT: Duration = Duration::from_secs(20);
 const HEARTBEAT_CYCLE_TIMEOUT: Duration = Duration::from_secs(20);
+const WORKER_CYCLE_TIMEOUT: Duration = Duration::from_secs(41);
 
 struct RecoveryProgress {
     agent_id: Uuid,
@@ -87,7 +89,7 @@ impl LocalRuntimeSupervisor {
                                 }
                                 let worker = supervisor.clone();
                                 jobs.spawn(async move {
-                                    let result = tokio::time::timeout(HEARTBEAT_CYCLE_TIMEOUT,
+                                    let result = tokio::time::timeout(WORKER_CYCLE_TIMEOUT,
                                         worker.reconcile_controller_recovery(agent.id)).await;
                                     (agent.id, matches!(result, Ok(Ok(()))))
                                 });
@@ -148,7 +150,22 @@ impl LocalRuntimeSupervisor {
     ) -> Result<ControllerRecoveryRecord, AppError> {
         let mut progress = RecoveryProgress::new(agent_id, "heartbeat.lock");
         let lock = self.lifecycle_lock(agent_id).await;
-        let _guard = lock.lock().await;
+        let _guard = tokio::time::timeout(HEARTBEAT_LOCK_TIMEOUT, lock.lock())
+            .await
+            .map_err(|_| held())?;
+        tokio::time::timeout(
+            HEARTBEAT_CYCLE_TIMEOUT,
+            self.heartbeat_container_controller_locked(agent_id, &mut progress),
+        )
+        .await
+        .map_err(|_| held())?
+    }
+
+    async fn heartbeat_container_controller_locked(
+        &self,
+        agent_id: Uuid,
+        progress: &mut RecoveryProgress,
+    ) -> Result<ControllerRecoveryRecord, AppError> {
         progress.stage("heartbeat.original_context");
         let launch = self
             .repo

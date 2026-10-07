@@ -20,6 +20,11 @@ The90-second renewal observation window does not extend the30-second lease.
 After each worker process exits, a read-only freeze phase captures the final
 exact DB version into a separate private file before the native probe. This
 prevents a concurrent heartbeat from making the probe's snapshot obsolete.
+The component contention regression uses actual PostgreSQL and the startup
+worker, holds the lifecycle lock for11 seconds, then delays each of its two
+native heartbeat calls by5 seconds. It requires matching live DB/native version2
+before the next worker tick could conceal an interrupted original cycle. This
+is a scheduler/helper regression, not a Docker or SDLC acceptance result.
 
 This is approval-wait custody, not active inference-connection survival, resumed
 execution, task/PM workflow or deployment acceptance. The existing rollback and

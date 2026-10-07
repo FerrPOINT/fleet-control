@@ -45,6 +45,11 @@ The observed native critical path exceeded the former8-second heartbeat budget;
 the new20-second execution budget remains below the unchanged30-second lease.
 It retains expiry guards and the once-only dispatch claim. Require live
 two-restart/expiry evidence before accepting this change as restored custody.
+The subsequent contention fix separates20-second lifecycle-lock admission from
+20-second native heartbeat execution in a41-second worker envelope. Revalidate
+both leases after lock admission; waiting must not consume native work time or
+renew custody. Verify the actual startup worker under contention before accepting
+continuous maintenance, not just a saved version4 snapshot.
 Prove actual restart, competing owner and interrupted activation; do not rewrite
 the original launch or use expiry as a redispatch permit. See
 [the exact contract](contracts/CONTROLLER_RECOVERY_V1.md). The fresh562-case

@@ -1,5 +1,50 @@
 # Chat Clarification Verification
 
+## Separate Heartbeat Lock And Work Budgets: 7 October 2026
+
+The candidate after published `5b87a71` separates lifecycle-lock admission
+(20 seconds) from native heartbeat work (20 seconds), with a 41-second worker
+envelope. The envelope is not a lease: the existing 30-second expiry and all
+DB/native version, owner, launch and receipt checks remain authoritative.
+No schema, HTTP contract, deployment pin or installed flag changes.
+
+Fresh focused gate `sdlc-qa-fleet-container-control-c0ee98a0c76b` passes formatting,
+strict workspace/all-target Clippy and 55 PostgreSQL/component cases:
+9 configuration, 40 container lifecycle/recovery and 6 lifecycle, without
+failures or ignores. A new actual-startup-worker regression holds the lifecycle
+lock for 11 seconds and requires exact live DB/native version 2 after two
+five-second native operations, before the next tick can mask a truncated cycle.
+Original gateway effects remain denied. All 304 source inputs match.
+
+Source manifest SHA256:
+`185d2a4e1468413f9cfa7ea5065dcff4cb270200f407c8062a56201733eb7873`.
+Gate-log SHA256:
+`fa0ba683fa5ea0dd1f2e8b6f2d4be2c2ac637df3834f190e7c9e646cdfe5be55`.
+Exit 0 and exact owned container/network cleanup are confirmed. This is a
+focused gate, not a new full-workspace, OpenAPI or live acceptance result.
+
+An earlier fixture attempt `2a6131146e12` was stopped after detecting an import
+in the wrong helper before its test phase. Its failed exit 137 and cleanup are
+retained; it is not counted as passing evidence. The import was corrected before
+the fresh passing capture above.
+
+Actual two-agent project `sdlc-qa-fleet-container-live-ed7980b311ea` failed its
+first recovery phase. Genuine approval preparation and the physical Fleet
+restart completed; both DB records reached acknowledged epoch 1/version 2.
+Diagnostics then held at `heartbeat.native_next`, followed by native replay
+holds and expired DB leases. The unchanged 90-second maintenance assertion
+failed. This does not prove a native version-2 acknowledgement, two successful
+restarts or any resumed execution. The lock-contended regression passes, but
+the remaining actual native work/renewal path is unresolved.
+
+All 316 captured inputs match, source manifest SHA256:
+`a461f24d23786d730cb80ef4fb8ec1390559f66bb78fcbf1db6be17bf828e919`.
+The final report records failed acceptance, exact Compose cleanup, removed own
+image tags, unchanged sources and unchanged permanent runtime. No later phase
+is counted as passed. Host safety tests pass 30 cases, README validation passes,
+and the link checker verifies 132 Markdown files. These do not close the live
+gap. Recovery stays default-off and new-owner effects remain fenced.
+
 ## Actual Restart Renewal Diagnosis: 7 October 2026
 
 Published Fleeta1dc91b/Base control3facb28/Base SDKcbb4e99/Hermesbbaf7af inputs

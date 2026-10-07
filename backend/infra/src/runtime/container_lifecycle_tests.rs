@@ -731,7 +731,7 @@ pub(super) async fn fake_creation(config: &AppConfig, agent: &Agent, unknown: bo
     tokio::fs::remove_file(root.join(format!("{}.container-prepared.json", agent.id)))
         .await
         .unwrap();
-    let program = r#"import sys,json,hashlib
+    let program = r#"import sys,json,hashlib,time
 from pathlib import Path
 r=json.load(sys.stdin);root=Path(r['journal']).parent
 from datetime import datetime,timezone
@@ -794,6 +794,7 @@ elif r['action'] in ('observe_controller_restart','recover_controller','read_con
   elif r['action']=='read_controller_recovery':
    result=json.loads(ack.read_bytes());assert result['recovery']==command
   elif r['action']=='heartbeat_controller':
+   if (root/'slow-heartbeat').exists():time.sleep(5)
    original=json.loads(ack.read_bytes())['recovery'];previous=json.loads(lease.read_bytes())
    assert command['request']==original['request'] and command['epoch']==original['epoch']
    with (root/'heartbeat-calls').open('a') as calls:calls.write(str(command['lease_version'])+'\n')
@@ -1983,6 +1984,58 @@ async fn controller_reconciliation_renews_acknowledged_owner_without_replaying_h
             .unwrap()
             .lease_version,
         2
+    );
+    assert!(runtime.gateway_launch_generation(agent.id).await.is_err());
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn controller_startup_heartbeat_has_its_full_budget_after_lifecycle_lock_wait() {
+    let Some((repo, agent, runtime, original, root)) = controller_heartbeat_fixture().await else {
+        return;
+    };
+    tokio::fs::write(root.join("controller/slow-heartbeat"), "1")
+        .await
+        .unwrap();
+    let lock = runtime.lifecycle_lock(agent.id).await;
+    let guard = lock.lock().await;
+    runtime.spawn_controller_recovery();
+    tokio::time::sleep(Duration::from_secs(11)).await;
+    drop(guard);
+    tokio::time::timeout(Duration::from_secs(15), async {
+        loop {
+            let record = repo
+                .read_controller_recovery(original.request.id)
+                .await
+                .unwrap()
+                .unwrap();
+            let lease: serde_json::Value = serde_json::from_slice(
+                &tokio::fs::read(root.join(format!(
+                    "controller/{}.recovery-lease.json",
+                    original.request.id
+                )))
+                .await
+                .unwrap(),
+            )
+            .unwrap();
+            if record.lease_version == 2
+                && record.lease_valid
+                && lease["lease_version"] == 2
+                && lease["lease_expires_at"] == record.lease_expires_at
+            {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .expect("lock contention consumed the native heartbeat budget");
+    assert_eq!(
+        tokio::fs::read_to_string(root.join("controller/heartbeat-calls"))
+            .await
+            .unwrap(),
+        "1\n2\n"
     );
     assert!(runtime.gateway_launch_generation(agent.id).await.is_err());
     tokio::fs::remove_dir_all(root).await.unwrap();

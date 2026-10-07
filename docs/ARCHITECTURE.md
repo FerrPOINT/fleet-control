@@ -8,8 +8,10 @@ Controller recovery now separates immutable original launch, DB owner epoch and
 private native delivery. One committed claim precedes the sole native handover;
 original-key readback settles receipt/owner outcome/audit atomically. Historical
 ACK after expiry cannot renew a lease or enable effects. The trusted entry is not
-an automatic startup worker; new-owner dispatch/control still requires live dual
-fences and actual acceptance. See [contract](contracts/CONTROLLER_RECOVERY_V1.md).
+a public HTTP action. A default-off startup worker uses it and maintains dual
+leases with separate lifecycle-lock admission and native-work budgets; new-owner
+dispatch/control still requires live dual fences and actual acceptance. See
+[contract](contracts/CONTROLLER_RECOVERY_V1.md).
 
 ## Chat Clarification Boundary
 
