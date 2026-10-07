@@ -113,6 +113,7 @@ const revision: chats.RequirementsRevision = {
     prerequisites: [],
   },
 }
+const originalIssuer = ssoConfig.issuer
 function renderPage(tab = 'dialogue', queryRetries: false | number = false) {
   const router = createMemoryRouter(
     [
@@ -134,6 +135,7 @@ function renderPage(tab = 'dialogue', queryRetries: false | number = false) {
 beforeEach(() => {
   vi.clearAllMocks()
   sessionStorage.clear()
+  ssoConfig.issuer = originalIssuer
   useAuthStore.setState({ userId: 'owner', token: 'fixture-token', signingOut: false })
   vi.mocked(fleet.getSession).mockResolvedValue({
     id: 'session1',
@@ -184,6 +186,103 @@ beforeEach(() => {
   })
 })
 describe('production chat', () => {
+  it.each(
+    (['answer', 'confirmation'] as const).flatMap((command) =>
+      (['logout', 'signing-out', 'another-actor', 'another-service'] as const).map((access) => ({
+        command,
+        access,
+      })),
+    ),
+  )(
+    'holds a late $command ACK after $access without losing the original command',
+    async ({ command, access }) => {
+      const isAnswer = command === 'answer'
+      let acknowledge!: () => void
+      if (isAnswer) {
+        vi.mocked(chats.answerClarification).mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              acknowledge = () =>
+                resolve({
+                  id: 'answer',
+                  question_id: 'q1',
+                  question_version: 1,
+                  requirement_revision: 3,
+                  selected_option_ids: ['project'],
+                  text: null,
+                  comment: 'Original private answer',
+                  author_subject: 'subject-owner',
+                  created_at: '2026-10-01T12:00:00Z',
+                })
+            }),
+        )
+      } else {
+        vi.mocked(chats.confirmRequirements).mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              acknowledge = () =>
+                resolve({
+                  id: 'confirmation',
+                  task_id: 'task',
+                  revision: 3,
+                  content_hash: 'hash3',
+                  owner_subject: 'subject-owner',
+                  created_at: '2026-10-01T12:00:00Z',
+                  stage: 'Backlog',
+                })
+            }),
+        )
+      }
+      const { client } = renderPage(isAnswer ? 'clarification' : 'requirements')
+      await userEvent.click(
+        isAnswer
+          ? await screen.findByRole('radio', { name: /Участники проекта/ })
+          : await screen.findByRole('checkbox', { name: /Подтверждаю цель/ }),
+      )
+      if (isAnswer)
+        fireEvent.change(screen.getByLabelText('Комментарий'), {
+          target: { value: 'Original private answer' },
+        })
+      await userEvent.click(
+        screen.getByRole('button', {
+          name: isAnswer ? 'Сохранить ответ' : 'Подтвердить редакцию 3',
+        }),
+      )
+      const mutation = isAnswer ? chats.answerClarification : chats.confirmRequirements
+      await waitFor(() => expect(mutation).toHaveBeenCalledTimes(1))
+      await act(async () => {
+        if (access === 'logout') useAuthStore.getState().logout()
+        else if (access === 'signing-out') useAuthStore.getState().startSignOut()
+        else if (access === 'another-service') {
+          ssoConfig.issuer = 'https://another-auth.example.test'
+          useAuthStore.setState({ token: 'another-service-token' })
+        } else
+          useAuthStore.setState({
+            userId: 'operator',
+            token: 'other-token',
+            permissions: ['sessions:read_all'],
+          })
+        acknowledge()
+      })
+      const retryName = isAnswer ? 'Повторить исходный ответ' : 'Повторить исходное подтверждение'
+      await waitFor(() => expect(screen.getByRole('button', { name: retryName })).toBeDisabled())
+      expect(
+        screen.queryByText('Подтверждение сохранено. Следующее назначение проверяется отдельно.'),
+      ).not.toBeInTheDocument()
+      if (isAnswer)
+        expect(screen.getByLabelText('Комментарий')).toHaveValue('Original private answer')
+      expect(mutation).toHaveBeenCalledTimes(1)
+      await act(async () => {
+        ssoConfig.issuer = originalIssuer
+        useAuthStore.setState({ userId: 'owner', token: 'returned-token', signingOut: false })
+        await client.invalidateQueries({ queryKey: ['session', 'session1'] })
+      })
+      await waitFor(() => expect(screen.getByRole('button', { name: retryName })).toBeEnabled())
+      await userEvent.click(screen.getByRole('button', { name: retryName }))
+      await waitFor(() => expect(mutation).toHaveBeenCalledTimes(2))
+      expect(vi.mocked(mutation).mock.calls[1]).toEqual(vi.mocked(mutation).mock.calls[0])
+    },
+  )
   it.each(
     (['steer', 'stop'] as const).flatMap((operation) =>
       (

@@ -25,6 +25,14 @@ it does not implement native PM checkpoint/rebind or a real step projection.
 Its source hashes, unit/browser results and reviewed captures are in the
 [catalog freshness packet](assets/screens/workflow-catalog-freshness-20261007/validation.json).
 
+## PM acknowledgement authority
+
+The later [PM identity follow-up](CHATS_PM_BLOCKERS_20261007.md) holds late
+answer/confirmation ACKs after authority changes without losing the original
+payload/key. Its [validation packet](assets/screens/chats-pm-identity-20261007/validation.json)
+records fixture checks separately from the unchanged installed-system audit and
+the remaining Draft → clarification → requirements → Backlog boundaries.
+
 ## Original-key control recovery
 
 Published Fleet producer

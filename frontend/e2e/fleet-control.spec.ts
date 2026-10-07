@@ -19,6 +19,12 @@ const reloadTest = test.extend<{ streamUrl: string }>({
         response.writeHead(403).end()
         return
       }
+      if (request.url === '/notify') {
+        for (const stream of responses)
+          stream.write('event: session\ndata: {"type":"session_changed"}\n\n')
+        response.writeHead(204).end()
+        return
+      }
       response.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store' })
       response.write(': fixture heartbeat\n\n')
       responses.add(response)
@@ -458,342 +464,583 @@ test('chat stop holds stale permissions and uses the refreshed active run', asyn
   expect(errors).toEqual([])
 })
 
-test('PM chat clarification preserves explicit answers and exact confirmation', async ({
-  page,
-}, testInfo) => {
-  test.setTimeout(90000)
-  const state = createState()
-  await installMocks(page, state)
-  const errors: string[] = []
-  page.on('pageerror', (error) => errors.push(error.message))
-  const question = {
-    id: '00000000-0000-4000-8000-000000000501',
-    request_id: '00000000-0000-4000-8000-000000000502',
-    task_id: ids.session,
-    root_task_id: ids.session,
-    assignment_id: '00000000-0000-4000-8000-000000000503',
-    execution_id: '00000000-0000-4000-8000-000000000504',
-    agent_id: ids.dev,
-    assignment_version: 1,
-    checkpoint_id: '00000000-0000-4000-8000-000000000505',
-    author_subject: ids.dev,
-    created_at: now,
-    version: 1,
-    requirement_revision: 1,
-    text: 'Кто может просматривать задачи?',
-    rationale: 'Фиксируем границы доступа.',
-    required: true,
-    mode: 'single',
-    state: 'open',
-    answer: null,
-    requirement_reference: 'REQ-1',
-    recommended_option_id: ids.dev,
-    options: [
-      {
-        id: ids.dev,
-        label: 'Участники проекта',
-        consequences: 'Доступ ограничен проектом.',
-        is_custom: false,
-      },
-    ],
-  }
-  const revision = {
-    revision: 1,
-    author_subject: ids.dev,
-    content_hash: 'a'.repeat(64),
-    created_at: now,
-    goal: 'Рабочий портал задач',
-    scope: ['Управление задачами проекта'],
-    exclusions: ['Публичный доступ'],
-    scenarios: ['Участник создаёт задачу'],
-    acceptance_criteria: ['Другой проект не видит задачу'],
-    constraints: [],
-    dependencies: [],
-    assumptions: [],
-    checklist: ['business-completeness'],
-    prerequisites: ['runtime-ready'],
-  }
-  let answered = false
-  let finalPublished = false
-  let confirmed = false
-  let questionMode = 'single'
-  let unavailableRead: 'task-context' | 'requirements' | null = null
-  let failedReads = 0
-  const savedAnswer = {
-    id: '00000000-0000-4000-8000-000000000506',
-    question_id: question.id,
-    question_version: 1,
-    requirement_revision: 1,
-    selected_option_ids: [ids.dev],
-    text: null,
-    comment: 'Только внутри проекта',
-    author_subject: ids.user,
-    created_at: now,
-  }
-  const commands: { path: string; body: unknown }[] = []
-  await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
-    const path = new URL(route.request().url()).pathname
-    if (unavailableRead && path.endsWith(`/${unavailableRead}`)) {
-      failedReads += 1
-      return fulfill(route, { error: { message: 'PM read unavailable' } }, 503)
-    }
-    if (path.endsWith('/approvals')) return fulfill(route, [])
-    if (path.endsWith('/task-context'))
-      return fulfill(route, {
-        binding: {
-          tracker_instance_id: 'fixture-tracker',
-          project_id: ids.dev,
-          task_id: ids.session,
-          root_task_id: ids.session,
-          agent_id: ids.dev,
-          owner_subject: ids.user,
-        },
-        tracker: {
-          contract_version: 1,
-          tracker_instance_id: 'fixture-tracker',
-          project_id: ids.dev,
-          task_id: ids.session,
-          root_task_id: ids.session,
-          owner_subject: ids.user,
-          stage: confirmed ? 'Backlog' : 'Clarification',
-          requirement_revision: finalPublished ? 2 : 1,
-          waiting_reason: answered ? null : 'Требуется ответ владельца',
-          assignment: {
-            assignment_id: question.assignment_id,
-            execution_id: question.execution_id,
-            agent_id: ids.dev,
-            version: 1,
-            machine_subject: ids.dev,
+for (const operation of ['answer', 'confirmation'] as const) {
+  reloadTest(
+    `PM ${operation} holds a late acknowledgement after session access loss`,
+    async ({ page, streamUrl }, info) => {
+      const state = createState()
+      await installMocks(page, state)
+      const errors: string[] = []
+      page.on('pageerror', (error) => errors.push(error.message))
+      await page.route(`**/api/v1/sessions/${ids.session}/stream`, (route) =>
+        route.continue({ url: streamUrl }),
+      )
+      const question = {
+        id: '00000000-0000-4000-8000-000000000501',
+        request_id: '00000000-0000-4000-8000-000000000502',
+        task_id: ids.session,
+        root_task_id: ids.session,
+        assignment_id: '00000000-0000-4000-8000-000000000503',
+        execution_id: '00000000-0000-4000-8000-000000000504',
+        agent_id: ids.dev,
+        assignment_version: 1,
+        checkpoint_id: '00000000-0000-4000-8000-000000000505',
+        author_subject: ids.dev,
+        created_at: now,
+        version: 1,
+        requirement_revision: 1,
+        text: 'Кто может просматривать задачи?',
+        rationale: 'Фиксируем границы доступа.',
+        required: true,
+        mode: 'single',
+        state: 'open',
+        answer: null,
+        requirement_reference: 'REQ-1',
+        recommended_option_id: ids.dev,
+        options: [
+          {
+            id: ids.dev,
+            label: 'Участники проекта',
+            consequences: 'Доступ ограничен проектом.',
+            is_custom: false,
           },
-          permissions: { can_answer: !answered, can_confirm: finalPublished && !confirmed },
-        },
-      })
-    if (path.endsWith('/chat-controls'))
-      return fulfill(route, {
-        can_send: false,
-        can_steer: false,
-        can_stop: false,
-        active_run_id: null,
-        blocked_reason: 'workflow_assignment_required',
-      })
-    if (path.endsWith('/history'))
-      return fulfill(route, {
-        items: [makeMessage(ids.session, 'Уточним требования перед публикацией.')],
-        next_before: null,
-      })
-    if (path.endsWith('/clarifications'))
-      return fulfill(route, {
-        questions: [
-          answered
-            ? { ...question, state: 'answered', answer: savedAnswer }
-            : { ...question, mode: questionMode },
         ],
-      })
-    if (path.endsWith('/requirements'))
-      return fulfill(route, {
-        revisions: finalPublished
-          ? [revision, { ...revision, revision: 2, content_hash: 'b'.repeat(64) }]
-          : [revision],
-      })
-    if (route.request().method() === 'POST') {
-      commands.push({ path, body: route.request().postDataJSON() })
-      if (path.endsWith('/answers')) {
-        answered = true
-        if (commands.filter((command) => command.path.endsWith('/answers')).length === 1)
-          return fulfill(route, { error: { message: 'Answer receipt timed out' } }, 408)
-        return fulfill(route, savedAnswer)
       }
-      confirmed = true
-      if (commands.filter((command) => command.path.endsWith('/confirm')).length === 1)
-        return fulfill(route, { error: { message: 'Confirmation receipt timed out' } }, 408)
-      return fulfill(route, {
+      const revision = {
+        revision: 1,
+        author_subject: ids.dev,
+        content_hash: 'a'.repeat(64),
+        created_at: now,
+        goal: 'Рабочий портал задач',
+        scope: ['Управление задачами проекта'],
+        exclusions: ['Публичный доступ'],
+        scenarios: ['Участник создаёт задачу'],
+        acceptance_criteria: ['Другой проект не видит задачу'],
+        constraints: [],
+        dependencies: [],
+        assumptions: [],
+        checklist: ['business-completeness'],
+        prerequisites: ['runtime-ready'],
+      }
+      const answerReceipt = {
+        id: '00000000-0000-4000-8000-000000000506',
+        question_id: question.id,
+        question_version: 1,
+        requirement_revision: 1,
+        selected_option_ids: [ids.dev],
+        text: null,
+        comment: 'Только внутри проекта',
+        author_subject: ids.user,
+        created_at: now,
+      }
+      const confirmationReceipt = {
         id: '00000000-0000-4000-8000-000000000507',
         task_id: ids.session,
-        revision: 2,
-        content_hash: 'b'.repeat(64),
+        revision: 1,
+        content_hash: revision.content_hash,
         owner_subject: ids.user,
         created_at: now,
         stage: 'Backlog',
+      }
+      let denied = false
+      let releaseAcknowledgement!: () => void
+      const commands: { path: string; body: unknown }[] = []
+      await page.route(`**/api/v1/sessions/${ids.session}`, (route) =>
+        denied
+          ? fulfill(route, { error: { message: 'PM session access denied' } }, 403)
+          : route.fallback(),
+      )
+      await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
+        const path = new URL(route.request().url()).pathname
+        if (path.endsWith('/task-context'))
+          return fulfill(route, {
+            binding: {
+              tracker_instance_id: 'fixture-tracker',
+              project_id: ids.dev,
+              task_id: ids.session,
+              root_task_id: ids.session,
+              agent_id: ids.dev,
+              owner_subject: ids.user,
+            },
+            tracker: {
+              contract_version: 1,
+              tracker_instance_id: 'fixture-tracker',
+              project_id: ids.dev,
+              task_id: ids.session,
+              root_task_id: ids.session,
+              owner_subject: ids.user,
+              stage: 'Clarification',
+              requirement_revision: 1,
+              waiting_reason: 'Требуется ответ владельца',
+              assignment: null,
+              permissions: { can_answer: true, can_confirm: true },
+            },
+          })
+        if (path.endsWith('/chat-controls'))
+          return fulfill(route, {
+            can_send: false,
+            can_steer: false,
+            can_stop: false,
+            active_run_id: null,
+            blocked_reason: 'workflow_assignment_required',
+          })
+        // Delayed read projection keeps the original form visible; this is fixture evidence.
+        if (path.endsWith('/clarifications')) return fulfill(route, { questions: [question] })
+        if (path.endsWith('/requirements')) return fulfill(route, { revisions: [revision] })
+        if (route.request().method() === 'POST') {
+          commands.push({ path, body: route.request().postDataJSON() })
+          if (commands.length === 1)
+            await new Promise<void>((resolve) => {
+              releaseAcknowledgement = resolve
+            })
+          return fulfill(route, operation === 'answer' ? answerReceipt : confirmationReceipt)
+        }
+        return route.fallback()
       })
+      await page.goto(
+        `/chats/${ids.session}?tab=${operation === 'answer' ? 'clarification' : 'requirements'}`,
+      )
+      await page
+        .getByRole(operation === 'answer' ? 'radio' : 'checkbox', {
+          name: operation === 'answer' ? /Участники проекта/ : /Подтверждаю цель/,
+        })
+        .check()
+      if (operation === 'answer')
+        await page.getByLabel('Комментарий', { exact: true }).fill(answerReceipt.comment)
+      await page
+        .getByRole('button', {
+          name: operation === 'answer' ? 'Сохранить ответ' : 'Подтвердить редакцию 1',
+        })
+        .click()
+      await expect.poll(() => commands.length).toBe(1)
+      denied = true
+      const notification = await fetch(streamUrl.replace('/stream', '/notify'), {
+        headers: { Authorization: 'Bearer qa-access-token' },
+      })
+      expect(notification.status).toBe(204)
+      await expect(page.getByText('PM session access denied', { exact: true })).toBeVisible()
+      const acknowledged = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'POST' &&
+          response.url().endsWith(operation === 'answer' ? '/answers' : '/confirm') &&
+          response.status() === 200,
+      )
+      const deniedReadback = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'GET' &&
+          new URL(response.url()).pathname === `/api/v1/sessions/${ids.session}` &&
+          response.status() === 403,
+      )
+      releaseAcknowledgement()
+      await Promise.all([acknowledged, deniedReadback])
+      // The held ACK invalidates reads while the original owner still has no access.
+      await expect(page.getByRole('button', { name: 'Проверить доступ к чату' })).toBeEnabled()
+      denied = false
+      await page.getByRole('button', { name: 'Проверить доступ к чату' }).click()
+      const retry = page.getByRole('button', {
+        name:
+          operation === 'answer' ? 'Повторить исходный ответ' : 'Повторить исходное подтверждение',
+      })
+      await expect(retry).toBeEnabled()
+      expect(commands).toHaveLength(1)
+      await expect(
+        page.getByText('Подтверждение сохранено. Следующее назначение проверяется отдельно.', {
+          exact: true,
+        }),
+      ).not.toBeVisible()
+      if (operation === 'answer')
+        await expect(page.getByLabel('Комментарий', { exact: true })).toHaveValue(
+          answerReceipt.comment,
+        )
+      for (const phase of ['held', 'acknowledged']) {
+        if (phase === 'acknowledged') {
+          await retry.click()
+          await expect(retry).not.toBeVisible()
+          expect(commands).toHaveLength(2)
+          expect(commands[1]).toEqual(commands[0])
+        }
+        for (const viewport of [
+          { width: 375, height: 812 },
+          { width: 1920, height: 1080 },
+          { width: 2560, height: 1440 },
+        ]) {
+          await page.setViewportSize(viewport)
+          if (phase === 'held') await retry.scrollIntoViewIfNeeded()
+          else if (operation === 'confirmation')
+            await page
+              .getByText('Подтверждение сохранено. Следующее назначение проверяется отдельно.', {
+                exact: true,
+              })
+              .scrollIntoViewIfNeeded()
+          else await page.getByLabel('Комментарий', { exact: true }).scrollIntoViewIfNeeded()
+          expect(
+            await page.evaluate(
+              () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+            ),
+          ).toBe(true)
+          await page.screenshot({
+            path: info.outputPath(`pm-${operation}-${phase}-${viewport.width}.png`),
+            fullPage: true,
+            animations: 'disabled',
+          })
+        }
+      }
+      expect(errors).toEqual([])
+    },
+  )
+}
+
+reloadTest(
+  'PM chat clarification preserves explicit answers and exact confirmation',
+  async ({ page, streamUrl }, testInfo) => {
+    test.setTimeout(90000)
+    const state = createState()
+    await installMocks(page, state)
+    await page.route(`**/api/v1/sessions/${ids.session}/stream`, (route) =>
+      route.continue({ url: streamUrl }),
+    )
+    const notifyPublication = async () => {
+      const response = await fetch(streamUrl.replace('/stream', '/notify'), {
+        headers: { Authorization: 'Bearer qa-access-token' },
+      })
+      expect(response.status).toBe(204)
     }
-    return route.fallback()
-  })
-  await page.goto(`/chats/${ids.session}?tab=clarification`)
-  await expect(page.getByRole('radio', { name: /Участники проекта/ })).toBeVisible()
-  // Current production controller with fixture APIs, never live PM acceptance.
-  for (const viewport of [
-    { width: 375, height: 812 },
-    { width: 1920, height: 1080 },
-    { width: 2560, height: 1440 },
-  ]) {
-    await page.setViewportSize(viewport)
-    for (const mode of ['single', 'multiple', 'text']) {
-      questionMode = mode
-      await expect(page.getByText(question.rationale, { exact: true })).toBeVisible()
-      await expect(page.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
-      if (mode !== 'text')
-        await expect(
-          page.getByRole(mode === 'single' ? 'radio' : 'checkbox', { name: /Участники проекта/ }),
-        ).not.toBeChecked()
-      else await expect(page.getByLabel('Ваш ответ', { exact: true })).toHaveValue('')
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    const question = {
+      id: '00000000-0000-4000-8000-000000000501',
+      request_id: '00000000-0000-4000-8000-000000000502',
+      task_id: ids.session,
+      root_task_id: ids.session,
+      assignment_id: '00000000-0000-4000-8000-000000000503',
+      execution_id: '00000000-0000-4000-8000-000000000504',
+      agent_id: ids.dev,
+      assignment_version: 1,
+      checkpoint_id: '00000000-0000-4000-8000-000000000505',
+      author_subject: ids.dev,
+      created_at: now,
+      version: 1,
+      requirement_revision: 1,
+      text: 'Кто может просматривать задачи?',
+      rationale: 'Фиксируем границы доступа.',
+      required: true,
+      mode: 'single',
+      state: 'open',
+      answer: null,
+      requirement_reference: 'REQ-1',
+      recommended_option_id: ids.dev,
+      options: [
+        {
+          id: ids.dev,
+          label: 'Участники проекта',
+          consequences: 'Доступ ограничен проектом.',
+          is_custom: false,
+        },
+      ],
+    }
+    const revision = {
+      revision: 1,
+      author_subject: ids.dev,
+      content_hash: 'a'.repeat(64),
+      created_at: now,
+      goal: 'Рабочий портал задач',
+      scope: ['Управление задачами проекта'],
+      exclusions: ['Публичный доступ'],
+      scenarios: ['Участник создаёт задачу'],
+      acceptance_criteria: ['Другой проект не видит задачу'],
+      constraints: [],
+      dependencies: [],
+      assumptions: [],
+      checklist: ['business-completeness'],
+      prerequisites: ['runtime-ready'],
+    }
+    let answered = false
+    let finalPublished = false
+    let confirmed = false
+    let questionMode = 'single'
+    let unavailableRead: 'task-context' | 'requirements' | null = null
+    let failedReads = 0
+    const savedAnswer = {
+      id: '00000000-0000-4000-8000-000000000506',
+      question_id: question.id,
+      question_version: 1,
+      requirement_revision: 1,
+      selected_option_ids: [ids.dev],
+      text: null,
+      comment: 'Только внутри проекта',
+      author_subject: ids.user,
+      created_at: now,
+    }
+    const commands: { path: string; body: unknown }[] = []
+    await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
+      const path = new URL(route.request().url()).pathname
+      if (unavailableRead && path.endsWith(`/${unavailableRead}`)) {
+        failedReads += 1
+        return fulfill(route, { error: { message: 'PM read unavailable' } }, 503)
+      }
+      if (path.endsWith('/approvals')) return fulfill(route, [])
+      if (path.endsWith('/task-context'))
+        return fulfill(route, {
+          binding: {
+            tracker_instance_id: 'fixture-tracker',
+            project_id: ids.dev,
+            task_id: ids.session,
+            root_task_id: ids.session,
+            agent_id: ids.dev,
+            owner_subject: ids.user,
+          },
+          tracker: {
+            contract_version: 1,
+            tracker_instance_id: 'fixture-tracker',
+            project_id: ids.dev,
+            task_id: ids.session,
+            root_task_id: ids.session,
+            owner_subject: ids.user,
+            stage: confirmed ? 'Backlog' : 'Clarification',
+            requirement_revision: finalPublished ? 2 : 1,
+            waiting_reason: answered ? null : 'Требуется ответ владельца',
+            assignment: {
+              assignment_id: question.assignment_id,
+              execution_id: question.execution_id,
+              agent_id: ids.dev,
+              version: 1,
+              machine_subject: ids.dev,
+            },
+            permissions: { can_answer: !answered, can_confirm: finalPublished && !confirmed },
+          },
+        })
+      if (path.endsWith('/chat-controls'))
+        return fulfill(route, {
+          can_send: false,
+          can_steer: false,
+          can_stop: false,
+          active_run_id: null,
+          blocked_reason: 'workflow_assignment_required',
+        })
+      if (path.endsWith('/history'))
+        return fulfill(route, {
+          items: [makeMessage(ids.session, 'Уточним требования перед публикацией.')],
+          next_before: null,
+        })
+      if (path.endsWith('/clarifications'))
+        return fulfill(route, {
+          questions: [
+            answered
+              ? { ...question, state: 'answered', answer: savedAnswer }
+              : { ...question, mode: questionMode },
+          ],
+        })
+      if (path.endsWith('/requirements'))
+        return fulfill(route, {
+          revisions: finalPublished
+            ? [revision, { ...revision, revision: 2, content_hash: 'b'.repeat(64) }]
+            : [revision],
+        })
+      if (route.request().method() === 'POST') {
+        commands.push({ path, body: route.request().postDataJSON() })
+        if (path.endsWith('/answers')) {
+          answered = true
+          if (commands.filter((command) => command.path.endsWith('/answers')).length === 1)
+            return fulfill(route, { error: { message: 'Answer receipt timed out' } }, 408)
+          return fulfill(route, savedAnswer)
+        }
+        confirmed = true
+        if (commands.filter((command) => command.path.endsWith('/confirm')).length === 1)
+          return fulfill(route, { error: { message: 'Confirmation receipt timed out' } }, 408)
+        return fulfill(route, {
+          id: '00000000-0000-4000-8000-000000000507',
+          task_id: ids.session,
+          revision: 2,
+          content_hash: 'b'.repeat(64),
+          owner_subject: ids.user,
+          created_at: now,
+          stage: 'Backlog',
+        })
+      }
+      return route.fallback()
+    })
+    await page.goto(`/chats/${ids.session}?tab=clarification`)
+    await expect(page.getByRole('radio', { name: /Участники проекта/ })).toBeVisible()
+    // Current production controller with fixture APIs, never live PM acceptance.
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      await page.setViewportSize(viewport)
+      for (const mode of ['single', 'multiple', 'text']) {
+        questionMode = mode
+        await notifyPublication()
+        await expect(page.getByText(question.rationale, { exact: true })).toBeVisible()
+        await expect(page.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+        if (mode !== 'text')
+          await expect(
+            page.getByRole(mode === 'single' ? 'radio' : 'checkbox', { name: /Участники проекта/ }),
+          ).not.toBeChecked()
+        else await expect(page.getByLabel('Ваш ответ', { exact: true })).toHaveValue('')
+        await page.screenshot({
+          path: testInfo.outputPath(`consumer-${mode}-${viewport.width}.png`),
+          fullPage: true,
+          scale: 'css',
+          animations: 'disabled',
+        })
+      }
+    }
+    questionMode = 'single'
+    await notifyPublication()
+    await expect(page.getByRole('radio', { name: /Участники проекта/ })).toBeVisible()
+    const choice = page.getByRole('radio', { name: /Участники проекта/ })
+    await expect(choice).toBeVisible()
+    await expect(choice).not.toBeChecked()
+    await expect(page.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+    await choice.check()
+    await page.getByLabel('Комментарий', { exact: true }).fill('Только внутри проекта')
+    const answer = page.getByRole('button', { name: 'Сохранить ответ' })
+    await expect(answer).toBeEnabled()
+    unavailableRead = 'task-context'
+    await expect.poll(() => failedReads, { timeout: 15000 }).toBeGreaterThan(0)
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await expect(answer).toBeDisabled()
+      await expect(page.getByLabel('Комментарий', { exact: true })).toHaveValue(
+        'Только внутри проекта',
+      )
       await page.screenshot({
-        path: testInfo.outputPath(`consumer-${mode}-${viewport.width}.png`),
+        path: testInfo.outputPath(`consumer-answer-held-${viewport.width}.png`),
         fullPage: true,
-        scale: 'css',
         animations: 'disabled',
       })
     }
-  }
-  questionMode = 'single'
-  await expect(page.getByRole('radio', { name: /Участники проекта/ })).toBeVisible()
-  const choice = page.getByRole('radio', { name: /Участники проекта/ })
-  await expect(choice).toBeVisible()
-  await expect(choice).not.toBeChecked()
-  await expect(page.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
-  await choice.check()
-  await page.getByLabel('Комментарий', { exact: true }).fill('Только внутри проекта')
-  const answer = page.getByRole('button', { name: 'Сохранить ответ' })
-  await expect(answer).toBeEnabled()
-  unavailableRead = 'task-context'
-  await expect.poll(() => failedReads, { timeout: 15000 }).toBeGreaterThan(0)
-  for (const viewport of [
-    { width: 375, height: 812 },
-    { width: 1920, height: 1080 },
-    { width: 2560, height: 1440 },
-  ]) {
-    await page.setViewportSize(viewport)
-    await expect(answer).toBeDisabled()
+    expect(commands).toEqual([])
+    unavailableRead = null
+    await expect(answer).toBeEnabled({ timeout: 15000 })
+    await page.getByRole('tab', { name: /Диалог/ }).click()
+    await expect(page).toHaveURL(/tab=dialogue/)
+    await page.getByRole('tab', { name: /Уточнения/ }).click()
     await expect(page.getByLabel('Комментарий', { exact: true })).toHaveValue(
       'Только внутри проекта',
     )
-    await page.screenshot({
-      path: testInfo.outputPath(`consumer-answer-held-${viewport.width}.png`),
-      fullPage: true,
-      animations: 'disabled',
-    })
-  }
-  expect(commands).toEqual([])
-  unavailableRead = null
-  await expect(answer).toBeEnabled({ timeout: 15000 })
-  await page.getByRole('tab', { name: /Диалог/ }).click()
-  await expect(page).toHaveURL(/tab=dialogue/)
-  await page.getByRole('tab', { name: /Уточнения/ }).click()
-  await expect(page.getByLabel('Комментарий', { exact: true })).toHaveValue('Только внутри проекта')
-  await page.getByRole('button', { name: 'Сохранить ответ' }).click()
-  await expect(page.getByText('Answer receipt timed out')).toBeVisible()
-  await expect(page.getByLabel('Комментарий', { exact: true })).toBeDisabled()
-  await page.getByRole('button', { name: 'Повторить исходный ответ' }).click()
-  await expect(page.getByText('Ответ сохранён. Требования ещё не опубликованы.')).toBeVisible()
-  expect(commands).toHaveLength(2)
-  expect(commands[1]).toEqual(commands[0])
-  // A separate fixture PM publication is not an automatic side effect of saving the answer.
-  finalPublished = true
-  await page.reload()
-  await page.getByRole('tab', { name: /Требования/ }).click()
-  const confirm = page.getByRole('button', { name: 'Подтвердить редакцию 2' })
-  await expect(confirm).toBeDisabled()
-  await page.getByRole('checkbox', { name: /Подтверждаю цель/ }).check()
-  for (const viewport of [
-    { width: 375, height: 812 },
-    { width: 1920, height: 1080 },
-    { width: 2560, height: 1440 },
-  ]) {
-    await page.setViewportSize(viewport)
-    await expect(confirm).toBeEnabled()
-    await confirm.scrollIntoViewIfNeeded()
-    await page.screenshot({
-      path: testInfo.outputPath(`consumer-confirmation-${viewport.width}.png`),
-      fullPage: true,
-      scale: 'css',
-      animations: 'disabled',
-    })
-    await page.getByText('Сравнить с редакцией 1', { exact: true }).click()
-    await page.screenshot({
-      path: testInfo.outputPath(`consumer-diff-${viewport.width}.png`),
-      fullPage: true,
-      scale: 'css',
-      animations: 'disabled',
-    })
-    await page.getByText('Сравнить с редакцией 1', { exact: true }).click()
-  }
-  const previousFailedReads = failedReads
-  unavailableRead = 'requirements'
-  await expect.poll(() => failedReads, { timeout: 15000 }).toBeGreaterThan(previousFailedReads)
-  for (const viewport of [
-    { width: 375, height: 812 },
-    { width: 1920, height: 1080 },
-    { width: 2560, height: 1440 },
-  ]) {
-    await page.setViewportSize(viewport)
+    await page.getByRole('button', { name: 'Сохранить ответ' }).click()
+    await expect(page.getByText('Answer receipt timed out')).toBeVisible()
+    await expect(page.getByLabel('Комментарий', { exact: true })).toBeDisabled()
+    await page.getByRole('button', { name: 'Повторить исходный ответ' }).click()
+    await expect(page.getByText('Ответ сохранён. Требования ещё не опубликованы.')).toBeVisible()
+    expect(commands).toHaveLength(2)
+    expect(commands[1]).toEqual(commands[0])
+    // A separate fixture PM publication is not an automatic side effect of saving the answer.
+    finalPublished = true
+    await page.reload()
+    await page.getByRole('tab', { name: /Требования/ }).click()
+    const confirm = page.getByRole('button', { name: 'Подтвердить редакцию 2' })
     await expect(confirm).toBeDisabled()
-    await expect(page.getByRole('checkbox', { name: /Подтверждаю цель/ })).toBeChecked()
-    await confirm.scrollIntoViewIfNeeded()
-    await page.screenshot({
-      path: testInfo.outputPath(`consumer-confirmation-held-${viewport.width}.png`),
-      fullPage: true,
-      animations: 'disabled',
-    })
-  }
-  expect(commands).toHaveLength(2)
-  unavailableRead = null
-  await expect(confirm).toBeEnabled({ timeout: 15000 })
-  await confirm.click()
-  await expect(page.getByText('Confirmation receipt timed out')).toBeVisible()
-  await expect(page.getByRole('checkbox', { name: /Подтверждаю цель/ })).toBeDisabled()
-  await page.getByRole('button', { name: 'Повторить исходное подтверждение' }).click()
-  await expect.poll(() => commands.length).toBe(4)
-  expect(commands[3]).toEqual(commands[2])
-  expect(commands[3].body).toMatchObject({
-    content_hash: 'b'.repeat(64),
-    idempotency_key: expect.any(String),
-  })
-  for (const viewport of [
-    { width: 375, height: 812 },
-    { width: 1920, height: 1080 },
-    { width: 2560, height: 1440 },
-  ]) {
-    await page.setViewportSize(viewport)
-    for (const tab of ['dialogue', 'clarification', 'requirements']) {
-      const selectedTab = page.getByRole('tab', {
-        name: tab === 'dialogue' ? /Диалог/ : tab === 'clarification' ? /Уточнения/ : /Требования/,
-      })
-      await selectedTab.click()
-      await expect(page).toHaveURL(new RegExp(`tab=${tab}`))
-      await expect(selectedTab).toHaveAttribute('aria-selected', 'true')
-      expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
-        ),
-      ).toBe(true)
-      const accessibility = await new AxeBuilder({ page })
-        .include('.fc-chat-workbench')
-        .withTags(['wcag2a', 'wcag2aa'])
-        .analyze()
-      expect(
-        accessibility.violations.filter((issue) =>
-          ['serious', 'critical'].includes(issue.impact ?? ''),
-        ),
-      ).toEqual([])
+    await page.getByRole('checkbox', { name: /Подтверждаю цель/ }).check()
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await expect(confirm).toBeEnabled()
+      await confirm.scrollIntoViewIfNeeded()
       await page.screenshot({
-        path: testInfo.outputPath(`pm-chat-${tab}-${viewport.width}.png`),
+        path: testInfo.outputPath(`consumer-confirmation-${viewport.width}.png`),
         fullPage: true,
         scale: 'css',
         animations: 'disabled',
       })
+      await page.getByText('Сравнить с редакцией 1', { exact: true }).click()
+      await page.screenshot({
+        path: testInfo.outputPath(`consumer-diff-${viewport.width}.png`),
+        fullPage: true,
+        scale: 'css',
+        animations: 'disabled',
+      })
+      await page.getByText('Сравнить с редакцией 1', { exact: true }).click()
     }
-  }
-  await page.setViewportSize({ width: 768, height: 1024 })
-  const contextButton = page.getByRole('button', { name: 'Контекст задачи', exact: true })
-  await contextButton.click()
-  await expect(page.getByRole('dialog', { name: 'Контекст задачи' })).toBeVisible()
-  await page.keyboard.press('Escape')
-  await expect(page.getByRole('dialog', { name: 'Контекст задачи' })).not.toBeVisible()
-  await expect(contextButton).toBeFocused()
-  await page.getByRole('tab', { name: /Диалог/ }).click()
-  await page.keyboard.press('ArrowRight')
-  await expect(page).toHaveURL(/tab=clarification/)
-  expect(errors).toEqual([])
-})
+    const previousFailedReads = failedReads
+    unavailableRead = 'requirements'
+    await expect.poll(() => failedReads, { timeout: 15000 }).toBeGreaterThan(previousFailedReads)
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await expect(confirm).toBeDisabled()
+      await expect(page.getByRole('checkbox', { name: /Подтверждаю цель/ })).toBeChecked()
+      await confirm.scrollIntoViewIfNeeded()
+      await page.screenshot({
+        path: testInfo.outputPath(`consumer-confirmation-held-${viewport.width}.png`),
+        fullPage: true,
+        animations: 'disabled',
+      })
+    }
+    expect(commands).toHaveLength(2)
+    unavailableRead = null
+    await expect(confirm).toBeEnabled({ timeout: 15000 })
+    await confirm.click()
+    await expect(page.getByText('Confirmation receipt timed out')).toBeVisible()
+    await expect(page.getByRole('checkbox', { name: /Подтверждаю цель/ })).toBeDisabled()
+    await page.getByRole('button', { name: 'Повторить исходное подтверждение' }).click()
+    await expect.poll(() => commands.length).toBe(4)
+    expect(commands[3]).toEqual(commands[2])
+    expect(commands[3].body).toMatchObject({
+      content_hash: 'b'.repeat(64),
+      idempotency_key: expect.any(String),
+    })
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      await page.setViewportSize(viewport)
+      for (const tab of ['dialogue', 'clarification', 'requirements']) {
+        const selectedTab = page.getByRole('tab', {
+          name:
+            tab === 'dialogue' ? /Диалог/ : tab === 'clarification' ? /Уточнения/ : /Требования/,
+        })
+        await selectedTab.click()
+        await expect(page).toHaveURL(new RegExp(`tab=${tab}`))
+        await expect(selectedTab).toHaveAttribute('aria-selected', 'true')
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+          ),
+        ).toBe(true)
+        const accessibility = await new AxeBuilder({ page })
+          .include('.fc-chat-workbench')
+          .withTags(['wcag2a', 'wcag2aa'])
+          .analyze()
+        expect(
+          accessibility.violations.filter((issue) =>
+            ['serious', 'critical'].includes(issue.impact ?? ''),
+          ),
+        ).toEqual([])
+        await page.screenshot({
+          path: testInfo.outputPath(`pm-chat-${tab}-${viewport.width}.png`),
+          fullPage: true,
+          scale: 'css',
+          animations: 'disabled',
+        })
+      }
+    }
+    await page.setViewportSize({ width: 768, height: 1024 })
+    const contextButton = page.getByRole('button', { name: 'Контекст задачи', exact: true })
+    await contextButton.click()
+    await expect(page.getByRole('dialog', { name: 'Контекст задачи' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog', { name: 'Контекст задачи' })).not.toBeVisible()
+    await expect(contextButton).toBeFocused()
+    await page.getByRole('tab', { name: /Диалог/ }).click()
+    await page.keyboard.press('ArrowRight')
+    await expect(page).toHaveURL(/tab=clarification/)
+    expect(errors).toEqual([])
+  },
+)
 for (const change of ['renamed', 'replaced'] as const) {
   test(`clarification retains the original label when its option is ${change}`, async ({
     page,
@@ -1457,11 +1704,22 @@ for (const operation of ['steer', 'stop'] as const) {
       const original = await stored()
       const origin = new URL(page.url()).origin
       activeRun = successorRun
+      const assertJournalReady = async () => {
+        const journal = page.getByRole('region', {
+          name: 'Команды запуска',
+          includeHidden: true,
+        })
+        await expect(
+          journal.getByRole('button', { name: 'Проверить команды', includeHidden: true }),
+        ).toBeEnabled()
+        await expect(journal.getByText('Команд пока нет', { exact: true })).toBeAttached()
+      }
       const assertHeld = async () => {
         await expect(input).toBeVisible()
         await expect(input).toHaveValue('')
         await expect(input).toBeDisabled()
         await expect(action).toBeDisabled()
+        await assertJournalReady()
         expect(await stored()).toEqual(original)
         expect(posts).toBe(1)
       }
@@ -1472,6 +1730,9 @@ for (const operation of ['steer', 'stop'] as const) {
         'wrong-agent',
         'uncertain',
       ] as const) {
+        // Complete the healthy journal read before intentionally replacing the document.
+        // Pending-fetch navigation is a separate retained SDK diagnostic.
+        await assertJournalReady()
         phase = nextPhase
         const before = lookups
         await page.evaluate(() => {

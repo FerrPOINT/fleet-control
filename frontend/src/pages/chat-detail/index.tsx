@@ -88,6 +88,7 @@ function requestKey() {
   return crypto.randomUUID()
 }
 type ConfirmationCommand = { revision: number; hash: string; key: string }
+type PmCommandScope = { actorId: string; service: string; key: string }
 type OriginalControlScope = { runId: string; agentId: string; actorId: string; key: string }
 type AnswerDraft = {
   selected: string[]
@@ -234,10 +235,19 @@ function ChatWorkspace({ id }: { id: string }) {
   const [confirmationUncertain, setConfirmationUncertain] = useState(false)
   const [answerUncertain, setAnswerUncertain] = useState(false)
   const [messageUncertain, setMessageUncertain] = useState(false)
+  const confirmationScope = useRef<PmCommandScope | undefined>(undefined)
+  const answerScope = useRef<PmCommandScope | undefined>(undefined)
   const confirmation = useMutation({
-    mutationFn: (command: ConfirmationCommand) =>
-      confirmRequirements(id, command.revision, command.hash, command.key),
+    mutationFn: (command: ConfirmationCommand) => {
+      preparePmCommand(confirmationScope, command.key)
+      return confirmRequirements(id, command.revision, command.hash, command.key)
+    },
     onSuccess: async (_result, command) => {
+      if (!matchesPmActor(confirmationScope.current, command.key)) {
+        setConfirmationUncertain(true)
+        await invalidate()
+        return
+      }
       setConfirmationUncertain(false)
       setReceipt(
         `Подтверждение редакции ${command.revision} сохранено. Следующее назначение проверяется отдельно.`,
@@ -265,6 +275,28 @@ function ChatWorkspace({ id }: { id: string }) {
   const owner = !signingOut && Boolean(token) && sessionFresh && session.data?.user_id === userId
   const authority = useRef({ owner, userId, token, service: controlService })
   authority.current = { owner, userId, token, service: controlService }
+  function matchesPmActor(scope: PmCommandScope | undefined, key: string | undefined) {
+    const current = useAuthStore.getState()
+    return Boolean(
+      scope &&
+      scope.key === key &&
+      current.token &&
+      !current.signingOut &&
+      current.userId === scope.actorId &&
+      authority.current.owner &&
+      authority.current.service === scope.service,
+    )
+  }
+  function preparePmCommand(scope: { current: PmCommandScope | undefined }, key: string) {
+    if (!scope.current || scope.current.key !== key) {
+      const current = useAuthStore.getState()
+      if (!authority.current.owner || !current.userId || !current.token || current.signingOut)
+        throw new ControlPreparationError('Доступ изменился. Команда не отправлена.')
+      scope.current = { actorId: current.userId, service: authority.current.service, key }
+    }
+    if (!matchesPmActor(scope.current, key))
+      throw new ControlPreparationError('Для исходной команды нужен тот же пользователь и сервис.')
+  }
   const finishControl = useCallback(
     (command: OriginalControlScope, operation: 'steer' | 'stop') => {
       const stored = recoveryRef.current
@@ -363,7 +395,7 @@ function ChatWorkspace({ id }: { id: string }) {
     )
   }
   useEffect(() => {
-    if (!token || sessionDenied) return
+    if (!token || signingOut || sessionDenied) return
     return connectAuthenticatedEventStream({
       url: `${apiBaseUrl}/api/v1/sessions/${id}/stream`,
       token,
@@ -423,7 +455,7 @@ function ChatWorkspace({ id }: { id: string }) {
         }
       },
     })
-  }, [client, id, token, sessionDenied])
+  }, [client, id, token, signingOut, sessionDenied])
   const messageMap = new Map(
     [...(history.data?.pages ?? [])]
       .reverse()
@@ -674,9 +706,16 @@ function ChatWorkspace({ id }: { id: string }) {
     id,
   ])
   const answer = useMutation({
-    mutationFn: (command: { questionId: string; questionKey: string; payload: AnswerInput }) =>
-      answerClarification(id, command.questionId, command.payload),
+    mutationFn: (command: { questionId: string; questionKey: string; payload: AnswerInput }) => {
+      preparePmCommand(answerScope, command.payload.idempotency_key)
+      return answerClarification(id, command.questionId, command.payload)
+    },
     onSuccess: async (_result, command) => {
+      if (!matchesPmActor(answerScope.current, command.payload.idempotency_key)) {
+        setAnswerUncertain(true)
+        await invalidate()
+        return
+      }
       setAnswerUncertain(false)
       setReceipt('Ответ сохранён. Требования ещё не опубликованы.')
       setDrafts((current) => {
@@ -1323,6 +1362,10 @@ function ChatWorkspace({ id }: { id: string }) {
                         !owner ||
                         !taskFresh ||
                         !questionsFresh ||
+                        !matchesPmActor(
+                          answerScope.current,
+                          answer.variables?.payload.idempotency_key,
+                        ) ||
                         answer.isPending ||
                         !answer.variables
                       }
@@ -1342,6 +1385,11 @@ function ChatWorkspace({ id }: { id: string }) {
                     !taskFresh ||
                     !questionsFresh ||
                     !context?.permissions.can_answer ||
+                    (answerUncertain &&
+                      !matchesPmActor(
+                        answerScope.current,
+                        answer.variables?.payload.idempotency_key,
+                      )) ||
                     (answerUncertain && answer.variables?.questionKey !== questionKey) ||
                     !draft.key ||
                     !canSubmitAnswer(selectedQuestion, draft.selected, draft.text) ||
@@ -1404,7 +1452,12 @@ function ChatWorkspace({ id }: { id: string }) {
                       }
                       confirmation={confirmation}
                       confirmationUncertain={confirmationUncertain}
-                      canReplayConfirmation={owner && taskFresh && requirementsFresh}
+                      canReplayConfirmation={
+                        owner &&
+                        taskFresh &&
+                        requirementsFresh &&
+                        matchesPmActor(confirmationScope.current, confirmation.variables?.key)
+                      }
                     />
                   </>
                 )}
@@ -1563,7 +1616,7 @@ function RevisionConfirmation({
     mutation.variables?.revision === revision.revision &&
     mutation.variables?.hash === revision.content_hash
   const held = mutation.isPending || uncertain
-  const saved = sameTarget && mutation.isSuccess
+  const saved = sameTarget && mutation.isSuccess && !uncertain
   return (
     <div className="fc-chat-confirm">
       <label>

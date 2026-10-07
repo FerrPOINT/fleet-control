@@ -131,3 +131,11 @@ assert original-key/digest lookup; the producer/Base gaps remain open.
 
 Fixture results prove the consumer regressions, not this live sequence. This
 packet changes no API, producer, runtime, model, credential storage or migration.
+
+The subsequent [PM identity follow-up](CHATS_PM_BLOCKERS_20261007.md) prevents a
+late answer/confirmation ACK after logout or an actor/service/access change
+from clearing the original draft or displaying a saved confirmation. It keeps
+the original in-memory payload/key for explicit replay after fresh access returns.
+The [identity packet](assets/screens/chats-pm-identity-20261007/validation.json)
+records regression checks and the separate authenticated read-only live audit.
+No real PM task was available; the native live acceptance sequence remains open.
