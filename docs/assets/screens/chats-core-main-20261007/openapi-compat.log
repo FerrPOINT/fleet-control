@@ -1,0 +1,5 @@
+
+> fleet-control-frontend@0.2.0 openapi:compat C:\git\azhukov\sdlc\.local\chats-main-20261007\fleet-control\frontend
+> node scripts/base-openapi-compat.mjs
+
+OK: OpenAPI compatibility check passed

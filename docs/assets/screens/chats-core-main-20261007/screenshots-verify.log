@@ -1,0 +1,5 @@
+
+> fleet-control-frontend@0.2.0 screenshots:verify C:\git\azhukov\sdlc\.local\chats-main-20261007\fleet-control\frontend
+> node scripts/verify-screenshots.mjs
+
+Verified 135 screenshots across 3 viewports.
