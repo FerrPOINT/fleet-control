@@ -57,6 +57,14 @@ durable receipt after an unknown result. A changed payload needs a distinct new
 intent only when no unresolved control holds the run; never rotate the key to
 retry an unknown effect. Task controls remain blocked until fenced admission.
 
+The additive original-key GET lookup resolves a lost command ID without another
+mutation. It requires the original key in exactly one header, current verified
+human/session/project authorization and the canonical normalized payload hash.
+It searches only that actor's key and returns the existing receipt. No client
+may turn404 or an unacknowledged receipt into permission to retry POST. Existing
+ID/list routes remain available; the mandatory key and duplicate-header refusal
+are not waived for legacy mutation clients. See [API](API.md#durable-free-chat-controls).
+
 Fleet's compatibility wrapper checks these closed security migrations before
 running the unchanged Base compatibility checker. Only the exact required string
 header on the two operations is added to the comparison baseline; other headers,

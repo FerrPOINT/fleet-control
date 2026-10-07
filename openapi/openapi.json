@@ -2597,6 +2597,80 @@
         }
       }
     },
+    "/api/v1/sessions/{session_id}/runs/{run_id}/controls/lookup": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "lookup_control",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "operation",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/RuntimeControlOperation"
+            }
+          },
+          {
+            "name": "payload_sha256",
+            "in": "query",
+            "description": "Lowercase SHA256 of UTF8 canonical JSON with sorted keys input and operation; input is Rust-trimmed steer text or null for stop",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeControlReceipt"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/api/v1/sessions/{session_id}/runs/{run_id}/controls/{command_id}": {
       "get": {
         "tags": [

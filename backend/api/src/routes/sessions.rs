@@ -139,6 +139,8 @@ mod tests {
         let actor = control_actor(&user, &headers).unwrap();
         assert_eq!(actor.user_id, user.id);
         assert_eq!(actor.idempotency_key, "control-key");
+        headers.append("Idempotency-Key", "other-key".parse().unwrap());
+        assert!(control_actor(&user, &headers).is_err());
     }
 
     #[test]
@@ -547,6 +549,11 @@ fn control_actor(
     user: &crate::middleware::CurrentUser,
     headers: &HeaderMap,
 ) -> Result<domain::RuntimeControlActor, AppError> {
+    if headers.get_all("Idempotency-Key").iter().count() != 1 {
+        return Err(AppError::validation(
+            "one Idempotency-Key is required for runtime controls",
+        ));
+    }
     let key = headers
         .get("Idempotency-Key")
         .and_then(|v| v.to_str().ok())
@@ -556,6 +563,34 @@ fn control_actor(
         user_id: user.id,
         idempotency_key: key.to_owned(),
     })
+}
+
+#[utoipa::path(get,path="/api/v1/sessions/{session_id}/runs/{run_id}/controls/lookup",tag="sessions",
+    params(("session_id"=Uuid,Path),("run_id"=Uuid,Path),("Idempotency-Key"=String,Header),
+        ("operation"=domain::RuntimeControlOperation,Query),
+        ("payload_sha256"=String,Query,description="Lowercase SHA256 of UTF8 canonical JSON with sorted keys input and operation; input is Rust-trimmed steer text or null for stop")),
+    responses((status=200,body=domain::RuntimeControlReceipt),(status=403),(status=404),(status=409)))]
+pub async fn lookup_control(
+    State(ctx): State<Arc<AppContext>>,
+    Extension(user): Extension<crate::middleware::CurrentUser>,
+    Path((session_id, run_id)): Path<(Uuid, Uuid)>,
+    human: Option<Extension<crate::middleware::VerifiedHumanSession>>,
+    Query(query): Query<domain::RuntimeControlLookupQuery>,
+    headers: HeaderMap,
+) -> Result<Json<domain::RuntimeControlReceipt>, AppError> {
+    if human.is_none() {
+        return Err(AppError::Forbidden);
+    }
+    let session = ctx.repo.get_session(session_id).await?;
+    ensure_session_read_access(&session, &user)?;
+    super::task_chats::require_project_access(&ctx, &user, session_id, &headers).await?;
+    let run = ctx.repo.get_session_agent_run(run_id).await?;
+    ensure_run_belongs_to_session(&run, session_id)?;
+    Ok(Json(
+        ctx.repo
+            .lookup_runtime_control(&run, &control_actor(&user, &headers)?, &query)
+            .await?,
+    ))
 }
 
 #[utoipa::path(get,path="/api/v1/sessions/{session_id}/runs/{run_id}/controls",tag="sessions",

@@ -2880,6 +2880,14 @@ impl FleetRepository for PostgresFleetRepository {
     ) -> Result<Vec<domain::RuntimeControlReceipt>, AppError> {
         runtime_controls::list(self, session, run).await
     }
+    async fn lookup_runtime_control(
+        &self,
+        run: &SessionAgentRun,
+        actor: &domain::RuntimeControlActor,
+        query: &domain::RuntimeControlLookupQuery,
+    ) -> Result<domain::RuntimeControlReceipt, AppError> {
+        runtime_controls::lookup(self, run, actor, query).await
+    }
     async fn reconcile_runtime_controls(&self) -> Result<u64, AppError> {
         runtime_controls::reconcile(self).await
     }

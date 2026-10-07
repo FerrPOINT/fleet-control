@@ -137,6 +137,25 @@ def verify_log_readback(helper, directory, report, logged):
                   log_readback_log_sha256=sha(directory / 'log-readback.log'))
 
 
+def validate_live_evidence(live, readiness_rollback):
+    positive = ('actual_rust_supervisor', 'actual_docker_hermes', 'controlled_model',
+        'isolated_soul_and_mirror', 'cross_agent_token_denied', 'idempotent_messages',
+        'drain_before_file_effects', 'loaded_replacement_soul', 'peer_unchanged',
+        'fresh_restart_generation', 'confirmed_namespace_stop', 'native_provider_rotation',
+        'peer_provider_unchanged', 'original_environment_custody')
+    counts = {'agents': 2, 'controller_uid': 999,
+              'model_prompts': 6 if readiness_rollback else 5,
+              'original_environment_intents': 6 if readiness_rollback else 4}
+    if (not isinstance(live, dict) or live.get('state') != 'passed'
+            or any(live.get(key) is not True for key in positive)
+            or live.get('sdlc_acceptance') is not False
+            or live.get('raw_credentials_persisted_in_evidence') is not False
+            or live.get('readiness_rollback') is not readiness_rollback
+            or any(type(live.get(key)) is not int or live[key] != value
+                   for key, value in counts.items())):
+        raise RuntimeError('Actual Rust/Hermes evidence is incomplete')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('base-sdk', 'base-control', 'hermes-source', 'artifacts'):
@@ -270,6 +289,7 @@ def main():
                 'tmpfs': ['/tmp:rw,size=128m,mode=1777'],
                 'environment': {'FLEET_CONTAINER_SUPERVISOR_TEST': '1', 'HOME': '/tmp', 'PYTHONDONTWRITEBYTECODE': '1',
                     'FLEET_CONTROL_SECRET__LOCAL_MODEL': 'owned-local-model-fixture',
+                    'FLEET_CONTROL_SECRET__LOCAL_MODEL_ROTATED': 'owned-local-model-rotated-fixture',
                     'FLEET_TEST_DATABASE_URL': f'postgresql://fleet_qa:{password}@postgres:5432/fleet_container'},
                 'volumes': [volume('agents', '/agents'), volume('controller', '/controller'), volume('compiled', '/out', True),
                     bind(directory / 'input/base-control', '/base-control'), bind(directory / 'proof', '/qa'),
@@ -302,10 +322,7 @@ def main():
         logged(helper.command + ['exec', '-T', 'fleet-backend', '/out/fleet-container-live', '--ignored',
                                  '--nocapture', '--test-threads=1'], 'live.log', 1200)
         live = json.loads((directory / 'evidence/live-report.json').read_bytes())
-        if (live.get('state') != 'passed' or not live.get('actual_rust_supervisor')
-                or not live.get('actual_docker_hermes') or live.get('sdlc_acceptance') is not False
-                or live.get('readiness_rollback') is not args.readiness_rollback):
-            raise RuntimeError('Actual Rust/Hermes evidence is incomplete')
+        validate_live_evidence(live, args.readiness_rollback)
         report.update(state='passed', actual_rust_supervisor=True, actual_docker_hermes=True,
                       live=live, build_log_sha256=sha(directory / 'build.log'), live_log_sha256=sha(directory / 'live.log'))
         if args.log_readback:

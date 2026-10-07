@@ -270,6 +270,16 @@ pub trait FleetRepository: Send + Sync {
             "runtime control journal is unavailable".into(),
         ))
     }
+    async fn lookup_runtime_control(
+        &self,
+        _run: &SessionAgentRun,
+        _actor: &domain::RuntimeControlActor,
+        _query: &domain::RuntimeControlLookupQuery,
+    ) -> Result<domain::RuntimeControlReceipt, AppError> {
+        Err(AppError::Unavailable(
+            "runtime control journal is unavailable".into(),
+        ))
+    }
     async fn reconcile_runtime_controls(&self) -> Result<u64, AppError> {
         Err(AppError::Unavailable(
             "runtime control journal is unavailable".into(),

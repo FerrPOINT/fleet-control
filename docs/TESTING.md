@@ -1,5 +1,25 @@
 # Testing
 
+## Original-Key Runtime Control Readback
+
+Two domain cases fix canonical UTF8 hash vectors (stop/null, steer, Unicode/
+escaping/whitespace) and closed query/digest validation. The existing API key
+case additionally rejects duplicate header values. Three PostgreSQL/HTTP cases
+check a discarded reply without command ID, readback through a fresh repository,
+concurrent reads without new events, original terminal-run access, unchanged
+native POST count, wrong session/run/agent/key/payload/operation, user/operator/
+admin actor scope, actual local token middleware, active-user revocation and
+closed query/header validation. Uncertain native acceptance stays unresolved;
+terminal observation without ACK does not become command success. The existing
+sessionless-principal case also rejects a forged human header on this GET.
+
+Run the full workspace gate or the focused `runtime_control_` integration filter
+with an owned disposable `FLEET_TEST_DATABASE_URL`; missing DB is not acceptance.
+These tests use controlled HTTP, not live Hermes or a Fleet OS-process restart.
+The original-key GET never invokes native recovery; only persisted receipts are
+read. Exact results and generated OpenAPI belong in
+[verification](CHAT_CLARIFICATION_VERIFICATION.md).
+
 ## Original Container Environment Input
 
 Three `runtime::container_environment::tests` check exact escaped/interpolated
@@ -34,7 +54,12 @@ The opt-in [owned Docker acceptance driver](CONTAINER_SUPERVISOR_ACCEPTANCE.md)
 executes the real Rust supervisor and two source-pinned Hermes gateways using a
 controlled local model. It validates loaded SOUL isolation, duplicate-message
 replay, active-run configuration drain, fresh activation/restart generations and
-original namespace stop. Its ignored test is not automatically part of the
+original namespace stop. A named custom provider with `key_env` lets the endpoint
+check native authorization hashes before/after rotation, including the unchanged
+peer and readiness rollback. Original retained dotenv intents are checked against
+their generation/operation/DB hash and private file custody. These are static
+provider checks, not all effective-secret sources or production redaction.
+Its ignored test is not automatically part of the
 ordinary workspace count. Live outcomes and source/log hashes are recorded in
 [verification](CHAT_CLARIFICATION_VERIFICATION.md), not inferred from compilation.
 
@@ -43,9 +68,10 @@ and distinct previous-revision restoration. The separate `--log-readback`
 extension executes Base's actual private `logs` action for every original exited
 generation after the scenario, persisting counts only. It does not invoke Rust's
 log client or certify production ingestion/redaction/complete history. Neither
-flag implies the other. Fourteen no-Docker driver safety tests include a failed
+flag implies the other. Sixteen no-Docker driver safety tests include a failed
 extension overriding earlier baseline success and incomplete/overclaimed evidence
-refusal. Invocation, source inputs and cleanup are in the acceptance runbook.
+refusal, including exact five/six-run and four/six-intent scope and typed boolean
+claims/counts. Invocation, source inputs and cleanup are in the acceptance runbook.
 
 ## Container Configuration Candidate
 

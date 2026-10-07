@@ -240,6 +240,183 @@ fn control_http_routes() -> Router<Arc<app::AppContext>> {
             "/api/v1/sessions/{session_id}/runs/{run_id}/controls/{command_id}",
             get(api::routes::sessions::read_control),
         )
+        .route(
+            "/api/v1/sessions/{session_id}/runs/{run_id}/controls/lookup",
+            get(api::routes::sessions::lookup_control),
+        )
+}
+
+fn lookup_query(
+    operation: domain::RuntimeControlOperation,
+    input: Option<&str>,
+) -> domain::RuntimeControlLookupQuery {
+    domain::RuntimeControlLookupQuery {
+        operation,
+        payload_sha256: domain::runtime_control_payload_sha256(operation, input),
+    }
+}
+
+#[tokio::test]
+async fn runtime_control_lookup_recovers_lost_reply_after_restart_without_new_effects() {
+    let Some(f) = ledger_fixture(steer_ack()).await else {
+        return;
+    };
+    let actor = f.actor();
+    let input = "original unknown reply";
+    // The caller retains only its original key and input; it has no command ID.
+    f.runtime
+        .steer_run(
+            &f.agent,
+            &f.run,
+            SteerSessionRunRequest {
+                input: input.into(),
+            },
+            actor.clone(),
+        )
+        .await
+        .unwrap();
+    let query = lookup_query(domain::RuntimeControlOperation::Steer, Some(input));
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let repo = PostgresFleetRepository::new(db);
+    let before = repo
+        .list_session_events(f.run.session_id, 0)
+        .await
+        .unwrap()
+        .len();
+    let (one, two, three) = tokio::join!(
+        repo.lookup_runtime_control(&f.run, &actor, &query),
+        repo.lookup_runtime_control(&f.run, &actor, &query),
+        repo.lookup_runtime_control(&f.run, &actor, &query)
+    );
+    let found = [one, two, three].map(|result| result.unwrap());
+    assert!(found.iter().all(|receipt| receipt.id == found[0].id));
+    assert_eq!(found[0].actor_user_id, f.owner);
+    assert_eq!(found[0].state, domain::RuntimeControlState::Acknowledged);
+    assert_eq!(found[0].acknowledgement.as_deref(), Some("steered"));
+    assert_eq!(
+        before,
+        repo.list_session_events(f.run.session_id, 0)
+            .await
+            .unwrap()
+            .len()
+    );
+    repo.update_session_agent_run_dispatch(
+        f.run.id,
+        Some("run_control".into()),
+        SessionRunState::Completed,
+        None,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        repo.lookup_runtime_control(&f.run, &actor, &query)
+            .await
+            .unwrap()
+            .id,
+        found[0].id
+    );
+    for changed in [
+        lookup_query(domain::RuntimeControlOperation::Steer, Some("changed")),
+        lookup_query(domain::RuntimeControlOperation::Stop, None),
+    ] {
+        assert!(matches!(
+            repo.lookup_runtime_control(&f.run, &actor, &changed).await,
+            Err(shared::AppError::Conflict(_))
+        ));
+    }
+    let mut foreign = f.run.clone();
+    for field in [0, 1, 2] {
+        match field {
+            0 => foreign.id = Uuid::new_v4(),
+            1 => foreign.agent_id = Uuid::new_v4(),
+            _ => {
+                foreign = f.run.clone();
+                foreign.session_id = repo
+                    .create_session(chat(f.agent.id, "wrong lookup chat"), f.owner)
+                    .await
+                    .unwrap()
+                    .id;
+            }
+        }
+        assert!(matches!(
+            repo.lookup_runtime_control(&foreign, &actor, &query).await,
+            Err(shared::AppError::NotFound { .. })
+        ));
+        foreign = f.run.clone();
+    }
+    assert!(matches!(
+        repo.lookup_runtime_control(&f.run, &f.actor(), &query)
+            .await,
+        Err(shared::AppError::NotFound { .. })
+    ));
+    let serialized = serde_json::to_value(&found[0]).unwrap();
+    for private in [
+        "idempotency_key",
+        "payload_sha256",
+        "input",
+        "api_origin",
+        "credential_fingerprint",
+    ] {
+        assert!(serialized.get(private).is_none());
+    }
+    assert_eq!(f.calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn runtime_control_lookup_unknown_native_ack_stays_held_after_terminal_observation() {
+    let Some(f) = ledger_fixture(json!({"accepted":true})).await else {
+        return;
+    };
+    let actor = f.actor();
+    f.runtime
+        .steer_run(
+            &f.agent,
+            &f.run,
+            SteerSessionRunRequest {
+                input: "unknown".into(),
+            },
+            actor.clone(),
+        )
+        .await
+        .unwrap();
+    let query = lookup_query(domain::RuntimeControlOperation::Steer, Some("unknown"));
+    let before = f
+        .repo
+        .lookup_runtime_control(&f.run, &actor, &query)
+        .await
+        .unwrap();
+    assert_eq!(before.state, domain::RuntimeControlState::Uncertain);
+    assert!(before.acknowledgement.is_none());
+    let intent = f
+        .repo
+        .get_hermes_dispatch_intent_for_run(f.run.id)
+        .await
+        .unwrap()
+        .unwrap();
+    f.repo
+        .commit_hermes_terminal(app::HermesTerminalCommit {
+            message_id: intent.message_id,
+            run_id: f.run.id,
+            runtime_run_id: "run_control".into(),
+            runtime_session_id: "control-native-session".into(),
+            state: SessionRunState::Completed,
+            body: Some("independent terminal mirror".into()),
+            error: None,
+        })
+        .await
+        .unwrap();
+    f.repo.reconcile_runtime_controls().await.unwrap();
+    let after = f
+        .repo
+        .lookup_runtime_control(&f.run, &actor, &query)
+        .await
+        .unwrap();
+    assert_eq!(after.id, before.id);
+    assert_eq!(after.state, domain::RuntimeControlState::TerminalObserved);
+    assert!(after.acknowledgement.is_none());
+    assert_eq!(f.calls.load(Ordering::SeqCst), 1);
 }
 
 #[tokio::test]
@@ -276,6 +453,20 @@ async fn runtime_control_http_sessionless_principal_cannot_impersonate_human() {
                 .unwrap();
             assert_eq!(response.status(), StatusCode::FORBIDDEN);
         }
+        assert_eq!(
+            client
+                .get(format!(
+                    "{base}/api/v1/sessions/{session}/runs/{run}/controls/lookup"
+                ))
+                .header("Idempotency-Key", "machine-forged-human")
+                .header("X-Verified-Human-Session", "true")
+                .query(&lookup_query(domain::RuntimeControlOperation::Stop, None))
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::FORBIDDEN
+        );
     }
     assert_eq!(f.calls.load(Ordering::SeqCst), 0);
     assert!(
@@ -285,6 +476,261 @@ async fn runtime_control_http_sessionless_principal_cannot_impersonate_human() {
             .unwrap()
             .is_empty()
     );
+    server.abort();
+}
+
+#[tokio::test]
+async fn runtime_control_lookup_http_is_actor_scoped_and_survives_lost_id_and_terminal_run() {
+    let Some(f) = ledger_fixture(steer_ack()).await else {
+        return;
+    };
+    let ctx = control_http_context(&f);
+    let owner = ctx
+        .auth
+        .issue_tokens(&f.repo.find_user_by_id(f.owner).await.unwrap().unwrap())
+        .unwrap()
+        .response
+        .access_token;
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let mut principals = Vec::new();
+    for role in [
+        domain::SystemRole::User,
+        domain::SystemRole::Operator,
+        domain::SystemRole::Admin,
+    ] {
+        let id = Uuid::new_v4();
+        db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "INSERT INTO users(id,email,username,display_name,password_hash,is_system_admin,system_role)
+             VALUES($1,$2,$3,'Lookup test','disabled',$4,$5)",
+            [id.into(),format!("{id}@example.test").into(),id.to_string().into(),role.is_admin().into(),role.to_string().into()]))
+            .await.unwrap();
+        principals.push((
+            role,
+            ctx.auth
+                .issue_tokens(&f.repo.find_user_by_id(id).await.unwrap().unwrap())
+                .unwrap()
+                .response
+                .access_token,
+        ));
+    }
+    let router = control_http_routes()
+        .route_layer(axum::middleware::from_fn_with_state(
+            ctx.clone(),
+            api::middleware::require_auth,
+        ))
+        .with_state(ctx);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+    let client = reqwest::Client::new();
+    let run_url = format!(
+        "{base}/api/v1/sessions/{}/runs/{}",
+        f.run.session_id, f.run.id
+    );
+    let lookup_url = format!("{run_url}/controls/lookup");
+    let query = lookup_query(domain::RuntimeControlOperation::Steer, Some("original"));
+    // Discard the POST response completely. The recovery request has no command ID.
+    assert_eq!(
+        client
+            .post(format!("{run_url}/steer"))
+            .bearer_auth(&owner)
+            .header("Idempotency-Key", "lost-http-reply")
+            .json(&json!({"input":" \noriginal\t "}))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::OK
+    );
+    let found = client
+        .get(&lookup_url)
+        .bearer_auth(&owner)
+        .header("Idempotency-Key", "lost-http-reply")
+        .query(&query)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(found.status(), StatusCode::OK);
+    let found: domain::RuntimeControlReceipt = found.json().await.unwrap();
+    assert_eq!(found.state, domain::RuntimeControlState::Acknowledged);
+    assert_eq!(found.actor_user_id, f.owner);
+    for (role, token) in &principals {
+        let response = client
+            .get(&lookup_url)
+            .bearer_auth(token)
+            .header("Idempotency-Key", "lost-http-reply")
+            .query(&query)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            if *role == domain::SystemRole::User {
+                StatusCode::FORBIDDEN
+            } else {
+                StatusCode::NOT_FOUND
+            }
+        );
+    }
+    assert_eq!(
+        client
+            .get(&lookup_url)
+            .header("Idempotency-Key", "lost-http-reply")
+            .query(&query)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        client
+            .get(&lookup_url)
+            .bearer_auth(&owner)
+            .query(&query)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    assert!(
+        client
+            .get(&lookup_url)
+            .bearer_auth(&owner)
+            .header("Idempotency-Key", "lost-http-reply")
+            .header("Idempotency-Key", "duplicate")
+            .query(&query)
+            .send()
+            .await
+            .unwrap()
+            .status()
+            .is_client_error()
+    );
+    for invalid in [
+        lookup_query(domain::RuntimeControlOperation::Stop, None),
+        lookup_query(domain::RuntimeControlOperation::Steer, Some("changed")),
+    ] {
+        assert_eq!(
+            client
+                .get(&lookup_url)
+                .bearer_auth(&owner)
+                .header("Idempotency-Key", "lost-http-reply")
+                .query(&invalid)
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::CONFLICT
+        );
+    }
+    let foreign = f
+        .repo
+        .create_session(chat(f.agent.id, "foreign lookup path"), f.owner)
+        .await
+        .unwrap();
+    for url in [
+        format!(
+            "{base}/api/v1/sessions/{}/runs/{}/controls/lookup",
+            foreign.id, f.run.id
+        ),
+        format!(
+            "{base}/api/v1/sessions/{}/runs/{}/controls/lookup",
+            f.run.session_id,
+            Uuid::new_v4()
+        ),
+    ] {
+        assert_eq!(
+            client
+                .get(url)
+                .bearer_auth(&owner)
+                .header("Idempotency-Key", "lost-http-reply")
+                .query(&query)
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::NOT_FOUND
+        );
+    }
+    for suffix in ["&actor_user_id=forged", "&input=forged"] {
+        assert_eq!(
+            client
+                .get(format!(
+                    "{lookup_url}?operation=steer&payload_sha256={}{}",
+                    query.payload_sha256, suffix
+                ))
+                .bearer_auth(&owner)
+                .header("Idempotency-Key", "lost-http-reply")
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::BAD_REQUEST
+        );
+    }
+    for hash in ["short", &"A".repeat(64)] {
+        let invalid = domain::RuntimeControlLookupQuery {
+            operation: domain::RuntimeControlOperation::Steer,
+            payload_sha256: hash.into(),
+        };
+        assert_eq!(
+            client
+                .get(&lookup_url)
+                .bearer_auth(&owner)
+                .header("Idempotency-Key", "lost-http-reply")
+                .query(&invalid)
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+    }
+    f.repo
+        .update_session_agent_run_dispatch(
+            f.run.id,
+            Some("run_control".into()),
+            SessionRunState::Completed,
+            None,
+        )
+        .await
+        .unwrap();
+    let response = client
+        .get(&lookup_url)
+        .bearer_auth(&owner)
+        .header("Idempotency-Key", "lost-http-reply")
+        .query(&query)
+        .send()
+        .await
+        .unwrap()
+        .json::<domain::RuntimeControlReceipt>()
+        .await
+        .unwrap();
+    assert_eq!(response.id, found.id);
+    assert_eq!(f.calls.load(Ordering::SeqCst), 1);
+    db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE users SET is_active=false WHERE id=$1",
+        [f.owner.into()],
+    ))
+    .await
+    .unwrap();
+    assert_eq!(
+        client
+            .get(&lookup_url)
+            .bearer_auth(&owner)
+            .header("Idempotency-Key", "lost-http-reply")
+            .query(&query)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(f.calls.load(Ordering::SeqCst), 1);
     server.abort();
 }
 

@@ -1,5 +1,17 @@
 # Security
 
+## Original Runtime Control Key Lookup
+
+Control recovery by original key is human-only and actor-scoped even with
+read-all permission. Backend rechecks current session/project access and active
+database user authorization; browser-supplied actor IDs and unknown query fields
+are rejected. Key stays in a single bounded header; the query carries only the
+canonical semantic payload digest. No prompt, key, digest or runtime credential
+is returned in the receipt. The indexed GET performs no native request or state
+mutation. A404, reserved/uncertain/submitted receipt or unacknowledged terminal
+observation cannot justify redispatch. See
+[control contract](contracts/HERMES_RUN_CONTROL_V1.md#fleet-command-journal).
+
 ## Original Container Environment Input
 
 New automatic creation intents include a private versioned snapshot of the exact
@@ -20,6 +32,14 @@ native runtime attestation: the pinned Hermes loader applies dotenv expansion,
 credential sanitization, external sources and managed overlays. Those values
 and later reloads still need a trustworthy per-launch redaction protocol before
 raw Docker bytes may be mirrored. See [container contract](contracts/CONTAINER_CONTROL_V1.md).
+
+The owned native gate additionally checks a static named custom provider via
+`key_env`; it must preserve Hermes's vendor-key host restriction, not disable it
+for a local endpoint. The model checker retains only authorization hashes in
+memory and verifies rotation after drain and the unchanged peer. Private intent
+checks compare original input and DB fences without printing credential values.
+Even successful native checks cannot authorize production log collection: they
+do not attest every external/managed credential source or later native reload.
 
 ## Private Raw Docker Log Boundary
 

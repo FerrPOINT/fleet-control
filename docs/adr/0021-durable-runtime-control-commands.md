@@ -27,6 +27,14 @@ authorization. Terminal reconciliation uses the independently committed original
 run/prompt packet; terminal_observed preserves unknown command acceptance.
 UI freezes uncertain guidance and consumes receipts after reload, not just mutation
 memory. Do not blindly retry native POST, mark task success or release process safety.
+
+When the reply loses its command ID, provide a nonmutating GET lookup by the
+original authenticated actor/key and canonical semantic payload digest. Require
+current verified human and session/project access. The unique actor/key index,
+not the bounded history list, identifies the exact original session/run/agent/
+operation. Return only the existing receipt. Wrong scope is404, changed own
+payload/operation is409. Reserved/submitted/uncertain or terminal-without-ACK
+readback remains unresolved;404 is never permission to resend a delayed request.
 The mandatory v1 command header is an explicit security migration for legacy
 unkeyed clients, checked by a closed compatibility wrapper rather than claimed
 as backwards-compatible. See [API versioning](../API_VERSIONING.md).
@@ -36,7 +44,10 @@ as backwards-compatible. See [API versioning](../API_VERSIONING.md).
 Duplicate/unknown controls are safe across Fleet restarts but can hold a run until
 terminal evidence. Raw guidance is not stored in the ledger: a reserved replay needs
 the original client input/key. Safe explicit cancellation of abandoned reservations
-and native acceptance lookup remain separate work. No task control is admitted until
+remains separate work. Opt-in native acceptance lookup has its own
+[original-context contract](../contracts/HERMES_CONTROL_OUTCOME_V1.md); this
+public key lookup only reads persisted outcomes and does not activate that worker.
+No task control is admitted until
 assignment/fencing/first-step contracts are implemented. Release 000013 follows
 000010/000011/000012 in separate ordered packets; nonempty downgrade is refused.
 

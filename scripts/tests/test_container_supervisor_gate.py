@@ -141,6 +141,42 @@ class SafetyTests(unittest.TestCase):
         self.assertFalse((self.home / 'frozen/unrelated.txt').exists())
 
 
+class LiveEvidenceTests(unittest.TestCase):
+    def evidence(self, rollback=False):
+        result = {key: True for key in ('actual_rust_supervisor', 'actual_docker_hermes',
+            'controlled_model', 'isolated_soul_and_mirror', 'cross_agent_token_denied',
+            'idempotent_messages', 'drain_before_file_effects', 'loaded_replacement_soul',
+            'peer_unchanged', 'fresh_restart_generation', 'confirmed_namespace_stop',
+            'native_provider_rotation', 'peer_provider_unchanged', 'original_environment_custody')}
+        result.update(state='passed', sdlc_acceptance=False, readiness_rollback=rollback,
+            raw_credentials_persisted_in_evidence=False, agents=2, controller_uid=999,
+            model_prompts=6 if rollback else 5, original_environment_intents=6 if rollback else 4)
+        return result
+
+    def test_baseline_and_rollback_require_distinct_exact_custody_and_prompt_counts(self):
+        for rollback in (False, True):
+            runner.validate_live_evidence(self.evidence(rollback), rollback)
+            with self.assertRaisesRegex(RuntimeError, 'evidence is incomplete'):
+                runner.validate_live_evidence(self.evidence(not rollback), rollback)
+
+    def test_missing_false_mistyped_counts_or_overclaimed_evidence_cannot_pass(self):
+        for key, value in self.evidence().items():
+            for invalid in (None, 'true', not value if type(value) is bool else 0):
+                with self.subTest(key=key, value=invalid):
+                    evidence = self.evidence()
+                    evidence[key] = invalid
+                    with self.assertRaisesRegex(RuntimeError, 'evidence is incomplete'):
+                        runner.validate_live_evidence(evidence, False)
+        for key in ('agents', 'controller_uid', 'model_prompts', 'original_environment_intents'):
+            evidence = self.evidence()
+            evidence[key] = True
+            with self.assertRaisesRegex(RuntimeError, 'evidence is incomplete'):
+                runner.validate_live_evidence(evidence, False)
+        for invalid in (None, [], 'passed'):
+            with self.assertRaisesRegex(RuntimeError, 'evidence is incomplete'):
+                runner.validate_live_evidence(invalid, False)
+
+
 class LogReadbackTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()

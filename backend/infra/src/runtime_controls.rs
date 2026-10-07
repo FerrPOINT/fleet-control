@@ -67,6 +67,53 @@ pub(super) async fn list(
         [session.into(),run.into()])).await.map_err(database_error)?.iter().map(receipt).collect()
 }
 
+pub(super) async fn lookup(
+    repo: &PostgresFleetRepository,
+    run: &SessionAgentRun,
+    actor: &RuntimeControlActor,
+    query: &domain::RuntimeControlLookupQuery,
+) -> Result<RuntimeControlReceipt, AppError> {
+    if actor.user_id.is_nil()
+        || !domain::valid_ref(&actor.idempotency_key, 128)
+        || !query.is_valid()
+    {
+        return Err(AppError::validation("invalid runtime control lookup"));
+    }
+    let txn = repo.db.begin().await.map_err(database_error)?;
+    authorize(&txn, actor.user_id, run.session_id).await?;
+    let found = txn
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            format!(
+                "SELECT {RECORD} AS record,c.payload_sha256 FROM runtime_control_commands c
+                 WHERE c.actor_user_id=$1 AND c.idempotency_key=$2"
+            ),
+            [actor.user_id.into(), actor.idempotency_key.clone().into()],
+        ))
+        .await
+        .map_err(database_error)?
+        .ok_or_else(|| AppError::not_found("runtime_control_command", run.id))?;
+    let original = receipt(&found)?;
+    if original.session_id != run.session_id
+        || original.session_run_id != run.id
+        || original.agent_id != run.agent_id
+    {
+        return Err(AppError::not_found("runtime_control_command", run.id));
+    }
+    if original.operation != query.operation
+        || found
+            .try_get::<String>("", "payload_sha256")
+            .map_err(database_error)?
+            != query.payload_sha256
+    {
+        return Err(AppError::conflict(
+            "runtime control key has a different payload or identity",
+        ));
+    }
+    txn.commit().await.map_err(database_error)?;
+    Ok(original)
+}
+
 async fn authorize(txn: &DatabaseTransaction, actor: Uuid, session: Uuid) -> Result<(), AppError> {
     let user = txn
         .query_one(Statement::from_sql_and_values(
@@ -221,13 +268,7 @@ pub(super) async fn reserve(
     {
         return Err(AppError::validation("invalid runtime control command"));
     }
-    let hash = format!(
-        "{:x}",
-        Sha256::digest(
-            serde_json::to_vec(&json!({"operation":op,"input":input}))
-                .map_err(AppError::internal)?
-        )
-    );
+    let hash = domain::runtime_control_payload_sha256(op, input);
     let txn = repo.db.begin().await.map_err(database_error)?;
     authorize(&txn, actor.user_id, run.session_id).await?;
     if let Some(previous) = txn

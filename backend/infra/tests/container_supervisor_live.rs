@@ -5,6 +5,7 @@ use app::{AgentProvisioner, FleetRepository, RuntimeSupervisor};
 use axum::{
     Json, Router,
     extract::State,
+    http::HeaderMap,
     response::{IntoResponse, Response},
     routing::post,
 };
@@ -19,6 +20,7 @@ use infra::{FilesystemProvisioner, PostgresFleetRepository, runtime::LocalRuntim
 use sea_orm::{ConnectionTrait, DatabaseBackend, Statement};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 use shared::{AppConfig, DatabaseConfig, config::ContainerControlConfig};
 use std::{collections::HashMap, os::unix::fs::MetadataExt, path::Path, sync::Arc};
 use tokio::{
@@ -41,10 +43,15 @@ struct Proof {
 #[derive(Default)]
 struct Model {
     calls: Mutex<HashMap<String, Vec<String>>>,
+    credential_hashes: Mutex<HashMap<String, Vec<String>>>,
     release: tokio::sync::Notify,
 }
 
-async fn inference(State(model): State<Arc<Model>>, Json(body): Json<Value>) -> Response {
+async fn inference(
+    State(model): State<Arc<Model>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
     assert_eq!(body["model"], "fleet-container-local-model");
     let messages = body["messages"].as_array().unwrap();
     let prompt = messages
@@ -60,6 +67,15 @@ async fn inference(State(model): State<Arc<Model>>, Json(body): Json<Value>) -> 
         .filter_map(|m| m["content"].as_str())
         .collect::<Vec<_>>()
         .join("\n");
+    let authorization = headers.get("authorization").unwrap().to_str().unwrap();
+    assert!(authorization.starts_with("Bearer "));
+    model
+        .credential_hashes
+        .lock()
+        .await
+        .entry(prompt.clone())
+        .or_default()
+        .push(hex::encode(Sha256::digest(authorization.as_bytes())));
     model
         .calls
         .lock()
@@ -91,9 +107,11 @@ async fn inference(State(model): State<Arc<Model>>, Json(body): Json<Value>) -> 
 fn configuration(host: &str, port: u16, soul: &str) -> UpdateAgentConfigRequest {
     UpdateAgentConfigRequest {
         config_json: json!({
-            "model":{"default":"fleet-container-local-model","provider":"custom",
-                "api_mode":"chat_completions","base_url":format!("http://{host}:{port}/v1"),
-                "context_length":131072},
+            "model":{"default":"fleet-container-local-model","provider":"custom:fleet-owned-model",
+                "api_mode":"chat_completions","context_length":131072},
+            "providers":{"fleet-owned-model":{"base_url":format!("http://{host}:{port}/v1"),
+                "key_env":"HERMES_CUSTOM_API_KEY","transport":"chat_completions",
+                "default_model":"fleet-container-local-model"}},
             "platform_toolsets":{"api_server":[]},"mcp_servers":{},
             "security":{"tirith_enabled":false,"allow_lazy_installs":false},
             "memory":{"memory_enabled":false,"user_profile_enabled":false,"provider":""},
@@ -101,7 +119,7 @@ fn configuration(host: &str, port: u16, soul: &str) -> UpdateAgentConfigRequest 
             "telemetry":{"shared_metrics":{"enabled":false}},"agent":{"max_turns":2}
         }),
         soul_md: format!("# {soul}\nAnswer without tools.\n"),
-        env_json: json!({"OPENAI_API_KEY":{"secret_ref":"LOCAL_MODEL"},
+        env_json: json!({"HERMES_CUSTOM_API_KEY":{"secret_ref":"LOCAL_MODEL"},
             "HERMES_HEADLESS":"1","HERMES_DISABLE_LAZY_INSTALLS":"1"}),
     }
 }
@@ -283,6 +301,7 @@ async fn assert_answer(
     prompt: &str,
     own: &str,
     other: &str,
+    credential_ref: &str,
 ) -> domain::SessionAgentRun {
     let run = terminal(repo, session).await;
     assert!(run.runtime_run_id.is_some() && run.runtime_session_id.is_some());
@@ -300,7 +319,90 @@ async fn assert_answer(
     assert_eq!(systems.len(), 1);
     assert!(systems[0].contains(own));
     assert!(!systems[0].contains(other));
+    let expected = format!(
+        "Bearer {}",
+        std::env::var(format!("FLEET_CONTROL_SECRET__{credential_ref}")).unwrap()
+    );
+    let credentials = model.credential_hashes.lock().await;
+    assert_eq!(
+        credentials.get(prompt).unwrap(),
+        &vec![hex::encode(Sha256::digest(expected.as_bytes()))]
+    );
     run
+}
+
+async fn assert_environment_intents(
+    db: &sea_orm::DatabaseConnection,
+    config: &AppConfig,
+    agents: &[Agent],
+    readiness_rollback: bool,
+) -> usize {
+    let rows = db.query_all(Statement::from_string(DatabaseBackend::Postgres,
+        "SELECT agent_id,ordinal,generation,operation_id,intent_sha256 FROM runtime_container_preparations ORDER BY agent_id,ordinal"
+    )).await.unwrap();
+    assert_eq!(rows.len(), if readiness_rollback { 6 } else { 4 });
+    for row in &rows {
+        let agent_id: Uuid = row.try_get("", "agent_id").unwrap();
+        let ordinal: i64 = row.try_get("", "ordinal").unwrap();
+        let agent = agents.iter().find(|agent| agent.id == agent_id).unwrap();
+        let suffix = if ordinal == 0 {
+            agent_id.to_string()
+        } else {
+            format!("{agent_id}.{ordinal}")
+        };
+        let path = Path::new(&config.fleet.controller_root)
+            .join(format!("{suffix}.container-creation.json"));
+        let metadata = tokio::fs::metadata(&path).await.unwrap();
+        assert_eq!(metadata.uid(), 999);
+        assert_eq!(metadata.mode() & 0o777, 0o600);
+        assert_eq!(metadata.nlink(), 1);
+        let intent: Value = serde_json::from_slice(&tokio::fs::read(path).await.unwrap()).unwrap();
+        assert_eq!(intent["agent_id"], json!(agent_id));
+        assert_eq!(
+            intent["generation"],
+            json!(row.try_get::<Uuid>("", "generation").unwrap())
+        );
+        assert_eq!(
+            intent["operation_id"],
+            json!(row.try_get::<Uuid>("", "operation_id").unwrap())
+        );
+        assert_eq!(
+            row.try_get::<String>("", "intent_sha256").unwrap(),
+            hex::encode(Sha256::digest(serde_json::to_vec(&intent).unwrap()))
+        );
+        let snapshot = intent["environment_snapshot"].as_object().unwrap();
+        assert_eq!(snapshot.len(), 3);
+        assert_eq!(snapshot["version"], 1);
+        let dotenv = snapshot["dotenv"].as_str().unwrap();
+        assert_eq!(
+            snapshot["dotenv_sha256"],
+            hex::encode(Sha256::digest(dotenv.as_bytes()))
+        );
+        let reference = if agent.id == agents[0].id && matches!(ordinal, 1 | 3) {
+            "LOCAL_MODEL_ROTATED"
+        } else {
+            "LOCAL_MODEL"
+        };
+        let key = std::env::var(format!("FLEET_CONTROL_SECRET__{reference}")).unwrap();
+        assert!(
+            dotenv.lines().any(|line| line
+                == format!(
+                    "HERMES_CUSTOM_API_KEY={}",
+                    serde_json::to_string(&key).unwrap()
+                )),
+            "original provider input differs from its expected generation"
+        );
+        let api_key = infra::agent_runtime_token(config, agent_id).unwrap();
+        assert!(
+            dotenv.lines().any(|line| line
+                == format!(
+                    "API_SERVER_KEY={}",
+                    serde_json::to_string(&api_key).unwrap()
+                )),
+            "original API input differs from its expected agent"
+        );
+    }
+    rows.len()
 }
 
 async fn scenario(
@@ -419,7 +521,7 @@ async fn scenario(
         } else {
             ("CONTAINER_SOUL_B", "CONTAINER_SOUL_A")
         };
-        assert_answer(repo, model, session, &prompt, own, other).await;
+        assert_answer(repo, model, session, &prompt, own, other, "LOCAL_MODEL").await;
         assert_eq!(
             repo.create_session_message(session, request, owner)
                 .await
@@ -441,6 +543,12 @@ async fn scenario(
         .await
         .unwrap()
         .unwrap();
+    let original_intent_path = Path::new(&config.fleet.controller_root)
+        .join(format!("{}.container-creation.json", agent.id));
+    let original_intent = tokio::fs::read(&original_intent_path).await.unwrap();
+    let original_dotenv = tokio::fs::read(Path::new(&agent.paths.config).join(".env"))
+        .await
+        .unwrap();
     let peer_original = repo
         .get_open_runtime_launch(agents[1].id)
         .await
@@ -455,15 +563,19 @@ async fn scenario(
     })
     .await
     .unwrap();
-    let revision = request_activation(
-        repo,
-        agent.id,
-        owner,
-        configuration(&proof.model_host, port, "CONTAINER_SOUL_A_NEW"),
-    )
-    .await;
+    let mut replacement_config = configuration(&proof.model_host, port, "CONTAINER_SOUL_A_NEW");
+    replacement_config.env_json["HERMES_CUSTOM_API_KEY"] =
+        json!({"secret_ref":"LOCAL_MODEL_ROTATED"});
+    let revision = request_activation(repo, agent.id, owner, replacement_config).await;
     sleep(Duration::from_secs(4)).await;
     assert!(repo.agent_is_draining(agent.id).await.unwrap());
+    assert!(
+        tokio::fs::read(Path::new(&agent.paths.config).join(".env"))
+            .await
+            .unwrap()
+            == original_dotenv,
+        "credential input changed while the original model run was active"
+    );
     assert_ne!(
         repo.get_effective_config_revision(agent.id)
             .await
@@ -495,9 +607,14 @@ async fn scenario(
         &prompt,
         "CONTAINER_SOUL_A",
         "CONTAINER_SOUL_A_NEW",
+        "LOCAL_MODEL",
     )
     .await;
     activated(repo, agent.id, revision).await;
+    assert!(
+        tokio::fs::read(original_intent_path).await.unwrap() == original_intent,
+        "credential rotation changed the original private generation document"
+    );
     let replacement = repo
         .get_open_runtime_launch(agent.id)
         .await
@@ -539,6 +656,7 @@ async fn scenario(
         &prompt,
         "CONTAINER_SOUL_A_NEW",
         "CONTAINER_SOUL_B",
+        "LOCAL_MODEL_ROTATED",
     )
     .await;
     FilesystemProvisioner
@@ -573,6 +691,7 @@ async fn scenario(
         &prompt,
         "CONTAINER_SOUL_B",
         "CONTAINER_SOUL_A_NEW",
+        "LOCAL_MODEL",
     )
     .await;
 
@@ -752,6 +871,7 @@ async fn readiness_rollback(
         &prompt,
         "CONTAINER_SOUL_A_NEW",
         "CONTAINER_QA_READINESS_DELAY",
+        "LOCAL_MODEL_ROTATED",
     )
     .await;
 }
@@ -774,7 +894,7 @@ async fn real_container_supervisor_isolates_chat_and_drains_configuration_replac
         idle_timeout_seconds: 60,
     };
     infra::run_migrations(database.clone()).await.unwrap();
-    let db = infra::connect_database(database).await.unwrap();
+    let db = infra::connect_database(database.clone()).await.unwrap();
     let owner = Uuid::new_v4();
     db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "INSERT INTO users(id,email,username,display_name,password_hash,is_system_admin,system_role)
@@ -831,6 +951,10 @@ async fn real_container_supervisor_isolates_chat_and_drains_configuration_replac
     );
     let prompts = if proof.readiness_rollback { 6 } else { 5 };
     assert_eq!(model.calls.lock().await.len(), prompts);
+    assert_eq!(model.credential_hashes.lock().await.len(), prompts);
+    let db = infra::connect_database(database).await.unwrap();
+    let original_environment_intents =
+        assert_environment_intents(&db, &config, &agents, proof.readiness_rollback).await;
     let report = json!({"state":"passed","actual_rust_supervisor":true,"actual_docker_hermes":true,
         "controlled_model":true,"sdlc_acceptance":false,"agents":2,"controller_uid":999,
         "mapped_volume":proof.agents_volume,"engine_id":proof.engine_id,
@@ -838,6 +962,9 @@ async fn real_container_supervisor_isolates_chat_and_drains_configuration_replac
         "idempotent_messages":true,"drain_before_file_effects":true,
         "loaded_replacement_soul":true,"peer_unchanged":true,"fresh_restart_generation":true,
         "confirmed_namespace_stop":true,"model_prompts":prompts,
+        "native_provider_rotation":true,"peer_provider_unchanged":true,
+        "original_environment_custody":true,"original_environment_intents":original_environment_intents,
+        "raw_credentials_persisted_in_evidence":false,
         "readiness_rollback":proof.readiness_rollback});
     tokio::fs::write(
         "/evidence/live-report.json",

@@ -1,5 +1,117 @@
 # Chat Clarification Verification
 
+## Original-Key Control Lookup: 7 October 2026
+
+The additive human GET recovers the original actor/key receipt when an initial
+reply loses its command UUID. Closed operation/digest input, fresh human/session/
+project checks and the existing actor/key unique index enforce exact scope. It
+returns no key/input/hash/native credential context and never dispatches, reserves,
+mutates or reconciles a command. Historical terminal receipts remain readable.
+
+Two domain cases verify canonical UTF8 hash vectors and query validation. Three
+new PostgreSQL/controlled-HTTP cases prove concurrent/fresh-repository lookup,
+lost reply ID, scope/payload conflicts, unrelated user/operator/admin key denial,
+revocation and terminal uncertainty without another native POST. Unknown ACK
+remains unaccepted even after an independently committed terminal mirror.
+These are not an actual Fleet OS restart or native Hermes reply-loss scenario.
+
+Fresh project `sdlc-qa-fleet-container-control-af2745dcc72d` passes Rust1.88 fmt,
+locked offline all-target check/strict Clippy and551 workspace cases in37 result
+groups: zero failures,30 explicit opt-in ignores. All295 captured source inputs
+match after execution. Rust exports the updated OpenAPI after the tests; its
+only added public path is the original-key GET. Source baseline is Fleet3f7d4e5
+plus the captured lookup changes, with unchanged SDKcbb4e99. Owned Compose
+containers/networks are cleaned and independently queried empty.
+
+- Source manifest SHA256:
+  `b18f50fb07362f3b83fb7af647f048c43dc911ad79e754a200b59150cf758c0e`.
+- Full gate log SHA256:
+  `7bf1055c5d8b20f4f5d789feaa7ba863210fa7c605dfde4683c99287776bc3cd`.
+- Report SHA256:
+  `f8dbdb9daf4a7050d6dadb1aa91f2f6d8c6c658786a28bc8ce39d73af705824c`.
+- Rust-generated OpenAPI SHA256:
+  `76a27c806961bc142543445e34f10525485cbcf2f0b66ac2fe5d093fc808a10f`.
+
+Private artifacts: workspace `.local/fleet-container-control-checks-fb914e36cd7c/`.
+After regenerating the ignored local TypeScript client, fresh OpenAPI/client
+equality, eight compatibility cases, typecheck/build, lint, frontend formatting
+and292 unit cases pass. README and127 Markdown links pass; the existing135-screen
+manifest passes its nine validator cases. No screenshots or browser/live PM
+scenarios were newly captured/run for this backend-only route. Vite retains its
+existing large-chunk advisory. An additional root-doc/OpenAPI Prettier probe is
+not green: the same six Markdown files and exporter JSON were already unformatted
+at3f7d4e5. This packet does not rewrite unrelated historical formatting or alter
+the native Rust export bytes; it is not a claim of a complete repository gate.
+
+The earlier owned focused run `sdlc-qa-fleet-container-control-bb9c422b6bde`
+remains failed evidence (44 integration passes,1 failure,2 ignores): the test
+incorrectly expected terminal observation from a run flag without a committed
+mirror. The corrected test uses the real independent terminal commit. No backend
+terminal guard was weakened; both invocations verified exact owned cleanup.
+
+No migration, SDK pin, production UI or installed runtime change. Consumer
+original-key wiring and actual native/OS-restart acceptance of this route are
+still required. Neither this gate nor earlier native packets establish complete
+PM delivery/resume, assignment admission, production log collection or SDLC.
+
+## Native Provider Rotation And Original Input Custody: 7 October 2026
+
+The expanded ignored supervisor scenario runs two actual pinned Hermes gateways,
+the real Rust supervisor and original Base/Engine with UID999 mapped-volume
+custody. The local model is an explicitly named custom provider using `key_env`,
+not a host-gating bypass for a vendor key. Six real `/v1/runs` finish with one
+final mirror each. The model verifies received authorization hashes: original
+key for both initial runs and the held run, rotated key after Developer activation
+and after readiness rollback, original key after the peer's fresh restart.
+The held run drains before any dotenv change. No raw authorization is reported.
+
+All six retained creation intents match PostgreSQL generation/operation/intent
+hash, exact original dotenv digest and expected per-agent API/provider inputs.
+Private files remain UID999/mode0600/single-link; the initial document remains
+byte-identical after rotation. Real readiness timeout retires the candidate and
+restores a distinct previous-revision generation; its final native run proves
+the restored SOUL and provider key. Base's separate private log probe verifies
+six nonempty original exited generations, persisting counts only.
+
+Project `sdlc-qa-fleet-container-live-a8ca318a4ef2` passes fresh Rust1.88 formatting,
+locked offline workspace/all-target strict Clippy, test-profile compilation and
+the actual ignored test:1 passed,0 failed/ignored in374.26 seconds. The306 captured
+inputs remain unchanged. Source baseline is Fleetd50c694 plus the captured test/
+driver changes; Base control7bf2df1, SDKcbb4e99 and Hermesbbaf7af are unchanged.
+This is not a fresh run of the ordinary546-case workspace suite.
+
+- Source manifest SHA256:
+  `3b46d9e0fbe41e96890900ef6582a47a909a90849e9e6c4fd643896ed205fcd2`.
+- Build log SHA256:
+  `5b6419e18626506bd5ccd095ad39a28031c676358e20276c5b1ac1ade68503b0`.
+- Live log SHA256:
+  `d765a902575780433b5a4651c1f3705337088ba36b53638fbf749bf5a27bdf30`.
+- Live report SHA256:
+  `f625af9857d5c8ae9c3084774abc836d46a74774f901369fca87a70c0b081583`.
+- Overall report SHA256:
+  `86ca86e98f9cf290bfdee127e1d08d918d033b289bdcc4b546fced4a76b2991d`.
+
+Private artifacts: workspace
+`.local/fleet-dotenv-native-evidence-20261007/sdlc-qa-fleet-container-live-a8ca318a4ef2-g76dtqzi/`.
+The exact owned Compose cleanup removes only this invocation's containers,
+networks, three disposable volumes and image aliases. Independent inventories
+are empty; permanent runtime lifecycle is unchanged. Sixteen host driver cases,
+six source-loader cases, README and127 Markdown checks pass.
+
+The earlier owned `460585ed396a` invocation failed during compilation because
+this SeaORM build does not expose `DatabaseConnection::clone`; it never reached
+Hermes. It remains failed evidence with verified cleanup/source/runtime preservation.
+The corrected test opens its own read connection instead of enabling a dependency
+feature. No test assertion, readiness deadline or Hermes host restriction was
+weakened to obtain the passing result.
+
+No production API, migration, SDK, UI or installed runtime change. The driver
+now rejects missing/mistyped/overclaimed flags and wrong baseline/rollback counts.
+This closes native static-provider rotation and original input custody, not
+every effective/external/managed secret source, later reload, production Rust
+log ingestion/redaction, controller recovery or task/PM/Forge/live SDLC.
+All reports retain `sdlc_acceptance=false`; no full merge-ready claim follows.
+
 ## Original Container Environment Input: 7 October 2026
 
 New automatic creation intents preserve exact guarded dotenv bytes/hash before
