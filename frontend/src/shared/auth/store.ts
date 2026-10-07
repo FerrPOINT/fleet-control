@@ -75,6 +75,7 @@ function readStoredAuth(): {
 // read it and silently extend the session (audit r4, P1).
 interface AuthState {
   token: string | null
+  signingOut: boolean
   userId: string | null
   email: string | null
   username: string | null
@@ -102,6 +103,7 @@ interface AuthState {
     permissions?: string[]
   }) => void
   logout: () => void
+  startSignOut: () => void
 }
 
 const initial = readStoredAuth()
@@ -110,6 +112,7 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       token: initial.token,
+      signingOut: false,
       userId: initial.userId,
       email: initial.email,
       username: initial.username,
@@ -120,6 +123,7 @@ export const useAuthStore = create<AuthState>()(
       setAuth: (payload) =>
         set({
           token: payload.token,
+          signingOut: false,
           userId: payload.userId,
           email: payload.email,
           username: payload.username ?? null,
@@ -138,9 +142,11 @@ export const useAuthStore = create<AuthState>()(
           isSystemAdmin: payload.isSystemAdmin ?? state.isSystemAdmin,
           permissions: payload.permissions ?? state.permissions,
         })),
+      startSignOut: () => set({ signingOut: true }),
       logout: () => {
         set({
           token: null,
+          signingOut: false,
           userId: null,
           email: null,
           username: null,

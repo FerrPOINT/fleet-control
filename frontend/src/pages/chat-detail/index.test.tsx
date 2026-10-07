@@ -7,7 +7,9 @@ import * as fleet from '@/api/fleet'
 import * as chats from '@/api/task-chats'
 import * as controlLookup from '@/api/runtime-control-lookup'
 import type { AgentSession, SessionMessage } from '@/api/types'
-import { useAuthStore } from '@/shared/auth/store'
+import { ssoConfig, useAuthStore } from '@/shared/auth/store'
+import { apiBaseUrl } from '@/api/client'
+import { controlRecoveryService, readControlRecovery } from '@/shared/chat-control-recovery'
 import { ApiError, connectAuthenticatedEventStream } from '@sdlc/ui/lib'
 import userEvent from '@testing-library/user-event'
 
@@ -22,7 +24,8 @@ vi.mock('@/api/fleet', () => ({
 }))
 vi.mock('@/api/runtime-control-lookup', async (original) => ({
   ...(await original<typeof import('@/api/runtime-control-lookup')>()),
-  lookupRuntimeControl: vi.fn(),
+  lookupRuntimeControlByDigest: vi.fn(),
+  runtimeControlPayloadSha256: vi.fn(async () => 'a'.repeat(64)),
 }))
 vi.mock('@/api/task-chats', async (original) => ({
   ...(await original<typeof import('@/api/task-chats')>()),
@@ -121,16 +124,17 @@ function renderPage(tab = 'dialogue', queryRetries: false | number = false) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: queryRetries }, mutations: { retry: false } },
   })
-  render(
+  const view = render(
     <QueryClientProvider client={client}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   )
-  return { router, client }
+  return { router, client, ...view }
 }
 beforeEach(() => {
   vi.clearAllMocks()
-  useAuthStore.setState({ userId: 'owner', token: null })
+  sessionStorage.clear()
+  useAuthStore.setState({ userId: 'owner', token: 'fixture-token', signingOut: false })
   vi.mocked(fleet.getSession).mockResolvedValue({
     id: 'session1',
     user_id: 'owner',
@@ -144,7 +148,7 @@ beforeEach(() => {
   vi.mocked(fleet.listAgentDirectory).mockResolvedValue([])
   vi.mocked(fleet.listSessionAgentRuns).mockResolvedValue([])
   vi.mocked(fleet.listRuntimeControls).mockResolvedValue([])
-  vi.mocked(controlLookup.lookupRuntimeControl).mockRejectedValue(
+  vi.mocked(controlLookup.lookupRuntimeControlByDigest).mockRejectedValue(
     new ApiError(404, 'Original control not found'),
   )
   vi.mocked(chats.getTaskContext).mockResolvedValue(context)
@@ -182,6 +186,165 @@ beforeEach(() => {
 describe('production chat', () => {
   it.each(
     (['steer', 'stop'] as const).flatMap((operation) =>
+      (
+        [
+          'ack',
+          '404',
+          '409',
+          'uncertain',
+          'terminal-no-ack',
+          'wrong-run',
+          'wrong-agent',
+          'wrong-actor',
+          'wrong-operation',
+          'other-user',
+          'other-service',
+          'signing-out',
+          'logout',
+          'session401',
+          'session403',
+        ] as const
+      ).map((outcome) => ({ operation, outcome })),
+    ),
+  )('restores held $operation metadata after remount: $outcome', async ({ operation, outcome }) => {
+    vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      can_send: false,
+      can_steer: true,
+      can_stop: true,
+      active_run_id: 'run-original',
+    })
+    const post = operation === 'steer' ? fleet.steerSessionRun : fleet.stopSessionRun
+    vi.mocked(post).mockRejectedValueOnce(new Error('Lost original acknowledgement'))
+    const first = renderPage()
+    const input = await screen.findByLabelText('Уточнение активному запуску')
+    fireEvent.change(input, { target: { value: 'Private guidance stays in memory' } })
+    const actionName = operation === 'steer' ? 'Передать уточнение запуску' : 'Остановить запуск'
+    await waitFor(() => expect(screen.getByRole('button', { name: actionName })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: actionName }))
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(first.client.isMutating()).toBe(0))
+    const pending = readControlRecovery('session1')
+    expect(pending.state).toBe('pending')
+    if (pending.state !== 'pending') throw new Error('Expected original metadata')
+    const original = pending.command
+    expect(JSON.stringify(original)).not.toContain('Private guidance')
+    first.unmount()
+    first.client.clear()
+    vi.mocked(controlLookup.lookupRuntimeControlByDigest).mockClear()
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      can_send: false,
+      can_steer: true,
+      can_stop: true,
+      active_run_id: 'run-successor',
+    })
+    const ack = {
+      id: 'original-command',
+      session_id: 'session1',
+      session_run_id: 'run-original',
+      agent_id: 'agent1',
+      actor_user_id: 'owner',
+      operation,
+      state: 'acknowledged' as const,
+      acknowledgement: operation === 'steer' ? 'steered' : 'stopping',
+      observed_run_state: null,
+      created_at: '2026-10-01T12:00:00Z',
+      updated_at: '2026-10-01T12:00:00Z',
+    }
+    if (outcome === '404' || outcome === '409')
+      vi.mocked(controlLookup.lookupRuntimeControlByDigest).mockRejectedValue(
+        new ApiError(Number(outcome), 'Readback held'),
+      )
+    else
+      vi.mocked(controlLookup.lookupRuntimeControlByDigest).mockResolvedValue({
+        ...ack,
+        session_run_id: outcome === 'wrong-run' ? 'run-successor' : ack.session_run_id,
+        actor_user_id: outcome === 'wrong-actor' ? 'other' : ack.actor_user_id,
+        agent_id: outcome === 'wrong-agent' ? 'another-agent' : ack.agent_id,
+        operation:
+          outcome === 'wrong-operation' ? (operation === 'steer' ? 'stop' : 'steer') : operation,
+        state:
+          outcome === 'uncertain'
+            ? 'uncertain'
+            : outcome === 'terminal-no-ack'
+              ? 'terminal_observed'
+              : 'acknowledged',
+        acknowledgement: outcome === 'terminal-no-ack' ? null : ack.acknowledgement,
+      })
+    if (outcome === 'other-user') useAuthStore.setState({ userId: 'other' })
+    if (outcome === 'logout') useAuthStore.getState().logout()
+    if (outcome === 'signing-out') useAuthStore.getState().startSignOut()
+    if (outcome === 'other-service')
+      sessionStorage.setItem(
+        'fleet-control.control-recovery.v1:session1',
+        JSON.stringify({ ...original, service: 'another-service' }),
+      )
+    if (outcome === 'session401' || outcome === 'session403')
+      vi.mocked(fleet.getSession).mockRejectedValue(
+        new ApiError(Number(outcome.slice(7)), 'Session denied after reload'),
+      )
+    const restored = renderPage()
+    if (outcome.startsWith('session')) {
+      await screen.findByText('Session denied after reload')
+      expect(screen.queryByRole('button', { name: actionName })).not.toBeInTheDocument()
+    } else {
+      const nextInput = await screen.findByLabelText('Уточнение активному запуску')
+      expect(nextInput).toHaveValue('')
+      if (outcome === 'ack') {
+        await screen.findByText(
+          operation === 'steer'
+            ? 'Runtime подтвердил исходное уточнение. Состояние запуска проверяется отдельно.'
+            : 'Runtime подтвердил исходную остановку. Завершение запуска проверяется отдельно.',
+        )
+        await waitFor(() => expect(nextInput).toBeEnabled())
+        expect(readControlRecovery('session1')).toEqual({ state: 'none' })
+      } else {
+        await waitFor(() => expect(restored.client.isFetching()).toBe(0))
+        expect(nextInput).toBeDisabled()
+        expect(screen.getByRole('button', { name: actionName })).toBeDisabled()
+        expect(readControlRecovery('session1').state).toBe('pending')
+      }
+    }
+    if (
+      ['other-user', 'other-service', 'signing-out', 'logout', 'session401', 'session403'].includes(
+        outcome,
+      )
+    )
+      expect(controlLookup.lookupRuntimeControlByDigest).not.toHaveBeenCalled()
+    else
+      expect(controlLookup.lookupRuntimeControlByDigest).toHaveBeenCalledWith(
+        'session1',
+        'run-original',
+        original.key,
+        { operation, payload_sha256: original.payloadSha256 },
+      )
+    expect(post).toHaveBeenCalledTimes(1)
+    expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+  })
+  it('does not POST if the tab cannot retain reconciliation metadata', async () => {
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      can_send: false,
+      can_steer: true,
+      can_stop: true,
+      active_run_id: 'run-original',
+    })
+    renderPage()
+    const input = await screen.findByLabelText('Уточнение активному запуску')
+    fireEvent.change(input, { target: { value: 'Must not be sent' } })
+    const action = screen.getByRole('button', { name: 'Передать уточнение запуску' })
+    await waitFor(() => expect(action).toBeEnabled())
+    const broken = vi
+      .spyOn(Object.getPrototypeOf(sessionStorage), 'setItem')
+      .mockImplementation(() => {})
+    fireEvent.click(action)
+    await screen.findByText('Не удалось сохранить ключ сверки. Команда не отправлена.')
+    expect(fleet.steerSessionRun).not.toHaveBeenCalled()
+    expect(fleet.stopSessionRun).not.toHaveBeenCalled()
+    broken.mockRestore()
+  })
+
+  it.each(
+    (['steer', 'stop'] as const).flatMap((operation) =>
       (['acknowledged', 'terminal-ack', 'run-changed'] as const).map((outcome) => ({
         operation,
         outcome,
@@ -208,19 +371,21 @@ describe('production chat', () => {
         fireEvent.change(input, { target: { value: ' Original scoped guidance ' } })
       await waitFor(() => expect(action).toBeEnabled())
       fireEvent.click(action)
-      await waitFor(() => expect(controlLookup.lookupRuntimeControl).toHaveBeenCalledTimes(1))
+      await waitFor(() =>
+        expect(controlLookup.lookupRuntimeControlByDigest).toHaveBeenCalledTimes(1),
+      )
       await waitFor(() => expect(client.isMutating()).toBe(0))
       expect(action).toBeDisabled()
       if (operation === 'steer') expect(input).toHaveValue(' Original scoped guidance ')
       expect(post).toHaveBeenCalledTimes(1)
-      const originalLookup = vi.mocked(controlLookup.lookupRuntimeControl).mock.calls[0]!
+      const originalLookup = vi.mocked(controlLookup.lookupRuntimeControlByDigest).mock.calls[0]!
       expect(originalLookup).toEqual([
         'session1',
         'run-original',
         expect.any(String),
-        { operation, input: operation === 'steer' ? ' Original scoped guidance ' : null },
+        { operation, payload_sha256: 'a'.repeat(64) },
       ])
-      vi.mocked(controlLookup.lookupRuntimeControl).mockResolvedValue({
+      vi.mocked(controlLookup.lookupRuntimeControlByDigest).mockResolvedValue({
         id: 'historical-command',
         session_id: 'session1',
         session_run_id: 'run-original',
@@ -248,7 +413,9 @@ describe('production chat', () => {
             operation === 'steer' ? 'Проверить исходное уточнение' : 'Проверить исходную остановку',
         }),
       )
-      await waitFor(() => expect(controlLookup.lookupRuntimeControl).toHaveBeenCalledTimes(2))
+      await waitFor(() =>
+        expect(controlLookup.lookupRuntimeControlByDigest).toHaveBeenCalledTimes(2),
+      )
       await screen.findByText(
         operation === 'steer'
           ? 'Runtime подтвердил исходное уточнение. Состояние запуска проверяется отдельно.'
@@ -256,7 +423,9 @@ describe('production chat', () => {
       )
       if (operation === 'steer') expect(input).toHaveValue('')
       expect(screen.queryByText('Lost initial command ID')).not.toBeInTheDocument()
-      expect(vi.mocked(controlLookup.lookupRuntimeControl).mock.calls[1]).toEqual(originalLookup)
+      expect(vi.mocked(controlLookup.lookupRuntimeControlByDigest).mock.calls[1]).toEqual(
+        originalLookup,
+      )
       expect(post).toHaveBeenCalledTimes(1)
       expect(fleet.createSessionMessage).not.toHaveBeenCalled()
     },
@@ -300,15 +469,17 @@ describe('production chat', () => {
         fireEvent.change(input, { target: { value: 'Original retained input' } })
       await waitFor(() => expect(action).toBeEnabled())
       fireEvent.click(action)
-      await waitFor(() => expect(controlLookup.lookupRuntimeControl).toHaveBeenCalledTimes(1))
+      await waitFor(() =>
+        expect(controlLookup.lookupRuntimeControlByDigest).toHaveBeenCalledTimes(1),
+      )
       await waitFor(() => expect(client.isMutating()).toBe(0))
-      const original = vi.mocked(controlLookup.lookupRuntimeControl).mock.calls[0]!
+      const original = vi.mocked(controlLookup.lookupRuntimeControlByDigest).mock.calls[0]!
       if (outcome === '404' || outcome === '409')
-        vi.mocked(controlLookup.lookupRuntimeControl).mockRejectedValue(
+        vi.mocked(controlLookup.lookupRuntimeControlByDigest).mockRejectedValue(
           new ApiError(Number(outcome), `Lookup ${outcome}`),
         )
       else
-        vi.mocked(controlLookup.lookupRuntimeControl).mockResolvedValue({
+        vi.mocked(controlLookup.lookupRuntimeControlByDigest).mockResolvedValue({
           id: 'historical-command',
           session_id: outcome === 'wrong-session' ? 'another-session' : 'session1',
           session_run_id: outcome === 'wrong-run' ? 'another-run' : 'run-original',
@@ -338,11 +509,13 @@ describe('production chat', () => {
       })
       await waitFor(() => expect(check).toBeEnabled())
       fireEvent.click(check)
-      await waitFor(() => expect(controlLookup.lookupRuntimeControl).toHaveBeenCalledTimes(2))
+      await waitFor(() =>
+        expect(controlLookup.lookupRuntimeControlByDigest).toHaveBeenCalledTimes(2),
+      )
       await waitFor(() =>
         expect(client.isFetching({ queryKey: ['runtime-control-lookup'] })).toBe(0),
       )
-      expect(vi.mocked(controlLookup.lookupRuntimeControl).mock.calls[1]).toEqual(original)
+      expect(vi.mocked(controlLookup.lookupRuntimeControlByDigest).mock.calls[1]).toEqual(original)
       expect(action).toBeDisabled()
       expect(input).toBeDisabled()
       if (operation === 'steer') expect(input).toHaveValue('Original retained input')
@@ -372,10 +545,19 @@ describe('production chat', () => {
         fireEvent.change(input, { target: { value: 'Cached ACK must stay held' } })
       await waitFor(() => expect(action).toBeEnabled())
       fireEvent.click(action)
-      await waitFor(() => expect(controlLookup.lookupRuntimeControl).toHaveBeenCalledTimes(1))
+      await waitFor(() =>
+        expect(controlLookup.lookupRuntimeControlByDigest).toHaveBeenCalledTimes(1),
+      )
       await waitFor(() => expect(client.isMutating()).toBe(0))
-      const original = vi.mocked(controlLookup.lookupRuntimeControl).mock.calls[0]!
-      const queryKey = ['runtime-control-lookup', 'session1', 'owner', 'run-original', original[2]]
+      const original = vi.mocked(controlLookup.lookupRuntimeControlByDigest).mock.calls[0]!
+      const queryKey = [
+        'runtime-control-lookup',
+        'session1',
+        controlRecoveryService(apiBaseUrl, ssoConfig.issuer),
+        'owner',
+        'run-original',
+        original[2],
+      ]
       const ack = {
         id: 'original-command',
         session_id: 'session1',
@@ -390,7 +572,7 @@ describe('production chat', () => {
         updated_at: '2026-10-01T12:00:00Z',
       }
       let rejectRead!: (reason: unknown) => void
-      vi.mocked(controlLookup.lookupRuntimeControl).mockReturnValueOnce(
+      vi.mocked(controlLookup.lookupRuntimeControlByDigest).mockReturnValueOnce(
         new Promise((_resolve, reject) => {
           rejectRead = reject
         }),
@@ -410,7 +592,7 @@ describe('production chat', () => {
       })
       expect(client.getQueryState(queryKey)?.data).toEqual(ack)
       expect(action).toBeDisabled()
-      vi.mocked(controlLookup.lookupRuntimeControl).mockResolvedValue(ack)
+      vi.mocked(controlLookup.lookupRuntimeControlByDigest).mockResolvedValue(ack)
       fireEvent.click(
         screen.getByRole('button', {
           name:
@@ -451,7 +633,7 @@ describe('production chat', () => {
       fireEvent.change(input, { target: { value: 'Original input survives invalid reply' } })
     await waitFor(() => expect(action).toBeEnabled())
     fireEvent.click(action)
-    await waitFor(() => expect(controlLookup.lookupRuntimeControl).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(controlLookup.lookupRuntimeControlByDigest).toHaveBeenCalledTimes(1))
     expect(action).toBeDisabled()
     if (operation === 'steer') expect(input).toHaveValue('Original input survives invalid reply')
     expect(post).toHaveBeenCalledTimes(1)

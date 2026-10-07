@@ -1,0 +1,283 @@
+{
+  "consumerBaseline": "16b751679db3a32e921603acc64e9e9aa4f7c350",
+  "publishedProducer": "f1891aade512a20f395d83c450999fb654a4f505",
+  "publishedIntegrationAtReview": "88e9a3275dec520a589f2a5dca342840291c3332",
+  "basePin": "cbb4e99230420dc2659431b1c9fb5090e5c940f0",
+  "scope": "Tab reload recovery of original stop/steer through digest-only GET, with logout and identity isolation",
+  "sourceByteConvention": "Git blob/LF bytes",
+  "sourceSha256": {
+    "docs/CHATS_PM_API_ACCEPTANCE_20261007.md": "e9ee77761e86ed0a25103e0e6e42dc3a9d122041414b3a3e1dfdd2cc4d60b10e",
+    "docs/CHATS_PM_FINAL_HANDOFF_20261006.md": "0ae99aab4e934f7e8513b6ce543e440ad3ee3e2288db3dbb3078039c511c6eed",
+    "docs/SECURITY.md": "d4760feb80dd4020aa75da52fadf5fc184464f2b3449ac22c4735a37d173a8b8",
+    "frontend/e2e/fleet-control.spec.ts": "22182ea71cff3229c6e00913e66e7303c7e48037a70626d6ef294ca0644e07ae",
+    "frontend/src/api/runtime-control-lookup.test.ts": "441c66a45c9cf97bc814e360ab48c9997f4be708f9a8b4ee381b657a44e3116a",
+    "frontend/src/api/runtime-control-lookup.ts": "ed833da81fae3f7d4211802336885506e1d8bfc9bc09881db8d980407d484b42",
+    "frontend/src/pages/chat-detail/index.test.tsx": "61cc453e9bf910058d5eb18af430ec799c820d498a6ab8035f160e6ef6af1ba0",
+    "frontend/src/pages/chat-detail/index.tsx": "7b57362eab85b42b0a8d048f6780f2daa496dd17d58f30b33ddaea185b20c532",
+    "frontend/src/shared/auth/store.test.ts": "d079fde64f09d1e0950977c14ee4bb508a84987ac10c0527f831a071388fa2df",
+    "frontend/src/shared/auth/store.ts": "84db35b81ca3e8e72f2eab869bf4864c7475d409c3603bd72dcb5043f83e8200",
+    "frontend/src/widgets/app-shell.test.tsx": "7ed27dfd8a82fdec711f7235cbcccbec44fad217d6031e212bc0a09399ac2dc5",
+    "frontend/src/widgets/app-shell.tsx": "921eb810a5fb9a0427c48e5b948fe4f7f09b2777171d497965d47bf5c39d9530",
+    "frontend/src/shared/chat-control-recovery.ts": "d4c580cd66cdff99e159b95a115cbde5dbefe5adcfec919147e9ee9391513327",
+    "frontend/src/shared/chat-control-recovery.test.ts": "47f3357810479a24856ab562512999e5b3b60da95bda99be714406b52ed80f65"
+  },
+  "checks": {
+    "all-unit": {
+      "sha256": "7cd1d565eb53dbddbca267ba83a09937cfddf51ec47f02fce2edcb399d392e6d",
+      "passed": 401,
+      "proxyConnectionRefused": false,
+      "status": "passed"
+    },
+    "build": {
+      "sha256": "8634dbab59aad71e78421a93a3caf06c0dd092f6d976aa3d054bdd67f5fcf0c1",
+      "proxyConnectionRefused": false,
+      "status": "passed"
+    },
+    "lint": {
+      "sha256": "fea2ca52c435e20a7e93d4541868d89dc441a99a8ebb4d3e82613b6932415200",
+      "proxyConnectionRefused": false,
+      "status": "passed"
+    },
+    "ui": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "proxyConnectionRefused": false,
+      "status": "passed"
+    },
+    "format": {
+      "sha256": "f20510a9da4717c51c4cffee6d0dd88d6c9a723d0a83711d01216f5b48961283",
+      "proxyConnectionRefused": false,
+      "status": "passed"
+    },
+    "browser-stream-focused": {
+      "sha256": "df32afc75c8b5deba3e0fe4d95b35410ccbd60ea4b19b99c2dfcd2ec3263d26c",
+      "passed": 6,
+      "proxyConnectionRefused": false,
+      "status": "passed"
+    },
+    "browser-final": {
+      "sha256": "ceb9dfadd53561e01cce10e2e29324a1a8c58adfff0016bb1429a15dcca8ec51",
+      "passed": 78,
+      "proxyConnectionRefused": true,
+      "status": "passed"
+    }
+  },
+  "preservedDevelopmentRuns": {
+    "initial-unit": {
+      "sha256": "e9d57e68e7a13c2103c30a21584e71936772d4bef0c8326d8af279cdc396b875",
+      "passed": 110,
+      "failed": 2,
+      "proxyConnectionRefused": false
+    },
+    "focused-unit": {
+      "sha256": "2c382fdb574c1f058fab214286397e15777eaae382555383772493a0200c0106",
+      "passed": 155,
+      "failed": 2,
+      "proxyConnectionRefused": false
+    },
+    "logout-before": {
+      "sha256": "46bd2be44719b034a46baf919d0d008efa3605fa0afcf8fbce248807aa4d9eb9",
+      "failed": 6,
+      "proxyConnectionRefused": true
+    },
+    "expired-token-fixture-before": {
+      "sha256": "293c1ddd6e109bab12c79877ce30ab5643fb832146c686cde1daa505b0302c8c",
+      "passed": 2,
+      "failed": 4,
+      "proxyConnectionRefused": false
+    },
+    "navigation-fixture-before": {
+      "sha256": "25025660aed943d5c2753d03fd437d18ed049d97ee11c7b792f1a06c9d01666c",
+      "passed": 2,
+      "failed": 4,
+      "proxyConnectionRefused": true
+    },
+    "webkit-redirect-fixture-before": {
+      "sha256": "e9c3dc1d2a4c8121d0f0f66ac257afece0fab450547c5aafcb3c8739fbb81e52",
+      "passed": 4,
+      "failed": 2,
+      "proxyConnectionRefused": false
+    },
+    "webkit-sse-before": {
+      "sha256": "70b423f3bd3f629fffab2bbe5f7f4a4055300f56473dc0c0e08a5af489fc77a6",
+      "passed": 5,
+      "failed": 1,
+      "proxyConnectionRefused": true
+    },
+    "webkit-recheck": {
+      "sha256": "7aa23cfbb4bd1d640c9f20b409ecd40546952cf07799539ad1e6359dd7b86650",
+      "passed": 1,
+      "failed": 1,
+      "proxyConnectionRefused": false
+    },
+    "browser-focused": {
+      "sha256": "70b423f3bd3f629fffab2bbe5f7f4a4055300f56473dc0c0e08a5af489fc77a6",
+      "passed": 5,
+      "failed": 1,
+      "proxyConnectionRefused": true
+    },
+    "lint-before": {
+      "sha256": "b7f3677ec02e062c133cdd4e7db52baabad0d98a0ad74ca240ee04319c43db2d",
+      "proxyConnectionRefused": false
+    },
+    "format-before": {
+      "sha256": "458b9844a30244220fe03b376909c0ba30cac7765b56c22c8fc49254848e8546",
+      "proxyConnectionRefused": false
+    },
+    "browser-stream-full-before": {
+      "sha256": "da758852bc8e274f519e245eaed1aa4e07d379bccb2b5e0c10b5310a24621cb0",
+      "passed": 76,
+      "failed": 2,
+      "proxyConnectionRefused": true
+    }
+  },
+  "developmentFailureContext": {
+    "initial-unit": "Cached query test keys omitted service context; two cases updated.",
+    "focused-unit": "Storage exotic object spies did not intercept methods; changed spies to Storage prototype.",
+    "logout-before": "Early token clearing interrupted central logout; authority now suspends before navigation and auth clears on pagehide.",
+    "expired-token-fixture-before": "Permanently failing expired-token fixture caused repeated reauth with a healthy issuer; separated single expired 401 from persistent 403.",
+    "navigation-fixture-before": "Route/JS readiness was evaluated during authentication navigation; assertions now await current authorized controls.",
+    "webkit-redirect-fixture-before": "Intercepted 302 response unsupported by WebKit route.fulfill; mock issuer now uses the same HTML document redirect as its authorization fixture.",
+    "webkit-sse-before": "Five passed, one unfiltered WebKit pending GET access-control pageerror.",
+    "webkit-recheck": "One passed, one unfiltered WebKit pending GET access-control pageerror.",
+    "browser-focused": "Earlier five passed, one unfiltered WebKit pending GET access-control pageerror.",
+    "browser-stream-full-before": "76 passed, two failed: missing lookup route in the existing reload fixture caused overflow; WebKit pending GET access-control pageerror. Route added with original key/digest assertions; healthy reload stream fixture reused.",
+    "lint-before": "Playwright fixture empty pattern and use callback name conflicted with ESLint; dependency and callback renamed.",
+    "format-before": "Whole-directory formatting check reached ignored compiled PM preview files. Final check uses both existing prettierignore and gitignore, preserving the live preview."
+  },
+  "unitPassed": 401,
+  "unitFiles": 33,
+  "chatDetailUnitCases": 136,
+  "metadataUnitCases": 16,
+  "lookupApiUnitCases": 8,
+  "authStoreUnitCases": 4,
+  "appShellUnitCases": 17,
+  "browserPassed": 78,
+  "browserProjects": ["chromium", "firefox", "webkit"],
+  "browserWorkers": 3,
+  "browserRetries": 0,
+  "actualReloadCasesPassed": 6,
+  "heldReadbackVariantsPerReloadCase": 5,
+  "fixtureOnly": true,
+  "liveAcceptance": false,
+  "sdkChanged": false,
+  "ownedBackendChanged": false,
+  "ownedRuntimeChanged": false,
+  "ownedProducerChanged": false,
+  "ownedOpenApiChanged": false,
+  "productionPmDraftFormAdded": false,
+  "pmDraftDesignApproved": false,
+  "ownedFixturePreviewStopped": true,
+  "browserAcceptance": {
+    "originalKeyDigestActorSessionRunAgentRetained": true,
+    "metadataWrittenAndVerifiedBeforePost": true,
+    "realDocumentReloadVerified": true,
+    "oneInitialPostAndNoRecoveryPost": true,
+    "privateGuidanceTranscriptTokenNotPersisted": true,
+    "composerEmptyAfterReload": true,
+    "newActiveRunDoesNotRetargetLookup": true,
+    "failedWrongScopeUnresolvedAndTerminalWithoutAckKeepHold": true,
+    "persistent403AndOneExpiredToken401KeepMetadata": true,
+    "actualLogoutAndOtherActorServiceKeepHold": true,
+    "freshOriginalScopedAckRemovesMetadata": true,
+    "responsiveCapturesReviewed": true,
+    "pageErrorsFiltered": false
+  },
+  "streamFixture": {
+    "reloadCasesUseLongLivedHttpSse": true,
+    "ephemeralOwnedNodeServerClosedInFinally": true,
+    "finiteHeartbeatFixtureEarlierFailedInWebkit": true,
+    "inference": "A finite closed heartbeat triggers repeated reconnects and GET invalidations during navigation; the healthy long-lived HTTP stream removes this fixture churn. This does not establish a Base transport fix."
+  },
+  "remaining": [
+    "Base direct-SSE denial callback and WebKit pending-fetch/navigation diagnostic remain open; earlier failures retained.",
+    "Full fixture logs include proxy ECONNREFUSED for existing intercepted flows; no native or live acceptance claimed.",
+    "Missing tab metadata, tab destruction and OS restart require a published authorized producer discovery contract.",
+    "Native PM delivery/checkpoint/resume and authorized Workflow browser projection require combined live acceptance."
+  ],
+  "captures": [
+    {
+      "file": "chat-control-reload-steer-held-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "6f152cf2a4a4d7e546a699fe6195594780a016e49db3946d56df58c0f04876b9",
+      "reviewed": true
+    },
+    {
+      "file": "chat-control-reload-steer-held-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "777e1cfc5349c66ac099a26b9a6f3409f455eed9bc8a7355e6165737c726513b",
+      "reviewed": true
+    },
+    {
+      "file": "chat-control-reload-steer-held-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "c8f0c69341dab8fed0c364963592dd45ca82887c4dbfb4587e7e38567bedc0af",
+      "reviewed": true
+    },
+    {
+      "file": "chat-control-reload-steer-ack-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "a8530eb568883b9f3645b69a8bb8d7c69e105317fbd252bd074377af60482669",
+      "reviewed": true
+    },
+    {
+      "file": "chat-control-reload-steer-ack-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "b9151658cab5278979b8f9c953a44d86f73b0600f65bdf88b1e9fb4512e53381",
+      "reviewed": true
+    },
+    {
+      "file": "chat-control-reload-steer-ack-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "06f0336d03d073c9a0a50927467821e10b14a2ad0d6dffbb8d66bb987cd6156f",
+      "reviewed": true
+    },
+    {
+      "file": "chat-control-reload-stop-held-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "2bdbd11c52740ffd990ec53e26cb1051c4cc1d8a339408b2a761fc7369e448f4",
+      "reviewed": true
+    },
+    {
+      "file": "chat-control-reload-stop-held-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "3f33066ec7693adb2ef7fa40d93a5f4aeaf24e63eadcbf6df21a35e5560d91ec",
+      "reviewed": true
+    },
+    {
+      "file": "chat-control-reload-stop-held-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "e133a3fc55eb7bad707ea210f269bcf9066e2097cb9b8e3dbacf4a7796017ff7",
+      "reviewed": true
+    },
+    {
+      "file": "chat-control-reload-stop-ack-375.png",
+      "width": 375,
+      "height": 812,
+      "sha256": "821abf7dbfe2b08993a8e0461b39422bcda82a98ae735382a785f0d5d2963ade",
+      "reviewed": true
+    },
+    {
+      "file": "chat-control-reload-stop-ack-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "93c896caac5bbabc69ecfec47350226ebbe8029d1b6d64ecdd6d8cb4017a387a",
+      "reviewed": true
+    },
+    {
+      "file": "chat-control-reload-stop-ack-2560.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "8c7ebd559f957cc38987e1393bc9cbd37e54038e3018b70e5aa12d85ef8dbf62",
+      "reviewed": true
+    }
+  ]
+}

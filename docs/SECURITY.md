@@ -401,3 +401,22 @@ Recovery only reads runtime state; it does not authorize a decision, widen grant
 or enable task/PM side effects. Existing resolved requests remain resolved.
 Actual owner decision checks still apply. Agent path guards and parent process
 wait do not prove descendant containment or cross-user tool/filesystem isolation.
+
+## Browser Control Recovery Metadata
+
+Chats keeps a bounded versioned `sessionStorage` record before sending a control:
+opaque original key, operation, canonical digest, actor/session/run/agent and
+public browser/API/issuer context. Raw guidance, transcript, bearer and runtime
+credentials never enter this record or localStorage. An unreadable/incompatible
+record holds new controls; a failed write prevents the original POST.
+
+This metadata is a reconciliation claim, not authentication or permission.
+Only fresh authenticated session access plus the server's exact scoped native
+ACK may remove it. Logout, different actor/service, pending/failed reads,
+401/403/404/409 and terminal state without ACK retain the hold. Logout first
+suspends browser command authority without interrupting central SSO navigation;
+pagehide clears the local token/profile. This memory-only flag is not persisted.
+The record stays in its original tab/origin for authorized GET-only recovery.
+Text is not restored after reload. Tab/OS restart and lost storage require an
+additional authorized producer discovery contract; current public events and
+the bounded run journal cannot recreate an omitted original key/digest.

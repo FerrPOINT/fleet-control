@@ -63,6 +63,7 @@ describe('AppShell', () => {
     )
     useAuthStore.setState({
       token: 'test-token',
+      signingOut: false,
       userId: 'user-1',
       email: 'operator@example.test',
       username: 'operator',
@@ -180,11 +181,18 @@ describe('AppShell', () => {
   })
 
   it('starts central sign-out before any local login reroute', async () => {
+    vi.mocked(endSso).mockImplementationOnce(() => {
+      expect(useAuthStore.getState().token).toBe('test-token')
+    })
     renderShell()
     fireEvent.keyDown(await screen.findByRole('button', { name: 'Аккаунт' }), { key: 'ArrowDown' })
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Выйти' }))
 
+    expect(useAuthStore.getState().signingOut).toBe(true)
     expect(useAuthStore.getState().token).toBe('test-token')
+    fireEvent(window, new Event('pagehide'))
+    expect(useAuthStore.getState().token).toBeNull()
+    expect(useAuthStore.getState().userId).toBeNull()
     expect(endSso).toHaveBeenCalledWith(expect.objectContaining({ clientId: 'fleet-control' }))
   })
 

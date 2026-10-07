@@ -1,8 +1,46 @@
 import { expect, test, type Page, type Route } from '@playwright/test'
 import { createHash, generateKeyPairSync, sign } from 'node:crypto'
+import { createServer, type ServerResponse } from 'node:http'
 import AxeBuilder from '@axe-core/playwright'
 
 const now = '2026-09-01T10:00:00+03:00'
+
+const reloadTest = test.extend<{ streamUrl: string }>({
+  streamUrl: async ({ baseURL }, runFixture) => {
+    const responses = new Set<ServerResponse>()
+    const server = createServer((request, response) => {
+      response.setHeader('access-control-allow-origin', new URL(baseURL!).origin)
+      response.setHeader('access-control-allow-headers', 'Authorization, Accept')
+      if (request.method === 'OPTIONS') {
+        response.writeHead(204).end()
+        return
+      }
+      if (request.method !== 'GET' || request.headers.authorization !== 'Bearer qa-access-token') {
+        response.writeHead(403).end()
+        return
+      }
+      response.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store' })
+      response.write(': fixture heartbeat\n\n')
+      responses.add(response)
+      const heartbeat = setInterval(() => response.write(': fixture heartbeat\n\n'), 1000)
+      response.on('close', () => {
+        clearInterval(heartbeat)
+        responses.delete(response)
+      })
+    })
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+    const address = server.address()
+    if (!address || typeof address === 'string') throw new Error('SSE fixture did not bind')
+    try {
+      await runFixture(`http://127.0.0.1:${address.port}/stream`)
+    } finally {
+      for (const response of responses) response.end()
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      )
+    }
+  },
+})
 
 test('legacy session permits the first prompt but holds a pending delivery after reload', async ({
   page,
@@ -69,108 +107,127 @@ test('legacy session permits the first prompt but holds a pending delivery after
   expect(submitted).toBe(1)
 })
 
-test('durable runtime controls hold unknown commands after reload', async ({ page }, testInfo) => {
-  test.setTimeout(90000)
-  const state = createState()
-  const run = { ...makeRun(ids.session, state.agents[0]), state: 'running' }
-  state.runsBySession[ids.session] = [run]
-  await installMocks(page, state)
-  const command = {
-    id: '00000000-0000-4000-8000-000000000901',
-    session_id: ids.session,
-    session_run_id: run.id,
-    agent_id: ids.dev,
-    actor_user_id: ids.user,
-    operation: 'steer',
-    state: 'uncertain',
-    acknowledgement: null,
-    observed_run_state: null,
-    created_at: now,
-    updated_at: now,
-  }
-  let submitted = false
-  const keys: string[] = []
-  await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
-    const request = route.request()
-    const path = new URL(request.url()).pathname
-    if (path.endsWith('/chat-controls'))
-      return fulfill(route, {
-        can_send: false,
-        can_steer: true,
-        can_stop: true,
-        active_run_id: run.id,
-        blocked_reason: null,
-      })
-    if (path.endsWith('/controls')) return fulfill(route, submitted ? [command] : [])
-    if (path.endsWith('/steer') && request.method() === 'POST') {
-      const key = request.headers()['idempotency-key']
-      expect(key).toBeTruthy()
-      keys.push(key)
-      expect(request.postDataJSON()).toEqual({ input: 'Keep the original guidance' })
-      submitted = true
-      return fulfill(route, {
-        session_id: ids.session,
-        run_id: run.id,
-        runtime_run_id: 'native-fixture',
-        accepted: false,
-        state: 'running',
-        message: 'control outcome unknown',
-        command,
-      })
+reloadTest(
+  'durable runtime controls hold unknown commands after reload',
+  async ({ page, streamUrl }, testInfo) => {
+    test.setTimeout(90000)
+    const state = createState()
+    const run = { ...makeRun(ids.session, state.agents[0]), state: 'running' }
+    state.runsBySession[ids.session] = [run]
+    await installMocks(page, state)
+    await page.route(`**/api/v1/sessions/${ids.session}/stream`, (route) =>
+      route.continue({ url: streamUrl }),
+    )
+    const command = {
+      id: '00000000-0000-4000-8000-000000000901',
+      session_id: ids.session,
+      session_run_id: run.id,
+      agent_id: ids.dev,
+      actor_user_id: ids.user,
+      operation: 'steer',
+      state: 'uncertain',
+      acknowledgement: null,
+      observed_run_state: null,
+      created_at: now,
+      updated_at: now,
     }
-    return route.fallback()
-  })
-  const errors: string[] = []
-  page.on('pageerror', (error) => errors.push(error.message))
-  await page.goto(`/chats/${ids.session}?tab=dialogue`)
-  const input = page.getByLabel('Уточнение активному запуску', { exact: true })
-  await expect(input).toBeEnabled()
-  await input.fill('Keep the original guidance')
-  const send = page.getByRole('button', { name: 'Передать уточнение запуску', exact: true })
-  await expect(send).toBeEnabled()
-  await send.click()
-  await expect(
-    page.getByText('Исход команды неизвестен. Проверяется сохранённая запись.'),
-  ).toBeVisible()
-  await expect(input).toHaveValue('Keep the original guidance')
-  await expect(send).toBeDisabled()
-  expect(keys).toHaveLength(1)
-  await page.reload()
-  await expect(send).toBeDisabled()
-  await expect(page.getByRole('button', { name: 'Остановить запуск', exact: true })).toBeDisabled()
-  for (const viewport of [
-    { width: 375, height: 812 },
-    { width: 1920, height: 1080 },
-    { width: 2560, height: 1440 },
-  ]) {
-    await page.setViewportSize(viewport)
-    const context = page.getByRole('button', { name: 'Контекст задачи', exact: true })
-    if (viewport.width === 375) await context.click()
-    const visibleContext =
-      viewport.width === 375
-        ? page.getByRole('dialog', { name: 'Контекст задачи' })
-        : page.locator('.fc-chat-context')
-    const outcome = visibleContext.getByText('Исход неизвестен, повторная отправка запрещена')
-    await expect(outcome).toBeVisible()
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
-      ),
-    ).toBe(true)
-    const a11y = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
-    expect(
-      a11y.violations.filter((issue) => ['serious', 'critical'].includes(issue.impact ?? '')),
-    ).toEqual([])
-    await page.screenshot({
-      path: testInfo.outputPath(`runtime-controls-${viewport.width}.png`),
-      fullPage: true,
-      animations: 'disabled',
+    let submitted = false
+    const keys: string[] = []
+    await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
+      const request = route.request()
+      const path = new URL(request.url()).pathname
+      if (path.endsWith('/chat-controls'))
+        return fulfill(route, {
+          can_send: false,
+          can_steer: true,
+          can_stop: true,
+          active_run_id: run.id,
+          blocked_reason: null,
+        })
+      if (path.endsWith('/controls')) return fulfill(route, submitted ? [command] : [])
+      if (path.endsWith('/controls/lookup')) {
+        expect(request.method()).toBe('GET')
+        expect(request.headers()['idempotency-key']).toBe(keys[0])
+        expect(Object.fromEntries(new URL(request.url()).searchParams)).toEqual({
+          operation: 'steer',
+          payload_sha256: createHash('sha256')
+            .update(JSON.stringify({ input: 'Keep the original guidance', operation: 'steer' }))
+            .digest('hex'),
+        })
+        return fulfill(route, command)
+      }
+      if (path.endsWith('/steer') && request.method() === 'POST') {
+        const key = request.headers()['idempotency-key']
+        expect(key).toBeTruthy()
+        keys.push(key)
+        expect(request.postDataJSON()).toEqual({ input: 'Keep the original guidance' })
+        submitted = true
+        return fulfill(route, {
+          session_id: ids.session,
+          run_id: run.id,
+          runtime_run_id: 'native-fixture',
+          accepted: false,
+          state: 'running',
+          message: 'control outcome unknown',
+          command,
+        })
+      }
+      return route.fallback()
     })
-    if (viewport.width === 375) await page.keyboard.press('Escape')
-  }
-  expect(keys).toHaveLength(1)
-  expect(errors).toEqual([])
-})
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    await page.goto(`/chats/${ids.session}?tab=dialogue`)
+    const input = page.getByLabel('Уточнение активному запуску', { exact: true })
+    await expect(input).toBeEnabled()
+    await input.fill('Keep the original guidance')
+    const send = page.getByRole('button', { name: 'Передать уточнение запуску', exact: true })
+    await expect(send).toBeEnabled()
+    await send.click()
+    await expect(
+      page.getByText('Исход команды неизвестен. Проверяется сохранённая запись.'),
+    ).toBeVisible()
+    await expect(input).toHaveValue('Keep the original guidance')
+    await expect(send).toBeDisabled()
+    expect(keys).toHaveLength(1)
+    await page.reload()
+    await expect(send).toBeDisabled()
+    await expect(
+      page.getByRole('button', { name: 'Остановить запуск', exact: true }),
+    ).toBeDisabled()
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      await page.setViewportSize(viewport)
+      const context = page.getByRole('button', { name: 'Контекст задачи', exact: true })
+      if (viewport.width === 375) await context.click()
+      const visibleContext =
+        viewport.width === 375
+          ? page.getByRole('dialog', { name: 'Контекст задачи' })
+          : page.locator('.fc-chat-context')
+      const outcome = visibleContext.getByText('Исход неизвестен, повторная отправка запрещена')
+      await expect(outcome).toBeVisible()
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      ).toBe(true)
+      const a11y = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+      expect(
+        a11y.violations.filter((issue) => ['serious', 'critical'].includes(issue.impact ?? '')),
+      ).toEqual([])
+      await page.screenshot({
+        path: testInfo.outputPath(`runtime-controls-${viewport.width}.png`),
+        fullPage: true,
+        animations: 'disabled',
+      })
+      if (viewport.width === 375) await page.keyboard.press('Escape')
+    }
+    expect(keys).toHaveLength(1)
+    expect(errors).toEqual([])
+  },
+)
 
 for (const operation of ['prompt', 'steer'] as const) {
   test(`chat ${operation} holds stale controls until a successful read`, async ({ page }, info) => {
@@ -1233,6 +1290,325 @@ for (const operation of ['steer', 'stop'] as const) {
   })
 }
 
+for (const operation of ['steer', 'stop'] as const) {
+  reloadTest(
+    `chat restores held ${operation} after real reload and keeps recovery isolated from logout and other actors`,
+    async ({ page, streamUrl }, info) => {
+      test.setTimeout(120000)
+      const state = createState()
+      const originalRun = '00000000-0000-4000-8000-000000000711'
+      const successorRun = '00000000-0000-4000-8000-000000000712'
+      state.runsBySession[ids.session] = [originalRun, successorRun].map((id) => ({
+        ...makeRun(ids.session, state.agents[0]),
+        id,
+        state: 'running',
+        runtime_run_id: `native-${id}`,
+      }))
+      let currentActor = ids.user
+      await installMocks(page, state, () => currentActor)
+      // A real long-lived HTTP stream exercises SDK disposal on document reload;
+      // a finite route.fulfill body artificially reconnects every second.
+      await page.route(`**/api/v1/sessions/${ids.session}/stream`, (route) =>
+        route.continue({ url: streamUrl }),
+      )
+      page.on('dialog', (dialog) => void dialog.accept())
+      const errors: string[] = []
+      page.on('pageerror', (error) => errors.push(error.message))
+      let phase: '404' | '409' | 'terminal-no-ack' | 'wrong-agent' | 'uncertain' | 'ack' = '404'
+      let sessionDenied: 401 | 403 | null = null
+      let activeRun = originalRun
+      let posts = 0
+      let lookups = 0
+      let originalKey = ''
+      const privateInput = '\u0085Private guidance: \ufeffkeep scope\ufeff\u0085'
+      const digest = createHash('sha256')
+        .update(
+          JSON.stringify({
+            input: operation === 'steer' ? 'Private guidance: \ufeffkeep scope\ufeff' : null,
+            operation,
+          }),
+          'utf8',
+        )
+        .digest('hex')
+      const storageKey = `fleet-control.control-recovery.v1:${ids.session}`
+      const stored = () =>
+        page.evaluate((key) => JSON.parse(sessionStorage.getItem(key) ?? 'null'), storageKey)
+      const receipt = {
+        id: '00000000-0000-4000-8000-000000000713',
+        session_id: ids.session,
+        session_run_id: originalRun,
+        agent_id: ids.dev,
+        actor_user_id: ids.user,
+        operation,
+        state: 'acknowledged',
+        acknowledgement: operation === 'steer' ? 'steered' : 'stopping',
+        observed_run_state: null,
+        created_at: now,
+        updated_at: now,
+      }
+      await page.route('**/api/v1/users/me', (route) =>
+        fulfill(route, currentActor === ids.user ? userResponse() : reviewerResponse()),
+      )
+      await page.route('**/api/v1/users/me/permissions', (route) =>
+        fulfill(route, {
+          user_id: currentActor,
+          role: 'admin',
+          is_system_admin: true,
+          permissions: permissions(),
+        }),
+      )
+      await page.route(`**/api/v1/sessions/${ids.session}`, (route) => {
+        const denied = sessionDenied
+        // One expired access token, followed by a genuinely reverified fixture
+        // login. Persistent project denial is exercised separately with 403.
+        if (denied === 401) sessionDenied = null
+        return denied
+          ? fulfill(route, { error: { message: `Session access ${denied}` } }, denied)
+          : fulfill(route, state.sessions[0])
+      })
+      await page.route(`**/api/v1/sessions/${ids.session}/chat-controls`, (route) =>
+        fulfill(route, {
+          can_send: false,
+          can_steer: true,
+          can_stop: true,
+          active_run_id: activeRun,
+        }),
+      )
+      await page.route(`**/api/v1/sessions/${ids.session}/runs/**/controls`, (route) =>
+        fulfill(route, []),
+      )
+      await page.route(`**/api/v1/sessions/${ids.session}/runs/**/controls/lookup?**`, (route) => {
+        lookups += 1
+        const url = new URL(route.request().url())
+        expect(route.request().method()).toBe('GET')
+        expect(url.pathname).toBe(
+          `/api/v1/sessions/${ids.session}/runs/${originalRun}/controls/lookup`,
+        )
+        expect(route.request().headers()['idempotency-key']).toBe(originalKey)
+        expect([...url.searchParams.keys()]).toEqual(['operation', 'payload_sha256'])
+        expect(url.searchParams.get('operation')).toBe(operation)
+        expect(url.searchParams.get('payload_sha256')).toBe(digest)
+        if (phase === '404' || phase === '409')
+          return fulfill(
+            route,
+            { error: { message: `Original command held ${phase}` } },
+            Number(phase),
+          )
+        return fulfill(route, {
+          ...receipt,
+          agent_id: phase === 'wrong-agent' ? ids.tester : ids.dev,
+          state:
+            phase === 'terminal-no-ack'
+              ? 'terminal_observed'
+              : phase === 'uncertain'
+                ? 'uncertain'
+                : 'acknowledged',
+          acknowledgement:
+            phase === 'terminal-no-ack' || phase === 'uncertain' ? null : receipt.acknowledgement,
+        })
+      })
+      await page.route(`**/api/v1/sessions/${ids.session}/runs/**/${operation}`, async (route) => {
+        posts += 1
+        originalKey = route.request().headers()['idempotency-key'] ?? ''
+        expect(originalKey).not.toBe('')
+        expect(route.request().postDataJSON()).toEqual(
+          operation === 'steer' ? { input: privateInput } : {},
+        )
+        const metadata = await stored()
+        expect(metadata).toMatchObject({
+          sessionId: ids.session,
+          runId: originalRun,
+          agentId: ids.dev,
+          actorId: ids.user,
+          operation,
+          key: originalKey,
+          payloadSha256: digest,
+        })
+        expect(Object.keys(metadata).sort()).toEqual([
+          'actorId',
+          'agentId',
+          'key',
+          'operation',
+          'payloadSha256',
+          'runId',
+          'service',
+          'sessionId',
+          'version',
+        ])
+        expect(JSON.stringify(metadata)).not.toContain('Private guidance')
+        expect(JSON.stringify(metadata)).not.toContain('qa-access-token')
+        return fulfill(route, { error: { message: 'Original control reply lost' } }, 503)
+      })
+      await page.goto(`/chats/${ids.session}`)
+      const input = page.getByLabel('Уточнение активному запуску', { exact: true })
+      const action = page.getByRole('button', {
+        name: operation === 'steer' ? 'Передать уточнение запуску' : 'Остановить запуск',
+        exact: true,
+      })
+      const check = page.getByRole('button', {
+        name:
+          operation === 'steer' ? 'Проверить исходное уточнение' : 'Проверить исходную остановку',
+        exact: true,
+      })
+      await input.fill(privateInput)
+      await expect(action).toBeEnabled()
+      await action.click()
+      await expect(page.getByText('Original command held 404', { exact: true })).toBeVisible()
+      const original = await stored()
+      const origin = new URL(page.url()).origin
+      activeRun = successorRun
+      const assertHeld = async () => {
+        await expect(input).toBeVisible()
+        await expect(input).toHaveValue('')
+        await expect(input).toBeDisabled()
+        await expect(action).toBeDisabled()
+        expect(await stored()).toEqual(original)
+        expect(posts).toBe(1)
+      }
+      for (const nextPhase of [
+        '404',
+        '409',
+        'terminal-no-ack',
+        'wrong-agent',
+        'uncertain',
+      ] as const) {
+        phase = nextPhase
+        const before = lookups
+        await page.evaluate(() => {
+          ;(window as Window & { reloadMarker?: string }).reloadMarker = 'old-document'
+        })
+        await page.reload({ waitUntil: 'domcontentloaded' })
+        await expect.poll(() => lookups).toBeGreaterThan(before)
+        await expect(check).toBeEnabled()
+        expect(
+          await page.evaluate(() => (window as Window & { reloadMarker?: string }).reloadMarker),
+        ).toBeUndefined()
+        await assertHeld()
+      }
+      for (const viewport of [
+        { width: 375, height: 812 },
+        { width: 1920, height: 1080 },
+        { width: 2560, height: 1440 },
+      ]) {
+        await page.setViewportSize(viewport)
+        await assertHeld()
+        await page.screenshot({
+          path: info.outputPath(`chat-control-reload-${operation}-held-${viewport.width}.png`),
+          fullPage: true,
+          animations: 'disabled',
+          scale: 'css',
+        })
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+          ),
+        ).toBe(true)
+      }
+      phase = '404'
+      sessionDenied = 403
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await expect(page.getByText('Session access 403', { exact: true })).toBeVisible()
+      await expect(action).toHaveCount(0)
+      expect(await stored()).toEqual(original)
+      sessionDenied = null
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await expect(check).toBeEnabled()
+      await assertHeld()
+      sessionDenied = 401
+      const expiredToken = page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === `/api/v1/sessions/${ids.session}` &&
+          response.status() === 401,
+      )
+      await Promise.all([expiredToken, page.reload({ waitUntil: 'domcontentloaded' })])
+      await expect(check).toBeEnabled({ timeout: 15000 })
+      await assertHeld()
+      expect(await stored()).toEqual(original)
+      expect(posts).toBe(1)
+      sessionDenied = null
+      await page.goto(`${origin}/chats/${ids.session}`)
+      await expect(check).toBeEnabled()
+      await assertHeld()
+      await page.route('**/oidc/logout**', (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'text/html',
+          body: `<!doctype html><script>location.replace(${JSON.stringify(`${origin}/login?logged_out=1`)})</script>`,
+        }),
+      )
+      await page.getByRole('button', { name: 'Аккаунт', exact: true }).click()
+      await page.getByRole('menuitem', { name: /Выйти/ }).click()
+      await expect(page).toHaveURL(/\/login\?logged_out=1/)
+      await expect(
+        page.getByRole('button', { name: 'Войти через SDLC', exact: true }),
+      ).toBeVisible()
+      expect(await stored()).toEqual(original)
+      currentActor = ids.reviewer
+      const beforeOtherActor = lookups
+      await page.goto(`${origin}/chats/${ids.session}`)
+      await expect(
+        page.getByText(
+          'Для сверки исходной команды нужен тот же пользователь и сервис Fleet Control.',
+          { exact: true },
+        ),
+      ).toBeVisible()
+      await expect(check).toBeDisabled()
+      await assertHeld()
+      expect(lookups).toBe(beforeOtherActor)
+      currentActor = ids.user
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await expect(check).toBeEnabled()
+      await assertHeld()
+      const otherService = 'http://localhost:7752/control-recovery-test'
+      await page.route(otherService, (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'text/html',
+          body: '<p>Other service fixture</p>',
+        }),
+      )
+      await page.goto(otherService)
+      expect(await page.evaluate((key) => sessionStorage.getItem(key), storageKey)).toBeNull()
+      await page.goto(`${origin}/chats/${ids.session}`)
+      await expect(check).toBeEnabled()
+      await assertHeld()
+      phase = 'ack'
+      await check.click()
+      await expect(
+        page.getByText(
+          operation === 'steer'
+            ? 'Runtime подтвердил исходное уточнение. Состояние запуска проверяется отдельно.'
+            : 'Runtime подтвердил исходную остановку. Завершение запуска проверяется отдельно.',
+          { exact: true },
+        ),
+      ).toBeVisible()
+      expect(await stored()).toBeNull()
+      expect(posts).toBe(1)
+      for (const viewport of [
+        { width: 375, height: 812 },
+        { width: 1920, height: 1080 },
+        { width: 2560, height: 1440 },
+      ]) {
+        await page.setViewportSize(viewport)
+        await expect(input).toBeEnabled()
+        await expect(input).toHaveValue('')
+        await page.screenshot({
+          path: info.outputPath(`chat-control-reload-${operation}-ack-${viewport.width}.png`),
+          fullPage: true,
+          animations: 'disabled',
+          scale: 'css',
+        })
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+          ),
+        ).toBe(true)
+      }
+      expect(errors).toEqual([])
+    },
+  )
+}
+
 test('chat composer recovers from the exact known steer acknowledgement without another POST', async ({
   page,
 }, info) => {
@@ -1843,7 +2219,7 @@ function createState(): ApiState {
   }
 }
 
-async function installSsoMocks(page: Page) {
+async function installSsoMocks(page: Page, currentSubject: () => string = () => ids.user) {
   const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' })
   const jwk = { ...publicKey.export({ format: 'jwk' }), kid: 'qa', alg: 'ES256', use: 'sig' }
   let issuer = 'http://localhost:7701'
@@ -1869,7 +2245,7 @@ async function installSsoMocks(page: Page) {
       JSON.stringify({
         iss: issuer,
         aud: 'fleet-control',
-        sub: ids.user,
+        sub: currentSubject(),
         email: 'admin@fleet-control.local',
         nonce,
         iat: Math.floor(Date.now() / 1000),
@@ -1902,8 +2278,8 @@ async function installSsoMocks(page: Page) {
   )
 }
 
-async function installMocks(page: Page, state: ApiState) {
-  await installSsoMocks(page)
+async function installMocks(page: Page, state: ApiState, currentSubject?: () => string) {
+  await installSsoMocks(page, currentSubject)
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request()
     const url = new URL(request.url())

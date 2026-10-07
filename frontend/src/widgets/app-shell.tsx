@@ -84,6 +84,8 @@ export function AppShell() {
         ? 'detail-with-aside'
         : 'wide'
   function logout() {
+    useAuthStore.getState().startSignOut()
+    window.addEventListener('pagehide', () => useAuthStore.getState().logout(), { once: true })
     endSso(ssoConfig)
   }
   return (

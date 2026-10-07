@@ -67,10 +67,77 @@ an existing PM fixture SSE access-control error and a stop-fixture race where
 polling accepted ACK before the manual click. The stop fixture now awaits fresh
 polling ACK; three focused WebKit cases pass without filtering errors or
 changing the SDK. The SSE diagnostic remains open.
-Original client command identity is retained in component memory only; full
-browser reload or OS restart recovery is not established. This does not close
+At `16b7516`, original client identity was retained in component memory only;
+reload recovery was not established. The next follow-up adds tab-scoped metadata
+for actual reload; OS restart and metadata loss remain unproven. This does not close
 native delivery/checkpoint/resume, live PM acceptance, the Base direct-SSE
 denial callback or the separate WebKit pending-fetch diagnostic.
+
+## Tab reload recovery
+
+Before the initial stop/steer POST, the consumer computes the canonical digest
+and synchronously stores a closed version-1 record in `sessionStorage`. It
+contains only original key, operation, digest, actor/session/run/agent and public
+Fleet browser/API/issuer context. There is one bounded record per session; raw
+guidance, transcript, bearer and runtime credentials are excluded. Storage
+failure prevents POST. Unreadable, oversized or incompatible records hold all
+new commands; they are not silently removed or overwritten.
+
+A real document reload reads this record and starts read-only lookup only after
+current authenticated identity and a fresh session GET match the original
+actor/service. The server remains the authority for human identity and current
+session/project access. Local fields cannot grant permission. A different
+active run, 401/403, 404/409, wrong-scope receipt, unresolved state or terminal
+observation without native ACK cannot release the hold. A cached ACK during
+pending/failed GET also remains held. Recovery sends no prompt/control POST.
+The text is deliberately absent after reload; digest-only lookup does not need
+to restore the private guidance.
+
+Logout suspends command/approval authority immediately through a memory-only
+sign-out flag. Central SSO navigation starts while the existing auth guard still
+has its token; `pagehide` clears local auth. Clearing token earlier cancelled
+logout navigation and restarted login in the browser regression. The recovery
+record remains in the original tab/origin. Another authenticated operator may
+read the session but cannot use the original actor's lookup or send a new
+control. Returning to the original service/actor still requires fresh server
+authorization and the exact ACK.
+
+The [reload packet](assets/screens/chats-control-reload-20261007/validation.json)
+records the final source, logs and responsive captures separately from the
+earlier key-lookup packet. Tests exercise real `page.reload()`, verified fixture
+SSO, a successor active run, 404/409, wrong-agent ACK, terminal-without-ACK,
+uncertain readback, persistent 403, one expired-token 401, actual logout and
+another actor/service. These remain fixture checks; no live PM acceptance is
+claimed. Earlier development failures and the WebKit navigation/fetch error
+are retained in the packet rather than filtered.
+
+The reload scenarios use a real long-lived HTTP SSE fixture with a bounded
+owned Node server, closed in `finally`. The earlier finite heartbeat response
+closed immediately and repeatedly reconnected during navigation. Changing that
+fixture makes healthy streaming representative; it does not prove a Base
+transport fix. The first full follow-up run had 76 passes and two failures:
+the old durable-control reload fixture omitted the now-required lookup route,
+and WebKit reported a pending GET access-control pageerror. The old reload
+fixture now checks the original-key/digest GET and uses the same live stream;
+all pageerror assertions remain unfiltered. Proxy `ECONNREFUSED` diagnostics
+from existing fixture flows are also retained, without a live acceptance claim.
+
+Final checks pass: 401 unit cases in 33 files, including 136 ChatDetail,
+16 metadata, eight lookup API, four auth-store and 17 app-shell cases;
+all 78 fixture browser cases across Chromium, Firefox and WebKit, three workers
+and zero retries. The six dedicated stop/steer reload cases pass in all engines.
+Twelve reviewed captures cover held and acknowledged states at 375, 1920 and
+2560 pixels. Build/typecheck, lint, installed Base UI contract and source format
+checks pass. This source follows consumer `16b7516`; it does not import the
+runtime changes from the separately published integration head `88e9a32`.
+
+SessionStorage is not guaranteed across tab destruction, browser/OS restart or
+manual storage loss. Public control receipts/events omit original key/digest,
+and the current-run list is bounded to 100: they cannot reconstruct the exact
+original identity for a forgotten historical run. Recovery after metadata loss
+would require an authorized producer discovery/readback contract for unresolved
+original controls with native ACK and original scope, not matching transcript
+text or a second POST. No such additional endpoint is claimed here.
 
 ## Current producer source
 
@@ -141,8 +208,9 @@ Exact Workflow command DTO fields from the published source:
    unresolved Base WebKit pending-fetch navigation case.
 
 The existing Chats fixes are reviewable independently of this sequence.
-`main` currently lacks their foundation; [Fleet #47](https://github.com/FerrPOINT/fleet-control/pull/47)
-is still Draft and reports conflicts with `main`. A standalone PR containing
+At the earlier acceptance review, `main` lacked their foundation;
+[Fleet #47](https://github.com/FerrPOINT/fleet-control/pull/47) was Draft and
+reported conflicts with `main`. A standalone PR containing
 only this follow-up therefore needs either the integration branch as its
 explicitly approved target or the foundation to land first. Neither choice
 establishes live PM readiness or authorizes a new PM Draft design.

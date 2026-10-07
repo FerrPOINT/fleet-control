@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiRequest } from './client'
 import {
   lookupRuntimeControl,
+  lookupRuntimeControlByDigest,
+  type RuntimeControlLookupQuery,
   runtimeControlPayloadSha256,
   trimRuntimeControlInput,
 } from './runtime-control-lookup'
@@ -15,6 +17,21 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('published original-key control lookup', () => {
+  it('reads an already computed digest with a closed query and no original text', async () => {
+    await lookupRuntimeControlByDigest('session1', 'original-run', 'original-key', {
+      operation: 'stop',
+      payload_sha256: 'ea123901799860e917ce433b72c621c4afffe4c866497c1bfb38507816f8048f',
+      input: 'must-not-enter-query',
+      actorId: 'must-not-enter-query',
+    } as RuntimeControlLookupQuery)
+    expect(apiRequest).toHaveBeenCalledOnce()
+    const [path, init] = vi.mocked(apiRequest).mock.calls[0]!
+    const query = new URL(path, 'http://fixture.invalid').searchParams
+    expect([...query.keys()]).toEqual(['operation', 'payload_sha256'])
+    expect(query.get('operation')).toBe('stop')
+    expect(path).not.toContain('must-not-enter-query')
+    expect(init).toEqual({ method: 'GET', headers: { 'Idempotency-Key': 'original-key' } })
+  })
   it('matches the published stop-null digest', async () => {
     expect(await runtimeControlPayloadSha256({ operation: 'stop', input: null })).toBe(
       'ea123901799860e917ce433b72c621c4afffe4c866497c1bfb38507816f8048f',

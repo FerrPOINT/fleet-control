@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useBlocker, useParams, useSearchParams } from 'react-router'
 import {
   useInfiniteQuery,
@@ -38,7 +38,8 @@ import { connectAuthenticatedEventStream } from '@sdlc/ui/lib'
 import { ApiError } from '@sdlc/ui/lib'
 import { apiBaseUrl } from '@/api/client'
 import {
-  lookupRuntimeControl,
+  lookupRuntimeControlByDigest,
+  runtimeControlPayloadSha256,
   trimRuntimeControlInput,
   type OriginalRuntimeControl,
 } from '@/api/runtime-control-lookup'
@@ -64,7 +65,15 @@ import {
   type RequirementsRevision,
   type AnswerInput,
 } from '@/api/task-chats'
-import { useAuthStore } from '@/shared/auth/store'
+import { ssoConfig, useAuthStore } from '@/shared/auth/store'
+import {
+  ControlPreparationError,
+  clearControlRecovery,
+  controlRecoveryService,
+  readControlRecovery,
+  writeControlRecovery,
+  type ControlRecoveryRecord,
+} from '@/shared/chat-control-recovery'
 import { TaskApprovalsPanel } from './approvals'
 import { UserAvatar } from '@/shared/ui/user-avatar'
 import { EmptyState, ErrorState, StatusBadge, formatDate } from '../common'
@@ -92,6 +101,7 @@ type ConfirmationMutation = UseMutationResult<ConfirmationResult, Error, Confirm
 function unknownOutcome(error: unknown) {
   return (
     Boolean(error) &&
+    !(error instanceof ControlPreparationError) &&
     (!(error instanceof ApiError) ||
       (error.status >= 200 && error.status < 300) ||
       error.status === 408 ||
@@ -162,8 +172,13 @@ function ChatWorkspace({ id }: { id: string }) {
   const [params, setParams] = useSearchParams()
   const client = useQueryClient()
   const token = useAuthStore((state) => state.token)
+  const signingOut = useAuthStore((state) => state.signingOut)
   const userId = useAuthStore((state) => state.userId)
   const [stopUncertain, setStopUncertain] = useState(false)
+  const controlService = controlRecoveryService(apiBaseUrl, ssoConfig.issuer)
+  const [controlRecovery, setControlRecovery] = useState(() => readControlRecovery(id))
+  const recoveryRef = useRef(controlRecovery)
+  recoveryRef.current = controlRecovery
   const session = useQuery({ queryKey: ['session', id], queryFn: () => getSession(id) })
   const sessionDenied =
     session.isError &&
@@ -247,9 +262,39 @@ function ChatWorkspace({ id }: { id: string }) {
     ? params.get('tab')!
     : 'dialogue'
   const sessionFresh = session.isSuccess && !session.isFetching && session.failureCount === 0
-  const owner = sessionFresh && session.data?.user_id === userId
+  const owner = !signingOut && Boolean(token) && sessionFresh && session.data?.user_id === userId
+  const authority = useRef({ owner, userId, token, service: controlService })
+  authority.current = { owner, userId, token, service: controlService }
+  const finishControl = useCallback(
+    (command: OriginalControlScope, operation: 'steer' | 'stop') => {
+      const stored = recoveryRef.current
+      if (
+        stored.state !== 'pending' ||
+        !authority.current.owner ||
+        useAuthStore.getState().signingOut ||
+        useAuthStore.getState().userId !== command.actorId ||
+        stored.command.service !== controlService ||
+        stored.command.operation !== operation ||
+        stored.command.key !== command.key ||
+        stored.command.runId !== command.runId ||
+        stored.command.actorId !== command.actorId ||
+        stored.command.agentId !== command.agentId
+      )
+        return false
+      if (!clearControlRecovery(stored.command)) {
+        recoveryRef.current = { state: 'blocked' }
+        setControlRecovery({ state: 'blocked' })
+        return false
+      }
+      recoveryRef.current = { state: 'none' }
+      setControlRecovery({ state: 'none' })
+      return true
+    },
+    [controlService],
+  )
   const canManageApprovals = useAuthStore((state) => state.permissions.includes('agents:manage'))
-  const canResolveApprovals = sessionFresh && (canManageApprovals || owner)
+  const canResolveApprovals =
+    !signingOut && Boolean(token) && sessionFresh && (canManageApprovals || owner)
   const context = task.data?.tracker
   const taskFresh = task.isSuccess && !task.isFetching && task.failureCount === 0
   const questionsFresh =
@@ -274,6 +319,7 @@ function ChatWorkspace({ id }: { id: string }) {
     confirmationUncertain ||
     messageUncertain ||
     stopUncertain ||
+    controlRecovery.state !== 'none' ||
     Boolean(body.trim()) ||
     Object.values(drafts).some((value) =>
       Boolean(value.selected.length || value.text.trim() || value.comment.trim()),
@@ -398,19 +444,55 @@ function ChatWorkspace({ id }: { id: string }) {
     if (following.current) transcript.current.scrollTop = transcript.current.scrollHeight
     else if (changed) setNewMessages(true)
   }, [lastMessage, displayedDelta])
+  const prepareControl = async (command: OriginalControlScope, payload: OriginalRuntimeControl) => {
+    const originalToken = useAuthStore.getState().token
+    try {
+      const payloadSha256 = await runtimeControlPayloadSha256(payload)
+      if (
+        !authority.current.owner ||
+        useAuthStore.getState().signingOut ||
+        authority.current.service !== controlService ||
+        useAuthStore.getState().userId !== command.actorId ||
+        useAuthStore.getState().token !== originalToken
+      )
+        throw new ControlPreparationError('Доступ изменился. Команда не отправлена.')
+      const original: ControlRecoveryRecord = {
+        version: 1,
+        service: controlService,
+        sessionId: id,
+        runId: command.runId,
+        agentId: command.agentId,
+        actorId: command.actorId,
+        key: command.key,
+        operation: payload.operation,
+        payloadSha256,
+      }
+      writeControlRecovery(original)
+      recoveryRef.current = { state: 'pending', command: original }
+      setControlRecovery(recoveryRef.current)
+    } catch (error) {
+      if (readControlRecovery(id).state === 'blocked') setControlRecovery({ state: 'blocked' })
+      throw error instanceof ControlPreparationError
+        ? error
+        : new ControlPreparationError('Не удалось подготовить ключ сверки. Команда не отправлена.')
+    }
+  }
   const message = useMutation({
     mutationFn: async (
       command:
         | (OriginalControlScope & { kind: 'steer'; input: string })
         | { kind: 'prompt'; input: string; key: string },
-    ) =>
-      command.kind === 'steer'
-        ? steerSessionRun(id, command.runId, { input: command.input }, command.key)
-        : createSessionMessage(id, { body: command.input, idempotency_key: command.key }),
+    ) => {
+      if (command.kind === 'prompt')
+        return createSessionMessage(id, { body: command.input, idempotency_key: command.key })
+      await prepareControl(command, { operation: 'steer', input: command.input })
+      return steerSessionRun(id, command.runId, { input: command.input }, command.key)
+    },
     onSuccess: async (result, command) => {
       if (
         command.kind === 'steer' &&
-        !acceptedControlResponse(result as RuntimeRunControlResponse, id, command, 'steer')
+        (!acceptedControlResponse(result as RuntimeRunControlResponse, id, command, 'steer') ||
+          !finishControl(command, 'steer'))
       ) {
         setMessageUncertain(true)
         setReceipt('Исход команды неизвестен. Проверяется сохранённая запись.')
@@ -434,9 +516,14 @@ function ChatWorkspace({ id }: { id: string }) {
   })
   const stopKeys = useRef(new Map<string, string>())
   const stop = useMutation({
-    mutationFn: (command: OriginalControlScope) => stopSessionRun(id, command.runId, command.key),
+    mutationFn: async (command: OriginalControlScope) => {
+      await prepareControl(command, { operation: 'stop', input: null })
+      return stopSessionRun(id, command.runId, command.key)
+    },
     onSuccess: async (result, command) => {
-      setStopUncertain(!acceptedControlResponse(result, id, command, 'stop'))
+      setStopUncertain(
+        !acceptedControlResponse(result, id, command, 'stop') || !finishControl(command, 'stop'),
+      )
       await invalidate()
     },
     onError: (error) => {
@@ -487,7 +574,7 @@ function ChatWorkspace({ id }: { id: string }) {
         command.operation === 'steer' &&
         acceptedControl(command),
     )
-    if (!confirmed) return
+    if (!confirmed || !originalSteer || !finishControl(originalSteer, 'steer')) return
     resetMessage()
     setMessageUncertain(false)
     setBody('')
@@ -503,33 +590,37 @@ function ChatWorkspace({ id }: { id: string }) {
     originalSteerCommands.isFetching,
     originalSteerCommands.failureCount,
     resetMessage,
+    originalSteer,
+    finishControl,
   ])
-  const originalControl = useMemo<(OriginalControlScope & OriginalRuntimeControl) | undefined>(
-    () =>
-      originalSteer && !knownSteerReceipt
-        ? { ...originalSteer, operation: 'steer' }
-        : stopUncertain && stop.variables
-          ? { ...stop.variables, operation: 'stop', input: null }
-          : undefined,
-    [originalSteer, knownSteerReceipt, stopUncertain, stop.variables],
+  const originalControl = controlRecovery.state === 'pending' ? controlRecovery.command : undefined
+  const recoveryContextMatches = Boolean(
+    originalControl &&
+    originalControl.service === controlService &&
+    originalControl.actorId === userId,
   )
   const originalControlLookup = useQuery({
     queryKey: [
       'runtime-control-lookup',
       id,
+      originalControl?.service,
       originalControl?.actorId,
       originalControl?.runId,
       originalControl?.key,
     ],
     queryFn: () => {
       const original = originalControl!
-      const payload: OriginalRuntimeControl =
-        original.operation === 'steer'
-          ? { operation: 'steer', input: original.input }
-          : { operation: 'stop', input: null }
-      return lookupRuntimeControl(id, original.runId, original.key, payload)
+      return lookupRuntimeControlByDigest(id, original.runId, original.key, {
+        operation: original.operation,
+        payload_sha256: original.payloadSha256,
+      })
     },
-    enabled: owner && Boolean(originalControl && originalControl.actorId === userId),
+    enabled:
+      owner &&
+      recoveryContextMatches &&
+      !message.isPending &&
+      !stop.isPending &&
+      !knownSteerReceipt,
     retry: false,
     refetchInterval: (query) =>
       query.state.status === 'success' && query.state.data && isUnresolvedControl(query.state.data)
@@ -540,6 +631,7 @@ function ChatWorkspace({ id }: { id: string }) {
     if (
       !owner ||
       !originalControl ||
+      !recoveryContextMatches ||
       originalControl.actorId !== userId ||
       !originalControlLookup.isSuccess ||
       originalControlLookup.isFetching ||
@@ -554,6 +646,7 @@ function ChatWorkspace({ id }: { id: string }) {
       (expectedId && receipt?.id !== expectedId)
     )
       return
+    if (!finishControl(originalControl, originalControl.operation)) return
     if (originalControl.operation === 'steer') {
       resetMessage()
       setMessageUncertain(false)
@@ -569,6 +662,8 @@ function ChatWorkspace({ id }: { id: string }) {
     owner,
     userId,
     originalControl,
+    recoveryContextMatches,
+    finishControl,
     originalControlLookup.isSuccess,
     originalControlLookup.isFetching,
     originalControlLookup.failureCount,
@@ -598,6 +693,9 @@ function ChatWorkspace({ id }: { id: string }) {
     },
   })
   const controlHeld =
+    controlRecovery.state !== 'none' ||
+    stop.isPending ||
+    (message.isPending && message.variables?.kind === 'steer') ||
     stopUncertain ||
     Boolean(originalSteer) ||
     (Boolean(controls.data?.active_run_id) &&
@@ -919,7 +1017,8 @@ function ChatWorkspace({ id }: { id: string }) {
                     (!controls.data?.can_send && !controls.data?.can_steer) ||
                     message.isPending ||
                     messageUncertain ||
-                    stopUncertain
+                    stopUncertain ||
+                    controlRecovery.state !== 'none'
                   }
                   onChange={(event) => {
                     setBody(event.target.value)
@@ -994,8 +1093,21 @@ function ChatWorkspace({ id }: { id: string }) {
                   )}
                 </div>
                 {stop.isError && <ReadableError error={stop.error} />}
-                {stopUncertain && (
+                {(stopUncertain || originalControl?.operation === 'stop') && (
                   <p role="status">Исход остановки неизвестен. Проверяется исходная запись.</p>
+                )}
+                {originalControl?.operation === 'steer' && !messageUncertain && (
+                  <p role="status">
+                    Исход уточнения запуску неизвестен. Проверяется исходная запись.
+                  </p>
+                )}
+                {controlRecovery.state === 'blocked' && (
+                  <p role="alert">Ключ сверки недоступен. Новые команды заблокированы.</p>
+                )}
+                {originalControl && !recoveryContextMatches && (
+                  <p role="status">
+                    Для сверки исходной команды нужен тот же пользователь и сервис Fleet Control.
+                  </p>
                 )}
                 {originalControl && (
                   <div className="space-y-2">
@@ -1007,7 +1119,9 @@ function ChatWorkspace({ id }: { id: string }) {
                       type="button"
                       disabled={
                         !owner ||
-                        originalControl.actorId !== userId ||
+                        !recoveryContextMatches ||
+                        message.isPending ||
+                        stop.isPending ||
                         originalControlLookup.isFetching
                       }
                       onClick={() => void originalControlLookup.refetch()}
