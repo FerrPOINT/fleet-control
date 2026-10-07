@@ -1,5 +1,59 @@
 # Chat Clarification Verification
 
+## Candidate Running Activation Crash: 7 October 2026
+
+Packet `sdlc-qa-fleet-container-live-5a3b6ccf9139` freezes integration469787c plus
+the new acceptance test and `--activation-recovery` driver mode:325 exact source
+inputs, SDK `cbb4e99230420dc2659431b1c9fb5090e5c940f0`, published Base control
+`04f5527e705c5f838ae5c041efa988d14e1e6329` and Hermes
+`bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3`. The native image is built from the
+pinned archive and all13770 source files are verified. Rust1.88 fmt and locked,
+offline workspace/all-target strict Clippy pass; the existing recovery wire test
+passes. The actual ignored acceptance is explicitly executed:1 passed,0 failed,
+0 ignored. Separate host safety tests pass37 cases; README validation and its
+three regression cases pass. These counts do not replace a full backend suite.
+
+Two isolated actual Hermes containers run without model calls. A disposable
+PostgreSQL trigger holds the real candidate success transaction after replacement
+readiness. Engine snapshots prove the physical same-container Fleet restart and
+unchanged surviving agent container IDs/PIDs/start times. Only after that proof,
+the test cancels its saved backend PID/start identity to release the artificial
+long-sleep barrier, verifies transaction rollback and removes its QA trigger.
+This is not a production transaction-cancellation procedure.
+
+The unmodified production supervisor then performs signed-journal recovery.
+It preserves the previous effective revision and config/SOUL/env hashes, confirms
+original namespace exit, starts a fresh rollback generation and commits exactly
+one rollback audit. The peer files and immutable launch remain unchanged. One
+real Hermes prompt against a controlled local model loads the previous SOUL,
+not the failed candidate. Custody quiesces before disposal; the peer renews via
+the normal heartbeat protocol. Final Engine snapshots prove all four original,
+candidate, peer and rollback namespaces exited. No raw credentials or native
+receipts are published. The report explicitly retains `sdlc_acceptance=false`.
+
+Source manifest SHA256:
+`87e6d0458481610b338e039a2f65232357501e5cf75a7089f6fc2edb2519a8d1`.
+Build log SHA256:
+`da5cff6de34eee949ccc7d8e1bdbf9e42ea404d48cb83d9d809b7c52a072c694`.
+Recovery log SHA256:
+`6ccee1ac3ac29cae7e4239da8ab34fd2e5d69b03002b45549d03e56cd274a6a7`.
+Private artifacts reside under workspace `.local/fleet-container-supervisor-live`.
+All325 inputs are unchanged; exact owned Compose resources and own image tags
+are removed, with accepted runtime unchanged. Root audit completes with38 desktop
+containers (including separately owned parallel QA),0 on both runners and no
+violations. No production library, migration, public API, frontend, source pin,
+installed flag or accepted image/mount is changed by this acceptance patch.
+
+Earlier packets remain failed:3ac6942d207b at strict test compilation,
+b80e5410ba87 at the artificial PostgreSQL barrier check, and ed1a558661a5 at
+custody quiescence after disposing observed generations. Each was cleaned and
+preserved with its own hashes; none is upgraded to passing evidence. The final
+test explicitly awaits quiescence before stop rather than ignoring its error.
+This closes candidate-running/before-settlement rollback with loaded-SOUL proof,
+not earlier stop/create uncertainty, post-commit/before-ack crash, backup loss,
+complete loaded-config attestation, live PM/admission or full Forge/SDLC. Both
+recovery flags remain default-off and installed enablement remains a release gate.
+
 ## Chats Runtime Composition: 7 October 2026
 
 Merge `cb1378797314b7061a4e1a16d8092b717d6fa8f6` preserves both verified source

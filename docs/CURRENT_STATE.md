@@ -1,5 +1,23 @@
 # Current State
 
+## Candidate Running Crash Acceptance: 7 October 2026
+
+Actual packet5a3b6ccf9139 passes physical Fleet restart after candidate readiness
+and before configuration settlement. The production supervisor restores old
+config/SOUL/env bytes and effective revision, starts a fresh rollback generation,
+preserves the peer and writes one audit. One real Hermes prompt loads the old
+SOUL. The QA-only database pause is separately released after physical crash
+proof; it is not an operator repair procedure. All agent namespaces stop and
+exact QA cleanup/source/runtime checks pass. Rust1.88 fmt/strict all-target
+Clippy, the recovery wire test,37 host safety cases and README checks pass.
+
+This closes one named-volume crash point, not complete loaded-config attestation,
+other crash boundaries, backup-loss recovery, PM/admission, full SDLC or main
+merge readiness. No production library, API, migration, frontend or installed
+pin/flag is changed. Earlier dated packets below retain their original scope.
+See [exact evidence](CHAT_CLARIFICATION_VERIFICATION.md#candidate-running-activation-crash-7-october-2026)
+and [remaining gates](GAP_REGISTER.md#interrupted-configuration-activation).
+
 ## Chats Consumer Integration: 7 October 2026
 
 Normal merge `cb1378797314b7061a4e1a16d8092b717d6fa8f6` combines verified runtime

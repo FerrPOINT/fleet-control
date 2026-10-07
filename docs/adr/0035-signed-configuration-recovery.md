@@ -4,7 +4,9 @@
 
 Implemented in the integration candidate; default-off, not enabled in accepted
 deployments. Stopped-agent and transaction regressions are distinct from actual
-running Hermes crash acceptance, which remains open. See
+running Hermes evidence. Packet5a3b6ccf9139 verifies candidate-running/before-
+settlement rollback with the previous loaded SOUL and unchanged peer; other
+crash boundaries, full loaded-config and backup-loss acceptance remain open. See
 [verification](../CHAT_CLARIFICATION_VERIFICATION.md) and
 [gap register](../GAP_REGISTER.md#interrupted-configuration-activation).
 
@@ -47,7 +49,9 @@ Recovery needs the original protected root and secret in backups. Secret rotatio
 while journals remain requires reviewed reconciliation, not re-signing. Windows
 activation and native-orphan recovery remain unsupported. A foreign recovered
 runtime reporting degraded observational health cannot retire a running journal.
-Real running-Hermes crash/readiness and backup-loss acceptance still block rollout.
+Remaining running-Hermes crash boundaries, complete loaded-config/readiness and
+backup-loss acceptance still block rollout; one verified crash point is not
+installed enablement or full SDLC acceptance.
 
 ## Alternatives
 

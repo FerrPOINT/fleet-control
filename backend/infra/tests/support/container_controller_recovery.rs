@@ -39,7 +39,7 @@ fn command(record: &ControllerRecoveryRecord) -> ControllerRecoveryCommand {
     }
 }
 
-async fn save(name: &str, value: &impl Serialize) {
+pub(super) async fn save(name: &str, value: &impl Serialize) {
     use tokio::io::AsyncWriteExt;
     let path = Path::new(ROOT).join(name);
     let bytes = serde_json::to_vec(value).unwrap();
@@ -61,7 +61,7 @@ async fn save(name: &str, value: &impl Serialize) {
         .unwrap();
 }
 
-async fn read<T: serde::de::DeserializeOwned>(name: &str) -> T {
+pub(super) async fn read<T: serde::de::DeserializeOwned>(name: &str) -> T {
     let path = Path::new(ROOT).join(name);
     let meta = tokio::fs::symlink_metadata(&path).await.unwrap();
     assert!(meta.is_file() && meta.uid() == 999 && meta.mode() & 0o777 == 0o600);
@@ -69,7 +69,7 @@ async fn read<T: serde::de::DeserializeOwned>(name: &str) -> T {
     serde_json::from_slice(&tokio::fs::read(path).await.unwrap()).unwrap()
 }
 
-fn hash(value: &impl Serialize) -> String {
+pub(super) fn hash(value: &impl Serialize) -> String {
     let mut sorted = serde_json::to_value(value).unwrap();
     sorted.sort_all_objects();
     hex::encode(Sha256::digest(serde_json::to_vec(&sorted).unwrap()))

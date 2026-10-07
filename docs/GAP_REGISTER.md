@@ -16,9 +16,15 @@ tampered/rotated/uncertain holds have focused PostgreSQL/file regressions.
 Running rollback requires existing custody/stop controls, original namespace-exit
 observation and fresh rollback readiness; unknown commands are not resent.
 
-Still required: actual running named-volume Hermes crash acceptance at stop,
-candidate start and DB settlement; recovered-owner loaded-config/readiness proof;
-old/uncertain native preparation/start/stop reconciliation and backup-loss drills.
+Actual packet5a3b6ccf9139 closes one running named-volume boundary: physical
+Fleet crash after candidate readiness/before DB settlement, original exit proof,
+fresh rollback with loaded previous SOUL, unchanged peer and one audit. The
+QA-only long-sleep transaction is released only after physical crash proof;
+this is not a production transaction repair or full loaded-config attestation.
+
+Still required: earlier stop/pre-create and post-commit/before-ack crash gates,
+complete recovered-owner loaded-config/readiness attestation, old/uncertain
+native preparation/start/stop reconciliation and backup-loss drills.
 Existing v2 or partial journals remain held without automatic upgrade. A released OS lock,
 healthy HTTP process or unchanged PID is not sufficient. No installed rollout
 or SDLC admission is enabled by this primitive. Exact checks are recorded in

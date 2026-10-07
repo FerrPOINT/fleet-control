@@ -141,6 +141,121 @@ class SafetyTests(unittest.TestCase):
         self.assertFalse((self.home / 'frozen/unrelated.txt').exists())
 
 
+    def test_activation_snapshot_accepts_exited_original(self):
+        original = self.container('agent1-runtime-' + 'a' * 32)
+        original['State'] = {'Pid': 0, 'Running': False, 'Status': 'exited', 'StartedAt': 'original'}
+        self.items['container'] = [original]
+        observed = runner.activation_snapshot(self.helper, self.checked)
+        self.assertEqual(observed['agent1-runtime-' + 'a' * 32]['pid'], 0)
+        self.assertFalse(observed['agent1-runtime-' + 'a' * 32]['running'])
+
+    def test_activation_snapshot_rejects_foreign_purpose_and_false_exit_pid(self):
+        for purpose, pid in [('foreign', 0), (runner.PURPOSE, 2)]:
+            with self.subTest(purpose=purpose, pid=pid):
+                original = self.container('agent1-runtime-' + 'a' * 32, purpose)
+                original['State'] = {'Pid': pid, 'Running': False, 'Status': 'exited', 'StartedAt': 'original'}
+                self.items['container'] = [original]
+                with self.assertRaises(RuntimeError):
+                    runner.activation_snapshot(self.helper, self.checked)
+        self.assertEqual(self.effects, [])
+
+
+class ActivationCrashTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.home = Path(self.temporary.name)
+        (self.home / 'evidence').mkdir()
+        self.helper = SimpleNamespace(command=['docker', 'compose', '-p', 'sdlc-qa-owned'])
+        self.report = {'state': 'failed'}
+        self.alive = True
+        self.process = SimpleNamespace(poll=lambda: None if self.alive else 137,
+            returncode=137, wait=lambda **_: None,
+            terminate=lambda: setattr(self, 'alive', False), kill=lambda: setattr(self, 'alive', False))
+        fleet = dict(id='fleet', image='controller', pid=10, started_at='before', running=True)
+        original = dict(id='original', image='hermes', pid=0, started_at='original', running=False)
+        candidate = dict(id='candidate', image='hermes', pid=20, started_at='candidate', running=True)
+        peer = dict(id='peer', image='hermes', pid=30, started_at='peer', running=True)
+        self.before = {'fleet-backend': fleet, 'agent1-runtime-' + 'a' * 32: original,
+            'agent1-runtime-' + 'b' * 32: candidate, 'agent2-runtime-' + 'c' * 32: peer}
+        self.after = {key: dict(value) for key, value in self.before.items()}
+        self.after['fleet-backend'].update(pid=11, started_at='after')
+        self.final = {key: (dict(value, pid=0, running=False) if key != 'fleet-backend' else dict(value))
+            for key, value in self.after.items()}
+        self.final['agent1-runtime-' + 'd' * 32] = dict(id='rollback', image='hermes',
+            pid=0, started_at='rollback', running=False)
+        self.evidence = dict.fromkeys(('actual_rust_supervisor', 'actual_docker_hermes',
+            'actual_candidate_running_crash', 'effective_preserved', 'backup_bytes_restored',
+            'qa_settlement_barrier_released', 'fresh_rollback_generation', 'loaded_previous_soul',
+            'peer_unchanged', 'original_namespaces_exited', 'rollback_audit_once'), True)
+        self.evidence.update(state='passed', model_prompts=1, sdlc_acceptance=False,
+            raw_credentials_persisted_in_evidence=False)
+        self.commands = []
+
+    def logged(self, command, name, timeout):
+        self.assertEqual(self.report['state'], 'failed')
+        self.commands.append(command)
+        if name == 'activation-restart.log':
+            self.alive = False
+        elif name == 'activation-recover.log':
+            self.assertIn('FLEET_CONTAINER_ACTIVATION_PHASE=recover', command)
+            self.assertIn(runner.ACTIVATION_TEST, command)
+            (self.home / 'evidence/activation-report.json').write_text(json.dumps(self.evidence))
+        else:
+            self.fail('Unexpected activation command')
+        (self.home / name).write_bytes(b'private activation evidence\n')
+
+    def verify(self, ready_error=None):
+        with patch.object(runner.subprocess, 'Popen', return_value=self.process), \
+                patch.object(runner, 'wait_for_custody_ready', side_effect=ready_error, return_value=0), \
+                patch.object(runner, 'activation_snapshot', side_effect=[self.before, self.after, self.final]):
+            runner.verify_activation_recovery(self.helper, self.home, self.report, self.logged,
+                lambda *_: self.fail('Unexpected host-side maintenance'))
+
+    def test_actual_restart_is_required_before_once_only_recovery_and_evidence(self):
+        self.verify()
+        self.assertEqual(self.report['state'], 'passed')
+        self.assertEqual(len(self.commands), 2)
+        self.assertEqual(sum('restart' in command for command in self.commands), 1)
+        self.assertEqual(self.report['activation_physical_snapshots'], [self.before, self.after, self.final])
+        self.assertFalse(self.report['activation_recovery']['sdlc_acceptance'])
+
+    def test_preparation_failure_terminates_without_restart_or_recovery(self):
+        with self.assertRaisesRegex(RuntimeError, 'not ready'):
+            self.verify(RuntimeError('not ready'))
+        self.assertFalse(self.alive)
+        self.assertEqual(self.commands, [])
+        self.assertEqual(self.report['state'], 'failed')
+
+    def test_agent_change_across_restart_blocks_recovery(self):
+        self.after['agent2-runtime-' + 'c' * 32]['pid'] = 99
+        with self.assertRaisesRegex(RuntimeError, 'restarted an agent'):
+            self.verify()
+        self.assertEqual(len(self.commands), 1)
+        self.assertNotIn('activation_recovery', self.report)
+
+    def test_partial_overclaimed_or_wrong_count_evidence_never_passes(self):
+        for key, value in (('qa_settlement_barrier_released', False), ('rollback_audit_once', False),
+                           ('peer_unchanged', False), ('sdlc_acceptance', True),
+                           ('model_prompts', True), ('model_prompts', 2)):
+            with self.subTest(key=key, value=value):
+                before = dict(self.evidence)
+                self.evidence[key] = value
+                self.alive = True
+                with self.assertRaisesRegex(RuntimeError, 'evidence is incomplete'):
+                    self.verify()
+                self.assertEqual(self.report['state'], 'failed')
+                self.assertNotIn('activation_recovery', self.report)
+                self.evidence = before
+
+    def test_surviving_namespace_cannot_publish_success(self):
+        self.final['agent2-runtime-' + 'c' * 32].update(running=True, pid=30)
+        with self.assertRaisesRegex(RuntimeError, 'remain stopped'):
+            self.verify()
+        self.assertEqual(self.report['state'], 'failed')
+        self.assertNotIn('activation_recovery', self.report)
+
+
 class CustodyReadinessTests(unittest.TestCase):
     def setUp(self):
         self.helper = SimpleNamespace(command=['docker', 'compose', '-p', 'sdlc-qa-owned'])

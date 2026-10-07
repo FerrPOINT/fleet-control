@@ -25,6 +25,7 @@ BASE_FILES = (*CONTROL_FILES, 'deploy/fleet-hermes-container-launch.py',
               'deploy/runtime-boundary-qa/hermes_source.Dockerfile')
 BASELINE_TEST = 'real_container_supervisor_isolates_chat_and_drains_configuration_replacement'
 CUSTODY_TEST = 'controller_recovery::real_controller_startup_maintains_custody_without_granting_execution'
+ACTIVATION_TEST = 'activation_recovery::real_candidate_running_crash_restores_effective_configuration'
 
 
 def test_command(helper, phase=None):
@@ -129,12 +130,17 @@ def validate_custody_evidence(value, epoch=None, native=False, expired=False):
         raise RuntimeError('Actual controller custody evidence is incomplete')
 
 
-def wait_for_custody_ready(helper, prepare):
+def wait_for_custody_ready(helper, prepare, activation=False):
     deadline = time.monotonic() + 240
-    probe = ('import json,pathlib,sys; p=pathlib.Path("/controller/custody-ready.json"); '
+    ready_path = '/controller/activation-ready.json' if activation else '/controller/custody-ready.json'
+    assertion = ('assert v["state"]=="ready" and v["candidate_running"] is True '
+                 'and v["settlement_paused"] is True and type(v["actual_model_calls"]) is int '
+                 'and v["actual_model_calls"]==0') if activation else (
+                 'assert v["state"]=="ready" and type(v["actual_model_calls"]) is int '
+                 'and v["actual_model_calls"]==1 and v["native_waiting_for_approval"] is True')
+    probe = (f'import json,pathlib,sys; p=pathlib.Path("{ready_path}"); '
              'sys.exit(3) if not p.exists() else None; v=json.loads(p.read_bytes()); '
-             'assert v["state"]=="ready" and type(v["actual_model_calls"]) is int '
-             'and v["actual_model_calls"]==1 and v["native_waiting_for_approval"] is True')
+             + assertion)
     timeouts = 0
     while True:
         if prepare.poll() is not None:
@@ -158,6 +164,83 @@ def wait_for_custody_ready(helper, prepare):
         if result.returncode != 3:
             raise RuntimeError('Real Hermes approval-wait preparation was not proven')
         time.sleep(min(1, max(0, deadline - time.monotonic())))
+
+
+def activation_snapshot(helper, checked):
+    ids = helper.resources('container')
+    items = json.loads(checked(helper.docker + ['container', 'inspect', *ids])) if ids else []
+    result = {}
+    for item in items:
+        labels = item['Config']['Labels']
+        if (labels.get('com.docker.compose.project') != helper.project
+                or labels.get('sdlc.task') != TASK or labels.get('sdlc.purpose') != PURPOSE):
+            raise RuntimeError('Foreign activation resource; no adoption')
+        service = labels.get('com.docker.compose.service')
+        if service == 'fleet-backend' or re.fullmatch(r'agent[12]-runtime-[a-f0-9]{32}', service or ''):
+            state = item['State']
+            if (service in result or type(state['Pid']) is not int
+                    or (state['Running'] and state['Pid'] <= 0)
+                    or (not state['Running'] and (state['Pid'] != 0 or state['Status'] != 'exited'))):
+                raise RuntimeError('Activation physical identity is invalid')
+            result[service] = {'id': item['Id'], 'image': item['Image'], 'pid': state['Pid'],
+                               'started_at': state['StartedAt'], 'running': state['Running']}
+    return result
+
+
+def verify_activation_recovery(helper, directory, report, logged, checked):
+    def command(phase):
+        return helper.command + ['exec', '-T', '-e', 'FLEET_CONTAINER_ACTIVATION_PHASE=' + phase,
+            '-e', 'RUST_LOG=infra::runtime::controller_recovery_worker=warn',
+            'fleet-backend', '/out/fleet-container-live', ACTIVATION_TEST, '--exact', '--ignored',
+            '--nocapture', '--test-threads=1']
+
+    prepare = None
+    try:
+        with (directory / 'activation-prepare.log').open('wb') as stream:
+            prepare = subprocess.Popen(command('prepare'), stdout=stream, stderr=subprocess.STDOUT)
+            report['activation_probe_timeouts'] = wait_for_custody_ready(helper, prepare, activation=True)
+            original = activation_snapshot(helper, checked)
+            agents = {key: value for key, value in original.items() if key != 'fleet-backend'}
+            if (len(agents) != 3 or sum(value['running'] for value in agents.values()) != 2
+                    or 'fleet-backend' not in original):
+                raise RuntimeError('Candidate crash requires one exited original and two running Hermes')
+            logged(helper.command + ['restart', '-t', '1', 'fleet-backend'], 'activation-restart.log', 60)
+            prepare.wait(timeout=30)
+            if prepare.returncode == 0:
+                raise RuntimeError('Activation process was not physically interrupted')
+        restarted = activation_snapshot(helper, checked)
+        if original.keys() != restarted.keys() or any(restarted[key] != value for key, value in agents.items()):
+            raise RuntimeError('Fleet crash replaced or restarted an agent')
+        before, after = original['fleet-backend'], restarted['fleet-backend']
+        if (before['id'] != after['id'] or before['image'] != after['image']
+                or before['pid'] == after['pid'] or before['started_at'] == after['started_at']):
+            raise RuntimeError('Actual same-container Fleet restart was not proven')
+        logged(command('recover'), 'activation-recover.log', 300)
+        evidence = json.loads((directory / 'evidence/activation-report.json').read_bytes())
+        positive = ('actual_rust_supervisor', 'actual_docker_hermes', 'actual_candidate_running_crash',
+                    'effective_preserved', 'backup_bytes_restored', 'fresh_rollback_generation',
+                    'qa_settlement_barrier_released',
+                    'loaded_previous_soul', 'peer_unchanged', 'original_namespaces_exited', 'rollback_audit_once')
+        if (evidence.get('state') != 'passed' or any(evidence.get(key) is not True for key in positive)
+                or evidence.get('sdlc_acceptance') is not False
+                or evidence.get('raw_credentials_persisted_in_evidence') is not False
+                or type(evidence.get('model_prompts')) is not int or evidence['model_prompts'] != 1):
+            raise RuntimeError('Actual activation recovery evidence is incomplete')
+        final = activation_snapshot(helper, checked)
+        if (len(final) != 5 or any(value['running'] for key, value in final.items() if key != 'fleet-backend')
+                or final['fleet-backend'] != after):
+            raise RuntimeError('Original and rollback namespaces did not remain stopped')
+        report.update(state='passed', actual_rust_supervisor=True, actual_docker_hermes=True,
+                      activation_recovery=evidence, activation_physical_snapshots=[original, restarted, final],
+                      activation_log_sha256=sha(directory / 'activation-recover.log'))
+    finally:
+        if prepare is not None and prepare.poll() is None:
+            prepare.terminate()
+            try:
+                prepare.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                prepare.kill()
+                prepare.wait(timeout=10)
 
 
 def verify_controller_recovery(helper, directory, report, logged, checked, controller_stop=False):
@@ -378,11 +461,16 @@ def main():
                         help='Prove actual startup custody across two controller restarts during approval-wait')
     parser.add_argument('--controller-stop', action='store_true',
                         help='After custody proof, restart a third time and stop both original agent namespaces')
+    parser.add_argument('--activation-recovery', action='store_true',
+                        help='Crash the real controller after candidate start, before configuration settlement')
     args = parser.parse_args()
     if args.controller_stop and not args.controller_recovery:
         parser.error('Recovered namespace stop requires the complete controller custody gate')
     if args.controller_recovery and (args.readiness_rollback or args.log_readback):
         parser.error('Controller custody requires a separate owned gate, not rollback/log mode')
+    if args.activation_recovery and (args.controller_recovery or args.controller_stop
+                                     or args.readiness_rollback or args.log_readback):
+        parser.error('Activation recovery requires its own crash gate')
     sdk = args.base_sdk.resolve()
     base = args.base_control.resolve()
     sdk_pin = (ROOT / '.base-revision').read_text().strip()
@@ -443,6 +531,7 @@ def main():
               'log_readback_requested': args.log_readback,
               'controller_recovery_requested': args.controller_recovery,
               'controller_stop_requested': args.controller_stop,
+              'activation_recovery_requested': args.activation_recovery,
               'actual_rust_supervisor': False, 'actual_docker_hermes': False, 'sdlc_acceptance': False}
     before = permanent_state(docker)
 
@@ -537,7 +626,10 @@ def main():
                     'pids_limit': 128, 'memory_bytes': 1073741824, 'nano_cpus': 1000000000,
                     'network_internal': True, 'task': TASK, 'purpose': PURPOSE},
                 'bridge_controller': {'container_id': cid, 'image_id': controller_image, 'service': 'fleet-backend'}}})
-        if args.controller_recovery:
+        if args.activation_recovery:
+            verify_activation_recovery(helper, directory, report, logged, checked)
+            report['build_log_sha256'] = sha(directory / 'build.log')
+        elif args.controller_recovery:
             verify_controller_recovery(helper, directory, report, logged, checked, args.controller_stop)
             report['build_log_sha256'] = sha(directory / 'build.log')
         else:

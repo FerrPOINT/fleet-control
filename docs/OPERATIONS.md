@@ -217,6 +217,13 @@ journal even if files have already been restored. Read the existing digest-only
 `agent_config.recovery_rollback` audit after confirmed settlement; never attach
 the private document as evidence. No model/PM/stage completion is implied.
 
+The disposable candidate-crash test's long PostgreSQL sleep is a QA barrier, not
+an operational recovery instruction. Only that test cancels its saved backend
+PID/start identity after separately proving physical Fleet death. Do not cancel
+arbitrary production transactions or remove triggers/journals to manufacture
+recovery. Real database connection/transaction reconciliation remains necessary
+before settlement; a timeout alone is not evidence of a committed result.
+
 Installed Compose/mounts/images are not changed. Existing non-activation reads,
 legacy chat history and runtime controls do not gain task admission from this
 setting. The private root is infrastructure configuration, not a model parameter.

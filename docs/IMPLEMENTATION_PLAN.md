@@ -11,9 +11,11 @@ v1/v2, rotated secrets, changed snapshots/drain and unknown commands stay held.
 See [ADR0035](adr/0035-signed-configuration-recovery.md) and
 [verification](CHAT_CLARIFICATION_VERIFICATION.md).
 
-Next acceptance remains actual running named-volume Hermes crashes around stop,
-start and settlement, original unknown-command readback and recovered-owner
-loaded/readiness proof. No installed flag, public API, migration or Java lifecycle
+Actual packet5a3b6ccf9139 now verifies candidate-running/before-settlement crash
+rollback, fresh loaded previous SOUL, unchanged peer and once-only audit. Other
+stop/pre-create and post-commit/ack crash points, original unknown-command
+readback, complete recovered loaded/readiness and backup-loss proof remain.
+No installed flag, public API, migration or Java lifecycle
 is changed. Keep this component distinct from pre-model Tracker/Workflow
 admission, PM tools/answer delivery/checkpoint/rebind, complete Forge receipts and
 ordered main release; the full goal is not reduced to this recovery slice.

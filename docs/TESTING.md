@@ -17,6 +17,36 @@ crash, unknown-command reconciliation, loaded-readiness or backup-loss acceptanc
 Keep configuration recovery disabled in installed deployments until those gates
 pass; see [ADR0035](adr/0035-signed-configuration-recovery.md).
 
+### Candidate-Running Crash Gate
+
+Run the existing `scripts/container_supervisor_live/run.py` with
+`--activation-recovery` and its required clean pinned SDK/control, Hermes source,
+immutable images, context and private artifact arguments. This mode is separate
+from baseline, readiness-fault, log and controller-custody modes. The driver uses
+one owned temporary Compose project and physically restarts the same Fleet
+container after two real Hermes agents are running and the replacement candidate
+has reached the actual configuration success transaction.
+
+The disposable database trigger pauses that transaction with `pg_sleep`; it is
+not a simulated runtime or a production hook. After independent Engine proof of
+Fleet death and unchanged agent containers, the recovery test cancels only the
+saved backend PID/start identity in its own database and verifies rollback of
+the artificial barrier transaction. It then removes its trigger before invoking
+the unmodified production supervisor with both recovery flags enabled.
+
+Require immutable original launch history and namespace-exit proof, restored
+previous config/SOUL/env hashes, unchanged peer files/generation, fresh rollback
+generation, one rollback audit and one real Hermes prompt whose loaded SOUL is
+the previous revision. Quiesce and settle the actual custody worker before
+disposing its observed generations; renew the peer through the normal heartbeat
+protocol before stop, never extend a test-only lease or ignore a quiesce error.
+Final Engine snapshots must prove every agent generation stopped. Retain exact
+source/build/live hashes, private logs and cleanup evidence;
+no secrets or raw native receipts belong in the public report. Failed preparation
+or recovery is not acceptance. This tests only candidate-running/before-settlement
+crash: earlier stop/create uncertainty, post-commit acknowledgement, backup loss,
+complete loaded configuration inventory and task/PM admission remain separate.
+
 ## Recovered Namespace Stop
 
 `infra --lib runtime::controller_stop_tests::` now includes seven PostgreSQL /
