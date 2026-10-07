@@ -12,9 +12,14 @@ migration, API, SDK pin or UI component is introduced.
 Frontend chat/approval regressions pass178 tests and all34 host cases pass.
 Fresh Rust1.88 fmt/strict all-target Clippy, seven PostgreSQL stop cases and22
 migration cases pass without ignores and with unchanged309 inputs/owned cleanup.
-Actual Docker acceptance of this changed path remains required;
-the earlier namespace-only packet below is not that
-evidence. Initial follow-up attempts retain test-compilation/transcript-fixture
+Fleet807e1e2 is published in the feature branch, not main. Actual packet
+5df02ed3fe1b failed before custody acceptance: the readiness probe's Compose
+exec exceeded its15-second timeout. No recovery/stop/session-settlement success
+is established by that packet. Its report confirms owned cleanup, unchanged
+sources and unchanged permanent runtime; an independent project-container
+readback is empty. Actual Docker acceptance remains required; the earlier
+namespace-only packet below is not that evidence.
+Initial follow-up attempts retain test-compilation/transcript-fixture
 failures and cleaned temporary projects, not a substituted passing result.
 
 ## Published Namespace Stop Acceptance: 7 October 2026

@@ -11,6 +11,10 @@ exact replay must leave the cursor unchanged.
 
 Seven PostgreSQL stop cases,22 migration cases, strict checks,178 frontend tests
 and34 host cases pass. Actual Docker/Hermes acceptance remains required.
+Packet5df02ed3fe1b on published Fleet807e1e2 failed during readiness preparation
+with a15-second Compose-exec timeout, before custody/stop assertions. Owned
+cleanup, source integrity and permanent runtime preservation pass; that does
+not prove the changed session-settlement path or diagnose a product failure.
 Earlier packet9777599d297a proves namespace exit only and deliberately
 preserved active session state. Do not substitute that proof for this change.
 No new migration or installed rollout is introduced.
