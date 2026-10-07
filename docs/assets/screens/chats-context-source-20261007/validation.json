@@ -11,7 +11,7 @@
     "frontend/e2e/fleet-control.spec.ts": "d0898fa78194fe20471141c27c04eb859a9f4f691f0a9eefbd1a9275ee0b4e16",
     "docs/CHATS_PM_BLOCKERS_20261007.md": "8c2de0e196024afeead08583a7016332df45fb382f47670b175b5068d8a3fa46",
     "docs/CHATS_PM_FINAL_HANDOFF_20261006.md": "7a5a64848c7edbcbc81b127c5dc626943f00f0fa2caf1771699c40f93227e2ec",
-    "docs/CHATS_PM_RELEASE_PACKET_20261007.md": "2de6800071201b48a157786cb241e8a173c4ffe2d4f1a6ee212d12bd452e340e",
+    "docs/CHATS_PM_RELEASE_PACKET_20261007.md": "e5306494e1642bebe1be7a58d0e8ddcfc25ec6d1bc908e5953ea66ce5d3b347d",
     "docs/assets/screens/chats-context-source-20261007/read-only-release.json": "cedd3004d45c3445e67e48dca7ab597729566a40bddc5dd397ea9a3fda5210bf"
   },
   "checks": {
@@ -214,19 +214,58 @@
   "transportNoiseObserved": true,
   "releaseReadback": "read-only-release.json",
   "publication": {
-    "status": "blocked_by_github_http_500",
-    "implementationCommit": "5c273b3a95df77485aff7bd277b75b12ba3374ea",
-    "remoteConsumerHead": "94e889d2632517936597af5835e45cb607d78c4b",
+    "status": "published_by_ordinary_fast_forward_push",
+    "verifiedPublishedPacketHead": "f0c51f863fb8424cdfaeda167a1330f3d3d617fa",
+    "remoteBeforeRetry": "94e889d2632517936597af5835e45cb607d78c4b",
     "forcePush": false,
-    "normalGitAttempts": 4,
-    "gitObjectApiWrite": "HTTP 500; no ref update performed",
-    "lastGitPushLog": {
-      "file": "context-source-publish-last.log",
-      "sha256": "24d34a170891a706b72cae38f40f8915da84262c37420872ac7227a3acc95e19"
+    "historyDiverged": false,
+    "previousFailure": {
+      "status": "blocked_by_github_http_500",
+      "implementationCommit": "5c273b3a95df77485aff7bd277b75b12ba3374ea",
+      "remoteConsumerHead": "94e889d2632517936597af5835e45cb607d78c4b",
+      "forcePush": false,
+      "normalGitAttempts": 4,
+      "gitObjectApiWrite": "HTTP 500; no ref update performed",
+      "lastGitPushLog": {
+        "file": "context-source-publish-last.log",
+        "sha256": "24d34a170891a706b72cae38f40f8915da84262c37420872ac7227a3acc95e19"
+      },
+      "implementationPatch": {
+        "file": "context-source-consumer.patch",
+        "sha256": "c8c4870669ee66fee6e9db1d543686e2cabae4c2355959d051f4cf7317cb5cae"
+      }
     },
-    "implementationPatch": {
-      "file": "context-source-consumer.patch",
-      "sha256": "c8c4870669ee66fee6e9db1d543686e2cabae4c2355959d051f4cf7317cb5cae"
+    "retryLog": {
+      "file": "context-source-publication-retry.log",
+      "sha256": "aa814be768c700751701d2a41b4f593734ac1964af0944224acb9fbad40c3dad"
+    },
+    "githubReadback": {
+      "pullRequests": [],
+      "checkRuns": 0,
+      "commitStatuses": 0,
+      "aggregateStatus": "pending",
+      "doesNotProveCiSuccess": true
+    },
+    "mainMergePreview": {
+      "mainHead": "c8093aace07e54436893c5f7e35df1f968690266",
+      "consumerHead": "f0c51f863fb8424cdfaeda167a1330f3d3d617fa",
+      "conflictCount": 8,
+      "log": {
+        "file": "context-source-publication-main-preview.log",
+        "sha256": "094c8ad9baa62368ab286e348432e66749c714f3280dc68aacb231a1866d1067"
+      }
+    }
+  },
+  "publicationFollowUpChecks": {
+    "format": {
+      "file": "context-source-publication-format.log",
+      "sha256": "f20510a9da4717c51c4cffee6d0dd88d6c9a723d0a83711d01216f5b48961283",
+      "status": "passed"
+    },
+    "markdown": {
+      "file": "context-source-publication-markdown.log",
+      "sha256": "dafd5a8eee602ab2aff305684ccdcc8f9cea2e4a66fee07fc8e6057511734973",
+      "status": "passed"
     }
   }
 }

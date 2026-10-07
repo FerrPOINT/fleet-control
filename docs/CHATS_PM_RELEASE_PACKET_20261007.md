@@ -97,11 +97,24 @@ authorization callbacks remain the precise gaps in the
 
 ## Publication result
 
-Implementation commit `5c273b3a95df77485aff7bd277b75b12ba3374ea` is saved locally.
+Implementation commit `5c273b3a95df77485aff7bd277b75b12ba3374ea` and evidence commit
+`f0c51f863fb8424cdfaeda167a1330f3d3d617fa` are now published.
 Four Git push attempts, including HTTP/1.1, were rejected by GitHub with
 `Internal Server Error`; the separate Git object API also returned HTTP500.
-Fresh remote readback still has consumer branch
-`94e889d2632517936597af5835e45cb607d78c4b`. No force push or ref replacement was
-performed. The source/evidence and a Git format-patch of the implementation are
-retained in the owned checkout. Publication is blocked by the remote service;
-this packet must not be described as a published consumer release.
+Those failures remain historical evidence. A subsequent ordinary Git push
+fast-forwarded the consumer branch from `94e889d` to the exact local
+`f0c51f863fb8424cdfaeda167a1330f3d3d617fa`; independent remote readback confirmed it.
+No force push or ref replacement was performed, and history did not diverge.
+
+Fresh GitHub readback reports no PR for this branch, zero check runs and zero
+commit statuses. The API's aggregate `pending` value with an empty statuses list
+is not a successful CI result. The existing 446 unit and 96 three-engine browser
+fixture results remain tied to the manifest's unchanged production source hashes.
+This publication follow-up updates documentation/evidence only; it does not
+claim new component gates or live PM/Workflow acceptance.
+
+Read-only merge preview of the published consumer against exact main `c8093aace`
+still reports the same eight runtime/shared-document conflicts listed above.
+The prerequisite for a separate main PR remains integration of the production
+chat/gateway/control/auth foundation and runtime-owned conflict resolution. The
+consumer source patch is published; the combined product is not merge-ready.
