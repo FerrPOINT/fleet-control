@@ -75,7 +75,12 @@ required.
 Passed: 170 unit tests in 24 files and 57 browser tests across all three
 engines, including 13 core scenarios per engine. The 27 live-test cases were
 explicitly skipped because their external environment was absent. All 15 new
-PNGs were visually reviewed. Validation results are recorded in the manifest. Full frontend build, unit,
+PNGs were visually reviewed. The dialogue uses a section inside the shell's
+single main landmark. Stock `pnpm screenshots:local` captured all 135 fixture
+screens, and `pnpm screenshots:verify` validated the generated manifest. The six
+standard Chats list/detail images were refreshed and visually reviewed; the
+task manifest also binds their hashes and the generated stock manifest.
+Validation results are recorded in the manifest. Full frontend build, unit,
 lint, format, UI contract, effective theme, OpenAPI generation/compatibility and
 Markdown checks use frozen dependencies and this package's exact clean Base
 checkout. Browser acceptance covers Chromium, Firefox and WebKit. Existing live

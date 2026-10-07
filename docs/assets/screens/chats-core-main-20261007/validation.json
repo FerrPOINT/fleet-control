@@ -11,15 +11,24 @@
     "passed": 57,
     "skipped": 27,
     "coreScenarios": 13,
-    "engines": ["chromium", "firefox", "webkit"],
+    "engines": [
+      "chromium",
+      "firefox",
+      "webkit"
+    ],
     "workers": 3,
     "retries": 0,
     "liveSkipReason": "External live-test environment variables absent"
   },
+  "stockCapture": {
+    "captured": 135,
+    "retainedChatsImages": 6,
+    "manifest": "docs/assets/screens/manifest.md"
+  },
   "sources": [
     {
       "path": "docs/CHATS_CORE_MAIN_RELEASE_20261007.md",
-      "sha256": "2c2a820895c1fd82bf27dd011392b97c4b488ebd31d0e85b6f9ffb5fc78c1785"
+      "sha256": "fea0bdc05b75c56dde54cc87ceecf43156f6827d2ecd947870d7d141c2691aab"
     },
     {
       "path": "frontend/e2e/chats-core-sso.ts",
@@ -51,7 +60,7 @@
     },
     {
       "path": "frontend/src/pages/chat-detail/index.tsx",
-      "sha256": "e8d23602a5c0aafe4fb62170dea1761214e6f094ee3f17de23e42ba51b1b702f"
+      "sha256": "db81e25768ee2e6fe9ae304633bf4527227a7af87b1e3fe03a3188ec4ca013d4"
     },
     {
       "path": "frontend/src/pages/chats/index.test.tsx",
@@ -68,6 +77,10 @@
     {
       "path": "frontend/src/shared/i18n/locales/ru.json",
       "sha256": "31f7accb0dcc1dba3f753b9c48fb833cdbbc5c4b7bc4e4dc4bf096671fa060ff"
+    },
+    {
+      "path": "docs/assets/screens/manifest.md",
+      "sha256": "1b2bf76b84a8282fb5fe1081e3c466a1a38ff38f839c77a6fedf0008a8047e63"
     },
     {
       "path": ".base-revision",
@@ -89,11 +102,11 @@
   "logs": [
     {
       "path": "docs/assets/screens/chats-core-main-20261007/build.log",
-      "sha256": "e4b77371ee04a775c56b251583a185ce2efb5c2950eaab2615f26280b2311032"
+      "sha256": "f283ccc4b325392d73164becd624a6b3656dfa415fcf61de9224e8c178d8388b"
     },
     {
       "path": "docs/assets/screens/chats-core-main-20261007/test.log",
-      "sha256": "bd3c0da020bea1c693f129d20f573d4a4b9b2138997ecbdd39ea657b8913acf2"
+      "sha256": "6aca611d65ecff7bcc9265650ab3a429ba6cce979939544b8128b43e91d2aa60"
     },
     {
       "path": "docs/assets/screens/chats-core-main-20261007/lint.log",
@@ -109,11 +122,11 @@
     },
     {
       "path": "docs/assets/screens/chats-core-main-20261007/theme-check.log",
-      "sha256": "361938b14c38cf49d07d6e9535b9829bcaecc9b26388cd5ea9259b39a7487f11"
+      "sha256": "2244a7d464021bee0a0cffe6689c3136a1b366c554be0f606d4f4424eb49a67a"
     },
     {
       "path": "docs/assets/screens/chats-core-main-20261007/openapi-check.log",
-      "sha256": "bf50c415cabe2f6b48e01e4ca28fb734d87aea5afa6c333b4bb9d18e69421285"
+      "sha256": "f9b0784992a65fe0099ef207e1f47758bd04546937583de848ebbf8f91c998d0"
     },
     {
       "path": "docs/assets/screens/chats-core-main-20261007/openapi-compat.log",
@@ -128,8 +141,12 @@
       "sha256": "587c96e9c70b6d594a99247c8412217fd90f9cb01631a853e11bb61ec1f4f35f"
     },
     {
+      "path": "docs/assets/screens/chats-core-main-20261007/screenshots-local.log",
+      "sha256": "1828461e257d8eb2f256c5ab30afd8f21844fd5b1295934837e538c44ab3c563"
+    },
+    {
       "path": "docs/assets/screens/chats-core-main-20261007/browser-all.log",
-      "sha256": "959a32ff2a9090e557ac69c360b3cc6634da78d9097dd520eb13a677e642b03e"
+      "sha256": "f739527f487bc2b3eb1411d5821b06d03332c551c459dadc2c25e8701661e863"
     }
   ],
   "screenshots": [
@@ -236,6 +253,48 @@
       "sha256": "4e87668f08adb33cd3f370ec679678416fee25c546d2484d1b6bd4f5cec6bccb",
       "width": 375,
       "height": 812,
+      "visuallyReviewed": true
+    },
+    {
+      "path": "docs/assets/screens/375x812/44-chats.png",
+      "sha256": "65d2f9b5b537a637054c06537aaeaf7d915e474a214e7a949a43e9cd8f40517d",
+      "width": 375,
+      "height": 924,
+      "visuallyReviewed": true
+    },
+    {
+      "path": "docs/assets/screens/375x812/45-chat-private-detail.png",
+      "sha256": "26a1cdc257aae8e0b8d449951ee40cbee6cb72ac7d8492dd987df9403a7f710a",
+      "width": 375,
+      "height": 812,
+      "visuallyReviewed": true
+    },
+    {
+      "path": "docs/assets/screens/1920x1080/44-chats.png",
+      "sha256": "14dca4487c97d3adf84c3b9771d7eeb0070e40cd1cba7c8889da64e5d079f1a1",
+      "width": 1920,
+      "height": 1080,
+      "visuallyReviewed": true
+    },
+    {
+      "path": "docs/assets/screens/1920x1080/45-chat-private-detail.png",
+      "sha256": "a513522449e709faf187f21399585b291929bc379791cde351cfd1caa11fdd60",
+      "width": 1920,
+      "height": 1080,
+      "visuallyReviewed": true
+    },
+    {
+      "path": "docs/assets/screens/2560x1440/44-chats.png",
+      "sha256": "7f5b18a246bbd80abf2ca02f0f4cc4b3611bc1490db584fba5240f870256e33a",
+      "width": 2560,
+      "height": 1440,
+      "visuallyReviewed": true
+    },
+    {
+      "path": "docs/assets/screens/2560x1440/45-chat-private-detail.png",
+      "sha256": "405aa07c6ddea58eb41010d895355d536420ab1ff18c7e813fb7674f30e0b56f",
+      "width": 2560,
+      "height": 1440,
       "visuallyReviewed": true
     }
   ]

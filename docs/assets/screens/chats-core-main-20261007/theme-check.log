@@ -1,5 +1,5 @@
 
 > fleet-control-frontend@0.2.0 theme:check C:\git\azhukov\sdlc\.local\chats-main-20261007\fleet-control\frontend
-> node ../../services-base/frontend/scripts/sdlc-effective-theme-check.mjs "http://localhost:24179"
+> node ../../services-base/frontend/scripts/sdlc-effective-theme-check.mjs "http://localhost:24181"
 
-Effective theme contrast passed for http://localhost:24179
+Effective theme contrast passed for http://localhost:24181

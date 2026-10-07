@@ -1,6 +1,6 @@
 
 > fleet-control-frontend@0.2.0 test C:\git\azhukov\sdlc\.local\chats-main-20261007\fleet-control\frontend
-> vitest run "--maxWorkers=4"
+> vitest run
 
 
  RUN  v4.1.11 C:/git/azhukov/sdlc/.local/chats-main-20261007/fleet-control/frontend
@@ -8,5 +8,5 @@
 
  Test Files  24 passed (24)
       Tests  170 passed (170)
-   Start at  23:16:41
-   Duration  22.11s (transform 3.25s, setup 6.84s, import 31.54s, tests 17.16s, environment 23.51s)
+   Start at  23:47:10
+   Duration  9.06s (transform 9.34s, setup 11.44s, import 45.26s, tests 20.67s, environment 30.07s)

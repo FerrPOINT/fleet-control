@@ -373,7 +373,7 @@ function ChatWorkspace({ sessionId }: { sessionId: string }) {
         <span>{session.data.task_key ?? t('chats.freeChat')}</span>
       </div>
       <div className="fc-chat-grid">
-        <main className="fc-chat-main">
+        <section className="fc-chat-main">
           <Tabs
             value={tab}
             onValueChange={(value) => {
@@ -537,7 +537,7 @@ function ChatWorkspace({ sessionId }: { sessionId: string }) {
               </TabsContent>
             ))}
           </Tabs>
-        </main>
+        </section>
         <aside className="fc-chat-context">{context}</aside>
       </div>
       <Dialog open={contextOpen} onOpenChange={setContextOpen}>
