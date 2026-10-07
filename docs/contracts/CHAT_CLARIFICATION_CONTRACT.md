@@ -20,10 +20,17 @@ differs: Tracker declares `additionalProperties: false` and revision range
 Required-field order also differs and is not itself a behavioral incompatibility.
 Exact full-schema parity and live acceptance are not claimed.
 
-Workflow PR90 remains Draft at `e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37`
-against master. Its historical two CI checks pass, but the previously inspected
-running-callback bind is not proof of predispatch admission/checkpoint support.
-Both producer PRs remain open; new source publication is not installed rollout.
+Workflow PR90 was Draft at `e4fba60f55aaefb2fa62cb2d6c151e075d7d5b37`
+in the earlier readback. Fresh readback now finds Draft/master/clean at
+`44e718358d3a8fd339f9ccaa8a26c17d52454623`, with no checks reported for that
+head. Its published source now includes PM checkpoint/rebind/readback, concrete
+agent guards and Base admission/binding modules. The old unpublished-source
+finding below must not be applied to this newer head. Read-only inspection of
+its PM continuation and Base admission contracts still states that live Fleet/
+Hermes continuation is separate and production Base work steps remain closed
+pending trusted owner binding/evidence. Neither source publication nor the
+earlier running-callback bind proves predispatch/live acceptance. Both producer
+PRs remain open; current-head contract and live acceptance must be revalidated.
 
 ### Producer Release Compatibility: 5 October 2026
 
