@@ -24,6 +24,7 @@ use tokio::{
 use uuid::Uuid;
 mod acceptance_readback;
 mod activation_journal;
+mod activation_lock;
 mod approval_outcome;
 mod approval_snapshot;
 #[cfg(all(test, target_os = "linux"))]
@@ -229,6 +230,14 @@ impl LocalRuntimeSupervisor {
                             let error = result
                                 .err()
                                 .map(|error| crate::redact_text(&error.to_string()));
+                            if let Some(journal) = &journal
+                                && journal.verify().await.is_err()
+                            {
+                                tracing::error!(
+                                    "configuration activation ownership changed; agent remains drained"
+                                );
+                                continue;
+                            }
                             let finished = supervisor
                                 .repo
                                 .finish_config_activation(
@@ -266,6 +275,11 @@ impl LocalRuntimeSupervisor {
     ) -> Result<(), AppError> {
         let lock = self.lifecycle_lock(revision.agent_id).await;
         let _guard = lock.lock().await;
+        let activation_lock = activation_lock::ActivationLock::acquire(
+            std::path::Path::new(&self.config.fleet.controller_root),
+            revision.agent_id,
+        )
+        .await?;
         let agent = self.repo.get_agent(revision.agent_id).await?;
         let container = self.config.fleet.container_control.is_some()
             || self
@@ -331,9 +345,15 @@ impl LocalRuntimeSupervisor {
                 running,
                 &files,
                 &backups,
+                activation_lock,
             )
             .await?,
         );
+        journal
+            .as_ref()
+            .ok_or_else(|| AppError::Unavailable("configuration journal is missing".into()))?
+            .verify()
+            .await?;
         if running {
             self.stop_locked(&agent).await.map_err(|_| AppError::Unavailable(
                 "configuration stop and runtime metadata require reconciliation; agent remains drained".into()
@@ -345,6 +365,13 @@ impl LocalRuntimeSupervisor {
         }
         let applied = async {
             for (path, body) in &files {
+                journal
+                    .as_ref()
+                    .ok_or_else(|| {
+                        AppError::Unavailable("configuration journal is missing".into())
+                    })?
+                    .verify_lock()
+                    .await?;
                 if body.is_empty() && path.file_name().is_some_and(|name| name == "SKILL.md") {
                     crate::configuration_disk::remove(
                         std::path::Path::new(&self.config.fleet.agents_root),
@@ -410,8 +437,20 @@ impl LocalRuntimeSupervisor {
                 self.verify_container_configuration_quiescent(&agent)
                     .await?;
             }
+            let backups = journal
+                .as_ref()
+                .ok_or_else(|| AppError::Unavailable("configuration journal is missing".into()))?
+                .verified_backups()
+                .await?;
             let rollback = async {
                 for (path, old) in &backups {
+                    journal
+                        .as_ref()
+                        .ok_or_else(|| {
+                            AppError::Unavailable("configuration journal is missing".into())
+                        })?
+                        .verify_lock()
+                        .await?;
                     crate::reject_symlink_components(
                         std::path::Path::new(&self.config.fleet.agents_root),
                         path,

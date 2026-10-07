@@ -154,6 +154,81 @@ fn journal_path(supervisor: &LocalRuntimeSupervisor, agent: &Agent) -> PathBuf {
     )
 }
 
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn separate_supervisors_cannot_activate_until_original_journal_is_settled() {
+    let Some((repo, agent, owner, config, root)) = fixture(AgentKind::Hermes).await else {
+        return;
+    };
+    let revision = revision(&repo, &agent, owner).await;
+    repo.request_config_activation(agent.id, revision.revision, owner)
+        .await
+        .unwrap();
+    let claimed = repo.claim_config_activation().await.unwrap().unwrap();
+    let first = supervisor(config.clone(), repo.clone());
+    let second = supervisor(config, repo.clone());
+    let controller = PathBuf::from(&first.config.fleet.controller_root);
+    let soul = PathBuf::from(&agent.paths.config).join("SOUL.md");
+    tokio::fs::write(&soul, b"original-effective-soul")
+        .await
+        .unwrap();
+    let original = activation_lock::ActivationLock::acquire(&controller, agent.id)
+        .await
+        .unwrap();
+    let mut blocked_journal = None;
+    assert!(matches!(
+        second
+            .apply_config_revision(&claimed, &mut blocked_journal)
+            .await,
+        Err(AppError::Unavailable(_))
+    ));
+    assert!(blocked_journal.is_none());
+    assert_eq!(
+        tokio::fs::read(&soul).await.unwrap(),
+        b"original-effective-soul"
+    );
+    assert!(!journal_path(&first, &agent).exists());
+    assert!(repo.agent_is_draining(agent.id).await.unwrap());
+    drop(original);
+    let mut journal = None;
+    first
+        .apply_config_revision(&claimed, &mut journal)
+        .await
+        .unwrap();
+    let journal = journal.unwrap();
+    assert!(
+        journal
+            .verified_backups()
+            .await
+            .unwrap()
+            .contains(&(soul.clone(), Some(b"original-effective-soul".to_vec())))
+    );
+    assert!(
+        activation_lock::ActivationLock::acquire(&controller, agent.id)
+            .await
+            .is_err()
+    );
+    repo.finish_config_activation(agent.id, claimed.revision, None, true)
+        .await
+        .unwrap();
+    assert!(!repo.agent_is_draining(agent.id).await.unwrap());
+    assert!(
+        activation_lock::ActivationLock::acquire(&controller, agent.id)
+            .await
+            .is_err()
+    );
+    journal.acknowledge().await.unwrap();
+    let successor = activation_lock::ActivationLock::acquire(&controller, agent.id)
+        .await
+        .unwrap();
+    drop(successor);
+    assert_eq!(
+        tokio::fs::read(&soul).await.unwrap(),
+        b"Updated lifecycle SOUL"
+    );
+    tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
 #[tokio::test]
 async fn delayed_start_rechecks_drain_after_acquiring_lifecycle_lock() {
     let Some((repo, agent, owner, config, root)) = fixture(AgentKind::Hermes).await else {

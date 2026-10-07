@@ -2,10 +2,11 @@
 
 ## Status
 
-Implemented candidate; 31 focused Linux/PostgreSQL cases and strict Clippy pass.
-Full exact-source workspace verification passes 523 cases with 29 explicit
-opt-in ignores; real Docker acceptance remains pending. This does not authorize
-installed enablement.
+Implemented in the integration candidate. The original31 focused regressions
+and523 workspace cases are historical evidence. Later actual mapped Docker/
+Hermes configuration and controlled readiness rollback runs are recorded in
+[verification](../CHAT_CLARIFICATION_VERIFICATION.md); they do not prove every
+failure mode, interrupted activation or installed enablement.
 
 ## Context
 
@@ -28,6 +29,11 @@ or changing its generation would violate immutable custody.
   Only a confirmed original namespace exit permits file writes and a fresh
   generation. Start the candidate with phase `activation`; effective revision
   advances only after readiness and successful activation persistence.
+- Hold a per-agent Linux descriptor-backed OS lock in controller-private storage
+  from backup planning through result persistence and journal acknowledgement.
+  Retain its inode permanently; a competing process cannot replace a live
+  writer by expiring a database lease. Rollback verifies the byte-identical
+  durable journal before decoding its previous files, with no RAM-only fallback.
 - A stopped, reconciled agent may apply and read back its files without starting
   a runtime. Its effective configuration is not proof of runtime or SDLC readiness.
 - If candidate readiness fails, first confirm its namespace exit, restore/read
@@ -42,8 +48,8 @@ or changing its generation would violate immutable custody.
 No new migration or Base wire-protocol change is required. Generation history,
 prepared receipts and private journals remain immutable. Interrupted activation
 still needs explicit reconciliation; this decision does not implement takeover
-or loss recovery. Real named-volume Hermes/model evidence remains required in
-addition to the fake-Base supervisor/PostgreSQL regressions.
+or loss recovery. Any new recovery path still requires exact-source named-volume
+Hermes/model evidence in addition to fake-Base supervisor/PostgreSQL regressions.
 
 ## Alternatives
 

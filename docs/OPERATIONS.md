@@ -184,6 +184,16 @@ mounts and screenshots. Preserve partial/retained documents. A successful DB
 result precedes byte-identical acknowledgement; changing owner/mode, linking or
 rewriting the document prevents deletion. Another agent has an independent file.
 
+Linux activation additionally keeps an exclusive OS lock on the same directory's
+zero-byte `<agent-uuid>.activation.lock` from backup planning until settlement and
+journal acknowledgement. Keep its owner/mode0600 and original inode; do not
+unlink, truncate, recreate or relocate it to clear a busy activation. A second
+process fails closed while the original descriptor is open. Process termination
+releases the OS lock automatically but is not permission to delete the journal,
+release drain or repeat unknown native commands. All controllers sharing these
+agent files must share this private lock location. Rollback refuses missing or
+changed durable backup documents even when the old process still has RAM copies.
+
 Any `.fleet-activation-journal.json` v1 in agent config remains a blocker: do not
 auto-move it to the new directory, delete it, rewrite it or infer a successful
 rollback. A reviewed operator recovery must establish original DB/files/runtime

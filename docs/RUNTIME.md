@@ -1,5 +1,29 @@
 # Runtime
 
+## Configuration Activation Process Lock
+
+Before planning backups or performing configuration effects, the Linux
+activator acquires an exclusive nonblocking `flock` on a controller-private
+`<agent-uuid>.activation.lock`. The open descriptor is retained by the journal
+through runtime/file work, database settlement and journal acknowledgement.
+The zero-byte lock file is mode0600, owned by the controller UID and single-link;
+its descriptor and named inode must agree. Symlinks, altered permissions,
+content or inode replacement hold the agent instead of admitting another writer.
+The existing lifecycle mutex still serializes work within one supervisor.
+
+The lock inode is never removed or replaced. Process death releases the OS lock,
+not the sensitive recovery journal or the database drain. All controllers for
+the same managed filesystem must use the same protected controller directory;
+this does not certify distributed/NFS locking or authorize relocating storage.
+
+Rollback first verifies the exact persisted journal and decodes its original
+backup entries; a missing/changed document cannot fall back to in-memory bytes.
+Ownership is checked before each file mutation and settlement. This is a
+necessary recovery primitive, not automatic interrupted-activation recovery:
+original native acceptance, namespace exit, candidate/effective revision binding
+and recovered-owner readiness still need their own reconciler and live evidence.
+Windows activation remains fail-closed. No API, migration or deployment change.
+
 ## Namespace Exit And Chat State
 
 The recovered-stop follow-up atomically cancels known accepted free-chat runs

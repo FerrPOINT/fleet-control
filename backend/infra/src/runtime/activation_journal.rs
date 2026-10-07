@@ -64,6 +64,15 @@ pub(super) struct ActivationJournal {
     root: PathBuf,
     path: PathBuf,
     document: Vec<u8>,
+    lock: super::activation_lock::ActivationLock,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct JournalBackup {
+    path: PathBuf,
+    previous_hex: Option<String>,
+    expected_sha256: Option<String>,
 }
 
 pub(super) async fn read_backup(root: &Path, path: &Path) -> Result<Option<Vec<u8>>, AppError> {
@@ -117,6 +126,7 @@ impl ActivationJournal {
         was_running: bool,
         files: &[(PathBuf, String)],
         backups: &[(PathBuf, Option<Vec<u8>>)],
+        lock: super::activation_lock::ActivationLock,
     ) -> Result<Self, AppError> {
         let root = location.agents_root;
         let config_directory = location.config_directory;
@@ -137,6 +147,7 @@ impl ActivationJournal {
             _ => return Err(held()),
         }
         let controller_root = private_controller_directory(location.controller_root).await?;
+        lock.verify_for(&controller_root, agent_id).await?;
         let agents_root = tokio::fs::canonicalize(root).await.map_err(|_| held())?;
         let canonical_config_directory = tokio::fs::canonicalize(config_directory)
             .await
@@ -221,10 +232,12 @@ impl ActivationJournal {
             root: controller_root,
             path,
             document,
+            lock,
         })
     }
 
-    pub(super) async fn acknowledge(self) -> Result<(), AppError> {
+    pub(super) async fn verify(&self) -> Result<(), AppError> {
+        self.lock.verify().await?;
         private_controller_directory(&self.root).await?;
         crate::reject_symlink_components(&self.root, &self.path)
             .await
@@ -273,6 +286,48 @@ impl ActivationJournal {
                 "configuration journal identity changed; preserved for reconciliation".into(),
             ));
         }
+        Ok(())
+    }
+
+    pub(super) async fn verify_lock(&self) -> Result<(), AppError> {
+        self.lock.verify().await
+    }
+
+    pub(super) async fn verified_backups(
+        &self,
+    ) -> Result<Vec<(PathBuf, Option<Vec<u8>>)>, AppError> {
+        self.verify().await?;
+        let document: serde_json::Value =
+            serde_json::from_slice(&self.document).map_err(|_| held())?;
+        let config_directory: PathBuf =
+            serde_json::from_value(document["config_directory"].clone()).map_err(|_| held())?;
+        let entries: Vec<JournalBackup> =
+            serde_json::from_value(document["files"].clone()).map_err(|_| held())?;
+        let mut backups = Vec::with_capacity(entries.len());
+        for entry in entries {
+            if entry.path.as_os_str().is_empty()
+                || entry
+                    .path
+                    .components()
+                    .any(|part| !matches!(part, Component::Normal(_)))
+                || entry.expected_sha256.as_ref().is_some_and(|hash| {
+                    hash.len() != 64 || !hash.bytes().all(|byte| byte.is_ascii_hexdigit())
+                })
+            {
+                return Err(held());
+            }
+            let previous = entry
+                .previous_hex
+                .map(hex::decode)
+                .transpose()
+                .map_err(|_| held())?;
+            backups.push((config_directory.join(entry.path), previous));
+        }
+        Ok(backups)
+    }
+
+    pub(super) async fn acknowledge(self) -> Result<(), AppError> {
+        self.verify().await?;
         tokio::fs::remove_file(&self.path).await.map_err(|_| {
             AppError::Unavailable(
                 "configuration journal acknowledgement requires reconciliation".into(),
@@ -359,6 +414,8 @@ mod tests {
             running,
             files,
             backups,
+            super::super::activation_lock::ActivationLock::acquire(&root.join("controller"), id)
+                .await?,
         )
         .await
     }
@@ -602,7 +659,10 @@ mod tests {
                     1,
                     false,
                     &files,
-                    &backups
+                    &backups,
+                    super::super::activation_lock::ActivationLock::acquire(&controller, id)
+                        .await
+                        .unwrap(),
                 )
                 .await,
                 Err(AppError::Unavailable(_))
@@ -680,6 +740,37 @@ mod tests {
         assert!(!config.join(JOURNAL_NAME).exists());
         assert!(!other_config.join(JOURNAL_NAME).exists());
         second.acknowledge().await.unwrap();
+        tokio::fs::remove_dir_all(root).await.unwrap();
+    }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn rollback_requires_original_durable_document_and_held_lock() {
+        let (root, config, files, backups) = fixture().await;
+        let id = Uuid::new_v4();
+        let journal = prepare(&root, &config, id, 1, false, &files, &backups)
+            .await
+            .unwrap();
+        assert_eq!(journal.verified_backups().await.unwrap(), backups);
+        assert!(
+            super::super::activation_lock::ActivationLock::acquire(&root.join("controller"), id)
+                .await
+                .is_err()
+        );
+        let original = tokio::fs::read(&journal.path).await.unwrap();
+        tokio::fs::write(&journal.path, b"changed-durable-backup")
+            .await
+            .unwrap();
+        assert!(journal.verified_backups().await.is_err());
+        assert_eq!(tokio::fs::read(&files[0].0).await.unwrap(), b"old-secret");
+        tokio::fs::write(&journal.path, original).await.unwrap();
+        assert_eq!(journal.verified_backups().await.unwrap(), backups);
+        journal.acknowledge().await.unwrap();
+        let successor =
+            super::super::activation_lock::ActivationLock::acquire(&root.join("controller"), id)
+                .await
+                .unwrap();
+        drop(successor);
         tokio::fs::remove_dir_all(root).await.unwrap();
     }
 }

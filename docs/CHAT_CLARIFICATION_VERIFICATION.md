@@ -1,5 +1,45 @@
 # Chat Clarification Verification
 
+## Activation Process Exclusion: 7 October 2026
+
+Gate `sdlc-qa-fleet-config-4c2f6c7d17f4` captures Fleet54a4e14 plus the
+descriptor-backed activation lock, durable rollback readback and regressions.
+SDK remains `cbb4e99230420dc2659431b1c9fb5090e5c940f0`. Linux Rust1.88
+fmt/locked-offline workspace-all-target check/strict Clippy pass. Four lock
+cases (including one subprocess helper),11 journal, five config-revision,
+seven lifecycle and nine controlled container-configuration cases pass:
+36 passed,0 failed/ignored. The child test process actually holds a conflicting
+OS lock; kill/reap permits reacquisition but leaves the original journal intact.
+Two independent supervisor instances against actual PostgreSQL verify no file
+effects while held and exclusion until committed settlement and acknowledgement.
+Altered inode, symlink, hardlink, permissions/content and durable backup identity
+are rejected. These are local Linux filesystem and controlled-runtime proofs,
+not an actual Hermes/Engine crash-activation or distributed-filesystem test.
+
+All319 frozen inputs are unchanged after checks. Source manifest SHA256:
+`43286bc7bbb7aba996834456c78af5f7e2909c79c85a65b56630e98dfc0667fd`.
+Gate log SHA256:
+`6b4c624796e0f1f90ff4a6bfabda865f9a1b1bca9990bb01a7f381c65eb6d636`.
+Harness SHA256:
+`523cf81602efeaf04179364d0b7ba13285efa8efdd2e19d889c2468c66ce1dd9`.
+Compose SHA256:
+`eb79e6d55e4499293812d978cff369a442585f93ef2c77ea1983825fc3d6c6e8`.
+Private evidence is in workspace `.local/fleet-config-settlement-20261007`.
+Owned containers and network are removed and independently absent; accepted
+volumes/images/runtime are unchanged. Root Docker audit is complete:35 desktop
+containers, both runner endpoints0, no violations. README and local links in133
+Markdown files pass. The host Windows offline metadata attempt lacked cached
+`arbitrary1.4.2`; it is not a passing Windows build. Its generated lock diff
+contains only the existing rustix package's new direct dependency, validated by
+the subsequent Linux locked build. Earlier failed packets remain failed.
+
+No migration, public OpenAPI, SDK pin, UI layout or installed enablement changes.
+This necessary primitive does not load/reclaim a crashed activation, certify
+native command acceptance, resume a PM execution or complete SDLC. The durable
+v2 journal and database drain stay held after process death. Restarted-controller
+revision/launch binding and native uncertainty reconciliation still need their
+implementation and live acceptance; a released OS lock is not readiness.
+
 ## Atomic Configuration Settlement: 7 October 2026
 
 Gate `sdlc-qa-fleet-config-327a793ae394` captures Fleet0952981 plus the settlement

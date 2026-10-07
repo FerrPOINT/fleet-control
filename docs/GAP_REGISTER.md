@@ -1,5 +1,24 @@
 # Gap Register
 
+## Interrupted Configuration Activation
+
+The integration candidate now holds a Linux per-agent OS lock across backup
+planning, file/runtime effects, result persistence and journal acknowledgement.
+Rollback and settlement verify the original durable document; neither a busy
+lock nor a changed backup authorizes another writer or RAM-only rollback.
+This addresses cooperative cross-process exclusion in the same protected
+controller storage, not distributed custody or complete restart recovery.
+
+Still required: a trusted restarted-controller loader that binds the original
+journal to desired/effective snapshot revisions and original launch history;
+safe cessation/readback of old or uncertain native preparation/start/stop;
+reconciliation of interrupted settlement; recovered-owner loaded-config and
+readiness proof; actual named-volume Hermes crash acceptance. Existing v2 or
+partial journals must remain held until those proofs exist. A released OS lock,
+healthy HTTP process or unchanged PID is not sufficient. No installed rollout
+or SDLC admission is enabled by this primitive. Exact checks are recorded in
+[verification](CHAT_CLARIFICATION_VERIFICATION.md).
+
 ## Known Run Interruption After Namespace Exit
 
 **Verified for known accepted free-chat runs only.** Atomically cancel runs and pending

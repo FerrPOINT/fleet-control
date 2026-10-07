@@ -1,5 +1,33 @@
 # Current State
 
+## Activation Process Exclusion: 7 October 2026
+
+The integration candidate now holds a controller-private per-agent Linux
+descriptor lock from backup planning through activation settlement and journal
+acknowledgement. A separate Fleet process cannot acquire it while its owner is
+alive. Rollback refuses an absent/changed durable backup instead of relying on
+RAM copies. Inode, owner, mode, links and zero-byte identity are checked without
+unlinking the lock file. There is no new API, migration, SDK pin or UI change.
+
+Fresh `sdlc-qa-fleet-config-4c2f6c7d17f4` passes Rust1.88 fmt, locked/offline
+workspace/all-target check and strict Clippy, four lock cases (one child-process
+helper),11 journal, five config-revision, seven lifecycle and nine controlled
+container-configuration cases:36 passed,0 ignored. The process-death test kills
+and reaps a real separate test process, then reacquires its lock while preserving
+the journal. PostgreSQL confirms exclusion by independent supervisors through
+DB settlement and acknowledgement. All319 captured inputs match; owned Compose
+containers/network are gone. Root Docker audit is complete with35 desktop
+containers and no violations; both runner endpoints have0 containers.
+README validation and133-document local Markdown link validation pass.
+
+This is not automatic interrupted activation or recovered-owner execution.
+Trusted journal/revision/launch loading, original native uncertainty readback,
+restart reconciliation and actual Hermes crash acceptance remain open, alongside
+predispatch/PM/Forge integration and ordered main releases. No live runtime was
+updated and no new UI screenshots are claimed. See
+[verification](CHAT_CLARIFICATION_VERIFICATION.md#activation-process-exclusion-7-october-2026)
+and [remaining recovery work](GAP_REGISTER.md#interrupted-configuration-activation).
+
 ## Configuration Settlement Guard: 7 October 2026
 
 Configuration settlement now rejects an unclaimed, stale or no-longer-draining
