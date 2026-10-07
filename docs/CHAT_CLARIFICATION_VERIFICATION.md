@@ -1,5 +1,46 @@
 # Chat Clarification Verification
 
+## Actual Docker Custody Preparation: 7 October 2026
+
+The origin fix is published as78176461d83f2c82baf1c38687470a50a6426b68 on the
+runtime integration branch. The follow-up frozen-source Linux/Rust1.88/PostgreSQL
+gate passes fmt, all-target check, strict Clippy,574 workspace tests in39 groups
+and OpenAPI generation, with zero failures and31 explicit opt-in ignores. The
+new real-PostgreSQL regression validates sealed-origin recovery, replay,
+foreign/loopback denial and rejection after gateway exit. The ignored live
+custody scenario is not included in these574 passes.
+
+All304 captured source inputs match after completion. OpenAPI is byte-identical
+(SHA256:76a27c806961bc142543445e34f10525485cbcf2f0b66ac2fe5d093fc808a10f).
+Private artifact319d4190ed22 records source manifest SHA256
+cb686e8f4c59490d54c84d07f8b8984adfe3a34a5a1aeafd6ab966a9aa95b3d0 and
+gate-log SHA256:0a933b67446bc4836c9fabb76ff3ae5f7022e625a3c0fa19502ba67ac1ba4885.
+Exit0 and exact-project cleanup are independently confirmed. The complete live
+custody gate has not been rerun after this fix and is not accepted.
+
+The new `--controller-recovery` gate uses exact test selectors and six required
+phase/probe reports. It rejects resumed-model, safe-stop and SDLC claims. Host
+driver tests pass30 cases, including cleanup on preparation failure, physical
+restart identity and typed evidence validation; these are harness tests only.
+
+Pinned inputs: Fleet1e24598 plus the recorded candidate diff, Base control
+3facb289d449c6a9a2a3863e31a661a661235299, Base SDK
+cbb4e99230420dc2659431b1c9fb5090e5c940f0, Hermes
+bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3.
+
+Private failed project6ce6510df95e records one actual model invocation, native
+`waiting_for_approval`, an existing native approval and no Fleet mirror request.
+It passed compilation/fmt/strict all-target Clippy, not the live test. The
+repository's loopback origin check was incompatible with sealed Docker origins;
+the follow-up uses `fleet_hermes_origin_matches` on the accepted journal.
+
+Private failed projecta24c9d3c6b76 ended before the chat: original Docker start
+returned reconciliation-required without automatic resend. Its316 source
+inputs remained unchanged (manifest SHA256
+8abcb1028a26de2d243778dd04c172973085dcc9f8378d6dc48218f589d3cf23).
+Both projects confirm owned cleanup and unchanged permanent runtime. Neither
+proves controller restart, approval grant, resumed inference or PM/SDLC success.
+
 ## Browser Boundary Main Merge: 7 October 2026
 
 [Fleet56](https://github.com/FerrPOINT/fleet-control/pull/56) was squash-merged at

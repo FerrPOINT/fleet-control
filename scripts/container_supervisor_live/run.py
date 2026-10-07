@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -22,6 +23,141 @@ CONTROL_FILES = ('scripts/runtime_boundary.py', 'scripts/runtime_bootstrap.py',
                  'scripts/runtime_control.py')
 BASE_FILES = (*CONTROL_FILES, 'deploy/fleet-hermes-container-launch.py',
               'deploy/runtime-boundary-qa/hermes_source.Dockerfile')
+BASELINE_TEST = 'real_container_supervisor_isolates_chat_and_drains_configuration_replacement'
+CUSTODY_TEST = 'controller_recovery::real_controller_startup_maintains_custody_without_granting_execution'
+
+
+def test_command(helper, phase=None):
+    command = helper.command + ['exec', '-T']
+    if phase is not None:
+        if phase not in ('prepare', 'recover-1', 'expired', 'recover-2'):
+            raise RuntimeError('Unknown own custody phase')
+        command += ['-e', 'FLEET_CONTAINER_RECOVERY_PHASE=' + phase]
+    return command + ['fleet-backend', '/out/fleet-container-live',
+                      CUSTODY_TEST if phase else BASELINE_TEST, '--exact', '--ignored',
+                      '--nocapture', '--test-threads=1']
+
+
+def custody_snapshot(helper, checked):
+    """Keep only immutable physical identity; never persist Docker env or mounts."""
+    ids = helper.resources('container')
+    items = json.loads(checked(helper.docker + ['container', 'inspect', *ids])) if ids else []
+    result = {}
+    for item in items:
+        labels = item['Config']['Labels']
+        if (labels.get('com.docker.compose.project') != helper.project
+                or labels.get('sdlc.task') != TASK or labels.get('sdlc.purpose') != PURPOSE):
+            raise RuntimeError('Foreign custody resource; no adoption')
+        service = labels.get('com.docker.compose.service')
+        if service == 'fleet-backend' or re.fullmatch(r'agent[12]-runtime-[a-f0-9]{32}', service or ''):
+            if service in result or item['State']['Running'] is not True or item['State']['Pid'] <= 0:
+                raise RuntimeError('Custody process identity is not live and unique')
+            result[service] = {key: item[key] for key in ('Id', 'Image')}
+            result[service].update(pid=item['State']['Pid'], started_at=item['State']['StartedAt'])
+    if len(result) != 3 or 'fleet-backend' not in result:
+        raise RuntimeError('Custody requires exactly two real agent containers and Fleet')
+    return result
+
+
+def validate_restart(before, after):
+    if before.keys() != after.keys():
+        raise RuntimeError('Controller restart replaced an agent generation')
+    for service, original in before.items():
+        current = after[service]
+        if service != 'fleet-backend':
+            if current != original:
+                raise RuntimeError('Controller restart changed a surviving Hermes')
+        elif (current['Id'] != original['Id'] or current['Image'] != original['Image']
+              or current['pid'] == original['pid'] or current['started_at'] == original['started_at']):
+            raise RuntimeError('An actual same-container controller restart was not proven')
+
+
+def validate_custody_evidence(value, epoch=None, native=False, expired=False):
+    positive = ('historical_receipt_unchanged', 'same_version_heartbeat_replay_read_only',
+                'native_journals_unchanged') if native else (
+        ('same_physical_start_cannot_take_over', 'expired_db_lease_not_revived',
+         'native_run_waiting_for_approval') if expired else (
+        'actual_startup_worker', 'native_live_observation', 'original_launches_unchanged',
+        'native_run_waiting_for_approval', 'new_owner_effects_held',
+        'competing_logical_controller_denied', 'message_replay_did_not_dispatch'))
+    expected = {'sdlc_acceptance': False}
+    counts = {}
+    if native:
+        counts['agents'] = 2
+        expected.update(resumed_execution=False, raw_receipts_persisted=False,
+                        native_expiry_checked=expired, native_live_observation=not expired)
+    elif not expired:
+        counts.update(agents=2, epoch=epoch, minimum_lease_version=4)
+        expected['resumed_execution'] = False
+    if (not isinstance(value, dict) or value.get('state') != 'passed'
+            or any(value.get(key) is not True for key in positive)
+            or any(value.get(key) is not result for key, result in expected.items())
+            or any(type(value.get(key)) is not int or value[key] != result for key, result in counts.items())):
+        raise RuntimeError('Actual controller custody evidence is incomplete')
+
+
+def verify_controller_recovery(helper, directory, report, logged, checked):
+    report['state'] = 'failed'
+    prepare = None
+    try:
+        with (directory / 'custody-prepare.log').open('wb') as stream:
+            prepare = subprocess.Popen(test_command(helper, 'prepare'), stdout=stream, stderr=subprocess.STDOUT)
+            deadline = time.monotonic() + 240
+            probe = ('import json,pathlib,sys; p=pathlib.Path("/controller/custody-ready.json"); '
+                     'sys.exit(3) if not p.exists() else None; v=json.loads(p.read_bytes()); '
+                     'assert v["state"]=="ready" and type(v["actual_model_calls"]) is int '
+                     'and v["actual_model_calls"]==1 and v["native_waiting_for_approval"] is True')
+            while True:
+                if prepare.poll() is not None:
+                    raise RuntimeError('Custody preparation terminated before actual controller restart')
+                result = subprocess.run(helper.command + ['exec', '-T', 'fleet-backend',
+                    'python3', '-I', '-B', '-c', probe], capture_output=True, timeout=15)
+                if result.returncode == 0:
+                    break
+                if result.returncode != 3 or time.monotonic() >= deadline:
+                    raise RuntimeError('Real Hermes approval-wait preparation was not proven')
+                time.sleep(1)
+            original = custody_snapshot(helper, checked)
+            logged(helper.command + ['restart', '-t', '1', 'fleet-backend'], 'custody-restart1.log', 60)
+            prepare.wait(timeout=30)
+            if prepare.returncode == 0:
+                raise RuntimeError('Original Fleet process was not interrupted')
+        first = custody_snapshot(helper, checked)
+        validate_restart(original, first)
+        evidence = {}
+        for phase in ('recover-1', 'expired', 'recover-2'):
+            if phase == 'expired':
+                # The recovered CLI (and its Tokio workers) has exited. Use actual lease time.
+                time.sleep(31)
+            elif phase == 'recover-2':
+                logged(helper.command + ['restart', '-t', '1', 'fleet-backend'], 'custody-restart2.log', 60)
+                validate_restart(first, custody_snapshot(helper, checked))
+            logged(test_command(helper, phase), 'custody-' + phase + '.log', 120)
+            epoch = 2 if phase == 'recover-2' else 1
+            suffix = 'expired' if phase == 'expired' else 'epoch' + str(epoch)
+            value = json.loads((directory / 'evidence' / ('custody-' + suffix + '.json')).read_bytes())
+            validate_custody_evidence(value, epoch=epoch, expired=phase == 'expired')
+            evidence[suffix] = value
+            command = helper.command + ['exec', '-T', 'fleet-backend', 'python3', '-I', '-B',
+                '/qa-fixtures/custody_probe.py', '--epoch', str(epoch)]
+            if phase == 'expired':
+                command += ['--expired']
+            logged(command, 'custody-native-' + suffix + '.log', 90)
+            value = json.loads((directory / 'evidence' / ('custody-native-' + suffix + '.json')).read_bytes())
+            validate_custody_evidence(value, native=True, expired=phase == 'expired')
+            evidence['native-' + suffix] = value
+        final = custody_snapshot(helper, checked)
+        for service in original:
+            if service != 'fleet-backend' and final[service] != original[service]:
+                raise RuntimeError('Custody changed an original agent process')
+        report.update(state='passed', actual_rust_supervisor=True, actual_docker_hermes=True,
+                      controller_recovery=evidence, physical_snapshots=[original, first, final],
+                      resumed_execution=False)
+    finally:
+        if prepare is not None and prepare.poll() is None:
+            # Stop only the already-owned Compose service, not an arbitrary host PID.
+            checked(helper.command + ['stop', '-t', '1', 'fleet-backend'], timeout=60)
+            prepare.wait(timeout=30)
 
 
 def git(home, *args):
@@ -166,7 +302,11 @@ def main():
                         help='Inject an owned candidate boot delay and verify actual Docker rollback')
     parser.add_argument('--log-readback', action='store_true',
                         help='Verify private Base log reads from the stopped original generations')
+    parser.add_argument('--controller-recovery', action='store_true',
+                        help='Prove actual startup custody across two controller restarts during approval-wait')
     args = parser.parse_args()
+    if args.controller_recovery and (args.readiness_rollback or args.log_readback):
+        parser.error('Controller custody requires a separate owned gate, not rollback/log mode')
     sdk = args.base_sdk.resolve()
     base = args.base_control.resolve()
     sdk_pin = (ROOT / '.base-revision').read_text().strip()
@@ -225,6 +365,7 @@ def main():
               'hermes_revision': PIN, 'source_files': len(manifest), 'source_sha256': sha(directory / 'source-manifest.json'),
               'readiness_rollback_requested': args.readiness_rollback,
               'log_readback_requested': args.log_readback,
+              'controller_recovery_requested': args.controller_recovery,
               'actual_rust_supervisor': False, 'actual_docker_hermes': False, 'sdlc_acceptance': False}
     before = permanent_state(docker)
 
@@ -319,14 +460,17 @@ def main():
                     'pids_limit': 128, 'memory_bytes': 1073741824, 'nano_cpus': 1000000000,
                     'network_internal': True, 'task': TASK, 'purpose': PURPOSE},
                 'bridge_controller': {'container_id': cid, 'image_id': controller_image, 'service': 'fleet-backend'}}})
-        logged(helper.command + ['exec', '-T', 'fleet-backend', '/out/fleet-container-live', '--ignored',
-                                 '--nocapture', '--test-threads=1'], 'live.log', 1200)
-        live = json.loads((directory / 'evidence/live-report.json').read_bytes())
-        validate_live_evidence(live, args.readiness_rollback)
-        report.update(state='passed', actual_rust_supervisor=True, actual_docker_hermes=True,
-                      live=live, build_log_sha256=sha(directory / 'build.log'), live_log_sha256=sha(directory / 'live.log'))
-        if args.log_readback:
-            verify_log_readback(helper, directory, report, logged)
+        if args.controller_recovery:
+            verify_controller_recovery(helper, directory, report, logged, checked)
+            report['build_log_sha256'] = sha(directory / 'build.log')
+        else:
+            logged(test_command(helper), 'live.log', 1200)
+            live = json.loads((directory / 'evidence/live-report.json').read_bytes())
+            validate_live_evidence(live, args.readiness_rollback)
+            report.update(state='passed', actual_rust_supervisor=True, actual_docker_hermes=True,
+                          live=live, build_log_sha256=sha(directory / 'build.log'), live_log_sha256=sha(directory / 'live.log'))
+            if args.log_readback:
+                verify_log_readback(helper, directory, report, logged)
     finally:
         try:
             if helper is not None:

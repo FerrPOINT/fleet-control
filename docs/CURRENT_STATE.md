@@ -1,5 +1,31 @@
 # Current State
 
+## Docker Approval Recovery Follow-Up: 7 October 2026
+
+The isolated live custody gate is now available as
+`scripts/container_supervisor_live/run.py --controller-recovery`. Its baseline
+and custody tests use exact selectors, so enabling one does not run other
+ignored scenarios against the same database. Public reports explicitly separate
+custody from resumed execution and SDLC acceptance.
+
+An actual two-Hermes preparation reached `waiting_for_approval` after one model
+response, but Fleet had no mirrored pending request. The recovered-approval
+repository still required loopback instead of the accepted journal's sealed
+container origin. The candidate uses the existing database origin authority;
+its regression checks accepted origin, replay, foreign/loopback denial and
+gateway exit. No schema, API, runtime flag or accepted deployment changes.
+
+The fix is published as7817646 on the runtime branch. Fresh frozen-source
+Linux/PostgreSQL fmt/check/strict Clippy,574 tests and OpenAPI generation pass;
+31 opt-in cases remain ignored, including the new live custody scenario.
+All304 source inputs match, OpenAPI is unchanged and owned cleanup is confirmed.
+README validation,30 host harness tests and132 Markdown link checks also pass.
+
+The complete two-restart live gate has not passed. A later preparation also
+held an unknown original Docker operation without automatic resend. These are
+remaining acceptance failures, not successful restart or PM evidence. See the
+[gap register](GAP_REGISTER.md#docker-approval-and-live-custody-acceptance).
+
 ## Publication And Custody Worker: 7 October 2026
 
 Independent [Fleet56](https://github.com/FerrPOINT/fleet-control/pull/56) is merged

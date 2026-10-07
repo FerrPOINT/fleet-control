@@ -1,5 +1,27 @@
 # Gap Register
 
+## Docker Approval And Live Custody Acceptance
+
+The new opt-in exact-selector custody gate requires two real isolated Hermes
+agents, a genuine pending manual approval, two physical Fleet controller
+restarts, live dual heartbeat and expiry without lease revival. It must also
+verify original runtime identity, no duplicate run or message, no new-owner
+effects, and cleanup of only its own Compose resources.
+
+Preparation with actual Hermes/model/terminal data failed: one model invocation
+and a native `waiting_for_approval` request were present, but Fleet's approval
+mirror was empty. The candidate removes the repository's loopback-only
+restriction in favor of the accepted journal's sealed origin authority. This
+does not weaken run/session/credential identity, enable approvals or recover
+missed historical events.
+
+The full live custody gate is still unverified. The next captured preparation
+stopped at an unknown original Docker operation and correctly refused resend;
+both failed projects were cleaned and permanent runtime resources stayed
+unchanged. Component success cannot close this live gate. Recovered execution,
+interrupted activation, PM/producer compatibility and ordered release remain
+separate blockers. Keep recovery default-off.
+
 ## Current Publication And Recovery Boundary
 
 [Fleet56](https://github.com/FerrPOINT/fleet-control/pull/56) is merged into main

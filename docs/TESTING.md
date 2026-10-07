@@ -1,5 +1,28 @@
 # Testing
 
+## Actual Docker Controller Custody Gate
+
+Use `scripts/container_supervisor_live/run.py --controller-recovery` with the
+same required exact-image/source arguments as the existing container gate.
+The driver selects one exact ignored Rust test; it never runs all ignored tests
+against the same database. Baseline configuration replacement uses its own exact
+test and cannot accidentally enter the recovery phases.
+
+The custody scenario requires two actual pinned Hermes agents, one genuine
+manual terminal approval, a once-only deterministic model response, two actual
+same-CID Fleet container restarts and startup-driven dual heartbeats. It tests
+live native observation, competing logical owner denial, unchanged original
+launch/PID/run/dispatch/transcript and actual DB/native lease expiry without
+revival. No approval is granted and no new-owner effect is enabled. All six
+Rust/native phase reports and physical process snapshots are required before
+the final report may pass. Failure remains failure even when cleanup succeeds.
+
+This is approval-wait custody, not active inference-connection survival, resumed
+execution, task/PM workflow or deployment acceptance. The existing rollback and
+logs modes must run separately. Driver safety unit tests validate selection,
+strict evidence typing, physical restart identity and failure cleanup without
+claiming a live Docker result. See [operations](OPERATIONS.md#isolated-custody-acceptance).
+
 Candidate000021 adds PostgreSQL tests for concurrent retained-command replay,
 exactly one dispatch claim, closed receipt drift, one audit/outcome, expired
 historical ACK without lease renewal and unchanged original launch. Trusted

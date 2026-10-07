@@ -35,6 +35,29 @@ or activation permission is granted by a successful heartbeat. See
 
 ## Controller Restart Observation
 
+### Isolated Custody Acceptance
+
+The owned `scripts/container_supervisor_live/run.py --controller-recovery` mode
+uses two actual Docker Hermes agents and a deterministic local model response
+that requests a real terminal approval. No approval is granted. It restarts the
+same Fleet controller container twice, checks startup heartbeat, waits for real
+lease expiry and checks historical readback without renewal. Original agent
+containers, launch/PID, dispatch identity and transcript must remain unchanged.
+
+This mode is separate from `--readiness-rollback` and `--log-readback`; mixing
+them is rejected before resource creation. The driver requires exact immutable
+Rust, Docker CLI, Hermes dependency and PostgreSQL image IDs and clean compatible
+Base checkouts. It removes only its own temporary Compose resources in `finally`.
+Private runtime configuration and native receipts stay in the protected QA
+controller volume; public evidence contains only identifiers, hashes and checks.
+
+A passed custody test is not a resumed model run, approved tool execution, safe
+Fleet stop, interrupted activation settlement, PM acceptance or SDLC success.
+The final Compose teardown is QA cleanup, not a successful recovered runtime
+stop. Keep accepted deployment flags and image pins unchanged. Test evidence
+belongs in [verification](CHAT_CLARIFICATION_VERIFICATION.md), not in readiness
+or business completion badges.
+
 `Controller restart observed for original agent namespace; ownership transfer
 remains required` is degraded diagnostic evidence, not running/readiness or
 permission to resume. Preserve the original mapping, Compose, private SQLite,

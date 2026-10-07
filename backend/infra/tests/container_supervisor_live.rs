@@ -29,6 +29,9 @@ use tokio::{
 };
 use uuid::Uuid;
 
+#[path = "support/container_controller_recovery.rs"]
+mod controller_recovery;
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Proof {

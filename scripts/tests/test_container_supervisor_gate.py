@@ -177,6 +177,131 @@ class LiveEvidenceTests(unittest.TestCase):
                 runner.validate_live_evidence(invalid, False)
 
 
+class CustodyTests(unittest.TestCase):
+    def evidence(self, native=False, expired=False, epoch=1):
+        value = dict(state='passed', sdlc_acceptance=False)
+        if native:
+            value.update(agents=2, historical_receipt_unchanged=True,
+                same_version_heartbeat_replay_read_only=True, native_journals_unchanged=True,
+                native_expiry_checked=expired, native_live_observation=not expired,
+                raw_receipts_persisted=False, resumed_execution=False)
+        elif expired:
+            value.update(same_physical_start_cannot_take_over=True,
+                expired_db_lease_not_revived=True, native_run_waiting_for_approval=True)
+        else:
+            value.update(agents=2, epoch=epoch, minimum_lease_version=4, actual_startup_worker=True,
+                native_live_observation=True, original_launches_unchanged=True,
+                native_run_waiting_for_approval=True, new_owner_effects_held=True,
+                competing_logical_controller_denied=True, message_replay_did_not_dispatch=True,
+                resumed_execution=False)
+        return value
+
+    def test_each_selected_case_is_exact_and_cannot_run_all_ignored_cases(self):
+        helper = SimpleNamespace(command=['docker', 'compose', '-p', 'sdlc-qa-owned'])
+        for phase in (None, 'prepare', 'recover-1', 'expired', 'recover-2'):
+            command = runner.test_command(helper, phase)
+            self.assertEqual(command[-5:], [runner.CUSTODY_TEST if phase else runner.BASELINE_TEST,
+                '--exact', '--ignored', '--nocapture', '--test-threads=1'])
+            if phase:
+                self.assertIn('FLEET_CONTAINER_RECOVERY_PHASE=' + phase, command)
+        with self.assertRaisesRegex(RuntimeError, 'Unknown own custody phase'):
+            runner.test_command(helper, 'foreign')
+
+    def test_all_phase_evidence_is_required_and_never_claims_resumed_execution(self):
+        for native, expired, epoch in ((False, False, 1), (False, False, 2),
+                                      (False, True, 1), (True, False, 1), (True, True, 1)):
+            value = self.evidence(native, expired, epoch)
+            runner.validate_custody_evidence(value, epoch, native, expired)
+            for key in value:
+                for invalid in (None, 'invalid', True if type(value[key]) is int else not value[key]):
+                    with self.subTest(native=native, expired=expired, epoch=epoch, key=key):
+                        broken = dict(value, **{key: invalid})
+                        with self.assertRaisesRegex(RuntimeError, 'custody evidence is incomplete'):
+                            runner.validate_custody_evidence(broken, epoch, native, expired)
+
+    def test_same_controller_container_must_actually_restart_and_agents_must_survive(self):
+        original = {'fleet-backend': dict(Id='fleet', Image='image', pid=10, started_at='first'),
+                    'agent1-runtime-a': dict(Id='one', Image='hermes', pid=20, started_at='agent-one'),
+                    'agent2-runtime-b': dict(Id='two', Image='hermes', pid=30, started_at='agent-two')}
+        current = {key: dict(value) for key, value in original.items()}
+        current['fleet-backend'].update(pid=11, started_at='second')
+        runner.validate_restart(original, current)
+        for service, key, value in (('fleet-backend', 'Id', 'replacement'),
+                                    ('fleet-backend', 'Image', 'candidate'),
+                                    ('fleet-backend', 'pid', 10),
+                                    ('fleet-backend', 'started_at', 'first'),
+                                    ('agent1-runtime-a', 'pid', 21),
+                                    ('agent2-runtime-b', 'started_at', 'restarted')):
+            broken = {name: dict(item) for name, item in current.items()}
+            broken[service][key] = value
+            with self.assertRaises(RuntimeError):
+                runner.validate_restart(original, broken)
+
+    def test_prepare_failure_cannot_retain_success_and_closes_only_own_service(self):
+        with tempfile.TemporaryDirectory() as folder:
+            helper = SimpleNamespace(command=['docker', 'compose', '-p', 'sdlc-qa-owned'])
+            report = dict(state='passed')
+            process = SimpleNamespace(poll=lambda: None, wait=lambda **_: None)
+            result = SimpleNamespace(returncode=1)
+            with patch.object(runner.subprocess, 'Popen', return_value=process), \
+                    patch.object(runner.subprocess, 'run', return_value=result), \
+                    patch.object(runner.time, 'sleep'), \
+                    patch.object(runner, 'custody_snapshot') as snapshot:
+                effects = []
+                with self.assertRaisesRegex(RuntimeError, 'preparation was not proven'):
+                    runner.verify_controller_recovery(helper, Path(folder), report,
+                        lambda *_: self.fail('Unexpected phase'),
+                        lambda command, **_: effects.append(command))
+                self.assertEqual(report['state'], 'failed')
+                self.assertEqual(effects, [helper.command + ['stop', '-t', '1', 'fleet-backend']])
+                snapshot.assert_not_called()
+
+    def test_success_requires_both_real_restarts_and_every_rust_and_native_phase(self):
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder)
+            (home / 'evidence').mkdir()
+            helper = SimpleNamespace(command=['docker', 'compose', '-p', 'sdlc-qa-owned'])
+            alive = [True]
+            process = SimpleNamespace(poll=lambda: None if alive[0] else 137,
+                                      wait=lambda **_: None, returncode=137)
+            original = {'fleet-backend': dict(Id='fleet', Image='image', pid=10, started_at='first'),
+                        'agent1-runtime-a': dict(Id='one', Image='hermes', pid=20, started_at='agent-one'),
+                        'agent2-runtime-b': dict(Id='two', Image='hermes', pid=30, started_at='agent-two')}
+            first = {key: dict(item) for key, item in original.items()}
+            first['fleet-backend'].update(pid=11, started_at='second')
+            second = {key: dict(item) for key, item in first.items()}
+            second['fleet-backend'].update(pid=12, started_at='third')
+            effects, report = [], dict(state='passed')
+
+            def logged(command, name, timeout):
+                self.assertEqual(report['state'], 'failed')
+                effects.append(command)
+                if 'restart' in command:
+                    alive[0] = False
+                    return
+                native = '/qa-fixtures/custody_probe.py' in command
+                expired = '--expired' in command if native else 'FLEET_CONTAINER_RECOVERY_PHASE=expired' in command
+                epoch = int(command[-1]) if native and not expired else (
+                    2 if 'FLEET_CONTAINER_RECOVERY_PHASE=recover-2' in command else 1)
+                suffix = 'expired' if expired else 'epoch' + str(epoch)
+                prefix = 'custody-native-' if native else 'custody-'
+                (home / 'evidence' / (prefix + suffix + '.json')).write_text(
+                    json.dumps(self.evidence(native, expired, epoch)))
+
+            with patch.object(runner.subprocess, 'Popen', return_value=process), \
+                    patch.object(runner.subprocess, 'run', return_value=SimpleNamespace(returncode=0)), \
+                    patch.object(runner.time, 'sleep') as sleep, \
+                    patch.object(runner, 'custody_snapshot', side_effect=[original, first, second, second]):
+                runner.verify_controller_recovery(helper, home, report, logged,
+                    lambda *_: self.fail('Unexpected forced stop'))
+            self.assertEqual(report['state'], 'passed')
+            self.assertFalse(report['resumed_execution'])
+            self.assertEqual(len(report['controller_recovery']), 6)
+            self.assertEqual(sum('restart' in command for command in effects), 2)
+            self.assertEqual(len(effects), 8)
+            sleep.assert_called_once_with(31)
+
+
 class LogReadbackTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
