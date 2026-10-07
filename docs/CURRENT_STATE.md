@@ -1,5 +1,26 @@
 # Current State
 
+## Configuration Settlement Guard: 7 October 2026
+
+Configuration settlement now rejects an unclaimed, stale or no-longer-draining
+revision and unconfirmed success. Both revision and head changes commit in the
+same transaction; a head change during the actual PostgreSQL row-lock wait
+rolls back settlement. No migration, API, SDK pin or UI change is introduced.
+
+Fresh isolated Linux/PostgreSQL gate `sdlc-qa-fleet-config-327a793ae394` passes
+Rust1.88 fmt, locked/offline workspace/all-target check and strict Clippy,
+five config-revision tests, six lifecycle tests and nine controlled container
+configuration tests (20 cases,0 ignored). All318 frozen inputs remain unchanged;
+owned containers/network are removed. Earlier compile failures remain failures.
+See the [verification ledger](CHAT_CLARIFICATION_VERIFICATION.md).
+
+These are repository and controlled-runtime regressions, not live Hermes
+activation or interrupted-activation recovery. That recovery, worker fencing,
+PM/workflow live acceptance, ordered main releases and full SDLC remain open.
+Base PR166 is merged; CI-CD PR87 is published; Fleet runtime changes remain
+in the feature branch, not main. No new screenshots or installed rollout are
+claimed by this backend-only change.
+
 ## Generation-Bound Run Cancellation Follow-Up
 
 The follow-up connects validated recovered namespace exit to cancellation of

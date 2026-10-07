@@ -1,5 +1,29 @@
 # Chat Clarification Verification
 
+## Atomic Configuration Settlement: 7 October 2026
+
+Gate `sdlc-qa-fleet-config-327a793ae394` captures Fleet0952981 plus the settlement
+guard and two new regression tests, with unchanged SDK
+`cbb4e99230420dc2659431b1c9fb5090e5c940f0`. A real isolated PostgreSQL checks
+unclaimed/stale/released-drain/unconfirmed rejection with byte-equivalent rows,
+and rollback after an observed concurrent head row-lock wait. All five
+configuration, six lifecycle and nine controlled container-configuration tests
+pass (20 cases,0 ignored), as do Rust1.88 fmt/check/strict all-target Clippy.
+
+All318 frozen inputs match. Source manifest SHA256:
+`5f54e91a1cb2812b41f4fc0d1f9f0cb3ff2ddac9defd941e2559ce410a9026ca`.
+Gate log SHA256:
+`11c1736a53312600d83a18ae82ac103f2a73df76e5a2b7439eba3a179018757e`.
+Owned containers and network are removed; no shared caches or accepted volumes
+are changed. Earlier packets b32f2f55cc78 and aac3ff3d805d retain their test
+compilation failures and cleanup, not a passing label. The initial f2b9d91a7af9
+capture omitted included harness scripts and also remains failed.
+
+The controlled container tests are not actual Hermes/Engine activation evidence.
+This guard cannot establish interrupted-activation recovery, worker-owner fencing,
+PM execution, deployment or full SDLC acceptance. No new migration/API/UI or
+installed runtime change is included.
+
 ## Actual Generation-Bound Cancellation: 7 October 2026
 
 Project `sdlc-qa-fleet-container-live-067e06b0c94a` passes at published Fleet

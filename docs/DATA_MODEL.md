@@ -387,7 +387,12 @@ Additive migration 000009 adds `agents.sdlc_role`, `session_event_cursors`,
 global sequence; uncommitted late events cannot be skipped by committed cursors.
 Message insertion, its durable event and dispatch row commit together.
 Desired/effective config heads are separate; activation failure cannot promote
-the desired revision. Migration 000010 adds explicit task bindings; assignment leases
+the desired revision. Settlement requires an existing claim, the same desired
+revision and an active drain. Success also requires confirmed reconciliation.
+Revision and head updates commit together; a concurrent head change rejects and
+rolls back settlement instead of leaving a falsely active revision. This guard
+does not provide restart recovery or a worker-ownership fencing token.
+Migration 000010 adds explicit task bindings; assignment leases
 are not implemented here yet. See [scope and blockers](SDLC_IMPLEMENTATION.md).
 
 Pinned Base preparation reuses these config revisions without a new migration.

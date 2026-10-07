@@ -363,18 +363,40 @@ pub(super) async fn finish(
     error: Option<String>,
     reconciled: bool,
 ) -> Result<(), AppError> {
+    if error.is_none() && !reconciled {
+        return Err(AppError::conflict(
+            "configuration success requires confirmed reconciliation",
+        ));
+    }
     let txn = repo.db.begin().await.map_err(AppError::database)?;
-    let changed = txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
-        "UPDATE agent_config_revisions SET state = $3, last_error = $4 WHERE agent_id = $1 AND revision = $2 AND state = 'activating'",
-        [id.into(), revision.into(), if error.is_some() { "failed" } else { "active" }.into(), error.clone().map(|error| redact_text(&error)).into()]))
-        .await.map_err(AppError::database)?;
+    let changed = txn
+        .execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE agent_config_revisions r SET state = $3, last_error = $4
+         WHERE r.agent_id = $1 AND r.revision = $2 AND r.state = 'activating'
+           AND r.claimed_at IS NOT NULL
+           AND EXISTS (SELECT 1 FROM agent_config_heads h WHERE h.agent_id = r.agent_id
+             AND h.desired_revision = r.revision AND h.draining)",
+            [
+                id.into(),
+                revision.into(),
+                if error.is_some() { "failed" } else { "active" }.into(),
+                error.clone().map(|error| redact_text(&error)).into(),
+            ],
+        ))
+        .await
+        .map_err(AppError::database)?;
     if changed.rows_affected() == 0 {
         return Err(AppError::conflict("activation state changed concurrently"));
     }
-    txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+    // A concurrent head change must roll back the revision settlement as well.
+    let head = txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "UPDATE agent_config_heads SET draining = $4, effective_revision = CASE WHEN $3 THEN effective_revision ELSE $2 END
-         WHERE agent_id = $1 AND desired_revision = $2", [id.into(), revision.into(), error.is_some().into(), (!reconciled).into()]))
+         WHERE agent_id = $1 AND desired_revision = $2 AND draining", [id.into(), revision.into(), error.is_some().into(), (!reconciled).into()]))
         .await.map_err(AppError::database)?;
+    if head.rows_affected() != 1 {
+        return Err(AppError::conflict("activation head changed concurrently"));
+    }
     txn.commit().await.map_err(AppError::database)?;
     Ok(())
 }

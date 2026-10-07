@@ -3681,6 +3681,209 @@ async fn config_revision_drains_runs_and_failed_rollback_stays_blocked() {
 }
 
 #[tokio::test]
+async fn config_revision_settlement_requires_claim_current_head_and_confirmed_success() {
+    let Some((repo, owner, _)) = fixture().await else {
+        return;
+    };
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    for case in ["unclaimed", "unconfirmed", "stale_head", "released_drain"] {
+        let id = agent(&repo).await;
+        let previous = repo
+            .create_config_revision(id, configuration(), owner)
+            .await
+            .unwrap();
+        let revision = repo
+            .create_config_revision(id, configuration(), owner)
+            .await
+            .unwrap();
+        repo.validate_config_revision(id, revision.revision, vec![])
+            .await
+            .unwrap();
+        repo.request_config_activation(id, revision.revision, owner)
+            .await
+            .unwrap();
+        if case != "unclaimed" {
+            let claimed = repo.claim_config_activation().await.unwrap().unwrap();
+            assert_eq!(
+                (claimed.agent_id, claimed.revision),
+                (id, revision.revision)
+            );
+        }
+        match case {
+            "stale_head" => {
+                db.execute(Statement::from_sql_and_values(
+                    DatabaseBackend::Postgres,
+                    "UPDATE agent_config_heads SET desired_revision=$2 WHERE agent_id=$1",
+                    [id.into(), previous.revision.into()],
+                ))
+                .await
+                .unwrap();
+            }
+            "released_drain" => {
+                db.execute(Statement::from_sql_and_values(
+                    DatabaseBackend::Postgres,
+                    "UPDATE agent_config_heads SET draining=false WHERE agent_id=$1",
+                    [id.into()],
+                ))
+                .await
+                .unwrap();
+            }
+            _ => {}
+        }
+        let snapshot = || async {
+            db.query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT jsonb_build_object('revision',to_jsonb(r),'head',to_jsonb(h)) AS value
+                 FROM agent_config_revisions r JOIN agent_config_heads h USING(agent_id)
+                 WHERE r.agent_id=$1 AND r.revision=$2",
+                [id.into(), revision.revision.into()],
+            ))
+            .await
+            .unwrap()
+            .unwrap()
+            .try_get::<serde_json::Value>("", "value")
+            .unwrap()
+        };
+        let before = snapshot().await;
+        assert!(
+            matches!(
+                repo.finish_config_activation(id, revision.revision, None, case != "unconfirmed")
+                    .await,
+                Err(shared::AppError::Conflict(_))
+            ),
+            "{case}"
+        );
+        assert_eq!(snapshot().await, before, "{case}");
+        // Keep the shared test queue empty without settling the rejected activation.
+        db.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE agent_config_revisions SET claimed_at=now() WHERE agent_id=$1 AND revision=$2",
+            [id.into(), revision.revision.into()],
+        ))
+        .await
+        .unwrap();
+    }
+}
+
+#[tokio::test]
+async fn config_revision_settlement_rolls_back_when_head_changes_during_commit() {
+    let Some((repo, owner, _)) = fixture().await else {
+        return;
+    };
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let id = agent(&repo).await;
+    let previous = repo
+        .create_config_revision(id, configuration(), owner)
+        .await
+        .unwrap();
+    let revision = repo
+        .create_config_revision(id, configuration(), owner)
+        .await
+        .unwrap();
+    repo.validate_config_revision(id, revision.revision, vec![])
+        .await
+        .unwrap();
+    repo.request_config_activation(id, revision.revision, owner)
+        .await
+        .unwrap();
+    assert_eq!(
+        repo.claim_config_activation()
+            .await
+            .unwrap()
+            .unwrap()
+            .agent_id,
+        id
+    );
+    let before = repo
+        .get_config_revision(id, revision.revision)
+        .await
+        .unwrap();
+    let concurrent = db.begin().await.unwrap();
+    let blocker: i32 = concurrent
+        .query_one(Statement::from_string(
+            DatabaseBackend::Postgres,
+            "SELECT pg_backend_pid() AS pid".to_string(),
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get("", "pid")
+        .unwrap();
+    concurrent
+        .execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE agent_config_heads SET desired_revision=$2 WHERE agent_id=$1",
+            [id.into(), previous.revision.into()],
+        ))
+        .await
+        .unwrap();
+    let completing_repo = PostgresFleetRepository::new(
+        sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+            .await
+            .unwrap(),
+    );
+    let completing = tokio::spawn(async move {
+        completing_repo
+            .finish_config_activation(id, revision.revision, None, true)
+            .await
+    });
+    // Observe the actual row-lock wait: settlement passed the first revision update.
+    let observed = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let waiting: bool = db
+                .query_one(Statement::from_sql_and_values(
+                    DatabaseBackend::Postgres,
+                    "SELECT EXISTS (SELECT 1 FROM pg_stat_activity
+                   WHERE $1 = ANY(pg_blocking_pids(pid))
+                     AND query LIKE 'UPDATE agent_config_heads SET draining%') AS waiting",
+                    [blocker.into()],
+                ))
+                .await
+                .unwrap()
+                .unwrap()
+                .try_get("", "waiting")
+                .unwrap();
+            if waiting {
+                break;
+            }
+            sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await;
+    concurrent.commit().await.unwrap();
+    let result = tokio::time::timeout(Duration::from_secs(5), completing)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(
+        observed.is_ok(),
+        "settlement never reached the expected head lock"
+    );
+    assert!(matches!(result, Err(shared::AppError::Conflict(_))));
+    let after = repo
+        .get_config_revision(id, revision.revision)
+        .await
+        .unwrap();
+    assert_eq!(after.state, before.state);
+    assert_eq!(after.last_error, before.last_error);
+    assert_eq!(
+        serde_json::to_value(after.snapshot).unwrap(),
+        serde_json::to_value(before.snapshot).unwrap()
+    );
+    assert!(!after.is_desired && !after.is_effective && after.draining);
+    assert!(
+        repo.get_effective_config_revision(id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+}
+
+#[tokio::test]
 async fn config_revision_identity_guard_fences_rebind_active_runs_and_unknown_dispatch() {
     let Some((repo, owner, _)) = fixture().await else {
         return;
