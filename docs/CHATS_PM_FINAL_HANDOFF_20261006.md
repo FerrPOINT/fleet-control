@@ -139,3 +139,9 @@ the original in-memory payload/key for explicit replay after fresh access return
 The [identity packet](assets/screens/chats-pm-identity-20261007/validation.json)
 records regression checks and the separate authenticated read-only live audit.
 No real PM task was available; the native live acceptance sequence remains open.
+
+The [7 October release packet](CHATS_PM_RELEASE_PACKET_20261007.md) preserves
+those commits through the `54a4e14` and `03c26d2` integration fast-forwards and fixes unavailable
+task context being displayed as absent requirements/assignment/binding. It
+records current published producer constraints and eight main merge conflicts;
+source/browser fixture evidence remains separate from native live acceptance.

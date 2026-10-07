@@ -329,6 +329,13 @@ function ChatWorkspace({ id }: { id: string }) {
     !signingOut && Boolean(token) && sessionFresh && (canManageApprovals || owner)
   const context = task.data?.tracker
   const taskFresh = task.isSuccess && !task.isFetching && task.failureCount === 0
+  const taskReadStatus = task.isPending
+    ? 'Загрузка контекста'
+    : task.isError || task.failureCount > 0
+      ? 'Контекст не обновлён'
+      : task.isFetching
+        ? 'Контекст обновляется'
+        : null
   const questionsFresh =
     questions.isSuccess && !questions.isFetching && questions.failureCount === 0
   const requirementsFresh =
@@ -840,9 +847,10 @@ function ChatWorkspace({ id }: { id: string }) {
         <div>
           <dt>Требования</dt>
           <dd>
-            {context?.requirement_revision
-              ? `Редакция ${context.requirement_revision}`
-              : 'Пока нет редакции'}
+            {taskReadStatus ??
+              (context?.requirement_revision
+                ? `Редакция ${context.requirement_revision}`
+                : 'Пока нет редакции')}
           </dd>
         </div>
         <div>
@@ -861,7 +869,7 @@ function ChatWorkspace({ id }: { id: string }) {
         </div>
         <div>
           <dt>Execution</dt>
-          <dd>{context?.assignment?.execution_id ?? 'Не назначен'}</dd>
+          <dd>{taskReadStatus ?? context?.assignment?.execution_id ?? 'Не назначен'}</dd>
         </div>
         <div>
           <dt>Checkpoint</dt>
@@ -870,16 +878,19 @@ function ChatWorkspace({ id }: { id: string }) {
       </dl>
       <h3>Уточнения</h3>
       <p>
-        {questions.isError
-          ? 'Источник недоступен'
-          : questions.isPending && bound
-            ? 'Загрузка уточнений'
-            : bound
-              ? `${questionList.filter((question) => question.state === 'answered').length} / ${questionList.length}`
-              : 'Нет привязки к SDLC'}
+        {taskReadStatus ??
+          (questions.isError
+            ? 'Источник недоступен'
+            : questions.isPending && bound
+              ? 'Загрузка уточнений'
+              : bound
+                ? `${questionList.filter((question) => question.state === 'answered').length} / ${questionList.length}`
+                : 'Нет привязки к SDLC')}
       </p>
       <h3>Запуски</h3>
-      {runs.isError ? (
+      {runs.isPending ? (
+        <p>Загрузка запусков</p>
+      ) : runs.isError ? (
         <ReadableError error={runs.error} />
       ) : (
         (runs.data ?? []).map((run) => (
@@ -919,6 +930,7 @@ function ChatWorkspace({ id }: { id: string }) {
         <div>
           {context?.stage && <StatusBadge value={context.stage} />}
           {waiting && <span className="fc-chat-wait">{waiting}</span>}
+          {taskReadStatus && <span role="status">{taskReadStatus}</span>}
           <Button
             ref={contextTrigger}
             variant="ghost"
@@ -957,7 +969,7 @@ function ChatWorkspace({ id }: { id: string }) {
                 Требования
               </TabsTrigger>
             </TabsList>
-            {task.isError && <ReadableError error={task.error} />}
+            {task.isError && (tab === 'dialogue' || bound) && <ReadableError error={task.error} />}
             {receipt && (
               <p role="status" className="fc-chat-notice">
                 {receipt}
@@ -1177,6 +1189,8 @@ function ChatWorkspace({ id }: { id: string }) {
               <div className="fc-chat-scroll">
                 {task.isPending ? (
                   <p>Загрузка контекста</p>
+                ) : task.isError && !bound ? (
+                  <ReadableError error={task.error} />
                 ) : !bound ? (
                   <EmptyState
                     title={
@@ -1424,6 +1438,8 @@ function ChatWorkspace({ id }: { id: string }) {
               <div className="fc-chat-scroll">
                 {task.isPending ? (
                   <p>Загрузка контекста</p>
+                ) : task.isError && !bound ? (
+                  <ReadableError error={task.error} />
                 ) : !bound ? (
                   <EmptyState title="Нет привязки к SDLC" />
                 ) : requirements.isPending ? (
