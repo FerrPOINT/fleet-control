@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { completeSso } from '@sdlc/ui/sso'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -13,6 +13,7 @@ function renderCallback() {
       <Routes>
         <Route path="/sso/callback" element={<SsoCallbackPage />} />
         <Route path="/chats" element={<h1>Chats destination</h1>} />
+        <Route path="/" element={<h1>Existing login destination</h1>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -51,6 +52,82 @@ function responses(
 }
 
 describe('SSO callback authorization', () => {
+  it('does not share an unfinished SSO exchange across a logout and remount', async () => {
+    let resolve!: (value: Awaited<ReturnType<typeof completeSso>>) => void
+    vi.mocked(completeSso).mockImplementationOnce(
+      () =>
+        new Promise((settle) => {
+          resolve = settle
+        }),
+    )
+    responses('user')
+    const original = renderCallback()
+    await waitFor(() => expect(completeSso).toHaveBeenCalledTimes(1))
+    act(() => useAuthStore.getState().logout())
+    original.unmount()
+    renderCallback()
+    await screen.findByRole('alert')
+    await act(async () =>
+      resolve({
+        accessToken: 'old-token',
+        expiresAt: Date.now() + 60_000,
+        subject: 'old-subject',
+        email: 'old@example.test',
+        name: 'Old profile',
+        returnTo: '/chats',
+      }),
+    )
+    expect(useAuthStore.getState().token).toBeNull()
+    expect(completeSso).toHaveBeenCalledTimes(1)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('does not replace an existing login from a stale callback URL', async () => {
+    responses('user')
+    useAuthStore
+      .getState()
+      .setAuth({ token: 'new-token', userId: 'new-user', email: 'new@example.test' })
+    renderCallback()
+    await screen.findByRole('heading', { name: 'Existing login destination' })
+    expect(completeSso).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
+    expect(useAuthStore.getState().token).toBe('new-token')
+  })
+
+  it.each(['new-login', 'logout'] as const)(
+    'does not apply old callback profile after %s',
+    async (change) => {
+      let resolve!: (value: Response) => void
+      const profile = new Promise<Response>((settle) => {
+        resolve = settle
+      })
+      responses('user')
+      vi.mocked(fetch).mockImplementationOnce(() => profile)
+      renderCallback()
+      await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1))
+      act(() => {
+        if (change === 'new-login')
+          useAuthStore
+            .getState()
+            .setAuth({ token: 'new-token', userId: 'new-user', email: 'new@example.test' })
+        else useAuthStore.getState().logout()
+      })
+      await act(async () =>
+        resolve(
+          Response.json({
+            id: 'local-user',
+            email: 'member@example.test',
+            username: 'member',
+            display_name: 'Member',
+          }),
+        ),
+      )
+      expect(useAuthStore.getState().token).toBe(change === 'new-login' ? 'new-token' : null)
+      expect(fetch).toHaveBeenCalledTimes(1)
+      expect(screen.queryByRole('heading', { name: 'Chats destination' })).not.toBeInTheDocument()
+    },
+  )
+
   beforeEach(() => {
     useAuthStore.getState().logout()
     vi.mocked(completeSso).mockResolvedValue({
@@ -96,6 +173,13 @@ describe('SSO callback authorization', () => {
     expect(useAuthStore.getState().token).toBeNull()
   })
 
+  it('fails closed when permissions cannot be verified', async () => {
+    responses('operator', 'local-user', 503)
+    renderCallback()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось проверить права')
+    expect(useAuthStore.getState().token).toBeNull()
+  })
+
   it('uses central backend permissions without rewriting the historical user role', async () => {
     responses('user', 'local-user', 200, ['agents:manage', 'settings:manage', 'sessions:read_all'])
     renderCallback()
@@ -105,12 +189,5 @@ describe('SSO callback authorization', () => {
       isSystemAdmin: false,
       permissions: ['agents:manage', 'settings:manage', 'sessions:read_all'],
     })
-  })
-
-  it('fails closed when permissions cannot be verified', async () => {
-    responses('operator', 'local-user', 503)
-    renderCallback()
-    expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось проверить права')
-    expect(useAuthStore.getState().token).toBeNull()
   })
 })
