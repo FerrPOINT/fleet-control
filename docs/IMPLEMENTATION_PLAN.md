@@ -28,7 +28,7 @@ Fleet wires tools or resume. See [producer gaps](GAP_REGISTER.md#exact-producer-
 Current publication boundaries: Base PR169 at `893c582` has ten successful
 exact-head checks and remains unmerged; Fleet integration at `b965298` is
 published but has no full main-target release gate. Its normal reconciliation
-with accepted main `c8093aa` preserves Base875 and unchanged integration
+with accepted main `c8093aa`, published at `683345d`, preserves Base875 and unchanged integration
 migrations;661 Linux/PG and448 frontend cases,84 three-engine fixture flows and
 controlled access-boundary regressions pass. See
 [evidence](CHAT_CLARIFICATION_VERIFICATION.md#main-history-reconciliation-8-october-2026).
@@ -49,8 +49,9 @@ prove a live PM round trip. Tracker and Workflow remain unchanged by this task.
 
 ### Next Main Release Unit
 
-Fresh readback identifies main `c8093aa`,180 integration-only commits and12
-main-only commits. Foundation PR47 is Draft/main at
+Before reconciliation, readback identified main `c8093aa`,180 integration-only
+commits and12 main-only commits. Published normal merge `683345d` retains both
+histories; that does not release the integration migration tail. Foundation PR47 is Draft/main at
 `4cc9a8ade539b9df67b9aaebf6ebe039d72814e5`, CLEAN with five successful checks.
 Its only new migration is task chats000010; its published populated-down guard
 must survive subsequent normal history reconciliation. It still does not claim

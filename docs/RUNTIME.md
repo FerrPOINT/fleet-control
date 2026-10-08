@@ -530,9 +530,14 @@ processes and restart; selected system/tools/model HMACs match the deterministic
 model's received request. See [verification](CHAT_CLARIFICATION_VERIFICATION.md#native-request-observation-8-october-2026).
 Fleet now has an explicit [renderer-3 managed install/remove and bounded Rust
 consumer](contracts/MANAGED_REQUEST_OBSERVER_V1.md), including signed rollback
-bytes/absence and original run/launch/incarnation binding. This new Fleet path's
-Linux/native acceptance is pending; the producer-only evidence above does not
-validate it. No accepted runtime was changed or consumed as admission. It reports
+bytes/absence and original run/launch/incarnation binding. The published b965298
+source has selected two-Hermes native core evidence for install/remove/rollback,
+source-tamper denial and original unknown-ACK recovery. Interrupted observer
+activation/Fleet-death and complete inventory acceptance remain pending. The
+main-reconciled source with Base875 has separate Linux/component evidence, not
+a fresh native certification from those older SDK inputs. See
+[current evidence](CHAT_CLARIFICATION_VERIFICATION.md#main-history-reconciliation-8-october-2026).
+No accepted runtime was changed or consumed as admission. It reports
 `complete=false`, `runtime_ready=false`: effective revision, full source
 inventory and post-builder transformations remain unverified. It narrows one
 observation gap without closing the full inventory requirement below.

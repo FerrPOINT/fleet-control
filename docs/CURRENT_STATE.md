@@ -2,8 +2,9 @@
 
 ## Main Reconciliation Candidate: 8 October 2026
 
-Integration b965298 and accepted main c8093aa are normally reconciled without
-rewriting either history. The candidate retains main's Base875 SDK pin and auth
+Published reconciliation `683345d4d9f894af5252c54b0f0138113caed28f` retains both
+integration b965298 and accepted main c8093aa without rewriting either history.
+The candidate retains main's Base875 SDK pin and auth
 fixes; integration migrations remain byte-for-byte unchanged. Merge-boundary
 private-owner and Tracker project guards now cover directory counts/cursors,
 task history/context/controls and global task SSE, with actual PG/HTTP/SSE
