@@ -1,0 +1,69 @@
+
+> fleet-control-frontend@0.2.0 screenshots:verify C:\git\azhukov\sdlc\.local\chats-integration-20261008\fleet-control\frontend
+> node --test scripts/verify-screenshots.test.mjs && node scripts/verify-screenshots.mjs
+
+TAP version 13
+# Subtest: complete three-viewport fixture passes hash, route and dimension checks
+ok 1 - complete three-viewport fixture passes hash, route and dimension checks
+  ---
+  duration_ms: 272.9517
+  type: 'test'
+  ...
+# Subtest: rejects changed content
+ok 2 - rejects changed content
+  ---
+  duration_ms: 215.6919
+  type: 'test'
+  ...
+# Subtest: rejects changed hash
+ok 3 - rejects changed hash
+  ---
+  duration_ms: 261.3269
+  type: 'test'
+  ...
+# Subtest: rejects changed dimension
+ok 4 - rejects changed dimension
+  ---
+  duration_ms: 246.0221
+  type: 'test'
+  ...
+# Subtest: rejects duplicate path
+ok 5 - rejects duplicate path
+  ---
+  duration_ms: 200.553
+  type: 'test'
+  ...
+# Subtest: rejects wrong count
+ok 6 - rejects wrong count
+  ---
+  duration_ms: 200.9027
+  type: 'test'
+  ...
+# Subtest: rejects live evidence claim
+ok 7 - rejects live evidence claim
+  ---
+  duration_ms: 247.1525
+  type: 'test'
+  ...
+# Subtest: rejects missing mobile route
+ok 8 - rejects missing mobile route
+  ---
+  duration_ms: 199.678
+  type: 'test'
+  ...
+# Subtest: rejects path traversal
+ok 9 - rejects path traversal
+  ---
+  duration_ms: 206.3818
+  type: 'test'
+  ...
+1..9
+# tests 9
+# suites 0
+# pass 9
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2152.9153
+Verified 135 screenshots across 3 viewports.

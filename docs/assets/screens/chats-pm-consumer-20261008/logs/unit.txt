@@ -1,0 +1,12 @@
+
+> fleet-control-frontend@0.2.0 test C:\git\azhukov\sdlc\.local\chats-integration-20261008\fleet-control\frontend
+> vitest run
+
+
+ RUN  v4.1.11 C:/git/azhukov/sdlc/.local/chats-integration-20261008/fleet-control/frontend
+
+
+ Test Files  35 passed (35)
+      Tests  455 passed (455)
+   Start at  10:01:58
+   Duration  36.32s (transform 2.50s, setup 5.99s, import 25.71s, tests 52.42s, environment 20.18s)

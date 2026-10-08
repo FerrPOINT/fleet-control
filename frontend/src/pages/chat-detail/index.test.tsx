@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ChatDetailPage } from './index'
+import { RequirementsDiff } from './requirements-diff'
 import { AuthBoundary } from '@/app/auth-boundary'
 import * as fleet from '@/api/fleet'
 import * as chats from '@/api/task-chats'
@@ -193,6 +194,162 @@ beforeEach(() => {
   })
 })
 describe('production chat', () => {
+  it('keeps a durable hold when a late answer ACK is followed by a rejected replay', async () => {
+    let acknowledge!: () => void
+    vi.mocked(chats.answerClarification)
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            acknowledge = () =>
+              resolve({
+                id: 'answer',
+                question_id: question.id,
+                question_version: 1,
+                requirement_revision: 3,
+                selected_option_ids: ['project'],
+                text: null,
+                comment: null,
+                author_subject: 'subject-owner',
+                created_at: revision.created_at,
+              })
+          }),
+      )
+      .mockRejectedValueOnce(new ApiError(403, 'Rejected replay'))
+    const { client, unmount } = renderPage('clarification')
+    await userEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+    await waitFor(() => expect(chats.answerClarification).toHaveBeenCalledTimes(1))
+    await act(async () => {
+      useAuthStore.setState({ token: 'another-token', userId: 'other' })
+      acknowledge()
+    })
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Повторить исходный ответ' })).toBeDisabled(),
+    )
+    await act(async () => {
+      useAuthStore.setState({ token: 'returned-token', userId: 'owner' })
+      await client.invalidateQueries({ queryKey: ['session', 'session1'] })
+    })
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Повторить исходный ответ' })).toBeEnabled(),
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Повторить исходный ответ' }))
+    await screen.findByText('Rejected replay')
+    expect(sessionStorage.getItem('fleet-control.chat-dispatch.v1:answer:session1')).not.toBeNull()
+    unmount()
+    renderPage('clarification')
+    await screen.findByText(/Исходный ответ требует сверки после перезагрузки/)
+    expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+  })
+  it.each(['prompt', 'answer', 'confirmation'] as const)(
+    'holds an unknown %s after remount even when the producer permits a new command',
+    async (operation) => {
+      const mutation =
+        operation === 'prompt'
+          ? fleet.createSessionMessage
+          : operation === 'answer'
+            ? chats.answerClarification
+            : chats.confirmRequirements
+      vi.mocked(mutation).mockRejectedValueOnce(new Error('Lost original receipt'))
+      if (operation === 'prompt') {
+        vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+        vi.mocked(chats.getChatControls).mockResolvedValue({
+          can_send: true,
+          can_steer: false,
+          can_stop: false,
+          active_run_id: null,
+          blocked_reason: null,
+        })
+      }
+      const tab =
+        operation === 'prompt'
+          ? 'dialogue'
+          : operation === 'answer'
+            ? 'clarification'
+            : 'requirements'
+      const first = renderPage(tab)
+      if (operation === 'prompt')
+        await userEvent.type(
+          await screen.findByLabelText('Сообщение агенту'),
+          'Private text never persisted',
+        )
+      else if (operation === 'answer') {
+        await userEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))
+        await userEvent.type(screen.getByLabelText('Комментарий'), 'Private text never persisted')
+      } else
+        await userEvent.click(await screen.findByRole('checkbox', { name: /Подтверждаю цель/ }))
+      const submit =
+        operation === 'prompt'
+          ? 'Отправить сообщение'
+          : operation === 'answer'
+            ? 'Сохранить ответ'
+            : 'Подтвердить редакцию 3'
+      await userEvent.click(screen.getByRole('button', { name: submit }))
+      await screen.findByText('Lost original receipt')
+      const stored = JSON.stringify(Object.values(sessionStorage))
+      expect(stored).not.toContain('Private text never persisted')
+      expect(stored).not.toContain('fixture-token')
+      expect(stored).toContain('digest')
+      first.unmount()
+      renderPage(tab)
+      await screen.findByText(/требует сверки после перезагрузки/)
+      expect(screen.getByRole('button', { name: submit })).toBeDisabled()
+      expect(mutation).toHaveBeenCalledTimes(1)
+    },
+  )
+  it('compares changed document fields while retaining empty values and array order', () => {
+    render(
+      <RequirementsDiff
+        before={revision}
+        after={{
+          ...revision,
+          revision: 4,
+          goal: 'Revised goal',
+          constraints: ['Only authorised users'],
+          scope: [],
+        }}
+      />,
+    )
+    const diff = screen.getByRole('region', { name: 'Изменения требований' })
+    expect(within(diff).getByText('Настоящие требования')).toBeVisible()
+    expect(within(diff).getByText('Revised goal')).toBeVisible()
+    expect(within(diff).getByText('Only authorised users')).toBeVisible()
+    expect(within(diff).getAllByText('Пусто')).toHaveLength(2)
+    expect(within(diff).queryByText('Критерии приёмки')).not.toBeInTheDocument()
+  })
+  it('does not treat authorship or hash metadata changes as document edits', () => {
+    render(
+      <RequirementsDiff
+        before={revision}
+        after={{
+          ...revision,
+          revision: 4,
+          content_hash: 'changed',
+          author_subject: 'another-author',
+        }}
+      />,
+    )
+    expect(screen.getByText('Содержимое документа не изменилось.')).toBeVisible()
+  })
+  it('shows a concrete Tracker hold without granting confirmation or prompt dispatch', async () => {
+    vi.mocked(chats.getTaskContext).mockResolvedValue({
+      ...context,
+      tracker: {
+        ...context.tracker!,
+        permissions: { can_answer: false, can_confirm: false },
+        waiting_reason: 'Не готов prerequisite: обязательные ответы',
+      },
+    })
+    renderPage('requirements')
+    expect(
+      await screen.findByText(
+        'Подтверждение недоступно: Не готов prerequisite: обязательные ответы',
+      ),
+    ).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Подтвердить редакцию 3' })).toBeDisabled()
+    expect(chats.confirmRequirements).not.toHaveBeenCalled()
+    expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+  })
   it.each(['pending', 'failed'] as const)(
     'does not present absent task facts as authoritative while context is %s',
     async (state) => {
