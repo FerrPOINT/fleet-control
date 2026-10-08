@@ -1,5 +1,11 @@
 # Runtime
 
+PM credential preparation now verifies the closed Tracker lease readback before
+returning its memory-only child credential. Active/expired or inconsistent
+evidence holds; no lease mutation, Workflow bind or model call follows this
+primitive. [The contract](contracts/PM_EXECUTION_LEASE_READBACK_V1.md) keeps
+historical receipts separate from current renewal and SDLC readiness.
+
 ## Configuration Activation Process Lock
 
 Before planning backups or performing configuration effects, the Linux

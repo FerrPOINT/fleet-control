@@ -1,5 +1,12 @@
 # Security
 
+Machine-only PM lease readback binds the acknowledged child/journal and reserved
+machine subject before outbound HTTP, then checks fresh central introspection
+and Tracker owner/assignment. Fixed origin, five-second/16 KiB exact-JSON GET,
+no redirects/retries and closed canonical evidence prevent receipt substitution.
+Auth/dependency failures never echo upstream bodies or create model authority.
+See [contract](contracts/PM_EXECUTION_LEASE_READBACK_V1.md).
+
 ## Browser Sign-Out Is Scoped To Its Original Login
 
 Deferred pagehide cleanup checks the original generation/token/user identity and pending

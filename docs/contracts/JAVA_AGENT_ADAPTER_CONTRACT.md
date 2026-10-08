@@ -1,5 +1,8 @@
 # Java Agent Adapter Contract
 
+The [PM lease prerequisite](PM_EXECUTION_LEASE_READBACK_V1.md) supplies no Java
+chat/control capability or SDLC admission; existing lifecycle limits are unchanged.
+
 The original container preparation readback and signed activation rollback
 consumer are Hermes-only. `reconcile_preparation` adds no Java image, lifecycle,
 chat/control or SDLC authority. Native Java jar readiness and the existing Docker

@@ -1,5 +1,11 @@
 # API
 
+Machine-only PM lease GET is an internal outbound Tracker operation, not a new
+Fleet/browser endpoint. It requires the acknowledged delegated credential and
+original reservation; failure preserves awaiting-admission rather than dispatch.
+Fleet OpenAPI and public DTOs are unchanged. See
+[contract](contracts/PM_EXECUTION_LEASE_READBACK_V1.md).
+
 Original preparation recovery adds only the private Base control action
 `reconcile_preparation`; its fields match `prepare` and require original retained
 identity, not a browser-supplied receipt. Missing DB/native custody returns the

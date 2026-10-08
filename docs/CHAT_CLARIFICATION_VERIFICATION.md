@@ -1,5 +1,58 @@
 # Chat Clarification Verification
 
+## PM Execution Lease Readback: 8 October 2026
+
+Source consumer now performs the machine-only closed Tracker lease GET after
+delegated child ACK and fresh Base/Tracker identity/context. It requires exact
+reservation machine subject, binding/fence/owner, canonical versions/timestamps
+and original command/hash history; creation holds active/expired leases without
+claim, Workflow mutation or model request. See
+[contract](contracts/PM_EXECUTION_LEASE_READBACK_V1.md).
+
+Independent static review identified two P2 findings: direct readback omitted
+the saved reservation's machine subject, and an HTTP history regression used
+the unit-returning fixture wrapper as a credential. Both are fixed and closed
+by counter-review; the added direct-call regression checks rejection before HTTP.
+Static closure does not substitute for execution tests.
+
+Initial SDK preflight `7f200568c69d` failed before starting services: the reused
+SDK path had advanced to875cac2, while this candidate pinscbb4e99. No checkout
+was reset; a separate clean exact-pin SDK checkout is used for the fresh gate.
+Initial frozen source gate `5ceeb7b3e1ac` remains FAILED with the old HTTP-test
+type error; its passing subsets are not final validation.
+
+Corrected-source packet `d17af03c5946`, Compose project
+`sdlc-qa-fleet-container-control-b76803abef78`, passes Rust1.88 fmt, all-target
+workspace check and strict Clippy, workspace tests and source-generated OpenAPI.
+Actual disposable PostgreSQL is configured:639 tests pass, zero fail and32
+explicit opt-in cases remain ignored; the log has no missing-database skip.
+Eleven new domain cases pass. Four new HTTP/PostgreSQL cases exercise foreign/
+malformed/active/expired evidence, five-second timeout preserving child ACK,
+exact original-key historic readback/hash rejection and changed saved machine
+subject rejection before HTTP. The215-case foundation suite passes with two
+explicit ignores. Assertions verify no lease POST, no runtime run and unchanged
+durable child receipt; these are controlled HTTP producer tests, not actual
+Tracker/Base server interoperability or workflow/model acceptance.
+
+| Evidence | SHA256 |
+| --- | --- |
+| 316-file frozen manifest | `1daa48c87189d7d8a057c2b077e7fe0475908b8abfb73ec0cac89d6623fba443` |
+| Linux/Rust/PostgreSQL log | `221079d69cee7c8d068e65a0e859818dbcb3b7fff512d4e42931e42e72b8ff4e` |
+| Generated OpenAPI JSON | `1f1f4dd872d53925597cf91b98301d940dd85481b857af85b7a325e056e41667` |
+
+All316 hashes are rechecked against the current Fleet source and clean pinned
+Base SDK. Generated OpenAPI is semantically identical to the committed schema.
+Node22 Markdown link validation passes138 documents before final evidence edits;
+the final publication repeats it. QA report records containers/networks absent
+and cleanup successful. A later independent Engine query is unavailable because
+the desktop Docker pipe is absent; do not describe that query as clean inventory
+or start another gate merely because its prior execution handle is gone.
+
+No migration, public API, SDK/image pin, frontend screenshot or installed runtime
+change. Exact-head release CI, actual producer lease interoperability, claim/
+heartbeat/quiescence, trusted non-circular first step, complete loaded inventory,
+PM tools/answer delivery/checkpoint/resume and seven-agent SDLC remain required.
+
 ## Preparation Readback: 8 October 2026
 
 Base producer [PR169](https://github.com/FerrPOINT/services-base/pull/169) publishes

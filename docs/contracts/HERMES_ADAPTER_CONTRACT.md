@@ -1,5 +1,9 @@
 # Hermes Adapter Contract
 
+The [PM lease prerequisite](PM_EXECUTION_LEASE_READBACK_V1.md) creates no Hermes
+run/control request. Original native dispatch and unknown-outcome rules remain
+unchanged; a successful lease GET is not readiness or first-step permission.
+
 Pending automatic preparation uses existing-only Fleet claim verification and
 Base's distinct original `reconcile_preparation`, never a repeated prepare/create.
 Retained prepared receipts do not recreate missing DB custody. Unknown start

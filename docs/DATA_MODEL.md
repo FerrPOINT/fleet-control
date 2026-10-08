@@ -1,5 +1,10 @@
 # Data Model
 
+PM execution lease readback is ephemeral typed Tracker evidence, not a new Fleet
+lease table or durable dispatch permission. The existing credential journal's
+intent/ACK remains unchanged after readback failure; no backfill, migration or
+run is created. See [contract](contracts/PM_EXECUTION_LEASE_READBACK_V1.md).
+
 Original preparation readback verifies the existing
 `runtime_container_preparations` row under the same agent/runtime/configuration/
 history locks used for the first claim. Its existing-only branch cannot insert

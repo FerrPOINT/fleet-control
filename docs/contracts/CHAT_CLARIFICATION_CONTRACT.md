@@ -4,6 +4,18 @@ Status: agreed target contract; deployment compatibility must be verified.
 
 ## Identity And Ownership
 
+### Execution Lease Readback: 8 October 2026
+
+Fleet now consumes the closed Tracker114 machine-only lease GET after delegated
+credential ACK and fresh introspection/context. The original reservation,
+machine subject, owner/version and historical command/hash are verified; active
+or expired creation claims hold without mutation. Required nullable fields and
+false dispatch authority cannot be normalized away. See
+[the internal contract](PM_EXECUTION_LEASE_READBACK_V1.md). This does not implement
+lease claims/heartbeats, pre-model first-step admission or PM continuation.
+Workflow90 now publishes `11398711aa04605bc1a618622a84ae648e6de0c8`; its only
+change from44e7183 is an OpenAPI description, not new admission authority.
+
 ### Producer Release Readback: 7 October 2026
 
 Tracker PR114 is now Draft against main at

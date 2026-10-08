@@ -1,5 +1,20 @@
 # Current State
 
+## PM Execution Lease Readback: 8 October 2026
+
+The production machine-only credential coordinator now consumes the exact closed
+Tracker lease GET before returning the prepared child credential. Original
+reservation/subject/owner/version, fresh introspection/context and historical
+command/hash are verified; active/expired creation claims hold without mutations.
+Independent review's two P2 findings are fixed and counter-reviewed. Fresh
+Linux/Rust1.88 actual PostgreSQL gate passes639 tests with32 explicit opt-in
+ignores, all-target check/strict Clippy/fmt and unchanged generated OpenAPI.
+Eleven domain and four new HTTP/PG regressions pass;316 source hashes match.
+See [evidence](CHAT_CLARIFICATION_VERIFICATION.md#pm-execution-lease-readback-8-october-2026).
+This is not live producer interoperability, claim/heartbeat scheduling, workflow
+first-step/model admission or PM resume. The QA report confirms cleanup; a later
+independent Engine check is unavailable. No installed runtime is changed.
+
 ## Original Preparation Custody: 8 October 2026
 
 The source consumer now reconciles an original pending container preparation

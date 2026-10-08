@@ -1,5 +1,13 @@
 # Architecture
 
+The machine-only PM credential coordinator now consumes fresh Tracker execution
+lease readback with the original child/journal and current owner/assignment.
+Creation accepts only unclaimed evidence; retained or expired claims require
+reconciliation and never create another run. Historical command receipts are
+separate from current lease state. See
+[contract](contracts/PM_EXECUTION_LEASE_READBACK_V1.md); first-step/admission and
+PM orchestration remain independent blockers.
+
 Recovered-controller containment is a narrow candidate path, not general runtime
 adoption. The supervisor admits one original-generation namespace stop only
 after fresh DB/native custody proof. A stable stop intent and claimed envelope

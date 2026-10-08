@@ -75,13 +75,26 @@ impl PmCredentialCoordinator {
         authorization: header::HeaderValue,
         limit: usize,
     ) -> Result<serde_json::Value, AppError> {
-        let mut response = self
+        let request = self
             .issuer
             .client
             .get(url)
             .header(header::AUTHORIZATION, authorization)
             .header(header::ACCEPT_ENCODING, "identity")
-            .send()
+            .build()
+            .map_err(|_| unavailable())?;
+        self.read_json(request, limit).await
+    }
+
+    async fn read_json(
+        &self,
+        request: reqwest::Request,
+        limit: usize,
+    ) -> Result<serde_json::Value, AppError> {
+        let mut response = self
+            .issuer
+            .client
+            .execute(request)
             .await
             .map_err(|_| unavailable())?;
         match response.status() {
@@ -120,6 +133,67 @@ impl PmCredentialCoordinator {
             bytes.extend_from_slice(&chunk);
         }
         serde_json::from_slice(&bytes).map_err(|_| unavailable())
+    }
+
+    /// A fresh prerequisite observation, never lease ownership or model permission.
+    pub async fn read_execution_lease(
+        &self,
+        operation: &PmDraftOperation,
+        credential: &PmDelegatedCredential,
+        original: Option<&domain::PmExecutionLeaseCommand>,
+    ) -> Result<domain::PmExecutionLeaseReadback, AppError> {
+        let identity = operation.identity()?;
+        let journal = operation.credentials.as_ref().ok_or_else(unavailable)?;
+        let receipt = journal.receipt.as_ref().ok_or_else(unavailable)?;
+        if operation
+            .reservation
+            .as_ref()
+            .ok_or_else(unavailable)?
+            .assignment
+            .machine_subject
+            != self.subject
+            || journal.intent != self.intent(operation)?
+            || receipt.token_id != credential.token_id
+            || receipt.expires_at != credential.expires_at
+            || receipt.scopes
+                != PmCredentialCommand::tracker(
+                    &operation.execution_identity()?,
+                    operation.credential_key(),
+                    self.ttl_seconds,
+                )?
+                .scopes()
+        {
+            return Err(AppError::conflict("PM lease credential binding changed"));
+        }
+        self.principal(credential.bearer.clone(), &receipt.scopes)
+            .await?;
+        self.context(operation, credential).await?;
+        let mut url = self.issuer.tracker_origin.clone();
+        url.set_path(&format!(
+            "/api/v1/issues/{}/sdlc/pm-draft-execution-lease",
+            identity.task_id
+        ));
+        if let Some(command) = original {
+            url.query_pairs_mut()
+                .append_pair("idempotency_key", command.idempotency_key());
+        }
+        let request = credential.authorize(
+            self.issuer
+                .client
+                .get(url)
+                .timeout(Duration::from_secs(5))
+                .header(header::CACHE_CONTROL, "no-cache, no-store")
+                .header(header::ACCEPT_ENCODING, "identity"),
+        )?;
+        let value = self.read_json(request, MAX_RESPONSE_BYTES).await?;
+        if credential.expires_at <= Utc::now() {
+            return Err(AppError::Unauthorized);
+        }
+        domain::PmExecutionLeaseReadback::verified(
+            value,
+            operation.reservation.as_ref().ok_or_else(unavailable)?,
+            original,
+        )
     }
 
     async fn principal(
@@ -236,9 +310,14 @@ impl PmCredentialCoordinator {
                 PmDraftProof::CredentialAcknowledged(receipt),
             )
             .await?;
-        self.principal(credential.bearer.clone(), command.scopes())
-            .await?;
-        self.context(&saved, &credential).await?;
+        // Creation owns no execution lease yet. A retained/expired claim cannot be
+        // adopted from readback or repaired by issuing another lease command.
+        let lease = self.read_execution_lease(&saved, &credential, None).await?;
+        if lease.state != domain::PmExecutionLeaseState::Unclaimed {
+            return Err(AppError::conflict(
+                "PM execution lease requires original-key reconciliation",
+            ));
+        }
         Ok(credential)
     }
 }

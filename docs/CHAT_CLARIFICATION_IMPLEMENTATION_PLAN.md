@@ -96,6 +96,17 @@ for compatible projects. Disable stops new assignments without deleting history.
 
 ## Implementation Ledger
 
+The machine-only Tracker lease readback is now implemented after delegated child
+ACK, fresh introspection/context and exact reservation machine-subject checks.
+It retains closed canonical wire fields and original command/hash history, with
+zero claim/heartbeat/Workflow/model effects; active/expired claims hold creation.
+See [contract](contracts/PM_EXECUTION_LEASE_READBACK_V1.md) and
+[verification](CHAT_CLARIFICATION_VERIFICATION.md#pm-execution-lease-readback-8-october-2026).
+Trusted non-circular first step, current lease claim/heartbeat scheduling,
+structured PM tools, safe answer delivery/rebind/resume and real owner acceptance
+are still required. The parallel Chats consumer and Forge release are separate
+packets, not substitutes for these execution gates.
+
 Implemented: Fleet immutable bindings/history/gateway and production chat tabs; Tracker
 versioned state and owner/machine boundaries; Workflow checkpoint/continuation contract.
 Verified Fleet evidence is recorded in CURRENT_STATE; service-specific tests belong to

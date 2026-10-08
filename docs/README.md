@@ -12,6 +12,7 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 - [Chats/PM consumer handoff](CHATS_PM_CONSUMER_HANDOFF_20261006.md)
 - [Chats/PM preview evidence, not live acceptance](assets/design/chats-pm-consumer/manifest.json)
 - [Chat clarification contract](contracts/CHAT_CLARIFICATION_CONTRACT.md)
+- [Machine-only PM execution lease readback](contracts/PM_EXECUTION_LEASE_READBACK_V1.md)
 - [PM clarification owner gateway ADR](adr/0013-pm-clarification-owner-gateway.md)
 - [Persisted PM credential preparation ADR](adr/0014-persisted-pm-credential-preparation.md)
 - [Accepted run session readback ADR](adr/0015-accepted-run-session-readback.md)

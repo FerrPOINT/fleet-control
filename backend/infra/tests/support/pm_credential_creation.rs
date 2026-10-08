@@ -24,6 +24,10 @@ struct Remote {
     children: AtomicUsize,
     contexts: AtomicUsize,
     mode: AtomicUsize,
+    lease_mode: AtomicUsize,
+    leases: AtomicUsize,
+    lease_posts: AtomicUsize,
+    lease_queries: Mutex<Vec<Option<String>>>,
 }
 
 async fn introspection(
@@ -142,6 +146,111 @@ struct Fixture {
     server: tokio::task::JoinHandle<()>,
 }
 
+async fn lease_readback(
+    State(remote): State<Arc<Remote>>,
+    headers: HeaderMap,
+    axum::extract::Query(query): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    assert_eq!(headers["authorization"], format!("Bearer {CHILD}"));
+    assert_eq!(headers["cache-control"], "no-cache, no-store");
+    assert_eq!(headers["accept-encoding"], "identity");
+    remote.leases.fetch_add(1, Ordering::SeqCst);
+    remote
+        .lease_queries
+        .lock()
+        .await
+        .push(query.get("idempotency_key").cloned());
+    let mode = remote.lease_mode.load(Ordering::SeqCst);
+    let reservation = remote.operation.reservation.as_ref().unwrap();
+    let now = chrono::Utc::now();
+    let nanos = |value: chrono::DateTime<chrono::Utc>| {
+        value.to_rfc3339_opts(chrono::SecondsFormat::Nanos, true)
+    };
+    let mut value = json!({"contract_version":1,"binding":reservation.binding,
+        "owner_version":reservation.owner_cas.version,"fence":{
+            "assignment_id":reservation.assignment.assignment_id,
+            "execution_id":reservation.assignment.execution_id,
+            "agent_id":reservation.assignment.agent_id,
+            "assignment_version":reservation.assignment.version},
+        "observed_at":nanos(now),"state":"unclaimed","current":null,"operation":null,
+        "dispatch_allowed":false});
+    match mode {
+        1 => value["binding"]["owner_subject"] = json!(Uuid::new_v4()),
+        2 => value["dispatch_allowed"] = json!(true),
+        3 => {
+            value.as_object_mut().unwrap().remove("current");
+        }
+        4 => value["fence"]["execution_id"] = json!(Uuid::new_v4()),
+        5 | 6 => {
+            let heartbeat = if mode == 5 {
+                now
+            } else {
+                now - chrono::Duration::seconds(31)
+            };
+            value["state"] = json!(if mode == 5 { "active" } else { "expired" });
+            value["current"] = json!({"lease_id":Uuid::new_v4(),"version":1,
+                "holder_subject":remote.subject,"claimed_at":nanos(heartbeat),
+                "heartbeat_at":nanos(heartbeat),
+                "expires_at":nanos(heartbeat + chrono::Duration::seconds(30))});
+        }
+        7 => return (StatusCode::FORBIDDEN, Json(json!({"secret":CHILD}))).into_response(),
+        8 => {
+            return (
+                StatusCode::TEMPORARY_REDIRECT,
+                [("location", "/auth/tokens/delegate")],
+            )
+                .into_response();
+        }
+        9 => value["oversized"] = json!("x".repeat(16_385)),
+        10 => return ([("content-encoding", "gzip")], Json(value)).into_response(),
+        11 => tokio::time::sleep(Duration::from_secs(6)).await,
+        12 => value["owner_version"] = json!(1.0),
+        13 | 14 => {
+            let claimed = now - chrono::Duration::seconds(20);
+            let lease_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+            value["state"] = json!("active");
+            value["current"] = json!({"lease_id":lease_id,"version":3,
+                "holder_subject":remote.subject,"claimed_at":nanos(claimed),
+                "heartbeat_at":nanos(now),"expires_at":nanos(now + chrono::Duration::seconds(30))});
+            let command = lease_claim(&remote);
+            let mut historical = value["current"].clone();
+            historical["version"] = json!(1);
+            historical["heartbeat_at"] = json!(nanos(claimed));
+            historical["expires_at"] = json!(nanos(claimed + chrono::Duration::seconds(30)));
+            value["operation"] = json!({"idempotency_key":command.idempotency_key(),
+                "request_sha256":command.request_sha256(),"result":{
+                    "contract_version":1,"binding":reservation.binding,
+                    "owner_version":reservation.owner_cas.version,"fence":value["fence"],
+                    "lease":historical,"ttl_seconds":30,"heartbeat_seconds":10,"dispatch_allowed":false}});
+            if mode == 14 {
+                value["operation"]["request_sha256"] = json!("a".repeat(64));
+            }
+        }
+        _ => (),
+    }
+    Json(value).into_response()
+}
+
+fn lease_claim(remote: &Remote) -> domain::PmExecutionLeaseCommand {
+    let reservation = remote.operation.reservation.as_ref().unwrap();
+    domain::PmExecutionLeaseCommand::Claim(domain::PmExecutionLeaseClaim {
+        expected_owner_version: reservation.owner_cas.version,
+        fence: domain::PmExecutionLeaseFence {
+            assignment_id: reservation.assignment.assignment_id,
+            execution_id: reservation.assignment.execution_id,
+            agent_id: reservation.assignment.agent_id,
+            assignment_version: reservation.assignment.version,
+        },
+        idempotency_key: "original-lease-claim".into(),
+    })
+}
+
+async fn lease_mutation(State(remote): State<Arc<Remote>>) -> StatusCode {
+    remote.lease_posts.fetch_add(1, Ordering::SeqCst);
+    StatusCode::FORBIDDEN
+}
+
 impl Drop for Fixture {
     fn drop(&mut self) {
         self.server.abort();
@@ -168,6 +277,10 @@ async fn fixture() -> Option<Fixture> {
         children: AtomicUsize::new(0),
         contexts: AtomicUsize::new(0),
         mode: AtomicUsize::new(0),
+        lease_mode: AtomicUsize::new(0),
+        leases: AtomicUsize::new(0),
+        lease_posts: AtomicUsize::new(0),
+        lease_queries: Mutex::new(Vec::new()),
     });
     let router = Router::new()
         .route("/auth/tokens/introspect", get(introspection))
@@ -178,6 +291,13 @@ async fn fixture() -> Option<Fixture> {
                 remote.operation.identity().unwrap().task_id
             ),
             get(context),
+        )
+        .route(
+            &format!(
+                "/api/v1/issues/{}/sdlc/pm-draft-execution-lease",
+                remote.operation.identity().unwrap().task_id
+            ),
+            get(lease_readback).post(lease_mutation),
         )
         .with_state(remote.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -221,6 +341,151 @@ impl Fixture {
             .await
             .map(|_| ())
     }
+}
+
+#[tokio::test]
+async fn pm_credentials_pg_lease_readback_holds_foreign_malformed_claimed_and_expired_without_dispatch()
+ {
+    let Some(fixture) = fixture().await else {
+        return;
+    };
+    fixture.prepare().await.unwrap();
+    let saved = fixture.operation().await;
+    assert_eq!(fixture.remote.leases.load(Ordering::SeqCst), 1);
+    for mode in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12] {
+        fixture.remote.lease_mode.store(mode, Ordering::SeqCst);
+        let error = fixture.prepare().await.unwrap_err();
+        assert!(!error.to_string().contains(CHILD), "mode={mode}");
+        assert_eq!(saved.credentials, fixture.operation().await.credentials);
+        assert!(
+            fixture
+                .remote
+                .repo
+                .list_session_agent_runs(saved.session_id.unwrap())
+                .await
+                .unwrap()
+                .is_empty()
+        );
+    }
+    fixture.remote.lease_mode.store(0, Ordering::SeqCst);
+    fixture.prepare().await.unwrap();
+    assert_eq!(fixture.remote.children.load(Ordering::SeqCst), 1);
+    assert_eq!(fixture.remote.lease_posts.load(Ordering::SeqCst), 0);
+    assert_eq!(saved.credentials, fixture.operation().await.credentials);
+    assert!(!saved.response().dispatch_allowed);
+}
+
+#[tokio::test]
+async fn pm_credentials_pg_lease_original_key_readback_preserves_history_without_claim_or_renewal()
+{
+    let Some(fixture) = fixture().await else {
+        return;
+    };
+    let coordinator = PmCredentialCoordinator::configured(&fixture.config)
+        .unwrap()
+        .unwrap();
+    let credential = coordinator
+        .prepare_credential(fixture.remote.repo.as_ref(), &fixture.operation().await)
+        .await
+        .unwrap();
+    let saved = fixture.operation().await;
+    let command = lease_claim(&fixture.remote);
+    fixture.remote.lease_mode.store(13, Ordering::SeqCst);
+    let readback = coordinator
+        .read_execution_lease(&saved, &credential, Some(&command))
+        .await
+        .unwrap();
+    assert_eq!(readback.current.unwrap().version, 3);
+    assert_eq!(readback.operation.unwrap().result.lease.version, 1);
+    assert!(!readback.dispatch_allowed);
+    fixture.remote.lease_mode.store(14, Ordering::SeqCst);
+    assert!(matches!(
+        coordinator
+            .read_execution_lease(&saved, &credential, Some(&command))
+            .await,
+        Err(shared::AppError::Conflict(_))
+    ));
+    fixture.remote.lease_mode.store(13, Ordering::SeqCst);
+    assert!(
+        coordinator
+            .read_execution_lease(&saved, &credential, None)
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        *fixture.remote.lease_queries.lock().await,
+        vec![
+            None,
+            Some(command.idempotency_key().into()),
+            Some(command.idempotency_key().into()),
+            None
+        ]
+    );
+    assert_eq!(fixture.remote.posts.load(Ordering::SeqCst), 1);
+    assert_eq!(fixture.remote.lease_posts.load(Ordering::SeqCst), 0);
+    assert_eq!(saved.credentials, fixture.operation().await.credentials);
+    assert!(
+        fixture
+            .remote
+            .repo
+            .list_session_agent_runs(saved.session_id.unwrap())
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn pm_credentials_pg_direct_lease_readback_rejects_changed_machine_before_http() {
+    let Some(fixture) = fixture().await else {
+        return;
+    };
+    let coordinator = PmCredentialCoordinator::configured(&fixture.config)
+        .unwrap()
+        .unwrap();
+    let credential = coordinator
+        .prepare_credential(fixture.remote.repo.as_ref(), &fixture.operation().await)
+        .await
+        .unwrap();
+    let mut changed = fixture.operation().await;
+    changed
+        .reservation
+        .as_mut()
+        .unwrap()
+        .assignment
+        .machine_subject = Uuid::new_v4().to_string();
+    assert!(matches!(
+        coordinator
+            .read_execution_lease(&changed, &credential, None)
+            .await,
+        Err(shared::AppError::Conflict(_))
+    ));
+    assert_eq!(fixture.remote.leases.load(Ordering::SeqCst), 1);
+    assert_eq!(fixture.remote.contexts.load(Ordering::SeqCst), 1);
+    assert_eq!(fixture.remote.lease_posts.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn pm_credentials_pg_lease_readback_timeout_preserves_ack_and_does_not_claim_or_retry() {
+    let Some(fixture) = fixture().await else {
+        return;
+    };
+    fixture.remote.lease_mode.store(11, Ordering::SeqCst);
+    let error = fixture.prepare().await.unwrap_err();
+    assert!(matches!(error, shared::AppError::Unavailable(_)));
+    let saved = fixture.operation().await;
+    assert!(saved.credentials.as_ref().unwrap().receipt.is_some());
+    assert_eq!(fixture.remote.leases.load(Ordering::SeqCst), 1);
+    assert_eq!(fixture.remote.lease_posts.load(Ordering::SeqCst), 0);
+    assert!(
+        fixture
+            .remote
+            .repo
+            .list_session_agent_runs(saved.session_id.unwrap())
+            .await
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[tokio::test]

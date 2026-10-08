@@ -1,5 +1,19 @@
 # Gap Register
 
+## PM Lease Consumer: 8 October 2026
+
+**Closed for typed source and controlled HTTP/PostgreSQL readback only.** The
+credential coordinator now reads Tracker's lease with the acknowledged original
+child/journal, verifies saved machine subject before HTTP and retains strict
+binding/version/time/key/hash semantics. Eleven domain and four new actual PG
+cases pass within639 workspace cases;32 special opt-in cases remain ignored.
+Both review findings are closed and OpenAPI is unchanged. See
+[evidence](CHAT_CLARIFICATION_VERIFICATION.md#pm-execution-lease-readback-8-october-2026).
+This does not close real producer interoperability, lease mutation/heartbeat/
+quiescence recovery, trusted first-step admission or PM tools/continuation.
+Workflow1139871 is a description-only advancement from44e7183. No dispatch or
+installed rollout is enabled; full-goal and ordered release gates remain.
+
 ## Original Preparation Custody: 8 October 2026
 
 **Before-create/lost-preparation-ACK recovery verified; broader gaps remain.**
@@ -49,10 +63,10 @@ the existing PM bind requires an already-running Fleet observation and catalog
 v2. Its closed runtime assignment still requires delivery/decomposition fields
 before PM can decompose. A post-dispatch bind cannot satisfy a pre-model gate.
 
-The next bounded Fleet slice is a machine-only typed lease GET/readback and
-identity/version/expiry validator, separate from the human creation gateway.
-It must preserve required nullable fields, exact original command identity and
-false dispatch authority. Valid observations must cause zero lease claims,
+The machine-only typed lease GET/readback and identity/version/expiry validator
+is now implemented and verified as described above, separate from the human
+creation gateway. It preserves required nullable fields, exact original command
+identity and false dispatch authority. Valid observations cause zero lease claims,
 Workflow mutations or model requests. Do not claim leases during Draft creation
 before expiry/quiescence and non-circular first-step recovery are implemented.
 Producer advancement and actual interoperability remain separate acceptance;

@@ -1,5 +1,8 @@
 # Agent Runtime Contract
 
+The [PM lease prerequisite](PM_EXECUTION_LEASE_READBACK_V1.md) reads Tracker only.
+It cannot claim ownership, advance workflow or admit either runtime to SDLC.
+
 Original container preparation replay requires an existing immutable Fleet DB
 claim and private intent, including when a prepared receipt is cached. The
 distinct Base `reconcile_preparation` verifies the original native claim and
