@@ -1,5 +1,22 @@
 # Current State
 
+## Observer Crash QA: 8 October 2026
+
+Base preparation utility PR169 now publishes `4a7d4a0` with ten successful
+exact-head CI jobs; the Fleet SDK remains875. Observer crash matrix acceptance
+is still open. Packet771e53807374 failed before runtime startup on a missing
+nested read-only mount target. The local QA candidate now creates exact empty targets
+without relaxing read-only mounts. Fresh packet1cf2f09e082a passes fmt, strict
+Clippy, compilation and212 runtime component tests, but fails before the crash
+on an incorrect charset expectation. The exact MIME assertion now matches the
+pinned producer's `application/json`; this later correction is not native
+verified. Both failed packets, parity and own cleanup are retained. See
+[the ledger](CHAT_CLARIFICATION_VERIFICATION.md#observer-crash-qa-packets-8-october-2026).
+None of the four crash combinations is accepted yet; no SDLC readiness or
+installed runtime flag is promoted.
+These QA code changes remain unpublished pending native acceptance; this ledger
+does not make the new driver options available in the published source.
+
 ## Main Reconciliation Candidate: 8 October 2026
 
 Published reconciliation `683345d4d9f894af5252c54b0f0138113caed28f` retains both

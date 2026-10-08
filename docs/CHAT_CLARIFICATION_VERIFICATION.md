@@ -1,5 +1,50 @@
 # Chat Clarification Verification
 
+## Observer Crash QA Packets: 8 October 2026
+
+Both packets below use reconciled Fleet d8e154c, the accepted Base SDK
+`875cac2edf1a18c3a8a59e2f67256d02a8fc04e4`, clean published Base control
+`4a7d4a0c73ad79179b8541829c8eb8e5211b558f`, Hermes bbaf7af and independent
+observer cache43b365f. Base169/main/OPEN/nonDraft is CLEAN/MERGEABLE with ten
+SUCCESS jobs at this exact control head in CI37811154823; review threads are
+empty. This is utility evidence, not Fleet native or task/PM admission.
+
+Packet771e53807374 passes fmt, strict Clippy, compile/link, wire1/1 and the
+13,770-file pinned Hermes inventory, but fails before runtime components/start:
+the nested observer mount target cannot be created inside read-only `/qa`.
+Its340-input manifest SHA256 is
+`d7779dc44724d840b1fccd31c91a2680d1f590f9518493024392914b3c8eda1e`.
+The QA fix creates exact empty file/directory targets in the owned proof bind;
+existing targets are not adopted or overwritten, and all mounts remain read-only.
+
+New packet1cf2f09e082a passes fmt, strict Clippy, fresh compilation/linking,
+wire1/1 and212 runtime components (zero failed/ignored,312.73s). Its selected
+before-create/restore-bytes prepare test fails after48.64s, before the crash,
+on exact Content-Type: actual `application/json`, expected
+`application/json; charset=utf-8`. Pinned Base43b produces UTF-8 JSON with
+`application/json`; the native wrapper does not add charset and the contract
+does not require it. The later QA-only exact assertion matches this authority;
+auth/no-store/encoding/16KiB/strict JSON guards are preserved. It has not been
+native tested. None of the four physical crash combinations is accepted.
+
+The second340-input manifest SHA256 is
+`4ec852043afc1dd29ff059f82000b8a66396aa217fb264a40c94da2a5c140d6d`;
+runtime-components log SHA256:
+`44b61b2676dc12055b7d0e083c7ec001e28f32af0bb046797a7ea6685be4273f`.
+Both terminal reports retain failed state and verified unchanged source/cache/
+permanent-runtime checks. Own containers/networks/volumes/image aliases were
+removed. Parent independently confirmed missing OS processes and empty exact
+Engine project inventories. No image pin, accepted volume, producer source,
+SDK revision, runtime readiness deadline or SDLC admission flag changed.
+
+The QA driver/test candidate remains unpublished pending native acceptance.
+This documentation records scoped working-tree/frozen-source evidence, not
+availability of the new options or corrected test in the published Git head.
+
+The published661-case/33-ignore workspace gate below predates these QA edits;
+neither it nor the second212-case component gate certifies the corrected crash
+test, PM tools, live clarification, complete source inventory or Forge release.
+
 ## Main History Reconciliation: 8 October 2026
 
 The normal, unsquashed reconciliation retains integration parent

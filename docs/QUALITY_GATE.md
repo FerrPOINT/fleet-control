@@ -1,5 +1,15 @@
 # Quality Gate
 
+## Observer Crash Gate Remains Open
+
+Base utility4a7d4a0 passes ten hosted CI jobs and its fresh local source gate.
+Native Fleet packet1cf2f09e082a passes fmt/strict Clippy, compile/link and212
+runtime components; its actual crash test fails before the selected boundary
+on the QA MIME assertion. The subsequent exact-assert correction needs a new
+native packet. All four before-create/candidate-running and restore-bytes/
+restore-absence combinations remain required. The two retained failures and
+cleanup are in [the ledger](CHAT_CLARIFICATION_VERIFICATION.md#observer-crash-qa-packets-8-october-2026).
+
 ## Latest Reconciled Source Evidence
 
 The b965298/c8093aa normal reconciliation with accepted Base875 SDK passes the
