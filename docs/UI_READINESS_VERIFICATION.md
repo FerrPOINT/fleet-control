@@ -19,7 +19,8 @@ and pnpm 10.28.1:
   theme contrast, Markdown links and existing 135-screenshot verification: PASS.
 - [Focused component regression](../frontend/src/pages/agent-detail/config-revisions.test.tsx):
   PASS with query retries disabled.
-- [Readiness browser regressions](../frontend/e2e/fleet-control.spec.ts): 9 PASS,
+- [Readiness browser regressions](../frontend/e2e/fleet-control.spec.ts) on native
+  Windows: 9 PASS,
   0 failed/skipped/flaky, across Chromium, Firefox and WebKit at 375x812,
   1920x1080 and 2560x1440. Application query retries remain enabled; Playwright
   retries are disabled.
@@ -28,6 +29,17 @@ The tests cover initial `Running` / `Ready`, failed refresh yielding exactly
 two `Unknown` badges, retained revision 7, keyboard retry and healthy recovery.
 Browser checks also verify no horizontal overflow or page errors, and that
 badges, error and retry are within the viewport and unoccluded.
+
+Native Windows run `r4` rechecked HEAD `0fc8826` with the test-only keyboard
+adjustment. The manifest records the source HEAD and working-tree test blob.
+
+Keyboard traversal uses `Shift+Tab` then `Tab` for Chromium, Firefox and Windows
+WebKit. Non-Windows WebKit uses `Shift+Alt+Tab` then `Alt+Tab` to include buttons
+in its default tab order, following the
+[Playwright maintainer explanation](https://github.com/microsoft/playwright/issues/5609#issuecomment-832684772).
+Both paths assert focus leaves Retry and returns to it before `Enter` triggers
+recovery. Windows verification exercises only the Windows key mode; the Linux
+Alt-key path requires CI on the patched head before its gate can be called PASS.
 
 ## Mock Fixture Screens
 

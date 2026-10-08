@@ -5,14 +5,22 @@
   "fleetBaseline": "c8093aace07e54436893c5f7e35df1f968690266",
   "baseRevision": "875cac2edf1a18c3a8a59e2f67256d02a8fc04e4",
   "productionComponentBlob": "d337e82609d128c927d43ebdef27c81276c8880a",
+  "sourceHead": "0fc882644f13adb64ea708324c54d5a3b75ad569",
+  "testWorkingTreeBlob": "68ed9eaca1bd36cc1c99a168cc934ca073f2225e",
   "node": "v22.20.0",
   "pnpm": "10.28.1",
+  "verificationPlatform": "win32",
+  "keyboardTraversal": {
+    "chromium": "Shift+Tab, Tab, Enter",
+    "firefox": "Shift+Tab, Tab, Enter",
+    "webkit": "Shift+Tab, Tab, Enter"
+  },
   "baseURL": "http://localhost:43971",
   "readinessQueryRetries": "application defaults",
   "playwrightRetries": 0,
   "reportStats": {
-    "startTime": "2026-10-08T22:54:57.875Z",
-    "duration": 177338.345,
+    "startTime": "2026-10-08T23:25:11.413Z",
+    "duration": 181416.25100000002,
     "expected": 9,
     "skipped": 0,
     "unexpected": 0,
@@ -26,7 +34,7 @@
       "height": 1080,
       "fullPage": false,
       "sha256": "c386dc6d49cf65ed83367c7354758a316c55eb13c84dcf133629c0a8c140f407",
-      "source": "frontend/test-results/main-readiness-node22-r3/artifacts/fleet-control-config-revis-73e89-failed-refresh-at-1920x1080-chromium/fixture-config-revisions-readiness-unknown-1920x1080.png"
+      "source": "frontend/test-results/main-readiness-node22-r4/artifacts/fleet-control-config-revis-73e89-failed-refresh-at-1920x1080-chromium/fixture-config-revisions-readiness-unknown-1920x1080.png"
     },
     {
       "file": "mock-fixture-chromium-2560x1440.png",
@@ -35,7 +43,7 @@
       "height": 1440,
       "fullPage": false,
       "sha256": "5ae61ab38683fe8ecbdd912496ab6e5c32ebb913dbc22507109ae33d125a10cd",
-      "source": "frontend/test-results/main-readiness-node22-r3/artifacts/fleet-control-config-revis-64a03-failed-refresh-at-2560x1440-chromium/fixture-config-revisions-readiness-unknown-2560x1440.png"
+      "source": "frontend/test-results/main-readiness-node22-r4/artifacts/fleet-control-config-revis-64a03-failed-refresh-at-2560x1440-chromium/fixture-config-revisions-readiness-unknown-2560x1440.png"
     },
     {
       "file": "mock-fixture-chromium-375x812.png",
@@ -44,7 +52,7 @@
       "height": 812,
       "fullPage": false,
       "sha256": "52e369a2993bc2275a56c571e84a203f4d70433359447ed50cc60960ad226223",
-      "source": "frontend/test-results/main-readiness-node22-r3/artifacts/fleet-control-config-revis-ea0a6-a-failed-refresh-at-375x812-chromium/fixture-config-revisions-readiness-unknown-375x812.png"
+      "source": "frontend/test-results/main-readiness-node22-r4/artifacts/fleet-control-config-revis-ea0a6-a-failed-refresh-at-375x812-chromium/fixture-config-revisions-readiness-unknown-375x812.png"
     },
     {
       "file": "mock-fixture-firefox-1920x1080.png",
@@ -53,7 +61,7 @@
       "height": 1080,
       "fullPage": false,
       "sha256": "30fc3031618aac914027d755be94a96ec0655385fd90ea2c315b161a42181dff",
-      "source": "frontend/test-results/main-readiness-node22-r3/artifacts/fleet-control-config-revis-73e89-failed-refresh-at-1920x1080-firefox/fixture-config-revisions-readiness-unknown-1920x1080.png"
+      "source": "frontend/test-results/main-readiness-node22-r4/artifacts/fleet-control-config-revis-73e89-failed-refresh-at-1920x1080-firefox/fixture-config-revisions-readiness-unknown-1920x1080.png"
     },
     {
       "file": "mock-fixture-firefox-2560x1440.png",
@@ -62,7 +70,7 @@
       "height": 1440,
       "fullPage": false,
       "sha256": "2d3a981d0c6ee4a2d9ecae475a1070708e8fce9fa45e5a9ba2e9e04ea8f0356d",
-      "source": "frontend/test-results/main-readiness-node22-r3/artifacts/fleet-control-config-revis-64a03-failed-refresh-at-2560x1440-firefox/fixture-config-revisions-readiness-unknown-2560x1440.png"
+      "source": "frontend/test-results/main-readiness-node22-r4/artifacts/fleet-control-config-revis-64a03-failed-refresh-at-2560x1440-firefox/fixture-config-revisions-readiness-unknown-2560x1440.png"
     },
     {
       "file": "mock-fixture-firefox-375x812.png",
@@ -71,7 +79,7 @@
       "height": 812,
       "fullPage": false,
       "sha256": "1466b20ba360ffb0e17bac03f7a7dccab474dcb11315b061e3ce8324092d706c",
-      "source": "frontend/test-results/main-readiness-node22-r3/artifacts/fleet-control-config-revis-ea0a6-a-failed-refresh-at-375x812-firefox/fixture-config-revisions-readiness-unknown-375x812.png"
+      "source": "frontend/test-results/main-readiness-node22-r4/artifacts/fleet-control-config-revis-ea0a6-a-failed-refresh-at-375x812-firefox/fixture-config-revisions-readiness-unknown-375x812.png"
     },
     {
       "file": "mock-fixture-webkit-1920x1080.png",
@@ -80,7 +88,7 @@
       "height": 1080,
       "fullPage": false,
       "sha256": "20bef8a8086e9223bca9b70a04ae62136516e2228897b4ddf1e7d4498168c23a",
-      "source": "frontend/test-results/main-readiness-node22-r3/artifacts/fleet-control-config-revis-73e89-failed-refresh-at-1920x1080-webkit/fixture-config-revisions-readiness-unknown-1920x1080.png"
+      "source": "frontend/test-results/main-readiness-node22-r4/artifacts/fleet-control-config-revis-73e89-failed-refresh-at-1920x1080-webkit/fixture-config-revisions-readiness-unknown-1920x1080.png"
     },
     {
       "file": "mock-fixture-webkit-2560x1440.png",
@@ -89,7 +97,7 @@
       "height": 1440,
       "fullPage": false,
       "sha256": "84201f8444ec0f3ec297f8885ff5970dcf83d4db2f99ecd85b16e9f97a257596",
-      "source": "frontend/test-results/main-readiness-node22-r3/artifacts/fleet-control-config-revis-64a03-failed-refresh-at-2560x1440-webkit/fixture-config-revisions-readiness-unknown-2560x1440.png"
+      "source": "frontend/test-results/main-readiness-node22-r4/artifacts/fleet-control-config-revis-64a03-failed-refresh-at-2560x1440-webkit/fixture-config-revisions-readiness-unknown-2560x1440.png"
     },
     {
       "file": "mock-fixture-webkit-375x812.png",
@@ -98,7 +106,7 @@
       "height": 812,
       "fullPage": false,
       "sha256": "77e5e28684659ebf7f9ed266dac5813fd4af0c3cbeef4244d33a8df22888c23d",
-      "source": "frontend/test-results/main-readiness-node22-r3/artifacts/fleet-control-config-revis-ea0a6-a-failed-refresh-at-375x812-webkit/fixture-config-revisions-readiness-unknown-375x812.png"
+      "source": "frontend/test-results/main-readiness-node22-r4/artifacts/fleet-control-config-revis-ea0a6-a-failed-refresh-at-375x812-webkit/fixture-config-revisions-readiness-unknown-375x812.png"
     }
   ]
 }

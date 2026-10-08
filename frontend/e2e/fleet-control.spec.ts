@@ -1209,9 +1209,12 @@ for (const viewport of [
     await expect(revisions.getByText('#7', { exact: true })).toBeVisible()
     await expect(retry).toBeEnabled()
     await retry.focus()
-    await page.keyboard.press('Shift+Tab')
+    // WebKit's non-Windows default needs Option/Alt to include buttons in tab order.
+    const tabKey =
+      testInfo.project.name === 'webkit' && process.platform !== 'win32' ? 'Alt+Tab' : 'Tab'
+    await page.keyboard.press(`Shift+${tabKey}`)
     await expect(retry).not.toBeFocused()
-    await page.keyboard.press('Tab')
+    await page.keyboard.press(tabKey)
     await expect(retry).toBeFocused()
     expect(
       await page.evaluate(
