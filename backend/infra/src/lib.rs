@@ -1,5 +1,6 @@
 mod config_revisions;
 pub mod entities;
+mod execution_context;
 pub mod runtime;
 
 use app::{
@@ -573,6 +574,20 @@ fn fleet_alert_to_domain(row: fleet_alerts::Model) -> domain::FleetAlert {
 
 #[async_trait]
 impl FleetRepository for PostgresFleetRepository {
+    async fn session_execution_context(
+        &self,
+        session: Uuid,
+    ) -> Result<Option<domain::execution_context::SessionExecutionContext>, AppError> {
+        execution_context::read(&self.db, session).await
+    }
+    async fn bind_session_execution_context(
+        &self,
+        session: Uuid,
+        actor: Uuid,
+        context: domain::execution_context::ExecutionContextV2,
+    ) -> Result<domain::execution_context::SessionExecutionContext, AppError> {
+        execution_context::bind(&self.db, session, actor, context).await
+    }
     async fn list_runtime_templates(&self) -> Result<Vec<RuntimeTemplate>, AppError> {
         runtime_template::Entity::find()
             .order_by_asc(runtime_template::Column::Kind)

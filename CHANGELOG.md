@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Namespace cohort: стабильные refs, локальные binding projections и lifecycle guards; аддитивные migrations, совместимый rollback и отдельные execution v2 gates. Runtime-приёмка ещё не завершена.
+
+
 - Диалоги apply/rollback настроек возвращают фокус на кнопку preview; новое подтверждение очищает ошибку предыдущей операции. Pending и product-owned preview/retry сохранены. Base закреплён на проверенный SHA для воспроизводимой общей поставки.
 
 - Active Central Auth users can operate Fleet without local role grants.
@@ -95,11 +98,17 @@
 
 ## [Unreleased]
 
+- Namespace cohort: стабильные refs, локальные binding projections и lifecycle guards; аддитивные migrations, совместимый rollback и отдельные execution v2 gates. Runtime-приёмка ещё не завершена.
+
+
 ### Added
 
 - Fleet monitoring alerts: миграция 6 (`fleet_alerts`), авто-алерты переходов здоровья агентов (agent_down / agent_recovered авто-resolve), `GET /api/v1/fleet-alerts` + acknowledge (Operator+, аудит), нед блокирующая запись переходов из start/stop/health.
 
 ## [Unreleased]
+
+- Namespace cohort: стабильные refs, локальные binding projections и lifecycle guards; аддитивные migrations, совместимый rollback и отдельные execution v2 gates. Runtime-приёмка ещё не завершена.
+
 
 ### Added
 
@@ -107,11 +116,17 @@
 
 ## [Unreleased]
 
+- Namespace cohort: стабильные refs, локальные binding projections и lifecycle guards; аддитивные migrations, совместимый rollback и отдельные execution v2 gates. Runtime-приёмка ещё не завершена.
+
+
 ### Added
 
 - Bulk runtime updates/rollback: `POST /api/v1/deployments/jobs/bulk` — один deployment job на агента (≤100), пропуск archived, `rollback` для runtime_update (IMPLEMENTATION_PLAN Phase 3).
 
 ## [Unreleased]
+
+- Namespace cohort: стабильные refs, локальные binding projections и lifecycle guards; аддитивные migrations, совместимый rollback и отдельные execution v2 gates. Runtime-приёмка ещё не завершена.
+
 
 ### Added
 

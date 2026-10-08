@@ -16,6 +16,7 @@ mod m20261001_000009_sdlc_roles;
 mod m20261001_000010_session_events;
 mod m20261001_000011_message_dispatch;
 mod m20261001_000012_config_revisions;
+mod m20261008_000090_execution_context;
 
 pub struct Migrator;
 
@@ -79,6 +80,7 @@ impl MigratorTrait for CanonicalMigrator {
     fn migrations() -> Vec<Box<dyn MigrationTrait>> {
         let mut migrations = common_migrations();
         migrations.push(Box::new(m20261001_000009_sdlc_foundation::Migration));
+        migrations.push(Box::new(m20261008_000090_execution_context::Migration));
         migrations
     }
 }
@@ -94,6 +96,7 @@ impl MigratorTrait for LegacyMigrator {
             Box::new(m20261001_000010_session_events::Migration),
             Box::new(m20261001_000011_message_dispatch::Migration),
             Box::new(m20261001_000012_config_revisions::Migration),
+            Box::new(m20261008_000090_execution_context::Migration),
         ]);
         migrations
     }

@@ -664,7 +664,7 @@ fn session_stream_subject_matches(subject: &str, expected_user_id: Uuid) -> bool
     subject.parse::<Uuid>().ok() == Some(expected_user_id)
 }
 
-fn ensure_session_read_access(
+pub(super) fn ensure_session_read_access(
     session: &AgentSession,
     user: &crate::middleware::CurrentUser,
 ) -> Result<(), AppError> {
@@ -681,7 +681,7 @@ fn ensure_session_read_access(
     Err(AppError::Forbidden)
 }
 
-fn ensure_session_write_access(
+pub(super) fn ensure_session_write_access(
     session: &AgentSession,
     user: &crate::middleware::CurrentUser,
 ) -> Result<(), AppError> {

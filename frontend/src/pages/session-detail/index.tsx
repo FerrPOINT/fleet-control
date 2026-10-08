@@ -49,6 +49,7 @@ import {
 } from '@sdlc/ui/ui'
 import { UserAvatar } from '@/shared/ui/user-avatar'
 import { EmptyState, ErrorState, PageHeader, StatusBadge, formatDate } from '../common'
+import { ExecutionContextPanel } from './execution-context'
 
 let fallbackRequestSequence = 0
 
@@ -64,6 +65,7 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
   const queryClient = useQueryClient()
   const token = useAuthStore((state) => state.token)
   const [streamText, setStreamText] = useState<Record<string, string>>({})
+  const [contextBlocked, setContextBlocked] = useState(false)
   const canManageAgents = useAuthStore((state) => state.permissions.includes('agents:manage'))
   const session = useQuery({
     queryKey: ['session', sessionId],
@@ -291,7 +293,8 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
 
   function submitMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (messageBody.trim() && !messageMutation.isPending) messageMutation.mutate()
+    if (!contextBlocked && messageBody.trim() && !messageMutation.isPending)
+      messageMutation.mutate()
   }
 
   function submitDelegation(event: FormEvent<HTMLFormElement>) {
@@ -339,6 +342,7 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
       ) : null}
 
       <SessionSummary session={session.data} />
+      <ExecutionContextPanel sessionId={sessionId!} onBlocked={setContextBlocked} />
 
       <div className="page-split mt-6 items-start" data-page-layout="detail-with-aside">
         <div className="min-w-0 space-y-8">
@@ -407,7 +411,7 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
                 <Button
                   type="submit"
                   className="h-10"
-                  disabled={messageMutation.isPending || !messageBody.trim()}
+                  disabled={contextBlocked || messageMutation.isPending || !messageBody.trim()}
                 >
                   <Send className="h-4 w-4" />
                   {messageMutation.isPending

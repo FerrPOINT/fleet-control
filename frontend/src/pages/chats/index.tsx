@@ -22,6 +22,14 @@ import { UserAvatar } from '@/shared/ui/user-avatar'
 import { sdlcRoleLabel } from '@/shared/sdlc-roles'
 import { EmptyState, ErrorState, PageHeader, StatusBadge, formatDate } from '../common'
 
+function contextPath(path: string, params: URLSearchParams) {
+  const target = new URL(path, 'https://relative.invalid')
+  const context = target.searchParams
+  for (const key of ['registry_instance_id', 'namespace_id', 'tracker_instance_id', 'task_id'])
+    for (const value of params.getAll(key)) context.append(key, value)
+  return target.pathname + target.search + target.hash
+}
+
 export function groupChats(agents: AgentDirectoryItem[], sessions: AgentSession[]) {
   return agents.map((agent) => ({
     agent,
@@ -196,7 +204,10 @@ export function ChatsPage() {
                   {visibleSessions.map((session) => (
                     <li key={session.id}>
                       <Link
-                        to={`/chats/${session.id}?backTo=${encodeURIComponent(`/chats?${params}`)}`}
+                        to={contextPath(
+                          `/chats/${session.id}?backTo=${encodeURIComponent(`/chats?${params}`)}`,
+                          params,
+                        )}
                         className="flex min-w-0 items-start gap-3 rounded-sm px-2 py-4 hover:bg-surface-raised focus-visible:outline-focus"
                       >
                         <UserAvatar
@@ -267,6 +278,7 @@ function CreatePrivateChat({
 }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const [contextParams] = useSearchParams()
   const client = useQueryClient()
   const [title, setTitle] = useState('')
   const [key, setKey] = useState(() => crypto.randomUUID())
@@ -376,7 +388,9 @@ function CreatePrivateChat({
       setTitle('')
       setKey(crypto.randomUUID())
       if (!live.current || useAuthStore.getState().signingOut) return
-      navigate(`/chats/${session.id}?backTo=${encodeURIComponent(backTo)}`)
+      navigate(
+        contextPath(`/chats/${session.id}?backTo=${encodeURIComponent(backTo)}`, contextParams),
+      )
     },
   })
   return (

@@ -41,6 +41,7 @@ import {
   type DispatchMarker,
 } from './core'
 import './chat.css'
+import { ExecutionContextPanel, namespaceContextEnabled } from '../session-detail/execution-context'
 
 export function ChatDetailPage() {
   const { sessionId } = useParams()
@@ -60,6 +61,7 @@ function ChatWorkspace({ sessionId }: { sessionId: string }) {
   const [error, setError] = useState('')
   const [held, setHeld] = useState(() => dispatchHeld(sessionId) || legacyControlHeld(sessionId))
   const [contextOpen, setContextOpen] = useState(false)
+  const [namespaceBlocked, setNamespaceBlocked] = useState(namespaceContextEnabled)
   const [stream, setStream] = useState<Record<string, string>>({})
   const [newMessages, setNewMessages] = useState(false)
   const scroll = useRef<HTMLDivElement>(null)
@@ -204,6 +206,7 @@ function ChatWorkspace({ sessionId }: { sessionId: string }) {
     !directory.isFetching
   const writable =
     healthy &&
+    !namespaceBlocked &&
     owns &&
     agent?.product_role === 'executor' &&
     agent.status !== 'archived' &&
@@ -348,6 +351,7 @@ function ChatWorkspace({ sessionId }: { sessionId: string }) {
     )
   return (
     <div className="fc-chat-workbench">
+      <ExecutionContextPanel sessionId={sessionId} onBlocked={setNamespaceBlocked} />
       <header className="fc-chat-header">
         <div>
           <Link to={chatBackTo(params.get('backTo'))} aria-label={t('chatCore.back')}>
@@ -489,7 +493,7 @@ function ChatWorkspace({ sessionId }: { sessionId: string }) {
                   id="chat-message"
                   value={draft}
                   maxLength={20000}
-                  disabled={sending || held || !owns}
+                  disabled={namespaceBlocked || sending || held || !owns}
                   onChange={(event) => {
                     setDraft(event.target.value)
                     setError('')

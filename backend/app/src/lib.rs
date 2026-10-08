@@ -90,6 +90,24 @@ pub struct RuntimeSessionSnapshot {
 
 #[async_trait]
 pub trait FleetRepository: Send + Sync {
+    async fn session_execution_context(
+        &self,
+        _session: Uuid,
+    ) -> Result<Option<domain::execution_context::SessionExecutionContext>, AppError> {
+        Err(AppError::Unavailable(
+            "execution_context_store_unavailable".into(),
+        ))
+    }
+    async fn bind_session_execution_context(
+        &self,
+        _session: Uuid,
+        _actor: Uuid,
+        _context: domain::execution_context::ExecutionContextV2,
+    ) -> Result<domain::execution_context::SessionExecutionContext, AppError> {
+        Err(AppError::Unavailable(
+            "execution_context_store_unavailable".into(),
+        ))
+    }
     async fn list_runtime_templates(&self) -> Result<Vec<RuntimeTemplate>, AppError>;
     async fn ensure_runtime_templates(&self) -> Result<(), AppError>;
     async fn list_agents(&self) -> Result<Vec<Agent>, AppError>;

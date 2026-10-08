@@ -2435,6 +2435,86 @@
           }
         }
       }
+    },
+    "/api/v2/sessions/{session_id}/execution-context": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "fleet_get_execution_context_v2",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SessionExecutionContext"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "fleet_bind_execution_context_v2",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecutionContextV2"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionExecutionContext"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Immutable context/replay conflict"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3991,6 +4071,41 @@
           "stopped"
         ]
       },
+      "ExecutionContextV2": {
+        "type": "object",
+        "description": "Separate v2 context; it does not add fields to strict SDLC v1 envelopes.",
+        "required": [
+          "schema_version",
+          "operation_id",
+          "namespace",
+          "task",
+          "repositories"
+        ],
+        "properties": {
+          "namespace": {
+            "$ref": "#/components/schemas/NamespaceRef"
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "repositories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepositoryRef"
+            }
+          },
+          "schema_version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "task": {
+            "$ref": "#/components/schemas/TaskRef"
+          }
+        },
+        "additionalProperties": false
+      },
       "FleetAlert": {
         "type": "object",
         "description": "Fleet monitoring alert raised on agent health transitions\n(IMPLEMENTATION_PLAN Phase 3 monitoring item).",
@@ -4451,6 +4566,24 @@
           "control"
         ]
       },
+      "NamespaceRef": {
+        "type": "object",
+        "required": [
+          "registry_instance_id",
+          "namespace_id"
+        ],
+        "properties": {
+          "namespace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "registry_instance_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
       "PortSettings": {
         "type": "object",
         "required": [
@@ -4562,6 +4695,24 @@
             "type": "string"
           }
         }
+      },
+      "RepositoryRef": {
+        "type": "object",
+        "required": [
+          "forge_instance_id",
+          "repository_id"
+        ],
+        "properties": {
+          "forge_instance_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "repository_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
       },
       "ResolveRuntimeApprovalRequest": {
         "type": "object",
@@ -4931,6 +5082,40 @@
           }
         }
       },
+      "SessionExecutionContext": {
+        "type": "object",
+        "required": [
+          "context",
+          "tracker_project_id",
+          "binding_generation",
+          "runtime_ready",
+          "dispatch_allowed",
+          "adapter_version"
+        ],
+        "properties": {
+          "adapter_version": {
+            "type": "string"
+          },
+          "binding_generation": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "context": {
+            "$ref": "#/components/schemas/ExecutionContextV2"
+          },
+          "dispatch_allowed": {
+            "type": "boolean"
+          },
+          "runtime_ready": {
+            "type": "boolean"
+          },
+          "tracker_project_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
       "SessionMessage": {
         "type": "object",
         "required": [
@@ -5134,6 +5319,24 @@
           "operator",
           "user"
         ]
+      },
+      "TaskRef": {
+        "type": "object",
+        "required": [
+          "tracker_instance_id",
+          "task_id"
+        ],
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tracker_instance_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
       },
       "UpdateAgentConfigRequest": {
         "type": "object",
