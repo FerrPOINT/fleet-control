@@ -16,6 +16,10 @@ verified exact-alias removal. All three failed packets and parity are retained. 
 [the ledger](CHAT_CLARIFICATION_VERIFICATION.md#observer-crash-qa-packets-8-october-2026).
 None of the four crash combinations is accepted yet; no SDLC readiness or
 installed runtime flag is promoted.
+The subsequent local failed-export cleanup fix passes77 host cases and source
+counter-review, plus54 native-harness host cases. Preflight/cleanup preserve all
+four original image pins via independent existing references; no protector tag
+or unsafe foreign deletion is introduced. Native verification remains open.
 These QA code changes remain unpublished pending native acceptance; this ledger
 does not make the new driver options available in the published source.
 

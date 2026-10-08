@@ -10,7 +10,10 @@ and the native Hermes wrapper, not a broader MIME allowlist. All four physical
 crash/restore combinations remain required. Third packet3252f2967164 fails
 before tests at BuildKit image export. Its incomplete tag-cleanup claim is
 corrected by a separate exact-owned-alias cleanup supplement, not by rewriting
-the failed report. A guarded failed-export cleanup regression remains required. See
+the failed report. The subsequent guarded cleanup candidate passes77 host cases
+and independent counter-review, including realistic last-tag deletion and
+preservation of all four input IDs. Its actual native cleanup and the four crash
+combinations still require acceptance. See
 [retained evidence](CHAT_CLARIFICATION_VERIFICATION.md#observer-crash-qa-packets-8-october-2026).
 Base169's ten green exact-head CI jobs certify the utility, not this consumer
 matrix, complete loaded inventory, task admission or PM execution.

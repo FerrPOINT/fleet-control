@@ -63,6 +63,23 @@ rewritten. A guarded cleanup regression is required before the next attempt;
 production deadlines and crash assertions are unchanged. None of the four
 physical combinations is accepted by these three packets.
 
+The subsequent local driver fix records exact build intent before execution,
+requires an independent original tag for all four pinned inputs before effects,
+and verifies tag/label/ID custody plus original references during cleanup.
+Absent/foreign/changed/unverified images are not blindly removed; loss of input
+protection holds the aliases and report. The original command error is preserved.
+Counter-review reproduced the last-tag input-deletion gap in the first mock;
+the corrected mock now models actual image deletion and rejects untagged inputs
+before any effect. That P1 is closed for source, not native acceptance.
+Parent independent discovery passes77 host cases (68 supervisor,6 control-loader,
+3 artifact-selection), plus54 native harness cases; none invokes Docker.
+Driver SHA256:
+`857b6046c67a49a8c72157867d5809a7e67290292b5de130d058e48a11f876c5`;
+supervisor tests SHA256:
+`611050c7901f0e1baa184d2d7fb362dc9ef13bbc03f1dd87b7eb5e208edac376`.
+Read-only Engine observation confirms all four original input IDs still have
+independent existing tags. This is not the corrected driver's native proof.
+
 The published661-case/33-ignore workspace gate below predates these QA edits;
 neither it nor the second212-case component gate certifies the corrected crash
 test, PM tools, live clarification, complete source inventory or Forge release.
