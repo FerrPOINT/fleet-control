@@ -1,5 +1,13 @@
 # API
 
+Session and Chats directory filters combine current Tracker project access with
+central private-session ownership. Expanding the user filter never exposes
+another central user's private transcript, count or cursor. History, task context
+and chat controls reuse the session read policy. Global Fleet task events also
+require fresh matching Tracker instance/project scope; a revoked project is
+filtered and a failed scope read closes the stream. Non-task events retain the
+existing authentication and scope checks.
+
 Managed request observation adds authenticated read-only
 `GET /api/v1/sessions/{session_id}/runs/{run_id}/request-observation` for the
 original accepted free-chat run. Owner/read-all access and fresh original native
@@ -286,8 +294,9 @@ It is not a general drift bypass.
 
 ### Pinned Base Package Draft
 
-`POST /api/v1/agents/{agent_id}/config/base-package` is an operator/admin-only
-operation with no client-controlled source path or revision. Fleet reads regular
+`POST /api/v1/agents/{agent_id}/config/base-package` requires matching central
+service scopes or standalone legacy operator/admin access. The operation accepts
+no client-controlled source path or revision. Fleet reads regular
 Git blobs at Base commit `4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58` from the
 configured operator-owned cache. It verifies schema, all seven roles, fourteen
 skills, hashes and exact inventory before preparing the concrete agent's allowlist
@@ -464,6 +473,12 @@ RBAC:
 применяются только к legacy-режиму. Runtime/service credentials остаются
 отдельной машинной границей.
 
+`/users/me/permissions` возвращает центральные права независимо от сохранённых
+`system_role` и `is_system_admin`. Эти исторические поля не повышаются при входе.
+Для личного токена `fleet-control:read` write-controls не объявляются, а backend
+отклоняет мутации до выполнения handler. Назначение локальной роли всегда
+возвращает `403` в central mode; bootstrap subject больше не выдаёт роль.
+
 - `admin`: all users, settings, RBAC, sessions and runtime actions.
 - `operator`: agents, leaders, executors, runtime, config, skills, deployments,
   logs and all sessions.
@@ -506,8 +521,10 @@ agent authorship и различия central/legacy permissions; наличие 
 - `GET /sessions?agent_id={agent_id}&leader_agent_id={leader_id}&user_id={id1,id2}`
   lists sessions by primary agent, selected leader and user filter.
 - Omitting `user_id` returns only the current user's sessions.
-- `user_id=all` returns all users only for admin/operator; normal users are
-  forbidden from expanding beyond themselves.
+- Central users may select other users or `user_id=all` without local roles.
+  Private sessions remain owner-only in list, detail, messages and SSE; shared
+  leader-scoped sessions are accessible to all active central users. The private
+  filter is applied before the list limit. Legacy expansion requires admin/operator.
 - `POST /sessions` creates a session owned by the authenticated user. Use
   `primary_agent_id`; legacy `agent_id` is still accepted.
 - `POST /sessions` is idempotent by `idempotency_key`; replay returns the
@@ -560,7 +577,11 @@ Runtime:
   returns persisted redacted process records. Internal writes acknowledge the
   exact inserted row, even if another stream has already written a newer row;
   public response fields and ordering are unchanged.
-- `GET /events` as SSE
+- `GET /events` as SSE. The bearer token is revalidated before delivery and once
+  per second while idle. Revocation, expiry, disabled users or Auth unavailability
+  terminate the existing connection; the client must authenticate again.
+  Central private session events are owner-only. `fleet` event names and payload
+  shapes are unchanged; no token is accepted through URL query parameters.
 - `GET /events/recent`
 - `GET /audit-log`
 
@@ -600,12 +621,13 @@ rollback записываются в `audit_log` в одной PostgreSQL-тра
 
 `POST /deployments/jobs` также принимает отдельные продуктовые операции Service Pulse:
 
-| `job_kind` | Обязательные поля | Результат |
-|---|---|---|
-| `product_deploy` | `environment: "demo"`, точный 40-символьный `commit_sha`, UUID `idempotency_key`, `title` | Forge deployment для commit из защищённого `main` |
-| `product_rollback` | `environment: "demo"`, UUID успешного `previous_release_id`, UUID `idempotency_key`, `title` | Отдельный Forge rollback deployment |
+| `job_kind`         | Обязательные поля                                                                            | Результат                                         |
+| ------------------ | -------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `product_deploy`   | `environment: "demo"`, точный 40-символьный `commit_sha`, UUID `idempotency_key`, `title`    | Forge deployment для commit из защищённого `main` |
+| `product_rollback` | `environment: "demo"`, UUID успешного `previous_release_id`, UUID `idempotency_key`, `title` | Отдельный Forge rollback deployment               |
 
 Для этих видов `agent_id`, `runtime_kind` и произвольный `detail` не допускаются. Повтор с тем же ключом и тем же содержимым возвращает исходный job, изменение параметров даёт `409`. `detail` ответа содержит связанный Forge deployment/pipeline ID и `health_verified`; `completed` возможен только после успеха pipeline и самостоятельной HTTP-проверки Pulse API/UI. Ошибка Forge, отмена, 30-минутный таймаут или провал health завершают job как `failed` с `last_error`. Переходы и ключ идемпотентности хранятся в PostgreSQL и восстанавливаются после рестарта. Для локального стенда задаются `FLEET_CONTROL_FLEET__PULSE_HEALTH_URL` и `FLEET_CONTROL_FLEET__PULSE_UI_URL`.
+
 - `POST /settings/retention/review` — запустить проход stale-folder review сейчас (operator, audited): возвращает `stale_agent_ids` archived-агентов старше `fleet.retention.stale_archived_days`, порог и время прохода
 
 Управляемая версия накладывается на deployment/env baseline при следующем
@@ -618,7 +640,8 @@ regeneration requires MSVC `link.exe`; WSL/Linux generation is supported.
 
 ## PM Runtime Readback
 
-`GET /api/v1/agents/{agent_id}/readiness` remains operator/admin-only.
+`GET /api/v1/agents/{agent_id}/readiness` requires central service read scope or
+standalone legacy operator/admin access.
 An active/effective database revision does not imply that its runtime files
 are intact. Fresh read-only filesystem verification adds
 `effective_configuration_readback_failed` when the snapshot, marker, isolated

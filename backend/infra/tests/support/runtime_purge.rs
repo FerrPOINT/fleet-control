@@ -149,6 +149,7 @@ async fn rejected_purge_preserves_runtime_and_files(draining: bool) {
             id: owner,
             role: SystemRole::Operator,
             is_system_admin: false,
+            central_write: None,
         }))
         .with_state(ctx);
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();

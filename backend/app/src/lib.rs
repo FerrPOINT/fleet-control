@@ -44,6 +44,7 @@ pub struct SessionListFilter {
     pub leader_agent_id: Option<Uuid>,
     pub include_all_users: bool,
     pub task_project_access: Option<domain::TaskProjectAccess>,
+    pub private_user_id: Option<Uuid>,
 }
 
 #[derive(Debug, Clone)]

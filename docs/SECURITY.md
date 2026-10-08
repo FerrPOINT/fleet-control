@@ -398,16 +398,19 @@ automatic retries, schema drift and unbounded bodies are refused. Errors do not
 echo upstream bodies or tokens. A saved mapping/chat is not a fenced execution
 lease. This check cannot authorize dispatch or bypass missing native readiness.
 
-- Central SSO uses verified ES256/JWKS and central-subject linkage. Local stored
-  roles are authoritative; successful SSO does not grant admin. Standalone legacy
+- Central SSO uses verified ES256/JWKS and central-subject linkage. All active
+  central users have equal control-plane access; stored roles are historical and
+  are never promoted by SSO. PAT service read/write scopes remain authoritative.
+  Standalone legacy
   authentication uses HMAC JWT access tokens and HttpOnly refresh cookies.
 - New access tokens include fleet-compatible `aud`, `iss`, `role`, `scopes` and
   `sid` claims. Legacy compact tokens without `aud`/`iss` remain accepted during
   the migration window, but tokens that contain fleet claims are validated
   strictly against the configured issuer and audience.
 - Local registration is disabled when Central Auth is configured. In standalone
-  legacy mode the first registered user becomes `admin`; central bootstrap instead
-  requires an explicitly configured verified subject and an audit record.
+  legacy mode the first registered user becomes `admin`. Central users are
+  created in Central Auth; Fleet role mutation is disabled and the former
+  bootstrap-admin subject setting has no effect.
 - `SystemRole = admin | operator | user`; `is_system_admin` remains a derived
   compatibility alias for `admin`.
 - Filesystem access must be derived from database-managed agent paths.
@@ -431,7 +434,8 @@ lease. This check cannot authorize dispatch or bypass missing native readiness.
   deterministic per-agent `API_SERVER_KEY` from that secret and the agent id;
   the raw token is written only to the managed agent env/config surface.
 - Physical folder purge is not part of default delete. It requires
-  admin/operator access, archived status, exact `agentN` confirmation, path
+  authenticated central write access (legacy admin/operator), archived status,
+  exact `agentN` confirmation, path
   recomputation from `agents_root`, non-symlink folder/marker checks and a
   matching `.fleet-agent.json` id.
 - Agent storage reporting is read-only, recomputes managed paths from
@@ -440,15 +444,13 @@ lease. This check cannot authorize dispatch or bypass missing native readiness.
 - Fleet-wide storage review uses the same guarded per-agent reports and never
   performs deletion or marker repair by itself.
 - Session lists default to the authenticated user on the backend.
-- Only admin/operator users can expand session/user filters to other users.
-- Backend RBAC is authoritative. The UI hides sections using
-  `/api/v1/users/me/permissions`, but every protected route still checks the
-  current role.
-- Session SSE rechecks token validity, active user, ownership and current role while
-  replaying events. Task-bound streams additionally recheck authoritative Tracker
-  project access and immutable binding before each emitted event. Revocation or
-  dependency failure closes the stream, including its queued events. No bearer
-  token is placed in a stream URL.
+- Chats directory counts, cursor validation and pages use the same scoped SQL
+  relation: central private-owner restriction intersects Tracker project access
+  before counting or pagination. Clearing or expanding the user selection cannot
+  widen either policy. Task context/history/controls use the session read guard.
+- Task-bound streams additionally recheck authoritative Tracker project access
+  and immutable binding before each emitted event. Revocation or dependency
+  failure closes the stream, including its queued events.
 - Task-bound detail/history/messages/participants/runs/control reads and runtime
   stop require current project access, even for Fleet operators. Historical
   reassignment does not erase read access; it never authorizes fresh commands.
@@ -460,13 +462,39 @@ lease. This check cannot authorize dispatch or bypass missing native readiness.
   terminal `failed`; unknown HTTP acceptance remains `uncertain` and is not retried.
   This narrows, but does not atomically eliminate, cross-service authorization races:
   assignment replacement must also quiesce the old run before automation is enabled.
+- Central users can expand user/session filters without local role grants.
+  Private sessions remain owner-only regardless of historical role; shared
+  leader-scoped sessions are available to all active central users. List filtering
+  happens before the 200-row limit. Standalone expansion retains legacy RBAC.
+- Backend authentication, request scopes and ownership checks are authoritative.
+  The UI hides sections using `/api/v1/users/me/permissions`; historical human
+  roles constrain only standalone legacy requests.
+- Session SSE rechecks token validity, active user, ownership and standalone roles
+  while replaying events. It also binds the revalidated central profile or legacy
+  token subject to the original user before returning queued events. An active
+  token for a different user cannot retain a private session stream.
+  Global `/api/v1/events` also rechecks the bearer token,
+  its subject binding and service read scope before delivering each event and
+  once per second while idle. Revocation, expiry, disabled users, Auth outage or
+  database errors close the stream without a local fallback. Legacy mode also
+  rechecks the current stored operator role. Central private session events are
+  owner-only; leader-scoped events remain shared. No bearer token is placed in
+  a stream URL.
+- Global Fleet session events additionally read the immutable task binding and
+  fresh caller-scoped Tracker project access before delivery. Instance/project
+  mismatch drops the task event; dependency or binding read failure closes the
+  connection. The original bearer is revalidated after the potentially blocking
+  Tracker request. Non-task events do not require a Tracker call. This does not
+  eliminate distributed authorization races or authorize task execution.
 - Human message requests cannot supply an agent author or runtime message ID.
   A scoped machine assignment protocol is still unimplemented, not a fallback
   permission granted to human or runtime clients.
 - `/agents/**`, runtime actions, config, skills, leader team binding, settings,
-  deployments, logs and audit log require admin/operator.
-- User management and role updates require admin, except that operators can list
-  users for session filtering.
+  deployments, logs and audit log are available to active central users with
+  matching service scopes, or legacy admin/operator users.
+- Central user management lives in Admin Panel. Fleet synchronizes the central
+  directory for every active central user; local role updates are forbidden.
+  Standalone legacy user management retains its existing admin/operator checks.
 - A session without `leader_agent_id` is private and is not readable as a
   leader-scoped task.
 - Selecting a leader for an executor session requires an existing
@@ -506,3 +534,22 @@ The record stays in its original tab/origin for authorized GET-only recovery.
 Text is not restored after reload. Tab/OS restart and lost storage require an
 additional authorized producer discovery contract; current public events and
 the bounded run journal cannot recreate an omitted original key/digest.
+## Browser Authentication Boundary
+
+Every login and logout advances a memory-only authentication generation, even
+when the subject and token are unchanged. Query caches and mounted forms belong
+to that generation; replacing it clears the previous cache and remounts forms.
+Pending central sign-out preserves the current draft until navigation, but
+blocks new API requests. Failed sign-out does not silently discard the draft.
+
+Each API request captures its original generation, subject and bearer token.
+After response parsing, both success and error paths reject results belonging
+to an obsolete login. A late `401` cannot log out the next user. Permission
+responses must match the current subject; SSO completion cannot replace a newer
+login. Tokens and authentication generations are not persisted in local storage.
+
+An authentication change is not proof that a dispatched mutation was rejected.
+`AuthContextChangedError` deliberately is not a definite HTTP rejection and
+must not authorize automatic redispatch. Runtime command recovery, server-side
+ownership, stream revocation and OS/runtime isolation remain separate gates;
+this browser boundary does not replace them or establish full SDLC readiness.

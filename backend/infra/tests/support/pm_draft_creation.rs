@@ -678,6 +678,7 @@ async fn public_creation_and_readback_require_human_owner_and_fresh_project_acce
         id: saved.owner_user_id,
         role: SystemRole::User,
         is_system_admin: false,
+        central_write: Some(true),
     };
     let central = VerifiedCentralSubject(saved.owner_subject.clone());
     let owner = routes
@@ -707,6 +708,7 @@ async fn public_creation_and_readback_require_human_owner_and_fresh_project_acce
             id: other.id,
             role: SystemRole::Admin,
             is_system_admin: true,
+            central_write: Some(true),
         }))
         .layer(axum::Extension(VerifiedCentralSubject(other_subject)))
         .layer(axum::Extension(VerifiedHumanSession));

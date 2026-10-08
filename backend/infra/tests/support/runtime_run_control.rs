@@ -430,6 +430,7 @@ async fn runtime_control_http_sessionless_principal_cannot_impersonate_human() {
             id: f.owner,
             role: domain::SystemRole::Admin,
             is_system_admin: true,
+            central_write: None,
         }))
         .with_state(control_http_context(&f));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();

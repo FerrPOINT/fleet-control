@@ -55,6 +55,7 @@ fn authorized_filter(
         agent_id: query.agent_id,
         user_ids,
         include_all_users,
+        private_user_id: current.central_write.map(|_| current.id),
         search: query.q.unwrap_or_default().trim().to_string(),
         before: query.before,
         limit: query.limit.unwrap_or(50),
@@ -105,6 +106,32 @@ mod tests {
             id: Uuid::new_v4(),
             role,
             is_system_admin: false,
+            central_write: None,
+        }
+    }
+
+    #[test]
+    fn central_expanded_filters_preserve_private_owner_for_read_and_write_tokens() {
+        for write in [false, true] {
+            let mut current = user(domain::SystemRole::User);
+            current.central_write = Some(write);
+            for selection in [
+                "all".to_string(),
+                format!("{},{}", current.id, Uuid::new_v4()),
+            ] {
+                let filter = authorized_filter(
+                    ChatsDirectoryQuery {
+                        user_id: Some(selection),
+                        ..Default::default()
+                    },
+                    &current,
+                )
+                .unwrap();
+                assert_eq!(filter.private_user_id, Some(current.id));
+            }
+            let own = authorized_filter(ChatsDirectoryQuery::default(), &current).unwrap();
+            assert_eq!(own.user_ids, vec![current.id]);
+            assert_eq!(own.private_user_id, Some(current.id));
         }
     }
 

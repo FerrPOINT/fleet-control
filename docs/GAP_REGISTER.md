@@ -1,5 +1,23 @@
 # Gap Register
 
+## Main Reconciliation Access Boundary: 8 October 2026
+
+Closed for the reconciled source's controlled PG/HTTP/SSE regression: central
+private-owner filtering now intersects task project access before directory
+counts/cursors, applies to task detail/history/controls, and revalidates project
+access plus bearer identity on global SSE delivery. Main's central auth fixes
+and accepted Base875 SDK are preserved; no integration migration is changed.
+The frozen661-case Linux gate passes with33 explicit special-case ignores;
+448 frontend and84 three-engine fixture flows pass. See
+[exact evidence](CHAT_CLARIFICATION_VERIFICATION.md#main-history-reconciliation-8-october-2026).
+
+This closes neither actual central producer interoperability nor complete
+runtime readiness. Remaining work still includes observer crash/backup-loss
+acceptance, initialized inventory, trusted Tracker lease/Workflow first step,
+PM tools and saved-answer delivery/rebind, production live Chats, current-source
+Forge native gates and ordered main releases. Existing fixture screenshots and
+older native packets do not close these requirements.
+
 ## Managed Observer Consumer: 8 October 2026
 
 Source implements explicit pinned renderer-3 install/remove through signed

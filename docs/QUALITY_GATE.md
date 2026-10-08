@@ -1,5 +1,16 @@
 # Quality Gate
 
+## Latest Reconciled Source Evidence
+
+The b965298/c8093aa normal reconciliation with accepted Base875 SDK passes the
+frozen Linux/PostgreSQL workspace gate:661 passed, zero failed,33 ignored;324
+source hashes match. Frontend448 and84 three-engine fixture browser cases pass.
+Actual PG/HTTP/SSE regressions cover private-owner directory/detail access and
+same-stream Tracker project revocation. See the
+[exact packet](CHAT_CLARIFICATION_VERIFICATION.md#main-history-reconciliation-8-october-2026).
+Ignored special cases, native runtime/PM/live acceptance and ordered release
+checks below are not waived by these component/fixture results.
+
 Commands:
 
 ```bash

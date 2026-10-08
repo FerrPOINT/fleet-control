@@ -123,6 +123,7 @@ async fn base_package_workflow_mapping_requires_fresh_owner_readback_and_exact_f
                 id: owner,
                 role: domain::SystemRole::Operator,
                 is_system_admin: false,
+                central_write: None,
             }))
             .with_state(ctx);
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -624,6 +625,7 @@ async fn base_package_machine_readback_denies_database_only_effective_config_and
             id: owner,
             role: domain::SystemRole::Admin,
             is_system_admin: true,
+            central_write: None,
         }));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let base = format!("http://{}", listener.local_addr().unwrap());
@@ -949,6 +951,7 @@ async fn base_package_http_requires_operator_and_server_owned_checkout() {
                     id: owner,
                     role: domain::SystemRole::Operator,
                     is_system_admin: false,
+                    central_write: None,
                 })),
         )
         .nest(
@@ -957,6 +960,7 @@ async fn base_package_http_requires_operator_and_server_owned_checkout() {
                 id: owner,
                 role: domain::SystemRole::User,
                 is_system_admin: false,
+                central_write: None,
             })),
         )
         .with_state(ctx);

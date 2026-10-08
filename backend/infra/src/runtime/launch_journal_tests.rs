@@ -102,6 +102,7 @@ async fn runtime_launch_foreign_health_preserves_original_controller_state() {
             id: owner,
             role: domain::SystemRole::Operator,
             is_system_admin: false,
+            central_write: None,
         }),
         axum::extract::Path(agent.id),
     )

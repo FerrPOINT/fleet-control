@@ -2,10 +2,10 @@
 
 The sibling `services-base` checkout is required for Cargo path dependencies
 and the shared frontend package. Use the same parent directory for both repos.
-The authoritative SDK revision is [`.base-revision`](../.base-revision), currently
-`9408802dfa978cba2f67162a49adca6f65851b01`. Runtime producer source and SDK
-publication are separate; do not replace this pin with an integration-branch
-head. See [Base integration](BASE_INTEGRATION.md).
+Use the exact published Base SDK revision recorded in
+[`.base-revision`](../.base-revision); do not replace it with an arbitrary older
+checkout or an integration-branch head. Runtime producer source and SDK
+publication are separate. See [Base integration](BASE_INTEGRATION.md).
 SDLC is not enabled by running these services; see
 [implementation and acceptance](SDLC_IMPLEMENTATION.md).
 
@@ -78,6 +78,7 @@ Local URLs:
 
 The frontend uses Central Auth SSO on `http://localhost:7701` by default. Its
 `fleet-control` client must allow `http://localhost:23802/sso/callback`.
-Do not infer an admin role from successful SSO. Configure a verified
-`FLEET_CONTROL_AUTH__BOOTSTRAP_ADMIN_SUB` only for initial bootstrap, or assign
-the local role through an existing admin. Never match accounts by email.
+Central users need no local role assignment to operate Fleet. Their stored role
+remains unchanged; the former bootstrap-admin subject setting is ignored. PATs
+still require matching Fleet read/write scopes, and private chats remain
+owner-only. Never match accounts by email.

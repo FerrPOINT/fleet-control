@@ -1,8 +1,27 @@
 # Current State
 
+## Main Reconciliation Candidate: 8 October 2026
+
+Integration b965298 and accepted main c8093aa are normally reconciled without
+rewriting either history. The candidate retains main's Base875 SDK pin and auth
+fixes; integration migrations remain byte-for-byte unchanged. Merge-boundary
+private-owner and Tracker project guards now cover directory counts/cursors,
+task history/context/controls and global task SSE, with actual PG/HTTP/SSE
+regression evidence. Frozen Linux/Rust1.88/PostgreSQL passes661 tests, zero
+failures and33 explicit ignores, fmt/check/strict Clippy and generated OpenAPI.
+All324 source hashes and owned Compose cleanup are verified.
+
+The same SDK passes448 frontend cases and84 fixture browser scenarios in three
+engines; existing135 fixture screenshots pass verification. This is not live
+clarification/confirmation or current-head native Hermes acceptance. The exact
+hashes, failed preliminary packets and remaining scope are in the
+[verification ledger](CHAT_CLARIFICATION_VERIFICATION.md#main-history-reconciliation-8-october-2026).
+Source publication must preserve the ordered release plan; do not merge the
+whole integration migration tail into main or update accepted runtime images.
+
 ## Current Execution Candidate: 8 October 2026
 
-The unpublished managed-observer slice adds signed renderer3 activation/removal
+The managed-observer slice published at b965298 adds signed renderer3 activation/removal
 and guarded original-run request observations. Its frozen full Linux/PostgreSQL
 workspace gate passes647 tests, with33 explicit opt-in ignores, fmt/check/strict
 Clippy and Rust-generated OpenAPI parity. Later QA launcher/cache corrections pass54

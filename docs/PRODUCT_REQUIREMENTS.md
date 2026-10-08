@@ -43,7 +43,10 @@ Full stage requirements, owner boundaries and uncompleted acceptance are in
 - Let leaders manage selected executors and write into sessions where they are
   explicitly selected.
 - Store each session under the authenticated user who created it.
-- Enforce `admin`, `operator` and `user` permissions in the backend.
+- Enforce `admin`, `operator` and `user` permissions in standalone legacy mode;
+  central requests use verified identity, service scopes and private ownership
+  without promoting stored roles. Task business commands additionally require
+  current project access and owner consent.
 - Keep human-created executor chats private by default.
 - Make session and message creation idempotent.
 - Store Fleet transcript mirror messages and per-agent runtime run links.

@@ -29,9 +29,7 @@ pub async fn controls(
 ) -> Result<Json<domain::ChatControls>, AppError> {
     require_project_access(&ctx, &user, id, &headers).await?;
     let session = ctx.repo.get_session(id).await?;
-    if session.user_id != user.id && !user.can_read_all_sessions() {
-        return Err(AppError::Forbidden);
-    }
+    super::sessions::ensure_session_read_access(&session, &user)?;
     let agent = ctx.repo.get_agent(session.primary_agent_id).await?;
     let runs = ctx.repo.list_session_agent_runs(id).await?;
     let active = runs.iter().rev().find(|run| {
@@ -197,7 +195,8 @@ async fn authorized_binding(
     write: bool,
 ) -> Result<TaskChatBinding, AppError> {
     let session = ctx.repo.get_session(id).await?;
-    if (write || !user.can_read_all_sessions()) && session.user_id != user.id {
+    super::sessions::ensure_session_read_access(&session, user)?;
+    if write && session.user_id != user.id {
         return Err(AppError::Forbidden);
     }
     ctx.repo
@@ -336,9 +335,7 @@ pub(super) async fn load_task_context(
     require_current_agent: bool,
 ) -> Result<SessionTaskContext, AppError> {
     let session = ctx.repo.get_session(id).await?;
-    if session.user_id != user.id && !user.can_read_all_sessions() {
-        return Err(AppError::Forbidden);
-    }
+    super::sessions::ensure_session_read_access(&session, user)?;
     let Some(binding) = ctx.repo.get_task_chat_binding(id).await? else {
         return Ok(SessionTaskContext {
             binding: None,
@@ -665,9 +662,7 @@ pub async fn history(
 ) -> Result<Json<MessageHistoryPage>, AppError> {
     require_project_access(&ctx, &user, id, &headers).await?;
     let session = ctx.repo.get_session(id).await?;
-    if session.user_id != user.id && !user.can_read_all_sessions() {
-        return Err(AppError::Forbidden);
-    }
+    super::sessions::ensure_session_read_access(&session, &user)?;
     Ok(Json(
         ctx.repo
             .session_message_history(id, query.before, query.limit.unwrap_or(50))

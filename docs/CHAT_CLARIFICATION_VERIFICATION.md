@@ -1,9 +1,70 @@
 # Chat Clarification Verification
 
+## Main History Reconciliation: 8 October 2026
+
+The normal, unsquashed reconciliation retains integration parent
+`b96529847dcd9465c9b350a7ef1c239d68614050` and accepted main parent
+`c8093aace07e54436893c5f7e35df1f968690266`. It uses the accepted Base SDK
+`875cac2edf1a18c3a8a59e2f67256d02a8fc04e4`, not the SDK of earlier native
+packets. The integration migration files are unchanged. This is an integration
+source publication candidate, not permission to merge its migration tail into
+main or install it on the accepted runtime.
+
+The merge boundary preserves central auth/SSE fixes and adds missing privacy
+and project guards. Session and Chats queries intersect central private-owner
+access with Tracker project access before counters, cursors and pagination.
+Task history/context/controls reuse the session read boundary; owner-only
+mutations remain stricter. Global task SSE events read current Tracker project
+access and revalidate the caller after that blocking read; revoked events are
+dropped and failed authorization/readback closes the stream.
+
+Actual PostgreSQL/HTTP regression `human_permissions` verifies foreign private
+messages/list/history/context/controls, directory all/multi-user/count/cursor
+behavior, and project revocation on the same authenticated SSE connection.
+The allowed delta is delivered, the revoked-project delta is absent, and a
+non-task event still arrives. The Tracker response and signed central token are
+controlled test inputs, not a live central SSO/Tracker acceptance result.
+Independent read-only review found no actionable merge-boundary findings.
+
+Frozen Linux/Rust1.88/PostgreSQL packet `5048238bafc3`, Compose project
+`sdlc-qa-fleet-container-control-73d702f30f4f`, passes fmt, all-target check,
+strict all-target Clippy, the full workspace suite and Rust OpenAPI parity:
+661 passed, zero failed, 33 explicitly ignored special cases. All 324 original
+and frozen source hashes agree. The 18 changed backend files' staged Git bytes
+also match the tested bytes. The Rust image is
+`sha256:2389e66da0925cc2165281b5b79efa3b4c7fb7a360896bf9288d8728ccc1f38f`.
+
+| Reconciled source packet | SHA256 |
+| --- | --- |
+| Source manifest | `0693c7844792dc25f47ed3a9aabca9c7cfc27b07f5aad990310755e04e6edb0d` |
+| Linux/Rust/PostgreSQL log | `67833eac08cf7736997573e149565d8366e2281d43c7dffd20e2a83c381cf396` |
+| Rust-generated OpenAPI | `abe404e7889fa11aa723a9d8aee931ce6d243a4c8ec402a110b8002c7a02d4cf` |
+
+Owned cleanup succeeds; independent Engine checks find no remaining containers
+or networks for this exact project. Shared caches, runtime images, data and
+protected volumes are unchanged. Preliminary packets `bb3c594c40cb` (fmt) and
+`46a87d7fa574` (missing test-only central identity field) remain FAILED, with
+owned cleanup verified; corrections do not relax assertions or deadlines.
+
+With Node22.20.0, pnpm10.28.1 and the same Base875 SDK, frozen installs,
+generated API/typecheck/lint/format/build, OpenAPI/UI checks and 448 Vitest cases
+pass. All 84 existing Fleet fixture flows pass across Chromium/Firefox/WebKit;
+the repository preview exits afterward. Screenshot verification passes nine
+checks for the existing 135 fixture captures at three viewports. Markdown links
+and README validation pass. No new production screenshot or live PM result is
+claimed. Native Windows MSVC remains unavailable; Linux is the Rust gate here.
+
+The 33 ignored gates, observer crash matrix, complete initialized inventory,
+trusted pre-model admission/first step, PM tools/answer delivery/rebind/resume,
+current-source Forge native acceptance, live seven-agent SDLC and ordered
+single-migration main releases remain separate requirements. Older native
+packets against another SDK do not certify this reconciled source head.
+
 ## Managed Observer Source Slice: 8 October 2026
 
-Working-tree implementation only, based on Fleet f04abbb; not current CI, native
-PASS, publication or installed readiness. Exact Base43b365f Git objects were
+Initial working-tree evidence below was based on Fleet f04abbb; the later
+observer core source was published at b965298. Neither publication nor the
+main reconciliation above implies installed readiness. Exact Base43b365f Git objects were
 read without modification: four raw SHA-256 values match the immutable source
 constants (188/5763/5804/196 bytes). SDK pin and existing migrations are unchanged.
 

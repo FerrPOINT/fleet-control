@@ -26,8 +26,14 @@ expired-lease quiescence and a pre-model first-step/identity contract before
 Fleet wires tools or resume. See [producer gaps](GAP_REGISTER.md#exact-producer-predispatch-limits-8-october-2026).
 
 Current publication boundaries: Base PR169 at `893c582` has ten successful
-exact-head checks and remains unmerged; Fleet integration at `f04abbb` is
-published but has no full main-target release gate. Forge PR88's four successful
+exact-head checks and remains unmerged; Fleet integration at `b965298` is
+published but has no full main-target release gate. Its normal reconciliation
+with accepted main `c8093aa` preserves Base875 and unchanged integration
+migrations;661 Linux/PG and448 frontend cases,84 three-engine fixture flows and
+controlled access-boundary regressions pass. See
+[evidence](CHAT_CLARIFICATION_VERIFICATION.md#main-history-reconciliation-8-october-2026).
+This branch is not a giant main release PR or installed SDLC acceptance.
+Forge PR88's four successful
 checks are for `56f1217`, not subsequent uncommitted reader/proof hardening.
 Its latest hardening native PostgreSQL epoch records one of three cases passing,
 with OCI not executed; the separate source gate passes219 workspace and26 Python

@@ -1,5 +1,18 @@
 # Testing
 
+## Main Reconciliation Permission Regression
+
+`human_permissions` exercises actual PostgreSQL private-owner filtering in both
+the legacy sessions list and Chats directory (counts, limits, all/multi-user
+selection and a foreign cursor). Its controlled HTTP fixtures check foreign
+history/context/control denial before Tracker access. An actual Fleet SSE with
+locally signed authentication delivers an allowed task delta, then filters a
+delta after Tracker project revocation while preserving a non-task event.
+The Tracker scope response is a fixture, not live producer or central SSO evidence.
+Central filter units cover read-only and write-scoped identities; they do not
+replace installed multi-service or seven-agent acceptance. Execute this target
+with `FLEET_TEST_DATABASE_URL` pointing only to an owned disposable PostgreSQL.
+
 ## Signed Configuration Recovery
 
 With a disposable `FLEET_TEST_DATABASE_URL`, run
@@ -1136,3 +1149,23 @@ Migration target `hermes_journal_time_order` requires its own empty database via
 guard preservation, actual trigger order and empty down/reapply. Running without
 that variable is not PostgreSQL migration evidence. These checks do not certify
 host clock stability or safe unknown redispatch.
+## Browser Authentication Regression Gate
+
+Run the frontend test, typecheck, lint, format and build gates before release.
+The focused tests are `src/api/client.test.ts`,
+`src/app/auth-boundary.test.tsx`, `src/shared/auth/store.test.ts`,
+`src/widgets/app-shell.test.tsx` and `src/pages/sso-callback/index.test.tsx`.
+They cover late successful/error responses, response-body races, concurrent
+expiration, same-subject reauthentication, cache/draft removal, StrictMode,
+pending/failed sign-out, permission subject mismatch and obsolete SSO completion.
+
+Run `pnpm exec playwright test e2e/fleet-control.spec.ts` in Chromium, Firefox
+and WebKit against the built frontend. These browser flows use mocked API and
+signed SSO responses: they verify UI integration, not live Central Auth,
+Hermes, workflow resume or autonomous SDLC acceptance. Live specifications
+require the separately documented QA setup and are not covered by fixture runs.
+
+Backend ownership and SSE revocation tests remain independently required.
+Discarding an obsolete browser result must never be treated as permission to
+resend an uncertain mutation. Recovery tests must preserve original command
+identity and verify authoritative readback before allowing any new dispatch.

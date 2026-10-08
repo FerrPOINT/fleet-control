@@ -160,12 +160,16 @@ workflow и namespaces; сообщение в Fleet не является ком
 Для legacy `agent_id` действует тот же контракт, что для `primary_agent_id`.
 
 Приватность означает отсутствие доступа у неприкреплённых runtime-агентов.
-Она не исключает явно разрешённый операторский доступ. Такой доступ должен
-быть понятен пользователю и отражён в политике прав.
+В принятой Central Auth policy приватный чат доступен только владельцу,
+независимо от исторической локальной роли. Standalone legacy mode сохраняет
+явно разрешённый операторский доступ; его нельзя обещать как central policy.
 
 ## 4. Права человека и identity агента
 
-Целевая матрица ранее согласованного Fleet MVP:
+Историческая матрица standalone Fleet MVP ниже не задаёт права Central Auth.
+Для central requests действуют service scopes и owner-only private policy из
+[Security](SECURITY.md); права SDLC business actions всегда проверяют владельца
+и текущий проектный доступ.
 
 | Действие | Owner | Другой обычный пользователь | Operator/admin | Выбранный лид |
 | --- | --- | --- | --- | --- |
@@ -186,15 +190,18 @@ workflow и namespaces; сообщение в Fleet не является ком
 Нужно сохранять как отображаемого автора, так и реального инициатора команды.
 Runtime credential не должен автоматически давать доступ к Fleet API.
 
-Текущее поведение имеет две существенные особенности:
+Текущее поведение после согласования с принятым main:
 
-- В Central Auth middleware любой допущенный человек получает эффективную
-  роль `admin`; default own filter сохраняется, но расширение на всех доступно.
-  Legacy `user` ограничен своими сессиями. Нельзя обещать изоляцию людей,
-  ссылаясь только на legacy RBAC. Политика central scopes требует решения.
-- API разрешает запись owner и operator/admin, но repository сообщений и
-  делегаций проверяет owner. Поэтому чтение чужого чата не гарантирует право
-  отправки или делегации; это расхождение требуется устранить.
+- Central identity не повышает сохранённую роль до `admin`. Допущенные central
+  пользователи имеют scoped control-plane access без локальных role grants.
+  Default own filter сохраняется; all/multi-user выбор не раскрывает чужие
+  приватные чаты. Legacy `user` остаётся ограничен своими сессиями.
+- Directory counts, cursor и страницы применяют private-owner и Tracker project
+  ограничения до выдачи. History/context/controls используют session read guard;
+  общий Fleet stream также проверяет scope task-событий после отзыва доступа.
+- Shared legacy leader-scoped messages допускают central service scopes, но
+  чтение не выдаёт owner consent для SDLC answers/confirmation или новые machine
+  capabilities. Лиды не являются частью нового Chats/PM этапа.
 
 Права проверяются для detail/messages/participants/runs/stream и каждой команды,
 а не только для списка или навигации. Заголовки, previews, counts и дочерние
@@ -493,11 +500,15 @@ Java Agent lifecycle уже имеет реализацию в текущих и
 chat/steer/approval возвращают validation errors о phase 2. Обобщённое описание
 «весь Java Agent не реализован» в старых документах не отражает текущий код.
 
-## 15. Реестр расхождений и порядок закрытия
+## 15. Исторический source-review и порядок закрытия
 
 P0: права/identity и сохранность истории. P1: корректность исполнения и
-восстановления. P2: удобство и масштабирование. Статус всех строк: open по
-source review; строки не являются результатом выполненных live тестов.
+восстановления. P2: удобство и масштабирование. Таблица сохраняет исходные
+находки до runtime/Chats реализации, а не текущий статус всех четырнадцати строк.
+Текущие implemented/verified/remaining ограничения и evidence находятся в
+[Gap Register](GAP_REGISTER.md) и [Verification](CHAT_CLARIFICATION_VERIFICATION.md).
+Исторические формулировки не отменяют последующие исправления и не являются
+результатом новых live тестов.
 
 | ID | Приоритет | Расхождение | Условие закрытия |
 | --- | --- | --- | --- |

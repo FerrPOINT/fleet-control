@@ -22,6 +22,7 @@ fn query(owner: Uuid, agent: Option<Uuid>, search: &str) -> ChatsDirectoryFilter
         agent_id: agent,
         user_ids: vec![owner],
         include_all_users: false,
+        private_user_id: None,
         search: search.into(),
         before: None,
         limit: 50,
@@ -394,6 +395,7 @@ async fn postgres_directory_scope_search_counts_cursor_and_stable_order() {
             id: owner,
             role: domain::SystemRole::Operator,
             is_system_admin: true,
+            central_write: None,
         }))
         .with_state(ctx);
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
