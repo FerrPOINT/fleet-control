@@ -41,7 +41,11 @@ import {
   type DispatchMarker,
 } from './core'
 import './chat.css'
-import { ExecutionContextPanel, namespaceContextEnabled } from '../session-detail/execution-context'
+import {
+  ExecutionContextPanel,
+  namespaceContextEnabled,
+  type Context,
+} from '../session-detail/execution-context'
 
 export function ChatDetailPage() {
   const { sessionId } = useParams()
@@ -62,6 +66,7 @@ function ChatWorkspace({ sessionId }: { sessionId: string }) {
   const [held, setHeld] = useState(() => dispatchHeld(sessionId) || legacyControlHeld(sessionId))
   const [contextOpen, setContextOpen] = useState(false)
   const [namespaceBlocked, setNamespaceBlocked] = useState(namespaceContextEnabled)
+  const [storedContext, setStoredContext] = useState<Context | null>(null)
   const [stream, setStream] = useState<Record<string, string>>({})
   const [newMessages, setNewMessages] = useState(false)
   const scroll = useRef<HTMLDivElement>(null)
@@ -311,7 +316,7 @@ function ChatWorkspace({ sessionId }: { sessionId: string }) {
         </div>
         <div>
           <dt>{t('chatCore.task')}</dt>
-          <dd>{session.data?.task_key ?? t('chats.freeChat')}</dd>
+          <dd>{storedContext?.task.task_id ?? session.data?.task_key ?? t('chats.freeChat')}</dd>
         </div>
         <div>
           <dt>{t('chatCore.runtime')}</dt>
@@ -351,7 +356,11 @@ function ChatWorkspace({ sessionId }: { sessionId: string }) {
     )
   return (
     <div className="fc-chat-workbench">
-      <ExecutionContextPanel sessionId={sessionId} onBlocked={setNamespaceBlocked} />
+      <ExecutionContextPanel
+        sessionId={sessionId}
+        onBlocked={setNamespaceBlocked}
+        onContext={setStoredContext}
+      />
       <header className="fc-chat-header">
         <div>
           <Link to={chatBackTo(params.get('backTo'))} aria-label={t('chatCore.back')}>
@@ -374,7 +383,7 @@ function ChatWorkspace({ sessionId }: { sessionId: string }) {
         <Bot className="h-5 w-5" />
         <strong>{agent?.display_name ?? session.data.primary_agent_name}</strong>
         {agent ? <StatusBadge value={agent.status} /> : null}
-        <span>{session.data.task_key ?? t('chats.freeChat')}</span>
+        <span>{storedContext?.task.task_id ?? session.data.task_key ?? t('chats.freeChat')}</span>
       </div>
       <div className="fc-chat-grid">
         <section className="fc-chat-main">

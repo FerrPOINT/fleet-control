@@ -7,7 +7,7 @@ import { apiRequest } from '@/api/client'
 import { useAuthStore } from '@/shared/auth/store'
 import type { components } from '@/api/generated'
 
-type Context = components['schemas']['ExecutionContextV2']
+export type Context = components['schemas']['ExecutionContextV2']
 type Projection = components['schemas']['SessionExecutionContext']
 export const namespaceContextEnabled = import.meta.env.VITE_NAMESPACE_ENABLED === 'true'
 const immutableId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -24,9 +24,11 @@ function identity(params: URLSearchParams, key: string) {
 export function ExecutionContextPanel({
   sessionId,
   onBlocked,
+  onContext,
 }: {
   sessionId: string
   onBlocked: (value: boolean) => void
+  onContext?: (value: Context | null) => void
 }) {
   const { search } = useLocation()
   const namespace = parseNamespaceLocation(search)
@@ -63,6 +65,9 @@ export function ExecutionContextPanel({
         (malformed || query.isPending || query.isError || Boolean(query.data)),
     )
   }, [malformed, query.isPending, query.isError, query.data, onBlocked])
+  useEffect(() => {
+    onContext?.(query.data?.context ?? null)
+  }, [query.data, onContext])
   async function bind() {
     if (malformed || !namespace || !tracker || !task) return
     pendingRef.current ??= {
