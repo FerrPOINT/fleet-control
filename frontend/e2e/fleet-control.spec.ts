@@ -1197,7 +1197,10 @@ for (const viewport of [
 
     // Refetch in place so the successful readiness remains in the query cache.
     unavailable = true
-    await retry.click()
+    // Start with keyboard activation: Linux WebKit retains a mouse-click tab origin.
+    await retry.focus()
+    await expect(retry).toBeFocused()
+    await page.keyboard.press('Enter')
     // The application retries HTTP 503 before exposing the refresh failure.
     await expect(error).toBeVisible({ timeout: 25000 })
     await expect(running).toHaveCount(0)
@@ -1208,10 +1211,10 @@ for (const viewport of [
     await expect(effective).toBeVisible()
     await expect(revisions.getByText('#7', { exact: true })).toBeVisible()
     await expect(retry).toBeEnabled()
-    await retry.focus()
-    // WebKit's non-Windows default needs Option/Alt to include buttons in tab order.
+    await expect(retry).toBeFocused()
+    // Option/Alt includes buttons in macOS WebKit's default tab order.
     const tabKey =
-      testInfo.project.name === 'webkit' && process.platform !== 'win32' ? 'Alt+Tab' : 'Tab'
+      testInfo.project.name === 'webkit' && process.platform === 'darwin' ? 'Alt+Tab' : 'Tab'
     await page.keyboard.press(`Shift+${tabKey}`)
     await expect(retry).not.toBeFocused()
     await page.keyboard.press(tabKey)

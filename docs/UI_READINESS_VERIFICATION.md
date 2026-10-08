@@ -30,16 +30,77 @@ two `Unknown` badges, retained revision 7, keyboard retry and healthy recovery.
 Browser checks also verify no horizontal overflow or page errors, and that
 badges, error and retry are within the viewport and unoccluded.
 
-Native Windows run `r4` rechecked HEAD `0fc8826` with the test-only keyboard
-adjustment. The manifest records the source HEAD and working-tree test blob.
+Native Windows run `r4` rechecked HEAD `0fc8826`. The Linux investigation below
+supersedes its keyboard procedure. Earlier unit/build/contract checks above
+remain historical checks; this test-only correction does not rerun a build.
 
-Keyboard traversal uses `Shift+Tab` then `Tab` for Chromium, Firefox and Windows
-WebKit. Non-Windows WebKit uses `Shift+Alt+Tab` then `Alt+Tab` to include buttons
-in its default tab order, following the
-[Playwright maintainer explanation](https://github.com/microsoft/playwright/issues/5609#issuecomment-832684772).
-Both paths assert focus leaves Retry and returns to it before `Enter` triggers
-recovery. Windows verification exercises only the Windows key mode; the Linux
-Alt-key path requires CI on the patched head before its gate can be called PASS.
+## Linux WebKit Keyboard Regression
+
+Both published-head CI runs failed only the three readiness WebKit viewports:
+[37857695332](https://github.com/FerrPOINT/fleet-control/actions/runs/37857695332)
+on `0fc8826` with `Shift+Tab`, and
+[37860129682](https://github.com/FerrPOINT/fleet-control/actions/runs/37860129682)
+on `d3470e6` with `Shift+Alt+Tab`. The failed-refresh assertions had passed;
+the failure was `not.toBeFocused()` after reverse traversal.
+
+Local reproduction uses Ubuntu 24.04.4 LTS in WSL2, private Linux Node
+`v22.20.0`, the existing locked Playwright `1.61.1`, and its Linux WebKit
+`26.5`, revision `2311`. No repository dependencies or CI settings changed.
+
+The minimal input/button fixture isolates the setup effect. The application
+reproduces the failing mouse-start and successful keyboard-start cases:
+
+| Setup                                                   | Reverse key                | Result                      |
+| ------------------------------------------------------- | -------------------------- | --------------------------- |
+| Mouse click Retry, then focus the already focused Retry | Shift+Tab or Shift+Alt+Tab | Retry remains focused       |
+| Mouse click Retry, then bring the page to front         | Shift+Tab or Shift+Alt+Tab | Retry remains focused       |
+| Focus Retry, then keyboard Enter                        | Shift+Tab                  | Previous button gains focus |
+| Previous button focused by Shift+Tab                    | Tab                        | Retry regains focus         |
+
+Failing events reach Retry with `isTrusted=true`, `defaultPrevented=false`, and
+`document.hasFocus()=true`; no focusout/focusin follows the reverse Tab. This
+reproduces without React or application handlers. Linux Tab also visits adjacent
+buttons without Alt. The cited
+[Playwright maintainer explanation](https://github.com/microsoft/playwright/issues/5609#issuecomment-832684772)
+specifically describes **Mac** Option behavior, not a Linux default.
+
+The evidence isolates a mouse-origin reverse-navigation behavior in the tested
+WebKit browser rather than an application focus trap or an unfocused window.
+Its internal cause is consistent with WebKit keeping a descendant navigation
+starting node after a click, separately from the focused button: see
+[Document::focusNavigationStartingNode](https://github.com/WebKit/WebKit/blob/main/Source/WebCore/dom/Document.cpp)
+and [FocusController](https://github.com/WebKit/WebKit/blob/main/Source/WebCore/page/FocusController.cpp).
+That internal explanation is an inference from upstream source and the controlled
+experiments, not an instrumented assertion about the compiled browser internals.
+
+The correction starts failed refresh using focused Retry plus keyboard `Enter`.
+After the normal HTTP retries, it asserts that Retry **still** has focus instead
+of calling `focus()` again. It retains both departure and return assertions:
+`Shift+Tab` leaves Retry, `Tab` returns, and `Enter` performs healthy recovery.
+Recorded application events show `Retry -> Save configuration -> Retry` at all
+three viewports. Alt is now limited to macOS WebKit; macOS was not locally tested.
+Application retry settings, assertion timeouts and viewport/browser coverage are
+unchanged. Production component blob remains
+`d337e82609d128c927d43ebdef27c81276c8880a`.
+
+The [generated manifest](assets/screens/readiness-refresh-error/manifest.json)
+records source HEAD `d3470e60e97d8fbf70ded9aa4310728dc3a7eb8d` and corrected test
+blob `a75f3ae5fbc56c1e5de7946d24149bde032bfaa4`, plus actual run statistics.
+
+| Actual local gate                                                | Passed | Failed / skipped / flaky | Playwright retries |
+| ---------------------------------------------------------------- | ------ | ------------------------ | ------------------ |
+| Linux WebKit, uninstrumented spec, all three viewports           | 3      | 0 / 0 / 0                | 0                  |
+| Linux WebKit, same cases with event recording                    | 3      | 0 / 0 / 0                | 0                  |
+| Native Windows, Chromium / Firefox / WebKit, all three viewports | 9      | 0 / 0 / 0                | 0                  |
+
+Private raw evidence is retained under workspace `.local/fleet-webkit-proof-20261009/evidence`:
+`minimal-focus.json`, `minimal-followup.json`, `minimal-keyboard-entry.json`,
+`linux-baseline-localhost`, `linux-correction-events`, `linux-webkit-final`, and
+`windows-regates`. The latter runs include JSON reports, traces, logs and receipts.
+The failed reproduction is retained separately from the passing correction.
+These local receipts precede publication of the corrected patch. Neither failed
+CI run is reported as green; published-head CI must pass independently after
+review and publication.
 
 ## Mock Fixture Screens
 
@@ -49,9 +110,19 @@ were visually inspected. Captures use `fullPage: false` after scrolling the
 readiness section into view. These are mocked API fixtures in the default dark
 theme; the existing 135-screenshot manifest is unchanged.
 
-The owned preview used `http://localhost:43971`, strict port binding and
-`reuseExistingServer: false`. Cleanup confirmed no remaining listener; all
-verification handles are terminal. Failed attempts remain in private logs.
+The earlier `r4` preview used `http://localhost:43971`. The Linux correction and
+Windows regates serve the existing `frontend/dist` on separately bound private
+loopback ports; no existing listener is reused. Each helper closes its browser
+and HTTP server in `finally`, and receipts record port and `serverClosed`.
+Final cleanup checks confirm no owned listener or browser process remains.
+
+Linux Node and the browser cache remain under the task-owned
+`/home/sdlc1-runner/.local/fleet-webkit-proof-20261009` for reproduction. Only the
+missing WebKit shared-library packages were installed with
+`apt-get --no-install-recommends`: 42 new packages including dependencies,
+0 upgraded and 0 removed. No global Node symlink or system GTK preference was
+changed. Docker, Rust, builds, database commands and protected runtime changes
+were not used; live Forge was not accessed.
 
 ## Limits
 
