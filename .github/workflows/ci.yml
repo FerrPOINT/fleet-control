@@ -127,7 +127,7 @@ jobs:
       - run: cargo check --locked --workspace --all-targets
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - run: cargo test --locked --workspace -- --test-threads=1
-      - name: Clean migration up, rollback new revisions and reapply
+      - name: Clean migration up, namespace rollback refusal and idempotent reapply
         env:
           PGPASSWORD: fleet_control
           DATABASE_URL: postgres://fleet_control:fleet_control@127.0.0.1:5432/fleet_migration_smoke
@@ -135,7 +135,15 @@ jobs:
           psql -h 127.0.0.1 -U fleet_control -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE fleet_migration_smoke;'
           cargo run --locked -p migration -- up
           cargo run --locked -p migration -- status
-          cargo run --locked -p migration -- down -n 1
+          if cargo run --locked -p migration -- down -n 1 > /tmp/namespace-down.log 2>&1; then
+            echo 'Namespace down migration unexpectedly succeeded'
+            exit 1
+          fi
+          grep -F 'Execution context rollback requires a compatible cohort; history is retained' /tmp/namespace-down.log
+          namespace_revision=$(psql -h 127.0.0.1 -U fleet_control -d fleet_migration_smoke -At -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM seaql_migrations WHERE version='m20261008_000090_execution_context';")
+          test "$namespace_revision" = 1
+          namespace_table=$(psql -h 127.0.0.1 -U fleet_control -d fleet_migration_smoke -At -v ON_ERROR_STOP=1 -c "SELECT to_regclass('public.session_execution_contexts') IS NOT NULL;")
+          test "$namespace_table" = t
           cargo run --locked -p migration -- up
           cargo run --locked -p migration -- status
       - name: OpenAPI drift gate
