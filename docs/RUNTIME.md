@@ -487,6 +487,19 @@ backfill or automatic repair. Free-chat configurations are unaffected.
 
 ### Native Inventory Limits
 
+An opt-in Base `fleet-hermes-request-observer` candidate now captures digest-only
+observations from the actual initialized native request builder. Authenticated
+GET reads its bounded memory store without invoking configuration/discovery or
+another model request. Captures are restricted to the exact original default
+credential scope, bound to the native run/agent and factory incarnation, and held
+on cancellation/owner loss. Actual pinned Hermes tests cover two isolated
+processes and restart; selected system/tools/model HMACs match the deterministic
+model's received request. See [verification](CHAT_CLARIFICATION_VERIFICATION.md#native-request-observation-8-october-2026).
+This candidate is not installed or consumed as admission. It reports
+`complete=false`, `runtime_ready=false`: effective revision, full source
+inventory and post-builder transformations remain unverified. It narrows one
+observation gap without closing the full inventory requirement below.
+
 Read-only source review of pinned Hermes `bbaf7af5` confirms that the HOME seal
 does not close every native instruction source. Python plugin registrations may
 point outside HOME; project plugin activation uses an independent environment
@@ -509,8 +522,8 @@ bounded exact captured bytes/hashes; active preprocessing, handlers/hooks and
 frozen session prompt state. Unknown lazy registrations, unstable generations or
 unaccounted transformations must return incomplete rather than grant readiness.
 Authentication identifies the responder, not the safety of arbitrary loaded code.
-This is a source-audit requirement, not an implemented endpoint or positive
-native inventory acceptance. Tracker assignment/Workflow first-step authority
+This is a source-audit requirement beyond the implemented partial request
+observer, not positive native inventory acceptance. Tracker assignment/Workflow first-step authority
 remain separate gates; `runtime_ready=false` and task dispatch stay closed.
 
 The optional native renderer gate consumes the actual Rust policy, checks the

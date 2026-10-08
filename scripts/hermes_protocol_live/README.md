@@ -1,5 +1,18 @@
 # Native Hermes Protocol Acceptance
 
+## Native Request Observation
+
+`--scenario observation --observer-plugin-root <Base/deploy/hermes-request-observer>`
+explicitly selects the candidate diagnostic plugin. Two real native cases compare
+captured request-builder system/tools/model HMACs with the deterministic model's
+received request, verify distinct homes/cwd, repeated observational GET, foreign
+credential/peer rejection and factory restart without old capture adoption or
+prompt replay. Four plugin files and probe/helper/source hashes are recorded.
+Host safety tests reject missing/mixed plugin roots before Docker. No plugin is
+enabled in the baseline or installed fleet. This is request-builder evidence,
+not complete effective inventory, arbitrary final-wire attestation, Workflow
+first-step authority, real provider or SDLC admission.
+
 ## Control Outcome Producer
 
 Explicit `--scenario controls --control-plugin-root <Base/deploy/hermes-control-plugin>`

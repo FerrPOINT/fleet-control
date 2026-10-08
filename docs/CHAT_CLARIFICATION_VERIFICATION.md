@@ -1,5 +1,58 @@
 # Chat Clarification Verification
 
+## Native Request Observation: 8 October 2026
+
+Final native project `sdlc-qa-hermes-protocol-9de98716b429` passes two real
+Hermes/API/AIAgent cases with a deterministic loopback model. Two independent
+processes expose digest-only initialized-builder observations; selected
+system/tools/model HMACs match the model's received JSON. Repeated GET neither
+changes the snapshot nor reexecutes inference. Peer/wrong-token access is denied;
+physical factory restart changes incarnation, refuses old captures and leaves
+the old prompt count at one. Native source remains
+`bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3`; dependency image remains
+`sha256:aeb97055b0f5aee433e29998eeafd8065b81e70d1fcb69345c520c2bfbf23777`.
+
+Final plugin SHA256: factory
+`1e21d8c0e6fcac136b966b09d4e5c433bc9ff1e4ed3be6cb667fee9718d3f6de`,
+store `c33cd12cf59d6c9bf1d4e2aade98743d56de4d4e9a924df00e7a0cb302f20170`.
+Probe `667479e048435bb4a6e40d5d5f3ba7a7bf7d886e06eaf795943d85d83549194c`,
+runner `da47362717a6c5a03e445e6e7a7ca85e3946c6f22f4616800229e46c08189736`,
+native helper `ee8e7a77c8889c341c3cbfc4d417f749152feee8eaefceee804858b15017691d`,
+log `64f9f9fab2396b7984d853e18c63ab7a24a8ce6c0837c5ba5fe69a8f6e14e4e7`.
+All executed source/plugin hashes remain unchanged; exact Compose cleanup and
+independent container/network queries are empty. No ports, accepted images,
+secrets or permanent runtime resources are changed.
+
+Independent source review closes cross-scope capture, cancelled-build stale
+observation and pre-UTF8 bounds findings. Thirteen Base regressions pass; twenty
+Fleet host harness tests pass. Initial Windows keepalive regression failed with
+timer-induced connection abort; the helper now converts only elapsed-deadline
+read aborts into TimeoutError, preserving premature connection errors. Initial
+native project75aa342b4307 passes its earlier bytes but is superseded, not final
+post-review evidence.
+
+`complete=false`, `runtime_ready=false` remain mandatory. This does not certify
+full plugin/skill inventory, effective revision, arbitrary post-builder
+transformations, native CLI lifecycle, genuine provider, Fleet consumption,
+PM continuation, first-step authority or SDLC. No frontend changed and no new
+screen evidence is claimed.
+
+Unextended baseline project `sdlc-qa-hermes-protocol-1f55f47598e8` also passes
+all four native protocol cases on the same final helper bytes: SSE/two homes,
+dropped202/concurrent replay/conflict/restart, credential rotation and inference
+crash without reexecution. Log
+`f07b3ca2b1a74915ab13b10c25044008b6d8696caa2d6736318fce12d9a460e6`.
+The intentional killed-inference case prints a model-fixture BrokenPipe but
+finishes with four passing tests and exit0; this is not a runtime success claim.
+Exact cleanup and independent container/network readback are empty.
+
+Base producer is published separately as [PR168](https://github.com/FerrPOINT/services-base/pull/168),
+head `43b365fd97e8955821312cbc2e68b4d83e5bd240`, targeting main. Its local
+Rust/frontend gates and 191-source manifest pass; exact-head CI remains a
+separate gate. Neither the PR nor this harness promotes installed images or
+changes Fleet Base pin. Fleet integration-tail release remains subject to
+ordered migration/contract review rather than a giant main PR.
+
 ## Original PM Runtime Proof: 8 October 2026
 
 This packet seals new PM reservations to original launch/controller/origin and

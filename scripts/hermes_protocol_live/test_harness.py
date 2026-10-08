@@ -43,6 +43,43 @@ def archive(name, *, symlink=False):
 
 
 class HarnessSafetyTests(unittest.TestCase):
+    def test_observation_requires_complete_explicit_plugin_before_docker(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for extra in [
+                ['--scenario', 'observation'],
+                ['--scenario', 'observation', '--observer-plugin-root', directory],
+                ['--observer-plugin-root', directory],
+                ['--scenario', 'observation', '--observer-plugin-root', directory,
+                 '--control-plugin-root', directory],
+            ]:
+                with self.subTest(arguments=extra), \
+                     patch.object(sys, 'argv', ['run.py', '--hermes', directory, '--image', 'fixture', *extra]), \
+                     patch.object(runner.subprocess, 'check_output') as docker, self.assertRaises(SystemExit):
+                    runner.main()
+                docker.assert_not_called()
+
+    def test_observation_fixture_copies_only_selected_plugin(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plugin = root / 'plugin'
+            plugin.mkdir()
+            for name in ('__init__.py', 'plugin.py', 'store.py', 'plugin.yaml'):
+                (plugin / name).write_bytes(b'fixture-only')
+            process = probe.NativeProcess(root / 'home', 12345, observer_plugin=plugin)
+            config = json.loads((process.home / 'config.yaml').read_text())
+            self.assertEqual(config['plugins']['enabled'], ['fleet-hermes-request-observer'])
+            for name in ('__init__.py', 'plugin.py', 'store.py', 'plugin.yaml'):
+                self.assertEqual((process.home / 'plugins/fleet-hermes-request-observer' / name).read_bytes(),
+                                 b'fixture-only')
+            self.assertFalse((process.home / 'plugins/fleet-hermes-recovery').exists())
+            self.assertFalse((process.home / 'plugins/fleet-hermes-controls').exists())
+
+    def test_multiple_native_extensions_are_not_silently_combined(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with self.assertRaises(ValueError):
+                probe.NativeProcess(root / 'home', 12345, observer_plugin=root, control_plugin=root)
+
     def test_controls_requires_complete_explicit_plugin_before_docker(self):
         with tempfile.TemporaryDirectory() as directory:
             for extra in [

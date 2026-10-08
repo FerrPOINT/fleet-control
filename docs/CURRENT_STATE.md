@@ -1,5 +1,17 @@
 # Current State
 
+## Native Request Observation: 8 October 2026
+
+The opt-in Base request-observer candidate has two actual pinned Hermes cases:
+two isolated native processes, selected request-builder HMAC agreement with a
+deterministic model, observational GET and restart without old prompt replay.
+Thirteen producer host regressions and twenty Fleet harness safety cases pass;
+independent review findings are closed. This is partial observation only, not
+installed enablement or effective inventory/admission. Configuration revision,
+full source inventory, post-builder transformations and Workflow first-step
+authority remain open. No UI/screens or public API changed. See
+[evidence](CHAT_CLARIFICATION_VERIFICATION.md#native-request-observation-8-october-2026).
+
 ## Original PM Runtime Proof: 8 October 2026
 
 The source candidate seals each new PM reservation to its original launch,

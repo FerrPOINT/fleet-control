@@ -63,7 +63,12 @@ def request(port, path, *, token=None, body=None, key=None, store_id=None, timeo
             payload = bytearray()
             while True:
                 transport.settimeout(remaining())
-                chunk = response.read1(min(4096, MAX_BODY + 1 - len(payload)))
+                try:
+                    chunk = response.read1(min(4096, MAX_BODY + 1 - len(payload)))
+                except OSError:
+                    # Timer shutdown may surface as a connection abort on Windows.
+                    remaining()
+                    raise
                 remaining()
                 payload.extend(chunk)
                 if len(payload) > MAX_BODY:
@@ -195,7 +200,7 @@ async def serve(home, port):
 
 
 class NativeProcess:
-    def __init__(self, home, model_port, *, recovery_plugin=None, control_plugin=None):
+    def __init__(self, home, model_port, *, recovery_plugin=None, control_plugin=None, observer_plugin=None):
         self.home = home
         home.mkdir()
         self.token = secrets.token_hex(32)
@@ -213,11 +218,13 @@ class NativeProcess:
             "telemetry": {"shared_metrics": {"enabled": False}},
             "agent": {"max_turns": 2},
         }
-        if recovery_plugin is not None and control_plugin is not None:
+        if sum(plugin is not None for plugin in (recovery_plugin, control_plugin, observer_plugin)) > 1:
             raise ValueError("native fixture selects one producer extension")
-        selected_plugin = recovery_plugin if recovery_plugin is not None else control_plugin
+        selected_plugin = recovery_plugin or control_plugin or observer_plugin
         if selected_plugin is not None:
-            plugin_name = "fleet-hermes-recovery" if recovery_plugin is not None else "fleet-hermes-controls"
+            plugin_name = ("fleet-hermes-recovery" if recovery_plugin is not None else
+                           "fleet-hermes-controls" if control_plugin is not None else
+                           "fleet-hermes-request-observer")
             plugin = home / "plugins" / plugin_name
             plugin.mkdir(parents=True)
             for name in ("__init__.py", "plugin.py", "store.py", "plugin.yaml"):

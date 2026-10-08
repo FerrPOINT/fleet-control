@@ -1,5 +1,17 @@
 # Gap Register
 
+## Partial Native Request Observation: 8 October 2026
+
+The optional Base request-observer candidate and Fleet native harness now verify
+bounded authenticated request-builder observations on actual pinned Hermes,
+including two independent agents and restart without prompt replay. Captures
+exclude foreign profile/room scopes; cancellation/owner loss closes stale reads.
+Thirteen Base host regressions, twenty Fleet host safety tests and two native
+cases pass. This is not full effective inventory, arbitrary post-builder wire
+proof, installed rollout or pre-model admission. Configuration revision,
+source inventory and transformations remain explicit blockers; task dispatch
+stays closed. See [evidence](CHAT_CLARIFICATION_VERIFICATION.md#native-request-observation-8-october-2026).
+
 ## Heartbeat Alert Persistence: 7 October 2026
 
 **Closed for source/PostgreSQL behavior on 8 October 2026.** The original
@@ -639,7 +651,7 @@ No installed runtime or production UI acceptance is inferred.
 | Compatible Workflow build and native skills | Canonical private Base pin `4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58` is available via authorized Git; package hashes/inventory and pinned HOME readback are source-tested. Preparation now seals native project/external/create-dir discovery and disabled-skill settings in a new draft; missing or edited policy is rejected. Historical donor GitLab access is not a current blocker. Full plugin/native inventory, loaded model/tool state and frozen assignment/Workflow proof remain unverified; development capabilities 503 or metadata observation cannot grant admission. |
 | Pinned Hermes skills HTTP inventory | Read-only audit of `bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3` finds `_handle_skills` calling `_find_all_skills(include_editorial=True)`, while the pinned helper accepts only `skip_disabled`. This is source incompatibility, not a live HTTP result. `/v1/skills` cannot be treated as inventory proof without actual owner-side resolution and acceptance; loader-helper verification does not replace it or the plugin inventory. API Git blob `bdb784362759b3a12008aa73ff139da249929892`, helper blob `c46796b32e3e4683e18c8f34358a468d01a4f239`; upstream sources remain unchanged. |
 | Pinned HOME support-file inventory | Physical readback now accepts only the pinned package's materialized `SKILL.md` files; unattested support/scripts/assets/templates/hidden files and Unix canonical hard links fail closed without deletion. Actual private Git preparation/materialization/readback covers seven roles; pinned native helper evidence proves synthetic support files are readable despite no extra skill registration. This is bounded filesystem evidence, not prevention of later mutation or full native inventory. No new schema, support-file upgrade or accepted-runtime change. |
-| Observational native inventory | Source audit confirms independent plugin roots/entry points, lazy memory providers, managed/profile config, aliases, preprocessing/hooks and frozen session prompt state. Native discovery/convenience listing or qualified lookup can mutate state and cannot serve as a strict observational inventory read. A bounded authenticated owner endpoint using captured initialized handles/generation is still required; incomplete/lazy/unstable sources must keep readiness closed. See [native inventory limits](RUNTIME.md#native-inventory-limits). |
+| Observational native inventory | The opt-in request-builder observer is source/native-tested and keeps complete/runtime_ready false. It is not installed and does not verify effective revision, all plugin roots/entry points, lazy memory providers, managed/profile config, aliases or post-builder transformations. Complete initialized-owner inventory remains required; discovery/convenience listing cannot substitute. See [native inventory limits](RUNTIME.md#native-inventory-limits). |
 | Workflow mapping vs frozen runtime assignment | Source now uses fresh authenticated v3 owner ID/name/workflow/profile mapping, frozen separately in the configuration; symbolic namespace no longer substitutes for a persisted ID. Scoped Git/PG/HTTP tests cover profile/catalog drift and row-lock identity changes. Actual native profile/config attestation and frozen assignment ACK remain; source metadata is not admission. Accepted v2 is not switched or installed. |
 | Server chat search/pagination/aggregate counts | Own-database and Chromium/Firefox/WebKit fixture acceptance passed in working branch; release review and live acceptance remain |
 | Live acceptance and production screenshots | Real PM/owner/Tracker/Workflow flow, restart/denial tests; fixture screenshots stay separately labeled |

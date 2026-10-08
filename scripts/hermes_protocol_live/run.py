@@ -49,10 +49,11 @@ def main():
     parser.add_argument("--hermes", type=Path, required=True)
     parser.add_argument("--image", required=True, help="existing Base-packaged Hermes dependency image; never installed")
     parser.add_argument("--artifacts", type=Path, default=ROOT / "tmp" / "hermes-protocol-live")
-    parser.add_argument("--scenario", choices=("protocol", "renderer", "recovery", "controls"), default="protocol")
+    parser.add_argument("--scenario", choices=("protocol", "renderer", "recovery", "controls", "observation"), default="protocol")
     parser.add_argument("--renderer-evidence-root", type=Path)
     parser.add_argument("--recovery-plugin-root", type=Path)
     parser.add_argument("--control-plugin-root", type=Path)
+    parser.add_argument("--observer-plugin-root", type=Path)
     args = parser.parse_args()
     if args.scenario == "renderer":
         if args.renderer_evidence_root is None or not args.renderer_evidence_root.is_dir() or args.renderer_evidence_root.is_symlink():
@@ -77,7 +78,16 @@ def main():
                 parser.error("control plugin files must be regular non-linked files")
     elif args.control_plugin_root is not None:
         parser.error("control plugin root is only valid for controls")
-    probe_path = Path(__file__).with_name({"renderer":"renderer_probe.py", "recovery":"recovery_probe.py", "controls":"controls_probe.py"}.get(args.scenario, "probe.py"))
+    if args.scenario == "observation":
+        if args.observer_plugin_root is None or not args.observer_plugin_root.is_dir() or args.observer_plugin_root.is_symlink():
+            parser.error("observation scenario requires an explicit non-linked plugin directory")
+        for name in ("__init__.py", "plugin.py", "store.py", "plugin.yaml"):
+            file = args.observer_plugin_root / name
+            if not file.is_file() or file.is_symlink():
+                parser.error("observer plugin files must be regular non-linked files")
+    elif args.observer_plugin_root is not None:
+        parser.error("observer plugin root is only valid for observation")
+    probe_path = Path(__file__).with_name({"renderer":"renderer_probe.py", "recovery":"recovery_probe.py", "controls":"controls_probe.py", "observation":"observation_probe.py"}.get(args.scenario, "probe.py"))
     args.artifacts.mkdir(parents=True, exist_ok=True)
     metadata = json.loads(subprocess.check_output(["docker", "image", "inspect", args.image]))[0]
     if metadata["Config"].get("Labels", {}).get("sdlc.hermes.revision") != PIN:
@@ -103,13 +113,15 @@ def main():
         probe = directory / "probe"
         probe.mkdir()
         shutil.copyfile(probe_path, probe / "probe.py")
-        if args.scenario in ("recovery", "controls"):
+        if args.scenario in ("recovery", "controls", "observation"):
             shutil.copyfile(Path(__file__).with_name("probe.py"), probe / "native_protocol.py")
             plugin = probe / "plugin"
             plugin.mkdir()
             report["plugin_sha256"] = {}
             for name in ("__init__.py", "plugin.py", "store.py", "plugin.yaml"):
-                plugin_root = args.recovery_plugin_root if args.scenario == "recovery" else args.control_plugin_root
+                plugin_root = (args.recovery_plugin_root if args.scenario == "recovery" else
+                               args.control_plugin_root if args.scenario == "controls" else
+                               args.observer_plugin_root)
                 shutil.copyfile(plugin_root / name, plugin / name)
                 report["plugin_sha256"][name] = hashlib.sha256((plugin / name).read_bytes()).hexdigest()
             report["native_helper_sha256"] = hashlib.sha256((probe / "native_protocol.py").read_bytes()).hexdigest()
@@ -150,7 +162,7 @@ def main():
         if result.returncode:
             raise RuntimeError("native acceptance failed; sanitized diagnostics are in the run log")
         native = json.loads((output / "native-result.json").read_text())
-        expected_cases = {"renderer":1,"recovery":2,"controls":2,"protocol":4}[args.scenario]
+        expected_cases = {"renderer":1,"recovery":2,"controls":2,"observation":2,"protocol":4}[args.scenario]
         if len(native.get("cases", [])) != expected_cases or native.get("native_source_sha") != PIN:
             raise RuntimeError("native evidence is incomplete")
         report["native_evidence"] = native
