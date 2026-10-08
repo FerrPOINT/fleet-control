@@ -31,9 +31,15 @@ Additional gates:
 - Linux managed-file directory barriers for rename/unlink/new ancestors;
   injected post-rename failure must retain journal/drain and never advance head
 - compare the accepted seven-schema chat snapshot against exact release Tracker
-  Git blobs, not a divergent local checkout. PR114 head8c80a41 fails three
-  schemas; PR90 heade4fba60 lacks predispatch Base admission. Full rollout stays closed
+  Git blobs, not a divergent local checkout. PR114 head357caa7 now matches all
+  seven wire DTOs; the earlier head8c80a41 failed three schemas. PR90 head44e7183
+  still does not authorize the first production Workflow step. Schema parity
+  is not dispatch authority; full rollout stays closed
 - clean DB migration up/status
+- execute opt-in migration cases with `--include-ignored --test-threads=1`;
+  `FLEET_MESSAGE_ORDER_TEST_DATABASE_URL` must target its own empty disposable
+  database, not the populated heartbeat/runtime database. A green workspace
+  run with ignored cases does not establish migration acceptance
 - additive control-ledger 000013 upgrade, empty down/re-up and nonempty refusal
   on its own database; release only after the 000012 prerequisite
 - additive journal-time 000014 upgrade/down/reapply with original guard/history
@@ -75,3 +81,10 @@ Additional gates:
 
 Native Windows cargo commands require MSVC `link.exe`. The backend gate may be
 run through WSL/Linux when the Windows-native linker is not installed.
+
+Current combined heartbeat evidence is in the
+[verification ledger](CHAT_CLARIFICATION_VERIFICATION.md#combined-heartbeat-closure-8-october-2026).
+It distinguishes the passing workspace/static checks and final migration/export
+and browser gates from failed combined QA helpers. Do not mark a helper fully
+passing from successful tests before a later isolation/readiness failure, or
+substitute fixture screenshots for live PM acceptance.

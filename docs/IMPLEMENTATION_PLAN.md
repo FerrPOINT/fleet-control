@@ -1,5 +1,30 @@
 # Implementation Plan
 
+## Current Publication And Remaining Work
+
+The canonical heartbeat correction is integrated as `7dd19f1` without importing
+unrelated auth/SDK changes. Combined workspace, PostgreSQL migration/profile,
+renderer/OpenAPI, frontend and three-browser fixture evidence is recorded in
+the [verification ledger](CHAT_CLARIFICATION_VERIFICATION.md#combined-heartbeat-closure-8-october-2026).
+The source/PostgreSQL heartbeat blocker is closed; this is not an installed
+runtime update or whole-product merge readiness.
+
+The authorized parallel Forge task publishes OCI artifact identity, read-only
+data compatibility, application acceptance and verified rollback/recovery in
+[CI-CD PR88](https://github.com/FerrPOINT/CI-CD/pull/88), exact head
+`205a7b9e7d9925ac636533ee4ca8652af31ab462`, with four successful CI checks.
+Its prerequisite PR87/0039, authoritative SDLC admission and full business
+acceptance remain separate; no installed deployment is changed.
+
+Next required gates remain initialized native inventory; trusted Tracker
+assignment and Workflow first-step authority; PM structured tools, saved-answer
+delivery/checkpoint/rebind; and live SDLC acceptance. Consume only verified
+producer contracts: matching seven DTOs does not authorize dispatch. Keep
+Task Tracker/project-workflow read-only in this task. Release the existing
+thirteen migration candidates in ordered single-migration packets with exact
+main-head checks, never as one giant integration PR. Do not enable installed
+flags or advertise100% readiness from component/fixture acceptance.
+
 ## Pinned Skill Readback Follow-Up
 
 The integration candidate closes physical HOME/skills to the pinned package's

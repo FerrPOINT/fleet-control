@@ -1,5 +1,18 @@
 # Heartbeat Alert Verification
 
+## Current Integration Evidence
+
+The sections below retain the original main-based PR58 packet, including its
+baseline and SDK pin. Exact PR58 head
+`ef6f275aaef84c8df77e2d9733c2b6ea83e326f3` has five successful GitHub checks
+(run37680405418); that is not CI evidence for the entire integration branch.
+The scoped fix is now imported as `7dd19f1` into the runtime/Chats candidate
+with unchanged SDK `cbb4e99230420dc2659431b1c9fb5090e5c940f0`.
+Its separately executed [combined gates](CHAT_CLARIFICATION_VERIFICATION.md#combined-heartbeat-closure-8-october-2026)
+and [current fixture screenshots](assets/screens/heartbeat-alert-integration-20261008/manifest.json)
+prove current-source behavior. Neither packet promotes installed runtime or
+opens task admission.
+
 ## Scope
 
 Main-based correction of persisted heartbeat incidents, not a rollout of the
@@ -77,8 +90,8 @@ autonomous SDLC transition.
 
 ## Release Gate
 
-The local source gates, Rust OpenAPI export/comparison and owned cleanup pass;
-exact-head GitHub checks must still finish before this task is marked merge-ready. A
+The original local source gates, Rust OpenAPI export/comparison, owned cleanup
+and all five exact-head GitHub checks now pass for PR58. A
 successful component test is not proof of the entire product goal. Permanent
 runtime images, secrets, volumes and settings have not been promoted by this
 task.

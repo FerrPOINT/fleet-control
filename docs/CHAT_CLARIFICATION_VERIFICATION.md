@@ -1,5 +1,78 @@
 # Chat Clarification Verification
 
+## Combined Heartbeat Closure: 8 October 2026
+
+Baseline `d520deb58b335868993cc8b91244200f8920a1f5`, unchanged Base
+`cbb4e99230420dc2659431b1c9fb5090e5c940f0`, imported PR58 head
+`ef6f275aaef84c8df77e2d9733c2b6ea83e326f3`, integration commit `7dd19f1`.
+The scoped cherry-pick preserves the source history; it does not import main's
+auth/SDK changes or alter migration lineage. No public route/model, installed
+runtime, SDK/lockfile or producer source changes are part of this packet.
+
+Project `sdlc-qa-fleet-heartbeat-b98828aa6c0a` passes fmt, locked/offline
+workspace/all-target check and strict Clippy. Its workspace suite passes613
+cases with32 ignored; the five new PostgreSQL heartbeat cases and two configured
+private Git readback cases actually execute. Three opt-in central-profile cases
+and eight migration lineage cases subsequently pass. The helper then fails
+because the explicit message-order opt-in lacks its database URL: this is not
+a completely passing helper packet. All334 frozen inputs and exact cleanup
+still verify. Completion log SHA256
+`2a680a76344d6f7816c68c274144526036a59a2c5debd117517511c87a0372c6`;
+input manifest `d99c91b603c72fc9cedb6aed2a821985dfc27d5d31322b48e64e169e32a23c96`.
+
+The follow-up project `sdlc-qa-fleet-heartbeat-opt-b6ba12398220` repeats strict
+checks, heartbeat/Git/profile gates successfully, but fails message-order because
+its URL targets the populated heartbeat database. A subsequent setup-only
+project `sdlc-qa-fleet-heartbeat-opt-6bb23b8fcd82` is aborted before tests when a
+one-shot Compose initialization service exits. Both failed packets are retained
+and cleaned, not counted as passing source gates. No product fixture or applied
+migration is changed to conceal these QA isolation errors.
+
+Final project `sdlc-qa-fleet-heartbeat-opt-f5c36c040359` uses a separate empty
+`fleet_order_test` database and passes all22 migration cases without skips,
+including ordered message backfill and clock rollback. Its explicit renderer
+export passes one case; Rust OpenAPI export is byte-identical, SHA256
+`1f1f4dd872d53925597cf91b98301d940dd85481b857af85b7a325e056e41667`.
+All334 backend/SDK/harness/helper/bundle inputs are unchanged; exact Compose
+down and independent owned-container/network readback pass. Completion log
+SHA256 `b1f84de158e6ea4860d32be8d349132e917cb5bc646a712ef82c65626defd7c8`;
+manifest `1a380e0c8efa02079223955e480bfb88103e5caae44175aa5cb2b29d942b9fcc`.
+This is a focused migration/export follow-up, not another full-suite/Clippy run;
+repeated cases are not added to the workspace count as new distinct tests.
+
+Frozen frontend gates pass offline install, generation, typecheck, lint/semantic
+checks, formatting,448 Vitest cases in35 files, build, OpenAPI drift, eight API
+compatibility regressions, actual accepted-main compatibility,136-document
+links, nine screenshot-verifier tests and the existing135-screen manifest.
+The existing advisory bundle-size warning remains. Static log SHA256
+`8440d055c5516e2620aa215553279fab1fca811345019b80c96f7ded1d4c0603`.
+That combined helper's later preview-readiness attempt fails; static results
+are not presented as a passing whole helper. The final same-origin preview
+passes three heartbeat browser cases, each at375x812/1920x1080/2560x1440, across
+Chromium/Firefox/WebKit. Final browser log SHA256
+`d957f1ba2779e41baee519b4c2c29e01ca2368c61b1f1e61f0a025a99ab617d0`.
+Owned preview stops;1112 source hashes and nine built assets remain unchanged.
+The [current nine-image manifest](assets/screens/heartbeat-alert-integration-20261008/manifest.json)
+binds current source hashes, unchanged PNG bytes, routes, viewports and DPR.
+Mobile/desktop Chromium images are visually inspected for readable labels and
+no overflow/overlap. These are HTTP fixtures, not live installed-runtime evidence.
+
+The seven DTO gate also passes against the actual published Git blob of Tracker114
+`357caa7a60a717eb7b0ac72f286b793326992931`, including recursive constraints and
+eight contract regressions. Workflow90 remains
+`44e718358d3a8fd339f9ccaa8a26c17d52454623`; neither schema match nor lease timing
+grants first-step/admission authority. Independent read-only review finds no
+actionable P1/P2 in this heartbeat packet; overlapping freshness/recovery polling
+is not separately tested. Actual Fleet README validation and seven SDK validator
+tests pass. Task dispatch and runtime readiness remain closed. The separately
+verified main-based PR58 packet is not substituted for these combined
+checks; no whole-product CI, installed health or PM/SDLC acceptance is claimed.
+
+Post-cleanup Docker audit reports complete coverage:39 desktop containers and
+zero on both runners, with no grouping violations. Other authorized task-owned
+QA resources remain untouched; this packet verifies only its exact project
+cleanup, not the absence of all parallel QA activity.
+
 ## Closed Pinned Skill Files: 8 October 2026
 
 Within HOME/skills, effective readback permits only the pinned package's materialized

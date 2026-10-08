@@ -757,6 +757,14 @@ legacy listing order. Frontend tests cover overlapping pages and SSE reconnect
 during previous-page loading, including catch-up of messages arriving mid-fetch;
 browser fixtures are not real PM acceptance.
 
+For the complete migration packet use
+`cargo test -p migration -- --include-ignored --test-threads=1` with the required
+opt-in URLs. Do not reuse the populated runtime/heartbeat database for the
+message-order fixture: its historical `agent1` seed assumes a clean database.
+The [current combined packet](CHAT_CLARIFICATION_VERIFICATION.md#combined-heartbeat-closure-8-october-2026)
+executes all22 migration cases on isolated databases; a default suite with
+ignored cases or a later failed QA helper is not equivalent evidence.
+
 Frontend commands: `pnpm test -- --maxWorkers=2` and focused Playwright
 `pnpm exec playwright test e2e/fleet-control.spec.ts --grep "PM chat clarification" --workers=1`.
 The latter uses fixture APIs with production controllers and all three browsers; it is

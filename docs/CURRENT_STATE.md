@@ -1,5 +1,32 @@
 # Current State
 
+## Combined Heartbeat Closure: 8 October 2026
+
+PR58 head `ef6f275aaef84c8df77e2d9733c2b6ea83e326f3` is integrated as
+`7dd19f1` on the runtime/Chats candidate without importing main's auth/SDK
+changes. Canonical heartbeat persistence, concurrent deduplication and atomic
+recovery/audit pass five real PostgreSQL regressions. No applied migration,
+public DTO/OpenAPI, Base pin, installed runtime or admission flag is changed.
+
+Combined Rust1.88 fmt, locked/offline all-target check and strict Clippy pass;
+the workspace suite passes613 cases with32 opt-in cases ignored. Separate
+configured gates pass22 migration cases, three central-profile cases and one
+renderer export. OpenAPI is unchanged. Node22.20.0/pnpm10.28.1 gates pass448
+unit cases, codegen/typecheck/lint/format/build, API compatibility and the seven
+published Tracker114 DTOs. Three browser heartbeat fixtures pass across
+Chromium/Firefox/WebKit, producing nine current screenshots at all required
+viewports. They are not live Hermes/PM acceptance. Failed QA attempts and the
+exact completed checks remain distinct in the
+[verification ledger](CHAT_CLARIFICATION_VERIFICATION.md#combined-heartbeat-closure-8-october-2026).
+
+The heartbeat gap is closed for source/PostgreSQL behavior; earlier dated
+sections below retain their historical results. Native inventory, trusted
+assignment/first-step, PM tool delivery/checkpoint/resume, live SDLC and ordered
+single-migration releases remain open. The independent Forge delivery packet
+is published in PR88 with four successful checks, but is not an installed
+deployment or whole-product acceptance. Task dispatch stays closed and
+`runtime_ready=false`. See [remaining gates](GAP_REGISTER.md).
+
 ## Closed Pinned Skill Files: 8 October 2026
 
 Within Base-backed HOME/skills, effective readback now permits only the pinned

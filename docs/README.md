@@ -7,6 +7,8 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 
 - [Chat clarification implementation plan](CHAT_CLARIFICATION_IMPLEMENTATION_PLAN.md)
 - [Chat clarification verification](CHAT_CLARIFICATION_VERIFICATION.md)
+- [Current combined heartbeat evidence](CHAT_CLARIFICATION_VERIFICATION.md#combined-heartbeat-closure-8-october-2026)
+- [Current heartbeat fixture screenshots, not live PM acceptance](assets/screens/heartbeat-alert-integration-20261008/manifest.json)
 - [Chats/PM consumer handoff](CHATS_PM_CONSUMER_HANDOFF_20261006.md)
 - [Chats/PM preview evidence, not live acceptance](assets/design/chats-pm-consumer/manifest.json)
 - [Chat clarification contract](contracts/CHAT_CLARIFICATION_CONTRACT.md)

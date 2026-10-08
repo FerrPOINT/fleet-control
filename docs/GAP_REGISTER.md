@@ -2,16 +2,20 @@
 
 ## Heartbeat Alert Persistence: 7 October 2026
 
-The full disposable PostgreSQL regression packet exposes a real operations defect:
-`RepositoryAlertService::record_heartbeat_freshness` inserts
+**Closed for source/PostgreSQL behavior on 8 October 2026.** The original
+full disposable PostgreSQL regression packet exposed a real operations defect:
+`RepositoryAlertService::record_heartbeat_freshness` inserted
 `agent_heartbeat_stale`, while migration000006 permits `heartbeat_stale`.
-PostgreSQL rejects the insert, so a stale-agent alert cannot be persisted even
-when unrelated tests succeed. Deduplication/recovery and UI labels currently
-also use the incompatible name. This remains an open blocker, not an expected
-negative fixture. Fix the service against the existing canonical database kind,
-preserve legacy display compatibility where needed, and prove creation,
-acknowledged deduplication and recovery with PostgreSQL. Do not edit the applied
-historical migration or claim closure from wire-schema parity.
+PostgreSQL rejected the insert, so a stale-agent alert could not be persisted
+even when unrelated tests succeeded. Deduplication/recovery and UI labels also
+used the incompatible name. PR58's scoped fix now uses the canonical kind,
+retains legacy display compatibility, serializes creators through the agent-row
+lock, and resolves/audits atomically. Five actual PostgreSQL regressions and
+combined workspace/UI gates pass without changing the applied historical
+migration. See [combined evidence](CHAT_CLARIFICATION_VERIFICATION.md#combined-heartbeat-closure-8-october-2026).
+This is not wire-schema-only closure, installed health acceptance, PM admission
+or whole-product readiness. Freshness/recovery overlap remains a polling
+consistency limitation rather than a demonstrated blocker.
 
 ## Interrupted Configuration Activation
 
