@@ -35,8 +35,15 @@ overwrite files used by an executing agent or create another generation.
 - A committed candidate is acknowledged only after exact file/runtime readback.
   An interrupted candidate restores prior bytes only after confirmed quiescence.
   A previously running container requires original namespace-exit proof and a
-  fresh rollback generation with readiness. Pending preparation or uncertain
-  native command acceptance remains held without resubmission.
+  fresh rollback generation with readiness. Candidate/foreign preparation and
+  uncertain native start/stop acceptance remain held without resubmission.
+- A current-controller rollback with restored backup bytes and original namespace
+  exit may reconcile its original preparation using Base's distinct no-create
+  action. Pending and cached-prepared paths require an existing immutable DB claim
+  in the same locked verification transaction. Missing native/DB authority cannot
+  be repaired by a surviving private receipt or claimed by another controller.
+  Registered/NeverStarted observation still precedes the single protected start;
+  preparation readback is not readiness or a new generation.
 - Recheck claim, current desired/effective hashes and absence of active runs or
   unresolved delivery inside the rollback transaction. Preserve the effective
   revision, mark the candidate failed and append one digest-only audit. Preserve

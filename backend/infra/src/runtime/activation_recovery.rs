@@ -117,7 +117,35 @@ impl LocalRuntimeSupervisor {
             .has_pending_container_preparation(agent_id)
             .await?
         {
-            return Err(held());
+            // Only a current-owner rollback whose backup bytes are already restored
+            // can reconcile preparation. Candidate/foreign claims remain fenced.
+            if !journal.was_running()
+                || unconfirmed_runtime(&agent)
+                || self.repo.get_open_runtime_launch(agent_id).await?.is_some()
+            {
+                return Err(held());
+            }
+            verify_restored(&self.config.fleet.agents_root, &backups).await?;
+            self.verify_original_configuration_exit(&journal).await?;
+            journal.verify().await?;
+            // prepared_container compares the private original intent and the
+            // current-controller database claim before Base's no-create readback.
+            self.prepared_container(&agent, LaunchPhase::Rollback)
+                .await?;
+            if self
+                .start_locked(&agent, LaunchPhase::Rollback)
+                .await?
+                .status
+                != AgentStatus::Running
+            {
+                return Err(held());
+            }
+            journal.verify().await?;
+            self.repo
+                .settle_configuration_rollback(&journal.rollback_claim())
+                .await?;
+            journal.acknowledge().await?;
+            return Ok(true);
         }
         if let Some(open) = self.repo.get_open_runtime_launch(agent_id).await? {
             let original = identity.original_launch.as_ref().is_some_and(|original| {

@@ -10,6 +10,31 @@ controller recovery and Docker log ingestion remain incomplete.
 Native execution is not
 silently relabelled Docker.
 
+## Original Preparation Readback
+
+Base producer [PR169](https://github.com/FerrPOINT/services-base/pull/169)
+introduces private protocol1/2 `reconcile_preparation`, with the same closed
+fields and prepared result as `prepare`. Protocol3 and missing original mapping
+are rejected. The producer opens an existing protected native journal, verifies
+exact original request/claim/schema/inode and Engine identity, and either reads
+the retained result or finishes registration of the original never-started CID.
+It cannot create, start, kill, connect, adopt or replace a lost claim. Missing or
+uncertain physical proof remains held; there is no fallback to `prepare`.
+
+Fleet verifies the existing immutable DB claim, private original intent, current
+controller and effective/rollback configuration before this action. Cached
+prepared receipts also require existing-only DB verification. Lost DB rows or
+private files cannot mint authority. A pending preparation is not an unknown
+start; only the former can continue via readback without an open launch.
+
+Signed activation recovery permits this action only for current-owner rollback
+after exact backup restoration and confirmed original namespace exit, with no
+open launch. Candidate and foreign preparations remain fenced. Physical
+before-create/lost-preparation-ACK acceptance and remaining limits are recorded
+in the [ledger](../CHAT_CLARIFICATION_VERIFICATION.md#preparation-readback-8-october-2026).
+This is not controller takeover, complete loaded inventory, task admission,
+public API extension, Java capability or installed source promotion.
+
 ## Original Controller Restart Observation
 
 Base candidate

@@ -1,5 +1,31 @@
 # Gap Register
 
+## Original Preparation Custody: 8 October 2026
+
+**Before-create/lost-preparation-ACK recovery verified; broader gaps remain.**
+The original preparation readback consumes existing native and Fleet claims;
+it cannot create a replacement generation. Missing Fleet authority now holds
+even with a cached prepared receipt. Actual PostgreSQL passes the new current/
+foreign-controller, acknowledged/uncertain-receipt negative regression within
+208 runtime cases. Independent review closes the cached-receipt custody finding.
+Sixty-four host regressions pass; Base PR169 is ready with ten green exact-head
+checks. A separate actual packet `929400f20d40` now passes physical before-create
+Fleet restart, original rollback preparation readback, backup/effective restore,
+loaded previous SOUL, unchanged peer, once-only model/audit and owned cleanup.
+Fresh candidate-running packet `22a5078c52f5` also passes after the reviewed
+QA teardown correction; all other327 frozen inputs are unchanged. Other crash
+points, backup-loss and full loaded/readiness proof remain required.
+
+The current recovery fixture may continue only a pending preparation without
+an open launch, using the unchanged original intent and no-create readback.
+Unknown start remains held and is never resubmitted. Late cleanup is bounded
+to three revalidated owned Compose downs, retains volumes on exhaustion and
+rejects foreign images/labels. Earlier FAILED packets, including one cleanup
+failure followed by an independently verified scoped repair, remain FAILED.
+See [evidence](CHAT_CLARIFICATION_VERIFICATION.md#preparation-readback-8-october-2026).
+Full loaded/readiness, task admission/first-step, PM resume and ordered release
+remain open; no installed runtime or automation is enabled.
+
 ## Partial Native Request Observation: 8 October 2026
 
 The optional Base request-observer candidate and Fleet native harness now verify
@@ -11,6 +37,26 @@ cases pass. This is not full effective inventory, arbitrary post-builder wire
 proof, installed rollout or pre-model admission. Configuration revision,
 source inventory and transformations remain explicit blockers; task dispatch
 stays closed. See [evidence](CHAT_CLARIFICATION_VERIFICATION.md#native-request-observation-8-october-2026).
+
+## Exact Producer Predispatch Limits: 8 October 2026
+
+Read-only inspection of Tracker114 `357caa7` and Workflow90 Git objects at
+`44e7183` confirms that prerequisite observations do not yet authorize model work.
+Tracker's reserved PM assignment keeps `dispatch_allowed=false`; expired or
+already-claimed leases require quiescence recovery. Workflow's v3 Base step
+unconditionally requires missing trusted owner assignment/config/evidence;
+the existing PM bind requires an already-running Fleet observation and catalog
+v2. Its closed runtime assignment still requires delivery/decomposition fields
+before PM can decompose. A post-dispatch bind cannot satisfy a pre-model gate.
+
+The next bounded Fleet slice is a machine-only typed lease GET/readback and
+identity/version/expiry validator, separate from the human creation gateway.
+It must preserve required nullable fields, exact original command identity and
+false dispatch authority. Valid observations must cause zero lease claims,
+Workflow mutations or model requests. Do not claim leases during Draft creation
+before expiry/quiescence and non-circular first-step recovery are implemented.
+Producer advancement and actual interoperability remain separate acceptance;
+these read-only repositories are not changed by this runtime task.
 
 ## Heartbeat Alert Persistence: 7 October 2026
 

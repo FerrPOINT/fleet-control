@@ -1,5 +1,15 @@
 # Agent Runtime Contract
 
+Original container preparation replay requires an existing immutable Fleet DB
+claim and private intent, including when a prepared receipt is cached. The
+distinct Base `reconcile_preparation` verifies the original native claim and
+never creates/starts a namespace or replaces lost authority. Only current-owner
+rollback with verified restored bytes, original namespace exit and no open launch
+can use this path during signed activation recovery. Actual before-create/
+lost-preparation-ACK evidence is scoped in the
+[verification ledger](../CHAT_CLARIFICATION_VERIFICATION.md#preparation-readback-8-october-2026).
+It supplies no task/Workflow admission or Java capability.
+
 Hermes PM observation requires the original private launch/controller/origin/
 credential binding, exact run/session readback and physical custody after locked
 database provenance. A replacement listener or unbound legacy record cannot
@@ -45,9 +55,10 @@ The model is controlled locally; this is not task/PM or full SDLC acceptance.
 The separate controlled readiness-timeout gate verifies a distinct rollback
 generation and restored configuration; see
 [rollback evidence](../CHAT_CLARIFICATION_VERIFICATION.md#actual-docker-readiness-rollback-6-october-2026).
-Controller crash/private-journal recovery and production Docker log ingestion
-remain open live gates. That controlled failure does not certify every rollback
-failure mode or installed rollout.
+Selected candidate-running and before-create controller crash evidence is
+recorded separately in the verification ledger. Other crash points/private-journal
+loss and production Docker log ingestion remain open live gates. These controlled
+failures do not certify every rollback failure mode or installed rollout.
 
 Private source-page transport now has a Rust consumer with closed per-stream
 offset/prefix cursors and original-registration receipts. It preserves binary

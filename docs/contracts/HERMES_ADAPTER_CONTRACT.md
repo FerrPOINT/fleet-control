@@ -1,5 +1,14 @@
 # Hermes Adapter Contract
 
+Pending automatic preparation uses existing-only Fleet claim verification and
+Base's distinct original `reconcile_preparation`, never a repeated prepare/create.
+Retained prepared receipts do not recreate missing DB custody. Unknown start
+still holds; this readback is not native controller adoption or permission to
+resend a prompt. The physical before-create/lost-ACK case verifies restored
+previous SOUL and once-only model input in the
+[ledger](../CHAT_CLARIFICATION_VERIFICATION.md#preparation-readback-8-october-2026).
+Hermes HTTP/public adapter schemas are unchanged.
+
 PM callbacks read only the reservation's sealed original origin and credential
 fingerprint, with matching launch/controller and exact native run/session. The
 supervisor retains lifecycle exclusion through observation commit and checks
@@ -52,8 +61,9 @@ named-volume subpaths and binds proof/file/digest before start; it does not use
 daemon-root binds or rslave fallback. Every endpoint/observe/control-lifecycle
 lookup retains that original proof. Actual Rust Fleet UID/file/model access,
 isolated chat, configuration drain/replacement and restart pass the controlled-model
-[container acceptance](../CONTAINER_SUPERVISOR_ACCEPTANCE.md). Controller crash,
-private-journal loss and readiness-failure rollback still require live acceptance.
+[container acceptance](../CONTAINER_SUPERVISOR_ACCEPTANCE.md). Selected controller
+crash and readiness-failure rollback have separate physical evidence; other crash
+points, private-journal loss and complete loaded/readiness proof remain required.
 Confirmed original namespace exit permits a new history-ordinal generation;
 unknown preparation/start keeps its original intent/claim and cannot advance it.
 Previous generation files are preserved, not rewritten or restarted.
@@ -65,9 +75,9 @@ Original file restore/readback is distinct from unimplemented controller takeove
 
 Retained-child checks below apply to the legacy native path. Container config
 activation uses original namespace stop before file effects and a new generation;
-unknown custody retains drain and recovery evidence. Its rollback has focused
-PostgreSQL/fake-Base tests, not actual Docker failure-injection acceptance.
-Native evidence does not certify the container path.
+unknown custody retains drain and recovery evidence. Focused PostgreSQL/fake-Base
+tests and selected actual Docker failure-injection evidence are distinct; see the
+verification ledger. Legacy native evidence does not certify the container path.
 
 Additive000019 seals the Base-verified bridge origin to the original started
 launch and PID. Dispatch preparation and submission require that exact origin

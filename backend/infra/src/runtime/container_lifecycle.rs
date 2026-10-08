@@ -129,25 +129,30 @@ impl LocalRuntimeSupervisor {
         intent: &ContainerCreationIntent,
         ordinal: i64,
         configuration: &app::runtime_launch::RuntimeConfigurationClaim,
+        existing_only: bool,
     ) -> Result<(), AppError> {
         if serde_json::to_vec(intent).map_err(|_| held())?.len() > 64 * 1024 {
             return Err(held());
         }
-        self.repo
-            .claim_container_preparation(
-                &app::runtime_launch::RuntimeContainerPreparation {
-                    agent_id: intent.agent_id,
-                    ordinal,
-                    controller_id: self.controller_id,
-                    generation: intent.generation,
-                    operation_id: intent.operation_id,
-                    intent_sha256: crate::runtime_launches::snapshot_hash(
-                        &serde_json::to_value(intent).map_err(AppError::internal)?,
-                    )?,
-                },
-                configuration,
-            )
-            .await
+        let preparation = app::runtime_launch::RuntimeContainerPreparation {
+            agent_id: intent.agent_id,
+            ordinal,
+            controller_id: self.controller_id,
+            generation: intent.generation,
+            operation_id: intent.operation_id,
+            intent_sha256: crate::runtime_launches::snapshot_hash(
+                &serde_json::to_value(intent).map_err(AppError::internal)?,
+            )?,
+        };
+        if existing_only {
+            self.repo
+                .verify_container_preparation(&preparation, configuration)
+                .await
+        } else {
+            self.repo
+                .claim_container_preparation(&preparation, configuration)
+                .await
+        }
     }
 
     fn container_intent(
@@ -303,6 +308,16 @@ impl LocalRuntimeSupervisor {
             .await?
             .map(|bytes| serde_json::from_slice(&bytes).map_err(|_| held()))
             .transpose()?;
+        let pending = self
+            .repo
+            .has_pending_container_preparation(agent.id)
+            .await?;
+        if pending != previous.is_some() {
+            // A lost private intent or database claim is not permission to create again.
+            return Err(AppError::Unavailable(
+                "original container preparation requires reconciliation".into(),
+            ));
+        }
         let generation = previous
             .as_ref()
             .map_or_else(Uuid::new_v4, |value| value.generation);
@@ -361,7 +376,7 @@ impl LocalRuntimeSupervisor {
         }
         // Commit before both private-file creation and Docker create. Missing files
         // must not grant a new generation after an unknown physical effect.
-        self.claim_container_intent(&intent, ordinal, configuration)
+        self.claim_container_intent(&intent, ordinal, configuration, previous.is_some())
             .await?;
         if previous.is_none() {
             private_document(root, intent_path, &intent).await?;
@@ -374,15 +389,29 @@ impl LocalRuntimeSupervisor {
             mount_mapping: intent.mount_mapping.clone(),
             mapping_file: intent.mapping_file.as_ref().map(PathBuf::from),
         };
-        let prepared = control
-            .prepare(
-                &files,
-                &intent.process,
-                operation_id,
-                &root.join(format!("{name}.create.json")),
-                &root.join(format!("{name}.create.sqlite")),
-            )
-            .await?;
+        let creation_compose = root.join(format!("{name}.create.json"));
+        let creation_journal = root.join(format!("{name}.create.sqlite"));
+        let prepared = if previous.is_some() {
+            control
+                .reconcile_preparation(
+                    &files,
+                    &intent.process,
+                    operation_id,
+                    &creation_compose,
+                    &creation_journal,
+                )
+                .await?
+        } else {
+            control
+                .prepare(
+                    &files,
+                    &intent.process,
+                    operation_id,
+                    &creation_compose,
+                    &creation_journal,
+                )
+                .await?
+        };
         let document = PreparedContainer {
             agent_id: agent.id,
             paths: agent.paths.clone(),
@@ -785,7 +814,7 @@ impl LocalRuntimeSupervisor {
             {
                 return Err(held());
             }
-            self.claim_container_intent(&intent, ordinal, &configuration)
+            self.claim_container_intent(&intent, ordinal, &configuration, true)
                 .await?;
         }
         let command_sha256 = crate::runtime_launches::snapshot_hash(

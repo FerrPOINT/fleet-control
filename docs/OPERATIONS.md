@@ -1,5 +1,47 @@
 # Operations
 
+## Isolated Activation Crash Gate
+
+Use `scripts/container_supervisor_live/run.py --activation-recovery` only in its
+owned disposable Compose project. `--activation-crash-point candidate-running`
+pauses the actual candidate-success transaction after native readiness;
+`--activation-crash-point before-create` pauses the preparation INSERT before its
+commit or Docker create, after original namespace exit and candidate file work.
+The default is `candidate-running`. An explicit crash point without the activation
+mode, an unknown point or combination with custody/rollback/log modes is rejected.
+
+The before-create recovery additionally drops one genuine successful preparation
+ACK via an owned private Python wrapper. Original operation/generation must match
+the native readback and final rollback registration. It cannot fabricate a receipt
+or repeat create. This wrapper is a QA fixture, never a production Python command.
+Runtime component regressions run on a separate disposable PostgreSQL database so
+their agent ordinals cannot contaminate the live two-agent gate.
+
+An initial pending preparation with no open launch may continue only through the
+same current-owner intent's no-create readback, retaining its exact private bytes.
+An open/unknown start is never retried by this fixture. Late Docker create after a
+timeout can require another bounded cleanup-only Compose down: every project,
+service, image and owner/purpose must be rechecked. A missing bridge is declared
+for down only; it is not recreated. Foreign resources or repeated late arrivals
+hold cleanup and retain volumes instead of adopting them or running prune.
+
+Both modes require clean compatible Base SDK/control inputs, pinned Hermes source
+and existing immutable image IDs. The driver proves physical same-container Fleet
+restart while preserving the peer. Only then does the probe release its disposable
+database barrier using the saved backend PID, start time and exact query kind.
+Never copy that cancellation/trigger procedure into production reconciliation.
+
+Read the selected point and separate flags in the evidence report. A before-create
+result must not claim a running candidate; the candidate-running packet must not
+claim preparation absence. Acceptance additionally requires original effective
+revision and backup bytes, one fresh rollback generation, unchanged peer, one
+rollback audit, actual old-SOUL model readback and confirmed final namespace exit.
+Finally cleanup preserves all shared caches, accepted images and runtime volumes.
+This is neither full loaded-configuration attestation nor SDLC/PM admission.
+Recorded results and remaining crash points belong in
+[verification](CHAT_CLARIFICATION_VERIFICATION.md) and
+[the gap register](GAP_REGISTER.md#interrupted-configuration-activation).
+
 ## Recovered Namespace Stop
 
 With candidate000022 and compatible original Base source, the normal authorized

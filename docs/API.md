@@ -1,5 +1,12 @@
 # API
 
+Original preparation recovery adds only the private Base control action
+`reconcile_preparation`; its fields match `prepare` and require original retained
+identity, not a browser-supplied receipt. Missing DB/native custody returns the
+existing reconciliation failure; no public force-adopt/reset endpoint is added.
+Fleet routes, DTOs and generated OpenAPI remain unchanged. See the
+[private contract](contracts/CONTAINER_CONTROL_V1.md#original-preparation-readback).
+
 Pinned Base package preparation seals native skill discovery in the existing
 configuration snapshot; missing/edited policy fails existing validation and
 effective readback. No endpoint or OpenAPI schema changes. Configuration health

@@ -1,5 +1,10 @@
 # Java Agent Adapter Contract
 
+The original container preparation readback and signed activation rollback
+consumer are Hermes-only. `reconcile_preparation` adds no Java image, lifecycle,
+chat/control or SDLC authority. Native Java jar readiness and the existing Docker
+mode rejection remain unchanged; cached Hermes receipts cannot be reused for Java.
+
 The [original PM runtime proof](../adr/0036-original-pm-runtime-proof.md) is
 Hermes-only and supplies no Java PM binding, chat/control capability or admission
 authority. Existing Java lifecycle and readiness behavior remain unchanged.

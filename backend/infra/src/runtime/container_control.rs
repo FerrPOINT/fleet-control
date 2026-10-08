@@ -948,6 +948,46 @@ impl ContainerControl {
         creation_compose: &std::path::Path,
         creation_journal: &std::path::Path,
     ) -> Result<ContainerPreparation, AppError> {
+        self.preparation(
+            files,
+            process,
+            operation_id,
+            creation_compose,
+            creation_journal,
+            "prepare",
+        )
+        .await
+    }
+
+    /// Reconcile the original native claim; the producer must never allocate a namespace.
+    pub(super) async fn reconcile_preparation(
+        &self,
+        files: &ContainerLaunchFiles,
+        process: &ContainerProcess,
+        operation_id: Uuid,
+        creation_compose: &std::path::Path,
+        creation_journal: &std::path::Path,
+    ) -> Result<ContainerPreparation, AppError> {
+        self.preparation(
+            files,
+            process,
+            operation_id,
+            creation_compose,
+            creation_journal,
+            "reconcile_preparation",
+        )
+        .await
+    }
+
+    async fn preparation(
+        &self,
+        files: &ContainerLaunchFiles,
+        process: &ContainerProcess,
+        operation_id: Uuid,
+        creation_compose: &std::path::Path,
+        creation_journal: &std::path::Path,
+        action: &str,
+    ) -> Result<ContainerPreparation, AppError> {
         if operation_id.is_nil()
             || !creation_compose.is_absolute()
             || !creation_journal.is_absolute()
@@ -959,7 +999,7 @@ impl ContainerControl {
         let (status, value) = self
             .call(
                 files,
-                "prepare",
+                action,
                 json!({
                     "process":process, "operation_id":operation_id,
                     "creation_compose":creation_compose, "creation_journal":creation_journal,

@@ -1,4 +1,4 @@
-//! Actual candidate-running/settlement crash; not autonomous SDLC acceptance.
+//! Physical controller crashes before create or settlement; not SDLC acceptance.
 use super::*;
 use app::runtime_launch::RuntimeLaunchBinding;
 use controller_recovery::{hash, read, save};
@@ -9,9 +9,34 @@ const NEW: &str = "ACTIVATION_UNCOMMITTED_SOUL";
 const PEER: &str = "ACTIVATION_UNCHANGED_PEER_SOUL";
 const TRIGGER: &str = "fleet_qa_activation_pause";
 
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum CrashPoint {
+    BeforeCreate,
+    CandidateRunning,
+}
+
+impl CrashPoint {
+    fn table(self) -> &'static str {
+        match self {
+            Self::BeforeCreate => "runtime_container_preparations",
+            Self::CandidateRunning => "agent_config_revisions",
+        }
+    }
+
+    fn query(self) -> &'static str {
+        match self {
+            Self::BeforeCreate => "INSERT INTO runtime_container_preparations%",
+            Self::CandidateRunning => "UPDATE agent_config_revisions%",
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Context {
+    crash_point: CrashPoint,
+    initial_preparation_readbacks: usize,
     owner: Uuid,
     agent: Uuid,
     peer: Uuid,
@@ -21,7 +46,7 @@ struct Context {
     settlement_backend_pid: i32,
     settlement_backend_start: String,
     original: RuntimeLaunchBinding,
-    replacement: RuntimeLaunchBinding,
+    replacement: Option<RuntimeLaunchBinding>,
     peer_launch: RuntimeLaunchBinding,
     peer_files_sha256: String,
     backup_sha256: String,
@@ -55,6 +80,7 @@ async fn prepare(
     repo: Arc<PostgresFleetRepository>,
     db: sea_orm::DatabaseConnection,
     proof: Proof,
+    crash_point: CrashPoint,
 ) {
     let owner = Uuid::new_v4();
     db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
@@ -79,6 +105,7 @@ async fn prepare(
     let agent = create_agent(&repo, &config, "Activation interrupted agent").await;
     let peer = create_agent(&repo, &config, "Activation unchanged peer").await;
     let mut effective = 0;
+    let mut initial_preparation_readbacks = 0;
     for (target, soul) in [(&agent, OLD), (&peer, PEER)] {
         let revision = request_activation(
             &repo,
@@ -88,10 +115,57 @@ async fn prepare(
         )
         .await;
         activated(&repo, target.id, revision).await;
-        assert_eq!(
-            runtime.start(target).await.unwrap().status,
-            AgentStatus::Running
-        );
+        let mut started = runtime.start(target).await;
+        let intent_path = Path::new(&config.fleet.controller_root)
+            .join(format!("{}.container-creation.json", target.id));
+        // Docker can finish create after a lost reply. Only the existing claim's
+        // no-create readback may continue; an open/unknown start is never resent.
+        if started.is_err()
+            && repo
+                .has_pending_container_preparation(target.id)
+                .await
+                .unwrap()
+            && repo
+                .get_open_runtime_launch(target.id)
+                .await
+                .unwrap()
+                .is_none()
+        {
+            let original = tokio::fs::read(&intent_path).await.unwrap();
+            let until = tokio::time::Instant::now() + Duration::from_secs(60);
+            while started.is_err()
+                && tokio::time::Instant::now() < until
+                && repo
+                    .has_pending_container_preparation(target.id)
+                    .await
+                    .unwrap()
+                && repo
+                    .get_open_runtime_launch(target.id)
+                    .await
+                    .unwrap()
+                    .is_none()
+            {
+                sleep(Duration::from_secs(1)).await;
+                started = runtime.start(target).await;
+                initial_preparation_readbacks += 1;
+                assert_eq!(tokio::fs::read(&intent_path).await.unwrap(), original);
+            }
+        }
+        if started.is_err() {
+            let launch = repo.get_open_runtime_launch(target.id).await.unwrap();
+            tokio::fs::write(
+                "/evidence/activation-progress.json",
+                serde_json::to_vec(&json!({"state":"failed","phase":"initial_start",
+                    "agent_name":target.name,
+                    "launch_state":launch.as_ref().map(|v|&v.state),
+                    "pending_preparation":repo.has_pending_container_preparation(target.id).await.unwrap(),
+                    "creation_intent_present":Path::new(&format!("/controller/{}.container-creation.json",target.id)).exists(),
+                    "sdlc_acceptance":false})).unwrap(),
+            )
+            .await
+            .unwrap();
+        }
+        assert_eq!(started.unwrap().status, AgentStatus::Running);
         if target.id == agent.id {
             effective = revision;
         }
@@ -110,20 +184,31 @@ async fn prepare(
         .binding;
     let backup_sha256 = file_hash(&agent).await;
     let peer_files_sha256 = file_hash(&peer).await;
-    // Pause the real success transaction; the outer Compose driver kills this process.
+    // Pause a real transaction before its side effect; the driver kills Fleet.
+    let predicate = if crash_point == CrashPoint::CandidateRunning {
+        " AND NEW.state='active'"
+    } else {
+        ""
+    };
     db.execute(Statement::from_string(
         DatabaseBackend::Postgres,
         format!(
             "CREATE FUNCTION {TRIGGER}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
-         IF NEW.agent_id='{id}'::uuid AND NEW.state='active' THEN PERFORM pg_sleep(600); END IF;
+         IF NEW.agent_id='{id}'::uuid{predicate} THEN PERFORM pg_sleep(600); END IF;
          RETURN NEW; END $$",
             id = agent.id
         ),
     ))
     .await
     .unwrap();
+    let operation = if crash_point == CrashPoint::CandidateRunning {
+        "UPDATE"
+    } else {
+        "INSERT"
+    };
     db.execute(Statement::from_string(DatabaseBackend::Postgres, format!(
-        "CREATE TRIGGER {TRIGGER} BEFORE UPDATE ON agent_config_revisions FOR EACH ROW EXECUTE FUNCTION {TRIGGER}()"))).await.unwrap();
+        "CREATE TRIGGER {TRIGGER} BEFORE {operation} ON {} FOR EACH ROW EXECUTE FUNCTION {TRIGGER}()",
+        crash_point.table()))).await.unwrap();
     let candidate = request_activation(
         &repo,
         agent.id,
@@ -133,24 +218,50 @@ async fn prepare(
     .await;
     let (settlement_backend_pid, settlement_backend_start) = timeout(Duration::from_secs(180), async {
         loop {
-            let row = db.query_one(Statement::from_string(DatabaseBackend::Postgres,
-                "SELECT pid,backend_start::text AS backend_start FROM pg_stat_activity WHERE datname=current_database() AND wait_event='PgSleep' AND query LIKE 'UPDATE agent_config_revisions%'".to_owned())).await.unwrap();
+            let row = db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+                "SELECT pid,backend_start::text AS backend_start FROM pg_stat_activity WHERE datname=current_database() AND wait_event='PgSleep' AND query LIKE $1",
+                [crash_point.query().into()])).await.unwrap();
             if let Some(row) = row {
                 break (row.try_get::<i32>("", "pid").unwrap(), row.try_get::<String>("", "backend_start").unwrap());
             }
             sleep(Duration::from_millis(200)).await;
         }
-    }).await.expect("actual candidate did not reach paused settlement");
+    }).await.expect("actual activation did not reach its selected crash boundary");
     let replacement = repo
         .get_open_runtime_launch(agent.id)
         .await
         .unwrap()
-        .unwrap()
-        .binding;
-    assert_ne!(replacement.id, original.id);
-    assert_eq!(replacement.phase, "activation");
-    assert_eq!(replacement.configuration_revision, Some(candidate));
+        .map(|launch| launch.binding);
     let current = repo.get_config_revision(agent.id, candidate).await.unwrap();
+    if crash_point == CrashPoint::CandidateRunning {
+        let replacement = replacement.as_ref().unwrap();
+        assert_ne!(replacement.id, original.id);
+        assert_eq!(replacement.phase, "activation");
+        assert_eq!(replacement.configuration_revision, Some(candidate));
+    } else {
+        assert!(replacement.is_none());
+        assert!(
+            !repo
+                .has_pending_container_preparation(agent.id)
+                .await
+                .unwrap()
+        );
+        assert_eq!(
+            repo.get_runtime_launch(original.id)
+                .await
+                .unwrap()
+                .unwrap()
+                .state,
+            "gateway_exited"
+        );
+        assert_ne!(file_hash(&agent).await, backup_sha256);
+        assert_eq!(
+            tokio::fs::read_to_string(Path::new(&agent.paths.config).join("SOUL.md"))
+                .await
+                .unwrap(),
+            current.snapshot.config.soul_md
+        );
+    }
     assert_eq!(current.state, "activating");
     assert!(current.draining && !current.is_effective);
     assert_eq!(
@@ -175,6 +286,8 @@ async fn prepare(
     save(
         "activation-context.json",
         &Context {
+            crash_point,
+            initial_preparation_readbacks,
             owner,
             agent: agent.id,
             peer: peer.id,
@@ -194,8 +307,10 @@ async fn prepare(
     .await;
     save(
         "activation-ready.json",
-        &json!({"state":"ready","candidate_running":true,
-        "settlement_paused":true,"actual_model_calls":0}),
+        &json!({"state":"ready","crash_point":crash_point,
+        "candidate_running":crash_point == CrashPoint::CandidateRunning,
+        "settlement_paused":crash_point == CrashPoint::CandidateRunning,
+        "preparation_paused":crash_point == CrashPoint::BeforeCreate,"actual_model_calls":0}),
     )
     .await;
     std::future::pending::<()>().await;
@@ -216,10 +331,11 @@ async fn recover(repo: Arc<PostgresFleetRepository>, db: sea_orm::DatabaseConnec
         DatabaseBackend::Postgres,
         "SELECT pg_cancel_backend(pid) FROM pg_stat_activity
          WHERE datname=current_database() AND pid=$1 AND backend_start::text=$2
-         AND wait_event='PgSleep' AND query LIKE 'UPDATE agent_config_revisions%'",
+         AND wait_event='PgSleep' AND query LIKE $3",
         [
             context.settlement_backend_pid.into(),
             context.settlement_backend_start.clone().into(),
+            context.crash_point.query().into(),
         ],
     ))
     .await
@@ -249,7 +365,7 @@ async fn recover(repo: Arc<PostgresFleetRepository>, db: sea_orm::DatabaseConnec
     .expect("killed Fleet settlement transaction did not roll back");
     db.execute(Statement::from_string(
         DatabaseBackend::Postgres,
-        format!("DROP TRIGGER {TRIGGER} ON agent_config_revisions"),
+        format!("DROP TRIGGER {TRIGGER} ON {}", context.crash_point.table()),
     ))
     .await
     .unwrap();
@@ -261,6 +377,23 @@ async fn recover(repo: Arc<PostgresFleetRepository>, db: sea_orm::DatabaseConnec
     .unwrap();
     let model = Arc::new(Model::default());
     let (_, server) = model_server(context.model_port, model.clone()).await;
+    if context.crash_point == CrashPoint::BeforeCreate {
+        use std::os::unix::fs::PermissionsExt;
+        let wrapper = "/controller/preparation-fault-python";
+        tokio::fs::copy("/qa-fixtures/preparation_fault.py", wrapper)
+            .await
+            .unwrap();
+        tokio::fs::set_permissions(wrapper, std::fs::Permissions::from_mode(0o700))
+            .await
+            .unwrap();
+        tokio::fs::write(
+            "/controller/preparation-fault-agent",
+            context.agent.to_string(),
+        )
+        .await
+        .unwrap();
+        config.fleet.container_control.as_mut().unwrap().python = wrapper.into();
+    }
     config.fleet.controller_recovery_enabled = true;
     config.fleet.configuration_recovery_enabled = true;
     let config = Arc::new(config);
@@ -312,7 +445,26 @@ async fn recover(repo: Arc<PostgresFleetRepository>, db: sea_orm::DatabaseConnec
     assert_eq!(rollback.phase, "rollback");
     assert_eq!(rollback.configuration_revision, Some(context.effective));
     assert_ne!(rollback.id, context.original.id);
-    assert_ne!(rollback.id, context.replacement.id);
+    if let Some(replacement) = &context.replacement {
+        assert_ne!(rollback.id, replacement.id);
+    }
+    if context.crash_point == CrashPoint::BeforeCreate {
+        let dropped: Value = read("preparation-fault-result.json").await;
+        let observed: Value = read("preparation-readback-observed.json").await;
+        assert_eq!(dropped, observed);
+        assert_eq!(dropped["generation"], json!(rollback.id));
+        assert_eq!(
+            dropped["operation_id"],
+            json!(
+                rollback
+                    .container
+                    .as_ref()
+                    .unwrap()
+                    .registration
+                    .operation_id
+            )
+        );
+    }
     assert_eq!(
         hash(
             &repo
@@ -324,22 +476,31 @@ async fn recover(repo: Arc<PostgresFleetRepository>, db: sea_orm::DatabaseConnec
         ),
         hash(&context.peer_launch)
     );
-    for old in [&context.original, &context.replacement] {
+    for old in std::iter::once(&context.original).chain(context.replacement.iter()) {
         let saved = repo.get_runtime_launch(old.id).await.unwrap().unwrap();
         assert_eq!(saved.state, "gateway_exited");
         assert!(saved.pid.is_some());
         assert_eq!(hash(&saved.binding), hash(old));
     }
-    let stop = repo
-        .read_controller_stop(context.replacement.id)
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(stop.intent.launch_id, context.replacement.id);
-    assert_eq!(
-        stop.native_outcome.unwrap()["receipt"]["observation"],
-        "namespace_exited"
-    );
+    if let Some(replacement) = &context.replacement {
+        let stop = repo
+            .read_controller_stop(replacement.id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(stop.intent.launch_id, replacement.id);
+        assert_eq!(
+            stop.native_outcome.unwrap()["receipt"]["observation"],
+            "namespace_exited"
+        );
+    } else {
+        assert!(
+            !repo
+                .has_pending_container_preparation(agent.id)
+                .await
+                .unwrap()
+        );
+    }
     let audit = db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "SELECT count(*) AS count FROM audit_log WHERE entity_id=$1 AND action='agent_config.recovery_rollback'",
         [agent.id.to_string().into()])).await.unwrap().unwrap();
@@ -371,10 +532,8 @@ async fn recover(repo: Arc<PostgresFleetRepository>, db: sea_orm::DatabaseConnec
     );
     // Freeze and settle background custody before disposing its observed generations.
     runtime.quiesce_controller_recovery().await.unwrap();
-    assert_eq!(
-        runtime.stop(&agent).await.unwrap().status,
-        AgentStatus::Stopped
-    );
+    // Stop the recovered peer immediately after its fresh lease readback; stopping
+    // the new current-owner rollback first can consume that peer's whole lease.
     let owner = runtime
         .heartbeat_container_controller(peer.id)
         .await
@@ -384,15 +543,31 @@ async fn recover(repo: Arc<PostgresFleetRepository>, db: sea_orm::DatabaseConnec
         runtime.stop(&peer).await.unwrap().status,
         AgentStatus::Stopped
     );
+    assert_eq!(
+        runtime.stop(&agent).await.unwrap().status,
+        AgentStatus::Stopped
+    );
     server.abort();
     let _ = server.await;
-    tokio::fs::write("/evidence/activation-report.json", serde_json::to_vec(&json!({
+    tokio::fs::write(
+        "/evidence/activation-report.json",
+        serde_json::to_vec(&json!({
         "state":"passed","actual_rust_supervisor":true,"actual_docker_hermes":true,
-        "actual_candidate_running_crash":true,"effective_preserved":true,"backup_bytes_restored":true,
-        "qa_settlement_barrier_released":true,
+        "crash_point":context.crash_point,
+        "actual_candidate_running_crash":context.crash_point == CrashPoint::CandidateRunning,
+        "actual_before_create_crash":context.crash_point == CrashPoint::BeforeCreate,
+        "effective_preserved":true,"backup_bytes_restored":true,
+        "qa_settlement_barrier_released":context.crash_point == CrashPoint::CandidateRunning,
+        "qa_preparation_barrier_released":context.crash_point == CrashPoint::BeforeCreate,
+        "lost_preparation_ack_readback":context.crash_point == CrashPoint::BeforeCreate,
+        "initial_preparation_readbacks":context.initial_preparation_readbacks,
         "fresh_rollback_generation":true,"loaded_previous_soul":true,"peer_unchanged":true,
         "original_namespaces_exited":true,"rollback_audit_once":true,"model_prompts":1,
-        "sdlc_acceptance":false,"raw_credentials_persisted_in_evidence":false})).unwrap()).await.unwrap();
+        "sdlc_acceptance":false,"raw_credentials_persisted_in_evidence":false}))
+        .unwrap(),
+    )
+    .await
+    .unwrap();
 }
 
 #[tokio::test]
@@ -423,7 +598,15 @@ async fn real_candidate_running_crash_restores_effective_configuration() {
                 &tokio::fs::read("/qa/controller-proof.json").await.unwrap(),
             )
             .unwrap();
-            prepare(repo, db, proof).await;
+            let crash_point = match std::env::var("FLEET_CONTAINER_ACTIVATION_CRASH_POINT")
+                .unwrap()
+                .as_str()
+            {
+                "before-create" => CrashPoint::BeforeCreate,
+                "candidate-running" => CrashPoint::CandidateRunning,
+                _ => panic!("unknown activation crash point"),
+            };
+            prepare(repo, db, proof, crash_point).await;
         }
         "recover" => recover(repo, db).await,
         _ => panic!("unknown activation phase"),

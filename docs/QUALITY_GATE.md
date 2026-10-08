@@ -28,6 +28,18 @@ pnpm markdown:check
 
 Additional gates:
 
+- original preparation readback: both uncertain and cached-prepared receipts
+  must reject missing DB custody and a foreign controller. Execute the regression
+  on its disposable PostgreSQL database; its damaged-restore fixture intentionally
+  bypasses immutable-history triggers only in a local superuser transaction.
+  Never run this fixture against an installed or shared database
+- `scripts/container_supervisor_live/run.py --activation-recovery` crash points
+  `candidate-running` and `before-create`: preserve distinct native evidence;
+  before-create also loses a genuine prepare ACK and requires same original
+  operation/generation readback, not another create. Runtime component tests use
+  a separate database from the native agents so ordinals remain uncontaminated.
+  Guarded restore/readiness/audit/peer proofs and exact owned cleanup are mandatory;
+  none of these component gates is PM/Workflow/SDLC admission
 - Linux managed-file directory barriers for rename/unlink/new ancestors;
   injected post-rename failure must retain journal/drain and never advance head
 - compare the accepted seven-schema chat snapshot against exact release Tracker

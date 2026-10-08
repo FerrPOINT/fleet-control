@@ -1,5 +1,18 @@
 # Traceability
 
+Original preparation ACK recovery: `runtime/container_control` uses Base's
+distinct no-create `reconcile_preparation`; `runtime/container_lifecycle` compares
+the exact private intent and existing-only DB authority, including a cached
+prepared receipt. `runtime_launches::verify_preparation` reuses the locked
+configuration/ordinal transaction without INSERT. PostgreSQL regression
+`pending_preparation_does_not_adopt_foreign_owner_or_replace_lost_claim` covers
+acknowledged/uncertain receipts and current/foreign supervisors after damaged
+restore. Host safety, QA ACK-loss wrapper and Cargo artifact tests are separate
+from the physical `before-create` crash/rollback gate. See
+[evidence](CHAT_CLARIFICATION_VERIFICATION.md#preparation-readback-8-october-2026)
+and [runtime contract](RUNTIME.md#original-preparation-readback). No migration,
+public API, automatic SDLC admission or installed flag change.
+
 Original PM proof hardening: [ADR0036](adr/0036-original-pm-runtime-proof.md),
 private `domain/PmRuntimeBinding`, supervisor capture/authenticated readback and
 repository atomic observation. Eight `runtime/pm_readback_tests` regressions

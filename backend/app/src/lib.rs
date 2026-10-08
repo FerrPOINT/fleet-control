@@ -739,6 +739,15 @@ pub trait FleetRepository: Send + Sync {
             "container preparation journal is unavailable".into(),
         ))
     }
+    async fn verify_container_preparation(
+        &self,
+        _preparation: &runtime_launch::RuntimeContainerPreparation,
+        _configuration: &runtime_launch::RuntimeConfigurationClaim,
+    ) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "original container preparation journal is unavailable".into(),
+        ))
+    }
     async fn observe_runtime_launch(
         &self,
         _binding: &runtime_launch::RuntimeLaunchBinding,

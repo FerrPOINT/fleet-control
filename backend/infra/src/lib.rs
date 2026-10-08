@@ -1550,6 +1550,13 @@ impl FleetRepository for PostgresFleetRepository {
     async fn has_pending_container_preparation(&self, agent: Uuid) -> Result<bool, AppError> {
         runtime_launches::pending_preparation(self, agent).await
     }
+    async fn verify_container_preparation(
+        &self,
+        preparation: &app::runtime_launch::RuntimeContainerPreparation,
+        configuration: &app::runtime_launch::RuntimeConfigurationClaim,
+    ) -> Result<(), AppError> {
+        runtime_launches::verify_preparation(self, preparation, configuration).await
+    }
     async fn observe_runtime_launch(
         &self,
         binding: &app::runtime_launch::RuntimeLaunchBinding,

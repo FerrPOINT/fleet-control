@@ -1,5 +1,164 @@
 # Chat Clarification Verification
 
+## Preparation Readback: 8 October 2026
+
+Base producer [PR169](https://github.com/FerrPOINT/services-base/pull/169) publishes
+`893c5828b90d5698623b48da357996ed72fd9c90` independently from the observer PR.
+`reconcile_preparation` verifies the original protected native claim, mapping,
+process/env and request hash; it cannot create/start/kill or replace lost authority.
+Linux preparation/control/bootstrap passes125 cases with zero skips; fresh Base
+Rust1.88 fmt/strict Clippy and63 tests pass,14 special opt-in cases ignored.
+Frontend typecheck/lint and83 tests, README/hub validators pass.
+
+Fleet's source consumer uses the distinct action only after verifying an existing
+DB claim, original private intent and current controller. Review found a cached-
+receipt path that could insert a lost DB claim. The existing-only transaction now
+holds instead of inserting, including retained prepared receipts. Counter-review
+reports no remaining finding. The negative regression covers both acknowledged
+and uncertain receipts, current/foreign controllers and continued claim absence.
+Its actual PostgreSQL execution and physical crash acceptance are separate gates.
+Sixty-four host safety/loader/README/fault/artifact tests pass on Windows and Linux.
+The QA wrapper discards one real successful reply and never fabricates a receipt;
+its private operation/generation markers must match the final native registration.
+
+Retain earlier FAILED packets rather than converting their partial proof to success:
+
+- `fcfc0fa159dd`, source manifest
+  `1001c1f1c2e9c04309300f8e0f876fd9fa9aca6369edda2ab2a2646b6fb47965`,
+  failed at initial Docker start before the selected activation crash. The unknown
+  command was not resubmitted as an acceptance shortcut.
+- `818c8b0fea06`, source manifest
+  `104cc00538adf6ce6bbeed414a3f05b3178d24f941171a1c62f22988e87a2859`,
+  reached the physical pre-create Fleet crash, then held on an unknown rollback
+  preparation ACK. No second rollback generation was forced into existence.
+- `4739aff6f666`, source manifest
+  `d4a52d23bffe47cb48f30c7f724596eca4ec6a7e68312b1be55c5b2584df2fd3`,
+  failed before physical activation:207 of208 PostgreSQL/runtime cases passed,
+  including the cached-receipt P1 regression; the private-directory-loss guard
+  changed an existing reconciliation error detail. The candidate now preserves
+  that original error contract without weakening the hold. The failed packet
+  does not establish native activation acceptance.
+
+All three packets independently confirm owned cleanup, removed image aliases,
+unchanged frozen inputs and unchanged permanent runtime. None passed native
+activation acceptance. Successful gates, if any, must record their distinct source
+manifest and actual receipt evidence below. No public API, migration, SDK pin,
+installed rollout, screenshot or SDLC readiness is changed by this packet.
+
+Later packet `265dcbc19591`, source manifest
+`7eab2dab4a1d95d7445092d4fe577a75ae7808dd96dedefd98d09bb59db60e1f`,
+passes all208 runtime/PostgreSQL cases with zero failures/ignores and69 filtered
+non-runtime cases (320.34 seconds). Runtime log SHA256:
+`4bc56f7abc6e6d221b8d1c1545370a773017d2d7f3fff6b66edf4bc9a7e0406d`.
+It remains FAILED for native acceptance: initial Docker preparation returns an
+unknown result before the crash. The saved private intent and pending DB claim
+survive, with no open runtime launch; this is not an unknown start to resend.
+
+Its first cleanup fails on a late Created container arriving after union down.
+The original report retains this failure. An exact-image/task/purpose/service
+readback authorizes only that owned Compose namespace's down; three explicitly
+owned disposable volumes and five original image aliases are then removed.
+Independent container/network/volume inventories for that project are empty;
+the workspace Docker-group audit passes with no violations. No prune or accepted
+runtime promotion is used. The source candidate now rechecks late resources before
+a bounded additional cleanup-only down, rejects foreign images/labels, and declares
+an already-removed owned bridge without creating it. Host tests prove the bound,
+foreign rejection and once-only volume deletion. The next native fixture may
+continue initial pending preparation only via original no-create readback with
+unchanged private bytes; an open/unknown start immediately stops that continuation.
+This follow-up needs its own physical acceptance, not the208-case result above.
+
+Final before-create packet `929400f20d40` passes actual Rust/Docker/Hermes recovery.
+It freezes328 inputs, source digest
+`2b5ebc717d8d8980932db8ff780d45bdd1fc7c83741768b7b3f980caadc1ce7e`,
+using Base control `893c5828b90d5698623b48da357996ed72fd9c90`, unchanged SDK
+`cbb4e99230420dc2659431b1c9fb5090e5c940f0` and Hermes
+`bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3`. Fresh Rust1.88 fmt/strict
+all-target Clippy pass; actual PostgreSQL/runtime passes208 cases, zero failures/
+ignores,69 filtered cases (329.66 seconds). Runtime log SHA256:
+`4ee1c089d7b9f5c2822e57bf598fc60bf9f85924375e1ec171e53d718a0b7595`.
+Build log SHA256:
+`d95058e7b4d9bf903c53a433a60a112fff5f46d98c2c65f432e0ed37dcb833dc`.
+
+The physical crash occurs after original namespace exit and candidate file
+application, before any candidate preparation claim/create. Fleet's container
+identity/image remain unchanged while PID/start time change; the peer's CID,
+PID/start time and bytes remain unchanged. Recovery restores exact backup bytes
+and the previous effective revision. The QA wrapper loses one real rollback
+preparation reply; existing-only native readback preserves its original operation/
+generation before one protected start. The loaded previous SOUL reaches the real
+local model once, rollback audit is written once, and all original/rollback/peer
+namespaces finally exit. Initial preparations required zero continuation readbacks.
+Activation log SHA256:
+`5ec2b53ca88bf3e2fa91a595e58f72913dd72f39bac7bc1a17cb1e3c5b279bc1`.
+
+Owned cleanup, image-alias removal, frozen inputs and permanent runtime checks
+pass; independent exact-project container/network/volume inventories are empty.
+This accepts the selected before-create/lost-preparation-ACK scenario only.
+Fresh candidate-running compatibility, post-commit/ack and backup-loss scenarios,
+full loaded inventory/readiness, producer admission/first-step, PM resume and
+ordered release remain separate gates. No public API, migration, SDK pin, UI
+screenshot, installed runtime or automatic SDLC authority is changed.
+
+Later candidate-running packet `ae056dc49818` retains the same328-input source
+digest. Fresh fmt/strict Clippy and208 actual runtime/PostgreSQL cases pass
+(314.52 seconds; zero failures/ignores,69 filtered). Runtime log SHA256:
+`859ee0ac4983135bdf364995b054f9bcaf836aee0b95d95dba05ad4a356d2c42`.
+The selected crash boundary is not reached before the driver's240-second
+preparation deadline. Cleanup then closes the waiting PostgreSQL connection;
+the resulting connection-reset panic is not evidence of the original hold's
+cause. No physical controller restart or candidate recovery acceptance is claimed.
+The FAILED report preserves that distinction and independently confirms cleanup,
+image-alias removal, unchanged inputs and unchanged permanent runtime. Exact
+project container/network/volume inventories are empty. A later fresh-project
+retry must have its own result; it cannot erase this failed packet or resubmit an
+unknown operation to this deleted QA agent. Candidate-running compatibility stays
+open until such a gate actually passes, without relaxing the deadline or guard.
+
+Packet `db2f4a1ed2e2`, with the same source digest, reaches the real running-
+candidate boundary and physical Fleet restart. Its208 runtime/PostgreSQL cases
+pass (313.61 seconds; log
+`5b93b711879418bf4d351a6f1d6f1e000858b9d9a023bf4cd51afa4aaa3f88d7`).
+Recovery assertions pass through restored bytes/effective revision, previous-
+SOUL model input once and one rollback audit. It remains FAILED: after freezing
+background custody, stopping the current-owner rollback consumes the recovered
+peer's lease; peer heartbeat then correctly holds original-key reconciliation.
+The source fixture now refreshes and immediately stops that peer before stopping
+the new current-owner rollback. No production timeout, lease, custody guard,
+unknown-stop replay or receipt changes. This teardown correction requires fresh
+native acceptance; partial assertions do not make the failed packet successful.
+The report confirms own cleanup/tags, unchanged inputs/permanent runtime, and
+independent exact-project container/network/volume inventories are empty.
+
+Final candidate-running packet `22a5078c52f5` passes with the reviewed teardown
+order. It freezes328 inputs, digest
+`40ac2a0f7c65582087422beff68dc9cdce9f74564d9b9ff4e1dfa6aff1d64379`.
+Independent manifest comparison against successful before-create packet929400
+finds exactly one changed input: the QA activation recovery helper; all327 other
+inputs, including production runtime, driver, Base and Hermes, are identical.
+Fresh Rust1.88 fmt/strict all-target Clippy pass and208 runtime/PostgreSQL cases
+pass (314.38 seconds; zero failures/ignores,69 filtered). Runtime log SHA256:
+`18cac14fdc028798a737eada2065ffb19f1eec08f0d558cd3781596e6e1d0afd`;
+build log `1da3d334411046115a2cb56eba2c5bc5715f04709b5ad3adce4f6c2292f90cf1`;
+activation log `f96d08870a61791b61a2a41000f20cac66f490397eeb9f5f3363960998dc3d53`.
+
+The driver proves physical Fleet restart after candidate readiness/before active
+settlement, unchanged peer, exact backup/effective restore, fresh rollback,
+loaded previous SOUL in one model request, one audit and final namespace exits.
+Four initial preparation continuations preserve the original private bytes and
+use no-create readback without an open launch; the expected namespace inventory
+remains exact. This point does not claim a lost rollback preparation ACK; that
+separate fault is accepted in before-create packet929400. Both complete reports
+require distinct point flags and preserve `sdlc_acceptance=false`.
+
+Cleanup/tags, frozen sources and permanent runtime checks pass; independent
+exact-project container/network/volume inventories are empty. Final workspace
+Docker audit checks all three endpoints without violations. Neither prior FAILED
+candidate packet is rewritten. Production/API/schema/pins/UI/installed authority
+are unchanged by the QA teardown correction. Other crash points, backup-loss,
+complete loaded inventory, trusted predispatch/first-step, PM continuation and
+ordered exact-release-head CI remain open.
+
 ## Native Request Observation: 8 October 2026
 
 Final native project `sdlc-qa-hermes-protocol-9de98716b429` passes two real

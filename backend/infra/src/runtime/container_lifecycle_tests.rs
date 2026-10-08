@@ -749,8 +749,9 @@ if r['action']=='resolve_mounts':
  mounts=[dict(m,source='/daemon/volumes/own/_data/'+m['source'][len(r['local_root'])+1:]) for m in r['policy']['mounts']]
  result={'state':'resolved','controller':r['controller'],'snapshot':{'container_id':r['controller']['container_id'],'started_at':'2026-10-06T12:00:00Z','init_pid':999,'inventory_sha256':'a'*64},'engine':{'ID':'original-engine','KernelVersion':'original-kernel','ServerVersion':'29'},'local_root':r['local_root'],'volume_name':'qa_owned_agents','volume_sha256':'b'*64,'mounts':mounts,'input_policy_sha256':digest(r['policy'])}
  if (root/'mapping-drift').exists():result['snapshot']['init_pid']+=1
-elif r['action']=='prepare':
- with (root/'prepare-calls').open('a') as calls:calls.write(r['operation_id']+'\n')
+elif r['action'] in ('prepare','reconcile_preparation'):
+ if r['action']=='reconcile_preparation':assert (root/'prepare-effect').exists()
+ with (root/('prepare-calls' if r['action']=='prepare' else 'preparation-readbacks')).open('a') as calls:calls.write(r['operation_id']+'\n')
  intents=[json.loads(p.read_bytes()) for p in root.glob(r['policy']['resource_id']+'*.container-creation.json')]
  intent=next(v for v in intents if v['generation']==r['policy']['generation'])
  assert intent['generation']==r['policy']['generation'] and intent['operation_id']==r['operation_id']
@@ -760,7 +761,7 @@ elif r['action']=='prepare':
   assert snapshot['dotenv']==(envfile.read_text() if envfile.exists() else None)
   assert snapshot['dotenv_sha256']==(hashlib.sha256(envfile.read_bytes()).hexdigest() if envfile.exists() else None)
  assert r['process']['environment']['HERMES_HOME']=='/config' and r['process']['working_dir']=='/workspace'
- if not (root/'prepare-effect').exists():(root/'prepare-effect').write_text('1')
+ if r['action']=='prepare' and not (root/'prepare-effect').exists():(root/'prepare-effect').write_text('1')
  if (root/'prepare-unknown').exists():
   result={'state':'held','operation_id':r['operation_id'],'resource_id':r['policy']['resource_id'],'generation':r['policy']['generation']}
  else:
@@ -953,8 +954,99 @@ async fn pending_container_freezes_dotenv_before_create_and_rejects_rotation_or_
         .await
         .unwrap();
     assert_eq!(json!(prepared.id), intent["generation"]);
+    assert_eq!(
+        tokio::fs::read(private.join("prepare-calls"))
+            .await
+            .unwrap(),
+        calls
+    );
+    assert_eq!(
+        tokio::fs::read_to_string(private.join("preparation-readbacks"))
+            .await
+            .unwrap()
+            .lines()
+            .count(),
+        1
+    );
     assert!(!private.join("start-effect").exists());
     tokio::fs::remove_dir_all(root).await.unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn pending_preparation_does_not_adopt_foreign_owner_or_replace_lost_claim() {
+    use sea_orm::{ConnectionTrait, DatabaseBackend, Statement, TransactionTrait};
+    for acknowledged in [false, true] {
+        let Some((repo, agent, _, config, root)) =
+            lifecycle_tests::fixture(AgentKind::Hermes).await
+        else {
+            return;
+        };
+        let config = Arc::new(fake_creation(&config, &agent, !acknowledged).await);
+        let original = lifecycle_tests::supervisor(config.clone(), repo.clone());
+        assert_eq!(
+            original
+                .prepared_container(&agent, LaunchPhase::Regular)
+                .await
+                .is_ok(),
+            acknowledged
+        );
+        let private = root.join("controller");
+        let intent = private.join(format!("{}.container-creation.json", agent.id));
+        let prepared_path = private.join(format!("{}.container-prepared.json", agent.id));
+        let prepared = tokio::fs::read(&prepared_path).await.ok();
+        assert_eq!(prepared.is_some(), acknowledged);
+        let saved = tokio::fs::read(&intent).await.unwrap();
+        let calls = tokio::fs::read(private.join("prepare-calls"))
+            .await
+            .unwrap();
+        let foreign = lifecycle_tests::supervisor(config, repo.clone());
+        assert!(
+            foreign
+                .prepared_container(&agent, LaunchPhase::Regular)
+                .await
+                .is_err()
+        );
+        assert!(!private.join("preparation-readbacks").exists());
+        // Model a damaged restore in this disposable superuser fixture, not a repair API.
+        let loss = repo.db.begin().await.unwrap();
+        loss.execute_unprepared("SET LOCAL session_replication_role='replica'")
+            .await
+            .unwrap();
+        loss.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "DELETE FROM runtime_container_preparations WHERE agent_id=$1",
+            [agent.id.into()],
+        ))
+        .await
+        .unwrap();
+        loss.commit().await.unwrap();
+        for runtime in [&original, &foreign] {
+            assert!(
+                runtime
+                    .prepared_container(&agent, LaunchPhase::Regular)
+                    .await
+                    .is_err()
+            );
+            assert!(
+                !repo
+                    .has_pending_container_preparation(agent.id)
+                    .await
+                    .unwrap()
+            );
+        }
+        assert!(!private.join("preparation-readbacks").exists());
+        assert_eq!(tokio::fs::read(prepared_path).await.ok(), prepared);
+        assert_eq!(tokio::fs::read(intent).await.unwrap(), saved);
+        assert_eq!(
+            tokio::fs::read(private.join("prepare-calls"))
+                .await
+                .unwrap(),
+            calls
+        );
+        assert!(!private.join("start-effect").exists());
+        tokio::fs::remove_dir_all(root).await.unwrap();
+    }
 }
 
 #[cfg(target_os = "linux")]

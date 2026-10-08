@@ -130,11 +130,17 @@ def validate_custody_evidence(value, epoch=None, native=False, expired=False):
         raise RuntimeError('Actual controller custody evidence is incomplete')
 
 
-def wait_for_custody_ready(helper, prepare, activation=False):
+def wait_for_custody_ready(helper, prepare, activation=False, crash_point='candidate-running'):
+    if crash_point not in ('candidate-running', 'before-create'):
+        raise RuntimeError('Unknown activation crash point')
     deadline = time.monotonic() + 240
     ready_path = '/controller/activation-ready.json' if activation else '/controller/custody-ready.json'
-    assertion = ('assert v["state"]=="ready" and v["candidate_running"] is True '
-                 'and v["settlement_paused"] is True and type(v["actual_model_calls"]) is int '
+    candidate_running = crash_point == 'candidate-running'
+    assertion = (f'assert v["state"]=="ready" and v["crash_point"]=={crash_point!r} '
+                 f'and v["candidate_running"] is {candidate_running} '
+                 f'and v["settlement_paused"] is {candidate_running} '
+                 f'and v["preparation_paused"] is {not candidate_running} '
+                 'and type(v["actual_model_calls"]) is int '
                  'and v["actual_model_calls"]==0') if activation else (
                  'assert v["state"]=="ready" and type(v["actual_model_calls"]) is int '
                  'and v["actual_model_calls"]==1 and v["native_waiting_for_approval"] is True')
@@ -187,9 +193,15 @@ def activation_snapshot(helper, checked):
     return result
 
 
-def verify_activation_recovery(helper, directory, report, logged, checked):
+def verify_activation_recovery(helper, directory, report, logged, checked, crash_point='candidate-running'):
+    if crash_point not in ('candidate-running', 'before-create'):
+        raise RuntimeError('Unknown activation crash point')
+    report['state'] = 'failed'
+    candidate_running = crash_point == 'candidate-running'
+    generations = 3 if candidate_running else 2
     def command(phase):
         return helper.command + ['exec', '-T', '-e', 'FLEET_CONTAINER_ACTIVATION_PHASE=' + phase,
+            '-e', 'FLEET_CONTAINER_ACTIVATION_CRASH_POINT=' + crash_point,
             '-e', 'RUST_LOG=infra::runtime::controller_recovery_worker=warn',
             'fleet-backend', '/out/fleet-container-live', ACTIVATION_TEST, '--exact', '--ignored',
             '--nocapture', '--test-threads=1']
@@ -198,12 +210,14 @@ def verify_activation_recovery(helper, directory, report, logged, checked):
     try:
         with (directory / 'activation-prepare.log').open('wb') as stream:
             prepare = subprocess.Popen(command('prepare'), stdout=stream, stderr=subprocess.STDOUT)
-            report['activation_probe_timeouts'] = wait_for_custody_ready(helper, prepare, activation=True)
+            report['activation_probe_timeouts'] = wait_for_custody_ready(
+                helper, prepare, activation=True, crash_point=crash_point)
             original = activation_snapshot(helper, checked)
             agents = {key: value for key, value in original.items() if key != 'fleet-backend'}
-            if (len(agents) != 3 or sum(value['running'] for value in agents.values()) != 2
+            if (len(agents) != generations
+                    or sum(value['running'] for value in agents.values()) != generations - 1
                     or 'fleet-backend' not in original):
-                raise RuntimeError('Candidate crash requires one exited original and two running Hermes')
+                raise RuntimeError('Activation crash requires the exact original/candidate/peer generations')
             logged(helper.command + ['restart', '-t', '1', 'fleet-backend'], 'activation-restart.log', 60)
             prepare.wait(timeout=30)
             if prepare.returncode == 0:
@@ -217,17 +231,28 @@ def verify_activation_recovery(helper, directory, report, logged, checked):
             raise RuntimeError('Actual same-container Fleet restart was not proven')
         logged(command('recover'), 'activation-recover.log', 300)
         evidence = json.loads((directory / 'evidence/activation-report.json').read_bytes())
-        positive = ('actual_rust_supervisor', 'actual_docker_hermes', 'actual_candidate_running_crash',
+        positive = ('actual_rust_supervisor', 'actual_docker_hermes',
                     'effective_preserved', 'backup_bytes_restored', 'fresh_rollback_generation',
-                    'qa_settlement_barrier_released',
                     'loaded_previous_soul', 'peer_unchanged', 'original_namespaces_exited', 'rollback_audit_once')
         if (evidence.get('state') != 'passed' or any(evidence.get(key) is not True for key in positive)
+                or evidence.get('crash_point') != crash_point
+                or any(evidence.get(key) is not expected for key, expected in (
+                    ('actual_candidate_running_crash', candidate_running),
+                    ('actual_before_create_crash', not candidate_running),
+                    ('lost_preparation_ack_readback', not candidate_running),
+                    ('qa_settlement_barrier_released', candidate_running),
+                    ('qa_preparation_barrier_released', not candidate_running)))
                 or evidence.get('sdlc_acceptance') is not False
                 or evidence.get('raw_credentials_persisted_in_evidence') is not False
+                or type(evidence.get('initial_preparation_readbacks')) is not int
+                or not 0 <= evidence['initial_preparation_readbacks'] <= 120
                 or type(evidence.get('model_prompts')) is not int or evidence['model_prompts'] != 1):
             raise RuntimeError('Actual activation recovery evidence is incomplete')
         final = activation_snapshot(helper, checked)
-        if (len(final) != 5 or any(value['running'] for key, value in final.items() if key != 'fleet-backend')
+        if (len(final) != generations + 2
+                or not restarted.keys() <= final.keys()
+                or any(final[key] != dict(value, pid=0, running=False) for key, value in agents.items())
+                or any(value['running'] for key, value in final.items() if key != 'fleet-backend')
                 or final['fleet-backend'] != after):
             raise RuntimeError('Original and rollback namespaces did not remain stopped')
         report.update(state='passed', actual_rust_supervisor=True, actual_docker_hermes=True,
@@ -351,7 +376,7 @@ def capture(home, prefixes, target, manifest, originals):
             raise RuntimeError('Frozen source capture differs from the input')
 
 
-def cleanup_nested(helper, directory, write_json, checked):
+def cleanup_nested(helper, directory, write_json, checked, remaining_passes=2):
     """Admit only this project's original services and exact generated agent namespaces."""
     helper.check_endpoint()
     if sha(helper.path) != helper.manifest_hash:
@@ -375,8 +400,14 @@ def cleanup_nested(helper, directory, write_json, checked):
             if labels.get('com.docker.compose.project.config_files') != str(helper.path):
                 raise RuntimeError('Original service manifest differs; cleanup refused')
         elif re.fullmatch(r'agent[12]-runtime-[a-f0-9]{32}', service):
+            expected_image = spec['services'].get('source-check', {}).get('image')
+            if expected_image is not None and item['Image'] != expected_image:
+                raise RuntimeError('Generated agent image differs; cleanup refused')
             agent_services.add(service)
             spec['services'][service] = {'image': item['Image'], 'networks': [service]}
+            # Late create may survive after its bridge was already removed. Down
+            # still needs a declared network, but never creates the missing bridge.
+            spec['networks'].setdefault(service, {'name': helper.project + '-' + service, 'internal': True})
         else:
             raise RuntimeError('Unexpected container service; cleanup refused')
     for item in items['network']:
@@ -401,7 +432,14 @@ def cleanup_nested(helper, directory, write_json, checked):
     write_json(cleanup, spec)
     checked(helper.docker + ['compose', '-p', helper.project, '-f', str(cleanup),
                              'down', '--remove-orphans'], timeout=180)
-    helper.close()
+    try:
+        helper.close()
+    except RuntimeError:
+        # A timed-out native create can appear between the union snapshot and down.
+        # Reinspect every identity before another bounded, cleanup-only Compose down.
+        if remaining_passes and (helper.resources('container') or helper.resources('network')):
+            return cleanup_nested(helper, directory, write_json, checked, remaining_passes - 1)
+        raise
     for item in items['volume']:
         name = item['Name']
         if checked(helper.docker + ['ps', '-aq', '--filter', 'volume=' + name], text=True).strip():
@@ -463,7 +501,12 @@ def main():
                         help='After custody proof, restart a third time and stop both original agent namespaces')
     parser.add_argument('--activation-recovery', action='store_true',
                         help='Crash the real controller after candidate start, before configuration settlement')
+    parser.add_argument('--activation-crash-point', choices=('candidate-running', 'before-create'),
+                        help='Select the exact physical activation boundary (requires --activation-recovery)')
     args = parser.parse_args()
+    if args.activation_crash_point is not None and not args.activation_recovery:
+        parser.error('Activation crash point requires --activation-recovery')
+    args.activation_crash_point = args.activation_crash_point or 'candidate-running'
     if args.controller_stop and not args.controller_recovery:
         parser.error('Recovered namespace stop requires the complete controller custody gate')
     if args.controller_recovery and (args.readiness_rollback or args.log_readback):
@@ -532,6 +575,7 @@ def main():
               'controller_recovery_requested': args.controller_recovery,
               'controller_stop_requested': args.controller_stop,
               'activation_recovery_requested': args.activation_recovery,
+              'activation_crash_point': args.activation_crash_point if args.activation_recovery else None,
               'actual_rust_supervisor': False, 'actual_docker_hermes': False, 'sdlc_acceptance': False}
     before = permanent_state(docker)
 
@@ -611,6 +655,20 @@ def main():
         helper.check_endpoint()
         helper.check_ownership()
         logged(helper.command + ['up', '-d', '--wait', '--pull', 'never', 'postgres', 'fleet-backend'], 'startup.log')
+        # Component fixtures use a distinct database; never consume the live gate's ordinals.
+        logged(helper.command + ['exec', '-T', 'postgres', 'psql', '-v', 'ON_ERROR_STOP=1',
+            '-U', 'fleet_qa', '-d', 'fleet_container', '-c', 'CREATE DATABASE fleet_components'],
+            'component-database.log')
+        logged(helper.command + ['exec', '-T', '-e',
+            f'FLEET_TEST_DATABASE_URL=postgresql://fleet_qa:{password}@postgres:5432/fleet_components',
+            'fleet-backend', '/out/fleet-runtime-tests', 'runtime::', '--nocapture', '--test-threads=1'],
+            'runtime-components.log', 600)
+        component_log = (directory / 'runtime-components.log').read_text(encoding='utf-8')
+        if (not re.search(r'test result: ok\. [1-9][0-9]* passed; 0 failed;', component_log)
+                or 'test runtime::container_lifecycle_tests::pending_preparation_does_not_adopt_foreign_owner_or_replace_lost_claim ... ok'
+                not in component_log):
+            raise RuntimeError('Real PostgreSQL runtime component coverage is missing')
+        report['runtime_components_log_sha256'] = sha(directory / 'runtime-components.log')
         cid = checked(helper.command + ['ps', '-q', 'fleet-backend'], text=True).strip()
         item = json.loads(checked(docker + ['container', 'inspect', cid]))[0]
         if item['Image'] != controller_image or not item['State']['Running']:
@@ -627,7 +685,7 @@ def main():
                     'network_internal': True, 'task': TASK, 'purpose': PURPOSE},
                 'bridge_controller': {'container_id': cid, 'image_id': controller_image, 'service': 'fleet-backend'}}})
         if args.activation_recovery:
-            verify_activation_recovery(helper, directory, report, logged, checked)
+            verify_activation_recovery(helper, directory, report, logged, checked, args.activation_crash_point)
             report['build_log_sha256'] = sha(directory / 'build.log')
         elif args.controller_recovery:
             verify_controller_recovery(helper, directory, report, logged, checked, args.controller_stop)

@@ -1,5 +1,40 @@
 # Current State
 
+## Original Preparation Custody: 8 October 2026
+
+The source consumer now reconciles an original pending container preparation
+through Base's distinct no-create action, only with the retained DB claim,
+private intent and current controller. A cached prepared receipt cannot recreate
+missing DB authority. Independent review and counter-review close that finding;
+the negative regression passes on actual PostgreSQL in the 208-case runtime suite.
+Sixty-four host tests pass on Windows and Linux, including bounded owned cleanup,
+unchanged initial preparation replay and real-reply-loss fixture validation.
+
+Base producer [PR169](https://github.com/FerrPOINT/services-base/pull/169), exact
+head `893c5828b90d5698623b48da357996ed72fd9c90`, is ready for review with ten
+successful CI checks. It is not merged or installed. Fleet's native
+before-create/lost-preparation-ACK packet `929400f20d40` passes physical Fleet
+restart, exact backup/effective restore, loaded previous SOUL, unchanged peer,
+once-only model/audit and complete owned cleanup. Fresh candidate-running packet
+`22a5078c52f5` also passes after the reviewed QA teardown-order correction; all
+327 other frozen inputs match the before-create packet. Prior failures remain in the
+[verification ledger](CHAT_CLARIFICATION_VERIFICATION.md#preparation-readback-8-october-2026).
+The earlier cleanup repair of a late QA container is not a passing recovery result.
+
+No public API, migration, SDK pin, screenshot, installed image or dispatch flag
+changes here. Loaded inventory, trusted assignment/first-step, real PM tools/
+delivery/checkpoint/resume, complete Forge delivery and ordered release remain
+mandatory. The independent Forge chat's controlled data-safe delivery evidence
+is recorded separately below.
+
+The delegated Forge packet is now published in
+[CI-CD PR88](https://github.com/FerrPOINT/CI-CD/pull/88) at
+`56f1217cfbd7264c219f8d6bee184c9252520785`. Parent verifies four successful
+exact-head CI checks; worker evidence reports PostgreSQL 3/3, OCI 1/1, backend 297
+and frontend 201 cases, own cleanup and clean Docker audit. PR87 is unchanged;
+PR88 remains Draft. This is controlled data-safe delivery evidence, not live
+Tracker/Workflow admission or installed full SDLC acceptance.
+
 ## Native Request Observation: 8 October 2026
 
 The opt-in Base request-observer candidate has two actual pinned Hermes cases:

@@ -2,6 +2,20 @@
 
 ## Current Publication And Remaining Work
 
+The original preparation custody correction is source/component verified:
+existing-only checks prevent cached receipts from reconstructing a missing DB
+claim; 208 actual PostgreSQL/runtime cases and 64 host cases pass. Base producer
+[PR169](https://github.com/FerrPOINT/services-base/pull/169) is ready with ten
+successful exact-head checks, not merged/installed. The owned before-create/
+lost-ACK packet `929400f20d40` passes actual physical recovery and cleanup.
+Fresh candidate-running packet `22a5078c52f5` also passes after the independently
+reviewed QA teardown correction, with327 other frozen inputs identical. Publish
+the scoped source packet without claiming ordered release or whole-SDLC readiness.
+Keep unknown starts held; initial continuation may only read back the same pending
+preparation without
+an open launch. Record failed packets and cleanup repairs without turning them
+into acceptance. See [evidence](CHAT_CLARIFICATION_VERIFICATION.md#preparation-readback-8-october-2026).
+
 The original PM proof packet binds private reservations to launch/controller/
 origin/credential, rechecks physical custody after blocking row locks and makes
 terminal replay write-free. Final source verification passes623 workspace cases,
@@ -18,16 +32,20 @@ The source/PostgreSQL heartbeat blocker is closed; this is not an installed
 runtime update or whole-product merge readiness.
 
 The authorized parallel Forge task publishes OCI artifact identity, read-only
-data compatibility, application acceptance and verified rollback/recovery in
+data compatibility and a mutable PostgreSQL backup/drain/migration/restore
+packet in
 [CI-CD PR88](https://github.com/FerrPOINT/CI-CD/pull/88), exact head
-`205a7b9e7d9925ac636533ee4ca8652af31ab462`, with four successful CI checks.
+`56f1217cfbd7264c219f8d6bee184c9252520785`, with four successful CI checks.
+The worker reports real PostgreSQL 3/3, OCI 1/1, backend 297 and frontend 201
+cases passing, owned cleanup and a clean Docker audit. Parent independently
+read back the exact head and four checks; it did not rerun the Forge gates.
 Its prerequisite PR87/0039, authoritative SDLC admission and full business
-acceptance remain separate; no installed deployment is changed.
+acceptance remain separate; the PR stays Draft and no installed deployment changes.
 
-The same independent Forge chat is assigned the next mutable PostgreSQL packet:
-verified backup, writer drain/fencing, migration/compatibility, acceptance and
-data-safe restore with an explicit RPO. Its write scope is CI-CD only. Do not
-reinterpret the existing read-only PR88 as proof of this later implementation;
+The same independent Forge chat has completed its bounded mutable PostgreSQL
+packet without a new Forge SQL migration or changes to prerequisite PR87.
+Its write scope is CI-CD only. Do not reinterpret the prior read-only packet
+`205a7b9` or this controlled PostgreSQL acceptance as full SDLC authority;
 missing producer authority, unknown writers and unverified backups must hold
 effects. Fleet runtime/PM development remains separate.
 
@@ -39,6 +57,17 @@ Task Tracker/project-workflow read-only in this task. Release the existing
 thirteen migration candidates in ordered single-migration packets with exact
 main-head checks, never as one giant integration PR. Do not enable installed
 flags or advertise100% readiness from component/fixture acceptance.
+
+Current exact producer source limits narrow the next admission slice to a
+machine-only Tracker lease GET/readback with closed identity/version/expiry
+validation. Keep it independent from human creation continuation and return
+prerequisite observation only, never dispatch permission. Tracker114 still
+requires verified PM admission and quiescence recovery for expired leases;
+Workflow90's Base step requires trusted owner evidence, while its existing PM
+bind expects a running Fleet observation/catalog v2. Resolve the non-circular
+predispatch claim/first-step and pre-decomposition assignment contract before
+issuing a lease claim or first model POST. See
+[current producer limits](GAP_REGISTER.md#exact-producer-predispatch-limits-8-october-2026).
 
 ## Pinned Skill Readback Follow-Up
 
@@ -66,10 +95,12 @@ v1/v2, rotated secrets, changed snapshots/drain and unknown commands stay held.
 See [ADR0035](adr/0035-signed-configuration-recovery.md) and
 [verification](CHAT_CLARIFICATION_VERIFICATION.md).
 
-Actual packet5a3b6ccf9139 now verifies candidate-running/before-settlement crash
-rollback, fresh loaded previous SOUL, unchanged peer and once-only audit. Other
-stop/pre-create and post-commit/ack crash points, original unknown-command
-readback, complete recovered loaded/readiness and backup-loss proof remain.
+Historical packet5a3b6ccf9139 verifies candidate-running/before-settlement crash
+rollback. New packets929400/22a507 accept before-create/lost-preparation-ACK and
+fresh candidate-running recovery, respectively, with previous SOUL, unchanged
+peer, once-only audit and final namespace exit. Other stop/post-commit/ack crash
+points, complete unknown-command recovery, full loaded/readiness and backup-loss
+proof remain. Failed preliminary packets stay distinct in the verification ledger.
 No installed flag, public API, migration or Java lifecycle
 is changed. Keep this component distinct from pre-model Tracker/Workflow
 admission, PM tools/answer delivery/checkpoint/rebind, complete Forge receipts and

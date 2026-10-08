@@ -39,16 +39,43 @@ fails, drain and journal remain; replay uses the same signed identity. A committ
 candidate is only acknowledged after exact file and runtime readback, never
 reapplied. Stopped agents do not acquire an implicit start.
 
-For previously running agents, unknown preparation or unconfirmed process state
-prevents file restoration. Only the original or revision-bound replacement
+For previously running agents, unknown candidate/foreign preparation or
+unconfirmed process state prevents file restoration. Current-controller rollback
+preparation readback is separately guarded below. Only the original or revision-bound replacement
 container can be stopped through the existing custody controls. Restoration
 requires original launch history and validated namespace-exit observation;
 rollback uses a fresh generation and readiness before settlement. Native orphan
 processes and recovered-owner degraded health cannot substitute for these proofs.
 No unknown start/stop command is resent. The stopped recovery and transaction
-boundaries have PostgreSQL regressions; actual running Hermes crash/recovered
-readiness acceptance remains open. See [ADR0035](adr/0035-signed-configuration-recovery.md)
+boundaries have PostgreSQL regressions; actual candidate-running crash evidence
+is scoped to one boundary, not complete loaded-config/recovery acceptance.
+See [ADR0035](adr/0035-signed-configuration-recovery.md)
 and [gap register](GAP_REGISTER.md#interrupted-configuration-activation).
+
+## Original Preparation Readback
+
+New preparation uses `prepare` exactly once after committing the immutable
+database claim and saving the controller-private creation intent. Replay uses
+the distinct Base `reconcile_preparation` action; it cannot create/start/kill a
+container or repair missing native authority. Original process/env, source,
+mapping, operation/generation, ordinal and configuration must still match.
+
+Replay verifies the existing DB claim under the same agent/runtime/configuration
+transaction locks; it never inserts a missing row. This applies both when only
+the private creation intent survives and when `container-prepared.json` already
+exists. A restored private receipt without its original DB claim cannot acquire
+custody for the current or another controller. Missing documents, missing claim,
+changed hash/configuration and foreign controller remain held without resubmit.
+
+Interrupted activation may consume this readback only for a current-controller
+rollback after exact backup bytes are restored and the original namespace exit
+is confirmed. A candidate preparation or unknown start cannot use this path.
+Only original Registered/NeverStarted observation permits the protected start;
+readiness and atomic rollback settlement remain separate checks. No new runtime
+generation is allocated for the lost preparation response. This does not authorize
+task admission, restore an unknown runtime acceptance, or attest all loaded config.
+The physical crash/ACK-loss gate and remaining limitations are recorded separately
+in [verification](CHAT_CLARIFICATION_VERIFICATION.md).
 
 ## Namespace Exit And Chat State
 

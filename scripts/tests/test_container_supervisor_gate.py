@@ -102,6 +102,66 @@ class SafetyTests(unittest.TestCase):
             self.cleanup()
         self.assertEqual(self.effects, ['endpoint-checked'])
 
+    def test_late_owned_create_after_down_is_reinspected_without_a_bridge_or_second_volume_delete(self):
+        service = 'agent1-runtime-' + 'a' * 32
+        self.items['container'] = [self.container('fleet-backend')]
+        self.items['volume'] = [{'Name': self.project + '_agents', 'Labels': self.labels}]
+        attempts = []
+
+        def close():
+            attempts.append(1)
+            if len(attempts) == 1:
+                self.items['container'] = [self.container(service)]
+                raise RuntimeError('Late native create belongs to its original manifest')
+            self.effects.append('helper-closed')
+
+        self.helper.close = close
+        self.cleanup()
+        manifest = json.loads((self.home / 'cleanup.json').read_text())
+        self.assertEqual(manifest['services'][service]['networks'], [service])
+        self.assertEqual(manifest['networks'][service]['name'], self.project + '-' + service)
+        commands = [effect for effect in self.effects if isinstance(effect, list)]
+        self.assertEqual(sum(command[-2:] == ['down', '--remove-orphans'] for command in commands), 2)
+        self.assertEqual(sum(command[3:5] == ['volume', 'rm'] for command in commands), 1)
+        self.assertFalse(any(self.items.values()))
+
+    def test_late_foreign_create_is_not_adopted_by_cleanup_retry(self):
+        def close():
+            self.items['container'] = [self.container('agent1-runtime-' + 'a' * 32, 'foreign')]
+            raise RuntimeError('Late foreign resource')
+
+        self.helper.close = close
+        with self.assertRaisesRegex(RuntimeError, 'Foreign resource'):
+            self.cleanup()
+        commands = [effect for effect in self.effects if isinstance(effect, list)]
+        self.assertEqual(len(commands), 1)
+        self.assertEqual(commands[0][-2:], ['down', '--remove-orphans'])
+
+    def test_owned_agent_with_wrong_image_is_not_adopted(self):
+        spec = json.loads(self.path.read_bytes())
+        spec['services']['source-check'] = {'image': 'sha256:' + '2' * 64}
+        self.path.write_text(json.dumps(spec))
+        self.helper.manifest_hash = runner.sha(self.path)
+        self.items['container'] = [self.container('agent1-runtime-' + 'a' * 32)]
+        with self.assertRaisesRegex(RuntimeError, 'agent image differs'):
+            self.cleanup()
+        self.assertEqual(self.effects, ['endpoint-checked'])
+
+    def test_late_create_loop_is_bounded_and_retains_volumes(self):
+        self.items['volume'] = [{'Name': self.project + '_agents', 'Labels': self.labels}]
+
+        def close():
+            self.items['container'] = [self.container('agent1-runtime-' + 'a' * 32)]
+            raise RuntimeError('Create still in flight')
+
+        self.helper.close = close
+        with self.assertRaisesRegex(RuntimeError, 'still in flight'):
+            self.cleanup()
+        commands = [effect for effect in self.effects if isinstance(effect, list)]
+        self.assertEqual(len(commands), 3)
+        self.assertTrue(all(command[-2:] == ['down', '--remove-orphans'] for command in commands))
+        self.assertEqual(len(self.items['volume']), 1)
+
     def test_changed_manifest_refuses_all_effects(self):
         self.path.write_text('{}')
         with self.assertRaisesRegex(RuntimeError, 'manifest changed'):
@@ -189,7 +249,9 @@ class ActivationCrashTests(unittest.TestCase):
             'qa_settlement_barrier_released', 'fresh_rollback_generation', 'loaded_previous_soul',
             'peer_unchanged', 'original_namespaces_exited', 'rollback_audit_once'), True)
         self.evidence.update(state='passed', model_prompts=1, sdlc_acceptance=False,
-            raw_credentials_persisted_in_evidence=False)
+            raw_credentials_persisted_in_evidence=False, crash_point='candidate-running',
+            actual_before_create_crash=False, qa_preparation_barrier_released=False,
+            lost_preparation_ack_readback=False, initial_preparation_readbacks=0)
         self.commands = []
 
     def logged(self, command, name, timeout):
@@ -205,12 +267,12 @@ class ActivationCrashTests(unittest.TestCase):
             self.fail('Unexpected activation command')
         (self.home / name).write_bytes(b'private activation evidence\n')
 
-    def verify(self, ready_error=None):
+    def verify(self, ready_error=None, crash_point='candidate-running'):
         with patch.object(runner.subprocess, 'Popen', return_value=self.process), \
                 patch.object(runner, 'wait_for_custody_ready', side_effect=ready_error, return_value=0), \
                 patch.object(runner, 'activation_snapshot', side_effect=[self.before, self.after, self.final]):
             runner.verify_activation_recovery(self.helper, self.home, self.report, self.logged,
-                lambda *_: self.fail('Unexpected host-side maintenance'))
+                lambda *_: self.fail('Unexpected host-side maintenance'), crash_point)
 
     def test_actual_restart_is_required_before_once_only_recovery_and_evidence(self):
         self.verify()
@@ -219,6 +281,68 @@ class ActivationCrashTests(unittest.TestCase):
         self.assertEqual(sum('restart' in command for command in self.commands), 1)
         self.assertEqual(self.report['activation_physical_snapshots'], [self.before, self.after, self.final])
         self.assertFalse(self.report['activation_recovery']['sdlc_acceptance'])
+
+    def before_create(self):
+        for snapshot in (self.before, self.after, self.final):
+            del snapshot['agent1-runtime-' + 'b' * 32]
+        self.evidence.update(crash_point='before-create', actual_before_create_crash=True,
+            qa_preparation_barrier_released=True, actual_candidate_running_crash=False,
+            qa_settlement_barrier_released=False, lost_preparation_ack_readback=True)
+
+    def test_before_create_requires_absent_candidate_and_distinct_evidence(self):
+        self.before_create()
+        self.verify(crash_point='before-create')
+        self.assertEqual(self.report['state'], 'passed')
+        self.assertIn('FLEET_CONTAINER_ACTIVATION_CRASH_POINT=before-create', self.commands[-1])
+        self.assertEqual(len(self.report['activation_physical_snapshots'][0]), 3)
+        self.assertEqual(len(self.report['activation_physical_snapshots'][-1]), 4)
+
+    def test_wrong_crash_point_cannot_reuse_other_boundary_evidence(self):
+        self.before_create()
+        self.evidence['actual_candidate_running_crash'] = True
+        with self.assertRaisesRegex(RuntimeError, 'evidence is incomplete'):
+            self.verify(crash_point='before-create')
+        self.assertEqual(self.report['state'], 'failed')
+
+    def test_initial_readback_count_cannot_be_missing_mistyped_or_unbounded(self):
+        for invalid in (None, True, -1, 121):
+            self.evidence['initial_preparation_readbacks'] = invalid
+            with self.subTest(invalid=invalid), self.assertRaisesRegex(RuntimeError, 'evidence is incomplete'):
+                self.verify()
+            self.assertEqual(self.report['state'], 'failed')
+
+    def test_before_create_rejects_already_created_candidate(self):
+        with self.assertRaisesRegex(RuntimeError, 'exact original/candidate/peer'):
+            self.verify(crash_point='before-create')
+        self.assertEqual(self.commands, [])
+
+    def test_rollback_cannot_replace_or_restart_historical_namespace(self):
+        self.final['agent1-runtime-' + 'a' * 32]['id'] = 'replacement'
+        with self.assertRaisesRegex(RuntimeError, 'remain stopped'):
+            self.verify()
+
+    def test_unknown_crash_point_refused_before_preparation(self):
+        with self.assertRaisesRegex(RuntimeError, 'Unknown activation crash point'):
+            self.verify(crash_point='after-commit')
+        self.assertEqual(self.commands, [])
+
+    def test_cli_rejects_unscoped_or_mixed_crash_mode_before_source_or_docker(self):
+        required = [item for name in ('base-sdk', 'base-control', 'hermes-source', 'artifacts',
+            'rust-image', 'docker-image', 'hermes-image', 'postgres-image', 'context')
+            for item in ('--' + name, 'unused')]
+        for mode in (['--activation-crash-point', 'before-create'],
+                     ['--activation-recovery', '--activation-crash-point', 'after-commit'],
+                     ['--activation-recovery', '--controller-recovery'],
+                     ['--activation-recovery', '--readiness-rollback'],
+                     ['--activation-recovery', '--log-readback']):
+            with self.subTest(mode=mode), patch.object(runner.sys, 'argv', ['qa.py', *required, *mode]), \
+                    patch.object(runner, 'git') as git, patch.object(runner.subprocess, 'run') as run, \
+                    patch.object(runner.sys, 'stderr'):
+                with self.assertRaises(SystemExit) as raised:
+                    runner.main()
+                self.assertEqual(raised.exception.code, 2)
+                git.assert_not_called()
+                run.assert_not_called()
 
     def test_preparation_failure_terminates_without_restart_or_recovery(self):
         with self.assertRaisesRegex(RuntimeError, 'not ready'):
@@ -313,6 +437,34 @@ class CustodyReadinessTests(unittest.TestCase):
         self.assertEqual((value, run.call_count, self.now), (0, 2, 1))
         with self.assertRaisesRegex(RuntimeError, 'not proven'):
             self.observe([SimpleNamespace(returncode=1)])
+
+    def test_activation_probe_checks_point_and_all_boundary_flags_without_preselection(self):
+        for point in ('candidate-running', 'before-create'):
+            running = point == 'candidate-running'
+            value = dict(state='ready', crash_point=point, candidate_running=running,
+                settlement_paused=running, preparation_paused=not running, actual_model_calls=0)
+            scripts = []
+
+            def capture(command, **kwargs):
+                scripts.append(command[-1])
+                return SimpleNamespace(returncode=0)
+
+            with patch.object(runner.subprocess, 'run', side_effect=capture), \
+                    patch.object(runner.time, 'monotonic', return_value=0):
+                runner.wait_for_custody_ready(self.helper, self.process, activation=True, crash_point=point)
+            with tempfile.TemporaryDirectory() as folder:
+                proof = Path(folder) / 'proof.json'
+                proof.write_text(json.dumps(value))
+                with patch('pathlib.Path', return_value=proof):
+                    exec(scripts[0], {})
+                    for key in ('crash_point', 'candidate_running', 'settlement_paused',
+                                'preparation_paused', 'actual_model_calls'):
+                        changed = dict(value)
+                        changed[key] = ('before-create' if running else 'candidate-running') \
+                            if key == 'crash_point' else True if key == 'actual_model_calls' else not value[key]
+                        proof.write_text(json.dumps(changed))
+                        with self.assertRaises(AssertionError):
+                            exec(scripts[0], {})
 
     def test_late_ready_or_process_exit_during_probe_is_not_success(self):
         for dead in (False, True):

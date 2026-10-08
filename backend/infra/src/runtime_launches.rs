@@ -495,6 +495,23 @@ pub(super) async fn claim_preparation(
     preparation: &app::runtime_launch::RuntimeContainerPreparation,
     configuration: &RuntimeConfigurationClaim,
 ) -> Result<(), AppError> {
+    preparation_transaction(repo, preparation, configuration, false).await
+}
+
+pub(super) async fn verify_preparation(
+    repo: &PostgresFleetRepository,
+    preparation: &app::runtime_launch::RuntimeContainerPreparation,
+    configuration: &RuntimeConfigurationClaim,
+) -> Result<(), AppError> {
+    preparation_transaction(repo, preparation, configuration, true).await
+}
+
+async fn preparation_transaction(
+    repo: &PostgresFleetRepository,
+    preparation: &app::runtime_launch::RuntimeContainerPreparation,
+    configuration: &RuntimeConfigurationClaim,
+    existing_only: bool,
+) -> Result<(), AppError> {
     if preparation.agent_id.is_nil()
         || preparation.controller_id.is_nil()
         || preparation.generation.is_nil()
@@ -591,6 +608,9 @@ pub(super) async fn claim_preparation(
             return Err(held());
         }
     } else {
+        if existing_only {
+            return Err(held());
+        }
         txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
             "INSERT INTO runtime_container_preparations
                 (agent_id,ordinal,controller_id,generation,operation_id,intent_sha256) VALUES($1,$2,$3,$4,$5,$6)",

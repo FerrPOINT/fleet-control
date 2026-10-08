@@ -1,5 +1,13 @@
 # Data Model
 
+Original preparation readback verifies the existing
+`runtime_container_preparations` row under the same agent/runtime/configuration/
+history locks used for the first claim. Its existing-only branch cannot insert
+a missing row, including when a private prepared receipt remains. Controller,
+ordinal, generation, operation and canonical intent hash must all match; secret
+bytes stay in private files. No schema, migration or legacy backfill is added.
+See [readback contract](contracts/CONTAINER_CONTROL_V1.md#original-preparation-readback).
+
 New pinned Hermes package drafts retain sealed native skill discovery settings
 inside existing `config_json.skills`. There is no new column, migration or
 historical backfill. Older package revisions require explicit draft/validate/
