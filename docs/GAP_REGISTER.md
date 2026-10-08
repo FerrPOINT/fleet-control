@@ -55,7 +55,7 @@ stays closed. See [evidence](CHAT_CLARIFICATION_VERIFICATION.md#native-request-o
 ## Exact Producer Predispatch Limits: 8 October 2026
 
 Read-only inspection of Tracker114 `357caa7` and Workflow90 Git objects at
-`44e7183` confirms that prerequisite observations do not yet authorize model work.
+`1139871` confirms that prerequisite observations do not yet authorize model work.
 Tracker's reserved PM assignment keeps `dispatch_allowed=false`; expired or
 already-claimed leases require quiescence recovery. Workflow's v3 Base step
 unconditionally requires missing trusted owner assignment/config/evidence;
@@ -71,6 +71,15 @@ Workflow mutations or model requests. Do not claim leases during Draft creation
 before expiry/quiescence and non-circular first-step recovery are implemented.
 Producer advancement and actual interoperability remain separate acceptance;
 these read-only repositories are not changed by this runtime task.
+The fresh audit also confirms that enrolled business commands are rejected by
+Tracker's SDLC repository before applying clarification/requirements mutations.
+Workflow's initial PM bind demands both a finalized runtime binding and a running
+callback; its Base step still unconditionally rejects missing trusted owner
+evidence. Implementing only a Fleet claim loop or tool proxy cannot close this
+cycle. Required producer acceptance is an admitted transition with original-key
+readback, expired-lease quiescence recovery and a pre-model first-step contract
+that does not require post-decomposition delivery identities. See the
+[remaining gates](IMPLEMENTATION_PLAN.md#merge-ready-remaining-gates-8-october-2026).
 
 ## Heartbeat Alert Persistence: 7 October 2026
 
