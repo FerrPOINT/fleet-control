@@ -1,0 +1,63 @@
+
+> fleet-control-frontend@0.2.0 chat:contract C:\git\azhukov\sdlc\.local\chats-integration-20261008\fleet-control\frontend
+> node scripts/verify-chat-contract.mjs && node --test scripts/verify-chat-contract.test.mjs "--tracker" "node_modules/.cache/chats-integration/tracker-openapi.json"
+
+Verified seven Fleet DTOs against the accepted local snapshot; published Tracker source was not provided.
+TAP version 13
+# Subtest: wire schema resolves refs and ignores documentation only
+ok 1 - wire schema resolves refs and ignores documentation only
+  ---
+  duration_ms: 8.436
+  type: 'test'
+  ...
+# Subtest: required, nullability, formats and property names remain part of the contract
+ok 2 - required, nullability, formats and property names remain part of the contract
+  ---
+  duration_ms: 0.6389
+  type: 'test'
+  ...
+# Subtest: validation constraints cannot disappear from a compatible contract
+ok 3 - validation constraints cannot disappear from a compatible contract
+  ---
+  duration_ms: 0.3373
+  type: 'test'
+  ...
+# Subtest: nested maps retain field names and additional property schemas
+ok 4 - nested maps retain field names and additional property schemas
+  ---
+  duration_ms: 0.2856
+  type: 'test'
+  ...
+# Subtest: reference siblings preserve constraints and reject unresolved or recursive references
+ok 5 - reference siblings preserve constraints and reject unresolved or recursive references
+  ---
+  duration_ms: 0.2297
+  type: 'test'
+  ...
+# Subtest: boolean schemas and ordered array constraints remain distinct
+ok 6 - boolean schemas and ordered array constraints remain distinct
+  ---
+  duration_ms: 0.3238
+  type: 'test'
+  ...
+# Subtest: seven DTO verifier rejects a loosened requirements revision even when shape matches
+ok 7 - seven DTO verifier rejects a loosened requirements revision even when shape matches
+  ---
+  duration_ms: 1.403
+  type: 'test'
+  ...
+# Subtest: record rejects incompatible producer before replacing the accepted snapshot
+ok 8 - record rejects incompatible producer before replacing the accepted snapshot
+  ---
+  duration_ms: 92.2688
+  type: 'test'
+  ...
+1..8
+# tests 8
+# suites 0
+# pass 8
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 223.1991

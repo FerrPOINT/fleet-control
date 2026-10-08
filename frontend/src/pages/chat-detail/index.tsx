@@ -75,6 +75,8 @@ import {
   type ControlRecoveryRecord,
 } from '@/shared/chat-control-recovery'
 import { TaskApprovalsPanel } from './approvals'
+import { useDispatchRecovery } from './dispatch-recovery'
+import { RequirementsDiff } from './requirements-diff'
 import { UserAvatar } from '@/shared/ui/user-avatar'
 import { EmptyState, ErrorState, StatusBadge, formatDate } from '../common'
 import {
@@ -177,6 +179,9 @@ function ChatWorkspace({ id }: { id: string }) {
   const userId = useAuthStore((state) => state.userId)
   const [stopUncertain, setStopUncertain] = useState(false)
   const controlService = controlRecoveryService(apiBaseUrl, ssoConfig.issuer)
+  const promptDispatch = useDispatchRecovery(`prompt:${id}`)
+  const answerDispatch = useDispatchRecovery(`answer:${id}`)
+  const confirmationDispatch = useDispatchRecovery(`confirmation:${id}`)
   const [controlRecovery, setControlRecovery] = useState(() => readControlRecovery(id))
   const recoveryRef = useRef(controlRecovery)
   recoveryRef.current = controlRecovery
@@ -238,12 +243,19 @@ function ChatWorkspace({ id }: { id: string }) {
   const confirmationScope = useRef<PmCommandScope | undefined>(undefined)
   const answerScope = useRef<PmCommandScope | undefined>(undefined)
   const confirmation = useMutation({
-    mutationFn: (command: ConfirmationCommand) => {
+    mutationFn: async (command: ConfirmationCommand) => {
       preparePmCommand(confirmationScope, command.key)
+      await confirmationDispatch.prepare(
+        command,
+        command.key,
+        session.data!.primary_agent_id,
+        controlService,
+        () => matchesPmActor(confirmationScope.current, command.key),
+      )
       return confirmRequirements(id, command.revision, command.hash, command.key)
     },
     onSuccess: async (_result, command) => {
-      if (!matchesPmActor(confirmationScope.current, command.key)) {
+      if (!confirmationDispatch.finish(matchesPmActor(confirmationScope.current, command.key))) {
         setConfirmationUncertain(true)
         await invalidate()
         return
@@ -255,6 +267,7 @@ function ChatWorkspace({ id }: { id: string }) {
       await invalidate()
     },
     onError: (error) => {
+      confirmationDispatch.fail(error)
       if (unknownOutcome(error)) setConfirmationUncertain(true)
       void task.refetch()
       void requirements.refetch()
@@ -356,6 +369,9 @@ function ChatWorkspace({ id }: { id: string }) {
   const dirty =
     confirmation.isPending ||
     confirmationUncertain ||
+    promptDispatch.held ||
+    answerDispatch.held ||
+    confirmationDispatch.held ||
     messageUncertain ||
     stopUncertain ||
     controlRecovery.state !== 'none' ||
@@ -522,12 +538,25 @@ function ChatWorkspace({ id }: { id: string }) {
         | (OriginalControlScope & { kind: 'steer'; input: string })
         | { kind: 'prompt'; input: string; key: string },
     ) => {
-      if (command.kind === 'prompt')
+      if (command.kind === 'prompt') {
+        await promptDispatch.prepare(
+          command,
+          command.key,
+          session.data!.primary_agent_id,
+          controlService,
+          () => authority.current.owner,
+        )
         return createSessionMessage(id, { body: command.input, idempotency_key: command.key })
+      }
       await prepareControl(command, { operation: 'steer', input: command.input })
       return steerSessionRun(id, command.runId, { input: command.input }, command.key)
     },
     onSuccess: async (result, command) => {
+      if (command.kind === 'prompt' && !promptDispatch.finish()) {
+        setMessageUncertain(true)
+        await invalidate()
+        return
+      }
       if (
         command.kind === 'steer' &&
         (!acceptedControlResponse(result as RuntimeRunControlResponse, id, command, 'steer') ||
@@ -548,7 +577,8 @@ function ChatWorkspace({ id }: { id: string }) {
       )
       await invalidate()
     },
-    onError: (error) => {
+    onError: (error, command) => {
+      if (command.kind === 'prompt') promptDispatch.fail(error)
       if (unknownOutcome(error)) setMessageUncertain(true)
       void invalidate()
     },
@@ -713,18 +743,33 @@ function ChatWorkspace({ id }: { id: string }) {
     id,
   ])
   const answer = useMutation({
-    mutationFn: (command: { questionId: string; questionKey: string; payload: AnswerInput }) => {
+    mutationFn: async (command: {
+      questionId: string
+      questionKey: string
+      payload: AnswerInput
+    }) => {
       preparePmCommand(answerScope, command.payload.idempotency_key)
+      await answerDispatch.prepare(
+        command,
+        command.payload.idempotency_key,
+        session.data!.primary_agent_id,
+        controlService,
+        () => matchesPmActor(answerScope.current, command.payload.idempotency_key),
+      )
       return answerClarification(id, command.questionId, command.payload)
     },
     onSuccess: async (_result, command) => {
-      if (!matchesPmActor(answerScope.current, command.payload.idempotency_key)) {
+      if (
+        !answerDispatch.finish(matchesPmActor(answerScope.current, command.payload.idempotency_key))
+      ) {
         setAnswerUncertain(true)
         await invalidate()
         return
       }
       setAnswerUncertain(false)
-      setReceipt('Ответ сохранён. Требования ещё не опубликованы.')
+      setReceipt(
+        'Ответ сохранён. Требования ещё не опубликованы. Доставка ответа PM не подтверждена этим API.',
+      )
       setDrafts((current) => {
         const next = { ...current }
         delete next[command.questionKey]
@@ -733,6 +778,7 @@ function ChatWorkspace({ id }: { id: string }) {
       await invalidate()
     },
     onError: (error) => {
+      answerDispatch.fail(error)
       if (unknownOutcome(error)) setAnswerUncertain(true)
       void questions.refetch()
       void task.refetch()
@@ -751,6 +797,7 @@ function ChatWorkspace({ id }: { id: string }) {
         runtimeCommands.data?.some(isUnresolvedControl)))
   const canStop =
     owner &&
+    !promptDispatch.held &&
     controlsFresh &&
     Boolean(controls.data?.can_stop && controls.data.active_run_id) &&
     !stop.isPending &&
@@ -762,6 +809,7 @@ function ChatWorkspace({ id }: { id: string }) {
     !message.isPending &&
     !uncertainSteer &&
     !controlHeld &&
+    !promptDispatch.restored &&
     Boolean(controls.data?.can_steer ? trimRuntimeControlInput(body) : body.trim()) &&
     (messageUncertain || controls.data?.can_send || controls.data?.can_steer)
   const submitMessage = () => {
@@ -1069,7 +1117,8 @@ function ChatWorkspace({ id }: { id: string }) {
                     message.isPending ||
                     messageUncertain ||
                     stopUncertain ||
-                    controlRecovery.state !== 'none'
+                    controlRecovery.state !== 'none' ||
+                    promptDispatch.restored
                   }
                   onChange={(event) => {
                     setBody(event.target.value)
@@ -1078,6 +1127,12 @@ function ChatWorkspace({ id }: { id: string }) {
                   rows={2}
                 />
                 {message.isError && <ReadableError error={message.error} />}
+                {promptDispatch.restored && (
+                  <p role="status">
+                    Исходная отправка требует сверки после перезагрузки. Текст не сохранён; новое
+                    сообщение заблокировано.
+                  </p>
+                )}
                 {messageUncertain && (
                   <p role="status">
                     {uncertainSteer
@@ -1241,7 +1296,8 @@ function ChatWorkspace({ id }: { id: string }) {
                           !context?.permissions.can_answer ||
                           selectedQuestion.state !== 'open' ||
                           answer.isPending ||
-                          answerUncertain
+                          answerUncertain ||
+                          answerDispatch.restored
                         }
                       >
                         <legend>{selectedQuestion.text}</legend>
@@ -1332,6 +1388,7 @@ function ChatWorkspace({ id }: { id: string }) {
                             selectedQuestion?.state !== 'open' ||
                             answer.isPending ||
                             answerUncertain ||
+                            answerDispatch.restored ||
                             Boolean(
                               draft.text.trim() || draft.comment.trim() || draft.selected.length,
                             )
@@ -1364,6 +1421,12 @@ function ChatWorkspace({ id }: { id: string }) {
                   </>
                 )}
                 {answer.isError && <ReadableError error={answer.error} />}
+                {answerDispatch.restored && (
+                  <p role="status">
+                    Исходный ответ требует сверки после перезагрузки. Черновик не сохранён; новый
+                    ответ заблокирован.
+                  </p>
+                )}
                 {answerUncertain && (
                   <div>
                     <p role="status">
@@ -1395,6 +1458,7 @@ function ChatWorkspace({ id }: { id: string }) {
                 <Button
                   disabled={
                     !selectedQuestion ||
+                    answerDispatch.restored ||
                     !owner ||
                     !taskFresh ||
                     !questionsFresh ||
@@ -1464,9 +1528,24 @@ function ChatWorkspace({ id }: { id: string }) {
                         owner &&
                         taskFresh &&
                         requirementsFresh &&
-                        Boolean(context?.permissions.can_confirm)
+                        Boolean(context?.permissions.can_confirm) &&
+                        !confirmationDispatch.restored
                       }
                       confirmation={confirmation}
+                      blockedReason={
+                        confirmationDispatch.restored
+                          ? 'Исходное подтверждение требует сверки после перезагрузки.'
+                          : !owner
+                            ? 'Подтверждение доступно только текущему владельцу чата.'
+                            : !taskFresh
+                              ? 'Контекст задачи не обновлён.'
+                              : !requirementsFresh
+                                ? 'Документ требований не обновлён.'
+                                : !context?.permissions.can_confirm
+                                  ? (context?.waiting_reason ??
+                                    'Tracker не разрешает подтверждение. API не сообщает, какие prerequisites ещё не выполнены.')
+                                  : null
+                      }
                       confirmationUncertain={confirmationUncertain}
                       canReplayConfirmation={
                         owner &&
@@ -1553,6 +1632,7 @@ function RequirementsView({
   currentRevision,
   canConfirm,
   confirmation,
+  blockedReason,
   confirmationUncertain,
   canReplayConfirmation,
 }: {
@@ -1560,6 +1640,7 @@ function RequirementsView({
   currentRevision: number | null
   canConfirm: boolean
   confirmation: ConfirmationMutation
+  blockedReason: string | null
   confirmationUncertain: boolean
   canReplayConfirmation: boolean
 }) {
@@ -1593,9 +1674,16 @@ function RequirementsView({
         ))}
       </select>
       <RequirementsBody revision={selected} />
+      <p className="fc-chat-muted">
+        Автор: {selected.author_subject} · {formatDate(selected.created_at)}
+      </p>
+      <p className="fc-chat-muted">
+        Hash: <code>{selected.content_hash}</code>
+      </p>
       {previous && (
         <details>
           <summary>Сравнить с редакцией {previous.revision}</summary>
+          <RequirementsDiff before={previous} after={selected} />
           <div className="fc-chat-revision-comparison">
             <RequirementsBody revision={previous} />
             <RequirementsBody revision={selected} />
@@ -1606,6 +1694,12 @@ function RequirementsView({
         key={`${selected.revision}:${selected.content_hash}`}
         revision={selected}
         enabled={canConfirm && selected.revision === currentRevision}
+        blockedReason={
+          blockedReason ??
+          (selected.revision !== currentRevision
+            ? 'Выбрана историческая редакция. Подтверждение доступно только для текущей редакции Tracker.'
+            : null)
+        }
         mutation={confirmation}
         uncertain={confirmationUncertain}
         canReplay={canReplayConfirmation}
@@ -1616,12 +1710,14 @@ function RequirementsView({
 function RevisionConfirmation({
   revision,
   enabled,
+  blockedReason,
   mutation,
   uncertain,
   canReplay,
 }: {
   revision: RequirementsRevision
   enabled: boolean
+  blockedReason: string | null
   mutation: ConfirmationMutation
   uncertain: boolean
   canReplay: boolean
@@ -1644,7 +1740,7 @@ function RevisionConfirmation({
         />
         Подтверждаю цель, границы и критерии приёмки редакции {revision.revision}
       </label>
-      {!enabled && <p>Подтверждение недоступно: проверьте актуальную редакцию и prerequisites.</p>}
+      {!enabled && <p role="status">Подтверждение недоступно: {blockedReason}</p>}
       <Button
         disabled={
           !enabled ||

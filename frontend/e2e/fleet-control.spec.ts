@@ -5,11 +5,288 @@ import AxeBuilder from '@axe-core/playwright'
 
 const now = '2026-09-01T10:00:00+03:00'
 
+test('consumer foreign-owner task stays read-only despite optimistic fixture permissions', async ({
+  page,
+}, info) => {
+  const state = createState()
+  state.sessions[0].user_id = ids.reviewer
+  await installMocks(page, state)
+  let posts = 0
+  await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (route.request().method() === 'POST') {
+      posts++
+      return fulfill(route, {}, 403)
+    }
+    if (path.endsWith('/task-context'))
+      return fulfill(route, {
+        binding: {
+          tracker_instance_id: 'fixture',
+          project_id: ids.dev,
+          task_id: ids.session,
+          root_task_id: ids.session,
+          agent_id: ids.dev,
+          owner_subject: ids.reviewer,
+        },
+        tracker: {
+          contract_version: 1,
+          tracker_instance_id: 'fixture',
+          project_id: ids.dev,
+          task_id: ids.session,
+          root_task_id: ids.session,
+          owner_subject: ids.reviewer,
+          stage: 'Clarification',
+          requirement_revision: 1,
+          waiting_reason: null,
+          assignment: null,
+          permissions: { can_answer: true, can_confirm: true },
+        },
+      })
+    if (path.endsWith('/requirements'))
+      return fulfill(route, {
+        revisions: [
+          {
+            revision: 1,
+            content_hash: 'a'.repeat(64),
+            author_subject: ids.dev,
+            created_at: now,
+            goal: 'Документ другого владельца',
+            scope: ['Прочитать требования'],
+            exclusions: [],
+            scenarios: [],
+            acceptance_criteria: ['Нельзя подтвердить за владельца'],
+            constraints: [],
+            dependencies: [],
+            assumptions: [],
+            checklist: [],
+            prerequisites: [],
+          },
+        ],
+      })
+    if (path.endsWith('/chat-controls'))
+      return fulfill(route, {
+        can_send: true,
+        can_steer: true,
+        can_stop: true,
+        active_run_id: null,
+        blocked_reason: null,
+      })
+    if (path.endsWith('/history'))
+      return fulfill(route, {
+        items: [makeMessage(ids.session, 'История другого владельца доступна для чтения')],
+        next_before: null,
+      })
+    if (path.endsWith('/clarifications')) return fulfill(route, { questions: [] })
+    return route.fallback()
+  })
+  for (const viewport of [
+    { width: 375, height: 812 },
+    { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await page.goto(`/chats/${ids.session}?tab=dialogue`)
+    await expect(page.getByLabel('Уточнение активному запуску', { exact: true })).toBeDisabled()
+    await expect(
+      page.getByText('История другого владельца доступна для чтения', { exact: true }),
+    ).toBeVisible()
+    await page.getByRole('tab', { name: /Требования/ }).click()
+    const blocked = page.getByText(
+      'Подтверждение недоступно: Подтверждение доступно только текущему владельцу чата.',
+      { exact: true },
+    )
+    await expect(blocked).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Подтвердить редакцию 1' })).toBeDisabled()
+    await blocked.scrollIntoViewIfNeeded()
+    await page.screenshot({
+      path: info.outputPath(`consumer-read-only-${viewport.width}.png`),
+      fullPage: true,
+      animations: 'disabled',
+    })
+  }
+  expect(posts).toBe(0)
+})
+
+for (const operation of ['prompt', 'answer', 'confirmation'] as const) {
+  test(`consumer reload retains unknown ${operation} without storing private payload`, async ({
+    page,
+  }, info) => {
+    const state = createState()
+    await installMocks(page, state)
+    const question = {
+      id: ids.dev,
+      request_id: ids.tester,
+      task_id: ids.session,
+      root_task_id: ids.session,
+      assignment_id: ids.dev,
+      execution_id: ids.dev,
+      agent_id: ids.dev,
+      assignment_version: 1,
+      checkpoint_id: ids.dev,
+      author_subject: ids.dev,
+      created_at: now,
+      version: 1,
+      requirement_revision: 2,
+      text: 'Определите границы доступа',
+      rationale: 'Требуется явное решение',
+      required: true,
+      mode: 'text',
+      state: 'open',
+      answer: null,
+      requirement_reference: 'REQ-2',
+      recommended_option_id: null,
+      options: [],
+    }
+    const revision = {
+      revision: 2,
+      content_hash: 'b'.repeat(64),
+      author_subject: ids.dev,
+      created_at: now,
+      goal: 'Текущий документ',
+      scope: ['Портал'],
+      exclusions: [],
+      scenarios: [],
+      acceptance_criteria: ['Доступ владельца'],
+      constraints: ['Разрешения проекта'],
+      dependencies: [],
+      assumptions: [],
+      checklist: [],
+      prerequisites: ['Обязательные ответы'],
+    }
+    let posts = 0
+    await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
+      const path = new URL(route.request().url()).pathname
+      if (route.request().method() === 'POST') {
+        posts++
+        return fulfill(route, { error: { message: 'Original receipt lost' } }, 408)
+      }
+      if (path.endsWith('/task-context'))
+        return fulfill(
+          route,
+          operation === 'prompt'
+            ? { binding: null, tracker: null }
+            : {
+                binding: {
+                  tracker_instance_id: 'fixture',
+                  project_id: ids.dev,
+                  task_id: ids.session,
+                  root_task_id: ids.session,
+                  agent_id: ids.dev,
+                  owner_subject: ids.user,
+                },
+                tracker: {
+                  contract_version: 1,
+                  tracker_instance_id: 'fixture',
+                  project_id: ids.dev,
+                  task_id: ids.session,
+                  root_task_id: ids.session,
+                  owner_subject: ids.user,
+                  stage: 'Clarification',
+                  requirement_revision: 2,
+                  waiting_reason: null,
+                  assignment: null,
+                  permissions: { can_answer: true, can_confirm: true },
+                },
+              },
+        )
+      if (path.endsWith('/clarifications')) return fulfill(route, { questions: [question] })
+      if (path.endsWith('/requirements'))
+        return fulfill(route, {
+          revisions: [{ ...revision, revision: 1, goal: 'Предыдущая цель', scope: [] }, revision],
+        })
+      if (path.endsWith('/chat-controls'))
+        return fulfill(route, {
+          can_send: operation === 'prompt',
+          can_steer: false,
+          can_stop: false,
+          active_run_id: null,
+          blocked_reason: operation === 'prompt' ? null : 'workflow_assignment_required',
+        })
+      if (path.endsWith('/history'))
+        return fulfill(route, {
+          items: [makeMessage(ids.session, 'История остаётся доступной')],
+          next_before: null,
+        })
+      return route.fallback()
+    })
+    const tab =
+      operation === 'prompt'
+        ? 'dialogue'
+        : operation === 'answer'
+          ? 'clarification'
+          : 'requirements'
+    await page.goto(`/chats/${ids.session}?tab=${tab}`)
+    if (operation === 'prompt')
+      await page.getByLabel('Сообщение агенту', { exact: true }).fill('Private reload payload')
+    else if (operation === 'answer')
+      await page.getByLabel('Ваш ответ', { exact: true }).fill('Private reload payload')
+    else {
+      await page.getByRole('checkbox', { name: /Подтверждаю цель/ }).check()
+      await page.getByText('Сравнить с редакцией 1', { exact: true }).click()
+      await expect(page.getByRole('region', { name: 'Изменения требований' })).toContainText(
+        'Предыдущая цель',
+      )
+    }
+    const submitName =
+      operation === 'prompt'
+        ? 'Отправить сообщение'
+        : operation === 'answer'
+          ? 'Сохранить ответ'
+          : 'Подтвердить редакцию 2'
+    await page.getByRole('button', { name: submitName, exact: true }).click()
+    await expect(page.getByText('Original receipt lost', { exact: true })).toBeVisible()
+    const markers = await page.evaluate(() =>
+      Object.entries(sessionStorage).filter(([key]) =>
+        key.startsWith('fleet-control.chat-dispatch.v1:'),
+      ),
+    )
+    expect(markers).toHaveLength(1)
+    expect(JSON.stringify(markers)).toContain('digest')
+    expect(JSON.stringify(markers)).not.toMatch(/Private reload payload|qa-access-token/)
+    await page.reload()
+    const hold = page.getByText(/требует сверки после перезагрузки/)
+    await expect(hold).toBeVisible()
+    await expect(page.getByRole('button', { name: submitName, exact: true })).toBeDisabled()
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await hold.scrollIntoViewIfNeeded()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+        true,
+      )
+      await page.screenshot({
+        path: info.outputPath(`consumer-${operation}-reload-${viewport.width}.png`),
+        fullPage: true,
+        animations: 'disabled',
+      })
+    }
+    if (operation === 'confirmation') {
+      await page.getByText('Сравнить с редакцией 1', { exact: true }).click()
+      await page.getByRole('region', { name: 'Изменения требований' }).scrollIntoViewIfNeeded()
+      await page.screenshot({
+        path: info.outputPath('consumer-requirements-diff-2560.png'),
+        fullPage: true,
+        animations: 'disabled',
+      })
+    }
+    await page.setViewportSize({ width: 768, height: 1024 })
+    await page.getByRole('button', { name: 'Контекст задачи', exact: true }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('button', { name: 'Контекст задачи', exact: true })).toBeFocused()
+    expect(posts).toBe(1)
+  })
+}
+
 const reloadTest = test.extend<{ streamUrl: string }>({
   streamUrl: async ({ baseURL }, runFixture) => {
     const responses = new Set<ServerResponse>()
     const server = createServer((request, response) => {
       response.setHeader('access-control-allow-origin', new URL(baseURL!).origin)
+      response.setHeader('access-control-allow-credentials', 'true')
       response.setHeader('access-control-allow-headers', 'Authorization, Accept')
       if (request.method === 'OPTIONS') {
         response.writeHead(204).end()
@@ -3180,7 +3457,11 @@ function fulfill(route: Route, value: unknown, status = 200) {
   return route.fulfill({
     status,
     contentType: 'application/json',
-    headers: { 'access-control-allow-origin': '*' },
+    headers: {
+      'access-control-allow-origin':
+        route.request().headers().origin ?? new URL(route.request().url()).origin,
+      'access-control-allow-credentials': 'true',
+    },
     body: JSON.stringify(value),
   })
 }

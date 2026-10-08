@@ -1,0 +1,5 @@
+
+> fleet-control-frontend@0.2.0 chat:evidence:verify C:\git\azhukov\sdlc\.local\chats-integration-20261008\fleet-control\frontend
+> node scripts/publish-chat-controller-evidence.mjs --verify
+
+Verified nine fixture controller screenshots and hashes

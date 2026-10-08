@@ -1,0 +1,1235 @@
+{
+  "date": "2026-10-08",
+  "branch": "feat/chats-pm-consumer-20261008",
+  "originalBaseline": "0f8d07836e70dd5258f85e604b83ccbbca04d270",
+  "dependencyReadback": "d1b9d96215145f33100578e992dac4f954549778",
+  "basePin": "cbb4e99230420dc2659431b1c9fb5090e5c940f0",
+  "sourceHashMode": "SHA256 of canonical Git blob bytes for sources and artifacts; PNG bytes remain unchanged; logs use LF with ANSI and trailing whitespace removed; manifest excludes itself",
+  "fixtureAcceptance": true,
+  "installedOwnerPmAcceptance": false,
+  "unit": {
+    "passed": 455,
+    "files": 35
+  },
+  "browser": {
+    "passed": 111,
+    "liveSkipped": 27,
+    "failed": 0,
+    "engines": [
+      "chromium",
+      "firefox",
+      "webkit"
+    ],
+    "workers": 3,
+    "retries": 0,
+    "url": "http://localhost:24231"
+  },
+  "screenshots": {
+    "retainedChatsPm": 64,
+    "capturedStock": 135,
+    "viewports": [
+      "375x812",
+      "1920x1080",
+      "2560x1440"
+    ],
+    "stockSnapshot": "stock-manifest.json",
+    "stockImages": "Captured and verified during the run; shared baseline restored and captured stock images not retained here."
+  },
+  "earlierRuns": {
+    "legacyToast": "107 passed / 1 failed / 27 skipped; first observation",
+    "webkitReload": "107 passed / 1 failed / 27 skipped; browser-prior log",
+    "chromiumNetwork": "110 passed / 1 failed / 27 skipped; browser-parallel-network log",
+    "serialWebkit": "110 passed / 1 failed / 27 skipped; browser-serial-prior log",
+    "fixtureCorrection": "Concrete origin and allow-credentials for credentialed transport; affected test 3/3 passed in diagnostic run.",
+    "assertionsWeakened": false
+  },
+  "ci": "Workflow PR base filter is main; stacked dependency base does not trigger those jobs.",
+  "contractAuthorities": [
+    {
+      "file": "tracker-openapi.json",
+      "revision": "357caa7a60a717eb7b0ac72f286b793326992931",
+      "url": "https://github.com/FerrPOINT/task-tracker/pull/114",
+      "sha256": "7a1131a653ad06898170318b25dea9f78760e07f4f58a0d91b081800efbf074e"
+    },
+    {
+      "file": "workflow-openapi.json",
+      "revision": "11398711aa04605bc1a618622a84ae648e6de0c8",
+      "url": "https://github.com/FerrPOINT/project-workflow/pull/90",
+      "sha256": "b6059cd5af6aeac58af7363b6814158f46f2b9f9ef3933477e53f0133491b6d7"
+    },
+    {
+      "file": "workflow-pm-openapi.json",
+      "revision": "11398711aa04605bc1a618622a84ae648e6de0c8",
+      "url": "https://github.com/FerrPOINT/project-workflow/pull/90",
+      "sha256": "b066282953f10857d97e345db1d109e5494d3729193ef38b97bbdd1c92771a9b"
+    }
+  ],
+  "sources": [
+    {
+      "path": ".base-revision",
+      "sha256": "caa8a146d358009556940db7d01d5c59237e1b03a3059a01dc2475f1cf7bb29d"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "f6c3bec83c7b0be902381338a1fc0e05a9651e9a1aeed7488325b4deeba90e12"
+    },
+    {
+      "path": "docs/CHATS_PM_CONSUMER_20261008.md",
+      "sha256": "6078694ec0a25947c3ad2b56af557277537633b847cf1936fbf3e8b07041710e"
+    },
+    {
+      "path": "frontend/.env.development",
+      "sha256": "0907b3e6ce5b12ebf94f8c527a6ce0bf1b1c213eb59b94f54209b47e9c1d3f2b"
+    },
+    {
+      "path": "frontend/.env.example",
+      "sha256": "0907b3e6ce5b12ebf94f8c527a6ce0bf1b1c213eb59b94f54209b47e9c1d3f2b"
+    },
+    {
+      "path": "frontend/.prettierignore",
+      "sha256": "4036a4775949a00c255acfaef910f89e3e8400f1064570e5b09b4252a2b4b195"
+    },
+    {
+      "path": "frontend/.prettierrc",
+      "sha256": "7bcd63107ad001bc8a38d9e97b7cbf1f9290e0490c0f054787a5ab7d40e099f1"
+    },
+    {
+      "path": "frontend/Dockerfile",
+      "sha256": "6f46d61fa710bdd6d1cf64256cfa35bf6917104c8e618a93adc5150b2603b8ee"
+    },
+    {
+      "path": "frontend/Dockerfile.umbrella",
+      "sha256": "d33e0fed01df1e34ea18938f25ecaf0d0977c0ea3ced17f521cfb5264903adad"
+    },
+    {
+      "path": "frontend/LICENSE",
+      "sha256": "67f1475a204db7878c1bbda4c02c370ef9390a24f7574333728dcd890c5ecb84"
+    },
+    {
+      "path": "frontend/chat-preview.html",
+      "sha256": "4332cfccd4188ce5f50f29a80999c6e0f03d4f3d4e5808b94cdc9374cb8943cd"
+    },
+    {
+      "path": "frontend/e2e/agent-detail-live.spec.ts",
+      "sha256": "0d4473264ec8252bad74d7e2f635cf3f9a6ddfdc3c5f9bb4173ddc94150e95d1"
+    },
+    {
+      "path": "frontend/e2e/agent-edit-live.spec.ts",
+      "sha256": "48b2b0b3e5f0f2c22c0945d8f5ad1cc1780299499cfe9ab55114d335d5dcbc62"
+    },
+    {
+      "path": "frontend/e2e/chats-directory.spec.ts",
+      "sha256": "4d4549fbeeabd95fb18579919eecab51ddeffd737bf4217b4ccb5297d3ee431f"
+    },
+    {
+      "path": "frontend/e2e/dashboard-localization-live.spec.ts",
+      "sha256": "594f3c9af8120bd9c5912e9bd66714a4b91ad4677900e06f004a6098b5d8f376"
+    },
+    {
+      "path": "frontend/e2e/detail-layout-live.spec.ts",
+      "sha256": "860e9ea93aef4b5c391f26dd32fa9cae4c3fdda554e446ffb2c94903977fca81"
+    },
+    {
+      "path": "frontend/e2e/executors-live.spec.ts",
+      "sha256": "cfd5a4c59913b17c77317ca602b44590900e1261f29eeab7d579897581494379"
+    },
+    {
+      "path": "frontend/e2e/fleet-control.spec.ts",
+      "sha256": "aa93c81821a20148cd9e595983a93e6cce50ecac1e89be8e773d2dd75795ba1d"
+    },
+    {
+      "path": "frontend/e2e/leader-team-live.spec.ts",
+      "sha256": "744b4da987f533da1e9123756421f04367e062390c34dc14a214fdb46d1410a7"
+    },
+    {
+      "path": "frontend/e2e/logs-live.spec.ts",
+      "sha256": "87e736bfdcca64707049277e2c4122fca222c2f4e453b7d88e9d082215cf3ee5"
+    },
+    {
+      "path": "frontend/e2e/platform-header-live.spec.ts",
+      "sha256": "06f3bf067ed70cfe03e98a118da3bc1673ed83cd615e718fa4f38028b4c75187"
+    },
+    {
+      "path": "frontend/e2e/task-approvals.spec.ts",
+      "sha256": "a6e57b492301124c3df3fe4fd26eee3df0730df1008bb452bd34ce892a08858f"
+    },
+    {
+      "path": "frontend/e2e/workflow-bindings-live.spec.ts",
+      "sha256": "2e3718c7d8905ad073dfd194bf4f0628a0a47cf9adebbc0bcd0eaffbb9b5c3a1"
+    },
+    {
+      "path": "frontend/eslint.config.js",
+      "sha256": "b85fce422b74229e9a7ad172a9e681c6e663fe9c5b9793924a7e89432bd9c71e"
+    },
+    {
+      "path": "frontend/index.html",
+      "sha256": "ee550d9c9bfedd341b80cb20ff8e5303228ce52109c40369accddb9192ab5c4d"
+    },
+    {
+      "path": "frontend/lighthouserc.json",
+      "sha256": "66f5e0c5233b18d823edb409f93420d8ce18544bcebc56bf535f97f9c27baa33"
+    },
+    {
+      "path": "frontend/nginx.conf",
+      "sha256": "a766325431cfd69db74905ea8d7c90c0cd2ed76db3b34a3cd45d37fd7b1be80f"
+    },
+    {
+      "path": "frontend/package.json",
+      "sha256": "acedfb03a8d8c833eb7675c28ebecd1ffd7f98f3045e353f43b59762c0a4466e"
+    },
+    {
+      "path": "frontend/playwright.config.ts",
+      "sha256": "b3ad8e5a4b0a0b2676222f2a357f4d4062a97070a01b6279376103b1b93afce9"
+    },
+    {
+      "path": "frontend/playwright.pm-draft-preview.config.ts",
+      "sha256": "c67df20ca3e33758348049efe8bc9dd370ac21ac658569d245b10054aa1490b9"
+    },
+    {
+      "path": "frontend/pm-draft-preview.html",
+      "sha256": "70664a10e6c0b1763650d132e5ae7ad0b0a2d1fae45e89cef0a05f4a07f167f3"
+    },
+    {
+      "path": "frontend/pnpm-lock.yaml",
+      "sha256": "37918d9d24852a14f24c43a593777e99d36e0e58de2e7b9a58a4415fd927fb67"
+    },
+    {
+      "path": "frontend/pnpm-workspace.yaml",
+      "sha256": "1b95bbb97b01bfefa468baffc431b6d29185d574dc2de98de2a2f29f50f9b36d"
+    },
+    {
+      "path": "frontend/preview-e2e/pm-draft-preview.spec.ts",
+      "sha256": "d4563a9188af3633151d11391edd3d47e92f2b3a2429755dd89601da8c0d6301"
+    },
+    {
+      "path": "frontend/public/favicon.svg",
+      "sha256": "72bec39157457fbb86aa82f4733d1db0712ef4d8fe2f8c0967d5e33c5b93de0b"
+    },
+    {
+      "path": "frontend/scripts/base-openapi-compat.mjs",
+      "sha256": "470b4f6b3deaef1248c612234ec4ae29edfe853e34cbf617cf3bfe0756f9c373"
+    },
+    {
+      "path": "frontend/scripts/base-openapi-compat.test.mjs",
+      "sha256": "c90996f0dfa572f2e7f824fd76944ebc58ef41f3df7320ccf48b76838285b145"
+    },
+    {
+      "path": "frontend/scripts/capture-pm-draft-preview.mjs",
+      "sha256": "809e5b43fe085f1ff5381284171706e6f883162102928847f2e7aff02f482393"
+    },
+    {
+      "path": "frontend/scripts/capture-screenshots-with-preview.mjs",
+      "sha256": "109a03c668349791dac582f8f49a6c02459c74365b44a0e408aaf6ca811f4d00"
+    },
+    {
+      "path": "frontend/scripts/capture-screenshots.mjs",
+      "sha256": "eaab2d745d8b52239395ec96ced5d4896f65cb7e699a0cd059bcde9ed6bb6825"
+    },
+    {
+      "path": "frontend/scripts/check-markdown-links.mjs",
+      "sha256": "707624ca211a94f0f70953d797eb31ddd73d3dc7146e4d834f6ba514107184cf"
+    },
+    {
+      "path": "frontend/scripts/diagnose-event-stream-navigation.mjs",
+      "sha256": "7fa2696ac596d24cb23f5fe912590ce07173eedb40b42944b49bf0618466693e"
+    },
+    {
+      "path": "frontend/scripts/publish-chat-controller-evidence.mjs",
+      "sha256": "1f25f408561fc9e9a34d9e701ebbd69ce82f3b544a45e50389ad0f312a0e84a1"
+    },
+    {
+      "path": "frontend/scripts/publish-chats-pm-consumer-evidence.mjs",
+      "sha256": "b0b905c34e1e9f6ff9cb3e1a0a317a52fae0e49e91b4553ac70b52addf8aba65"
+    },
+    {
+      "path": "frontend/scripts/publish-runtime-control-evidence.mjs",
+      "sha256": "cd3a1562329e7647b2af46ec71617e6dd1d80bd649f3a12675d083cf69c4459b"
+    },
+    {
+      "path": "frontend/scripts/publish-session-composer-evidence.mjs",
+      "sha256": "c52545de2030a745d6b81c9b365e3c981e2b9f60d331239a32cee62afb1ce895"
+    },
+    {
+      "path": "frontend/scripts/sdlc-semantic-classes-check.mjs",
+      "sha256": "0e122f701f434a12e0d0538d7ac6301a3452357e276f6924c3795946930f0882"
+    },
+    {
+      "path": "frontend/scripts/verify-chat-contract.mjs",
+      "sha256": "4b9685c44d6825ddb5831c775a2d3243de119695d41eeac30bbc5fe7f6808c1c"
+    },
+    {
+      "path": "frontend/scripts/verify-chat-contract.test.mjs",
+      "sha256": "6f00c9c5860978caf4d515be76ec893c77bafaee04ee4cf3fa47fd39be7c3544"
+    },
+    {
+      "path": "frontend/scripts/verify-screenshots.mjs",
+      "sha256": "d4830490b5a5c6f8c3c0efac81f41b4225e124fc7e5c44058c8b1d3a70ce343e"
+    },
+    {
+      "path": "frontend/scripts/verify-screenshots.test.mjs",
+      "sha256": "4c9c681f57aa03be5c326c155ddd6461cd18bde5b4c6b056fe1e61123be4b89a"
+    },
+    {
+      "path": "frontend/src/api/auth.ts",
+      "sha256": "d0ab2cda30946cafd554b1eaf11df667ebecb2be59ec90b5a89169a7e5f73de0"
+    },
+    {
+      "path": "frontend/src/api/chats-directory.test.ts",
+      "sha256": "a267e4a09908623b635894cb3e8652bc67c6c5735bd8feb8badb8583772ffca9"
+    },
+    {
+      "path": "frontend/src/api/chats-directory.ts",
+      "sha256": "89192923613f5c5928e4d31345486e5cb3ed0cb4d59b447d12423ae3ee4b25a9"
+    },
+    {
+      "path": "frontend/src/api/client.test.ts",
+      "sha256": "ee9df3b482b5c4634f782f6e3fe4148e8a5263f77235dde87fdb8263f2f277bc"
+    },
+    {
+      "path": "frontend/src/api/client.ts",
+      "sha256": "c5df0ebf1b21ecadb0ddcb52b22de8cc45a866ebae6ba9ea0119e4d5abce20fc"
+    },
+    {
+      "path": "frontend/src/api/fleet.ts",
+      "sha256": "ccfa14a7841bacc6406b8e47a7834a26e0904129676763faaf5e583be4008ec5"
+    },
+    {
+      "path": "frontend/src/api/pm-drafts.test.ts",
+      "sha256": "3aafc0a4fa16481f4a4024f0e219be7df5c274d62248505c6acba9ad7f3bc985"
+    },
+    {
+      "path": "frontend/src/api/pm-drafts.ts",
+      "sha256": "170ce3a878a90b264943d5f4457472820fc95c97b5b5060ccbb0469a16458a23"
+    },
+    {
+      "path": "frontend/src/api/runtime-control-lookup.test.ts",
+      "sha256": "441c66a45c9cf97bc814e360ab48c9997f4be708f9a8b4ee381b657a44e3116a"
+    },
+    {
+      "path": "frontend/src/api/runtime-control-lookup.ts",
+      "sha256": "ed833da81fae3f7d4211802336885506e1d8bfc9bc09881db8d980407d484b42"
+    },
+    {
+      "path": "frontend/src/api/task-approvals.test.ts",
+      "sha256": "42722951a68a39ca63cbf9330ac9321c0fad2a540b9d6b0a9abe36362249ef35"
+    },
+    {
+      "path": "frontend/src/api/task-approvals.ts",
+      "sha256": "6e47e67d0099c6ad187c89b7d167bd21edb6aa6dcd5d4ae52fbcddec74bff137"
+    },
+    {
+      "path": "frontend/src/api/task-chats.test.ts",
+      "sha256": "c99f1ff0132a364e16224396895ee534c926072d8a55fd1422f88cb5a06ba72a"
+    },
+    {
+      "path": "frontend/src/api/task-chats.ts",
+      "sha256": "f478e58cedf2313ad3a71d8445329f7b658b2aae424acbba5dcd1bdb6bc049f9"
+    },
+    {
+      "path": "frontend/src/api/types.ts",
+      "sha256": "54cda6e547ba6c67513eeee514b0f4eb9ee3d216ea91124e63a3a6408cec29eb"
+    },
+    {
+      "path": "frontend/src/app/auth-boundary.test.tsx",
+      "sha256": "0e6fa59ac5492a47928bff2a9ec82dd0264de279bfd3fc550156914501d47d5c"
+    },
+    {
+      "path": "frontend/src/app/auth-boundary.tsx",
+      "sha256": "9a1a717ade4bd174483f8560a8c4569a0d6a37e78f3095496208b8848ec2380b"
+    },
+    {
+      "path": "frontend/src/app/router.tsx",
+      "sha256": "f79488899490cb62fbb26f7937c399df9029b59ba6af8dff1d6011b231378d8f"
+    },
+    {
+      "path": "frontend/src/index.css",
+      "sha256": "b34e8b8844932d442a51b9a8b3c7d4723fd8704411d6a3cb2f7c56ee33ed1ce8"
+    },
+    {
+      "path": "frontend/src/main.tsx",
+      "sha256": "0831e8298deedbc89a8c2b30e205effb6fbd691e6ae1a6a11f849c151497a06e"
+    },
+    {
+      "path": "frontend/src/pages/agent-detail/config-revisions.test.tsx",
+      "sha256": "a0c74aa74d53aeb7dce026b720dca196a216ab4ee58dafea3b9dfd84edb21a4d"
+    },
+    {
+      "path": "frontend/src/pages/agent-detail/config-revisions.tsx",
+      "sha256": "5a234ad436dd5c581358f3dff4190b03dcc9e94dfe41114ae7ad0f6f97328555"
+    },
+    {
+      "path": "frontend/src/pages/agent-detail/index.test.tsx",
+      "sha256": "767efe1297c49046c30e58c0936bed3615503743ab46e5081fd6f943734df223"
+    },
+    {
+      "path": "frontend/src/pages/agent-detail/index.tsx",
+      "sha256": "9c317938ca6bceafbb7ccdb9d47de182e116a921c1bbbe682e8c8819e3be75b6"
+    },
+    {
+      "path": "frontend/src/pages/agent-edit/index.test.tsx",
+      "sha256": "9e92bda79c271c0e5c382ef3e17ff71742dd5fa5a2dada0224344c60bd126b6a"
+    },
+    {
+      "path": "frontend/src/pages/agent-edit/index.tsx",
+      "sha256": "fbb457d1d1f976e41c826384daa37a4e323673bd61f43790eece6a8666299873"
+    },
+    {
+      "path": "frontend/src/pages/agents/directory.tsx",
+      "sha256": "201fc9ffc3a3f4e1cd8cb85d33c500111c298d8b5a576f28e3eb5c3962971fa5"
+    },
+    {
+      "path": "frontend/src/pages/agents/index.test.tsx",
+      "sha256": "b54bb0ad051de8d9ec86139ea49ba491cece6caa441f7481eaf91fa3fab85065"
+    },
+    {
+      "path": "frontend/src/pages/agents/index.tsx",
+      "sha256": "38f1a5c07c9ea27486278a432c06152d28b85e0d20bcc4fd7941effc9e231fa2"
+    },
+    {
+      "path": "frontend/src/pages/alerts/index.test.tsx",
+      "sha256": "7e14039ee1a85ea06a720422c3ecc2c2624e7275ce6ef290c5c7daebc8567b81"
+    },
+    {
+      "path": "frontend/src/pages/alerts/index.tsx",
+      "sha256": "f169658ae246ecd487ec28c18abdcbdce33dad8100b01609c91a89397f19ecfc"
+    },
+    {
+      "path": "frontend/src/pages/chat-detail/approvals.test.tsx",
+      "sha256": "fcdf3c3b13ab4ff836b4b6dfcb26edf9cd4b4e6442a51a3be9571b1d8199faa8"
+    },
+    {
+      "path": "frontend/src/pages/chat-detail/approvals.tsx",
+      "sha256": "1268ad7ca426e12703004b9d2681304cb20edc870c19ecb4b7330e3a8f05ee2e"
+    },
+    {
+      "path": "frontend/src/pages/chat-detail/chat.css",
+      "sha256": "443b991360b4af156548429155b2f8ddb36ce699243131e037138caf1d6e681a"
+    },
+    {
+      "path": "frontend/src/pages/chat-detail/dispatch-recovery.ts",
+      "sha256": "ef47b56138aa8fedf29647e2e50b102c8dd93eaa40da58be85aec75d3d4a85d5"
+    },
+    {
+      "path": "frontend/src/pages/chat-detail/index.test.tsx",
+      "sha256": "ba2e69dc1456931f3424605eb240903f74d126b2f4a5959cb88bb8ef7b80103a"
+    },
+    {
+      "path": "frontend/src/pages/chat-detail/index.tsx",
+      "sha256": "74ab7608d6012f0392bdd22c05df87562705302083a5e7b15068a8261d1f7558"
+    },
+    {
+      "path": "frontend/src/pages/chat-detail/requirements-diff.tsx",
+      "sha256": "b1e4e4935bb8a7a9ab02282971022880498088d7a733d44e44bb156dfc426118"
+    },
+    {
+      "path": "frontend/src/pages/chats/index.test.tsx",
+      "sha256": "6c7288528fcd438a2abc05e0421bab685eb60d248c02766ece54433cf27bc15d"
+    },
+    {
+      "path": "frontend/src/pages/chats/index.tsx",
+      "sha256": "2980265762940091a588eaf7cd49f6ad9791b02edd655d12874447882f31d2a9"
+    },
+    {
+      "path": "frontend/src/pages/common.test.tsx",
+      "sha256": "8115f6b49f69f6c6dc88b2ba14cc55cad973bb61532b2216df4849eb0551d944"
+    },
+    {
+      "path": "frontend/src/pages/common.tsx",
+      "sha256": "6817b31bd3620e2aa81374aad56d2cc94107d839557ff7b066d5127305266aec"
+    },
+    {
+      "path": "frontend/src/pages/dashboard/index.test.tsx",
+      "sha256": "12ee81849c61a13619b1c5920ff02d6de3dc0b30a80d264e1d8cfa3a8e28ffec"
+    },
+    {
+      "path": "frontend/src/pages/dashboard/index.tsx",
+      "sha256": "e686f17eaa1fd38c8f382bd5168c8f293580c3170b64f28ce35a47adaea9bd1d"
+    },
+    {
+      "path": "frontend/src/pages/deployments/index.test.tsx",
+      "sha256": "0e3cb2faa5969c6595ceaef02448347bfa6027bcc008c67a2fe5786b60139fe3"
+    },
+    {
+      "path": "frontend/src/pages/deployments/index.tsx",
+      "sha256": "f85fb109756cce46316d2361ed124dceab2dfcb2d516cd5cbeb54dabefb1f860"
+    },
+    {
+      "path": "frontend/src/pages/executors/index.test.tsx",
+      "sha256": "8a9faf9b7ff4e28b5dbe1fe2cc4d23dc546d0f5c41baf79e89f03a9b58a1a55b"
+    },
+    {
+      "path": "frontend/src/pages/executors/index.tsx",
+      "sha256": "dc14320a2c50d0bda8c94bc86efe024ba7898832275efa549f67d476a07a199a"
+    },
+    {
+      "path": "frontend/src/pages/leaders/index.test.tsx",
+      "sha256": "e73abb7843d9d0809944bda8669c260cac7f94ced59304283f1056e1d54fbe2d"
+    },
+    {
+      "path": "frontend/src/pages/leaders/index.tsx",
+      "sha256": "619f431f3607e08d3547c39ea4f2c5ebb183626b6d5e1dc98f29dc248bb91fbf"
+    },
+    {
+      "path": "frontend/src/pages/login/index.tsx",
+      "sha256": "192445727c20023e337db7640e3991f1e947605e1769434f63dd9ece69b99018"
+    },
+    {
+      "path": "frontend/src/pages/login/login.test.tsx",
+      "sha256": "c699cfb477f065cf00d161e5642e90c60a898e8d83c9f57358262e06c3c6065b"
+    },
+    {
+      "path": "frontend/src/pages/logs/index.test.tsx",
+      "sha256": "ee975cad0be8ac9b2b82720803637f5f488686cbcf203220053409bcc24eb5b8"
+    },
+    {
+      "path": "frontend/src/pages/logs/index.tsx",
+      "sha256": "0f3881b773083209aaafb1e61529decd01a801bf9a5a65d19a691bc2e05e4c51"
+    },
+    {
+      "path": "frontend/src/pages/register/index.tsx",
+      "sha256": "84ef202bacaf9183fc3dcded33e64de444a7b30c7e5e96387668b859571f3c16"
+    },
+    {
+      "path": "frontend/src/pages/runtime-control-history.test.tsx",
+      "sha256": "95f9ac3c9a9b9ced30cb09398714706e8e9964d35dea5cafcf6ba45ee199e0b0"
+    },
+    {
+      "path": "frontend/src/pages/runtime-control-history.tsx",
+      "sha256": "1ee7d26a4204ee5e35a5dad6ceb2cbd4604ffddfc4f379cb9c4ee27d374c3806"
+    },
+    {
+      "path": "frontend/src/pages/session-detail/index.test.tsx",
+      "sha256": "6a23771f9623ecea6fa54ca9159285fa94050789172530aec10bfe9afc8ae3c4"
+    },
+    {
+      "path": "frontend/src/pages/session-detail/index.tsx",
+      "sha256": "77f0aabb76236f3b4b6108e2c7f4280a7d680a6a452cdd44393d1f9aa2bbd914"
+    },
+    {
+      "path": "frontend/src/pages/sessions/index.test.tsx",
+      "sha256": "8f071faaa497d8e15cf98e3bf0d1fe9022415e2c9cc717305b4e308b018681c5"
+    },
+    {
+      "path": "frontend/src/pages/sessions/index.tsx",
+      "sha256": "dd9df602af6469710d06da1dff140f55753e49ab5eb31fc249fb8ac8ac79f8b3"
+    },
+    {
+      "path": "frontend/src/pages/settings/index.tsx",
+      "sha256": "a71f871f23002b34c2c87d34bdc4a7055ff9c3872a445d895b650e70e8d668a4"
+    },
+    {
+      "path": "frontend/src/pages/settings/managed-settings.tsx",
+      "sha256": "20ae3f9423440a345920c1d8b75a86eef66f2ef48172e39e7b02207ca9be0340"
+    },
+    {
+      "path": "frontend/src/pages/settings/settings.test.tsx",
+      "sha256": "9e27255aa87b48e3aef59581bab674cb6b9ed193b367de0fabe6f1ef63578890"
+    },
+    {
+      "path": "frontend/src/pages/sso-callback/index.test.tsx",
+      "sha256": "162a02f6158654692663fc1aa8db4af9a155843d9e476fe6785749184b8a086e"
+    },
+    {
+      "path": "frontend/src/pages/sso-callback/index.tsx",
+      "sha256": "bec322acc43e79375f5c19a5c798b92691cb0e0dec2853bccf2dbc2238697635"
+    },
+    {
+      "path": "frontend/src/pages/workflows/index.test.tsx",
+      "sha256": "13677170669c5313069252e81de4e2d856e71194f08fae48b161f204ba4c517d"
+    },
+    {
+      "path": "frontend/src/pages/workflows/index.tsx",
+      "sha256": "d102a07ada4dbfcb8a06fe676448ea7922fc9583c98374042a0e21ad56cf5458"
+    },
+    {
+      "path": "frontend/src/previews/chat/main.tsx",
+      "sha256": "64ea0b9da50c9e286058e8b6b1f5e33df268c784a491cf2b514bba4b105afdb9"
+    },
+    {
+      "path": "frontend/src/previews/chat/preview.css",
+      "sha256": "a28b0e243d29ed483b44e0b597186fe375a0752e063a14255ab6ea2e15826ec2"
+    },
+    {
+      "path": "frontend/src/previews/chat/preview.test.tsx",
+      "sha256": "320930f451e9a27fd2e6d1db7a46037b5c344a6a02856a66ba86b3233fe9d7aa"
+    },
+    {
+      "path": "frontend/src/previews/chat/preview.tsx",
+      "sha256": "761209445b71081b656828d0181cb610028e18d9282f05245c6fcf6295c810ae"
+    },
+    {
+      "path": "frontend/src/previews/pm-draft/fixtures.ts",
+      "sha256": "8427b56905d5a4dbf67cfa018f2dc768b4843f896304e14befa4947c533aed78"
+    },
+    {
+      "path": "frontend/src/previews/pm-draft/main.tsx",
+      "sha256": "787419a4f36a72af4d6ccfc4cbe36437c0404f7ac559fb7e5e23ed1d1d504244"
+    },
+    {
+      "path": "frontend/src/previews/pm-draft/preview.test.tsx",
+      "sha256": "3988bdecc15eb62adf28aca28112272ae83d51246cf574397978ac346f51b0ba"
+    },
+    {
+      "path": "frontend/src/previews/pm-draft/preview.tsx",
+      "sha256": "c53dc87dc3e5ec12fedf7d72847717850d8bdc8b7b0217df5a44906df66cace1"
+    },
+    {
+      "path": "frontend/src/shared/auth/require-auth.test.tsx",
+      "sha256": "520a6483f65956e5153bee5e8a8f3707f98de6e6c751094a1ce906a0b76e4fed"
+    },
+    {
+      "path": "frontend/src/shared/auth/require-auth.tsx",
+      "sha256": "8446ad9029aedc358a310dbb40c400033bd1eddec2a964167f46772389a205bb"
+    },
+    {
+      "path": "frontend/src/shared/auth/store.test.ts",
+      "sha256": "22a1c6c7d85ca2c676564c7ea5ae294927b65959a8a1013ddb08252817f850c3"
+    },
+    {
+      "path": "frontend/src/shared/auth/store.ts",
+      "sha256": "5d2906d44571295949d7045d560f76f249b477b63be259712ec37c5f3a57c208"
+    },
+    {
+      "path": "frontend/src/shared/chat-control-recovery.test.ts",
+      "sha256": "47f3357810479a24856ab562512999e5b3b60da95bda99be714406b52ed80f65"
+    },
+    {
+      "path": "frontend/src/shared/chat-control-recovery.ts",
+      "sha256": "d4c580cd66cdff99e159b95a115cbde5dbefe5adcfec919147e9ee9391513327"
+    },
+    {
+      "path": "frontend/src/shared/i18n/config.ts",
+      "sha256": "4ddc05f48212cdd8b72d212a1c17495d4563e1355e8f73ead789a3c7d9324f31"
+    },
+    {
+      "path": "frontend/src/shared/i18n/locales/en.json",
+      "sha256": "d229054aed117e85ab4d0292f372be7d2dc8413a67f16acac62b5078f1495a69"
+    },
+    {
+      "path": "frontend/src/shared/i18n/locales/ru.json",
+      "sha256": "621d07804bd073ec62671d86599309ccbe920d72fe1e09683e91018b2a045704"
+    },
+    {
+      "path": "frontend/src/shared/i18n/test-config.ts",
+      "sha256": "aa1b7aa3f89811e7f65f351c4b97b4737926559b908349ac7c5c517c160b3755"
+    },
+    {
+      "path": "frontend/src/shared/lib/utils.ts",
+      "sha256": "f392e2f719900c3e98eb6f125ce3abba38e852930852b495b8756648e6458109"
+    },
+    {
+      "path": "frontend/src/shared/sdlc-roles.ts",
+      "sha256": "f193bb33cf79cf0933d459e611a702092d9ae46357b8c569f2d4cdc8b23e3345"
+    },
+    {
+      "path": "frontend/src/shared/session-user-filter.tsx",
+      "sha256": "5e60121bf1948a4c30d7faed53c49b91750df3607eb6d57c3d2c427bbbb11a2f"
+    },
+    {
+      "path": "frontend/src/shared/ui/user-avatar.test.tsx",
+      "sha256": "6a798376375fa6a4f510df0f467a3df2b7e4e6fcdc3f76b94c6d06cc933f4486"
+    },
+    {
+      "path": "frontend/src/shared/ui/user-avatar.tsx",
+      "sha256": "6d0eb4cc1dcedb5ac8bb1bf4d05d2cd2b51960fb6b2694c98a251b0ce9eedb24"
+    },
+    {
+      "path": "frontend/src/test/setup.ts",
+      "sha256": "a7c7035fcd0e015a33704525960a2d96721d8778ea5689bfd4ab4d0b5cc0609d"
+    },
+    {
+      "path": "frontend/src/vite-env.d.ts",
+      "sha256": "227d5944220a22db58883611843467d483928e3d759a3f8a9ae700cb53174e4d"
+    },
+    {
+      "path": "frontend/src/widgets/app-shell.test.tsx",
+      "sha256": "1d30829d6677429ba7bc66d42d213a871cc6db526ead6dd8fb9f3ef2a10f458d"
+    },
+    {
+      "path": "frontend/src/widgets/app-shell.tsx",
+      "sha256": "2e9ee385da9a26839621a81af12a5b8791cf2f86fc492016e52975290adfed53"
+    },
+    {
+      "path": "frontend/tsconfig.json",
+      "sha256": "1f4c8a05b6686aa73cf073b613d2000b5a4aaabdbc76c0c4019c8286cb0f18db"
+    },
+    {
+      "path": "frontend/tsconfig.node.json",
+      "sha256": "b5805e4738367879e03012a1807daba34fc4dfbfab445472529f2611d4d41fb0"
+    },
+    {
+      "path": "frontend/vite.chat-preview.config.ts",
+      "sha256": "ca06331f813d006148c1df91a7a1bb702afd9baec16bad61d2eac26dc22d4a86"
+    },
+    {
+      "path": "frontend/vite.config.ts",
+      "sha256": "25ebb9b9c62b9153268b01414ba747ca8924a858284d9dd911d9f64646c110fc"
+    },
+    {
+      "path": "frontend/vite.pm-draft-preview.config.ts",
+      "sha256": "6c95151677137ab36d57a8b701919889f03951de2506c6054f054ccabb50aac7"
+    },
+    {
+      "path": "frontend/vitest.config.ts",
+      "sha256": "8cab93d6e6dc818da8346dc0e08b829c3eea60420ea7669bf48caf4099b8bdfc"
+    },
+    {
+      "path": "openapi/openapi.json",
+      "sha256": "1f1f4dd872d53925597cf91b98301d940dd85481b857af85b7a325e056e41667"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/chat-draft-renamed-1920.png",
+      "sha256": "7afc9bf6031407efcf9839fadfc124e6951a6228349040e4bc5c602b5412fbda",
+      "width": 1920,
+      "height": 1080,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/chat-draft-renamed-2560.png",
+      "sha256": "a58587bcc0833a800aed3b9ae4ee740400b2052ec2877f1d3925228230a66c4f",
+      "width": 2560,
+      "height": 1440,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/chat-draft-renamed-375.png",
+      "sha256": "a8306c2550ee8e3c250b383c10483f192c7145348065a616ed2b4f838609b609",
+      "width": 375,
+      "height": 812,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/chat-draft-replaced-1920.png",
+      "sha256": "7f690329858d834c5cfd190778dee22054d901611722d934a249fb5bb19fbd67",
+      "width": 1920,
+      "height": 1080,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/chat-draft-replaced-2560.png",
+      "sha256": "a4cb78071880b91b41a442bd0c238a3ac14b6b52c20d0cc04ebca220d63f57d0",
+      "width": 2560,
+      "height": 1440,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/chat-draft-replaced-375.png",
+      "sha256": "9b4ce2fde10fbe35f3d2249b608d4df66f1f93dea1da1b4d74c05aa0832d6731",
+      "width": 375,
+      "height": 812,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/chat-reading-restored-1920.png",
+      "sha256": "356ff1230eca39c022edb61f626c5efd03dfbad9531325397430c74c9ca7c782",
+      "width": 1920,
+      "height": 1080,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/chat-reading-restored-2560.png",
+      "sha256": "5d4e622d258829921d9a2cb11d6c0e438b38aefb074ce1af17f185c156a411e3",
+      "width": 2560,
+      "height": 1440,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/chat-reading-restored-375.png",
+      "sha256": "d2672e84308f2accb5686d2be3d688e7c3a851a4247aaa06758edb9e475fa638",
+      "width": 375,
+      "height": 812,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/chat-session-access-denied-1920.png",
+      "sha256": "b6a60e4428debf1fa880f94b63063c950761087ba88d8c87365d3df866926d5c",
+      "width": 1920,
+      "height": 1080,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/chat-session-access-denied-2560.png",
+      "sha256": "42ffe3be9976d332e60ef84ac91a32e6ccb80226dce87020677e6904a79d9c00",
+      "width": 2560,
+      "height": 1440,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/chat-session-access-denied-375.png",
+      "sha256": "ff13a6549fc14e9d099a3df44aa86f906d286da75b5286a08a16029e965bf78d",
+      "width": 375,
+      "height": 812,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-answer-held-1920.png",
+      "sha256": "031c7f6f25394adbf6ce6c3f5e9fddddff101caff6bce2e9be3d1132c019a999",
+      "width": 1920,
+      "height": 1080,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-answer-held-2560.png",
+      "sha256": "d360c7b2562111fee18cb4d068f45957b47f6067c5cb948a5d1b2231973c325f",
+      "width": 2560,
+      "height": 1440,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-answer-held-375.png",
+      "sha256": "663c6fd92fb780453bd095405b0d1f51192fdb6cb91f74815e5ee997b264754f",
+      "width": 375,
+      "height": 812,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-answer-reload-1920.png",
+      "sha256": "96a22d7ffff3ad9033fe61f7bd015a0bd3d2966a0727d06c78f98d6066ac9826",
+      "width": 1920,
+      "height": 1080,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-answer-reload-2560.png",
+      "sha256": "1a09cd5f5d1ae357ba8ddc15839521af7cfb9037a5df8bf38abf21e734caf2ac",
+      "width": 2560,
+      "height": 1440,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-answer-reload-375.png",
+      "sha256": "ab8e3b48c99ae40b50cfad9e87566af5969696b2da460d510166e473b4142eb9",
+      "width": 375,
+      "height": 812,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-confirmation-1920.png",
+      "sha256": "a19211b9faf7015f53dd96b172bcff4dbf0e764a130a604bc7056d9de963ba86",
+      "width": 1920,
+      "height": 1080,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-confirmation-2560.png",
+      "sha256": "9fb5d1cdb4f250647b8f8c56a185650b55897a758ece6b18d474587cf5fb5e31",
+      "width": 2560,
+      "height": 1440,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-confirmation-375.png",
+      "sha256": "384327c98d5d5c12f63a331e315c4f4315e3cca95a8af87ff8f41c9800c0956f",
+      "width": 375,
+      "height": 812,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-confirmation-held-1920.png",
+      "sha256": "0457056bf614b08ae93cacfcbb3eed6b515e442400dfb7f07080d776feebaef6",
+      "width": 1920,
+      "height": 1080,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-confirmation-held-2560.png",
+      "sha256": "27d1692e519b52471eff1092d18b3c43d6dbf47f06bf2f1a3b65ae94b735a4b7",
+      "width": 2560,
+      "height": 1440,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-confirmation-held-375.png",
+      "sha256": "d127afc45182e25dccb8083ac7b6a38f145d41534596772f5a05ee1697c3dfef",
+      "width": 375,
+      "height": 812,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-confirmation-reload-1920.png",
+      "sha256": "0c443d5a86daecb06b6ce6a84f750168992859404fa34bb68c3a3bdbcd7fd6b0",
+      "width": 1920,
+      "height": 1080,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-confirmation-reload-2560.png",
+      "sha256": "3b7655037029512d45ed5dabf39b7af45a95b416cac8a664d40e8e2248e741cd",
+      "width": 2560,
+      "height": 1440,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-confirmation-reload-375.png",
+      "sha256": "3a9c59e54c929154aa44e87b33fda63a56ac71e587ae409022de8b7cceaae3e4",
+      "width": 375,
+      "height": 812,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-diff-1920.png",
+      "sha256": "f0edb33211afc855327d416d98474e815df012f01c0cc3914a3d30302beba1c6",
+      "width": 1920,
+      "height": 1080,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-diff-2560.png",
+      "sha256": "093571664b6e9ec6c169d674e92022075ecd95bd9eb0d47da5b6cad88412556e",
+      "width": 2560,
+      "height": 1440,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-diff-375.png",
+      "sha256": "f1f458dd01d0f4cda966b5cc30447a59460be41bdc038957c2a302ab4950fbde",
+      "width": 375,
+      "height": 812,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-multiple-1920.png",
+      "sha256": "5c926c48d221df2276bcc8c7f6abd575fdd76d0cca20f1dc7f0b450f36905dfb",
+      "width": 1920,
+      "height": 1080,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-multiple-2560.png",
+      "sha256": "2a9a65e9adde9634320ba76403beb4c15daeca6b6abc25305f1ad164363235f6",
+      "width": 2560,
+      "height": 1440,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-multiple-375.png",
+      "sha256": "1ab0236deabb2f640ccf7e8e88ffbb6fe081a9382aa097ffce3ff045b1a28155",
+      "width": 375,
+      "height": 812,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-prompt-reload-1920.png",
+      "sha256": "f46abc24ff7a5ed01ddd40060da855f0b896b231397a83477fb5916c3e38c3f1",
+      "width": 1920,
+      "height": 1080,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-prompt-reload-2560.png",
+      "sha256": "85ff332b7978fb03b9f8bf12047c7cbcc27187a0f2856908a99c21d912e9f9ef",
+      "width": 2560,
+      "height": 1440,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-prompt-reload-375.png",
+      "sha256": "7a9892b979696f4942e4dee73731680b90d351e51911b4b60010cf0f4028bb7d",
+      "width": 375,
+      "height": 812,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-read-only-1920.png",
+      "sha256": "e35fc4131c5bd8fef59229d2caeadae544787b4386fdb5ce00adf7f9b954f6e3",
+      "width": 1920,
+      "height": 1080,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-read-only-2560.png",
+      "sha256": "acc8c3d9664e2ea32a97b3564e604fae6f61ee5de9a3e22b35d47841161c2007",
+      "width": 2560,
+      "height": 1440,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-read-only-375.png",
+      "sha256": "68f5c46f04619eb49c3de4f6f8a830d37af0c26162320f9cfaea4bce5c9ee418",
+      "width": 375,
+      "height": 812,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-requirements-diff-2560.png",
+      "sha256": "03f856595ed5bfd20d70c065b49da5c28ad9783fa5fb4016ba7e28a64f4738bf",
+      "width": 2560,
+      "height": 1440,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-single-1920.png",
+      "sha256": "6c0df4c4f0823da1db67c7bae84b227657b704eb9eed7888ca3b94a16db44636",
+      "width": 1920,
+      "height": 1080,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-single-2560.png",
+      "sha256": "6290568d1a3a0cd466fe087f1ec276ee903b0f1468187819eb357c529da54d83",
+      "width": 2560,
+      "height": 1440,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-single-375.png",
+      "sha256": "d3f67fb65fa81a0f7a7fdd3bea46d728c4d61825244c43995b700194c144855c",
+      "width": 375,
+      "height": 812,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-text-1920.png",
+      "sha256": "9706efd80c927500e02fcb1e20ea3c808ed6859aeaf9660aec6325868ed7c08f",
+      "width": 1920,
+      "height": 1080,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-text-2560.png",
+      "sha256": "f2e05a9742b50624d957ef116dfec94672ab86114d4b8744c73ed8f1c12644bd",
+      "width": 2560,
+      "height": 1440,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/consumer-text-375.png",
+      "sha256": "30ff7aad7c2d7c574ed5da982a349f6a3666b32d92afd395c840f71164f379e3",
+      "width": 375,
+      "height": 812,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/contract-findings.json",
+      "sha256": "e73b9633cb25ae27556b61337019b38ff207f20304b4583c49a712d5108176b6"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/logs/base-pin.txt",
+      "sha256": "bcbc7dd2a9da5d5d9a6881bf2729a9cd7d4620d53231f03abb8d4b932d0b1045"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/logs/browser-all.txt",
+      "sha256": "204f01c426f93f7fc7b5827cfe94327b49b31044d245dad18641f526eedd2b0f"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/logs/browser-diagnostic.txt",
+      "sha256": "ce18f7e0b75c5195397536798d517ca3efef786a07472a90c4c7d8d16dd8f384"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/logs/browser-parallel-network.txt",
+      "sha256": "1347d0d460d169e4479f44e94441dd9c8f8008d7405153861a5398ec0e7f14ed"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/logs/browser-prior.txt",
+      "sha256": "14dc1fad8518df84eb83d2b95bdcc770caea99cb03e7520dc8ecf731ba4d5118"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/logs/browser-serial-prior.txt",
+      "sha256": "3d0a62dc914700947de91ed5740684a86d20d042b000e5a404d31208bb107a94"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/logs/build.txt",
+      "sha256": "8e90c7672eacf3c9eb4eb98144a803b3c2a70ff677119730c9202c6389cdc4a2"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/logs/chat-evidence-verify.txt",
+      "sha256": "9cb9b5d8bd8022e903f1ad7dfe8eb19b8d8875d951759e45f38419f77f24713a"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/logs/contract.txt",
+      "sha256": "8d7c3467ae607466f9a0052a27845620822b75ce490832ba7c0913be189d2990"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/logs/controls-evidence-verify.txt",
+      "sha256": "3ce646bf2807e662aef4393032a79c02520ec1d19c3bc6494ed43e82d039d58c"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/logs/format-check.txt",
+      "sha256": "63258160981191a8d286128d7b89cbfeea3354e097ae716b234d996509fc3d76"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/logs/generated-screenshots-verify.txt",
+      "sha256": "cdb787f8031f67065aba37d90b225b92bae5cd45bf91363d3341f81760fa8ec3"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/logs/lint.txt",
+      "sha256": "bdbae17b0de2ff9ffea8d71fc3b300f85fca1699f068a0f1421e078e3aabf28b"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/logs/markdown-check.txt",
+      "sha256": "ea96d5d07176574a1d4a999e8481291d36a918873acadef850c6b4c6a0890480"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/logs/openapi-check.txt",
+      "sha256": "b5b66983bdedbb8e62d8b28e5c64fb29660b35b8cfe5fea5a8c879d47e819ce0"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/logs/openapi-compat.txt",
+      "sha256": "45c8b43f567b7eacbb21b622ffc920b363bd90a28a76bf9c4c0d9298c682775d"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/logs/packed-consumer.txt",
+      "sha256": "8622d3dffabc1ed4a84ea47f4d3715fa8dc6c7b9a52c28deee049e8f2b8d8a75"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/logs/published-contract.txt",
+      "sha256": "a297d3a59569edd494c017b0fe509fb648ebc178c0bfb623e4ac1dc3ca057f19"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/logs/screenshots-verify.txt",
+      "sha256": "4e70eacb519dec506980bc62c664d7d8a78ef9ebbcf70054d404f841b98e152a"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/logs/session-evidence.txt",
+      "sha256": "5a1957c40d9f7fb168dd0ffd5b1e55675f8afe5b7e84c41969ac7884913cdfb6"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/logs/stock-capture.txt",
+      "sha256": "a38b0651710e96a760aa42eeaf77b28a7ac9c181c78a6fc418f4695018ec8187"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/logs/theme-check.txt",
+      "sha256": "7b3ae9400fc00a6cae214c885c9829dd2a49439675806a4964a2130db81c8ee2"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/logs/ui-check.txt",
+      "sha256": "ac4dcc1c77555f1e3b9bde334d8256cf42ff3417def2109de65a272671af06fd"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/logs/unit.txt",
+      "sha256": "2fb29fb5f1c2fa32e0fa48e23e4321d8dd6b660891edb18cff7a539f8536a6fd"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/pm-chat-clarification-1920.png",
+      "sha256": "ffd28660205fcf445b9485c9feb785ff88e95cb0172c3f9465ca4e63f78a5014",
+      "width": 1920,
+      "height": 1080,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/pm-chat-clarification-2560.png",
+      "sha256": "ba617d744222ba5c9bea11e3588f24d8df4333df367c3e6d9de5639e7ffefa4c",
+      "width": 2560,
+      "height": 1440,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/pm-chat-clarification-375.png",
+      "sha256": "d0914b5a24f5e34c1101a27a2e5c142397b07ef59679dc92797ebf9648bd5844",
+      "width": 375,
+      "height": 812,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/pm-chat-dialogue-1920.png",
+      "sha256": "345645aa865c3e27e3c33f206de42270c65d58799e441200bbc88594aa7cdb03",
+      "width": 1920,
+      "height": 1080,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/pm-chat-dialogue-2560.png",
+      "sha256": "445f5a3b562e64ce2aabad94e2f913ccbe8f5bb494513f562e59d4c867dbcc2e",
+      "width": 2560,
+      "height": 1440,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/pm-chat-dialogue-375.png",
+      "sha256": "94e7fec72c0e56f3367a0d4d66db0bc5584ddbf5431a63ea880e605f4243fe27",
+      "width": 375,
+      "height": 812,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/pm-chat-requirements-1920.png",
+      "sha256": "0cea1e0d3898636f43e217287fdd23d2ea18ac6dbd4d9ab388d5344c2f464a8b",
+      "width": 1920,
+      "height": 1080,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/pm-chat-requirements-2560.png",
+      "sha256": "d9ec9278cb23336ed536ed477414b8524cbb065ab8a8223de27b6f12f4af558c",
+      "width": 2560,
+      "height": 1440,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/pm-chat-requirements-375.png",
+      "sha256": "3405802be20c551579d7488e355592eb9a1ab9f2e9c112ee8fdd472572e8b071",
+      "width": 375,
+      "height": 812,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/pm-context-recovered-1920.png",
+      "sha256": "d99e63e6116a03e113558c8954e046d5e1ff7259c4886d3e2cdc22ee44ffafcd",
+      "width": 1920,
+      "height": 1080,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/pm-context-recovered-2560.png",
+      "sha256": "21c3f2f53f5581419b1493bf1d657d6f84a100c0ff21d79e08ea03e98ac6b8d3",
+      "width": 2560,
+      "height": 1440,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/pm-context-recovered-375.png",
+      "sha256": "a9141094ae91daeb1f2f51120f9eb3b3e5a34de675dbccb4fd478ccc49f72531",
+      "width": 375,
+      "height": 812,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/pm-context-stale-1920.png",
+      "sha256": "cf4217555b920ac328e04ef01883bcac98413d93ff0bf0a2941c68596472be48",
+      "width": 1920,
+      "height": 1080,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/pm-context-stale-2560.png",
+      "sha256": "233fc61c915547a3f391d580b672eb7f63de01d46db74cede346146186fef656",
+      "width": 2560,
+      "height": 1440,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/pm-context-stale-375.png",
+      "sha256": "70feeafa20bd9335a3d7d4abc79aad08456a2d901f0b70dfe8d2977fb8f7c6e2",
+      "width": 375,
+      "height": 812,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/pm-context-unavailable-1920.png",
+      "sha256": "5efaffab8d3445ba451b1ce87af312b3bfaed0f7df6d9433da0c7376886e7551",
+      "width": 1920,
+      "height": 1080,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/pm-context-unavailable-2560.png",
+      "sha256": "72934be1f7af5d3c438946dd19d950284710060cf880c14027a6f49921dc6295",
+      "width": 2560,
+      "height": 1440,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/pm-context-unavailable-375.png",
+      "sha256": "853442f89d0547303fc58b935add2e12dfc205b51da4ba4e26060e5d865328de",
+      "width": 375,
+      "height": 812,
+      "review": "composition reviewed; required viewport assertions pass"
+    },
+    {
+      "path": "docs/assets/screens/chats-pm-consumer-20261008/stock-manifest.json",
+      "sha256": "a5d46880e9ff094397fba9f01b01713e2f8235e504592b01eeb688eaf4fa3766"
+    }
+  ]
+}

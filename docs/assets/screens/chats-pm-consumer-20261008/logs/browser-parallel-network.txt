@@ -1,0 +1,185 @@
+
+Running 138 tests using 3 workers
+
+  -    1 [chromium] › e2e\agent-detail-live.spec.ts:27:1 › all agent detail tabs are localized, accessible and responsive against live APIs
+  -    2 [chromium] › e2e\detail-layout-live.spec.ts:27:1 › detail rails measure 320 px at 1024 and stack below primary content at 1023
+  -    3 [chromium] › e2e\agent-edit-live.spec.ts:22:1 › executor edit avoids leader requests and exposes named editors
+  -    4 [chromium] › e2e\executors-live.spec.ts:19:1 › live executor directory supports search, sessions and responsive themes
+(node:31508) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:13776) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:12940) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok   5 [chromium] › e2e\chats-directory.spec.ts:13:1 › unknown private chat creation keeps its original agent and command after closing the dialog (1.4s)
+  ok   7 [chromium] › e2e\fleet-control.spec.ts:8:1 › consumer foreign-owner task stays read-only despite optimistic fixture permissions (1.6s)
+  ok   8 [chromium] › e2e\fleet-control.spec.ts:111:3 › consumer reload retains unknown prompt without storing private payload (5.5s)
+  ok   9 [chromium] › e2e\fleet-control.spec.ts:111:3 › consumer reload retains unknown answer without storing private payload (5.3s)
+  ok  11 [chromium] › e2e\fleet-control.spec.ts:327:1 › legacy session permits the first prompt but holds a pending delivery after reload (4.9s)
+  ok  10 [chromium] › e2e\fleet-control.spec.ts:111:3 › consumer reload retains unknown confirmation without storing private payload (7.1s)
+  ok   6 [chromium] › e2e\chats-directory.spec.ts:231:1 › directory uses server counts, concrete cursors and scoped returnTo across viewports (20.3s)
+  ok  13 [chromium] › e2e\fleet-control.spec.ts:515:3 › chat prompt holds stale controls until a successful read (7.4s)
+  ok  12 [chromium] › e2e\fleet-control.spec.ts:392:1 › durable runtime controls hold unknown commands after reload (15.0s)
+  ok  15 [chromium] › e2e\fleet-control.spec.ts:578:1 › chat steer and stop hold a failed command read and its unresolved fresh receipt (5.9s)
+  x   17 [chromium] › e2e\fleet-control.spec.ts:744:1 › PM context denial stays unknown and preserves the owner draft after recovery (1.3s)
+(node:32196) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  16 [chromium] › e2e\fleet-control.spec.ts:669:1 › chat stop holds stale permissions and uses the refreshed active run (8.2s)
+  ok  14 [chromium] › e2e\fleet-control.spec.ts:515:3 › chat steer holds stale controls until a successful read (14.8s)
+  ok  19 [chromium] › e2e\fleet-control.spec.ts:882:3 › PM confirmation holds a late acknowledgement after session access loss (8.6s)
+  ok  21 [chromium] › e2e\fleet-control.spec.ts:1459:3 › clarification retains the original label when its option is renamed (5.3s)
+  ok  18 [chromium] › e2e\fleet-control.spec.ts:882:3 › PM answer holds a late acknowledgement after session access loss (9.5s)
+  ok  22 [chromium] › e2e\fleet-control.spec.ts:1459:3 › clarification retains the original label when its option is replaced (8.1s)
+  ok  23 [chromium] › e2e\fleet-control.spec.ts:1606:1 › chat revalidates session access on stream reconnect and preserves the denied answer draft (8.1s)
+  ok  24 [chromium] › e2e\fleet-control.spec.ts:1770:3 › chat recovers lost initial steer ID through scoped original-key GET without another POST (10.6s)
+  ok  25 [chromium] › e2e\fleet-control.spec.ts:1770:3 › chat recovers lost initial stop ID through scoped original-key GET without another POST (10.5s)
+  ok  27 [chromium] › e2e\fleet-control.spec.ts:1955:3 › chat restores held stop after real reload and keeps recovery isolated from logout and other actors (6.1s)
+  ok  26 [chromium] › e2e\fleet-control.spec.ts:1955:3 › chat restores held steer after real reload and keeps recovery isolated from logout and other actors (6.2s)
+  ok  28 [chromium] › e2e\fleet-control.spec.ts:2287:1 › chat composer recovers from the exact known steer acknowledgement without another POST (1.3s)
+  ok  30 [chromium] › e2e\fleet-control.spec.ts:2469:1 › chat history preserves server order after clock rollback and page overlap (926ms)
+  ok  29 [chromium] › e2e\fleet-control.spec.ts:2398:1 › long chat history restores reading and tail positions across tabs (2.6s)
+  ok  20 [chromium] › e2e\fleet-control.spec.ts:1107:1 › PM chat clarification preserves explicit answers and exact confirmation (43.0s)
+  ok  31 [chromium] › e2e\fleet-control.spec.ts:3638:1 › uses the shared work-area geometry across semantic page modes (2.6s)
+  ok  33 [chromium] › e2e\fleet-control.spec.ts:3764:1 › workflow bindings rebind only to a workflow in the selected namespace (1.2s)
+  ok  32 [chromium] › e2e\fleet-control.spec.ts:3692:1 › workflow rebind holds a cached catalog during GET retry and preserves its namespace (2.9s)
+  ok  35 [chromium] › e2e\fleet-control.spec.ts:4027:1 › storage review links purge candidates to their workspace (704ms)
+  ok  36 [chromium] › e2e\fleet-control.spec.ts:4039:1 › canonical heartbeat alert is localized and acknowledged at all required viewports (1.3s)
+  ok  37 [chromium] › e2e\fleet-control.spec.ts:4093:1 › Chats groups private sessions by agent and keeps leader controls out of the new route (937ms)
+  -   39 [chromium] › e2e\leader-team-live.spec.ts:19:1 › live leader team is read-only until changed and fits responsive themes
+  -   40 [chromium] › e2e\logs-live.spec.ts:19:1 › live logs stay compact and readable across themes and widths
+  ok  38 [chromium] › e2e\fleet-control.spec.ts:4112:1 › Hermes fleet control flow covers agents, runtime, skills, sessions and handoff (4.8s)
+  -   42 [chromium] › e2e\workflow-bindings-live.spec.ts:19:1 › workflow bindings remain usable on the live fleet across themes and widths
+  -   43 [chromium] › e2e\dashboard-localization-live.spec.ts:23:1 › dashboard and navigation use Russian labels on the live fleet
+  -   44 [chromium] › e2e\platform-header-live.spec.ts:27:1 › Fleet global header preserves navigation, services, identity and central logout
+  -   45 [firefox] › e2e\agent-detail-live.spec.ts:27:1 › all agent detail tabs are localized, accessible and responsive against live APIs
+  -   46 [firefox] › e2e\detail-layout-live.spec.ts:27:1 › detail rails measure 320 px at 1024 and stack below primary content at 1023
+  -   47 [firefox] › e2e\agent-edit-live.spec.ts:22:1 › executor edit avoids leader requests and exposes named editors
+(node:20336) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  34 [chromium] › e2e\fleet-control.spec.ts:3814:1 › managed settings require preview, preserve failed changes and expose rollback history (9.6s)
+(node:35728) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  48 [firefox] › e2e\chats-directory.spec.ts:13:1 › unknown private chat creation keeps its original agent and command after closing the dialog (2.4s)
+  -   49 [firefox] › e2e\executors-live.spec.ts:19:1 › live executor directory supports search, sessions and responsive themes
+  ok  50 [firefox] › e2e\fleet-control.spec.ts:8:1 › consumer foreign-owner task stays read-only despite optimistic fixture permissions (2.5s)
+  ok  52 [firefox] › e2e\fleet-control.spec.ts:111:3 › consumer reload retains unknown prompt without storing private payload (2.6s)
+  ok  41 [chromium] › e2e\task-approvals.spec.ts:164:1 › fixture: explicit targeted choice, lost response and historical command survive reload (7.5s)
+  ok  53 [firefox] › e2e\fleet-control.spec.ts:111:3 › consumer reload retains unknown answer without storing private payload (2.1s)
+  ok  54 [chromium] › e2e\task-approvals.spec.ts:231:1 › fixture: passed read-only permission never offers an enabled decision (197ms)
+  ok  56 [chromium] › e2e\task-approvals.spec.ts:241:1 › fixture: missing exact runtime approval ID cannot produce a decision command (210ms)
+(node:23012) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  55 [firefox] › e2e\fleet-control.spec.ts:111:3 › consumer reload retains unknown confirmation without storing private payload (2.3s)
+  ok  51 [firefox] › e2e\chats-directory.spec.ts:231:1 › directory uses server counts, concrete cursors and scoped returnTo across viewports (10.1s)
+  ok  57 [firefox] › e2e\fleet-control.spec.ts:327:1 › legacy session permits the first prompt but holds a pending delivery after reload (3.8s)
+  ok  58 [firefox] › e2e\fleet-control.spec.ts:392:1 › durable runtime controls hold unknown commands after reload (4.6s)
+  ok  59 [firefox] › e2e\fleet-control.spec.ts:515:3 › chat prompt holds stale controls until a successful read (4.5s)
+  ok  60 [firefox] › e2e\fleet-control.spec.ts:515:3 › chat steer holds stale controls until a successful read (3.2s)
+  ok  63 [firefox] › e2e\fleet-control.spec.ts:744:1 › PM context denial stays unknown and preserves the owner draft after recovery (1.8s)
+  ok  61 [firefox] › e2e\fleet-control.spec.ts:578:1 › chat steer and stop hold a failed command read and its unresolved fresh receipt (4.4s)
+  ok  64 [firefox] › e2e\fleet-control.spec.ts:882:3 › PM answer holds a late acknowledgement after session access loss (2.0s)
+  ok  62 [firefox] › e2e\fleet-control.spec.ts:669:1 › chat stop holds stale permissions and uses the refreshed active run (4.5s)
+  ok  65 [firefox] › e2e\fleet-control.spec.ts:882:3 › PM confirmation holds a late acknowledgement after session access loss (2.0s)
+  ok  67 [firefox] › e2e\fleet-control.spec.ts:1459:3 › clarification retains the original label when its option is renamed (2.4s)
+  ok  68 [firefox] › e2e\fleet-control.spec.ts:1459:3 › clarification retains the original label when its option is replaced (2.4s)
+  ok  69 [firefox] › e2e\fleet-control.spec.ts:1606:1 › chat revalidates session access on stream reconnect and preserves the denied answer draft (3.2s)
+  ok  70 [firefox] › e2e\fleet-control.spec.ts:1770:3 › chat recovers lost initial steer ID through scoped original-key GET without another POST (4.2s)
+  ok  71 [firefox] › e2e\fleet-control.spec.ts:1770:3 › chat recovers lost initial stop ID through scoped original-key GET without another POST (3.3s)
+  ok  72 [firefox] › e2e\fleet-control.spec.ts:1955:3 › chat restores held steer after real reload and keeps recovery isolated from logout and other actors (13.8s)
+  ok  74 [firefox] › e2e\fleet-control.spec.ts:2287:1 › chat composer recovers from the exact known steer acknowledgement without another POST (2.0s)
+  ok  73 [firefox] › e2e\fleet-control.spec.ts:1955:3 › chat restores held stop after real reload and keeps recovery isolated from logout and other actors (16.1s)
+  ok  75 [firefox] › e2e\fleet-control.spec.ts:2398:1 › long chat history restores reading and tail positions across tabs (3.7s)
+  ok  76 [firefox] › e2e\fleet-control.spec.ts:2469:1 › chat history preserves server order after clock rollback and page overlap (2.0s)
+  ok  78 [firefox] › e2e\fleet-control.spec.ts:3692:1 › workflow rebind holds a cached catalog during GET retry and preserves its namespace (4.3s)
+  ok  77 [firefox] › e2e\fleet-control.spec.ts:3638:1 › uses the shared work-area geometry across semantic page modes (7.1s)
+  ok  79 [firefox] › e2e\fleet-control.spec.ts:3764:1 › workflow bindings rebind only to a workflow in the selected namespace (3.4s)
+  ok  81 [firefox] › e2e\fleet-control.spec.ts:4027:1 › storage review links purge candidates to their workspace (901ms)
+  ok  82 [firefox] › e2e\fleet-control.spec.ts:4039:1 › canonical heartbeat alert is localized and acknowledged at all required viewports (2.3s)
+  ok  83 [firefox] › e2e\fleet-control.spec.ts:4093:1 › Chats groups private sessions by agent and keeps leader controls out of the new route (1.4s)
+  ok  66 [firefox] › e2e\fleet-control.spec.ts:1107:1 › PM chat clarification preserves explicit answers and exact confirmation (40.6s)
+  -   85 [firefox] › e2e\leader-team-live.spec.ts:19:1 › live leader team is read-only until changed and fits responsive themes
+  -   86 [firefox] › e2e\logs-live.spec.ts:19:1 › live logs stay compact and readable across themes and widths
+  ok  80 [firefox] › e2e\fleet-control.spec.ts:3814:1 › managed settings require preview, preserve failed changes and expose rollback history (10.6s)
+  -   88 [firefox] › e2e\workflow-bindings-live.spec.ts:19:1 › workflow bindings remain usable on the live fleet across themes and widths
+  -   89 [firefox] › e2e\dashboard-localization-live.spec.ts:23:1 › dashboard and navigation use Russian labels on the live fleet
+  -   90 [firefox] › e2e\platform-header-live.spec.ts:27:1 › Fleet global header preserves navigation, services, identity and central logout
+  -   91 [webkit] › e2e\agent-detail-live.spec.ts:27:1 › all agent detail tabs are localized, accessible and responsive against live APIs
+  -   92 [webkit] › e2e\detail-layout-live.spec.ts:27:1 › detail rails measure 320 px at 1024 and stack below primary content at 1023
+  -   93 [webkit] › e2e\agent-edit-live.spec.ts:22:1 › executor edit avoids leader requests and exposes named editors
+(node:32832) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  94 [webkit] › e2e\chats-directory.spec.ts:13:1 › unknown private chat creation keeps its original agent and command after closing the dialog (4.1s)
+  ok  84 [firefox] › e2e\fleet-control.spec.ts:4112:1 › Hermes fleet control flow covers agents, runtime, skills, sessions and handoff (14.2s)
+  -   96 [webkit] › e2e\executors-live.spec.ts:19:1 › live executor directory supports search, sessions and responsive themes
+(node:30452) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  87 [firefox] › e2e\task-approvals.spec.ts:164:1 › fixture: explicit targeted choice, lost response and historical command survive reload (8.6s)
+  ok  98 [firefox] › e2e\task-approvals.spec.ts:231:1 › fixture: passed read-only permission never offers an enabled decision (863ms)
+  ok  99 [firefox] › e2e\task-approvals.spec.ts:241:1 › fixture: missing exact runtime approval ID cannot produce a decision command (1.0s)
+  ok  97 [webkit] › e2e\fleet-control.spec.ts:8:1 › consumer foreign-owner task stays read-only despite optimistic fixture permissions (7.9s)
+  ok  95 [webkit] › e2e\chats-directory.spec.ts:231:1 › directory uses server counts, concrete cursors and scoped returnTo across viewports (13.3s)
+(node:25256) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 100 [webkit] › e2e\fleet-control.spec.ts:111:3 › consumer reload retains unknown answer without storing private payload (7.7s)
+  ok 102 [webkit] › e2e\fleet-control.spec.ts:111:3 › consumer reload retains unknown prompt without storing private payload (7.4s)
+  ok 101 [webkit] › e2e\fleet-control.spec.ts:111:3 › consumer reload retains unknown confirmation without storing private payload (9.6s)
+  ok 103 [webkit] › e2e\fleet-control.spec.ts:327:1 › legacy session permits the first prompt but holds a pending delivery after reload (5.5s)
+  ok 105 [webkit] › e2e\fleet-control.spec.ts:515:3 › chat prompt holds stale controls until a successful read (5.0s)
+  ok 106 [webkit] › e2e\fleet-control.spec.ts:515:3 › chat steer holds stale controls until a successful read (4.5s)
+  ok 104 [webkit] › e2e\fleet-control.spec.ts:392:1 › durable runtime controls hold unknown commands after reload (8.8s)
+  ok 107 [webkit] › e2e\fleet-control.spec.ts:578:1 › chat steer and stop hold a failed command read and its unresolved fresh receipt (4.9s)
+  ok 108 [webkit] › e2e\fleet-control.spec.ts:669:1 › chat stop holds stale permissions and uses the refreshed active run (5.0s)
+  ok 109 [webkit] › e2e\fleet-control.spec.ts:744:1 › PM context denial stays unknown and preserves the owner draft after recovery (8.1s)
+  ok 110 [webkit] › e2e\fleet-control.spec.ts:882:3 › PM answer holds a late acknowledgement after session access loss (7.3s)
+  ok 111 [webkit] › e2e\fleet-control.spec.ts:882:3 › PM confirmation holds a late acknowledgement after session access loss (7.3s)
+  ok 113 [webkit] › e2e\fleet-control.spec.ts:1459:3 › clarification retains the original label when its option is renamed (4.4s)
+  ok 114 [webkit] › e2e\fleet-control.spec.ts:1459:3 › clarification retains the original label when its option is replaced (4.3s)
+  ok 115 [webkit] › e2e\fleet-control.spec.ts:1606:1 › chat revalidates session access on stream reconnect and preserves the denied answer draft (5.8s)
+  ok 116 [webkit] › e2e\fleet-control.spec.ts:1770:3 › chat recovers lost initial steer ID through scoped original-key GET without another POST (6.4s)
+  ok 117 [webkit] › e2e\fleet-control.spec.ts:1770:3 › chat recovers lost initial stop ID through scoped original-key GET without another POST (5.7s)
+  ok 118 [webkit] › e2e\fleet-control.spec.ts:1955:3 › chat restores held steer after real reload and keeps recovery isolated from logout and other actors (23.1s)
+  ok 119 [webkit] › e2e\fleet-control.spec.ts:1955:3 › chat restores held stop after real reload and keeps recovery isolated from logout and other actors (23.2s)
+  ok 120 [webkit] › e2e\fleet-control.spec.ts:2287:1 › chat composer recovers from the exact known steer acknowledgement without another POST (3.4s)
+  ok 122 [webkit] › e2e\fleet-control.spec.ts:2469:1 › chat history preserves server order after clock rollback and page overlap (2.2s)
+  ok 121 [webkit] › e2e\fleet-control.spec.ts:2398:1 › long chat history restores reading and tail positions across tabs (9.5s)
+  ok 112 [webkit] › e2e\fleet-control.spec.ts:1107:1 › PM chat clarification preserves explicit answers and exact confirmation (54.5s)
+  ok 124 [webkit] › e2e\fleet-control.spec.ts:3692:1 › workflow rebind holds a cached catalog during GET retry and preserves its namespace (5.1s)
+  ok 123 [webkit] › e2e\fleet-control.spec.ts:3638:1 › uses the shared work-area geometry across semantic page modes (14.7s)
+  ok 125 [webkit] › e2e\fleet-control.spec.ts:3764:1 › workflow bindings rebind only to a workflow in the selected namespace (4.1s)
+  ok 127 [webkit] › e2e\fleet-control.spec.ts:4027:1 › storage review links purge candidates to their workspace (1.9s)
+  ok 129 [webkit] › e2e\fleet-control.spec.ts:4093:1 › Chats groups private sessions by agent and keeps leader controls out of the new route (2.6s)
+  ok 128 [webkit] › e2e\fleet-control.spec.ts:4039:1 › canonical heartbeat alert is localized and acknowledged at all required viewports (5.3s)
+  -  131 [webkit] › e2e\leader-team-live.spec.ts:19:1 › live leader team is read-only until changed and fits responsive themes
+  -  132 [webkit] › e2e\logs-live.spec.ts:19:1 › live logs stay compact and readable across themes and widths
+  ok 126 [webkit] › e2e\fleet-control.spec.ts:3814:1 › managed settings require preview, preserve failed changes and expose rollback history (20.8s)
+  -  134 [webkit] › e2e\workflow-bindings-live.spec.ts:19:1 › workflow bindings remain usable on the live fleet across themes and widths
+  -  135 [webkit] › e2e\dashboard-localization-live.spec.ts:23:1 › dashboard and navigation use Russian labels on the live fleet
+  -  136 [webkit] › e2e\platform-header-live.spec.ts:27:1 › Fleet global header preserves navigation, services, identity and central logout
+  ok 130 [webkit] › e2e\fleet-control.spec.ts:4112:1 › Hermes fleet control flow covers agents, runtime, skills, sessions and handoff (21.9s)
+  ok 133 [webkit] › e2e\task-approvals.spec.ts:164:1 › fixture: explicit targeted choice, lost response and historical command survive reload (9.5s)
+  ok 137 [webkit] › e2e\task-approvals.spec.ts:231:1 › fixture: passed read-only permission never offers an enabled decision (387ms)
+  ok 138 [webkit] › e2e\task-approvals.spec.ts:241:1 › fixture: missing exact runtime approval ID cannot produce a decision command (424ms)
+
+
+  1) [chromium] › e2e\fleet-control.spec.ts:744:1 › PM context denial stays unknown and preserves the owner draft after recovery
+
+    Error: page.goto: net::ERR_NETWORK_CHANGED at http://localhost:24231/chats/00000000-0000-4000-8000-000000000201?tab=requirements
+    Call log:
+      - navigating to "http://localhost:24231/chats/00000000-0000-4000-8000-000000000201?tab=requirements", waiting until "load"
+
+
+      847 |       }
+      848 |     }
+    > 849 |     await page.goto(`/chats/${ids.session}?tab=requirements`)
+          |                ^
+      850 |     await expect(
+      851 |       page.getByRole('tabpanel').getByText('Fixture task context denied', { exact: true }),
+      852 |     ).toBeVisible()
+        at C:\git\azhukov\sdlc\.local\chats-integration-20261008\fleet-control\frontend\e2e\fleet-control.spec.ts:849:16
+
+    Error Context: test-results\fleet-control-PM-context-d-df374--owner-draft-after-recovery-chromium\error-context.md
+
+  1 failed
+    [chromium] › e2e\fleet-control.spec.ts:744:1 › PM context denial stays unknown and preserves the owner draft after recovery
+  27 skipped
+  110 passed (4.9m)

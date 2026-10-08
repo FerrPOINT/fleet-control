@@ -1,0 +1,5 @@
+
+> fleet-control-frontend@0.2.0 controls:evidence:verify C:\git\azhukov\sdlc\.local\chats-integration-20261008\fleet-control\frontend
+> node scripts/publish-runtime-control-evidence.mjs --verify
+
+Verified three runtime control fixture screenshots

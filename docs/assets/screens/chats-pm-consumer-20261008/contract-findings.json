@@ -1,0 +1,26 @@
+{
+  "fleetBaseline": "0f8d07836e70dd5258f85e604b83ccbbca04d270",
+  "trackerHead": "357caa7a60a717eb7b0ac72f286b793326992931",
+  "workflowHead": "11398711aa04605bc1a618622a84ae648e6de0c8",
+  "schemaParity": "7/7 strict wire schemas verified from published Tracker OpenAPI",
+  "boundPrompt": "producer can_send=false and can_steer=false for bound chats",
+  "pmAdmission": "namespace reads, healthy runtime and schema parity do not grant dispatch",
+  "findings": [
+    {
+      "id": "CF-01",
+      "finding": "TrackerTaskContext exposes only can_answer/can_confirm and waiting_reason; no structured confirmation prerequisite status/routing-policy projection. Consumer uses explicit reason or identifies missing projection."
+    },
+    {
+      "id": "CF-02",
+      "finding": "TrackerAnswer ACK confirms saved answer; DTO exposes no PM delivery/consumption receipt. UI reports delivery unconfirmed independently."
+    },
+    {
+      "id": "CF-03",
+      "finding": "No original-key lookup for clarification answer/requirements confirmation. After tab reload private payload is lost; durable digest marker retains hold and UI blocks new commands."
+    },
+    {
+      "id": "CF-04",
+      "finding": "Requirements API provides revisions list, not server diff/detail commands. Consumer renders complete returned revision and read-only local field comparison."
+    }
+  ]
+}

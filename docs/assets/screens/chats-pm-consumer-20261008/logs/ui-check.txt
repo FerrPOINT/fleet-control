@@ -1,0 +1,5 @@
+
+> fleet-control-frontend@0.2.0 ui:check C:\git\azhukov\sdlc\.local\chats-integration-20261008\fleet-control\frontend
+> node ../../services-base/frontend/scripts/check-ui-contract.mjs --repo .. --require-installed
+
+UI contract: fleet-control, 38 route patterns. Runtime QA still required.
