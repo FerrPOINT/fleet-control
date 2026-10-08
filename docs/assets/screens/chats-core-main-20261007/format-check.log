@@ -1,0 +1,6 @@
+
+> fleet-control-frontend@0.2.0 format:check C:\git\azhukov\sdlc\.local\chats-main-20261007\fleet-control\frontend
+> prettier --check .
+
+Checking formatting...
+All matched files use Prettier code style!
