@@ -30,3 +30,7 @@ detail. Tracker deep link сохраняет Namespace/Task в URL. Повреж
 закрывает composer и показывает ошибку. Обновление одной вкладки не меняет
 контекст другой. Foundation #59 интегрирован с исходной историей; его старые
 screenshots/checks не заменяют новую Namespace acceptance.
+
+PAT без display metadata использует существующий active профиль по точному
+central subject. Lookup не создаёт профиль, не меняет роль и timestamp.
+Machine subjects проверяются перед profile mapping, включая SSE revalidation.

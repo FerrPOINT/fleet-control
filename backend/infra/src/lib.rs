@@ -3016,6 +3016,17 @@ impl FleetRepository for PostgresFleetRepository {
             .map(|row| row.map(user_record))
     }
 
+    async fn find_user_by_central_subject(
+        &self,
+        subject: &str,
+    ) -> Result<Option<app::auth::UserRecord>, AppError> {
+        user::Entity::find()
+            .filter(user::Column::CentralSub.eq(subject))
+            .one(&self.db)
+            .await
+            .map_err(AppError::database)
+            .map(|row| row.map(user_record))
+    }
     async fn find_or_create_central_user(
         &self,
         sub: &str,

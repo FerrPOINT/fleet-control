@@ -498,12 +498,13 @@ pub async fn stream_session(
                         if !central.allows_service("fleet-control", "GET") {
                             return None;
                         }
-                        let email = central.email.as_deref()?;
-                        let principal = ctx
-                            .repo
-                            .find_or_create_central_user(&central.user_id, email, &name)
-                            .await
-                            .ok()?;
+                        let principal = crate::middleware::resolve_central_user(
+                            &ctx,
+                            &central,
+                            name.as_deref(),
+                        )
+                        .await
+                        .ok()?;
                         session_stream_user_matches(&principal, user.id)
                     }
                     crate::middleware::central_auth::CentralCheck::FallThrough

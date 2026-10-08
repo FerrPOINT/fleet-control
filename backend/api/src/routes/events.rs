@@ -90,11 +90,8 @@ async fn stream_principal(
             if !central.allows_service("fleet-control", "GET") {
                 return Err(AppError::Forbidden);
             }
-            let email = central.email.as_deref().ok_or(AppError::Unauthorized)?;
-            let user = ctx
-                .repo
-                .find_or_create_central_user(&central.user_id, email, &name)
-                .await?;
+            let user =
+                crate::middleware::resolve_central_user(ctx, &central, name.as_deref()).await?;
             ensure_stream_user(&user, expected_user_id, true)?;
             Ok(true)
         }

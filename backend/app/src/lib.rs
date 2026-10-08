@@ -370,6 +370,12 @@ pub trait FleetRepository: Send + Sync {
     ) -> Result<AgentLogEntry, AppError>;
 
     async fn find_user_by_email(&self, email: &str) -> Result<Option<auth::UserRecord>, AppError>;
+    async fn find_user_by_central_subject(
+        &self,
+        _subject: &str,
+    ) -> Result<Option<auth::UserRecord>, AppError> {
+        Ok(None)
+    }
     async fn find_or_create_central_user(
         &self,
         _sub: &str,
