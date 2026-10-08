@@ -139,11 +139,13 @@ jobs:
             echo 'Namespace down migration unexpectedly succeeded'
             exit 1
           fi
-          grep -F 'Execution context rollback requires a compatible cohort; history is retained' /tmp/namespace-down.log
-          namespace_revision=$(psql -h 127.0.0.1 -U fleet_control -d fleet_migration_smoke -At -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM seaql_migrations WHERE version='m20261008_000090_execution_context';")
-          test "$namespace_revision" = 1
+          grep -F 'Namespace draft admission requires a compatible cohort; history is retained' /tmp/namespace-down.log
+          namespace_revision=$(psql -h 127.0.0.1 -U fleet_control -d fleet_migration_smoke -At -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM seaql_migrations WHERE version IN ('m20261008_000090_execution_context','m20261008_000091_context_drafts');")
+          test "$namespace_revision" = 2
           namespace_table=$(psql -h 127.0.0.1 -U fleet_control -d fleet_migration_smoke -At -v ON_ERROR_STOP=1 -c "SELECT to_regclass('public.session_execution_contexts') IS NOT NULL;")
           test "$namespace_table" = t
+          namespace_draft_guard=$(psql -h 127.0.0.1 -U fleet_control -d fleet_migration_smoke -At -v ON_ERROR_STOP=1 -c "SELECT pg_get_functiondef('guard_namespace_session_start()'::regprocedure) LIKE '%namespace-v2:%';")
+          test "$namespace_draft_guard" = t
           cargo run --locked -p migration -- up
           cargo run --locked -p migration -- status
       - name: OpenAPI drift gate
