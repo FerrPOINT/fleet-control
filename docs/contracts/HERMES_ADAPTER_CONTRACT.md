@@ -1,5 +1,13 @@
 # Hermes Adapter Contract
 
+The [managed observer consumer](MANAGED_REQUEST_OBSERVER_V1.md) now seals the
+published Base43b365f four-file source in a new explicit configuration revision.
+Observer facts survive original prepared dispatch and non-dispatch acceptance
+recovery; digest GET requires original accepted run/session/incarnation and
+controller/launch custody. Source provenance is not loaded configuration proof.
+Readback remains complete=false/runtime_ready=false; no task/PM admission follows.
+New component/native test source is not executed native evidence.
+
 The [PM lease prerequisite](PM_EXECUTION_LEASE_READBACK_V1.md) creates no Hermes
 run/control request. Original native dispatch and unknown-outcome rules remain
 unchanged; a successful lease GET is not readiness or first-step permission.

@@ -1,5 +1,14 @@
 # Data Model
 
+Managed observer adds no schema/migration. Explicit renderer-3 drafts store exact
+Base repository/revision/four-file raw hashes in existing
+`config_json.fleet_request_observer`; legacy snapshot serialization is unchanged.
+The existing immutable dispatch `capabilities` JSON preserves the reserved
+observer incarnation with the original launch and optional recovery facts.
+Signed activation backups now cover exact observer file bytes/absence on install,
+remove and rollback. No observation is backfilled or persisted as readiness.
+See [contract and pending gates](contracts/MANAGED_REQUEST_OBSERVER_V1.md).
+
 PM execution lease readback is ephemeral typed Tracker evidence, not a new Fleet
 lease table or durable dispatch permission. The existing credential journal's
 intent/ACK remains unchanged after readback failure; no backfill, migration or

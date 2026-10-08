@@ -16,6 +16,7 @@ mod message_dispatch;
 pub mod pm_credentials;
 mod pm_draft;
 mod pm_execution;
+mod request_observer_package;
 pub mod runtime;
 mod runtime_acceptance;
 mod runtime_controls;
@@ -4783,6 +4784,14 @@ pub struct FilesystemProvisioner;
 
 #[async_trait]
 impl AgentProvisioner for FilesystemProvisioner {
+    async fn prepare_request_observer_configuration(
+        &self,
+        config: &AppConfig,
+        request: UpdateAgentConfigRequest,
+    ) -> Result<UpdateAgentConfigRequest, AppError> {
+        request_observer_package::prepare(Path::new(&config.fleet.base_package_checkout), request)
+            .await
+    }
     async fn verify_effective_configuration(
         &self,
         agent: &Agent,
@@ -5294,17 +5303,24 @@ pub(crate) async fn configuration_files(
     revision: &domain::AgentConfigRevision,
 ) -> Result<Vec<(PathBuf, String)>, AppError> {
     let renderer = revision.snapshot.renderer_version;
-    if !matches!(renderer, 1 | 2) || (renderer == 2 && agent.kind != AgentKind::Hermes) {
+    if !matches!(renderer, 1..=3) || (renderer >= 2 && agent.kind != AgentKind::Hermes) {
         return Err(AppError::validation(
             "unsupported configuration renderer version",
         ));
     }
-    if renderer == 2 {
+    if renderer >= 2 {
         let errors = revision.snapshot.input_errors();
         if !errors.is_empty() {
             return Err(AppError::validation(errors.join("; ")));
         }
     }
+    let observer =
+        request_observer_package::enabled(&revision.snapshot.config.config_json, renderer)?;
+    let observer_files = if observer.is_some() {
+        Some(request_observer_package::read(Path::new(&config.fleet.base_package_checkout)).await?)
+    } else {
+        None
+    };
     let root = Path::new(&config.fleet.agents_root);
     let agent_root = safe_agent_root(root, &agent.name)?;
     reject_symlink_components(root, &agent_root).await?;
@@ -5320,6 +5336,16 @@ pub(crate) async fn configuration_files(
             "agent config path does not match its isolated layout",
         ));
     }
+    if observer.is_some() {
+        reject_symlink_components(
+            root,
+            &expected
+                .join("plugins")
+                .join(request_observer_package::PLUGIN),
+        )
+        .await?;
+        request_observer_package::verify_inventory(&expected).await?;
+    }
     let mut content = revision.snapshot.config.config_json.clone();
     if content
         .get("terminal")
@@ -5330,10 +5356,14 @@ pub(crate) async fn configuration_files(
         ));
     }
     content["terminal"]["cwd"] = json!(configuration_renderer::workspace(agent, config));
-    if renderer == 2 {
+    if renderer >= 2 {
         configuration_renderer::native_listener(agent, config, &mut content)?;
     }
-    let mut env = if renderer == 2 {
+    content
+        .as_object_mut()
+        .ok_or_else(|| AppError::validation("configuration must be an object"))?
+        .remove(request_observer_package::KEY);
+    let mut env = if renderer >= 2 {
         configuration_renderer::env(agent, config)?
     } else {
         format!(
@@ -5342,9 +5372,13 @@ pub(crate) async fn configuration_files(
             agent_runtime_token(config, agent.id)?
         )
     };
+    if observer.is_some() {
+        env.push_str("PYTHONDONTWRITEBYTECODE=1\n");
+    }
     if let Some(values) = revision.snapshot.config.env_json.as_object() {
         for (key, value) in values {
-            if (renderer == 2 && configuration_renderer::managed_env_key(key))
+            if (renderer >= 2 && configuration_renderer::managed_env_key(key))
+                || (observer.is_some() && key == "PYTHONDONTWRITEBYTECODE")
                 || matches!(
                     key.as_str(),
                     "HERMES_HOME"
@@ -5384,6 +5418,25 @@ pub(crate) async fn configuration_files(
         ),
         (expected.join(".env"), env),
     ];
+    if let Some(enabled) = observer {
+        for (name, _) in request_observer_package::FILES {
+            let path = expected
+                .join("plugins")
+                .join(request_observer_package::PLUGIN)
+                .join(name);
+            reject_symlink_components(root, &path).await?;
+            let body = if enabled {
+                observer_files
+                    .as_ref()
+                    .and_then(|files| files.get(name))
+                    .cloned()
+                    .ok_or_else(|| AppError::validation("request observer source is missing"))?
+            } else {
+                String::new()
+            };
+            files.push((path, body));
+        }
+    }
     for skill in &revision.snapshot.skills {
         if skill.name.is_empty()
             || !skill
@@ -5422,7 +5475,7 @@ pub(crate) async fn configuration_files(
                     .unwrap_or(path)
                     .to_string_lossy()
                     .into_owned(),
-                if body.is_empty() && path.file_name().is_some_and(|name| name == "SKILL.md") {
+                if request_observer_package::absent(path, body) {
                     Value::Null
                 } else {
                     json!(hex::encode(Sha256::digest(body.as_bytes())))
@@ -5432,7 +5485,7 @@ pub(crate) async fn configuration_files(
         .collect();
     let mut marker =
         serde_json::json!({"agent_id":agent.id,"revision":revision.revision,"hashes":hashes});
-    if renderer == 2 {
+    if renderer >= 2 {
         marker["renderer_version"] = json!(renderer);
     }
     files.push((
@@ -5728,7 +5781,7 @@ mod tests {
         revision: &domain::AgentConfigRevision,
     ) {
         for (path, body) in configuration_files(agent, config, revision).await.unwrap() {
-            if body.is_empty() && path.file_name().is_some_and(|name| name == "SKILL.md") {
+            if request_observer_package::absent(&path, &body) {
                 continue;
             }
             tokio::fs::create_dir_all(path.parent().unwrap())
@@ -5761,6 +5814,7 @@ mod tests {
             .unwrap()
             .remove("TEST_SECRET");
         let rendered = configuration_files(&agent, &config, &next).await.unwrap();
+        let snapshot_bytes = serde_json::to_vec(&next.snapshot).unwrap();
         for (path, expected) in &legacy {
             if !expected.is_empty() {
                 assert_eq!(tokio::fs::read(path).await.unwrap(), expected.as_bytes());
@@ -5806,11 +5860,18 @@ mod tests {
             hex::encode(Sha256::digest(env.as_bytes()))
         );
         install_effective_fixture(&agent, &config, &next).await;
+        assert_eq!(
+            rendered,
+            configuration_files(&agent, &config, &next).await.unwrap()
+        );
+        assert_eq!(snapshot_bytes, serde_json::to_vec(&next.snapshot).unwrap());
         FilesystemProvisioner
             .verify_effective_configuration(&agent, &config, &next)
             .await
             .unwrap();
         next.snapshot.renderer_version = 3;
+        assert!(configuration_files(&agent, &config, &next).await.is_err());
+        next.snapshot.renderer_version = 4;
         assert!(configuration_files(&agent, &config, &next).await.is_err());
         assert_eq!(
             tokio::fs::read_to_string(Path::new(&agent.paths.config).join(".env"))

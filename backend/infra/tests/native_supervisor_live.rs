@@ -34,6 +34,9 @@ mod native_control_restart;
 #[path = "support/native_prepared_launch.rs"]
 mod native_prepared_launch;
 
+#[path = "support/native_request_observer.rs"]
+mod native_request_observer;
+
 fn native_configuration(mut config: AppConfig) -> Arc<AppConfig> {
     let controller_root = Path::new(&config.fleet.agents_root)
         .parent()
@@ -48,6 +51,7 @@ fn native_configuration(mut config: AppConfig) -> Arc<AppConfig> {
 #[derive(Default)]
 struct Model {
     requests: Mutex<HashMap<String, Vec<String>>>,
+    wire_requests: Mutex<HashMap<String, Vec<Value>>>,
     control_release: tokio::sync::Notify,
 }
 
@@ -67,6 +71,13 @@ async fn inference(State(model): State<Arc<Model>>, Json(body): Json<Value>) -> 
         .filter_map(|m| m["content"].as_str())
         .collect::<Vec<_>>()
         .join("\n");
+    model
+        .wire_requests
+        .lock()
+        .await
+        .entry(prompt.clone())
+        .or_default()
+        .push(body.clone());
     model
         .requests
         .lock()

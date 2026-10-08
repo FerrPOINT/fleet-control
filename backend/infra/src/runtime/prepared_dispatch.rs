@@ -49,7 +49,11 @@ impl LocalRuntimeSupervisor {
         hermes_wire::verify_intent(&intent, &base, &token)?;
         self.verify_dispatch_launch(agent.id, &intent.capabilities)
             .await?;
-        let mut current = hermes_wire::dispatch_capabilities(&self.probe_hermes(&agent).await?)?;
+        let observed = self.probe_hermes(&agent).await?;
+        let mut current = hermes_wire::dispatch_capabilities(&observed)?;
+        if let Some(observer) = observed.get("fleet_request_observer") {
+            current["fleet_request_observer"] = observer.clone();
+        }
         // The private Fleet binding is not advertised by Hermes. Retain it only
         // after proving this controller still owns that exact original child.
         if let Some(launch) = intent.capabilities.get("fleet_launch") {

@@ -26,18 +26,47 @@ expired-lease quiescence and a pre-model first-step/identity contract before
 Fleet wires tools or resume. See [producer gaps](GAP_REGISTER.md#exact-producer-predispatch-limits-8-october-2026).
 
 Current publication boundaries: Base PR169 at `893c582` has ten successful
-exact-head checks and remains unmerged; Fleet integration at `d1b9d96` is
+exact-head checks and remains unmerged; Fleet integration at `f04abbb` is
 published but has no full main-target release gate. Forge PR88's four successful
 checks are for `56f1217`, not subsequent uncommitted reader/proof hardening.
-Its review-fix native PG epoch found a Compose-stop timeout; explicit five-second
-stop grace needs a fresh source epoch and full native rerun. Earlier passing
-scenarios are not current-source acceptance.
+Its latest hardening native PostgreSQL epoch records one of three cases passing,
+with OCI not executed; the separate source gate passes219 workspace and26 Python
+tests. A PostgreSQL backend crash during database creation is reproduced, but its
+cause and fresh current-source PG/OCI acceptance remain open. Earlier passing
+scenarios and old-head CI are not current-source acceptance.
 
 Parallel Chats PR60 at `99d1c7f` targets the integration branch rather than the
 approved `main`. Directly changing its base would import the broad integration
 tail; do not do that or claim the PR as main-ready. Prepare the dependency/main
 release sequence first. Its component/browser/screenshot evidence does not
 prove a live PM round trip. Tracker and Workflow remain unchanged by this task.
+
+### Next Main Release Unit
+
+Fresh readback identifies main `c8093aa`,180 integration-only commits and12
+main-only commits. Foundation PR47 is Draft/main at
+`4cc9a8ade539b9df67b9aaebf6ebe039d72814e5`, CLEAN with five successful checks.
+Its only new migration is task chats000010; its published populated-down guard
+must survive subsequent normal history reconciliation. It still does not claim
+live PM admission. Do not import the integration tail or retarget Chats PR60.
+
+After foundation47 is accepted, the next schema unit is persisted PM credential
+preparation from `9d92f1b`: immutable credential intent/receipt, coordinator,
+repository persistence, Draft continuation and server wiring, with only000011
+registered for both supported database lineages. Exclude journal12+, later lease
+readback and observer/container/controller work. Retain the accepted main SDK pin
+`875cac2`; earlier gates against another pin do not certify this release head.
+Required acceptance: populated canonical/split upgrade preserving data/history,
+empty down/up, populated credential downgrade refusal, concurrent/lost-ACK/restart
+preparation, rotation/revocation/expiry, audit rollback, redaction and zero model
+dispatch. Publish against main only after exact-source gates and review.
+
+Release order then follows the actual registry: journal12, controls13, time14,
+control outcomes15, approval outcomes16, launches17, preparations18, endpoints19,
+recovery20, recovery delivery21 and stop delivery22. Each release owns at most one
+new migration and retains accepted historical bytes. Preserve all integration
+commits and main fixes without rebase/squash/force push; existing source packets
+are not permission to bypass dependent release checks or install the candidate.
 
 ## Current Publication And Remaining Work
 

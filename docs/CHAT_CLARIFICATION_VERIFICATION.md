@@ -1,5 +1,205 @@
 # Chat Clarification Verification
 
+## Managed Observer Source Slice: 8 October 2026
+
+Working-tree implementation only, based on Fleet f04abbb; not current CI, native
+PASS, publication or installed readiness. Exact Base43b365f Git objects were
+read without modification: four raw SHA-256 values match the immutable source
+constants (188/5763/5804/196 bytes). SDK pin and existing migrations are unchanged.
+
+New source covers explicit renderer3/provenance, journaled install/remove/rollback
+and production bounded original-run readback. Test source includes pure/HTTP/
+signed-journal regressions and an ignored actual two-Hermes consumer scenario
+with owner/foreign API reads, held prepared/unknown ACK, tampering and rollback.
+The initial review deferred Docker/Rust execution. The later Linux source gate
+below supersedes that pending status for compilation and its executed subsets;
+the actual two-Hermes scenario subsequently failed at startup as recorded below.
+Completed host-only checks: cargo fmt/check, generated TypeScript/OpenAPI
+snapshot agreement, frontend tsc --noEmit, Markdown links (139 files), and
+tracked diff whitespace check. These are static checks, not Rust type checking,
+unit/PG execution, regenerated Rust OpenAPI or native evidence.
+The [contract](contracts/MANAGED_REQUEST_OBSERVER_V1.md#verification-queue)
+records the exact queued native selector/mounts and remaining real acceptance.
+
+The native launcher now supports `--scenario observer`, exact committed
+recovery/control fixtures and a separate self-contained read-only observer Git
+cache. Forty-seven Windows host harness/race-fixture tests pass. Native builds
+now use a read-only full backend/scripts snapshot, including new untracked Rust
+and QA inputs, with original/snapshot parity after execution.
+
+Linux packets `f272b4dbc3ed` and `5e81890a0e66` are FAILED: workspace type checks
+pass, but strict Clippy rejects the three-version OR patterns first in domain,
+then in infra. Both predicates are corrected to equivalent inclusive ranges;
+the new source still requires a fresh full gate. Both exact owned projects are
+cleaned with no remaining containers/networks. No current full Rust/native PASS
+was claimed at that point; the later647-case packet below supersedes the pending
+workspace gate, not these failures. The earlier639-case packet does not cover
+this source addition.
+
+Counter-review found source custody was checked before the final capabilities
+GET and the standalone input manifest omitted five changed auth/renderer files.
+The source check now follows that GET. The native regression pauses the real
+authenticated response, changes store.py, then requires503/no-store with the
+original capabilities, launch/intent and model-call count unchanged. Its five
+host fault-fixture cases pass, but Rust/native execution remains pending.
+The full read-only snapshot and before/after hashes close the manifest omission
+in source; source correction alone does not close native acceptance.
+
+The subsequent frozen Linux packet `0c620a08b903`, Compose project
+`sdlc-qa-fleet-container-control-4fa60667eea4`, remains FAILED. Rust1.88 fmt,
+all-target workspace check and strict Clippy pass. API46, application22 and
+domain44 tests pass; infra records282 passed, one failed and one explicit
+ignore. The failure is
+`runtime::lifecycle_tests::activation_keeps_lifecycle_lock_through_file_readback_and_event_persistence`:
+its unchanged five-second SOUL observation expires before the journal or SOUL
+exists. The recorded PostgreSQL sessions wait on client reads, not a demonstrated
+database lock. The cause is not established; a passing rerun cannot diagnose it.
+Remaining suites and Rust OpenAPI export did not run after this failure.
+
+| Failed source packet | SHA256 |
+| --- | --- |
+| Frozen manifest | `5d5e28dd1ff027f356d005e68d7cba26c0547a3fb10244c3b5470dd387b968f7` |
+| Linux/Rust/PostgreSQL log | `b752dcde226e59f65efed8e43f707d2c822c37cf8e105a73f0db9816a5d8813b` |
+
+The owned project has no remaining containers or networks. Accepted runtime,
+volumes and pins are unchanged. Focused phase diagnostics, the full current
+source gate and actual native acceptance remain required; none of the passing
+subsets converts this packet to PASS.
+
+Test-only diagnostics now retain poll timing, lifecycle/controller lock state,
+planned-file presence and bounded PostgreSQL classifications without logging
+configuration bodies or raw SQL. Production activation and the five-second
+SOUL deadline are unchanged. Focused packet `50a6ef5e1e53`, project
+`sdlc-qa-fleet-container-control-2b63d816d4ea`, passes the exact original test:
+seven planned files, renderer2 with no observer, planning5ms and SOUL observed
+at174ms. It retains the event-lock/start-wait/journal assertions. This is one
+focused PASS, not a diagnosis of `0c620a08b903` or a full-workspace PASS.
+All321 frozen input hashes agree and owned containers/networks are absent.
+Log SHA256 is `0c2aeeb1e6a19a1b2e53811503d98e900fe90dd8d34011ba6ae292184a564ed2`;
+manifest SHA256 is `21e58b148f21b6b7bcc85c3344dcc6234875b46bcbb0217cffab9ab516526031`.
+CI now discovers all native harness `test_*.py`, including the five final-GET
+race-fixture regressions. The same47 host cases pass locally; remote current-head
+CI and the full/native gates remain separate.
+
+Actual observer packet `789473e3f569` is FAILED at the initial legacy gateway
+start, before observer activation or prompt assertions. The exact13770 Hermes
+files and both four-file committed extensions pass preflight; Rust fmt/check,
+native-test Clippy and fresh compilation pass. Binary SHA256 is
+`86051f36c8e24dbfd180f42d8edd3cd460460a81e7d3c2029723c49e76bdfd29`.
+The retained log SHA256 is
+`e1e90607b3090bcc44660a9e4702d4d2570fefe234e2d9e8969706329effef9a`;
+report SHA256 is
+`d2c9419287b0c1d118dcb23e23cc02649c7cbe75d664cb11dcf93f39392984c7`.
+Owned cleanup is complete and both unique image aliases are absent.
+
+Separate diagnostic `5f2ff55e0cbc` reuses only that exact binary and is explicitly
+not acceptance. Persisted redacted logs identify spawn failure with errno13;
+the test puts its startup-fault launcher under `/tmp`. A matching non-root,
+read-only, dropped-capability Compose mount probe `ea732cff2f76` proves `/tmp`
+has `noexec`: a private0700 script fails with errno13 while the same script in
+a read-only bind exits17 as requested. No container security flag was relaxed.
+Both projects clean up fully. Readback SHA256 is
+`f52796c26219d8fe145ee3d42d32372e70cad303d85bb016700871505dc4b88d`;
+mount-probe report SHA256 is
+`f97efe2698820ec06b8caa682969fa87e898c818da08d69ae7b0fed93886838c`.
+The earlier `c55fd79393ab` diagnostic has invalid SQL field names and is not
+cause evidence; its failure and owned cleanup remain recorded. The native QA
+launcher is now an owned read-only executable bind. Cached diagnostics cannot
+replace fresh source/binary acceptance.
+
+The complete frozen Linux/PostgreSQL packet `a1577d5ccae9`, project
+`sdlc-qa-fleet-container-control-21a801881ee4`, passes Rust1.88 fmt, all-target
+check, strict workspace Clippy and647 tests with zero failures and33 explicit
+ignores. Infra283 and foundation215 cases are included. The unchanged activation
+test observes SOUL at71ms; this still does not establish the cause of the earlier
+five-second failure. All321 executed input hashes agree with the snapshot;
+owned containers/networks are absent and accepted resources are unchanged.
+The Rust-generated OpenAPI is semantically equal to the tracked schema.
+
+| Full workspace packet | SHA256 |
+| --- | --- |
+| Source manifest identity | `21e58b148f21b6b7bcc85c3344dcc6234875b46bcbb0217cffab9ab516526031` |
+| Linux/Rust/PostgreSQL log | `d38f664c403df4131362604bfb911fede9515ddb31ebe4a909448d9808d9b663` |
+| Rust-generated OpenAPI | `7099acc4fadf2c85e7fc2e6248d61ca0d384c9ad3422c4d6282d75140de24665` |
+
+This packet precedes the later QA-only startup fixture changes. It closes its
+frozen production/source workspace gate, not current native observer acceptance,
+ignored special cases, producer admission or live PM continuation.
+
+Native packet `195139e81f6f` remains FAILED after61.64s, again at initial legacy
+startup. The new read-only launcher is executable, but its required QA environment
+flag is absent: the production supervisor intentionally calls `env_clear` before
+launching Hermes. The runtime dotenv loads later and cannot authorize the wrapper.
+The native redacted logs confirm the independently reviewed P1. Its log SHA256 is
+`97d46cac29014c858360daa5599bf82a363afaf99006f51dc89ea3e4c8503dd9`, and fresh
+binary SHA256 is
+`b26ac98a9835fa963ab1db0819c7ebcb2e02ba8ca0267b608c9550d14b8bc502`.
+Owned cleanup succeeds; both unique aliases are absent.
+
+The QA-only fix now uses an exact literal read-only opt-in file, validates the
+owned HOME and records its hash. No production environment whitelist or container
+security option changes. Fifty-three host tests pass, including the actual cleared
+HOME/LANG child environment, exact argument forwarding, one-time marker consumption
+and foreign marker preservation. Independent source review closes P1 with no new
+actionable findings. A fresh frozen native build/execution is still required; the
+two earlier failed native packets cannot be counted as acceptance.
+
+Native packet `4bb5cebcd0c9` remains FAILED after50.72s. Startup now passes the
+previous boundary, but preparing the first observer configuration fails at the
+pinned Git reader. Actual read-only Compose diagnostics `d31404c8fcfc` and
+`cd8f4c185dec` establish UID999 versus cache UID0: the untrusted original Git
+commands fail, while an explicit single-path config permits the exact origin
+and commit reads without changing cache bytes. These are diagnostics, not native
+acceptance. The latter also verifies the actual read-only global-config mount
+and environment used by the corrected harness. Both owned probes clean up.
+The failed native log SHA256 is
+`944c6405d6d59223ea49312a829c7113df542c676e59312335b07725882cb7ad`;
+its fresh binary is unchanged from `195139e81f6f` because only QA inputs changed.
+Cleanup is complete with no containers and both image aliases removed.
+
+The QA runner now binds an isolated read-only config trusting only
+`/qa/observer-base.git`, disables system Git config for that QA process and records
+the config hash. No wildcard trust, shared Git config, production reader, SDK or
+origin/blob guard changes. Fifty-four host tests pass, including exact trust/mount
+scope; independent source review finds no new actionable issues. The initial
+new host assertion omitted the existing `create_host_path=false` guard and failed;
+its corrected expected mount retains that guard. A new frozen native scenario
+was still mandatory at that point; all three earlier native packets remain FAILED.
+
+The corrected frozen packet `3c1e9ff60f84` now PASSES the actual two-Hermes
+production consumer scenario in196.53s. Fresh Rust fmt/all-target check/native
+Clippy/build and13770 pinned Hermes files plus both exact four-file recovery/
+control inventories pass. The scenario executes journaled install/removal,
+startup-failure rollback to absence/previous bytes, distinct agents/incarnations,
+selected request-builder HMAC agreement with model-received requests, owner/
+foreign/task refusal, final-GET source-tamper503/no-store, held prepared dispatch,
+lost actual run/control ACK recovery, GET-only readback and unchanged once-only
+model/dispatch history. Only the model is a deterministic loopback fixture.
+
+| Actual managed observer packet | SHA256 |
+| --- | --- |
+| Fresh native binary | `b26ac98a9835fa963ab1db0819c7ebcb2e02ba8ca0267b608c9550d14b8bc502` |
+| Native execution log | `2fdc58b50c27a5dc40524684652f42c0bec394018c13ed654ad5068b9e971c3a` |
+| Fresh build log | `9ca84b1699935fa2f5f337f668f59ccfb32004f341383703a7ca0213530bd214` |
+| Evidence report | `fcf045e15c4e67948cc7512995a6416dbc4c598df0e3d7e37241a9c5f5898fa8` |
+| Read-only QA Git config | `1459f86b512ebe522a79cc6e115b5aa2efaf0083df245241bcd3a463bce25caa` |
+| Read-only startup opt-in | `7f4fe2401a90f03da81051ef866f07f27b0c66b76b29f245b371aa1af4c68958` |
+
+Runner and independent parent readback verify all271 original/frozen input files.
+All226 other backend inputs remain byte-identical to the full647-case gate; the
+only changed backend input is the executed native QA helper. Owned cleanup exits0;
+independent Engine reads find no project containers/networks and neither unique
+image alias. Protected runtime, volumes, caches, SDK and producer objects remain
+unchanged. Fifty-four host regressions, nine screenshot verifier cases,135 fixture
+images/three viewports, generated-client/typecheck and139 Markdown links pass.
+No new UI captures or live PM/SDLC acceptance are claimed. Independent production/
+API and QA source review finds no remaining actionable findings in this slice.
+
+This closes the selected managed observer core gate, not initialized/loaded full
+inventory, observer-enabled Fleet SIGKILL recovery, installed rollout, pre-model
+admission, PM tools/resume or the ordered main release. Both admission blockers
+and native/Fleet complete=false/runtime_ready=false remain deliberately unchanged.
+
 ## PM Execution Lease Readback: 8 October 2026
 
 Source consumer now performs the machine-only closed Tracker lease GET after

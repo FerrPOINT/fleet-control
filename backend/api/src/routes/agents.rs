@@ -385,6 +385,10 @@ pub async fn update_agent_config(
     Json(req): Json<UpdateAgentConfigRequest>,
 ) -> Result<Json<AgentConfig>, AppError> {
     require_operator(&user)?;
+    let req = ctx
+        .provisioner
+        .prepare_request_observer_configuration(&ctx.config, req)
+        .await?;
     ctx.repo
         .create_config_revision(agent_id, req, user.id)
         .await?;
@@ -433,6 +437,22 @@ pub async fn validate_config_revision(
     require_operator(&user)?;
     let value = ctx.repo.get_config_revision(id, revision).await?;
     let mut errors = value.snapshot.input_errors();
+    if value
+        .snapshot
+        .config
+        .config_json
+        .get("fleet_request_observer")
+        .is_some()
+    {
+        match ctx
+            .provisioner
+            .prepare_request_observer_configuration(&ctx.config, value.snapshot.config.clone())
+            .await
+        {
+            Ok(prepared) if prepared.config_json == value.snapshot.config.config_json => {}
+            _ => errors.push("pinned_request_observer_verification_failed".into()),
+        }
+    }
     if value
         .snapshot
         .config

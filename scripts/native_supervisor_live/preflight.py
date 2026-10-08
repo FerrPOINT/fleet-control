@@ -15,6 +15,7 @@ def control_plugin_required(test_name):
         'native_approvals::native_approval_restart::managed_native_approval_outcomes_survive_fleet_process_death',
         'native_approvals::native_approval_restart::managed_native_combined_run_and_approval_outcomes_survive_fleet_process_death',
         'native_control_restart::managed_native_combined_run_and_control_outcomes_survive_fleet_process_death',
+        'native_request_observer::managed_native_observer_activation_reads_two_original_runs_with_existing_extensions',
     }
 
 
@@ -23,6 +24,7 @@ def recovery_plugin_required(test_name):
         'managed_native_lost_ack_recovers_original_run_across_fleet_processes',
         'native_approvals::native_approval_restart::managed_native_combined_run_and_approval_outcomes_survive_fleet_process_death',
         'native_control_restart::managed_native_combined_run_and_control_outcomes_survive_fleet_process_death',
+        'native_request_observer::managed_native_observer_activation_reads_two_original_runs_with_existing_extensions',
     }
 
 

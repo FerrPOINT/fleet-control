@@ -157,6 +157,24 @@ pub(super) async fn create_snapshot(
     expected_desired_revision: Option<Option<i64>>,
 ) -> Result<AgentConfigRevision, AppError> {
     let config = snapshot.config.clone();
+    if config
+        .config_json
+        .get(crate::request_observer_package::KEY)
+        .is_none()
+        && config
+            .config_json
+            .pointer("/plugins/enabled")
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|names| {
+                names
+                    .iter()
+                    .any(|name| name.as_str() == Some(crate::request_observer_package::PLUGIN))
+            })
+    {
+        return Err(AppError::validation(
+            "new observer enablement requires immutable source provenance",
+        ));
+    }
     let txn = repo.db.begin().await.map_err(AppError::database)?;
     let row = txn
         .query_one(Statement::from_sql_and_values(
@@ -167,6 +185,30 @@ pub(super) async fn create_snapshot(
         .await
         .map_err(AppError::database)?
         .ok_or_else(|| AppError::not_found("agent", id))?;
+    if config
+        .config_json
+        .get(crate::request_observer_package::KEY)
+        .is_none()
+    {
+        let existing = txn
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT config_json FROM agent_configs WHERE agent_id = $1",
+                [id.into()],
+            ))
+            .await
+            .map_err(AppError::database)?;
+        if existing
+            .map(|row| row.try_get::<serde_json::Value>("", "config_json"))
+            .transpose()
+            .map_err(AppError::database)?
+            .is_some_and(|config| config.get(crate::request_observer_package::KEY).is_some())
+        {
+            return Err(AppError::validation(
+                "observer removal requires explicit enabled=false",
+            ));
+        }
+    }
     if let Some(expected) = expected_desired_revision {
         let current = txn
             .query_one(Statement::from_sql_and_values(
@@ -209,6 +251,14 @@ pub(super) async fn create_snapshot(
     }
     let kind: String = row.try_get("", "kind").map_err(AppError::database)?;
     snapshot.renderer_version = match kind.as_str() {
+        "hermes"
+            if config
+                .config_json
+                .get(crate::request_observer_package::KEY)
+                .is_some() =>
+        {
+            3
+        }
         "hermes" => 2,
         "java_agent" => 1,
         _ => return Err(AppError::internal("unsupported configuration agent kind")),
@@ -217,6 +267,10 @@ pub(super) async fn create_snapshot(
     if !errors.is_empty() {
         return Err(AppError::validation(errors.join("; ")));
     }
+    crate::request_observer_package::enabled(
+        &snapshot.config.config_json,
+        snapshot.renderer_version,
+    )?;
     let snapshot = serde_json::to_value(snapshot).map_err(AppError::internal)?;
     let row = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "INSERT INTO agent_config_revisions(agent_id, revision, state, snapshot, created_by_user_id)

@@ -5,6 +5,12 @@
 SDLC implementation is in progress, not production accepted. Current scope and
 remaining blockers: [SDLC implementation](docs/SDLC_IMPLEMENTATION.md).
 
+The opt-in managed request observer now passes its actual two-Hermes core gate:
+journaled install/remove/rollback, scoped digest reads and original ACK recovery.
+This is partial runtime evidence, not complete loaded readiness or PM admission.
+See [contract](docs/contracts/MANAGED_REQUEST_OBSERVER_V1.md) and
+[verification](docs/CHAT_CLARIFICATION_VERIFICATION.md#managed-observer-source-slice-8-october-2026).
+
 Interrupted configuration reconciliation is an explicit default-off integration
 candidate: signed private v3 journals bind exact snapshots and original runtime
 identity; unknown commands and unsigned legacy journals remain held. Stopped-agent

@@ -70,6 +70,7 @@ pub mod routes;
         routes::sessions::list_session_participants,
         routes::sessions::create_session_delegation,
         routes::sessions::list_session_agent_runs,
+        routes::sessions::read_request_observation,
         routes::sessions::stream_session,
         routes::sessions::steer_session_run,
         routes::sessions::stop_session_run,
@@ -460,6 +461,10 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         .route(
             "/api/v1/sessions/{session_id}/runs",
             get(routes::sessions::list_session_agent_runs),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/runs/{run_id}/request-observation",
+            get(routes::sessions::read_request_observation),
         )
         .route(
             "/api/v1/sessions/{session_id}/stream",

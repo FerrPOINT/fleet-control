@@ -1078,10 +1078,19 @@ pub struct AgentConfigurationSnapshot {
 impl AgentConfigurationSnapshot {
     pub fn input_errors(&self) -> Vec<String> {
         let mut errors = self.config.input_errors();
-        if !matches!(self.renderer_version, 1 | 2) {
+        if !matches!(self.renderer_version, 1..=3) {
             errors.push("unsupported configuration renderer version".into());
         }
-        if self.renderer_version == 2 {
+        if (self.renderer_version == 3)
+            != self
+                .config
+                .config_json
+                .get("fleet_request_observer")
+                .is_some()
+        {
+            errors.push("request observer requires an explicit renderer 3 revision".into());
+        }
+        if matches!(self.renderer_version, 2 | 3) {
             for path in ["/terminal", "/platforms", "/gateway", "/gateway/platforms"] {
                 if self
                     .config
@@ -1197,9 +1206,29 @@ mod configuration_snapshot_tests {
     }
 
     #[test]
+    fn observer_snapshots_require_explicit_renderer_three_without_legacy_backfill() {
+        let original = legacy_snapshot();
+        for version in [1, 2, 3] {
+            let mut value = original.clone();
+            value["renderer_version"] = json!(version);
+            value["config"]["config_json"]["fleet_request_observer"] = json!({"enabled":false});
+            let snapshot: AgentConfigurationSnapshot =
+                serde_json::from_value(value.clone()).unwrap();
+            assert_eq!(snapshot.input_errors().is_empty(), version == 3);
+            if version == 3 {
+                assert_eq!(serde_json::to_value(snapshot).unwrap(), value);
+            }
+        }
+        let mut missing = original;
+        missing["renderer_version"] = json!(3);
+        let snapshot: AgentConfigurationSnapshot = serde_json::from_value(missing).unwrap();
+        assert!(!snapshot.input_errors().is_empty());
+    }
+
+    #[test]
     fn unsupported_renderer_versions_do_not_fall_back_to_legacy() {
         // Keep unknown versions visible so the renderer can reject them before filesystem access.
-        for version in [0, 3, u32::MAX] {
+        for version in [0, 4, u32::MAX] {
             let mut original = legacy_snapshot();
             original["renderer_version"] = json!(version);
             let snapshot: AgentConfigurationSnapshot =

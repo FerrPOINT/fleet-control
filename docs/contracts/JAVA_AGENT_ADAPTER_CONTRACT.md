@@ -1,5 +1,8 @@
 # Java Agent Adapter Contract
 
+The [managed observer slice](MANAGED_REQUEST_OBSERVER_V1.md) is Hermes-only.
+It adds no Java capability, activation support, readiness or admission authority.
+
 The [PM lease prerequisite](PM_EXECUTION_LEASE_READBACK_V1.md) supplies no Java
 chat/control capability or SDLC admission; existing lifecycle limits are unchanged.
 

@@ -1,5 +1,13 @@
 # Agent Runtime Contract
 
+The [managed request observer](MANAGED_REQUEST_OBSERVER_V1.md) is an explicit
+renderer-3 Hermes configuration operation, journaled with original bytes/absence.
+Production Rust readback binds an existing accepted free-chat run to original
+controller/launch/origin/credential/incarnation with physical custody on both
+sides of bounded HTTP. GET cannot dispatch, adopt unknown runs or grant readiness.
+Legacy renderer1/2, both admission blockers and Java behavior are unchanged.
+Linux/native acceptance for this new path is pending.
+
 The [PM lease prerequisite](PM_EXECUTION_LEASE_READBACK_V1.md) reads Tracker only.
 It cannot claim ownership, advance workflow or admit either runtime to SDLC.
 

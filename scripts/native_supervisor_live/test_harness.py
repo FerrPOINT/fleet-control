@@ -1,5 +1,6 @@
 """Read-only host safety tests; no Docker, native runtime or credentials."""
 import hashlib
+import configparser
 import importlib.util
 import io
 import json
@@ -42,6 +43,42 @@ def archive(name, symlink=False):
 
 
 class SafetyTests(unittest.TestCase):
+    def test_observer_git_trust_is_owned_readonly_and_limited_to_exact_cache(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = runner.observer_git_config(root)
+            self.assertEqual(path, root / 'observer-git-config')
+            config = configparser.ConfigParser()
+            config.read_string(path.read_text(encoding='ascii'))
+            self.assertEqual(config.sections(), ['safe'])
+            self.assertEqual(dict(config['safe']), {'directory': '/qa/observer-base.git'})
+            mount = runner.bind(path, runner.OBSERVER_GIT_CONFIG_PATH)
+            self.assertEqual(mount, {'type': 'bind', 'source': str(path),
+                                    'target': '/qa/observer-git-config', 'read_only': True,
+                                    'bind': {'create_host_path': False}})
+            self.assertNotIn('*', path.read_text(encoding='ascii'))
+
+    def test_fleet_build_snapshot_retains_new_sources_and_detects_changed_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / 'source'
+            (root / 'backend').mkdir(parents=True)
+            (root / 'scripts').mkdir()
+            files = {'backend/Cargo.lock': b'locked', '.base-revision': b'exact-sdk',
+                     'backend/new.rs': b'owned Rust', 'scripts/new.py': b'owned fixture'}
+            for name, body in files.items(): (root / name).write_bytes(body)
+            with patch.object(runner, 'git', return_value='\0'.join(files).encode()):
+                destination = Path(directory) / 'snapshot'
+                hashes = runner.snapshot_fleet(root, destination)
+            self.assertEqual(hashes, {name: hashlib.sha256(body).hexdigest() for name, body in files.items()})
+            (root / 'backend/new.rs').write_bytes(b'later edit')
+            self.assertEqual((destination / 'backend/new.rs').read_bytes(), b'owned Rust')
+            with patch.object(runner, 'git', return_value=b'../foreign\0'):
+                with self.assertRaises(RuntimeError):
+                    runner.snapshot_fleet(root, Path(directory) / 'unsafe')
+            with patch.object(runner, 'git', return_value=b'backend/new.rs\0'):
+                with self.assertRaises(RuntimeError):
+                    runner.snapshot_fleet(root, Path(directory) / 'incomplete')
+
     def test_swagger_archive_has_an_exact_pinned_checksum(self):
         self.assertEqual(runner.SWAGGER_ARCHIVE_SHA256,
                          '481244d0812097b11fbaeef79f71d942b171617f9c9f9514e63acbe13e71ccdc')
@@ -56,8 +93,8 @@ class SafetyTests(unittest.TestCase):
                 runner.build_target_directory(project)
 
     def test_scenarios_select_distinct_exact_tests(self):
-        self.assertEqual(set(runner.TEST_NAMES), {'lifecycle', 'recovery', 'controls', 'control-outcomes', 'control-restart', 'approvals', 'approval-recovery', 'approval-outcomes', 'approval-restart', 'combined-recovery', 'combined-controls'})
-        self.assertEqual(len(set(runner.TEST_NAMES.values())), 11)
+        self.assertEqual(set(runner.TEST_NAMES), {'lifecycle', 'recovery', 'controls', 'control-outcomes', 'control-restart', 'approvals', 'approval-recovery', 'approval-outcomes', 'approval-restart', 'combined-recovery', 'combined-controls', 'observer'})
+        self.assertEqual(len(set(runner.TEST_NAMES.values())), 12)
         self.assertTrue(all(name.rsplit('::', 1)[-1].startswith('managed_native_')
                             for name in runner.TEST_NAMES.values()))
 
@@ -78,13 +115,62 @@ class SafetyTests(unittest.TestCase):
         for scenario, name in runner.TEST_NAMES.items():
             with self.subTest(scenario=scenario):
                 self.assertEqual(preflight.control_plugin_required(name),
-                                 scenario in {'control-outcomes', 'control-restart', 'approval-outcomes', 'approval-restart', 'combined-recovery', 'combined-controls'})
+                                 scenario in {'control-outcomes', 'control-restart', 'approval-outcomes', 'approval-restart', 'combined-recovery', 'combined-controls', 'observer'})
                 self.assertEqual(preflight.recovery_plugin_required(name),
-                                 scenario in {'recovery', 'combined-recovery', 'combined-controls'})
+                                 scenario in {'recovery', 'combined-recovery', 'combined-controls', 'observer'})
                 expected = tuple(kind for kind, required in [
                     ('control', preflight.control_plugin_required(name)),
                     ('recovery', preflight.recovery_plugin_required(name))] if required)
                 self.assertEqual(runner.scenario_plugins(scenario), expected)
+
+    def test_observer_fixture_never_uses_mutable_head_or_caller_revision(self):
+        for revision in [None, 'HEAD', 'a' * 40, runner.OBSERVER_FIXTURE_REVISION + '\n']:
+            with self.subTest(revision=revision), patch.object(runner, 'git') as git:
+                with self.assertRaises(RuntimeError):
+                    runner.fixture_revision('observer', revision, 'cache')
+                git.assert_not_called()
+        with patch.object(runner, 'git', return_value=b'commit\n') as git:
+            self.assertEqual(runner.fixture_revision('observer', runner.OBSERVER_FIXTURE_REVISION, 'cache'),
+                             runner.OBSERVER_FIXTURE_REVISION)
+            git.assert_called_once_with('cache', 'cat-file', '-t', runner.OBSERVER_FIXTURE_REVISION)
+
+    def test_observer_cache_refuses_linked_checkout_before_source_read(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(runner, 'git', return_value=b'false\n') as git:
+            with self.assertRaises(RuntimeError):
+                runner.observer_cache(Path(directory))
+            git.assert_called_once_with(Path(directory).resolve(), 'rev-parse', '--is-bare-repository')
+
+    def test_observer_cache_requires_independent_paths_origin_and_exact_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            def command(_, *args):
+                if args == ('rev-parse', '--is-bare-repository'): return b'true\n'
+                if args == ('rev-parse', '--absolute-git-dir'): return str(root).encode() + b'\n'
+                if args == ('rev-parse', '--git-common-dir'): return b'.\n'
+                if args == ('config', '--get', 'remote.origin.url'):
+                    return b'https://github.com/FerrPOINT/services-base.git\n'
+                if args == ('cat-file', '-t', runner.OBSERVER_REVISION): return b'commit\n'
+                if args[0] == 'archive': return b'controlled fixture archive'
+                self.fail(str(args))
+            bodies = {'deploy/hermes-request-observer/' + name: name.encode() for name in runner.PLUGIN_FILES}
+            hashes = {name: hashlib.sha256(name.encode()).hexdigest() for name in runner.PLUGIN_FILES}
+            with patch.object(runner, 'git', side_effect=command), patch.object(runner, 'archive_files', return_value=bodies), patch.object(runner, 'OBSERVER_FILES', hashes):
+                self.assertEqual(runner.observer_cache(root), root)
+                for rejected, changed in [
+                    (('rev-parse', '--absolute-git-dir'), str(root.parent / 'shared.git').encode()),
+                    (('rev-parse', '--git-common-dir'), b'../shared.git'),
+                    (('config', '--get', 'remote.origin.url'), b'https://example.test/foreign.git'),
+                    (('cat-file', '-t', runner.OBSERVER_REVISION), b'blob\n'),
+                ]:
+                    def foreign(repo, *args):
+                        return changed if args == rejected else command(repo, *args)
+                    with self.subTest(args=rejected), patch.object(runner, 'git', side_effect=foreign):
+                        with self.assertRaises(RuntimeError): runner.observer_cache(root)
+                with patch.object(runner, 'OBSERVER_FILES', {**hashes, 'plugin.py': '0' * 64}):
+                    with self.assertRaises(RuntimeError): runner.observer_cache(root)
+                (root / 'objects/info').mkdir(parents=True)
+                (root / 'objects/info/alternates').write_text('../shared')
+                with self.assertRaises(RuntimeError): runner.observer_cache(root)
 
     def test_control_outcome_requires_its_own_complete_committed_inventory(self):
         output = io.BytesIO()

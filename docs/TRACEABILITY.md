@@ -1,5 +1,22 @@
 # Traceability
 
+Managed request observer: explicit renderer3 snapshots and exact Base Git objects
+in `infra/request_observer_package`; signed activation/absence/rollback in
+`runtime/activation_journal`; bounded original dispatch/launch/incarnation custody
+in `runtime/request_observation`; owner/session/task guards and no-store in the
+session API. Eight component selectors are executed within the frozen647-case
+Linux/PostgreSQL gate. The actual `native_request_observer` scenario adds two
+Hermes agents, install/remove/rollback, final-GET source race, recovery/control
+coexistence and owner/foreign API checks; the corrected core gate passes196.53s
+with271 source hashes and owned cleanup verified. The earlier QA startup/cache
+failures remain recorded; observer-enabled Fleet-death/full inventory and task
+admission are separate open gates. Fifty-four host regressions cover the
+owned readonly launcher, opt-in, single-path Git trust and frozen-source harness,
+not actual inference or task readiness. Both admission blockers and explicit
+incompleteness remain. See the
+[contract](contracts/MANAGED_REQUEST_OBSERVER_V1.md) and
+[evidence](CHAT_CLARIFICATION_VERIFICATION.md#managed-observer-source-slice-8-october-2026).
+
 Original preparation ACK recovery: `runtime/container_control` uses Base's
 distinct no-create `reconcile_preparation`; `runtime/container_lifecycle` compares
 the exact private intent and existing-only DB authority, including a cached

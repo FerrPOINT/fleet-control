@@ -58,6 +58,7 @@ mod prepared_dispatch;
 mod process_stop;
 mod readiness;
 pub(crate) mod recovery_wire;
+mod request_observation;
 mod run_control;
 mod sse_wire;
 mod targeted_approval;
@@ -111,6 +112,10 @@ impl LocalRuntimeSupervisor {
             client: reqwest::Client::builder()
                 .redirect(reqwest::redirect::Policy::none())
                 .retry(reqwest::retry::never())
+                .no_gzip()
+                .no_brotli()
+                .no_deflate()
+                .no_zstd()
                 .no_proxy()
                 .connect_timeout(Duration::from_secs(5))
                 .build()
@@ -401,7 +406,7 @@ impl LocalRuntimeSupervisor {
                     })?
                     .verify_lock()
                     .await?;
-                if body.is_empty() && path.file_name().is_some_and(|name| name == "SKILL.md") {
+                if crate::request_observer_package::absent(path, body) {
                     crate::configuration_disk::remove(
                         std::path::Path::new(&self.config.fleet.agents_root),
                         path,
@@ -426,12 +431,14 @@ impl LocalRuntimeSupervisor {
                 }
             }
             for (path, body) in &files {
-                if body.is_empty() && path.file_name().is_some_and(|name| name == "SKILL.md") {
+                if crate::request_observer_package::absent(path, body) {
                     if tokio::fs::try_exists(path)
                         .await
                         .map_err(AppError::internal)?
                     {
-                        return Err(AppError::validation("disabled skill is still present"));
+                        return Err(AppError::validation(
+                            "disabled managed configuration file is still present",
+                        ));
                     }
                 } else if tokio::fs::read(path).await.map_err(AppError::internal)?
                     != body.as_bytes()
@@ -1338,7 +1345,7 @@ impl LocalRuntimeSupervisor {
                 capabilities.status()
             )));
         }
-        let capabilities =
+        let mut capabilities =
             hermes_wire::read_json(capabilities, reqwest::StatusCode::OK, 262_144).await?;
         for feature in ["run_status", "run_events_sse", "run_stop"] {
             if capabilities
@@ -1351,6 +1358,19 @@ impl LocalRuntimeSupervisor {
                     "Hermes capability {feature} is required"
                 )));
             }
+        }
+        // Reserved facts can only come from the explicitly managed extension, not native metadata.
+        capabilities
+            .as_object_mut()
+            .ok_or_else(|| AppError::validation("Hermes capabilities must be an object"))?
+            .remove("fleet_request_observer");
+        if self.observer_for_launch(agent).await? {
+            capabilities["fleet_request_observer"] = request_observation::capabilities(
+                &self.client,
+                &base,
+                &crate::agent_runtime_token(&self.config, agent.id)?,
+            )
+            .await?;
         }
         Ok(capabilities)
     }
@@ -1384,7 +1404,14 @@ impl LocalRuntimeSupervisor {
         let guard = lock.lock().await;
         let generation = self.gateway_launch_generation(agent.id).await?;
         let capabilities = self.probe_hermes(agent).await?;
+        let observer = capabilities.get("fleet_request_observer").cloned();
         let mut capabilities = hermes_wire::dispatch_capabilities(&capabilities)?;
+        if let Some(observer) = observer {
+            generation.ok_or_else(|| {
+                AppError::Unavailable("request observer requires an original launch".into())
+            })?;
+            capabilities["fleet_request_observer"] = observer;
+        }
         capabilities["fleet_launch"] = json!({"version":1,"launch_id":generation});
         let base = self.hermes_base_url(agent).await?;
         let token = crate::agent_runtime_token(&self.config, agent.id)?;
@@ -1434,6 +1461,21 @@ impl LocalRuntimeSupervisor {
         let _guard = lock.lock().await;
         self.verify_dispatch_launch(agent.id, &claimed.capabilities)
             .await?;
+        if let Some(original) = claimed.capabilities.get("fleet_request_observer") {
+            if !self.observer_for_launch(agent).await? {
+                return Err(AppError::Unavailable(
+                    "original managed request observer is unavailable".into(),
+                ));
+            }
+            let base = self.hermes_base_url(agent).await?;
+            if request_observation::capabilities(&self.client, &base, token).await? != *original {
+                return Err(AppError::Unavailable(
+                    "original request observer incarnation changed".into(),
+                ));
+            }
+            self.verify_dispatch_launch(agent.id, &claimed.capabilities)
+                .await?;
+        }
         if self.repo.agent_is_draining(agent.id).await? {
             return Err(AppError::Unavailable(
                 "configuration drain prohibits a new runtime submission".into(),
@@ -2096,6 +2138,9 @@ impl LocalRuntimeSupervisor {
         }
 
         let mut command = self.hermes_command(agent)?;
+        if self.observer_for_phase(agent, phase).await? {
+            command.env("PYTHONDONTWRITEBYTECODE", "1");
+        }
         self.prepare_native_launch(agent, &command, phase).await?;
         let starting = self
             .repo
@@ -2528,6 +2573,13 @@ impl LocalRuntimeSupervisor {
 
 #[async_trait]
 impl RuntimeSupervisor for LocalRuntimeSupervisor {
+    async fn read_request_observation(
+        &self,
+        agent: &Agent,
+        run: &SessionAgentRun,
+    ) -> Result<Value, AppError> {
+        self.original_request_observation(agent, run).await
+    }
     async fn resolve_original_approval(
         &self,
         agent: &Agent,

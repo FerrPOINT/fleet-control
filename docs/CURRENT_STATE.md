@@ -1,5 +1,30 @@
 # Current State
 
+## Current Execution Candidate: 8 October 2026
+
+The unpublished managed-observer slice adds signed renderer3 activation/removal
+and guarded original-run request observations. Its frozen full Linux/PostgreSQL
+workspace gate passes647 tests, with33 explicit opt-in ignores, fmt/check/strict
+Clippy and Rust-generated OpenAPI parity. Later QA launcher/cache corrections pass54
+host tests and independent source review. The corrected actual two-Hermes observer
+core scenario now passes196.53s with271 source hashes verified and owned cleanup.
+Earlier failed startup/cache packets remain failures. Full loaded inventory,
+observer-enabled Fleet-death recovery and task/PM acceptance remain open; see the
+[verification ledger](CHAT_CLARIFICATION_VERIFICATION.md#managed-observer-source-slice-8-october-2026).
+
+Forge's published PR88 checks remain for `56f1217`, not its later hardening.
+The current source-only gate passes219 workspace and26 Python cases. A PostgreSQL
+backend crash during database creation remains under investigation; current
+native PostgreSQL/OCI acceptance is not closed. The historical pass below must
+not be used to certify these newer changes.
+
+Tracker114 `357caa7` and Workflow90 `1139871` remain Draft with no reported checks.
+Their pre-model admission/first-step contracts still block PM execution. Current
+Chats screenshots are fixtures, not a live clarification/confirmation result.
+Installed runtime, images, SDK pins and producer repositories are unchanged.
+Ordered main releases and exact-head CI remain open in the
+[implementation plan](IMPLEMENTATION_PLAN.md#merge-ready-remaining-gates-8-october-2026).
+
 ## PM Execution Lease Readback: 8 October 2026
 
 The production machine-only credential coordinator now consumes the exact closed

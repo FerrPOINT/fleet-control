@@ -1,5 +1,17 @@
 # API
 
+Managed request observation adds authenticated read-only
+`GET /api/v1/sessions/{session_id}/runs/{run_id}/request-observation` for the
+original accepted free-chat run. Owner/read-all access and fresh original native
+custody are required; task-bound sessions remain503. Handler results are no-store
+and digest-only, never dispatch/admission. Existing config PUT explicitly opts
+new revisions into the pinned observer or removes it with enabled=false.
+See [consumer contract](contracts/MANAGED_REQUEST_OBSERVER_V1.md). OpenAPI and
+generated TypeScript include the route; the frozen Linux compilation and actual
+Rust OpenAPI parity gate pass. The actual managed observer core scenario also
+passes; interrupted observer activation/Fleet-death, full readiness and current
+release-head CI remain open, not implied by these checks or earlier CI.
+
 Machine-only PM lease GET is an internal outbound Tracker operation, not a new
 Fleet/browser endpoint. It requires the acknowledged delegated credential and
 original reservation; failure preserves awaiting-admission rather than dispatch.

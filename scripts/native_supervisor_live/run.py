@@ -10,12 +10,23 @@ import tarfile
 import tempfile
 import uuid
 import re
+import shutil
 
 
 ROOT = Path(__file__).resolve().parents[2]
 PIN = 'bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3'
 TASK = 'fleet-native-supervisor'
 SWAGGER_ARCHIVE_SHA256 = '481244d0812097b11fbaeef79f71d942b171617f9c9f9514e63acbe13e71ccdc'
+OBSERVER_REVISION = '43b365fd97e8955821312cbc2e68b4d83e5bd240'
+OBSERVER_FIXTURE_REVISION = 'dd9ce31a6b97e31e2467662658e38dd7a6485f45'
+OBSERVER_GIT_PATH = '/qa/observer-base.git'
+OBSERVER_GIT_CONFIG_PATH = '/qa/observer-git-config'
+OBSERVER_FILES = {
+    '__init__.py': '6a5ea8b412a75dcf3803843be89409c931471c07188370e06a684443d44789a3',
+    'plugin.py': '1e21d8c0e6fcac136b966b09d4e5c433bc9ff1e4ed3be6cb667fee9718d3f6de',
+    'store.py': 'c33cd12cf59d6c9bf1d4e2aade98743d56de4d4e9a924df00e7a0cb302f20170',
+    'plugin.yaml': 'ed39d83e75c2ecfeab0182beb1eee1e7ce69623680fe3d4b6b76240a13ba985a',
+}
 TEST_NAMES = {
     'lifecycle':'managed_native_gateway_isolates_home_soul_messages_and_restart_history',
     'recovery':'managed_native_lost_ack_recovers_original_run_across_fleet_processes',
@@ -28,21 +39,68 @@ TEST_NAMES = {
     'approval-restart':'native_approvals::native_approval_restart::managed_native_approval_outcomes_survive_fleet_process_death',
     'combined-recovery':'native_approvals::native_approval_restart::managed_native_combined_run_and_approval_outcomes_survive_fleet_process_death',
     'combined-controls':'native_control_restart::managed_native_combined_run_and_control_outcomes_survive_fleet_process_death',
+    'observer':'native_request_observer::managed_native_observer_activation_reads_two_original_runs_with_existing_extensions',
 }
 PLUGIN_FILES = ('__init__.py', 'plugin.py', 'store.py', 'plugin.yaml')
 
 
 def scenario_plugins(scenario):
     kinds = []
-    if scenario in {'control-outcomes', 'control-restart', 'approval-outcomes', 'approval-restart', 'combined-recovery', 'combined-controls'}:
+    if scenario in {'control-outcomes', 'control-restart', 'approval-outcomes', 'approval-restart', 'combined-recovery', 'combined-controls', 'observer'}:
         kinds.append('control')
-    if scenario in {'recovery', 'combined-recovery', 'combined-controls'}:
+    if scenario in {'recovery', 'combined-recovery', 'combined-controls', 'observer'}:
         kinds.append('recovery')
     return tuple(kinds)
 
 
 def git(repo, *args):
-    return subprocess.check_output(['git', '-C', str(repo), *args])
+    return subprocess.check_output(['git', '--no-replace-objects', '-C', str(repo), *args], timeout=30)
+
+
+def observer_cache(repo):
+    """Require a self-contained read-only cache; linked Windows worktrees cannot be mounted."""
+    root = Path(repo)
+    if root.is_symlink() or not root.is_dir():
+        raise RuntimeError('Observer requires an existing self-contained bare Git cache')
+    root = root.resolve()
+    if git(root, 'rev-parse', '--is-bare-repository').strip() != b'true':
+        raise RuntimeError('Observer requires a bare cache, not a linked checkout')
+    git_dir = Path(git(root, 'rev-parse', '--absolute-git-dir').decode().strip()).resolve()
+    common = Path(git(root, 'rev-parse', '--git-common-dir').decode().strip())
+    common = common.resolve() if common.is_absolute() else (root / common).resolve()
+    if git_dir != root or common != root or (root / 'objects/info/alternates').exists():
+        raise RuntimeError('Observer cache must not depend on shared Git paths')
+    origin = git(root, 'config', '--get', 'remote.origin.url').decode().strip()
+    if origin not in ('https://github.com/FerrPOINT/services-base.git',
+                      'git@github.com:FerrPOINT/services-base.git'):
+        raise RuntimeError('Observer cache has a foreign source repository')
+    prefix = 'deploy/hermes-request-observer/'
+    if git(root, 'cat-file', '-t', OBSERVER_REVISION).strip() != b'commit':
+        raise RuntimeError('Observer source commit is unavailable')
+    files = archive_files(git(root, 'archive', '--format=tar', OBSERVER_REVISION,
+                              *[prefix + name for name in PLUGIN_FILES]))
+    expected = {prefix + name: digest for name, digest in OBSERVER_FILES.items()}
+    if {name: hashlib.sha256(body).hexdigest() for name, body in files.items()} != expected:
+        raise RuntimeError('Observer cache bytes differ from the pinned producer')
+    return root
+
+
+def observer_git_config(directory):
+    """Trust only the validated read-only QA cache, never every repository."""
+    path = directory / 'observer-git-config'
+    path.write_bytes(('[safe]\n\tdirectory = ' + OBSERVER_GIT_PATH + '\n').encode('ascii'))
+    return path
+
+
+def fixture_revision(scenario, requested, checkout):
+    if scenario == 'observer' and requested != OBSERVER_FIXTURE_REVISION:
+        raise RuntimeError('Observer requires its explicit committed recovery/control fixture revision')
+    if requested is not None and not re.fullmatch('[a-f0-9]{40}', requested):
+        raise RuntimeError('Base fixture revision must be a full commit ID')
+    revision = requested or git(checkout, 'rev-parse', 'HEAD').decode().strip()
+    if git(checkout, 'cat-file', '-t', revision).strip() != b'commit':
+        raise RuntimeError('Base fixture revision is not a commit')
+    return revision
 
 
 def archive_files(archive):
@@ -86,6 +144,32 @@ def bind(source, target):
             'bind':{'create_host_path':False}}
 
 
+def snapshot_fleet(root, destination):
+    destination.mkdir(exist_ok=False)
+    paths = git(root, 'ls-files', '-z', '--cached', '--others', '--exclude-standard',
+                '--', 'backend', 'scripts', '.base-revision').decode().split('\0')
+    hashes = {}
+    for name in sorted(set(paths) - {''}):
+        path = PurePosixPath(name)
+        if path.is_absolute() or '..' in path.parts or '\\' in name or ':' in name:
+            raise RuntimeError('Unsafe Fleet build input path')
+        source = root / name
+        if source.is_symlink() or not source.resolve().is_relative_to(root.resolve()):
+            raise RuntimeError('Fleet build input is a link or outside the repository')
+        if not source.is_file():
+            continue
+        target = destination / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, target)
+        digest = hashlib.sha256(source.read_bytes()).hexdigest()
+        if hashlib.sha256(target.read_bytes()).hexdigest() != digest:
+            raise RuntimeError('Fleet source changed during snapshot capture')
+        hashes[name] = digest
+    if not hashes or 'backend/Cargo.lock' not in hashes or '.base-revision' not in hashes:
+        raise RuntimeError('Fleet snapshot is incomplete')
+    return hashes
+
+
 def service(purpose):
     return {'labels':{'sdlc.task':TASK,'sdlc.purpose':purpose}, 'networks':['qa'],
             'cpus':2, 'mem_limit':'3g', 'pids_limit':256}
@@ -105,6 +189,8 @@ def main():
     parser.add_argument('--hermes', type=Path, required=True)
     parser.add_argument('--base-sdk', type=Path, required=True)
     parser.add_argument('--base-checkout', type=Path, required=True)
+    parser.add_argument('--base-revision', help='exact committed launcher/recovery/control fixture revision')
+    parser.add_argument('--observer-checkout', type=Path, help='self-contained bare Base observer Git cache')
     parser.add_argument('--image', required=True, help='existing immutable native dependency image')
     parser.add_argument('--scenario', choices=tuple(TEST_NAMES), default='lifecycle')
     parser.add_argument('--target-cache', required=True)
@@ -122,7 +208,14 @@ def main():
     if (git(args.base_sdk, 'rev-parse','HEAD').decode().strip() != sdk_pin
             or git(args.base_sdk,'status','--porcelain')):
         raise RuntimeError('Base SDK must match Fleet .base-revision exactly')
-    base_head = git(args.base_checkout, 'rev-parse','HEAD').decode().strip()
+    observer = None
+    if args.scenario == 'observer':
+        if args.observer_checkout is None:
+            raise RuntimeError('Observer scenario requires its read-only producer Git cache')
+        observer = observer_cache(args.observer_checkout)
+    elif args.observer_checkout is not None:
+        raise RuntimeError('Observer cache is only used by the observer scenario')
+    base_head = fixture_revision(args.scenario, args.base_revision, args.base_checkout)
     launcher = archive_files(git(args.base_checkout,'archive','--format=tar',base_head,'deploy/fleet-hermes-launch.py'))['deploy/fleet-hermes-launch.py']
     plugins = {kind:recovery_files(args.base_checkout, base_head, controls=kind == 'control')
                for kind in scenario_plugins(args.scenario)}
@@ -135,6 +228,8 @@ def main():
     project = 'sdlc-qa-fleet-native-' + uuid.uuid4().hex[:12]
     target_directory = build_target_directory(project)
     directory = Path(tempfile.mkdtemp(prefix=project+'-',dir=args.artifacts)).resolve()
+    fleet_snapshot = directory / 'fleet-source'
+    fleet_input_hashes = snapshot_fleet(ROOT, fleet_snapshot)
     scripts = Path(__file__).resolve().parent
     compose_path = directory / 'compose.json'
     hashes = {name:hashlib.sha256(body).hexdigest() for name,body in files.items()}
@@ -154,6 +249,7 @@ def main():
               'launcher_sha256':hashlib.sha256(launcher).hexdigest(),
               'fleet_head':git(ROOT,'rev-parse','HEAD').decode().strip(),
               'fleet_worktree_clean':not bool(git(ROOT,'status','--porcelain')),
+              'fleet_snapshot_files_sha256':fleet_input_hashes,
               'fleet_test_source_sha256':hashlib.sha256((ROOT/'backend/infra/tests/native_supervisor_live.rs').read_bytes()).hexdigest(),
               'fleet_test_sources_sha256':{name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest()
                   for name in ['backend/infra/tests/native_supervisor_live.rs',
@@ -161,14 +257,20 @@ def main():
                                'backend/infra/tests/support/native_control_restart.rs',
                                'backend/infra/tests/support/native_prepared_launch.rs',
                                'backend/infra/tests/support/native_approval_restart.rs',
-                               'backend/infra/tests/support/native_approval_recovery.rs']},
+                               'backend/infra/tests/support/native_approval_recovery.rs',
+                               'backend/infra/tests/support/native_request_observer.rs']},
               'fleet_runtime_sources_sha256':{name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest()
-                  for name in ['backend/api/src/routes/approvals.rs', 'backend/api/src/routes/agents.rs',
+                  for name in ['backend/api/src/lib.rs', 'backend/api/src/routes/sessions.rs',
+                               'backend/domain/src/lib.rs', 'backend/infra/src/base_package.rs',
+                               'backend/infra/src/effective_configuration.rs',
+                               'backend/api/src/routes/approvals.rs', 'backend/api/src/routes/agents.rs',
                                'backend/app/src/lib.rs', 'backend/infra/src/lib.rs',
                                'backend/app/src/runtime_launch.rs', 'backend/infra/src/runtime_launches.rs',
                                'backend/infra/src/message_dispatch.rs',
                                'backend/infra/src/runtime/launch_journal.rs', 'backend/infra/src/config_revisions.rs',
                                'backend/infra/src/runtime/prepared_dispatch.rs',
+                               'backend/infra/src/runtime/request_observation.rs',
+                               'backend/infra/src/request_observer_package.rs',
                                'backend/infra/src/configuration_disk.rs',
                                'backend/infra/src/pm_credentials.rs',
                                'backend/infra/src/runtime/activation_journal.rs',
@@ -186,7 +288,7 @@ def main():
                                'backend/migration/src/m20261005_000015_runtime_control_outcomes.rs',
                                'backend/migration/src/m20261005_000016_runtime_approval_outcomes.rs',
                                'backend/migration/src/m20261006_000017_runtime_launches.rs']},
-              'harness_sha256':{name:hashlib.sha256((scripts/name).read_bytes()).hexdigest() for name in ['run.py','build.sh','native.sh','preflight.py','discard_ack_plugin.py','approval_fault_plugin.py','control_fault_plugin.py']}}
+              'harness_sha256':{name:hashlib.sha256((scripts/name).read_bytes()).hexdigest() for name in ['run.py','build.sh','native.sh','preflight.py','discard_ack_plugin.py','approval_fault_plugin.py','control_fault_plugin.py','observer_fault_plugin.py','observer_start_fault.py']}}
     for plugin_kind, plugin in plugins.items():
         plugin_dir = directory/(plugin_kind+'-plugin')
         plugin_dir.mkdir()
@@ -205,7 +307,7 @@ def main():
         environment={'RUSTUP_TOOLCHAIN':'1.88.0','CARGO_TARGET_DIR':target_directory,'CARGO_BUILD_JOBS':'2',
             'FLEET_NATIVE_SWAGGER_SHA256':SWAGGER_ARCHIVE_SHA256,
             'CARGO_INCREMENTAL':'0','CARGO_PROFILE_DEV_DEBUG':'0','CARGO_PROFILE_TEST_DEBUG':'0'},
-        volumes=[dict(bind(ROOT,'/work/fleet-control'),read_only=False),bind(args.base_sdk.resolve(),'/work/services-base'),
+        volumes=[bind(fleet_snapshot,'/work/fleet-control'),bind(args.base_sdk.resolve(),'/work/services-base'),
             bind(scripts/'build.sh','/qa/build.sh'),'target:/cache','cargo:/usr/local/cargo','rustup:/usr/local/rustup'])
     native = service('real-fleet-gateways-native-pg-local-model')
     native.update(image=image['Id'],pull_policy='never',init=True,read_only=True,
@@ -217,6 +319,24 @@ def main():
             'PYTHONDONTWRITEBYTECODE':'1','PYTHONUNBUFFERED':'1'},
         volumes=['target:/cache:ro',bind(scripts/'native.sh','/qa/native.sh'),bind(scripts/'preflight.py','/qa/preflight.py'),
             bind(directory/'source-hashes.json','/qa/source-hashes.json'),bind(directory/'hermes','/opt/fleet-hermes/bin/hermes')])
+    if observer is not None:
+        startup_fixture = directory / 'observer-start-fault'
+        startup_fixture.write_bytes((scripts / 'observer_start_fault.py').read_bytes())
+        startup_fixture.chmod(0o755)
+        startup_opt_in = directory / 'observer-start-fault-opt-in'
+        startup_opt_in.write_bytes(b'fleet-native-observer-start-fault/v1\n')
+        git_config = observer_git_config(directory)
+        native['environment'].update(FLEET_OBSERVER_BASE_CHECKOUT=OBSERVER_GIT_PATH,
+                                     GIT_CONFIG_GLOBAL=OBSERVER_GIT_CONFIG_PATH,
+                                     GIT_CONFIG_NOSYSTEM='1')
+        native['volumes'].append(bind(observer, OBSERVER_GIT_PATH))
+        native['volumes'].append(bind(git_config, OBSERVER_GIT_CONFIG_PATH))
+        native['volumes'].append(bind(startup_fixture, '/opt/fleet-hermes/bin/observer-hermes'))
+        native['volumes'].append(bind(startup_opt_in, '/qa/observer-start-fault-opt-in'))
+        report['observer_start_fault_opt_in_sha256'] = hashlib.sha256(startup_opt_in.read_bytes()).hexdigest()
+        report['observer_git_config_sha256'] = hashlib.sha256(git_config.read_bytes()).hexdigest()
+        report['observer_source_revision'] = OBSERVER_REVISION
+        report['observer_source_hashes'] = OBSERVER_FILES
     for plugin_kind in plugins:
         plugin_dir = directory/(plugin_kind+'-plugin')
         if plugin_kind == 'recovery':
@@ -264,6 +384,17 @@ def main():
         report['native_exit_code'] = result.returncode
         report['native_log_sha256'] = hashlib.sha256(result.stdout).hexdigest()
         if result.returncode: raise RuntimeError('Managed native acceptance failed')
+        for root in (ROOT, fleet_snapshot):
+            if any(hashlib.sha256((root / path).read_bytes()).hexdigest() != expected
+                   for path, expected in fleet_input_hashes.items()):
+                raise RuntimeError('Fleet source differs from the frozen binary input')
+        for field in ('fleet_test_sources_sha256', 'fleet_runtime_sources_sha256'):
+            if any(hashlib.sha256((ROOT / path).read_bytes()).hexdigest() != expected
+                   for path, expected in report[field].items()):
+                raise RuntimeError('Fleet native source changed after the binary input capture')
+        if any(hashlib.sha256((scripts / path).read_bytes()).hexdigest() != expected
+               for path, expected in report['harness_sha256'].items()):
+            raise RuntimeError('Native harness changed after the binary input capture')
         if (not re.search(rb'test result: ok\. 1 passed; 0 failed; 0 ignored;',result.stdout)
                 or TEST_NAMES[args.scenario].encode() not in result.stdout
                 or ('Exact pinned native tracked source verified: '+str(len(hashes))+' files').encode() not in result.stdout):

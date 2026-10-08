@@ -168,7 +168,7 @@ fn validate_document(document: &JournalDocument) -> Result<(), AppError> {
                 .as_ref()
                 .is_some_and(|hash| !valid_hash(hash))
             || (entry.expected_sha256.is_none()
-                && entry.path.file_name().is_none_or(|name| name != "SKILL.md"))
+                && !crate::request_observer_package::absent(&entry.path, ""))
         {
             return Err(held());
         }
@@ -351,7 +351,7 @@ impl ActivationJournal {
                     "configuration backup exceeds its total byte limit",
                 ));
             }
-            let absent = body.is_empty() && path.file_name().is_some_and(|name| name == "SKILL.md");
+            let absent = crate::request_observer_package::absent(path, body);
             entries.push(JournalBackup {
                 path: relative.to_path_buf(),
                 previous_hex: previous.as_ref().map(hex::encode),
@@ -499,7 +499,7 @@ impl ActivationJournal {
             return Err(held());
         }
         for ((path, body), entry) in files.iter().zip(&self.payload.files) {
-            let absent = body.is_empty() && path.file_name().is_some_and(|name| name == "SKILL.md");
+            let absent = crate::request_observer_package::absent(path, body);
             let expected = if absent {
                 None
             } else {
@@ -961,6 +961,48 @@ mod tests {
                 .unwrap()
                 .is_none()
         );
+        tokio::fs::remove_dir_all(root).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn observer_removal_retains_signed_original_bytes_and_absence_after_reopen() {
+        let (root, config, mut files, mut backups) = fixture().await;
+        for (index, (name, _)) in crate::request_observer_package::FILES.iter().enumerate() {
+            let path = config
+                .join("plugins")
+                .join(crate::request_observer_package::PLUGIN)
+                .join(name);
+            files.push((path.clone(), String::new()));
+            backups.push((
+                path,
+                if index == 0 {
+                    None
+                } else {
+                    Some(b"original-plugin-bytes".to_vec())
+                },
+            ));
+        }
+        let id = Uuid::new_v4();
+        let journal = prepare(&root, &config, id, 1, true, &files, &backups)
+            .await
+            .unwrap();
+        journal.verify_plan(&files).unwrap();
+        assert!(
+            journal.payload.files[1..]
+                .iter()
+                .all(|file| file.expected_sha256.is_none())
+        );
+        drop(journal);
+        let recovered = reopen(&root, &config, id, "journal-test-secret")
+            .await
+            .unwrap()
+            .unwrap();
+        recovered.verify_plan(&files).unwrap();
+        assert_eq!(recovered.verified_backups().await.unwrap(), backups);
+        let mut foreign = files.clone();
+        foreign[1].0 = config.join("plugins/foreign/__init__.py");
+        assert!(recovered.verify_plan(&foreign).is_err());
+        drop(recovered);
         tokio::fs::remove_dir_all(root).await.unwrap();
     }
 
