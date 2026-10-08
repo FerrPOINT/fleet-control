@@ -67,6 +67,10 @@ readiness requires the following exits, not another mock-only demonstration.
    container and54 native-host cases do not replace physical acceptance. Exit:
    isolated agents preserve effective configuration and peer state across every
    required crash, with unknown effects held and exact cleanup verified.
+   Latest9d0d86 packet passes212 components and guarded own cleanup, but actual
+   before-create recovery fails at the original180s deadline. Retain a safe
+   phase/guard diagnostic before the next fresh physical attempt; cause remains
+   unknown and none of the four observer combinations is accepted.
 2. **Predispatch contract (external producers, Fleet consumer).** Obtain trusted
    Tracker assignment/claim/heartbeat/fencing and a Workflow first step before
    model dispatch, without requiring an already-running Fleet run or future

@@ -80,6 +80,36 @@ supervisor tests SHA256:
 Read-only Engine observation confirms all four original input IDs still have
 independent existing tags. This is not the corrected driver's native proof.
 
+Fourth packet9d0d86c35a55 exercises the guarded driver with the same pins.
+It passes fmt, strict Clippy, fresh compilation/linking, wire1/1 and212 runtime
+components (zero failed/ignored,315.54s). The corrected MIME assertion and
+before-create preparation reach an actual same-container Fleet restart without
+replacing the two agent generations. Recovery then fails after180.20s at the
+unchanged `actual interrupted activation remains unreconciled` assertion.
+The final safe readback is candidate `activating`, drain true, journal present,
+and no open launch. Exact private journal phase/hold reason was not retained
+before disposable-volume cleanup; the causal mechanism is not proved.
+Do not increase the timer, adopt an unknown preparation, or repeat the old packet.
+
+Current/frozen340 inputs and all four observer source hashes/trust config match.
+The failed packet verifies exact cleanup with the corrected driver: its own
+containers/networks/volumes/image aliases are absent, all four original image
+references retain their exact IDs, and permanent runtime is unchanged. Parent
+independent process readback confirms missing21184/23652; Engine inventories
+for the exact project are empty. This normal-build cleanup evidence does not
+exercise a new failed-export branch or accept physical recovery.
+
+| 9d0d86 evidence | SHA256 |
+| --- | --- |
+| `source-manifest.json` | `554bf8ca9876608eb8ac90aa06f1a2bdef7080a69aed5ddd6c9fd866c7f770f3` |
+| `report.json` | `282e2e59e1ce71ae078e9241f5858e83d5c98b166516337cabc29019f9f03409` |
+| `activation-recover.log` | `6e264caa5898a9b16d63a5f038b06ec6cc8f08361e1332c63b3bab7d738bcdab` |
+
+The next diagnostic must retain a bounded closed phase/guard summary before
+cleanup, never raw journal/configuration/credentials. All four observer crash
+combinations remain unaccepted. This QA candidate is still unpublished pending
+acceptance; documentation publication does not include its source changes.
+
 The published661-case/33-ignore workspace gate below predates these QA edits;
 neither it nor the second212-case component gate certifies the corrected crash
 test, PM tools, live clarification, complete source inventory or Forge release.
