@@ -7,7 +7,10 @@ Native Fleet packet1cf2f09e082a passes fmt/strict Clippy, compile/link and212
 runtime components; its actual crash test fails before the selected boundary
 on the QA MIME assertion. The subsequent exact-assert correction needs a new
 native packet. All four before-create/candidate-running and restore-bytes/
-restore-absence combinations remain required. The two retained failures and
+restore-absence combinations remain required. Third packet3252f2967164 fails
+before tests during BuildKit image export; a retained supplement corrects its
+incomplete tag-cleanup claim with verified exact-alias removal. Failed-export
+cleanup needs a guarded regression. The three retained failures and
 cleanup are in [the ledger](CHAT_CLARIFICATION_VERIFICATION.md#observer-crash-qa-packets-8-october-2026).
 
 ## Latest Reconciled Source Evidence

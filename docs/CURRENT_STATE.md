@@ -10,7 +10,9 @@ without relaxing read-only mounts. Fresh packet1cf2f09e082a passes fmt, strict
 Clippy, compilation and212 runtime component tests, but fails before the crash
 on an incorrect charset expectation. The exact MIME assertion now matches the
 pinned producer's `application/json`; this later correction is not native
-verified. Both failed packets, parity and own cleanup are retained. See
+verified. Third packet3252f2967164 fails at BuildKit image export before tests.
+Its initial cleanup missed the exported alias; a retained supplement records
+verified exact-alias removal. All three failed packets and parity are retained. See
 [the ledger](CHAT_CLARIFICATION_VERIFICATION.md#observer-crash-qa-packets-8-october-2026).
 None of the four crash combinations is accepted yet; no SDLC readiness or
 installed runtime flag is promoted.

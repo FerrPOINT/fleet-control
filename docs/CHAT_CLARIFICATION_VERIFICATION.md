@@ -41,6 +41,28 @@ The QA driver/test candidate remains unpublished pending native acceptance.
 This documentation records scoped working-tree/frozen-source evidence, not
 availability of the new options or corrected test in the published Git head.
 
+Third packet3252f2967164 uses published Fleet20a4fa4 with the corrected local
+MIME assertion and the same pins. It fails during the Hermes image build:
+BuildKit returns `Internal: context deadline exceeded` after exporting the image.
+No Rust/component/crash test runs in this packet. This is a terminal failed
+command, not an expired observation or evidence that the MIME fix passes.
+The340 input hashes, observer cache and permanent-runtime parity are verified.
+Manifest catalogue SHA256:
+`42e6768fa7c504791b43bc3d2ef77fffe72478d53af57e16f746d54495bb9e88`;
+report SHA256:
+`853357192423db2220a8d19c5f755bba7c4974a9a1fb24c80cdfadcdaae84140`;
+Hermes build log SHA256:
+`ff72b53cdddeeacf931880ad658534f9799822faa706dbc73862225e4f581163`.
+
+The original report's image-tag cleanup claim is incomplete: failed-command
+tracking omitted the exported tag. A separate retained cleanup supplement
+records its exact image identity and task/purpose labels before removing only
+that owned alias. Independent readback confirms terminated processes and empty
+project containers/networks/volumes/aliases. The original FAILED report is not
+rewritten. A guarded cleanup regression is required before the next attempt;
+production deadlines and crash assertions are unchanged. None of the four
+physical combinations is accepted by these three packets.
+
 The published661-case/33-ignore workspace gate below predates these QA edits;
 neither it nor the second212-case component gate certifies the corrected crash
 test, PM tools, live clarification, complete source inventory or Forge release.

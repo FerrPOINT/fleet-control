@@ -25,7 +25,7 @@ Producer acceptance must cover admitted transition/original-key readback,
 expired-lease quiescence and a pre-model first-step/identity contract before
 Fleet wires tools or resume. See [producer gaps](GAP_REGISTER.md#exact-producer-predispatch-limits-8-october-2026).
 
-Current publication boundaries: Base PR169 at `893c582` has ten successful
+Current publication boundaries: Base PR169 at `4a7d4a0` has ten successful
 exact-head checks and remains unmerged; Fleet integration at `b965298` is
 published but has no full main-target release gate. Its normal reconciliation
 with accepted main `c8093aa`, published at `683345d`, preserves Base875 and unchanged integration
@@ -35,11 +35,14 @@ controlled access-boundary regressions pass. See
 This branch is not a giant main release PR or installed SDLC acceptance.
 Forge PR88's four successful
 checks are for `56f1217`, not subsequent uncommitted reader/proof hardening.
-Its latest hardening native PostgreSQL epoch records one of three cases passing,
-with OCI not executed; the separate source gate passes219 workspace and26 Python
-tests. A PostgreSQL backend crash during database creation is reproduced, but its
-cause and fresh current-source PG/OCI acceptance remain open. Earlier passing
-scenarios and old-head CI are not current-source acceptance.
+Its latest completed hardening native PostgreSQL epoch8f596c025d25 records two
+of three cases passing, with OCI not executed. The failure is localized to
+backup rehearsal database creation before release-intent; the exact owner
+subprocess cause remains unknown. Failure-only bounded SQLSTATE/returncode
+diagnostics pass37 pure tests, but do not explain the historical failure.
+A new frozen259-input diagnostic epoch0f560932eb2b is separate and requires
+its own native result. Earlier passing scenarios and old-head CI are not
+current-source acceptance.
 
 Parallel Chats PR60 at `99d1c7f` targets the integration branch rather than the
 approved `main`. Directly changing its base would import the broad integration
