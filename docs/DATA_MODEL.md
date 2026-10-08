@@ -616,12 +616,16 @@ its full visible history; project ACL predicates apply in either mode.
 
 ## PM Run Proof
 
-The feature's single pending migration `m20261001_000010_task_chats` adds
-`pm_run_bindings` (eleven migration files after the accepted main refresh).
+The historical task-chat foundation migration `m20261001_000010_task_chats` adds
+`pm_run_bindings`; subsequent ordered release packets are tracked separately.
 Each Fleet run UUID has one immutable
 reservation containing its task chat, concrete agent, Tracker identity,
 assignment/execution, workflow binding, dispatch operation key, checkpoint and
-fence. Reservation and technical capacity allocation commit together, before any
+fence. New reservations also seal an original runtime launch/controller/origin
+and credential fingerprint in their immutable private JSON. Missing bindings in
+legacy JSON are not backfilled or inferred from current runtime metadata. This
+internal hardening adds no migration or public callback fields.
+Reservation and technical capacity allocation commit together, before any
 runtime HTTP request. Concurrent identical reservations replay the same record;
 altered payloads conflict. An unresolved reservation keeps the agent occupied.
 
@@ -633,7 +637,11 @@ triggers also prevent reservation/mapping/terminal mutation through direct SQL.
 Verified terminal observation atomically updates the matching visible run state
 and frees that runtime capacity. Generic cached/SSE-error updates cannot replace
 the accepted mapping, introduce terminal state without proof, or regress verified
-terminal state. Both paths lock the PM binding before the runtime run. A mapping
+terminal state. Observation first locks the agent, then the PM binding, launch/
+runtime and visible run. It checks persisted provenance and physical custody after
+these blocking locks. Generic stream updates lock the PM binding before the run.
+Identical terminal replay verifies custody and mapping, then commits without writes
+to timestamps, audit or session events. A mapping
 mismatch rolls back proof and run state together. This never advances Tracker;
 business completion still requires its own workflow/requirements receipts.
 Success observation requires the accepted run/session identity and native

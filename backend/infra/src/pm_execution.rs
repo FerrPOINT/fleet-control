@@ -52,6 +52,10 @@ pub(super) async fn reserve(
     req: PmRunReservation,
 ) -> Result<PmRunRecord, AppError> {
     req.validate()?;
+    let runtime_binding = req
+        .runtime_binding
+        .as_ref()
+        .ok_or_else(|| AppError::Unavailable("PM original runtime binding is required".into()))?;
     let agent_id = req.identity.agent_id()?;
     let txn = repo.db.begin().await.map_err(AppError::database)?;
     let agent = txn
@@ -83,6 +87,7 @@ pub(super) async fn reserve(
             "a running Hermes Project Manager is required",
         ));
     }
+    verify_runtime_binding(&txn, agent_id, runtime_binding).await?;
     let binding = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "SELECT b.tracker_instance_id,b.project_id,b.task_id,b.root_task_id,b.agent_id,b.owner_subject,u.central_sub
          FROM task_chat_bindings b JOIN agent_sessions s ON s.id=b.session_id JOIN users u ON u.id=s.user_id
@@ -210,11 +215,34 @@ pub(super) fn valid_hermes_ref(value: &str) -> bool {
 
 pub(super) async fn observe(
     repo: &PostgresFleetRepository,
-    id: Uuid,
+    expected: &PmRunRecord,
     status: PmRuntimeStatus,
+    custody: &dyn app::PmRuntimeCustody,
 ) -> Result<(), AppError> {
+    expected.reservation.validate()?;
+    let id = expected.reservation.session_run_id;
+    let agent_id = expected.reservation.identity.agent_id()?;
     let txn = repo.db.begin().await.map_err(AppError::database)?;
+    txn.query_one(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT id FROM agents WHERE id=$1 FOR NO KEY UPDATE",
+        [agent_id.into()],
+    ))
+    .await
+    .map_err(AppError::database)?
+    .ok_or_else(|| AppError::not_found("agent", agent_id))?;
     let record = load(&txn, id, true).await?;
+    if record.reservation != expected.reservation
+        || record.hermes_run_ref != expected.hermes_run_ref
+        || record.hermes_session_ref != expected.hermes_session_ref
+    {
+        return Err(AppError::conflict("PM observation context changed"));
+    }
+    let binding =
+        record.reservation.runtime_binding.as_ref().ok_or_else(|| {
+            AppError::Unavailable("PM original runtime binding is missing".into())
+        })?;
+    let (launch, pid) = verify_runtime_binding(&txn, agent_id, binding).await?;
     if record.hermes_run_ref.is_none() {
         return Err(AppError::Unavailable(
             "PM runtime acceptance is unknown".into(),
@@ -227,6 +255,45 @@ pub(super) async fn observe(
         return Err(AppError::conflict(
             "Hermes contradicted immutable PM terminal proof",
         ));
+    }
+    let visible = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT session_id,agent_id,runtime_session_id,runtime_run_id,state FROM session_agent_runs WHERE id=$1 FOR UPDATE",
+        [id.into()])).await.map_err(AppError::database)?
+        .ok_or_else(|| AppError::not_found("session run", id))?;
+    if visible
+        .try_get::<Uuid>("", "session_id")
+        .map_err(AppError::database)?
+        != record.reservation.session_id
+        || visible
+            .try_get::<Uuid>("", "agent_id")
+            .map_err(AppError::database)?
+            != agent_id
+        || visible
+            .try_get::<Option<String>>("", "runtime_session_id")
+            .map_err(AppError::database)?
+            .as_deref()
+            != Some(record.reservation.runtime_session_id().as_str())
+        || visible
+            .try_get::<Option<String>>("", "runtime_run_id")
+            .map_err(AppError::database)?
+            != record.hermes_run_ref
+    {
+        return Err(AppError::conflict(
+            "PM terminal proof no longer matches runtime mapping",
+        ));
+    }
+    // A retained process can exit while row locks are awaited, independently of lifecycle exclusion.
+    custody.verify(binding, &launch, pid).await?;
+    if record.terminal_status.is_some() {
+        if visible
+            .try_get::<String>("", "state")
+            .map_err(AppError::database)?
+            != visible_terminal(status)
+        {
+            return Err(AppError::conflict("PM visible terminal state changed"));
+        }
+        txn.commit().await.map_err(AppError::database)?;
+        return Ok(());
     }
     let terminal = status
         .terminal()
@@ -265,6 +332,102 @@ pub(super) async fn observe(
     }
     txn.commit().await.map_err(AppError::database)?;
     Ok(())
+}
+
+async fn verify_runtime_binding<C: ConnectionTrait>(
+    db: &C,
+    agent: Uuid,
+    expected: &domain::PmRuntimeBinding,
+) -> Result<(app::runtime_launch::RuntimeLaunchBinding, i32), AppError> {
+    expected.validate()?;
+    let unavailable = || AppError::Unavailable("PM original runtime custody changed".into());
+    // Caller holds the agent row, the same exclusion used by lifecycle and recovery.
+    let row = db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT l.binding,l.state,l.pid,r.pid AS runtime_pid,r.desired_state,a.api_port,
+            a.archived_at IS NOT NULL AS archived,a.kind,a.sdlc_role,a.runtime_path,a.config_path,a.workspace_path,a.logs_path,
+            e.origin,e.pid AS endpoint_pid,h.effective_revision,
+            EXISTS(SELECT 1 FROM runtime_controller_recoveries c WHERE c.launch_id=l.id) AS recovery
+         FROM runtime_launches l JOIN agent_runtime r ON r.agent_id=l.agent_id
+         JOIN agents a ON a.id=l.agent_id LEFT JOIN runtime_launch_endpoints e ON e.launch_id=l.id
+         LEFT JOIN agent_config_heads h ON h.agent_id=l.agent_id
+         WHERE l.id=$1 AND l.agent_id=$2 FOR UPDATE OF l,r",
+        [expected.launch_id.into(),agent.into()])).await.map_err(AppError::database)?
+        .ok_or_else(unavailable)?;
+    let binding: app::runtime_launch::RuntimeLaunchBinding = serde_json::from_value(
+        row.try_get::<Value>("", "binding")
+            .map_err(AppError::database)?,
+    )
+    .map_err(|_| unavailable())?;
+    let pid: Option<i32> = row.try_get("", "pid").map_err(AppError::database)?;
+    let origin: Option<String> = row.try_get("", "origin").map_err(AppError::database)?;
+    let port: Option<i32> = row.try_get("", "api_port").map_err(AppError::database)?;
+    let matches_origin = if binding.container.is_some() {
+        origin.as_deref() == Some(expected.origin.as_str())
+            && row
+                .try_get::<Option<i32>>("", "endpoint_pid")
+                .map_err(AppError::database)?
+                == pid
+    } else {
+        port.is_some_and(|port| {
+            (1024..=65535).contains(&port) && expected.origin == format!("http://127.0.0.1:{port}")
+        }) && origin.is_none()
+    };
+    if binding.id != expected.launch_id
+        || binding.agent_id != agent
+        || binding.controller_id != expected.controller_id
+        || binding.kind != AgentKind::Hermes
+        || row
+            .try_get::<String>("", "kind")
+            .map_err(AppError::database)?
+            != "hermes"
+        || row
+            .try_get::<Option<String>>("", "sdlc_role")
+            .map_err(AppError::database)?
+            .as_deref()
+            != Some("project_manager")
+        || binding.api_port != port
+        || !matches_origin
+        || pid.is_none_or(|pid| pid <= 0)
+        || row
+            .try_get::<Option<i32>>("", "runtime_pid")
+            .map_err(AppError::database)?
+            != pid
+        || row
+            .try_get::<String>("", "state")
+            .map_err(AppError::database)?
+            != "gateway_started"
+        || row
+            .try_get::<String>("", "desired_state")
+            .map_err(AppError::database)?
+            != "running"
+        || row
+            .try_get::<bool>("", "recovery")
+            .map_err(AppError::database)?
+        || row
+            .try_get::<bool>("", "archived")
+            .map_err(AppError::database)?
+        || row
+            .try_get::<Option<i64>>("", "effective_revision")
+            .map_err(AppError::database)?
+            != binding.configuration_revision
+    {
+        return Err(unavailable());
+    }
+    for (column, path) in [
+        ("runtime_path", &binding.paths.runtime),
+        ("config_path", &binding.paths.config),
+        ("workspace_path", &binding.paths.workspace),
+        ("logs_path", &binding.paths.logs),
+    ] {
+        if row
+            .try_get::<String>("", column)
+            .map_err(AppError::database)?
+            != *path
+        {
+            return Err(unavailable());
+        }
+    }
+    Ok((binding, pid.ok_or_else(unavailable)?))
 }
 
 async fn audit<C: ConnectionTrait>(

@@ -2,6 +2,14 @@
 
 ## Current Publication And Remaining Work
 
+The original PM proof packet binds private reservations to launch/controller/
+origin/credential, rechecks physical custody after blocking row locks and makes
+terminal replay write-free. Final source verification passes623 workspace cases,
+22 migration cases, three profile cases and one renderer export with byte-identical
+OpenAPI; see [evidence](CHAT_CLARIFICATION_VERIFICATION.md#original-pm-runtime-proof-8-october-2026).
+No migration, SDK pin, installed update or dispatch authority is added. Ordered
+release-head CI and actual PM tools/delivery/checkpoint/resume remain required.
+
 The canonical heartbeat correction is integrated as `7dd19f1` without importing
 unrelated auth/SDK changes. Combined workspace, PostgreSQL migration/profile,
 renderer/OpenAPI, frontend and three-browser fixture evidence is recorded in
@@ -15,6 +23,13 @@ data compatibility, application acceptance and verified rollback/recovery in
 `205a7b9e7d9925ac636533ee4ca8652af31ab462`, with four successful CI checks.
 Its prerequisite PR87/0039, authoritative SDLC admission and full business
 acceptance remain separate; no installed deployment is changed.
+
+The same independent Forge chat is assigned the next mutable PostgreSQL packet:
+verified backup, writer drain/fencing, migration/compatibility, acceptance and
+data-safe restore with an explicit RPO. Its write scope is CI-CD only. Do not
+reinterpret the existing read-only PR88 as proof of this later implementation;
+missing producer authority, unknown writers and unverified backups must hold
+effects. Fleet runtime/PM development remains separate.
 
 Next required gates remain initialized native inventory; trusted Tracker
 assignment and Workflow first-step authority; PM structured tools, saved-answer

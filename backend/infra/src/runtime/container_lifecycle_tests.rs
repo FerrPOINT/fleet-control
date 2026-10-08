@@ -32,7 +32,7 @@ fn agent_container_projects_exclude_shared_infrastructure_and_unowned_names() {
     ));
 }
 
-fn binding(agent: &Agent, controller_id: Uuid) -> RuntimeLaunchBinding {
+pub(super) fn binding(agent: &Agent, controller_id: Uuid) -> RuntimeLaunchBinding {
     let generation = Uuid::new_v4();
     let registration = ContainerRegistration {
         contract_version: 2,
@@ -445,7 +445,7 @@ async fn container_lifecycle_binding_rejects_cross_agent_mounts_identity_and_sou
 }
 
 #[cfg(target_os = "linux")]
-async fn fake_control(
+pub(super) async fn fake_control(
     config: &AppConfig,
     mut launch: RuntimeLaunchBinding,
     unknown: bool,

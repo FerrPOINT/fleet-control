@@ -647,7 +647,15 @@ The response is the flat Workflow `RuntimeObservation`, without a Fleet envelope
 It contains immutable Tracker/assignment/execution identity, Fleet run UUID,
 binding, dispatch key, fence, checkpoint and a fresh observation UUID/status.
 
-Fleet probes the authenticated Hermes `/v1/runs/{runtime_run_id}` on every call.
+Fleet probes the authenticated Hermes `/v1/runs/{runtime_run_id}` only at the
+original origin sealed in its private reservation. New reservations require the
+original launch/controller IDs and derived-credential fingerprint; no secret or
+additional field is added to the public flat callback. Historical unbound records
+remain readable, but cannot obtain runtime proof by guessing the current listener.
+The supervisor verifies custody before/after HTTP and again after the observation
+transaction acquires its blocking locks. This last check rejects a retained child
+that exits while the transaction waits. An identical terminal replay performs a
+fresh read but does not rewrite timestamps, visible run or session events.
 Runtime mapping mismatch, unknown status, unreachable runtime and malformed or
 oversized replies return `503`; contradiction of stored terminal proof returns
 `409`. Cached Fleet run state, EOF and a human-provided status are not proof.

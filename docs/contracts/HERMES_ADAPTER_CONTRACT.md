@@ -1,5 +1,13 @@
 # Hermes Adapter Contract
 
+PM callbacks read only the reservation's sealed original origin and credential
+fingerprint, with matching launch/controller and exact native run/session. The
+supervisor retains lifecycle exclusion through observation commit and checks
+physical custody after blocking database locks, without nested endpoint writes,
+pool reads or waiting on busy global maps. Missing legacy binding stays held;
+terminal replay preserves timestamps/events. See
+[ADR0036](../adr/0036-original-pm-runtime-proof.md); this is not PM dispatch authority.
+
 Pinned Base preparation seals six native skill discovery/disable settings;
 effective validation denies missing or changed policy and every HOME/skills file
 other than the pinned package's materialized `<name>/SKILL.md`, even support files under an

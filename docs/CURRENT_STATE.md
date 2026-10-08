@@ -1,5 +1,31 @@
 # Current State
 
+## Original PM Runtime Proof: 8 October 2026
+
+The source candidate seals each new PM reservation to its original launch,
+controller, origin and credential fingerprint. Legacy unbound records remain
+readable but cannot acquire proof from the current listener. Observation keeps
+lifecycle exclusion, validates locked database provenance and rechecks physical
+custody after blocking locks without nested pool queries or waiting on busy
+global maps. Identical terminal replay preserves timestamps and durable events.
+
+Dedicated component tests cover actual retained-child exit during GET/lock wait,
+single-connection pool, busy mutex hold/retry and container-verifier lock exclusion
+with a controlled Base producer. Rust1.88 fmt/all-target check/strict Clippy and
+623 workspace cases pass with32 opt-in cases ignored. Separate corrected QA
+passes22 migration cases, three central-profile cases and one renderer export;
+OpenAPI is byte-identical. Failed preliminary/supplemental attempts and exact
+cleanup/source fingerprints are recorded in the
+[verification ledger](CHAT_CLARIFICATION_VERIFICATION.md#original-pm-runtime-proof-8-october-2026).
+This verifies defensive component behavior, not live PM. No new migration, public
+callback field, SDK pin, installed runtime or dispatch flag is introduced. See
+[ADR0036](adr/0036-original-pm-runtime-proof.md).
+
+Actual PM dispatch/tools/checkpoint/resume, trusted assignment/first-step,
+native loaded inventory and ordered release remain open. The independent Forge
+chat is now working on mutable PostgreSQL migration/restore; its prior read-only
+OCI packet does not prove that later data-safe delivery path.
+
 ## Combined Heartbeat Closure: 8 October 2026
 
 PR58 head `ef6f275aaef84c8df77e2d9733c2b6ea83e326f3` is integrated as

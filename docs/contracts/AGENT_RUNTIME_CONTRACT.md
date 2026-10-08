@@ -1,5 +1,11 @@
 # Agent Runtime Contract
 
+Hermes PM observation requires the original private launch/controller/origin/
+credential binding, exact run/session readback and physical custody after locked
+database provenance. A replacement listener or unbound legacy record cannot
+release capacity; identical terminal replay performs no writes. This adds no
+dispatch or Workflow authority. See [ADR0036](../adr/0036-original-pm-runtime-proof.md).
+
 Pinned Hermes SDLC package preparation seals native project/external skill
 discovery in a new configuration draft and rejects policy drift or unlisted
 legacy flat Markdown on effective readback. See [policy](../RUNTIME.md#sdlc-skill-discovery-policy).

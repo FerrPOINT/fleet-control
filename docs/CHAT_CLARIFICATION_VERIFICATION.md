@@ -1,5 +1,76 @@
 # Chat Clarification Verification
 
+## Original PM Runtime Proof: 8 October 2026
+
+This packet seals new PM reservations to original launch/controller/origin and
+credential digest. It rejects legacy unbound/replacement context before HTTP,
+requires exact native run/session/flags and checks physical custody after locked
+database provenance. The observer performs no nested pool/endpoint operation and
+holds rather than waits on busy global maps. Exact terminal replay changes no
+timestamp, audit or durable event. Public callback remains18 fields, generated
+OpenAPI/migrations/SDK pin and installed runtime are unchanged.
+
+Full source project `sdlc-qa-fleet-pm-original-64fa7009358b` passes Rust1.88 fmt,
+locked/offline workspace/all-target check and strict Clippy. The workspace suite
+passes623 cases with32 opt-in cases ignored, including eight new original-proof
+component cases and two domain compatibility/validation cases. The controlled
+fixtures use actual disposable PostgreSQL, authenticated Axum HTTP and retained
+Linux child handles; the container-lock case uses a controlled Base producer,
+not an actual Docker Hermes. They do not prove live PM tools/resume, a real
+model, trusted assignment or first-step authority.
+
+The overall first harness exits nonzero after the successful workspace suite:
+its supplemental migration command repeats `central_subject` in the database
+already populated by the workspace run (`historical` username conflict). Its
+incorrect library filter selects zero central-profile tests. Neither is claimed
+as a green supplemental gate; renderer export/OpenAPI did not execute there.
+Log SHA256 `f4a84e23cd453f8661ef9d1c35ae078aeb3f0aec549104d84a8e214832dd7b1a`;
+335-input manifest
+`567430d95b080b9642b388eecd2705f5ba5a94b2d40842b4cead3bd8f525053d`.
+Finally cleanup succeeds with empty exact-project containers/network and all335
+source fingerprints unchanged. Follow-up uses a separate initially empty
+migration database and explicit `--test central_profile`, retaining the same332
+source/SDK/bundle inputs; only three local QA helper inputs change.
+
+Follow-up `sdlc-qa-fleet-pm-original-b6bb36395a6e` exits0 with three actual
+central-profile tests,22 migration tests including message-order on its separate
+empty database, and one explicit renderer export. Rust-generated OpenAPI is
+byte-identical: SHA256
+`1f1f4dd872d53925597cf91b98301d940dd85481b857af85b7a325e056e41667`.
+Completion log `d5a38e5ad2a7041599fd7d6fd780f889bda587a5dab88ab13b54e0ec6d3cd333`;
+335-input manifest
+`769fa14865d3ccf19366de19a9f70a5280f43babb2c2e38e7263336f265d3730`.
+All335 fingerprints remain unchanged. Exact Compose down and independent
+container/network readback confirm cleanup; the workspace three-endpoint Docker
+group audit has no violations. Markdown links pass137 files. The failed first
+supplemental invocation above remains failed; successful follow-up does not
+retroactively change its status. Together these verify this unchanged source
+packet, not exact release-head CI or live PM execution.
+
+Earlier preliminary projects are not green evidence:18fcc94e73d4 exposed a
+strict-Clippy predicate warning;7adfdbb57f5f,25be7a5a5ea6,0e4a92c822f1,
+d039dd42a242 and14d381397a02 were deliberately stopped while fixes for endpoint
+nesting, pool reacquisition, test cleanup/cursor and global-lock contention were
+applied. Each exact owned project was removed and its frozen sources verified.
+No shared cache/volume, accepted image, secret or foreign runtime was changed.
+
+Executed production observer SHA256
+`925445a873718cfbf28a4d65dfc38fd3f088e10c3b8f71619d2fca5192cc54b4`;
+repository observer
+`ec983889bb279ebdbb5290596f5a66f4bdd6494b0dcedb1705871919e18372ec`;
+eight-case component module
+`804bf774552b07237f6f42d94a0c14f5732e2a10779aadba9e5844a9e6a92a8f`;
+private domain binding
+`e3c140ca286465058d9e3e878b8de260b4f5062569380c893dbf31ad17055b6a`.
+
+Independent source review closes the discovered custody-after-lock, exact replay,
+endpoint nesting, pool reacquisition and global mutex/pool contention findings;
+it is not independent executed QA. PM dispatch/structured tools/answer delivery/
+checkpoint/rebind, native loaded inventory, admission, live SDLC, ordered
+single-migration release and exact-head CI remain required. No UI is changed,
+and previous heartbeat browser fixtures are not retagged as current PM evidence.
+
+
 ## Combined Heartbeat Closure: 8 October 2026
 
 Baseline `d520deb58b335868993cc8b91244200f8920a1f5`, unchanged Base

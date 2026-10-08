@@ -1,5 +1,9 @@
 # Java Agent Adapter Contract
 
+The [original PM runtime proof](../adr/0036-original-pm-runtime-proof.md) is
+Hermes-only and supplies no Java PM binding, chat/control capability or admission
+authority. Existing Java lifecycle and readiness behavior remain unchanged.
+
 The Hermes [SDLC skill discovery policy](../RUNTIME.md#sdlc-skill-discovery-policy)
 does not apply to Java configuration, skills or readiness. Java lifecycle and
 capability-gated SDLC limitations are unchanged.

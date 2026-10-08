@@ -52,6 +52,8 @@ use launch_journal::LaunchPhase;
 mod lifecycle_tests;
 mod native_context;
 mod pm_readback;
+#[cfg(all(test, target_os = "linux"))]
+mod pm_readback_tests;
 mod prepared_dispatch;
 mod process_stop;
 mod readiness;
@@ -2545,6 +2547,12 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
         targeted_approval::resolve(self, agent, run, approval, choice).await
     }
 
+    async fn capture_pm_runtime_binding(
+        &self,
+        agent: &Agent,
+    ) -> Result<domain::PmRuntimeBinding, AppError> {
+        pm_readback::capture(self, agent).await
+    }
     async fn probe_pm_run(
         &self,
         agent: &Agent,

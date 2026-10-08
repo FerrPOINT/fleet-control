@@ -224,6 +224,7 @@ mod tests {
                 dispatch_operation_key: "dispatch".into(),
                 checkpoint_ref: None,
                 fence: 1,
+                runtime_binding: None,
             },
             hermes_run_ref: Some("run_one".into()),
             hermes_session_ref: Some("session_one".into()),

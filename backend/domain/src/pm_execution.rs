@@ -89,6 +89,32 @@ impl PmRuntimeStatus {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct PmRuntimeBinding {
+    pub launch_id: Uuid,
+    pub controller_id: Uuid,
+    pub origin: String,
+    pub credential_fingerprint: String,
+}
+
+impl PmRuntimeBinding {
+    pub fn validate(&self) -> Result<(), AppError> {
+        if self.launch_id.is_nil()
+            || self.controller_id.is_nil()
+            || !valid_ref(&self.origin, 512)
+            || self.credential_fingerprint.len() != 64
+            || !self
+                .credential_fingerprint
+                .bytes()
+                .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+        {
+            return Err(AppError::validation("invalid PM runtime binding"));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PmRunReservation {
     pub session_id: Uuid,
     pub session_run_id: Uuid,
@@ -97,11 +123,16 @@ pub struct PmRunReservation {
     pub dispatch_operation_key: String,
     pub checkpoint_ref: Option<String>,
     pub fence: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime_binding: Option<PmRuntimeBinding>,
 }
 
 impl PmRunReservation {
     pub fn validate(&self) -> Result<(), AppError> {
         self.identity.validate()?;
+        if let Some(binding) = &self.runtime_binding {
+            binding.validate()?;
+        }
         if self.session_id.is_nil()
             || self.session_run_id.is_nil()
             || self.fence < 1
@@ -203,5 +234,53 @@ mod tests {
         assert_eq!(value["status"], "cancelled");
         assert!(value["checkpoint_ref"].is_null());
         assert_eq!(value.as_object().unwrap().len(), 18);
+    }
+
+    #[test]
+    fn runtime_binding_is_closed_and_rejects_invalid_fingerprints() {
+        let binding = PmRuntimeBinding {
+            launch_id: Uuid::new_v4(),
+            controller_id: Uuid::new_v4(),
+            origin: "http://127.0.0.1:29100".into(),
+            credential_fingerprint: "a".repeat(64),
+        };
+        binding.validate().unwrap();
+        for hash in ["a".repeat(63), "A".repeat(64), "z".repeat(64), "".into()] {
+            let mut bad = binding.clone();
+            bad.credential_fingerprint = hash;
+            assert!(bad.validate().is_err());
+        }
+        for field in ["launch_id", "controller_id"] {
+            let mut bad = serde_json::to_value(&binding).unwrap();
+            bad[field] = serde_json::json!(Uuid::nil());
+            assert!(
+                serde_json::from_value::<PmRuntimeBinding>(bad)
+                    .unwrap()
+                    .validate()
+                    .is_err()
+            );
+        }
+        let mut extended = serde_json::to_value(&binding).unwrap();
+        extended["secret"] = serde_json::json!("untrusted");
+        assert!(serde_json::from_value::<PmRuntimeBinding>(extended).is_err());
+    }
+
+    #[test]
+    fn historical_reservation_is_readable_without_guessed_binding() {
+        let reservation = PmRunReservation {
+            session_id: Uuid::new_v4(),
+            session_run_id: Uuid::new_v4(),
+            identity: identity(),
+            binding_ref: "binding".into(),
+            dispatch_operation_key: "dispatch".into(),
+            checkpoint_ref: None,
+            fence: 1,
+            runtime_binding: None,
+        };
+        let wire = serde_json::to_value(&reservation).unwrap();
+        assert!(wire.get("runtime_binding").is_none());
+        let historical: PmRunReservation = serde_json::from_value(wire).unwrap();
+        assert!(historical.runtime_binding.is_none());
+        assert_eq!(historical, reservation);
     }
 }

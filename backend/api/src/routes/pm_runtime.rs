@@ -69,7 +69,6 @@ pub async fn readback(
     }
     let agent = ctx.repo.get_agent(identity.agent_id()?).await?;
     let status = ctx.runtime.probe_pm_run(&agent, &record).await?;
-    ctx.repo.observe_pm_run(id, status).await?;
     let reservation = record.reservation;
     Ok(Json(PmRuntimeObservation {
         identity: reservation.identity,

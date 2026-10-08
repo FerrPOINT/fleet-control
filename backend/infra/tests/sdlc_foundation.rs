@@ -1069,6 +1069,21 @@ async fn pm_draft_chat_rejects_foreign_owner_invalid_identity_and_non_pm_agent_w
     assert_eq!(row.try_get::<i64>("", "n").unwrap(), 0);
 }
 
+// Repository-only fixtures do not attest a physical runtime; production supplies the supervisor.
+struct RepositoryPmCustody;
+
+#[async_trait::async_trait]
+impl app::PmRuntimeCustody for RepositoryPmCustody {
+    async fn verify(
+        &self,
+        binding: &domain::PmRuntimeBinding,
+        _launch: &app::runtime_launch::RuntimeLaunchBinding,
+        _pid: i32,
+    ) -> Result<(), shared::AppError> {
+        binding.validate()
+    }
+}
+
 async fn pm_fixture() -> Option<(PostgresFleetRepository, domain::PmRunReservation)> {
     let (repo, _, _) = fixture().await?;
     let subject = Uuid::new_v4().to_string();
@@ -1107,6 +1122,40 @@ async fn pm_fixture() -> Option<(PostgresFleetRepository, domain::PmRunReservati
     repo.bind_task_chat(session.id, binding.clone(), "bind-pm".into())
         .await
         .unwrap();
+    db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE agents SET status='ready' WHERE id=$1",
+        [agent_id.into()],
+    ))
+    .await
+    .unwrap();
+    let concrete = repo.get_agent(agent_id).await.unwrap();
+    let launch = app::runtime_launch::RuntimeLaunchBinding {
+        id: Uuid::new_v4(),
+        agent_id,
+        controller_id: Uuid::new_v4(),
+        kind: AgentKind::Hermes,
+        paths: concrete.paths,
+        api_port: concrete.api_port,
+        phase: "regular".into(),
+        configuration_revision: None,
+        configuration_sha256: None,
+        command_sha256: "a".repeat(64),
+        container: None,
+    };
+    repo.claim_runtime_launch(&launch).await.unwrap();
+    repo.observe_runtime_launch(&launch, "gateway_started", Some(12345))
+        .await
+        .unwrap();
+    repo.update_agent_status(agent_id, AgentStatus::Running)
+        .await
+        .unwrap();
+    let runtime_binding = domain::PmRuntimeBinding {
+        launch_id: launch.id,
+        controller_id: launch.controller_id,
+        origin: format!("http://127.0.0.1:{}", concrete.api_port.unwrap()),
+        credential_fingerprint: "b".repeat(64),
+    };
     Some((
         repo,
         domain::PmRunReservation {
@@ -1128,6 +1177,7 @@ async fn pm_fixture() -> Option<(PostgresFleetRepository, domain::PmRunReservati
             dispatch_operation_key: "dispatch-pm".into(),
             checkpoint_ref: None,
             fence: 1,
+            runtime_binding: Some(runtime_binding),
         },
     ))
 }
@@ -2357,9 +2407,13 @@ async fn pm_reservation_is_atomic_idempotent_and_holds_capacity_when_acceptance_
         Err(shared::AppError::Conflict(_))
     ));
     assert!(
-        repo.observe_pm_run(request.session_run_id, domain::PmRuntimeStatus::Completed)
-            .await
-            .is_err()
+        repo.observe_pm_run(
+            &repo.get_pm_run(request.session_run_id).await.unwrap(),
+            domain::PmRuntimeStatus::Completed,
+            &RepositoryPmCustody,
+        )
+        .await
+        .is_err()
     );
     let mut conflict = request.clone();
     conflict.fence = 2;
@@ -2406,23 +2460,43 @@ async fn pm_reservation_is_atomic_idempotent_and_holds_capacity_when_acceptance_
         .await,
         Err(shared::AppError::Conflict(_))
     ));
-    repo.observe_pm_run(request.session_run_id, domain::PmRuntimeStatus::Running)
-        .await
-        .unwrap();
-    repo.observe_pm_run(request.session_run_id, domain::PmRuntimeStatus::Completed)
-        .await
-        .unwrap();
-    repo.observe_pm_run(request.session_run_id, domain::PmRuntimeStatus::Completed)
-        .await
-        .unwrap();
+    repo.observe_pm_run(
+        &repo.get_pm_run(request.session_run_id).await.unwrap(),
+        domain::PmRuntimeStatus::Running,
+        &RepositoryPmCustody,
+    )
+    .await
+    .unwrap();
+    repo.observe_pm_run(
+        &repo.get_pm_run(request.session_run_id).await.unwrap(),
+        domain::PmRuntimeStatus::Completed,
+        &RepositoryPmCustody,
+    )
+    .await
+    .unwrap();
+    repo.observe_pm_run(
+        &repo.get_pm_run(request.session_run_id).await.unwrap(),
+        domain::PmRuntimeStatus::Completed,
+        &RepositoryPmCustody,
+    )
+    .await
+    .unwrap();
     assert!(matches!(
-        repo.observe_pm_run(request.session_run_id, domain::PmRuntimeStatus::Running)
-            .await,
+        repo.observe_pm_run(
+            &repo.get_pm_run(request.session_run_id).await.unwrap(),
+            domain::PmRuntimeStatus::Running,
+            &RepositoryPmCustody,
+        )
+        .await,
         Err(shared::AppError::Conflict(_))
     ));
     assert!(matches!(
-        repo.observe_pm_run(request.session_run_id, domain::PmRuntimeStatus::Failed)
-            .await,
+        repo.observe_pm_run(
+            &repo.get_pm_run(request.session_run_id).await.unwrap(),
+            domain::PmRuntimeStatus::Failed,
+            &RepositoryPmCustody,
+        )
+        .await,
         Err(shared::AppError::Conflict(_))
     ));
     for action in [
@@ -2516,7 +2590,12 @@ async fn pm_terminal_readback_and_late_stream_updates_serialize_without_reopenin
             .await
             .unwrap();
             assert!(matches!(
-                repo.observe_pm_run(request.session_run_id, status).await,
+                repo.observe_pm_run(
+                    &repo.get_pm_run(request.session_run_id).await.unwrap(),
+                    status,
+                    &RepositoryPmCustody,
+                )
+                .await,
                 Err(shared::AppError::Conflict(_))
             ));
             assert!(
@@ -2541,8 +2620,9 @@ async fn pm_terminal_readback_and_late_stream_updates_serialize_without_reopenin
             .await
             .unwrap();
         }
+        let witnessed = repo.get_pm_run(request.session_run_id).await.unwrap();
         let (proof, delayed) = tokio::join!(
-            repo.observe_pm_run(request.session_run_id, status),
+            repo.observe_pm_run(&witnessed, status, &RepositoryPmCustody),
             repo.update_session_agent_run_dispatch(
                 request.session_run_id,
                 Some("run_terminal_race".into()),
@@ -2930,11 +3010,26 @@ async fn task_approval_rechecks_assignment_after_waiting_for_actor_lock() {
 }
 
 #[tokio::test]
-async fn pm_callback_requires_machine_auth_and_fresh_authenticated_runtime_proof() {
-    let Some((repo, request)) = pm_fixture().await else {
+async fn pm_callback_rejects_unbound_legacy_listener_even_with_matching_run_ids() {
+    let Some((repo, mut request)) = pm_fixture().await else {
         return;
     };
-    repo.reserve_pm_run(request.clone()).await.unwrap();
+    request.runtime_binding = None;
+    assert!(repo.reserve_pm_run(request.clone()).await.is_err());
+    let legacy_db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    legacy_db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "INSERT INTO session_agent_runs(id,session_id,agent_id,runtime_session_id,run_role,state,model_options,created_at,updated_at)
+         VALUES($1,$2,$3,$4,'primary','pending','{}'::jsonb,now(),now())",
+        [request.session_run_id.into(),request.session_id.into(),request.identity.agent_id().unwrap().into(),request.runtime_session_id().into()]
+    )).await.unwrap();
+    legacy_db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "INSERT INTO pm_run_bindings(session_run_id,session_id,agent_id,reservation,dispatch_operation_key,runtime_session_id)
+         VALUES($1,$2,$3,$4,$5,$6)",
+        [request.session_run_id.into(),request.session_id.into(),request.identity.agent_id().unwrap().into(),
+         serde_json::to_value(&request).unwrap().into(),request.dispatch_operation_key.clone().into(),request.runtime_session_id().into()]
+    )).await.unwrap();
     let effective_session = Uuid::new_v4().to_string();
     assert_ne!(effective_session, request.runtime_session_id());
     repo.accept_pm_run(
@@ -3031,13 +3126,8 @@ async fn pm_callback_requires_machine_auth_and_fresh_authenticated_runtime_proof
         .send()
         .await
         .unwrap()
-        .json::<domain::PmRuntimeObservation>()
-        .await
-        .unwrap();
-    assert_eq!(first.status, domain::PmRuntimeStatus::Running);
-    assert_eq!(first.identity, request.identity);
-    assert_eq!(first.session_run_id, request.session_run_id);
-    assert_eq!(first.dispatch_operation_key, request.dispatch_operation_key);
+        .status();
+    assert_eq!(first, reqwest::StatusCode::SERVICE_UNAVAILABLE);
     state.store(2, Ordering::SeqCst);
     assert_eq!(
         client
@@ -3086,17 +3176,14 @@ async fn pm_callback_requires_machine_auth_and_fresh_authenticated_runtime_proof
         .send()
         .await
         .unwrap()
-        .json::<domain::PmRuntimeObservation>()
-        .await
-        .unwrap();
-    assert_eq!(completed.status, domain::PmRuntimeStatus::Completed);
-    assert_ne!(first.observation_ref, completed.observation_ref);
+        .status();
+    assert_eq!(completed, reqwest::StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(
         repo.get_pm_run(request.session_run_id)
             .await
             .unwrap()
             .terminal_status,
-        Some(domain::PmRuntimeStatus::Completed)
+        None
     );
     state.store(0, Ordering::SeqCst);
     assert_eq!(
@@ -3107,9 +3194,9 @@ async fn pm_callback_requires_machine_auth_and_fresh_authenticated_runtime_proof
             .await
             .unwrap()
             .status(),
-        reqwest::StatusCode::CONFLICT
+        reqwest::StatusCode::SERVICE_UNAVAILABLE
     );
-    assert!(reads.load(Ordering::SeqCst) >= 4);
+    assert_eq!(reads.load(Ordering::SeqCst), 0);
     hermes_server.abort();
     assert_eq!(
         client

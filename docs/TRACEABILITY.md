@@ -1,5 +1,15 @@
 # Traceability
 
+Original PM proof hardening: [ADR0036](adr/0036-original-pm-runtime-proof.md),
+private `domain/PmRuntimeBinding`, supervisor capture/authenticated readback and
+repository atomic observation. Eight `runtime/pm_readback_tests` regressions
+cover original identity, complete/partial results, death during GET/row-lock wait,
+persisted custody drift, single-connection pool, busy global maps, container
+verifier exclusion and write-free terminal replay. The legacy callback API case
+rejects an unbound replacement listener before HTTP. Physical child/PG and
+controlled Base producer evidence are not actual Hermes/PM workflow acceptance.
+No migration, public callback field or automatic dispatch authorization is added.
+
 Interrupted configuration recovery: [ADR0035](adr/0035-signed-configuration-recovery.md),
 `runtime/activation_journal.rs` signed identity/private loader and
 `runtime/activation_recovery.rs` guarded restore/acknowledgement; repository

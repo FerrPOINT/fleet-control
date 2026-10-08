@@ -450,8 +450,9 @@ pub trait FleetRepository: Send + Sync {
     }
     async fn observe_pm_run(
         &self,
-        _id: Uuid,
+        _expected: &domain::PmRunRecord,
         _status: domain::PmRuntimeStatus,
+        _custody: &dyn PmRuntimeCustody,
     ) -> Result<(), AppError> {
         Err(AppError::Unavailable(
             "PM run repository is not available".into(),
@@ -1193,6 +1194,16 @@ pub trait AgentProvisioner: Send + Sync {
 }
 
 #[async_trait]
+pub trait PmRuntimeCustody: Send + Sync {
+    async fn verify(
+        &self,
+        binding: &domain::PmRuntimeBinding,
+        launch: &runtime_launch::RuntimeLaunchBinding,
+        pid: i32,
+    ) -> Result<(), AppError>;
+}
+
+#[async_trait]
 pub trait RuntimeSupervisor: Send + Sync {
     async fn resolve_original_approval(
         &self,
@@ -1214,6 +1225,14 @@ pub trait RuntimeSupervisor: Send + Sync {
     ) -> Result<(), AppError> {
         Err(AppError::Unavailable(
             "targeted approvals are unavailable".into(),
+        ))
+    }
+    async fn capture_pm_runtime_binding(
+        &self,
+        _agent: &Agent,
+    ) -> Result<domain::PmRuntimeBinding, AppError> {
+        Err(AppError::Unavailable(
+            "PM runtime binding is not available".into(),
         ))
     }
     async fn probe_pm_run(

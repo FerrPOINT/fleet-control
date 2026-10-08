@@ -685,10 +685,11 @@ impl FleetRepository for PostgresFleetRepository {
     }
     async fn observe_pm_run(
         &self,
-        id: Uuid,
+        expected: &domain::PmRunRecord,
         status: domain::PmRuntimeStatus,
+        custody: &dyn app::PmRuntimeCustody,
     ) -> Result<(), AppError> {
-        pm_execution::observe(self, id, status).await
+        pm_execution::observe(self, expected, status, custody).await
     }
     async fn has_pending_session_dispatch(&self, id: Uuid) -> Result<bool, AppError> {
         let row=self.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,

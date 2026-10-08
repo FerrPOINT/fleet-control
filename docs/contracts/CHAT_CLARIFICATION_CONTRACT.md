@@ -159,6 +159,13 @@ dispatch key, checkpoint and fence. Fleet run UUIDs are globally unique;
 Hermes run references are agent-local. A dedicated callback token is not an agent
 credential. Reservations commit before dispatch, acknowledgement pins the
 effective Hermes session ID, and every callback probes the actual runtime.
+New private reservations seal the original launch ID, owning controller, origin
+and credential fingerprint. A legacy reservation without this binding cannot be
+upgraded from the current endpoint, PID or token. The public callback remains
+flat and unchanged. Lifecycle exclusion spans readback and proof persistence;
+the transaction additionally rechecks physical custody after its blocking locks,
+since process death does not acquire the lifecycle mutex. Identical terminal
+replay must not append another run-change event or rewrite observation timestamps.
 This callback is a prerequisite, not proof that the dispatch/resume saga is wired.
 
 ### Source-Checked Hermes Dispatch Prerequisites

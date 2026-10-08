@@ -879,6 +879,28 @@ SSE event and a valid EOF status read each persist one reply without a second
 prompt POST. These fixtures are not installed Hermes, OS process-tree stop or
 Workflow/Tracker business-completion evidence.
 
+The Linux `runtime::pm_readback_tests` group exercises authenticated HTTP with an
+actual retained `sleep` child and disposable PostgreSQL. It is component evidence,
+not a Hermes/model/PM workflow run. It covers missing/changed/foreign original
+binding (zero listener reads), wrong/partial replies, child exit during HTTP and
+child exit while blocked on an actual agent-row transaction lock with unchanged
+DB metadata. A separate lock-wait case changes desired state. Terminal replay
+must preserve observed/run timestamps, session-event count/cursor and one audit.
+The legacy callback API regression rejects an unbound historical reservation
+even when a replacement listener could return the same run IDs. Repository-only
+fixtures explicitly use a synthetic custody witness; production observations
+use the owning supervisor. A bounded container-binding PostgreSQL regression
+holds the observation's agent/launch/runtime locks with an existing endpoint and
+calls the production custody verifier through a controlled Python Base producer.
+It must finish without re-registering the endpoint; this is not actual Docker
+custody evidence. See [ADR0036](adr/0036-original-pm-runtime-proof.md).
+The positive native callback also runs with a single-connection pool and a bounded
+timeout. Its in-transaction verifier must consume locked launch/PID provenance,
+not acquire another pooled connection.
+A second single-connection regression holds each global custody map while a
+transaction owns the pool connection. The verifier must return unavailable within
+the bound, leave proof/capacity unchanged, and succeed after contention clears.
+
 Run database tests explicitly against isolated disposable PostgreSQL databases:
 
 ```bash

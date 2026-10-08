@@ -118,6 +118,9 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 
 ## Evidence
 
+- [Original PM runtime proof decision](adr/0036-original-pm-runtime-proof.md)
+  separates defensive readback/proof hardening from PM dispatch/resume acceptance.
+
 - [Chat and clarification design proposal](design/CHAT_CLARIFICATION_PREVIEW.md)
 - [PM Draft creation and recovery proposal](design/PM_DRAFT_CREATION_PREVIEW.md) (approval pending)
   is an isolated clickable proposal with fictional data, not an implemented
