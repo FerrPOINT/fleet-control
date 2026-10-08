@@ -2436,6 +2436,39 @@
         }
       }
     },
+    "/api/v2/sessions": {
+      "post": {
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "fleet_create_context_session_v2",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateContextSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContextSessionReceipt"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Original-key context conflict"
+          }
+        }
+      }
+    },
     "/api/v2/sessions/{session_id}/execution-context": {
       "get": {
         "tags": [
@@ -3722,6 +3755,22 @@
           }
         }
       },
+      "ContextSessionReceipt": {
+        "type": "object",
+        "required": [
+          "session",
+          "execution_context"
+        ],
+        "properties": {
+          "execution_context": {
+            "$ref": "#/components/schemas/SessionExecutionContext"
+          },
+          "session": {
+            "$ref": "#/components/schemas/AgentSession"
+          }
+        },
+        "additionalProperties": false
+      },
       "CreateAgentRequest": {
         "type": "object",
         "required": [
@@ -3790,6 +3839,28 @@
             ]
           }
         }
+      },
+      "CreateContextSessionRequest": {
+        "type": "object",
+        "description": "A v2 draft chat has no execution queue until a compatible foundation enables it.",
+        "required": [
+          "primary_agent_id",
+          "title",
+          "context"
+        ],
+        "properties": {
+          "context": {
+            "$ref": "#/components/schemas/ExecutionContextV2"
+          },
+          "primary_agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "CreateDeploymentJobRequest": {
         "type": "object",

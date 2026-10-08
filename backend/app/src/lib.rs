@@ -90,6 +90,15 @@ pub struct RuntimeSessionSnapshot {
 
 #[async_trait]
 pub trait FleetRepository: Send + Sync {
+    async fn create_context_session(
+        &self,
+        _request: domain::execution_context::CreateContextSessionRequest,
+        _actor: Uuid,
+    ) -> Result<domain::execution_context::ContextSessionReceipt, AppError> {
+        Err(AppError::Unavailable(
+            "namespace_context_creation_not_configured".into(),
+        ))
+    }
     async fn session_execution_context(
         &self,
         _session: Uuid,

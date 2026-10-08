@@ -30,3 +30,22 @@ pub async fn bind(
             .await?,
     ))
 }
+
+#[utoipa::path(post, operation_id="fleet_create_context_session_v2", path="/api/v2/sessions", tag="sessions", request_body=domain::execution_context::CreateContextSessionRequest, responses((status=200,body=domain::execution_context::ContextSessionReceipt),(status=409,description="Original-key context conflict")))]
+pub async fn create(
+    State(ctx): State<Arc<AppContext>>,
+    Extension(user): Extension<crate::middleware::CurrentUser>,
+    Json(input): Json<domain::execution_context::CreateContextSessionRequest>,
+) -> Result<Json<domain::execution_context::ContextSessionReceipt>, AppError> {
+    let receipt = ctx.repo.create_context_session(input, user.id).await?;
+    ctx.repo
+        .insert_audit(
+            Some(user.id),
+            "session.context_created",
+            "session",
+            Some(receipt.session.id.to_string()),
+            serde_json::to_value(&receipt.execution_context).map_err(AppError::internal)?,
+        )
+        .await?;
+    Ok(Json(receipt))
+}

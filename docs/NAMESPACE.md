@@ -34,3 +34,5 @@ screenshots/checks не заменяют новую Namespace acceptance.
 PAT без display metadata использует существующий active профиль по точному
 central subject. Lookup не создаёт профиль, не меняет роль и timestamp.
 Machine subjects проверяются перед profile mapping, включая SSE revalidation.
+
+`POST /api/v2/sessions` creates an inert draft and verified v2 context without a pending run or dispatch outbox. The operation key has a reserved domain; original-key retry preserves the chat ID after missing owner ACK. Migration 0091 keeps even an unconfirmed draft closed to starts. Legacy v1 creation still queues its historical run.

@@ -17,6 +17,7 @@ mod m20261001_000010_session_events;
 mod m20261001_000011_message_dispatch;
 mod m20261001_000012_config_revisions;
 mod m20261008_000090_execution_context;
+mod m20261008_000091_context_drafts;
 
 pub struct Migrator;
 
@@ -81,6 +82,7 @@ impl MigratorTrait for CanonicalMigrator {
         let mut migrations = common_migrations();
         migrations.push(Box::new(m20261001_000009_sdlc_foundation::Migration));
         migrations.push(Box::new(m20261008_000090_execution_context::Migration));
+        migrations.push(Box::new(m20261008_000091_context_drafts::Migration));
         migrations
     }
 }
@@ -97,6 +99,7 @@ impl MigratorTrait for LegacyMigrator {
             Box::new(m20261001_000011_message_dispatch::Migration),
             Box::new(m20261001_000012_config_revisions::Migration),
             Box::new(m20261008_000090_execution_context::Migration),
+            Box::new(m20261008_000091_context_drafts::Migration),
         ]);
         migrations
     }
