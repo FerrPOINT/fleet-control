@@ -35,20 +35,83 @@ controlled access-boundary regressions pass. See
 This branch is not a giant main release PR or installed SDLC acceptance.
 Forge PR88's four successful
 checks are for `56f1217`, not subsequent uncommitted reader/proof hardening.
-Its latest completed hardening native PostgreSQL epoch8f596c025d25 records two
-of three cases passing, with OCI not executed. The failure is localized to
-backup rehearsal database creation before release-intent; the exact owner
-subprocess cause remains unknown. Failure-only bounded SQLSTATE/returncode
-diagnostics pass37 pure tests, but do not explain the historical failure.
-A new frozen259-input diagnostic epoch0f560932eb2b is separate and requires
-its own native result. Earlier passing scenarios and old-head CI are not
-current-source acceptance.
+Latest frozen259-input epoch0f560932eb2b completed on8 October with PostgreSQL
+3/3 passing, including all five physical SIGKILL checkpoints. Its37 Python
+diagnostic tests, SQL row/safety smoke, locked check and strict Clippy passed.
+The full packet nevertheless failed in OCI:0/1 passed, with an elapsed timeout
+at the original runner completion wait in `tests/support/task_delivery.rs:287`.
+No complete OCI artifact/rollback acceptance or subsequent full follow-up gates
+ran. Current/frozen source parity and exact-project cleanup were verified.
+Diagnose runner completion without widening timers or treating partial build
+output as success. The previous epoch8f596c025d25 remains a separate failed
+2/3 PostgreSQL packet; its backup rehearsal failure cause is still unknown.
+The new pass does not explain or erase that historical failure. Old-head CI
+does not certify the later dirty source packet.
 
 Parallel Chats PR60 at `99d1c7f` targets the integration branch rather than the
 approved `main`. Directly changing its base would import the broad integration
 tail; do not do that or claim the PR as main-ready. Prepare the dependency/main
 release sequence first. Its component/browser/screenshot evidence does not
 prove a live PM round trip. Tracker and Workflow remain unchanged by this task.
+
+### Remaining Delivery Order And Exit Criteria
+
+Seven work packages remain; they are not seven equally sized fixes or a
+percentage estimate. Implemented/component-verified code is retained. Final
+readiness requires the following exits, not another mock-only demonstration.
+
+1. **Runtime and configuration recovery (Fleet/Base).** Complete loaded native
+   inventory and SDLC readiness; accept drain/activation/rollback, remaining
+   stop/post-commit/ack crash cases and backup loss. Re-run the physical observer
+   matrix with the guarded failed-export cleanup correction. Source tests77
+   container and54 native-host cases do not replace physical acceptance. Exit:
+   isolated agents preserve effective configuration and peer state across every
+   required crash, with unknown effects held and exact cleanup verified.
+2. **Predispatch contract (external producers, Fleet consumer).** Obtain trusted
+   Tracker assignment/claim/heartbeat/fencing and a Workflow first step before
+   model dispatch, without requiring an already-running Fleet run or future
+   decomposition evidence. Exit: expired/foreign assignments and missing steps
+   cause zero model calls; accepted assignments recover by original-key readback.
+   Tracker/Workflow producer fixes require their own writable tasks, not edits here.
+3. **Real PM tools and continuation (Fleet).** Wire structured questions,
+   saved-answer delivery, exact requirement revision, checkpoint/rebind and safe
+   stop into compatible producer contracts. Exit: persistence and delivery are
+   distinguishable; restart/unknown acceptance never redispatches an uncertain
+   command; only the owner confirms the current revision to advance the task.
+4. **Production Chats (Fleet, parallel UI work).** Connect agent/task navigation,
+   dialogue/clarification/requirements, real execution states and owner actions.
+   Preserve conflict input, partial success and reconnect history. Exit: a real
+   PM question/answer/requirements/confirmation flow works in all three browsers;
+   fixture flows and screenshots remain explicitly separate evidence.
+5. **Actual delivery and rollback (Forge, independent work).** Diagnose the OCI
+   runner completion failure, then accept current-source image/artifact identity,
+   candidate pipeline, deployment health/acceptance receipts and rollback. Retain
+   the new PostgreSQL3/3 packet and historical failures. Exit: both physical PG
+   and OCI acceptance plus the full exact-source follow-up gates pass; prerequisite
+   PR87 is handled separately from PR88, with no invented business authority.
+6. **Cross-service business acceptance (all compatible services).** Run the
+   actual seven-agent scenario: PM clarification/publication, two child tasks,
+   defect/Rework, integration and a deployed application with acceptance evidence.
+   Include foreign access, stale lease/revision, duplicate commands and restart.
+   Exit: verified business receipts and live UI captures, not healthy processes
+   or successful component runs.
+7. **Ordered merge-ready publication and documentation (owned repositories).**
+   Reconcile normal history, preserve accepted migration bytes and publish each
+   dependent one-new-migration release packet with exact-head CI/review. Update
+   contracts, ledgers, route/screenshots manifests and operational instructions.
+   Exit: no undisclosed blockers or draft-only evidence presented as a release.
+   Merge and installed-runtime promotion remain separate explicit decisions.
+
+Packages1 and5 can proceed independently. Package4 can finish UI behavior while
+producer work proceeds, but its live exit depends on2 and3. Package6 follows
+runtime/admission/PM/Chats/delivery acceptance; publication is incremental, while
+whole-product readiness follows6. Heavy native Docker checks share a controlled
+execution slot; independent source/test work can remain parallel.
+
+Do not promise a finish date from test counts. After runtime/OCI failures and
+the external admission contract are closed, re-estimate against the remaining
+live scenarios and dependent release units. Until then the honest status is
+substantial verified implementation, with full execution acceptance incomplete.
 
 ### Next Main Release Unit
 
