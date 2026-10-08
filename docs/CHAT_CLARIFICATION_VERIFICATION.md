@@ -110,6 +110,38 @@ cleanup, never raw journal/configuration/credentials. All four observer crash
 combinations remain unaccepted. This QA candidate is still unpublished pending
 acceptance; documentation publication does not include its source changes.
 
+Fifth packet32d5ff9521d1 freezes340 inputs with the same pins and published
+Fleet57924e4. Linux fmt/strict Clippy, wire1/1, fresh linking, four new pure
+diagnostic regressions and212 runtime components pass (zero failed/ignored;
+components315.85s). Actual before-create/restore-bytes recovery still fails at
+the original180s assertion (180.28s total). The safe initial/final records now
+survive disposable-volume cleanup: journal original bytes, identity and roots
+match; candidate is desired/claimed; effective revision matches; no pending
+preparation, open launch, runtime PID or busy session/dispatch exists. Backups
+remain unrestored, candidate activating/drained. Observations are explicitly
+non-atomic. V3 journal has no phase; the actual production hold reason remains
+unavailable, not inferred from these flags. This narrows investigation but is
+not a proven causal fix or physical acceptance.
+
+Current/frozen340 hashes, observer input and permanent runtime match. Driver
+cleanup and parent exact-project containers/networks/volumes readback are empty;
+parent PIDs23236/22836 are absent. All four original image references are
+preserved and own aliases removed. All four observer combinations remain
+unaccepted; neither SDLC dispatch nor installed rollout is enabled.
+
+| 32d5ff diagnostic evidence | SHA256 |
+| --- | --- |
+| `source-manifest.json` | `0bb1ef74b25ab622f30e9574964bf6831c98100b3dab07cfe27c7f16f4a7fbcc` |
+| `build.log` | `f2c02956831cde3851571a6392b7a8a8636aa025cee67ba80c87b9592ae1aedc` |
+| `report.json` | `1ed1c24560a822d7e00d6a4693ec5d6db0f5870c235670b3a675a2d060447bd2` |
+| `activation-progress.json` | `ede0abf28bd9d8eefcd786051cf7768d089fedcfae5e6cf67a9ec99d01480971` |
+| `activation-recover.log` | `da814bcc26e88cb2531300befdb003aa32dc61a158c9d35b5a6b489edc7c6375` |
+
+Next retain only a closed category from the actual production recovery error,
+without raw message/configuration/credentials, before diagnosing and correcting
+the rejected guard. New source diagnostics require their own compile/test gate;
+the32d5ff receipt cannot certify subsequent edits.
+
 The published661-case/33-ignore workspace gate below predates these QA edits;
 neither it nor the second212-case component gate certifies the corrected crash
 test, PM tools, live clarification, complete source inventory or Forge release.

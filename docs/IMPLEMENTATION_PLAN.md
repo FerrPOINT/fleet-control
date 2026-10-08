@@ -33,8 +33,8 @@ migrations;661 Linux/PG and448 frontend cases,84 three-engine fixture flows and
 controlled access-boundary regressions pass. See
 [evidence](CHAT_CLARIFICATION_VERIFICATION.md#main-history-reconciliation-8-october-2026).
 This branch is not a giant main release PR or installed SDLC acceptance.
-Forge PR88's four successful
-checks are for `56f1217`, not subsequent uncommitted reader/proof hardening.
+Forge PR88's latest four successful checks are for docs-only publication
+`d51c260`, not subsequent uncommitted reader/proof or OCI fixture hardening.
 Latest frozen259-input epoch0f560932eb2b completed on8 October with PostgreSQL
 3/3 passing, including all five physical SIGKILL checkpoints. Its37 Python
 diagnostic tests, SQL row/safety smoke, locked check and strict Clippy passed.
@@ -47,6 +47,20 @@ output as success. The previous epoch8f596c025d25 remains a separate failed
 2/3 PostgreSQL packet; its backup rehearsal failure cause is still unknown.
 The new pass does not explain or erase that historical failure. Old-head CI
 does not certify the later dirty source packet.
+
+Fresh OCI-only diagnostic epoch `e6e304554e4d` passes locked check and strict
+Clippy but still fails the actual OCI test at the original runner completion
+timeout (`tests/support/task_delivery.rs:287`;0/1 passed). Offline base
+preparation reaches the accepted runner offer; this is not complete image,
+artifact, deployment or rollback acceptance. Exact disposable-project cleanup,
+current/frozen source parity and preservation of existing volumes/cache are
+verified. PostgreSQL was not rerun in this diagnostic; its prior3/3 receipt
+remains separate. Do not widen timers or mark the full packet ready.
+Later260-input diagnostic `a7c3dc379a3c` passes actual OCI1/1, including real
+runner/artifact/image/data/rollback and both physical SIGKILL recovery cases,
+with locked check/Clippy, source parity and exact cleanup. This closes only
+that owner-local OCI run; fresh whole-packet PG and full follow-up gates remain.
+The pass does not establish the cause of earlier failures or cold-cache reliability.
 
 Parallel Chats PR60 at `99d1c7f` targets the integration branch rather than the
 approved `main`. Directly changing its base would import the broad integration
@@ -71,6 +85,11 @@ readiness requires the following exits, not another mock-only demonstration.
    before-create recovery fails at the original180s deadline. Retain a safe
    phase/guard diagnostic before the next fresh physical attempt; cause remains
    unknown and none of the four observer combinations is accepted.
+   New32d5ff diagnostic passes four Linux pure cases and212 runtime components,
+   but physical recovery again fails at180s: original journal/context matches,
+   no busy session or pending preparation is observed, and backups remain
+   unrestored. Capture the actual closed recovery error category next; do not
+   infer a guard failure or weaken acceptance from the safe state summary.
 2. **Predispatch contract (external producers, Fleet consumer).** Obtain trusted
    Tracker assignment/claim/heartbeat/fencing and a Workflow first step before
    model dispatch, without requiring an already-running Fleet run or future
@@ -93,6 +112,8 @@ readiness requires the following exits, not another mock-only demonstration.
    the new PostgreSQL3/3 packet and historical failures. Exit: both physical PG
    and OCI acceptance plus the full exact-source follow-up gates pass; prerequisite
    PR87 is handled separately from PR88, with no invented business authority.
+   The newa7c3 scoped OCI physical pass is retained; repeatability and the complete
+   current-source native/normal/CLI/OpenAPI/release gates are still required.
 6. **Cross-service business acceptance (all compatible services).** Run the
    actual seven-agent scenario: PM clarification/publication, two child tasks,
    defect/Rework, integration and a deployed application with acceptance evidence.
