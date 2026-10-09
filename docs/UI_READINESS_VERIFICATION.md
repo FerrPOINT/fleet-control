@@ -126,6 +126,29 @@ were not used; live Forge was not accessed.
 
 ## Limits
 
+## Review integration 2026-10-09
+
+Интегрирован актуальный main с Base pin
+`19a7a381ae6dbea61a643bb96189e483fa64df5c` и исправлениями process-log/heartbeat.
+Component regression расширена на три легитимных состояния с разными agent IDs:
+running/ready, running/blocked, stopped/blocked. Все три проходят; lint изменённых
+файлов и финальная UI-сборка проходят. Production component остаётся прежним;
+backend/API/configuration не меняются.
+
+Дополнительно Codex in-app browser проверил финальный built UI на отдельном
+`http://localhost:7998` с API/SSO fixtures из committed E2E helper. После настоящего
+HTTP 503 видны ровно два «Неизвестно», прежняя редакция 7, error panel и retry.
+Shift+Tab переводит фокус на «Сохранить конфигурацию», Tab возвращает на «Повторить»,
+Enter после восстановления fixture возвращает «Работает»/«Готов» без ошибки.
+Сняты новые screenshots на 375/1920/2560; мобильного horizontal overflow нет.
+Загруженный `/assets/index-BYYdn9pj.js` имеет SHA256
+`3d1a8ea8e2cbc1f5fe7afa6fde33d98c97df51b533c919aa0f4744b1b8d67d30`,
+совпадающий с final local build. Evidence хранится в приватном workspace review
+ledger; это UI fixture proof, а не проверка установленного runtime. Свежий
+exact-head hosted CI остаётся отдельным merge gate.
+
+## Acceptance limits
+
 The browser gate covers these nine focused UI cases. It does not establish live
 SSO, physical runtime readiness, backend recovery or complete autonomous SDLC.
 The build passes with Vite's large-chunk warning.

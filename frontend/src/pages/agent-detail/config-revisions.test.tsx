@@ -27,49 +27,57 @@ describe('configuration readiness refresh', () => {
     client.clear()
   })
 
-  it('holds cached readiness as unknown after failure and recovers with keyboard retry', async () => {
-    const healthy = {
-      agent_id: 'agent-qa',
-      runtime_healthy: true,
-      ready_for_sdlc: true,
-      effective_revision: 7,
-      blockers: [],
-    }
-    vi.mocked(fleet.getAgentSdlcReadiness)
-      .mockResolvedValueOnce(healthy)
-      .mockRejectedValueOnce(new Error('Readiness unavailable'))
-      .mockResolvedValue(healthy)
-    const user = userEvent.setup()
-    render(
-      <QueryClientProvider client={client}>
-        <ConfigRevisions agentId="agent-qa" />
-      </QueryClientProvider>,
-    )
-    expect(await screen.findByText(i18n.t('statuses.ready'))).toBeVisible()
-    expect(screen.getByText(i18n.t('statuses.running'))).toBeVisible()
-    const effective = `${i18n.t('configRevisions.effective')}: 7`
-    expect(screen.getByText(effective)).toBeVisible()
-    const retry = screen.getByRole('button', { name: i18n.t('sessions.retry') })
-    await user.click(retry)
-    expect(await screen.findByText(i18n.t('configRevisions.loadError'))).toBeVisible()
-    expect(screen.queryByText(i18n.t('statuses.ready'))).not.toBeInTheDocument()
-    expect(screen.queryByText(i18n.t('statuses.running'))).not.toBeInTheDocument()
-    const unknown = screen.getAllByText(i18n.t('statuses.unknown'))
-    expect(unknown).toHaveLength(2)
-    unknown.forEach((badge) => expect(badge).toBeVisible())
-    expect(screen.getByText(effective)).toBeVisible()
-    expect(retry).toBeEnabled()
-    await user.tab({ shift: true })
-    expect(retry).not.toHaveFocus()
-    await user.tab()
-    expect(retry).toHaveFocus()
-    await user.keyboard('{Enter}')
-    expect(await screen.findByText(i18n.t('statuses.ready'))).toBeVisible()
-    expect(screen.getByText(i18n.t('statuses.running'))).toBeVisible()
-    expect(screen.queryByText(i18n.t('statuses.unknown'))).not.toBeInTheDocument()
-    expect(screen.queryByText(i18n.t('configRevisions.loadError'))).not.toBeInTheDocument()
-    expect(screen.getByText(effective)).toBeVisible()
-    expect(fleet.getAgentSdlcReadiness).toHaveBeenCalledTimes(3)
-    expect(fleet.listAgentConfigRevisions).toHaveBeenCalledTimes(3)
-  })
+  it.each([
+    { runtime: 'running', sdlc: 'ready', runtimeHealthy: true, sdlcReady: true },
+    { runtime: 'running', sdlc: 'blocked', runtimeHealthy: true, sdlcReady: false },
+    { runtime: 'stopped', sdlc: 'blocked', runtimeHealthy: false, sdlcReady: false },
+  ])(
+    'holds cached $runtime/$sdlc as unknown after failure and recovers with keyboard retry',
+    async ({ runtime, sdlc, runtimeHealthy, sdlcReady }) => {
+      const agentId = `agent-${runtime}-${sdlc}`
+    const latest = {
+        agent_id: agentId,
+        runtime_healthy: runtimeHealthy,
+        ready_for_sdlc: sdlcReady,
+        effective_revision: 7,
+        blockers: [],
+      }
+      vi.mocked(fleet.getAgentSdlcReadiness)
+      .mockResolvedValueOnce(latest)
+        .mockRejectedValueOnce(new Error('Readiness unavailable'))
+      .mockResolvedValue(latest)
+      const user = userEvent.setup()
+      render(
+        <QueryClientProvider client={client}>
+          <ConfigRevisions agentId={agentId} />
+        </QueryClientProvider>,
+      )
+      expect(await screen.findByText(i18n.t(`statuses.${sdlc}`))).toBeVisible()
+      expect(screen.getByText(i18n.t(`statuses.${runtime}`))).toBeVisible()
+      const effective = `${i18n.t('configRevisions.effective')}: 7`
+      expect(screen.getByText(effective)).toBeVisible()
+      const retry = screen.getByRole('button', { name: i18n.t('sessions.retry') })
+      await user.click(retry)
+      expect(await screen.findByText(i18n.t('configRevisions.loadError'))).toBeVisible()
+      expect(screen.queryByText(i18n.t(`statuses.${sdlc}`))).not.toBeInTheDocument()
+      expect(screen.queryByText(i18n.t(`statuses.${runtime}`))).not.toBeInTheDocument()
+      const unknown = screen.getAllByText(i18n.t('statuses.unknown'))
+      expect(unknown).toHaveLength(2)
+      unknown.forEach((badge) => expect(badge).toBeVisible())
+      expect(screen.getByText(effective)).toBeVisible()
+      expect(retry).toBeEnabled()
+      await user.tab({ shift: true })
+      expect(retry).not.toHaveFocus()
+      await user.tab()
+      expect(retry).toHaveFocus()
+      await user.keyboard('{Enter}')
+      expect(await screen.findByText(i18n.t(`statuses.${sdlc}`))).toBeVisible()
+      expect(screen.getByText(i18n.t(`statuses.${runtime}`))).toBeVisible()
+      expect(screen.queryByText(i18n.t('statuses.unknown'))).not.toBeInTheDocument()
+      expect(screen.queryByText(i18n.t('configRevisions.loadError'))).not.toBeInTheDocument()
+      expect(screen.getByText(effective)).toBeVisible()
+      expect(fleet.getAgentSdlcReadiness).toHaveBeenCalledTimes(3)
+      expect(fleet.listAgentConfigRevisions).toHaveBeenCalledTimes(3)
+    },
+  )
 })
