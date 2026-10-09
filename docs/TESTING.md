@@ -1,5 +1,17 @@
 # Testing
 
+## Combined Source Qualification
+
+The controls/recovery plus approval14 integration must select all 123 ignored
+cases explicitly (103 foundation), alongside 44 ordinary foundation cases.
+Approval14 contributes 21 new cases: snapshot units 3, exact-pending unit 1,
+approval recovery PG/HTTP 15, logical-clock PG 1 and migration14 PG 1.
+The targeted-approval unit selector runs 2 cases including the inherited ACK
+case. Journal runs 16; controls 18 and atomic terminal 14 run once each.
+Migration14 requires isolated `FLEET_HERMES_TIME_MIGRATION_TEST_DATABASE_URL`.
+Both 15/18 lineages, original-key recovery and strict generated OpenAPI cmp are
+required. Source-only light checks do not imply compile, PG or native acceptance.
+
 ## Hermes Recovery Candidate
 
 The [scoped release inventory](plans/2026-10-09-hermes-recovery-release.md) requires
@@ -14,6 +26,18 @@ and five recovery additions. Recovery families retain their separate databases.
 Existing journal (15), atomic ACK (11), GET readback (5), lineage and workspace
 gates are retained. Local light checks are not Rust compilation, PG/HTTP/concurrency
 execution or installed/native compatibility. No previous packet accepts this new tree.
+
+## Approval Recovery Release Candidate
+
+Unit14 has21 new named cases: snapshot unit3, exact-pending unit1, recovery
+PG/HTTP15, logical-clock PG1 and migration1. Targeted unit group is2 including
+its inherited ACK case; journal12 PG group is16. Required commands/envs and
+remaining acceptance gaps are in [unit14 plan](plans/2026-10-09-approval-recovery-release.md).
+CI explicitly selects ignored PG/migration cases, checks all exact new names
+and counts, and runs the updated historical human/unknown-ACK HTTP case.
+Lineage10, whole sorted SSE ledger including13/14, four-successor task-chat
+rollback and all inherited gates are retained. These Rust/PG gates are prepared,
+not executed locally. Loopback restarts do not qualify real Hermes processes.
 
 ## Durable Runtime Controls Unit13
 

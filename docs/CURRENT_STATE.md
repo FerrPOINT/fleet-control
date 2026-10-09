@@ -1,5 +1,20 @@
 # Current State
 
+## Combined Controls, Recovery And Approval Candidate
+
+Normal source integration joins frozen controls/recovery `ed798638` and
+approval14 `68b59625`. Both original-key unknown acceptance and accepted-run
+approval/terminal readback remain authenticated and non-dispatching; task/PM
+bindings remain excluded. The common keyset queue retains both branches.
+Controls retain 18 cases and atomic terminal retains 14, each selected once.
+The combined inventory has 123 explicitly selected default-ignored cases,
+including 103 foundation cases; 44 ordinary foundation cases remain required.
+Migration13 is inherited unchanged; migration14 alone is added over `ed798638`
+(15/18 lineage entries). This is a dependency integration, not a broad release PR.
+Generated contracts remain pending legitimate Rust generation and strict cmp.
+No Cargo, Docker, PostgreSQL or native acceptance was executed for this merge.
+The source-slice sections below retain their historical scope and evidence.
+
 ## Combined Recovery And Controls Candidate
 
 Normal integration retains recovery `1595552b7853cdaf201720d2fb4d84c62cf4ddcd`
@@ -23,6 +38,15 @@ Focused PostgreSQL/HTTP/concurrency selectors are mandatory in CI, not executed
 acceptance for this candidate. Native source/plugin/managed compatibility remains
 unverified. See the [scope and inventory](plans/2026-10-09-hermes-recovery-release.md).
 All older packet evidence below remains qualified to its original source.
+
+## Approval Recovery Source Candidate: 9 October 2026
+
+[Unit14](plans/2026-10-09-approval-recovery-release.md) builds on immutable
+controls13 `fc6ef12`. It restores exact pending approvals by authenticated GET,
+retains durable uncertain decisions without another native POST, and adds only
+migration14 for logical journal time ordering. No UI/SDK/locks or migrations15..22
+are imported. Compilation, PostgreSQL, real Hermes and combined contract/UI
+acceptance are pending. `runtime_ready=false`; installed runtime is unchanged.
 
 ## Runtime Controls Source Candidate: 9 October 2026
 
