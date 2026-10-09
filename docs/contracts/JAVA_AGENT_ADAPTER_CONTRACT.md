@@ -1,5 +1,8 @@
 # Java Agent Adapter Contract
 
+[Automatic Docker preparation unit17](../AUTOMATIC_CONTAINER_PREPARATION_RELEASE.md)
+is Hermes-only and does not change Java provisioning, process paths or readiness.
+
 [Mapped controller recovery unit16](../MAPPED_CONTROLLER_RECOVERY_RELEASE.md) is
 Hermes-only; it does not change Java process lifecycle or readiness.
 

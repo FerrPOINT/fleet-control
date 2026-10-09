@@ -1,5 +1,9 @@
 # Hermes Adapter Contract
 
+[Unit17](../AUTOMATIC_CONTAINER_PREPARATION_RELEASE.md) automates configured first
+generation preparation and original unknown readback; operator-prepared input is
+only the legacy path. Native acceptance and replacement remain pending.
+
 Unit16 supports original mapped v3 custody and same-container physical controller
 restart recovery without changing original run origins, credentials or POST
 permits. Automatic generation preparation/replacement and config activation

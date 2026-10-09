@@ -4,6 +4,28 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
 
+/// Only hashes and non-secret identities enter PostgreSQL. Exact credentials stay
+/// in the immutable 0600 intent outside all agent mounts.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContainerPreparationClaim {
+    pub agent_id: Uuid,
+    pub generation: Uuid,
+    pub operation_id: Uuid,
+    pub paths: AgentPaths,
+    pub api_port: Option<i32>,
+    pub configuration_revision: Option<i64>,
+    pub configuration_sha256: Option<String>,
+    pub intent_sha256: String,
+}
+
+#[derive(Clone)]
+pub struct ContainerPreparation {
+    pub claim: ContainerPreparationClaim,
+    pub attempted: bool,
+    pub receipt: Option<PreparedContainer>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContainerEngineIdentity {

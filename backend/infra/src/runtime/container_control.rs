@@ -301,6 +301,54 @@ pub(crate) fn validate_registration(value: &ContainerRegistration) -> Result<(),
 }
 
 impl ContainerControl {
+    pub(super) async fn resolve_mounts(
+        &self,
+        files: &ContainerLaunchFiles,
+        controller: &shared::config::MappingControllerConfig,
+        local_root: &str,
+    ) -> Result<app::container_runtime::ContainerMapping, AppError> {
+        let (status, value) = self
+            .call(
+                files,
+                "resolve_mounts",
+                json!({
+                    "controller":controller,"local_root":local_root
+                }),
+            )
+            .await?;
+        if status != 0 || files.mapped.is_some() || files.recovery.is_some() {
+            return Err(held());
+        }
+        serde_json::from_value(value).map_err(|_| held())
+    }
+
+    pub(super) async fn preparation(
+        &self,
+        files: &ContainerLaunchFiles,
+        process: &Value,
+        operation_id: Uuid,
+        creation_compose: &std::path::Path,
+        creation_journal: &std::path::Path,
+        first_delivery: bool,
+    ) -> Result<PreparationReceipt, AppError> {
+        let action = if first_delivery {
+            "prepare"
+        } else {
+            "reconcile_preparation"
+        };
+        let (status, value) = self
+            .call(
+                files,
+                action,
+                json!({
+                    "process":process,"operation_id":operation_id,
+                    "creation_compose":creation_compose,"creation_journal":creation_journal
+                }),
+            )
+            .await?;
+        validate_preparation_receipt(value, status, files, operation_id)
+    }
+
     pub fn new(python: PathBuf, source: ControlSource, context: String) -> Result<Self, AppError> {
         if python.as_os_str().is_empty()
             || !source.root.is_absolute()
@@ -616,6 +664,54 @@ impl ContainerControl {
         }
         Ok(receipt)
     }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct PreparationReceipt {
+    state: String,
+    pub policy: Value,
+    pub registration: ContainerRegistration,
+}
+
+pub(super) fn validate_preparation_receipt(
+    value: Value,
+    status: i32,
+    files: &ContainerLaunchFiles,
+    operation_id: Uuid,
+) -> Result<PreparationReceipt, AppError> {
+    let receipt: PreparationReceipt = serde_json::from_value(value).map_err(|_| held())?;
+    let r = &receipt.registration;
+    validate_registration(r)?;
+    if !receipt.policy.is_object() || !receipt.policy["network"].is_object() {
+        return Err(held());
+    }
+    let mut unallocated = receipt.policy.clone();
+    unallocated["network"]["id"] = json!("0".repeat(64));
+    if status != 0
+        || receipt.state != "prepared"
+        || unallocated != files.policy
+        || r.operation_id != operation_id
+        || receipt.policy["contract_version"] != r.contract_version
+        || receipt.policy["resource_id"] != r.resource_id.to_string()
+        || receipt.policy["generation"] != r.generation.to_string()
+        || canonical_hash(&receipt.policy)? != r.policy_sha256
+        || receipt.policy["network"]["id"]
+            .as_str()
+            .is_none_or(|s| !hash(s) || s == "0".repeat(64))
+        || files.recovery.is_some()
+    {
+        return Err(held());
+    }
+    match (&files.mapped, &r.mount_mapping_sha256) {
+        (Some(m), Some(h))
+            if r.contract_version == 3
+                && *h == canonical_hash(&m.mapping)?
+                && r.engine == m.mapping.engine => {}
+        (None, None) if r.contract_version == 2 => {}
+        _ => return Err(held()),
+    }
+    Ok(receipt)
 }
 
 async fn bounded(reader: impl AsyncRead + Unpin) -> Result<Vec<u8>, AppError> {

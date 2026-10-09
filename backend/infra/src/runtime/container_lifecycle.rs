@@ -20,7 +20,7 @@ fn held() -> AppError {
     )
 }
 
-async fn private_root(path: &str) -> Result<PathBuf, AppError> {
+pub(super) async fn private_root(path: &str) -> Result<PathBuf, AppError> {
     if !cfg!(target_os = "linux") {
         return Err(held());
     }
@@ -53,7 +53,11 @@ async fn private_root(path: &str) -> Result<PathBuf, AppError> {
     Ok(root)
 }
 
-async fn private_file(root: &Path, path: &Path, limit: u64) -> Result<Vec<u8>, AppError> {
+pub(super) async fn private_file(
+    root: &Path,
+    path: &Path,
+    limit: u64,
+) -> Result<Vec<u8>, AppError> {
     if !path.is_absolute() || path.parent() != Some(root) {
         return Err(held());
     }
@@ -201,7 +205,12 @@ impl LocalRuntimeSupervisor {
     pub(super) async fn container_mode(&self, agent: &Agent) -> Result<bool, AppError> {
         Ok(agent.kind == AgentKind::Hermes
             && (self.config.fleet.container_control.is_some()
-                || self.repo.get_container_launch(agent.id).await?.is_some()))
+                || self.repo.get_container_launch(agent.id).await?.is_some()
+                || self
+                    .repo
+                    .get_container_preparation(agent.id)
+                    .await?
+                    .is_some()))
     }
 
     pub(super) async fn container_files(
@@ -491,15 +500,29 @@ impl LocalRuntimeSupervisor {
             .as_ref()
             .ok_or_else(held)?;
         let root = private_root(&config.controller_root).await?;
-        let p: PreparedContainer = serde_json::from_slice(
-            &private_file(
-                &root,
-                &root.join(format!("{}.container-prepared.json", agent.id)),
-                65_536,
+        let p: PreparedContainer = if config.provisioning.is_some()
+            || self
+                .repo
+                .get_container_preparation(agent.id)
+                .await?
+                .is_some()
+        {
+            if self.repo.get_container_launch(agent.id).await?.is_some() {
+                // Preparing another generation is a separate replacement release.
+                return Err(held());
+            }
+            self.prepare_container(agent).await?
+        } else {
+            serde_json::from_slice(
+                &private_file(
+                    &root,
+                    &root.join(format!("{}.container-prepared.json", agent.id)),
+                    65_536,
+                )
+                .await?,
             )
-            .await?,
-        )
-        .map_err(|_| held())?;
+            .map_err(|_| held())?
+        };
         self.checked_prepared(agent, &p).await?;
         let (control, files) = self.container_files(&p.container).await?;
         let observed = control.observe(&files, &p.container.registration).await?;

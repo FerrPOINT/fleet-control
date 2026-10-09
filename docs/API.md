@@ -1,5 +1,9 @@
 # API
 
+Public routes are unchanged by [automatic Docker preparation unit17](AUTOMATIC_CONTAINER_PREPARATION_RELEASE.md).
+The configured initial-generation path no longer requires an operator-prepared
+document; it still requires original physical and admission gates.
+
 Unit16 adds no public route or DTO. Its private mapped-volume/controller recovery
 contract and pending native gates are in [the source handoff](MAPPED_CONTROLLER_RECOVERY_RELEASE.md).
 

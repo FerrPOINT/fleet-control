@@ -229,6 +229,24 @@ pub struct ContainerControlConfig {
     pub controller_root: String,
     #[serde(default)]
     pub mapping_controller: Option<MappingControllerConfig>,
+    #[serde(default)]
+    pub provisioning: Option<ContainerProvisioningConfig>,
+}
+
+/// Trusted deployment recipe, never populated from agent settings or HTTP input.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContainerProvisioningConfig {
+    pub project: String,
+    pub image_id: String,
+    pub task: String,
+    pub purpose: String,
+    pub user: String,
+    pub entrypoint: Vec<String>,
+    pub network_internal: bool,
+    pub pids_limit: u32,
+    pub memory_bytes: u64,
+    pub nano_cpus: u64,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

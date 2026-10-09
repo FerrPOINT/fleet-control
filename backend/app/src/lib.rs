@@ -123,6 +123,37 @@ pub struct HermesDispatchIntent {
 
 #[async_trait]
 pub trait FleetRepository: Send + Sync {
+    async fn get_container_preparation(
+        &self,
+        _agent: Uuid,
+    ) -> Result<Option<container_runtime::ContainerPreparation>, AppError> {
+        Ok(None)
+    }
+    async fn claim_container_preparation(
+        &self,
+        _claim: &container_runtime::ContainerPreparationClaim,
+    ) -> Result<container_runtime::ContainerPreparation, AppError> {
+        Err(AppError::Unavailable(
+            "Container preparation journal is unavailable".into(),
+        ))
+    }
+    async fn claim_container_preparation_delivery(
+        &self,
+        _claim: &container_runtime::ContainerPreparationClaim,
+    ) -> Result<bool, AppError> {
+        Err(AppError::Unavailable(
+            "Container preparation journal is unavailable".into(),
+        ))
+    }
+    async fn acknowledge_container_preparation(
+        &self,
+        _claim: &container_runtime::ContainerPreparationClaim,
+        _receipt: &container_runtime::PreparedContainer,
+    ) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "Container preparation journal is unavailable".into(),
+        ))
+    }
     async fn get_container_recovery(
         &self,
         _generation: Uuid,

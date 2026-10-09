@@ -6,7 +6,7 @@ fn held() -> AppError {
     AppError::Unavailable("Original container journal requires reconciliation".into())
 }
 
-async fn idle(txn: &DatabaseTransaction, agent: Uuid) -> Result<(), AppError> {
+pub(super) async fn idle(txn: &DatabaseTransaction, agent: Uuid) -> Result<(), AppError> {
     let row = txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "SELECT EXISTS(SELECT 1 FROM agent_config_heads WHERE agent_id=$1 AND draining)
             OR EXISTS(SELECT 1 FROM session_agent_runs WHERE agent_id=$1

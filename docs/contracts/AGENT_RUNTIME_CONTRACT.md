@@ -1,5 +1,9 @@
 # Agent Runtime Contract
 
+Configured initial Docker generation preparation now uses original Base custody
+and a one-shot durable permit. See [unit17](../AUTOMATIC_CONTAINER_PREPARATION_RELEASE.md);
+it does not grant runtime admission or implement replacement/config activation.
+
 Unit16 extends Hermes custody with original Base named-volume subpaths and
 fenced physical controller restart recovery. It does not complete automatic
 provisioning/restart/config activation. See [the unit contract](../MAPPED_CONTROLLER_RECOVERY_RELEASE.md).

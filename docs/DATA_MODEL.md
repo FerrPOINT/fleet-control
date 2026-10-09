@@ -1,5 +1,9 @@
 # Data Model
 
+Private `runtime_container_preparations` (unit17) stores immutable initial-generation
+intent hashes, one create-delivery permit and the original prepared receipt.
+See [custody and downgrade fences](AUTOMATIC_CONTAINER_PREPARATION_RELEASE.md).
+
 Unit16 adds `runtime_container_recoveries` with frozen per-generation epoch
 commands/ACKs and durable bounded heartbeat delivery, while retaining original
 000015 launch identity. See [the private unit contract](MAPPED_CONTROLLER_RECOVERY_RELEASE.md).

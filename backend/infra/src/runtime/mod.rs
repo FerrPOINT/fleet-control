@@ -26,6 +26,9 @@ mod acceptance_readback;
 pub(crate) mod container_control;
 mod container_lifecycle;
 mod container_mapping;
+mod container_preparation;
+#[cfg(test)]
+mod container_preparation_tests;
 mod container_recovery;
 mod hermes_wire;
 mod pm_readback;
