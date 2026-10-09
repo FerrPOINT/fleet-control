@@ -8,7 +8,7 @@ records work ownership, not completion or permission to deploy.
 The renewed parallel split keeps the existing workers and their isolated
 checkouts rather than restarting completed work:
 
-### Latest Review Checkpoint
+### Predecessor Review Checkpoint
 
 - Parent fixture/lineage fix0be22c7b3f32f1547bce907b6a30c0ae108fd877 is
   independently closed at SOURCE/PURE level:16/16 loader/utility cases, zero
@@ -51,8 +51,10 @@ findings do not certify an unexecuted compiler, database or live runtime gate.
   has sole parentf326. Worker reports21 Linux fake-contract cases and15 Windows
   loader/hash/README cases passing. Two new Rust and four PG regressions have not
   executed. Unreleased migration19 is extended; no upgrade of an already-applied
-  f32619 is claimed. Parent normal merge-tree preflight is conflict-free and
-  preserves0be22c7 fixture fixes. Independent review precedes integration.
+  f32619 is claimed. Independent F6 review closes SOURCE/STATIC with9 checks and
+  no new actionable finding. Normal parent merge1801201c3ad5c47248edec45fcde6609b7a32bd3
+  preserves both parents and0be22c7 fixture fixes. Combined16 loader/hash cases
+  pass in6.114s and Rust formatting passes; compile/PG/native are still pending.
 - Forge timing successordaf044da141c0e03847e9b3d9406c4d04f823917 has sole
   parent34c. Parent repeats79/79 pure checks, zero skips,1.383s. Its component
   lock SHA256 is c58c63c4f203873ef4565d4240a85b6b8734ac1c309fa3c874f84576e687274e.
@@ -64,8 +66,12 @@ findings do not certify an unexecuted compiler, database or live runtime gate.
   Retained report run-c74568ddf359 records scratch absence and seal
   685f2a8cd4ccb5f18dfa8a203b16330af75b91bd6795c548beb33a7133dac572.
   Eight real-module probes remain distinct from16 synthetic oracle cases.
-  Independent closure is pending. Earlier failed run-e35178825a60 is preserved;
-  its cause is not reinterpreted. Producer admission remains BLOCKED/live=false.
+  Independent review closes the missing/FAIL-receipt defect and revalidates this
+  actual receipt, but reproduces a new P2: tree lookup uses a stale remaining
+  duration and permits validation after the90-second deadline. Pascal owns an
+  absolute-deadline successor; Feynman owns closure. Earlier failed
+  run-e35178825a60 is preserved; its cause is not reinterpreted. Producer admission
+  remains BLOCKED/live=false.
 - Parent chat successor8e5d75d allows only original-key reconciliation after
   the final question closes new-answer permission. Node22 passes334 tests,
   typecheck/targeted lint/format/build, and3/3 browsers in2.7m. Nine screenshot
