@@ -81,7 +81,10 @@ impl OwnedAuth {
 #[tokio::test]
 #[ignore = "requires source-qualified disposable real Base Auth, not an HTTP stub"]
 async fn real_base_delegation_wire_replay_conflict_and_revoke_match_fleet() {
-    assert_eq!(required("FLEET_REAL_AUTH_TEST_OWNED"), "disposable-compose");
+    assert_eq!(
+        required("FLEET_REAL_AUTH_TEST_OWNED"),
+        "source-qualified-disposable"
+    );
     assert_eq!(
         required("FLEET_REAL_AUTH_TEST_SOURCE_SHA"),
         "01388dfb43332cbe5837fd5e1fadccf09cb8886d"

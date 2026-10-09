@@ -1,6 +1,7 @@
 # Persisted PM Credential Preparation
 
-Status: isolated source candidate; Linux/PostgreSQL and exact-head CI pending.
+Status: partial Linux/PostgreSQL evidence; fixture correction and current-main
+integration pending. Not merge-ready.
 
 ## Scope
 
@@ -19,7 +20,7 @@ Counter-review found the copied introspection fixture omitted Base19a7's require
 `display_name`. The closed DTO and HTTP fixture now match all four actual Base
 fields; a regression keeps missing/invalid display names and unknown fields
 rejected. This fixes a real opt-in parent-verification failure, not permission
-relaxation. Execution of the regression remains part of the pending Linux gate.
+relaxation. The regression passed in the Linux gate described below.
 
 ## Behavior And Security
 
@@ -46,8 +47,9 @@ main15cae15 exposes `/auth/tokens/delegate`. The fake HTTP endpoint in the
 credential tests proves recovery logic only, not installed Auth compatibility.
 Base126 head2754a6d is Draft/conflicting; isolated merge8a34598 and
 test-contract correction30f355a (format follow-up01388df)
-preserves that history and main15cae15, but its Linux/PG and release gates remain
-pending. Build SDK and deployed Auth are separate pins: do not silently repin
+preserves that history and main15cae15. Base packetfe8c01e6259f passed14/14 gates,
+13+9 actual Auth/PG cases,10 parity checks and exact cleanup. Publication and
+installed acceptance remain pending. Build SDK and deployed Auth are separate pins: do not silently repin
 the SDK, promote Auth, or enable credentials from fixture success. Before opt-in,
 verify the real deployed/candidate Auth endpoint, policy, strict introspection,
 replay/revoke/expiry and migration compatibility. This dependency is not model
@@ -63,9 +65,15 @@ and an owned disposable database. The test creates its own user and parent PAT,
 restarts Auth with exact-subject delegation policy and kills/waits its child
 even after assertion failure. It never accepts installed runtime credentials.
 Environment assertions alone are not provenance.
-This case does not contact Tracker, claim a lease or test model dispatch. It has
-not run yet. The prepared twenty-stage gate explicitly includes both the real
+This case does not contact Tracker, claim a lease or test model dispatch. It
+passed explicitly in packet4ed36ce828ea. The twenty-stage gate includes both the real
 Auth build and this consumer case alongside fixture/DB recovery checks.
+
+The new `real-base-auth` hosted CI job makes the same consumer mandatory. It
+uses isolated GitHub-managed job services (not a claimed local Compose group),
+exports committed sources and records source/binary hashes without PAT inputs.
+It cannot pass until Base126 publishes the pinned Auth commit. Its configuration
+is added here; no hosted execution is claimed before this candidate is published.
 
 Run locked Linux Rust1.88 fmt/check/strict Clippy/workspace tests, explicit real
 PostgreSQL `sdlc_foundation`, all ignored migration lineage cases, dedicated
@@ -75,7 +83,17 @@ Rust OpenAPI byte parity. Set `FLEET_TEST_DATABASE_URL`,
 and `FLEET_MESSAGE_ORDER_TEST_DATABASE_URL` to separate owned disposable DBs.
 An absent database variable or skipped case is not acceptance.
 
-Local QA waits for the coordinator's exclusive heavy slot. Export exact committed Git
+Packet4ed36ce828ea passed15 stages, including actual Auth consumer,7 credential
+unit cases,10 PG recovery cases,47 foundation cases, workspace and10 lineage
+cases. The inherited approval SSE fixture failed on its stale migration count
+(11 versus12), before exercising SSE. The corrected fixture compares exact
+canonical ledger versions and requires the credentials migration. Its Linux/PG
+verification and four later gates remain pending. All10 independent input/cleanup
+checks passed; permanent runtime was unchanged. Preserve this failed packet.
+
+Reconcile the current main34aaec0 before the next full gate rather than rebuild
+an already divergent candidate twice. Local QA requires the exclusive heavy slot.
+Export exact committed Git
 sources; use verified Base ComposeHelper journal v2, owned temporary projects,
 capacity guards and exact disposable cleanup. Preserve external caches,
 runtime volumes, backups, secrets and earlier evidence. No gate or publication

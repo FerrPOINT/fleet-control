@@ -612,7 +612,8 @@
       "agent_down": "Agent unavailable",
       "agent_recovered": "Agent recovered",
       "agent_restart_loop": "Restart loop",
-      "agent_heartbeat_stale": "Agent heartbeat is stale"
+      "agent_heartbeat_stale": "Agent heartbeat is stale",
+      "heartbeat_stale": "Agent heartbeat is stale"
     }
   },
   "logs": {
