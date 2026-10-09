@@ -1,5 +1,9 @@
 # Changelog
 
+- Prepare a separately gated PM credential journal release with immutable
+  issuance/replay metadata, one additive migration in both lineages, fresh
+  Base/Tracker checks and no model-admission side effect.
+
 ## [Unreleased]
 
 - Reject duplicate Authorization headers on PM runtime readback before parsing

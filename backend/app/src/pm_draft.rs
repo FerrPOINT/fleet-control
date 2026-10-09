@@ -34,10 +34,29 @@ pub trait PmDraftTracker: Send + Sync {
     ) -> Result<TrackerPmDraftReservation, AppError>;
 }
 
+#[async_trait]
+pub trait PmDraftCredentials: Send + Sync {
+    /// Persist issuance intent before external mutation; verify the child at Tracker.
+    async fn prepare(
+        &self,
+        repo: &dyn FleetRepository,
+        operation: &PmDraftOperation,
+    ) -> Result<(), AppError>;
+}
+
 pub async fn continue_creation(
     repo: &dyn FleetRepository,
     tracker: &dyn PmDraftTracker,
+    operation: PmDraftOperation,
+) -> Result<PmDraftCreationResponse, AppError> {
+    continue_creation_with_credentials(repo, tracker, operation, None).await
+}
+
+pub async fn continue_creation_with_credentials(
+    repo: &dyn FleetRepository,
+    tracker: &dyn PmDraftTracker,
     mut operation: PmDraftOperation,
+    credentials: Option<&dyn PmDraftCredentials>,
 ) -> Result<PmDraftCreationResponse, AppError> {
     let agent = repo.get_agent(operation.request.agent_id).await?;
     if agent.kind != AgentKind::Hermes
@@ -128,6 +147,10 @@ pub async fn continue_creation(
             PmDraftProof::Chat(session.id),
         )
         .await?;
+    if let Some(credentials) = credentials {
+        // This remains pre-admission. No model, lease claim or workflow mutation is issued.
+        credentials.prepare(repo, &operation).await?;
+    }
     // There is deliberately no Hermes dispatch here: admission is a separate authority.
     Ok(operation.response())
 }

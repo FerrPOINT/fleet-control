@@ -308,6 +308,18 @@ async fn authorized_project(
     Ok(())
 }
 
+fn credential_provider(
+    ctx: &AppContext,
+) -> Result<Option<&dyn app::pm_draft::PmDraftCredentials>, AppError> {
+    if !ctx.config.pm.credentials.enabled {
+        return Ok(None);
+    }
+    ctx.pm_credentials
+        .as_deref()
+        .map(Some)
+        .ok_or_else(|| AppError::Unavailable("PM scoped credentials are not configured".into()))
+}
+
 #[utoipa::path(post,path="/api/v1/projects/{project_id}/pm-drafts",tag="task-chats",operation_id="create_pm_draft",
     params(("project_id"=Uuid,Path)),request_body=CreatePmDraftRequest,
     responses((status=202,body=PmDraftCreationResponse),(status=400),(status=401),(status=403),(status=404),(status=409),(status=422),(status=503)))]
@@ -349,11 +361,20 @@ pub async fn create(
             input: None,
             reservation: None,
             session_id: None,
+            credentials: None,
         })
         .await?;
     Ok((
         StatusCode::ACCEPTED,
-        Json(app::pm_draft::continue_creation(ctx.repo.as_ref(), &gateway, operation).await?),
+        Json(
+            app::pm_draft::continue_creation_with_credentials(
+                ctx.repo.as_ref(),
+                &gateway,
+                operation,
+                credential_provider(&ctx)?,
+            )
+            .await?,
+        ),
     ))
 }
 
@@ -472,7 +493,15 @@ pub async fn continue_operation(
     };
     Ok((
         StatusCode::ACCEPTED,
-        Json(app::pm_draft::continue_creation(ctx.repo.as_ref(), &gateway, operation).await?),
+        Json(
+            app::pm_draft::continue_creation_with_credentials(
+                ctx.repo.as_ref(),
+                &gateway,
+                operation,
+                credential_provider(&ctx)?,
+            )
+            .await?,
+        ),
     ))
 }
 
@@ -627,6 +656,7 @@ mod tests {
             input: None,
             reservation: None,
             session_id: None,
+            credentials: None,
         };
         op.apply(PmDraftProof::Created(TrackerCreatedDraft {
             tracker_instance_id: binding.tracker_instance_id.clone(),
@@ -797,6 +827,7 @@ mod tests {
             input: None,
             reservation: None,
             session_id: None,
+            credentials: None,
         };
         assert!(gateway.find_draft(&op).await.unwrap().is_none());
         assert!(gateway.find_draft(&op).await.unwrap().is_none());

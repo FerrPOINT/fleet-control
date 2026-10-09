@@ -145,6 +145,13 @@ jobs:
           cargo run --locked -p migration -- down -n 1
           cargo run --locked -p migration -- up
           cargo run --locked -p migration -- status
+      - name: Additive credential journal migration and legacy downgrade
+        env:
+          PGPASSWORD: fleet_control
+          FLEET_CREDENTIAL_MIGRATION_TEST_DATABASE_URL: postgres://fleet_control:fleet_control@127.0.0.1:5432/fleet_credential_migration_test
+        run: |
+          psql -h 127.0.0.1 -U fleet_control -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE fleet_credential_migration_test;'
+          cargo test --locked -p migration --test pm_credentials -- --ignored --test-threads=1
       - name: Historical transcript migration and clock rollback
         env:
           PGPASSWORD: fleet_control

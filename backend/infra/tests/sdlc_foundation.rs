@@ -17,6 +17,9 @@ use uuid::Uuid;
 #[path = "support/pm_draft_creation.rs"]
 mod pm_draft_creation;
 
+#[path = "support/pm_credential_creation.rs"]
+mod pm_credential_creation;
+
 async fn fixture() -> Option<(PostgresFleetRepository, Uuid, Uuid)> {
     let Ok(url) = std::env::var("FLEET_TEST_DATABASE_URL") else {
         eprintln!("FLEET_TEST_DATABASE_URL not configured; PostgreSQL tests skipped");

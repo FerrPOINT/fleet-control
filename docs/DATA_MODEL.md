@@ -1,5 +1,18 @@
 # Data Model
 
+## PM Credential Journal
+
+Migration `m20261004_000011_pm_credentials` adds guarded optional `credentials`
+to `pm_draft_creation_operations.operation`. Immutable intent pins the exact
+delegation command/hash, parent fingerprint, origins and assignment machine
+subject; immutable acknowledgement retains token ID, expiry and exact scopes.
+Intent is saved before Base mutation; acknowledgement and metadata-only audit
+commit together. Child/parent secrets are not stored. Existing journal-free JSON
+is not rewritten. Both supported migration lineages append this same migration;
+downgrade refuses a persisted credential journal. See
+[credential preparation](plans/2026-10-09-pm-credentials-release.md) for gates and
+remaining admission boundaries.
+
 ## Targeted Approval Commands
 
 `runtime_approval_decisions` stores one immutable human decision per runtime approval request. It pins the session, run, actor, choice and command key; the actor/key pair is unique across requests. The initial state is `uncertain`, committed before any HTTP side effect. A verified exact acknowledgement permits transition to `delivered`. If final authorization fails before HTTP, the decision becomes terminal `failed` without resolving the request. Both terminal states are immutable; a failed command cannot later be delivered. Request resolution, audit and durable stream invalidation commit together. Replays never dispatch and never settle other pending requests. Raw runtime credentials and approval response bodies are not stored in this ledger.

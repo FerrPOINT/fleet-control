@@ -183,6 +183,8 @@ pub struct PmDraftOperation {
     pub input: Option<TrackerDraftInputReceipt>,
     pub reservation: Option<TrackerPmDraftReservation>,
     pub session_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credentials: Option<crate::PmCredentialJournal>,
 }
 
 #[derive(Debug, Clone)]
@@ -191,6 +193,8 @@ pub enum PmDraftProof {
     Input(TrackerDraftInputReceipt),
     Reserved(TrackerPmDraftReservation),
     Chat(Uuid),
+    CredentialIntent(crate::PmCredentialIntent),
+    CredentialAcknowledged(crate::PmCredentialReceipt),
 }
 
 impl PmDraftOperation {
@@ -202,6 +206,28 @@ impl PmDraftOperation {
     }
     pub fn chat_key(&self) -> String {
         format!("fleet-pm-chat:{}", self.id)
+    }
+    pub fn credential_key(&self) -> String {
+        format!("fleet-pm-credential:{}", self.id)
+    }
+    pub fn execution_identity(&self) -> Result<crate::PmExecutionIdentity, AppError> {
+        let reservation = self.reservation.as_ref().ok_or_else(inconsistent)?;
+        let binding = self.identity()?;
+        let identity = crate::PmExecutionIdentity {
+            task: reservation.execution.key.clone(),
+            execution_ref: reservation.assignment.execution_id.to_string(),
+            tracker_instance_ref: binding.tracker_instance_id,
+            tracker_project_ref: binding.project_id.to_string(),
+            task_ref: binding.task_id.to_string(),
+            root_ref: binding.root_task_id.to_string(),
+            agent_ref: reservation.assignment.agent_id.to_string(),
+            assignment_operation_key: reservation.assignment_operation_key.clone(),
+            assignment_ref: reservation.assignment.assignment_id.to_string(),
+            assignment_revision: i64::try_from(reservation.assignment.version)
+                .map_err(|_| inconsistent())?,
+        };
+        identity.validate()?;
+        Ok(identity)
     }
     pub fn identity(&self) -> Result<TrackerDraftIdentity, AppError> {
         let draft = self.draft.as_ref().ok_or_else(inconsistent)?;
@@ -288,6 +314,61 @@ impl PmDraftOperation {
                     return Err(inconsistent());
                 }
                 retain(&mut self.session_id, id)?;
+            }
+            PmDraftProof::CredentialIntent(intent) => {
+                let ttl = intent
+                    .command
+                    .get("expires_in_seconds")
+                    .and_then(serde_json::Value::as_i64)
+                    .ok_or_else(inconsistent)?;
+                let command = crate::PmCredentialCommand::tracker(
+                    &self.execution_identity()?,
+                    self.credential_key(),
+                    ttl,
+                )?;
+                if self.session_id.is_none()
+                    || intent.command
+                        != serde_json::to_value(command).map_err(AppError::internal)?
+                    || intent.request_sha256 != pm_canonical_hash(&intent.command)
+                    || intent.parent_fingerprint.len() != 64
+                    || !intent
+                        .parent_fingerprint
+                        .bytes()
+                        .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+                    || !subject(&intent.machine_subject)
+                    || intent.machine_subject
+                        != self
+                            .reservation
+                            .as_ref()
+                            .ok_or_else(inconsistent)?
+                            .assignment
+                            .machine_subject
+                    || !crate::pm_execution::valid_ref(&intent.base_origin, 1024)
+                    || !crate::pm_execution::valid_ref(&intent.tracker_origin, 1024)
+                {
+                    return Err(inconsistent());
+                }
+                match &self.credentials {
+                    Some(old) if old.intent != intent => return Err(inconsistent()),
+                    Some(_) => (),
+                    None => {
+                        self.credentials = Some(crate::PmCredentialJournal {
+                            intent,
+                            receipt: None,
+                        })
+                    }
+                }
+            }
+            PmDraftProof::CredentialAcknowledged(receipt) => {
+                let journal = self.credentials.as_mut().ok_or_else(inconsistent)?;
+                if receipt.token_id.is_nil()
+                    || serde_json::to_value(&receipt.scopes).map_err(AppError::internal)?
+                        != journal.intent.command["scopes"]
+                    || receipt.expires_at <= chrono::Utc::now()
+                {
+                    return Err(inconsistent());
+                }
+                retain(&mut journal.receipt, receipt)?;
             }
         }
         Ok(())

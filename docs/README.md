@@ -5,6 +5,8 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 
 ## Product And State
 
+- [Persisted PM credential release](plans/2026-10-09-pm-credentials-release.md)
+
 - [Chat clarification implementation plan](CHAT_CLARIFICATION_IMPLEMENTATION_PLAN.md)
 - [Chat clarification verification](CHAT_CLARIFICATION_VERIFICATION.md)
 - [Chat clarification contract](contracts/CHAT_CLARIFICATION_CONTRACT.md)

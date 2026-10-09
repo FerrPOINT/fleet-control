@@ -70,6 +70,19 @@ fn pm_config_debug_does_not_disclose_readback_credential() {
 }
 
 #[test]
+fn pm_credentials_default_disabled_and_never_serialize_parent_secret() {
+    let legacy: PmConfig = serde_json::from_value(serde_json::json!({})).unwrap();
+    assert!(!legacy.credentials.enabled);
+    assert_eq!(legacy.credentials.ttl_seconds, 300);
+    let mut cfg = legacy;
+    cfg.credentials.parent_pat = "test-only-parent-secret".into();
+    let debug = format!("{cfg:?}");
+    assert!(!debug.contains(&cfg.credentials.parent_pat));
+    let value = serde_json::to_value(&cfg).unwrap();
+    assert!(value["credentials"].get("parent_pat").is_none());
+}
+
+#[test]
 fn default_config_requires_jwt_secret_override() {
     let err = AppConfig::from_path("missing-test-config.toml").unwrap_err();
     assert!(err.to_string().contains("jwt_secret"));

@@ -67,7 +67,25 @@ introspection and Tracker project access are checked each cycle. A root/admin or
 PM-write PAT is not a substitute for the read-only token. Invalid enabled config
 fails startup; disabling leaves history/cursors and active runtimes intact.
 Token rotation requires an explicit deployment-secret update and Fleet restart.
-No automatic PM credential issuance, business transition or dispatch is enabled.
+PM credential preparation is separately opt-in; namespace/readback settings do
+not enable it. Business transitions and model dispatch remain disabled here.
+
+## PM Credential Preparation
+
+`FLEET_CONTROL_PM__CREDENTIALS__ENABLED` defaults to `false`. When enabled,
+configure `AUTH_URL` as a fixed Base root HTTP(S) origin, `MACHINE_SUBJECT` as
+the canonical central UUID frozen in Tracker's PM assignment, and `PARENT_PAT`
+as a server-only current Base PAT with exactly `task-tracker:read` and
+`task-tracker:write`. These keys share the prefix
+`FLEET_CONTROL_PM__CREDENTIALS__`. `TTL_SECONDS` defaults to300 and permits
+1..1800. Base's own delegation policy must authorize this child scope.
+
+Parent credentials are excluded from config serialization/Debug. Child secrets
+remain memory-only; the database retains immutable command/acknowledgement
+metadata. Replays use the original key, fresh introspection and Tracker context;
+changed parent, origin, subject, command or expired receipt requires explicit
+reconciliation, not automatic reminting. This preparation does not claim a lease
+or run a model. See the [release boundaries](plans/2026-10-09-pm-credentials-release.md).
 
 October additions: `FLEET_CONTROL_SECRET__<REFERENCE>` supplies secret refs used
 by config revisions; values are resolved only into per-agent managed `.env`.

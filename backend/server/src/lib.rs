@@ -42,14 +42,18 @@ pub async fn run(
         repo.clone(),
         events.clone(),
     ));
-    let ctx = Arc::new(AppContext::new(
+    let mut ctx = AppContext::new(
         config.clone(),
         repo.clone(),
         provisioner,
         runtime,
         events,
         restart_tx,
-    ));
+    );
+    ctx.pm_credentials = infra::pm_credentials::PmCredentialCoordinator::configured(&config)
+        .expect("invalid PM scoped credential configuration")
+        .map(|coordinator| Arc::new(coordinator) as Arc<dyn app::pm_draft::PmDraftCredentials>);
+    let ctx = Arc::new(ctx);
     if let Err(err) = ctx.ensure_seed_agents().await {
         warn!("failed to seed default agents: {err}");
     }

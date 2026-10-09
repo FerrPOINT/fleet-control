@@ -1,5 +1,15 @@
 # Testing
 
+## Persisted Credential Candidate
+
+The [credential release](plans/2026-10-09-pm-credentials-release.md) requires
+explicit PostgreSQL `sdlc_foundation` credential creation cases, ignored lineage
+tests, `migration --test pm_credentials -- --ignored --test-threads=1` with its dedicated empty
+`FLEET_CREDENTIAL_MIGRATION_TEST_DATABASE_URL`, historical message-order tests,
+locked Linux workspace/check/strict Clippy and generated OpenAPI parity.
+CI creates the dedicated database and runs the credential migration case.
+Source preparation and formatting do not certify these pending gates.
+
 The central directory regression explicitly executes the real PostgreSQL query
 with expanded and selected-foreign owner filters. It verifies that private rows,
 counts and foreign cursors are denied together, while standalone legacy expanded
