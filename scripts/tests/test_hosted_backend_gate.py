@@ -160,6 +160,16 @@ class HostedBackendTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 gate.safe_member(name, ("backend",))
 
+    def test_archive_allows_only_directory_ancestors_of_nested_allowlist(self):
+        roots = ("docs/TESTING.md", "frontend/src/lib/theme-preference.js")
+        for name in ("docs", "frontend", "frontend/src", "frontend/src/lib"):
+            gate.safe_member(name, roots, directory=True)
+            with self.assertRaises(ValueError):
+                gate.safe_member(name, roots)
+        for name in ("docs/private", "frontend/src/private", "docs/../private", "front"):
+            with self.assertRaises(ValueError):
+                gate.safe_member(name, roots, directory=True)
+
     def test_local_execution_fails_before_any_heavy_or_network_effect(self):
         with mock.patch.dict(os.environ, {}, clear=True), mock.patch.object(gate, "command") as command:
             with self.assertRaises(ValueError):

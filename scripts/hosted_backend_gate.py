@@ -115,21 +115,24 @@ def preflight():
     return workspace, controls, workflow_sha
 
 
-def safe_member(name, roots):
+def safe_member(name, roots, *, directory=False):
     path = PurePosixPath(name)
     require(bool(name) and not path.is_absolute() and ".." not in path.parts and "\\" not in name
             and not re.search(r"[\x00-\x20\x7f:]", name) and str(path) == name
             and not FORBIDDEN.intersection(part.lower() for part in path.parts)
-            and any(name == root or name.startswith(root + "/") for root in roots), "Unsafe export path")
+            and any(name == root or name.startswith(root + "/")
+                    or (directory and root.startswith(name + "/")) for root in roots), "Unsafe export path")
     return path
 
 
 def export(root, commit, destination, roots):
-    data = git(root, "archive", "--format=tar", commit, "--", *roots)
+    data = git(root, "-c", "core.autocrlf=false", "-c", "core.eol=lf",
+               "archive", "--format=tar", commit, "--", *roots)
     destination.mkdir(parents=True, exist_ok=False)
     with tarfile.open(fileobj=io.BytesIO(data)) as archive:
         for member in archive:
-            path = safe_member(member.name.rstrip("/") if member.isdir() else member.name, roots)
+            path = safe_member(member.name.rstrip("/") if member.isdir() else member.name,
+                               roots, directory=member.isdir())
             target = destination.joinpath(*path.parts)
             require(member.isdir() or member.isfile(), "Source links/submodules forbidden")
             require(member.size <= 128 * 1024 ** 2, "Oversized source member")
