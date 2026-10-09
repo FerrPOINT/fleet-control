@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as fleet from '@/api/fleet'
@@ -111,6 +112,121 @@ beforeEach(() => {
 })
 
 describe('SettingsPage', () => {
+  it.each(['apply', 'rollback'] as const)(
+    'clears a cancelled %s error before a fresh preview in the same workspace',
+    async (operation) => {
+      const user = userEvent.setup()
+      const mutation = vi.mocked(
+        operation === 'apply' ? fleet.applyManagedSettings : fleet.rollbackManagedSettings,
+      )
+      mutation
+        .mockRejectedValueOnce(new Error('previous conflict'))
+        .mockRejectedValueOnce(new Error('current conflict'))
+      renderSettings(operation === 'apply' ? '/settings' : '/settings?tab=history')
+      if (operation === 'apply') {
+        await user.type(await screen.findByLabelText('Команда Hermes'), '-next')
+      } else {
+        await screen.findByText('Версия №2')
+      }
+      const trigger = screen.getByRole('button', {
+        name: operation === 'apply' ? 'Проверить изменения' : 'Вернуть',
+      })
+      const confirmName =
+        operation === 'apply' ? 'Применить и перезапустить' : 'Подтвердить rollback'
+      await user.click(trigger)
+      await screen.findByRole('alertdialog')
+      await user.click(screen.getByRole('button', { name: confirmName }))
+      expect(await screen.findByRole('alert')).toHaveTextContent('previous conflict')
+      await user.click(screen.getByRole('button', { name: 'Отмена' }))
+      await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+      await user.click(trigger)
+      await screen.findByRole('alertdialog')
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: confirmName }))
+      expect(await screen.findByRole('alert')).toHaveTextContent('current conflict')
+      expect(mutation).toHaveBeenCalledTimes(2)
+    },
+  )
+
+  it.each([
+    ['apply', 'cancel'],
+    ['apply', 'escape'],
+    ['rollback', 'cancel'],
+    ['rollback', 'escape'],
+  ] as const)('returns focus to the %s initiator after %s', async (operation, close) => {
+    const user = userEvent.setup()
+    renderSettings(operation === 'apply' ? '/settings' : '/settings?tab=history')
+    if (operation === 'apply') {
+      await user.type(await screen.findByLabelText('Команда Hermes'), '-next')
+    } else {
+      await screen.findByText('Версия №2')
+    }
+    const trigger = screen.getByRole('button', {
+      name: operation === 'apply' ? 'Проверить изменения' : 'Вернуть',
+    })
+    await user.click(trigger)
+    await screen.findByRole('alertdialog')
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Отмена' })).toHaveFocus())
+    if (close === 'cancel') await user.click(screen.getByRole('button', { name: 'Отмена' }))
+    else await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    await waitFor(() => expect(trigger).toHaveFocus())
+    expect(fleet.applyManagedSettings).not.toHaveBeenCalled()
+    expect(fleet.rollbackManagedSettings).not.toHaveBeenCalled()
+  })
+
+  it.each(['apply', 'rollback'] as const)(
+    'clears a cancelled %s error before confirming the other operation',
+    async (firstOperation) => {
+      const user = userEvent.setup()
+      vi.mocked(fleet.applyManagedSettings).mockRejectedValue(new Error('old apply conflict'))
+      vi.mocked(fleet.rollbackManagedSettings).mockRejectedValue(new Error('new rollback conflict'))
+      renderSettings(firstOperation === 'apply' ? '/settings' : '/settings?tab=history')
+      if (firstOperation === 'apply') {
+        fireEvent.change(await screen.findByLabelText('Команда Hermes'), {
+          target: { value: 'hermes-next' },
+        })
+        fireEvent.click(screen.getByRole('button', { name: 'Проверить изменения' }))
+      } else {
+        await screen.findByText('Версия №2')
+        fireEvent.click(screen.getByRole('button', { name: 'Вернуть' }))
+      }
+      await screen.findByRole('alertdialog')
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: firstOperation === 'apply' ? 'Применить и перезапустить' : 'Подтвердить rollback',
+        }),
+      )
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        firstOperation === 'apply' ? 'old apply conflict' : 'new rollback conflict',
+      )
+      fireEvent.click(screen.getByRole('button', { name: 'Отмена' }))
+      await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+      await user.click(
+        screen.getByRole('tab', { name: firstOperation === 'apply' ? 'История' : 'Среда' }),
+      )
+      if (firstOperation === 'apply') {
+        await screen.findByText('Версия №2')
+        fireEvent.click(screen.getByRole('button', { name: 'Вернуть' }))
+      } else {
+        fireEvent.change(await screen.findByLabelText('Команда Hermes'), {
+          target: { value: 'hermes-later' },
+        })
+        fireEvent.click(screen.getByRole('button', { name: 'Проверить изменения' }))
+      }
+      await screen.findByRole('alertdialog')
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: firstOperation === 'apply' ? 'Подтвердить rollback' : 'Применить и перезапустить',
+        }),
+      )
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        firstOperation === 'apply' ? 'new rollback conflict' : 'old apply conflict',
+      )
+    },
+  )
+
   it('connects every tab to an existing tabpanel', async () => {
     renderSettings()
     await screen.findByLabelText('Команда Hermes')

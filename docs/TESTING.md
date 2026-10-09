@@ -156,3 +156,24 @@ order on overview, workspace, leader detail and session detail at
 375/768/1023/1024/1279/1280/1920 px, in all three themes (84 combinations).
 It also runs axe and checks document overflow. DOM unit tests check semantic
 landmarks and primary-before-rail order; they are not CSS geometry evidence.
+
+## Browser Authentication Regression Gate
+
+Run the frontend test, typecheck, lint, format and build gates before release.
+The focused tests are `src/api/client.test.ts`,
+`src/app/auth-boundary.test.tsx`, `src/shared/auth/store.test.ts`,
+`src/widgets/app-shell.test.tsx` and `src/pages/sso-callback/index.test.tsx`.
+They cover late successful/error responses, response-body races, concurrent
+expiration, same-subject reauthentication, cache/draft removal, StrictMode,
+pending/failed sign-out, permission subject mismatch and obsolete SSO completion.
+
+Run `pnpm exec playwright test e2e/fleet-control.spec.ts` in Chromium, Firefox
+and WebKit against the built frontend. These browser flows use mocked API and
+signed SSO responses: they verify UI integration, not live Central Auth,
+Hermes, workflow resume or autonomous SDLC acceptance. Live specifications
+require the separately documented QA setup and are not covered by fixture runs.
+
+Backend ownership and SSE revocation tests remain independently required.
+Discarding an obsolete browser result must never be treated as permission to
+resend an uncertain mutation. Recovery tests must preserve original command
+identity and verify authoritative readback before allowing any new dispatch.

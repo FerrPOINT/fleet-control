@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { ThemeProvider } from '@sdlc/ui/lib'
 import { endSso } from '@sdlc/ui/sso'
+import { toast } from 'sonner'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppShell } from './app-shell'
 import { getCurrentUserPermissions } from '@/api/auth'
@@ -10,6 +11,7 @@ import { useAuthStore } from '@/shared/auth/store'
 
 vi.mock('@/api/auth', () => ({ getCurrentUserPermissions: vi.fn() }))
 vi.mock('@sdlc/ui/sso', () => ({ endSso: vi.fn() }))
+vi.mock('sonner', () => ({ toast: { error: vi.fn() } }))
 
 const permissions = [
   'sessions:read_all',
@@ -28,28 +30,88 @@ const desktop = {
 
 function renderShell(path = '/chats/session-1') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(
-    <QueryClientProvider client={client}>
-      <ThemeProvider>
-        <MemoryRouter initialEntries={[path]}>
-          <Routes>
-            <Route element={<AppShell />}>
-              <Route path="/" element={<h1>Dashboard content</h1>} />
-              <Route path="/agents/new" element={<h1>Create agent content</h1>} />
-              <Route path="/agents/:agentId/edit" element={<h1>Edit agent content</h1>} />
-              <Route path="/settings" element={<h1>Settings content</h1>} />
-              <Route path="/agents/:agentId/runtime" element={<h1>Runtime content</h1>} />
-              <Route path="/sessions/:sessionId" element={<h1>Session content</h1>} />
-              <Route path="/chats/:sessionId" element={<h1>Session content</h1>} />
-            </Route>
-          </Routes>
-        </MemoryRouter>
-      </ThemeProvider>
-    </QueryClientProvider>,
-  )
+  return {
+    client,
+    ...render(
+      <QueryClientProvider client={client}>
+        <ThemeProvider>
+          <MemoryRouter initialEntries={[path]}>
+            <Routes>
+              <Route element={<AppShell />}>
+                <Route path="/" element={<h1>Dashboard content</h1>} />
+                <Route path="/agents/new" element={<h1>Create agent content</h1>} />
+                <Route path="/agents/:agentId/edit" element={<h1>Edit agent content</h1>} />
+                <Route path="/settings" element={<h1>Settings content</h1>} />
+                <Route path="/agents/:agentId/runtime" element={<h1>Runtime content</h1>} />
+                <Route path="/sessions/:sessionId" element={<h1>Session content</h1>} />
+                <Route path="/chats/:sessionId" element={<h1>Session content</h1>} />
+              </Route>
+            </Routes>
+          </MemoryRouter>
+        </ThemeProvider>
+      </QueryClientProvider>,
+    ),
+  }
 }
 
 describe('AppShell', () => {
+  it('does not apply a late permissions response to a newer login', async () => {
+    let resolve!: (value: Awaited<ReturnType<typeof getCurrentUserPermissions>>) => void
+    vi.mocked(getCurrentUserPermissions).mockImplementationOnce(
+      () =>
+        new Promise((settle) => {
+          resolve = settle
+        }),
+    )
+    const { client } = renderShell()
+    await waitFor(() => expect(getCurrentUserPermissions).toHaveBeenCalledTimes(1))
+    act(() =>
+      useAuthStore
+        .getState()
+        .setAuth({ token: 'new-token', userId: 'user-2', email: 'new@example.test' }),
+    )
+    await act(async () =>
+      resolve({ user_id: 'user-1', role: 'operator', is_system_admin: false, permissions }),
+    )
+    await waitFor(() => expect(client.isFetching()).toBe(0))
+    expect(useAuthStore.getState().userId).toBe('user-2')
+    expect(useAuthStore.getState().permissions).toEqual([])
+  })
+
+  it('rejects a permissions response belonging to another profile', async () => {
+    vi.mocked(getCurrentUserPermissions).mockResolvedValueOnce({
+      user_id: 'foreign-user',
+      role: 'admin',
+      is_system_admin: true,
+      permissions: ['users:manage'],
+    })
+    const { client } = renderShell()
+    await waitFor(() => expect(getCurrentUserPermissions).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(client.isFetching()).toBe(0))
+    expect(useAuthStore.getState().userId).toBe('user-1')
+    expect(useAuthStore.getState().isSystemAdmin).toBe(false)
+  })
+
+  it('reloads permissions after a new login by the same user', async () => {
+    renderShell()
+    await waitFor(() => expect(getCurrentUserPermissions).toHaveBeenCalledTimes(1))
+    vi.mocked(getCurrentUserPermissions).mockResolvedValue({
+      user_id: 'user-1',
+      role: 'user',
+      is_system_admin: false,
+      permissions: ['agents:read_directory'],
+    })
+    act(() =>
+      useAuthStore
+        .getState()
+        .setAuth({ token: 'new-token', userId: 'user-1', email: 'new@example.test' }),
+    )
+    await waitFor(() =>
+      expect(useAuthStore.getState().permissions).toEqual(['agents:read_directory']),
+    )
+    expect(getCurrentUserPermissions).toHaveBeenCalledTimes(2)
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
     desktop.matches = false
@@ -63,6 +125,7 @@ describe('AppShell', () => {
     )
     useAuthStore.setState({
       token: 'test-token',
+      signingOut: false,
       userId: 'user-1',
       email: 'operator@example.test',
       username: 'operator',
@@ -180,12 +243,64 @@ describe('AppShell', () => {
   })
 
   it('starts central sign-out before any local login reroute', async () => {
+    vi.mocked(endSso).mockImplementationOnce(() => {
+      expect(useAuthStore.getState().token).toBe('test-token')
+    })
     renderShell()
     fireEvent.keyDown(await screen.findByRole('button', { name: 'Аккаунт' }), { key: 'ArrowDown' })
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Выйти' }))
 
+    expect(useAuthStore.getState().signingOut).toBe(true)
     expect(useAuthStore.getState().token).toBe('test-token')
+    fireEvent(window, new Event('pagehide'))
+    expect(useAuthStore.getState().token).toBeNull()
+    expect(useAuthStore.getState().userId).toBeNull()
     expect(endSso).toHaveBeenCalledWith(expect.objectContaining({ clientId: 'fleet-control' }))
+  })
+
+  it.each(['user-1', 'user-2'])(
+    'does not clear a newer login for %s on stale pagehide',
+    async (userId) => {
+      renderShell()
+      fireEvent.keyDown(await screen.findByRole('button', { name: 'Аккаунт' }), {
+        key: 'ArrowDown',
+      })
+      fireEvent.click(await screen.findByRole('menuitem', { name: 'Выйти' }))
+      act(() =>
+        useAuthStore.getState().setAuth({ token: 'new-token', userId, email: 'new@example.test' }),
+      )
+      fireEvent(window, new Event('pagehide'))
+      expect(useAuthStore.getState().token).toBe('new-token')
+      expect(useAuthStore.getState().userId).toBe(userId)
+      expect(useAuthStore.getState().signingOut).toBe(false)
+    },
+  )
+
+  it('does not repeat central navigation while sign-out is pending', async () => {
+    renderShell()
+    for (let attempt = 0; attempt < 2; attempt++) {
+      fireEvent.keyDown(await screen.findByRole('button', { name: 'Аккаунт' }), {
+        key: 'ArrowDown',
+      })
+      fireEvent.click(await screen.findByRole('menuitem', { name: 'Выйти' }))
+    }
+    expect(endSso).toHaveBeenCalledTimes(1)
+    fireEvent(window, new Event('pagehide'))
+    expect(useAuthStore.getState().token).toBeNull()
+  })
+
+  it('retains login and removes deferred cleanup when central navigation fails', async () => {
+    vi.mocked(endSso).mockImplementationOnce(() => {
+      throw new Error('private navigation detail')
+    })
+    renderShell()
+    fireEvent.keyDown(await screen.findByRole('button', { name: 'Аккаунт' }), { key: 'ArrowDown' })
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Выйти' }))
+    expect(useAuthStore.getState().signingOut).toBe(false)
+    expect(useAuthStore.getState().token).toBe('test-token')
+    fireEvent(window, new Event('pagehide'))
+    expect(useAuthStore.getState().token).toBe('test-token')
+    expect(toast.error).toHaveBeenCalledWith('Не удалось начать выход. Повторите попытку.')
   })
 
   it('closes the drawer after navigation without a duplicate profile', async () => {

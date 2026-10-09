@@ -85,3 +85,23 @@
 - Idempotency keys protect session and message creation from duplicate browser
   submits or retry storms. Reusing a key with a different payload returns
   conflict.
+
+## Browser Authentication Boundary
+
+Every login and logout advances a memory-only authentication generation, even
+when the subject and token are unchanged. Query caches and mounted forms belong
+to that generation; replacing it clears the previous cache and remounts forms.
+Pending central sign-out preserves the current draft until navigation, but
+blocks new API requests. Failed sign-out does not silently discard the draft.
+
+Each API request captures its original generation, subject and bearer token.
+After response parsing, both success and error paths reject results belonging
+to an obsolete login. A late `401` cannot log out the next user. Permission
+responses must match the current subject; SSO completion cannot replace a newer
+login. Tokens and authentication generations are not persisted in local storage.
+
+An authentication change is not proof that a dispatched mutation was rejected.
+`AuthContextChangedError` deliberately is not a definite HTTP rejection and
+must not authorize automatic redispatch. Runtime command recovery, server-side
+ownership, stream revocation and OS/runtime isolation remain separate gates;
+this browser boundary does not replace them or establish full SDLC readiness.

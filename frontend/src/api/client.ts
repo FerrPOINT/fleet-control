@@ -1,8 +1,11 @@
-import { useAuthStore } from '@/shared/auth/store'
+import { isCurrentAuth, useAuthStore, type AuthScope } from '@/shared/auth/store'
 
 export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') ?? ''
 
-export async function refreshAccessToken(): Promise<boolean> {
+export async function refreshAccessToken(
+  scope: AuthScope = useAuthStore.getState(),
+): Promise<boolean> {
+  if (!scope.token || !isCurrentAuth(scope)) return false
   useAuthStore.getState().logout()
   window.location.assign('/login')
   return false
@@ -33,19 +36,35 @@ export function permissionsForRole(role: 'admin' | 'operator' | 'user'): string[
 // bearer header, credentials, 401-refresh-retry, structured error envelope.
 import { createApiClient, ApiError } from '@sdlc/ui/lib'
 
-const shared = createApiClient({
-  baseUrl: apiBaseUrl,
-  getAccessToken: () => useAuthStore.getState().token,
-  refresh: async () => refreshAccessToken(),
-})
+// A late result is not a definite rejection of an already dispatched command.
+export class AuthContextChangedError extends Error {
+  constructor() {
+    super('Authentication changed. Reconcile the original command before retrying.')
+    this.name = 'AuthContextChangedError'
+  }
+}
 
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const scope = useAuthStore.getState()
+  if (!isCurrentAuth(scope)) throw new AuthContextChangedError()
+  const shared = createApiClient({
+    baseUrl: apiBaseUrl,
+    getAccessToken: () => scope.token,
+    refresh: () => refreshAccessToken(scope),
+  })
   const headers = new Headers(init.headers)
   // Existing Fleet callers pass serialized JSON without explicit headers.
   if (typeof init.body === 'string' && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
-  return shared.request<T>(path, { ...init, headers })
+  try {
+    const result = await shared.request<T>(path, { ...init, headers })
+    if (!isCurrentAuth(scope)) throw new AuthContextChangedError()
+    return result
+  } catch (error) {
+    if (!isCurrentAuth(scope)) throw new AuthContextChangedError()
+    throw error
+  }
 }
 
 export type { ApiError }

@@ -9,12 +9,14 @@ import {
   TriangleAlert,
 } from 'lucide-react'
 import { useEffect } from 'react'
+import { toast } from 'sonner'
 import { Outlet, useLocation } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { getCurrentUserPermissions } from '@/api/auth'
 import { endSso } from '@sdlc/ui/sso'
-import { ssoConfig, useAuthStore } from '@/shared/auth/store'
+import { isCurrentAuth, ssoConfig, useAuthStore } from '@/shared/auth/store'
+import { AuthContextChangedError } from '@/api/client'
 import { AppShell as BaseAppShell } from '@sdlc/ui/ui'
 
 const navItems = [
@@ -49,23 +51,39 @@ export function AppShell() {
   const displayName = useAuthStore((state) => state.displayName)
   const email = useAuthStore((state) => state.email)
   const permissions = useAuthStore((state) => state.permissions)
+  const authVersion = useAuthStore((state) => state.authVersion)
+  const token = useAuthStore((state) => state.token)
+  const signingOut = useAuthStore((state) => state.signingOut)
   const setUser = useAuthStore((state) => state.setUser)
   const accountName = displayName?.trim()
   const accountEmail = email?.trim()
   const permissionsQuery = useQuery({
-    queryKey: ['me', 'permissions'],
-    queryFn: getCurrentUserPermissions,
+    queryKey: ['me', 'permissions', authVersion],
+    queryFn: async () => {
+      const scope = useAuthStore.getState()
+      const result = await getCurrentUserPermissions()
+      if (!isCurrentAuth(scope) || result.user_id !== scope.userId)
+        throw new AuthContextChangedError()
+      return result
+    },
+    enabled: Boolean(token) && !signingOut,
     staleTime: 60_000,
   })
   useEffect(() => {
-    if (!permissionsQuery.data) return
+    if (
+      !permissionsQuery.data ||
+      signingOut ||
+      !token ||
+      permissionsQuery.data.user_id !== useAuthStore.getState().userId
+    )
+      return
     setUser({
       userId: permissionsQuery.data.user_id,
       systemRole: permissionsQuery.data.role,
       isSystemAdmin: permissionsQuery.data.is_system_admin,
       permissions: permissionsQuery.data.permissions,
     })
-  }, [permissionsQuery.data, setUser])
+  }, [permissionsQuery.data, setUser, signingOut, token])
   const navigation = navItems
     .filter((item) => !item.permission || permissions.includes(item.permission))
     .map((item) => ({
@@ -84,7 +102,33 @@ export function AppShell() {
         ? 'detail-with-aside'
         : 'wide'
   function logout() {
-    endSso(ssoConfig)
+    const original = useAuthStore.getState()
+    if (original.signingOut) return
+    useAuthStore.getState().startSignOut()
+    const complete = () => {
+      const current = useAuthStore.getState()
+      if (
+        current.signingOut &&
+        current.authVersion === original.authVersion &&
+        current.token === original.token &&
+        current.userId === original.userId
+      )
+        current.logout()
+    }
+    window.addEventListener('pagehide', complete, { once: true })
+    try {
+      endSso(ssoConfig)
+    } catch {
+      window.removeEventListener('pagehide', complete)
+      const current = useAuthStore.getState()
+      if (
+        current.authVersion === original.authVersion &&
+        current.token === original.token &&
+        current.userId === original.userId
+      )
+        useAuthStore.setState({ signingOut: false })
+      toast.error('Не удалось начать выход. Повторите попытку.')
+    }
   }
   return (
     <BaseAppShell

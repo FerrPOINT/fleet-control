@@ -4,15 +4,21 @@ import { completeSso } from '@sdlc/ui/sso'
 import { Button, DelayedFallback } from '@sdlc/ui/ui'
 import { apiBaseUrl } from '@/api/client'
 import type { UserPermissionsResponse } from '@/api/types'
-import { ssoConfig, useAuthStore } from '@/shared/auth/store'
+import { isCurrentAuth, ssoConfig, useAuthStore, type AuthScope } from '@/shared/auth/store'
+import { AuthContextChangedError } from '@/api/client'
 
 let pending: ReturnType<typeof completeSso> | null = null
-function completion() {
+let pendingScope: AuthScope | null = null
+function completion(scope: AuthScope) {
+  if (pending && (!pendingScope || !isCurrentAuth(pendingScope)))
+    return Promise.reject(new AuthContextChangedError())
   if (!pending) {
+    pendingScope = scope
     pending = completeSso(ssoConfig)
     void pending
       .finally(() => {
         pending = null
+        pendingScope = null
       })
       .catch(() => undefined)
   }
@@ -24,8 +30,15 @@ export function SsoCallbackPage() {
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
     let active = true
-    void completion()
+    const scope = useAuthStore.getState()
+    if (scope.token) {
+      navigate('/', { replace: true })
+      return
+    }
+    if (!isCurrentAuth(scope)) return
+    void completion(scope)
       .then(async (session) => {
+        if (!active || !isCurrentAuth(scope)) return
         const response = await fetch(`${apiBaseUrl}/api/v1/users/me`, {
           headers: { Authorization: `Bearer ${session.accessToken}` },
         })
@@ -36,6 +49,7 @@ export function SsoCallbackPage() {
           username: string
           display_name: string
         }
+        if (!active || !isCurrentAuth(scope)) return
         const permissionsResponse = await fetch(`${apiBaseUrl}/api/v1/users/me/permissions`, {
           headers: { Authorization: `Bearer ${session.accessToken}` },
         })
@@ -43,7 +57,7 @@ export function SsoCallbackPage() {
         const permissions = (await permissionsResponse.json()) as UserPermissionsResponse
         if (permissions.user_id !== user.id)
           throw new Error('Профиль и права пользователя не совпадают.')
-        if (!active) return
+        if (!active || !isCurrentAuth(scope)) return
         useAuthStore.getState().setAuth({
           token: session.accessToken,
           userId: user.id,
@@ -57,7 +71,8 @@ export function SsoCallbackPage() {
         navigate(session.returnTo, { replace: true })
       })
       .catch((caught) => {
-        if (active) setError(caught instanceof Error ? caught.message : 'Не удалось завершить вход')
+        if (active && isCurrentAuth(scope))
+          setError(caught instanceof Error ? caught.message : 'Не удалось завершить вход')
       })
     return () => {
       active = false
