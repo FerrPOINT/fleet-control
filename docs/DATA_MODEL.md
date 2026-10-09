@@ -59,6 +59,26 @@ ACK, audit/event and stopping state commit together. Independent atomic
 terminal prompt/run/optional-assistant evidence can settle an unknown hold
 as terminal-observed, never as proven command acceptance.
 The following unit12 section records that earlier release's own scope.
+Private `runtime_container_preparations` (unit17) stores immutable initial-generation
+intent hashes, one create-delivery permit and the original prepared receipt.
+See [custody and downgrade fences](AUTOMATIC_CONTAINER_PREPARATION_RELEASE.md).
+
+Unit16 adds `runtime_container_recoveries` with frozen per-generation epoch
+commands/ACKs and durable bounded heartbeat delivery, while retaining original
+000015 launch identity. See [the private unit contract](MAPPED_CONTROLLER_RECOVERY_RELEASE.md).
+The unit16 correctness follow-up needs no schema change and never rewrites
+historical bindings/receipts; foreign unknown heartbeat delivery stays held.
+
+## Original Docker Controller
+
+`m20261009_000015_container_controller` adds `runtime_container_launches` after
+journal12 in both histories (14 canonical / 17 legacy entries). Its immutable
+prepared registration/controller/generation identity progresses through
+claimed/running/stopping/exited with one original physical snapshot, endpoint and
+stable stop UUID. One non-exited generation per agent is enforced. Deletion and
+nonempty downgrade are rejected. Journal12's existing origin gate gains a narrow
+check against the running original generation; historical journal rows remain
+unchanged. See [bounded Docker source release](DOCKER_LIFECYCLE_RELEASE.md).
 
 ## Hermes Journal Release Unit12
 

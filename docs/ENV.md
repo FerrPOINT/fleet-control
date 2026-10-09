@@ -12,6 +12,12 @@ fails before run submission; no unguarded fallback is allowed. Facts cannot be
 added retroactively to legacy intents. This consumer candidate does not install
 or enable a plugin, change SDK/runtime pins, grant task/PM admission or prove
 native compatibility. Unknown acceptance remains held when the flag is off.
+Docker lifecycle is opt-in through trusted server-only
+`FLEET_CONTROL_FLEET__CONTAINER_CONTROL__PYTHON`, `__BASE_ROOT`, `__CONTEXT`, and
+`__CONTROLLER_ROOT` fields (each uses the same full container-control prefix).
+Absence keeps process defaults. Utility sources are pinned independently from
+the SDK. No agent-supplied endpoint or Docker socket mount is accepted; see the
+[operator contract and runtime gaps](DOCKER_LIFECYCLE_RELEASE.md).
 
 Optional PM gateway uses `FLEET_CONTROL_TRACKER__URL` (fixed HTTP(S) root origin;
 no credentials, query, fragment or path) and `FLEET_CONTROL_TRACKER__INSTANCE_ID`

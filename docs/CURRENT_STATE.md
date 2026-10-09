@@ -1,5 +1,15 @@
 # Current State
 
+## Docker And Controls Assembly: 9 October 2026
+
+The isolated [assembly](plans/2026-10-09-docker-controls-integration.md) preserves
+frozen98 UI/control/recovery and be1 Docker/preparation sources by normal merge.
+It integrates Base-verified async original origins, generation-fenced control
+reservation/approval recovery and the full18/21 migration union. A new PG
+regression is authored, not executed. Configuration18, native acceptance and
+producer pre-model admission remain open. Historical evidence below is scoped
+to its recorded heads, not transferred to the assembled backend.
+
 ## Integrated Original-Key Contract: 9 October 2026
 
 Normal merge `82b7c8e9b8dba1afc460d7d3abfb6e368f113c9d` preserves UI `ae027dd`

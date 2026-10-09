@@ -121,8 +121,8 @@ async fn prepare(
     let current = supervisor.repo.get_session_agent_run(run.id).await?;
     let current_agent = supervisor.repo.get_agent(agent.id).await?;
     if current_agent.kind != AgentKind::Hermes
-        || LocalRuntimeSupervisor::hermes_base_url(&current_agent)?
-            != LocalRuntimeSupervisor::hermes_base_url(agent)?
+        || supervisor.hermes_base_url(&current_agent).await?
+            != supervisor.hermes_base_url(agent).await?
         || agent.kind != AgentKind::Hermes
         || current.agent_id != agent.id
         || current.session_id != run.session_id
@@ -162,7 +162,7 @@ async fn prepare(
         .as_deref()
         .filter(|id| domain::valid_ref(id, 512))
         .ok_or_else(|| AppError::conflict("verified native session identity is required"))?;
-    let base = LocalRuntimeSupervisor::hermes_base_url(agent)?;
+    let base = supervisor.run_base_url(&current_agent, &current).await?;
     let token = crate::agent_runtime_token(&supervisor.config, agent.id)?;
     let intent = supervisor
         .repo
@@ -172,6 +172,9 @@ async fn prepare(
             AppError::Unavailable("legacy run has no original control context".into())
         })?;
     hermes_wire::verify_intent(&intent, &base, &token)?;
+    supervisor
+        .verify_container_intent(&current_agent, &intent)
+        .await?;
     if intent.state != "accepted"
         || !intent.submission_attempted
         || intent.run.id != current.id
@@ -204,6 +207,9 @@ async fn prepare(
             "native run is no longer accepting this control; await readback",
         ));
     }
+    supervisor
+        .verify_container_intent(&current_agent, &intent)
+        .await?;
     Ok(PreparedControl {
         base,
         token,

@@ -12,6 +12,11 @@ The [bounded stream profile](contracts/HERMES_EVENT_STREAM_V1.md) discards an
 unterminated EOF frame and requires independent status proof. It does not replay
 missed tools/approvals, prove safe process stop or authorize task/PM execution.
 Native compatibility and exact-source acceptance remain pending.
+Opt-in original Docker lifecycle is available as a bounded source release. It
+uses Base utility169 separately from the unchanged SDK pin, one container journal
+migration and private operator-prepared v2 containers. See
+[Docker lifecycle release](DOCKER_LIFECYCLE_RELEASE.md) for exact dependencies,
+physical readiness/stop gates, holds and remaining acceptance gaps.
 
 Runtime health is not SDLC readiness. Fleet returns
 `workflow_assignment_protocol_not_verified` until the assignment, workflow

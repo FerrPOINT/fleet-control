@@ -38,7 +38,7 @@ pub(super) async fn probe(
         .client
         .get(format!(
             "{}/v1/runs/{raw_id}",
-            LocalRuntimeSupervisor::hermes_base_url(agent)?
+            supervisor.run_base_url(agent, &run).await?
         ))
         .timeout(Duration::from_secs(10))
         .bearer_auth(crate::agent_runtime_token(&supervisor.config, agent.id)?)

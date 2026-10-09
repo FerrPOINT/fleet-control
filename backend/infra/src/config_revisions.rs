@@ -30,6 +30,22 @@ fn from_row(row: QueryResult) -> Result<AgentConfigRevision, AppError> {
     })
 }
 
+pub(super) async fn effective(
+    repo: &PostgresFleetRepository,
+    id: Uuid,
+) -> Result<Option<AgentConfigRevision>, AppError> {
+    repo.db
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            format!("{SELECT_REVISIONS} WHERE r.agent_id=$1 AND r.revision=h.effective_revision"),
+            [id.into()],
+        ))
+        .await
+        .map_err(AppError::database)?
+        .map(from_row)
+        .transpose()
+}
+
 pub(super) async fn list(
     repo: &PostgresFleetRepository,
     id: Uuid,

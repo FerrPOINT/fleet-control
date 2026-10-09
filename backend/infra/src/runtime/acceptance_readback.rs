@@ -53,10 +53,10 @@ impl LocalRuntimeSupervisor {
             ));
         }
         let current_agent = self.repo.get_agent(agent.id).await?;
-        let base = Self::hermes_base_url(&current_agent)?;
+        let base = self.hermes_base_url(&current_agent).await?;
         if current_agent.kind != AgentKind::Hermes
             || current_agent.archived_at.is_some()
-            || base != Self::hermes_base_url(agent)?
+            || base != self.hermes_base_url(agent).await?
         {
             return Err(AppError::conflict("Hermes original API origin changed"));
         }
@@ -74,11 +74,15 @@ impl LocalRuntimeSupervisor {
             ));
         }
         hermes_wire::verify_intent(&intent, &base, &token)?;
+        self.verify_container_intent(&current_agent, &intent)
+            .await?;
         if intent.run.runtime_run_id.is_none() {
             if !self.config.fleet.hermes_recovery_extension_enabled {
                 return Err(AppError::Unavailable("Hermes acceptance is unknown".into()));
             }
             let recovered = recovery_wire::lookup(&self.client, &base, &token, &intent).await?;
+            self.verify_container_intent(&current_agent, &intent)
+                .await?;
             self.repo
                 .accept_recovered_hermes_run(
                     message.id,
@@ -127,10 +131,14 @@ impl LocalRuntimeSupervisor {
             ));
         }
         hermes_wire::verify_intent(&accepted, &base, &token)?;
+        self.verify_container_intent(&current_agent, &accepted)
+            .await?;
         intent = accepted;
         let payload =
             hermes_wire::read_accepted_run(&self.client, &base, &token, &runtime_run_id).await?;
         let effective = hermes_wire::effective_session(&payload, &runtime_run_id)?;
+        self.verify_container_intent(&current_agent, &intent)
+            .await?;
         let (pinned, first) = if intent.run.state == SessionRunState::Pending {
             self.repo
                 .pin_hermes_run_session(

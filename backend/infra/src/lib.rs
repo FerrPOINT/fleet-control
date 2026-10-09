@@ -1,6 +1,9 @@
 mod approval_decisions;
 mod chats_directory;
 mod config_revisions;
+mod container_preparation;
+mod container_recovery;
+mod container_runtime;
 mod effective_configuration;
 pub mod entities;
 mod hermes_approval_recovery;
@@ -617,6 +620,132 @@ impl FleetRepository for PostgresFleetRepository {
         .await
     }
 
+    async fn get_container_preparation(
+        &self,
+        agent: Uuid,
+    ) -> Result<Option<app::container_runtime::ContainerPreparation>, AppError> {
+        container_preparation::get(self, agent).await
+    }
+    async fn claim_container_preparation(
+        &self,
+        claim: &app::container_runtime::ContainerPreparationClaim,
+    ) -> Result<app::container_runtime::ContainerPreparation, AppError> {
+        container_preparation::claim(self, claim).await
+    }
+    async fn claim_container_preparation_delivery(
+        &self,
+        claim: &app::container_runtime::ContainerPreparationClaim,
+    ) -> Result<bool, AppError> {
+        container_preparation::delivery(self, claim).await
+    }
+    async fn acknowledge_container_preparation(
+        &self,
+        claim: &app::container_runtime::ContainerPreparationClaim,
+        receipt: &app::container_runtime::PreparedContainer,
+    ) -> Result<(), AppError> {
+        container_preparation::acknowledge(self, claim, receipt).await
+    }
+    async fn get_container_recovery(
+        &self,
+        generation: Uuid,
+    ) -> Result<Option<app::container_runtime::ContainerRecovery>, AppError> {
+        container_recovery::get(self, generation).await
+    }
+    async fn claim_container_recovery(
+        &self,
+        launch: &app::container_runtime::ContainerLaunch,
+        command: &app::container_runtime::ContainerRecoveryCommand,
+    ) -> Result<(), AppError> {
+        container_recovery::claim(self, launch, command).await
+    }
+    async fn acknowledge_container_recovery(
+        &self,
+        command: &app::container_runtime::ContainerRecoveryCommand,
+        receipt: Value,
+    ) -> Result<(), AppError> {
+        container_recovery::acknowledge(self, command, receipt, false).await
+    }
+    async fn claim_container_lease(
+        &self,
+        previous: &app::container_runtime::ContainerRecovery,
+        command: &app::container_runtime::ContainerRecoveryCommand,
+    ) -> Result<(), AppError> {
+        container_recovery::renew(self, previous, command).await
+    }
+    async fn acknowledge_container_lease(
+        &self,
+        command: &app::container_runtime::ContainerRecoveryCommand,
+        receipt: Value,
+    ) -> Result<(), AppError> {
+        container_recovery::acknowledge(self, command, receipt, true).await
+    }
+    async fn advance_recovered_container(
+        &self,
+        launch: &app::container_runtime::ContainerLaunch,
+        command: &app::container_runtime::ContainerRecoveryCommand,
+        state: &str,
+    ) -> Result<(), AppError> {
+        container_runtime::advance_owned(
+            self,
+            launch,
+            state,
+            launch.snapshot.clone(),
+            launch.origin.clone(),
+            Some(command),
+        )
+        .await
+    }
+    async fn get_container_configuration(
+        &self,
+        agent: Uuid,
+    ) -> Result<Option<domain::AgentConfigRevision>, AppError> {
+        config_revisions::effective(self, agent).await
+    }
+    async fn get_container_launch(
+        &self,
+        agent: Uuid,
+    ) -> Result<Option<app::container_runtime::ContainerLaunch>, AppError> {
+        container_runtime::get(self, agent).await
+    }
+    async fn claim_container_launch(
+        &self,
+        launch: &app::container_runtime::ContainerLaunch,
+    ) -> Result<(), AppError> {
+        container_runtime::claim(self, launch).await
+    }
+    async fn advance_container_launch(
+        &self,
+        launch: &app::container_runtime::ContainerLaunch,
+        state: &str,
+        snapshot: Option<Value>,
+        origin: Option<String>,
+    ) -> Result<(), AppError> {
+        container_runtime::advance(self, launch, state, snapshot, origin).await
+    }
+    async fn get_hermes_run_intent(
+        &self,
+        run: Uuid,
+    ) -> Result<Option<app::HermesDispatchIntent>, AppError> {
+        let row = self
+            .db
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT message_id FROM hermes_dispatch_journal WHERE run_id=$1",
+                [run.into()],
+            ))
+            .await
+            .map_err(AppError::database)?;
+        match row {
+            Some(row) => {
+                hermes_dispatch_journal::get(
+                    self,
+                    row.try_get("", "message_id").map_err(AppError::database)?,
+                )
+                .await
+            }
+            None => Ok(None),
+        }
+    }
     async fn list_session_approvals(
         &self,
         session: Uuid,
@@ -4833,7 +4962,6 @@ fn retention_hint(
 async fn provision_hermes(agent: &Agent, config: &AppConfig) -> Result<(), AppError> {
     let config_path = PathBuf::from(&agent.paths.config);
     let runtime_path = PathBuf::from(&agent.paths.runtime);
-    let token = agent_runtime_token(config, agent.id)?;
     for file in ["config.yaml", "SOUL.md", ".env", "skills", "sessions"] {
         reject_symlink_components(
             Path::new(&config.fleet.agents_root),
@@ -4852,7 +4980,7 @@ async fn provision_hermes(agent: &Agent, config: &AppConfig) -> Result<(), AppEr
         format!(
             "profile: {}\nruntime: hermes\nterminal:\n  cwd: {}\nfleet_control:\n  agent_id: {}\n  api_port: {}\n  dashboard_port: {}\n",
             agent.name,
-            agent.paths.workspace.replace('\\', "/"),
+            hermes_workspace(agent, config).replace('\\', "/"),
             agent.id,
             agent.api_port.unwrap_or_default(),
             agent.dashboard_port.unwrap_or_default()
@@ -4869,12 +4997,7 @@ async fn provision_hermes(agent: &Agent, config: &AppConfig) -> Result<(), AppEr
     .await?;
     write_if_missing(
         config_path.join(".env"),
-        format!(
-            "# Managed by Fleet Control. Secrets are redacted in API responses.\nHERMES_HOME={}\nHERMES_SERVE_HEADLESS=1\nAPI_SERVER_ENABLED=true\nAPI_SERVER_KEY={}\nAPI_SERVER_CORS_ORIGINS={}\n",
-            agent.paths.config.replace('\\', "/"),
-            token,
-            config.server.cors_allowed_origins.join(",")
-        ),
+        provisioned_hermes_env(agent, config)?,
     )
     .await?;
     write_if_missing(
@@ -4887,6 +5010,31 @@ async fn provision_hermes(agent: &Agent, config: &AppConfig) -> Result<(), AppEr
         .map_err(AppError::internal)?,
     )
     .await
+}
+
+fn hermes_workspace<'a>(agent: &'a Agent, config: &AppConfig) -> &'a str {
+    if agent.kind == AgentKind::Hermes && config.fleet.container_control.is_some() {
+        "/workspace"
+    } else {
+        &agent.paths.workspace
+    }
+}
+
+fn hermes_home<'a>(agent: &'a Agent, config: &AppConfig) -> &'a str {
+    if agent.kind == AgentKind::Hermes && config.fleet.container_control.is_some() {
+        "/config"
+    } else {
+        &agent.paths.config
+    }
+}
+
+fn provisioned_hermes_env(agent: &Agent, config: &AppConfig) -> Result<String, AppError> {
+    Ok(format!(
+        "# Managed by Fleet Control. Secrets are redacted in API responses.\nHERMES_HOME={}\nHERMES_SERVE_HEADLESS=1\nAPI_SERVER_ENABLED=true\nAPI_SERVER_KEY={}\nAPI_SERVER_CORS_ORIGINS={}\n",
+        hermes_home(agent, config).replace('\\', "/"),
+        agent_runtime_token(config, agent.id)?,
+        config.server.cors_allowed_origins.join(",")
+    ))
 }
 
 async fn reject_symlink_components(root: &Path, path: &Path) -> Result<(), AppError> {
@@ -4951,14 +5099,27 @@ pub(crate) async fn configuration_files(
             "terminal configuration must be an object",
         ));
     }
-    content["terminal"]["cwd"] = json!(agent.paths.workspace);
+    content["terminal"]["cwd"] = json!(hermes_workspace(agent, config));
     let mut env = format!(
         "HERMES_HOME={}\nHERMES_SERVE_HEADLESS=1\nAPI_SERVER_ENABLED=true\nAPI_SERVER_KEY={}\n",
-        serde_json::to_string(&agent.paths.config).map_err(AppError::internal)?,
+        serde_json::to_string(hermes_home(agent, config)).map_err(AppError::internal)?,
         agent_runtime_token(config, agent.id)?
     );
     if let Some(values) = revision.snapshot.config.env_json.as_object() {
         for (key, value) in values {
+            if agent.kind == AgentKind::Hermes
+                && config.fleet.container_control.is_some()
+                && (key.starts_with("DOCKER_")
+                    || key == "CONTAINER_HOST"
+                    || matches!(
+                        key.as_str(),
+                        "HOME" | "API_SERVER_HOST" | "API_SERVER_PORT" | "API_SERVER_CORS_ORIGINS"
+                    ))
+            {
+                return Err(AppError::validation(
+                    "Docker runtime environment authority is reserved",
+                ));
+            }
             if matches!(
                 key.as_str(),
                 "HERMES_HOME" | "HERMES_SERVE_HEADLESS" | "API_SERVER_ENABLED" | "API_SERVER_KEY"
@@ -5130,6 +5291,28 @@ fn normalize_path(path: &Path) -> Result<PathBuf, AppError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn docker_bootstrap_projection_preserves_process_and_java_paths() {
+        let root = Path::new("/agents");
+        let mut config = test_config(root);
+        let mut agent = test_agent(root, Uuid::new_v4(), AgentStatus::Ready);
+        assert_eq!(hermes_home(&agent, &config), agent.paths.config);
+        assert_eq!(hermes_workspace(&agent, &config), agent.paths.workspace);
+        config.fleet.container_control=Some(serde_json::from_value(json!({
+            "python":"python3","base_root":"/base","context":"desktop-linux","controller_root":"/private"
+        })).unwrap());
+        assert_eq!(hermes_home(&agent, &config), "/config");
+        assert_eq!(hermes_workspace(&agent, &config), "/workspace");
+        assert!(
+            provisioned_hermes_env(&agent, &config)
+                .unwrap()
+                .contains("\nHERMES_HOME=/config\n")
+        );
+        agent.kind = AgentKind::JavaAgent;
+        assert_eq!(hermes_home(&agent, &config), agent.paths.config);
+        assert_eq!(hermes_workspace(&agent, &config), agent.paths.workspace);
+    }
 
     #[test]
     fn configuration_reads_mask_legacy_secrets_and_preserve_safe_references() {

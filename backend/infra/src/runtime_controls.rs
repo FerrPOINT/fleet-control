@@ -210,9 +210,16 @@ async fn current(
     let journal = txn
         .query_one(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
-            "SELECT state,request_hash,origin,credential_fingerprint,session_id,agent_id
+            "SELECT state,request_hash,origin,credential_fingerprint,session_id,agent_id,
+                fleet_container_origin(agent_id,origin,$2,capabilities) AS valid_origin
             FROM hermes_dispatch_journal WHERE run_id=$1",
-            [expected.id.into()],
+            [
+                expected.id.into(),
+                agent
+                    .try_get::<Option<i32>>("", "api_port")
+                    .map_err(database_error)?
+                    .into(),
+            ],
         ))
         .await
         .map_err(database_error)?
@@ -231,16 +238,9 @@ async fn current(
             != expected.agent_id
         || expected.runtime_run_id.is_none()
         || expected.runtime_session_id.is_none()
-        || journal
-            .try_get::<String>("", "origin")
+        || !journal
+            .try_get::<bool>("", "valid_origin")
             .map_err(database_error)?
-            != format!(
-                "http://127.0.0.1:{}",
-                agent
-                    .try_get::<Option<i32>>("", "api_port")
-                    .map_err(database_error)?
-                    .ok_or_else(|| AppError::conflict("runtime control origin is missing"))?
-            )
     {
         return Err(AppError::conflict(
             "original runtime context is not accepted",

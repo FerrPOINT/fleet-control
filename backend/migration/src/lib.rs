@@ -21,6 +21,9 @@ mod m20261004_000011_pm_credentials;
 mod m20261004_000012_hermes_dispatch_journal;
 mod m20261005_000013_runtime_controls;
 mod m20261005_000014_hermes_journal_time_order;
+mod m20261009_000015_container_controller;
+mod m20261009_000016_mapped_controller_recovery;
+mod m20261009_000017_container_preparation;
 
 pub struct Migrator;
 
@@ -93,6 +96,11 @@ impl MigratorTrait for CanonicalMigrator {
         migrations.push(Box::new(
             m20261005_000014_hermes_journal_time_order::Migration,
         ));
+        migrations.push(Box::new(m20261009_000015_container_controller::Migration));
+        migrations.push(Box::new(
+            m20261009_000016_mapped_controller_recovery::Migration,
+        ));
+        migrations.push(Box::new(m20261009_000017_container_preparation::Migration));
         migrations
     }
 }
@@ -113,6 +121,9 @@ impl MigratorTrait for LegacyMigrator {
             Box::new(m20261004_000012_hermes_dispatch_journal::Migration),
             Box::new(m20261005_000013_runtime_controls::Migration),
             Box::new(m20261005_000014_hermes_journal_time_order::Migration),
+            Box::new(m20261009_000015_container_controller::Migration),
+            Box::new(m20261009_000016_mapped_controller_recovery::Migration),
+            Box::new(m20261009_000017_container_preparation::Migration),
         ]);
         migrations
     }

@@ -26,6 +26,10 @@
   single-attempt dispatch, uncertain holds, atomic ACK/terminal packets and scoped
   readback. Rust execution, generated contracts and client integration are pending;
   no task admission or installed runtime readiness is claimed.
+- Add bounded opt-in original Docker Compose lifecycle through Base utility169,
+  durable generation fencing, physical readiness/stop and original Hermes
+  dispatch origins. Add only migration000015, isolated PG/unit CI selectors and
+  sealed-loader tests. SDK pin unchanged; real runtime acceptance remains pending.
 
 - Prepare the isolated free-chat Hermes immutable request journal, single POST
   permit and atomic ACK/session readback release. Own only additive migration12;

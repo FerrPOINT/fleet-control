@@ -19,8 +19,8 @@ pub(super) async fn accepted(
         || current.session_id != run.session_id
         || current.runtime_run_id != run.runtime_run_id
         || current.runtime_session_id != run.runtime_session_id
-        || LocalRuntimeSupervisor::hermes_base_url(&current_agent)?
-            != LocalRuntimeSupervisor::hermes_base_url(agent)?
+        || supervisor.hermes_base_url(&current_agent).await?
+            != supervisor.hermes_base_url(agent).await?
     {
         return Err(AppError::conflict("runtime control identity changed"));
     }
@@ -46,7 +46,7 @@ pub(super) async fn accepted(
         .as_deref()
         .filter(|id| domain::valid_ref(id, 512))
         .ok_or_else(|| AppError::conflict("verified native session identity is required"))?;
-    let base = LocalRuntimeSupervisor::hermes_base_url(&current_agent)?;
+    let base = supervisor.run_base_url(&current_agent, &current).await?;
     let token = crate::agent_runtime_token(&supervisor.config, agent.id)?;
     let intent = supervisor
         .repo
@@ -56,6 +56,9 @@ pub(super) async fn accepted(
             AppError::Unavailable("legacy run has no original control context".into())
         })?;
     hermes_wire::verify_intent(&intent, &base, &token)?;
+    supervisor
+        .verify_container_intent(&current_agent, &intent)
+        .await?;
     if intent.state != "accepted"
         || !intent.submission_attempted
         || intent.run.id != current.id

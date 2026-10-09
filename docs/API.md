@@ -77,6 +77,22 @@ The compatibility gate explicitly models only the exact required string header
 headers and still checks every other parameter, body, response and route through
 the unchanged Base compatibility checker. This is not general v1 compatibility
 and must be coordinated with consumers before enabling unit13.
+Public routes are unchanged by [automatic Docker preparation unit17](AUTOMATIC_CONTAINER_PREPARATION_RELEASE.md).
+The configured initial-generation path no longer requires an operator-prepared
+document; it still requires original physical and admission gates.
+
+Unit16 adds no public route or DTO. Its private mapped-volume/controller recovery
+contract and pending native gates are in [the source handoff](MAPPED_CONTROLLER_RECOVERY_RELEASE.md).
+Its correctness follow-up keeps foreign unknown heartbeats held without native
+mutation and isolates agents' renewal work; no public readiness/admission changes.
+
+## Original Docker Lifecycle
+
+Existing start/stop/restart/health operations support the trusted opt-in Docker
+supervisor. No new public routes, fields or OpenAPI schemas are introduced.
+Unknown physical effects/ownership return unavailable and retain holds. A stopped
+generation needs new operator preparation before restart. See
+[bounded Docker source release](DOCKER_LIFECYCLE_RELEASE.md).
 
 ## Hermes Journal Release Unit12
 

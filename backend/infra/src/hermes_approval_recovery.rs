@@ -13,7 +13,8 @@ pub(super) async fn context(
          JOIN session_messages m ON m.id=j.message_id AND m.session_id=r.session_id
          JOIN message_dispatch_outbox o ON o.message_id=m.id AND o.agent_id=r.agent_id
          WHERE j.run_id=$1 AND j.state='accepted' AND a.kind='hermes' AND a.archived_at IS NULL
-           AND a.api_port BETWEEN 1024 AND 65535 AND j.origin='http://127.0.0.1:' || a.api_port::text
+           AND a.api_port BETWEEN 1024 AND 65535
+           AND fleet_container_origin(a.id,j.origin,a.api_port,j.capabilities)
            AND r.state IN ('pending','running','waiting','stopping') AND r.run_role='primary'
            AND r.runtime_run_id IS NOT NULL AND r.runtime_session_id IS NOT NULL
            AND m.runtime_message_id=r.runtime_run_id AND m.delivery_state='dispatched' AND o.state='dispatched'
@@ -135,8 +136,7 @@ pub(super) async fn record(
         || !matches!(run.state.as_str(), "running" | "waiting" | "stopping")
         || agent
             .api_port
-            .map(|port| format!("http://127.0.0.1:{port}"))
-            != Some(origin.clone())
+            .is_none_or(|port| !(1024..=65535).contains(&port))
     {
         return Err(AppError::conflict(
             "approval snapshot current identity changed",
@@ -150,6 +150,7 @@ pub(super) async fn record(
          JOIN message_dispatch_outbox o ON o.message_id=m.id AND o.agent_id=j.agent_id
          WHERE j.run_id=$1 AND j.session_id=$2 AND j.agent_id=$3 AND j.state='accepted'
            AND j.origin=$4 AND j.credential_fingerprint=$5
+           AND fleet_container_origin(j.agent_id,j.origin,$7,j.capabilities)
            AND m.runtime_message_id=$6 AND m.delivery_state='dispatched' AND o.state='dispatched'
            AND NOT EXISTS(SELECT 1 FROM task_chat_bindings b WHERE b.session_id=$2)
            AND NOT EXISTS(SELECT 1 FROM pm_run_bindings b WHERE b.session_run_id=$1)",
@@ -160,6 +161,7 @@ pub(super) async fn record(
                 origin.into(),
                 credential_fingerprint.into(),
                 req.runtime_run_id.clone().into(),
+                agent.api_port.into(),
             ],
         ))
         .await
