@@ -1,5 +1,17 @@
 # Hermes Adapter Contract
 
+## Original-Key And Pinned Recovery Candidate
+
+The default-off [recovery extension](HERMES_RECOVERY_V1.md) freezes verified
+original store/scope/source facts before submission and performs only a
+non-dispatch original-key lookup after unknown acceptance. No repeated run POST,
+legacy backfill, new key, task/PM model admission or capacity release follows a
+negative result. Pinned active runs recover with authenticated status GET only.
+Exact terminal run/session proof commits mirror/delivery/state in one transaction;
+replay is read-only, contradictions fail. [Stream bounds](HERMES_EVENT_STREAM_V1.md)
+require a complete frame or independent terminal status at EOF. Native producer
+and managed-runtime compatibility are not yet accepted for this candidate.
+
 ## Durable Runtime Controls Unit13
 
 Controls require fresh exact original origin/credential/native run/session,
@@ -9,8 +21,9 @@ run identity, status, boolean acceptance, MIME and encoding. Invalid/lost ACK
 retains submitted/uncertain hold without retry. Stopping acknowledgement is not
 terminal proof. Independent terminal mirror commits prompt/run/optional answer
 and events atomically; scoped control GETs never reconnect or dispatch.
-Native installed compatibility and active-run worker recovery after Fleet
-process restart remain separate from this source candidate.
+Native installed compatibility remains separate from this source candidate.
+The combined candidate restores pinned active-run GET-only recovery after Fleet
+restart through the recovery slice; fixtures are not installed-runtime acceptance.
 
 ## Hermes Journal Release Unit12
 

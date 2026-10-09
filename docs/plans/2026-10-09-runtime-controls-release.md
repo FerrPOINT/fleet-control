@@ -2,6 +2,18 @@
 
 Status: isolated source freeze candidate; compilation and runtime acceptance pending.
 
+## Recovery Integration
+
+Normal integration uses exact controls `fc6ef12df757a0858f0931cfd88a66fc7f133ed4`
+and recovery `1595552b7853cdaf201720d2fb4d84c62cf4ddcd`. The original inventory
+below is source-qualified to controls alone. The shared terminal module now
+contains all14 tests (the original nine plus five recovery tests), invoked once
+with exact count/name guards. All18 control PG/HTTP tests, API1, ACK3 and migration1
+remain. Pinned active-run recovery is now present through authenticated GET only;
+unknown run acceptance still requires original-key witness proof and never reposts.
+Only controls migration13 is new. No UI/generated files, pins, approval14 or
+Docker/lifecycle15..22 are imported, and no Rust/PG/native execution is claimed.
+
 ## Source And Prerequisites
 
 - Original product freeze: `3a07a331cbcffef9a3d5bf434050c90d601373b5`,

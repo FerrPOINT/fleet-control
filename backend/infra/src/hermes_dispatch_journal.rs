@@ -17,7 +17,8 @@ fn database_error(error: sea_orm::DbErr) -> AppError {
 
 const JOURNAL_COLUMNS: &str = "j.message_id,j.run_id,j.session_id,j.agent_id,j.run_role,j.requested_session_id,
     j.request_body,j.request_hash,j.idempotency_key,j.origin,j.credential_fingerprint,j.capabilities,
-    j.retention_seconds,j.created_at,j.recovery_deadline,j.state,j.submitted_at,j.accepted_at";
+    j.retention_seconds,j.created_at,j.recovery_deadline,j.state,j.submitted_at,j.accepted_at,
+    j.recovery_deadline>clock_timestamp() AS recovery_allowed";
 
 pub(super) async fn prepare(
     repo: &PostgresFleetRepository,
@@ -251,6 +252,7 @@ fn validate_draft(draft: &HermesDispatchDraft) -> Result<(), AppError> {
 }
 
 fn validate_capabilities(caps: &Value) -> Result<(), AppError> {
+    crate::runtime::recovery_wire::store_id(caps)?;
     if caps["object"] != "hermes.api_server.capabilities"
         || caps["platform"] != "hermes-agent"
         || caps["auth"]["type"] != "bearer"
@@ -536,5 +538,6 @@ fn intent(
         state,
         submitted_at: column(&row, "submitted_at")?,
         recovery_deadline: column(&row, "recovery_deadline")?,
+        recovery_allowed: column(&row, "recovery_allowed")?,
     })
 }

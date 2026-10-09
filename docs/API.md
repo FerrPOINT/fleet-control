@@ -1,5 +1,14 @@
 # API
 
+## Hermes Recovery Candidate
+
+The recovery slice changes no public Fleet route, DTO or OpenAPI schema. The default-off original-key
+extension uses an authenticated non-dispatch lookup, not a repeated run POST.
+Pinned free-chat terminal evidence commits delivery, optional redacted assistant
+and run state atomically. This provides no task/PM model authority or business
+completion. See [the scoped release](plans/2026-10-09-hermes-recovery-release.md)
+and [wire contract](contracts/HERMES_RECOVERY_V1.md); native compatibility is pending.
+
 ## Durable Runtime Controls Unit13
 
 The [isolated control release](plans/2026-10-09-runtime-controls-release.md)

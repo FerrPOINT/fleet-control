@@ -2,6 +2,17 @@
 
 Prefix: `FLEET_CONTROL_`.
 
+## Hermes Original-Key Recovery
+
+`FLEET_CONTROL_FLEET__HERMES_RECOVERY_EXTENSION_ENABLED` defaults to `false`.
+Enabling requires the source-qualified native witness producer described in
+[the recovery contract](contracts/HERMES_RECOVERY_V1.md), on the original agent
+listener with its original default-profile bearer. Absent/incompatible capability
+fails before run submission; no unguarded fallback is allowed. Facts cannot be
+added retroactively to legacy intents. This consumer candidate does not install
+or enable a plugin, change SDK/runtime pins, grant task/PM admission or prove
+native compatibility. Unknown acceptance remains held when the flag is off.
+
 Optional PM gateway uses `FLEET_CONTROL_TRACKER__URL` (fixed HTTP(S) root origin;
 no credentials, query, fragment or path) and `FLEET_CONTROL_TRACKER__INSTANCE_ID`
 (stable instance identity, matching Tracker config). Redirects are refused; bearer

@@ -195,6 +195,9 @@ pub struct FleetConfig {
     pub agents_root: String,
     pub hermes_source: String,
     pub hermes_command: String,
+    /// Require the opt-in, source-pinned original-key recovery extension.
+    #[serde(default)]
+    pub hermes_recovery_extension_enabled: bool,
     pub java_agent_source: String,
     pub java_agent_command: String,
     pub runtime_token_secret: String,
@@ -290,6 +293,7 @@ impl AppConfig {
             .set_default("fleet.agents_root", "./data/agents")?
             .set_default("fleet.hermes_source", "../прототипы/hermes")?
             .set_default("fleet.hermes_command", "hermes")?
+            .set_default("fleet.hermes_recovery_extension_enabled", false)?
             .set_default("fleet.java_agent_source", "../java-agent")?
             .set_default("fleet.java_agent_command", "java")?
             .set_default("fleet.runtime_token_secret", "[CHANGE_ME]")?
@@ -438,6 +442,7 @@ impl Default for FleetConfig {
             agents_root: "./data/agents".to_string(),
             hermes_source: "../прототипы/hermes".to_string(),
             hermes_command: "hermes".to_string(),
+            hermes_recovery_extension_enabled: false,
             java_agent_source: "../java-agent".to_string(),
             java_agent_command: "java".to_string(),
             forge_api_url: None,

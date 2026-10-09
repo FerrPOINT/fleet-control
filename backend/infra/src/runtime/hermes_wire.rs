@@ -28,10 +28,20 @@ pub(super) fn verify_intent(
 }
 
 pub(super) async fn read_json(
-    mut response: Response,
+    response: Response,
     expected: StatusCode,
     limit: usize,
 ) -> Result<Value, AppError> {
+    let body = read_body(response, expected, limit).await?;
+    serde_json::from_slice(&body)
+        .map_err(|_| AppError::Unavailable("Hermes protocol response is malformed".into()))
+}
+
+pub(super) async fn read_body(
+    mut response: Response,
+    expected: StatusCode,
+    limit: usize,
+) -> Result<Vec<u8>, AppError> {
     if response.status() != expected {
         return Err(AppError::Unavailable(format!(
             "Hermes protocol returned HTTP {}",
@@ -63,8 +73,7 @@ pub(super) async fn read_json(
         }
         body.extend_from_slice(&chunk);
     }
-    serde_json::from_slice(&body)
-        .map_err(|_| AppError::Unavailable("Hermes protocol response is malformed".into()))
+    Ok(body)
 }
 
 pub(super) fn task_protocol(capabilities: &Value) -> Result<(), AppError> {
@@ -276,15 +285,20 @@ pub(super) async fn submit(
     token: &str,
     message_id: Uuid,
     body: &str,
+    store_id: Option<&str>,
 ) -> Result<String, AppError> {
-    let response = client
+    let mut request = client
         .post(format!("{base}/v1/runs"))
         .bearer_auth(token)
         .header("Idempotency-Key", message_id.to_string())
         .header(header::ACCEPT_ENCODING, "identity")
         .timeout(Duration::from_secs(30))
         .header(header::CONTENT_TYPE, "application/json")
-        .body(body.to_owned())
+        .body(body.to_owned());
+    if let Some(store_id) = store_id {
+        request = request.header("X-Fleet-Recovery-Store-Id", store_id);
+    }
+    let response = request
         .send()
         .await
         .map_err(|_| AppError::Unavailable("Hermes run acceptance is unknown".into()))?;
@@ -472,6 +486,7 @@ mod tests {
                 "wire-fixture-only",
                 id,
                 r#"{"input":"fixture","session_id":"fleet:fixture:agent"}"#,
+                None,
             )
             .await;
             assert_eq!(result.is_ok(), status == StatusCode::ACCEPTED);
@@ -583,7 +598,7 @@ mod tests {
             .build()
             .unwrap();
         assert_eq!(
-            submit(&client, &base, "wire-fixture-only", id, expected)
+            submit(&client, &base, "wire-fixture-only", id, expected, None)
                 .await
                 .unwrap(),
             "run_exact_bytes"

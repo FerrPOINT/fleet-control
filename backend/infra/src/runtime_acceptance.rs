@@ -5,6 +5,7 @@ pub(super) async fn accept(
     message_id: Uuid,
     run_id: Uuid,
     runtime_run_id: String,
+    recovery_capabilities: Option<Value>,
 ) -> Result<SessionAgentRun, AppError> {
     if message_id.is_nil() || run_id.is_nil() || !pm_execution::valid_hermes_ref(&runtime_run_id) {
         return Err(AppError::validation("invalid Hermes acceptance identity"));
@@ -22,7 +23,8 @@ pub(super) async fn accept(
     let intent = txn
         .query_one(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
-            "SELECT run_id,state FROM hermes_dispatch_journal WHERE message_id=$1 FOR UPDATE",
+            "SELECT run_id,state,capabilities,recovery_deadline>clock_timestamp() AS recovery_allowed
+             FROM hermes_dispatch_journal WHERE message_id=$1 FOR UPDATE",
             [message_id.into()],
         ))
         .await
@@ -38,6 +40,25 @@ pub(super) async fn accept(
         if journal_run != run_id || state != expected {
             return Err(AppError::conflict(
                 "Hermes ACK does not match its submission journal",
+            ));
+        }
+    }
+    if let Some(expected) = &recovery_capabilities {
+        let original = intent
+            .as_ref()
+            .ok_or_else(|| AppError::conflict("Hermes recovery journal missing"))?;
+        let facts: Value = original
+            .try_get("", "capabilities")
+            .map_err(AppError::database)?;
+        let allowed: bool = original
+            .try_get("", "recovery_allowed")
+            .map_err(AppError::database)?;
+        if facts != *expected
+            || crate::runtime::recovery_wire::store_id(&facts)?.is_none()
+            || (run.runtime_run_id.is_none() && !allowed)
+        {
+            return Err(AppError::conflict(
+                "Hermes recovery context changed or expired",
             ));
         }
     }
@@ -97,9 +118,16 @@ pub(super) async fn accept(
         "UPDATE message_dispatch_outbox SET state='dispatched',last_error=NULL,updated_at=now() WHERE message_id=$1",
         [message_id.into()])).await.map_err(AppError::database)?;
     if intent.is_some() {
-        txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
-            "UPDATE hermes_dispatch_journal SET state='accepted',accepted_at=clock_timestamp() WHERE message_id=$1",
-            [message_id.into()])).await.map_err(|_| AppError::Database("Hermes acceptance journal update failed".into()))?;
+        let changed = txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "UPDATE hermes_dispatch_journal SET state='accepted',accepted_at=clock_timestamp() WHERE message_id=$1
+                AND (NOT $2 OR recovery_deadline>clock_timestamp())",
+            [message_id.into(), recovery_capabilities.is_some().into()])).await
+            .map_err(|_| AppError::Database("Hermes acceptance journal update failed".into()))?;
+        if changed.rows_affected() != 1 {
+            return Err(AppError::conflict(
+                "Hermes recovery horizon expired before commit",
+            ));
+        }
     }
     txn.commit().await.map_err(AppError::database)?;
     session_run_from_model(&repo.db, updated).await

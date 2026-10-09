@@ -1,5 +1,14 @@
 # Agent Runtime Contract
 
+## Free-Chat Recovery Candidate
+
+Original-key recovery is an authenticated, non-dispatch observation of a durable
+native witness, never authority to submit again or execute a task/PM model.
+Pinned-run terminal mirrors/delivery/state commit together, with exact replay
+and contradictory-evidence refusal. Transport EOF is not completion. See
+[recovery](HERMES_RECOVERY_V1.md), [stream bounds](HERMES_EVENT_STREAM_V1.md)
+and [pending acceptance](../plans/2026-10-09-hermes-recovery-release.md).
+
 ## Durable Runtime Controls Unit13
 
 Free-chat steer/stop require authenticated human/owner authority, an immutable

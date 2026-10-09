@@ -1,10 +1,27 @@
 # Testing
 
+## Hermes Recovery Candidate
+
+The [scoped release inventory](plans/2026-10-09-hermes-recovery-release.md) requires
+14 terminal, 5 pinned-restart, 2 unknown-key, 2 PG-lock race and 7 framing cases,
+plus 8 existing/extended runtime HTTP cases. They are ignored by default, require
+`FLEET_TEST_DATABASE_URL` when selected and run serially against disposable PG.
+CI gives each new family its own database and requires exact nonzero PASS counts
+with no ignores; recovery-wire (3) and SSE-wire (10) unit selectors are explicit.
+In the combined controls/recovery tree, the shared terminal selector runs once
+in the controls database and requires 14 PASS, retaining all nine controls names
+and five recovery additions. Recovery families retain their separate databases.
+Existing journal (15), atomic ACK (11), GET readback (5), lineage and workspace
+gates are retained. Local light checks are not Rust compilation, PG/HTTP/concurrency
+execution or installed/native compatibility. No previous packet accepts this new tree.
+
 ## Durable Runtime Controls Unit13
 
 The [control release plan](plans/2026-10-09-runtime-controls-release.md)
-specifies 32 new focused cases: API1, native ACK3, control PG/HTTP18,
-atomic terminal9 and migration1. New PG cases are explicitly ignored by default;
+originally specifies 32 focused cases: API1, native ACK3, control PG/HTTP18,
+atomic terminal9 and migration1. Combined recovery integration expands that
+same terminal selector to 14, not a second module or an extra nine tests.
+New PG cases are explicitly ignored by default;
 CI requires each name and exact success counts using separate disposable DBs.
 Whole-ledger lineage/SSE, parent guards, strict Linux all-targets Clippy/check,
 workspace, real Auth and generated OpenAPI parity remain required.

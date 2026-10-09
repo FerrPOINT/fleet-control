@@ -7,6 +7,10 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 
 - [Runtime controls UI and remaining receipt integration](plans/2026-10-09-runtime-controls-ui.md)
 - [Runtime control fixture screenshots](assets/design/runtime-controls/manifest.json)
+- [Hermes original-key recovery and atomic terminal candidate](plans/2026-10-09-hermes-recovery-release.md)
+- [Hermes recovery wire v1](contracts/HERMES_RECOVERY_V1.md)
+- [Hermes bounded event-stream profile](contracts/HERMES_EVENT_STREAM_V1.md)
+
 - [Persisted PM credential release](plans/2026-10-09-pm-credentials-release.md)
 
 - [Chat clarification implementation plan](CHAT_CLARIFICATION_IMPLEMENTATION_PLAN.md)

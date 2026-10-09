@@ -1,5 +1,19 @@
 # Data Model
 
+## Hermes Recovery And Terminal Atomicity
+
+The recovery slice introduces no new migration or lineage entry. Optional verified recovery facts
+are frozen inside the existing journal capabilities before its only submission
+permit. Unknown-key acceptance checks the original DB-clock deadline again under
+lock and at the mapping update; exact accepted replay does not rewrite history.
+Terminal persistence locks agent/session/run/prompt/outbox/journal and commits
+the optional redacted assistant/preview, delivery, run state/error/timestamps and
+trigger-owned durable events together. Journal/outbox acceptance stays unchanged.
+An identical terminal replay changes neither timestamps nor event cursor; a
+contradiction rolls back. EOF, lookup absence and expiry never release capacity.
+See [ADR 0018](adr/0018-atomic-terminal-pinned-recovery.md) and
+[ADR 0019](adr/0019-native-original-key-recovery.md).
+
 ## Durable Runtime Controls Unit13
 
 Only `m20261005_000013_runtime_controls` is new in this unit. Both lineages

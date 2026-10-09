@@ -6,158 +6,6 @@ use serde_json::{Value, json};
 use shared::AppError;
 use tokio::time::timeout;
 
-async fn required_fixture() -> Option<(PostgresFleetRepository, Uuid, Uuid)> {
-    std::env::var("FLEET_TEST_DATABASE_URL")
-        .expect("isolated PostgreSQL is required for atomic terminal tests");
-    super::fixture().await
-}
-
-async fn blocked_pid(
-    monitor: &DatabaseConnection,
-    blocker: i32,
-    query_marker: &str,
-) -> Result<i32, sea_orm::DbErr> {
-    timeout(Duration::from_secs(10), async {
-        loop {
-            let row = monitor
-                .query_one(Statement::from_sql_and_values(
-                    DatabaseBackend::Postgres,
-                    "SELECT pid FROM pg_stat_activity
-                 WHERE datname=current_database() AND pid<>pg_backend_pid()
-                   AND $1=ANY(pg_blocking_pids(pid)) AND position($2 in query)>0
-                 ORDER BY pid LIMIT 1",
-                    [blocker.into(), query_marker.into()],
-                ))
-                .await?;
-            if let Some(row) = row {
-                return row.try_get("", "pid");
-            }
-            // Poll actual PG blocking state; elapsed time alone never opens the barrier.
-            sleep(Duration::from_millis(10)).await;
-        }
-    })
-    .await
-    .map_err(|_| sea_orm::DbErr::Custom("owned terminal blocker was not observed".into()))?
-}
-
-async fn progress_lock_regression(prompt: bool) {
-    let Some(p) = setup(true, true, SessionRunRole::Primary).await else {
-        return;
-    };
-    let before = snapshot(&p).await;
-    let holder = p.db.begin().await.unwrap();
-    holder
-        .execute_unprepared("SET LOCAL statement_timeout='5s'; SET LOCAL lock_timeout='5s'")
-        .await
-        .unwrap();
-    let holder_pid: i32 = holder
-        .query_one(Statement::from_string(
-            DatabaseBackend::Postgres,
-            "SELECT pg_backend_pid() AS pid".to_string(),
-        ))
-        .await
-        .unwrap()
-        .unwrap()
-        .try_get("", "pid")
-        .unwrap();
-    let (table, id, lock, update) = if prompt {
-        (
-            "session_messages",
-            p.message_id,
-            "SELECT id FROM session_messages WHERE id=$1 FOR UPDATE",
-            "UPDATE session_messages SET delivery_error='fixture progress' WHERE id=$1",
-        )
-    } else {
-        ("session_agent_runs", p.run_id,
-            "SELECT id FROM session_agent_runs WHERE id=$1 FOR UPDATE",
-            "UPDATE session_agent_runs SET last_error='fixture progress',last_event_at=clock_timestamp(),
-                updated_at=clock_timestamp() WHERE id=$1")
-    };
-    holder
-        .query_one(Statement::from_sql_and_values(
-            DatabaseBackend::Postgres,
-            lock,
-            [id.into()],
-        ))
-        .await
-        .unwrap()
-        .unwrap();
-    let monitor = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
-        .await
-        .unwrap();
-    let progress = async move {
-        blocked_pid(&monitor, holder_pid, table).await?;
-        // Terminal now holds the session and is blocked on our run/prompt. This real UPDATE
-        // must be able to append its event (session FK key-share) before releasing the row.
-        holder
-            .execute(Statement::from_sql_and_values(
-                DatabaseBackend::Postgres,
-                update,
-                [id.into()],
-            ))
-            .await?;
-        holder.commit().await?;
-        Ok::<(), sea_orm::DbErr>(())
-    };
-    let (terminal, progress) = timeout(Duration::from_secs(25), async {
-        tokio::join!(
-            commit(
-                &p,
-                SessionRunState::Completed,
-                Some("answer after progress"),
-                None
-            ),
-            progress
-        )
-    })
-    .await
-    .unwrap();
-    progress.unwrap();
-    let (run, assistant, first) = terminal.unwrap();
-    assert!(first);
-    assert_eq!(run.state, SessionRunState::Completed);
-    assert_eq!(assistant.unwrap().body, "answer after progress");
-    let after = snapshot(&p).await;
-    assert_eq!(after["prompt"]["delivery_state"], "completed");
-    assert_eq!(after["prompt"]["delivery_error"], Value::Null);
-    assert_eq!(after["run"]["last_error"], Value::Null);
-    assert_eq!(after["assistants"].as_array().unwrap().len(), 1);
-    assert_eq!(after["journal"], before["journal"]);
-    assert_eq!(after["outbox"], before["outbox"]);
-    assert_eq!(
-        after["cursor"].as_i64().unwrap(),
-        before["cursor"].as_i64().unwrap() + 5
-    );
-    assert_eq!(
-        after["events"].as_array().unwrap().len(),
-        before["events"].as_array().unwrap().len() + 5
-    );
-    assert!(
-        !commit(
-            &p,
-            SessionRunState::Completed,
-            Some("answer after progress"),
-            None
-        )
-        .await
-        .unwrap()
-        .2
-    );
-    assert_eq!(snapshot(&p).await, after);
-}
-
-#[tokio::test]
-#[ignore = "requires isolated FLEET_TEST_DATABASE_URL"]
-async fn terminal_session_serialization_allows_run_progress_event_fk_before_commit() {
-    progress_lock_regression(false).await;
-}
-
-#[tokio::test]
-#[ignore = "requires isolated FLEET_TEST_DATABASE_URL"]
-async fn terminal_session_serialization_allows_prompt_progress_event_fk_before_commit() {
-    progress_lock_regression(true).await;
-}
-
 struct TerminalFixture {
     repo: PostgresFleetRepository,
     db: DatabaseConnection,
@@ -171,7 +19,7 @@ struct TerminalFixture {
 }
 
 async fn setup(journal: bool, pin: bool, role: SessionRunRole) -> Option<TerminalFixture> {
-    let (repo, owner, _) = required_fixture().await?;
+    let (repo, owner, _) = recovery_fixture().await?;
     let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
         .await
         .unwrap();
@@ -698,7 +546,7 @@ async fn terminal_requires_exact_message_native_pin_current_primary_and_accepted
         Err(AppError::Conflict(_))
     ));
     assert_eq!(snapshot(&p).await, changed_primary);
-    for (journal, pin) in [(false, false), (true, false)] {
+    for (journal, pin) in [(false, false), (false, true), (true, false)] {
         let p = setup(journal, pin, SessionRunRole::Primary).await.unwrap();
         let before = snapshot(&p).await;
         let mut request = command(&p, SessionRunState::Completed, Some("answer"), None);
@@ -754,4 +602,603 @@ async fn terminal_task_and_pm_bindings_never_authorize_freechat_packet() {
         ));
         assert_eq!(snapshot(&p).await, before);
     }
+}
+
+#[tokio::test]
+#[ignore = "requires isolated FLEET_TEST_DATABASE_URL"]
+async fn terminal_reuses_only_identical_historical_partial_assistant_under_session_lock() {
+    let Some(p) = setup(true, true, SessionRunRole::Primary).await else {
+        return;
+    };
+    let original = p
+        .repo
+        .insert_session_message_mirror(
+            p.session_id,
+            Some(p.agent_id),
+            "historical answer".into(),
+            MessageKind::AssistantMessage,
+            Some(p.native_run.clone()),
+        )
+        .await
+        .unwrap();
+    let before = snapshot(&p).await;
+    assert!(matches!(
+        commit(&p, SessionRunState::Completed, Some("changed answer"), None).await,
+        Err(AppError::Conflict(_))
+    ));
+    assert_eq!(snapshot(&p).await, before);
+    let result = commit(
+        &p,
+        SessionRunState::Completed,
+        Some(" historical answer "),
+        None,
+    )
+    .await
+    .unwrap();
+    assert!(result.2);
+    assert_eq!(result.1.unwrap().id, original.id);
+    let after = snapshot(&p).await;
+    assert_eq!(after["assistants"], before["assistants"]);
+    assert_eq!(after["session"], before["session"]);
+    assert_eq!(
+        after["events"].as_array().unwrap().len(),
+        before["events"].as_array().unwrap().len() + 2
+    );
+    assert!(
+        !commit(
+            &p,
+            SessionRunState::Completed,
+            Some("historical answer"),
+            None
+        )
+        .await
+        .unwrap()
+        .2
+    );
+    assert_eq!(snapshot(&p).await, after);
+    let p = setup(true, true, SessionRunRole::Primary).await.unwrap();
+    p.repo
+        .insert_session_message_mirror(
+            p.session_id,
+            None,
+            "foreign author".into(),
+            MessageKind::AssistantMessage,
+            Some(p.native_run.clone()),
+        )
+        .await
+        .unwrap();
+    let before = snapshot(&p).await;
+    assert!(matches!(
+        commit(&p, SessionRunState::Completed, Some("foreign author"), None).await,
+        Err(AppError::Conflict(_))
+    ));
+    assert_eq!(snapshot(&p).await, before);
+}
+
+#[tokio::test]
+#[ignore = "requires isolated FLEET_TEST_DATABASE_URL"]
+async fn terminal_completion_during_drain_preserves_config_heads_and_allows_free_leader_pm_role() {
+    let Some(p) = setup(true, true, SessionRunRole::Leader).await else {
+        return;
+    };
+    let revision = p
+        .repo
+        .create_config_revision(
+            p.agent_id,
+            UpdateAgentConfigRequest {
+                config_json: json!({}),
+                soul_md: "# Fixture".into(),
+                env_json: json!({}),
+            },
+            p.owner,
+        )
+        .await
+        .unwrap();
+    sql(
+        &p,
+        "UPDATE agent_config_heads SET draining=true WHERE agent_id=$1",
+        vec![p.agent_id.into()],
+    )
+    .await;
+    let before = snapshot(&p).await;
+    let (run, assistant, first) =
+        commit(&p, SessionRunState::Completed, Some("drained answer"), None)
+            .await
+            .unwrap();
+    assert!(first);
+    assert_eq!(run.run_role, SessionRunRole::Leader);
+    assert_eq!(run.state, SessionRunState::Completed);
+    assert!(assistant.is_some());
+    let heads =
+        p.db.query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT desired_revision,draining FROM agent_config_heads WHERE agent_id=$1",
+            [p.agent_id.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(heads.try_get::<bool>("", "draining").unwrap());
+    assert_eq!(
+        heads.try_get::<i64>("", "desired_revision").unwrap(),
+        revision.revision
+    );
+    let after = snapshot(&p).await;
+    assert_eq!(after["journal"], before["journal"]);
+    assert_eq!(after["outbox"], before["outbox"]);
+}
+
+fn delta(p: &TerminalFixture) -> Value {
+    json!({
+        "type": "session_run_delta", "session_id": p.session_id, "run_id": p.run_id,
+        "runtime_run_id": p.native_run, "text": "active fixture delta"
+    })
+}
+
+fn approval(p: &TerminalFixture) -> app::RuntimeApprovalCreate {
+    app::RuntimeApprovalCreate {
+        session_id: p.session_id,
+        session_run_id: p.run_id,
+        agent_id: p.agent_id,
+        runtime_run_id: p.native_run.clone(),
+        runtime_approval_id: Some("terminal_fixture_approval".into()),
+        prompt: "Approve exact fixture action".into(),
+        detail: json!({"tool": "fixture"}),
+    }
+}
+
+#[tokio::test]
+#[ignore = "requires isolated FLEET_TEST_DATABASE_URL"]
+async fn terminal_suppresses_late_delta_and_rejects_tool_and_approval_after_active_valid_writes() {
+    for state in [
+        SessionRunState::Completed,
+        SessionRunState::Failed,
+        SessionRunState::Cancelled,
+    ] {
+        let Some(p) = setup(true, true, SessionRunRole::Primary).await else {
+            return;
+        };
+        let cursor = p.repo.session_event_cursor(p.session_id).await.unwrap();
+        p.repo
+            .append_session_event(p.session_id, "session_run_delta", delta(&p))
+            .await
+            .unwrap();
+        assert_eq!(
+            p.repo.session_event_cursor(p.session_id).await.unwrap(),
+            cursor + 1
+        );
+        let events = p
+            .repo
+            .list_session_events(p.session_id, cursor)
+            .await
+            .unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].event_type, "session_run_delta");
+        assert_eq!(events[0].payload, delta(&p));
+        let tool = p
+            .repo
+            .insert_session_message_mirror(
+                p.session_id,
+                Some(p.agent_id),
+                "active tool fixture".into(),
+                MessageKind::ToolEvent,
+                Some(p.native_run.clone()),
+            )
+            .await
+            .unwrap();
+        assert_eq!(tool.message_kind, MessageKind::ToolEvent);
+        let accepted = p
+            .repo
+            .upsert_runtime_approval_request(approval(&p))
+            .await
+            .unwrap();
+        assert_eq!(accepted.session_run_id, p.run_id);
+        assert_eq!(accepted.runtime_run_id, p.native_run);
+        let repeated = p
+            .repo
+            .upsert_runtime_approval_request(approval(&p))
+            .await
+            .unwrap();
+        assert_eq!(repeated.id, accepted.id);
+        let body = if state == SessionRunState::Completed {
+            Some("final answer")
+        } else {
+            None
+        };
+        let error = if state == SessionRunState::Failed {
+            Some("fixture failure")
+        } else {
+            None
+        };
+        commit(&p, state, body, error).await.unwrap();
+        let before = snapshot(&p).await;
+        p.repo
+            .append_session_event(p.session_id, "session_run_delta", delta(&p))
+            .await
+            .unwrap();
+        assert_eq!(snapshot(&p).await, before);
+        assert!(matches!(
+            p.repo
+                .insert_session_message_mirror(
+                    p.session_id,
+                    Some(p.agent_id),
+                    "late tool fixture".into(),
+                    MessageKind::ToolEvent,
+                    Some(p.native_run.clone())
+                )
+                .await,
+            Err(AppError::Conflict(_))
+        ));
+        assert_eq!(snapshot(&p).await, before);
+        for request in [
+            approval(&p),
+            app::RuntimeApprovalCreate {
+                runtime_approval_id: Some("new_late_approval".into()),
+                ..approval(&p)
+            },
+        ] {
+            assert!(matches!(
+                p.repo.upsert_runtime_approval_request(request).await,
+                Err(AppError::Conflict(_))
+            ));
+            assert_eq!(snapshot(&p).await, before);
+        }
+        let mut wrong_native = delta(&p);
+        wrong_native["runtime_run_id"] = json!("run_wrong_terminal");
+        assert!(matches!(
+            p.repo
+                .append_session_event(p.session_id, "session_run_delta", wrong_native)
+                .await,
+            Err(AppError::Conflict(_))
+        ));
+        assert_eq!(snapshot(&p).await, before);
+    }
+}
+
+#[tokio::test]
+#[ignore = "requires isolated FLEET_TEST_DATABASE_URL"]
+async fn terminal_delta_and_approval_wrong_session_run_and_native_identity_cannot_advance_cursor() {
+    let Some(p) = setup(true, true, SessionRunRole::Primary).await else {
+        return;
+    };
+    let other = p
+        .repo
+        .create_session(chat(p.agent_id, "delta-other-session"), p.owner)
+        .await
+        .unwrap();
+    let other_run = p
+        .repo
+        .list_session_agent_runs(other.id)
+        .await
+        .unwrap()
+        .remove(0);
+    let other_cursor = p.repo.session_event_cursor(other.id).await.unwrap();
+    let before = snapshot(&p).await;
+    let mut wrong_native = delta(&p);
+    wrong_native["runtime_run_id"] = json!("run_other");
+    let mut wrong_session = delta(&p);
+    wrong_session["session_id"] = json!(other.id);
+    let mut wrong_run = delta(&p);
+    wrong_run["run_id"] = json!(other_run.id);
+    for payload in [wrong_native, wrong_session, wrong_run] {
+        assert!(matches!(
+            p.repo
+                .append_session_event(p.session_id, "session_run_delta", payload)
+                .await,
+            Err(AppError::Conflict(_))
+        ));
+        assert_eq!(snapshot(&p).await, before);
+    }
+    let mut wrong_target = delta(&p);
+    wrong_target["session_id"] = json!(other.id);
+    assert!(matches!(
+        p.repo
+            .append_session_event(other.id, "session_run_delta", wrong_target)
+            .await,
+        Err(AppError::Conflict(_))
+    ));
+    let mut missing_run = delta(&p);
+    missing_run["run_id"] = json!(Uuid::new_v4());
+    assert!(matches!(
+        p.repo
+            .append_session_event(p.session_id, "session_run_delta", missing_run)
+            .await,
+        Err(AppError::NotFound(_))
+    ));
+    for payload in [json!({}), json!({"run_id": "not-a-uuid"})] {
+        assert!(matches!(
+            p.repo
+                .append_session_event(p.session_id, "session_run_delta", payload)
+                .await,
+            Err(AppError::Validation(_))
+        ));
+    }
+    let mut wrong_native = approval(&p);
+    wrong_native.runtime_run_id = "run_other".into();
+    let mut wrong_session = approval(&p);
+    wrong_session.session_id = other.id;
+    let mut wrong_run = approval(&p);
+    wrong_run.session_run_id = other_run.id;
+    let mut wrong_agent = approval(&p);
+    wrong_agent.agent_id = Uuid::new_v4();
+    for request in [wrong_native, wrong_session, wrong_run, wrong_agent] {
+        assert!(matches!(
+            p.repo.upsert_runtime_approval_request(request).await,
+            Err(AppError::Conflict(_))
+        ));
+        assert_eq!(snapshot(&p).await, before);
+    }
+    assert_eq!(
+        p.repo.session_event_cursor(other.id).await.unwrap(),
+        other_cursor
+    );
+    assert_eq!(snapshot(&p).await, before);
+}
+
+async fn blocked_pid(
+    monitor: &DatabaseConnection,
+    blocker: i32,
+    query_marker: &str,
+) -> Result<i32, sea_orm::DbErr> {
+    timeout(Duration::from_secs(10), async {
+        loop {
+            let row = monitor
+                .query_one(Statement::from_sql_and_values(
+                    DatabaseBackend::Postgres,
+                    "SELECT pid FROM pg_stat_activity
+                 WHERE datname=current_database() AND pid<>pg_backend_pid()
+                   AND $1=ANY(pg_blocking_pids(pid)) AND position($2 in query)>0
+                 ORDER BY pid LIMIT 1",
+                    [blocker.into(), query_marker.into()],
+                ))
+                .await?;
+            if let Some(row) = row {
+                return row.try_get("", "pid");
+            }
+            // Poll actual PG blocking state; elapsed time alone never opens the barrier.
+            sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .map_err(|_| sea_orm::DbErr::Custom("owned terminal blocker was not observed".into()))?
+}
+
+async fn progress_lock_regression(prompt: bool) {
+    let Some(p) = setup(true, true, SessionRunRole::Primary).await else {
+        return;
+    };
+    let before = snapshot(&p).await;
+    let holder = p.db.begin().await.unwrap();
+    holder
+        .execute_unprepared("SET LOCAL statement_timeout='5s'; SET LOCAL lock_timeout='5s'")
+        .await
+        .unwrap();
+    let holder_pid: i32 = holder
+        .query_one(Statement::from_string(
+            DatabaseBackend::Postgres,
+            "SELECT pg_backend_pid() AS pid".to_string(),
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get("", "pid")
+        .unwrap();
+    let (table, id, lock, update) = if prompt {
+        (
+            "session_messages",
+            p.message_id,
+            "SELECT id FROM session_messages WHERE id=$1 FOR UPDATE",
+            "UPDATE session_messages SET delivery_error='fixture progress' WHERE id=$1",
+        )
+    } else {
+        ("session_agent_runs", p.run_id,
+            "SELECT id FROM session_agent_runs WHERE id=$1 FOR UPDATE",
+            "UPDATE session_agent_runs SET last_error='fixture progress',last_event_at=clock_timestamp(),
+                updated_at=clock_timestamp() WHERE id=$1")
+    };
+    holder
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            lock,
+            [id.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap();
+    let monitor = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let progress = async move {
+        blocked_pid(&monitor, holder_pid, table).await?;
+        // Terminal now holds the session and is blocked on our run/prompt. This real UPDATE
+        // must be able to append its event (session FK key-share) before releasing the row.
+        holder
+            .execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                update,
+                [id.into()],
+            ))
+            .await?;
+        holder.commit().await?;
+        Ok::<(), sea_orm::DbErr>(())
+    };
+    let (terminal, progress) = timeout(Duration::from_secs(25), async {
+        tokio::join!(
+            commit(
+                &p,
+                SessionRunState::Completed,
+                Some("answer after progress"),
+                None
+            ),
+            progress
+        )
+    })
+    .await
+    .unwrap();
+    progress.unwrap();
+    let (run, assistant, first) = terminal.unwrap();
+    assert!(first);
+    assert_eq!(run.state, SessionRunState::Completed);
+    assert_eq!(assistant.unwrap().body, "answer after progress");
+    let after = snapshot(&p).await;
+    assert_eq!(after["prompt"]["delivery_state"], "completed");
+    assert_eq!(after["prompt"]["delivery_error"], Value::Null);
+    assert_eq!(after["run"]["last_error"], Value::Null);
+    assert_eq!(after["assistants"].as_array().unwrap().len(), 1);
+    assert_eq!(after["journal"], before["journal"]);
+    assert_eq!(after["outbox"], before["outbox"]);
+    assert_eq!(
+        after["cursor"].as_i64().unwrap(),
+        before["cursor"].as_i64().unwrap() + 5
+    );
+    assert_eq!(
+        after["events"].as_array().unwrap().len(),
+        before["events"].as_array().unwrap().len() + 5
+    );
+    assert!(
+        !commit(
+            &p,
+            SessionRunState::Completed,
+            Some("answer after progress"),
+            None
+        )
+        .await
+        .unwrap()
+        .2
+    );
+    assert_eq!(snapshot(&p).await, after);
+}
+
+#[tokio::test]
+#[ignore = "requires isolated FLEET_TEST_DATABASE_URL"]
+async fn terminal_session_serialization_allows_run_progress_event_fk_before_commit() {
+    progress_lock_regression(false).await;
+}
+
+#[tokio::test]
+#[ignore = "requires isolated FLEET_TEST_DATABASE_URL"]
+async fn terminal_session_serialization_allows_prompt_progress_event_fk_before_commit() {
+    progress_lock_regression(true).await;
+}
+
+#[tokio::test]
+#[ignore = "requires isolated FLEET_TEST_DATABASE_URL"]
+async fn terminal_session_serialization_allows_actual_approval_reservation_fk_before_commit() {
+    let Some(p) = setup(true, true, SessionRunRole::Primary).await else {
+        return;
+    };
+    let request = p
+        .repo
+        .upsert_runtime_approval_request(approval(&p))
+        .await
+        .unwrap();
+    let decision = domain::ApprovalDecisionRequest {
+        choice: domain::ApprovalChoice::Once,
+        idempotency_key: "terminal-lock-reservation".into(),
+    };
+    let before = snapshot(&p).await;
+    let barrier = p.db.begin().await.unwrap();
+    let barrier_pid: i32 = barrier
+        .query_one(Statement::from_string(
+            DatabaseBackend::Postgres,
+            "SELECT pg_backend_pid() AS pid".to_string(),
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get("", "pid")
+        .unwrap();
+    let key = i64::from_be_bytes(Uuid::new_v4().as_bytes()[..8].try_into().unwrap());
+    barrier
+        .execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT pg_advisory_xact_lock($1)",
+            [key.into()],
+        ))
+        .await
+        .unwrap();
+    let name = format!("terminal_reservation_{}", Uuid::new_v4().simple());
+    // Pause this fixture's actual reserve port after its run lock, before the decision's session FK.
+    p.db.execute_unprepared(&format!(
+        "CREATE FUNCTION {name}() RETURNS trigger AS $$ BEGIN
+         IF NEW.session_run_id='{}'::uuid THEN PERFORM pg_advisory_xact_lock({key}::bigint); END IF;
+         RETURN NEW; END; $$ LANGUAGE plpgsql;
+         CREATE TRIGGER {name} BEFORE INSERT ON runtime_approval_decisions FOR EACH ROW EXECUTE FUNCTION {name}()",
+        p.run_id
+    )).await.unwrap();
+    let monitor = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let (ready, wait_ready) = tokio::sync::oneshot::channel();
+    let release = async move {
+        let reservation_pid =
+            blocked_pid(&monitor, barrier_pid, "runtime_approval_decisions").await?;
+        ready.send(()).map_err(|_| {
+            sea_orm::DbErr::Custom("terminal lock regression receiver closed".into())
+        })?;
+        blocked_pid(&monitor, reservation_pid, "session_agent_runs").await?;
+        barrier.commit().await?;
+        Ok::<(), sea_orm::DbErr>(())
+    };
+    let terminal = async {
+        wait_ready
+            .await
+            .map_err(|_| AppError::Database("terminal lock regression barrier failed".into()))?;
+        commit(
+            &p,
+            SessionRunState::Completed,
+            Some("answer after reservation"),
+            None,
+        )
+        .await
+    };
+    let results = timeout(Duration::from_secs(25), async {
+        tokio::join!(
+            p.repo
+                .reserve_approval_decision(p.session_id, request.id, p.owner, decision.clone()),
+            terminal,
+            release
+        )
+    })
+    .await;
+    // Remove only this fixture's barrier even when a call failed or exceeded its deadline.
+    p.db.execute_unprepared(&format!(
+        "DROP TRIGGER {name} ON runtime_approval_decisions; DROP FUNCTION {name}()"
+    ))
+    .await
+    .unwrap();
+    let (reservation, terminal, release) = results.unwrap();
+    release.unwrap();
+    let reservation = reservation.unwrap();
+    assert!(reservation.dispatch);
+    assert_eq!(
+        reservation.decision.state,
+        domain::ApprovalDecisionState::Uncertain
+    );
+    let (run, assistant, first) = terminal.unwrap();
+    assert!(first);
+    assert_eq!(run.state, SessionRunState::Completed);
+    assert_eq!(assistant.unwrap().body, "answer after reservation");
+    let after = snapshot(&p).await;
+    assert_eq!(after["decisions"].as_array().unwrap().len(), 1);
+    assert_eq!(after["approvals"], before["approvals"]);
+    assert_eq!(after["journal"], before["journal"]);
+    assert_eq!(after["outbox"], before["outbox"]);
+    assert_eq!(
+        after["cursor"].as_i64().unwrap(),
+        before["cursor"].as_i64().unwrap() + 5
+    );
+    assert_eq!(
+        after["events"].as_array().unwrap().len(),
+        before["events"].as_array().unwrap().len() + 5
+    );
+    // No native POST is performed; the original decision key still replays without another dispatch.
+    let replay = p
+        .repo
+        .reserve_approval_decision(p.session_id, request.id, p.owner, decision)
+        .await
+        .unwrap();
+    assert!(!replay.dispatch);
+    assert_eq!(replay.decision.id, reservation.decision.id);
+    assert_eq!(snapshot(&p).await, after);
 }
