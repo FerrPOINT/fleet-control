@@ -16,7 +16,7 @@ open; do not classify a job with no steps as a failed product test or waive it.
 Fleet protocol4 consumption/recovered activation and native image/driver
 qualification are independent remaining implementation/acceptance gates.
 
-The actual compiler blocker is now identified, not guessed: authenticated
+The previous compiler blocker was identified, not guessed: authenticated
 run37964514708 reports E0609 at acceptance_readback.rs:58:30. Scoped sourcee2e33b2
 replaces the nonexistent Agent.archived_at with AgentStatus::Archived and adds
 archive-status/archive-marker scope coverage. Parent normal mergea634e01 retains

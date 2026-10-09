@@ -11,7 +11,7 @@ checkouts rather than restarting completed work:
 | Owner    | Current assignment                                                 | Required handoff                                                                                                              |
 | -------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
 | Feynman  | Fleet consumer of recovered-generation protocol4                    | Actual recovered config activation, positive DB authority and canonical utility hashes; preserve original custody, SDK19a and unknown-effect fences |
-| Pascal   | Qualify a reproducible runtime-image build route                    | Executable owned wrapper prepared; identify exact parent OCI transport and dependency closure before build; no resource-guard waiver |
+| Pascal   | Close two independently reproduced build-wrapper defects           | New immutable successor: all-container cleanup custody and exact materialized recipe/context parity; no resource-guard waiver |
 | Ptolemy  | Implement hermetic hosted Forge full12 controls                      | Two bounded jobs retain all12 stages, original per-stage deadlines, disk reserve, receipts and own-only cleanup; no custody transfer |
 | Anscombe | Fix actual backend compiler findings on separate source             | Exact run37967213470 E0425/E0594; minimal source/test corrections, light checks and a new sealed gate; no automatic retry |
 | Leibniz  | Independently review the image-build wrapper                         | Exact parents, inherited volumes, dependency qualification, resource guards and every cleanup failure path; read-only/pure checks |
@@ -42,6 +42,13 @@ Safe artifact11634537223 has ZIP SHA256
 Source-plan readback and exact scratch/database/platform cleanup succeed.
 The previously fixed archive defect is not the new failure. Minimal compiler
 fixes are a separate worker write set; full Rust/PG acceptance remains open.
+
+Independent review of image-build wrapper seal7c8c8e94 finds two P2 control-flow
+defects: stopped foreign containers are missing from cleanup inventory, and
+materialized recipe bytes are not compared against sealed inputs. Two pure
+reproductions confirm them; no Docker effect occurred. Pascal owns a new immutable
+successor and regressions, Leibniz owns independent closure. The old wrapper is
+not admitted for builds even if capacity becomes available.
 
 Safe diagnostics controlsbc4ee52 were reviewed, passed41 pure tests and were
 normally pushed once. Actual run37964514708 fails check with authenticated E0609
