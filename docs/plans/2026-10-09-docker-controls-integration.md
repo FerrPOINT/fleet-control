@@ -13,10 +13,15 @@ No installed runtime, Tracker or Workflow source is changed.
 
 The combined branch is a QA assembly, not a single main release unit. Preserve
 separate migration ownership and prerequisite order when preparing release PRs.
-The next normal merge adds configuration18 successor
-`906e102bdc2e48c349d7fecbfd708ad417089768` to fixture fix `c1ff1a3`.
+Normal merge `bf27a1d782f87d6f03f728831e700fda78892c8c` adds configuration18
+successor `906e102bdc2e48c349d7fecbfd708ad417089768` to fixture fix `c1ff1a3`.
 Independent source review closes oversized-target and pre-plan retry findings;
 native activation/recovery acceptance remains pending.
+
+The independent bounded merge review finds no new issues in the repository/
+runtime hook union, migration assertions and retained CI selectors. Activation
+implementation/tests and migration18 are byte-identical to906. This review is
+source evidence only, not Rust compilation or PostgreSQL execution.
 
 ## Semantic Resolutions
 
@@ -46,10 +51,42 @@ validation is unchanged. Independent source review closes the fixture finding;
 actual PG execution remains pending.
 
 Formatting/parser and eleven sealed-loader/utility Python cases pass on the
-merged working tree. These do not compile Rust test fixtures or execute
+merged working tree. On the cleanbf27 source, the original Base169 activation
+nine-case and preparation five-case fake-engine selectors also pass with no
+skips. The selectors overlap;14 executions are not14 distinct tests. They use a
+separate clean utilities checkout atae8, not the SDK19a checkout. These checks
+do not compile Rust test fixtures or execute
 PostgreSQL, Docker, Hermes, native controls or full SDLC. The new PG regression
 is authored, not executed. Hosted OpenAPI evidence and328 frontend tests belong
 to the frozen98 source, not a full gate of this backend assembly.
+
+The combined CI requires60 focused container Rust cases (controller PG6,
+activation intent7), in addition to workspace, lineage and existing runtime
+gates. These are mandatory source inventory, not executed results.
+
+## Hosted Backend Attempt
+
+The reviewed build-only controls411a were ordinarily pushed once to their
+dedicated branch. Actual [run37960216273](https://github.com/FerrPOINT/fleet-control/actions/runs/37960216273),
+attempt1/job113920853411, terminates failed before checkout or compilation.
+The job-container default shell was `sh`; `set -euo pipefail` requires Bash.
+Fallback cleanup also attempted to call the not-yet-checked-out helper. The
+platform stop-containers step succeeds; no backend test or Base secret-checkout
+step executes, and no PASS artifact exists. No rerun is authorized from this
+failure. A new normal successor must explicitly select Bash, cover early
+checkout failure in cleanup and pass review before publication.
+
+This gate targets exact98, notbf27. Its result cannot certify the container
+assembly even after a corrected hosted run succeeds.
+
+## Producer Authority
+
+Fresh remote review retains Tracker PR114 source357caa7 and Workflow PR90
+source9b4107. Workflow `require_owner_execution_evidence` still raises Conflict
+unconditionally, and PM bind still requires an already-running Fleet callback.
+Neither is predispatch/first-step authority. Those read-only producers must
+provide compatible trusted contracts before task-bound model calls are enabled;
+no bypass, synthetic receipt or healthy-process substitution is permitted.
 
 Before release require all-target Rust check/strict Clippy, both PostgreSQL
 lineages and populated downgrade guards, every mandatory control/recovery/

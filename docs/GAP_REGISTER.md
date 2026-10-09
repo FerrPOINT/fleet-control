@@ -14,6 +14,18 @@ Their native regressions remain unexecuted; restart/recovered-custody activation
 is a separate implementation assignment. Do not claim
 the source assembly is merge-ready or that earlier evidence accepts this head.
 
+Bounded bf27 merge review closes the source-integration review item only.
+The first actual full hosted98 gate, run37960216273, fails before checkout/
+compilation: default `sh` rejects `pipefail`, and fallback cleanup references
+an unavailable helper. All Rust/PG stages remain unexecuted. Fix the build
+controls with regression coverage and review a new immutable packet before
+another push; do not rerun the failed controls unchanged.
+
+The real two-Hermes driver has two independently confirmed test defects:
+inspect the authoritative volume subpath in `HostConfig.Mounts`, and recheck
+the assistant message count/identity/body after replay. Both fixes and exactbf27
+retarget belong to a new sealed driver packet; oldbde preparation is ineligible.
+
 ## Runtime Successor Evidence (2026-10-09)
 
 UI recovery is frozen at `ae027dd`; normal integration `82b7c8e` includes backend

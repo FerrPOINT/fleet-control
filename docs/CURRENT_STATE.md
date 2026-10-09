@@ -13,6 +13,16 @@ findings. Configuration restart/recovered custody, native acceptance and
 producer pre-model admission remain open. Historical evidence below is scoped
 to its recorded heads, not transferred to the assembled backend.
 
+Independent bounded review of normal mergebf27 finds no new source issues.
+Original Base169 activation9/preparation5 fake selectors pass on that source;
+their14 executions overlap and are not native Docker evidence. The hosted full
+backend gate for frozen98 was published, but actual
+[run37960216273](https://github.com/FerrPOINT/fleet-control/actions/runs/37960216273)
+fails before compilation because the job container selected `sh` for Bash-only
+scripts. Its early cleanup fallback also fails before helper checkout; platform
+container disposal succeeds. No backend PASS is claimed. A separate reviewed
+controls successor is required; accepted runtime is unchanged.
+
 ## Integrated Original-Key Contract: 9 October 2026
 
 Normal merge `82b7c8e9b8dba1afc460d7d3abfb6e368f113c9d` preserves UI `ae027dd`
