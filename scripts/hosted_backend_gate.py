@@ -17,7 +17,7 @@ import zipfile
 
 REPOSITORY = "FerrPOINT/fleet-control"
 BRANCH = "build-only/fleet-backend-98d950e-20261009"
-SOURCE_SHA = "98d950eb618071de7647e56626ad991259058be2"
+SOURCE_SHA = "c02ee920a6ba8028038ffc24a293dd8de95bf731"
 BASE_SHA = "19a7a381ae6dbea61a643bb96189e483fa64df5c"
 AUTH_SHA = "01388dfb43332cbe5837fd5e1fadccf09cb8886d"
 OPENAPI_SHA = "b074c77295f7ad89912e3667124545ab66f6727184257d1f72030b4417c87f82"
@@ -30,7 +30,7 @@ INVENTORY = "scripts/hosted-backend/test-inventory.json"
 WRITE_SET = {WORKFLOW, HELPER, GATE, INIT, INVENTORY, "scripts/tests/test_hosted_backend_gate.py"}
 ARTIFACT_FILES = {"report.json", "provenance.json", "SHA256SUMS"}
 FAILURE_FILE = "compiler-diagnostics.json"
-SOURCE_INVENTORY_SHA = "c335bee18134eee3e7fd0bca107c79873f88104625e3fc971e723d51d8faef59"
+SOURCE_INVENTORY_SHA = "07b30c9acadf2094a438572d8d4ba9e9b778ebcf9db6d96752d67de6d062fce0"
 DIAGNOSTIC_LIMIT = 32
 DIAGNOSTIC_INPUT_LIMIT = 16 * 1024 ** 2
 DIAGNOSTIC_LINE_LIMIT = 256 * 1024

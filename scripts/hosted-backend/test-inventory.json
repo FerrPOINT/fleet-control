@@ -1452,7 +1452,7 @@
     "backend/infra/src/pm_credentials/coordinator.rs": "0f8432ab1a04d60e4bc4660cfc56df8558734073e91dfa9383001885a2fc4cbd",
     "backend/infra/src/pm_draft.rs": "14a4abde0ef4c150833888f3189779b831d31b755bc9d5e59b2ebde573c55718",
     "backend/infra/src/pm_execution.rs": "1161dbde694171f4f31f97aff892bf15951371634cde2ef764c92acd0f8439b0",
-    "backend/infra/src/runtime/acceptance_readback.rs": "3af6ae73e0cff7f0385de899eaf6306665389d4c1c84561adf972c4da66a4656",
+    "backend/infra/src/runtime/acceptance_readback.rs": "c4ef77c9410888f103d20168a8bd9b40aa9947796af97ad91abbbe25c230751f",
     "backend/infra/src/runtime/approval_snapshot.rs": "78b842f5635feba0c89509770c0e927df95fd3da7d9ca6b166b23cfd04b13f5f",
     "backend/infra/src/runtime/hermes_wire.rs": "d4405fb075a5a47cb24fe1fc7381270a0d1b794fc85cdb7550d4a9bbe5e2efea",
     "backend/infra/src/runtime/mod.rs": "647e618f38f1ff23f3a2fec942a3978f3db6b2838cc99d9a1e8f5d00abb7bf88",
@@ -1481,7 +1481,7 @@
     "backend/infra/tests/support/pm_credential_creation.rs": "84d5a84f8f2c1a1c5347660ce207db86c0f2e22ffc7c5c75eb005df406e71c71",
     "backend/infra/tests/support/pm_draft_creation.rs": "ac8266c52998abb22702b5a2a454ae101471cbfc4d84a53d7846f0e0ebd8883f",
     "backend/infra/tests/support/runtime_acceptance.rs": "17a591f6d42ab8b126b17f541e5431a733eba871167d9b1b9571ca2a672e2eea",
-    "backend/infra/tests/support/runtime_acceptance_readback_http.rs": "f862ca1c04434a66b8de665b55a0a39f575fe9c96b13712ce3c1429b7954670e",
+    "backend/infra/tests/support/runtime_acceptance_readback_http.rs": "c8d19de02071414eab6f886e2daa66c43d7aa923d3b0328fae33c62381a99c55",
     "backend/infra/tests/support/runtime_approval_recovery.rs": "adc959e3120580e6259468960a29a1fbca8588c60d8708abec2b9039debdd903",
     "backend/infra/tests/support/runtime_control_lookup.rs": "aa3d64d609588140512eeb247256691dbf8bb7d5f760ae439b588e472358610f",
     "backend/infra/tests/support/runtime_pinned_recovery.rs": "74506a93f9c063f28ba27051c2defe3b64dd2207b795f493404337fd11803ca7",
@@ -1530,7 +1530,7 @@
     "backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a"
   },
-  "source_commit": "98d950eb618071de7647e56626ad991259058be2",
+  "source_commit": "c02ee920a6ba8028038ffc24a293dd8de95bf731",
   "workspace_default_declarations": [
     {
       "gate": "workspace",

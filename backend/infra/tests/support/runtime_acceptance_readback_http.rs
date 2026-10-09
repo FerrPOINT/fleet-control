@@ -245,8 +245,15 @@ async fn acceptance_readback_never_probes_legacy_or_changed_original_context() {
     let mut rotated = config.clone();
     rotated.fleet.runtime_token_secret = "rotated-context-fixture-only".into();
     let mut held = Vec::new();
-    let mut current = None;
-    for mode in ["legacy", "rotated", "moved", "current"] {
+    let mut candidates = Vec::new();
+    for mode in [
+        "legacy",
+        "rotated",
+        "moved",
+        "candidate_first",
+        "archived_marker",
+        "candidate_second",
+    ] {
         let agent_id = agent(&repo).await;
         let original_port = if mode == "moved" { old_port } else { port };
         db.execute(Statement::from_sql_and_values(
@@ -304,25 +311,55 @@ async fn acceptance_readback_never_probes_legacy_or_changed_original_context() {
             .await
             .unwrap();
         }
-        if mode == "current" {
-            current = Some(run.id);
+        if mode == "archived_marker" {
+            db.execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "UPDATE agents SET archived_at=clock_timestamp() WHERE id=$1",
+                [agent_id.into()],
+            ))
+            .await
+            .unwrap();
+            assert!(!recovery_queue_contains(&repo, run.id).await);
+        }
+        if mode.starts_with("candidate_") {
+            candidates.push((run.id, agent_id, format!("run_context_{mode}")));
         } else {
             held.push(run.id);
         }
     }
+    candidates.sort_by_key(|(run, _, _)| *run);
+    let (current, _, current_native) = candidates.pop().unwrap();
+    let (archived, archived_agent, _) = candidates.pop().unwrap();
+    // UUID-keyset scanning must visit the negative case before the positive sentinel.
+    assert!(archived < current);
+    db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE agents SET status='archived' WHERE id=$1",
+        [archived_agent.into()],
+    ))
+    .await
+    .unwrap();
+    assert!(recovery_queue_contains(&repo, archived).await);
+    held.push(archived);
     let denied_reads = Arc::new(AtomicUsize::new(0));
     let count = denied_reads.clone();
     let current_reads = Arc::new(AtomicUsize::new(0));
     let allowed = current_reads.clone();
+    let event_path = format!("/v1/runs/{current_native}/events");
+    let terminal = format!(
+        "event: run.completed\ndata: {}\n\n",
+        json!({"run_id":current_native,"completed":true,"partial":false,
+            "interrupted":false,"output":"original context recovered"})
+    );
     let router = Router::new()
         .route("/v1/runs/{run_id}", get(move |axum::extract::Path(raw): axum::extract::Path<String>| {
-            let valid = raw == "run_context_current";
+            let valid = raw == current_native;
             if valid { allowed.fetch_add(1, Ordering::SeqCst); } else { count.fetch_add(1, Ordering::SeqCst); }
             async move { Json(json!({"object":"hermes.run","run_id":raw,"session_id":"native-context-session","status":"running"})) }
         }))
-        .route("/v1/runs/run_context_current/events", get(|| async {
-            ([(axum::http::header::CONTENT_TYPE, "text/event-stream")],
-                "event: run.completed\ndata: {\"run_id\":\"run_context_current\",\"completed\":true,\"partial\":false,\"interrupted\":false,\"output\":\"original context recovered\"}\n\n")
+        .route(&event_path, get(move || {
+            let terminal = terminal.clone();
+            async move { ([(axum::http::header::CONTENT_TYPE, "text/event-stream")], terminal) }
         }));
     let _server = Server(tokio::spawn(async move {
         axum::serve(listener, router).await.unwrap()
@@ -333,12 +370,7 @@ async fn acceptance_readback_never_probes_legacy_or_changed_original_context() {
         infra::runtime::LocalRuntimeSupervisor::new(Arc::new(config), repo.clone(), events);
     let scan_budget = recovery_scan_budget(&repo).await;
     timeout(scan_budget, async {
-        while repo
-            .get_session_agent_run(current.unwrap())
-            .await
-            .unwrap()
-            .state
-            != SessionRunState::Completed
+        while repo.get_session_agent_run(current).await.unwrap().state != SessionRunState::Completed
         {
             sleep(Duration::from_millis(25)).await;
         }

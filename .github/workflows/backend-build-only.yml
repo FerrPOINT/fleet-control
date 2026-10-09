@@ -61,7 +61,7 @@ jobs:
       - name: Check out exact Fleet source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: 98d950eb618071de7647e56626ad991259058be2
+          ref: c02ee920a6ba8028038ffc24a293dd8de95bf731
           path: fleet-control
           persist-credentials: false
       - name: Check out pinned build SDK
@@ -124,7 +124,7 @@ jobs:
           ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
         run: |
           {
-            printf 'Source: `%s`\n\n' 98d950eb618071de7647e56626ad991259058be2
+            printf 'Source: `%s`\n\n' c02ee920a6ba8028038ffc24a293dd8de95bf731
             printf 'Workflow commit: `%s`\n\n' "$GITHUB_SHA"
             printf 'Run/attempt: `%s/%s`\n\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
             printf 'Artifact ID: `%s`\n\n' "$ARTIFACT_ID"

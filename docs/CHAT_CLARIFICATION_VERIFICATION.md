@@ -3,6 +3,25 @@
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 
+## Acceptance Archive Guard Compile Finding (2026-10-09)
+
+Actual [run37964514708](https://github.com/FerrPOINT/fleet-control/actions/runs/37964514708)
+fails all-target `check` with E0609 at acceptance_readback.rs:58 on frozen source
+98d950e. Authenticated safe artifact11632134258 binds the exact source and controls;
+its ZIP SHA256 is eeea7798af77fa3870cd0bb399cdc05c53bb8fbf1f4c4cbf6a2b65e6d72d5d41.
+Synthetic databases, owned scratch and platform containers are cleaned successfully.
+The domain Agent has status, not archived_at: the corrected guard rejects
+AgentStatus::Archived. The existing scope regression additionally covers an
+archived status without a marker and an archive marker without a status change;
+both must retain pending capacity and produce no runtime GET. DB marker checks
+remain unchanged. Independent review found that waiting for an arbitrary positive
+UUID could miss the status-only case on a later page. The regression now sorts
+two accepted candidates, archives the lower UUID and uses the higher as its
+positive sentinel before starting the worker. Positive completion therefore
+requires scanning the archived candidate first. This source fix and its
+regression require a new compiler/PG gate; the failure artifact is not a PASS
+or native/PM acceptance.
+
 ## Published Monitoring Merge Gate (2026-10-09)
 
 Hosted [CI37930186282](https://github.com/FerrPOINT/fleet-control/actions/runs/37930186282)
