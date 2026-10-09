@@ -962,7 +962,10 @@ async fn recovered_next_claim_expiry_and_new_epoch_require_latest_original_autho
     let claim = next_claim(&repo, &db, &a, &parent).await;
     let deadline = chrono::DateTime::parse_from_rfc3339(&proof.lease.lease_expires_at).unwrap();
     tokio::time::sleep(
-        (deadline - chrono::Utc::now()).to_std().unwrap_or_default()
+        deadline
+            .signed_duration_since(chrono::Utc::now())
+            .to_std()
+            .unwrap_or_default()
             + std::time::Duration::from_millis(10),
     )
     .await;
@@ -1265,7 +1268,10 @@ async fn recovered_child_sql_origin_serializes_heartbeat_then_holds_unknown_expi
             .is_err()
     );
     let deadline = chrono::DateTime::parse_from_rfc3339(&next.lease_expires_at).unwrap();
-    let wait = (deadline - chrono::Utc::now()).to_std().unwrap_or_default()
+    let wait = deadline
+        .signed_duration_since(chrono::Utc::now())
+        .to_std()
+        .unwrap_or_default()
         + std::time::Duration::from_millis(10);
     tokio::time::sleep(wait).await;
     assert!(!origin_live(&db, &child).await);
