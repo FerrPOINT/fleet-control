@@ -2,8 +2,8 @@
 
 ## Current Open Release Gates: 10 October 2026
 
-The current source assembly is373682a (normal b249 descendant with three test
-fixture fixes and documentation), not the historical heads below.
+The current source assembly iscf86d20 (normal b249 descendant with isolated
+connection/timezone test fixes and documentation), not the historical heads below.
 Source integration is progress, not release acceptance. Its remaining gates are:
 
 Hosted37995542617 now proves the preflight blocker is passed but finds real
@@ -11,8 +11,17 @@ compile E0599 at container_controller.rs:18:48 on b249. Authenticated safe failu
 artifact11646773562 reports successful owned scratch/DB cleanup. Source373682a
 removes unavailable DatabaseConnection clones under SeaORM mock without dropping
 concurrency assertions. Reviewed controls0709588 are normally pushed with unchanged
-gate scope and exact updated hashes; hosted37996397284 is in progress. Until that
-run is accepted, compilation/PG/full70 remain open, not fixed by source review alone.
+gate scope and exact updated hashes; hosted37996397284 completes FAILURE with
+E0277 at container_activation.rs:965/1268. Its safe failure artifact11648090014
+is authenticated and cleanup passes. Sourcecf86d20 fixes the cross-timezone
+deadline comparison using pinned Chrono API, preserving the lease wait and10ms
+margin. Reviewed controls a78cbf6 are normally pushed; run37997222729 is in progress.
+Compilation/PG/full70 remain open until actual acceptance, not source review alone.
+
+Read-only existing sdlc1 UI shows two agents and empty current-owner session lists;
+the create dialog was closed without saving. This is reachability/empty-state
+evidence only. There is no observed live PM dialogue/clarification/confirmation,
+and deployed images are not qualified as the current candidate.
 
 - **Combined backend:** all-target Rust/Clippy, actual default/ignored test
   discovery and execution, both20/23 PostgreSQL lineages, populated downgrade

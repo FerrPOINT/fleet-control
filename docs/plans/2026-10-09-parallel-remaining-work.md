@@ -38,7 +38,16 @@ three test files using separate isolated connections while retaining transaction
 concurrency assertions. Controls0709588 normally merge that source, retarget only
 its exact fingerprints and preserve all gate counts/pins. Independent review,
 Linux76/76 and Windows74 PASS/two skips pass; normal FF publication starts actual
-run37996397284, currently in progress. This is not a successful backend result.
+run37996397284, which completes FAILURE at check (E0277 in activation deadline
+comparisons). Safe artifact11648090014 readback and owned cleanup pass. Normal
+sourcecf86d20 replaces both expressions with the pinned Chrono cross-timezone
+duration API, preserving max(deadline-now,0)+10ms. Reviewed controls a78cbf6 retain
+all counts/pins and retarget only that source/file fingerprint/aggregate. Normal
+FF push starts run37997222729, currently in progress, not accepted full70.
+
+Read-only existing sdlc1 browser pass confirms agents/chats reachability and the
+current-owner empty state; no task/run/message was created. Existing deployed
+images are not qualified candidate images, and no live PM detail is proved.
 
 The renewed parallel split keeps the existing workers and their isolated
 checkouts rather than restarting completed work:
