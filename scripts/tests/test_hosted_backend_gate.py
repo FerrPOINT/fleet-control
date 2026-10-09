@@ -39,6 +39,29 @@ class HostedBackendTests(unittest.TestCase):
         self.assertIn("github.event.deleted == false", job["if"])
         self.assertIn("github.ref == 'refs/heads/" + gate.BRANCH + "'", job["if"])
 
+    def test_container_run_steps_explicitly_use_bash(self):
+        job = self.workflow()["jobs"]["backend"]
+        self.assertEqual(job["defaults"], {"run": {"shell": "bash"}})
+        for step in job["steps"]:
+            if "run" in step:
+                self.assertEqual(step.get("shell", job["defaults"]["run"]["shell"]), "bash")
+
+    def test_precheckout_failure_skips_fallback_postcheckout_cleanup_stays_fail_closed(self):
+        steps = self.workflow()["jobs"]["backend"]["steps"]
+        controls = next(step for step in steps if step.get("id") == "controls")
+        self.assertTrue(controls["uses"].startswith("actions/checkout@"))
+        self.assertEqual(controls["with"]["path"], "controls")
+        self.assertNotIn("continue-on-error", controls)
+        execute = next(step for step in steps if step.get("run", "").endswith(" execute"))
+        self.assertNotIn("if", execute)
+        self.assertNotIn("continue-on-error", execute)
+        cleanup = next(step for step in steps if step.get("run", "").endswith(" cleanup"))
+        self.assertEqual(cleanup["if"], "always() && steps.controls.outcome == 'success'")
+        self.assertEqual(cleanup["run"], "python3 -B controls/scripts/hosted_backend_gate.py cleanup")
+        self.assertNotIn("continue-on-error", cleanup)
+        self.assertLess(steps.index(controls), steps.index(execute))
+        self.assertLess(steps.index(execute), steps.index(cleanup))
+
     def test_managed_synthetic_pg_no_ports_no_production_credentials(self):
         service = self.workflow()["jobs"]["backend"]["services"]["postgres"]
         self.assertEqual(service["image"], "postgres:17.6-alpine")
@@ -236,7 +259,7 @@ class HostedBackendTests(unittest.TestCase):
         paths = artifact["with"]["path"].splitlines()
         self.assertEqual({Path(path).name for path in paths}, gate.ARTIFACT_FILES)
         cleanup = next(step for step in steps if step.get("run", "").endswith(" cleanup"))
-        self.assertEqual(cleanup["if"], "always()")
+        self.assertEqual(cleanup["if"], "always() && steps.controls.outcome == 'success'")
         helper = (ROOT / gate.HELPER).read_text()
         self.assertIn("finally:", helper)
         self.assertIn("start_new_session=True", helper)

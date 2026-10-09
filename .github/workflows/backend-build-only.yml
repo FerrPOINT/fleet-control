@@ -16,6 +16,9 @@ jobs:
     if: github.repository == 'FerrPOINT/fleet-control' && github.event_name == 'push' && github.ref == 'refs/heads/build-only/fleet-backend-98d950e-20261009' && github.event.deleted == false
     runs-on: ubuntu-24.04
     timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
     container:
       image: rust:1.88.0-bookworm
       options: --cpus 2 --memory 4g
@@ -46,6 +49,7 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends python3 git pkg-config libssl-dev postgresql-client curl unzip
       - name: Check out reviewed build controls
+        id: controls
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.sha }}
@@ -85,7 +89,7 @@ jobs:
       - name: Full exact-source backend Linux PostgreSQL gate
         run: python3 -B controls/scripts/hosted_backend_gate.py execute
       - name: Final owned scratch cleanup fallback
-        if: always()
+        if: always() && steps.controls.outcome == 'success'
         run: python3 -B controls/scripts/hosted_backend_gate.py cleanup
       - name: Retain safe full backend report and provenance only
         id: artifact
