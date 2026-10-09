@@ -28,6 +28,13 @@ Source integration is progress, not release acceptance. Its remaining gates are:
 - **Publication:** account billing must allow exact-head CI; publish only
   task-owned scoped units after their gates, retaining migration ownership and
   independent review. Base PR180 stays Draft; no paid-resource bypass is allowed.
+  This billing observation concerns private Base, not an established account-wide
+  outage: public Forge run37973076579 executes four hosted jobs successfully on
+  another SHA. It does not accept the new full12 packet. Separately, the
+  unpublished Forge controls history contains copied private Base maintenance
+  source (including base64); do not publish that history to a public repository.
+  Qualify authenticated private-Git delivery and a public-safe controls history
+  first, preserving the frozen local packet without rewriting it.
 
 The [current source/evidence snapshot](CURRENT_STATE.md) and
 [parallel owners](plans/2026-10-09-parallel-remaining-work.md) distinguish

@@ -40,7 +40,7 @@ findings do not certify an unexecuted compiler, database or live runtime gate.
 | -------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
 | Feynman  | Native protocol4/F6 interrupted-activation QA successor               | Preserve frozen df6574 and original nine scenarios; observe genuine ACK/lease/readback at crash cuts, no native launch |
 | Pascal   | Retained exact815 Linux fake-contract evidence                       | New bounded run only on already-running Ubuntu with resource/owned-process guards; never reconstruct historical logs |
-| Ptolemy  | Frozen Forge release handoff                                         | Exact89420cd scoped source closure; no push/CI dispatch during billing hold or changes to foreign PRs |
+| Ptolemy  | Forge publication/private-SDK delivery audit                          | No public push of private Base copies/base64 or their history; locate a qualified private maintenance pin and safe controls path |
 | Anscombe | Independent native-driver source review                              | Exactdf6574 four-module qualification/opt-in/ACK/source/image guards; source-only, no real native run |
 | Leibniz  | Fleet executable backend gate retarget                               | Frozenb249, all46 original stages plus new selections,19 DBs and strict schema/source qualification; prepare-only |
 | Parent   | UI evidence, normal integration, documentation and publication      | Integrate accepted source, combined admissible checks and exact evidence; do not certify full SDLC from fixture passes |
@@ -187,6 +187,18 @@ runtime images and local resource admission, plus the trusted producer-side
 pre-model admission contract. The parent must not bypass these with a mock,
 automatic redispatch, paid-resource changes or a relaxed gate. Work on source
 fixes and bounded conformance checks continues independently of those blockers.
+
+Publication revalidation distinguishes repository visibility: private Base's
+run37968542132 is billing-denied before steps, while public Forge's later
+run37973076579 completes four actual hosted jobs on unrelated source20d54ec.
+That observation neither accepts full12 nor proves private Base CI restored.
+There is a separate source-disclosure blocker: unpublished Forge34c-to894
+history embeds copied Base maintenance files, including base64. Base is private;
+Forge is public. Do not push that ancestry, even after deleting the current files.
+Ptolemy audits exact private source availability and authenticated pinned-Git
+delivery plus a new public-safe controls history. Frozen local packets and prior
+deadline closure remain intact; no private source disclosure or changed SDK/budget
+is authorized by the independent timing review.
 
 Current publication: [Base PR180](https://github.com/FerrPOINT/services-base/pull/180)
 is Draft on815982b, a normal merge of9b53 and accepted maina119. Its ten-path diff
