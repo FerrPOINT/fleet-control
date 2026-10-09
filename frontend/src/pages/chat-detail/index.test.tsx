@@ -18,6 +18,7 @@ vi.mock('@/api/fleet', () => ({
   steerSessionRun: vi.fn(),
   stopSessionRun: vi.fn(),
 }))
+vi.mock('@/api/runtime-controls', () => ({ listRuntimeControls: vi.fn(async () => []) }))
 vi.mock('@/api/task-chats', async (original) => ({
   ...(await original<typeof import('@/api/task-chats')>()),
   getTaskContext: vi.fn(),

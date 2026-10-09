@@ -59,6 +59,7 @@ import {
 } from '@/api/task-chats'
 import { useAuthStore } from '@/shared/auth/store'
 import { TaskApprovalsPanel } from './approvals'
+import { RuntimeControlsPanel } from './runtime-controls'
 import { UserAvatar } from '@/shared/ui/user-avatar'
 import { EmptyState, ErrorState, StatusBadge, formatDate } from '../common'
 import './chat.css'
@@ -179,6 +180,7 @@ function ChatWorkspace({ id }: { id: string }) {
         'session',
         'chat-history',
         'session-runs',
+        'runtime-controls',
         'chat-controls',
         'task-context',
         'clarifications',
@@ -222,6 +224,7 @@ function ChatWorkspace({ id }: { id: string }) {
           ;[
             'chat-history',
             'session-runs',
+            'runtime-controls',
             'chat-controls',
             'task-context',
             'clarifications',
@@ -530,6 +533,15 @@ function ChatWorkspace({ id }: { id: string }) {
                   </article>
                 )}
                 <TaskApprovalsPanel sessionId={id} canResolve={canResolveApprovals} hideWhenEmpty />
+                <RuntimeControlsPanel
+                  sessionId={id}
+                  runId={
+                    stop.variables?.runId ??
+                    (message.variables?.kind === 'steer' ? message.variables.runId : null) ??
+                    controls.data?.active_run_id ??
+                    runs.data?.[0]?.id
+                  }
+                />
               </div>
               {newMessages && (
                 <Button

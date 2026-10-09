@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiRequest } from './client'
 import { steerSessionRun, stopSessionRun } from './fleet'
+import { listRuntimeControls } from './runtime-controls'
 
-vi.mock('./client', () => ({ apiRequest: vi.fn() }))
+vi.mock('./client', () => ({ apiRequest: vi.fn(async () => []) }))
 
 beforeEach(() => vi.clearAllMocks())
 
@@ -28,5 +29,18 @@ describe('runtime control command identity', () => {
       headers: { 'Idempotency-Key': 'steer-key' },
       body: JSON.stringify({ input: 'Original instruction' }),
     })
+  })
+})
+
+describe('runtime controls transport', () => {
+  it('only reads the exact session/run collection', async () => {
+    await expect(listRuntimeControls('session', 'run')).resolves.toEqual([])
+    expect(apiRequest).toHaveBeenCalledExactlyOnceWith('/api/v1/sessions/session/runs/run/controls')
+  })
+  it('does not allow identifiers to change the readback route', async () => {
+    await listRuntimeControls('session/other', 'run?other#fragment')
+    expect(apiRequest).toHaveBeenCalledExactlyOnceWith(
+      '/api/v1/sessions/session%2Fother/runs/run%3Fother%23fragment/controls',
+    )
   })
 })

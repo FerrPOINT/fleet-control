@@ -144,6 +144,32 @@ test('fixture: HTTP-success uncertainty retains steer and the original stop targ
         },
       })
     if (path.endsWith('/history')) return route.fulfill({ json: { items: [], next_before: null } })
+    if (path.endsWith('/controls')) {
+      const runId = path.split('/')[6]
+      const operations = new Set(
+        commands
+          .filter((command) => command.path.split('/')[6] === runId)
+          .map((command) => (command.path.endsWith('/stop') ? 'stop' : 'steer')),
+      )
+      return route.fulfill({
+        json: [...operations].map((operation) => ({
+          id:
+            operation === 'stop'
+              ? '00000000-0000-4000-8000-000000000001'
+              : '00000000-0000-4000-8000-000000000002',
+          session_id: 'session1',
+          session_run_id: runId,
+          agent_id: 'agent1',
+          actor_user_id: 'owner',
+          operation,
+          state: 'uncertain',
+          acknowledgement: null,
+          observed_run_state: null,
+          created_at: '2026-10-09T10:00:00Z',
+          updated_at: '2026-10-09T10:00:01Z',
+        })),
+      })
+    }
     if (path.endsWith('/runs') || path.endsWith('/approvals')) return route.fulfill({ json: [] })
     throw new Error(`Unexpected fixture read: ${path}`)
   })
@@ -166,6 +192,9 @@ test('fixture: HTTP-success uncertainty retains steer and the original stop targ
   await expect.poll(() => commands.length).toBe(2)
   expect(commands[1]).toEqual(commands[0])
   expect(commands[1].path).toContain('/original-run/stop')
+  await expect(
+    page.getByText('Исход команды неизвестен. Повторная отправка не разрешена.'),
+  ).toBeVisible()
 
   const input = page.getByLabel('Уточнение активному запуску')
   await input.fill('Проверь миграцию без изменения чужих данных')
@@ -184,6 +213,9 @@ test('fixture: HTTP-success uncertainty retains steer and the original stop targ
   ]) {
     await page.setViewportSize(viewport)
     await expect(input).toBeVisible()
+    const readback = page.getByText('Исход команды неизвестен. Повторная отправка не разрешена.')
+    await readback.scrollIntoViewIfNeeded()
+    await expect(readback).toBeInViewport({ ratio: 1 })
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,

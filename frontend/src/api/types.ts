@@ -1,3 +1,5 @@
+import type { components } from './generated'
+
 export type AgentKind = 'hermes' | 'java_agent'
 export type SystemRole = 'admin' | 'operator' | 'user'
 export type AgentProductRole = 'leader' | 'executor'
@@ -425,14 +427,7 @@ export interface ResolveRuntimeApprovalRequest {
   resolve_all?: boolean
 }
 
-export interface RuntimeRunControlResponse {
-  session_id: string
-  run_id: string
-  runtime_run_id: string | null
-  accepted: boolean
-  state: SessionRunState
-  message: string
-}
+export type RuntimeRunControlResponse = components['schemas']['RuntimeRunControlResponse']
 
 export interface UpdateLeaderExecutorsRequest {
   executor_ids: string[]

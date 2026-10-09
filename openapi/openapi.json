@@ -2442,6 +2442,101 @@
         }
       }
     },
+    "/api/v1/sessions/{session_id}/runs/{run_id}/controls": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "list_controls",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RuntimeControlReceipt"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/runs/{run_id}/controls/{command_id}": {
+      "get": {
+        "tags": [
+          "sessions"
+        ],
+        "operationId": "read_control",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "command_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeControlReceipt"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/api/v1/sessions/{session_id}/runs/{run_id}/steer": {
       "post": {
         "tags": [
@@ -2465,6 +2560,14 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -2515,6 +2618,14 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -6057,6 +6168,88 @@
           "cancelled"
         ]
       },
+      "RuntimeControlOperation": {
+        "type": "string",
+        "enum": [
+          "steer",
+          "stop"
+        ]
+      },
+      "RuntimeControlReceipt": {
+        "type": "object",
+        "required": [
+          "id",
+          "session_id",
+          "session_run_id",
+          "agent_id",
+          "actor_user_id",
+          "operation",
+          "state",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "acknowledgement": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "actor_user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/String"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "observed_run_state": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SessionRunState"
+              }
+            ]
+          },
+          "operation": {
+            "$ref": "#/components/schemas/RuntimeControlOperation"
+          },
+          "session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "session_run_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "$ref": "#/components/schemas/RuntimeControlState"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/String"
+          }
+        }
+      },
+      "RuntimeControlState": {
+        "type": "string",
+        "enum": [
+          "reserved",
+          "submitted",
+          "acknowledged",
+          "uncertain",
+          "rejected",
+          "terminal_observed"
+        ]
+      },
       "RuntimeOperationResponse": {
         "type": "object",
         "required": [
@@ -6089,6 +6282,16 @@
         "properties": {
           "accepted": {
             "type": "boolean"
+          },
+          "command": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RuntimeControlReceipt"
+              }
+            ]
           },
           "message": {
             "type": "string"

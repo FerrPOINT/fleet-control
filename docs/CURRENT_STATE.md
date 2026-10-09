@@ -1,5 +1,22 @@
 # Current State
 
+## Authentic API And Control Readback: 9 October 2026
+
+Hosted codegen run37945042300 succeeds for exact source `fc6ef12d` and Base19a.
+The parent verified artifact11622004476 and its digest through authenticated
+readback; generated OpenAPI is retained verbatim and the TypeScript client is
+regenerated. API/domain inputs match current integration `7f9ae892` exactly.
+This is generator evidence, not combined backend Linux/PG acceptance.
+
+Chats adds GET-only scoped command readback, polling/event refresh and distinct
+reserved/submitted/acknowledged/uncertain/rejected/terminal-observed labels.
+Stop ACK does not imply run completion or physical stop. All286 frontend tests,
+typecheck, targeted lint and three browser fixture cases pass; nine screenshot
+entries cover the required viewports and were regenerated/inspected. Exact
+automatic settlement of frozen commands, reload recovery, native runtime
+acceptance and full PM/SDLC remain open. See the
+[consumer evidence](plans/2026-10-09-runtime-controls-ui.md).
+
 ## Approval And Steer UI Integration: 9 October 2026
 
 The next normal integration retains UI/foundation `3f8ed8fc` and backend
