@@ -52,6 +52,15 @@ verify the real deployed/candidate Auth endpoint, policy, strict introspection,
 replay/revoke/expiry and migration compatibility. This dependency is not model
 admission and does not waive Tracker/Workflow prerequisites.
 
+`infra/tests/pm_credentials_real_auth.rs` adds the separate opt-in real Auth
+consumer gate: exact source8a34598, disposable loopback-only origin, synthetic
+parent/subject, actual issuance/replay, changed-payload conflict, four-field
+introspection and child revoke. Missing inputs panic when explicitly selected;
+the default ignored result is not coverage. A source/binary-qualified launcher
+must supply these inputs; environment assertions alone are not provenance.
+This case does not contact Tracker, claim a lease or test model dispatch. It has
+not run yet and remains separate from the eighteen-stage fixture/DB gate.
+
 Run locked Linux Rust1.88 fmt/check/strict Clippy/workspace tests, explicit real
 PostgreSQL `sdlc_foundation`, all ignored migration lineage cases, dedicated
 credential migration and historical message-order cases, clean up/down/up and

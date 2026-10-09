@@ -1,5 +1,28 @@
 # Testing
 
+## Real Base Delegation Consumer Gate
+
+The separate `infra` integration target `pm_credentials_real_auth` requires a
+source-qualified disposable Auth built from Base8a34598, not the in-process HTTP
+stub. It exercises actual Fleet issuance/replay/conflict, strict introspection
+wire and revoke. It is ignored by default; a default workspace PASS does not
+accept this release prerequisite. Explicit execution fails for absent inputs:
+
+```bash
+cargo test --locked -p infra --test pm_credentials_real_auth -- --ignored --test-threads=1
+```
+
+The owned launcher supplies `FLEET_REAL_AUTH_TEST_OWNED=disposable-compose`,
+`FLEET_REAL_AUTH_TEST_SOURCE_SHA=8a345988d8e0815c2d6d7dfd597822df2b8ae992`,
+`FLEET_REAL_AUTH_TEST_URL` (HTTP127.0.0.1, private container port40000+),
+`FLEET_REAL_AUTH_TEST_PARENT_PAT` and `FLEET_REAL_AUTH_TEST_SUBJECT`. The parent
+and subject belong only to the synthetic test database and explicit PM policy.
+Do not use installed runtime secrets, publish ports or retain PAT values in
+evidence. Pin/source/binary identity and cleanup belong to the launcher evidence;
+an environment string alone does not attest the server. No Tracker request,
+assignment claim, workflow receipt or full SDLC completion is asserted here.
+The case is implemented but not executed; real compatibility remains pending.
+
 ## Persisted Credential Candidate
 
 The [credential release](plans/2026-10-09-pm-credentials-release.md) requires
