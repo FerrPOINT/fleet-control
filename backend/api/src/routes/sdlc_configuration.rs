@@ -32,6 +32,8 @@ struct Principal {
     sub: String,
     email: String,
     scopes: Vec<String>,
+    #[serde(rename = "display_name")]
+    _display_name: String,
 }
 
 fn unavailable() -> AppError {

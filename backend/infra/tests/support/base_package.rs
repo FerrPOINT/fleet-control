@@ -585,7 +585,7 @@ async fn base_package_machine_readback_denies_database_only_effective_config_and
             counter.fetch_add(1, Ordering::SeqCst);
             async move {
                 axum::Json(
-                    serde_json::json!({"sub":subject, "email":"machine@example.test",
+                    serde_json::json!({"sub":subject, "email":"machine@example.test", "display_name":"Configuration reader",
             "scopes":["fleet-control:read"]}),
                 )
             }

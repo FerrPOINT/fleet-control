@@ -36,7 +36,7 @@ fn headers() -> HeaderMap {
 }
 
 fn principal() -> serde_json::Value {
-    json!({"sub":SUBJECT,"email":"machine@example.test", "scopes":[
+    json!({"sub":SUBJECT,"email":"machine@example.test", "display_name":"Configuration reader", "scopes":[
         "fleet-control:read"
     ]})
 }
@@ -127,6 +127,45 @@ async fn sdlc_configuration_authorization_is_fresh_exact_and_agent_scoped() {
             authorize(&config, id, &headers()).await,
             Err(AppError::Forbidden)
         ));
+        finish(task).await;
+    }
+}
+
+#[tokio::test]
+async fn sdlc_configuration_introspection_matches_base_wire_contract() {
+    let id = Uuid::new_v4();
+    let mut valid = principal();
+    valid["display_name"] = json!("admin");
+    let (mut config, calls, task) = service(StatusCode::OK, valid.to_string(), None).await;
+    config.configuration_reader_agent_ids = id.to_string();
+    authorize(&config, id, &headers()).await.unwrap();
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    finish(task).await;
+
+    let mut missing = principal();
+    missing.as_object_mut().unwrap().remove("display_name");
+    let mut null = principal();
+    null["display_name"] = json!(null);
+    let mut wrong_type = principal();
+    wrong_type["display_name"] = json!(42);
+    let mut unknown = principal();
+    unknown["role"] = json!("admin");
+    let body = principal().to_string();
+    let duplicate = format!("{{\"display_name\":\"duplicate\",{}", &body[1..]);
+    for body in [
+        missing.to_string(),
+        null.to_string(),
+        wrong_type.to_string(),
+        unknown.to_string(),
+        duplicate,
+    ] {
+        let (mut config, calls, task) = service(StatusCode::OK, body, None).await;
+        config.configuration_reader_agent_ids = id.to_string();
+        assert!(matches!(
+            authorize(&config, id, &headers()).await,
+            Err(AppError::Unavailable(_))
+        ));
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
         finish(task).await;
     }
 }
