@@ -7,11 +7,11 @@ impl LocalRuntimeSupervisor {
             handle.spawn(async move {
                 let mut after = None;
                 loop {
-                    match supervisor.repo.list_pending_hermes_acceptances(after).await {
+                    match supervisor.repo.list_recoverable_hermes_acceptances(after).await {
                         Ok(records) => {
                             if records.is_empty() { after = None; }
                             for (message, run) in records {
-                                // Invalid old ACKs must not starve later pending readbacks.
+                                // Invalid old ACKs must not starve later pending or pinned readbacks.
                                 after = Some(run.id);
                                 let result = async {
                                     let session = supervisor.repo.get_session(run.session_id).await?;
@@ -19,7 +19,7 @@ impl LocalRuntimeSupervisor {
                                     supervisor.finish_acceptance_readback(&agent, &session, &message, &run).await
                                 }.await;
                                 if result.is_err() {
-                                    // The persisted ACK and agent capacity remain held. Never POST here.
+                                    // Capacity remains held. Never submit a run in recovery.
                                     tracing::warn!(run_id = %run.id, "Hermes acceptance readback requires reconciliation");
                                 }
                             }
@@ -49,35 +49,76 @@ impl LocalRuntimeSupervisor {
                 "Hermes acceptance does not match its free chat",
             ));
         }
-        let runtime_run_id = run
-            .runtime_run_id
-            .as_deref()
-            .ok_or_else(|| AppError::Unavailable("Hermes acceptance is unknown".into()))?;
         let base = Self::hermes_base_url(agent)?;
         let token = crate::agent_runtime_token(&self.config, agent.id)?;
-        let intent = self.repo.get_hermes_dispatch_intent(message.id).await?
+        let mut intent = self.repo.get_hermes_dispatch_intent(message.id).await?
             .ok_or_else(|| AppError::Unavailable("Legacy Hermes acceptance has no original dispatch context; reconciliation is required".into()))?;
         if intent.run.id != run.id
-            || intent.run.runtime_run_id.as_deref() != Some(runtime_run_id)
-            || intent.state != "accepted"
+            || intent.run.agent_id != agent.id
+            || intent.run.session_id != session.id
+            || (run.runtime_run_id.is_some() && intent.run.runtime_run_id != run.runtime_run_id)
         {
             return Err(AppError::conflict(
                 "Hermes journal acceptance does not match",
             ));
         }
         hermes_wire::verify_intent(&intent, &base, &token)?;
+        if intent.run.runtime_run_id.is_none() {
+            if !self.config.fleet.hermes_recovery_extension_enabled {
+                return Err(AppError::Unavailable("Hermes acceptance is unknown".into()));
+            }
+            let recovered = recovery_wire::lookup(&self.client, &base, &token, &intent).await?;
+            self.repo
+                .accept_recovered_hermes_run(
+                    message.id,
+                    run.id,
+                    recovered,
+                    intent.capabilities.clone(),
+                )
+                .await?;
+            intent = self
+                .repo
+                .get_hermes_dispatch_intent(message.id)
+                .await?
+                .ok_or_else(|| AppError::Unavailable("Hermes recovery journal missing".into()))?;
+            hermes_wire::verify_intent(&intent, &base, &token)?;
+        }
+        let runtime_run_id = intent
+            .run
+            .runtime_run_id
+            .clone()
+            .ok_or_else(|| AppError::Unavailable("Hermes acceptance is unknown".into()))?;
+        if intent.state != "accepted" {
+            return Err(AppError::conflict(
+                "Hermes journal acceptance does not match",
+            ));
+        }
+        if matches!(
+            intent.run.state,
+            SessionRunState::Completed | SessionRunState::Failed | SessionRunState::Cancelled
+        ) {
+            return Ok(intent.run);
+        }
         let payload =
-            hermes_wire::read_accepted_run(&self.client, &base, &token, runtime_run_id).await?;
-        let effective = hermes_wire::effective_session(&payload, runtime_run_id)?;
-        let (pinned, first) = self
-            .repo
-            .pin_hermes_run_session(
-                run.id,
-                runtime_run_id.to_owned(),
-                Self::runtime_session_id(session, agent),
-                effective,
-            )
-            .await?;
+            hermes_wire::read_accepted_run(&self.client, &base, &token, &runtime_run_id).await?;
+        let effective = hermes_wire::effective_session(&payload, &runtime_run_id)?;
+        let (pinned, first) = if intent.run.state == SessionRunState::Pending {
+            self.repo
+                .pin_hermes_run_session(
+                    run.id,
+                    runtime_run_id.to_owned(),
+                    Self::runtime_session_id(session, agent),
+                    effective,
+                )
+                .await?
+        } else {
+            if intent.run.runtime_session_id.as_deref() != Some(effective.as_str()) {
+                return Err(AppError::Unavailable(
+                    "Hermes terminal session identity changed".into(),
+                ));
+            }
+            (intent.run, false)
+        };
         if first {
             self.emit_run(&pinned);
             let _ = self.events.send(FleetEvent::SessionMessageChanged {
@@ -85,6 +126,26 @@ impl LocalRuntimeSupervisor {
                 message_id: message.id.to_string(),
                 event: "message.dispatched".to_string(),
             });
+        }
+        if matches!(
+            payload.get("status").and_then(Value::as_str),
+            Some("completed" | "failed" | "cancelled" | "interrupted" | "stopped")
+        ) {
+            let event = hermes_wire::terminal_readback(&payload, &runtime_run_id)?;
+            self.handle_hermes_event(
+                agent,
+                session,
+                message,
+                &pinned,
+                &runtime_run_id,
+                Some(event.to_owned()),
+                payload.to_string(),
+                &mut sse_wire::Transcript::default(),
+            )
+            .await?;
+            return self.repo.get_session_agent_run(pinned.id).await;
+        }
+        if first {
             self.spawn_hermes_event_worker(
                 agent.clone(),
                 session.clone(),

@@ -23,6 +23,21 @@ mod pm_credential_creation;
 #[path = "support/runtime_acceptance.rs"]
 mod runtime_acceptance;
 
+#[path = "support/runtime_terminal.rs"]
+mod runtime_terminal;
+
+#[path = "support/runtime_pinned_recovery.rs"]
+mod runtime_pinned_recovery;
+
+#[path = "support/runtime_unknown_recovery.rs"]
+mod runtime_unknown_recovery;
+
+#[path = "support/runtime_recovery_races.rs"]
+mod runtime_recovery_races;
+
+#[path = "support/runtime_stream_bounds.rs"]
+mod runtime_stream_bounds;
+
 #[path = "support/hermes_dispatch_journal.rs"]
 mod hermes_dispatch_journal;
 
@@ -55,6 +70,12 @@ async fn fixture() -> Option<(PostgresFleetRepository, Uuid, Uuid)> {
             [id.into(), format!("{id}@example.test").into(), id.to_string().into()])).await.unwrap();
     }
     Some((PostgresFleetRepository::new(db), owner, stranger))
+}
+
+async fn recovery_fixture() -> Option<(PostgresFleetRepository, Uuid, Uuid)> {
+    std::env::var("FLEET_TEST_DATABASE_URL")
+        .expect("isolated PostgreSQL is required for Hermes recovery tests");
+    fixture().await
 }
 
 async fn agent(repo: &PostgresFleetRepository) -> Uuid {
@@ -2647,8 +2668,13 @@ async fn pm_callback_requires_machine_auth_and_fresh_authenticated_runtime_proof
     let hermes_server =
         tokio::spawn(async move { axum::serve(listener, runtime_router).await.unwrap() });
     let repo = Arc::new(repo);
-    let mut config = AppConfig::default();
-    config.fleet.runtime_token_secret = "isolated-test-runtime-secret".into();
+    let config = AppConfig {
+        fleet: shared::FleetConfig {
+            runtime_token_secret: "isolated-test-runtime-secret".into(),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
     config.pm.readback_token = "isolated-readback-test-secret-123456789".into();
     let secret = config.pm.readback_token.clone();
     let config = Arc::new(config);
@@ -3162,23 +3188,36 @@ async fn runtime_http_fixture(runtime_status: &'static str) {
         serde_json::json!({"object":"hermes.run","run_id":"fixture-run","status":runtime_status,
             "completed":runtime_status == "completed","partial":false,"interrupted":runtime_status == "interrupted",
             "output":"verified response"}),
-        "event: message.delta\ndata: {\"delta\":\"partial response\"}\n\n",
+        "event: message.delta\ndata: {\"run_id\":\"fixture-run\",\"delta\":\"partial response\"}\n\n",
         expected,
         runtime_status == "completed",
     ).await;
 }
 
 async fn runtime_http_scenario(
-    mut readback: serde_json::Value,
+    readback: serde_json::Value,
     events: &'static str,
     expected: SessionRunState,
     expected_reply: bool,
 ) {
+    runtime_http_events_scenario(
+        readback,
+        runtime_stream_bounds::EventResponse::body(vec![events.as_bytes().to_vec()]),
+        expected,
+        expected_reply,
+    )
+    .await;
+}
+
+async fn runtime_http_events_scenario(
+    mut readback: serde_json::Value,
+    events: runtime_stream_bounds::EventResponse,
+    expected: SessionRunState,
+    expected_reply: bool,
+) -> Option<(Arc<PostgresFleetRepository>, Uuid)> {
     std::env::var("FLEET_TEST_DATABASE_URL")
         .expect("isolated PostgreSQL is required for runtime HTTP tests");
-    let Some((repo, owner, _)) = fixture().await else {
-        return;
-    };
+    let (repo, owner, _) = fixture().await?;
     let agent_id = agent(&repo).await;
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
@@ -3197,7 +3236,14 @@ async fn runtime_http_scenario(
     if readback.get("session_id").is_none() {
         readback["session_id"] = serde_json::json!("native-fixture-session");
     }
+    let mut config = AppConfig::default();
+    config.fleet.runtime_token_secret = "isolated-test-runtime-secret".into();
+    let bearer = format!(
+        "Bearer {}",
+        infra::agent_runtime_token(&config, agent_id).unwrap()
+    );
     let reads = Arc::new(AtomicUsize::new(0));
+    let settlement_timeout = events.settlement_timeout();
     let router = axum::Router::new()
         .route("/v1/runs", axum::routing::post(move |headers: axum::http::HeaderMap, axum::Json(body): axum::Json<serde_json::Value>| {
             let calls = calls.clone();
@@ -3209,8 +3255,11 @@ async fn runtime_http_scenario(
                 (axum::http::StatusCode::ACCEPTED, axum::Json(serde_json::json!({"run_id": "fixture-run", "status":"started", "replayed":false})))
             }
         }))
-        .route("/v1/runs/fixture-run/events", axum::routing::get(move || async move {
-            ([(axum::http::header::CONTENT_TYPE, "text/event-stream")], events)
+        .route("/v1/runs/fixture-run/events", axum::routing::get(move |headers: axum::http::HeaderMap| {
+            assert_eq!(headers["accept"], "text/event-stream");
+            assert_eq!(headers["accept-encoding"], "identity");
+            let events = events.clone();
+            async move { events.response() }
         }))
         .route("/v1/runs/fixture-run", axum::routing::get(move |headers: axum::http::HeaderMap| {
             assert_eq!(headers["accept-encoding"], "identity");
@@ -3222,22 +3271,58 @@ async fn runtime_http_scenario(
             };
             async move { axum::Json(payload) }
         }));
-    let router = hermes_protocol_fixture::preflight(router);
+    let router = hermes_protocol_fixture::preflight(router).layer(axum::middleware::from_fn(
+        move |request: axum::extract::Request, next: axum::middleware::Next| {
+            let bearer = bearer.clone();
+            async move {
+                if request.uri().path().starts_with("/v1/runs")
+                    && request
+                        .headers()
+                        .get("authorization")
+                        .and_then(|value| value.to_str().ok())
+                        != Some(bearer.as_str())
+                {
+                    return axum::response::IntoResponse::into_response(
+                        axum::http::StatusCode::UNAUTHORIZED,
+                    );
+                }
+                next.run(request).await
+            }
+        },
+    ));
     let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
     let repo = Arc::new(repo);
+    repo.update_agent_status(agent_id, AgentStatus::Ready)
+        .await
+        .unwrap();
     let session = repo
         .create_session(chat(agent_id, "http-chat"), owner)
         .await
         .unwrap();
-    let mut config = AppConfig::default();
-    config.fleet.runtime_token_secret = "isolated-test-runtime-secret".into();
+    let message = repo
+        .create_session_message(session.id, prompt("http-once"), owner)
+        .await
+        .unwrap();
+    // This scenario tests SSE/status reconciliation; global dequeue is covered separately.
+    let claim = db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE message_dispatch_outbox SET state='dispatching' WHERE message_id=$1 AND state='pending'",
+        [message.id.into()],
+    )).await.unwrap();
+    assert_eq!(claim.rows_affected(), 1);
+    repo.update_agent_status(agent_id, AgentStatus::Running)
+        .await
+        .unwrap();
+    let concrete_agent = repo.get_agent(agent_id).await.unwrap();
     let (events, _) = tokio::sync::broadcast::channel(32);
     let _runtime =
         infra::runtime::LocalRuntimeSupervisor::new(Arc::new(config), repo.clone(), events);
-    repo.create_session_message(session.id, prompt("http-once"), owner)
-        .await
-        .unwrap();
-    tokio::time::timeout(Duration::from_secs(10), async {
+    let dispatch =
+        app::RuntimeSupervisor::send_message(&_runtime, &concrete_agent, &session, &message)
+            .await
+            .unwrap();
+    assert_ne!(dispatch.status, AgentStatus::Failed, "{}", dispatch.message);
+    tokio::time::timeout(settlement_timeout, async {
         loop {
             let runs = repo.list_session_agent_runs(session.id).await.unwrap();
             if runs.iter().any(|run| run.state == expected) {
@@ -3286,6 +3371,7 @@ async fn runtime_http_scenario(
     }
     server.abort();
     let _ = server.await;
+    Some((repo, session.id))
 }
 
 #[tokio::test]
@@ -3298,6 +3384,26 @@ async fn runtime_http_eof_without_terminal_status_keeps_run_waiting() {
 #[ignore = "requires isolated FLEET_TEST_DATABASE_URL"]
 async fn runtime_http_terminal_readback_persists_one_answer() {
     runtime_http_fixture("completed").await;
+}
+
+#[tokio::test]
+#[ignore = "requires isolated FLEET_TEST_DATABASE_URL"]
+async fn runtime_http_empty_terminal_output_never_uses_nested_metadata_as_assistant() {
+    for output in [
+        None,
+        Some(serde_json::json!("")),
+        Some(serde_json::json!(" \n\t ")),
+    ] {
+        let mut payload = serde_json::json!({
+            "object":"hermes.run", "run_id":"fixture-run", "status":"completed",
+            "completed":true, "partial":false, "interrupted":false,
+            "metadata":{"message":"tool metadata is not an assistant", "content":"not a reply"}
+        });
+        if let Some(output) = output {
+            payload["output"] = output;
+        }
+        runtime_http_scenario(payload, "", SessionRunState::Completed, false).await;
+    }
 }
 
 #[tokio::test]

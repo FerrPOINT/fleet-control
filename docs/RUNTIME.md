@@ -1,5 +1,18 @@
 # Runtime
 
+## Recovery Candidate Boundary
+
+Free-chat unknown acceptance may recover only the original native run ID through
+the default-off [durable witness lookup](contracts/HERMES_RECOVERY_V1.md).
+Original bytes/key/hash/origin/credential/scope/store epoch must match. Known-ID
+pending/running/waiting/stopping runs recover by authenticated status GET; an
+already pinned run never attaches a replacement SSE consumer. Terminal evidence
+must match its run/session and commit atomically before capacity is released.
+The [bounded stream profile](contracts/HERMES_EVENT_STREAM_V1.md) discards an
+unterminated EOF frame and requires independent status proof. It does not replay
+missed tools/approvals, prove safe process stop or authorize task/PM execution.
+Native compatibility and exact-source acceptance remain pending.
+
 Runtime health is not SDLC readiness. Fleet returns
 `workflow_assignment_protocol_not_verified` until the assignment, workflow
 step/rebind and receipt protocols are verified. See

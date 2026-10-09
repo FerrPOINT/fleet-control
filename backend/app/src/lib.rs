@@ -118,6 +118,19 @@ pub struct HermesDispatchIntent {
     pub submission_attempted: bool,
     pub submitted_at: Option<shared::Timestamp>,
     pub recovery_deadline: shared::Timestamp,
+    /// Database-clock observation; a recovered mapping rechecks under the journal lock.
+    pub recovery_allowed: bool,
+}
+
+/// Internal terminal proof; never a public request or permission to dispatch.
+pub struct HermesTerminalCommit {
+    pub message_id: Uuid,
+    pub run_id: Uuid,
+    pub runtime_run_id: String,
+    pub runtime_session_id: String,
+    pub state: SessionRunState,
+    pub body: Option<String>,
+    pub error: Option<String>,
 }
 
 #[async_trait]
@@ -518,6 +531,18 @@ pub trait FleetRepository: Send + Sync {
             "Hermes acceptance is unavailable".into(),
         ))
     }
+    /// Persist a non-dispatch lookup proof against the original immutable journal.
+    async fn accept_recovered_hermes_run(
+        &self,
+        _message_id: Uuid,
+        _run_id: Uuid,
+        _runtime_run_id: String,
+        _original_capabilities: serde_json::Value,
+    ) -> Result<SessionAgentRun, AppError> {
+        Err(AppError::Unavailable(
+            "Hermes recovery commit is unavailable".into(),
+        ))
+    }
     async fn pin_hermes_run_session(
         &self,
         _run_id: Uuid,
@@ -529,7 +554,16 @@ pub trait FleetRepository: Send + Sync {
             "Hermes session readback is unavailable".into(),
         ))
     }
-    async fn list_pending_hermes_acceptances(
+    /// Commit mirror, delivery and terminal capacity release together; bool means first commit.
+    async fn commit_hermes_terminal(
+        &self,
+        _command: HermesTerminalCommit,
+    ) -> Result<(SessionAgentRun, Option<SessionMessage>, bool), AppError> {
+        Err(AppError::Unavailable(
+            "Hermes terminal commit is unavailable".into(),
+        ))
+    }
+    async fn list_recoverable_hermes_acceptances(
         &self,
         _after: Option<Uuid>,
     ) -> Result<Vec<(SessionMessage, SessionAgentRun)>, AppError> {

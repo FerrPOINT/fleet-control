@@ -1,5 +1,17 @@
 # Hermes Adapter Contract
 
+## Original-Key And Pinned Recovery Candidate
+
+The default-off [recovery extension](HERMES_RECOVERY_V1.md) freezes verified
+original store/scope/source facts before submission and performs only a
+non-dispatch original-key lookup after unknown acceptance. No repeated run POST,
+legacy backfill, new key, task/PM model admission or capacity release follows a
+negative result. Pinned active runs recover with authenticated status GET only.
+Exact terminal run/session proof commits mirror/delivery/state in one transaction;
+replay is read-only, contradictions fail. [Stream bounds](HERMES_EVENT_STREAM_V1.md)
+require a complete frame or independent terminal status at EOF. Native producer
+and managed-runtime compatibility are not yet accepted for this candidate.
+
 ## Hermes Journal Release Unit12
 
 Free-chat dispatch requires the exact authenticated server-agent capabilities,

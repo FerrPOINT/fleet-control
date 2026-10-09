@@ -16,6 +16,43 @@ impl Drop for Server {
     }
 }
 
+async fn recovery_queue_contains(repo: &PostgresFleetRepository, id: Uuid) -> bool {
+    let mut after = None;
+    loop {
+        let page = repo
+            .list_recoverable_hermes_acceptances(after)
+            .await
+            .unwrap();
+        if page.iter().any(|(_, run)| run.id == id) {
+            return true;
+        }
+        let Some((_, last)) = page.last() else {
+            return false;
+        };
+        assert!(after.is_none_or(|previous| last.id > previous));
+        after = Some(last.id);
+    }
+}
+
+async fn recovery_scan_budget(repo: &PostgresFleetRepository) -> Duration {
+    let mut after = None;
+    let mut pages = 0;
+    loop {
+        let page = repo
+            .list_recoverable_hermes_acceptances(after)
+            .await
+            .unwrap();
+        let Some((_, last)) = page.last() else {
+            break;
+        };
+        pages += 1;
+        assert!(after.is_none_or(|previous| last.id > previous));
+        after = Some(last.id);
+    }
+    // The production worker advances one bounded page every five seconds.
+    Duration::from_secs(10 + (pages + 1) * 5)
+}
+
 async fn prepared_journal(
     repo: &PostgresFleetRepository,
     config: &AppConfig,
@@ -294,7 +331,8 @@ async fn acceptance_readback_never_probes_legacy_or_changed_original_context() {
     let (events, _) = tokio::sync::broadcast::channel(32);
     let _runtime =
         infra::runtime::LocalRuntimeSupervisor::new(Arc::new(config), repo.clone(), events);
-    timeout(Duration::from_secs(10), async {
+    let scan_budget = recovery_scan_budget(&repo).await;
+    timeout(scan_budget, async {
         while repo
             .get_session_agent_run(current.unwrap())
             .await
@@ -463,7 +501,8 @@ async fn scenario(restarted: bool) {
         assert_eq!(result.status, AgentStatus::Running);
         assert!(result.message.contains("readback is pending"));
     }
-    timeout(Duration::from_secs(10), async {
+    let scan_budget = recovery_scan_budget(&repo).await;
+    timeout(scan_budget, async {
         while reads.load(Ordering::SeqCst) == 0 {
             sleep(Duration::from_millis(20)).await;
         }
@@ -525,16 +564,10 @@ async fn scenario(restarted: bool) {
         .await
         .is_err()
     );
-    assert!(
-        repo.list_pending_hermes_acceptances(None)
-            .await
-            .unwrap()
-            .iter()
-            .any(|(_, r)| r.id == run.id)
-    );
+    assert!(recovery_queue_contains(&repo, run.id).await);
     phase.store(1, Ordering::SeqCst);
     let read_mark = reads.load(Ordering::SeqCst);
-    timeout(Duration::from_secs(12), async {
+    timeout(scan_budget, async {
         while reads.load(Ordering::SeqCst) <= read_mark {
             sleep(Duration::from_millis(20)).await;
         }
@@ -547,7 +580,7 @@ async fn scenario(restarted: bool) {
     );
     assert_eq!(posts.load(Ordering::SeqCst), 1);
     phase.store(2, Ordering::SeqCst);
-    timeout(Duration::from_secs(15), async {
+    timeout(scan_budget, async {
         loop {
             if repo.get_session_agent_run(run.id).await.unwrap().state == SessionRunState::Completed
             {
@@ -573,13 +606,7 @@ async fn scenario(restarted: bool) {
         .collect();
     assert_eq!(replies.len(), 1);
     assert_eq!(replies[0].body, "recovered response");
-    assert!(
-        repo.list_pending_hermes_acceptances(None)
-            .await
-            .unwrap()
-            .iter()
-            .all(|(_, r)| r.id != run.id)
-    );
+    assert!(!recovery_queue_contains(&repo, run.id).await);
     let replay = repo
         .create_session_message(session.id, prompt("readback-recovery-once"), owner)
         .await
@@ -610,6 +637,7 @@ async fn readback_keyset_reaches_later_ack_after_more_than_twenty_rejected_reads
     };
     let mut bearers = HashSet::new();
     let mut target = None;
+    let keyset_prefix = *Uuid::new_v4().as_bytes();
     for index in 0..22 {
         let agent_id = agent(&repo).await;
         db.execute(Statement::from_sql_and_values(
@@ -645,8 +673,11 @@ async fn readback_keyset_reaches_later_ack_after_more_than_twenty_rejected_reads
         ))
         .await
         .unwrap();
-        // Fixture-only IDs establish a deterministic keyset ordering; no binding references them.
-        let ordered = Uuid::from_u128(if index == 21 { u128::MAX } else { index + 1 });
+        // Keep deterministic ordering without reusing another test's persisted UUIDs.
+        let mut ordered_bytes = keyset_prefix;
+        ordered_bytes[0] = if index == 21 { u8::MAX } else { 0 };
+        ordered_bytes[15] = index as u8;
+        let ordered = Uuid::from_bytes(ordered_bytes);
         db.execute(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "UPDATE session_agent_runs SET id=$2 WHERE id=$1",
@@ -694,7 +725,8 @@ async fn readback_keyset_reaches_later_ack_after_more_than_twenty_rejected_reads
     let (events, _) = tokio::sync::broadcast::channel(32);
     let _runtime =
         infra::runtime::LocalRuntimeSupervisor::new(Arc::new(config), repo.clone(), events);
-    timeout(Duration::from_secs(25), async {
+    let scan_budget = recovery_scan_budget(&repo).await;
+    timeout(scan_budget, async {
         loop {
             if repo.get_session_agent_run(run_id).await.unwrap().state == SessionRunState::Completed
             {

@@ -2162,19 +2162,64 @@ impl FleetRepository for PostgresFleetRepository {
         event_type: &str,
         payload: Value,
     ) -> Result<(), AppError> {
-        self.db
-            .execute(Statement::from_sql_and_values(
-                DatabaseBackend::Postgres,
-                "WITH cursor AS (
+        let statement = Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "WITH cursor AS (
                 INSERT INTO session_event_cursors(session_id, sequence) VALUES ($1, 1)
                 ON CONFLICT(session_id) DO UPDATE SET sequence = session_event_cursors.sequence + 1
                 RETURNING sequence)
              INSERT INTO session_events(session_id, sequence, event_type, payload)
                 SELECT $1, sequence, $2, $3 FROM cursor",
-                [id.into(), event_type.into(), redact_json(payload).into()],
+            [
+                id.into(),
+                event_type.into(),
+                redact_json(payload.clone()).into(),
+            ],
+        );
+        if event_type == "session_run_delta" {
+            let run_id = payload
+                .get("run_id")
+                .and_then(Value::as_str)
+                .and_then(|value| Uuid::parse_str(value).ok())
+                .ok_or_else(|| AppError::validation("delta requires a concrete run"))?;
+            let txn = self.db.begin().await.map_err(AppError::database)?;
+            txn.query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT id FROM agent_sessions WHERE id=$1 FOR NO KEY UPDATE",
+                [id.into()],
             ))
             .await
-            .map_err(AppError::database)?;
+            .map_err(AppError::database)?
+            .ok_or_else(|| AppError::not_found("agent_session", id))?;
+            let run = session_agent_run::Entity::find_by_id(run_id)
+                .lock_exclusive()
+                .one(&txn)
+                .await
+                .map_err(AppError::database)?
+                .ok_or_else(|| AppError::not_found("session_agent_run", run_id))?;
+            if run.session_id != id
+                || payload.get("session_id").and_then(Value::as_str)
+                    != Some(id.to_string().as_str())
+                || run.runtime_run_id.is_none()
+                || payload.get("runtime_run_id").and_then(Value::as_str)
+                    != run.runtime_run_id.as_deref()
+            {
+                return Err(AppError::conflict("delta run identity changed"));
+            }
+            if matches!(run.state.as_str(), "completed" | "failed" | "cancelled") {
+                return Ok(());
+            }
+            if !matches!(run.state.as_str(), "running" | "waiting" | "stopping") {
+                return Err(AppError::conflict("delta requires a pinned active run"));
+            }
+            txn.execute(statement).await.map_err(AppError::database)?;
+            txn.commit().await.map_err(AppError::database)?;
+        } else {
+            self.db
+                .execute(statement)
+                .await
+                .map_err(AppError::database)?;
+        }
         Ok(())
     }
 
@@ -2675,7 +2720,24 @@ impl FleetRepository for PostgresFleetRepository {
         run_id: Uuid,
         runtime_run_id: String,
     ) -> Result<SessionAgentRun, AppError> {
-        runtime_acceptance::accept(self, message_id, run_id, runtime_run_id).await
+        runtime_acceptance::accept(self, message_id, run_id, runtime_run_id, None).await
+    }
+
+    async fn accept_recovered_hermes_run(
+        &self,
+        message_id: Uuid,
+        run_id: Uuid,
+        runtime_run_id: String,
+        original_capabilities: Value,
+    ) -> Result<SessionAgentRun, AppError> {
+        runtime_acceptance::accept(
+            self,
+            message_id,
+            run_id,
+            runtime_run_id,
+            Some(original_capabilities),
+        )
+        .await
     }
 
     async fn pin_hermes_run_session(
@@ -2695,20 +2757,32 @@ impl FleetRepository for PostgresFleetRepository {
         .await
     }
 
-    async fn list_pending_hermes_acceptances(
+    async fn commit_hermes_terminal(
+        &self,
+        command: app::HermesTerminalCommit,
+    ) -> Result<(SessionAgentRun, Option<SessionMessage>, bool), AppError> {
+        runtime_acceptance::terminal(self, command).await
+    }
+
+    async fn list_recoverable_hermes_acceptances(
         &self,
         after: Option<Uuid>,
     ) -> Result<Vec<(SessionMessage, SessionAgentRun)>, AppError> {
         let rows = self.db.query_all(Statement::from_sql_and_values(DatabaseBackend::Postgres,
             "SELECT r.id AS run_id,m.id AS message_id FROM session_agent_runs r
-             JOIN session_messages m ON m.session_id=r.session_id AND m.runtime_message_id=r.runtime_run_id
+             JOIN session_messages m ON m.session_id=r.session_id
              JOIN agent_sessions s ON s.id=r.session_id AND s.agent_id=r.agent_id
              JOIN agents a ON a.id=r.agent_id
-             WHERE r.state='pending' AND r.runtime_run_id IS NOT NULL AND a.kind='hermes'
+             LEFT JOIN hermes_dispatch_journal j ON j.message_id=m.id AND j.run_id=r.id
+             WHERE r.state IN ('pending','running','waiting','stopping')
+               AND a.kind='hermes'
                AND m.author_type IN ('user','agent') AND m.message_kind IN ('user_prompt','control')
-               AND m.delivery_state='dispatched'
+               AND ((r.runtime_run_id IS NOT NULL AND m.runtime_message_id=r.runtime_run_id AND m.delivery_state='dispatched')
+                 OR (r.runtime_run_id IS NULL AND r.state='pending' AND m.runtime_message_id IS NULL
+                     AND m.delivery_state='pending' AND j.state='submitted'
+                     AND jsonb_typeof(j.capabilities->'fleet_recovery')='object'))
                AND NOT EXISTS(SELECT 1 FROM task_chat_bindings b WHERE b.session_id=r.session_id)
-               AND NOT EXISTS(SELECT 1 FROM pm_run_bindings p WHERE p.session_run_id=r.id)
+               AND NOT EXISTS(SELECT 1 FROM pm_run_bindings p WHERE p.session_run_id=r.id OR p.session_id=r.session_id)
                AND ($1::uuid IS NULL OR r.id>$1)
              ORDER BY r.id LIMIT 20", [after.into()]))
             .await.map_err(AppError::database)?;
@@ -2744,12 +2818,35 @@ impl FleetRepository for PostgresFleetRepository {
             MessageAuthorType::System
         };
         let txn = self.db.begin().await.map_err(AppError::database)?;
-        agent_session::Entity::find_by_id(session_id)
-            .lock_exclusive()
-            .one(&txn)
-            .await
-            .map_err(AppError::database)?
-            .ok_or_else(|| AppError::not_found("agent_session", session_id))?;
+        txn.query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT id FROM agent_sessions WHERE id=$1 FOR NO KEY UPDATE",
+            [session_id.into()],
+        ))
+        .await
+        .map_err(AppError::database)?
+        .ok_or_else(|| AppError::not_found("agent_session", session_id))?;
+        if message_kind == MessageKind::ToolEvent
+            && let (Some(agent_id), Some(native_id)) =
+                (author_agent_id, runtime_message_id.as_deref())
+        {
+            let terminal = session_agent_run::Entity::find()
+                .filter(session_agent_run::Column::SessionId.eq(session_id))
+                .filter(session_agent_run::Column::AgentId.eq(agent_id))
+                .filter(session_agent_run::Column::RuntimeRunId.eq(native_id))
+                .lock_exclusive()
+                .all(&txn)
+                .await
+                .map_err(AppError::database)?;
+            if terminal
+                .iter()
+                .any(|run| matches!(run.state.as_str(), "completed" | "failed" | "cancelled"))
+            {
+                return Err(AppError::conflict(
+                    "terminal run cannot append a tool event",
+                ));
+            }
+        }
         if message_kind == MessageKind::AssistantMessage
             && let Some(runtime_id) = runtime_message_id.as_ref()
         {
@@ -2876,7 +2973,31 @@ impl FleetRepository for PostgresFleetRepository {
         req: RuntimeApprovalCreate,
     ) -> Result<RuntimeApprovalRequest, AppError> {
         let id = Uuid::new_v4();
-        self.db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        let txn = self.db.begin().await.map_err(AppError::database)?;
+        txn.query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT id FROM agent_sessions WHERE id=$1 FOR NO KEY UPDATE",
+            [req.session_id.into()],
+        ))
+        .await
+        .map_err(AppError::database)?
+        .ok_or_else(|| AppError::not_found("agent_session", req.session_id))?;
+        let run = session_agent_run::Entity::find_by_id(req.session_run_id)
+            .lock_exclusive()
+            .one(&txn)
+            .await
+            .map_err(AppError::database)?
+            .ok_or_else(|| AppError::not_found("session_agent_run", req.session_run_id))?;
+        if run.session_id != req.session_id
+            || run.agent_id != req.agent_id
+            || run.runtime_run_id.as_deref() != Some(req.runtime_run_id.as_str())
+            || matches!(run.state.as_str(), "completed" | "failed" | "cancelled")
+        {
+            return Err(AppError::conflict(
+                "approval requires its active runtime run",
+            ));
+        }
+        txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
             "INSERT INTO runtime_approval_requests(id,session_id,session_run_id,agent_id,runtime_run_id,runtime_approval_id,prompt,detail,state,created_at)
              VALUES($1,$2,$3,$4,$5,$6,$7,$8,'pending',now())
              ON CONFLICT(session_run_id,runtime_approval_id) WHERE runtime_approval_id IS NOT NULL DO NOTHING",
@@ -2889,7 +3010,7 @@ impl FleetRepository for PostgresFleetRepository {
             None => runtime_approval_request::Entity::find_by_id(id),
         };
         let row = query
-            .one(&self.db)
+            .one(&txn)
             .await
             .map_err(AppError::database)?
             .ok_or_else(|| AppError::not_found("runtime_approval_request", id))?;
@@ -2899,6 +3020,7 @@ impl FleetRepository for PostgresFleetRepository {
         {
             return Err(AppError::conflict("runtime approval identity changed"));
         }
+        txn.commit().await.map_err(AppError::database)?;
         Ok(runtime_approval_from_model(row))
     }
 

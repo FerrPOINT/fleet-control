@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+- Prepare free-chat original-key witness recovery, atomic pinned-run terminal
+  persistence and bounded Hermes event framing without new migrations or pins.
+  Native compatibility and exact-source PostgreSQL acceptance remain pending.
+
 - Prepare the isolated free-chat Hermes immutable request journal, single POST
   permit and atomic ACK/session readback release. Own only additive migration12;
   compilation, real PostgreSQL and exact-source release gates remain pending.

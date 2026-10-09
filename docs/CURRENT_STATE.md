@@ -1,5 +1,16 @@
 # Current State
 
+## Hermes Recovery Candidate: 9 October 2026
+
+The isolated successor to journal `cb720d7258294ca5d71c7f586a86f7407e9201b1`
+ports historical atomic-terminal/original-key recovery and required framing
+changes only. It adds no migrations, dependency pins, UI, config64, control13 or
+lifecycle15..22. Recovery defaults off and grants no task/PM model authority.
+Focused PostgreSQL/HTTP/concurrency selectors are mandatory in CI, not executed
+acceptance for this candidate. Native source/plugin/managed compatibility remains
+unverified. See the [scope and inventory](plans/2026-10-09-hermes-recovery-release.md).
+All older packet evidence below remains qualified to its original source.
+
 ## Task-Chat And Monitoring Reconciliation: 9 October 2026
 
 This isolated candidate normally merges PR47 `8befcb6` with accepted main

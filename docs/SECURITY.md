@@ -1,5 +1,17 @@
 # Security
 
+## Original-Key Recovery Boundary
+
+Recovery uses the original authenticated origin and credential fingerprint, exact
+serialized request/hash/key and closed source/profile/store facts frozen before
+submission. It never opens runtime SQLite or posts a second run on unknown
+acceptance. Negative/foreign/expired witnesses and invalid terminal evidence hold
+capacity. Response sizes and HTTP deadlines are bounded; redirects, proxy-env and
+automatic retries are disabled by the supervisor client. Terminal diagnostics
+do not echo database payloads, and mirrors are redacted before persistence.
+Lookup is not task/PM model authority or proof of safe stop. Capability strings
+do not attest installed producer bytes: source/native acceptance remains a gate.
+
 ## Persisted PM Credential Preparation
 
 The opt-in PM coordinator pins the exact Base command, parent fingerprint,
