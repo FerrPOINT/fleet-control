@@ -89,6 +89,16 @@ deadline finding; nor does it validate this deadline successor. Successor
 conformance execution awaits parent review. Runner-unit PASS does not accept
 the historical failed or a future live run.
 
+The absolute-deadline successor `2ee879f269b1c4bc84818f20a37fc20e8a5decf4`
+has since passed independent source review and all28 runner units, including
+the original virtual91s counterexample. Parent normal integration
+`379b48e27c3306e5d818d971e59c680a4bf75697` separately executes the24-case packet:
+`run-32a21e5cfeba`, receipt validated,457 canonical imports, owned reader exit0,
+scratch absent and PASS_OFFLINE_ONLY. Its seal is
+`fc1e620d8ddf58580e33814e7dd0f225d12cd3ac6ea18bb5f5731b1b8fbe6442`.
+This evidence belongs to that exact integration HEAD and packet bytes, before
+this documentation update; it does not qualify later source or enable admission.
+
 ## Scope and interpretation
 
 - `probes/test_hermes.py`: eight executable probes of real Hermes Git modules.
