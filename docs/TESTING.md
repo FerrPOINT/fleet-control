@@ -455,3 +455,48 @@ Backend ownership and SSE revocation tests remain independently required.
 Discarding an obsolete browser result must never be treated as permission to
 resend an uncertain mutation. Recovery tests must preserve original command
 identity and verify authoritative readback before allowing any new dispatch.
+
+## Clarification Command Custody Gate
+
+The [isolated source unit](plans/2026-10-10-clarification-command-custody.md)
+has eight executable pure frontend boundary tests, with synthetic receipts:
+
+```powershell
+# Pinned Node 22.20.0; from repository root. No install/network/model/DB.
+node --experimental-strip-types --test --experimental-test-isolation=none frontend/scripts/clarification-custody.test.mjs
+```
+
+Authored native gates below have NOT been executed for this source unit. Run in
+the coordinated exact-source QA packet, using only owned disposable PostgreSQL
+and the approved toolchain; never point these fixtures at runtime databases.
+Missing PostgreSQL fails explicitly when the ignored selectors are enabled.
+
+```sh
+# From backend, Rust 1.88.0, locked dependencies.
+cargo test --locked -p domain --lib clarification_commands::tests::
+cargo test --locked -p api --lib routes::clarification_commands::tests::
+# Four cases; FLEET_TEST_DATABASE_URL. Includes a real 31-second lease expiry.
+cargo test --locked -p infra --test sdlc_foundation clarification_custody:: -- --ignored
+# One case; own empty FLEET_CLARIFICATION_MIGRATION_TEST_DATABASE_URL.
+cargo test --locked -p migration --test clarification_commands -- --ignored
+# Existing complete lineage suite; separate FLEET_MIGRATION_TEST_DATABASE_URL.
+cargo test --locked -p migration --lib lineage_tests::
+cargo test --locked -p migration --lib lineage_tests:: -- --ignored
+```
+
+The two domain cases cover canonical original payload/key and invalid inputs;
+two API cases require exact answer proof and hold ambiguous responses. Four
+PG/HTTP cases cover concurrent store/claim, cross-chat key replacement, stale
+completion, unknown-then-rejection, real expiry, immutable SQL history, reload
+replay with identical two captured POST bodies, revoked project access and
+foreign/machine callers denied before journal access. HTTP auth extensions are
+fixture-only, not Central Auth/JWKS acceptance. The migration case tests upgrade,
+empty down/reapply, populated down refusal and history preservation.
+
+Three additional `src/pages/chat-detail/index.test.tsx` cases cover reload
+recovery with closed new-answer permission, pending readback hold and failed
+readback hold. Execute that complete file plus frontend typecheck/lint/format,
+the adapted `e2e/fleet-control.spec.ts` in all supported browsers and genuine
+Rust OpenAPI generation/strict compatibility before release. Those checks and
+UI screenshots remain pending; pure boundary PASS is not React/browser, live
+Tracker, PM admission or native evidence.

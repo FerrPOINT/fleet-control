@@ -2,6 +2,7 @@ pub mod agents;
 pub mod approvals;
 pub mod auth;
 pub mod chats_directory;
+pub mod clarification_commands;
 pub mod dashboard;
 pub mod deployments;
 pub mod events;

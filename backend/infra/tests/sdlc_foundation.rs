@@ -14,6 +14,8 @@ use std::sync::{
 use tokio::time::{Duration, sleep};
 use uuid::Uuid;
 
+#[path = "support/clarification_custody.rs"]
+mod clarification_custody;
 #[path = "support/pm_draft_creation.rs"]
 mod pm_draft_creation;
 

@@ -614,6 +614,53 @@ pub trait FleetRepository: Send + Sync {
             "task chat repository is not available".into(),
         ))
     }
+    async fn store_clarification_command(
+        &self,
+        _actor: &domain::ClarificationCommandActor,
+        _question: Uuid,
+        _request: domain::ClarificationAnswerRequest,
+    ) -> Result<domain::ClarificationAnswerCommand, AppError> {
+        Err(AppError::Unavailable(
+            "clarification journal is not available".into(),
+        ))
+    }
+    async fn get_clarification_command(
+        &self,
+        _actor: &domain::ClarificationCommandActor,
+        _id: Uuid,
+    ) -> Result<domain::ClarificationAnswerCommand, AppError> {
+        Err(AppError::Unavailable(
+            "clarification journal is not available".into(),
+        ))
+    }
+    async fn list_pending_clarification_commands(
+        &self,
+        _actor: &domain::ClarificationCommandActor,
+    ) -> Result<Vec<domain::ClarificationAnswerCommand>, AppError> {
+        Err(AppError::Unavailable(
+            "clarification journal is not available".into(),
+        ))
+    }
+    async fn claim_clarification_delivery(
+        &self,
+        _actor: &domain::ClarificationCommandActor,
+        _id: Uuid,
+    ) -> Result<domain::ClarificationDeliveryPermit, AppError> {
+        Err(AppError::Unavailable(
+            "clarification journal is not available".into(),
+        ))
+    }
+    async fn finish_clarification_delivery(
+        &self,
+        _actor: &domain::ClarificationCommandActor,
+        _id: Uuid,
+        _attempt: Uuid,
+        _outcome: domain::ClarificationDeliveryOutcome,
+    ) -> Result<domain::ClarificationAnswerCommand, AppError> {
+        Err(AppError::Unavailable(
+            "clarification journal is not available".into(),
+        ))
+    }
     async fn create_pm_draft_chat(
         &self,
         _command: domain::CreatePmDraftChat,

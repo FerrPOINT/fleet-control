@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Route } from '@playwright/test'
 import { generateKeyPairSync, sign } from 'node:crypto'
 import AxeBuilder from '@axe-core/playwright'
+import type { ClarificationCommand } from '../src/api/clarification-custody'
 
 const now = '2026-09-01T10:00:00+03:00'
 
@@ -74,9 +75,36 @@ test('PM chat clarification preserves explicit answers and exact confirmation', 
     created_at: now,
   }
   const commands: { path: string; body: unknown }[] = []
+  let answerCommand: ClarificationCommand | null = null
   await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
     const path = new URL(route.request().url()).pathname
     if (path.endsWith('/approvals')) return fulfill(route, [])
+    if (path.endsWith('/clarification-answer-commands'))
+      return fulfill(
+        route,
+        answerCommand && answerCommand.state !== 'delivered' ? [answerCommand] : [],
+      )
+    if (path.endsWith('/answer-commands') && route.request().method() === 'POST') {
+      answerCommand = {
+        id: '00000000-0000-4000-8000-000000000508',
+        session_id: ids.session,
+        question_id: question.id,
+        request: route.request().postDataJSON() as ClarificationCommand['request'],
+        payload_sha256: 'c'.repeat(64),
+        state: 'stored',
+        answer: null,
+        rejection_status: null,
+        created_at: now,
+        updated_at: now,
+      }
+      return fulfill(route, answerCommand)
+    }
+    if (path.endsWith('/delivery') && route.request().method() === 'POST' && answerCommand) {
+      commands.push({ path, body: answerCommand.request })
+      answered = true
+      answerCommand = { ...answerCommand, state: 'delivered', answer: savedAnswer }
+      return fulfill(route, answerCommand)
+    }
     if (path.endsWith('/task-context'))
       return fulfill(route, {
         binding: {
