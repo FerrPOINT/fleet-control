@@ -1,4 +1,4 @@
-"""Pure/static/in-memory tests only; no compiler, Docker, PG, exports or API calls."""
+"""Static/in-memory and owned Linux process tests; no compiler, Docker, PG or API calls."""
 from collections import Counter
 import copy
 import importlib.util
@@ -8,6 +8,7 @@ import os
 import re
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -30,7 +31,7 @@ class HostedBackendTests(unittest.TestCase):
     def test_exact_push_only_branch_permissions_and_one_bounded_job(self):
         flow = self.workflow()
         self.assertEqual(flow["on"], {"push": {"branches": [gate.BRANCH]}})
-        self.assertEqual(flow["permissions"], {"contents": "read"})
+        self.assertEqual(flow["permissions"], {"contents": "read", "actions": "read"})
         self.assertEqual(flow["concurrency"]["cancel-in-progress"], "false")
         self.assertEqual(set(flow["jobs"]), {"backend"})
         job = flow["jobs"]["backend"]
@@ -243,12 +244,220 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(gate.failure_stage([["fmt", "passed"]]), "gate_contract")
 
     def test_only_the_created_child_process_group_is_stopped(self):
-        process = mock.Mock(pid=12345)
-        with mock.patch.object(gate.os, "killpg", create=True) as kill, \
+        process = SimpleNamespace(pid=12345, returncode=None, wait=mock.Mock())
+        with mock.patch.object(gate, "leader_status") as held, \
+                mock.patch.object(gate.os, "getpgid", return_value=12345, create=True), \
+                mock.patch.object(gate.os, "getsid", return_value=12345, create=True), \
+                mock.patch.object(gate, "live_group", return_value=False), \
+                mock.patch.object(gate.os, "killpg", create=True) as kill, \
                 mock.patch.object(gate.signal, "SIGKILL", 9, create=True):
             gate.stop_owned_group(process)
             self.assertEqual([call.args[0] for call in kill.call_args_list], [12345, 12345])
-            process.wait.assert_called_once_with(timeout=30)
+            self.assertEqual(held.call_count, 2)
+            process.wait.assert_called_once_with(timeout=10)
+            self.assertTrue(process._fleet_group_drained)
+
+    def test_reaped_leader_is_never_signalled(self):
+        process = SimpleNamespace(pid=12345, returncode=0, wait=mock.Mock())
+        with mock.patch.object(gate.os, "killpg", create=True) as kill, \
+                mock.patch.object(gate.signal, "SIGKILL", 9, create=True):
+            with self.assertRaises(ValueError):
+                gate.stop_owned_group(process)
+            kill.assert_not_called()
+            process.wait.assert_not_called()
+
+    def test_lost_waitid_custody_never_signals(self):
+        process = SimpleNamespace(pid=12345, returncode=None, wait=mock.Mock())
+        with mock.patch.object(gate, "leader_status", side_effect=ChildProcessError), \
+                mock.patch.object(gate.os, "killpg", create=True) as kill, \
+                mock.patch.object(gate.signal, "SIGKILL", 9, create=True):
+            with self.assertRaises(ChildProcessError):
+                gate.stop_owned_group(process)
+            kill.assert_not_called()
+            process.wait.assert_not_called()
+
+    def test_group_and_session_custody_checked_before_each_signal(self):
+        for pgids, sids, signals in (([3], [12345], 0), ([12345], [3], 0),
+                                     ([12345, 3], [12345], 1), ([12345, 12345], [12345, 3], 1)):
+            process = SimpleNamespace(pid=12345, returncode=None, wait=mock.Mock())
+            with mock.patch.object(gate, "leader_status"), \
+                    mock.patch.object(gate.os, "getpgid", side_effect=pgids, create=True), \
+                    mock.patch.object(gate.os, "getsid", side_effect=sids, create=True), \
+                    mock.patch.object(gate.os, "killpg", create=True) as kill, \
+                    mock.patch.object(gate.signal, "SIGKILL", 9, create=True):
+                with self.assertRaises(ValueError):
+                    gate.stop_owned_group(process)
+                self.assertEqual(kill.call_count, signals)
+                process.wait.assert_not_called()
+
+    def test_drain_precedes_reap_and_cleanup_is_idempotent_after_interrupt(self):
+        events = []
+        process = SimpleNamespace(pid=12345, returncode=None)
+        def reap(**_):
+            self.assertTrue(process._fleet_group_drained)
+            events.append("reap")
+            process.returncode = 0
+            raise TimeoutError("interrupted after reap")
+        process.wait = mock.Mock(side_effect=reap)
+        with mock.patch.object(gate, "leader_status"), \
+                mock.patch.object(gate.os, "getpgid", return_value=12345, create=True), \
+                mock.patch.object(gate.os, "getsid", return_value=12345, create=True), \
+                mock.patch.object(gate, "live_group", side_effect=lambda _: events.append("drain") or False), \
+                mock.patch.object(gate.os, "killpg", side_effect=lambda *_: events.append("signal"), create=True), \
+                mock.patch.object(gate.signal, "SIGKILL", 9, create=True):
+            with self.assertRaises(TimeoutError):
+                gate.stop_owned_group(process)
+            gate.stop_owned_group(process)
+        self.assertEqual(events, ["signal", "signal", "drain", "reap"])
+        process.wait.assert_called_once()
+
+    def test_group_drain_failure_never_reaps(self):
+        process = SimpleNamespace(pid=12345, returncode=None, wait=mock.Mock())
+        with mock.patch.object(gate, "leader_status"), \
+                mock.patch.object(gate.os, "getpgid", return_value=12345, create=True), \
+                mock.patch.object(gate.os, "getsid", return_value=12345, create=True), \
+                mock.patch.object(gate.os, "killpg", create=True), \
+                mock.patch.object(gate.signal, "SIGKILL", 9, create=True), \
+                mock.patch.object(gate, "live_group", return_value=True), \
+                mock.patch.object(gate.time, "monotonic", side_effect=[0, 10]):
+            with self.assertRaises(ValueError):
+                gate.stop_owned_group(process)
+            process.wait.assert_not_called()
+            self.assertFalse(getattr(process, "_fleet_group_drained", False))
+
+    @unittest.skipUnless(sys.platform == "linux", "Linux WNOWAIT/procfs process custody")
+    def test_linux_exited_leader_held_until_real_descendant_drains(self):
+        program = ("import os,signal,time\n"
+                   "pid=os.fork()\n"
+                   "if pid==0:\n signal.signal(signal.SIGTERM,signal.SIG_IGN)\n time.sleep(20)\n os._exit(0)\n"
+                   "print(pid,flush=True)\nos._exit(0)\n")
+        process = subprocess.Popen([sys.executable, "-c", program], stdout=subprocess.PIPE,
+                                   stderr=subprocess.DEVNULL, start_new_session=True)
+        try:
+            self.assertEqual(gate.wait_owned_exit(process, 5), 0)
+            self.assertIsNone(process.returncode)
+            self.assertIsNotNone(gate.leader_status(process))
+            self.assertEqual(os.getsid(process.pid), process.pid)
+            gate.stop_owned_group(process)
+            self.assertEqual(process.returncode, 0)
+            self.assertFalse(gate.live_group(process))
+            with mock.patch.object(gate.os, "killpg") as kill:
+                gate.stop_owned_group(process)
+                kill.assert_not_called()
+        finally:
+            gate.stop_owned_group(process)
+            process.stdout.close()
+
+    @unittest.skipUnless(sys.platform == "linux", "Linux WNOWAIT command custody")
+    def test_linux_command_drains_descendant_holding_output_pipe(self):
+        program = ("import os,time\n"
+                   "if os.fork()==0:\n time.sleep(20)\n os._exit(0)\n"
+                   "print('owned-output',flush=True)\nos._exit(0)\n")
+        self.assertEqual(gate.command([sys.executable, "-c", program]), b"owned-output\n")
+
+    def test_workflow_all_steps_bounded_and_metadata_token_not_job_global(self):
+        job = self.workflow()["jobs"]["backend"]
+        self.assertEqual(job["timeout-minutes"], "120")
+        self.assertNotIn("FLEET_GATE_READ_TOKEN", job["env"])
+        for step in job["steps"]:
+            self.assertGreater(int(step["timeout-minutes"]), 0)
+            if step.get("run", "").endswith((" preflight", " execute", " cleanup")):
+                self.assertEqual(step["env"], {"FLEET_GATE_READ_TOKEN": "${{ github.token }}"})
+            else:
+                self.assertNotIn("FLEET_GATE_READ_TOKEN", step.get("env", {}))
+
+    def job_metadata(self):
+        return dict(total_count=1, jobs=[dict(id=11, name="backend", status="in_progress", run_id=12,
+            run_attempt=2, head_sha="a" * 40, runner_name="GitHub Actions 123",
+            started_at="2026-10-09T17:00:00Z")])
+
+    def metadata_environment(self):
+        return mock.patch.dict(os.environ, dict(GITHUB_RUN_ID="12", GITHUB_RUN_ATTEMPT="2",
+            GITHUB_SHA="a" * 40, RUNNER_NAME="GitHub Actions 123"))
+
+    def test_metadata_accounts_for_setup_request_and_rounding_not_fresh_6600(self):
+        with self.metadata_environment():
+            remaining = gate.metadata_remaining(self.job_metadata(), "Fri, 09 Oct 2026 17:10:01 GMT", 3)
+        self.assertEqual(remaining, 7200 - 601 - 3 - 2)
+        with mock.patch.object(gate.time, "monotonic", return_value=100):
+            budget = gate.JobBudget(remaining)
+            with mock.patch.object(gate, "BUDGET", budget):
+                self.assertEqual(gate.bounded_timeout(6600), 6054)
+                self.assertEqual(budget.job_end - budget.work_end, 540)
+
+    def test_metadata_rejects_wrong_job_attempt_sha_runner_and_clock(self):
+        with self.metadata_environment():
+            for field, value in (("id", False), ("name", "other"), ("status", "completed"),
+                                  ("run_id", 13), ("run_attempt", 3), ("head_sha", "b" * 40),
+                                  ("runner_name", "foreign")):
+                payload = self.job_metadata()
+                payload["jobs"][0][field] = value
+                with self.assertRaises(ValueError):
+                    gate.metadata_remaining(payload, "Fri, 09 Oct 2026 17:10:01 GMT", 0)
+            for date in ("Fri, 09 Oct 2026 16:59:59 GMT", "Fri, 09 Oct 2026 19:00:00 GMT"):
+                with self.assertRaises(ValueError):
+                    gate.metadata_remaining(self.job_metadata(), date, 0)
+            for count in (0, 2, True):
+                with self.assertRaises(ValueError):
+                    gate.metadata_remaining(dict(self.job_metadata(), total_count=count),
+                                            "Fri, 09 Oct 2026 17:10:01 GMT", 0)
+
+    def test_expired_budget_sticky_and_cannot_renew_on_next_command(self):
+        with mock.patch.object(gate.time, "monotonic", return_value=0):
+            budget = gate.JobBudget(600)
+        with mock.patch.object(gate, "BUDGET", budget), \
+                mock.patch.object(gate.time, "monotonic", return_value=61):
+            with self.assertRaises(TimeoutError):
+                gate.bounded_timeout(300)
+        with mock.patch.object(gate.time, "monotonic", return_value=1):
+            with self.assertRaises(TimeoutError):
+                budget.check()
+
+    def test_cleanup_and_fallback_have_separate_reserves_without_job_extension(self):
+        with mock.patch.object(gate.time, "monotonic", return_value=0):
+            budget = gate.JobBudget(600)
+        with mock.patch.object(gate.time, "monotonic", return_value=60), \
+                mock.patch.object(gate.signal, "setitimer", create=True), \
+                mock.patch.object(gate.signal, "signal"), \
+                mock.patch.object(gate.signal, "SIGALRM", 14, create=True), \
+                mock.patch.object(gate.signal, "ITIMER_REAL", 0, create=True):
+            budget.expired = True
+            budget.cleanup()
+            self.assertEqual(budget.end, 360)
+            self.assertEqual(budget.job_end, 600)
+        with mock.patch.object(gate.time, "monotonic", return_value=375), \
+                mock.patch.object(gate.signal, "setitimer", create=True), \
+                mock.patch.object(gate.signal, "signal"), \
+                mock.patch.object(gate.signal, "SIGALRM", 14, create=True), \
+                mock.patch.object(gate.signal, "ITIMER_REAL", 0, create=True):
+            budget.cleanup(fallback=True)
+            self.assertEqual(budget.end, 420)
+            self.assertEqual(budget.job_end - budget.end, 180)
+
+    def test_cleanup_cannot_start_after_artifact_reserve_consumed(self):
+        with mock.patch.object(gate.time, "monotonic", return_value=0):
+            budget = gate.JobBudget(600)
+        with mock.patch.object(gate.time, "monotonic", return_value=421), \
+                mock.patch.object(gate.signal, "setitimer", create=True), \
+                mock.patch.object(gate.signal, "SIGALRM", 14, create=True), \
+                mock.patch.object(gate.signal, "ITIMER_REAL", 0, create=True):
+            with self.assertRaises(TimeoutError):
+                budget.cleanup(fallback=True)
+
+    def test_local_budget_fails_before_network_or_token_read(self):
+        with mock.patch.dict(os.environ, {}, clear=True), \
+                mock.patch.object(gate.urllib.request, "build_opener") as opener:
+            with self.assertRaises(ValueError):
+                gate.hosted_budget()
+            opener.assert_not_called()
+
+    def test_gate_exit_observed_without_wait_poll_or_communicate(self):
+        source = (ROOT / gate.HELPER).read_text()
+        body = source[source.index("def execute():"):source.index("def cleanup_fallback():")]
+        self.assertIn("wait_owned_exit(process, GATE_SECONDS)", body)
+        self.assertNotIn("process.wait(", body)
+        self.assertNotIn("process.poll(", body)
+        self.assertNotIn("process.communicate(", body)
 
     def test_private_logs_never_uploaded_cleanup_always_runs(self):
         steps = self.workflow()["jobs"]["backend"]["steps"]

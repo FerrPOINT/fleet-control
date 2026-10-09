@@ -3,16 +3,21 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 import hashlib
 import io
 import json
 import os
 from pathlib import Path, PurePosixPath
 import re
+import selectors
 import shutil
 import signal
 import subprocess
 import tarfile
+import time
+import urllib.request
 import zipfile
 
 REPOSITORY = "FerrPOINT/fleet-control"
@@ -92,6 +97,105 @@ FLEET_ROOTS = ("backend", ".base-revision", "openapi", "docs/TESTING.md",
                "scripts/check_container_preparation_contract.py", "scripts/check_container_activation_contract.py",
                "scripts/check_recovered_activation_contract.py", "scripts/verify_container_utilities.py",
                "scripts/tests/test_container_control_loader.py", "scripts/tests/test_verify_container_utilities.py")
+JOB_SECONDS = 7200
+CLEANUP_SECONDS = 300
+UPLOAD_SECONDS = 240
+FALLBACK_SECONDS = 60  # Included in the final 240 seconds; three artifact/summary steps keep 180.
+GATE_SECONDS = 6600
+BUDGET = None
+
+
+class JobBudget:
+    def __init__(self, remaining):
+        require(0 < remaining <= JOB_SECONDS, "Invalid hosted job budget")
+        self.job_end = time.monotonic() + remaining
+        self.work_end = self.job_end - CLEANUP_SECONDS - UPLOAD_SECONDS
+        self.end = self.work_end
+        self.expired = False
+
+    def check(self):
+        if self.expired or time.monotonic() >= self.end:
+            self.expired = True
+            raise TimeoutError("Hosted elapsed budget exhausted")
+
+    def alarm(self, *_):
+        self.expired = True
+        raise TimeoutError("Hosted elapsed budget exhausted")
+
+    def arm(self):
+        self.check()
+        signal.signal(signal.SIGALRM, self.alarm)
+        signal.setitimer(signal.ITIMER_REAL, self.end - time.monotonic())
+
+    def cleanup(self, *, fallback=False):
+        # Only this transition may leave an expired work phase; it never renews the job.
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        duration = FALLBACK_SECONDS - 15 if fallback else CLEANUP_SECONDS
+        ceiling = self.job_end - UPLOAD_SECONDS + (FALLBACK_SECONDS if fallback else 0)
+        self.end = min(time.monotonic() + duration, ceiling)
+        self.expired = False
+        self.arm()
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *_):
+        raise ValueError("Hosted metadata redirect forbidden")
+
+
+def metadata_remaining(payload, date_header, elapsed):
+    require(type(payload.get("total_count")) is int and payload["total_count"] == 1
+            and len(payload.get("jobs", [])) == 1, "Unexpected hosted job inventory")
+    job = payload["jobs"][0]
+    require(job["name"] == "backend" and job["status"] == "in_progress"
+            and type(job["id"]) is int and job["id"] > 0
+            and job["run_id"] == int(os.environ["GITHUB_RUN_ID"])
+            and job["run_attempt"] == int(os.environ["GITHUB_RUN_ATTEMPT"])
+            and job["head_sha"] == os.environ["GITHUB_SHA"]
+            and job["runner_name"] == os.environ["RUNNER_NAME"], "Hosted job identity drift")
+    started = datetime.strptime(job["started_at"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    now = parsedate_to_datetime(date_header)
+    require(now.utcoffset() is not None and now >= started and elapsed >= 0, "Invalid hosted job clock")
+    # Server Date includes checkout/container/setup time; request time and rounding are conservative.
+    remaining = JOB_SECONDS - (now - started).total_seconds() - elapsed - 2
+    require(0 < remaining <= JOB_SECONDS, "Hosted job elapsed budget exhausted")
+    return remaining
+
+
+def hosted_budget():
+    hosted_identity()  # Fail before token access or network on local/foreign execution.
+    token = os.environ.get("FLEET_GATE_READ_TOKEN", "")
+    require(bool(token) and bool(os.environ.get("RUNNER_NAME")), "Hosted metadata credentials missing")
+    url = ("https://api.github.com/repos/" + REPOSITORY + "/actions/runs/"
+           + os.environ["GITHUB_RUN_ID"] + "/attempts/" + os.environ["GITHUB_RUN_ATTEMPT"]
+           + "/jobs?per_page=100")
+    request = urllib.request.Request(url, headers={"Authorization": "Bearer " + token,
+        "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"})
+    before = time.monotonic()
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+    def timeout(*_):
+        raise TimeoutError("Hosted metadata deadline exhausted")
+    previous = signal.signal(signal.SIGALRM, timeout)
+    signal.setitimer(signal.ITIMER_REAL, 15)
+    try:
+        with opener.open(request, timeout=15) as response:
+            require(response.status == 200, "Hosted metadata unavailable")
+            body = response.read(256 * 1024 + 1)
+            require(len(body) <= 256 * 1024, "Hosted metadata oversized")
+            remaining = metadata_remaining(json.loads(body), response.headers["Date"], time.monotonic() - before)
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous)
+    return JobBudget(remaining)
+
+
+def check_budget():
+    if BUDGET is not None:
+        BUDGET.check()
+
+
+def bounded_timeout(maximum):
+    check_budget()
+    return maximum if BUDGET is None else min(maximum, BUDGET.end - time.monotonic())
 
 
 def digest(data):
@@ -108,9 +212,46 @@ def require(condition, message):
 
 
 def command(args, **kwargs):
-    result = subprocess.run(args, capture_output=True, timeout=300, **kwargs)
-    require(result.returncode == 0, "Command failed; backend gate withheld")
-    return result.stdout
+    if os.name != "posix":  # Local read-only artifact verification; hosted execution is Linux-only.
+        require(BUDGET is None, "Hosted budget requires Linux")
+        result = subprocess.run(args, capture_output=True, timeout=300, **kwargs)
+        require(result.returncode == 0, "Command failed; backend gate withheld")
+        return result.stdout
+    deadline = time.monotonic() + bounded_timeout(300)
+    process = None
+    output = bytearray()
+    try:
+        process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                   start_new_session=True, **kwargs)
+        with selectors.DefaultSelector() as selector:
+            for pipe in (process.stdout, process.stderr):
+                os.set_blocking(pipe.fileno(), False)
+                selector.register(pipe, selectors.EVENT_READ)
+            while True:
+                check_budget()
+                if process.returncode is None and leader_status(process) is not None:
+                    stop_owned_group(process)
+                if process.returncode is not None and not selector.get_map():
+                    break
+                require(time.monotonic() < deadline, "Owned command deadline exhausted")
+                for key, _ in selector.select(min(0.05, max(0, deadline - time.monotonic()))):
+                    block = os.read(key.fileobj.fileno(), 65536)
+                    if not block:
+                        selector.unregister(key.fileobj)
+                    elif key.fileobj is process.stdout:
+                        output.extend(block)
+                        require(len(output) <= 256 * 1024 ** 2, "Owned command output oversized")
+        check_budget()
+        require(process.returncode == 0, "Command failed; backend gate withheld")
+        return bytes(output)
+    finally:
+        try:
+            stop_owned_group(process)
+        finally:
+            if process is not None:
+                for pipe in (process.stdout, process.stderr):
+                    if pipe is not None:
+                        pipe.close()
 
 
 def git(root, *args):
@@ -467,15 +608,55 @@ def drop_databases(names):
     require(not set(DATABASES).intersection(database_catalog()), "Owned synthetic DB remains")
 
 
+def leader_status(process):
+    require(process.returncode is None, "Owned leader already reaped")
+    return os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+
+
+def live_group(process):
+    for path in Path("/proc").glob("[0-9]*/stat"):
+        try:
+            fields = path.read_text().rsplit(") ", 1)[1].split()
+        except FileNotFoundError:
+            continue
+        if int(fields[2]) == process.pid:
+            require(int(fields[3]) == process.pid, "Owned process session drift")
+            if fields[0] not in ("Z", "X"):
+                return True
+    return False
+
+
 def stop_owned_group(process):
-    # The gate starts its own session; never target the runner/service process groups.
-    if process is not None:
-        for sig in (signal.SIGTERM, signal.SIGKILL):
-            try:
-                os.killpg(process.pid, sig)
-            except ProcessLookupError:
-                break
-        process.wait(timeout=30)
+    if process is None:
+        return
+    if getattr(process, "_fleet_group_drained", False):
+        if process.returncode is None:
+            process.wait(timeout=10)
+        return
+    # Keep even an exited leader unreaped until descendants have stopped. No historical PID signals.
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        leader_status(process)
+        require(os.getpgid(process.pid) == process.pid and os.getsid(process.pid) == process.pid,
+                "Owned process custody lost")
+        os.killpg(process.pid, sig)
+    deadline = time.monotonic() + 10
+    while live_group(process):
+        require(time.monotonic() < deadline, "Owned group drain timed out")
+        time.sleep(0.01)
+    # Record drain before reap, including interruption between wait() and its caller's next statement.
+    process._fleet_group_drained = True
+    process.wait(timeout=10)
+
+
+def wait_owned_exit(process, timeout):
+    deadline = time.monotonic() + bounded_timeout(timeout)
+    while True:
+        check_budget()
+        status = leader_status(process)
+        if status is not None:
+            return status.si_status if status.si_code == os.CLD_EXITED else -status.si_status
+        require(time.monotonic() < deadline, "Owned gate deadline exhausted")
+        time.sleep(0.05)
 
 
 def remove_scratch(root, temporary, identity):
@@ -557,7 +738,8 @@ def execute():
         with (root / "private/driver.log").open("xb") as diagnostics:
             process = subprocess.Popen(["bash", str(controls / GATE)], env=environment,
                                        stdout=diagnostics, stderr=diagnostics, start_new_session=True)
-            code = process.wait(timeout=6600)
+            code = wait_owned_exit(process, GATE_SECONDS)
+            stop_owned_group(process)
         rows = [line.split("\t") for line in (root / "private/gates.tsv").read_text().splitlines()]
         failed_stage = failure_stage(rows)
         require(code == 0 and rows == [[name, "passed"] for name in GATES], "Incomplete or failed backend gate")
@@ -577,6 +759,7 @@ def execute():
         clean_head(controls, workflow_sha)
         auth_binary_sha = (root / "private/auth-binary.sha256").read_text().split()[0]
         require(bool(re.fullmatch(r"[0-9a-f]{64}", auth_binary_sha)), "Missing fresh Auth binary hash")
+        check_budget()
         success = True
     except Exception:
         # Never print raw Cargo/Base/test diagnostics, arguments or exception text.
@@ -585,6 +768,8 @@ def execute():
             failed_stage = failure_stage(rows)
     finally:
         try:
+            if BUDGET is not None:
+                BUDGET.cleanup()
             stop_owned_group(process)
             if not success and failed_stage in ("check", "clippy"):
                 compiler_stage = failed_stage
@@ -621,6 +806,7 @@ def execute():
                       runner_image_version=os.environ.get("ImageVersion"), backend_quality_gate=success,
                       all_quality_gate=False, sdlc_acceptance=False)
     for name, value in (("report.json", report), ("provenance.json", provenance)):
+        check_budget()
         (evidence / name).write_bytes(canonical(value))
     (evidence / "SHA256SUMS").write_text("".join(digest((evidence / name).read_bytes()) + "  " + name + "\n"
                                               for name in ("report.json", "provenance.json")), newline="\n")
@@ -645,6 +831,7 @@ def execute():
     print(json.dumps(dict(state="backend_quality_gate_passed" if success else "backend_quality_gate_failed",
                           failed_stage=None if success else failed_stage, private_logs_uploaded=False,
                           all_quality_gate=False, sdlc_acceptance=False)))
+    check_budget()
     return 0 if success else code if type(code) is int and 1 <= code <= 255 else 1
 
 
@@ -785,6 +972,7 @@ def verify_log_cli(stage):
 
 
 def main():
+    global BUDGET
     parser = argparse.ArgumentParser(__doc__)
     modes = parser.add_subparsers(dest="mode", required=True)
     for name in ("preflight", "execute", "cleanup"):
@@ -800,6 +988,12 @@ def main():
         read.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     try:
+        if args.mode in ("preflight", "execute", "cleanup"):
+            BUDGET = hosted_budget()
+            if args.mode == "cleanup":
+                BUDGET.cleanup(fallback=True)
+            else:
+                BUDGET.arm()
         if args.mode in ("readback", "readback-failure"):
             readback(args)
         elif args.mode == "preflight":
@@ -813,6 +1007,10 @@ def main():
     except Exception:
         print("Backend control failed; no private diagnostics emitted; acceptance withheld")
         return 1
+    finally:
+        if BUDGET is not None:
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            BUDGET = None
     return 0
 
 
