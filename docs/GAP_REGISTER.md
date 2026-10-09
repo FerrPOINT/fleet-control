@@ -73,7 +73,8 @@ after the assigned worker's model-capacity error. Anscombe independently closes
 the scoped findings with79/79 Linux probes, not full backend acceptance.
 Published a3 run37992541106 fails before checkout on Docker Hub's anonymous pull
 limit. Normal childad893db changes only image/test strings to a byte-qualified
-immutable ECR mirror; its independent follow-up and dispatch are pending.
+immutable ECR mirror. Independent focused7/7 closure passes; normal push starts
+run37993165800/attempt1, currently in progress with no accepted backend result.
 Old0fe's53 worker checks and separate18-file
 parent seal remain unchanged. No actual70-stage result exists. This hosted path
 has no ComposeHelper/local Docker dependency; do not apply Forge's maintenance-pin

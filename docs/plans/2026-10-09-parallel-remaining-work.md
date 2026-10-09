@@ -41,9 +41,9 @@ findings do not certify an unexecuted compiler, database or live runtime gate.
 | Ptolemy  | QA image-candidate provenance/OCI descriptor-chain successor | Nativebc0 review completed15/15 with two OPEN P2. Narrow image-runner source separates historical baked inputs from intended QA inputs and retains actual local OCI descriptors. No heavy build or pin replacement. |
 | Leibniz  | Stopped: selected model capacity error | No backend implementation made by this worker. Parent owns the isolated custody/deadline successor; do not keep a stalled critical-path assignment here. |
 | Feynman  | Native-cut ready-publication and restart-window successor | Fix both bc0 P2 in new normal source; preserve df657/original nine scenarios,55s withholding/60s product timeout and strict evidence. No native launch or silent pin replacement. |
-| Anscombe | Independent narrow image-mirror successor follow-up | Public-safe Forge1db118/118 and backenda3 scoped79/79 closure complete. Review exactad893db four-line image/test substitution and registry byte proof; no full12/backend acceptance inferred. |
+| Anscombe | Independent source closures complete | Public-safe Forge1db118/118, backenda3 scoped79/79 and ad893db registry-only7/7 closures complete. No full12/backend acceptance inferred; exact runtime results still need separate readback. |
 | Pascal   | Completed Fleet/Tracker source qualification and docs handoff | b249/Tracker357 seven DTOs match;39/39 offline checks, no Rust/PG/live HTTP. Docs51ceb normally integrated; no product edit or invented original-key readback. |
-| Parent   | Backend diagnostic CI, normal integration and scoped publication | Independently closed a3 published normally; run37992541106 failed before source checkout on Docker Hub rate limit. Byte-qualified immutable-mirror successorad893db awaits narrow review/dispatch. Actual70-stage acceptance remains open. |
+| Parent   | Backend diagnostic CI, normal integration and scoped publication | Independently closed a3 published normally; run37992541106 failed before source checkout on Docker Hub rate limit. Reviewed immutable-mirror successorad893db pushed normally; run37993165800 in progress. Actual70-stage acceptance remains open. |
 
 ### Fleet/Tracker Wire Source Qualification
 
@@ -161,7 +161,13 @@ admission remain necessary; no prepared invocation is an execution grant.
   `.local/fleet-hosted-registry-20261010/qualified-receipt.json` proves ECR and
   Docker Hub root-index raw bytes/digests equal for Rust1.88.0-bookworm and PG17.6.
   No layers were downloaded locally. Immutable mirror references retain exact
-  versions/resources/source pins; narrow independent review/dispatch is pending.
+  versions/resources/source pins. Narrow independent7/7 closure passes with no
+  findings; seal SHA256:
+  5b9f39b9abbcf2774cabcdb485828bd762a1c24f91dd51cf493497a1e42111c5.
+  Parent verifies six review files plus eight registry inputs. Exactad893db is
+  pushed normally to the same build-only branch; run37993165800/attempt1 is
+  in progress, not an accepted backend result:
+  https://github.com/FerrPOINT/fleet-control/actions/runs/37993165800.
 - Fleet sequential-activation successord3066ebbbda168f16f59697831ea92de5132527b
   has sole parentf326. Worker reports21 Linux fake-contract cases and15 Windows
   loader/hash/README cases passing. Two new Rust and four PG regressions have not
