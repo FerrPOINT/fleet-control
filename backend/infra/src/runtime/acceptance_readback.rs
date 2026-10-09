@@ -55,7 +55,7 @@ impl LocalRuntimeSupervisor {
         let current_agent = self.repo.get_agent(agent.id).await?;
         let base = Self::hermes_base_url(&current_agent)?;
         if current_agent.kind != AgentKind::Hermes
-            || current_agent.archived_at.is_some()
+            || current_agent.status == AgentStatus::Archived
             || base != Self::hermes_base_url(agent)?
         {
             return Err(AppError::conflict("Hermes original API origin changed"));

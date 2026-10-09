@@ -246,7 +246,14 @@ async fn acceptance_readback_never_probes_legacy_or_changed_original_context() {
     rotated.fleet.runtime_token_secret = "rotated-context-fixture-only".into();
     let mut held = Vec::new();
     let mut current = None;
-    for mode in ["legacy", "rotated", "moved", "current"] {
+    for mode in [
+        "legacy",
+        "rotated",
+        "moved",
+        "archived_status",
+        "archived_marker",
+        "current",
+    ] {
         let agent_id = agent(&repo).await;
         let original_port = if mode == "moved" { old_port } else { port };
         db.execute(Statement::from_sql_and_values(
@@ -303,6 +310,27 @@ async fn acceptance_readback_never_probes_legacy_or_changed_original_context() {
             ))
             .await
             .unwrap();
+        }
+        if mode == "archived_status" {
+            // Exercise the domain guard even when a legacy row lacks the DB marker.
+            db.execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "UPDATE agents SET status='archived' WHERE id=$1",
+                [agent_id.into()],
+            ))
+            .await
+            .unwrap();
+            assert!(recovery_queue_contains(&repo, run.id).await);
+        }
+        if mode == "archived_marker" {
+            db.execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "UPDATE agents SET archived_at=clock_timestamp() WHERE id=$1",
+                [agent_id.into()],
+            ))
+            .await
+            .unwrap();
+            assert!(!recovery_queue_contains(&repo, run.id).await);
         }
         if mode == "current" {
             current = Some(run.id);
