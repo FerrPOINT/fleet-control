@@ -18,3 +18,5 @@ CREATE DATABASE fleet_container_preparation_migration_test;
 CREATE DATABASE fleet_container_activation_test;
 CREATE DATABASE fleet_container_activation_migration_test;
 CREATE DATABASE fleet_recovered_activation_migration_test;
+CREATE DATABASE fleet_clarification_test;
+CREATE DATABASE fleet_clarification_migration_test;

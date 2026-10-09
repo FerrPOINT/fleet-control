@@ -59,7 +59,7 @@ jobs:
           path: controls
           fetch-depth: 0
           persist-credentials: false
-      - name: Restrict exact branch delta before accessing Base tokens
+      - name: Require authentic codegen binding and restrict exact delta before Base tokens
         timeout-minutes: 1
         env:
           FLEET_GATE_READ_TOKEN: ${{ github.token }}
@@ -68,7 +68,7 @@ jobs:
         timeout-minutes: 2
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: 9a57d1121523c06ae98b8c36b42fd8e62fce65d0
+          ref: 7cc3a81254191c23df4b7d1a8c85246a0019ce97 # Preparation source; codegen binding remains blocked in preflight.
           path: fleet-control
           persist-credentials: false
       - name: Check out pinned build SDK
