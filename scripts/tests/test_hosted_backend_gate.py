@@ -36,7 +36,7 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(set(flow["jobs"]), {"backend"})
         job = flow["jobs"]["backend"]
         self.assertEqual(job["runs-on"], "ubuntu-24.04")
-        self.assertEqual(job["container"], dict(image="rust:1.88.0-bookworm", options="--cpus 2 --memory 4g"))
+        self.assertEqual(job["container"], dict(image="public.ecr.aws/docker/library/rust@sha256:af306cfa71d987911a781c37b59d7d67d934f49684058f96cf72079c3626bfe0", options="--cpus 2 --memory 4g"))
         self.assertEqual(job["env"]["CARGO_BUILD_JOBS"], "1")
         self.assertIn("github.event.deleted == false", job["if"])
         self.assertIn("github.ref == 'refs/heads/" + gate.BRANCH + "'", job["if"])
@@ -66,7 +66,7 @@ class HostedBackendTests(unittest.TestCase):
 
     def test_managed_synthetic_pg_no_ports_no_production_credentials(self):
         service = self.workflow()["jobs"]["backend"]["services"]["postgres"]
-        self.assertEqual(service["image"], "postgres:17.6-alpine")
+        self.assertEqual(service["image"], "public.ecr.aws/docker/library/postgres@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94")
         self.assertEqual(service["env"], dict(POSTGRES_USER="fleet_test", POSTGRES_DB="fleet_foundation_test",
                                                POSTGRES_HOST_AUTH_METHOD="trust"))
         self.assertNotIn("ports", service)
