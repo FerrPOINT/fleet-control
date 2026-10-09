@@ -8,19 +8,20 @@ records work ownership, not completion or permission to deploy.
 The renewed parallel split keeps the existing workers and their isolated
 checkouts rather than restarting completed work:
 
-| Owner    | Current assignment                                                   | Required handoff                                                                                                                                      |
-| -------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Feynman  | Configuration18 activation/drain/rollback                            | Isolated source unit after provisioning17; desired/effective revision transitions, run fences, focused tests and explicit Base capability gaps        |
-| Pascal   | Native acceptance preparation for integrated Docker source `be1b040` | Reproducible sealed helper covering 44 selectors plus lineage10/message-order1, canonical LF inputs and exact Compose cleanup; no heavy execution yet |
-| Ptolemy  | One authorized full12 Forge gate                                     | Actual terminal handle, all stage outcomes and cleanup proof for packet `dcbba1cb4e3f`; no replay or relaxed deadline                                 |
-| Anscombe | Original-key command lookup API and authentic codegen preparation    | Distinct GET `/controls/lookup`, required key header, actor/session/run authorization, tests, frozen source and reviewed generator packet             |
-| Leibniz  | Independent reload/control UI safety review                          | Reproducible actor/key isolation, stale receipt and duplicate-dispatch findings; preserve QA0e until final source/codegen freeze                      |
-| Parent   | Chat reload UI, browser checks, integration and scoped publication   | Metadata-only recovery, generated client, frontend/browser evidence, reviewed worker integration and exact-head PR checks                             |
+| Owner    | Current assignment                                                 | Required handoff                                                                                                              |
+| -------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| Feynman  | Integrate frozen configuration18 with recovery fixes               | Normal merge of bde64862 and be1b040; preserve original parents, one new migration and all config/preparation/recovery guards |
+| Pascal   | Real two-agent Docker/Hermes acceptance driver preparation         | Isolated lifecycle/config/rollback live-driver source and explicit unsupported recovery holds; no execution before review/ACK |
+| Ptolemy  | Correct demonstrated Forge smoke orchestration overhead            | Preserve all assertions, connection/role semantics and original timeouts; new reviewed packet, no automatic replay            |
+| Anscombe | Authenticate actual lookup codegen artifact                        | Exact run37953053154/attempt1 and artifact11626597579 provenance without rerun or parent edits                                |
+| Leibniz  | Independent preparation17/recovery16 safety review                 | Precise intent/permit/original-identity/concurrency findings; preserve QA0e until final source/codegen freeze                 |
+| Parent   | Chat reload UI, browser checks, integration and scoped publication | Metadata-only recovery, generated client, frontend/browser evidence, reviewed worker integration and exact-head PR checks     |
 
 These are continuations of the existing five workers, not additional competing
 implementations. Each has a separate write set; the parent UI is read-only to
-reviewers. Only Forge owns the current heavy-job slot. Docker acceptance is
-prepared in parallel but is not launched until that slot is released.
+reviewers. Heavy jobs remain parent-admitted one at a time. The Forge slot has
+been released after the terminal failure/cleanup below; no successor is admitted
+merely because a worker prepared an invocation.
 
 The four recovery16 fixes and provisioning17 have been normally merged at
 `be1b040597a9ddd0847aca2c10fdaadb96e4c4a9`, preserving both original parents.
@@ -49,6 +50,30 @@ closure proofs pass both cases. Final browser verification in
 `frontend/test-results/runtime-controls-css-final` passes all three engines,
 including the UTF-8 guard, and its nine captures replace the fixture manifest.
 These results are not inferred from the earlier packet.
+
+UI source `ae027dd` and lookup producer `cfa30f39` are normally merged at
+`82b7c8e`. The parent normal-pushed only the reviewed build controls at93a2d9d;
+actual run37953053154 succeeds. Worker and parent independently authenticate
+artifact11626597579 and its source-plan provenance. Actual schema SHA256
+`b074c77295f7ad89912e3667124545ab66f6727184257d1f72030b4417c87f82`
+and regenerated TypeScript are integrated; equality, fresh-main compatibility
+and typecheck pass. Backend/PG/native acceptance remains required; codegen is
+not a release or SDLC success.
+
+Pascal's QA24 packet for be1b040 is prepared with 19 helper cases, 13 Fleet
+Python and five original Base tests passing. Configuration18 is separately
+frozen at bde64862, with 23 light Python cases passing. Neither has native
+Rust/PG/physical Docker acceptance. Their normal integration and missing
+live-driver preparation are independent successor tasks.
+
+The actual Forge full12 packet dcbba1cb4e3f terminates exit1 at the unchanged
+300-second smoke deadline. Python75 and row-smoke pass; smoke and the nine later
+stages do not. Diagnostic call350/phaseL0236 is interrupted and reaped after
+349 completed calls; partial markers are not acceptance. Parent inspected the
+terminal probe and same-daemon cleanup: owned containers/networks/volumes empty,
+baseline20/source265/protected caches preserved. No replay occurred. The next
+task diagnoses and corrects demonstrated transport overhead without shrinking
+the matrix, replacing real PostgreSQL or relaxing limits.
 
 The parent integration is frozen at
 `7f9ae892f9db482bbf44fda5d3082a074b6421b1`: a normal merge of the checked

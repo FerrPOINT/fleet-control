@@ -41,6 +41,14 @@ relaxation. The regression passed in the Linux gate described below.
 
 ## Acceptance
 
+Current dependency publication check (9 October):
+[Base126](https://github.com/FerrPOINT/services-base/pull/126) is OPEN,
+review-ready, main/CLEAN at `dc43d0e25d60afa073c201e74d1a2cfe9aab8939`;
+all ten exact-head CI checks succeed. Source publication is complete, not
+deployment or model admission. The older Draft/conflict notes below describe
+the earlier candidate and are not the current PR state. The Fleet credential
+unit's own current-main/native gates and installed Auth acceptance remain open.
+
 Real delegation also depends on [Base126](https://github.com/FerrPOINT/services-base/pull/126).
 Fresh source inspection confirms neither build SDK19a7 nor accepted Auth
 main15cae15 exposes `/auth/tokens/delegate`. The fake HTTP endpoint in the

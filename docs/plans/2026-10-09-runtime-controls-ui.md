@@ -1,8 +1,26 @@
 # Runtime Controls UI Consumer
 
-Status: stable identity, receipt readback and explicit original-key reload
-recovery implemented in the UI. Backend lookup integration, authentic updated
-OpenAPI and live runtime acceptance remain pending.
+Status: stable identity, receipt readback, explicit original-key reload recovery,
+lookup backend and authentic updated OpenAPI integrated. Combined Linux/PG and
+live runtime acceptance remain pending.
+
+## Integrated Lookup Producer And Generated Contract
+
+Normal merge `82b7c8e` preserves UI `ae027dd` and producer `cfa30f39`.
+The producer's required-header literal GET returns one actor/session/run-scoped
+receipt or 404 without mutation/native I/O. Hosted
+[run37953053154](https://github.com/FerrPOINT/fleet-control/actions/runs/37953053154)
+at `93a2d9d24229e1bbf9a1dceabeecf9eab5f94419` succeeds for sourcecfa30f39
+and unchanged Base19a. Authenticated artifact11626597579 ZIP SHA256 is
+`da1449df287ae850b29fccb76f39aa742a3bc06a2503863aad1ba83bf52efca9`;
+schema SHA256 is
+`b074c77295f7ad89912e3667124545ab66f6727184257d1f72030b4417c87f82`.
+The parent independently verifies the original run/attempt/artifact plus full
+source inventory, tree/lock hashes and unchanged receipt DTO. The only schema
+delta is the new single-receipt GET. Actual output is retained verbatim; real
+openapi-typescript generation, Base schema equality and fresh-main compatibility
+pass. Production source compilation is generator evidence; three new API tests,
+five PG/HTTP/concurrency cases and combined backend acceptance remain pending.
 
 ## Original-Key Recovery Successor
 
@@ -11,8 +29,8 @@ identity. No message input, token or receipt body is persisted. Reload performs
 GET `/api/v1/sessions/{session_id}/runs/{run_id}/controls/lookup` with the original
 Idempotency-Key header; it never automatically sends POST. This distinct route
 is required: an old collection endpoint could ignore an optional header and
-return another command. The lookup producer and source-generated path remain
-an integration prerequisite, not an implemented claim of this UI-only slice.
+return another command. The producer/path are now integrated as described above;
+their native authorization/PG evidence remains separate from this UI slice.
 
 Recovery validates actor/session/run/operation and permits explicit local
 settlement only after acknowledged, rejected or terminal-observed readback.
@@ -139,8 +157,8 @@ not live runtime authorization, backend dispatch or SDLC acceptance.
   exactly-once acknowledged steer mirror now coexist with recovery/controls.
   Linux/PG/native evidence is still pending; frontend and wire shapes are not
   manually changed by that merge.
-- Exact original-key settlement and reload recovery are implemented in the UI;
-  integrate the distinct lookup producer and authentic regenerated path.
+- Exact original-key settlement/reload recovery, lookup producer and authentic
+  regenerated path are integrated; execute their combined Linux/PG gates.
 - Preserve uncertainty after missing/failed lookup; never infer original command
   identity from collection ordering or issue a new key after an unknown POST.
 - Complete native owner-only/control recovery acceptance independently of the

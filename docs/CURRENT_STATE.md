@@ -1,5 +1,24 @@
 # Current State
 
+## Integrated Original-Key Contract: 9 October 2026
+
+Normal merge `82b7c8e9b8dba1afc460d7d3abfb6e368f113c9d` preserves UI `ae027dd`
+and lookup backend `cfa30f39`; backend/CI/Base inputs match that frozen producer.
+Hosted [run37953053154](https://github.com/FerrPOINT/fleet-control/actions/runs/37953053154)
+succeeds at workflow `93a2d9d24229e1bbf9a1dceabeecf9eab5f94419`, attempt1.
+The parent authenticates artifact11626597579 (ZIP SHA256
+`da1449df287ae850b29fccb76f39aa742a3bc06a2503863aad1ba83bf52efca9`)
+and independently verifies source inventory/lock/tree provenance. OpenAPI SHA256
+`b074c77295f7ad89912e3667124545ab66f6727184257d1f72030b4417c87f82`
+is copied verbatim and TypeScript regenerated. The sole wire change is the
+required-header single-receipt GET; receipt DTO and legacy collection are unchanged.
+Generated-schema equality and compatibility against fresh main pass.
+
+This compiles production generator inputs, not the new Rust test fixtures or
+full combined backend gates. The three API and five PostgreSQL/HTTP/concurrency
+cases, strict Clippy/native controls and physical stop remain unaccepted.
+No runtime deployment, model admission or PM/SDLC acceptance follows from codegen.
+
 ## Original-Key Chat Recovery: 9 October 2026
 
 The UI successor adds actor/session-scoped sessionStorage handles containing

@@ -44,7 +44,8 @@ Task/PM-bound commands remain denied. Unknown ACK is not success or a retry
 permit; stop ACK does not prove safe OS stop or SDLC completion.
 Authentic Rust-generated OpenAPI and TypeScript types are now integrated;
 see [generator and consumer evidence](plans/2026-10-09-runtime-controls-ui.md).
-Automatic UI settlement/reload recovery and combined native gates remain open.
+Explicit original-key UI settlement/reload recovery is fixture-verified;
+combined native gates remain open.
 
 `GET /api/v1/sessions/{session_id}/runs/{run_id}/controls/lookup` recovers the
 original command receipt when the POST response (including its command ID) was
@@ -62,8 +63,10 @@ Missing/404, transport/auth errors and old-server rejection never prove that
 the unknown POST did not execute, clear a hold, or authorize a fresh key or
 redispatch. Clients must retain the original actor/session/run/key context.
 This is Fleet-ledger readback only: no native I/O, ledger mutation, outbox action
-or migration. The Rust registration is added; generated OpenAPI/TS integration
-awaits separate authenticated codegen for this frozen source, not manual edits.
+or migration. Rust registration and authentic OpenAPI/TS are integrated from
+run37953053154/artifact11626597579 for exact sourcecfa30f39. The sole generated
+wire delta adds this GET; the receipt DTO and legacy collection remain unchanged.
+This generator result is not the new API/PG test gate or live control acceptance.
 
 Requiring the header is an intentional security-breaking migration on these
 two existing POST operations: old clients must provide one stable key for the
