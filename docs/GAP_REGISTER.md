@@ -48,7 +48,8 @@ Source integration is progress, not release acceptance. Its remaining gates are:
   first, preserving the frozen local packet without rewriting it.
 
 Public-safe Forge controls1dbedf8 are now separately frozen from product25be;
-parent exact-source/lock/seal checks pass, independent review is pending. The
+parent exact-source/lock/seal checks and independent118/118 bounded source/
+lifecycle review pass. Actual private-SDK bridge/full12 acceptance is pending. The
 missing private maintenance commit remains a real execution dependency, not a
 permission to use dirty/local-install bytes. Native-cut helperbc0b85e has two
 OPEN P2 findings after Ptolemy's15/15 independent review: ready publication before
@@ -68,8 +69,12 @@ Fleet controls successora3a2c23ace449f873c79bd5e9ff5624c3199070c, sole parent111
 with0fe in its ancestry, has owner Linux69 PASS and Windows67 PASS/two Linux-only skips.
 It proposes held-leader custody/drain/reap, same-group verify-log children and a
 shared elapsed deadline with cleanup/upload reserves. Parent owns this successor
-after the assigned worker's model-capacity error. Anscombe closure is pending; do not declare these
-findings closed from owner tests. Old0fe's53 worker checks and separate18-file
+after the assigned worker's model-capacity error. Anscombe independently closes
+the scoped findings with79/79 Linux probes, not full backend acceptance.
+Published a3 run37992541106 fails before checkout on Docker Hub's anonymous pull
+limit. Normal childad893db changes only image/test strings to a byte-qualified
+immutable ECR mirror; its independent follow-up and dispatch are pending.
+Old0fe's53 worker checks and separate18-file
 parent seal remain unchanged. No actual70-stage result exists. This hosted path
 has no ComposeHelper/local Docker dependency; do not apply Forge's maintenance-pin
 hold to it. Parent remote readback

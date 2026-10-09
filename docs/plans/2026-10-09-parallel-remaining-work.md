@@ -41,9 +41,9 @@ findings do not certify an unexecuted compiler, database or live runtime gate.
 | Ptolemy  | QA image-candidate provenance/OCI descriptor-chain successor | Nativebc0 review completed15/15 with two OPEN P2. Narrow image-runner source separates historical baked inputs from intended QA inputs and retains actual local OCI descriptors. No heavy build or pin replacement. |
 | Leibniz  | Stopped: selected model capacity error | No backend implementation made by this worker. Parent owns the isolated custody/deadline successor; do not keep a stalled critical-path assignment here. |
 | Feynman  | Native-cut ready-publication and restart-window successor | Fix both bc0 P2 in new normal source; preserve df657/original nine scenarios,55s withholding/60s product timeout and strict evidence. No native launch or silent pin replacement. |
-| Anscombe | Independent public-safe Forge and backend successor review | Maintenance publication audit complete: no qualified pin found in bounded scope. Review1db, then exact backend custody/deadline successor; do not transfer source closure to execution. |
+| Anscombe | Independent narrow image-mirror successor follow-up | Public-safe Forge1db118/118 and backenda3 scoped79/79 closure complete. Review exactad893db four-line image/test substitution and registry byte proof; no full12/backend acceptance inferred. |
 | Pascal   | Completed Fleet/Tracker source qualification and docs handoff | b249/Tracker357 seven DTOs match;39/39 offline checks, no Rust/PG/live HTTP. Docs51ceb normally integrated; no product edit or invented original-key readback. |
-| Parent   | Backend custody/deadline implementation, normal integration and scoped publication | Exacta3a2c23 normal child11168/0fe has69 Linux helper tests PASS; independent closure precedes dedicated hosted diagnostic dispatch. No actual70-stage acceptance yet. Other frozen handoffs and external gates stay separate. |
+| Parent   | Backend diagnostic CI, normal integration and scoped publication | Independently closed a3 published normally; run37992541106 failed before source checkout on Docker Hub rate limit. Byte-qualified immutable-mirror successorad893db awaits narrow review/dispatch. Actual70-stage acceptance remains open. |
 
 ### Fleet/Tracker Wire Source Qualification
 
@@ -112,7 +112,11 @@ admission remain necessary; no prepared invocation is an execution grant.
   parent25be and no unsafe controls ancestry. Parent checks25 components, lock,
   report hash, exact HEAD/tree/parent and clean checkout. Seal SHA256:
   e71bed719ff25477adb2d82145069a6df2bac618c7b110febe8daf1a49cece20.
-  Owner118 Linux pure cases pass; independent review is pending. All12 budgets
+  Owner118 Linux pure cases and independent118/118 bounded source/lifecycle
+  review pass. Independent packet
+  `.local/forge-public-safe-independent-review-20261009/qa/seal.json` SHA256:
+  9b22eb7db202603dcdf85310072fbbb6c50359b136be736399cd160b71a0cbd3.
+  Parent separately verifies its six sealed review files. All12 budgets
   and source265 remain; maintenance commit is null, so authenticated private
   delivery and actual full12 remain blocked. No push or dispatch occurred.
 - Native-cut helperbc0b85ee47ceb159daf304b25665d1e1cb70a689 has sole
@@ -140,12 +144,24 @@ admission remain necessary; no prepared invocation is an execution grant.
   parent-owned successora3a2c23ace449f873c79bd5e9ff5624c3199070c has sole parent
   11168cae2e647718f574aeeb64a6bb5821b32956, itself a normal child of0fe, in
   `.local/fleet-hosted-backend-custody-20261009/fleet-control`.
-  Owner Linux69 PASS/Windows67 PASS with two Linux-only skips cover candidate
-  held-custody/shared-deadline and verify-log same-group fixes; Anscombe closure
-  remains pending. Retained handoff `handoff-a3a2c23ace44/source-seal.json` SHA256:
+  Owner Linux69 PASS/Windows67 PASS with two Linux-only skips cover the
+  held-custody/shared-deadline and verify-log same-group fixes. Anscombe independently
+  closes these scoped findings with79/79 Linux tests, zero skips; review report is
+  `.local/fleet-hosted-a3a2-independent-review-20261010/qa/REPORT.md`, seal SHA256:
+  cc96bf8bdd63dde113b87e45ed20787c37fcb0067c64a3dbf7e5d3ce1150e42b.
+  Retained owner handoff `handoff-a3a2c23ace44/source-seal.json` SHA256:
   526b413c968ab86609fb077784ea21332752b733a880422c41219fa94acfe860.
   Old0fe evidence/seal is immutable; actual70 is NOT RUN. This path has no
   ComposeHelper/local Docker dependency, unlike native/Forge maintenance paths.
+  Published exacta3 normal branch push produced run37992541106/attempt1/job
+  114030153823: FAILED at Initialize containers on Docker Hub anonymous pull
+  rate limit, before any checkout/private input/helper or backend stage.
+  Normal childad893db1fe34ad2a631297d76ee561c4fa1d0d1a changes four image/test
+  string lines only. Metadata-only qualification in
+  `.local/fleet-hosted-registry-20261010/qualified-receipt.json` proves ECR and
+  Docker Hub root-index raw bytes/digests equal for Rust1.88.0-bookworm and PG17.6.
+  No layers were downloaded locally. Immutable mirror references retain exact
+  versions/resources/source pins; narrow independent review/dispatch is pending.
 - Fleet sequential-activation successord3066ebbbda168f16f59697831ea92de5132527b
   has sole parentf326. Worker reports21 Linux fake-contract cases and15 Windows
   loader/hash/README cases passing. Two new Rust and four PG regressions have not

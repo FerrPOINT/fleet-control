@@ -41,7 +41,8 @@ heads; they do not accept this assembly.
 - Public-safe Forge successor1dbedf8 has sole product25be parent, without the
   private-copy controls ancestry. Parent verifies its25 component hashes, lock,
   exact HEAD/tree/parent and clean checkout. Owner118 Linux pure cases pass;
-  independent review remains pending. Maintenance commit is explicitly null and
+  independent118/118 source/lifecycle review closes the bounded substitution.
+  Maintenance commit is explicitly null and
   execution fails closed; no private checkout/full12 acceptance is claimed.
 - Separate native-driver source df6574b targets exactb249/Base9b and four
   canonical utility modules, preserving the original nine scenarios. Its47 pure
@@ -73,18 +74,23 @@ Owner results are69 Linux passes and67 Windows passes with two Linux-only skips.
 Candidate fixes retain leader custody through drain/reap, keep verify-log children
 in the held outer gate group and share the hosted job deadline with cleanup/upload
 reserves. Parent took ownership after Leibniz's model-capacity error; no worker
-implementation is claimed. Anscombe P1/P2 closure is pending; actual70 is NOT RUN.
+implementation is claimed. Anscombe independently closes the scoped custody/
+deadline findings with79/79 Linux probes, zero skips. Published a3 run37992541106
+fails before checkout at Docker Hub's anonymous pull limit; no backend stage ran.
+Normal childad893db1fe34ad2a631297d76ee561c4fa1d0d1a changes only image/test
+strings to an exact-byte-qualified ECR mirror with immutable digests. That narrow
+successor's review/dispatch is pending; actual70 is NOT RUN.
 Historical0fe's53 worker checks and separate18-file parent seal stay immutable;
 neither those counts nor successor pure tests establish compiler/PG acceptance.
 This hosted path uses no ComposeHelper/local Docker, so the missing maintenance
 pin blocks Forge/native maintenance paths, not this backend gate. Product assembly
 and combined Rust/PG/native acceptance remain unchanged.
 
-The five current workers own public-safe Forge/private-pin delivery (Ptolemy),
-the executable Fleet gate (Leibniz), native crash cuts (Feynman), independent
-private-pin/source review (Anscombe), and docs/evidence (Pascal). Parent owns
-reviewed normal integration and admitted gates/publication, not acceptance by
-source merge alone. Combined backend/native, producer custody and external
+Current parallel work covers image-candidate provenance (Ptolemy), native crash
+cuts (Feynman), independent source review (Anscombe), and the completed contract/
+docs handoff (Pascal). Leibniz stopped with a model-capacity error; parent took
+the executable Fleet gate, normal integration and scoped publication. Source
+merge alone does not establish acceptance. Combined backend/native, producer custody and external
 Workflow readiness remain open. Exact handoffs and dependencies are in the
 [parallel work plan](plans/2026-10-09-parallel-remaining-work.md).
 
