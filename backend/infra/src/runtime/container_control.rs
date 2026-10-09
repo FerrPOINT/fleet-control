@@ -309,7 +309,7 @@ pub(crate) fn launch_hash(
 }
 
 pub(crate) fn validate_registration(value: &ContainerRegistration) -> Result<(), AppError> {
-    if !matches!(value.contract_version, 1 | 2 | 3)
+    if !matches!(value.contract_version, 1..=3)
         || value.operation_id.is_nil()
         || value.resource_id.is_nil()
         || value.generation.is_nil()
@@ -1151,6 +1151,14 @@ mod tests {
         validate_registration(&value).unwrap();
         value.compose_sha256 = "mutable".into();
         assert!(validate_registration(&value).is_err());
+        for version in [0, 4, u8::MAX] {
+            let mut invalid = original();
+            invalid.contract_version = version;
+            if version < 2 {
+                invalid.network_sha256 = None;
+            }
+            assert!(validate_registration(&invalid).is_err());
+        }
     }
 
     #[test]
