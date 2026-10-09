@@ -251,6 +251,210 @@ test('PM chat clarification preserves explicit answers and exact confirmation', 
   await expect(page).toHaveURL(/tab=clarification/)
   expect(errors).toEqual([])
 })
+test('PM chat journal reload holds fresh writes and explicitly delivers the original command', async ({
+  page,
+}) => {
+  const state = createState()
+  await installMocks(page, state)
+  const originalRequest = {
+    expected_question_version: 1,
+    requirement_revision: 1,
+    selected_option_ids: [ids.dev],
+    text: 'Original retained answer',
+    comment: 'Original retained comment',
+    idempotency_key: 'fixture-original-answer-key',
+  }
+  const questionId = '00000000-0000-4000-8000-000000000511'
+  const commandId = '00000000-0000-4000-8000-000000000512'
+  let command: ClarificationCommand = {
+    id: commandId,
+    session_id: ids.session,
+    question_id: questionId,
+    request: structuredClone(originalRequest),
+    payload_sha256: 'd'.repeat(64),
+    state: 'uncertain',
+    answer: null,
+    rejection_status: null,
+    created_at: now,
+    updated_at: now,
+  }
+  const question = {
+    id: questionId,
+    request_id: '00000000-0000-4000-8000-000000000513',
+    task_id: ids.session,
+    root_task_id: ids.session,
+    assignment_id: '00000000-0000-4000-8000-000000000514',
+    execution_id: '00000000-0000-4000-8000-000000000515',
+    agent_id: ids.dev,
+    assignment_version: 1,
+    checkpoint_id: '00000000-0000-4000-8000-000000000516',
+    author_subject: ids.dev,
+    created_at: now,
+    version: 1,
+    requirement_revision: 1,
+    text: 'Кто может просматривать задачи?',
+    rationale: 'Фиксируем границы доступа.',
+    required: true,
+    mode: 'single',
+    state: 'open',
+    answer: null,
+    requirement_reference: 'REQ-1',
+    recommended_option_id: null,
+    options: [
+      {
+        id: ids.dev,
+        label: 'Участники проекта',
+        consequences: 'Доступ ограничен проектом.',
+        is_custom: false,
+      },
+    ],
+  }
+  let canAnswer = false
+  let contextDenied = false
+  let journalReads = 0
+  const writes: { path: string; body: string | null }[] = []
+  const deliveredCommands: ClarificationCommand[] = []
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  const deliveryPath = `/api/v1/sessions/${ids.session}/clarification-answer-commands/${commandId}/delivery`
+  await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    if (request.method() === 'POST') {
+      writes.push({ path, body: request.postData() })
+      if (path !== deliveryPath || contextDenied || !canAnswer)
+        return fulfill(route, { error: 'Unexpected fixture mutation' }, 403)
+      deliveredCommands.push(structuredClone(command))
+      command = {
+        ...command,
+        state: 'delivered',
+        answer: {
+          id: '00000000-0000-4000-8000-000000000517',
+          question_id: questionId,
+          question_version: originalRequest.expected_question_version,
+          requirement_revision: originalRequest.requirement_revision,
+          selected_option_ids: [...originalRequest.selected_option_ids],
+          text: originalRequest.text,
+          comment: originalRequest.comment,
+          author_subject: ids.user,
+          created_at: now,
+        },
+      }
+      return fulfill(route, command)
+    }
+    if (path.endsWith('/clarification-answer-commands')) {
+      journalReads += 1
+      return fulfill(route, command.state === 'delivered' ? [] : [command])
+    }
+    if (path.endsWith('/task-context')) {
+      if (contextDenied) return fulfill(route, { error: 'Tracker fixture access denied' }, 403)
+      return fulfill(route, {
+        binding: {
+          tracker_instance_id: 'fixture-tracker',
+          project_id: ids.dev,
+          task_id: ids.session,
+          root_task_id: ids.session,
+          agent_id: ids.dev,
+          owner_subject: ids.user,
+        },
+        tracker: {
+          contract_version: 1,
+          tracker_instance_id: 'fixture-tracker',
+          project_id: ids.dev,
+          task_id: ids.session,
+          root_task_id: ids.session,
+          owner_subject: ids.user,
+          stage: 'Clarification',
+          requirement_revision: 1,
+          waiting_reason: 'Требуется сверка исходного ответа',
+          assignment: null,
+          permissions: { can_answer: canAnswer, can_confirm: false },
+        },
+      })
+    }
+    if (path.endsWith('/chat-controls'))
+      return fulfill(route, {
+        can_send: false,
+        can_steer: false,
+        can_stop: false,
+        active_run_id: null,
+        blocked_reason: 'workflow_assignment_required',
+      })
+    if (path.endsWith('/clarifications'))
+      return fulfill(route, {
+        questions: [
+          command.state === 'delivered'
+            ? { ...question, state: 'answered', answer: command.answer }
+            : question,
+        ],
+      })
+    if (path.endsWith('/requirements')) return fulfill(route, { revisions: [] })
+    if (path.endsWith('/history')) return fulfill(route, { items: [], next_before: null })
+    return route.fallback()
+  })
+
+  await page.goto(`/chats/${ids.session}?tab=clarification`)
+  const originalAnswer = page.getByText(originalRequest.text, { exact: true })
+  const resume = page.getByRole('button', { name: 'Продолжить исходную команду' })
+  const save = page.getByRole('button', { name: 'Сохранить ответ' })
+  const choice = page.getByRole('radio', { name: /Участники проекта/ })
+  await expect(originalAnswer).toBeVisible()
+  await expect(page.getByText(originalRequest.comment, { exact: true })).toBeVisible()
+  await expect(choice).toBeDisabled()
+  await expect(save).toBeDisabled()
+  // Closing new-answer permission does not itself revoke original-command recovery.
+  await expect(resume).toBeEnabled()
+  expect(writes).toEqual([])
+  const readsBeforeReload = journalReads
+  await page.reload()
+  await expect(originalAnswer).toBeVisible()
+  await expect.poll(() => journalReads).toBeGreaterThan(readsBeforeReload)
+  await expect(resume).toBeEnabled()
+  await expect(save).toBeDisabled()
+  expect(writes).toEqual([])
+
+  contextDenied = true
+  await page.reload()
+  await expect(page.getByText('Tracker fixture access denied', { exact: true })).toBeVisible()
+  // Without a verified binding, neither the private journal nor retry is exposed.
+  await expect(originalAnswer).toHaveCount(0)
+  await expect(resume).toHaveCount(0)
+  await expect(choice).toHaveCount(0)
+  await expect(save).toBeDisabled()
+  expect(writes).toEqual([])
+
+  contextDenied = false
+  canAnswer = true
+  await page.reload()
+  await expect(originalAnswer).toBeVisible()
+  await expect(resume).toBeEnabled()
+  // Even with a fresh grant, custody prohibits a new answer/key until settlement.
+  await expect(choice).toBeDisabled()
+  await expect(save).toBeDisabled()
+  expect(writes).toEqual([])
+  await resume.click()
+  await expect(
+    page.getByText('Исходный ответ подтверждён. Требования ещё не опубликованы.'),
+  ).toBeVisible()
+  await expect(resume).toHaveCount(0)
+  await expect(choice).toBeChecked()
+  await expect(save).toBeDisabled()
+  expect(writes).toEqual([{ path: deliveryPath, body: null }])
+  expect(deliveredCommands).toEqual([
+    expect.objectContaining({
+      id: commandId,
+      session_id: ids.session,
+      question_id: questionId,
+      state: 'uncertain',
+      payload_sha256: 'd'.repeat(64),
+      request: originalRequest,
+    }),
+  ])
+  expect(command.id).toBe(commandId)
+  expect(command.request).toEqual(originalRequest)
+  expect(errors).toEqual([])
+})
+
 test('chat history preserves server order after clock rollback and page overlap', async ({
   page,
 }) => {
