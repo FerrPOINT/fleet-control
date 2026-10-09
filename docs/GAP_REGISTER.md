@@ -64,10 +64,11 @@ exit0, with exact canonical inputs/source parity and owned cleanup. It closes th
 new local raw-log retention item only, not CI, image/native acceptance or PM
 admission. The [evidence hashes and current owner/dependency matrix](plans/2026-10-09-parallel-remaining-work.md#retained-base815-fake-contract-evidence)
 keep this run separate from historical88.807s and the prepared execution gates.
-Fleet controls successor11168cae2e647718f574aeeb64a6bb5821b32956, sole parent0fe,
-has owner Linux68 PASS and Windows66 PASS/two Linux-only skips. It proposes
-held-leader custody/drain/reap and a shared elapsed deadline with cleanup/upload
-reserves. P1/P2 independent closure by Anscombe is pending; do not declare these
+Fleet controls successora3a2c23ace449f873c79bd5e9ff5624c3199070c, sole parent11168
+with0fe in its ancestry, has owner Linux69 PASS and Windows67 PASS/two Linux-only skips.
+It proposes held-leader custody/drain/reap, same-group verify-log children and a
+shared elapsed deadline with cleanup/upload reserves. Parent owns this successor
+after the assigned worker's model-capacity error. Anscombe closure is pending; do not declare these
 findings closed from owner tests. Old0fe's53 worker checks and separate18-file
 parent seal remain unchanged. No actual70-stage result exists. This hosted path
 has no ComposeHelper/local Docker dependency; do not apply Forge's maintenance-pin

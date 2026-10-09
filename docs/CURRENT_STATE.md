@@ -67,11 +67,13 @@ heads; they do not accept this assembly.
   Base. Public Forge run37973076579 success does not restore private Base CI or
   accept full12/native gates. Protected runtime images and services are unchanged.
 
-Fleet backend controls successor11168cae2e647718f574aeeb64a6bb5821b32956 has sole
-parent0fe34447a53da70f052eb51c87f781050a79cf88. Owner results are68 Linux passes
-and66 Windows passes with two Linux-only skips. Candidate fixes retain leader
-custody through drain/reap and share the hosted job deadline with cleanup/upload
-reserves. P1/P2 independent closure is pending with Anscombe; actual70 is NOT RUN.
+Fleet backend controls successora3a2c23ace449f873c79bd5e9ff5624c3199070c has sole
+parent11168cae2e647718f574aeeb64a6bb5821b32956, itself a normal child of0fe.
+Owner results are69 Linux passes and67 Windows passes with two Linux-only skips.
+Candidate fixes retain leader custody through drain/reap, keep verify-log children
+in the held outer gate group and share the hosted job deadline with cleanup/upload
+reserves. Parent took ownership after Leibniz's model-capacity error; no worker
+implementation is claimed. Anscombe P1/P2 closure is pending; actual70 is NOT RUN.
 Historical0fe's53 worker checks and separate18-file parent seal stay immutable;
 neither those counts nor successor pure tests establish compiler/PG acceptance.
 This hosted path uses no ComposeHelper/local Docker, so the missing maintenance

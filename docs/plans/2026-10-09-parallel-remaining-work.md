@@ -1,6 +1,6 @@
 # Parallel Remaining Work: 9 October 2026
 
-Status: 10 October checkpoint; five implementation/verification assignments. This document
+Status: 10 October checkpoint; parallel implementation/review and parent-owned critical path. This document
 records work ownership, not completion or permission to deploy.
 
 ## Current Dispatch
@@ -38,12 +38,12 @@ findings do not certify an unexecuted compiler, database or live runtime gate.
 
 | Owner    | Current assignment                                                 | Required handoff                                                                                                              |
 | -------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| Ptolemy  | Independent native-cut review completed; public-safe Forge/private-pin handoff | Exactbc0 review15/15 reproduces two OPEN P2; closure requires Feynman's new successor. Public-safe Forge1db review remains pending; private maintenance pin remains missing. |
-| Leibniz  | Fleet backend custody/deadline successor frozen | Exact11168ca, sole parent0fe: owner Linux68 PASS/Windows66 PASS plus two Linux-only skips. Retain all70 stages,19 DBs and strict source/schema pins; await Anscombe closure before dispatch. |
+| Ptolemy  | QA image-candidate provenance/OCI descriptor-chain successor | Nativebc0 review completed15/15 with two OPEN P2. Narrow image-runner source separates historical baked inputs from intended QA inputs and retains actual local OCI descriptors. No heavy build or pin replacement. |
+| Leibniz  | Stopped: selected model capacity error | No backend implementation made by this worker. Parent owns the isolated custody/deadline successor; do not keep a stalled critical-path assignment here. |
 | Feynman  | Native-cut ready-publication and restart-window successor | Fix both bc0 P2 in new normal source; preserve df657/original nine scenarios,55s withholding/60s product timeout and strict evidence. No native launch or silent pin replacement. |
 | Anscombe | Independent public-safe Forge and backend successor review | Maintenance publication audit complete: no qualified pin found in bounded scope. Review1db, then exact backend custody/deadline successor; do not transfer source closure to execution. |
-| Pascal   | Completed Fleet/Tracker source qualification; docs/evidence integration | b249/Tracker357 seven DTOs match;39/39 offline checks, no Rust/PG/live HTTP. Record source vs execution and open review gates without editing product or inventing exact answer-key readback. |
-| Parent   | Normal integration, gate coordination and scoped publication | Review frozen handoffs, normally integrate accepted source, admit combined gates and reconcile exact receipts. Private-pin, private Base CI, native and PM/Workflow prerequisites cannot be waived. |
+| Pascal   | Completed Fleet/Tracker source qualification and docs handoff | b249/Tracker357 seven DTOs match;39/39 offline checks, no Rust/PG/live HTTP. Docs51ceb normally integrated; no product edit or invented original-key readback. |
+| Parent   | Backend custody/deadline implementation, normal integration and scoped publication | Exacta3a2c23 normal child11168/0fe has69 Linux helper tests PASS; independent closure precedes dedicated hosted diagnostic dispatch. No actual70-stage acceptance yet. Other frozen handoffs and external gates stay separate. |
 
 ### Fleet/Tracker Wire Source Qualification
 
@@ -137,11 +137,13 @@ admission remain necessary; no prepared invocation is an execution grant.
   relative gate6600s can exceed job120min before cleanup/upload. Counterexample
   reproduction is not a safety PASS. Source wiring independently covers all70
   transitions,367 input hashes, canonical20/split23 guards and19 DBs. A normal
-  successor11168cae2e647718f574aeeb64a6bb5821b32956 has sole parent
-  0fe34447a53da70f052eb51c87f781050a79cf88 in
+  parent-owned successora3a2c23ace449f873c79bd5e9ff5624c3199070c has sole parent
+  11168cae2e647718f574aeeb64a6bb5821b32956, itself a normal child of0fe, in
   `.local/fleet-hosted-backend-custody-20261009/fleet-control`.
-  Owner Linux68 PASS/Windows66 PASS with two Linux-only skips cover candidate
-  held-custody/shared-deadline fixes; Anscombe P1/P2 closure remains pending.
+  Owner Linux69 PASS/Windows67 PASS with two Linux-only skips cover candidate
+  held-custody/shared-deadline and verify-log same-group fixes; Anscombe closure
+  remains pending. Retained handoff `handoff-a3a2c23ace44/source-seal.json` SHA256:
+  526b413c968ab86609fb077784ea21332752b733a880422c41219fa94acfe860.
   Old0fe evidence/seal is immutable; actual70 is NOT RUN. This path has no
   ComposeHelper/local Docker dependency, unlike native/Forge maintenance paths.
 - Fleet sequential-activation successord3066ebbbda168f16f59697831ea92de5132527b
