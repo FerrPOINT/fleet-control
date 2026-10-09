@@ -14,6 +14,31 @@ contradiction rolls back. EOF, lookup absence and expiry never release capacity.
 See [ADR 0018](adr/0018-atomic-terminal-pinned-recovery.md) and
 [ADR 0019](adr/0019-native-original-key-recovery.md).
 
+## Approval Recovery And Logical Time Candidate
+
+Unit14 adds only `m20261005_000014_hermes_journal_time_order` after13 in both
+migration lineages. A later trigger clamps new submission/acceptance timestamps
+to prior journal progress without modifying identity, immutable original guard
+or the recovery horizon. Nonempty journal downgrade is refused.
+Existing approval request uniqueness by native request/run is reused: recovery
+atomically inserts redacted exact content and running-to-waiting state, preserving
+resolved/stopping states and exact replay. Existing durable uncertain decision
+reservation, actor/key uniqueness and atomic delivery remain unchanged.
+No new task/PM admission or inferred delivery from unknown native acceptance.
+
+## Steer Transcript Follow-Up
+
+No migration or lineage change is required. Existing `session_messages` supports
+human-authored `control` messages and `mirrored` delivery; its primary key is
+reused as the immutable control receipt ID. Original actor/creator and session
+are retained, the Fleet-local runtime-message link pins run and command, and
+`idempotency_payload_hash` stores the original operation/input hash. No caller
+idempotency key is copied into the prompt namespace. Only redacted body is stored.
+The message, preview, cursor events, ACK and audit commit together. The outbox
+trigger queues only pending user prompts, not these mirrors. Replay validates
+stored identity/content and neither appends nor updates a present mirror.
+The control journal remains hash-only; prior migration bytes are untouched.
+
 ## Durable Runtime Controls Unit13
 
 Only `m20261005_000013_runtime_controls` is new in this unit. Both lineages

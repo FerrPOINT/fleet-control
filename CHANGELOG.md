@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased: Exact-Target Approval Recovery
+
+- Prepare current pending native approval recovery from an original accepted free-chat journal; uncertain decisions never repost.
+- Add only migration14 for logical journal progress time, preserving immutable identity/ACK/horizon guards.
+- Source candidate only; exact Linux/PG/native acceptance remains pending and runtime_ready=false.
+
 - Prepare a separately gated PM credential journal release with immutable
   issuance/replay metadata, one additive migration in both lineages, fresh
   Base/Tracker checks and no model-admission side effect.
@@ -9,6 +15,12 @@
 - Prepare free-chat original-key witness recovery, atomic pinned-run terminal
   persistence and bounded Hermes event framing without new migrations or pins.
   Native compatibility and exact-source PostgreSQL acceptance remain pending.
+
+- Preserve acknowledged Hermes guidance once in the redacted Fleet transcript,
+  with original actor and run/receipt identity, in the ACK transaction. Exact
+  replay repairs old missing mirrors without native POST; uncertain/rejected
+  guidance is not depicted as delivered. No migration or client schema change.
+  Focused Linux/PostgreSQL execution remains pending.
 
 - Prepare isolated durable Hermes stop/steer controls with one additive migration13,
   single-attempt dispatch, uncertain holds, atomic ACK/terminal packets and scoped

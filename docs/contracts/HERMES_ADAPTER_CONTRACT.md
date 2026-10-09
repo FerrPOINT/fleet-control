@@ -12,6 +12,26 @@ replay is read-only, contradictions fail. [Stream bounds](HERMES_EVENT_STREAM_V1
 require a complete frame or independent terminal status at EOF. Native producer
 and managed-runtime compatibility are not yet accepted for this candidate.
 
+## Current Approval Recovery Candidate
+
+Authenticated GET of the original accepted native run/session may restore its
+current approval.request snapshot with exact request_id and bounded once/deny
+choices. No historical queue, unknown-run lookup, SSE reconnect or resubmission
+is authorized. Exact-target decision preflight verifies current original scope,
+capability and pending action before one POST with resolve_all:false. Lost ACK
+stays uncertain across restart/replay; GET cannot infer delivered or retry it.
+Known terminal GET uses the inherited atomic mirror. Source-only; real native
+process compatibility and exact Linux acceptance remain pending.
+
+## Steer Transcript Follow-Up
+
+Steer ACK persistence requires the exact originally hashed input and atomically
+stores its redacted Fleet transcript mirror. Native POST remains single-use.
+Acknowledged replay can repair a historical missing mirror from the exact payload;
+GET recovery cannot recover discarded text or infer guidance acceptance.
+An ACK whose DB transaction fails remains submitted/held without transcript
+delivery or another POST. No native protocol or installed compatibility is claimed.
+
 ## Durable Runtime Controls Unit13
 
 Controls require fresh exact original origin/credential/native run/session,

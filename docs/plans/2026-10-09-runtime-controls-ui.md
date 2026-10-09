@@ -52,6 +52,10 @@ not live runtime authorization, backend dispatch or SDLC acceptance.
   the combined runtime source; its control receipt work below remains open.
 - Generate OpenAPI from Rust and frontend types from that output; do not invent
   handwritten receipt DTOs or patch the generated files manually.
+- Backend successor `37ec604a` is integrated by normal history: approval14 and
+  exactly-once acknowledged steer mirror now coexist with recovery/controls.
+  Linux/PG/native evidence is still pending; frontend and wire shapes are not
+  manually changed by that merge.
 - Show reserved/submitted/uncertain/acknowledged/terminal_observed separately.
   ACK is not completion or proof of physical stop.
 - Poll the original scoped command receipt, preserving uncertainty after a lost

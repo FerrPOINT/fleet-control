@@ -135,6 +135,29 @@ pub struct HermesTerminalCommit {
 
 #[async_trait]
 pub trait FleetRepository: Send + Sync {
+    /// Fresh free-chat scope for an original accepted Hermes request; no dispatch permission.
+    async fn get_accepted_hermes_context(
+        &self,
+        _run_id: Uuid,
+    ) -> Result<Option<HermesDispatchIntent>, AppError> {
+        Err(AppError::Unavailable(
+            "Hermes accepted context is unavailable".into(),
+        ))
+    }
+
+    /// Observe an exact pending snapshot, never permission to resend a decision.
+    async fn recover_hermes_approval(
+        &self,
+        _req: RuntimeApprovalCreate,
+        _native_session_id: String,
+        _origin: String,
+        _credential_fingerprint: String,
+    ) -> Result<(RuntimeApprovalRequest, bool), AppError> {
+        Err(AppError::Unavailable(
+            "Hermes approval recovery is unavailable".into(),
+        ))
+    }
+
     async fn prepare_hermes_dispatch(
         &self,
         _draft: HermesDispatchDraft,
@@ -192,6 +215,7 @@ pub trait FleetRepository: Send + Sync {
         &self,
         _id: Uuid,
         _acknowledgement: &str,
+        _input: Option<&str>,
     ) -> Result<domain::RuntimeControlReceipt, AppError> {
         Err(AppError::Unavailable(
             "runtime control journal is unavailable".into(),

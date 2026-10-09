@@ -3,6 +3,7 @@ mod chats_directory;
 mod config_revisions;
 mod effective_configuration;
 pub mod entities;
+mod hermes_approval_recovery;
 mod hermes_dispatch_journal;
 pub mod pm_credentials;
 mod pm_draft;
@@ -585,6 +586,37 @@ fn fleet_alert_to_domain(row: fleet_alerts::Model) -> domain::FleetAlert {
 
 #[async_trait]
 impl FleetRepository for PostgresFleetRepository {
+    async fn get_accepted_hermes_context(
+        &self,
+        run_id: Uuid,
+    ) -> Result<Option<app::HermesDispatchIntent>, AppError> {
+        hermes_approval_recovery::context(self, run_id).await
+    }
+
+    async fn list_recoverable_hermes_acceptances(
+        &self,
+        after: Option<Uuid>,
+    ) -> Result<Vec<(SessionMessage, SessionAgentRun)>, AppError> {
+        hermes_approval_recovery::queue(self, after).await
+    }
+
+    async fn recover_hermes_approval(
+        &self,
+        req: RuntimeApprovalCreate,
+        native_session_id: String,
+        origin: String,
+        credential_fingerprint: String,
+    ) -> Result<(RuntimeApprovalRequest, bool), AppError> {
+        hermes_approval_recovery::record(
+            self,
+            req,
+            native_session_id,
+            origin,
+            credential_fingerprint,
+        )
+        .await
+    }
+
     async fn list_session_approvals(
         &self,
         session: Uuid,
@@ -736,8 +768,9 @@ impl FleetRepository for PostgresFleetRepository {
         &self,
         id: Uuid,
         acknowledgement: &str,
+        input: Option<&str>,
     ) -> Result<domain::RuntimeControlReceipt, AppError> {
-        runtime_controls::finish(self, id, acknowledgement).await
+        runtime_controls::finish(self, id, acknowledgement, input).await
     }
 
     async fn retire_runtime_control(
@@ -2820,40 +2853,6 @@ impl FleetRepository for PostgresFleetRepository {
         command: app::HermesTerminalCommit,
     ) -> Result<(SessionAgentRun, Option<SessionMessage>, bool), AppError> {
         runtime_acceptance::terminal(self, command).await
-    }
-
-    async fn list_recoverable_hermes_acceptances(
-        &self,
-        after: Option<Uuid>,
-    ) -> Result<Vec<(SessionMessage, SessionAgentRun)>, AppError> {
-        let rows = self.db.query_all(Statement::from_sql_and_values(DatabaseBackend::Postgres,
-            "SELECT r.id AS run_id,m.id AS message_id FROM session_agent_runs r
-             JOIN session_messages m ON m.session_id=r.session_id
-             JOIN agent_sessions s ON s.id=r.session_id AND s.agent_id=r.agent_id
-             JOIN agents a ON a.id=r.agent_id
-             LEFT JOIN hermes_dispatch_journal j ON j.message_id=m.id AND j.run_id=r.id
-             WHERE r.state IN ('pending','running','waiting','stopping')
-               AND a.kind='hermes'
-               AND m.author_type IN ('user','agent') AND m.message_kind IN ('user_prompt','control')
-               AND ((r.runtime_run_id IS NOT NULL AND m.runtime_message_id=r.runtime_run_id AND m.delivery_state='dispatched')
-                 OR (r.runtime_run_id IS NULL AND r.state='pending' AND m.runtime_message_id IS NULL
-                     AND m.delivery_state='pending' AND j.state='submitted'
-                     AND jsonb_typeof(j.capabilities->'fleet_recovery')='object'))
-               AND NOT EXISTS(SELECT 1 FROM task_chat_bindings b WHERE b.session_id=r.session_id)
-               AND NOT EXISTS(SELECT 1 FROM pm_run_bindings p WHERE p.session_run_id=r.id OR p.session_id=r.session_id)
-               AND ($1::uuid IS NULL OR r.id>$1)
-             ORDER BY r.id LIMIT 20", [after.into()]))
-            .await.map_err(AppError::database)?;
-        let mut result = Vec::with_capacity(rows.len());
-        for row in rows {
-            let message_id: Uuid = row.try_get("", "message_id").map_err(AppError::database)?;
-            let run_id: Uuid = row.try_get("", "run_id").map_err(AppError::database)?;
-            result.push((
-                self.message_by_id(message_id).await?,
-                self.get_session_agent_run(run_id).await?,
-            ));
-        }
-        Ok(result)
     }
 
     async fn insert_session_message_mirror(

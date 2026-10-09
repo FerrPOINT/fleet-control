@@ -136,7 +136,8 @@ jobs:
             cargo test --locked -p infra --test sdlc_foundation "$1" -- --ignored --test-threads=1 | tee "$RUNNER_TEMP/$2.log"
             grep -F "test result: ok. $3 passed; 0 failed; 0 ignored;" "$RUNNER_TEMP/$2.log"
           }
-          focused hermes_dispatch_journal:: journal 15
+          focused hermes_dispatch_journal:: journal 16
+          grep -Fx 'test hermes_dispatch_journal::journal_clock_regression_keeps_logical_progress_without_renewing_horizon ... ok' "$RUNNER_TEMP/journal.log"
           focused runtime_acceptance:: acceptance 11
           focused runtime_acceptance_readback_http:: recovery 5
           focused runtime_http_ terminal 8
@@ -180,7 +181,14 @@ jobs:
           grep -Fx 'test runtime::run_control::tests::stop_ack_is_not_terminal_or_capacity_release ... ok' "$RUNNER_TEMP/control-wire.log"
           grep -Fx 'test runtime::run_control::tests::terminal_stop_race_requires_full_pinned_native_status ... ok' "$RUNNER_TEMP/control-wire.log"
           cargo test --locked -p infra --test sdlc_foundation runtime_run_control:: -- --ignored --test-threads=1 | tee "$RUNNER_TEMP/control-pg.log"
-          grep -F 'test result: ok. 18 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/control-pg.log"
+          grep -F 'test result: ok. 25 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/control-pg.log"
+          grep -Fx 'test runtime_run_control::steer_transcript::ack_preserves_actor_redaction_scope_and_one_mirror_per_receipt ... ok' "$RUNNER_TEMP/control-pg.log"
+          grep -Fx 'test runtime_run_control::steer_transcript::acknowledged_replay_repairs_legacy_mirror_without_native_post ... ok' "$RUNNER_TEMP/control-pg.log"
+          grep -Fx 'test runtime_run_control::steer_transcript::uncertain_and_rejected_never_mirror_or_repost ... ok' "$RUNNER_TEMP/control-pg.log"
+          grep -Fx 'test runtime_run_control::steer_transcript::ack_payload_proof_denies_missing_or_changed_input ... ok' "$RUNNER_TEMP/control-pg.log"
+          grep -Fx 'test runtime_run_control::steer_transcript::audit_failure_rolls_back_ack_mirror_preview_and_events ... ok' "$RUNNER_TEMP/control-pg.log"
+          grep -Fx 'test runtime_run_control::steer_transcript::message_insert_failure_rolls_back_ack_and_does_not_retry_native ... ok' "$RUNNER_TEMP/control-pg.log"
+          grep -Fx 'test runtime_run_control::steer_transcript::message_identity_collision_is_not_overwritten_or_acknowledged ... ok' "$RUNNER_TEMP/control-pg.log"
           grep -Fx 'test runtime_run_control::runtime_control_fresh_agent_origin_and_rotated_credential_deny_before_post ... ok' "$RUNNER_TEMP/control-pg.log"
           grep -Fx 'test runtime_run_control::runtime_control_task_and_pm_binding_deny_without_reservation_or_post ... ok' "$RUNNER_TEMP/control-pg.log"
           grep -Fx 'test runtime_run_control::runtime_control_claim_rechecks_frozen_origin_after_reservation ... ok' "$RUNNER_TEMP/control-pg.log"
@@ -218,6 +226,47 @@ jobs:
           cargo test --locked -p migration --test runtime_controls -- --ignored --test-threads=1 | tee "$RUNNER_TEMP/control-migration.log"
           grep -Fx 'test control_ledger_additive_upgrade_empty_down_and_nonempty_guard ... ok' "$RUNNER_TEMP/control-migration.log"
           grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/control-migration.log"
+      - name: Mandatory exact-target approval recovery and journal time order
+        env:
+          PGPASSWORD: fleet_control
+          FLEET_TEST_DATABASE_URL: postgres://fleet_control:fleet_control@127.0.0.1:5432/fleet_approval_recovery_test
+          FLEET_HERMES_TIME_MIGRATION_TEST_DATABASE_URL: postgres://fleet_control:fleet_control@127.0.0.1:5432/fleet_hermes_time_migration_test
+        run: |
+          set -euo pipefail
+          psql -h 127.0.0.1 -U fleet_control -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE fleet_approval_recovery_test;'
+          psql -h 127.0.0.1 -U fleet_control -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE fleet_hermes_time_migration_test;'
+          cargo test --locked -p infra --lib runtime::approval_snapshot::tests:: | tee "$RUNNER_TEMP/approval-snapshot.log"
+          grep -F 'test result: ok. 3 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/approval-snapshot.log"
+          grep -Fx 'test runtime::approval_snapshot::tests::pending_snapshot_keeps_exact_request_not_broad_grants ... ok' "$RUNNER_TEMP/approval-snapshot.log"
+          grep -Fx 'test runtime::approval_snapshot::tests::malformed_or_foreign_pending_snapshots_are_not_recovered ... ok' "$RUNNER_TEMP/approval-snapshot.log"
+          grep -Fx 'test runtime::approval_snapshot::tests::missing_identity_and_oversized_detail_cannot_use_nested_fallbacks ... ok' "$RUNNER_TEMP/approval-snapshot.log"
+          cargo test --locked -p infra --lib runtime::targeted_approval::tests:: | tee "$RUNNER_TEMP/approval-target.log"
+          grep -F 'test result: ok. 2 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/approval-target.log"
+          grep -Fx 'test runtime::targeted_approval::tests::pending_approval_must_match_the_original_request_and_run ... ok' "$RUNNER_TEMP/approval-target.log"
+          grep -Fx 'test runtime::targeted_approval::tests::acknowledgement_must_identify_exactly_one_requested_action ... ok' "$RUNNER_TEMP/approval-target.log"
+          cargo test --locked -p infra --test sdlc_foundation runtime_approval_recovery:: -- --ignored --test-threads=1 | tee "$RUNNER_TEMP/approval-recovery.log"
+          grep -F 'test result: ok. 15 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/approval-recovery.log"
+          grep -Fx 'test runtime_approval_recovery::approval_recovery_http_unknown_decision_survives_restart_and_scoped_get_never_reposts ... ok' "$RUNNER_TEMP/approval-recovery.log"
+          grep -Fx 'test runtime_approval_recovery::approval_recovery_http_owner_delivery_is_once_and_legacy_context_never_posts ... ok' "$RUNNER_TEMP/approval-recovery.log"
+          grep -Fx 'test runtime_approval_recovery::approval_recovery_http_readback_keeps_owner_and_verified_human_guards ... ok' "$RUNNER_TEMP/approval-recovery.log"
+          grep -Fx 'test runtime_approval_recovery::approval_recovery_native_preflight_requires_current_original_scope_and_exact_pending_action ... ok' "$RUNNER_TEMP/approval-recovery.log"
+          grep -Fx 'test runtime_approval_recovery::pinned_recovery_restart_after_pin_completes_by_authenticated_get_without_sse_or_post ... ok' "$RUNNER_TEMP/approval-recovery.log"
+          grep -Fx 'test runtime_approval_recovery::pinned_recovery_waiting_stopping_and_draining_still_complete_by_get ... ok' "$RUNNER_TEMP/approval-recovery.log"
+          grep -Fx 'test runtime_approval_recovery::pinned_recovery_bad_or_nonterminal_readbacks_hold_capacity_until_exact_terminal ... ok' "$RUNNER_TEMP/approval-recovery.log"
+          grep -Fx 'test runtime_approval_recovery::pinned_recovery_original_context_legacy_private_other_and_task_pm_fail_before_http ... ok' "$RUNNER_TEMP/approval-recovery.log"
+          grep -Fx 'test runtime_approval_recovery::pinned_recovery_keyset_reaches_valid_terminal_after_twenty_invalid_pinned_runs ... ok' "$RUNNER_TEMP/approval-recovery.log"
+          grep -Fx 'test runtime_approval_recovery::pinned_approval_recovery_concurrent_supervisors_restore_once_by_get ... ok' "$RUNNER_TEMP/approval-recovery.log"
+          grep -Fx 'test runtime_approval_recovery::pinned_approval_recovery_rolls_back_request_and_waiting_when_event_commit_fails ... ok' "$RUNNER_TEMP/approval-recovery.log"
+          grep -Fx 'test runtime_approval_recovery::pinned_approval_recovery_preserves_stop_and_rejects_changed_snapshot_or_context ... ok' "$RUNNER_TEMP/approval-recovery.log"
+          grep -Fx 'test runtime_approval_recovery::pinned_approval_recovery_missing_capability_or_foreign_snapshot_retains_capacity ... ok' "$RUNNER_TEMP/approval-recovery.log"
+          grep -Fx 'test runtime_approval_recovery::pinned_approval_recovery_never_reopens_a_resolved_request ... ok' "$RUNNER_TEMP/approval-recovery.log"
+          grep -Fx 'test runtime_approval_recovery::pinned_approval_recovery_denies_terminal_legacy_task_pm_and_archived_contexts ... ok' "$RUNNER_TEMP/approval-recovery.log"
+          cargo test --locked -p infra --test sdlc_foundation targeted_approval_http_requires_human_and_unknown_ack_is_not_repeated -- --exact --test-threads=1 | tee "$RUNNER_TEMP/approval-compat.log"
+          grep -Fx 'test targeted_approval_http_requires_human_and_unknown_ack_is_not_repeated ... ok' "$RUNNER_TEMP/approval-compat.log"
+          grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/approval-compat.log"
+          cargo test --locked -p migration --test hermes_journal_time_order -- --ignored --test-threads=1 | tee "$RUNNER_TEMP/approval-time-migration.log"
+          grep -Fx 'test journal_time_order_additive_upgrade_preserves_history_and_original_guard ... ok' "$RUNNER_TEMP/approval-time-migration.log"
+          grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/approval-time-migration.log"
       - name: Isolated directory and approval SSE acceptance
         env:
           PGPASSWORD: fleet_control

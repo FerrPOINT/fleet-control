@@ -9,6 +9,30 @@ and run state atomically. This provides no task/PM model authority or business
 completion. See [the scoped release](plans/2026-10-09-hermes-recovery-release.md)
 and [wire contract](contracts/HERMES_RECOVERY_V1.md); native compatibility is pending.
 
+## Approval Recovery Candidate (Unit14)
+
+The existing POST `/api/v1/sessions/{session_id}/approvals/{approval_id}/decision`
+keeps body `{choice:"once"|"deny",idempotency_key:string}`, verified-human/owner
+and assignment guards. Native preflight now requires the original accepted
+free-chat context and exact current pending action. The durable uncertain
+reservation is replayed without another native POST; only an exact ACK delivers.
+GET on that decision path and GET `/api/v1/sessions/{session_id}/approvals`
+remain scoped DB-only reads. Missing decision returns404, not permission to POST.
+Background current-snapshot recovery is not historical decision acceptance.
+No public schema change; source-only, exact Linux/native validation pending.
+
+## Acknowledged Steer Transcript Follow-Up
+
+Successful free-chat steer now atomically appends one redacted human-authored
+`control` message with `delivery_state=mirrored` to existing session history.
+Its ID equals `command.id`; `runtime_message_id` is the Fleet-local link
+`fleet-control:<session_run_id>:<command_id>:steer`, not a native message ID.
+It acknowledges guidance only, never completion. Uncertain/rejected/terminal-
+observed receipts do not produce a delivered control mirror. Exact acknowledged
+POST replay can repair a pre-fix missing mirror without native I/O; scoped GETs
+remain read-only. No endpoint, DTO, generated contract or client change is made.
+See [the follow-up boundary](plans/2026-10-09-steer-transcript-release.md).
+
 ## Durable Runtime Controls Unit13
 
 The [isolated control release](plans/2026-10-09-runtime-controls-release.md)

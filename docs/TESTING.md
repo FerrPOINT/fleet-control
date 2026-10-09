@@ -1,5 +1,29 @@
 # Testing
 
+## Combined Steer Successor Inventory
+
+The successor to `a26d8b35` with steer `71b17da7` requires all 130 default-ignored
+cases explicitly, including 110 foundation cases. Default foundation retains
+44 passed / 110 ignored / 0 failed. The shared `runtime_run_control::` CI selector
+executes 25 cases: 18 original plus 7 `steer_transcript::` cases registered once
+inside that module. The shared `runtime_terminal::` selector still executes14
+once. All recovery, approval14 and 15/18 lineage cases remain required.
+QA42 is frozen to its original source and is not acceptance for this successor;
+new helper preparation waits for legitimate generation/readback and final source.
+No Cargo, Docker or PostgreSQL acceptance was executed for this source merge.
+
+## Combined Source Qualification
+
+The controls/recovery plus approval14 integration must select all 123 ignored
+cases explicitly (103 foundation), alongside 44 ordinary foundation cases.
+Approval14 contributes 21 new cases: snapshot units 3, exact-pending unit 1,
+approval recovery PG/HTTP 15, logical-clock PG 1 and migration14 PG 1.
+The targeted-approval unit selector runs 2 cases including the inherited ACK
+case. Journal runs 16; controls 18 and atomic terminal 14 run once each.
+Migration14 requires isolated `FLEET_HERMES_TIME_MIGRATION_TEST_DATABASE_URL`.
+Both 15/18 lineages, original-key recovery and strict generated OpenAPI cmp are
+required. Source-only light checks do not imply compile, PG or native acceptance.
+
 ## Hermes Recovery Candidate
 
 The [scoped release inventory](plans/2026-10-09-hermes-recovery-release.md) requires
@@ -14,6 +38,31 @@ and five recovery additions. Recovery families retain their separate databases.
 Existing journal (15), atomic ACK (11), GET readback (5), lineage and workspace
 gates are retained. Local light checks are not Rust compilation, PG/HTTP/concurrency
 execution or installed/native compatibility. No previous packet accepts this new tree.
+
+## Approval Recovery Release Candidate
+
+Unit14 has21 new named cases: snapshot unit3, exact-pending unit1, recovery
+PG/HTTP15, logical-clock PG1 and migration1. Targeted unit group is2 including
+its inherited ACK case; journal12 PG group is16. Required commands/envs and
+remaining acceptance gaps are in [unit14 plan](plans/2026-10-09-approval-recovery-release.md).
+CI explicitly selects ignored PG/migration cases, checks all exact new names
+and counts, and runs the updated historical human/unknown-ACK HTTP case.
+Lineage10, whole sorted SSE ledger including13/14, four-successor task-chat
+rollback and all inherited gates are retained. These Rust/PG gates are prepared,
+not executed locally. Loopback restarts do not qualify real Hermes processes.
+
+## Steer Transcript Follow-Up
+
+Seven new explicitly ignored PostgreSQL/HTTP regressions in
+`runtime_run_control::steer_transcript::` cover original operator attribution,
+redaction, exact session/run/receipt linkage, same-run distinct commands,
+concurrent acknowledged replay/restart, legacy ACK repair, uncertain/rejected/
+terminal-observed non-delivery, payload proof, audit/message rollback and
+collision denial. The existing stop case also denies a control mirror.
+CI now requires all 25 control cases by exact names/count, including these seven.
+Only light checks ran at preparation; Rust compilation, these DB/HTTP tests,
+strict Clippy, full ledger/SSE and exact-source Linux/native gates remain pending.
+See [the follow-up gate commands](plans/2026-10-09-steer-transcript-release.md).
 
 ## Durable Runtime Controls Unit13
 

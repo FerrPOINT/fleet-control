@@ -55,6 +55,14 @@ pub(super) async fn send<T: Serialize + ?Sized>(
         .await?;
     let id = reservation.receipt.id;
     if !reservation.dispatch {
+        if operation == Operation::Steer
+            && reservation.receipt.state == domain::RuntimeControlState::Acknowledged
+        {
+            return supervisor
+                .repo
+                .finish_runtime_control(id, "steered", input)
+                .await;
+        }
         return Ok(reservation.receipt);
     }
     let prepared = match prepare(supervisor, agent, run, operation).await {
@@ -96,6 +104,7 @@ pub(super) async fn send<T: Serialize + ?Sized>(
                         Acknowledgement::Stopping => "stopping",
                         Acknowledgement::AlreadyTerminal => "already_terminal",
                     },
+                    input,
                 )
                 .await
         }
