@@ -10,8 +10,9 @@ this fix plus reviewed recovery452, all historical migrations and controls.
 Review subsequently found that the regression could complete before visiting
 the archived row. Successorc02ee92 sorts two candidates and archives the lower
 UUID before starting the worker; the higher positive sentinel proves scan order.
-Parent mergea0068e2 retains this test-only fix. Independent closure and full
-compiler/PG acceptance for the fix and broader assembly remain open.
+Parent mergea0068e2 retains this test-only fix. Independent source review closes
+the finding atc02ee92 (4950 model pairs); full compiler/PG acceptance for the fix
+and broader assembly remains open.
 The old native packet still targetsbf27, which contains the identified compile
 defect; it must not be executed as acceptance of the corrected source. New
 qualified images and a newly reviewed driver/source packet remain necessary.

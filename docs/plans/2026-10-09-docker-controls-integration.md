@@ -22,7 +22,8 @@ Independent review finds a pagination false-positive in the first archive test.
 Successorc02ee920a6ba8028038ffc24a293dd8de95bf731 assigns the lower of two
 accepted UUIDs to the archived case and the higher to the positive sentinel,
 before starting the worker. Parent normal mergea0068e2 retains it without conflicts.
-Independent closure and actual PG proof remain pending; formatting/diff pass.
+Independent review closes the source finding (4950 ordered model pairs); actual
+Rust/PG proof remains pending. Formatting and diff checks pass.
 The next full46 hosted gate uses exact fixedc02ee92; it cannot certify the larger
 container65 union. Frozenbf27 native packet is retained unchanged but needs a new
 corrected source/image packet before execution.
