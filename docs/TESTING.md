@@ -27,6 +27,10 @@ fresh database. Fixture Playwright cases run on Chromium, Firefox and WebKit;
 live cases require `SDLC_LIVE_QA=1`. Screenshots are fixture evidence, not a real
 seven-agent PM/decomposition/Rework/deployment acceptance.
 
+The managed-settings fixture changes themes through the shared account menu,
+checks the selected radio item and preserves preview/apply/rollback assertions.
+The removed standalone theme button is not an alternative control contract.
+
 Chat/session acceptance scenarios `C-01` through `C-15` and their current
 source-review gaps are defined in [CHAT.md](CHAT.md). Existing frontend unit
 checks are not evidence of live runtime delivery or backend permission closure.
