@@ -1000,8 +1000,36 @@ async fn journal_clock_regression_keeps_logical_progress_without_renewing_horizo
         1
     );
     assert!(claim(&p).await.unwrap().is_none());
-    let downgrade = migration::Migrator::down(&p.db, Some(1)).await;
-    assert!(downgrade.is_err(), "retained journal must block downgrade");
+    let ledger_before = migration::Migrator::get_migration_models(&p.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|row| (row.version, row.applied_at))
+        .collect::<std::collections::BTreeMap<_, _>>();
+    let migration_name = "m20261005_000014_hermes_journal_time_order";
+    assert!(ledger_before.contains_key(migration_name));
+    // Later migrations must not change which retained-journal guard is exercised.
+    let journal_migration = migration::Migrator::migrations()
+        .into_iter()
+        .find(|item| item.name() == migration_name)
+        .expect("Hermes journal time-order migration must remain registered");
+    let error = journal_migration
+        .down(&migration::SchemaManager::new(&p.db))
+        .await
+        .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("Hermes journal time ordering requires reconciliation before downgrade"),
+        "unexpected downgrade refusal: {error}"
+    );
+    let ledger_after = migration::Migrator::get_migration_models(&p.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|row| (row.version, row.applied_at))
+        .collect::<std::collections::BTreeMap<_, _>>();
+    assert_eq!(ledger_before, ledger_after);
     let retained =
         p.db.query_one(Statement::from_string(
             DatabaseBackend::Postgres,
