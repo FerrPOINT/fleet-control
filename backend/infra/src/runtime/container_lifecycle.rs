@@ -7,11 +7,11 @@ use container_control::{
 use std::path::{Path, PathBuf};
 use tokio::io::AsyncReadExt;
 
-// Base utility169 is independent of the accepted Rust/UI SDK pin.
+// Canonical Git blob bytes at Base utility169, independent of the Rust/UI SDK pin.
 pub(super) const UTILITY_SHA256: [&str; 3] = [
-    "3893ed87d8cbfd815a60356392be523ce06ed735f66c2275fdc0f1c3970948aa",
-    "49234f34db9089f74407dcf1c01ba4d920e2b72cef43df1f7392794f1314fdfc",
-    "b079befbffc71053c6ae0398b1b2446c10d77c5f9accee54f2fdd642d30e4b05",
+    "2e6bfa6907b93e6d436d2b6668ae20211aca53a64c433f7e1a98ab51245b3e89",
+    "5be8066b6f7dc68f8dda7f1040c0626dad272477c019b07263821df7f86b59a2",
+    "a650ed055334799af115a229c202b0f8a63a0917284d722a75f0cac19f22ebb8",
 ];
 
 fn held() -> AppError {

@@ -1,6 +1,34 @@
 use super::container_control::{ContainerControl, ContainerLaunchFiles, canonical_hash};
 use super::*;
 use app::container_runtime::{ContainerLaunch, ContainerRecoveryCommand, ContainerRecoveryRequest};
+use std::future::Future;
+use tokio::task::JoinHandle;
+
+#[derive(Default)]
+struct RecoveryTasks {
+    tasks: HashMap<Uuid, JoinHandle<()>>,
+}
+
+impl RecoveryTasks {
+    fn spawn(&mut self, agent_id: Uuid, reconcile: impl Future<Output = ()> + Send + 'static) {
+        if self
+            .tasks
+            .get(&agent_id)
+            .is_some_and(|task| !task.is_finished())
+        {
+            return;
+        }
+        self.tasks.insert(agent_id, tokio::spawn(reconcile));
+    }
+}
+
+impl Drop for RecoveryTasks {
+    fn drop(&mut self) {
+        for task in self.tasks.values() {
+            task.abort();
+        }
+    }
+}
 
 fn held() -> AppError {
     AppError::Unavailable("Original controller custody remains held".into())
@@ -81,14 +109,18 @@ impl LocalRuntimeSupervisor {
         let supervisor = self.clone();
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
             handle.spawn(async move {
+                let mut tasks = RecoveryTasks::default();
                 loop {
+                    tasks.tasks.retain(|_, task| !task.is_finished());
                     if let Ok(agents) = supervisor.repo.list_agents().await {
                         for agent in agents.into_iter().filter(|a| a.kind == AgentKind::Hermes) {
-                            let _guard = supervisor.container_custody.lock().await;
-                            // Neither a storage ACK nor this worker changes run capacity or runtime_ready.
-                            if supervisor.reconcile_container_owner(&agent).await.is_err() {
-                                tracing::debug!(agent_id=%agent.id, "Original container custody remains held");
-                            }
+                            let supervisor = supervisor.clone();
+                            // One in-flight reconcile per agent; slow native calls cannot queue sibling leases.
+                            tasks.spawn(agent.id, async move {
+                                if supervisor.reconcile_container_owner(&agent).await.is_err() {
+                                    tracing::debug!(agent_id=%agent.id, "Original container custody remains held");
+                                }
+                            });
                         }
                     }
                     sleep(Duration::from_secs(5)).await;
@@ -122,7 +154,9 @@ impl LocalRuntimeSupervisor {
                 } else {
                     "read_controller_recovery"
                 };
-                let ack = control.recovery_action(&files, original, action).await?;
+                let ack = control
+                    .recovery_action(&files, original, action, self.controller_id)
+                    .await?;
                 if ack["witness"]["receipt"]["snapshot"]
                     != launch.snapshot.clone().ok_or_else(held)?
                 {
@@ -148,7 +182,7 @@ impl LocalRuntimeSupervisor {
                 }
                 files.recovery = Some(record.lease.clone());
                 let ack = control
-                    .recovery_action(&files, original, "heartbeat_controller")
+                    .recovery_action(&files, original, "heartbeat_controller", self.controller_id)
                     .await?;
                 let receipt = control.observe(&files, original).await?;
                 original_snapshot(&launch, &receipt)?;
@@ -160,23 +194,9 @@ impl LocalRuntimeSupervisor {
                     .await?;
                 return self.finish_recovered_stop(agent, &launch).await;
             }
-            if record.lease_receipt.is_none() {
-                // Read the exact native acknowledgement, never invent a fresh deadline for a lost owner.
-                files.recovery = Some(record.lease.clone());
-                let ack = control
-                    .recovery_action(&files, original, "heartbeat_controller")
-                    .await?;
-                let witness = control.controller_restart(&files, original).await?;
-                original_snapshot(&launch, &witness.receipt)?;
-                self.repo
-                    .acknowledge_container_lease(
-                        &record.lease,
-                        json!({"ack":ack,"receipt":witness.receipt}),
-                    )
-                    .await?;
-                return Ok(());
-            }
-            if record.lease_valid {
+            // Base169 heartbeat is a write, not an unknown-delivery lookup. A foreign
+            // process cannot settle it, even with the exact frozen version/deadline.
+            if record.lease_receipt.is_none() || record.lease_valid {
                 return Err(held());
             }
         } else if launch.controller_id == self.controller_id {
@@ -212,7 +232,7 @@ impl LocalRuntimeSupervisor {
             .await?;
         files.recovery = Some(command.clone());
         let ack = control
-            .recovery_action(&files, original, "recover_controller")
+            .recovery_action(&files, original, "recover_controller", self.controller_id)
             .await?;
         if ack["witness"]["receipt"]["snapshot"] != launch.snapshot.clone().ok_or_else(held)? {
             return Err(held());
@@ -221,7 +241,7 @@ impl LocalRuntimeSupervisor {
             .acknowledge_container_recovery(&command, ack)
             .await?;
         let heartbeat = control
-            .recovery_action(&files, original, "heartbeat_controller")
+            .recovery_action(&files, original, "heartbeat_controller", self.controller_id)
             .await?;
         let receipt = control.observe(&files, original).await?;
         original_snapshot(&launch, &receipt)?;
@@ -237,9 +257,72 @@ impl LocalRuntimeSupervisor {
         launch: &ContainerLaunch,
     ) -> Result<(), AppError> {
         if launch.state == "stopping" {
-            let _guard = self.container_operations.lock().await;
+            let Ok(_guard) = self.container_operations.try_lock() else {
+                return Ok(());
+            };
             self.stop_container(agent).await?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use tokio::sync::oneshot;
+
+    #[tokio::test]
+    async fn slow_agent_does_not_block_repeated_sibling_heartbeats() {
+        let slow = Uuid::new_v4();
+        let fast = Uuid::new_v4();
+        let mut tasks = RecoveryTasks::default();
+        let (release, blocked) = oneshot::channel::<()>();
+        let (started, ready) = oneshot::channel();
+        tasks.spawn(slow, async move {
+            started.send(()).unwrap();
+            let _ = blocked.await;
+        });
+        ready.await.unwrap();
+        let calls = Arc::new(AtomicUsize::new(0));
+        for expected in 1..=3 {
+            let heartbeat_calls = calls.clone();
+            tasks.spawn(fast, async move {
+                heartbeat_calls.fetch_add(1, Ordering::SeqCst);
+            });
+            tasks.tasks.get_mut(&fast).unwrap().await.unwrap();
+            assert_eq!(calls.load(Ordering::SeqCst), expected);
+            assert!(!tasks.tasks[&slow].is_finished());
+        }
+        release.send(()).unwrap();
+        tasks.tasks.get_mut(&slow).unwrap().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn pending_agent_has_one_attempt_and_shutdown_aborts_it() {
+        let agent = Uuid::new_v4();
+        let mut tasks = RecoveryTasks::default();
+        let (started, ready) = oneshot::channel();
+        let (closed, receiver) = oneshot::channel::<()>();
+        tasks.spawn(agent, async move {
+            let _closed = closed;
+            started.send(()).unwrap();
+            std::future::pending::<()>().await;
+        });
+        ready.await.unwrap();
+        let calls = Arc::new(AtomicUsize::new(0));
+        let duplicate_calls = calls.clone();
+        tasks.spawn(agent, async move {
+            duplicate_calls.fetch_add(1, Ordering::SeqCst);
+        });
+        assert_eq!(tasks.tasks.len(), 1);
+        drop(tasks);
+        assert!(
+            tokio::time::timeout(Duration::from_secs(5), receiver)
+                .await
+                .unwrap()
+                .is_err()
+        );
+        assert_eq!(calls.load(Ordering::SeqCst), 0);
     }
 }

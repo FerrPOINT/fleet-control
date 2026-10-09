@@ -3,6 +3,8 @@
 Unit16 adds `runtime_container_recoveries` with frozen per-generation epoch
 commands/ACKs and durable bounded heartbeat delivery, while retaining original
 000015 launch identity. See [the private unit contract](MAPPED_CONTROLLER_RECOVERY_RELEASE.md).
+The unit16 correctness follow-up needs no schema change and never rewrites
+historical bindings/receipts; foreign unknown heartbeat delivery stays held.
 
 ## Original Docker Controller
 
