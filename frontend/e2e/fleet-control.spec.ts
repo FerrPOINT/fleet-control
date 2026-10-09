@@ -364,7 +364,7 @@ test('PM chat journal reload holds fresh writes and explicitly delivers the orig
           task_id: ids.session,
           root_task_id: ids.session,
           owner_subject: ids.user,
-          stage: 'Clarification',
+          stage: 'Draft',
           requirement_revision: 1,
           waiting_reason: 'Требуется сверка исходного ответа',
           assignment: null,
