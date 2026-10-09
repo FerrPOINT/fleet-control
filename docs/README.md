@@ -85,6 +85,11 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 - [PM Draft creation and recovery proposal](design/PM_DRAFT_CREATION_PREVIEW.md) (approval pending)
   is an isolated clickable proposal with fictional data, not an implemented
   Tracker clarification flow or an approved production design.
+
+- [HEARTBEAT_ALERT_VERIFICATION.md](HEARTBEAT_ALERT_VERIFICATION.md) records the
+  main-based monitoring correction, real PostgreSQL regression and separate
+  nine-image three-browser fixture packet.
+
 - [assets/screens/manifest.md](assets/screens/manifest.md) contains the
   generated route-to-screenshot matrix for 135 fixture screenshots at three
   viewports. It does not prove real runtime execution or Central Auth acceptance.

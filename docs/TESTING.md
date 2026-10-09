@@ -31,7 +31,7 @@ accept this release prerequisite. Explicit execution fails for absent inputs:
 cargo test --locked -p infra --test pm_credentials_real_auth -- --ignored --test-threads=1
 ```
 
-The owned launcher supplies `FLEET_REAL_AUTH_TEST_OWNED=disposable-compose`,
+The owned launcher supplies `FLEET_REAL_AUTH_TEST_OWNED=source-qualified-disposable`,
 `FLEET_REAL_AUTH_TEST_SOURCE_SHA=01388dfb43332cbe5837fd5e1fadccf09cb8886d`,
 `FLEET_REAL_AUTH_TEST_BINARY`, its `FLEET_REAL_AUTH_TEST_BINARY_SHA256`, and
 `FLEET_REAL_AUTH_TEST_DATABASE_URL=postgres://fleet_test@postgres:5432/fleet_real_auth_test`.
@@ -45,7 +45,16 @@ an environment string alone does not attest the server. No Tracker request,
 assignment claim, workflow receipt or full SDLC completion is asserted here.
 The twenty-stage source-exported backend gate explicitly builds this Auth binary,
 records its digest/source commit and requires this otherwise-ignored consumer case.
-The case is implemented but not executed; real compatibility remains pending.
+Packet4ed36ce828ea explicitly passed this real consumer against Auth01388df.
+This is disposable source/binary compatibility, not installed-runtime acceptance.
+
+The mandatory `real-base-auth` CI job uses a GitHub-managed Rust container and
+isolated PostgreSQL service with no published host port. It exports committed
+Fleet/SDK/Auth sources, builds Auth01388df separately from SDK19a7, records source
+and binary hashes, and requires the otherwise-ignored consumer case with exactly
+one PASS and zero ignores. It is not a local Compose project or installed-runtime
+acceptance. This CI job depends on Base126 publishing the pinned Auth commit;
+the workflow itself has not run yet.
 
 ## Persisted Credential Candidate
 
@@ -56,6 +65,16 @@ tests, `migration --test pm_credentials -- --ignored --test-threads=1` with its 
 locked Linux workspace/check/strict Clippy and generated OpenAPI parity.
 CI creates the dedicated database and runs the credential migration case.
 Source preparation and formatting do not certify these pending gates.
+
+The same packet passed15 of20 stages, including7 credential unit cases,10 real-PG
+credential cases,47 foundation cases, workspace tests and10 lineage cases. Stage16
+failed before SSE exercise because its inherited fixture expected11 migrations
+after the additive credentials migration made12. The fixture now compares the
+exact sorted ledger against registered canonical versions and requires the
+credentials migration. This correction is formatted, not yet Linux/PG verified.
+The credential-migration, smoke, OpenAPI and final parity stages did not run;
+all10 independent cleanup/input parity checks passed and permanent runtime was
+unchanged. Full acceptance waits for current-main reconciliation and a fresh gate.
 
 The central directory regression explicitly executes the real PostgreSQL query
 with expanded and selected-foreign owner filters. It verifies that private rows,
@@ -168,11 +187,42 @@ export FLEET_MIGRATION_TEST_DATABASE_URL=postgres://USER:PASSWORD@HOST:PORT/flee
 cargo test --workspace -- --test-threads=1
 ```
 
-Without these variables, database test functions return early; a green unit run
-alone is not PostgreSQL evidence. The central-subject migration fixture uses a
+Without these variables, some legacy database test functions return early; a
+green unit run alone is not PostgreSQL evidence. The `agent_logs` integration
+suite instead fails if `FLEET_TEST_DATABASE_URL` is missing. It checks an
+interleaved newer row using an agent-scoped PostgreSQL trigger, 64 concurrent
+stdout/stderr writers, exact persisted/redacted acknowledgements and a failed
+foreign-key insert without a phantom row. CI runs these tests in its ordinary
+PostgreSQL workspace gate. The central-subject migration fixture uses a
 fresh database. Fixture Playwright cases run on Chromium, Firefox and WebKit;
 live cases require `SDLC_LIVE_QA=1`. Screenshots are fixture evidence, not a real
 seven-agent PM/decomposition/Rework/deployment acceptance.
+
+The managed-settings fixture changes themes through the shared account menu,
+checks the selected radio item and preserves preview/apply/rollback assertions.
+The removed standalone theme button is not an alternative control contract.
+
+## Heartbeat Incident Regression
+
+`backend/infra/tests/heartbeat_alerts.rs` requires `FLEET_TEST_DATABASE_URL`
+pointing at a disposable PostgreSQL instance. An absent database URL fails the
+fixture instead of returning a successful
+test without executing PostgreSQL assertions.
+
+Run explicitly:
+
+```bash
+cargo test --locked -p infra --test heartbeat_alerts -- --test-threads=1
+```
+
+Five cases cover actual canonical-kind persistence, acknowledged deduplication,
+fresh recovery without a status transition, a new incident after recovery,
+unknown/future/nonrunning retention, concurrent insertion identity, explicit
+health recovery, and atomic rollback when the resolution audit fails. The audit
+failure fixture installs a task-owned trigger restricted to its own agent; it
+must never run against an accepted runtime database. UI tests check canonical
+and legacy display labels. These are monitoring regressions, not Hermes/model,
+PM workflow or full SDLC acceptance.
 
 Chat/session acceptance scenarios `C-01` through `C-15` and their current
 source-review gaps are defined in [CHAT.md](CHAT.md). Existing frontend unit

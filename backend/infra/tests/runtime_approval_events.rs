@@ -189,7 +189,7 @@ async fn authenticated_hermes_sse_ingests_exact_requests_and_never_response_even
             "{version} must be registered"
         );
     }
-    expected.sort();
+    expected.sort_unstable();
     assert_eq!(
         migrations, expected,
         "fixture must have the exact ordered canonical migration ledger"

@@ -4,7 +4,8 @@ Status: isolated source freeze candidate; compilation and runtime acceptance pen
 
 ## Source And Prerequisites
 
-- Exact parent: journal12 `72c05080f5fcb51c674dc174cc4d7754b2a5b211`.
+- Original product freeze: `3a07a331cbcffef9a3d5bf434050c90d601373b5`,
+  based on journal12 `72c05080f5fcb51c674dc174cc4d7754b2a5b211`.
   Only committed Git objects are used, never dirty donor/parent files.
 - Own sibling build SDK and unchanged `.base-revision`:
   `19a7a381ae6dbea61a643bb96189e483fa64df5c`.
@@ -22,8 +23,10 @@ Status: isolated source freeze candidate; compilation and runtime acceptance pen
 - Coordinator's clean journal integration is `cb720d7` (normal merge through
   `e0e7f1c63ded345e4cde229996775efb0a873082`, credentials80f,
   Foundation8fa and accepted main `34aaec0f6a3aa776e5725a2173547342c1173178`).
-  This source freeze stays on72. A later normal merge and exact integrated
-  validation are required; no automatic merge, rebase, push or PR is done here.
+  This candidate normally merges that exact committed integration, retaining
+  accepted main/credentials/foundation history. Incoming frontend and screenshot
+  files are preserved, not newly generated or accepted for controls13.
+  Exact integrated validation is still required; no rebase, push or PR is done here.
 - Real Hermes capability/ACK compatibility, centralized human auth acceptance
   and deployed cross-service compatibility remain independent gates. Loopback
   fixtures test this consumer, not an installed Hermes server or PM admission.
@@ -91,6 +94,8 @@ the hold, including after restart.
   stable-key/uncertain-state interaction using their existing Chats/session
   primitives after API validation. No screenshots or browser acceptance are
   fabricated. This candidate is not publish-ready while that boundary is open.
+  The coordinator owns the separate UI consumer and Rust-generated OpenAPI
+  integration; this backend candidate does not edit either manually.
 
 `runtime_ready=false`. Runtime control receipts are not model authority,
 SDLC stage completion, safe OS-stop evidence or full business-goal closure.
