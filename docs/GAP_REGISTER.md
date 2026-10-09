@@ -21,8 +21,10 @@ Source integration is progress, not release acceptance. Its remaining gates are:
   clarification unknown-outcome recovery across reload. The mounted original
   command guard and closed-question retry have frontend/browser fixture evidence
   only; no new-answer permission bypass is permitted.
-- **Forge:** close the actual bridge/global cleanup deadline finding, then run
-  the unchanged full12 matrix and real deployment/evidence/rollback acceptance.
+- **Forge:** actual bridge/global cleanup deadline has scoped independent source
+  closure at89420cd. Run the unchanged full12 matrix and real
+  deployment/evidence/rollback acceptance; bounded external-I/O probes do not
+  substitute for those gates.
 - **Publication:** account billing must allow exact-head CI; publish only
   task-owned scoped units after their gates, retaining migration ownership and
   independent review. Base PR180 stays Draft; no paid-resource bypass is allowed.

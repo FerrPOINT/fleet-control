@@ -26,8 +26,15 @@ heads; they do not accept this assembly.
   oracle cases and8 real-module probes remain distinct. Producer admission stays
   BLOCKED/live=false. No pre-model authority or credential custody is invented.
 - Forge daf's independent review finds an actual bridge cleanup deadline defect.
-  Frozen successor89420cd has84/84 parent pure checks; independent closure and
-  full12 acceptance remain pending. Product25be/SDK19a and budgets are unchanged.
+  Frozen successor89420cd has84/84 parent pure checks and independent scoped
+  closure, including17 actual bounded deadline probes. These substitute external
+  I/O and are not full12/PG/OCI acceptance. Product25be/SDK19a and budgets remain
+  unchanged; full12 is NOT RUN.
+- Separate native-driver source df6574b targets exactb249/Base9b and four
+  canonical utility modules, preserving the original nine scenarios. Its47 pure
+  tests pass; independent review, compiled source/image qualification and actual
+  native execution remain pending. Interrupted protocol4 activation and F6
+  sequential recovered-child cuts are not yet exercised by that driver.
 - Base PR180 remains Draft at815982b; all11 CI jobs are denied before steps by
   billing. Reported local224 fake-engine tests do not replace exact-head CI or
   native Docker acceptance. Protected runtime images and services are unchanged.

@@ -38,11 +38,11 @@ findings do not certify an unexecuted compiler, database or live runtime gate.
 
 | Owner    | Current assignment                                                 | Required handoff                                                                                                              |
 | -------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| Feynman  | Independent combined Fleet/PM integration review                     | Exact379b48e; preserve reviewed2ee packet, production UI guards and source pins; no duplicate runner execution |
-| Pascal   | Base release-readiness audit                                        | Exact815982b and PR180; distinguish actionable defects, review closure and external CI blockers; read-only report |
-| Ptolemy  | Frozen Forge actual bridge/global deadline successor                 | Exact89420cd submitted; preserve frozen source and original budgets pending independent closure |
-| Anscombe | Independent Forge successor closure                                 | Actual helper boundaries, outer finally and next parent.close; full12 remains a separate unexecuted gate |
-| Leibniz  | Fleet backend gate/inventory audit                                  | Exact1801201 backend; migration20/23,13 PG selectors and2 new Rust cases, stale fixtures/selector risks; source-only |
+| Feynman  | Native protocol4/F6 interrupted-activation QA successor               | Preserve frozen df6574 and original nine scenarios; observe genuine ACK/lease/readback at crash cuts, no native launch |
+| Pascal   | Retained exact815 Linux fake-contract evidence                       | New bounded run only on already-running Ubuntu with resource/owned-process guards; never reconstruct historical logs |
+| Ptolemy  | Frozen Forge release handoff                                         | Exact89420cd scoped source closure; no push/CI dispatch during billing hold or changes to foreign PRs |
+| Anscombe | Independent native-driver source review                              | Exactdf6574 four-module qualification/opt-in/ACK/source/image guards; source-only, no real native run |
+| Leibniz  | Fleet executable backend gate retarget                               | Frozenb249, all46 original stages plus new selections,19 DBs and strict schema/source qualification; prepare-only |
 | Parent   | UI evidence, normal integration, documentation and publication      | Integrate accepted source, combined admissible checks and exact evidence; do not certify full SDLC from fixture passes |
 
 ### Current Frozen Handoffs
@@ -79,9 +79,19 @@ findings do not certify an unexecuted compiler, database or live runtime gate.
   actual bridge/SDK close and late record I/O. Parent repeats84/84 pure cases,
   zero skips,21.228s. Lock SHA256:
   4c8306ea5a5c71569f648b13515e7a3140aa7731b00e4c726d34eadb86e963ad.
-  Owner reports101 Linux cases; Anscombe independently checks one/multi-OCI,
-  consumed alarms and outer-finally boundaries. Closure remains pending. No
-  actual full12, hosted dispatch or publication occurred.
+  Independent scoped closure passes17 targeted actual deadline probes, including
+  one/multi-OCI collection, swallowed/converted alarm, next parent close and
+  independent outer-finally/cache cuts. External daemon/journal I/O is substituted;
+  no actual Docker/OCI or full12 result follows. Original P1 is closed only for
+  this exact successor. No hosted dispatch or publication occurred.
+- Native-driver source df6574bfe5d26445b9ce31a8f396d42914c8c653 retargets the
+  preserved nine-scenario matrix to exactb249/Base9b, four raw canonical utility
+  modules and a separate opt-in/ACK namespace. Owner47 unique pure cases pass;
+  independent source review is assigned. Compile/images/native remain unqualified.
+  It activates before controller restart, so interrupted protocol4 activation
+  and sequential recovered-child F6 cuts are explicitly not exercised. A separate
+  QA successor owns those cuts without fabricating SQL/custody or weakening the
+  original matrix. No actual prepare or native run is authorized by this freeze.
 - PM receipt successore05e77e7c41803a597b07ef669d915e7cae44d15 has sole
   parentdc6ab. Parent runs the actual24-case packet successfully with strict
   receipt/provenance validation,457 canonical imports and closed owned Git reader.
