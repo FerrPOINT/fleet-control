@@ -4990,6 +4990,12 @@
           "replayed": {
             "type": "boolean"
           },
+          "request_payload_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "runtime_message_id": {
             "type": [
               "string",

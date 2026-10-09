@@ -1,3 +1,5 @@
+import type { components } from './generated'
+
 export type AgentKind = 'hermes' | 'java_agent'
 export type SystemRole = 'admin' | 'operator' | 'user'
 export type AgentProductRole = 'leader' | 'executor'
@@ -179,21 +181,7 @@ export interface SessionParticipant {
   created_at: string
 }
 
-export interface SessionMessage {
-  id: string
-  session_id: string
-  author_type: MessageAuthorType
-  author_user_id: string | null
-  author_agent_id: string | null
-  author_display_name: string
-  body: string
-  message_kind: MessageKind
-  runtime_message_id: string | null
-  delivery_state: MessageDeliveryState
-  delivery_error: string | null
-  replayed: boolean
-  created_at: string
-}
+export type SessionMessage = components['schemas']['SessionMessage']
 
 export interface SessionAgentRun {
   id: string
@@ -408,13 +396,7 @@ export interface AssignSessionLeaderRequest {
   leader_agent_id: string | null
 }
 
-export interface CreateSessionMessageRequest {
-  body: string
-  author_agent_id?: string | null
-  message_kind?: MessageKind | null
-  runtime_message_id?: string | null
-  idempotency_key?: string | null
-}
+export type CreateSessionMessageRequest = components['schemas']['CreateSessionMessageRequest']
 
 export interface SteerSessionRunRequest {
   input: string

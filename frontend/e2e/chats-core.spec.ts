@@ -1,5 +1,6 @@
 import { test as base, expect, type Page, type TestInfo } from '@playwright/test'
 import { createServer } from 'node:http'
+import { createHash } from 'node:crypto'
 import { mkdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { installSsoMocks } from './chats-core-sso'
@@ -61,6 +62,8 @@ type State = {
   creates: number
   createdTitle: string | null
   rejection: number | null
+  receiptBody: string | null
+  receiptHash: 'correct' | 'missing' | 'wrong'
 }
 type Stream = { url: string; emit: (data: unknown) => void; connected: () => number }
 const test = base.extend<{ stream: Stream }>({
@@ -127,6 +130,8 @@ async function install(page: Page, stream: Stream, overrides: Partial<State> = {
     posts: [],
     requests: [],
     unknown: false,
+    receiptBody: null,
+    receiptHash: 'correct',
     preflightDenied: false,
     creates: 0,
     createdTitle: null,
@@ -200,7 +205,26 @@ async function install(page: Page, stream: Stream, overrides: Partial<State> = {
         return reply({ ...session, title: body.title })
       }
       if (path.endsWith('/messages')) {
-        const saved = message(body.body, 'saved')
+        const requestHash = createHash('sha256')
+          .update(
+            JSON.stringify({
+              author_agent_id: body.author_agent_id ?? null,
+              body: body.body,
+              idempotency_key: body.idempotency_key ?? null,
+              message_kind: body.message_kind ?? null,
+              runtime_message_id: body.runtime_message_id ?? null,
+            }),
+          )
+          .digest('hex')
+        const saved = {
+          ...message(state.receiptBody ?? body.body, 'saved'),
+          request_payload_hash:
+            state.receiptHash === 'missing'
+              ? undefined
+              : state.receiptHash === 'wrong'
+                ? '0'.repeat(64)
+                : requestHash,
+        }
         state.messages.push(saved)
         return reply(saved)
       }
@@ -287,6 +311,36 @@ test('unknown prompt freezes payload, retries original key and releases only a m
   expect(state.posts).toHaveLength(2)
   expect(state.posts[1].body).toEqual(state.posts[0].body)
 })
+
+test('a matching redacted prompt receipt releases the original command', async ({
+  page,
+  stream,
+}) => {
+  const state = await install(page, stream, { receiptBody: 'Discuss password=redacted' })
+  await page.goto(`/chats/${sessionId}`)
+  await page.getByLabel('Сообщение', { exact: true }).fill('Discuss password=fixture-value')
+  await page.getByRole('button', { name: 'Отправить', exact: true }).click()
+  await expect(page.getByLabel('Сообщение', { exact: true })).toHaveValue('')
+  await expect(page.getByLabel('Сообщение', { exact: true })).toBeEnabled()
+  await expect(page.getByText('Discuss password=redacted', { exact: true })).toBeVisible()
+  expect(state.posts).toHaveLength(1)
+})
+
+for (const receiptHash of ['missing', 'wrong'] as const) {
+  test(`a ${receiptHash} request hash cannot release an original prompt`, async ({
+    page,
+    stream,
+  }) => {
+    const state = await install(page, stream, { receiptHash })
+    await page.goto(`/chats/${sessionId}`)
+    await page.getByLabel('Сообщение', { exact: true }).fill('Original prompt')
+    await page.getByRole('button', { name: 'Отправить', exact: true }).click()
+    await expect(page.getByLabel('Сообщение', { exact: true })).toBeDisabled()
+    await expect(page.getByLabel('Сообщение', { exact: true })).toHaveValue('Original prompt')
+    await expect(page.getByText(/Исходная команда требует сверки/)).toBeVisible()
+    expect(state.posts).toHaveLength(1)
+  })
+}
 
 test('reload and another actor retain unknown prompt hold without redispatch', async ({
   page,

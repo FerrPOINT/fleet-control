@@ -1,10 +1,12 @@
 # Production Chats core for main
 
-This independent frontend package targets Fleet `main` at
-`c8093aace07e54436893c5f7e35df1f968690266`, with the unchanged Base pin
-`875cac2edf1a18c3a8a59e2f67256d02a8fc04e4`. It does not require the runtime
-integration branch to merge. Backend, migrations, OpenAPI, runtime configuration,
-Base pin and dependency lockfiles are unchanged.
+This Chats package is integrated with Fleet `main` at
+`b750e7b69cb359fbe7c7fd13647882c7ae8472bb` and its Base pin
+`19a7a381ae6dbea61a643bb96189e483fa64df5c`. It includes the message-receipt
+producer fix required by the new consumer and optional POST receipt digest in
+OpenAPI. Database migrations, runtime configuration and dependency lockfiles
+remain unchanged relative to that main. The PM runtime integration branch is
+separate from this package.
 
 ## Supported scope
 
@@ -34,13 +36,20 @@ permission does not release an unknown command. Legacy stop/steer markers stay
 held without calling an unsupported lookup. A reload loses the private draft
 but retains the hold; this version has no UI for manually discarding that hold.
 
+The prompt receipt binds the session, owner, author kind and original request
+digest. A valid redacted body can confirm the same command; missing or mismatched
+digests retain its key. Producer acknowledgement and replay return the specific
+persisted row independently of the bounded history page. The backend must
+provide this POST receipt contract when deploying the new Chats consumer.
+
 ## Contract limits and separate PM package
 
 The current producer returns at most 200 sessions and the first 500 messages
 (ordered by server `created_at`, then `id`), with no cursor or total count.
 Search covers only the loaded sessions. The UI states these limits and does not
-invent pagination. At the message cap, late replies and idempotent replay
-receipts may be unavailable until the producer adds history pagination.
+invent pagination. At the message cap, late replies remain outside the history
+page until the producer adds pagination. POST/replay, dispatch and mirror
+receipts remain available independently of that read limit.
 
 Main has no task-context/clarification/requirements gateway, authoritative
 chat-controls projection, original-key lookup or public runtime control
@@ -61,7 +70,7 @@ source contract parity is 7/7 against Tracker PR 114 at
 `357caa7a60a717eb7b0ac72f286b793326992931`. That source parity is separate from
 live PM acceptance and does not add those endpoints to current main.
 
-## Validation evidence
+## Initial Frontend Validation Evidence
 
 [The manifest](assets/screens/chats-core-main-20261007/validation.json) binds
 source files, validation logs and screenshots by SHA-256. Screenshots cover
@@ -80,9 +89,30 @@ single main landmark. Stock `pnpm screenshots:local` captured all 135 fixture
 screens, and `pnpm screenshots:verify` validated the generated manifest. The six
 standard Chats list/detail images were refreshed and visually reviewed; the
 task manifest also binds their hashes and the generated stock manifest.
-Validation results are recorded in the manifest. Full frontend build, unit,
+These historical results are recorded in the manifest for the original frontend
+revision, not the current integrated backend/consumer candidate. Full frontend build, unit,
 lint, format, UI contract, effective theme, OpenAPI generation/compatibility and
 Markdown checks use frozen dependencies and this package's exact clean Base
 checkout. Browser acceptance covers Chromium, Firefox and WebKit. Existing live
 specs requiring external credentials remain explicitly skipped when those
 environment variables are absent.
+
+## Receipt Contract Review
+
+The real PostgreSQL boundary regression first reproduced a committed 501st row
+with a missing receipt. The new regression preserves the initial system event,
+checks exactly 499/500 history rows, and covers replay/conflict/authorization,
+raw runtime dispatch and assistant mirror receipts. It requires an explicit
+disposable database and fails when that input is absent. See
+[the regression procedure](TESTING.md#message-receipt-boundary-regression).
+
+Client regressions first reproduced rejection of a valid redacted receipt and
+acceptance of missing/wrong request digests. All three pass after the consumer
+change. The cross-language protocol fixture includes explicit nulls and the
+original idempotency key in its digest. The final real PostgreSQL regression
+passed, including POST-only digest projection and omitted digests in history and
+runtime input. Rust regenerated OpenAPI with one optional field; generated client
+types, TypeScript and compatibility checks passed. The frontend gate passed 176
+unit tests, build, lint, format and UI contract. All 48 Chats cases passed across
+Chromium/Firefox/WebKit on the development test server. Final hosted CI and
+native application/browser acceptance remain pending for this review revision.

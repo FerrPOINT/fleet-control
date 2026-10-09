@@ -2014,40 +2014,7 @@ impl FleetRepository for PostgresFleetRepository {
             .map_err(AppError::database)?;
         let mut result = Vec::with_capacity(rows.len());
         for row in rows {
-            let author_type = parse_message_author_type(&row.author_type);
-            let author_user = match row.author_user_id {
-                Some(user_id) => user::Entity::find_by_id(user_id)
-                    .one(&self.db)
-                    .await
-                    .map_err(AppError::database)?,
-                None => None,
-            };
-            let author_agent = match row.author_agent_id {
-                Some(agent_id) => agent::Entity::find_by_id(agent_id)
-                    .one(&self.db)
-                    .await
-                    .map_err(AppError::database)?,
-                None => None,
-            };
-            result.push(SessionMessage {
-                id: row.id,
-                session_id: row.session_id,
-                author_type,
-                author_user_id: row.author_user_id,
-                author_agent_id: row.author_agent_id,
-                author_display_name: message_author_display_name(
-                    author_type,
-                    author_user.as_ref(),
-                    author_agent.as_ref(),
-                ),
-                body: redact_text(&row.body),
-                message_kind: parse_message_kind(&row.message_kind),
-                runtime_message_id: row.runtime_message_id,
-                delivery_state: parse_message_delivery_state(&row.delivery_state),
-                delivery_error: row.delivery_error,
-                replayed: false,
-                created_at: api_ts(row.created_at),
-            });
+            result.push(session_message_from_model(&self.db, row).await?);
         }
         Ok(result)
     }
@@ -2075,16 +2042,11 @@ impl FleetRepository for PostgresFleetRepository {
             .await
             .map_err(AppError::database)?
             .ok_or_else(|| AppError::not_found("session_message", id))?;
-        let mut result = self
-            .list_session_messages(message.session_id)
-            .await?
-            .into_iter()
-            .find(|message| message.id == id);
+        let body = message.body.clone();
+        let mut result = session_message_from_model(&self.db, message).await?;
         // Runtime dispatch receives the original prompt; public transcript reads are redacted.
-        if let Some(result) = result.as_mut() {
-            result.body = message.body;
-        }
-        Ok(result)
+        result.body = body;
+        Ok(Some(result))
     }
 
     async fn finish_message_dispatch(
@@ -2204,12 +2166,7 @@ impl FleetRepository for PostgresFleetRepository {
         {
             if existing.idempotency_payload_hash == idempotency_payload_hash {
                 txn.commit().await.map_err(AppError::database)?;
-                let mut message = self
-                    .list_session_messages(id)
-                    .await?
-                    .into_iter()
-                    .find(|message| message.id == existing.id)
-                    .ok_or_else(|| AppError::not_found("session_message", existing.id))?;
+                let mut message = session_message_receipt(&self.db, existing).await?;
                 message.replayed = true;
                 return Ok(message);
             }
@@ -2241,7 +2198,7 @@ impl FleetRepository for PostgresFleetRepository {
             };
         let message_id = Uuid::new_v4();
         let ts = now();
-        session_message::Entity::insert(session_message::ActiveModel {
+        let row = session_message::Entity::insert(session_message::ActiveModel {
             id: Set(message_id),
             session_id: Set(id),
             author_type: Set(author_type.as_str().to_string()),
@@ -2262,7 +2219,7 @@ impl FleetRepository for PostgresFleetRepository {
             delivery_error: Set(None),
             created_at: Set(ts),
         })
-        .exec(&txn)
+        .exec_with_returning(&txn)
         .await
         .map_err(AppError::database)?;
         let mut session_model = session.into_active_model();
@@ -2276,11 +2233,7 @@ impl FleetRepository for PostgresFleetRepository {
             .await
             .map_err(AppError::database)?;
         txn.commit().await.map_err(AppError::database)?;
-        self.list_session_messages(id)
-            .await?
-            .into_iter()
-            .find(|message| message.id == message_id)
-            .ok_or_else(|| AppError::not_found("session_message", message_id))
+        session_message_receipt(&self.db, row).await
     }
 
     async fn list_session_agent_runs(&self, id: Uuid) -> Result<Vec<SessionAgentRun>, AppError> {
@@ -2454,15 +2407,10 @@ impl FleetRepository for PostgresFleetRepository {
             };
             if let Some(row) = existing.one(&txn).await.map_err(AppError::database)? {
                 txn.commit().await.map_err(AppError::database)?;
-                return self
-                    .list_session_messages(session_id)
-                    .await?
-                    .into_iter()
-                    .find(|message| message.id == row.id)
-                    .ok_or_else(|| AppError::not_found("session_message", row.id));
+                return session_message_from_model(&self.db, row).await;
             }
         }
-        session_message::Entity::insert(session_message::ActiveModel {
+        let row = session_message::Entity::insert(session_message::ActiveModel {
             id: Set(id),
             session_id: Set(session_id),
             author_type: Set(author_type.as_str().to_string()),
@@ -2478,7 +2426,7 @@ impl FleetRepository for PostgresFleetRepository {
             delivery_error: Set(None),
             created_at: Set(ts),
         })
-        .exec(&txn)
+        .exec_with_returning(&txn)
         .await
         .map_err(AppError::database)?;
         let mut session = agent_session::Entity::find_by_id(session_id)
@@ -2491,11 +2439,7 @@ impl FleetRepository for PostgresFleetRepository {
         session.updated_at = Set(ts);
         session.update(&txn).await.map_err(AppError::database)?;
         txn.commit().await.map_err(AppError::database)?;
-        self.list_session_messages(session_id)
-            .await?
-            .into_iter()
-            .find(|message| message.id == id)
-            .ok_or_else(|| AppError::not_found("session_message", id))
+        session_message_from_model(&self.db, row).await
     }
 
     async fn update_session_message_delivery(
@@ -3667,6 +3611,57 @@ fn message_author_display_name(
             .unwrap_or_else(|| "Unknown agent".to_string()),
         MessageAuthorType::System => "Fleet Control".to_string(),
     }
+}
+
+async fn session_message_from_model(
+    db: &DatabaseConnection,
+    row: session_message::Model,
+) -> Result<SessionMessage, AppError> {
+    let author_type = parse_message_author_type(&row.author_type);
+    let author_user = match row.author_user_id {
+        Some(user_id) => user::Entity::find_by_id(user_id)
+            .one(db)
+            .await
+            .map_err(AppError::database)?,
+        None => None,
+    };
+    let author_agent = match row.author_agent_id {
+        Some(agent_id) => agent::Entity::find_by_id(agent_id)
+            .one(db)
+            .await
+            .map_err(AppError::database)?,
+        None => None,
+    };
+    Ok(SessionMessage {
+        id: row.id,
+        session_id: row.session_id,
+        author_type,
+        author_user_id: row.author_user_id,
+        author_agent_id: row.author_agent_id,
+        author_display_name: message_author_display_name(
+            author_type,
+            author_user.as_ref(),
+            author_agent.as_ref(),
+        ),
+        body: redact_text(&row.body),
+        message_kind: parse_message_kind(&row.message_kind),
+        runtime_message_id: row.runtime_message_id,
+        delivery_state: parse_message_delivery_state(&row.delivery_state),
+        delivery_error: row.delivery_error,
+        replayed: false,
+        request_payload_hash: None,
+        created_at: api_ts(row.created_at),
+    })
+}
+
+async fn session_message_receipt(
+    db: &DatabaseConnection,
+    row: session_message::Model,
+) -> Result<SessionMessage, AppError> {
+    let request_payload_hash = row.idempotency_payload_hash.clone();
+    let mut message = session_message_from_model(db, row).await?;
+    message.request_payload_hash = request_payload_hash;
+    Ok(message)
 }
 
 async fn session_run_from_model(
