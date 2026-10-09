@@ -1,5 +1,18 @@
 # Testing
 
+## Steer Transcript Follow-Up
+
+Seven new explicitly ignored PostgreSQL/HTTP regressions in
+`runtime_run_control::steer_transcript::` cover original operator attribution,
+redaction, exact session/run/receipt linkage, same-run distinct commands,
+concurrent acknowledged replay/restart, legacy ACK repair, uncertain/rejected/
+terminal-observed non-delivery, payload proof, audit/message rollback and
+collision denial. The existing stop case also denies a control mirror.
+CI now requires all 25 control cases by exact names/count, including these seven.
+Only light checks ran at preparation; Rust compilation, these DB/HTTP tests,
+strict Clippy, full ledger/SSE and exact-source Linux/native gates remain pending.
+See [the follow-up gate commands](plans/2026-10-09-steer-transcript-release.md).
+
 ## Durable Runtime Controls Unit13
 
 The [control release plan](plans/2026-10-09-runtime-controls-release.md)

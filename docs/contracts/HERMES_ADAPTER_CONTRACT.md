@@ -1,5 +1,14 @@
 # Hermes Adapter Contract
 
+## Steer Transcript Follow-Up
+
+Steer ACK persistence requires the exact originally hashed input and atomically
+stores its redacted Fleet transcript mirror. Native POST remains single-use.
+Acknowledged replay can repair a historical missing mirror from the exact payload;
+GET recovery cannot recover discarded text or infer guidance acceptance.
+An ACK whose DB transaction fails remains submitted/held without transcript
+delivery or another POST. No native protocol or installed compatibility is claimed.
+
 ## Durable Runtime Controls Unit13
 
 Controls require fresh exact original origin/credential/native run/session,

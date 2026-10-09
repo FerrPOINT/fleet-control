@@ -1,5 +1,17 @@
 # API
 
+## Acknowledged Steer Transcript Follow-Up
+
+Successful free-chat steer now atomically appends one redacted human-authored
+`control` message with `delivery_state=mirrored` to existing session history.
+Its ID equals `command.id`; `runtime_message_id` is the Fleet-local link
+`fleet-control:<session_run_id>:<command_id>:steer`, not a native message ID.
+It acknowledges guidance only, never completion. Uncertain/rejected/terminal-
+observed receipts do not produce a delivered control mirror. Exact acknowledged
+POST replay can repair a pre-fix missing mirror without native I/O; scoped GETs
+remain read-only. No endpoint, DTO, generated contract or client change is made.
+See [the follow-up boundary](plans/2026-10-09-steer-transcript-release.md).
+
 ## Durable Runtime Controls Unit13
 
 The [isolated control release](plans/2026-10-09-runtime-controls-release.md)

@@ -10,6 +10,9 @@ use domain::{Agent, SessionAgentRun, SteerSessionRunRequest};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
+#[path = "runtime_steer_transcript.rs"]
+mod steer_transcript;
+
 async fn required_fixture() -> Option<(PostgresFleetRepository, Uuid, Uuid)> {
     std::env::var("FLEET_TEST_DATABASE_URL")
         .expect("isolated PostgreSQL is required for runtime control tests");
@@ -797,6 +800,14 @@ async fn runtime_control_stop_ack_is_only_stopping_and_keeps_capacity() {
     assert_eq!(f.calls.load(Ordering::SeqCst), 1);
     assert!(
         f.repo
+            .list_session_messages(f.run.session_id)
+            .await
+            .unwrap()
+            .iter()
+            .all(|m| m.message_kind != MessageKind::Control)
+    );
+    assert!(
+        f.repo
             .prepare_session_agent_run(
                 f.run.session_id,
                 f.agent.id,
@@ -1266,7 +1277,7 @@ async fn runtime_control_ack_and_stopping_roll_back_together_on_audit_failure() 
     ))
     .await
     .unwrap();
-    let result = f.repo.finish_runtime_control(id, "stopping").await;
+    let result = f.repo.finish_runtime_control(id, "stopping", None).await;
     db.execute_unprepared(&format!(
         "DROP TRIGGER {guard} ON audit_log; DROP FUNCTION {guard}();"
     ))
@@ -1285,14 +1296,24 @@ async fn runtime_control_ack_and_stopping_roll_back_together_on_audit_failure() 
         f.repo.get_session_agent_run(f.run.id).await.unwrap().state,
         SessionRunState::Running
     );
-    let committed = f.repo.finish_runtime_control(id, "stopping").await.unwrap();
+    let committed = f
+        .repo
+        .finish_runtime_control(id, "stopping", None)
+        .await
+        .unwrap();
     assert_eq!(committed.state, domain::RuntimeControlState::Acknowledged);
     assert_eq!(
         f.repo.get_session_agent_run(f.run.id).await.unwrap().state,
         SessionRunState::Stopping
     );
     assert_eq!(
-        serde_json::to_value(f.repo.finish_runtime_control(id, "stopping").await.unwrap()).unwrap(),
+        serde_json::to_value(
+            f.repo
+                .finish_runtime_control(id, "stopping", None)
+                .await
+                .unwrap()
+        )
+        .unwrap(),
         serde_json::to_value(committed).unwrap()
     );
     let row = db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,

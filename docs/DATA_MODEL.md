@@ -1,5 +1,18 @@
 # Data Model
 
+## Steer Transcript Follow-Up
+
+No migration or lineage change is required. Existing `session_messages` supports
+human-authored `control` messages and `mirrored` delivery; its primary key is
+reused as the immutable control receipt ID. Original actor/creator and session
+are retained, the Fleet-local runtime-message link pins run and command, and
+`idempotency_payload_hash` stores the original operation/input hash. No caller
+idempotency key is copied into the prompt namespace. Only redacted body is stored.
+The message, preview, cursor events, ACK and audit commit together. The outbox
+trigger queues only pending user prompts, not these mirrors. Replay validates
+stored identity/content and neither appends nor updates a present mirror.
+The control journal remains hash-only; prior migration bytes are untouched.
+
 ## Durable Runtime Controls Unit13
 
 Only `m20261005_000013_runtime_controls` is new in this unit. Both lineages

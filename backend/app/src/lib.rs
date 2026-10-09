@@ -198,6 +198,7 @@ pub trait FleetRepository: Send + Sync {
         &self,
         _id: Uuid,
         _acknowledgement: &str,
+        _input: Option<&str>,
     ) -> Result<domain::RuntimeControlReceipt, AppError> {
         Err(AppError::Unavailable(
             "runtime control journal is unavailable".into(),

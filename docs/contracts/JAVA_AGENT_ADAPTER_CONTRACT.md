@@ -1,5 +1,10 @@
 # Java Agent Adapter Contract
 
+## Steer Transcript Follow-Up
+
+The redacted acknowledged-guidance mirror is Hermes-only. Java Agent chat/control
+remains unavailable; its launch, readiness and SDK contract are unchanged.
+
 ## Durable Runtime Controls Unit13
 
 The new journal/native control protocol is Hermes-only. Java Agent chat/control
