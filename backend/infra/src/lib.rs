@@ -768,8 +768,9 @@ impl FleetRepository for PostgresFleetRepository {
         &self,
         id: Uuid,
         acknowledgement: &str,
+        input: Option<&str>,
     ) -> Result<domain::RuntimeControlReceipt, AppError> {
-        runtime_controls::finish(self, id, acknowledgement).await
+        runtime_controls::finish(self, id, acknowledgement, input).await
     }
 
     async fn retire_runtime_control(

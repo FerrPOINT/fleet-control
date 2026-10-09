@@ -1,5 +1,17 @@
 # Current State
 
+## Combined Candidate With Steer Transcript
+
+The normal successor joins controls/recovery/approval `a26d8b35` with exact steer
+fix `71b17da7`. It retains all parent tests: controls now has 25 ignored cases
+(18 original plus 7 nested steer transcript cases), atomic terminal14 runs once,
+and the complete default-ignored backend inventory is 130 (110 foundation).
+All 44 ordinary foundation cases remain required. Migration12/13/14, frontend,
+generated artifacts, dependency pins and locks are unchanged from `a26d8b35`.
+The source-only merge has no Cargo, Docker, PG or native acceptance. Rust-generated
+contracts/readback and strict OpenAPI comparison remain pending. Earlier slice
+sections and counts below describe their historical frozen source, not this head.
+
 ## Combined Controls, Recovery And Approval Candidate
 
 Normal source integration joins frozen controls/recovery `ed798638` and
@@ -47,6 +59,15 @@ retains durable uncertain decisions without another native POST, and adds only
 migration14 for logical journal time ordering. No UI/SDK/locks or migrations15..22
 are imported. Compilation, PostgreSQL, real Hermes and combined contract/UI
 acceptance are pending. `runtime_ready=false`; installed runtime is unchanged.
+
+## Steer Transcript Source Follow-Up: 9 October 2026
+
+The [isolated follow-up](plans/2026-10-09-steer-transcript-release.md) starts from
+final controls13 `fc6ef12df757a0858f0931cfd88a66fc7f133ed4`. It fixes lost
+acknowledged guidance using the existing message schema, without new migrations,
+UI/generated artifacts, SDK repin or approval14 changes. Seven new focused cases
+are prepared, not executed. Exact Linux/PostgreSQL/native validation and publication
+remain pending; `runtime_ready=false`. Frozen13/14 and installed runtime are unchanged.
 
 ## Runtime Controls Source Candidate: 9 October 2026
 

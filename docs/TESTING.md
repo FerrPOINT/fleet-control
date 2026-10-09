@@ -1,5 +1,17 @@
 # Testing
 
+## Combined Steer Successor Inventory
+
+The successor to `a26d8b35` with steer `71b17da7` requires all 130 default-ignored
+cases explicitly, including 110 foundation cases. Default foundation retains
+44 passed / 110 ignored / 0 failed. The shared `runtime_run_control::` CI selector
+executes 25 cases: 18 original plus 7 `steer_transcript::` cases registered once
+inside that module. The shared `runtime_terminal::` selector still executes14
+once. All recovery, approval14 and 15/18 lineage cases remain required.
+QA42 is frozen to its original source and is not acceptance for this successor;
+new helper preparation waits for legitimate generation/readback and final source.
+No Cargo, Docker or PostgreSQL acceptance was executed for this source merge.
+
 ## Combined Source Qualification
 
 The controls/recovery plus approval14 integration must select all 123 ignored
@@ -38,6 +50,19 @@ and counts, and runs the updated historical human/unknown-ACK HTTP case.
 Lineage10, whole sorted SSE ledger including13/14, four-successor task-chat
 rollback and all inherited gates are retained. These Rust/PG gates are prepared,
 not executed locally. Loopback restarts do not qualify real Hermes processes.
+
+## Steer Transcript Follow-Up
+
+Seven new explicitly ignored PostgreSQL/HTTP regressions in
+`runtime_run_control::steer_transcript::` cover original operator attribution,
+redaction, exact session/run/receipt linkage, same-run distinct commands,
+concurrent acknowledged replay/restart, legacy ACK repair, uncertain/rejected/
+terminal-observed non-delivery, payload proof, audit/message rollback and
+collision denial. The existing stop case also denies a control mirror.
+CI now requires all 25 control cases by exact names/count, including these seven.
+Only light checks ran at preparation; Rust compilation, these DB/HTTP tests,
+strict Clippy, full ledger/SSE and exact-source Linux/native gates remain pending.
+See [the follow-up gate commands](plans/2026-10-09-steer-transcript-release.md).
 
 ## Durable Runtime Controls Unit13
 

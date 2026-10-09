@@ -354,6 +354,7 @@ pub(super) async fn finish(
     repo: &PostgresFleetRepository,
     id: Uuid,
     ack: &str,
+    input: Option<&str>,
 ) -> Result<RuntimeControlReceipt, AppError> {
     let seed = receipt(&row(&repo.db, id, false).await?)?;
     if !matches!(
@@ -391,9 +392,25 @@ pub(super) async fn finish(
         .ok_or_else(|| AppError::not_found("session_agent_run", seed.session_run_id))?;
     let record = row(&txn, id, true).await?;
     let prior = receipt(&record)?;
+    let hash = format!(
+        "{:x}",
+        Sha256::digest(
+            serde_json::to_vec(&json!({"operation":prior.operation,"input":input}))
+                .map_err(AppError::internal)?
+        )
+    );
+    if record
+        .try_get::<String>("", "payload_sha256")
+        .map_err(database_error)?
+        != hash
+    {
+        return Err(AppError::conflict("runtime control ACK payload changed"));
+    }
     if prior.state == RuntimeControlState::Acknowledged
         && prior.acknowledgement.as_deref() == Some(ack)
     {
+        mirror_steer(&txn, &prior, input, &hash).await?;
+        txn.commit().await.map_err(database_error)?;
         return Ok(prior);
     }
     if prior.state != RuntimeControlState::Submitted {
@@ -432,10 +449,83 @@ pub(super) async fn finish(
     txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "UPDATE runtime_control_commands SET state='acknowledged',acknowledgement=$2,updated_at=now() WHERE id=$1",
         [id.into(),ack.into()])).await.map_err(database_error)?;
+    mirror_steer(&txn, &prior, input, &hash).await?;
     audit(&txn, &prior, "runtime_control.acknowledged").await?;
     let result = receipt(&row(&txn, id, false).await?)?;
     txn.commit().await.map_err(database_error)?;
     Ok(result)
+}
+
+async fn mirror_steer(
+    txn: &DatabaseTransaction,
+    command: &RuntimeControlReceipt,
+    input: Option<&str>,
+    hash: &str,
+) -> Result<(), AppError> {
+    if command.operation != RuntimeControlOperation::Steer {
+        return Ok(());
+    }
+    let body = redact_text(
+        input
+            .ok_or_else(|| AppError::validation("steer input is required"))?
+            .trim(),
+    );
+    let runtime_id = format!(
+        "fleet-control:{}:{}:steer",
+        command.session_run_id, command.id
+    );
+    // The receipt primary key is also the mirror key; never overwrite an unrelated message.
+    if let Some(existing) = session_message::Entity::find_by_id(command.id)
+        .one(txn)
+        .await
+        .map_err(database_error)?
+    {
+        if existing.session_id != command.session_id
+            || existing.author_type != "user"
+            || existing.author_user_id != Some(command.actor_user_id)
+            || existing.author_agent_id.is_some()
+            || existing.created_by_user_id != Some(command.actor_user_id)
+            || existing.message_kind != "control"
+            || existing.delivery_state != "mirrored"
+            || existing.delivery_error.is_some()
+            || existing.runtime_message_id.as_deref() != Some(runtime_id.as_str())
+            || existing.idempotency_key.is_some()
+            || existing.idempotency_payload_hash.as_deref() != Some(hash)
+            || existing.body != body
+        {
+            return Err(AppError::conflict(
+                "runtime control transcript identity changed",
+            ));
+        }
+        return Ok(());
+    }
+    txn.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "INSERT INTO session_messages(id,session_id,author_type,author_user_id,body,message_kind,
+            runtime_message_id,created_by_user_id,idempotency_payload_hash,delivery_state)
+         VALUES($1,$2,'user',$3,$4,'control',$5,$3,$6,'mirrored')",
+        [
+            command.id.into(),
+            command.session_id.into(),
+            command.actor_user_id.into(),
+            body.clone().into(),
+            runtime_id.into(),
+            hash.into(),
+        ],
+    ))
+    .await
+    .map_err(database_error)?;
+    txn.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE agent_sessions SET last_message_preview=$2,updated_at=now() WHERE id=$1",
+        [
+            command.session_id.into(),
+            body.chars().take(180).collect::<String>().into(),
+        ],
+    ))
+    .await
+    .map_err(database_error)?;
+    Ok(())
 }
 
 pub(super) async fn retire(

@@ -10,6 +10,11 @@ Unit14 current exact approval recovery is Hermes-only. It adds no Java runtime
 approval endpoint, generic approval fallback, lifecycle permission or readiness
 claim. Java behavior and SDK pin are unchanged.
 
+## Steer Transcript Follow-Up
+
+The redacted acknowledged-guidance mirror is Hermes-only. Java Agent chat/control
+remains unavailable; its launch, readiness and SDK contract are unchanged.
+
 ## Durable Runtime Controls Unit13
 
 The new journal/native control protocol is Hermes-only. Java Agent chat/control

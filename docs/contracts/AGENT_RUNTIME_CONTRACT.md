@@ -16,6 +16,14 @@ pending approval snapshot. Targeted human decisions recheck that context and
 native pending request; uncertain reservations never authorize another POST.
 This source candidate is not task/PM/model authority or runtime readiness.
 
+## Steer Transcript Follow-Up
+
+Only validated guidance ACK creates a redacted original-human control mirror,
+atomically with its durable receipt and events. The mirror does not complete a
+run, free capacity or establish task admission. Uncertain/rejected and independent
+terminal evidence never stand in for guidance delivery. Exact ACK replay repairs
+only the local mirror and cannot submit another native effect.
+
 ## Durable Runtime Controls Unit13
 
 Free-chat steer/stop require authenticated human/owner authority, an immutable

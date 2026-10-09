@@ -16,6 +16,12 @@
   persistence and bounded Hermes event framing without new migrations or pins.
   Native compatibility and exact-source PostgreSQL acceptance remain pending.
 
+- Preserve acknowledged Hermes guidance once in the redacted Fleet transcript,
+  with original actor and run/receipt identity, in the ACK transaction. Exact
+  replay repairs old missing mirrors without native POST; uncertain/rejected
+  guidance is not depicted as delivered. No migration or client schema change.
+  Focused Linux/PostgreSQL execution remains pending.
+
 - Prepare isolated durable Hermes stop/steer controls with one additive migration13,
   single-attempt dispatch, uncertain holds, atomic ACK/terminal packets and scoped
   readback. Rust execution, generated contracts and client integration are pending;
