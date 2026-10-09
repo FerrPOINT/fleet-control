@@ -10,11 +10,11 @@ checkouts rather than restarting completed work:
 
 | Owner    | Current assignment                                                 | Required handoff                                                                                                              |
 | -------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| Feynman  | Fleet consumer of recovered-generation protocol4                    | Actual recovered config activation, positive DB authority and canonical utility hashes; preserve original custody, SDK19a and unknown-effect fences |
-| Pascal   | Inspect actual Hermes PM structured-tool handoff primitives          | Wrapper459f source closure complete; identify exact per-run scoped tool/capability mechanism without parent PAT or admission bypass |
-| Ptolemy  | Implement hermetic hosted Forge full12 controls                      | Two bounded jobs retain all12 stages, original per-stage deadlines, disk reserve, receipts and own-only cleanup; no custody transfer |
-| Anscombe | Early independent review of hermetic Forge controls                 | Compiler6e9/gateda9473a handed off; inspect draft full12/evidence/cleanup invariants without edits or hosted execution |
-| Leibniz  | Early independent review of Fleet recovered activation              | Wrapper closure completed; inspect draft migration19/authority/lease/effect fencing, final frozen-source review still required |
+| Feynman  | Fleet recovered configuration activation and five review fixes      | Frozen source, additive migration19, regression tests for inherited lease, redacted Debug, original stop recovery, child stop and effective-generation continuity |
+| Pascal   | PM structured-tool contract and executable conformance checks       | Exact-run versus conversation identity, no environment fallback authority, stale/concurrent-run and unknown-write checks; explicit missing pre-model admission primitive |
+| Ptolemy  | Forge hermetic full12 controls and three review fixes                | Frozen controls, actual inventory adapter, bounded complete job budget and safe RequestLease process cleanup; all12 original stage budgets retained |
+| Anscombe | Independent Forge frozen-source closure                             | Bounded Linux process proofs and closure of inventory, global-deadline and stale-PID findings; no worker source edits |
+| Leibniz  | Independent Fleet frozen-source closure                             | Closure of all five findings with exact source identity and honest separation of pure, SQL-prepared, Rust and PostgreSQL evidence |
 | Parent   | Normal integration, documentation and scoped publication             | Base PR180 published after exact-head Linux224 and independent review; accept remaining units separately, do not certify full SDLC |
 
 These are continuations of the existing five workers, not additional competing
@@ -23,6 +23,31 @@ reviewers. Heavy jobs remain parent-admitted one at a time. The Forge prepare
 has terminated failed and cleaned its exact disposable resources; no local
 heavy job is currently admitted. Capacity and exact-image prerequisites fail.
 No successor is admitted merely because a worker prepared an invocation.
+
+### Handoff And Dependencies
+
+The renewed assignments were sent to all five existing workers. Fleet and Forge
+implementation run independently. Their reviewers use separate evidence paths
+and review frozen handoffs, not an evolving working tree. Pascal's PM contract
+checks do not modify either implementation checkout or enable an unproved
+runtime capability. Task Tracker and project-workflow remain read-only.
+
+Each handoff must identify its exact commit or sealed inputs, changed paths,
+executed commands, results, remaining limitations and dependencies. A prepared
+invocation or successful fixture is not live acceptance. The parent reviews and
+normally merges accepted source without rewriting existing history, runs the
+admissible combined gates and publishes task-owned PRs only with accurate status.
+
+The release sequence is implementation, independent closure, normal integration,
+combined backend/migration/runtime gates, live chat/PM and Forge acceptance, then
+release evidence. Documentation and existing UI evidence are reconciled with the
+accepted source; earlier screenshots do not prove a new live flow.
+
+Current external prerequisites remain account CI availability, qualified exact
+runtime images and local resource admission, plus the trusted producer-side
+pre-model admission contract. The parent must not bypass these with a mock,
+automatic redispatch, paid-resource changes or a relaxed gate. Work on source
+fixes and bounded conformance checks continues independently of those blockers.
 
 Current publication: [Base PR180](https://github.com/FerrPOINT/services-base/pull/180)
 is Draft on815982b, a normal merge of9b53 and accepted maina119. Its ten-path diff
