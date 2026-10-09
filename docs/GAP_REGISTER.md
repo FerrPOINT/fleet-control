@@ -16,25 +16,41 @@ Source integration is progress, not release acceptance. Its remaining gates are:
 - **PM:** trusted producer pre-model admission, fenced first-step authority,
   server credential custody, durable tool gateway and exact write readback,
   answer delivery/checkpoint/rebind and live owner-confirmation flow. Reviewed
-  offline24-case packet does not close these requirements.
+  offline24-case packet does not close these requirements. Compatible Workflow
+  build/native catalog and authoritative first-step proof remain external gates.
 - **Chats:** live cross-service ownership/project/reconnect acceptance and
   clarification unknown-outcome recovery across reload. The mounted original
   command guard and closed-question retry have frontend/browser fixture evidence
-  only; no new-answer permission bypass is permitted.
+  only; no new-answer permission bypass is permitted. [TrackerAnswer](../backend/domain/src/task_chats.rs)
+  has no original command key; the [answer proxy](../backend/api/src/routes/task_chats.rs)
+  has no durable command journal, and the [mounted answer mutation](../frontend/src/pages/chat-detail/index.tsx)
+  retains retry state in memory only. Fix8e5d75d does not close durable reload recovery.
 - **Forge:** actual bridge/global cleanup deadline has scoped independent source
   closure at89420cd. Run the unchanged full12 matrix and real
   deployment/evidence/rollback acceptance; bounded external-I/O probes do not
   substitute for those gates.
-- **Publication:** account billing must allow exact-head CI; publish only
+- **Publication:** private Base billing must allow exact-head Base CI; publish only
   task-owned scoped units after their gates, retaining migration ownership and
   independent review. Base PR180 stays Draft; no paid-resource bypass is allowed.
   This billing observation concerns private Base, not an established account-wide
   outage: public Forge run37973076579 executes four hosted jobs successfully on
-  another SHA. It does not accept the new full12 packet. Separately, the
+  another SHA. It does not restore private Base CI or establish full12/native
+  acceptance. Separately, the
   unpublished Forge controls history contains copied private Base maintenance
   source (including base64); do not publish that history to a public repository.
   Qualify authenticated private-Git delivery and a public-safe controls history
   first, preserving the frozen local packet without rewriting it.
+
+New retained Base815 Linux fake-contract evidence is224/224, zero skips,44.041s,
+exit0, with exact canonical inputs/source parity and owned cleanup. It closes the
+new local raw-log retention item only, not CI, image/native acceptance or PM
+admission. The [evidence hashes and current owner/dependency matrix](plans/2026-10-09-parallel-remaining-work.md#retained-base815-fake-contract-evidence)
+keep this run separate from historical88.807s and the prepared execution gates.
+Fleet controls freeze0fe has parent-validated53 pure checks/18-file seal, with
+Anscombe review pending: no actual70-stage result exists. Parent remote readback
+keeps Workflow PR90 Draft/master and Tracker PR114 Draft/main, neither merged;
+separate namespace PR99/126 do not close the legacy PM producer gate. Exact
+heads and the current no-local-heavy resource observation are in the work plan.
 
 The [current source/evidence snapshot](CURRENT_STATE.md) and
 [parallel owners](plans/2026-10-09-parallel-remaining-work.md) distinguish
@@ -54,7 +70,7 @@ Base protocol4 source is published in Draft
 [PR180](https://github.com/FerrPOINT/services-base/pull/180) at815982b.
 Its exact-head224 Linux fake tests and independent review pass, not native Docker.
 Actual GitHub run37968542132 cannot start any of11 jobs because account billing/
-spending limit blocks execution. Account CI access and all required checks remain
+spending limit blocks execution. Private Base CI access and its required checks remain
 open; do not classify a job with no steps as a failed product test or waive it.
 Fleet protocol4 consumption/recovered activation and native image/driver
 qualification are independent remaining implementation/acceptance gates.

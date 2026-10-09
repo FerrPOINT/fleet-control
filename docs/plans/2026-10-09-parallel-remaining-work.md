@@ -38,12 +38,50 @@ findings do not certify an unexecuted compiler, database or live runtime gate.
 
 | Owner    | Current assignment                                                 | Required handoff                                                                                                              |
 | -------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| Feynman  | Native protocol4/F6 interrupted-activation QA successor               | Preserve frozen df6574 and original nine scenarios; observe genuine ACK/lease/readback at crash cuts, no native launch |
-| Pascal   | Retained exact815 Linux fake-contract evidence                       | New bounded run only on already-running Ubuntu with resource/owned-process guards; never reconstruct historical logs |
-| Ptolemy  | Forge publication/private-SDK delivery audit                          | No public push of private Base copies/base64 or their history; locate a qualified private maintenance pin and safe controls path |
-| Anscombe | Independent native-driver source review                              | Exactdf6574 four-module qualification/opt-in/ACK/source/image guards; source-only, no real native run |
-| Leibniz  | Fleet executable backend gate retarget                               | Frozenb249, all46 original stages plus new selections,19 DBs and strict schema/source qualification; prepare-only |
-| Parent   | UI evidence, normal integration, documentation and publication      | Integrate accepted source, combined admissible checks and exact evidence; do not certify full SDLC from fixture passes |
+| Ptolemy  | Public-safe Forge replacement and private maintenance delivery | Missing prerequisite: qualified private commit/pin and authenticated delivery. Do not publish private Base copies/base64 or their ancestry; preserve frozen local packets. |
+| Leibniz  | Fleet executable backend gate retarget | Controls0fe/productb249: parent validates53 pure checks and18-file seal; Anscombe review pending, no actual70-stage run. Retain46 original stages/new selections,19 DBs and strict schema/source qualification; review/admission precedes execution. |
+| Feynman  | Native protocol4/F6 interrupted-activation crash cuts | Preserve frozen df6574 and all original nine scenarios; genuine ACK/lease/readback at new crash cuts requires qualified images/resources and a separate native ACK. |
+| Anscombe | Private-pin source audit and independent frozen-source review | Independently qualify exact private source/commit/delivery and replacement controls; Fleet controls0fe review is pending. Source closure is not full/native execution. |
+| Pascal   | Current docs/evidence reconciliation | Verify the retained new Base815 run and hashes; update only current-state/gap/plan docs, without transferring fake evidence to CI/native or rewriting historical packets. |
+| Parent   | Normal integration, gate coordination and scoped publication | Review frozen handoffs, normally integrate accepted source, admit combined gates and reconcile exact receipts. Private-pin, private Base CI, native and PM/Workflow prerequisites cannot be waived. |
+
+### Retained Base815 Fake-Contract Evidence
+
+New distinct execution `run-020e27bd131b` at exact Base
+`815982b648652b2665be9442bf395fc56c7e11d3` passes224 tests with zero skips,
+exit0 in44.041s. This is fake-contract evidence, not actual CI or native Docker.
+The immutable workspace evidence root is
+`.local/base-815-linux224-capture-20261009/run-020e27bd131b/`:
+
+| Retained file | SHA256 |
+| ------------- | ------ |
+| `full.raw.log` (42,692 bytes) | `52e85c0a93b1aacb38585f7a4c87f6a9c84d665159ff82f472da858d03378221` |
+| `terminal-receipt.json` | `dac80a5db4b024119b63d01db8ac83be099eb988e9c382a716131a3eacc5f5fa` |
+
+Raw tail, hashes and retained receipt were rechecked read-only: exact224-name
+inventory, source/parent/canonical-input parity, native Windows Git qualification
+of14 inputs, empty owned process group and scratch absence. No suite was repeated
+for this docs update. Historical88.807s/60.841s remain distinct; these new files
+do not reconstruct their missing raw logs. Preflight FAILED receipts are unchanged.
+Private Base CI billing and all combined backend/native, producer credential
+custody/pre-model admission and external Workflow acceptance gates remain open.
+
+### Current External Dependency Readback
+
+The latest parent remote audit records these legacy producer dependencies;
+neither PR is merged:
+
+| Dependency | State/base | Exact head |
+| ---------- | ---------- | ---------- |
+| Workflow PR90 | Draft/master | `9b4107f0e8c886f37b4bace9921c15921b6f1604` |
+| Tracker PR114 | Draft/main | `357caa7a60a717eb7b0ac72f286b793326992931` |
+
+Separate namespace Workflow PR99 (head prefix220afe) and Tracker PR126 (head
+prefixfaa9db) do not close the legacy PM producer/admission gate. Private Base
+PR180 stays Draft at815; retained CI37968542132 remains billing-denied before
+steps. The latest parent host observation is about3.5GiB available commit RAM;
+local heavy is not admitted. Fresh capacity/ownership checks and explicit
+admission remain necessary; no prepared invocation is an execution grant.
 
 ### Current Frozen Handoffs
 
@@ -182,9 +220,11 @@ combined backend/migration/runtime gates, live chat/PM and Forge acceptance, the
 release evidence. Documentation and existing UI evidence are reconciled with the
 accepted source; earlier screenshots do not prove a new live flow.
 
-Current external prerequisites remain account CI availability, qualified exact
-runtime images and local resource admission, plus the trusted producer-side
-pre-model admission contract. The parent must not bypass these with a mock,
+Current external prerequisites remain private Base CI billing restoration,
+qualified private maintenance source/delivery and public-safe Forge controls,
+qualified exact runtime images/local resource admission, trusted producer-side
+pre-model admission/server credential custody and compatible Workflow native
+catalog/first-step proof. The parent must not bypass these with a mock,
 automatic redispatch, paid-resource changes or a relaxed gate. Work on source
 fixes and bounded conformance checks continues independently of those blockers.
 
@@ -202,12 +242,14 @@ is authorized by the independent timing review.
 
 Current publication: [Base PR180](https://github.com/FerrPOINT/services-base/pull/180)
 is Draft on815982b, a normal merge of9b53 and accepted maina119. Its ten-path diff
-does not change product migrations, SDK, auth or UI. Parent exact-head Linux
-gate passes224/224 with zero skips (88.807s); documentation12, README/hub/manifest
-and independent merge review pass. Fake Engine execution is not native acceptance.
+does not change product migrations, SDK, auth or UI. Historical parent-reported
+Linux224/224, zero skips (88.807s) remains separate from the new retained44.041s
+execution above; its full raw log was not found in the bounded evidence search.
+Documentation12, README/hub/manifest and merge-review observations retain their
+own evidence scope. Fake Engine execution is not native acceptance.
 Actual GitHub run37968542132 does not start any of its11 jobs: authenticated check
 annotations report failed account payments/spending limit. No steps execute.
-Restore account CI access explicitly before hosted execution; do not retry, buy
+Restore private Base CI access explicitly before its hosted execution; do not retry, buy
 resources or relax gates to bypass this blocker.
 
 The reviewed Fleet full46 gate was normally pushed at160bd againstc02ee92.

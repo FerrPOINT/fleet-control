@@ -35,11 +35,24 @@ heads; they do not accept this assembly.
   tests pass; independent review, compiled source/image qualification and actual
   native execution remain pending. Interrupted protocol4 activation and F6
   sequential recovered-child cuts are not yet exercised by that driver.
-- Base PR180 remains Draft at815982b; all11 CI jobs are denied before steps by
-  billing. Reported local224 fake-engine tests do not replace exact-head CI or
-  native Docker acceptance. Protected runtime images and services are unchanged.
+- Base815 has new retained Linux fake-contract evidence:224 passed, zero skips,
+  44.041s, exit0; exact source/parents,14 canonical inputs and cleanup are verified.
+  The [retained evidence](plans/2026-10-09-parallel-remaining-work.md#retained-base815-fake-contract-evidence)
+  records raw/receipt hashes separately from historical88.807s. Base PR180 stays
+  Draft; retained run37968542132 has11 jobs billing-denied before steps in private
+  Base. Public Forge run37973076579 success does not restore private Base CI or
+  accept full12/native gates. Protected runtime images and services are unchanged.
 
-Exact sources, handoffs and remaining dependencies are recorded in the
+Fleet backend controls freeze0fe has parent-validated53 pure checks and an18-file
+seal; Anscombe review is pending and no actual70-stage gate has run. This does
+not change the product assembly above or qualify combined Rust/PG/native gates.
+
+The five current workers own public-safe Forge/private-pin delivery (Ptolemy),
+the executable Fleet gate (Leibniz), native crash cuts (Feynman), independent
+private-pin/source review (Anscombe), and docs/evidence (Pascal). Parent owns
+reviewed normal integration and admitted gates/publication, not acceptance by
+source merge alone. Combined backend/native, producer custody and external
+Workflow readiness remain open. Exact handoffs and dependencies are in the
 [parallel work plan](plans/2026-10-09-parallel-remaining-work.md).
 
 ## Docker And Controls Assembly: 9 October 2026
