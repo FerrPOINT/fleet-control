@@ -29,6 +29,19 @@ INIT = "scripts/hosted-backend/init.sql"
 INVENTORY = "scripts/hosted-backend/test-inventory.json"
 WRITE_SET = {WORKFLOW, HELPER, GATE, INIT, INVENTORY, "scripts/tests/test_hosted_backend_gate.py"}
 ARTIFACT_FILES = {"report.json", "provenance.json", "SHA256SUMS"}
+FAILURE_FILE = "compiler-diagnostics.json"
+SOURCE_INVENTORY_SHA = "c335bee18134eee3e7fd0bca107c79873f88104625e3fc971e723d51d8faef59"
+DIAGNOSTIC_LIMIT = 32
+DIAGNOSTIC_INPUT_LIMIT = 16 * 1024 ** 2
+DIAGNOSTIC_LINE_LIMIT = 256 * 1024
+FAILURE_SIZE_LIMIT = 16 * 1024
+CATEGORY_PATTERNS = {
+    "network": ("failed to download", "could not resolve host", "timeout was reached", "network failure", "failed to fetch"),
+    "dependency": ("failed to select a version", "no matching package named", "requires rustc", "failed to load source for dependency"),
+    "build-script": ("failed to run custom build command",),
+    "linker": ("linking with", "linker command failed",),
+    "resource": ("no space left on device", "cannot allocate memory", "out of memory", "signal: 9, sigkill"),
+}
 FORBIDDEN = {".local", "target", "node_modules", ".venv", ".git", "backups", ".env"}
 GATES = ("preflight", "fmt", "check", "clippy", "auth_binary", "runtime_inventory", "real_auth",
          "api2", "credentials_unit", "credentials_pg", "foundation", "workspace", "lineage10",
@@ -167,6 +180,141 @@ def validate_source_inventory(source, reviewed):
     require(actual == reviewed["rust_source_sha256"], "Unreviewed Rust declaration/source drift")
 
 
+def diagnostic_file(name, allowed, fleet_backend, target=None):
+    if not isinstance(name, str) or len(name) > 4096:
+        return None
+    path = PurePosixPath(name)
+    if ".." in path.parts or "\\" in name or str(path) != name or re.search(r"[\x00-\x1f\x7f:]", name):
+        return None
+    prefix = str(fleet_backend).rstrip("/") + "/"
+    if path.is_absolute():
+        if not name.startswith(prefix):
+            return None
+        name = "backend/" + name[len(prefix):]
+    elif not name.startswith("backend/"):
+        name = "backend/" + name
+    if name in allowed:
+        return name
+    if not path.is_absolute() and isinstance(target, dict):
+        entry = diagnostic_file(target.get("src_path"), allowed, fleet_backend)
+        if entry is not None:
+            candidate = "/".join(entry.split("/")[:2]) + "/" + str(path)
+            return candidate if candidate in allowed else None
+    return None
+
+
+def safe_compiler_diagnostics(streams, allowed, fleet_backend):
+    # Raw JSON, rendered diagnostics, snippets and non-JSON text never leave this function.
+    diagnostics, seen, categories, truncated, remaining = [], set(), set(), False, DIAGNOSTIC_INPUT_LIMIT
+    for stream in streams:
+        while remaining > 0:
+            line = stream.readline(min(DIAGNOSTIC_LINE_LIMIT + 1, remaining + 1))
+            if not line:
+                break
+            remaining -= len(line)
+            if len(line) > DIAGNOSTIC_LINE_LIMIT or remaining < 0:
+                truncated = True
+                while not line.endswith(b"\n") and remaining > 0:
+                    line = stream.readline(min(DIAGNOSTIC_LINE_LIMIT + 1, remaining + 1))
+                    if not line:
+                        break
+                    remaining -= len(line)
+                continue
+            try:
+                value = json.loads(line)
+            except (ValueError, UnicodeError, RecursionError):
+                text = line.decode("utf-8", errors="replace").lower()
+                categories.update(category for category, patterns in CATEGORY_PATTERNS.items()
+                                  if any(pattern in text for pattern in patterns))
+                continue
+            if not isinstance(value, dict) or value.get("reason") != "compiler-message":
+                continue
+            message = value.get("message")
+            if not isinstance(message, dict) or message.get("level") != "error":
+                continue
+            code = message.get("code")
+            code = code.get("code") if isinstance(code, dict) else None
+            code = code if isinstance(code, str) and re.fullmatch(r"E[0-9]{4}", code) else None
+            spans = message.get("spans")
+            if not isinstance(spans, list):
+                continue
+            for span in spans:
+                if not isinstance(span, dict) or span.get("is_primary") is not True:
+                    continue
+                file = diagnostic_file(span.get("file_name"), allowed, fleet_backend, value.get("target"))
+                line, column = span.get("line_start"), span.get("column_start")
+                if file is None or type(line) is not int or type(column) is not int or not (1 <= line <= 1000000 and 1 <= column <= 10000):
+                    continue
+                key = (code, file, line, column)
+                if key in seen:
+                    continue
+                if len(diagnostics) >= DIAGNOSTIC_LIMIT:
+                    truncated = True
+                    continue
+                seen.add(key)
+                diagnostics.append(dict(error_code=code, file=file, line=line, column=column))
+        if remaining <= 0:
+            truncated = True
+            break
+    if truncated or not diagnostics and not categories:
+        categories.add("unknown")
+    return dict(diagnostics=diagnostics, categories=sorted(categories), truncated=truncated)
+
+
+def compiler_failure_logs(root, stage, reviewed):
+    result = dict(diagnostics=[], categories=["unknown"], truncated=False, command_exit_code=None)
+    try:
+        exit_file = root / "private" / (stage + ".exit")
+        with exit_file.open("rb") as value:
+            data = value.read(5)
+        if re.fullmatch(rb"(?:0|[1-9][0-9]{0,2})\n", data) and int(data) <= 255:
+            result["command_exit_code"] = int(data)
+        with (root / "private" / (stage + ".jsonl")).open("rb") as out, (root / "private" / (stage + ".stderr")).open("rb") as err:
+            result.update(safe_compiler_diagnostics((out, err), reviewed["rust_source_sha256"], root / "src/fleet-control/backend"))
+    except Exception:
+        # Parser/IO failure is not permission to echo raw diagnostics or skip cleanup.
+        pass
+    return result
+
+
+def validate_failure_evidence(value, *, workflow_sha, run_id, attempt):
+    controls = Path(__file__).resolve().parents[1]
+    expected = dict(version=1, kind="safe_compiler_failure", status="failure", repository=REPOSITORY,
+                    branch=BRANCH, workflow_sha=workflow_sha, workflow_path=WORKFLOW,
+                    source_sha=SOURCE_SHA, base_sha=BASE_SHA, auth_sha=AUTH_SHA, run_id=run_id, run_attempt=attempt,
+                    source_inventory_sha256=SOURCE_INVENTORY_SHA, backend_quality_gate=False,
+                    all_quality_gate=False, sdlc_acceptance=False,
+                    control_sha256={name: digest((controls / name).read_bytes()) for name in sorted(WRITE_SET)})
+    extra = {"stage", "gate_failed_stage", "gate_exit_code", "command_exit_code", "diagnostics", "categories", "truncated", "cleanup"}
+    require(isinstance(value, dict) and set(value) == set(expected) | extra, "Unsafe failure evidence fields")
+    require(all(type(value[key]) is type(item) and value[key] == item for key, item in expected.items()), "Failure provenance mismatch")
+    require(value["stage"] in ("check", "clippy") and value["gate_failed_stage"] in (value["stage"], "cleanup"), "Invalid compiler stage")
+    require(all(value[key] is None or type(value[key]) is int and 0 <= value[key] <= 255
+                for key in ("gate_exit_code", "command_exit_code")), "Invalid exit code")
+    require(type(value["truncated"]) is bool and isinstance(value["categories"], list)
+            and all(isinstance(item, str) and item in {*CATEGORY_PATTERNS, "unknown"} for item in value["categories"])
+            and value["categories"] == sorted(set(value["categories"])), "Invalid fixed failure categories")
+    records = value["diagnostics"]
+    allowed = reviewed_inventory(controls)["rust_source_sha256"]
+    require(isinstance(records, list) and len(records) <= DIAGNOSTIC_LIMIT, "Diagnostic count bound")
+    seen = set()
+    for record in records:
+        require(isinstance(record, dict) and set(record) == {"error_code", "file", "line", "column"}, "Unsafe diagnostic fields")
+        code, file = record["error_code"], record["file"]
+        require(code is None or isinstance(code, str) and re.fullmatch(r"E[0-9]{4}", code), "Unsafe diagnostic code")
+        require(isinstance(file, str) and file in allowed, "Non-allowlisted Fleet diagnostic file")
+        require(type(record["line"]) is int and 1 <= record["line"] <= 1000000
+                and type(record["column"]) is int and 1 <= record["column"] <= 10000, "Invalid diagnostic location")
+        seen.add((code, file, record["line"], record["column"]))
+    require(len(seen) == len(records) and (records or value["categories"]), "Empty/duplicate diagnostic evidence")
+    cleanup = value["cleanup"]
+    require(isinstance(cleanup, dict) and set(cleanup) == {"scratch", "synthetic_databases"}
+            and type(cleanup["scratch"]) is bool
+            and (type(cleanup["synthetic_databases"]) is bool or cleanup["synthetic_databases"] == "not_initialized"), "Unsafe cleanup fields")
+    require(len(canonical(value)) <= FAILURE_SIZE_LIMIT, "Failure evidence size bound")
+    return value
+
+
 def listed_names(text):
     return Counter(re.findall(r"^(.+): test$", text, re.M))
 
@@ -285,6 +433,7 @@ def execute():
                     run_attempt=int(os.environ["GITHUB_RUN_ATTEMPT"]))
     (root / "owner.json").write_bytes(canonical(identity))
     owned_dbs, process, before, focused, rows = [], None, {}, {}, []
+    code, compiler_failure, compiler_stage = None, None, None
     runtime_inventory, auth_binary_sha, failed_stage = {}, None, "preflight"
     cleanup, success = dict(scratch=False, synthetic_databases=False), False
     try:
@@ -292,6 +441,7 @@ def execute():
         export(checkouts[1][0], BASE_SHA, root / "src/services-base", ("crates", "Cargo.toml", "Cargo.lock", "LICENSE"))
         export(checkouts[2][0], AUTH_SHA, root / "src/base-auth-source", ("crates", "Cargo.toml", "Cargo.lock", "LICENSE", "frontend/src/lib/theme-preference.js"))
         before = inventory(root / "src")
+        require(digest(canonical(before)) == SOURCE_INVENTORY_SHA, "Compiled input aggregate pin drift")
         validate_source_inventory(root / "src/fleet-control", reviewed)
         for name in ("tmp", "cargo", "target", "private", "expected"):
             (root / name).mkdir()
@@ -348,6 +498,9 @@ def execute():
     finally:
         try:
             stop_owned_group(process)
+            if not success and failed_stage in ("check", "clippy"):
+                compiler_stage = failed_stage
+                compiler_failure = compiler_failure_logs(root, compiler_stage, reviewed)
             if owned_dbs:
                 drop_databases(owned_dbs)
                 cleanup["synthetic_databases"] = True
@@ -381,10 +534,27 @@ def execute():
         (evidence / name).write_bytes(canonical(value))
     (evidence / "SHA256SUMS").write_text("".join(digest((evidence / name).read_bytes()) + "  " + name + "\n"
                                               for name in ("report.json", "provenance.json")), newline="\n")
+    if not success and compiler_failure is not None:
+        failure = dict(version=1, kind="safe_compiler_failure", status="failure", repository=REPOSITORY,
+                       branch=BRANCH, workflow_path=WORKFLOW,
+                       **identity, source_sha=SOURCE_SHA, base_sha=BASE_SHA, auth_sha=AUTH_SHA,
+                       source_inventory_sha256=digest(canonical(before)), control_sha256=provenance["control_sha256"],
+                       stage=compiler_stage, gate_failed_stage=failed_stage,
+                       gate_exit_code=code if type(code) is int and 0 <= code <= 255 else None,
+                       **compiler_failure, cleanup=cleanup, backend_quality_gate=False,
+                       all_quality_gate=False, sdlc_acceptance=False)
+        validate_failure_evidence(failure, workflow_sha=workflow_sha, run_id=identity["run_id"], attempt=identity["run_attempt"])
+        data = canonical(failure)
+        require(len(data) <= FAILURE_SIZE_LIMIT, "Safe compiler evidence exceeds bound")
+        failure_root = temporary / "fleet-backend-failure-evidence"
+        failure_root.mkdir(exist_ok=False)
+        with (failure_root / FAILURE_FILE).open("xb") as output:
+            output.write(data)
+        print(json.dumps(failure))
     print(json.dumps(dict(state="backend_quality_gate_passed" if success else "backend_quality_gate_failed",
                           failed_stage=None if success else failed_stage, private_logs_uploaded=False,
                           all_quality_gate=False, sdlc_acceptance=False)))
-    return 0 if success else 1
+    return 0 if success else code if type(code) is int and 1 <= code <= 255 else 1
 
 
 def cleanup_fallback():
@@ -451,6 +621,27 @@ def validate_readback(run, artifact, payload, *, run_id, attempt, workflow_sha, 
     return files
 
 
+def validate_failure_readback(run, artifact, payload, *, run_id, attempt, workflow_sha, artifact_digest):
+    require(run["id"] == run_id and run["run_attempt"] == attempt and run["status"] == "completed"
+            and run["conclusion"] == "failure" and run["event"] == "push" and run["head_sha"] == workflow_sha
+            and run["head_branch"] == BRANCH and run["path"] == WORKFLOW
+            and run["repository"]["full_name"] == REPOSITORY, "Unexpected failure workflow identity")
+    require(not artifact["expired"] and artifact["workflow_run"]["id"] == run_id
+            and artifact["workflow_run"]["head_sha"] == workflow_sha
+            and artifact["name"] == f"fleet-backend-failure-98d950e-{run_id}-{attempt}"
+            and artifact["digest"] == "sha256:" + artifact_digest and digest(payload) == artifact_digest,
+            "Failure artifact identity/digest mismatch")
+    require(len(payload) <= 2 * FAILURE_SIZE_LIMIT, "Failure artifact ZIP bound")
+    with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+        members = archive.infolist()
+        require(len(members) == 1 and members[0].filename == FAILURE_FILE
+                and members[0].file_size <= FAILURE_SIZE_LIMIT
+                and (members[0].external_attr >> 16) & 0o170000 != 0o120000, "Unsafe failure artifact members")
+        data = archive.read(members[0])
+    validate_failure_evidence(json.loads(data), workflow_sha=workflow_sha, run_id=run_id, attempt=attempt)
+    return {FAILURE_FILE: data}
+
+
 def readback(args):
     require(bool(re.fullmatch(r"[0-9a-f]{40}", args.workflow_sha))
             and bool(re.fullmatch(r"[0-9a-f]{64}", args.artifact_digest))
@@ -461,13 +652,16 @@ def readback(args):
     artifact = json.loads(command(["gh", "api", "--method", "GET", artifact_url]))
     require(artifact["id"] == args.artifact_id and artifact["size_in_bytes"] <= 8 * 1024 ** 2, "Unexpected artifact size/ID")
     payload = command(["gh", "api", "--method", "GET", artifact_url + "/zip"])
-    files = validate_readback(run, artifact, payload, run_id=args.run_id, attempt=args.attempt,
-                              workflow_sha=args.workflow_sha, artifact_digest=args.artifact_digest)
+    failure = args.mode == "readback-failure"
+    validator = validate_failure_readback if failure else validate_readback
+    files = validator(run, artifact, payload, run_id=args.run_id, attempt=args.attempt,
+                      workflow_sha=args.workflow_sha, artifact_digest=args.artifact_digest)
     args.output.mkdir(parents=True, exist_ok=False)
     for name, data in files.items():
         (args.output / name).write_bytes(data)
-    print(json.dumps(dict(state="verified_hosted_backend_gate", output=str(args.output.resolve()),
-                          backend_quality_gate=True, all_quality_gate=False, sdlc_acceptance=False)))
+    print(json.dumps(dict(state="verified_safe_compiler_failure" if failure else "verified_hosted_backend_gate",
+                          output=str(args.output.resolve()), backend_quality_gate=not failure,
+                          all_quality_gate=False, sdlc_acceptance=False)))
 
 
 def verify_log_cli(stage):
@@ -487,15 +681,16 @@ def main():
         modes.add_parser(name)
     verify = modes.add_parser("verify-log")
     verify.add_argument("stage", choices=GATES)
-    read = modes.add_parser("readback")
-    for name in ("run-id", "attempt", "artifact-id"):
-        read.add_argument("--" + name, type=int, required=True)
-    for name in ("workflow-sha", "artifact-digest"):
-        read.add_argument("--" + name, required=True)
-    read.add_argument("--output", type=Path, required=True)
+    for mode in ("readback", "readback-failure"):
+        read = modes.add_parser(mode)
+        for name in ("run-id", "attempt", "artifact-id"):
+            read.add_argument("--" + name, type=int, required=True)
+        for name in ("workflow-sha", "artifact-digest"):
+            read.add_argument("--" + name, required=True)
+        read.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     try:
-        if args.mode == "readback":
+        if args.mode in ("readback", "readback-failure"):
             readback(args)
         elif args.mode == "preflight":
             preflight()

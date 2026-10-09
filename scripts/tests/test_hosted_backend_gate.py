@@ -120,7 +120,7 @@ class HostedBackendTests(unittest.TestCase):
     def test_required_full_commands_migrations_and_real_auth_remain(self):
         text = (ROOT / gate.GATE).read_text()
         for command in ("cargo fmt --all -- --check", "cargo check --locked --workspace --all-targets",
-                        "cargo clippy --locked --workspace --all-targets -- -D warnings",
+                        "cargo clippy --locked --workspace --all-targets --message-format=json -- -D warnings",
                         "cargo test --locked --workspace -- --test-threads=1",
                         "cargo test --locked -p migration --lib lineage_tests -- --include-ignored --test-threads=1",
                         "cargo run --locked -p migration -- down -n 1", "cargo run --locked -p migration -- down -n 15",
@@ -265,6 +265,213 @@ class HostedBackendTests(unittest.TestCase):
         self.assertIn("start_new_session=True", helper)
         self.assertIn('stdout=diagnostics, stderr=diagnostics', helper)
         self.assertNotIn('dict(os.environ,', helper)
+
+    def compiler_line(self, file="api/src/routes/sessions.rs", code="E0308", line=17, column=9, primary=True):
+        return (json.dumps(dict(reason="compiler-message", package_id="PRIVATE_SENTINEL_PACKAGE",
+             message=dict(level="error", code=dict(code=code, explanation="PRIVATE_SENTINEL_EXPLANATION"),
+                          message="PRIVATE_SENTINEL_MESSAGE", rendered="PRIVATE_SENTINEL_RENDERED",
+                          children=[dict(message="PRIVATE_SENTINEL_CHILD", spans=[])],
+                          spans=[dict(file_name=file, line_start=line, column_start=column, is_primary=primary,
+                                      text=[dict(text="PRIVATE_SENTINEL_SOURCE")], label="PRIVATE_SENTINEL_LABEL")]))) + "\n").encode()
+
+    def diagnostics(self, out, err=b""):
+        return gate.safe_compiler_diagnostics((io.BytesIO(out), io.BytesIO(err)), REVIEWED["rust_source_sha256"], "/owned/src/fleet-control/backend")
+
+    def test_compiler_json_only_code_allowlisted_primary_location_no_context(self):
+        result = self.diagnostics(self.compiler_line())
+        self.assertEqual(result, dict(diagnostics=[dict(error_code="E0308", file="backend/api/src/routes/sessions.rs", line=17, column=9)],
+                                      categories=[], truncated=False))
+        self.assertNotIn("PRIVATE_SENTINEL", json.dumps(result))
+
+    def test_compiler_paths_only_exact_fleet_allowlist_no_private_prefix_or_traversal(self):
+        for file in ("api/src/routes/sessions.rs", "backend/api/src/routes/sessions.rs", "/owned/src/fleet-control/backend/api/src/routes/sessions.rs"):
+            self.assertEqual(self.diagnostics(self.compiler_line(file))["diagnostics"][0]["file"], "backend/api/src/routes/sessions.rs")
+        for file in ("../services-base/crates/private.rs", "/private/api/src/routes/sessions.rs", "C:/private/x.rs",
+                     "api\\src\\routes\\sessions.rs", "/owned/src/fleet-control/backend/../private.rs",
+                     "api//src/routes/sessions.rs", "api/src/routes/./sessions.rs", "api/.local/private.rs",
+                     "target/private.rs", "api/src/routes/sessions.rs\nPRIVATE_SENTINEL", "api/src/private.rs"):
+            self.assertEqual(self.diagnostics(self.compiler_line(file))["diagnostics"], [])
+
+    def test_crate_relative_span_requires_allowlisted_target_never_guesses(self):
+        value = json.loads(self.compiler_line("src/routes/sessions.rs"))
+        self.assertEqual(self.diagnostics((json.dumps(value) + "\n").encode())["diagnostics"], [])
+        value["target"] = dict(src_path="/owned/src/fleet-control/backend/api/src/lib.rs")
+        self.assertEqual(self.diagnostics((json.dumps(value) + "\n").encode())["diagnostics"][0]["file"], "backend/api/src/routes/sessions.rs")
+        for entry in ("/private/base/src/lib.rs", "../api/src/lib.rs", "api/src/private.rs"):
+            value["target"]["src_path"] = entry
+            self.assertEqual(self.diagnostics((json.dumps(value) + "\n").encode())["diagnostics"], [])
+
+    def test_compiler_untrusted_codes_and_numeric_boundaries(self):
+        for code in (None, "clippy::private_token", "E1234 PRIVATE_SENTINEL", "E１２３４", ["E0308"], "PRIVATE_SENTINEL"):
+            result = self.diagnostics(self.compiler_line(code=code))
+            self.assertIsNone(result["diagnostics"][0]["error_code"])
+            self.assertNotIn("PRIVATE_SENTINEL", json.dumps(result))
+        for line, column in ((True, 9), (1, True), ("17", 9), (0, 9), (-1, 9), (1000001, 9), (17, 10001), (17, 0)):
+            self.assertEqual(self.diagnostics(self.compiler_line(line=line, column=column))["diagnostics"], [])
+
+    def test_compiler_only_error_primary_spans_not_rendered_children_or_artifacts(self):
+        value = json.loads(self.compiler_line())
+        for level in ("warning", "note", "help", "PRIVATE_SENTINEL"):
+            value["message"]["level"] = level
+            self.assertEqual(self.diagnostics((json.dumps(value) + "\n").encode())["diagnostics"], [])
+        self.assertEqual(self.diagnostics(self.compiler_line(primary=False))["diagnostics"], [])
+        value["reason"], value["message"]["level"] = "compiler-artifact", "error"
+        self.assertEqual(self.diagnostics((json.dumps(value) + "\n").encode())["diagnostics"], [])
+
+    def test_nonjson_categories_fixed_allowlist_never_echo_raw(self):
+        for category, patterns in gate.CATEGORY_PATTERNS.items():
+            result = self.diagnostics(b"", (patterns[0] + " PRIVATE_SENTINEL /private/base/token\n").encode())
+            self.assertEqual(result, dict(diagnostics=[], categories=[category], truncated=False))
+            self.assertNotIn("PRIVATE_SENTINEL", json.dumps(result))
+        self.assertEqual(self.diagnostics(b"PRIVATE_SENTINEL\n")["categories"], ["unknown"])
+
+    def test_malformed_json_wrong_shapes_and_nested_context_fail_closed(self):
+        for raw in (b"{malformed PRIVATE_SENTINEL\n", b"[]\n", b"null\n", b'{"reason":"compiler-message","message":"PRIVATE_SENTINEL"}\n',
+                    b'{"reason":"compiler-message","message":{"level":"error","spans":"PRIVATE_SENTINEL"}}\n'):
+            self.assertEqual(self.diagnostics(raw), dict(diagnostics=[], categories=["unknown"], truncated=False))
+
+    def test_compiler_deduplication_and_record_limit_are_bounded(self):
+        same = self.compiler_line()
+        self.assertEqual(len(self.diagnostics(same + same)["diagnostics"]), 1)
+        result = self.diagnostics(b"".join(self.compiler_line(line=line) for line in range(1, 80)))
+        self.assertEqual(len(result["diagnostics"]), gate.DIAGNOSTIC_LIMIT)
+        self.assertTrue(result["truncated"])
+        self.assertIn("unknown", result["categories"])
+
+    def test_compiler_input_and_line_limits_discard_oversized_context(self):
+        with mock.patch.object(gate, "DIAGNOSTIC_LINE_LIMIT", 64), mock.patch.object(gate, "DIAGNOSTIC_INPUT_LIMIT", 256):
+            result = self.diagnostics(b"PRIVATE_SENTINEL" * 100 + b"\n" + self.compiler_line())
+        self.assertTrue(result["truncated"])
+        self.assertEqual(result["diagnostics"], [])
+        self.assertNotIn("PRIVATE_SENTINEL", json.dumps(result))
+
+    def test_compiler_log_io_failure_does_not_echo_or_lose_recorded_exit(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "private").mkdir()
+            (root / "private/check.exit").write_bytes(b"101\n")
+            result = gate.compiler_failure_logs(root, "check", REVIEWED)
+            self.assertEqual(result, dict(diagnostics=[], categories=["unknown"], truncated=False, command_exit_code=101))
+            (root / "private/check.exit").write_bytes(b"PRIVATE_SENTINEL")
+            self.assertIsNone(gate.compiler_failure_logs(root, "check", REVIEWED)["command_exit_code"])
+
+    def test_compiler_json_commands_keep_locked_all_targets_clippy_exit_and_finally(self):
+        text = (ROOT / gate.GATE).read_text()
+        for command in ("run_compiler check cargo check --locked --workspace --all-targets --message-format=json",
+                        "run_compiler clippy cargo clippy --locked --workspace --all-targets --message-format=json -- -D warnings"):
+            self.assertIn(command, text)
+        self.assertIn('2> "$QA_OUTPUT/$stage.stderr" || code=$?', text)
+        self.assertIn('if ((code != 0)); then exit "$code"; fi', text)
+        helper = (ROOT / gate.HELPER).read_text()
+        block = helper[helper.index("    finally:\n", helper.index("def execute()")):]
+        self.assertLess(block.index("stop_owned_group(process)"), block.index("compiler_failure_logs("))
+        self.assertLess(block.index("compiler_failure_logs("), block.index("drop_databases(owned_dbs)"))
+        self.assertLess(block.index("remove_scratch(root, temporary, identity)"), block.index("failure_root.mkdir"))
+        self.assertIn("return 0 if success else code if type(code) is int and 1 <= code <= 255 else 1", helper)
+
+    def test_compiler_capture_preserves_exit_without_running_any_cargo(self):
+        text = (ROOT / gate.GATE).read_text()
+        start = text.index("run_compiler() {")
+        function = text[start:text.index("\n}\n", start) + 3]
+        bash = "C:/Program Files/Git/bin/bash.exe" if os.name == "nt" else "bash"
+        for code in (0, 101):
+            with self.subTest(code=code), tempfile.TemporaryDirectory() as temporary:
+                script = "set -euo pipefail\nQA_OUTPUT=.\n" + function + \
+                    '\npassed() { printf passed > passed-marker; }\n' + \
+                    f'fake_compiler() {{ printf PRIVATE_SENTINEL; printf PRIVATE_SENTINEL >&2; return {code}; }}\n' + \
+                    'run_compiler check fake_compiler\n'
+                result = subprocess.run([bash, "-c", script], cwd=temporary, capture_output=True, timeout=10)
+                self.assertEqual(result.returncode, code)
+                self.assertEqual(result.stdout + result.stderr, b"")
+                self.assertEqual((Path(temporary) / "check.exit").read_text().strip(), str(code))
+                self.assertEqual((Path(temporary) / "passed-marker").exists(), code == 0)
+
+    def test_failure_artifact_explicit_separate_never_pass_artifact(self):
+        steps = self.workflow()["jobs"]["backend"]["steps"]
+        failed = next(step for step in steps if step.get("with", {}).get("name", "").startswith("fleet-backend-failure-"))
+        self.assertEqual(failed["if"], "failure() && steps.gate.outcome == 'failure'")
+        self.assertEqual(failed["with"]["path"], "${{ runner.temp }}/fleet-backend-failure-evidence/compiler-diagnostics.json")
+        self.assertEqual(failed["with"]["retention-days"], "14")
+        self.assertEqual(failed["with"]["if-no-files-found"], "warn")
+        self.assertEqual(failed["with"]["overwrite"], "false")
+        self.assertEqual(next(step for step in steps if step.get("id") == "gate")["run"], "python3 -B controls/scripts/hosted_backend_gate.py execute")
+        self.assertLess(next(i for i, step in enumerate(steps) if step.get("run", "").endswith(" cleanup")), steps.index(failed))
+
+    def failure_value(self):
+        return dict(version=1, kind="safe_compiler_failure", status="failure", repository=gate.REPOSITORY, branch=gate.BRANCH,
+                    workflow_sha="a" * 40, workflow_path=gate.WORKFLOW, run_id=123, run_attempt=1,
+                    source_sha=gate.SOURCE_SHA, base_sha=gate.BASE_SHA, auth_sha=gate.AUTH_SHA,
+                    source_inventory_sha256=gate.SOURCE_INVENTORY_SHA,
+                    control_sha256={name: gate.digest((ROOT / name).read_bytes()) for name in sorted(gate.WRITE_SET)},
+                    stage="check", gate_failed_stage="check", gate_exit_code=101, command_exit_code=101,
+                    **self.diagnostics(self.compiler_line()), cleanup=dict(scratch=True, synthetic_databases=True),
+                    backend_quality_gate=False, all_quality_gate=False, sdlc_acceptance=False)
+
+    def validate_failure(self, value):
+        return gate.validate_failure_evidence(value, workflow_sha="a" * 40, run_id=123, attempt=1)
+
+    def test_failure_schema_strict_no_private_fields_or_fake_pass(self):
+        value = self.failure_value()
+        self.validate_failure(value)
+        for key, item in (("message", "PRIVATE_SENTINEL"), ("rendered", "PRIVATE_SENTINEL"), ("backend_quality_gate", True),
+                          ("all_quality_gate", True), ("sdlc_acceptance", True), ("source_sha", "bf27"),
+                          ("source_inventory_sha256", "0" * 64), ("command_exit_code", "PRIVATE_SENTINEL"),
+                          ("categories", ["PRIVATE_SENTINEL"]), ("control_sha256", {})):
+            with self.assertRaises(ValueError):
+                self.validate_failure(dict(value, **{key: item}))
+        for key, item in (("message", "PRIVATE_SENTINEL"), ("file", "../services-base/private.rs"), ("error_code", "E0308 TOKEN"), ("line", True)):
+            with self.assertRaises(ValueError):
+                self.validate_failure(dict(value, diagnostics=[dict(value["diagnostics"][0], **{key: item})]))
+
+    def failure_artifact(self, extra=None):
+        run, artifact, _, args = self.artifact()
+        run["conclusion"] = "failure"
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as archive:
+            archive.writestr(gate.FAILURE_FILE, gate.canonical(self.failure_value()))
+            for name in extra or ():
+                archive.writestr(name, b"PRIVATE_SENTINEL")
+        payload = buffer.getvalue()
+        artifact.update(name="fleet-backend-failure-98d950e-123-1", digest="sha256:" + gate.digest(payload))
+        args["artifact_digest"] = gate.digest(payload)
+        return run, artifact, payload, args
+
+    def test_failure_readback_authenticates_failure_run_attempt_sha_artifact_digest(self):
+        run, artifact, payload, args = self.failure_artifact()
+        self.assertEqual(set(gate.validate_failure_readback(run, artifact, payload, **args)), {gate.FAILURE_FILE})
+        for key, item in (("id", 456), ("run_attempt", 2), ("conclusion", "success"), ("event", "pull_request"), ("head_sha", "b" * 40)):
+            with self.assertRaises(ValueError):
+                gate.validate_failure_readback(dict(run, **{key: item}), artifact, payload, **args)
+        for key, item in (("expired", True), ("name", "fleet-backend-98d950e-123-1"), ("digest", "sha256:" + "0" * 64)):
+            with self.assertRaises(ValueError):
+                gate.validate_failure_readback(run, dict(artifact, **{key: item}), payload, **args)
+        with self.assertRaises(ValueError):
+            gate.validate_readback(run, artifact, payload, **args)
+
+    def test_failure_zip_rejects_raw_extra_traversal_duplicate_and_size(self):
+        for extra in (["../private"], ["cargo-stderr.log"], [gate.FAILURE_FILE]):
+            with self.subTest(extra=extra):
+                if extra == [gate.FAILURE_FILE]:
+                    with self.assertWarns(UserWarning):
+                        run, artifact, payload, args = self.failure_artifact(extra)
+                else:
+                    run, artifact, payload, args = self.failure_artifact(extra)
+                with self.assertRaises(ValueError):
+                    gate.validate_failure_readback(run, artifact, payload, **args)
+        run, artifact, payload, args = self.failure_artifact()
+        payload = b"x" * (2 * gate.FAILURE_SIZE_LIMIT + 1)
+        artifact["digest"] = "sha256:" + gate.digest(payload)
+        args["artifact_digest"] = gate.digest(payload)
+        with self.assertRaises(ValueError):
+            gate.validate_failure_readback(run, artifact, payload, **args)
+
+    def test_failure_cleanup_false_remains_failure_and_never_asserts_acceptance(self):
+        value = self.failure_value()
+        value.update(gate_failed_stage="cleanup", cleanup=dict(scratch=False, synthetic_databases=False))
+        self.validate_failure(value)
+        self.assertFalse(value["backend_quality_gate"])
+        self.assertFalse(value["all_quality_gate"])
+        self.assertFalse(value["sdlc_acceptance"])
 
     def artifact(self, report_changes=None, provenance_changes=None, extra=None):
         workflow_sha = "a" * 40

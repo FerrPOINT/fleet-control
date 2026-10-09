@@ -24,6 +24,15 @@ run_tests() {
   grep -F "test result: ok. $count passed; 0 failed; $ignored ignored;" "$log"
   passed
 }
+run_compiler() {
+  stage=$1
+  shift
+  local code=0
+  "$@" > "$QA_OUTPUT/$stage.jsonl" 2> "$QA_OUTPUT/$stage.stderr" || code=$?
+  printf '%s\n' "$code" > "$QA_OUTPUT/$stage.exit"
+  if ((code != 0)); then exit "$code"; fi
+  passed
+}
 test "$(rustc --version | awk '{print $2}')" = 1.88.0
 command -v git
 command -v curl
@@ -56,12 +65,8 @@ passed
 stage=fmt
 cargo fmt --all -- --check 2>&1 | tee ${QA_OUTPUT}/fmt.log
 passed
-stage=check
-cargo check --locked --workspace --all-targets 2>&1 | tee ${QA_OUTPUT}/check.log
-passed
-stage=clippy
-cargo clippy --locked --workspace --all-targets -- -D warnings 2>&1 | tee ${QA_OUTPUT}/clippy.log
-passed
+run_compiler check cargo check --locked --workspace --all-targets --message-format=json
+run_compiler clippy cargo clippy --locked --workspace --all-targets --message-format=json -- -D warnings
 stage=auth_binary
 (
   cd ${QA_ROOT}/src/base-auth-source
