@@ -1368,6 +1368,60 @@ test('storage review links purge candidates to their workspace', async ({ page }
   await expect(page.locator(`a[href="/agents/${ids.tester}/workspace"]`)).toBeVisible()
 })
 
+test('canonical heartbeat alert is localized and acknowledged at all required viewports', async ({
+  page,
+}, testInfo) => {
+  await installMocks(page, createState())
+  let state = 'open'
+  await page.route('**/api/v1/fleet-alerts**', async (route) => {
+    const acknowledgement = route.request().url().endsWith('/acknowledge')
+    if (acknowledgement) state = 'acknowledged'
+    const alert = {
+      id: '00000000-0000-4000-8000-000000000a01',
+      agent_id: ids.dev,
+      kind: 'heartbeat_stale',
+      severity: 'warning',
+      detail: { last_health_at: now },
+      state,
+      opened_at: now,
+      resolved_at: null,
+      acknowledged_at: state === 'acknowledged' ? now : null,
+      acknowledged_by_user_id: state === 'acknowledged' ? ids.user : null,
+    }
+    return fulfill(route, acknowledgement ? alert : [alert])
+  })
+
+  for (const viewport of [
+    { width: 375, height: 812 },
+    { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+  ]) {
+    state = 'open'
+    await page.setViewportSize(viewport)
+    await page.goto('/alerts')
+    await expect(page.getByRole('heading', { name: 'Нет свежего сигнала агента' })).toBeVisible()
+    await expect(page.getByText('Developer Hermes · agent1')).toBeVisible()
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
+    ).toBe(true)
+    await page.screenshot({
+      path: testInfo.outputPath(`heartbeat-fixture-${viewport.width}x${viewport.height}.png`),
+      fullPage: true,
+    })
+    await page
+      .getByRole('button', {
+        name: 'Подтвердить получение оповещения «Нет свежего сигнала агента»',
+      })
+      .click()
+    await expect(
+      page.locator('li[aria-busy]').getByText('Подтверждено', { exact: true }).first(),
+    ).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: /Подтвердить получение оповещения/ }),
+    ).toHaveCount(0)
+  }
+})
+
 test('Chats groups private sessions by agent and keeps leader controls out of the new route', async ({
   page,
 }) => {

@@ -1,5 +1,17 @@
 # Operations
 
+## Heartbeat Incidents
+
+Monitor canonical `heartbeat_stale` incidents in Fleet alerts. Acknowledging
+records that an operator saw the incident; it does not assert recovery. A
+running agent must report a nonfuture health timestamp within ten minutes to
+resolve its heartbeat incident automatically. Missing timestamps, clock skew
+into the future, and stopped/degraded/failed statuses retain the incident.
+Investigate health collection and clock synchronization rather than treating
+unknown monitoring as healthy. Resolution and its redacted audit are one
+transaction; an audit/storage failure must be retried, not reported as success.
+This health signal does not authorize SDLC execution or prove workflow readiness.
+
 ## SDLC Foundation Recovery
 
 Automatic SDLC is blocked; operator actions do not publish Tracker requirements
@@ -112,7 +124,6 @@ reconciles status by marking an untracked Hermes process as stopped.
 Use idempotency keys when retrying session/message create calls. If the previous
 payload differs, the API returns `409` and the operator should create a new
 intent instead of replaying the old key.
-
 
 ## OIDC authentication mode
 

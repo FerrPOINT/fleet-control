@@ -2813,6 +2813,31 @@ impl FleetRepository for PostgresFleetRepository {
         &self,
         alert: domain::FleetAlert,
     ) -> Result<domain::FleetAlert, AppError> {
+        let transaction = self.db.begin().await.map_err(AppError::database)?;
+        if alert.kind == app::HEARTBEAT_STALE_ALERT_KIND {
+            let agent_id = alert
+                .agent_id
+                .ok_or_else(|| AppError::validation("heartbeat alert requires an agent"))?;
+            // Serialize incident creation across reconciler instances, without a new migration.
+            agent::Entity::find_by_id(agent_id)
+                .lock_exclusive()
+                .one(&transaction)
+                .await
+                .map_err(AppError::database)?
+                .ok_or_else(|| AppError::not_found("agent", agent_id))?;
+            if let Some(existing) = fleet_alerts::Entity::find()
+                .filter(fleet_alerts::Column::AgentId.eq(agent_id))
+                .filter(fleet_alerts::Column::Kind.eq(app::HEARTBEAT_STALE_ALERT_KIND))
+                .filter(fleet_alerts::Column::State.is_in(app::ACTIVE_ALERT_STATES))
+                .order_by_desc(fleet_alerts::Column::OpenedAt)
+                .one(&transaction)
+                .await
+                .map_err(AppError::database)?
+            {
+                transaction.commit().await.map_err(AppError::database)?;
+                return Ok(fleet_alert_to_domain(existing));
+            }
+        }
         fleet_alerts::Entity::insert(fleet_alerts::ActiveModel {
             id: Set(alert.id),
             agent_id: Set(alert.agent_id),
@@ -2825,9 +2850,10 @@ impl FleetRepository for PostgresFleetRepository {
             acknowledged_at: Set(alert.acknowledged_at.as_deref().map(parse_ts)),
             acknowledged_by_user_id: Set(alert.acknowledged_by_user_id),
         })
-        .exec(&self.db)
+        .exec(&transaction)
         .await
         .map_err(AppError::database)?;
+        transaction.commit().await.map_err(AppError::database)?;
         Ok(alert)
     }
 
@@ -2857,6 +2883,7 @@ impl FleetRepository for PostgresFleetRepository {
         kind: &str,
         resolution_detail: Value,
     ) -> Result<u64, AppError> {
+        let transaction = self.db.begin().await.map_err(AppError::database)?;
         let updated = fleet_alerts::Entity::update_many()
             .col_expr(
                 fleet_alerts::Column::State,
@@ -2869,19 +2896,24 @@ impl FleetRepository for PostgresFleetRepository {
             .filter(fleet_alerts::Column::AgentId.eq(agent_id))
             .filter(fleet_alerts::Column::Kind.eq(kind))
             .filter(fleet_alerts::Column::State.is_in(app::ACTIVE_ALERT_STATES))
-            .exec(&self.db)
+            .exec(&transaction)
             .await
             .map_err(AppError::database)?;
         if updated.rows_affected > 0 {
-            self.insert_audit(
-                None,
-                "fleet_alert.resolved",
-                "fleet_alert",
-                Some(agent_id.to_string()),
-                resolution_detail,
-            )
-            .await?;
+            audit_log::Entity::insert(audit_log::ActiveModel {
+                id: Set(Uuid::new_v4()),
+                actor_user_id: Set(None),
+                action: Set("fleet_alert.resolved".to_string()),
+                entity_type: Set("fleet_alert".to_string()),
+                entity_id: Set(Some(agent_id.to_string())),
+                payload: Set(redact_json(resolution_detail)),
+                created_at: Set(now()),
+            })
+            .exec(&transaction)
+            .await
+            .map_err(AppError::database)?;
         }
+        transaction.commit().await.map_err(AppError::database)?;
         Ok(updated.rows_affected)
     }
 
