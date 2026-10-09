@@ -124,8 +124,6 @@ missing WebKit shared-library packages were installed with
 changed. Docker, Rust, builds, database commands and protected runtime changes
 were not used; live Forge was not accessed.
 
-## Limits
-
 ## Review integration 2026-10-09
 
 Интегрирован актуальный main с Base pin

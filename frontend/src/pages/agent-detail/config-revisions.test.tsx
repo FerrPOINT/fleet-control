@@ -35,7 +35,7 @@ describe('configuration readiness refresh', () => {
     'holds cached $runtime/$sdlc as unknown after failure and recovers with keyboard retry',
     async ({ runtime, sdlc, runtimeHealthy, sdlcReady }) => {
       const agentId = `agent-${runtime}-${sdlc}`
-    const latest = {
+      const latest = {
         agent_id: agentId,
         runtime_healthy: runtimeHealthy,
         ready_for_sdlc: sdlcReady,
@@ -43,9 +43,9 @@ describe('configuration readiness refresh', () => {
         blockers: [],
       }
       vi.mocked(fleet.getAgentSdlcReadiness)
-      .mockResolvedValueOnce(latest)
+        .mockResolvedValueOnce(latest)
         .mockRejectedValueOnce(new Error('Readiness unavailable'))
-      .mockResolvedValue(latest)
+        .mockResolvedValue(latest)
       const user = userEvent.setup()
       render(
         <QueryClientProvider client={client}>
