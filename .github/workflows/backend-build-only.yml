@@ -68,7 +68,7 @@ jobs:
         timeout-minutes: 2
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: b249ee530ab9f8ea38f86cc6955c57eb8459282a # Authentic generated schema; source ancestry is required by preflight.
+          ref: 469dad0e0b774eabacd96a6779f5b21f6e493741 # Authentic generated schema; source ancestry is required by preflight.
           path: fleet-control
           persist-credentials: false
       - name: Check out pinned build SDK
@@ -153,7 +153,7 @@ jobs:
           ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
         run: |
           {
-            printf 'Source: `%s`\n\n' b249ee530ab9f8ea38f86cc6955c57eb8459282a
+            printf 'Source: `%s`\n\n' 469dad0e0b774eabacd96a6779f5b21f6e493741
             printf 'Workflow commit: `%s`\n\n' "$GITHUB_SHA"
             printf 'Run/attempt: `%s/%s`\n\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
             printf 'Artifact ID: `%s`\n\n' "$ARTIFACT_ID"

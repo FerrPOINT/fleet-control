@@ -55,6 +55,8 @@ import {
   getClarifications,
   getRequirements,
   getTaskContext,
+  listPendingAnswerCommands,
+  deliverAnswerCommand,
   type RequirementsRevision,
   type AnswerInput,
 } from '@/api/task-chats'
@@ -151,6 +153,15 @@ function ChatWorkspace({ id }: { id: string }) {
     ? params.get('tab')!
     : 'dialogue'
   const owner = session.data?.user_id === userId
+  const answerCommands = useQuery({
+    queryKey: ['clarification-commands', id],
+    queryFn: () => listPendingAnswerCommands(id),
+    enabled: bound && owner,
+    refetchInterval: 10000,
+  })
+  const pendingAnswers = answerCommands.data ?? []
+  const answerCustodyHeld =
+    bound && owner && (!answerCommands.isSuccess || pendingAnswers.length > 0)
   const canResolveApprovals =
     useAuthStore((state) => state.permissions.includes('agents:manage')) || owner
   const context = task.data?.tracker
@@ -194,6 +205,7 @@ function ChatWorkspace({ id }: { id: string }) {
         'chat-controls',
         'task-context',
         'clarifications',
+        'clarification-commands',
         'requirements',
         'task-approvals',
         'task-approval-decision',
@@ -318,8 +330,31 @@ function ChatWorkspace({ id }: { id: string }) {
       await invalidate()
     },
     onError: () => {
+      void answerCommands.refetch()
       void questions.refetch()
       void task.refetch()
+    },
+  })
+  const recoverAnswer = useMutation({
+    mutationFn: (commandId: string) => deliverAnswerCommand(id, commandId),
+    onSuccess: async (result) => {
+      setReceipt(
+        result.state === 'delivered'
+          ? 'Исходный ответ подтверждён. Требования ещё не опубликованы.'
+          : result.state === 'rejected'
+            ? 'Исходный ответ отклонён. Проверьте актуальный вопрос.'
+            : 'Доставка исходного ответа ещё не подтверждена.',
+      )
+      // A previously unknown in-memory command is settled only by its exact key.
+      if (
+        (result.state === 'delivered' || result.state === 'rejected') &&
+        result.request.idempotency_key === answer.variables?.payload.idempotency_key
+      )
+        answer.reset()
+      await invalidate()
+    },
+    onError: () => {
+      void answerCommands.refetch()
     },
   })
   const stop = useMutation({
@@ -780,6 +815,7 @@ function ChatWorkspace({ id }: { id: string }) {
                           !context?.permissions.can_answer ||
                           selectedQuestion.state !== 'open' ||
                           answer.isPending ||
+                          answerCustodyHeld ||
                           answerUncertain
                         }
                       >
@@ -871,6 +907,7 @@ function ChatWorkspace({ id }: { id: string }) {
                             !owner ||
                             task.isError ||
                             answer.isPending ||
+                            answerCustodyHeld ||
                             answerUncertain ||
                             Boolean(
                               draft.text.trim() || draft.comment.trim() || draft.selected.length,
@@ -898,7 +935,40 @@ function ChatWorkspace({ id }: { id: string }) {
                   </>
                 )}
                 {answer.isError && <ReadableError error={answer.error} />}
-                {answerUncertain && (
+                {owner && bound && answerCommands.isError && (
+                  <ReadableError error={answerCommands.error} />
+                )}
+                {pendingAnswers.map((command) => (
+                  <section key={command.id} className="fc-chat-question" role="status">
+                    <h3>
+                      Сохранённый ответ:{' '}
+                      {command.state === 'stored' ? 'ожидает доставки' : 'требует сверки'}
+                    </h3>
+                    <p>{command.request.text}</p>
+                    <p>{command.request.comment}</p>
+                    <p>
+                      Вопрос: {command.question_id} · Редакция:{' '}
+                      {command.request.requirement_revision}
+                    </p>
+                    <Button
+                      variant="outline"
+                      disabled={
+                        !owner ||
+                        !bound ||
+                        task.isError ||
+                        questions.isError ||
+                        recoverAnswer.isPending ||
+                        answer.isPending
+                      }
+                      onClick={() => recoverAnswer.mutate(command.id)}
+                    >
+                      <RotateCw size={15} />
+                      Продолжить исходную команду
+                    </Button>
+                  </section>
+                ))}
+                {recoverAnswer.isError && <ReadableError error={recoverAnswer.error} />}
+                {answerUncertain && !pendingAnswers.length && (
                   <>
                     <p>Непроверенный ответ: {answer.variables?.questionTitle}</p>
                     <p role="status">
@@ -938,6 +1008,7 @@ function ChatWorkspace({ id }: { id: string }) {
                     !draft.key ||
                     !canSubmitAnswer(selectedQuestion, draft.selected, draft.text) ||
                     answer.isPending ||
+                    answerCustodyHeld ||
                     answerUncertain
                   }
                   onClick={() => {

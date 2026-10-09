@@ -2,29 +2,50 @@
 
 ## Current Integration Snapshot: 10 October 2026
 
-Current assembly `cf86d203ddb1ba7bdde68020c7c858740b8b5438`, a normal descendant
-of b249 with documentation, isolated-connection and timezone test fixes, is **not
+Current product-code assembly `9025d42`, a normal descendant
+of b249 with runtime corrections, durable clarification custody, generated API
+and the private-approval ownership correction, is **not
 merge-ready or live SDLC accepted**. Historical sections below qualify their own
 heads; they do not accept this assembly.
 
-Earlier hosted run37995542617 at controls5259a40/sourceb249 completes FAILURE at
-real `cargo check --all-targets`, E0599 in container_controller.rs:18:48. Its safe
-compiler artifact11646773562 is authenticated by the existing failure readback;
-scratch and synthetic DB cleanup pass. This run proves preflight/formatting,
-not successful compilation or execution of the remaining70-stage gate.
-Source373682a replaces unavailable DatabaseConnection clones under SeaORM mock
-with independent isolated connections in three test files; Rust formatting and
-focused source review pass. Controls0709588 retain all70 stages,367 input paths,
-162 ignored/290 ordinary declarations,19 DBs and dependency/OpenAPI pins, changing
-only the source pin and three exact Git fingerprints. Linux76/76, Windows74
-PASS/two skips and independent scoped review pass. Its actual run37996397284
-completes FAILURE at check with E0277 in container_activation.rs:965/1268.
-Authenticated safe artifact11648090014 and successful owned cleanup are retained.
-Sourcecf86d20 uses pinned Chrono0.4.45 signed_duration_since across timezone types,
-preserving max(deadline-now,0)+10ms; formatting and independent source review pass.
-Reviewed controls a78cbf6 retarget only that source/file hash and aggregate;76 Linux
-and74 Windows/two skip cases pass. Normal FF push starts run37997222729, currently
-in progress. Successful compile/PG/full70 is not inferred from these fixes.
+The approval correction rejects unrelated central users before reading or
+reserving private-session decisions, including historical replay. Its regression
+preserves the accepted-runtime fixture and verifies owner/legacy-admin access.
+Formatting/source integration pass; real Rust/PG execution remains pending.
+
+Latest actual backend run37999665761 at controls3600cb7/source9a57 completes
+FAILURE at credentials_pg, exit101. Sequential gate receipts establish prior
+fmt/check/Clippy, Auth build, runtime inventory, real Auth consumer, API and
+credential unit stages passed. Credentials PG and the remaining stages are not
+accepted. Owned scratch/DB cleanup succeeds. No failure artifact exists because
+the previous parser covered compiler failures only; raw private logs are not
+published, and the failing assertion remains unknown. The existing controls
+successor7a3333d adds bounded allowlisted test names/source locations and strict
+failure readback, with80 Linux PASS and78 Windows PASS/two skips. It does not
+fix or accept the product test. Earlier corrections and immutable failed-run
+evidence remain in the [work plan](plans/2026-10-09-parallel-remaining-work.md).
+
+Separate frozen clarification journal3b41 has parent-executed typecheck PASS,
+42 focused chat-detail tests PASS and the complete36-file/337-test frontend suite
+PASS. This is mocked-HTTP/unit evidence, not live PM or PostgreSQL acceptance.
+Actual Rust codegen37999711562 succeeds on source3b41/SDK19a with authenticated
+artifact11648708483. Parent independently verifies ZIP/provenance and generated
+schema874230b2105a73b8f96aa2c1ecf6685a551dcf721f6e2c512852c831163c7be7.
+Only four journal paths and two DTOs are added; existing API is unchanged.
+Productb249ee5 incorporates these bytes and replaces the temporary frontend type
+with the generated alias. Client generation, post-generation typecheck,
+openapi:check, Prettier and8/8 pure cases pass. The new focused React rerun fails
+before collecting tests: Vitest's fork worker does not respond within60 seconds.
+This is not a product assertion or a42-test pass on the new head. Independent
+backend review finds and fixes a real P1: verified central owner identity without a
+trusted human session could access the journal. Normal successord43f801 adds the
+human guard before local/Tracker/journal access and extends the existing PG/HTTP
+case with seven negative requests. Combined7cc normally merges this correction
+and journal3b41, preserving both histories. New Rust/PG and final strict Rust
+schema parity remain unexecuted. Original3b41 lint/format/build pass; the bundle-
+size warning remains. The old backend run37999665761 targets9a57, not this new
+journal assembly. The [current ownership table](plans/2026-10-09-parallel-remaining-work.md#latest-assignment-checkpoint)
+defines disjoint work and remaining integration gates.
 
 Read-only browser observation of the existing sdlc1 deployment: /agents and
 /chats load after SSO; the current-owner filter and two concrete agents render.

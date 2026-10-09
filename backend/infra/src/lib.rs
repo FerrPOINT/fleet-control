@@ -1,5 +1,6 @@
 mod approval_decisions;
 mod chats_directory;
+mod clarification_commands;
 mod config_revisions;
 mod container_activation;
 mod container_preparation;
@@ -941,6 +942,43 @@ impl FleetRepository for PostgresFleetRepository {
         key: String,
     ) -> Result<domain::TaskChatBinding, AppError> {
         self.persist_task_binding(session_id, binding, key).await
+    }
+    async fn store_clarification_command(
+        &self,
+        actor: &domain::ClarificationCommandActor,
+        question: Uuid,
+        request: domain::ClarificationAnswerRequest,
+    ) -> Result<domain::ClarificationAnswerCommand, AppError> {
+        clarification_commands::store(self, actor, question, request).await
+    }
+    async fn get_clarification_command(
+        &self,
+        actor: &domain::ClarificationCommandActor,
+        id: Uuid,
+    ) -> Result<domain::ClarificationAnswerCommand, AppError> {
+        clarification_commands::get(self, actor, id).await
+    }
+    async fn list_pending_clarification_commands(
+        &self,
+        actor: &domain::ClarificationCommandActor,
+    ) -> Result<Vec<domain::ClarificationAnswerCommand>, AppError> {
+        clarification_commands::list(self, actor).await
+    }
+    async fn claim_clarification_delivery(
+        &self,
+        actor: &domain::ClarificationCommandActor,
+        id: Uuid,
+    ) -> Result<domain::ClarificationDeliveryPermit, AppError> {
+        clarification_commands::claim(self, actor, id).await
+    }
+    async fn finish_clarification_delivery(
+        &self,
+        actor: &domain::ClarificationCommandActor,
+        id: Uuid,
+        attempt: Uuid,
+        outcome: domain::ClarificationDeliveryOutcome,
+    ) -> Result<domain::ClarificationAnswerCommand, AppError> {
+        clarification_commands::finish(self, actor, id, attempt, outcome).await
     }
     async fn create_pm_draft_chat(
         &self,

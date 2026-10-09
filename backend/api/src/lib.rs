@@ -79,6 +79,10 @@ pub mod routes;
         routes::task_chats::task_context,
         routes::task_chats::clarifications,
         routes::task_chats::answer,
+        routes::clarification_commands::store,
+        routes::clarification_commands::pending,
+        routes::clarification_commands::get,
+        routes::clarification_commands::delivery,
         routes::task_chats::requirements,
         routes::task_chats::confirm,
         routes::task_chats::history,
@@ -225,6 +229,8 @@ pub mod routes;
         domain::ResolveRuntimeApprovalRequest,
         domain::RuntimeRunControlResponse,
         domain::RuntimeControlReceipt,
+        domain::ClarificationAnswerCommand,
+        domain::ClarificationDeliveryState,
         domain::RuntimeControlOperation,
         domain::RuntimeControlState,
         domain::UpdateLeaderExecutorsRequest,
@@ -417,6 +423,22 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         .route(
             "/api/v1/sessions/{session_id}/clarifications/{question_id}/answers",
             post(routes::task_chats::answer),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/clarifications/{question_id}/answer-commands",
+            post(routes::clarification_commands::store),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/clarification-answer-commands",
+            get(routes::clarification_commands::pending),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/clarification-answer-commands/{command_id}",
+            get(routes::clarification_commands::get),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/clarification-answer-commands/{command_id}/delivery",
+            post(routes::clarification_commands::delivery),
         )
         .route(
             "/api/v1/sessions/{session_id}/requirements",

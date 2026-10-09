@@ -2,9 +2,14 @@
 
 ## Current Open Release Gates: 10 October 2026
 
-The current source assembly iscf86d20 (normal b249 descendant with isolated
-connection/timezone test fixes and documentation), not the historical heads below.
+The current product-code assembly is9025d42
+(runtime corrections, journal3b41, human guard, genuine generated API and private-
+approval ownership correction), not the historical heads below.
 Source integration is progress, not release acceptance. Its remaining gates are:
+
+The new approval-owner regression and existing PR47 successor require fresh
+Rust/PG/CI execution; old green PR checks do not accept this correction. Parent
+has ported the narrow guard without reverting its accepted-runtime fixture.
 
 Hosted37995542617 now proves the preflight blocker is passed but finds real
 compile E0599 at container_controller.rs:18:48 on b249. Authenticated safe failure
@@ -15,8 +20,28 @@ gate scope and exact updated hashes; hosted37996397284 completes FAILURE with
 E0277 at container_activation.rs:965/1268. Its safe failure artifact11648090014
 is authenticated and cleanup passes. Sourcecf86d20 fixes the cross-timezone
 deadline comparison using pinned Chrono API, preserving the lease wait and10ms
-margin. Reviewed controls a78cbf6 are normally pushed; run37997222729 is in progress.
-Compilation/PG/full70 remain open until actual acceptance, not source review alone.
+margin. Reviewed controls a78cbf6 are normally pushed; actual37997222729 passes
+all-target check and fails Clippy. Sourcea95ea81 fixes the version range; reviewed
+controls851c355 are pushed. Actual37998388510 passes check and fails Clippy in
+activation/preparation. Authenticated safe artifact11647977851 confirms owned
+cleanup. Test-only correction9a57d11 has independent source closure and formatting
+PASS. Controls3600cb7 preserve exact scope/pins; Linux76/76, Windows74 PASS/two
+skips pass. Actual37999665761 passes check/Clippy and initial Auth/API/credential
+unit stages, then fails credentials_pg with exit101. Owned cleanup succeeds;
+no safe test artifact is retained by the old compiler-only parser. Test root
+cause remains unknown. Successor7a3333d adds bounded safe test failure readback
+(80 Linux PASS,78 Windows PASS/two skips), not a product fix. PG/full70 remain open.
+
+Journal3b41 and the source-reviewed human-guard correctiond43f801 are normally
+integrated in7cc. Parent typecheck and337 frontend tests pass; assigned
+lint/format/build also pass on3b41. Actual Rust generation37999711562 and parent
+authenticated artifact readback pass; b249ee5 integrates schema874230b2 and the
+generated type alias. Post-generation typecheck/openapi:check/8 pure cases pass.
+The new React rerun collects no tests because fork-worker startup times out;
+do not count it as42 passed. Rust/PG, final Rust schema parity, browser and live
+recovery remain explicit gates. Historical no-journal observations below apply
+to b249, not the new assembly. Backend37999665761 targets9a57 and cannot accept
+journal migration21/24 or its nine authored cases.
 
 Read-only existing sdlc1 UI shows two agents and empty current-owner session lists;
 the create dialog was closed without saving. This is reachability/empty-state
@@ -24,9 +49,10 @@ evidence only. There is no observed live PM dialogue/clarification/confirmation,
 and deployed images are not qualified as the current candidate.
 
 - **Combined backend:** all-target Rust/Clippy, actual default/ignored test
-  discovery and execution, both20/23 PostgreSQL lineages, populated downgrade
-  guards and strict generated OpenAPI comparison. Static162 ignored/290 ordinary
-  inventory and a proposed70-stage mapping are not an executed gate.
+  discovery and execution, both21/24 PostgreSQL lineages, populated downgrade
+  guards and strict generated OpenAPI comparison. Old source9a57 retains20/23,
+  static162 ignored/290 ordinary inventory and70-stage mapping; extending them
+  for the nine new journal cases is not acceptance of either source.
 - **Runtime:** exact-image qualification and actual isolated Hermes
   lifecycle/configuration/recovered activation/rollback, safe process stop,
   streams/logs and crash/readback acceptance. Original protocol4 findings and
@@ -41,14 +67,11 @@ and deployed images are not qualified as the current candidate.
   no Rust/PG/live HTTP. Canonical schemas and owner-before-replay source match;
   this does not extend historical PR47 live evidence or establish PM admission.
 - **Chats:** live cross-service ownership/project/reconnect acceptance and
-  clarification unknown-outcome recovery across reload. The mounted original
-  command guard and closed-question retry have frontend/browser fixture evidence
-  only; no new-answer permission bypass is permitted. [TrackerAnswer](../backend/domain/src/task_chats.rs)
-  has no original command key. Clarification GET returns saved answers, not
-  exact-command receipts; the answer route is POST-only, with no original-key GET.
-  The [answer proxy](../backend/api/src/routes/task_chats.rs)
-  has no durable command journal, and the [mounted answer mutation](../frontend/src/pages/chat-detail/index.tsx)
-  retains retry state in memory only. Fix8e5d75d does not close durable reload recovery.
+  clarification unknown-outcome recovery across reload. Integrated Fleet journal
+  retains original key/body/hash with human/owner/project checks; actual PostgreSQL,
+  lease expiry/concurrency and HTTP reload tests remain open. Tracker saved-answer
+  GET still is not exact-command lookup. Frontend reload/retry has unit evidence;
+  live recovery is not proved by earlier8e5d75d browser fixtures or new337 unit cases.
 - **Forge:** actual bridge/global cleanup deadline has scoped independent source
   closure at89420cd. Run the unchanged full12 matrix and real
   deployment/evidence/rollback acceptance; bounded external-I/O probes do not

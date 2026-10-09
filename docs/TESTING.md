@@ -455,3 +455,61 @@ Backend ownership and SSE revocation tests remain independently required.
 Discarding an obsolete browser result must never be treated as permission to
 resend an uncertain mutation. Recovery tests must preserve original command
 identity and verify authoritative readback before allowing any new dispatch.
+
+## Clarification Command Custody Gate
+
+The [isolated source unit](plans/2026-10-10-clarification-command-custody.md)
+has eight executable pure frontend boundary tests, with synthetic receipts:
+
+```powershell
+# Pinned Node 22.20.0; from repository root. No install/network/model/DB.
+node --experimental-strip-types --test --experimental-test-isolation=none frontend/scripts/clarification-custody.test.mjs
+```
+
+Authored native gates below have NOT been executed for this source unit. Run in
+the coordinated exact-source QA packet, using only owned disposable PostgreSQL
+and the approved toolchain; never point these fixtures at runtime databases.
+Missing PostgreSQL fails explicitly when the ignored selectors are enabled.
+
+```sh
+# From backend, Rust 1.88.0, locked dependencies.
+cargo test --locked -p domain --lib clarification_commands::tests::
+cargo test --locked -p api --lib routes::clarification_commands::tests::
+# Four cases; FLEET_TEST_DATABASE_URL. Includes a real 31-second lease expiry.
+cargo test --locked -p infra --test sdlc_foundation clarification_custody:: -- --ignored
+# One case; own empty FLEET_CLARIFICATION_MIGRATION_TEST_DATABASE_URL.
+cargo test --locked -p migration --test clarification_commands -- --ignored
+# Existing complete lineage suite; separate FLEET_MIGRATION_TEST_DATABASE_URL.
+cargo test --locked -p migration --lib lineage_tests::
+cargo test --locked -p migration --lib lineage_tests:: -- --ignored
+```
+
+The two domain cases cover canonical original payload/key and invalid inputs;
+two API cases require exact answer proof and hold ambiguous responses. Four
+PG/HTTP cases cover concurrent store/claim, cross-chat key replacement, stale
+completion, unknown-then-rejection, real expiry, immutable SQL history, reload
+replay with identical two captured POST bodies, revoked project access and
+foreign/machine callers denied before journal access. HTTP auth extensions are
+fixture-only, not Central Auth/JWKS acceptance. The migration case tests upgrade,
+empty down/reapply, populated down refusal and history preservation.
+
+The HTTP reload case also attempts seven sessionless-owner requests with both
+identity extensions, write scope and a forged human header. Exact read/delivery
+during uncertainty and all five ingress/read routes must return401 before
+Tracker requests or journal changes. The trusted human extension is absent;
+this is stronger than testing a caller with no verified subject. These authored
+PG/HTTP assertions still require actual execution.
+
+Three additional `src/pages/chat-detail/index.test.tsx` cases cover reload
+recovery with closed new-answer permission, pending readback hold and failed
+readback hold. On exact3b41, parent executes42/42 chat-detail cases and the full
+36-file/337-test suite; typecheck passes after client generation from the existing
+schema. Assigned frontend verification passes lint, format:check and production
+build. Actual Rust codegen37999711562 and independent parent artifact readback
+pass. Productb249ee5 integrates the authentic schema/generated alias; client
+generation, post-generation typecheck/openapi:check/Prettier and8/8 pure boundary
+cases pass. Its fresh focused React rerun fails before test collection because
+the fork worker does not respond within60 seconds; no new42-test pass is claimed.
+Final Rust schema parity, supported-browser and new UI screenshot gates remain
+pending. These unit/build results are not live
+Tracker, PM admission or native evidence.
