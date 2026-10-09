@@ -40,6 +40,18 @@ relaxation. Execution of the regression remains part of the pending Linux gate.
 
 ## Acceptance
 
+Real delegation also depends on [Base126](https://github.com/FerrPOINT/services-base/pull/126).
+Fresh source inspection confirms neither build SDK19a7 nor accepted Auth
+main15cae15 exposes `/auth/tokens/delegate`. The fake HTTP endpoint in the
+credential tests proves recovery logic only, not installed Auth compatibility.
+Base126 head2754a6d is Draft/conflicting; isolated merge candidate8a34598
+preserves that history and main15cae15, but its Linux/PG and release gates remain
+pending. Build SDK and deployed Auth are separate pins: do not silently repin
+the SDK, promote Auth, or enable credentials from fixture success. Before opt-in,
+verify the real deployed/candidate Auth endpoint, policy, strict introspection,
+replay/revoke/expiry and migration compatibility. This dependency is not model
+admission and does not waive Tracker/Workflow prerequisites.
+
 Run locked Linux Rust1.88 fmt/check/strict Clippy/workspace tests, explicit real
 PostgreSQL `sdlc_foundation`, all ignored migration lineage cases, dedicated
 credential migration and historical message-order cases, clean up/down/up and
