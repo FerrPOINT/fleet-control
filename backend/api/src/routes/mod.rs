@@ -13,6 +13,7 @@ pub mod pm_drafts;
 mod pm_namespace;
 pub mod pm_runtime;
 pub mod project_access;
+pub mod sdlc_configuration;
 pub mod sessions;
 pub mod settings;
 pub mod task_chats;

@@ -25,3 +25,9 @@ Unimplemented chat/control/stream/approval operations return typed
 `not_implemented`. The generic phase-2 label must not disable the working jar
 lifecycle. Java is not ready for automatic SDLC until required capabilities and
 workflow bindings have been verified.
+
+## Configuration Foundation Candidate
+
+Pinned Base role-package preparation is Hermes-only. Java Agent configuration
+activation retains its existing phase-2 refusal; this packet does not add a Java
+installer, alternate admission path or runtime-readiness claim.

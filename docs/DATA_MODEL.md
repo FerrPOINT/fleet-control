@@ -217,3 +217,22 @@ must be fetched again from the persisted cursor, never merged speculatively.
 This repository foundation is implemented. The authenticated background poller
 and answer-to-PM continuation are not yet wired; a projection receipt is not a
 runtime delivery receipt and does not transition Tracker business state.
+
+## Configuration Foundation Candidate (No New Migration)
+
+This packet uses the existing `m20261001_000009_sdlc_foundation` tables and JSON
+snapshot boundary. It neither edits that migration nor the foundation47-owned
+`000010_task_chats`, and does not import migrations `000011` through `000022`.
+
+`agent_config_revisions.snapshot.config.config_json.fleet_sdlc_package` holds
+public exact-Git package metadata;
+`fleet_sdlc_workflow_binding` freezes the strict Workflow v3 DTO. Numeric IDs are
+distinct from namespace names, workflow keys and declared profiles. No new column,
+credential table, native receipt or admission state is introduced. Package
+preparation remains a draft; `agent_config_heads.effective_revision` is the
+authoritative direct lookup, independently of the latest-100 history list.
+
+Creation compares the desired head and concrete identity while holding the agent
+row lock. Activation rechecks package identity under the same lock. Rebind and
+identity mutations use existing drain, session-run and dispatch-outbox state to
+refuse unresolved work. Fresh owner observations are not distributed leases.

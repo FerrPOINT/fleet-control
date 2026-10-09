@@ -1,4 +1,5 @@
 mod approval_decisions;
+pub mod base_package;
 mod chats_directory;
 mod config_revisions;
 mod effective_configuration;
@@ -1089,12 +1090,56 @@ impl FleetRepository for PostgresFleetRepository {
     async fn update_agent(&self, id: Uuid, req: UpdateAgentRequest) -> Result<Agent, AppError> {
         let next_product_role = req.product_role;
         let next_executor_ids = req.executor_ids.clone();
-        let mut model = agent::Entity::find_by_id(id)
-            .one(&self.db)
+        let txn = self.db.begin().await.map_err(AppError::database)?;
+        txn.query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT id FROM agents WHERE id = $1 FOR UPDATE",
+            [id.into()],
+        ))
+        .await
+        .map_err(AppError::database)?
+        .ok_or_else(|| AppError::not_found("agent", id))?;
+        let draining = txn
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT draining FROM agent_config_heads WHERE agent_id = $1",
+                [id.into()],
+            ))
             .await
             .map_err(AppError::database)?
-            .ok_or_else(|| AppError::not_found("agent", id))?
-            .into_active_model();
+            .map(|row| {
+                row.try_get::<bool>("", "draining")
+                    .map_err(AppError::database)
+            })
+            .transpose()?
+            .unwrap_or(false);
+        if draining {
+            return Err(AppError::conflict("agent configuration is draining"));
+        }
+        let current = agent::Entity::find_by_id(id)
+            .one(&txn)
+            .await
+            .map_err(AppError::database)?
+            .ok_or_else(|| AppError::not_found("agent", id))?;
+        if req
+            .product_role
+            .is_some_and(|value| value.as_str() != current.product_role)
+            || req.role.is_some_and(|value| value.as_str() != current.role)
+            || req
+                .sdlc_role
+                .is_some_and(|value| Some(value.as_str()) != current.sdlc_role.as_deref())
+            || req
+                .namespace_id
+                .as_deref()
+                .is_some_and(|value| Some(value) != current.namespace_id.as_deref())
+            || req
+                .workflow_id
+                .as_deref()
+                .is_some_and(|value| Some(value) != current.workflow_id.as_deref())
+        {
+            config_revisions::guard_identity_change(&txn, id).await?;
+        }
+        let mut model = current.into_active_model();
         if let Some(product_role) = next_product_role {
             model.product_role = Set(product_role.as_str().to_string());
         }
@@ -1117,7 +1162,8 @@ impl FleetRepository for PostgresFleetRepository {
             model.workflow_id = Set(Some(workflow_id));
         }
         model.updated_at = Set(now());
-        model.update(&self.db).await.map_err(AppError::database)?;
+        model.update(&txn).await.map_err(AppError::database)?;
+        txn.commit().await.map_err(AppError::database)?;
         if let Some(executor_ids) = next_executor_ids {
             self.replace_leader_executors(
                 id,
@@ -1332,6 +1378,53 @@ impl FleetRepository for PostgresFleetRepository {
     ) -> Result<Vec<domain::AgentConfigRevision>, AppError> {
         config_revisions::list(self, id).await
     }
+    async fn get_effective_config_revision(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<domain::AgentConfigRevision>, AppError> {
+        config_revisions::effective(self, id).await
+    }
+    async fn get_config_revision(
+        &self,
+        id: Uuid,
+        revision: i64,
+    ) -> Result<domain::AgentConfigRevision, AppError> {
+        self.get_agent(id).await?;
+        config_revisions::get(self, id, revision).await
+    }
+    async fn prepare_base_package_revision(
+        &self,
+        id: Uuid,
+        checkout: &str,
+        binding: &domain::SdlcWorkflowBinding,
+        actor: Uuid,
+    ) -> Result<domain::AgentConfigRevision, AppError> {
+        let agent = self.get_agent(id).await?;
+        let role = agent
+            .sdlc_role
+            .ok_or_else(|| AppError::validation("SDLC role is required"))?;
+        let revisions = self.list_config_revisions(id).await?;
+        let desired = revisions.into_iter().find(|revision| revision.is_desired);
+        let expected = desired.as_ref().map(|revision| revision.revision);
+        let snapshot = match desired {
+            Some(revision) => revision.snapshot,
+            None => {
+                let config = self.get_agent_config(id).await?;
+                domain::AgentConfigurationSnapshot {
+                    config: UpdateAgentConfigRequest {
+                        config_json: config.config_json,
+                        soul_md: config.soul_md,
+                        env_json: config.env_json,
+                    },
+                    skills: self.list_agent_skills(id).await?,
+                }
+            }
+        };
+        let package =
+            base_package::VerifiedRolePackage::read(std::path::Path::new(checkout), role).await?;
+        let snapshot = package.prepare_snapshot(&agent, binding, snapshot)?;
+        config_revisions::create_snapshot(self, id, snapshot, actor, Some(expected)).await
+    }
     async fn validate_config_revision(
         &self,
         id: Uuid,
@@ -1339,6 +1432,21 @@ impl FleetRepository for PostgresFleetRepository {
         errors: Vec<String>,
     ) -> Result<domain::AgentConfigRevision, AppError> {
         config_revisions::validate(self, id, revision, errors).await
+    }
+    async fn verify_base_package_revision(
+        &self,
+        id: Uuid,
+        revision: i64,
+        checkout: &str,
+    ) -> Result<(), AppError> {
+        let agent = self.get_agent(id).await?;
+        let role = agent
+            .sdlc_role
+            .ok_or_else(|| AppError::validation("SDLC role is required"))?;
+        let revision = config_revisions::get(self, id, revision).await?;
+        let package =
+            base_package::VerifiedRolePackage::read(std::path::Path::new(checkout), role).await?;
+        package.verify_snapshot(&agent, &revision.snapshot)
     }
     async fn request_config_activation(
         &self,
@@ -2855,14 +2963,15 @@ impl FleetRepository for PostgresFleetRepository {
     ) -> Result<WorkflowBinding, AppError> {
         let txn = self.db.begin().await.map_err(AppError::database)?;
         let timestamp = now();
-        let agent_exists = agent::Entity::find_by_id(agent_id)
-            .one(&txn)
-            .await
-            .map_err(AppError::database)?
-            .is_some();
-        if !agent_exists {
-            return Err(AppError::not_found("agent", agent_id));
-        }
+        txn.query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT id FROM agents WHERE id=$1 AND archived_at IS NULL FOR UPDATE",
+            [agent_id.into()],
+        ))
+        .await
+        .map_err(AppError::database)?
+        .ok_or_else(|| AppError::not_found("agent", agent_id))?;
+        config_revisions::guard_identity_change(&txn, agent_id).await?;
         let updated_agents = agent::Entity::update_many()
             .set(agent::ActiveModel {
                 namespace_id: Set(Some(namespace.id.clone())),
@@ -4861,7 +4970,7 @@ mod tests {
         config
     }
 
-    fn test_agent(root: &Path, id: Uuid, status: AgentStatus) -> Agent {
+    pub(super) fn test_agent(root: &Path, id: Uuid, status: AgentStatus) -> Agent {
         let paths = runtime_paths(&root.to_string_lossy(), 1);
         Agent {
             id,
@@ -5072,6 +5181,145 @@ mod tests {
             "category/bundled:test-digest\n"
         );
         tokio::fs::remove_dir_all(root).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn base_package_effective_readback_uses_git_pin_and_closed_home_inventory() {
+        let Ok(checkout) = std::env::var("FLEET_TEST_BASE_PACKAGE_CHECKOUT") else {
+            return;
+        };
+        let (root, mut agent, mut config, mut revision) = effective_config_fixture().await;
+        config.fleet.base_package_checkout = checkout;
+        agent.sdlc_role = Some(domain::SdlcRole::Developer);
+        agent.namespace_id = Some("123".into());
+        agent.workflow_id = Some("456".into());
+        let package = base_package::VerifiedRolePackage::read(
+            Path::new(&config.fleet.base_package_checkout),
+            domain::SdlcRole::Developer,
+        )
+        .await
+        .unwrap();
+        tokio::fs::remove_dir_all(Path::new(&agent.paths.config).join("skills"))
+            .await
+            .unwrap();
+        revision.snapshot.skills.clear();
+        revision.snapshot = package
+            .prepare_snapshot(&agent, &base_package::binding_fixture(), revision.snapshot)
+            .unwrap();
+        install_effective_fixture(&agent, &config, &revision).await;
+        FilesystemProvisioner
+            .verify_effective_configuration(&agent, &config, &revision)
+            .await
+            .unwrap();
+
+        let extra = Path::new(&agent.paths.config).join("skills/category/native/SKILL.md");
+        tokio::fs::create_dir_all(extra.parent().unwrap())
+            .await
+            .unwrap();
+        tokio::fs::write(&extra, "native skill not in Base allowlist")
+            .await
+            .unwrap();
+        assert!(
+            FilesystemProvisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .is_err()
+        );
+        assert!(extra.exists());
+        tokio::fs::remove_file(extra).await.unwrap();
+
+        // A matching disk snapshot and client-editable proof still cannot replace Git provenance.
+        let mut forged = revision.clone();
+        forged.snapshot.config.config_json["fleet_sdlc_package"]["manifestSha256"] =
+            json!("a".repeat(64));
+        install_effective_fixture(&agent, &config, &forged).await;
+        assert!(
+            FilesystemProvisioner
+                .verify_effective_configuration(&agent, &config, &forged)
+                .await
+                .is_err()
+        );
+        install_effective_fixture(&agent, &config, &revision).await;
+        config.fleet.base_package_checkout.clear();
+        assert!(
+            FilesystemProvisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .is_err()
+        );
+        tokio::fs::remove_dir_all(root).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn base_package_effective_readback_all_roles_rejects_unattested_support() {
+        let Ok(checkout) = std::env::var("FLEET_TEST_BASE_PACKAGE_CHECKOUT") else {
+            return;
+        };
+        for role in [
+            domain::SdlcRole::ProjectManager,
+            domain::SdlcRole::Analyst,
+            domain::SdlcRole::Architect,
+            domain::SdlcRole::Developer,
+            domain::SdlcRole::Reviewer,
+            domain::SdlcRole::Tester,
+            domain::SdlcRole::DevOps,
+        ] {
+            let (root, mut agent, mut config, mut revision) = effective_config_fixture().await;
+            config.fleet.base_package_checkout = checkout.clone();
+            agent.sdlc_role = Some(role);
+            agent.namespace_id = Some("123".into());
+            agent.workflow_id = Some("456".into());
+            let package = base_package::VerifiedRolePackage::read(Path::new(&checkout), role)
+                .await
+                .unwrap();
+            let mut binding = base_package::binding_fixture();
+            binding.role_key = package.proof().role.clone();
+            binding.namespace_name = package.proof().namespace.clone();
+            binding.profile = package.proof().profile.clone();
+            binding.workflow_key = format!("hermes-sdlc:{}", binding.role_key);
+            let skills = Path::new(&agent.paths.config).join("skills");
+            tokio::fs::remove_dir_all(&skills).await.unwrap();
+            revision.snapshot.skills.clear();
+            revision.snapshot = package
+                .prepare_snapshot(&agent, &binding, revision.snapshot)
+                .unwrap();
+            install_effective_fixture(&agent, &config, &revision).await;
+            FilesystemProvisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .unwrap();
+            let name = package.proof().skill_sha256.keys().next().unwrap();
+            for relative in [
+                "references/guide.md",
+                "scripts/helper.py",
+                "assets/fixture.bin",
+                "templates/config.yaml",
+            ] {
+                let extra = skills.join(name).join(relative);
+                tokio::fs::create_dir_all(extra.parent().unwrap())
+                    .await
+                    .unwrap();
+                tokio::fs::write(&extra, "unattested support fixture")
+                    .await
+                    .unwrap();
+                assert!(
+                    FilesystemProvisioner
+                        .verify_effective_configuration(&agent, &config, &revision)
+                        .await
+                        .is_err()
+                );
+                assert_eq!(
+                    tokio::fs::read_to_string(&extra).await.unwrap(),
+                    "unattested support fixture"
+                );
+                tokio::fs::remove_file(extra).await.unwrap();
+            }
+            FilesystemProvisioner
+                .verify_effective_configuration(&agent, &config, &revision)
+                .await
+                .unwrap();
+            tokio::fs::remove_dir_all(root).await.unwrap();
+        }
     }
 
     #[tokio::test]

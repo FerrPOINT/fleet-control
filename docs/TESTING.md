@@ -267,3 +267,52 @@ Backend ownership and SSE revocation tests remain independently required.
 Discarding an obsolete browser result must never be treated as permission to
 resend an uncertain mutation. Recovery tests must preserve original command
 identity and verify authoritative readback before allowing any new dispatch.
+
+## Configuration Foundation Candidate Gates
+
+Candidate tests are not yet executed. Foundation47's prior PASS evidence is not
+validation of this delta. See [scope and dependencies](plans/2026-10-09-runtime-config-release.md).
+
+After scope review and a task-owned commit, freeze/export sources from that exact
+Git SHA (never copy `.local`, `target`, `node_modules`, credentials or backups).
+Use SDK `19a7a381ae6dbea61a643bb96189e483fa64df5c` as the sibling dependency and
+set `FLEET_TEST_BASE_PACKAGE_CHECKOUT` to a separately verified Git checkout/cache
+containing `4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58`.
+Set `FLEET_TEST_DATABASE_URL` and `FLEET_MIGRATION_TEST_DATABASE_URL` to the
+owned disposable PostgreSQL database. Missing either DB or package input skips
+acceptance cases and is not PASS. CI supplies both inputs explicitly.
+
+Required Linux Rust 1.88.0 commands from `backend`:
+
+```sh
+cargo fmt --all -- --check
+cargo check --locked --workspace --all-targets
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo test --locked -p api --lib routes::pm_runtime::tests:: -- --test-threads=1
+cargo test --locked -p api --lib routes::sdlc_configuration::tests:: -- --test-threads=1
+cargo test --locked -p infra --lib base_package -- --test-threads=1
+cargo test --locked -p infra --test sdlc_foundation -- --test-threads=1
+cargo test --locked --workspace -- --test-threads=1
+cargo test --locked -p migration --lib lineage_tests -- --include-ignored --test-threads=1
+cargo test --locked -p infra --test central_profile -- --ignored --test-threads=1
+cargo run --locked -p api --bin gen-openapi
+```
+
+Compare generated OpenAPI byte-for-byte with the checked-in candidate; its two
+new paths/schemas were selectively synchronized, not Rust-regenerated here.
+Keep foundation47's existing isolated directory/approval, clean migration
+up/down/reapply, transcript-clock and frontend compatibility/strict gates.
+No new migration or lockfile change is expected. New tests include duplicate
+Authorization zero-IO denial, exact scopes/current introspection, Workflow drift
+and transport refusal, >100-revision exact-head reads, identity/drain/outbox fences,
+concurrent preparation CAS, closed skill inventory and unchanged effective files.
+
+Local QA must wait for the exclusive heavy slot and use Base ComposeHelper journal
+v2 from the verified `SDLC_MAINTENANCE_BASE` User environment SDK, loaded first on
+`sys.path`, with an owned temporary project and `with`/finally cleanup. Require
+30 GiB free, exact disposable volume inventory and retained terminal/source/gate
+and independently empty cleanup evidence; preserve external caches, immutable
+sources and runtime/rollback data. Product SDK pin remains separate from this
+maintenance-helper installation. No new local QA helper or containers are run by
+source preparation. Controlled owner fixtures do not prove live cross-service
+credentials, installed Workflow v3 or physical Hermes admission.
