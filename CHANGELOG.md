@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Активный Base pin обновлён до согласованного кандидата SDK/UI/workspace;
+  документация standalone build использует тот же порядок выбора pin, что CI.
+
 - Chats подтверждает сохранённую команду по hash исходного запроса, сохраняя
   redacted-текст ответа. Message receipts, replay, dispatch и assistant mirror
   используют конкретную сохранённую строку за пределами первых 500 сообщений.
