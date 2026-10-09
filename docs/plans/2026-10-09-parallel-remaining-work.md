@@ -44,6 +44,21 @@ preserves its accepted-runtime fixture rather than reverting to the older PR
 fixture. Rust formatting and diff checks pass; actual Rust/PG regression execution
 and successor CI remain pending.
 
+Publication checkpoint: PR47 is normally fast-forwarded to11f97aa, base main.
+Its fresh CI38002207012 passes backend, containers, minimum Rust and docs; frontend
+is still running at this checkpoint. These checks belong to that narrow PR head,
+not the combined runtime assembly.
+
+Final backend controls4113950 normally merge product469dad0 and preserve all
+earlier history. Source-to-controls delta is exactly six additions; parent
+independently verifies actual final source hashes/declarations. Worker Linux90
+PASS/zero skips and Windows88 PASS/two Linux-only skips cover the controls, not
+product execution. The workflow summary now matches its source checkout. Normal
+publication3600cb7 ->4113950 starts actual run38002746761; the full Linux/PG step
+is confirmed running. This gate has74 stages,9 journal cases and canonical21/
+split24 migrations. No backend success or credentials-PG fix is inferred before
+the terminal result and authenticated readback.
+
 These tasks have disjoint write sets. Reviewers do not modify frozen owner
 checkouts. Shared runtime/admission, live PM and native acceptance remain explicit
 later gates, not completion claims or duplicated assignments. Generated API must
