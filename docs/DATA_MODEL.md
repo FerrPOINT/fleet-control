@@ -59,6 +59,24 @@ ACK, audit/event and stopping state commit together. Independent atomic
 terminal prompt/run/optional-assistant evidence can settle an unknown hold
 as terminal-observed, never as proven command acceptance.
 The following unit12 section records that earlier release's own scope.
+The [config18 P2 successor](CONTAINER_ACTIVATION_PREFLIGHT_FIX.md) changes no schema
+or historical custody. `claimed_at` is not cleared to retry; only an unsealed
+read-only plan attempt may be retried by its live worker. Durable native permits
+and effective revision publication remain unchanged.
+
+`m20261009_000018_container_activation` adds controller-private
+`runtime_container_activations`, one immutable claim and monotonic CAS record per
+agent/target revision, at most one open activation per agent. Non-secret hashes,
+original launches/stop receipts and readiness proofs are persisted; exact config
+bytes/credentials stay in fsynced0600 private plans. Launch custody and effective
+publication commit atomically with their activation steps. Populated custody
+blocks downgrade; empty down restores exact17 guard definitions. See
+[unit18 transitions and gates](CONTAINER_ACTIVATION_RELEASE.md).
+The standalone integration introduces no further migration. Configuration,
+intent and mapping JSON hashes use the same Base ASCII-escaped canonical recipe,
+including Unicode/SMP keys and values; existing mismatched hashes are never
+rewritten. See [integration inventory](CONTAINER_ACTIVATION_INTEGRATION.md).
+
 Private `runtime_container_preparations` (unit17) stores immutable initial-generation
 intent hashes, one create-delivery permit and the original prepared receipt.
 See [custody and downgrade fences](AUTOMATIC_CONTAINER_PREPARATION_RELEASE.md).

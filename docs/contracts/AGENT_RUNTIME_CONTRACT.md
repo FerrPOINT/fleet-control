@@ -36,6 +36,19 @@ request key and one committed submission permit. Unknown effects hold the run;
 readback never replays a mutation. ACK, terminal runtime evidence, OS process
 stop and SDLC completion are distinct. Task/PM bindings do not grant control
 admission. See the [source candidate](../plans/2026-10-09-runtime-controls-release.md).
+The [config18 P2 fixes](../CONTAINER_ACTIVATION_PREFLIGHT_FIX.md) validate rendered
+managed bytes before stop and retain live read-only pre-plan retries. No unknown
+native effect becomes a retry/create permit; drain and admission gates remain.
+
+Docker configuration uses the existing desired/effective drain protocol plus
+original Base safe-stop, fresh preparation and physical/file/API readiness proof.
+Unknown native effects remain held without rollback or new delivery authority.
+See [unit18 source contract](../CONTAINER_ACTIVATION_RELEASE.md); native acceptance
+and assignment admission are distinct, still mandatory gates.
+The [standalone integration](../CONTAINER_ACTIVATION_INTEGRATION.md) serializes
+Docker lifecycle/activation per agent, not globally, while preserving independent
+recovery renewals, durable intent/receipts and all unknown-effect holds.
+
 Configured initial Docker generation preparation now uses original Base custody
 and a one-shot durable permit. See [unit17](../AUTOMATIC_CONTAINER_PREPARATION_RELEASE.md);
 it does not grant runtime admission or implement replacement/config activation.

@@ -50,6 +50,18 @@ class ContainerUtilityGitTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "canonical Git blob"):
                 verifier.verify(self.root, revision)
 
+    def test_fake_contract_checkout_allows_only_newline_equivalent_source(self):
+        revision = self.tree(self.sources)
+        (self.root / "scripts").mkdir()
+        for name, blob in self.sources.items():
+            (self.root / "scripts" / name).write_bytes(blob.replace(b"\n", b"\r\n"))
+        with patch.object(verifier, "utility_hashes", return_value=self.hashes):
+            verifier.verify_contract_checkout(self.root, revision)
+            source = self.root / "scripts" / verifier.NAMES[-1]
+            source.write_bytes(source.read_bytes() + b"VALUE = 2\r\n")
+            with self.assertRaisesRegex(ValueError, "fake-contract checkout"):
+                verifier.verify_contract_checkout(self.root, revision)
+
     def test_modified_lf_git_blob_is_rejected(self):
         changed = self.sources.copy()
         changed[verifier.NAMES[-1]] += b"VALUE = 2\n"

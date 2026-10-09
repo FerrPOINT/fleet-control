@@ -13,8 +13,10 @@ No installed runtime, Tracker or Workflow source is changed.
 
 The combined branch is a QA assembly, not a single main release unit. Preserve
 separate migration ownership and prerequisite order when preparing release PRs.
-Configuration18 is not included in this assembly. Its independently reviewed
-successor must close oversized-target and pre-plan retry findings before merge.
+The next normal merge adds configuration18 successor
+`906e102bdc2e48c349d7fecbfd708ad417089768` to fixture fix `c1ff1a3`.
+Independent source review closes oversized-target and pre-plan retry findings;
+native activation/recovery acceptance remains pending.
 
 ## Semantic Resolutions
 
@@ -27,8 +29,8 @@ successor must close oversized-target and pre-plan retry findings before merge.
 - Make control reservation and approval recovery SQL use
   `fleet_container_origin` with the journal's original capabilities. A private
   address alone is not authority; localhost process compatibility is preserved.
-- Retain every historical migration. The union has18 canonical and21 split
-  versions; seven tail migrations follow task chats. Update boundary/downgrade
+- Retain every historical migration. The union has19 canonical and22 split
+  versions; eight tail migrations follow task chats. Update boundary/downgrade
   assertions without skipping tests or rewriting the ledger.
 - Keep both CI selector sets. Add one PostgreSQL regression for original Docker
   control/approval context, wrong origin/generation and lost-generation holds;
@@ -40,10 +42,11 @@ Independent review of74d found an incomplete capability fixture in the new PG
 regression: generation alone failed durable dispatch protocol validation before
 the intended assertions. The successor supplies the full server-agent/bearer/
 durable-idempotency/endpoints contract plus the original generation. Production
-validation is unchanged. Review closure and actual PG execution remain separate.
+validation is unchanged. Independent source review closes the fixture finding;
+actual PG execution remains pending.
 
-Formatting/parser, offline locked metadata and ten sealed-loader/utility Python
-cases pass on this assembly. These do not compile Rust test fixtures or execute
+Formatting/parser and eleven sealed-loader/utility Python cases pass on the
+merged working tree. These do not compile Rust test fixtures or execute
 PostgreSQL, Docker, Hermes, native controls or full SDLC. The new PG regression
 is authored, not executed. Hosted OpenAPI evidence and328 frontend tests belong
 to the frozen98 source, not a full gate of this backend assembly.
@@ -59,7 +62,8 @@ from healthy API or run ACK. Missing producer predispatch authority remains held
 
 Forge prepares a transport-overhead correction without relaxing300/30/10-second
 deadlines or the full assertion matrix. A separate worker prepares the real
-two-Hermes driver. Configuration18 has its own implementation worker and an
-independent regression reviewer. Hosted full Linux/PostgreSQL gate preparation
+two-Hermes driver. Configuration18 restart/recovered-custody handling has its
+own implementation worker; an independent reviewer checks the live-driver
+assertions and cleanup. Hosted full Linux/PostgreSQL gate preparation
 targets frozen98 separately. None of these preparation tasks is native PASS;
 heavy execution requires reviewed immutable inputs and exact cleanup ownership.

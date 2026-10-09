@@ -49,6 +49,21 @@ and events atomically; scoped control GETs never reconnect or dispatch.
 Native installed compatibility remains separate from this source candidate.
 The combined candidate restores pinned active-run GET-only recovery after Fleet
 restart through the recovery slice; fixtures are not installed-runtime acceptance.
+Docker config18 [preflight fixes](../CONTAINER_ACTIVATION_PREFLIGHT_FIX.md) bound
+all rendered targets before sealing/stop and retry transient original read-only
+observe/health failures under the same live custodian. Unknown lifecycle effects
+and sealed evidence retain their original holds, not a new preparation permit.
+
+The configured Docker path can activate a revision on a fresh original generation
+under live original custody. Failed bounded API readiness requires candidate exit
+proof before exact previous-file restoration and fresh rollback preparation.
+Only original Base readback derives endpoints. See
+[unit18 source contract](../CONTAINER_ACTIVATION_RELEASE.md); health is not admission.
+The [standalone integration](../CONTAINER_ACTIVATION_INTEGRATION.md) uses canonical
+Base Unicode JSON hashing for config and generation intent as well as mapping.
+Sibling activation/readiness work cannot queue recovery heartbeats or lifecycle
+operations behind a global agent-operation lock. Same-agent custody stays exclusive.
+
 [Unit17](../AUTOMATIC_CONTAINER_PREPARATION_RELEASE.md) automates configured first
 generation preparation and original unknown readback; operator-prepared input is
 only the legacy path. Native acceptance and replacement remain pending.

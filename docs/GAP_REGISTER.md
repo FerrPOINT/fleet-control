@@ -3,12 +3,15 @@
 ## Docker And Controls Integration Gate
 
 The [source assembly](plans/2026-10-09-docker-controls-integration.md) now combines
-original-key recovery/controls with Docker15/16/preparation17. SQL origin checks
+original-key recovery/controls with Docker15/16/preparation17/configuration18.
+SQL origin checks
 retain original generation authority, and migrations retain both histories.
 All-target compilation, the new PG origin/control/approval regression, combined
 mandatory selectors, independent integration review and native Docker acceptance
-are pending. Config18 review identified oversized target blocking rollback and
-a lost pre-plan retry; assigned fixes need independent closure. Do not claim
+are pending. Config18 oversized-target and lost pre-plan retry findings, and the
+PG capability-fixture finding, have independent source closure at906/c1ff.
+Their native regressions remain unexecuted; restart/recovered-custody activation
+is a separate implementation assignment. Do not claim
 the source assembly is merge-ready or that earlier evidence accepts this head.
 
 ## Runtime Successor Evidence (2026-10-09)

@@ -1,34 +1,7 @@
 use super::container_control::{ContainerControl, ContainerLaunchFiles, canonical_hash};
+use super::container_workers::AgentTasks;
 use super::*;
 use app::container_runtime::{ContainerLaunch, ContainerRecoveryCommand, ContainerRecoveryRequest};
-use std::future::Future;
-use tokio::task::JoinHandle;
-
-#[derive(Default)]
-struct RecoveryTasks {
-    tasks: HashMap<Uuid, JoinHandle<()>>,
-}
-
-impl RecoveryTasks {
-    fn spawn(&mut self, agent_id: Uuid, reconcile: impl Future<Output = ()> + Send + 'static) {
-        if self
-            .tasks
-            .get(&agent_id)
-            .is_some_and(|task| !task.is_finished())
-        {
-            return;
-        }
-        self.tasks.insert(agent_id, tokio::spawn(reconcile));
-    }
-}
-
-impl Drop for RecoveryTasks {
-    fn drop(&mut self) {
-        for task in self.tasks.values() {
-            task.abort();
-        }
-    }
-}
 
 fn held() -> AppError {
     AppError::Unavailable("Original controller custody remains held".into())
@@ -109,9 +82,9 @@ impl LocalRuntimeSupervisor {
         let supervisor = self.clone();
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
             handle.spawn(async move {
-                let mut tasks = RecoveryTasks::default();
+                let mut tasks = AgentTasks::default();
                 loop {
-                    tasks.tasks.retain(|_, task| !task.is_finished());
+                    tasks.reap();
                     if let Ok(agents) = supervisor.repo.list_agents().await {
                         for agent in agents.into_iter().filter(|a| a.kind == AgentKind::Hermes) {
                             let supervisor = supervisor.clone();
@@ -257,7 +230,7 @@ impl LocalRuntimeSupervisor {
         launch: &ContainerLaunch,
     ) -> Result<(), AppError> {
         if launch.state == "stopping" {
-            let Ok(_guard) = self.container_operations.try_lock() else {
+            let Some(_guard) = self.container_operations.try_lock(agent.id).await else {
                 return Ok(());
             };
             self.stop_container(agent).await?;
@@ -276,7 +249,7 @@ mod tests {
     async fn slow_agent_does_not_block_repeated_sibling_heartbeats() {
         let slow = Uuid::new_v4();
         let fast = Uuid::new_v4();
-        let mut tasks = RecoveryTasks::default();
+        let mut tasks = AgentTasks::default();
         let (release, blocked) = oneshot::channel::<()>();
         let (started, ready) = oneshot::channel();
         tasks.spawn(slow, async move {
@@ -301,7 +274,7 @@ mod tests {
     #[tokio::test]
     async fn pending_agent_has_one_attempt_and_shutdown_aborts_it() {
         let agent = Uuid::new_v4();
-        let mut tasks = RecoveryTasks::default();
+        let mut tasks = AgentTasks::default();
         let (started, ready) = oneshot::channel();
         let (closed, receiver) = oneshot::channel::<()>();
         tasks.spawn(agent, async move {

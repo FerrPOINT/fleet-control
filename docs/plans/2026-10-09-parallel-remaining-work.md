@@ -10,18 +10,26 @@ checkouts rather than restarting completed work:
 
 | Owner    | Current assignment                                                 | Required handoff                                                                                                              |
 | -------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| Feynman  | Integrate frozen configuration18 with recovery fixes               | Normal merge of bde64862 and be1b040; preserve original parents, one new migration and all config/preparation/recovery guards |
+| Feynman  | Configuration activation after restart/recovered custody           | Separate successor from906; original identity/readback, no unknown-effect redispatch, focused regression tests and explicit holds |
 | Pascal   | Real two-agent Docker/Hermes acceptance driver preparation         | Isolated lifecycle/config/rollback live-driver source and explicit unsupported recovery holds; no execution before review/ACK |
-| Ptolemy  | Correct demonstrated Forge smoke orchestration overhead            | Preserve all assertions, connection/role semantics and original timeouts; new reviewed packet, no automatic replay            |
-| Anscombe | Authenticate actual lookup codegen artifact                        | Exact run37953053154/attempt1 and artifact11626597579 provenance without rerun or parent edits                                |
-| Leibniz  | Independent preparation17/recovery16 safety review                 | Precise intent/permit/original-identity/concurrency findings; preserve QA0e until final source/codegen freeze                 |
-| Parent   | Chat reload UI, browser checks, integration and scoped publication | Metadata-only recovery, generated client, frontend/browser evidence, reviewed worker integration and exact-head PR checks     |
+| Ptolemy  | Forge full gate with reviewed transport and accepted main           | Successor packet for25be2e8, all12 stages and original timeouts; terminal cleanup before another attempt, no stale d0 run         |
+| Anscombe | Full hosted Linux/PostgreSQL backend gate for frozen98             | Exact source/SDK, all mandatory ignored selectors, strict Clippy/schema parity, reviewed workflow before push/dispatch          |
+| Leibniz  | Independent real two-Hermes live-driver review                      | Genuine runtime paths, all scenario assertions, original pins, exact owned cleanup; no product edits or heavy jobs              |
+| Parent   | Normal integration, documentation and scoped publication            | Resolve906/c1ff merge, retain migration history, freeze source for new driver packet, admit gates and verify exact-head PRs      |
 
 These are continuations of the existing five workers, not additional competing
 implementations. Each has a separate write set; the parent UI is read-only to
-reviewers. Heavy jobs remain parent-admitted one at a time. The Forge slot has
-been released after the terminal failure/cleanup below; no successor is admitted
-merely because a worker prepared an invocation.
+reviewers. Heavy jobs remain parent-admitted one at a time. The local slot is
+reserved for one Forge preparation only, not a native run. No successor is
+admitted merely because a worker prepared an invocation.
+
+Independent source review closes both configuration18 findings at906 and the
+PG capability-fixture finding atc1ff. These are not Rust/PG/native passes.
+The two-Hermes packet474783 is prepared against oldbde and must be replaced by
+a newly sealed packet for the final normal-merged source before execution.
+Forge accepted main is nowd128 (PR87 merged); normal merge25be retains its
+confirmed-process-exit guard. Neither the old d0 packet nor historical PR checks
+certify this new source.
 
 The four recovery16 fixes and provisioning17 have been normally merged at
 `be1b040597a9ddd0847aca2c10fdaadb96e4c4a9`, preserving both original parents.
@@ -32,7 +40,7 @@ present; that static audit is not a native test pass.
 Parent reload recovery is a separate UI source unit: sessionStorage contains
 only actor/session-scoped command handles, never steer text. Distinct original-key
 readback and explicit receipt settlement are implemented in the UI, but depend
-on Anscombe's new API and authentic generation before integration acceptance.
+on the lookup API and authentic generation before integration acceptance.
 Earlier frozen results below remain historical evidence, not evidence for these
 new changes.
 
@@ -68,8 +76,9 @@ live-driver preparation are independent successor tasks.
 
 The actual Forge full12 packet dcbba1cb4e3f terminates exit1 at the unchanged
 300-second smoke deadline. Python75 and row-smoke pass; smoke and the nine later
-stages do not. Diagnostic call350/phaseL0236 is interrupted and reaped after
-349 completed calls; partial markers are not acceptance. Parent inspected the
+stages do not. Latest diagnostic inventory records350 starts and347 synchronous
+completions (298.93495 seconds), with two held overlaps; partial markers are not
+acceptance. Parent inspected the
 terminal probe and same-daemon cleanup: owned containers/networks/volumes empty,
 baseline20/source265/protected caches preserved. No replay occurred. The next
 task diagnoses and corrects demonstrated transport overhead without shrinking

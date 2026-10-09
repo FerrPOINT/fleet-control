@@ -97,7 +97,7 @@ pub(super) async fn private_file(
     Ok(bytes)
 }
 
-fn validate_recipe(
+pub(super) fn validate_recipe(
     agent: &Agent,
     p: &PreparedContainer,
     compose: &Value,

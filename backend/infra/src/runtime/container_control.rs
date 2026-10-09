@@ -102,7 +102,7 @@ fn required_snapshot<'de, D: serde::Deserializer<'de>>(
     Option::deserialize(deserializer)
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContainerStopReceipt {
     pub contract_version: u8,

@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod container_activation;
 pub mod container_runtime;
 pub mod pm_draft;
 
@@ -159,6 +160,39 @@ pub trait FleetRepository: Send + Sync {
         ))
     }
 
+    async fn get_container_activation(
+        &self,
+        _agent: Uuid,
+        _revision: i64,
+    ) -> Result<Option<container_activation::Activation>, AppError> {
+        Ok(None)
+    }
+    async fn container_generation_intent_hash(
+        &self,
+        _agent: Uuid,
+        _generation: Uuid,
+    ) -> Result<Option<String>, AppError> {
+        Ok(None)
+    }
+    async fn pending_container_activations(
+        &self,
+        _controller: Uuid,
+    ) -> Result<Vec<domain::AgentConfigRevision>, AppError> {
+        Ok(vec![])
+    }
+    async fn claim_container_activation(
+        &self,
+        _claim: &container_activation::Claim,
+    ) -> Result<container_activation::Activation, AppError> {
+        Err(container_activation::held())
+    }
+    async fn advance_container_activation(
+        &self,
+        _previous: &container_activation::Activation,
+        _next: &container_activation::Activation,
+    ) -> Result<(), AppError> {
+        Err(container_activation::held())
+    }
     async fn get_container_preparation(
         &self,
         _agent: Uuid,

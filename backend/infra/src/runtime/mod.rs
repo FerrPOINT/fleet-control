@@ -24,6 +24,7 @@ use tokio::{
 use uuid::Uuid;
 mod acceptance_readback;
 mod approval_snapshot;
+mod container_activation;
 pub(crate) mod container_control;
 mod container_lifecycle;
 mod container_mapping;
@@ -31,6 +32,7 @@ mod container_preparation;
 #[cfg(test)]
 mod container_preparation_tests;
 mod container_recovery;
+mod container_workers;
 mod hermes_wire;
 mod native_context;
 mod pm_readback;
@@ -49,7 +51,7 @@ pub struct LocalRuntimeSupervisor {
     repo: Arc<dyn FleetRepository>,
     children: Arc<Mutex<HashMap<Uuid, Child>>>,
     controller_id: Uuid,
-    container_operations: Arc<Mutex<()>>,
+    container_operations: Arc<container_workers::ContainerOperations>,
     client: reqwest::Client,
     events: broadcast::Sender<FleetEvent>,
     alerts: Arc<app::RepositoryAlertService>,
@@ -71,7 +73,7 @@ impl LocalRuntimeSupervisor {
             repo: repo.clone(),
             children: Arc::new(Mutex::new(HashMap::new())),
             controller_id: Uuid::new_v4(),
-            container_operations: Arc::new(Mutex::new(())),
+            container_operations: Arc::new(container_workers::ContainerOperations::default()),
             client: reqwest::Client::builder()
                 .redirect(reqwest::redirect::Policy::none())
                 .retry(reqwest::retry::never())
@@ -133,9 +135,47 @@ impl LocalRuntimeSupervisor {
         let supervisor = self.clone();
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
             handle.spawn(async move {
+                let mut tasks = container_workers::AgentTasks::default();
+                let mut claimed = Vec::<domain::AgentConfigRevision>::new();
                 loop {
+                    tasks.reap();
+                    // A freshly claimed revision must not be dropped while its predecessor finishes.
+                    for revision in std::mem::take(&mut claimed) {
+                        if tasks.is_running(revision.agent_id) {
+                            claimed.push(revision);
+                        } else {
+                            let supervisor = supervisor.clone();
+                            tasks.spawn(revision.agent_id, async move {
+                                supervisor.reconcile_container_revision(&revision).await;
+                            });
+                        }
+                    }
+                    // Only this live custodian may resume its sealed native commands.
+                    if let Ok(pending) = supervisor
+                        .repo
+                        .pending_container_activations(supervisor.controller_id)
+                        .await
+                    {
+                        for revision in pending {
+                            let supervisor = supervisor.clone();
+                            tasks.spawn(revision.agent_id, async move {
+                                supervisor.reconcile_container_revision(&revision).await;
+                            });
+                        }
+                    }
                     match supervisor.repo.claim_config_activation().await {
                         Ok(Some(revision)) => {
+                            let container = match supervisor.repo.get_agent(revision.agent_id).await
+                            {
+                                Ok(agent) => {
+                                    supervisor.container_mode(&agent).await.unwrap_or(true)
+                                }
+                                Err(_) => true,
+                            };
+                            if container {
+                                claimed.push(revision);
+                                continue;
+                            }
                             let result = supervisor.apply_config_revision(&revision).await;
                             let reconciled = !matches!(&result, Err(AppError::Unavailable(_)));
                             let error = result
@@ -312,43 +352,51 @@ impl LocalRuntimeSupervisor {
         let supervisor = self.clone();
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
             handle.spawn(async move {
+                let mut tasks = container_workers::AgentTasks::default();
                 loop {
                     sleep(RECONCILE_INTERVAL).await;
+                    tasks.reap();
                     let Ok(agents) = supervisor.repo.list_agents().await else {
                         continue;
                     };
                     for agent in agents {
-                        if supervisor
-                            .repo
-                            .agent_is_draining(agent.id)
-                            .await
-                            .unwrap_or(true)
-                        {
-                            continue;
-                        }
-                        match app::reconcile_action(agent.status, agent.runtime.desired_state) {
-                            app::ReconcileAction::Restart => {
-                                tracing::info!(
-                                    "reconciler: restarting failed agent {} (desired=running)",
-                                    agent.name
-                                );
-                                if let Err(err) = supervisor.restart(&agent).await {
-                                    tracing::warn!(
-                                        "reconciler restart failed for {}: {err}",
+                        let supervisor = supervisor.clone();
+                        tasks.spawn(agent.id, async move {
+                            let Ok(agent) = supervisor.repo.get_agent(agent.id).await else {
+                                return;
+                            };
+                            if supervisor
+                                .repo
+                                .agent_is_draining(agent.id)
+                                .await
+                                .unwrap_or(true)
+                            {
+                                return;
+                            }
+                            match app::reconcile_action(agent.status, agent.runtime.desired_state) {
+                                app::ReconcileAction::Restart => {
+                                    tracing::info!(
+                                        "reconciler: restarting failed agent {} (desired=running)",
                                         agent.name
                                     );
+                                    if let Err(err) = supervisor.restart(&agent).await {
+                                        tracing::warn!(
+                                            "reconciler restart failed for {}: {err}",
+                                            agent.name
+                                        );
+                                    }
                                 }
+                                app::ReconcileAction::HealthCheck => {
+                                    let _ = supervisor.health(&agent).await;
+                                }
+                                app::ReconcileAction::Stop | app::ReconcileAction::None => {}
                             }
-                            app::ReconcileAction::HealthCheck => {
-                                let _ = supervisor.health(&agent).await;
+                            if agent.kind == AgentKind::JavaAgent
+                                && agent.status == AgentStatus::Running
+                            {
+                                let _ = supervisor.sync_java_agent_sessions(&agent).await;
                             }
-                            app::ReconcileAction::Stop | app::ReconcileAction::None => {}
-                        }
-                        if agent.kind == AgentKind::JavaAgent
-                            && agent.status == AgentStatus::Running
-                        {
-                            let _ = supervisor.sync_java_agent_sessions(&agent).await;
-                        }
+                        });
                     }
                     let _ = supervisor.process_deployment_jobs().await;
                     let _ = supervisor.sync_project_workflow().await;
@@ -1062,11 +1110,16 @@ impl LocalRuntimeSupervisor {
     async fn probe_hermes(&self, agent: &Agent) -> Result<Value, AppError> {
         let base = self.hermes_base_url(agent).await?;
         let token = crate::agent_runtime_token(&self.config, agent.id)?;
+        self.probe_hermes_at(&base, &token).await
+    }
+
+    // Callers must derive this origin from original Base endpoint readback, never configuration.
+    async fn probe_hermes_at(&self, base: &str, token: &str) -> Result<Value, AppError> {
         let health = self
             .client
             .get(format!("{base}/health"))
             .timeout(Duration::from_secs(3))
-            .bearer_auth(&token)
+            .bearer_auth(token)
             .send()
             .await
             .map_err(AppError::internal)?;
@@ -1820,7 +1873,7 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
     }
     async fn start(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
         if self.container_mode(agent).await? {
-            let _guard = self.container_operations.lock().await;
+            let _guard = self.container_operations.lock(agent.id).await;
             return self.start_container(agent).await;
         }
         if agent.kind == AgentKind::JavaAgent {
@@ -1978,7 +2031,7 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
 
     async fn stop(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
         if self.container_mode(agent).await? {
-            let _guard = self.container_operations.lock().await;
+            let _guard = self.container_operations.lock(agent.id).await;
             return self.stop_container(agent).await;
         }
         let mut children = self.children.lock().await;
@@ -2022,7 +2075,7 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
 
     async fn health(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
         if self.container_mode(agent).await? {
-            let _guard = self.container_operations.lock().await;
+            let _guard = self.container_operations.lock(agent.id).await;
             return self.health_container(agent).await;
         }
         let mut children = self.children.lock().await;

@@ -39,6 +39,16 @@ def verify(base_checkout, revision=BASE_REVISION):
     return {"revision": revision, "sources": expected}
 
 
+def verify_contract_checkout(base_checkout, revision=BASE_REVISION):
+    """Fake tests use Python's newline-equivalent text; native bytes stay strict."""
+    result = verify(base_checkout, revision)
+    for name, expected in result["sources"].items():
+        source = (Path(base_checkout) / "scripts" / name).read_bytes()
+        if hashlib.sha256(source.replace(b"\r\n", b"\n")).hexdigest() != expected:
+            raise ValueError(f"{name}: fake-contract checkout differs from canonical Base")
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("base_checkout", type=Path)

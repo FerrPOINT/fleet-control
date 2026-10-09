@@ -20,6 +20,16 @@ remains unavailable; its launch, readiness and SDK contract are unchanged.
 The new journal/native control protocol is Hermes-only. Java Agent chat/control
 remains unavailable; no Java readiness, process lifecycle or SDK contract changes
 are introduced or accepted by this source freeze.
+The Docker config18 [P2 successor](../CONTAINER_ACTIVATION_PREFLIGHT_FIX.md) changes
+no Java/process validation, provisioning, lifecycle or db-only readiness behavior.
+
+Docker config activation unit18 is Hermes-only. Java's process lifecycle and
+unsupported config activation behavior are unchanged; no Docker or process
+fallback is introduced. See [bounded unit18 scope](../CONTAINER_ACTIVATION_RELEASE.md).
+The [standalone integration](../CONTAINER_ACTIVATION_INTEGRATION.md) runs periodic
+reconcile per agent; Java's command, provisioning and db-only readiness contracts
+remain unchanged. Docker activation and recovery authority do not apply to Java.
+
 [Automatic Docker preparation unit17](../AUTOMATIC_CONTAINER_PREPARATION_RELEASE.md)
 is Hermes-only and does not change Java provisioning, process paths or readiness.
 

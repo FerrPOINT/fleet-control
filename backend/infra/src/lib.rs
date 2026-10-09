@@ -1,6 +1,7 @@
 mod approval_decisions;
 mod chats_directory;
 mod config_revisions;
+mod container_activation;
 mod container_preparation;
 mod container_recovery;
 mod container_runtime;
@@ -620,6 +621,39 @@ impl FleetRepository for PostgresFleetRepository {
         .await
     }
 
+    async fn get_container_activation(
+        &self,
+        agent: Uuid,
+        revision: i64,
+    ) -> Result<Option<app::container_activation::Activation>, AppError> {
+        container_activation::get(self, agent, revision).await
+    }
+    async fn container_generation_intent_hash(
+        &self,
+        agent: Uuid,
+        generation: Uuid,
+    ) -> Result<Option<String>, AppError> {
+        container_activation::generation_intent_hash(self, agent, generation).await
+    }
+    async fn pending_container_activations(
+        &self,
+        owner: Uuid,
+    ) -> Result<Vec<domain::AgentConfigRevision>, AppError> {
+        container_activation::pending(self, owner).await
+    }
+    async fn claim_container_activation(
+        &self,
+        claim: &app::container_activation::Claim,
+    ) -> Result<app::container_activation::Activation, AppError> {
+        container_activation::claim(self, claim).await
+    }
+    async fn advance_container_activation(
+        &self,
+        previous: &app::container_activation::Activation,
+        next: &app::container_activation::Activation,
+    ) -> Result<(), AppError> {
+        container_activation::advance(self, previous, next).await
+    }
     async fn get_container_preparation(
         &self,
         agent: Uuid,

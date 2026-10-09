@@ -77,6 +77,19 @@ The compatibility gate explicitly models only the exact required string header
 headers and still checks every other parameter, body, response and route through
 the unchanged Base compatibility checker. This is not general v1 compatibility
 and must be coordinated with consumers before enabling unit13.
+The [config18 P2 successor](CONTAINER_ACTIVATION_PREFLIGHT_FIX.md) adds Docker-only
+rendered-byte preflight and live-custodian read-only retry. No public routes or
+schemas change; invalid targets/unknown effects retain drain.
+
+Docker configuration activation uses the existing config revision endpoints;
+there is no new public endpoint or generated schema. Desired remains the
+requested revision; effective changes only after original generation, file and
+API proof. Unknown effects retain drain. See
+[unit18 private activation contract](CONTAINER_ACTIVATION_RELEASE.md).
+The [normal integration](CONTAINER_ACTIVATION_INTEGRATION.md) keeps public routes
+unchanged and isolates sibling agents' lifecycle/activation work without relaxing
+drain, ownership, unknown-effect or admission checks.
+
 Public routes are unchanged by [automatic Docker preparation unit17](AUTOMATIC_CONTAINER_PREPARATION_RELEASE.md).
 The configured initial-generation path no longer requires an operator-prepared
 document; it still requires original physical and admission gates.

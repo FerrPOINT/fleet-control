@@ -3,10 +3,13 @@
 ## Docker And Controls Assembly: 9 October 2026
 
 The isolated [assembly](plans/2026-10-09-docker-controls-integration.md) preserves
-frozen98 UI/control/recovery and be1 Docker/preparation sources by normal merge.
+frozen98 UI/control/recovery and be1 Docker/preparation sources by normal merge,
+followed by configuration18 successor906 and fixture fixc1ff.
 It integrates Base-verified async original origins, generation-fenced control
-reservation/approval recovery and the full18/21 migration union. A new PG
-regression is authored, not executed. Configuration18, native acceptance and
+reservation/approval recovery and the full19/22 migration union. A new PG
+regression and four activation regressions are authored, not executed. Independent
+source review closes oversized-target, pre-plan retry and capability-fixture
+findings. Configuration restart/recovered custody, native acceptance and
 producer pre-model admission remain open. Historical evidence below is scoped
 to its recorded heads, not transferred to the assembled backend.
 
