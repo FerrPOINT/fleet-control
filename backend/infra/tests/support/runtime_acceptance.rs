@@ -884,3 +884,9 @@ async fn required_fixture() -> Option<(PostgresFleetRepository, Uuid, Uuid)> {
         .expect("isolated PostgreSQL is required for Hermes journal tests");
     super::fixture().await
 }
+
+async fn pm_required_fixture() -> Option<(PostgresFleetRepository, domain::PmRunReservation)> {
+    std::env::var("FLEET_TEST_DATABASE_URL")
+        .expect("isolated PostgreSQL is required for Hermes PM-boundary tests");
+    super::pm_fixture().await
+}

@@ -3,6 +3,36 @@
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 
+## Acceptance And Callback Fixture Compile Findings (2026-10-09)
+
+Actual [run37967213470](https://github.com/FerrPOINT/fleet-control/actions/runs/37967213470),
+attempt1/job113944448761, fails all-target `check` on exact c02ee92 with exit101.
+Authenticated SAFE artifact11634537223 (ZIP SHA256
+7b6a9894766f451bf617a4b973c4ac43ef7f01f7bf91729b24e19b3e35227b3a)
+contains E0425 at infra/tests/support/runtime_acceptance.rs:542:33 and E0594 at
+infra/tests/sdlc_foundation.rs:2702:5. Owned scratch/synthetic databases, final
+fallback and platform containers were cleaned successfully. This is FAILURE,
+not a compiler/PG PASS; no raw private Cargo/Base logs are required for the fixes.
+
+The missing pm_required_fixture now delegates to the existing typed pm_fixture
+after requiring isolated FLEET_TEST_DATABASE_URL, preserving fail-closed behavior
+instead of permitting a missing-database skip. The callback fixture initializes
+PmConfig.readback_token inside its immutable AppConfig before sharing Arc state.
+No production runtime/type/schema/auth policy changes or assertions are removed.
+
+Existing regression identities and focused selectors remain unchanged:
+`runtime_acceptance::acceptance_and_pin_cannot_bypass_task_chat_or_pm_run_binding`
+in the explicit ignored `hermes_acceptance` stage, and
+`pm_callback_requires_machine_auth_and_fresh_authenticated_runtime_proof` in
+the ordinary `foundation`/workspace stages. The first still rejects both PM-bound
+and task-only acceptance/pinning; the second still verifies machine auth, fresh
+authenticated runtime identity/session/status and terminal monotonicity.
+The c02ee92 status-archive guard, ordered archive regression and original-origin
+checks remain byte-identical. Local source/fmt checks are not real Rust/PG results;
+all46 hosted stages and135 ignored identities remain required. New hosted
+execution additionally awaits parent review and explicit CI billing/spending
+availability restoration; no dispatch/retry or paid-resource change is authorized.
+
 ## Acceptance Archive Guard Compile Finding (2026-10-09)
 
 Actual [run37964514708](https://github.com/FerrPOINT/fleet-control/actions/runs/37964514708)
