@@ -25,6 +25,24 @@ specific refusal and preserves the ledger. Normal successor5337997 fixes the
 analogous retained-Hermes journal test, targeting time-order14. Both retain their
 data assertions; formatting/source review pass, real Rust/PG rerun is pending.
 
+Reviewed controls2b6ae27 now normally merge and pin sourcef8b9a58; both source
+and controls are published without force. Actual74-stage run38004567349 completes
+FAILURE at foundation, after credentials_pg passes. Authenticated safe artifact
+11651341407 identifies the project-revocation approval-history case at line2126.
+Scratch/DB cleanup passes. Its stop request lacks the now-required key; with a
+valid key, the task-bound conflict also precedes project authorization. The next
+source correction moves project checks ahead of that conflict for stop/steer
+and extends the existing regression for both controls, with an empty journal.
+Formatting passes; actual PostgreSQL execution of this correction is pending.
+Every gate and dependency/API pin is preserved;90 pure controls are not product
+acceptance.
+
+Current-client sourcef8b9a58 builds and its two fixture scenarios pass in three
+engines (six cases). Parent inspection of the27 fresh captures finds missing SDK
+styling and unreadable controls. Browser qualification remains open while the
+worker checks the owned SDK junction/build layout; functional PASS alone does not
+qualify visual evidence. No production screenshot manifest is replaced.
+
 Supported-browser fixture checks pass for explicit answers/confirmation and
 unknown-command reload. The new test is integrated, including its corrected
 Draft mock stage; parent ESLint/Prettier/typecheck pass. Worker retains27 fixture

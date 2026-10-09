@@ -1941,6 +1941,10 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
             axum::routing::post(api::routes::sessions::stop_session_run),
         )
         .route(
+            "/api/v1/sessions/{session_id}/runs/{run_id}/steer",
+            axum::routing::post(api::routes::sessions::steer_session_run),
+        )
+        .route(
             "/api/v1/sessions/{session_id}/approvals",
             axum::routing::get(api::routes::approvals::list),
         )
@@ -2049,6 +2053,31 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
         repo.approval_decision(session.id, fresh.id).await,
         Err(shared::AppError::NotFound(_))
     ));
+    for action in ["stop", "steer"] {
+        let request = client
+            .post(format!(
+                "{session_url}/runs/{}/{action}",
+                reservation.session_run_id
+            ))
+            .bearer_auth("verified-owner-fixture")
+            .header("Idempotency-Key", format!("history-before-{action}"));
+        let request = if action == "steer" {
+            request.json(&serde_json::json!({"input":"Must not dispatch"}))
+        } else {
+            request
+        };
+        assert_eq!(
+            request.send().await.unwrap().status(),
+            reqwest::StatusCode::CONFLICT,
+            "task-bound control bypassed verified assignment: {action}"
+        );
+    }
+    assert!(
+        repo.list_runtime_controls(session.id, reservation.session_run_id)
+            .await
+            .unwrap()
+            .is_empty()
+    );
     let mut stream = client
         .get(format!("{session_url}/stream"))
         .bearer_auth(&token)
@@ -2123,18 +2152,30 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
             "revoked project still exposed chat: {suffix}"
         );
     }
-    assert_eq!(
-        client
+    for action in ["stop", "steer"] {
+        let request = client
             .post(format!(
-                "{session_url}/runs/{}/stop",
+                "{session_url}/runs/{}/{action}",
                 reservation.session_run_id
             ))
             .bearer_auth("verified-owner-fixture")
-            .send()
+            .header("Idempotency-Key", format!("history-revoked-{action}"));
+        let request = if action == "steer" {
+            request.json(&serde_json::json!({"input":"Must not dispatch"}))
+        } else {
+            request
+        };
+        assert_eq!(
+            request.send().await.unwrap().status(),
+            reqwest::StatusCode::FORBIDDEN,
+            "revoked project still permitted control: {action}"
+        );
+    }
+    assert!(
+        repo.list_runtime_controls(session.id, reservation.session_run_id)
             .await
             .unwrap()
-            .status(),
-        reqwest::StatusCode::FORBIDDEN
+            .is_empty()
     );
     assert_eq!(
         client

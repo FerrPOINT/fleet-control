@@ -36,6 +36,9 @@ request key and one committed submission permit. Unknown effects hold the run;
 readback never replays a mutation. ACK, terminal runtime evidence, OS process
 stop and SDLC completion are distinct. Task/PM bindings do not grant control
 admission. See the [source candidate](../plans/2026-10-09-runtime-controls-release.md).
+Human stop/steer also revalidate the bound project's access before evaluating
+task-control admission. Revocation cannot be hidden by an assignment conflict;
+denied requests create no control reservation or native effect.
 
 ## Docker Activation Restart Recovery
 

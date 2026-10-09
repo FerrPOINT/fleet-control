@@ -12,10 +12,10 @@ owned checkouts; Tracker and Workflow remain read-only references.
 
 | Owner | Independent work | Acceptance boundary |
 | ----- | ---------------- | ------------------- |
-| Pascal | Finish the 74-stage backend controls and safe failure diagnostics | Correct any stale workflow summary pin; verify all selectors, source hashes, migration ledgers and pure tests. No publication or CI dispatch until the parent supplies the final integrated source. |
-| Feynman | Publish the private-approval ownership fix in existing PR47 | Recheck the current remote head/base, then normally fast-forward only the narrow two-file successor. Inspect fresh checks; old green checks do not accept the new head. No merge or broad runtime-history import. |
-| Anscombe | Supported-browser fixture checks and unknown-command reload regression | Lint/format/build pass. Run focused existing scenario/screens and add one browser reload/permission/original-command test in an isolated frontend successor; no backend/schema edits or live PM claim. |
-| Parent | Integrate product fixes, release controls and evidence | Port the approval guard while preserving the accepted-runtime fixture; review worker commits, provide the final source pin, launch the combined backend gate and resolve its actual failure. Maintain documentation and scoped publication. |
+| Pascal | Retarget existing backend controls after the reviewed project-access fix | Wait for final source SHA, then normal merge and exact inventory/declaration updates. Preserve74 stages,9 journal cases,21/24 migrations and90 pure cases. No old-source rerun or bypass. |
+| Feynman | Independent review of stop/steer project-revocation correction | Read-only review of the parent's two-file patch: free-chat compatibility, authorization ordering, valid keys and no control reservation. Prior narrow PR47 work is complete. |
+| Anscombe | Resolve current-client screenshot qualification | Diagnose missing SDK styling in the owned build; if junction scanning is the cause, rebuild using real clean SDK19a files and repeat the same six cases/27 captures. No speculative product styles or production manifest replacement. |
+| Parent | Fix the actual backend failure and integrate reviewed results | Implement stop/steer project authorization and its regression; review source/control changes, publish scoped successors and launch the next exact-head gate. Keep native/live dependencies explicit. |
 
 Ptolemy's codegen work is complete: run37999711562 succeeds and artifact11648708483
 contains authenticated schema874230b2. Parent independently reads it back and
@@ -106,6 +106,41 @@ published at5fb9dc8 before that successor; it is not a broad release PR or a
 merge-ready claim. The subsequent successor and updated exact-head controls
 must be published normally after review, without cancelling or replaying a live
 run. Task Tracker and Workflow remain unchanged/read-only.
+
+Final sourcef8b9a58 and reviewed controls2b6ae27 are now normally published.
+The controls normally merge that source and change only its two Rust test
+fingerprints, TESTING fingerprint, three declaration locations, aggregate and
+source refs/summary. Parent independently verifies canonical source inputs and
+the exact six-file controls delta; worker Linux90 PASS/Windows88 PASS+two skips
+are preserved. Actual run38004567349 is confirmed in progress on2b6ae27 and
+tests sourcef8b9a58; it is not a blind retry of469dad0. All74 stages,9 journal
+cases, canonical21/split24,167 ignored/294 ordinary and dependency/API pins remain.
+
+The browser worker separately qualifies the current generated-client assembly:
+own build of sourcef8b9a58, then the same two scenarios/three engines and fresh
+27 fixture captures. No source or schema edits are assigned; this task is still
+in progress, so the earlier3b41/7cc evidence is not relabelled as current-client
+acceptance. Production/live PM and native gates remain separate.
+
+Subsequent terminal checkpoint: run38004567349 fails at foundation after the
+credential PostgreSQL stage passes. Existing authenticated readback accepts safe
+artifact11651341407, digest
+41743dfb3c2b6cef64fe648eeea049dad25f0c17b0f99fb834e058dee3b58caa,
+and names only the reviewed approval-history project-revocation case at2126:5.
+Owned scratch and synthetic DB cleanup pass. Parent corrects the missing request
+key in that test and the production stop/steer authorization order: project
+revocation returns403 before the assignment409, without runtime journal effects.
+The same case retains history, approval replay and SSE assertions; no gate is
+removed. Independent review and next exact-head retarget are separate tasks.
+
+The current-client own build/sourcef8b9a58 passes six fixture browser cases and
+retains27 fresh captures. Parent inspection finds missing SDK styles, including
+an unreadable requirements selector and clarification disabled button. Therefore
+the worker's initial functional report does not close visual qualification.
+Anscombe checks only the owned SDK junction/build layout and corrects the
+evidence; source changes require a demonstrated product defect first. No live
+PM/backend/native acceptance or production-manifest update follows from these
+fixtures.
 
 These tasks have disjoint write sets. Reviewers do not modify frozen owner
 checkouts. Shared runtime/admission, live PM and native acceptance remain explicit
