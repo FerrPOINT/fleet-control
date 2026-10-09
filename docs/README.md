@@ -61,6 +61,7 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 ## Quality And Delivery
 
 - [TESTING.md](TESTING.md)
+- [UI_READINESS_VERIFICATION.md](UI_READINESS_VERIFICATION.md)
 - [QUALITY_GATE.md](QUALITY_GATE.md)
 - [TRACEABILITY.md](TRACEABILITY.md)
 - [RISK_REGISTER.md](RISK_REGISTER.md)
@@ -74,6 +75,10 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 - [CI_CD.md](CI_CD.md)
 
 ## Evidence
+
+- [HEARTBEAT_ALERT_VERIFICATION.md](HEARTBEAT_ALERT_VERIFICATION.md) records the
+  main-based monitoring correction, real PostgreSQL regression and separate
+  nine-image three-browser fixture packet.
 
 - [assets/screens/manifest.md](assets/screens/manifest.md) contains the
   generated route-to-screenshot matrix for 135 fixture screenshots at three

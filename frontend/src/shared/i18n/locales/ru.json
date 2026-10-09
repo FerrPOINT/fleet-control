@@ -614,7 +614,8 @@
       "agent_down": "Агент недоступен",
       "agent_recovered": "Агент восстановлен",
       "agent_restart_loop": "Цикл перезапусков",
-      "agent_heartbeat_stale": "Нет свежего сигнала агента"
+      "agent_heartbeat_stale": "Нет свежего сигнала агента",
+      "heartbeat_stale": "Нет свежего сигнала агента"
     }
   },
   "logs": {

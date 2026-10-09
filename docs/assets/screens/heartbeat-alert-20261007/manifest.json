@@ -1,0 +1,119 @@
+{
+  "baseline": "c8093aace07e54436893c5f7e35df1f968690266",
+  "baseSdk": "875cac2edf1a18c3a8a59e2f67256d02a8fc04e4",
+  "scope": "Heartbeat monitoring only; no installed Hermes or PM/SDLC acceptance.",
+  "screenshotCount": 9,
+  "sourceHashNormalization": "UTF-8 text with CRLF normalized to LF; PNG hashes use unchanged bytes.",
+  "sourcesSha256": {
+    "backend/app/src/lib.rs": "72c8c4ba178f002606798a1fb421e03bbcff0cbf7960824e19d50cc7477602de",
+    "backend/infra/src/lib.rs": "5b2b02fc89fd529ede95a038ad9b69441e5f3463868ddd0aa082576137a6559f",
+    "backend/infra/tests/heartbeat_alerts.rs": "701e087e6f5f79aee765a033a11dc6451e88d35cfe984828d4ab13605c7cbfa2",
+    "frontend/src/pages/alerts/index.tsx": "f169658ae246ecd487ec28c18abdcbdce33dad8100b01609c91a89397f19ecfc",
+    "frontend/src/pages/alerts/index.test.tsx": "7e14039ee1a85ea06a720422c3ecc2c2624e7275ce6ef290c5c7daebc8567b81",
+    "frontend/e2e/fleet-control.spec.ts": "6bf3b05694e3c79ad53054cd4b659abc36034b26d436e08c1cafc41e52a24ff7",
+    "frontend/src/shared/i18n/locales/en.json": "b6e094e05b17dcbb84017fb2cf916d0b62026d2167bea3bb60621006b6989791",
+    "frontend/src/shared/i18n/locales/ru.json": "633f74c62603730ea7b32389c52acc04d54eac0d3b9dfa185039bde37eb1e675",
+    ".base-revision": "eaf6e2bd4d4b7bd82db52c53b2949d7ff0747c867e57a60b8c77f04442330dff"
+  },
+  "screenshots": [
+    {
+      "route": "/alerts",
+      "evidence": "production-component-http-fixture",
+      "engine": "chromium",
+      "viewport": "375x812",
+      "file": "chromium-375x812.png",
+      "imageWidth": 375,
+      "imageHeight": 812,
+      "deviceScaleFactor": 1,
+      "sha256": "a527a365121f3f6a84f9e6b94fda6b6bdc09501b36400522c9b6c0ed856f5206"
+    },
+    {
+      "route": "/alerts",
+      "evidence": "production-component-http-fixture",
+      "engine": "chromium",
+      "viewport": "1920x1080",
+      "file": "chromium-1920x1080.png",
+      "imageWidth": 1920,
+      "imageHeight": 1080,
+      "deviceScaleFactor": 1,
+      "sha256": "f2d1440a30bf6673f611b8570ffadaf0c47d466f504375b6b13b8004ce198d98"
+    },
+    {
+      "route": "/alerts",
+      "evidence": "production-component-http-fixture",
+      "engine": "chromium",
+      "viewport": "2560x1440",
+      "file": "chromium-2560x1440.png",
+      "imageWidth": 2560,
+      "imageHeight": 1440,
+      "deviceScaleFactor": 1,
+      "sha256": "76e2111afb932b2a856e6822c88a91102868e9c821de2c840fdace03239340c0"
+    },
+    {
+      "route": "/alerts",
+      "evidence": "production-component-http-fixture",
+      "engine": "firefox",
+      "viewport": "375x812",
+      "file": "firefox-375x812.png",
+      "imageWidth": 375,
+      "imageHeight": 812,
+      "deviceScaleFactor": 1,
+      "sha256": "42555ded298a15fec6ef8249076b5d13b9db9a3ffd8204cb6994f0b4fb114c69"
+    },
+    {
+      "route": "/alerts",
+      "evidence": "production-component-http-fixture",
+      "engine": "firefox",
+      "viewport": "1920x1080",
+      "file": "firefox-1920x1080.png",
+      "imageWidth": 1920,
+      "imageHeight": 1080,
+      "deviceScaleFactor": 1,
+      "sha256": "cf09460af10893cc3d0f00c0d90dc2b1bb8ec00960b828809cf387a2fe54c578"
+    },
+    {
+      "route": "/alerts",
+      "evidence": "production-component-http-fixture",
+      "engine": "firefox",
+      "viewport": "2560x1440",
+      "file": "firefox-2560x1440.png",
+      "imageWidth": 2560,
+      "imageHeight": 1440,
+      "deviceScaleFactor": 1,
+      "sha256": "e3b0f7337545d76c61c943fa07ebb9711a71041d08b3d5d2543bc0582039d6f5"
+    },
+    {
+      "route": "/alerts",
+      "evidence": "production-component-http-fixture",
+      "engine": "webkit",
+      "viewport": "375x812",
+      "file": "webkit-375x812.png",
+      "imageWidth": 750,
+      "imageHeight": 1624,
+      "deviceScaleFactor": 2,
+      "sha256": "e00a1d19dd7d24b55e23c755612b78ce9ac0cb1742ac20c7dca81a5f43d9fc79"
+    },
+    {
+      "route": "/alerts",
+      "evidence": "production-component-http-fixture",
+      "engine": "webkit",
+      "viewport": "1920x1080",
+      "file": "webkit-1920x1080.png",
+      "imageWidth": 3840,
+      "imageHeight": 2160,
+      "deviceScaleFactor": 2,
+      "sha256": "0f57397108870c7917dbc379e4c6fb31dd9a8651b643e21a54da2d548cb4c794"
+    },
+    {
+      "route": "/alerts",
+      "evidence": "production-component-http-fixture",
+      "engine": "webkit",
+      "viewport": "2560x1440",
+      "file": "webkit-2560x1440.png",
+      "imageWidth": 5120,
+      "imageHeight": 2880,
+      "deviceScaleFactor": 2,
+      "sha256": "3daf5f4b6bb6860d0c4279a822314e2b36e986f605d7f85087a08fcedcfb34f5"
+    }
+  ]
+}

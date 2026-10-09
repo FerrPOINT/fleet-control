@@ -16,11 +16,42 @@ export FLEET_MIGRATION_TEST_DATABASE_URL=postgres://USER:PASSWORD@HOST:PORT/flee
 cargo test --workspace -- --test-threads=1
 ```
 
-Without these variables, database test functions return early; a green unit run
-alone is not PostgreSQL evidence. The central-subject migration fixture uses a
+Without these variables, some legacy database test functions return early; a
+green unit run alone is not PostgreSQL evidence. The `agent_logs` integration
+suite instead fails if `FLEET_TEST_DATABASE_URL` is missing. It checks an
+interleaved newer row using an agent-scoped PostgreSQL trigger, 64 concurrent
+stdout/stderr writers, exact persisted/redacted acknowledgements and a failed
+foreign-key insert without a phantom row. CI runs these tests in its ordinary
+PostgreSQL workspace gate. The central-subject migration fixture uses a
 fresh database. Fixture Playwright cases run on Chromium, Firefox and WebKit;
 live cases require `SDLC_LIVE_QA=1`. Screenshots are fixture evidence, not a real
 seven-agent PM/decomposition/Rework/deployment acceptance.
+
+The managed-settings fixture changes themes through the shared account menu,
+checks the selected radio item and preserves preview/apply/rollback assertions.
+The removed standalone theme button is not an alternative control contract.
+
+## Heartbeat Incident Regression
+
+`backend/infra/tests/heartbeat_alerts.rs` requires `FLEET_TEST_DATABASE_URL`
+pointing at a disposable PostgreSQL instance. An absent database URL fails the
+fixture instead of returning a successful
+test without executing PostgreSQL assertions.
+
+Run explicitly:
+
+```bash
+cargo test --locked -p infra --test heartbeat_alerts -- --test-threads=1
+```
+
+Five cases cover actual canonical-kind persistence, acknowledged deduplication,
+fresh recovery without a status transition, a new incident after recovery,
+unknown/future/nonrunning retention, concurrent insertion identity, explicit
+health recovery, and atomic rollback when the resolution audit fails. The audit
+failure fixture installs a task-owned trigger restricted to its own agent; it
+must never run against an accepted runtime database. UI tests check canonical
+and legacy display labels. These are monitoring regressions, not Hermes/model,
+PM workflow or full SDLC acceptance.
 
 Chat/session acceptance scenarios `C-01` through `C-15` and their current
 source-review gaps are defined in [CHAT.md](CHAT.md). Existing frontend unit

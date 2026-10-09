@@ -945,20 +945,28 @@ pub fn restart_loop_detected(recent_restarts: u32, loop_threshold: u32) -> bool 
     loop_threshold > 0 && recent_restarts >= loop_threshold
 }
 
-/// True when a running-desired agent has not reported health within
+fn heartbeat_age(
+    last_health_at: Option<chrono::DateTime<chrono::Utc>>,
+    current_status: &str,
+    observed_at: chrono::DateTime<chrono::Utc>,
+) -> Option<chrono::Duration> {
+    if current_status != "running" {
+        return None;
+    }
+    last_health_at
+        .filter(|timestamp| *timestamp <= observed_at)
+        .map(|timestamp| observed_at - timestamp)
+}
+
+/// True when a running agent has not reported health within
 /// `stale_after_minutes`. Stopped/degraded agents do not owe heartbeats.
 pub fn heartbeat_stale(
     last_health_at: Option<chrono::DateTime<chrono::Utc>>,
     current_status: &str,
     stale_after_minutes: i64,
 ) -> bool {
-    if current_status != "running" {
-        return false;
-    }
-    match last_health_at {
-        Some(ts) => chrono::Utc::now() - ts > chrono::Duration::minutes(stale_after_minutes),
-        None => false,
-    }
+    heartbeat_age(last_health_at, current_status, chrono::Utc::now())
+        .is_some_and(|age| age > chrono::Duration::minutes(stale_after_minutes))
 }
 
 /// Extended transition alerts: a crash loop overrides the plain down alert
@@ -993,6 +1001,7 @@ pub fn health_transition_alerts(previous: Option<&str>, current: &str) -> Vec<(S
 }
 
 pub const ACTIVE_ALERT_STATES: [&str; 2] = ["open", "acknowledged"];
+pub const HEARTBEAT_STALE_ALERT_KIND: &str = "heartbeat_stale";
 
 pub fn alert_state_is_active(state: &str) -> bool {
     ACTIVE_ALERT_STATES.contains(&state)
@@ -1029,7 +1038,7 @@ impl RepositoryAlertService {
 
 impl RepositoryAlertService {
     /// Scan running agents for stale heartbeats; raises one active
-    /// `agent_heartbeat_stale` alert per agent (auto-resolved on recovery).
+    /// `heartbeat_stale` alert per agent, resolved by a verified fresh heartbeat.
     pub async fn record_heartbeat_freshness(&self) -> Result<(), AppError> {
         let agents = self.repository.list_agents().await?;
         let active_alerts = self
@@ -1046,11 +1055,14 @@ impl RepositoryAlertService {
                 .as_deref()
                 .and_then(|ts| chrono::DateTime::parse_from_rfc3339(ts).ok())
                 .map(|ts| ts.with_timezone(&chrono::Utc));
-            let stale = heartbeat_stale(last_health, agent.status.as_str(), 10);
-            if stale {
-                let already_active = active_alerts
-                    .iter()
-                    .any(|a| a.agent_id == Some(agent.id) && a.kind == "agent_heartbeat_stale");
+            let already_active = active_alerts
+                .iter()
+                .any(|a| a.agent_id == Some(agent.id) && a.kind == HEARTBEAT_STALE_ALERT_KIND);
+            let Some(age) = heartbeat_age(last_health, agent.status.as_str(), chrono::Utc::now())
+            else {
+                continue;
+            };
+            if age > chrono::Duration::minutes(10) {
                 if already_active {
                     continue;
                 }
@@ -1058,7 +1070,7 @@ impl RepositoryAlertService {
                     .insert_fleet_alert(domain::FleetAlert {
                         id: Uuid::new_v4(),
                         agent_id: Some(agent.id),
-                        kind: "agent_heartbeat_stale".to_string(),
+                        kind: HEARTBEAT_STALE_ALERT_KIND.to_string(),
                         severity: "warning".to_string(),
                         detail: serde_json::json!({
                             "last_health_at": agent.runtime.last_health_at,
@@ -1069,6 +1081,14 @@ impl RepositoryAlertService {
                         acknowledged_at: None,
                         acknowledged_by_user_id: None,
                     })
+                    .await?;
+            } else if already_active {
+                self.repository
+                    .resolve_active_alerts_of_kind(
+                        agent.id,
+                        HEARTBEAT_STALE_ALERT_KIND,
+                        serde_json::json!({"last_health_at": agent.runtime.last_health_at}),
+                    )
                     .await?;
             }
         }
@@ -1113,7 +1133,7 @@ impl AlertService for RepositoryAlertService {
                 self.repository
                     .resolve_active_alerts_of_kind(
                         agent_id,
-                        "agent_heartbeat_stale",
+                        HEARTBEAT_STALE_ALERT_KIND,
                         serde_json::json!({"recovered_to": current_status}),
                     )
                     .await?;
@@ -1485,6 +1505,24 @@ mod alert_tests {
         ));
         // missing heartbeat never flags (unknown monitoring state)
         assert!(!heartbeat_stale(None, "running", 15));
+    }
+
+    #[test]
+    fn heartbeat_freshness_requires_a_running_agent_and_nonfuture_timestamp() {
+        use chrono::{Duration, Utc};
+        let observed = Utc::now();
+        assert_eq!(
+            heartbeat_age(Some(observed - Duration::minutes(10)), "running", observed),
+            Some(Duration::minutes(10))
+        );
+        assert_eq!(heartbeat_age(None, "running", observed), None);
+        assert_eq!(
+            heartbeat_age(Some(observed + Duration::seconds(1)), "running", observed),
+            None
+        );
+        for status in ["stopped", "degraded", "ready", "failed"] {
+            assert_eq!(heartbeat_age(Some(observed), status, observed), None);
+        }
     }
 
     #[test]
