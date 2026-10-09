@@ -325,12 +325,13 @@ describe('production chat', () => {
   })
   it('can reconcile the original answer after the last question closes', async () => {
     vi.mocked(chats.answerClarification).mockRejectedValue(new Error('Connection interrupted'))
-    renderPage('clarification')
+    const { client } = renderPage('clarification')
     fireEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))
     vi.mocked(chats.getTaskContext).mockResolvedValue({
       ...context,
       tracker: {
         ...context.tracker!,
+        waiting_reason: 'Ответы сохранены',
         permissions: { can_answer: false, can_confirm: true },
       },
     })
@@ -339,9 +340,18 @@ describe('production chat', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
     await screen.findByText('Connection interrupted')
-    await waitFor(() =>
-      expect(screen.getByRole('radio', { name: /Участники проекта/ })).toBeDisabled(),
-    )
+    await screen.findByText('Ответы сохранены')
+    await waitFor(() => {
+      expect(
+        client.getQueryData<chats.TaskContextResponse>(['task-context', 'session1'])?.tracker
+          ?.permissions.can_answer,
+      ).toBe(false)
+      expect(
+        client.getQueryData<{ questions: chats.Question[] }>(['clarifications', 'session1'])
+          ?.questions[0]?.state,
+      ).toBe('answered')
+    })
+    expect(screen.getByRole('radio', { name: /Участники проекта/ })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
     const retry = screen.getByRole('button', { name: 'Повторить исходный ответ' })
     expect(retry).toBeEnabled()

@@ -84,6 +84,20 @@ visually inspected. Vite build passes3870 modules in13.82s with the existing
 large-chunk warning unchanged. The earlier evidence above is historical, not
 relabeled as this new run.
 
+Independent source review of8e5d75d finds no actionable product defect, but notes
+that a disabled radio alone cannot prove that false permission has rendered.
+The successor tests explicitly await the changed waiting reason, false context
+permission and answered question before replay. Reintroducing only the old
+`can_answer` retry guard makes the ordered regression fail at its expected
+enabled-button assertion; restoring the production guard makes it pass. The
+production component is byte-identical before and after that controlled negative
+check. The full334-case suite passes again, as do typecheck/lint/format.
+Ordered browser run `clarification-closed-ordered-20261009` passes3/3 in34.2s;
+it waits for rendered closed-question context before the identical third command.
+Its nine generated captures replace the manifest, pass verification and were
+visually checked on mobile/desktop. This is test-ordering evidence, not a new
+product or authorization change.
+
 ## Remaining Scope
 
 This fix preserves an original command for the mounted chat lifetime; it does

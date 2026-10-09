@@ -2,7 +2,7 @@
   "evidence": "production-chat-with-fixture-api",
   "scenario": "clarification-uncertain",
   "liveAcceptance": false,
-  "command": "PLAYWRIGHT_BASE_URL=http://127.0.0.1:4173 pnpm exec playwright test e2e/runtime-controls.spec.ts --grep \"uncertain clarification\" --workers=1 --output=test-results/clarification-closed-final-20261009",
+  "command": "PLAYWRIGHT_BASE_URL=http://127.0.0.1:4173 pnpm exec playwright test e2e/runtime-controls.spec.ts --grep \"uncertain clarification\" --workers=1 --output=test-results/clarification-closed-ordered-20261009",
   "screenshots": [
     {
       "browser": "chromium",
@@ -16,7 +16,7 @@
         "width": 375,
         "height": 812
       },
-      "sha256": "c455bd905a6e3e0892ccde409bba8088e09ada4564b83b64391e950a6105c3f5"
+      "sha256": "e893f540051f1468da659bfb20bc2215e26ad2bf55780acb7ba9f0ba15ac40bb"
     },
     {
       "browser": "chromium",
@@ -30,7 +30,7 @@
         "width": 1920,
         "height": 1080
       },
-      "sha256": "a88e5eb67eb94d06bbf820169c013f4f5ee8544d990d2c529265dfb73877e03c"
+      "sha256": "d424e2b738792e110a04397cf5da279cdfdc472102989c654f12628f9967ca8f"
     },
     {
       "browser": "chromium",
@@ -58,7 +58,7 @@
         "width": 375,
         "height": 812
       },
-      "sha256": "9f8fca6b0b654efd0fd3a96fc3e79fd78efb682a3922ff6a64b719706341daaf"
+      "sha256": "a540153b5bfbc2f1d750ec213bffdd61bca0df400c36b4d921df92e64a6d92d1"
     },
     {
       "browser": "firefox",
@@ -72,7 +72,7 @@
         "width": 1920,
         "height": 1080
       },
-      "sha256": "42ae20a2c222ac5c79f8ada6e7d132eff2583926c3b1514a546c1a85b32c6ce4"
+      "sha256": "461a1a6e7c0ece832fe6c308b2db33a39977bfd76c1f6fe8fb4bef765d20bead"
     },
     {
       "browser": "firefox",

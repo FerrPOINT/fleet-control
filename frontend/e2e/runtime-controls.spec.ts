@@ -351,7 +351,7 @@ test('fixture: uncertain clarification retains its original command across quest
             owner_subject: 'subject-owner',
             stage: 'Draft',
             requirement_revision: 3,
-            waiting_reason: 'Требуется ответ',
+            waiting_reason: commands.length < 2 ? 'Требуется ответ' : 'Ответы сохранены',
             permissions: { can_answer: commands.length < 2, can_confirm: false },
             assignment: null,
           },
@@ -429,6 +429,8 @@ test('fixture: uncertain clarification retains its original command across quest
     expected_question_version: 1,
     comment: 'Исходный ответ владельца',
   })
+  await expect(page.getByText('Ответы сохранены', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: /2\. Второй вопрос/ })).toContainText('answered')
   await expect(choice).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
   await expect(retry).toBeEnabled()
