@@ -2,8 +2,17 @@
 
 ## Current Open Release Gates: 10 October 2026
 
-The current source assembly is b249bc8, not the historical heads below.
+The current source assembly is373682a (normal b249 descendant with three test
+fixture fixes and documentation), not the historical heads below.
 Source integration is progress, not release acceptance. Its remaining gates are:
+
+Hosted37995542617 now proves the preflight blocker is passed but finds real
+compile E0599 at container_controller.rs:18:48 on b249. Authenticated safe failure
+artifact11646773562 reports successful owned scratch/DB cleanup. Source373682a
+removes unavailable DatabaseConnection clones under SeaORM mock without dropping
+concurrency assertions. Reviewed controls0709588 are normally pushed with unchanged
+gate scope and exact updated hashes; hosted37996397284 is in progress. Until that
+run is accepted, compilation/PG/full70 remain open, not fixed by source review alone.
 
 - **Combined backend:** all-target Rust/Clippy, actual default/ignored test
   discovery and execution, both20/23 PostgreSQL lineages, populated downgrade
@@ -56,8 +65,9 @@ P2 findings (partial ready publication and restart outside the55s window) are
 now independently source-closed by normal childc89df468. Linux22/22 owner and9/9
 focused reviewer cases pass; Windows skips are recorded separately. Physical
 crash/real Docker filesystem/Rust/PG acceptance remains pending. Image metadata
-revalidation separately has a reproduced FIFO hang before cleanup; Ptolemy owns
-the bounded regular-file fix, with Feynman reviewing it. Latest retained
+FIFO hang is now source/pure closed by the retained-file successor: owner56 Linux
+cases and five independent focused Linux cases pass. No actual image/metadata-store
+availability/build/native cleanup is qualified by those tests. Latest retained
 read-only Docker inspection finds controller076f31/Hermesf42cb images absent;
 PGb0f956 is present. The retained local commit RAM observation is below the6GiB
 heavy guard; this docs update performs no new resource probe or admission.
@@ -81,7 +91,7 @@ backend result. Normal source successorc3b950 removes a reproduced Git archive
 CRLF transformation using canonical blob bytes, retaining exact hash guards.
 Fleet193 + SDK85 lightweight export parity passes, not Auth89/full70. Child5259a40
 separates compiler artifact from final failure metadata; Linux76/76 and Windows
-74 PASS/two skips pass, with focused independent closure pending before push.
+74 PASS/two skips pass, with independent closure and normal push completed.
 Old0fe's53 worker checks and separate18-file
 parent seal remain unchanged. No actual70-stage result exists. This hosted path
 has no ComposeHelper/local Docker dependency; do not apply Forge's maintenance-pin
