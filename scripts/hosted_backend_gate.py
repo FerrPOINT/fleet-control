@@ -103,6 +103,7 @@ UPLOAD_SECONDS = 240
 FALLBACK_SECONDS = 60  # Included in the final 240 seconds; three artifact/summary steps keep 180.
 GATE_SECONDS = 6600
 BUDGET = None
+VERIFY_IN_GATE = False
 
 
 class JobBudget:
@@ -212,8 +213,9 @@ def require(condition, message):
 
 
 def command(args, **kwargs):
-    if os.name != "posix":  # Local read-only artifact verification; hosted execution is Linux-only.
-        require(BUDGET is None, "Hosted budget requires Linux")
+    if os.name != "posix" or VERIFY_IN_GATE:
+        # verify-log already belongs to the held gate group; never let its children escape it.
+        require(BUDGET is None, "Independent hosted budget requires owned Linux commands")
         result = subprocess.run(args, capture_output=True, timeout=300, **kwargs)
         require(result.returncode == 0, "Command failed; backend gate withheld")
         return result.stdout
@@ -972,7 +974,7 @@ def verify_log_cli(stage):
 
 
 def main():
-    global BUDGET
+    global BUDGET, VERIFY_IN_GATE
     parser = argparse.ArgumentParser(__doc__)
     modes = parser.add_subparsers(dest="mode", required=True)
     for name in ("preflight", "execute", "cleanup"):
@@ -1001,6 +1003,7 @@ def main():
         elif args.mode == "cleanup":
             cleanup_fallback()
         elif args.mode == "verify-log":
+            VERIFY_IN_GATE = True
             verify_log_cli(args.stage)
         else:
             return execute()
@@ -1008,6 +1011,7 @@ def main():
         print("Backend control failed; no private diagnostics emitted; acceptance withheld")
         return 1
     finally:
+        VERIFY_IN_GATE = False
         if BUDGET is not None:
             signal.setitimer(signal.ITIMER_REAL, 0)
             BUDGET = None

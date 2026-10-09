@@ -355,6 +355,18 @@ class HostedBackendTests(unittest.TestCase):
                    "print('owned-output',flush=True)\nos._exit(0)\n")
         self.assertEqual(gate.command([sys.executable, "-c", program]), b"owned-output\n")
 
+    def test_gate_verification_commands_do_not_start_an_escaping_session(self):
+        with mock.patch.object(gate, "VERIFY_IN_GATE", True), \
+                mock.patch.object(gate.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout=b"ok")) as run, \
+                mock.patch.object(gate.subprocess, "Popen") as spawn:
+            self.assertEqual(gate.command(["git", "read-only-probe"]), b"ok")
+            self.assertEqual(run.call_args.kwargs, dict(capture_output=True, timeout=300))
+            spawn.assert_not_called()
+        if sys.platform == "linux":
+            with mock.patch.object(gate, "VERIFY_IN_GATE", True):
+                actual = gate.command([sys.executable, "-c", "import os;print(os.getpgrp())"])
+                self.assertEqual(int(actual), os.getpgrp())
+
     def test_workflow_all_steps_bounded_and_metadata_token_not_job_global(self):
         job = self.workflow()["jobs"]["backend"]
         self.assertEqual(job["timeout-minutes"], "120")
