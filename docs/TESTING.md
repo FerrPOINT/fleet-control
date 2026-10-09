@@ -27,10 +27,18 @@ fresh database. Fixture Playwright cases run on Chromium, Firefox and WebKit;
 live cases require `SDLC_LIVE_QA=1`. Screenshots are fixture evidence, not a real
 seven-agent PM/decomposition/Rework/deployment acceptance.
 
+The managed-settings fixture changes themes through the shared account menu,
+checks the selected radio item and preserves preview/apply/rollback assertions.
+The removed standalone theme button is not an alternative control contract.
+
 ## Heartbeat Incident Regression
 
 `backend/infra/tests/heartbeat_alerts.rs` requires `FLEET_TEST_DATABASE_URL`
-pointing at a disposable PostgreSQL instance. Run explicitly:
+pointing at a disposable PostgreSQL instance. An absent database URL fails the
+fixture instead of returning a successful
+test without executing PostgreSQL assertions.
+
+Run explicitly:
 
 ```bash
 cargo test --locked -p infra --test heartbeat_alerts -- --test-threads=1

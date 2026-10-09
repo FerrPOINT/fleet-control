@@ -15,11 +15,9 @@ struct Fixture {
 }
 
 impl Fixture {
-    async fn new() -> Option<Self> {
-        let Ok(url) = std::env::var("FLEET_TEST_DATABASE_URL") else {
-            eprintln!("FLEET_TEST_DATABASE_URL not configured; PostgreSQL heartbeat tests skipped");
-            return None;
-        };
+    async fn new() -> Self {
+        let url = std::env::var("FLEET_TEST_DATABASE_URL")
+            .expect("heartbeat regressions require isolated PostgreSQL");
         let config = DatabaseConfig {
             url,
             max_connections: 10,
@@ -62,12 +60,12 @@ impl Fixture {
         repo.update_agent_status(agent.id, AgentStatus::Running)
             .await
             .unwrap();
-        Some(Self {
+        Self {
             repo,
             db,
             agent_id: agent.id,
             user_id,
-        })
+        }
     }
 
     fn service(&self) -> RepositoryAlertService {
@@ -130,9 +128,7 @@ impl Fixture {
 #[tokio::test]
 #[serial_test::serial]
 async fn stale_incident_persists_deduplicates_and_recovers_without_status_transition() {
-    let Some(fixture) = Fixture::new().await else {
-        return;
-    };
+    let fixture = Fixture::new().await;
     fixture
         .heartbeat(Some(Utc::now() - Duration::minutes(30)))
         .await;
@@ -220,9 +216,7 @@ async fn stale_incident_persists_deduplicates_and_recovers_without_status_transi
 #[tokio::test]
 #[serial_test::serial]
 async fn unknown_future_and_nonrunning_health_do_not_resolve_an_incident() {
-    let Some(fixture) = Fixture::new().await else {
-        return;
-    };
+    let fixture = Fixture::new().await;
     let incident = fixture
         .repo
         .insert_fleet_alert(fixture.alert(HEARTBEAT_STALE_ALERT_KIND))
@@ -268,9 +262,7 @@ async fn unknown_future_and_nonrunning_health_do_not_resolve_an_incident() {
 #[tokio::test]
 #[serial_test::serial]
 async fn concurrent_incident_creation_returns_one_persisted_active_identity() {
-    let Some(fixture) = Fixture::new().await else {
-        return;
-    };
+    let fixture = Fixture::new().await;
     let mut identity = None;
     for acknowledged in [false, true] {
         let mut tasks = Vec::new();
@@ -303,9 +295,7 @@ async fn concurrent_incident_creation_returns_one_persisted_active_identity() {
 #[tokio::test]
 #[serial_test::serial]
 async fn explicit_health_recovery_resolves_the_canonical_acknowledged_incident() {
-    let Some(fixture) = Fixture::new().await else {
-        return;
-    };
+    let fixture = Fixture::new().await;
     let incident = fixture
         .repo
         .insert_fleet_alert(fixture.alert(HEARTBEAT_STALE_ALERT_KIND))
@@ -333,9 +323,7 @@ async fn explicit_health_recovery_resolves_the_canonical_acknowledged_incident()
 #[tokio::test]
 #[serial_test::serial]
 async fn failed_resolution_audit_rolls_back_state_and_retry_redacts_payload() {
-    let Some(fixture) = Fixture::new().await else {
-        return;
-    };
+    let fixture = Fixture::new().await;
     fixture
         .repo
         .insert_fleet_alert(fixture.alert(HEARTBEAT_STALE_ALERT_KIND))
