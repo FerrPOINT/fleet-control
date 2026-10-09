@@ -2,14 +2,18 @@
 
 ## Current Open Release Gates: 10 October 2026
 
-The current product-code assembly is9025d42
+The current product-code assembly isaabd711
 (runtime corrections, journal3b41, human guard, genuine generated API and private-
 approval ownership correction), not the historical heads below.
 Source integration is progress, not release acceptance. Its remaining gates are:
 
-The new approval-owner regression and existing PR47 successor require fresh
-Rust/PG/CI execution; old green PR checks do not accept this correction. Parent
-has ported the narrow guard without reverting its accepted-runtime fixture.
+PR47 at11f97aa now has five fresh green CI jobs and a passed PostgreSQL owner-
+approval regression. That narrow PR does not accept the parent assembly, whose
+accepted-runtime fixture differs. Actual combined74-stage run38002746761 targets
+469dad0 and is still running. Later e0d541e corrects the named credential downgrade
+test, while aabd711 integrates browser regression coverage; their final backend
+and current-client browser qualification remain pending. Fixture scenarios pass
+in three engines and27 screenshots are retained separately, not as live evidence.
 
 Hosted37995542617 now proves the preflight blocker is passed but finds real
 compile E0599 at container_controller.rs:18:48 on b249. Authenticated safe failure

@@ -2,7 +2,7 @@
 
 ## Current Integration Snapshot: 10 October 2026
 
-Current product-code assembly `9025d42`, a normal descendant
+Current product-code assembly `aabd711`, a normal descendant
 of b249 with runtime corrections, durable clarification custody, generated API
 and the private-approval ownership correction, is **not
 merge-ready or live SDLC accepted**. Historical sections below qualify their own
@@ -12,6 +12,20 @@ The approval correction rejects unrelated central users before reading or
 reserving private-session decisions, including historical replay. Its regression
 preserves the accepted-runtime fixture and verifies owner/legacy-admin access.
 Formatting/source integration pass; real Rust/PG execution remains pending.
+
+The narrow public PR47 at11f97aa separately passes all five fresh CI jobs in
+38002207012; its extended private-approval PostgreSQL regression passes and fresh
+review-thread enumeration is empty. This does not accept the combined assembly.
+Combined backend controls4113950 are published and actual74-stage Linux/PG run
+38002746761 is confirmed executing source469dad0. Later test-only correction
+e0d541e targets the named credential downgrade guard and preserves its ledger;
+it is not covered by that running source pin.
+
+Supported-browser fixture checks pass for explicit answers/confirmation and
+unknown-command reload. The new test is integrated, including its corrected
+Draft mock stage; parent ESLint/Prettier/typecheck pass. Worker retains27 fixture
+screenshots, with parent mobile/desktop visual inspection. This is3b41/7cc
+application evidence, not live PM, current runtime or production-manifest evidence.
 
 Latest actual backend run37999665761 at controls3600cb7/source9a57 completes
 FAILURE at credentials_pg, exit101. Sequential gate receipts establish prior

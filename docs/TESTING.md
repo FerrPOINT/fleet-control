@@ -513,3 +513,12 @@ the fork worker does not respond within60 seconds; no new42-test pass is claimed
 Final Rust schema parity, supported-browser and new UI screenshot gates remain
 pending. These unit/build results are not live
 Tracker, PM admission or native evidence.
+
+The browser sidecar subsequently executes explicit answers/exact confirmation
+and uncertain-command reload in Chromium, Firefox and WebKit, without skips or
+retries. The reload fixture is corrected to contract stage Draft and rerun in all
+three engines. Parent integrates the tests as3f540a4+aabd711 and passes focused
+ESLint/Prettier/typecheck. Its27 PNGs and application runtime are scoped to3b41/
+7cc fixtures, not live PM or the new generated-client assembly. PR47's separate
+CI38002207012 passes all five jobs, including the private-approval PostgreSQL case;
+combined backend run38002746761 remains a distinct acceptance gate on469dad0.
