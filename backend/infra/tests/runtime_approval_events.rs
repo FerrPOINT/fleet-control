@@ -13,6 +13,7 @@ use domain::{
 };
 use futures_util::{Stream, future::join_all, stream};
 use infra::{PostgresFleetRepository, connect_database, run_migrations};
+use migration::{Migrator, MigratorTrait};
 use sea_orm::{ConnectionTrait, DatabaseBackend, Statement};
 use serde_json::{Value, json};
 use shared::{AppConfig, DatabaseConfig};
@@ -159,19 +160,34 @@ async fn authenticated_hermes_sse_ingests_exact_requests_and_never_response_even
     };
     run_migrations(database.clone()).await.unwrap();
     let db = connect_database(database.clone()).await.unwrap();
-    let migrations = db
-        .query_one(Statement::from_string(
+    let migrations: Vec<String> = db
+        .query_all(Statement::from_string(
             DatabaseBackend::Postgres,
-            "SELECT count(*)::bigint AS count FROM seaql_migrations".to_owned(),
+            "SELECT version FROM seaql_migrations ORDER BY version".to_owned(),
         ))
         .await
         .unwrap()
-        .unwrap()
-        .try_get::<i64>("", "count")
-        .unwrap();
+        .into_iter()
+        .map(|row| row.try_get("", "version").unwrap())
+        .collect();
+    let expected: Vec<String> = Migrator::migrations()
+        .into_iter()
+        .map(|migration| migration.name().to_owned())
+        .collect();
+    assert!(
+        expected
+            .iter()
+            .any(|version| version == "m20261004_000011_pm_credentials"),
+        "fixture must register the credential prerequisite"
+    );
     assert_eq!(
-        migrations, 13,
-        "fixture must include accepted deployment, task-chat, PM credential and dispatch journal migrations"
+        expected.last().map(String::as_str),
+        Some("m20261004_000012_hermes_dispatch_journal"),
+        "this release must end at the journal migration"
+    );
+    assert_eq!(
+        migrations, expected,
+        "fixture must have the exact ordered canonical migration ledger"
     );
     let owner = Uuid::new_v4();
     db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
@@ -419,6 +435,7 @@ async fn authenticated_hermes_sse_ingests_exact_requests_and_never_response_even
         2
     );
     println!(
-        "actual PostgreSQL: 13 migrations; authenticated production SSE: 2 pending request IDs; responded: 0 new rows; concurrent/replayed upserts: stable IDs"
+        "actual PostgreSQL: {} migrations; authenticated production SSE: 2 pending request IDs; responded: 0 new rows; concurrent/replayed upserts: stable IDs",
+        migrations.len()
     );
 }
