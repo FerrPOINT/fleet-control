@@ -1,5 +1,8 @@
 # Java Agent Adapter Contract
 
+The Docker config18 [P2 successor](../CONTAINER_ACTIVATION_PREFLIGHT_FIX.md) changes
+no Java/process validation, provisioning, lifecycle or db-only readiness behavior.
+
 Docker config activation unit18 is Hermes-only. Java's process lifecycle and
 unsupported config activation behavior are unchanged; no Docker or process
 fallback is introduced. See [bounded unit18 scope](../CONTAINER_ACTIVATION_RELEASE.md).

@@ -1,5 +1,10 @@
 # Data Model
 
+The [config18 P2 successor](CONTAINER_ACTIVATION_PREFLIGHT_FIX.md) changes no schema
+or historical custody. `claimed_at` is not cleared to retry; only an unsealed
+read-only plan attempt may be retried by its live worker. Durable native permits
+and effective revision publication remain unchanged.
+
 `m20261009_000018_container_activation` adds controller-private
 `runtime_container_activations`, one immutable claim and monotonic CAS record per
 agent/target revision, at most one open activation per agent. Non-secret hashes,

@@ -1,5 +1,10 @@
 # Hermes Adapter Contract
 
+Docker config18 [preflight fixes](../CONTAINER_ACTIVATION_PREFLIGHT_FIX.md) bound
+all rendered targets before sealing/stop and retry transient original read-only
+observe/health failures under the same live custodian. Unknown lifecycle effects
+and sealed evidence retain their original holds, not a new preparation permit.
+
 The configured Docker path can activate a revision on a fresh original generation
 under live original custody. Failed bounded API readiness requires candidate exit
 proof before exact previous-file restoration and fresh rollback preparation.

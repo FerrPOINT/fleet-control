@@ -200,7 +200,7 @@ jobs:
           cargo test --locked -p app --lib container_activation::tests:: -- --test-threads=1 | tee "$RUNNER_TEMP/container-activation-state.log"
           grep -F 'test result: ok. 2 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/container-activation-state.log"
           cargo test --locked -p infra --lib runtime::container_activation::tests:: -- --test-threads=1 | tee "$RUNNER_TEMP/container-activation-intent.log"
-          grep -F 'test result: ok. 3 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/container-activation-intent.log"
+          grep -F 'test result: ok. 7 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/container-activation-intent.log"
           cargo test --locked -p infra --test container_activation -- --ignored --test-threads=1 | tee "$RUNNER_TEMP/container-activation-pg.log"
           grep -F 'test result: ok. 3 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/container-activation-pg.log"
           cargo test --locked -p migration --test container_activation -- --ignored --test-threads=1 | tee "$RUNNER_TEMP/container-activation-migration.log"

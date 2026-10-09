@@ -1,5 +1,9 @@
 # API
 
+The [config18 P2 successor](CONTAINER_ACTIVATION_PREFLIGHT_FIX.md) adds Docker-only
+rendered-byte preflight and live-custodian read-only retry. No public routes or
+schemas change; invalid targets/unknown effects retain drain.
+
 Docker configuration activation uses the existing config revision endpoints;
 there is no new public endpoint or generated schema. Desired remains the
 requested revision; effective changes only after original generation, file and

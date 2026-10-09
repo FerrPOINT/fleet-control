@@ -1,5 +1,9 @@
 # Agent Runtime Contract
 
+The [config18 P2 fixes](../CONTAINER_ACTIVATION_PREFLIGHT_FIX.md) validate rendered
+managed bytes before stop and retain live read-only pre-plan retries. No unknown
+native effect becomes a retry/create permit; drain and admission gates remain.
+
 Docker configuration uses the existing desired/effective drain protocol plus
 original Base safe-stop, fresh preparation and physical/file/API readiness proof.
 Unknown native effects remain held without rollback or new delivery authority.

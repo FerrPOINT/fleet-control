@@ -16,6 +16,58 @@ use std::{
 use tokio::io::AsyncWriteExt;
 
 type Files = BTreeMap<String, Option<Vec<u8>>>;
+const MANAGED_FILE_LIMIT: usize = 262_144;
+const PLAN_LIMIT: usize = 1_048_576;
+const PREPLAN_RETRY_DELAY: Duration = Duration::from_secs(5);
+
+fn validate_managed_files(files: &Files) -> Result<(), AppError> {
+    if files
+        .values()
+        .flatten()
+        .any(|body| body.len() > MANAGED_FILE_LIMIT)
+    {
+        return Err(AppError::validation(
+            "Docker activation managed bytes exceed the readback limit",
+        ));
+    }
+    Ok(())
+}
+
+enum ActivationFailure {
+    RetryReadOnly(AppError),
+    Held(AppError),
+}
+
+impl From<AppError> for ActivationFailure {
+    fn from(error: AppError) -> Self {
+        Self::Held(error)
+    }
+}
+
+fn preplan_failure(error: AppError) -> ActivationFailure {
+    match error {
+        AppError::Validation(_) => ActivationFailure::Held(error),
+        _ => ActivationFailure::RetryReadOnly(error),
+    }
+}
+
+async fn retry_preplan<F, Fut>(agent: Uuid, delay: Duration, mut attempt: F) -> Result<(), AppError>
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = Result<(), ActivationFailure>>,
+{
+    loop {
+        match attempt().await {
+            Ok(()) => return Ok(()),
+            Err(ActivationFailure::Held(error)) => return Err(error),
+            Err(ActivationFailure::RetryReadOnly(error)) => {
+                tracing::warn!(agent_id=%agent, "Docker activation read-only preflight will retry: {}",
+                    crate::redact_text(&error.to_string()));
+                sleep(delay).await;
+            }
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -34,6 +86,17 @@ struct Plan {
 }
 
 impl Plan {
+    fn validate_bytes(&self) -> Result<(), AppError> {
+        validate_managed_files(&self.files)?;
+        validate_managed_files(&self.previous_files)?;
+        if serde_json::to_vec(self).map_err(|_| held())?.len() > PLAN_LIMIT {
+            return Err(AppError::validation(
+                "Docker activation serialized plan exceeds the private readback limit",
+            ));
+        }
+        Ok(())
+    }
+
     fn claim(&self) -> Result<Claim, AppError> {
         Ok(Claim {
             id: self.id,
@@ -140,7 +203,7 @@ async fn write_once<T: Serialize>(root: &Path, path: &Path, value: &T) -> Result
         .await
         .map_err(|_| held())?;
     let bytes = serde_json::to_vec(value).map_err(|_| held())?;
-    if path.parent() != Some(root) || bytes.len() > 1_048_576 {
+    if path.parent() != Some(root) || bytes.len() > PLAN_LIMIT {
         return Err(held());
     }
     let mut options = tokio::fs::OpenOptions::new();
@@ -158,6 +221,13 @@ async fn write_once<T: Serialize>(root: &Path, path: &Path, value: &T) -> Result
         .map_err(|_| held())
 }
 
+async fn seal_plan(root: &Path, path: &Path, plan: &Plan) -> Result<(), AppError> {
+    plan.validate_bytes()?;
+    write_once(root, path, plan).await?;
+    write_once(root, &recipe_path(root, &plan.candidate), &plan.candidate).await?;
+    write_once(root, &recipe_path(root, &plan.rollback), &plan.rollback).await
+}
+
 fn recipe_path(root: &Path, intent: &Intent) -> PathBuf {
     root.join(format!(
         "{}.{}.activation-recipe.json",
@@ -168,7 +238,12 @@ fn recipe_path(root: &Path, intent: &Intent) -> PathBuf {
 async fn read_managed(path: &Path) -> Result<Option<Vec<u8>>, AppError> {
     match tokio::fs::symlink_metadata(path).await {
         Ok(_) => Ok(Some(
-            private_file(path.parent().ok_or_else(held)?, path, 262_144).await?,
+            private_file(
+                path.parent().ok_or_else(held)?,
+                path,
+                MANAGED_FILE_LIMIT as u64,
+            )
+            .await?,
         )),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
         Err(_) => Err(held()),
@@ -180,7 +255,11 @@ impl LocalRuntimeSupervisor {
         &self,
         revision: &domain::AgentConfigRevision,
     ) {
-        if let Err(error) = self.apply_container_revision(revision).await {
+        if let Err(error) = retry_preplan(revision.agent_id, PREPLAN_RETRY_DELAY, || {
+            self.apply_container_revision(revision)
+        })
+        .await
+        {
             tracing::warn!(
                 agent_id = %revision.agent_id,
                 "Docker configuration remains drained: {}",
@@ -462,13 +541,6 @@ impl LocalRuntimeSupervisor {
                 }
             }
         }
-        self.activation_running(agent, &previous).await?;
-        self.probe_hermes_at(
-            previous.origin.as_deref().ok_or_else(held)?,
-            &crate::agent_runtime_token(&self.config, agent.id)?,
-        )
-        .await
-        .map_err(|_| held())?;
         let target = crate::configuration_files(agent, &self.config, revision)
             .await
             .map_err(|_| held())?;
@@ -492,6 +564,8 @@ impl LocalRuntimeSupervisor {
                 },
             );
         }
+        // Validate rendered bytes, including secrets, pretty JSON, skills and the revision marker.
+        validate_managed_files(&next_files)?;
         let mut old_files = Files::new();
         for name in next_files.keys() {
             crate::reject_symlink_components(Path::new(&agent.paths.config), Path::new(name))
@@ -499,6 +573,13 @@ impl LocalRuntimeSupervisor {
                 .map_err(|_| held())?;
             old_files.insert(name.clone(), read_managed(Path::new(name)).await?);
         }
+        self.activation_running(agent, &previous).await?;
+        self.probe_hermes_at(
+            previous.origin.as_deref().ok_or_else(held)?,
+            &crate::agent_runtime_token(&self.config, agent.id)?,
+        )
+        .await
+        .map_err(|_| held())?;
         let candidate = self
             .activation_fork(
                 &original,
@@ -517,10 +598,7 @@ impl LocalRuntimeSupervisor {
                 &control,
             )
             .await?;
-        // Both immutable recipes, including exact credentials/image/mapping, precede old stop.
-        write_once(root, &recipe_path(root, &candidate), &candidate).await?;
-        write_once(root, &recipe_path(root, &rollback), &rollback).await?;
-        Ok(Plan {
+        let plan = Plan {
             id: Uuid::new_v4(),
             controller_id: self.controller_id,
             revision: revision.revision,
@@ -532,7 +610,9 @@ impl LocalRuntimeSupervisor {
             files: next_files,
             previous_files: old_files,
             marker_sha256: self.activation_marker(agent).await?,
-        })
+        };
+        plan.validate_bytes()?;
+        Ok(plan)
     }
 
     async fn activation_running(
@@ -716,10 +796,10 @@ impl LocalRuntimeSupervisor {
         }
     }
 
-    pub(super) async fn apply_container_revision(
+    async fn apply_container_revision(
         &self,
         revision: &domain::AgentConfigRevision,
-    ) -> Result<(), AppError> {
+    ) -> Result<(), ActivationFailure> {
         let _operations = self.container_operations.lock(revision.agent_id).await;
         let agent = self.repo.get_agent(revision.agent_id).await?;
         let config = self
@@ -740,25 +820,32 @@ impl LocalRuntimeSupervisor {
             .await?;
         let plan: Plan = if let Some(record) = &saved {
             if record.claim.controller_id != self.controller_id {
-                return Err(held());
+                return Err(held().into());
             }
-            serde_json::from_slice(&private_file(&root, &path, 1_048_576).await?)
+            serde_json::from_slice(&private_file(&root, &path, PLAN_LIMIT as u64).await?)
                 .map_err(|_| held())?
         } else {
-            if tokio::fs::symlink_metadata(&path).await.is_ok() {
-                return Err(held());
+            match tokio::fs::symlink_metadata(&path).await {
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                _ => return Err(held().into()),
             }
-            let plan = self.activation_plan(&agent, revision, &root).await?;
-            write_once(&root, &path, &plan).await?;
+            // The only retryable stage: no PG command or private plan, and read-only observations.
+            let plan = self
+                .activation_plan(&agent, revision, &root)
+                .await
+                .map_err(preplan_failure)?;
+            // Sealing/unknown writes never return a read-only retry permit.
+            seal_plan(&root, &path, &plan).await?;
             plan
         };
+        plan.validate_bytes()?;
         let claim = plan.claim()?;
         let mut record = match saved {
             Some(record) => record,
             None => self.repo.claim_container_activation(&claim).await?,
         };
         if canonical_hash(&record.claim)? != canonical_hash(&claim)? {
-            return Err(held());
+            return Err(held().into());
         }
         let (control, _) = self
             .container_files(&plan.previous.prepared.container)
@@ -767,17 +854,18 @@ impl LocalRuntimeSupervisor {
         loop {
             // Never trust a cached plan across a native command or filesystem write.
             let reread: Plan =
-                serde_json::from_slice(&private_file(&root, &path, 1_048_576).await?)
+                serde_json::from_slice(&private_file(&root, &path, PLAN_LIMIT as u64).await?)
                     .map_err(|_| held())?;
             if canonical_hash(&reread)? != claim.intent_sha256
                 || self.activation_marker(&agent).await? != plan.marker_sha256
             {
-                return Err(held());
+                return Err(held().into());
             }
             let mut next = record.clone();
             use Phase::*;
             match record.phase {
                 Planned => {
+                    plan.validate_bytes()?;
                     self.activation_running(&agent, &plan.previous).await?;
                     self.activation_files(&agent, &plan, true, false).await?;
                     next.phase = StoppingPrevious;
@@ -820,7 +908,7 @@ impl LocalRuntimeSupervisor {
                             }
                         }
                         Err(_) if !rollback => next.phase = ApplyingRollback,
-                        Err(_) => return Err(held()),
+                        Err(_) => return Err(held().into()),
                     }
                 }
                 PreparingCandidate | PreparingRollback => {
@@ -921,7 +1009,7 @@ impl LocalRuntimeSupervisor {
                             next.candidate = Some(l);
                             next.phase = StoppingCandidate;
                         }
-                        Err(_) => return Err(held()),
+                        Err(_) => return Err(held().into()),
                     }
                 }
                 StoppingCandidate => {
@@ -974,6 +1062,14 @@ impl LocalRuntimeSupervisor {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct Scratch(PathBuf);
+
+    impl Drop for Scratch {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
 
     fn plan() -> Plan {
         let agent = Uuid::new_v4();
@@ -1092,6 +1188,176 @@ mod tests {
         }
     }
 
+    #[test]
+    fn managed_limits_cover_all_rendered_bytes_and_the_serialized_plan() {
+        let request = domain::UpdateAgentConfigRequest {
+            config_json: json!({}),
+            soul_md: "A".repeat(MANAGED_FILE_LIMIT + 1),
+            env_json: json!({}),
+        };
+        // This valid API input was previously stopped/applied before readback failed.
+        assert!(request.input_errors().is_empty());
+        for name in [
+            "SOUL.md",
+            "config.yaml",
+            ".env",
+            "skills/enabled/SKILL.md",
+            ".fleet-config-revision.json",
+        ] {
+            let mut p = plan();
+            p.files
+                .insert(name.into(), Some(vec![b'A'; MANAGED_FILE_LIMIT]));
+            assert!(p.validate_bytes().is_ok());
+            p.files.get_mut(name).unwrap().as_mut().unwrap().push(b'A');
+            assert!(matches!(p.validate_bytes(), Err(AppError::Validation(_))));
+        }
+        let utf8 = "\u{e9}".repeat(MANAGED_FILE_LIMIT / 2);
+        let mut files = Files::from([("SOUL.md".into(), Some(utf8.into_bytes()))]);
+        assert!(validate_managed_files(&files).is_ok());
+        files
+            .get_mut("SOUL.md")
+            .unwrap()
+            .as_mut()
+            .unwrap()
+            .push(b'A');
+        assert!(validate_managed_files(&files).is_err());
+        let mut aggregate = plan();
+        aggregate.files = (0..2)
+            .map(|n| (format!("skill{n}"), Some(vec![b'A'; 180_000])))
+            .collect();
+        assert!(validate_managed_files(&aggregate.files).is_ok());
+        assert!(serde_json::to_vec(&aggregate).unwrap().len() > PLAN_LIMIT);
+        assert!(matches!(
+            aggregate.validate_bytes(),
+            Err(AppError::Validation(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn validation_and_unknown_effect_failures_never_retry() {
+        for stage in [
+            "seal",
+            "stop",
+            "prepare",
+            "attach",
+            "start",
+            "publish",
+            "validation",
+        ] {
+            let mut attempts = 0;
+            let result = retry_preplan(Uuid::new_v4(), Duration::ZERO, || {
+                attempts += 1;
+                let error = if stage == "validation" {
+                    preplan_failure(AppError::validation("oversized rendered bytes"))
+                } else {
+                    // Every error outside the explicitly read-only plan builder defaults to Held.
+                    ActivationFailure::from(held())
+                };
+                std::future::ready(Err(error))
+            })
+            .await;
+            assert!(result.is_err(), "{stage}");
+            assert_eq!(attempts, 1, "{stage}");
+        }
+    }
+
+    #[tokio::test]
+    async fn read_only_observe_failure_retries_original_command_until_recovery() {
+        use container_control::ControlSource;
+        use sha2::{Digest, Sha256};
+        let scratch =
+            Scratch(std::env::temp_dir().join(format!("fleet-preplan-observe-{}", Uuid::new_v4())));
+        let root = &scratch.0;
+        tokio::fs::create_dir_all(root.join("scripts"))
+            .await
+            .unwrap();
+        let p = plan();
+        let r = &p.previous.prepared.container.registration;
+        let snapshot = json!({"contract_version":2,"container_id":r.container_id,"engine":r.engine,
+            "policy_sha256":r.policy_sha256,"inventory_sha256":r.running_inventory_sha256,
+            "network_sha256":r.network_sha256,"init_pid":42,"started_at":"2026-10-09T10:00:00Z"});
+        let receipt = json!({"contract_version":2,"operation_id":r.operation_id,
+            "container_id":r.container_id,"resource_id":r.resource_id,"registration_sha256":canonical_hash(r).unwrap(),
+            "generation":r.generation,"state":"observed","observation":"running","snapshot":snapshot});
+        let source = format!(
+            r#"import json,sys
+from pathlib import Path
+r=json.load(sys.stdin)
+assert r['action']=='observe'
+assert r['registration']==json.loads({original:?})
+audit=Path(sys.argv[1])/'read-attempts'
+failed=not audit.exists()
+with audit.open('a') as f: f.write(r['action']+'\n')
+result=json.loads({receipt:?})
+if failed: result.update(state='held',observation='unavailable',snapshot=None)
+print(json.dumps({{'protocol_version':1,'action':r['action'],'result':result}}))
+sys.exit(2 if failed else 0)
+"#,
+            original = serde_json::to_string(r).unwrap(),
+            receipt = receipt.to_string()
+        );
+        let sources = [
+            "# fake boundary\n".to_owned(),
+            "# fake bootstrap\n".to_owned(),
+            source,
+        ];
+        for (name, source) in [
+            "runtime_boundary.py",
+            "runtime_bootstrap.py",
+            "runtime_control.py",
+        ]
+        .iter()
+        .zip(&sources)
+        {
+            tokio::fs::write(root.join("scripts").join(name), source)
+                .await
+                .unwrap();
+        }
+        let control = ContainerControl::new(
+            PathBuf::from(std::env::var("FLEET_TEST_PYTHON").unwrap_or_else(|_| "python3".into())),
+            ControlSource {
+                root: root.clone(),
+                sha256: sources.map(|s| hex::encode(Sha256::digest(s.as_bytes()))),
+            },
+            "desktop-linux".into(),
+        )
+        .unwrap();
+        let files = ContainerLaunchFiles {
+            policy: p.previous.prepared.container.policy.clone(),
+            compose: root.join("compose.json"),
+            journal: root.join("launch.sqlite"),
+            stop_journal: root.join("stop.sqlite"),
+            mapped: None,
+            recovery: None,
+        };
+        // The same live worker retains its claimed revision; neither read grants a native permit.
+        tokio::time::timeout(
+            Duration::from_secs(20),
+            retry_preplan(p.previous.prepared.agent_id, Duration::ZERO, || async {
+                let read = control.observe(&files, r).await.map_err(preplan_failure)?;
+                if read.state != ContainerReceiptState::Observed
+                    || read.observation != ContainerObservation::Running
+                {
+                    return Err(preplan_failure(held()));
+                }
+                assert_eq!(serde_json::to_value(read.snapshot).unwrap(), snapshot);
+                Ok(())
+            }),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(
+            tokio::fs::read_to_string(root.join("read-attempts"))
+                .await
+                .unwrap(),
+            "observe\nobserve\n"
+        );
+        for path in ["compose.json", "launch.sqlite", "stop.sqlite"] {
+            assert!(!root.join(path).exists());
+        }
+    }
+
     #[cfg(target_os = "linux")]
     async fn root() -> PathBuf {
         use std::os::unix::fs::PermissionsExt;
@@ -1101,6 +1367,35 @@ mod tests {
             .await
             .unwrap();
         private_root(root.to_str().unwrap()).await.unwrap()
+    }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn oversized_target_never_seals_or_changes_previous_working_bytes() {
+        use std::os::unix::fs::PermissionsExt;
+        let scratch = Scratch(root().await);
+        let root = &scratch.0;
+        let soul = root.join("SOUL.md");
+        let original = vec![b'A'; MANAGED_FILE_LIMIT];
+        tokio::fs::write(&soul, &original).await.unwrap();
+        tokio::fs::set_permissions(&soul, std::fs::Permissions::from_mode(0o600))
+            .await
+            .unwrap();
+        assert_eq!(read_managed(&soul).await.unwrap(), Some(original.clone()));
+        let mut p = plan();
+        p.files.insert(
+            soul.to_string_lossy().into_owned(),
+            Some(vec![b'A'; MANAGED_FILE_LIMIT + 1]),
+        );
+        let path = root.join("activation.json");
+        assert!(matches!(
+            seal_plan(&root, &path, &p).await,
+            Err(AppError::Validation(_))
+        ));
+        assert!(!path.exists());
+        assert!(!recipe_path(&root, &p.candidate).exists());
+        assert!(!recipe_path(&root, &p.rollback).exists());
+        assert_eq!(read_managed(&soul).await.unwrap(), Some(original));
     }
 
     #[cfg(target_os = "linux")]
