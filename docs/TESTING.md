@@ -26,7 +26,8 @@ an environment string alone does not attest the server. No Tracker request,
 assignment claim, workflow receipt or full SDLC completion is asserted here.
 The twenty-stage source-exported backend gate explicitly builds this Auth binary,
 records its digest/source commit and requires this otherwise-ignored consumer case.
-The case is implemented but not executed; real compatibility remains pending.
+Packet4ed36ce828ea explicitly passed this real consumer against Auth01388df.
+This is disposable source/binary compatibility, not installed-runtime acceptance.
 
 The mandatory `real-base-auth` CI job uses a GitHub-managed Rust container and
 isolated PostgreSQL service with no published host port. It exports committed
@@ -45,6 +46,16 @@ tests, `migration --test pm_credentials -- --ignored --test-threads=1` with its 
 locked Linux workspace/check/strict Clippy and generated OpenAPI parity.
 CI creates the dedicated database and runs the credential migration case.
 Source preparation and formatting do not certify these pending gates.
+
+The same packet passed15 of20 stages, including7 credential unit cases,10 real-PG
+credential cases,47 foundation cases, workspace tests and10 lineage cases. Stage16
+failed before SSE exercise because its inherited fixture expected11 migrations
+after the additive credentials migration made12. The fixture now compares the
+exact sorted ledger against registered canonical versions and requires the
+credentials migration. This correction is formatted, not yet Linux/PG verified.
+The credential-migration, smoke, OpenAPI and final parity stages did not run;
+all10 independent cleanup/input parity checks passed and permanent runtime was
+unchanged. Full acceptance waits for current-main reconciliation and a fresh gate.
 
 The central directory regression explicitly executes the real PostgreSQL query
 with expanded and selected-foreign owner filters. It verifies that private rows,
