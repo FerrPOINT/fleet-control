@@ -25,6 +25,8 @@ use uuid::Uuid;
 mod acceptance_readback;
 pub(crate) mod container_control;
 mod container_lifecycle;
+mod container_mapping;
+mod container_recovery;
 mod hermes_wire;
 mod pm_readback;
 mod targeted_approval;
@@ -40,6 +42,7 @@ pub struct LocalRuntimeSupervisor {
     children: Arc<Mutex<HashMap<Uuid, Child>>>,
     controller_id: Uuid,
     container_operations: Arc<Mutex<()>>,
+    container_custody: Arc<Mutex<()>>,
     client: reqwest::Client,
     events: broadcast::Sender<FleetEvent>,
     alerts: Arc<app::RepositoryAlertService>,
@@ -68,6 +71,7 @@ impl LocalRuntimeSupervisor {
             children: Arc::new(Mutex::new(HashMap::new())),
             controller_id: Uuid::new_v4(),
             container_operations: Arc::new(Mutex::new(())),
+            container_custody: Arc::new(Mutex::new(())),
             client: reqwest::Client::builder()
                 .redirect(reqwest::redirect::Policy::none())
                 .retry(reqwest::retry::never())
@@ -81,6 +85,7 @@ impl LocalRuntimeSupervisor {
             }),
         };
         supervisor.spawn_reconciler();
+        supervisor.spawn_container_recovery();
         supervisor.spawn_message_dispatcher();
         supervisor.spawn_acceptance_readback();
         supervisor.spawn_config_activator();

@@ -30,6 +30,58 @@ pub struct ContainerRegistration {
     pub compose_sha256: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub network_sha256: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mount_mapping_sha256: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MappingController {
+    pub container_id: String,
+    pub image_id: String,
+    pub service: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ControllerSnapshot {
+    pub container_id: String,
+    pub started_at: String,
+    pub init_pid: u32,
+    pub inventory_sha256: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectedMount {
+    #[serde(rename = "type")]
+    pub mount_type: String,
+    pub source: String,
+    pub destination: String,
+    pub read_only: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContainerMapping {
+    pub state: String,
+    pub controller: MappingController,
+    pub snapshot: ControllerSnapshot,
+    pub engine: ContainerEngineIdentity,
+    pub local_root: String,
+    pub volume_name: String,
+    pub volume_sha256: String,
+    pub mounts: Vec<ProjectedMount>,
+    pub input_policy_sha256: String,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MappedContainer {
+    pub mapping: ContainerMapping,
+    pub mapping_file: String,
+    pub attachment_journal: String,
+    pub recovery_journal: String,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -42,6 +94,8 @@ pub struct ContainerBinding {
     pub stop_journal: String,
     pub source_sha256: [String; 3],
     pub context: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mapped: Option<MappedContainer>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -64,4 +118,38 @@ pub struct ContainerLaunch {
     pub snapshot: Option<Value>,
     pub origin: Option<String>,
     pub stop_id: Uuid,
+}
+
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContainerRecoveryRequest {
+    pub id: Uuid,
+    pub launch_id: Uuid,
+    pub agent_id: Uuid,
+    pub original_controller_id: Uuid,
+    pub controller_id: Uuid,
+    pub predecessor_id: Option<Uuid>,
+    pub launch_sha256: String,
+    pub mapping_sha256: String,
+    pub registration_sha256: String,
+    pub controller_snapshot: ControllerSnapshot,
+    pub agent_pid: i32,
+}
+
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContainerRecoveryCommand {
+    pub request: ContainerRecoveryRequest,
+    pub epoch: i64,
+    pub lease_version: i64,
+    pub lease_expires_at: String,
+}
+
+#[derive(Clone)]
+pub struct ContainerRecovery {
+    pub command: ContainerRecoveryCommand,
+    pub receipt: Option<Value>,
+    pub lease: ContainerRecoveryCommand,
+    pub lease_receipt: Option<Value>,
+    pub lease_valid: bool,
 }

@@ -227,6 +227,16 @@ pub struct ContainerControlConfig {
     pub base_root: String,
     pub context: String,
     pub controller_root: String,
+    #[serde(default)]
+    pub mapping_controller: Option<MappingControllerConfig>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct MappingControllerConfig {
+    pub container_id: String,
+    pub image_id: String,
+    pub service: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

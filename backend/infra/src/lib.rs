@@ -1,6 +1,7 @@
 mod approval_decisions;
 mod chats_directory;
 mod config_revisions;
+mod container_recovery;
 mod container_runtime;
 mod effective_configuration;
 pub mod entities;
@@ -585,6 +586,56 @@ fn fleet_alert_to_domain(row: fleet_alerts::Model) -> domain::FleetAlert {
 
 #[async_trait]
 impl FleetRepository for PostgresFleetRepository {
+    async fn get_container_recovery(
+        &self,
+        generation: Uuid,
+    ) -> Result<Option<app::container_runtime::ContainerRecovery>, AppError> {
+        container_recovery::get(self, generation).await
+    }
+    async fn claim_container_recovery(
+        &self,
+        launch: &app::container_runtime::ContainerLaunch,
+        command: &app::container_runtime::ContainerRecoveryCommand,
+    ) -> Result<(), AppError> {
+        container_recovery::claim(self, launch, command).await
+    }
+    async fn acknowledge_container_recovery(
+        &self,
+        command: &app::container_runtime::ContainerRecoveryCommand,
+        receipt: Value,
+    ) -> Result<(), AppError> {
+        container_recovery::acknowledge(self, command, receipt, false).await
+    }
+    async fn claim_container_lease(
+        &self,
+        previous: &app::container_runtime::ContainerRecovery,
+        command: &app::container_runtime::ContainerRecoveryCommand,
+    ) -> Result<(), AppError> {
+        container_recovery::renew(self, previous, command).await
+    }
+    async fn acknowledge_container_lease(
+        &self,
+        command: &app::container_runtime::ContainerRecoveryCommand,
+        receipt: Value,
+    ) -> Result<(), AppError> {
+        container_recovery::acknowledge(self, command, receipt, true).await
+    }
+    async fn advance_recovered_container(
+        &self,
+        launch: &app::container_runtime::ContainerLaunch,
+        command: &app::container_runtime::ContainerRecoveryCommand,
+        state: &str,
+    ) -> Result<(), AppError> {
+        container_runtime::advance_owned(
+            self,
+            launch,
+            state,
+            launch.snapshot.clone(),
+            launch.origin.clone(),
+            Some(command),
+        )
+        .await
+    }
     async fn get_container_configuration(
         &self,
         agent: Uuid,

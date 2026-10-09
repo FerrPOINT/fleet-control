@@ -43,7 +43,7 @@ fn decode(row: QueryResult) -> Result<ContainerLaunch, AppError> {
     })
 }
 
-async fn lock(txn: &DatabaseTransaction, agent: Uuid) -> Result<QueryResult, AppError> {
+pub(super) async fn lock(txn: &DatabaseTransaction, agent: Uuid) -> Result<QueryResult, AppError> {
     txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "SELECT kind,status,archived_at,api_port,runtime_path,config_path,workspace_path,logs_path FROM agents WHERE id=$1 FOR UPDATE",
         [agent.into()])).await.map_err(|_| held())?.ok_or_else(held)
@@ -127,8 +127,39 @@ pub(super) async fn advance(
     snapshot: Option<Value>,
     origin: Option<String>,
 ) -> Result<(), AppError> {
+    advance_owned(repo, launch, state, snapshot, origin, None).await
+}
+
+pub(super) async fn advance_owned(
+    repo: &PostgresFleetRepository,
+    launch: &ContainerLaunch,
+    state: &str,
+    snapshot: Option<Value>,
+    origin: Option<String>,
+    recovery: Option<&app::container_runtime::ContainerRecoveryCommand>,
+) -> Result<(), AppError> {
     let txn = repo.db.begin().await.map_err(|_| held())?;
     lock(&txn, launch.prepared.agent_id).await?;
+    if let Some(command) = recovery {
+        let current = crate::container_recovery::get_txn(&txn, command.request.launch_id)
+            .await?
+            .ok_or_else(held)?;
+        if current.lease != *command
+            || !current.lease_valid
+            || current.receipt.is_none()
+            || current.lease_receipt.is_none()
+            || command.request.original_controller_id != launch.controller_id
+        {
+            return Err(held());
+        }
+        txn.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT set_config('fleet.container_recovery_id',$1,true)",
+            [command.request.id.to_string().into()],
+        ))
+        .await
+        .map_err(|_| held())?;
+    }
     if state == "stopping" {
         idle(&txn, launch.prepared.agent_id).await?;
     }

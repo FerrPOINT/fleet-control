@@ -1,5 +1,9 @@
 # Agent Runtime Contract
 
+Unit16 extends Hermes custody with original Base named-volume subpaths and
+fenced physical controller restart recovery. It does not complete automatic
+provisioning/restart/config activation. See [the unit contract](../MAPPED_CONTROLLER_RECOVERY_RELEASE.md).
+
 Optional Docker lifecycle uses the original Base registration and physical
 snapshot, a durable pre-start generation claim and original namespace stop.
 Unknown/foreign ownership stays held; API health alone cannot prove readiness.

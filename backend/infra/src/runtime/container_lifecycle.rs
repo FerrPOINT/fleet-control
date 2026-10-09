@@ -108,9 +108,9 @@ fn validate_recipe(
         || p.api_port.is_none_or(|v| !(1024..=65535).contains(&v))
         || serde_json::to_value(&p.paths).map_err(|_| held())?
             != serde_json::to_value(&agent.paths).map_err(|_| held())?
-        || b.registration.contract_version != 2
+        || !matches!(b.registration.contract_version, 2 | 3)
         || b.registration.resource_id != agent.id
-        || policy["contract_version"] != 2
+        || policy["contract_version"] != b.registration.contract_version
         || policy["resource_id"] != agent.id.to_string()
         || policy["generation"] != b.registration.generation.to_string()
         || !matches!(policy["project"].as_str(), Some("sdlc1" | "sdlc2"))
@@ -129,7 +129,33 @@ fn validate_recipe(
         {"type":"bind","source":agent.paths.workspace,"destination":"/workspace","read_only":false},
         {"type":"bind","source":agent.paths.logs,"destination":"/logs","read_only":false}
     ]);
-    if policy["mounts"] != expected
+    let mounts = if let Some(mapped) = &b.mapped {
+        let c = &mapped.mapping.controller;
+        let local = super::container_mapping::local_policy(
+            policy,
+            &mapped.mapping,
+            &shared::config::MappingControllerConfig {
+                container_id: c.container_id.clone(),
+                image_id: c.image_id.clone(),
+                service: c.service.clone(),
+            },
+            &mapped.mapping.local_root,
+        )?;
+        if b.registration.mount_mapping_sha256.as_ref()
+            != Some(&container_control::canonical_hash(&mapped.mapping)?)
+            || b.registration.engine != mapped.mapping.engine
+            || b.registration.container_id == mapped.mapping.controller.container_id
+        {
+            return Err(held());
+        }
+        local["mounts"].clone()
+    } else {
+        if b.registration.contract_version != 2 {
+            return Err(held());
+        }
+        policy["mounts"].clone()
+    };
+    if mounts != expected
         || compose["name"] != policy["project"]
         || compose["services"]
             .as_object()
@@ -178,7 +204,7 @@ impl LocalRuntimeSupervisor {
                 || self.repo.get_container_launch(agent.id).await?.is_some()))
     }
 
-    async fn container_files(
+    pub(super) async fn container_files(
         &self,
         b: &ContainerBinding,
     ) -> Result<(ContainerControl, ContainerLaunchFiles), AppError> {
@@ -218,6 +244,35 @@ impl LocalRuntimeSupervisor {
                 .await
                 .map_err(|_| held())?;
         }
+        if let Some(mapped) = &b.mapped {
+            let paths = [
+                &b.compose,
+                &b.journal,
+                &b.stop_journal,
+                &mapped.mapping_file,
+                &mapped.attachment_journal,
+                &mapped.recovery_journal,
+            ];
+            for (i, path) in paths.iter().enumerate() {
+                if Path::new(path).parent() != Some(root.as_path()) || paths[..i].contains(path) {
+                    return Err(held());
+                }
+                crate::reject_symlink_components(&root, Path::new(path))
+                    .await
+                    .map_err(|_| held())?;
+            }
+            let bytes = private_file(&root, Path::new(&mapped.mapping_file), 65_536).await?;
+            if serde_json::from_slice::<Value>(&bytes).map_err(|_| held())? != json!(mapped.mapping)
+            {
+                return Err(held());
+            }
+            super::container_mapping::local_policy(
+                &b.policy,
+                &mapped.mapping,
+                config.mapping_controller.as_ref().ok_or_else(held)?,
+                &self.config.fleet.agents_root,
+            )?;
+        }
         let control = ContainerControl::new(
             config.python.clone().into(),
             ControlSource {
@@ -233,11 +288,17 @@ impl LocalRuntimeSupervisor {
                 compose: b.compose.clone().into(),
                 journal: b.journal.clone().into(),
                 stop_journal: b.stop_journal.clone().into(),
+                mapped: b.mapped.clone(),
+                recovery: None,
             },
         ))
     }
 
-    async fn checked_prepared(&self, agent: &Agent, p: &PreparedContainer) -> Result<(), AppError> {
+    pub(super) async fn checked_prepared(
+        &self,
+        agent: &Agent,
+        p: &PreparedContainer,
+    ) -> Result<(), AppError> {
         let config = self
             .config
             .fleet
@@ -305,10 +366,11 @@ impl LocalRuntimeSupervisor {
             .get_container_launch(agent.id)
             .await?
             .ok_or_else(held)?;
-        if launch.controller_id != self.controller_id || launch.prepared.agent_id != agent.id {
+        if launch.prepared.agent_id != agent.id {
             return Err(held());
         }
         self.checked_prepared(agent, &launch.prepared).await?;
+        self.container_owner_files(&launch).await?;
         Ok(launch)
     }
 
@@ -317,7 +379,7 @@ impl LocalRuntimeSupervisor {
         if launch.state != "running" {
             return Err(held());
         }
-        let (control, files) = self.container_files(&launch.prepared.container).await?;
+        let (control, files) = self.container_owner_files(&launch).await?;
         let original = &launch.prepared.container.registration;
         let receipt = control.observe(&files, original).await?;
         if receipt.state != ContainerReceiptState::Observed
@@ -455,6 +517,11 @@ impl LocalRuntimeSupervisor {
             stop_id: Uuid::new_v4(),
         };
         self.repo.claim_container_launch(&launch).await?;
+        if files.mapped.is_some() {
+            control
+                .attach(&files, &launch.prepared.container.registration)
+                .await?;
+        }
         self.container_state(
             agent,
             AgentStatus::Starting,
@@ -530,20 +597,13 @@ impl LocalRuntimeSupervisor {
                 .await;
         }
         if launch.state == "running" {
-            self.repo
-                .advance_container_launch(
-                    &launch,
-                    "stopping",
-                    launch.snapshot.clone(),
-                    launch.origin.clone(),
-                )
-                .await?;
+            self.advance_container(&launch, "stopping").await?;
             launch.state = "stopping".into();
         }
         if launch.state != "stopping" {
             return Err(held());
         }
-        let (control, files) = self.container_files(&launch.prepared.container).await?;
+        let (control, files) = self.container_owner_files(&launch).await?;
         let original = &launch.prepared.container.registration;
         let observed = control.observe(&files, original).await?;
         if serde_json::to_value(&observed.snapshot).map_err(|_| held())?
@@ -552,14 +612,7 @@ impl LocalRuntimeSupervisor {
             return Err(held());
         }
         control.stop(&files, original, launch.stop_id).await?;
-        self.repo
-            .advance_container_launch(
-                &launch,
-                "exited",
-                launch.snapshot.clone(),
-                launch.origin.clone(),
-            )
-            .await?;
+        self.advance_container(&launch, "exited").await?;
         self.container_state(
             agent,
             AgentStatus::Stopped,
@@ -579,7 +632,7 @@ impl LocalRuntimeSupervisor {
         if launch.state != "running" {
             return Err(held());
         }
-        let (control, files) = self.container_files(&launch.prepared.container).await?;
+        let (control, files) = self.container_owner_files(&launch).await?;
         let receipt = control
             .observe(&files, &launch.prepared.container.registration)
             .await?;
@@ -590,14 +643,7 @@ impl LocalRuntimeSupervisor {
             return Err(held());
         }
         if receipt.observation == ContainerObservation::NamespaceExited {
-            self.repo
-                .advance_container_launch(
-                    &launch,
-                    "exited",
-                    launch.snapshot.clone(),
-                    launch.origin.clone(),
-                )
-                .await?;
+            self.advance_container(&launch, "exited").await?;
             return self
                 .container_state(
                     agent,
@@ -725,6 +771,7 @@ mod tests {
                     running_inventory_sha256: "d".repeat(64),
                     compose_sha256: container_control::canonical_hash(&compose).unwrap(),
                     network_sha256: Some("f".repeat(64)),
+                    mount_mapping_sha256: None,
                 },
                 policy,
                 compose: "/private/compose.json".into(),
@@ -732,6 +779,7 @@ mod tests {
                 stop_journal: "/private/stop.sqlite".into(),
                 source_sha256: UTILITY_SHA256.map(str::to_owned),
                 context: "protected".into(),
+                mapped: None,
             },
         };
         (a, p, compose)

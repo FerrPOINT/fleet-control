@@ -1,6 +1,7 @@
 //! Private Base subprocess protocol. No Docker command or credential is agent-supplied.
 pub use app::container_runtime::{
-    ContainerEngineIdentity as EngineIdentity, ContainerRegistration,
+    ContainerEngineIdentity as EngineIdentity, ContainerRecoveryCommand, ContainerRegistration,
+    ControllerSnapshot, MappedContainer,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -63,7 +64,7 @@ pub struct ContainerSnapshot {
     pub network_sha256: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ContainerObservation {
     NeverStarted,
@@ -72,7 +73,7 @@ pub enum ContainerObservation {
     Unavailable,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ContainerReceiptState {
     Registered,
@@ -80,7 +81,7 @@ pub enum ContainerReceiptState {
     Held,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContainerReceipt {
     pub contract_version: u8,
@@ -115,12 +116,14 @@ pub struct ContainerStopReceipt {
 }
 
 /// Paths remain controller-private; neither these nor registrations are public agent DTOs.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ContainerLaunchFiles {
     pub policy: Value,
     pub compose: PathBuf,
     pub journal: PathBuf,
     pub stop_journal: PathBuf,
+    pub mapped: Option<MappedContainer>,
+    pub recovery: Option<ContainerRecoveryCommand>,
 }
 
 #[derive(Deserialize)]
@@ -136,6 +139,99 @@ struct Envelope {
 struct Endpoint {
     receipt: ContainerReceipt,
     host: std::net::Ipv4Addr,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct RestartWitness {
+    contract_version: u8,
+    state: String,
+    original_mapping_sha256: String,
+    registration_sha256: String,
+    original_controller_snapshot: ControllerSnapshot,
+    pub current_controller_snapshot: ControllerSnapshot,
+    pub receipt: ContainerReceipt,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RecoveryAck {
+    contract_version: u8,
+    state: String,
+    request_sha256: String,
+    recovery: ContainerRecoveryCommand,
+    witness: RestartWitness,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Heartbeat {
+    state: String,
+    recovery_id: Uuid,
+    lease_version: i64,
+    lease_expires_at: String,
+}
+
+fn validate_restart(
+    w: &RestartWitness,
+    files: &ContainerLaunchFiles,
+    r: &ContainerRegistration,
+    status: i32,
+) -> Result<(), AppError> {
+    validate_registration(r)?;
+    let m = &files.mapped.as_ref().ok_or_else(held)?.mapping;
+    let current = &w.current_controller_snapshot;
+    if status != 0
+        || r.contract_version != 3
+        || m.engine != r.engine
+        || w.contract_version != 1
+        || w.state != "controller_restart_observed"
+        || w.original_mapping_sha256 != canonical_hash(m)?
+        || r.mount_mapping_sha256.as_ref() != Some(&w.original_mapping_sha256)
+        || w.registration_sha256 != canonical_hash(r)?
+        || w.original_controller_snapshot != m.snapshot
+        || current.container_id != m.controller.container_id
+        || current.inventory_sha256 != m.snapshot.inventory_sha256
+        || current.started_at == m.snapshot.started_at
+        || current.init_pid == 0
+        || current.started_at.starts_with("0001-")
+        || chrono::DateTime::parse_from_rfc3339(&current.started_at).is_err()
+        || w.receipt.state != ContainerReceiptState::Observed
+        || !matches!(
+            w.receipt.observation,
+            ContainerObservation::Running | ContainerObservation::NamespaceExited
+        )
+    {
+        return Err(held());
+    }
+    validate_receipt(&w.receipt, r, 0, "observe")
+}
+
+fn validate_attachment(
+    value: &Value,
+    files: &ContainerLaunchFiles,
+    original: &ContainerRegistration,
+) -> Result<(), AppError> {
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Attachment {
+        state: String,
+        registration_sha256: String,
+        controller_id: String,
+        controller_sha256: String,
+        network_id: String,
+    }
+    let a: Attachment = serde_json::from_value(value.clone()).map_err(|_| held())?;
+    let m = &files.mapped.as_ref().ok_or_else(held)?.mapping;
+    if a.state != "attached"
+        || a.registration_sha256 != canonical_hash(original)?
+        || a.controller_id != m.controller.container_id
+        || a.controller_sha256 != canonical_hash(&m.snapshot)?
+        || files.policy["network"]["id"] != a.network_id
+    {
+        return Err(held());
+    }
+    Ok(())
 }
 
 fn held() -> AppError {
@@ -159,12 +255,25 @@ pub(crate) fn canonical_hash(value: &impl Serialize) -> Result<String, AppError>
     )))
 }
 
+pub(crate) fn launch_hash(
+    launch: &app::container_runtime::ContainerLaunch,
+) -> Result<String, AppError> {
+    let mut value = serde_json::to_value(launch).map_err(|_| held())?;
+    value.as_object_mut().ok_or_else(held)?.remove("state");
+    canonical_hash(&value)
+}
+
 pub(crate) fn validate_registration(value: &ContainerRegistration) -> Result<(), AppError> {
-    if !matches!(value.contract_version, 1 | 2)
+    if !matches!(value.contract_version, 1 | 2 | 3)
         || value.operation_id.is_nil()
         || value.resource_id.is_nil()
         || value.generation.is_nil()
-        || (value.contract_version == 2) != value.network_sha256.is_some()
+        || (value.contract_version >= 2) != value.network_sha256.is_some()
+        || (value.contract_version == 3) != value.mount_mapping_sha256.is_some()
+        || value
+            .mount_mapping_sha256
+            .as_ref()
+            .is_some_and(|v| !hash(v))
         || [
             &value.container_id,
             &value.policy_sha256,
@@ -252,8 +361,24 @@ impl ContainerControl {
             }
             sources.push(String::from_utf8(bytes).map_err(|_| held())?);
         }
-        let mut request = json!({"protocol_version":1, "action":action, "context":self.context,
+        let version = if files.recovery.is_some() {
+            3
+        } else if files.mapped.is_some() {
+            2
+        } else {
+            1
+        };
+        let mut request = json!({"protocol_version":version, "action":action, "context":self.context,
             "policy":files.policy, "compose":files.compose, "journal":files.journal});
+        if let Some(mapped) = &files.mapped {
+            request["mount_mapping"] = json!(mapped.mapping);
+            request["mapping_file"] = json!(mapped.mapping_file);
+        }
+        if let Some(recovery) = &files.recovery {
+            request["recovery"] = json!(recovery);
+            request["recovery_journal"] =
+                json!(files.mapped.as_ref().ok_or_else(held)?.recovery_journal);
+        }
         if !files.compose.is_absolute()
             || !files.journal.is_absolute()
             || !files.stop_journal.is_absolute()
@@ -322,7 +447,7 @@ impl ContainerControl {
             return Err(held());
         }
         let envelope: Envelope = serde_json::from_slice(&result.1).map_err(|_| held())?;
-        if envelope.protocol_version != 1 || envelope.action != action {
+        if envelope.protocol_version != version || envelope.action != action {
             return Err(held());
         }
         Ok((result.0, envelope.result))
@@ -341,12 +466,27 @@ impl ContainerControl {
         files: &ContainerLaunchFiles,
         original: &ContainerRegistration,
     ) -> Result<std::net::Ipv4Addr, AppError> {
-        let (status, value) = self
-            .call(files, "endpoint", json!({"registration": original}))
-            .await?;
+        let mut extra = json!({"registration":original});
+        let action = if files.recovery.is_none() && files.mapped.is_some() {
+            let mapped = files.mapped.as_ref().ok_or_else(held)?;
+            extra["controller"] = json!(mapped.mapping.controller);
+            extra["attachment_journal"] = json!(mapped.attachment_journal);
+            "endpoint_attached"
+        } else {
+            "endpoint"
+        };
+        let (status, mut value) = self.call(files, action, extra).await?;
+        if action == "endpoint_attached" {
+            let attachment = value
+                .as_object_mut()
+                .ok_or_else(held)?
+                .remove("attachment")
+                .ok_or_else(held)?;
+            validate_attachment(&attachment, files, original)?;
+        }
         let endpoint: Endpoint = serde_json::from_value(value).map_err(|_| held())?;
         validate_receipt(&endpoint.receipt, original, status, "endpoint")?;
-        if original.contract_version != 2
+        if !matches!(original.contract_version, 2 | 3)
             || endpoint.receipt.state != ContainerReceiptState::Observed
             || endpoint.receipt.observation != ContainerObservation::Running
             || !endpoint.host.is_private()
@@ -367,6 +507,67 @@ impl ContainerControl {
         original: &ContainerRegistration,
     ) -> Result<ContainerReceipt, AppError> {
         self.receipt(files, original, "start").await
+    }
+
+    pub async fn attach(
+        &self,
+        files: &ContainerLaunchFiles,
+        original: &ContainerRegistration,
+    ) -> Result<(), AppError> {
+        let mapped = files.mapped.as_ref().ok_or_else(held)?;
+        if files.recovery.is_some() {
+            return Err(held());
+        }
+        let (status, value) = self
+            .call(
+                files,
+                "attach_controller",
+                json!({"registration":original,
+            "controller":mapped.mapping.controller,"attachment_journal":mapped.attachment_journal}),
+            )
+            .await?;
+        if status != 0 {
+            return Err(held());
+        }
+        validate_attachment(&value, files, original)
+    }
+
+    pub(super) async fn controller_restart(
+        &self,
+        files: &ContainerLaunchFiles,
+        original: &ContainerRegistration,
+    ) -> Result<RestartWitness, AppError> {
+        let mut original_files = files.clone();
+        original_files.recovery = None;
+        let (status, value) = self
+            .call(
+                &original_files,
+                "observe_controller_restart",
+                json!({"registration":original}),
+            )
+            .await?;
+        let witness: RestartWitness = serde_json::from_value(value).map_err(|_| held())?;
+        validate_restart(&witness, files, original, status)?;
+        Ok(witness)
+    }
+
+    pub async fn recovery_action(
+        &self,
+        files: &ContainerLaunchFiles,
+        original: &ContainerRegistration,
+        action: &str,
+    ) -> Result<Value, AppError> {
+        if !matches!(
+            action,
+            "recover_controller" | "read_controller_recovery" | "heartbeat_controller"
+        ) {
+            return Err(held());
+        }
+        let (status, value) = self
+            .call(files, action, json!({"registration":original}))
+            .await?;
+        validate_recovery_value(files, original, action, status, &value)?;
+        Ok(value)
     }
 
     async fn receipt(
@@ -430,7 +631,92 @@ async fn bounded(reader: impl AsyncRead + Unpin) -> Result<Vec<u8>, AppError> {
     Ok(output)
 }
 
-fn validate_receipt(
+pub(crate) fn validate_recovery_value(
+    files: &ContainerLaunchFiles,
+    original: &ContainerRegistration,
+    action: &str,
+    status: i32,
+    value: &Value,
+) -> Result<(), AppError> {
+    validate_registration(original)?;
+    let command = files.recovery.as_ref().ok_or_else(held)?;
+    let request = &command.request;
+    let mapping = &files.mapped.as_ref().ok_or_else(held)?.mapping;
+    let deadline =
+        chrono::DateTime::parse_from_rfc3339(&command.lease_expires_at).map_err(|_| held())?;
+    if original.contract_version != 3
+        || request.agent_id != original.resource_id
+        || request.launch_id != original.generation
+        || [
+            request.id,
+            request.agent_id,
+            request.launch_id,
+            request.original_controller_id,
+            request.controller_id,
+        ]
+        .iter()
+        .any(Uuid::is_nil)
+        || request.original_controller_id == request.controller_id
+        || request.agent_pid <= 0
+        || !hash(&request.launch_sha256)
+        || request.mapping_sha256 != canonical_hash(mapping)?
+        || original.mount_mapping_sha256.as_ref() != Some(&request.mapping_sha256)
+        || request.registration_sha256 != canonical_hash(original)?
+        || command.epoch <= 0
+        || command.lease_version <= 0
+        || (command.epoch == 1) != request.predecessor_id.is_none()
+        || request
+            .predecessor_id
+            .is_some_and(|id| id.is_nil() || id == request.id)
+        || request.controller_snapshot.container_id != mapping.controller.container_id
+        || request.controller_snapshot.inventory_sha256 != mapping.snapshot.inventory_sha256
+        || request.controller_snapshot.started_at == mapping.snapshot.started_at
+        || request.controller_snapshot.init_pid == 0
+        || command.lease_expires_at.len() > 96
+        || deadline.offset().local_minus_utc() != 0
+    {
+        return Err(held());
+    }
+    if status != 0 {
+        return Err(held());
+    }
+    if action == "heartbeat_controller" {
+        let ack: Heartbeat = serde_json::from_value(value.clone()).map_err(|_| held())?;
+        if ack.state != "controller_heartbeat"
+            || ack.recovery_id != command.request.id
+            || ack.lease_version != command.lease_version
+            || ack.lease_expires_at != command.lease_expires_at
+        {
+            return Err(held());
+        }
+    } else if matches!(action, "recover_controller" | "read_controller_recovery") {
+        let ack: RecoveryAck = serde_json::from_value(value.clone()).map_err(|_| held())?;
+        if ack.contract_version != 1
+            || ack.state != "controller_recovered"
+            || ack.recovery != *command
+            || ack.request_sha256 != canonical_hash(command)?
+        {
+            return Err(held());
+        }
+        validate_restart(&ack.witness, files, original, 0)?;
+        if ack.witness.current_controller_snapshot != command.request.controller_snapshot
+            || ack
+                .witness
+                .receipt
+                .snapshot
+                .as_ref()
+                .map(|s| s.init_pid as i64)
+                != Some(command.request.agent_pid as i64)
+        {
+            return Err(held());
+        }
+    } else {
+        return Err(held());
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_receipt(
     receipt: &ContainerReceipt,
     original: &ContainerRegistration,
     status: i32,
@@ -488,7 +774,7 @@ mod tests {
         );
     }
 
-    fn original() -> ContainerRegistration {
+    pub(super) fn original() -> ContainerRegistration {
         ContainerRegistration {
             contract_version: 2,
             operation_id: Uuid::new_v4(),
@@ -505,12 +791,13 @@ mod tests {
             running_inventory_sha256: "d".repeat(64),
             compose_sha256: "e".repeat(64),
             network_sha256: Some("f".repeat(64)),
+            mount_mapping_sha256: None,
         }
     }
 
-    fn receipt(original: &ContainerRegistration) -> ContainerReceipt {
+    pub(super) fn receipt(original: &ContainerRegistration) -> ContainerReceipt {
         ContainerReceipt {
-            contract_version: 2,
+            contract_version: original.contract_version,
             operation_id: original.operation_id,
             container_id: original.container_id.clone(),
             resource_id: original.resource_id,
@@ -519,7 +806,7 @@ mod tests {
             state: ContainerReceiptState::Observed,
             observation: ContainerObservation::Running,
             snapshot: Some(ContainerSnapshot {
-                contract_version: 2,
+                contract_version: original.contract_version,
                 container_id: original.container_id.clone(),
                 engine: original.engine.clone(),
                 policy_sha256: original.policy_sha256.clone(),
@@ -613,5 +900,157 @@ mod tests {
     async fn native_output_is_bounded_and_cannot_become_a_receipt() {
         assert!(bounded(&vec![b'x'; LIMIT + 1][..]).await.is_err());
         assert_eq!(bounded(&b"receipt"[..]).await.unwrap(), b"receipt");
+    }
+}
+
+#[cfg(test)]
+mod mapped_tests {
+    use super::*;
+    use app::container_runtime::*;
+
+    fn fixture() -> (ContainerLaunchFiles, ContainerRegistration, Value) {
+        let (_, mapping, _) = super::super::container_mapping::tests::fixture();
+        let mut r = tests::original();
+        r.contract_version = 3;
+        r.container_id = "9".repeat(64);
+        r.engine = mapping.engine.clone();
+        r.mount_mapping_sha256 = Some(canonical_hash(&mapping).unwrap());
+        let mut current = mapping.snapshot.clone();
+        current.started_at = "2026-10-09T13:00:00Z".into();
+        current.init_pid = 51;
+        let command = ContainerRecoveryCommand {
+            request: ContainerRecoveryRequest {
+                id: Uuid::new_v4(),
+                launch_id: r.generation,
+                agent_id: r.resource_id,
+                original_controller_id: Uuid::new_v4(),
+                controller_id: Uuid::new_v4(),
+                predecessor_id: None,
+                launch_sha256: "1".repeat(64),
+                mapping_sha256: canonical_hash(&mapping).unwrap(),
+                registration_sha256: canonical_hash(&r).unwrap(),
+                controller_snapshot: current.clone(),
+                agent_pid: 123,
+            },
+            epoch: 1,
+            lease_version: 1,
+            lease_expires_at: "2026-10-09T13:00:30Z".into(),
+        };
+        let witness = json!({"contract_version":1,"state":"controller_restart_observed","original_mapping_sha256":canonical_hash(&mapping).unwrap(),"registration_sha256":canonical_hash(&r).unwrap(),
+            "original_controller_snapshot":mapping.snapshot,"current_controller_snapshot":current,"receipt":tests::receipt(&r)});
+        let ack = json!({"contract_version":1,"state":"controller_recovered","request_sha256":canonical_hash(&command).unwrap(),"recovery":command,"witness":witness});
+        let files = ContainerLaunchFiles {
+            policy: json!({"network":{"id":"e".repeat(64)}}),
+            compose: "/private/compose.json".into(),
+            journal: "/private/start.sqlite".into(),
+            stop_journal: "/private/stop.sqlite".into(),
+            mapped: Some(MappedContainer {
+                mapping,
+                mapping_file: "/private/mapping.json".into(),
+                attachment_journal: "/private/attach.sqlite".into(),
+                recovery_journal: "/private/recovery.sqlite".into(),
+            }),
+            recovery: Some(command),
+        };
+        (files, r, ack)
+    }
+
+    #[test]
+    fn registration_versions_require_original_mapping_hash_only_for_v3() {
+        let (_, mut r, _) = fixture();
+        validate_registration(&r).unwrap();
+        r.contract_version = 2;
+        assert!(validate_registration(&r).is_err());
+        r.mount_mapping_sha256 = None;
+        validate_registration(&r).unwrap();
+        assert!(
+            !json!(r)
+                .as_object()
+                .unwrap()
+                .contains_key("mount_mapping_sha256")
+        );
+        r.contract_version = 3;
+        assert!(validate_registration(&r).is_err());
+    }
+
+    #[test]
+    fn restart_witness_requires_distinct_physical_start_and_unchanged_inventory() {
+        let (files, r, ack) = fixture();
+        let witness: RestartWitness = serde_json::from_value(ack["witness"].clone()).unwrap();
+        validate_restart(&witness, &files, &r, 0).unwrap();
+        for (key, value) in [
+            (
+                "started_at",
+                json!(files.mapped.as_ref().unwrap().mapping.snapshot.started_at),
+            ),
+            ("init_pid", json!(0)),
+            ("inventory_sha256", json!("f".repeat(64))),
+            ("container_id", json!("f".repeat(64))),
+        ] {
+            let mut changed = ack["witness"].clone();
+            changed["current_controller_snapshot"][key] = value;
+            let witness = serde_json::from_value(changed).unwrap();
+            assert!(validate_restart(&witness, &files, &r, 0).is_err());
+        }
+    }
+
+    #[test]
+    fn recovery_ack_is_exact_original_command_and_agent_snapshot() {
+        let (files, r, ack) = fixture();
+        validate_recovery_value(&files, &r, "read_controller_recovery", 0, &ack).unwrap();
+        for path in ["request_sha256", "recovery", "witness"] {
+            let mut changed = ack.clone();
+            match path {
+                "recovery" => changed[path]["request"]["controller_id"] = json!(Uuid::new_v4()),
+                "witness" => {
+                    changed[path]["receipt"]["snapshot"]["started_at"] =
+                        json!("0001-01-01T00:00:00Z")
+                }
+                _ => changed[path] = json!("f".repeat(64)),
+            };
+            assert!(
+                validate_recovery_value(&files, &r, "recover_controller", 0, &changed).is_err()
+            );
+        }
+        assert!(validate_recovery_value(&files, &r, "recover_controller", 2, &ack).is_err());
+    }
+
+    #[test]
+    fn heartbeat_ack_cannot_change_owner_version_deadline_or_add_authority() {
+        let (files, r, _) = fixture();
+        let c = files.recovery.as_ref().unwrap();
+        let ack = json!({"state":"controller_heartbeat","recovery_id":c.request.id,"lease_version":c.lease_version,"lease_expires_at":c.lease_expires_at});
+        validate_recovery_value(&files, &r, "heartbeat_controller", 0, &ack).unwrap();
+        for (key, value) in [
+            ("recovery_id", json!(Uuid::new_v4())),
+            ("lease_version", json!(2)),
+            ("lease_expires_at", json!("2099-01-01T00:00:00Z")),
+            ("endpoint", json!("http://foreign")),
+        ] {
+            let mut changed = ack.clone();
+            changed[key] = value;
+            assert!(
+                validate_recovery_value(&files, &r, "heartbeat_controller", 0, &changed).is_err()
+            );
+        }
+    }
+
+    #[test]
+    fn original_attachment_hash_cannot_follow_restarted_or_foreign_controller() {
+        let (files, r, _) = fixture();
+        let m = &files.mapped.as_ref().unwrap().mapping;
+        let ack = json!({"state":"attached","registration_sha256":canonical_hash(&r).unwrap(),"controller_id":m.controller.container_id,
+            "controller_sha256":canonical_hash(&m.snapshot).unwrap(),"network_id":files.policy["network"]["id"]});
+        validate_attachment(&ack, &files, &r).unwrap();
+        for key in [
+            "controller_id",
+            "controller_sha256",
+            "registration_sha256",
+            "network_id",
+        ] {
+            let mut changed = ack.clone();
+            changed[key] = json!("f".repeat(64));
+            assert!(validate_attachment(&changed, &files, &r).is_err());
+        }
     }
 }

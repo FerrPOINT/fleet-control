@@ -1,5 +1,10 @@
 # Hermes Adapter Contract
 
+Unit16 supports original mapped v3 custody and same-container physical controller
+restart recovery without changing original run origins, credentials or POST
+permits. Automatic generation preparation/replacement and config activation
+remain pending. See [the unit contract](../MAPPED_CONTROLLER_RECOVERY_RELEASE.md).
+
 Docker opt-in starts only an operator-prepared original Base v2 container with
 isolated `/config` HOME/HERMES_HOME, `/workspace` cwd and four guarded agent areas.
 Free-chat journal capabilities seal the original container generation and origin;

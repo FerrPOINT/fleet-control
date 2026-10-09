@@ -123,6 +123,60 @@ pub struct HermesDispatchIntent {
 
 #[async_trait]
 pub trait FleetRepository: Send + Sync {
+    async fn get_container_recovery(
+        &self,
+        _generation: Uuid,
+    ) -> Result<Option<container_runtime::ContainerRecovery>, AppError> {
+        Err(AppError::Unavailable(
+            "Container recovery journal is unavailable".into(),
+        ))
+    }
+    async fn claim_container_recovery(
+        &self,
+        _launch: &container_runtime::ContainerLaunch,
+        _command: &container_runtime::ContainerRecoveryCommand,
+    ) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "Container recovery journal is unavailable".into(),
+        ))
+    }
+    async fn acknowledge_container_recovery(
+        &self,
+        _command: &container_runtime::ContainerRecoveryCommand,
+        _receipt: serde_json::Value,
+    ) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "Container recovery journal is unavailable".into(),
+        ))
+    }
+    async fn claim_container_lease(
+        &self,
+        _previous: &container_runtime::ContainerRecovery,
+        _command: &container_runtime::ContainerRecoveryCommand,
+    ) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "Container recovery journal is unavailable".into(),
+        ))
+    }
+    async fn acknowledge_container_lease(
+        &self,
+        _command: &container_runtime::ContainerRecoveryCommand,
+        _receipt: serde_json::Value,
+    ) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "Container recovery journal is unavailable".into(),
+        ))
+    }
+    async fn advance_recovered_container(
+        &self,
+        _launch: &container_runtime::ContainerLaunch,
+        _command: &container_runtime::ContainerRecoveryCommand,
+        _state: &str,
+    ) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "Container recovery journal is unavailable".into(),
+        ))
+    }
     async fn get_container_configuration(
         &self,
         _agent: Uuid,

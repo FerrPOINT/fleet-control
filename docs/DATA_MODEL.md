@@ -1,5 +1,9 @@
 # Data Model
 
+Unit16 adds `runtime_container_recoveries` with frozen per-generation epoch
+commands/ACKs and durable bounded heartbeat delivery, while retaining original
+000015 launch identity. See [the private unit contract](MAPPED_CONTROLLER_RECOVERY_RELEASE.md).
+
 ## Original Docker Controller
 
 `m20261009_000015_container_controller` adds `runtime_container_launches` after

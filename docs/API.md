@@ -1,5 +1,8 @@
 # API
 
+Unit16 adds no public route or DTO. Its private mapped-volume/controller recovery
+contract and pending native gates are in [the source handoff](MAPPED_CONTROLLER_RECOVERY_RELEASE.md).
+
 ## Original Docker Lifecycle
 
 Existing start/stop/restart/health operations support the trusted opt-in Docker
