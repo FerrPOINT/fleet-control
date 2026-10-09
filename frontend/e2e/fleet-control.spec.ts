@@ -1330,9 +1330,16 @@ test('managed settings require preview, preserve failed changes and expose rollb
     }
   }
   await page.getByRole('tab', { name: 'Среда' }).click()
-  await page.getByRole('button', { name: 'Тема: dark' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await page.getByRole('button', { name: 'Аккаунт', exact: true }).click()
+  await page.getByRole('menuitemradio', { name: 'Серая', exact: true }).click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'gray')
-  await page.getByRole('button', { name: 'Тема: gray' }).click()
+  await page.getByRole('button', { name: 'Аккаунт', exact: true }).click()
+  await expect(page.getByRole('menuitemradio', { name: 'Серая', exact: true })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  )
+  await page.getByRole('menuitemradio', { name: 'Светлая', exact: true }).click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
   await page.waitForTimeout(1000)
   await page.screenshot({ path: testInfo.outputPath('settings-light-1280.png'), fullPage: true })
