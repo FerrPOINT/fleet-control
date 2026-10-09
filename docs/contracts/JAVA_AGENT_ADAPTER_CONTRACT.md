@@ -1,5 +1,11 @@
 # Java Agent Adapter Contract
 
+## Durable Runtime Controls Unit13
+
+The new journal/native control protocol is Hermes-only. Java Agent chat/control
+remains unavailable; no Java readiness, process lifecycle or SDK contract changes
+are introduced or accepted by this source freeze.
+
 ## Hermes Journal Release Unit12
 
 The isolated Hermes journal release does not change the Java Agent adapter,

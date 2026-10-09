@@ -6,6 +6,11 @@
 
 ## [Unreleased]
 
+- Prepare isolated durable Hermes stop/steer controls with one additive migration13,
+  single-attempt dispatch, uncertain holds, atomic ACK/terminal packets and scoped
+  readback. Rust execution, generated contracts and client integration are pending;
+  no task admission or installed runtime readiness is claimed.
+
 - Prepare the isolated free-chat Hermes immutable request journal, single POST
   permit and atomic ACK/session readback release. Own only additive migration12;
   compilation, real PostgreSQL and exact-source release gates remain pending.

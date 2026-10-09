@@ -1,5 +1,18 @@
 # Data Model
 
+## Durable Runtime Controls Unit13
+
+Only `m20261005_000013_runtime_controls` is new in this unit. Both lineages
+append it after the unchanged journal12 (current lengths14/17).
+`runtime_control_commands` freezes actor/key, payload hash, scope, original
+context and native pins. No guidance body or bearer is stored.
+Reserved/submitted/uncertain commands hold a run; claims are single-use.
+Immutable history cannot be deleted or downgraded while populated.
+ACK, audit/event and stopping state commit together. Independent atomic
+terminal prompt/run/optional-assistant evidence can settle an unknown hold
+as terminal-observed, never as proven command acceptance.
+The following unit12 section records that earlier release's own scope.
+
 ## Hermes Journal Release Unit12
 
 `m20261004_000012_hermes_dispatch_journal` is appended after PM credentials in

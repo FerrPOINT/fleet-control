@@ -180,12 +180,15 @@ async fn authenticated_hermes_sse_ingests_exact_requests_and_never_response_even
             .any(|version| version == "m20261004_000011_pm_credentials"),
         "fixture must register the credential prerequisite"
     );
-    assert!(
-        expected
-            .iter()
-            .any(|version| version == "m20261004_000012_hermes_dispatch_journal"),
-        "fixture must register the Hermes journal migration"
-    );
+    for version in [
+        "m20261004_000012_hermes_dispatch_journal",
+        "m20261005_000013_runtime_controls",
+    ] {
+        assert!(
+            expected.iter().any(|name| name == version),
+            "{version} must be registered"
+        );
+    }
     expected.sort_unstable();
     assert_eq!(
         migrations, expected,

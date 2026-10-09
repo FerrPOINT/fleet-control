@@ -1,5 +1,16 @@
 # Testing
 
+## Durable Runtime Controls Unit13
+
+The [control release plan](plans/2026-10-09-runtime-controls-release.md)
+specifies 32 new focused cases: API1, native ACK3, control PG/HTTP18,
+atomic terminal9 and migration1. New PG cases are explicitly ignored by default;
+CI requires each name and exact success counts using separate disposable DBs.
+Whole-ledger lineage/SSE, parent guards, strict Linux all-targets Clippy/check,
+workspace, real Auth and generated OpenAPI parity remain required.
+Formatting/static checks are not execution; all new Rust tests remain pending.
+Current generated contracts/UI have not been promoted for the new API.
+
 ## Hermes Journal Unit12
 
 The [isolated release plan](plans/2026-10-09-hermes-journal-release.md) names

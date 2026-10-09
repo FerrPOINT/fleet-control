@@ -32,6 +32,12 @@ mod runtime_acceptance_readback_http;
 #[path = "support/hermes_protocol_fixture.rs"]
 mod hermes_protocol_fixture;
 
+#[path = "support/runtime_run_control.rs"]
+mod runtime_run_control;
+
+#[path = "support/runtime_terminal.rs"]
+mod runtime_terminal;
+
 async fn fixture() -> Option<(PostgresFleetRepository, Uuid, Uuid)> {
     let Ok(url) = std::env::var("FLEET_TEST_DATABASE_URL") else {
         eprintln!("FLEET_TEST_DATABASE_URL not configured; PostgreSQL tests skipped");
