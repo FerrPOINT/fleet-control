@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Reconcile the task-chat foundation with accepted main34aaec0 by normal merge;
+  retain atomic redacted process logs, canonical heartbeat monitoring and both
+  browser/screenshot packets. Fresh merged-tree acceptance remains pending.
+
 - Reject duplicate Authorization headers on PM runtime readback before parsing
   or repository/runtime access, including repeated equal bearer credentials.
 - Reconcile the accepted Base19a7a381 pin without rewriting branch history.
@@ -97,6 +101,9 @@
 - Integrate exact-request human tool approvals with immutable command replay,
   stale-assignment protection and no automatic redispatch after an unknown outcome.
   PM structured dispatch/resume and live clarification acceptance remain incomplete.
+- Process-log inserts return their own persisted redacted row atomically, even
+  when another stdout/stderr writer has already inserted a newer log. PostgreSQL
+  regressions cover deterministic interleaving, 64 writers and rejected inserts.
 - Диалоги apply/rollback настроек возвращают фокус на кнопку preview; новое подтверждение очищает ошибку предыдущей операции. Pending и product-owned preview/retry сохранены. Base закреплён на проверенный SHA для воспроизводимой общей поставки.
 
 - Active Central Auth users can operate Fleet without local role grants.
