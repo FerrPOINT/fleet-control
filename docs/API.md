@@ -77,6 +77,14 @@ The compatibility gate explicitly models only the exact required string header
 headers and still checks every other parameter, body, response and route through
 the unchanged Base compatibility checker. This is not general v1 compatibility
 and must be coordinated with consumers before enabling unit13.
+
+## Docker Activation Restart Recovery
+
+The [config18 restart successor](CONTAINER_ACTIVATION_RECOVERY_RELEASE.md) exposes
+typed recovery reason/action JSON through the existing revision `last_error`
+string and `agent_config.recovery_required` audit event. This is a recovery
+request, not a new command endpoint or successful activation. Drain remains set.
+
 The [config18 P2 successor](CONTAINER_ACTIVATION_PREFLIGHT_FIX.md) adds Docker-only
 rendered-byte preflight and live-custodian read-only retry. No public routes or
 schemas change; invalid targets/unknown effects retain drain.

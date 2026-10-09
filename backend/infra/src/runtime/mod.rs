@@ -137,6 +137,7 @@ impl LocalRuntimeSupervisor {
             handle.spawn(async move {
                 let mut tasks = container_workers::AgentTasks::default();
                 let mut claimed = Vec::<domain::AgentConfigRevision>::new();
+                let mut after_agent = None;
                 loop {
                     tasks.reap();
                     // A freshly claimed revision must not be dropped while its predecessor finishes.
@@ -150,12 +151,13 @@ impl LocalRuntimeSupervisor {
                             });
                         }
                     }
-                    // Only this live custodian may resume its sealed native commands.
+                    // Discovery is read-only: interrupted claims are not new custody/permits.
                     if let Ok(pending) = supervisor
                         .repo
-                        .pending_container_activations(supervisor.controller_id)
+                        .pending_container_activations(after_agent)
                         .await
                     {
+                        after_agent = pending.last().map(|revision| revision.agent_id);
                         for revision in pending {
                             let supervisor = supervisor.clone();
                             tasks.spawn(revision.agent_id, async move {

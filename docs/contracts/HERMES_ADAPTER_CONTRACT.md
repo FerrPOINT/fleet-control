@@ -49,6 +49,16 @@ and events atomically; scoped control GETs never reconnect or dispatch.
 Native installed compatibility remains separate from this source candidate.
 The combined candidate restores pinned active-run GET-only recovery after Fleet
 restart through the recovery slice; fixtures are not installed-runtime acceptance.
+
+## Docker Activation Restart Recovery
+
+Docker config18 [restart reconciliation](../CONTAINER_ACTIVATION_RECOVERY_RELEASE.md)
+preserves the original private plan, recipe, credentials and native IDs. An
+interrupted pre-plan claim is discoverable without clearing/reclaiming its queue
+timestamp. Foreign/recovered custody permits only diagnostic original readback
+here, not prepare/start/stop, config writes or effective publication. Typed held
+and audited recovery action replace silent stranding, never runtime readiness.
+
 Docker config18 [preflight fixes](../CONTAINER_ACTIVATION_PREFLIGHT_FIX.md) bound
 all rendered targets before sealing/stop and retry transient original read-only
 observe/health failures under the same live custodian. Unknown lifecycle effects

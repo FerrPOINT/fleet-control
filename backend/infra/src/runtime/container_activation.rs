@@ -1,6 +1,9 @@
-//! Live-custodian replacement using original Base commands, never a host controller.
+//! Original-custody replacement and read-only restart recovery, never a host controller.
 use super::*;
-use app::container_activation::{Activation, Claim, Generation, Phase, Readiness, held};
+use app::container_activation::{
+    Activation, Claim, Generation, Phase, Readiness, RecoveryAction, RecoveryHold, RecoveryReason,
+    held,
+};
 use app::container_runtime::{ContainerBinding, ContainerLaunch, PreparedContainer};
 use container_control::{
     ContainerControl, ContainerLaunchFiles, ContainerObservation, ContainerReceiptState,
@@ -33,9 +36,11 @@ fn validate_managed_files(files: &Files) -> Result<(), AppError> {
     Ok(())
 }
 
+#[derive(Debug)]
 enum ActivationFailure {
     RetryReadOnly(AppError),
     Held(AppError),
+    Recovery(Box<RecoveryHold>),
 }
 
 impl From<AppError> for ActivationFailure {
@@ -51,7 +56,11 @@ fn preplan_failure(error: AppError) -> ActivationFailure {
     }
 }
 
-async fn retry_preplan<F, Fut>(agent: Uuid, delay: Duration, mut attempt: F) -> Result<(), AppError>
+async fn retry_preplan<F, Fut>(
+    agent: Uuid,
+    delay: Duration,
+    mut attempt: F,
+) -> Result<(), ActivationFailure>
 where
     F: FnMut() -> Fut,
     Fut: std::future::Future<Output = Result<(), ActivationFailure>>,
@@ -59,7 +68,9 @@ where
     loop {
         match attempt().await {
             Ok(()) => return Ok(()),
-            Err(ActivationFailure::Held(error)) => return Err(error),
+            Err(error @ (ActivationFailure::Held(_) | ActivationFailure::Recovery(_))) => {
+                return Err(error);
+            }
             Err(ActivationFailure::RetryReadOnly(error)) => {
                 tracing::warn!(agent_id=%agent, "Docker activation read-only preflight will retry: {}",
                     crate::redact_text(&error.to_string()));
@@ -228,6 +239,32 @@ async fn seal_plan(root: &Path, path: &Path, plan: &Plan) -> Result<(), AppError
     write_once(root, &recipe_path(root, &plan.rollback), &plan.rollback).await
 }
 
+async fn read_plan(
+    root: &Path,
+    path: &Path,
+    activation: Option<&Activation>,
+) -> Result<Plan, AppError> {
+    let plan: Plan = serde_json::from_slice(&private_file(root, path, PLAN_LIMIT as u64).await?)
+        .map_err(|_| held())?;
+    plan.validate_bytes()?;
+    if let Some(activation) = activation {
+        if canonical_hash(&plan.claim()?)? != canonical_hash(&activation.claim)? {
+            return Err(held());
+        }
+    }
+    // A crash halfway through sealing is not permission to fill in missing evidence.
+    for intent in [&plan.candidate, &plan.rollback] {
+        let saved: Intent = serde_json::from_slice(
+            &private_file(root, &recipe_path(root, intent), PLAN_LIMIT as u64).await?,
+        )
+        .map_err(|_| held())?;
+        if canonical_hash(&saved)? != canonical_hash(intent)? {
+            return Err(held());
+        }
+    }
+    Ok(plan)
+}
+
 fn recipe_path(root: &Path, intent: &Intent) -> PathBuf {
     root.join(format!(
         "{}.{}.activation-recipe.json",
@@ -260,12 +297,110 @@ impl LocalRuntimeSupervisor {
         })
         .await
         {
+            let record = self
+                .repo
+                .get_container_activation(revision.agent_id, revision.revision)
+                .await;
+            let launch = self.repo.get_container_launch(revision.agent_id).await;
+            if let (Ok(record), Ok(Some(launch))) = (record, launch) {
+                let recovery = match &error {
+                    ActivationFailure::Recovery(recovery) => recovery.as_ref().clone(),
+                    _ => {
+                        let mut recovery =
+                            RecoveryHold::new(self.controller_id, &launch, record.as_ref());
+                        if recovery.reason != RecoveryReason::UnknownOriginalEffect {
+                            recovery.reason = RecoveryReason::EvidenceUnavailable;
+                        }
+                        recovery.action = RecoveryAction::ReconcileOriginalCommand;
+                        recovery
+                    }
+                };
+                if self
+                    .repo
+                    .hold_container_activation(revision, record.as_ref(), &launch, &recovery)
+                    .await
+                    .is_err()
+                {
+                    tracing::warn!(agent_id=%revision.agent_id, "Activation recovery audit not committed; original state remains held");
+                }
+            }
+            let detail = match error {
+                ActivationFailure::Recovery(recovery) => {
+                    format!("{:?}: {:?}", recovery.reason, recovery.action)
+                }
+                ActivationFailure::Held(error) | ActivationFailure::RetryReadOnly(error) => {
+                    crate::redact_text(&error.to_string())
+                }
+            };
             tracing::warn!(
                 agent_id = %revision.agent_id,
                 "Docker configuration remains drained: {}",
-                crate::redact_text(&error.to_string())
+                detail
             );
         }
+    }
+
+    async fn activation_restart_hold(
+        &self,
+        launch: &ContainerLaunch,
+        activation: Option<&Activation>,
+    ) -> Result<ActivationFailure, AppError> {
+        if activation.is_some_and(|a| !a.tracks_launch(launch)) {
+            return Err(held());
+        }
+        let mut recovery = RecoveryHold::new(self.controller_id, launch, activation);
+        let (control, mut files) = self.container_files(&launch.prepared.container).await?;
+        let original = &launch.prepared.container.registration;
+        if let Some(saved) = self
+            .repo
+            .get_container_recovery(original.generation)
+            .await?
+        {
+            recovery.recovery_id = Some(saved.command.request.id);
+            recovery.recovery_command_sha256 = Some(canonical_hash(&saved.command)?);
+            // Historical readback uses the immutable delivery, never the mutable heartbeat.
+            files.recovery = Some(saved.command.clone());
+            if let Ok(ack) = control
+                .recovery_action(
+                    &files,
+                    original,
+                    "read_controller_recovery",
+                    self.controller_id,
+                )
+                .await
+            {
+                if ack["witness"]["receipt"]["snapshot"]
+                    == launch.snapshot.clone().ok_or_else(held)?
+                {
+                    recovery.readback_sha256 = Some(canonical_hash(&ack)?);
+                    if saved.receipt.as_ref() == Some(&ack)
+                        && saved.command.request.controller_id == self.controller_id
+                        && saved.lease_valid
+                        && saved.lease_receipt.is_some()
+                        && self.container_owner_files(launch).await.is_ok()
+                        && recovery.reason != RecoveryReason::UnknownOriginalEffect
+                    {
+                        recovery.reason = RecoveryReason::RecoveredGenerationChangeUnsupported;
+                        recovery.action =
+                            RecoveryAction::ResumeOrRollbackOriginalPlanWithCompatibleBase;
+                    }
+                }
+            }
+        } else if let Ok(receipt) = control.observe(&files, original).await {
+            // Original protocol2 may still read the same physical start after a process-only restart.
+            // This evidence is diagnostic, never logical ownership or a new native permit.
+            if receipt
+                .snapshot
+                .as_ref()
+                .map(serde_json::to_value)
+                .transpose()
+                .map_err(|_| held())?
+                == launch.snapshot
+            {
+                recovery.readback_sha256 = Some(canonical_hash(&receipt)?);
+            }
+        }
+        Ok(ActivationFailure::Recovery(Box::new(recovery)))
     }
 
     async fn activation_marker(&self, agent: &Agent) -> Result<String, AppError> {
@@ -818,16 +953,50 @@ impl LocalRuntimeSupervisor {
             .repo
             .get_container_activation(agent.id, revision.revision)
             .await?;
-        let plan: Plan = if let Some(record) = &saved {
-            if record.claim.controller_id != self.controller_id {
+        let launch = self
+            .repo
+            .get_container_launch(agent.id)
+            .await?
+            .ok_or_else(held)?;
+        if saved.as_ref().is_some_and(|a| a.phase.terminal()) {
+            return Ok(());
+        }
+        self.activation_marker(&agent).await?;
+        let has_plan = match tokio::fs::symlink_metadata(&path).await {
+            Ok(_) => true,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+            Err(_) => return Err(held().into()),
+        };
+        let plan: Plan = if saved.is_some() || has_plan {
+            let plan = read_plan(&root, &path, saved.as_ref()).await?;
+            if plan.revision != revision.revision
+                || plan.previous.prepared.agent_id != agent.id
+                || self.activation_marker(&agent).await? != plan.marker_sha256
+                || saved.is_none() && !Activation::planned(plan.claim()?).tracks_launch(&launch)
+            {
                 return Err(held().into());
             }
-            serde_json::from_slice(&private_file(&root, &path, PLAN_LIMIT as u64).await?)
-                .map_err(|_| held())?
+            if plan.controller_id != self.controller_id
+                || self
+                    .repo
+                    .get_container_recovery(launch.prepared.container.registration.generation)
+                    .await?
+                    .is_some()
+            {
+                return Err(self
+                    .activation_restart_hold(&launch, saved.as_ref())
+                    .await?);
+            }
+            plan
         } else {
-            match tokio::fs::symlink_metadata(&path).await {
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                _ => return Err(held().into()),
+            if launch.controller_id != self.controller_id
+                || self
+                    .repo
+                    .get_container_recovery(launch.prepared.container.registration.generation)
+                    .await?
+                    .is_some()
+            {
+                return Err(self.activation_restart_hold(&launch, None).await?);
             }
             // The only retryable stage: no PG command or private plan, and read-only observations.
             let plan = self
@@ -1367,6 +1536,107 @@ sys.exit(2 if failed else 0)
             .await
             .unwrap();
         private_root(root.to_str().unwrap()).await.unwrap()
+    }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn restart_reads_exact_sealed_plan_without_resealing_or_replacing_commands() {
+        let scratch = Scratch(root().await);
+        let root = &scratch.0;
+        let path = root.join("activation.json");
+        let plan = plan();
+        seal_plan(root, &path, &plan).await.unwrap();
+        let before = private_file(root, &path, PLAN_LIMIT as u64).await.unwrap();
+        // No PG ACK yet: only the complete original plan can be considered, never a fresh fork.
+        let restored = read_plan(root, &path, None).await.unwrap();
+        assert_eq!(
+            canonical_hash(&restored).unwrap(),
+            canonical_hash(&plan).unwrap()
+        );
+        let record = Activation::planned(plan.claim().unwrap());
+        read_plan(root, &path, Some(&record)).await.unwrap();
+        let mut foreign = record.clone();
+        foreign.claim.controller_id = Uuid::new_v4();
+        assert!(read_plan(root, &path, Some(&foreign)).await.is_err());
+        assert_eq!(
+            private_file(root, &path, PLAN_LIMIT as u64).await.unwrap(),
+            before
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn interrupted_sealing_holds_without_rebuilding_missing_or_foreign_recipe() {
+        let scratch = Scratch(root().await);
+        let root = &scratch.0;
+        let path = root.join("activation.json");
+        let plan = plan();
+        write_once(root, &path, &plan).await.unwrap();
+        assert!(read_plan(root, &path, None).await.is_err());
+        assert!(!recipe_path(root, &plan.candidate).exists());
+        write_once(root, &recipe_path(root, &plan.candidate), &plan.candidate)
+            .await
+            .unwrap();
+        assert!(read_plan(root, &path, None).await.is_err());
+        assert!(!recipe_path(root, &plan.rollback).exists());
+        let mut foreign = plan.rollback.clone();
+        foreign.process["environment"]["API_SERVER_KEY"] = json!("foreign-credential");
+        write_once(root, &recipe_path(root, &plan.rollback), &foreign)
+            .await
+            .unwrap();
+        assert!(read_plan(root, &path, None).await.is_err());
+        assert_eq!(
+            canonical_hash(
+                &serde_json::from_slice::<Intent>(
+                    &private_file(root, &recipe_path(root, &plan.rollback), PLAN_LIMIT as u64)
+                        .await
+                        .unwrap()
+                )
+                .unwrap()
+            )
+            .unwrap(),
+            canonical_hash(&foreign).unwrap()
+        );
+    }
+
+    #[test]
+    fn restart_holds_name_original_unknown_generation_not_the_last_observable_launch() {
+        let plan = plan();
+        let mut activation = Activation::planned(plan.claim().unwrap());
+        for (phase, identity) in [
+            (Phase::PreparingCandidate, &plan.candidate),
+            (Phase::StartingCandidate, &plan.candidate),
+            (Phase::StoppingCandidate, &plan.candidate),
+            (Phase::PreparingRollback, &plan.rollback),
+            (Phase::StartingRollback, &plan.rollback),
+        ] {
+            activation.phase = phase;
+            let hold = RecoveryHold::new(Uuid::new_v4(), &plan.previous, Some(&activation));
+            assert!(activation.tracks_launch(&plan.previous));
+            let mut foreign = plan.previous.clone();
+            foreign.controller_id = Uuid::new_v4();
+            assert!(!activation.tracks_launch(&foreign));
+            foreign = plan.previous.clone();
+            foreign.prepared.container.registration.generation = Uuid::new_v4();
+            assert!(!activation.tracks_launch(&foreign));
+            assert_eq!(hold.reason, RecoveryReason::UnknownOriginalEffect);
+            assert_eq!(hold.action, RecoveryAction::ReconcileOriginalCommand);
+            assert_eq!(hold.generation, identity.generation);
+            assert_eq!(hold.operation_id, identity.operation_id);
+            assert_eq!(
+                hold.custody_generation,
+                plan.previous.prepared.container.registration.generation
+            );
+            assert_ne!(hold.generation, hold.custody_generation);
+            let public = serde_json::to_string(&hold).unwrap();
+            for secret in [
+                "private-target",
+                "private-previous",
+                "private-original-credential",
+            ] {
+                assert!(!public.contains(secret));
+            }
+        }
     }
 
     #[cfg(target_os = "linux")]

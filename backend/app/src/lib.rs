@@ -176,9 +176,18 @@ pub trait FleetRepository: Send + Sync {
     }
     async fn pending_container_activations(
         &self,
-        _controller: Uuid,
+        _after_agent: Option<Uuid>,
     ) -> Result<Vec<domain::AgentConfigRevision>, AppError> {
         Ok(vec![])
+    }
+    async fn hold_container_activation(
+        &self,
+        _revision: &domain::AgentConfigRevision,
+        _activation: Option<&container_activation::Activation>,
+        _launch: &container_runtime::ContainerLaunch,
+        _hold: &container_activation::RecoveryHold,
+    ) -> Result<(), AppError> {
+        Err(container_activation::held())
     }
     async fn claim_container_activation(
         &self,

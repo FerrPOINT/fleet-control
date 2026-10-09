@@ -20,6 +20,14 @@ remains unavailable; its launch, readiness and SDK contract are unchanged.
 The new journal/native control protocol is Hermes-only. Java Agent chat/control
 remains unavailable; no Java readiness, process lifecycle or SDK contract changes
 are introduced or accepted by this source freeze.
+
+## Docker Activation Restart Recovery
+
+The [config18 restart successor](../CONTAINER_ACTIVATION_RECOVERY_RELEASE.md) only
+discovers Docker activation history. Java/process queues, lifecycle, validation
+and db-only readiness remain unchanged; no fallback or recovered Docker authority
+is granted to these adapters.
+
 The Docker config18 [P2 successor](../CONTAINER_ACTIVATION_PREFLIGHT_FIX.md) changes
 no Java/process validation, provisioning, lifecycle or db-only readiness behavior.
 

@@ -18,9 +18,16 @@ successor `906e102bdc2e48c349d7fecbfd708ad417089768` to fixture fix `c1ff1a3`.
 Independent source review closes oversized-target and pre-plan retry findings;
 native activation/recovery acceptance remains pending.
 
+The isolated normal successor merges exact parent
+`3488863ea90d1e377dce18ee3cd658b08e8dc06a` with reviewed restart recovery
+`452709e08756793ca2f437480328f85fe33f4750`. The parent checkout is unchanged.
+Only five documentation introduction blocks conflict; retain both complete
+contracts and separate the Docker restart section. Backend/CI hooks merge
+automatically and are independently checked against both source trees.
+
 The independent bounded merge review finds no new issues in the repository/
 runtime hook union, migration assertions and retained CI selectors. Activation
-implementation/tests and migration18 are byte-identical to906. This review is
+implementation/tests and migration18 atbf27 are byte-identical to906. This review is
 source evidence only, not Rust compilation or PostgreSQL execution.
 
 ## Semantic Resolutions
@@ -60,9 +67,42 @@ PostgreSQL, Docker, Hermes, native controls or full SDLC. The new PG regression
 is authored, not executed. Hosted OpenAPI evidence and328 frontend tests belong
 to the frozen98 source, not a full gate of this backend assembly.
 
-The combined CI requires60 focused container Rust cases (controller PG6,
-activation intent7), in addition to workspace, lineage and existing runtime
-gates. These are mandatory source inventory, not executed results.
+The combined CI now requires65 focused container Rust cases: original
+controller20, mapped recovery/isolation17, preparation10 and activation18.
+Controller PG6 (including original-origin regression), activation intent10 and
+activation PG5 are retained explicitly. Parent348 required60; worker452 required64
+because it did not contain the extra parent original-origin case. These counts
+are mandatory source inventory, not Rust execution results.
+
+## Restart Integration Light Evidence
+
+On the merged source: Rust1.88 `cargo fmt --all -- --check` and locked/offline
+no-deps metadata pass (eight workspace packages); README, SDK19a verification,
+all three canonical Base169 utility hashes and `git diff --check` pass. CI YAML
+has six jobs and62 run blocks; every run block passes Bash syntax-only parsing.
+Source-backed inventory checks match all65 exact focused names and CI counts.
+
+The complete migration tree is unchanged from parent348:19 canonical/22 split,
+down8 tail guard and activation predecessor-by-name. Controls13/time14,
+original-origin regression, frontend, OpenAPI, SDK pin and lockfiles are unchanged.
+The five activation-owned source/test/runner files exactly match452; parent
+runtime hooks and controls/approval fences remain present. No new migration.
+
+Current Windows pure runs:14 loader/utility/README tests and five preparation
+fake tests pass, zero skips. The unchanged activation fake runner executes12
+passing cases and three Linux-only skips; its required zero-skip exit is1,
+not local acceptance. Parent independently proved the exact452 Linux runner:
+15/15 pass, zero skips, exit0. No WSL/Linux execution was repeated here.
+
+Independent crash-matrix packet22/22 passes with zero skips; parent separately
+reruns that exact immutable packet22/22 in3.055s, verifying all three source pins.
+This proves only actual Python/SQLite fake-Engine/clock behavior plus static
+source assertions, not Rust/PG/native behavior. The old packet is unchanged.
+
+No Rust compile/test/Clippy, PostgreSQL, native Docker/Hermes, heavy build,
+publication or runtime mutation is performed. Frozen native packet remains
+exactbf27, not retargeted to this source. Recovered generation replacement and
+rollback remain unsupported by Base169; typed audited holds are not permits.
 
 ## Hosted Backend Attempt
 
@@ -93,8 +133,9 @@ rendered source, private Base logs or credentials, before another invocation.
 
 Configuration restart successor452709e (normal parent906) adds read-only
 interrupted-claim discovery, complete original-plan reload and deduplicated
-audited recovery holds. It is separate frombf27 and not silently part of this
-assembly. Its15-case original Base169 fake-engine selector runs on Linux/WSL:
+audited recovery holds. It is now explicitly integrated by the normal merge
+described above; frozen nativebf27 evidence does not cover the successor.
+Its15-case original Base169 fake-engine selector runs on Linux/WSL:
 15 pass, zero skips, exit0. This closes only the Windows-skip verification gap;
 the new Rust/PostgreSQL regressions remain uncompiled/unexecuted. Base169 lacks
 recovered new-generation preparation/attachment, so automatic recovered

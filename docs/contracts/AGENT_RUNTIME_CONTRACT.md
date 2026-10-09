@@ -36,6 +36,16 @@ request key and one committed submission permit. Unknown effects hold the run;
 readback never replays a mutation. ACK, terminal runtime evidence, OS process
 stop and SDLC completion are distinct. Task/PM bindings do not grant control
 admission. See the [source candidate](../plans/2026-10-09-runtime-controls-release.md).
+
+## Docker Activation Restart Recovery
+
+The [config18 restart successor](../CONTAINER_ACTIVATION_RECOVERY_RELEASE.md)
+rediscovers interrupted claims without adopting their owner. Complete original
+plans may resume only under the live original custodian. Restart/recovered owners
+use original-key readback and durable typed recovery actions; unknown effects
+never become new delivery permits. Base169 cannot prepare a new generation under
+recovered custody, so automatic restart rollback/replacement remains held.
+
 The [config18 P2 fixes](../CONTAINER_ACTIVATION_PREFLIGHT_FIX.md) validate rendered
 managed bytes before stop and retain live read-only pre-plan retries. No unknown
 native effect becomes a retry/create permit; drain and admission gates remain.
