@@ -1,5 +1,13 @@
 # API
 
+## Original Docker Lifecycle
+
+Existing start/stop/restart/health operations support the trusted opt-in Docker
+supervisor. No new public routes, fields or OpenAPI schemas are introduced.
+Unknown physical effects/ownership return unavailable and retain holds. A stopped
+generation needs new operator preparation before restart. See
+[bounded Docker source release](DOCKER_LIFECYCLE_RELEASE.md).
+
 ## Hermes Journal Release Unit12
 
 The isolated Hermes journal unit changes internal dispatch persistence only; no

@@ -1,5 +1,9 @@
 # Java Agent Adapter Contract
 
+The optional [Docker lifecycle source release](../DOCKER_LIFECYCLE_RELEASE.md)
+applies to Hermes only. Java continues using its externally provisioned jar,
+process supervisor and db-only readiness contract.
+
 ## Hermes Journal Release Unit12
 
 The isolated Hermes journal release does not change the Java Agent adapter,

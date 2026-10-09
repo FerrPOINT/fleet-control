@@ -192,6 +192,9 @@ impl Default for RetentionConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FleetConfig {
+    /// Trusted operator-only Docker opt-in; never derived from agent settings.
+    #[serde(default)]
+    pub container_control: Option<ContainerControlConfig>,
     pub agents_root: String,
     pub hermes_source: String,
     pub hermes_command: String,
@@ -215,6 +218,15 @@ pub struct FleetConfig {
     pub project_workflow_catalog_token: Option<String>,
     /// Operator retention policy thresholds (docs/IMPLEMENTATION_PLAN.md Phase 3).
     pub retention: RetentionConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContainerControlConfig {
+    pub python: String,
+    pub base_root: String,
+    pub context: String,
+    pub controller_root: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -435,6 +447,7 @@ impl Default for AuthConfig {
 impl Default for FleetConfig {
     fn default() -> Self {
         Self {
+            container_control: None,
             agents_root: "./data/agents".to_string(),
             hermes_source: "../прототипы/hermes".to_string(),
             hermes_command: "hermes".to_string(),

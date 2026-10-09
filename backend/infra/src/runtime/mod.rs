@@ -23,6 +23,8 @@ use tokio::{
 };
 use uuid::Uuid;
 mod acceptance_readback;
+pub(crate) mod container_control;
+mod container_lifecycle;
 mod hermes_wire;
 mod pm_readback;
 mod targeted_approval;
@@ -36,6 +38,8 @@ pub struct LocalRuntimeSupervisor {
     config: Arc<AppConfig>,
     repo: Arc<dyn FleetRepository>,
     children: Arc<Mutex<HashMap<Uuid, Child>>>,
+    controller_id: Uuid,
+    container_operations: Arc<Mutex<()>>,
     client: reqwest::Client,
     events: broadcast::Sender<FleetEvent>,
     alerts: Arc<app::RepositoryAlertService>,
@@ -62,6 +66,8 @@ impl LocalRuntimeSupervisor {
             config,
             repo: repo.clone(),
             children: Arc::new(Mutex::new(HashMap::new())),
+            controller_id: Uuid::new_v4(),
+            container_operations: Arc::new(Mutex::new(())),
             client: reqwest::Client::builder()
                 .redirect(reqwest::redirect::Policy::none())
                 .retry(reqwest::retry::never())
@@ -161,6 +167,9 @@ impl LocalRuntimeSupervisor {
         revision: &domain::AgentConfigRevision,
     ) -> Result<(), AppError> {
         let agent = self.repo.get_agent(revision.agent_id).await?;
+        if self.container_mode(&agent).await? {
+            return Err(AppError::Unavailable("Container configuration replacement requires an original new preparation; activation remains drained".into()));
+        }
         if agent.kind != AgentKind::Hermes {
             return Err(AppError::validation(
                 "Java Agent config activation is not implemented",
@@ -413,7 +422,7 @@ impl LocalRuntimeSupervisor {
 
     /// Pull /api/v2/sessions from a running java agent into Fleet Control.
     async fn sync_java_agent_sessions(&self, agent: &Agent) -> Result<u64, AppError> {
-        let base = Self::hermes_base_url(agent)?;
+        let base = self.hermes_base_url(agent).await?;
         let response = self
             .client
             .get(format!("{base}/api/v2/sessions?limit=100"))
@@ -929,7 +938,7 @@ impl LocalRuntimeSupervisor {
         // Readiness is db-only per the java-agent contract; optional
         // components (browser CDP, model) may be DOWN while the runtime
         // still serves traffic, so probe readiness, not the aggregate.
-        let base = Self::hermes_base_url(agent)?;
+        let base = self.hermes_base_url(agent).await?;
         let readiness = self
             .client
             .get(format!("{base}/actuator/health/readiness"))
@@ -993,11 +1002,22 @@ impl LocalRuntimeSupervisor {
         });
     }
 
-    fn hermes_base_url(agent: &Agent) -> Result<String, AppError> {
+    async fn hermes_base_url(&self, agent: &Agent) -> Result<String, AppError> {
+        if self.container_mode(agent).await? {
+            return self.container_origin(agent).await;
+        }
         let port = agent
             .api_port
             .ok_or_else(|| AppError::validation("agent api_port is required"))?;
         Ok(format!("http://127.0.0.1:{port}"))
+    }
+
+    async fn run_base_url(&self, agent: &Agent, run: &SessionAgentRun) -> Result<String, AppError> {
+        if self.container_mode(agent).await? {
+            self.container_run_origin(agent, run).await
+        } else {
+            self.hermes_base_url(agent).await
+        }
     }
 
     fn runtime_session_id(session: &AgentSession, agent: &Agent) -> String {
@@ -1035,7 +1055,7 @@ impl LocalRuntimeSupervisor {
     }
 
     async fn probe_hermes(&self, agent: &Agent) -> Result<Value, AppError> {
-        let base = Self::hermes_base_url(agent)?;
+        let base = self.hermes_base_url(agent).await?;
         let token = crate::agent_runtime_token(&self.config, agent.id)?;
         let health = self
             .client
@@ -1118,8 +1138,10 @@ impl LocalRuntimeSupervisor {
             ));
         }
         let capabilities = self.probe_hermes(agent).await?;
-        let capabilities = hermes_wire::dispatch_capabilities(&capabilities)?;
-        let base = Self::hermes_base_url(agent)?;
+        let mut capabilities = hermes_wire::dispatch_capabilities(&capabilities)?;
+        self.bind_container_dispatch(agent, &mut capabilities)
+            .await?;
+        let base = self.hermes_base_url(agent).await?;
         let token = crate::agent_runtime_token(&self.config, agent.id)?;
         let fingerprint = hermes_wire::credential_fingerprint(&token);
         self.repo
@@ -1155,6 +1177,7 @@ impl LocalRuntimeSupervisor {
             ));
         }
         hermes_wire::verify_intent(&claimed, &base, &token)?;
+        self.verify_container_intent(agent, &claimed).await?;
         let runtime_run_id = hermes_wire::submit(
             &self.client,
             &base,
@@ -1238,7 +1261,7 @@ impl LocalRuntimeSupervisor {
         run: SessionAgentRun,
         runtime_run_id: String,
     ) -> Result<(), AppError> {
-        let base = Self::hermes_base_url(&agent)?;
+        let base = self.run_base_url(&agent, &run).await?;
         let token = crate::agent_runtime_token(&self.config, agent.id)?;
         let response = self
             .client
@@ -1375,6 +1398,9 @@ impl LocalRuntimeSupervisor {
             })
             .unwrap_or_else(|| "message".to_string());
         let terminal_state = hermes_wire::terminal_event(&event_type, &payload, runtime_run_id)?;
+        if terminal_state.is_some() && self.container_mode(agent).await? {
+            self.container_run_origin(agent, run).await?;
+        }
 
         if event_type.contains("delta") {
             if let Some(delta) = pick_string(&payload, &["delta", "text", "output_text"]) {
@@ -1607,7 +1633,7 @@ impl LocalRuntimeSupervisor {
             .runtime_run_id
             .as_ref()
             .ok_or_else(|| AppError::validation("session run has no runtime_run_id"))?;
-        let base = Self::hermes_base_url(agent)?;
+        let base = self.run_base_url(agent, run).await?;
         let token = crate::agent_runtime_token(&self.config, agent.id)?;
         let request = self
             .client
@@ -1842,6 +1868,10 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
         pm_readback::probe(self, agent, record).await
     }
     async fn start(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
+        if self.container_mode(agent).await? {
+            let _guard = self.container_operations.lock().await;
+            return self.start_container(agent).await;
+        }
         if agent.kind == AgentKind::JavaAgent {
             return self.start_java_agent(agent).await;
         }
@@ -1996,6 +2026,10 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
     }
 
     async fn stop(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
+        if self.container_mode(agent).await? {
+            let _guard = self.container_operations.lock().await;
+            return self.stop_container(agent).await;
+        }
         let mut children = self.children.lock().await;
         if let Some(mut child) = children.remove(&agent.id) {
             let _ = child.kill().await;
@@ -2036,6 +2070,10 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
     }
 
     async fn health(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
+        if self.container_mode(agent).await? {
+            let _guard = self.container_operations.lock().await;
+            return self.health_container(agent).await;
+        }
         let mut children = self.children.lock().await;
         let finished = match children.get_mut(&agent.id) {
             Some(child) => child.try_wait().map_err(AppError::internal)?,
@@ -2427,7 +2465,7 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
 mod tests {
     use super::*;
 
-    fn agent(id: Uuid, product_role: AgentProductRole) -> Agent {
+    pub(super) fn agent(id: Uuid, product_role: AgentProductRole) -> Agent {
         Agent {
             id,
             ordinal: 1,

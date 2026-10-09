@@ -1,5 +1,16 @@
 # Data Model
 
+## Original Docker Controller
+
+`m20261009_000015_container_controller` adds `runtime_container_launches` after
+journal12 in both histories (14 canonical / 17 legacy entries). Its immutable
+prepared registration/controller/generation identity progresses through
+claimed/running/stopping/exited with one original physical snapshot, endpoint and
+stable stop UUID. One non-exited generation per agent is enforced. Deletion and
+nonempty downgrade are rejected. Journal12's existing origin gate gains a narrow
+check against the running original generation; historical journal rows remain
+unchanged. See [bounded Docker source release](DOCKER_LIFECYCLE_RELEASE.md).
+
 ## Hermes Journal Release Unit12
 
 `m20261004_000012_hermes_dispatch_journal` is appended after PM credentials in

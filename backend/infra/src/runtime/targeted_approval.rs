@@ -29,7 +29,7 @@ pub(super) async fn resolve(
         .client
         .post(format!(
             "{}/v1/runs/{}/approval",
-            LocalRuntimeSupervisor::hermes_base_url(agent)?,
+            supervisor.run_base_url(agent, run).await?,
             approval.runtime_run_id
         ))
         .timeout(Duration::from_secs(10))

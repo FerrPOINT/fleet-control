@@ -1,6 +1,7 @@
 mod approval_decisions;
 mod chats_directory;
 mod config_revisions;
+mod container_runtime;
 mod effective_configuration;
 pub mod entities;
 mod hermes_dispatch_journal;
@@ -584,6 +585,57 @@ fn fleet_alert_to_domain(row: fleet_alerts::Model) -> domain::FleetAlert {
 
 #[async_trait]
 impl FleetRepository for PostgresFleetRepository {
+    async fn get_container_configuration(
+        &self,
+        agent: Uuid,
+    ) -> Result<Option<domain::AgentConfigRevision>, AppError> {
+        config_revisions::effective(self, agent).await
+    }
+    async fn get_container_launch(
+        &self,
+        agent: Uuid,
+    ) -> Result<Option<app::container_runtime::ContainerLaunch>, AppError> {
+        container_runtime::get(self, agent).await
+    }
+    async fn claim_container_launch(
+        &self,
+        launch: &app::container_runtime::ContainerLaunch,
+    ) -> Result<(), AppError> {
+        container_runtime::claim(self, launch).await
+    }
+    async fn advance_container_launch(
+        &self,
+        launch: &app::container_runtime::ContainerLaunch,
+        state: &str,
+        snapshot: Option<Value>,
+        origin: Option<String>,
+    ) -> Result<(), AppError> {
+        container_runtime::advance(self, launch, state, snapshot, origin).await
+    }
+    async fn get_hermes_run_intent(
+        &self,
+        run: Uuid,
+    ) -> Result<Option<app::HermesDispatchIntent>, AppError> {
+        let row = self
+            .db
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT message_id FROM hermes_dispatch_journal WHERE run_id=$1",
+                [run.into()],
+            ))
+            .await
+            .map_err(AppError::database)?;
+        match row {
+            Some(row) => {
+                hermes_dispatch_journal::get(
+                    self,
+                    row.try_get("", "message_id").map_err(AppError::database)?,
+                )
+                .await
+            }
+            None => Ok(None),
+        }
+    }
     async fn list_session_approvals(
         &self,
         session: Uuid,

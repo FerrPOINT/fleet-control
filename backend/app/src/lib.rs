@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod container_runtime;
 pub mod pm_draft;
 
 use async_trait::async_trait;
@@ -122,6 +123,47 @@ pub struct HermesDispatchIntent {
 
 #[async_trait]
 pub trait FleetRepository: Send + Sync {
+    async fn get_container_configuration(
+        &self,
+        _agent: Uuid,
+    ) -> Result<Option<domain::AgentConfigRevision>, AppError> {
+        Err(AppError::Unavailable(
+            "Original container configuration is unavailable".into(),
+        ))
+    }
+    async fn get_hermes_run_intent(
+        &self,
+        _run: Uuid,
+    ) -> Result<Option<HermesDispatchIntent>, AppError> {
+        Err(AppError::Unavailable(
+            "Original Hermes run intent is unavailable".into(),
+        ))
+    }
+    async fn get_container_launch(
+        &self,
+        _agent_id: Uuid,
+    ) -> Result<Option<container_runtime::ContainerLaunch>, AppError> {
+        Ok(None)
+    }
+    async fn claim_container_launch(
+        &self,
+        _launch: &container_runtime::ContainerLaunch,
+    ) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "Container launch journal is unavailable".into(),
+        ))
+    }
+    async fn advance_container_launch(
+        &self,
+        _launch: &container_runtime::ContainerLaunch,
+        _state: &str,
+        _snapshot: Option<serde_json::Value>,
+        _origin: Option<String>,
+    ) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "Container launch journal is unavailable".into(),
+        ))
+    }
     async fn prepare_hermes_dispatch(
         &self,
         _draft: HermesDispatchDraft,

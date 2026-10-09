@@ -1,5 +1,11 @@
 # Agent Runtime Contract
 
+Optional Docker lifecycle uses the original Base registration and physical
+snapshot, a durable pre-start generation claim and original namespace stop.
+Unknown/foreign ownership stays held; API health alone cannot prove readiness.
+Process and Java compatibility remains the default. See
+[bounded Docker contract](../DOCKER_LIFECYCLE_RELEASE.md).
+
 ## Hermes Journal Release Unit12
 
 The journal release is free-chat only. Task-chat and PM bindings do not grant

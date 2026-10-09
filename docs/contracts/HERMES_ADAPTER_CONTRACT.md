@@ -1,5 +1,12 @@
 # Hermes Adapter Contract
 
+Docker opt-in starts only an operator-prepared original Base v2 container with
+isolated `/config` HOME/HERMES_HOME, `/workspace` cwd and four guarded agent areas.
+Free-chat journal capabilities seal the original container generation and origin;
+readback/control cannot adopt another generation. Configuration replacement and
+container log collection remain unavailable. See
+[bounded Docker contract](../DOCKER_LIFECYCLE_RELEASE.md).
+
 ## Hermes Journal Release Unit12
 
 Free-chat dispatch requires the exact authenticated server-agent capabilities,
