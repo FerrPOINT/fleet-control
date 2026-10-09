@@ -1,9 +1,34 @@
 # Parallel Remaining Work: 9 October 2026
 
-Status: five renewed implementation/verification assignments dispatched. This document
+Status: 10 October checkpoint; parallel implementation/review and parent-owned critical path. This document
 records work ownership, not completion or permission to deploy.
 
 ## Current Dispatch
+
+### Latest Assignment Checkpoint
+
+These assignments supersede the historical table below. Workers use separate
+owned checkouts; Tracker and Workflow remain read-only references.
+
+| Owner | Independent work | Acceptance boundary |
+| ----- | ---------------- | ------------------- |
+| Pascal | Durable clarification answer-command journal and reload recovery in Fleet | Original key/payload retained server-side; ownership/project authorization before replay; unknown delivery never creates a new command or runtime run; focused tests and API/docs handoff. No invented Tracker GET receipt. |
+| Ptolemy | Image metadata retained-file FIFO fix in a separate successor | Nonblocking/nofollow regular-file reads, bounded failure and cleanup regression; preserve frozen predecessor and all image/source pins. No heavy build. |
+| Feynman | Native execution prerequisites/handoff, then focused image-fix review | Actual native execution remains unproved; identify existing launch/cleanup commands and concrete blockers, without launching Docker or changing pins. |
+| Anscombe | Focused independent backend-controls closure | Raw-blob export is source-closed at c3b950; compiler-diagnostics variable collision remains open until the parent successor passes its regression and review. |
+| Parent | CI correction, GitHub checks, integration and current documentation | Fix diagnostics, publish only the scoped build-only branch after closure, inspect actual hosted results; do not claim full SDLC or merge readiness from pure tests. |
+
+Native-cut c89df468 independently closes both prior ready-publication and
+restart-window findings at source/pure scope. Owner Windows87 PASS/11 skips,
+Linux22/22; independent Windows8 PASS/3 skips, Linux9/9. Physical crash,
+Rust/PG and actual Docker filesystem/recovery checks remain outstanding.
+
+Hosted run37993165800 is now terminal FAILURE in preflight, not in progress.
+Container initialization and restricted source checkouts passed; no backend
+stage success is established. A real Git archive CRLF transformation was
+reproduced and replaced with exact Git blob export without changing expected
+hashes. Lightweight Fleet193 + SDK85 source parity passes with owned scratch
+removed; Auth89/full70 are not proved by that probe.
 
 The renewed parallel split keeps the existing workers and their isolated
 checkouts rather than restarting completed work:
@@ -38,15 +63,136 @@ findings do not certify an unexecuted compiler, database or live runtime gate.
 
 | Owner    | Current assignment                                                 | Required handoff                                                                                                              |
 | -------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| Feynman  | Independent combined Fleet/PM integration review                     | Exact379b48e; preserve reviewed2ee packet, production UI guards and source pins; no duplicate runner execution |
-| Pascal   | Base release-readiness audit                                        | Exact815982b and PR180; distinguish actionable defects, review closure and external CI blockers; read-only report |
-| Ptolemy  | Forge actual bridge/global deadline fix                              | Normal successor to daf for swallowed/consumed cleanup alarm; real one/multi-OCI regressions, no relaxed budgets |
-| Anscombe | Independent Forge successor closure                                 | Actual helper boundaries, outer finally and next parent.close; full12 remains a separate unexecuted gate |
-| Leibniz  | Fleet backend gate/inventory audit                                  | Exact1801201 backend; migration20/23,13 PG selectors and2 new Rust cases, stale fixtures/selector risks; source-only |
-| Parent   | UI evidence, normal integration, documentation and publication      | Integrate accepted source, combined admissible checks and exact evidence; do not certify full SDLC from fixture passes |
+| Ptolemy  | QA image-candidate provenance/OCI descriptor-chain successor | Nativebc0 review completed15/15 with two OPEN P2. Narrow image-runner source separates historical baked inputs from intended QA inputs and retains actual local OCI descriptors. No heavy build or pin replacement. |
+| Leibniz  | Stopped: selected model capacity error | No backend implementation made by this worker. Parent owns the isolated custody/deadline successor; do not keep a stalled critical-path assignment here. |
+| Feynman  | Native-cut ready-publication and restart-window successor | Fix both bc0 P2 in new normal source; preserve df657/original nine scenarios,55s withholding/60s product timeout and strict evidence. No native launch or silent pin replacement. |
+| Anscombe | Independent source closures complete | Public-safe Forge1db118/118, backenda3 scoped79/79 and ad893db registry-only7/7 closures complete. No full12/backend acceptance inferred; exact runtime results still need separate readback. |
+| Pascal   | Completed Fleet/Tracker source qualification and docs handoff | b249/Tracker357 seven DTOs match;39/39 offline checks, no Rust/PG/live HTTP. Docs51ceb normally integrated; no product edit or invented original-key readback. |
+| Parent   | Backend diagnostic CI, normal integration and scoped publication | Independently closed a3 published normally; run37992541106 failed before source checkout on Docker Hub rate limit. Reviewed immutable-mirror successorad893db pushed normally; run37993165800 in progress. Actual70-stage acceptance remains open. |
+
+### Fleet/Tracker Wire Source Qualification
+
+Exact Fleetb249bc895e5160fe13383c49d42a24c9308852b3 versus immutable Tracker PR114
+357caa7a60a717eb7b0ac72f286b793326992931 passes39/39 offline selectors:20 real
+exported Fleet comparator tests, nine synthetic schema-oracle tests and ten
+lexical source probes. Seven canonical Git OpenAPI DTO pairs match; required/
+nullable, closed nested fields, integer bounds, Analysis, typed response validation
+and owner-before-replay source are checked. Fourteen canonical inputs match
+before/after. No Cargo generation, Rust/PG/live HTTP or native acceptance follows.
+
+Workspace evidence `.local/fleet-tracker-wire-b249-review-20261009/REPORT.md`
+and `evidence/run-9cc4c4b66890/terminal-receipt.json` retain the scope/raw logs.
+Receipt SHA256:9f00f0de0900ae20971c3383f9ea73aeca1281d8ee860072f32c62f7fd5a6610.
+Packet seal SHA256:f69e81fe085f458c22579c77c6b60cbdf2456c4cd13fdfcd8f74be4a85314ca9.
+Measured host Python/jsonschema is an offline oracle, not a qualified Hermes venv.
+This extends only SOURCE parity beyond historical PR47 evidence.
+
+Real clarification GET returns `questions[].answer`; saved answer ID/request ID
+is not the original answer-command key. `/clarifications/{question_id}/answers`
+is POST-only, not an exact-command GET receipt. Authorized same-key/body POST
+replay exists, but durable reload/key custody and GET-only unknown-write recovery
+remain separate gaps. No producer/Workflow endpoint or capability is invented.
+
+### Retained Base815 Fake-Contract Evidence
+
+New distinct execution `run-020e27bd131b` at exact Base
+`815982b648652b2665be9442bf395fc56c7e11d3` passes224 tests with zero skips,
+exit0 in44.041s. This is fake-contract evidence, not actual CI or native Docker.
+The immutable workspace evidence root is
+`.local/base-815-linux224-capture-20261009/run-020e27bd131b/`:
+
+| Retained file | SHA256 |
+| ------------- | ------ |
+| `full.raw.log` (42,692 bytes) | `52e85c0a93b1aacb38585f7a4c87f6a9c84d665159ff82f472da858d03378221` |
+| `terminal-receipt.json` | `dac80a5db4b024119b63d01db8ac83be099eb988e9c382a716131a3eacc5f5fa` |
+
+Raw tail, hashes and retained receipt were rechecked read-only: exact224-name
+inventory, source/parent/canonical-input parity, native Windows Git qualification
+of14 inputs, empty owned process group and scratch absence. No suite was repeated
+for this docs update. Historical88.807s/60.841s remain distinct; these new files
+do not reconstruct their missing raw logs. Preflight FAILED receipts are unchanged.
+Private Base CI billing and all combined backend/native, producer credential
+custody/pre-model admission and external Workflow acceptance gates remain open.
+
+### Current External Dependency Readback
+
+The latest parent remote audit records these legacy producer dependencies;
+neither PR is merged:
+
+| Dependency | State/base | Exact head |
+| ---------- | ---------- | ---------- |
+| Workflow PR90 | Draft/master | `9b4107f0e8c886f37b4bace9921c15921b6f1604` |
+| Tracker PR114 | Draft/main | `357caa7a60a717eb7b0ac72f286b793326992931` |
+
+Separate namespace Workflow PR99 (head prefix220afe) and Tracker PR126 (head
+prefixfaa9db) do not close the legacy PM producer/admission gate. Private Base
+PR180 stays Draft at815; retained CI37968542132 remains billing-denied before
+steps. The latest parent host observation is about3.5GiB available commit RAM;
+local heavy is not admitted. Fresh capacity/ownership checks and explicit
+admission remain necessary; no prepared invocation is an execution grant.
 
 ### Current Frozen Handoffs
 
+- Public-safe Forge1dbedf85242c3540b70005ce5f0c20badb682c41 has sole
+  parent25be and no unsafe controls ancestry. Parent checks25 components, lock,
+  report hash, exact HEAD/tree/parent and clean checkout. Seal SHA256:
+  e71bed719ff25477adb2d82145069a6df2bac618c7b110febe8daf1a49cece20.
+  Owner118 Linux pure cases and independent118/118 bounded source/lifecycle
+  review pass. Independent packet
+  `.local/forge-public-safe-independent-review-20261009/qa/seal.json` SHA256:
+  9b22eb7db202603dcdf85310072fbbb6c50359b136be736399cd160b71a0cbd3.
+  Parent separately verifies its six sealed review files. All12 budgets
+  and source265 remain; maintenance commit is null, so authenticated private
+  delivery and actual full12 remain blocked. No push or dispatch occurred.
+- Native-cut helperbc0b85ee47ceb159daf304b25665d1e1cb70a689 has sole
+  parentdf657. Parent checks all27 sealed files, raw hashes/Git blob IDs and
+  exact HEAD/tree/parent/clean checkout. Seal SHA256:
+  06b072bc5adcfe827c59c3f463cc002ca38503ca1621e3cbdebcb514a7f6c584.
+  Owner75 pure cases pass. Genuine original-stop ACK is withheld before Fleet
+  phase-CAS; recovery then exercises A -> next B -> failed C -> current B rollback
+  with peer checks. This is implemented QA source, not native execution.
+  Ptolemy's independent review passes15/15, including two reproductions of OPEN
+  P2: ready exists before its JSON is complete, and restart proceeds120s after
+  ready despite the55s withheld-ACK window. These are QA orchestration findings,
+  not demonstrated product/native false PASS. Feynman owns a new successor;
+  neither finding is closed. Report:
+  `.local/forge-feynman-cuts-review-20261009/qa/closure-bc0b85e/REPORT.md`;
+  review seal SHA256:77197f64897a888faa21ef29f79f274225237b75f58b677f95b597f80bb20c10.
+  Locked compile, Linux filesystem and physical timing/cleanup acceptance remain
+  open. Exact controller/Hermes images are currently
+  absent and local heavy RAM guard fails; no native run was started.
+- Fleet controls0fe independent review passes10 bounded probes but confirms two
+  findings: reaped leader is signalled by historical PGID, and setup601s plus
+  relative gate6600s can exceed job120min before cleanup/upload. Counterexample
+  reproduction is not a safety PASS. Source wiring independently covers all70
+  transitions,367 input hashes, canonical20/split23 guards and19 DBs. A normal
+  parent-owned successora3a2c23ace449f873c79bd5e9ff5624c3199070c has sole parent
+  11168cae2e647718f574aeeb64a6bb5821b32956, itself a normal child of0fe, in
+  `.local/fleet-hosted-backend-custody-20261009/fleet-control`.
+  Owner Linux69 PASS/Windows67 PASS with two Linux-only skips cover the
+  held-custody/shared-deadline and verify-log same-group fixes. Anscombe independently
+  closes these scoped findings with79/79 Linux tests, zero skips; review report is
+  `.local/fleet-hosted-a3a2-independent-review-20261010/qa/REPORT.md`, seal SHA256:
+  cc96bf8bdd63dde113b87e45ed20787c37fcb0067c64a3dbf7e5d3ce1150e42b.
+  Retained owner handoff `handoff-a3a2c23ace44/source-seal.json` SHA256:
+  526b413c968ab86609fb077784ea21332752b733a880422c41219fa94acfe860.
+  Old0fe evidence/seal is immutable; actual70 is NOT RUN. This path has no
+  ComposeHelper/local Docker dependency, unlike native/Forge maintenance paths.
+  Published exacta3 normal branch push produced run37992541106/attempt1/job
+  114030153823: FAILED at Initialize containers on Docker Hub anonymous pull
+  rate limit, before any checkout/private input/helper or backend stage.
+  Normal childad893db1fe34ad2a631297d76ee561c4fa1d0d1a changes four image/test
+  string lines only. Metadata-only qualification in
+  `.local/fleet-hosted-registry-20261010/qualified-receipt.json` proves ECR and
+  Docker Hub root-index raw bytes/digests equal for Rust1.88.0-bookworm and PG17.6.
+  No layers were downloaded locally. Immutable mirror references retain exact
+  versions/resources/source pins. Narrow independent7/7 closure passes with no
+  findings; seal SHA256:
+  5b9f39b9abbcf2774cabcdb485828bd762a1c24f91dd51cf493497a1e42111c5.
+  Parent verifies six review files plus eight registry inputs. Exactad893db is
+  pushed normally to the same build-only branch; run37993165800/attempt1 is
+  in progress, not an accepted backend result:
+  https://github.com/FerrPOINT/fleet-control/actions/runs/37993165800.
 - Fleet sequential-activation successord3066ebbbda168f16f59697831ea92de5132527b
   has sole parentf326. Worker reports21 Linux fake-contract cases and15 Windows
   loader/hash/README cases passing. Two new Rust and four PG regressions have not
@@ -61,8 +207,11 @@ findings do not certify an unexecuted compiler, database or live runtime gate.
   down8 probes stop at credentials11 rather than task_chats10. Parent follow-up
   derives the successor count from the selected registry and asserts the exact
   retained ledger, preserving history checks and the blocked-down invariant.
-  Only test files change; no migration SQL or product API changes. Source review
-  and actual Rust/PostgreSQL acceptance of this follow-up remain separate gates.
+  Only test files change; no migration SQL or product API changes. Independent
+  review closes both findings at exactb249bc8 with4/4 pure/static probes. Actual
+  Rust/PostgreSQL acceptance remains open. Retarget milestone1 freezes the
+  162/290 inventory and19DB/utility9b/strict-schema contract with8 pure checks;
+  the executable full gate is not yet retargeted or ready70.
 - Forge timing successordaf044da141c0e03847e9b3d9406c4d04f823917 has sole
   parent34c. Parent repeats79/79 pure checks, zero skips,1.383s. Its component
   lock SHA256 is c58c63c4f203873ef4565d4240a85b6b8734ac1c309fa3c874f84576e687274e.
@@ -70,9 +219,28 @@ findings do not certify an unexecuted compiler, database or live runtime gate.
   Independent review closes initial sourceprep/shared and assertion-to-teardown
   budgets, but reproduces P1 in the actual bridge: the product adapter catches
   the teardown alarm and the next parent.close has no active timer. One real OCI
-  cleanup exceeds its120ms allowance at371ms. Ptolemy owns the normal successor;
-  Anscombe checks actual one/multi-OCI and outer-finally boundaries. No actual
-  full12, hosted dispatch or publication occurred.
+  cleanup exceeds its120ms allowance at371ms. Normal successor
+  89420cdeec55f8e5583857c2e520de3b42462f1b preserves product25be/SDK19a and
+  every original budget, adds an absolute sticky phase deadline and guards
+  actual bridge/SDK close and late record I/O. Parent repeats84/84 pure cases,
+  zero skips,21.228s. Lock SHA256:
+  4c8306ea5a5c71569f648b13515e7a3140aa7731b00e4c726d34eadb86e963ad.
+  Independent scoped closure passes17 targeted actual deadline probes, including
+  one/multi-OCI collection, swallowed/converted alarm, next parent close and
+  independent outer-finally/cache cuts. External daemon/journal I/O is substituted;
+  no actual Docker/OCI or full12 result follows. Original P1 is closed only for
+  this exact successor. No hosted dispatch or publication occurred.
+- Native-driver source df6574bfe5d26445b9ce31a8f396d42914c8c653 retargets the
+  preserved nine-scenario matrix to exactb249/Base9b, four raw canonical utility
+  modules and a separate opt-in/ACK namespace. Owner47 unique pure cases pass;
+  independent source review passes20 targeted pure cases with no actionable
+  finding in this bounded retarget diff. Review seal is
+  bc4ad45a6abc10c4da8f4fe91adca9c69f90d0f26dfbcf8fa61368fcb28d3fc3.
+  Compile/images/native remain unqualified.
+  It activates before controller restart, so interrupted protocol4 activation
+  and sequential recovered-child F6 cuts are explicitly not exercised. A separate
+  QA successor owns those cuts without fabricating SQL/custody or weakening the
+  original matrix. No actual prepare or native run is authorized by this freeze.
 - PM receipt successore05e77e7c41803a597b07ef669d915e7cae44d15 has sole
   parentdc6ab. Parent runs the actual24-case packet successfully with strict
   receipt/provenance validation,457 canonical imports and closed owned Git reader.
@@ -163,20 +331,36 @@ combined backend/migration/runtime gates, live chat/PM and Forge acceptance, the
 release evidence. Documentation and existing UI evidence are reconciled with the
 accepted source; earlier screenshots do not prove a new live flow.
 
-Current external prerequisites remain account CI availability, qualified exact
-runtime images and local resource admission, plus the trusted producer-side
-pre-model admission contract. The parent must not bypass these with a mock,
+Current external prerequisites remain private Base CI billing restoration,
+qualified private maintenance source/delivery and public-safe Forge controls,
+qualified exact runtime images/local resource admission, trusted producer-side
+pre-model admission/server credential custody and compatible Workflow native
+catalog/first-step proof. The parent must not bypass these with a mock,
 automatic redispatch, paid-resource changes or a relaxed gate. Work on source
 fixes and bounded conformance checks continues independently of those blockers.
 
+Publication revalidation distinguishes repository visibility: private Base's
+run37968542132 is billing-denied before steps, while public Forge's later
+run37973076579 completes four actual hosted jobs on unrelated source20d54ec.
+That observation neither accepts full12 nor proves private Base CI restored.
+There is a separate source-disclosure blocker: unpublished Forge34c-to894
+history embeds copied Base maintenance files, including base64. Base is private;
+Forge is public. Do not push that ancestry, even after deleting the current files.
+Ptolemy audits exact private source availability and authenticated pinned-Git
+delivery plus a new public-safe controls history. Frozen local packets and prior
+deadline closure remain intact; no private source disclosure or changed SDK/budget
+is authorized by the independent timing review.
+
 Current publication: [Base PR180](https://github.com/FerrPOINT/services-base/pull/180)
 is Draft on815982b, a normal merge of9b53 and accepted maina119. Its ten-path diff
-does not change product migrations, SDK, auth or UI. Parent exact-head Linux
-gate passes224/224 with zero skips (88.807s); documentation12, README/hub/manifest
-and independent merge review pass. Fake Engine execution is not native acceptance.
+does not change product migrations, SDK, auth or UI. Historical parent-reported
+Linux224/224, zero skips (88.807s) remains separate from the new retained44.041s
+execution above; its full raw log was not found in the bounded evidence search.
+Documentation12, README/hub/manifest and merge-review observations retain their
+own evidence scope. Fake Engine execution is not native acceptance.
 Actual GitHub run37968542132 does not start any of its11 jobs: authenticated check
 annotations report failed account payments/spending limit. No steps execute.
-Restore account CI access explicitly before hosted execution; do not retry, buy
+Restore private Base CI access explicitly before its hosted execution; do not retry, buy
 resources or relax gates to bypass this blocker.
 
 The reviewed Fleet full46 gate was normally pushed at160bd againstc02ee92.

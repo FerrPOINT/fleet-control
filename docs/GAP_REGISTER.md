@@ -1,8 +1,102 @@
 # Gap Register
 
+## Current Open Release Gates: 10 October 2026
+
+The current source assembly is b249bc8, not the historical heads below.
+Source integration is progress, not release acceptance. Its remaining gates are:
+
+- **Combined backend:** all-target Rust/Clippy, actual default/ignored test
+  discovery and execution, both20/23 PostgreSQL lineages, populated downgrade
+  guards and strict generated OpenAPI comparison. Static162 ignored/290 ordinary
+  inventory and a proposed70-stage mapping are not an executed gate.
+- **Runtime:** exact-image qualification and actual isolated Hermes
+  lifecycle/configuration/recovered activation/rollback, safe process stop,
+  streams/logs and crash/readback acceptance. Original protocol4 findings and
+  sequential-activation F6 are closed at source review, not native acceptance.
+- **PM:** trusted producer pre-model admission, fenced first-step authority,
+  server credential custody, durable tool gateway and exact write readback,
+  answer delivery/checkpoint/rebind and live owner-confirmation flow. Reviewed
+  offline24-case packet does not close these requirements. Compatible Workflow
+  build/native catalog and authoritative first-step proof remain external gates.
+  Separate b249/Tracker357 qualification closes the seven-DTO SOURCE parity
+  check only:39/39 (20 actual comparator, nine schema-oracle, ten lexical probes),
+  no Rust/PG/live HTTP. Canonical schemas and owner-before-replay source match;
+  this does not extend historical PR47 live evidence or establish PM admission.
+- **Chats:** live cross-service ownership/project/reconnect acceptance and
+  clarification unknown-outcome recovery across reload. The mounted original
+  command guard and closed-question retry have frontend/browser fixture evidence
+  only; no new-answer permission bypass is permitted. [TrackerAnswer](../backend/domain/src/task_chats.rs)
+  has no original command key. Clarification GET returns saved answers, not
+  exact-command receipts; the answer route is POST-only, with no original-key GET.
+  The [answer proxy](../backend/api/src/routes/task_chats.rs)
+  has no durable command journal, and the [mounted answer mutation](../frontend/src/pages/chat-detail/index.tsx)
+  retains retry state in memory only. Fix8e5d75d does not close durable reload recovery.
+- **Forge:** actual bridge/global cleanup deadline has scoped independent source
+  closure at89420cd. Run the unchanged full12 matrix and real
+  deployment/evidence/rollback acceptance; bounded external-I/O probes do not
+  substitute for those gates.
+- **Publication:** private Base billing must allow exact-head Base CI; publish only
+  task-owned scoped units after their gates, retaining migration ownership and
+  independent review. Base PR180 stays Draft; no paid-resource bypass is allowed.
+  This billing observation concerns private Base, not an established account-wide
+  outage: public Forge run37973076579 executes four hosted jobs successfully on
+  another SHA. It does not restore private Base CI or establish full12/native
+  acceptance. Separately, the
+  unpublished Forge controls history contains copied private Base maintenance
+  source (including base64); do not publish that history to a public repository.
+  Qualify authenticated private-Git delivery and a public-safe controls history
+  first, preserving the frozen local packet without rewriting it.
+
+Public-safe Forge controls1dbedf8 are now separately frozen from product25be;
+parent exact-source/lock/seal checks and independent118/118 bounded source/
+lifecycle review pass. Actual private-SDK bridge/full12 acceptance is pending. The
+missing private maintenance commit remains a real execution dependency, not a
+permission to use dirty/local-install bytes. Native-cut helperbc0b85e's two
+P2 findings (partial ready publication and restart outside the55s window) are
+now independently source-closed by normal childc89df468. Linux22/22 owner and9/9
+focused reviewer cases pass; Windows skips are recorded separately. Physical
+crash/real Docker filesystem/Rust/PG acceptance remains pending. Image metadata
+revalidation separately has a reproduced FIFO hang before cleanup; Ptolemy owns
+the bounded regular-file fix, with Feynman reviewing it. Latest retained
+read-only Docker inspection finds controller076f31/Hermesf42cb images absent;
+PGb0f956 is present. The retained local commit RAM observation is below the6GiB
+heavy guard; this docs update performs no new resource probe or admission.
+
+New retained Base815 Linux fake-contract evidence is224/224, zero skips,44.041s,
+exit0, with exact canonical inputs/source parity and owned cleanup. It closes the
+new local raw-log retention item only, not CI, image/native acceptance or PM
+admission. The [evidence hashes and current owner/dependency matrix](plans/2026-10-09-parallel-remaining-work.md#retained-base815-fake-contract-evidence)
+keep this run separate from historical88.807s and the prepared execution gates.
+Fleet controls successora3a2c23ace449f873c79bd5e9ff5624c3199070c, sole parent11168
+with0fe in its ancestry, has owner Linux69 PASS and Windows67 PASS/two Linux-only skips.
+It proposes held-leader custody/drain/reap, same-group verify-log children and a
+shared elapsed deadline with cleanup/upload reserves. Parent owns this successor
+after the assigned worker's model-capacity error. Anscombe independently closes
+the scoped findings with79/79 Linux probes, not full backend acceptance.
+Published a3 run37992541106 fails before checkout on Docker Hub's anonymous pull
+limit. Normal childad893db changes only image/test strings to a byte-qualified
+immutable ECR mirror. Independent focused7/7 closure passes; normal push starts
+run37993165800/attempt1, now terminal FAILURE in preflight with no accepted
+backend result. Normal source successorc3b950 removes a reproduced Git archive
+CRLF transformation using canonical blob bytes, retaining exact hash guards.
+Fleet193 + SDK85 lightweight export parity passes, not Auth89/full70. Child5259a40
+separates compiler artifact from final failure metadata; Linux76/76 and Windows
+74 PASS/two skips pass, with focused independent closure pending before push.
+Old0fe's53 worker checks and separate18-file
+parent seal remain unchanged. No actual70-stage result exists. This hosted path
+has no ComposeHelper/local Docker dependency; do not apply Forge's maintenance-pin
+hold to it. Parent remote readback
+keeps Workflow PR90 Draft/master and Tracker PR114 Draft/main, neither merged;
+separate namespace PR99/126 do not close the legacy PM producer gate. Exact
+heads and the current no-local-heavy resource observation are in the work plan.
+
+The [current source/evidence snapshot](CURRENT_STATE.md) and
+[parallel owners](plans/2026-10-09-parallel-remaining-work.md) distinguish
+implemented, independently reviewed, executed and still-blocked work.
+
 ## Docker And Controls Integration Gate
 
-Current compiler blockers: actual full gate37967213470, controls160bd/sourcec02,
+Historical compiler failures: actual full gate37967213470, controls160bd/sourcec02,
 reports E0425 runtime_acceptance.rs:542:33 and E0594 sdlc_foundation.rs:2702:5.
 Safe evidence/source identity and cleanup are verified. Scoped corrections6e9
 have independent source closure and nine passing source checks, and are normally
@@ -14,18 +108,20 @@ Base protocol4 source is published in Draft
 [PR180](https://github.com/FerrPOINT/services-base/pull/180) at815982b.
 Its exact-head224 Linux fake tests and independent review pass, not native Docker.
 Actual GitHub run37968542132 cannot start any of11 jobs because account billing/
-spending limit blocks execution. Account CI access and all required checks remain
+spending limit blocks execution. Private Base CI access and its required checks remain
 open; do not classify a job with no steps as a failed product test or waive it.
 Fleet protocol4 consumption/recovered activation and native image/driver
 qualification are independent remaining implementation/acceptance gates.
 Build wrapper successor9cda3075/seal459f0371 has source closure for stopped
 foreign-container cleanup and materialized-context drift. Parent23 pure cases
 and6 independent counterproofs pass; no build/image/native grant follows.
-The new Fleet protocol4 consumer is still a draft. Pre-review requires inherited
-anchor lease fencing for child SQL mutations, redacted Debug compatibility,
-proved original-stop readback after lost phase CAS, terminal child stop permits
-and preservation of effective custody when the next config draft is saved.
-All five findings are assigned; this draft is not integrated or accepted.
+The Fleet protocol4 consumer's five original source findings (anchor lease
+fencing, redacted Debug, original-stop readback after lost CAS, terminal child
+stop permits and effective custody after a new draft) are independently closed
+at f326 and normally integrated. Its d306 sequential-activation successor also
+has source closure and normal integration. Actual combined Rust/PG/native
+acceptance remains open; the historical draft status is not the current source
+status.
 
 The previous compiler blocker was identified, not guessed: authenticated
 run37964514708 reports E0609 at acceptance_readback.rs:58:30. Scoped sourcee2e33b2

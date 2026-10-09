@@ -1,5 +1,108 @@
 # Current State
 
+## Current Integration Snapshot: 10 October 2026
+
+Source-only assembly `b249bc895e5160fe13383c49d42a24c9308852b3` is **not
+merge-ready or live SDLC accepted**. Historical sections below qualify their own
+heads; they do not accept this assembly.
+
+- Normal merge1801201 retains reviewed recovered/sequential activation d306
+  and the loader/fixture fixes. Independent F6 source review closes the reported
+  lifecycle finding. Canonical/split migrations are20/23; Rust/PG/native gates
+  remain unexecuted for this source. Inventory162 ignored/290 ordinary is static
+  declaration counting, not compiled test discovery.
+- Follow-up b249bc8 fixes two stale migration-test boundaries without changing
+  SQL: split single-down verifies exact prior ledger minus activation19, and
+  historical downgrade selects task_chats10 from the registry rather than down8.
+  Formatting/diff pass. Independent source review closes both findings with4/4
+  pure/static probes; actual Rust/PostgreSQL execution remains open.
+- Chat production fix8e5d75d has no actionable independent source finding.
+  Coverage5d52c8a waits for fresh rendered permissions before replay. Full334
+  frontend cases and3/3 ordered browser fixtures pass; nine generated captures
+  verify and mobile/desktop are visually checked. These are mocked-HTTP fixture
+  results, not live PM evidence or durable clarification recovery across reload.
+- Normal merge379b48e integrates reviewed PM packet2ee without losing guards or
+  pins. Its actual24-case offline report is independently checked;16 synthetic
+  oracle cases and8 real-module probes remain distinct. Producer admission stays
+  BLOCKED/live=false. No pre-model authority or credential custody is invented.
+- Exact Fleetb249/Tracker PR114 head357caa7 source qualification passes39/39:
+  20 actual Fleet comparator tests, nine synthetic schema-oracle tests and ten
+  lexical source probes. Seven canonical Git OpenAPI DTO pairs match, including
+  nested closed fields, required/nullability, integer bounds and Analysis; source
+  checks cover response validation and owner-before-replay. No Rust/PG/live HTTP
+  was executed. Clarification GET exposes saved answer, not its original command
+  key; exact-command GET readback and durable reload recovery remain open. See
+  the [qualified scope and retained evidence](plans/2026-10-09-parallel-remaining-work.md#fleettracker-wire-source-qualification).
+- Forge daf's independent review finds an actual bridge cleanup deadline defect.
+  Frozen successor89420cd has84/84 parent pure checks and independent scoped
+  closure, including17 actual bounded deadline probes. These substitute external
+  I/O and are not full12/PG/OCI acceptance. Product25be/SDK19a and budgets remain
+  unchanged; full12 is NOT RUN.
+- Public-safe Forge successor1dbedf8 has sole product25be parent, without the
+  private-copy controls ancestry. Parent verifies its25 component hashes, lock,
+  exact HEAD/tree/parent and clean checkout. Owner118 Linux pure cases pass;
+  independent118/118 source/lifecycle review closes the bounded substitution.
+  Maintenance commit is explicitly null and
+  execution fails closed; no private checkout/full12 acceptance is claimed.
+- Separate native-driver source df6574b targets exactb249/Base9b and four
+  canonical utility modules, preserving the original nine scenarios. Its47 pure
+  tests pass; independent scoped source review passes20 targeted pure cases.
+  Compiled source/image qualification and actual native execution remain pending.
+  Interrupted protocol4 activation and F6
+  sequential recovered-child cuts are not yet exercised by that driver.
+- Separate QA successorbc0b85e preserves df657 and adds the genuine stop-ACK/
+  pre-CAS cut plus recovered A -> next B -> failed C -> current B rollback.
+  Owner75 pure cases pass; parent verifies all27 sealed source files and exact
+  HEAD/tree/parent. Ptolemy's independent review passes15/15, including two
+  reproductions of OPEN P2 orchestration findings: ready is visible before its
+  JSON is complete, and restart can occur120s after ready despite the55s withheld-
+  ACK window. Normal child c89df468 now independently closes both findings at
+  source/pure scope: Windows87 PASS/11 skips and Linux22/22 owner checks;
+  Windows8 PASS/3 skips and Linux9/9 focused independent checks. This is not
+  physical crash/filesystem acceptance. Compilation and native execution remain pending. Latest retained image
+  inspection finds PG present but both pinned controller and Hermes images absent;
+  the retained local available commit RAM observation is below the6GiB guard.
+- Base815 has new retained Linux fake-contract evidence:224 passed, zero skips,
+  44.041s, exit0; exact source/parents,14 canonical inputs and cleanup are verified.
+  The [retained evidence](plans/2026-10-09-parallel-remaining-work.md#retained-base815-fake-contract-evidence)
+  records raw/receipt hashes separately from historical88.807s. Base PR180 stays
+  Draft; retained run37968542132 has11 jobs billing-denied before steps in private
+  Base. Public Forge run37973076579 success does not restore private Base CI or
+  accept full12/native gates. Protected runtime images and services are unchanged.
+
+Fleet backend controls successora3a2c23ace449f873c79bd5e9ff5624c3199070c has sole
+parent11168cae2e647718f574aeeb64a6bb5821b32956, itself a normal child of0fe.
+Owner results are69 Linux passes and67 Windows passes with two Linux-only skips.
+Candidate fixes retain leader custody through drain/reap, keep verify-log children
+in the held outer gate group and share the hosted job deadline with cleanup/upload
+reserves. Parent took ownership after Leibniz's model-capacity error; no worker
+implementation is claimed. Anscombe independently closes the scoped custody/
+deadline findings with79/79 Linux probes, zero skips. Published a3 run37992541106
+fails before checkout at Docker Hub's anonymous pull limit; no backend stage ran.
+Normal childad893db1fe34ad2a631297d76ee561c4fa1d0d1a changes only image/test
+strings to an exact-byte-qualified ECR mirror with immutable digests. That narrow
+successor passes7/7 independent focused checks and is normally pushed. Run
+37993165800/attempt1 is terminal FAILURE in preflight after container/source
+setup passed; actual70 has no accepted result yet. Exact Git blob export c3b950
+fixes a reproduced archive CRLF hash transformation without changing expected
+inputs. Lightweight Fleet193 + SDK85 parity passes; Auth89/full70 remain open.
+Normal child5259a40 fixes the independently found diagnostics variable collision;
+Linux76/76 and Windows74 PASS/two skips pass. Focused final closure is pending.
+Historical0fe's53 worker checks and separate18-file parent seal stay immutable;
+neither those counts nor successor pure tests establish compiler/PG acceptance.
+This hosted path uses no ComposeHelper/local Docker, so the missing maintenance
+pin blocks Forge/native maintenance paths, not this backend gate. Product assembly
+and combined Rust/PG/native acceptance remain unchanged.
+
+Current parallel work covers the image-metadata FIFO/cleanup fix (Ptolemy), native
+execution handoff and focused review (Feynman), backend-controls closure (Anscombe),
+and a durable clarification answer-command journal (Pascal). These are separate
+owned changes, not completed acceptance. Leibniz stopped with a model-capacity error; parent took
+the executable Fleet gate, normal integration and scoped publication. Source
+merge alone does not establish acceptance. Combined backend/native, producer custody and external
+Workflow readiness remain open. Exact handoffs and dependencies are in the
+[parallel work plan](plans/2026-10-09-parallel-remaining-work.md).
+
 ## Docker And Controls Assembly: 9 October 2026
 
 Latest full backend run37967213470 on reviewed controls160bd/sourcec02ee92
