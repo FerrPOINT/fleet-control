@@ -183,6 +183,7 @@ async fn authenticated_hermes_sse_ingests_exact_requests_and_never_response_even
     for version in [
         "m20261004_000012_hermes_dispatch_journal",
         "m20261005_000013_runtime_controls",
+        "m20261005_000014_hermes_journal_time_order",
     ] {
         assert!(
             expected.iter().any(|name| name == version),

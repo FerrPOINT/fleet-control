@@ -7,7 +7,7 @@ impl LocalRuntimeSupervisor {
             handle.spawn(async move {
                 let mut after = None;
                 loop {
-                    match supervisor.repo.list_pending_hermes_acceptances(after).await {
+                    match supervisor.repo.list_recoverable_hermes_acceptances(after).await {
                         Ok(records) => {
                             if records.is_empty() { after = None; }
                             for (message, run) in records {
@@ -56,11 +56,16 @@ impl LocalRuntimeSupervisor {
             .runtime_run_id
             .as_deref()
             .ok_or_else(|| AppError::Unavailable("Hermes acceptance is unknown".into()))?;
-        let base = Self::hermes_base_url(agent)?;
+        let current_agent = self.repo.get_agent(agent.id).await?;
+        let base = Self::hermes_base_url(&current_agent)?;
+        if base != Self::hermes_base_url(agent)? {
+            return Err(AppError::conflict("Hermes original API origin changed"));
+        }
         let token = crate::agent_runtime_token(&self.config, agent.id)?;
-        let intent = self.repo.get_hermes_dispatch_intent(message.id).await?
+        let intent = self.repo.get_accepted_hermes_context(run.id).await?
             .ok_or_else(|| AppError::Unavailable("Legacy Hermes acceptance has no original dispatch context; reconciliation is required".into()))?;
-        if intent.run.id != run.id
+        if intent.message_id != message.id
+            || intent.run.id != run.id
             || intent.run.runtime_run_id.as_deref() != Some(runtime_run_id)
             || intent.state != "accepted"
         {
@@ -88,6 +93,50 @@ impl LocalRuntimeSupervisor {
                 message_id: message.id.to_string(),
                 event: "message.dispatched".to_string(),
             });
+        }
+        if matches!(
+            payload["status"].as_str(),
+            Some("completed" | "failed" | "cancelled" | "interrupted" | "stopped")
+        ) {
+            let event = hermes_wire::terminal_readback(&payload, runtime_run_id)?;
+            self.handle_hermes_event(
+                agent,
+                session,
+                message,
+                &pinned,
+                runtime_run_id,
+                Some(event.to_owned()),
+                payload.to_string(),
+                &mut sse_wire::Transcript::default(),
+            )
+            .await?;
+            return self.repo.get_session_agent_run(pinned.id).await;
+        }
+        if payload["status"] == "waiting_for_approval" {
+            let caps = self.probe_hermes(&current_agent).await?;
+            targeted_approval::verify_capability(&caps)?;
+            let request = approval_snapshot::request(&payload, &pinned)?;
+            let (approval, created) = self
+                .repo
+                .recover_hermes_approval(
+                    request,
+                    pinned
+                        .runtime_session_id
+                        .clone()
+                        .ok_or_else(|| AppError::conflict("missing pinned native session"))?,
+                    base,
+                    hermes_wire::credential_fingerprint(&token),
+                )
+                .await?;
+            if created {
+                let _ = self.events.send(FleetEvent::RuntimeApprovalRequested {
+                    session_id: session.id.to_string(),
+                    run_id: pinned.id.to_string(),
+                    approval_id: approval.id.to_string(),
+                });
+            }
+        }
+        if first {
             self.spawn_hermes_event_worker(
                 agent.clone(),
                 session.clone(),
@@ -96,6 +145,6 @@ impl LocalRuntimeSupervisor {
                 runtime_run_id.to_owned(),
             );
         }
-        Ok(pinned)
+        self.repo.get_session_agent_run(pinned.id).await
     }
 }

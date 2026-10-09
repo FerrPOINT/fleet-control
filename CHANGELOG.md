@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased: Exact-Target Approval Recovery
+
+- Prepare current pending native approval recovery from an original accepted free-chat journal; uncertain decisions never repost.
+- Add only migration14 for logical journal progress time, preserving immutable identity/ACK/horizon guards.
+- Source candidate only; exact Linux/PG/native acceptance remains pending and runtime_ready=false.
+
 - Prepare a separately gated PM credential journal release with immutable
   issuance/replay metadata, one additive migration in both lineages, fresh
   Base/Tracker checks and no model-admission side effect.

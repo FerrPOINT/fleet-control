@@ -23,7 +23,9 @@ use tokio::{
 };
 use uuid::Uuid;
 mod acceptance_readback;
+mod approval_snapshot;
 mod hermes_wire;
+mod native_context;
 mod pm_readback;
 mod run_control;
 mod targeted_approval;

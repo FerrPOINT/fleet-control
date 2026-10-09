@@ -1,5 +1,17 @@
 # API
 
+## Approval Recovery Candidate (Unit14)
+
+The existing POST `/api/v1/sessions/{session_id}/approvals/{approval_id}/decision`
+keeps body `{choice:"once"|"deny",idempotency_key:string}`, verified-human/owner
+and assignment guards. Native preflight now requires the original accepted
+free-chat context and exact current pending action. The durable uncertain
+reservation is replayed without another native POST; only an exact ACK delivers.
+GET on that decision path and GET `/api/v1/sessions/{session_id}/approvals`
+remain scoped DB-only reads. Missing decision returns404, not permission to POST.
+Background current-snapshot recovery is not historical decision acceptance.
+No public schema change; source-only, exact Linux/native validation pending.
+
 ## Durable Runtime Controls Unit13
 
 The [isolated control release](plans/2026-10-09-runtime-controls-release.md)

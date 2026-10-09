@@ -1,5 +1,17 @@
 # Data Model
 
+## Approval Recovery And Logical Time Candidate
+
+Unit14 adds only `m20261005_000014_hermes_journal_time_order` after13 in both
+migration lineages. A later trigger clamps new submission/acceptance timestamps
+to prior journal progress without modifying identity, immutable original guard
+or the recovery horizon. Nonempty journal downgrade is refused.
+Existing approval request uniqueness by native request/run is reused: recovery
+atomically inserts redacted exact content and running-to-waiting state, preserving
+resolved/stopping states and exact replay. Existing durable uncertain decision
+reservation, actor/key uniqueness and atomic delivery remain unchanged.
+No new task/PM admission or inferred delivery from unknown native acceptance.
+
 ## Durable Runtime Controls Unit13
 
 Only `m20261005_000013_runtime_controls` is new in this unit. Both lineages

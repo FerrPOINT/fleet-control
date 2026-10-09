@@ -1,5 +1,17 @@
 # Testing
 
+## Approval Recovery Release Candidate
+
+Unit14 has21 new named cases: snapshot unit3, exact-pending unit1, recovery
+PG/HTTP15, logical-clock PG1 and migration1. Targeted unit group is2 including
+its inherited ACK case; journal12 PG group is16. Required commands/envs and
+remaining acceptance gaps are in [unit14 plan](plans/2026-10-09-approval-recovery-release.md).
+CI explicitly selects ignored PG/migration cases, checks all exact new names
+and counts, and runs the updated historical human/unknown-ACK HTTP case.
+Lineage10, whole sorted SSE ledger including13/14, four-successor task-chat
+rollback and all inherited gates are retained. These Rust/PG gates are prepared,
+not executed locally. Loopback restarts do not qualify real Hermes processes.
+
 ## Durable Runtime Controls Unit13
 
 The [control release plan](plans/2026-10-09-runtime-controls-release.md)

@@ -1,5 +1,12 @@
 # Agent Runtime Contract
 
+## Exact Approval Recovery Candidate
+
+Only original accepted free-chat context may recover a current bounded exact
+pending approval snapshot. Targeted human decisions recheck that context and
+native pending request; uncertain reservations never authorize another POST.
+This source candidate is not task/PM/model authority or runtime readiness.
+
 ## Durable Runtime Controls Unit13
 
 Free-chat steer/stop require authenticated human/owner authority, an immutable

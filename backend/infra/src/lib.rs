@@ -3,6 +3,7 @@ mod chats_directory;
 mod config_revisions;
 mod effective_configuration;
 pub mod entities;
+mod hermes_approval_recovery;
 mod hermes_dispatch_journal;
 pub mod pm_credentials;
 mod pm_draft;
@@ -585,6 +586,37 @@ fn fleet_alert_to_domain(row: fleet_alerts::Model) -> domain::FleetAlert {
 
 #[async_trait]
 impl FleetRepository for PostgresFleetRepository {
+    async fn get_accepted_hermes_context(
+        &self,
+        run_id: Uuid,
+    ) -> Result<Option<app::HermesDispatchIntent>, AppError> {
+        hermes_approval_recovery::context(self, run_id).await
+    }
+
+    async fn list_recoverable_hermes_acceptances(
+        &self,
+        after: Option<Uuid>,
+    ) -> Result<Vec<(SessionMessage, SessionAgentRun)>, AppError> {
+        hermes_approval_recovery::queue(self, after).await
+    }
+
+    async fn recover_hermes_approval(
+        &self,
+        req: RuntimeApprovalCreate,
+        native_session_id: String,
+        origin: String,
+        credential_fingerprint: String,
+    ) -> Result<(RuntimeApprovalRequest, bool), AppError> {
+        hermes_approval_recovery::record(
+            self,
+            req,
+            native_session_id,
+            origin,
+            credential_fingerprint,
+        )
+        .await
+    }
+
     async fn list_session_approvals(
         &self,
         session: Uuid,

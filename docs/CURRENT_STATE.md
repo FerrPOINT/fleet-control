@@ -1,5 +1,14 @@
 # Current State
 
+## Approval Recovery Source Candidate: 9 October 2026
+
+[Unit14](plans/2026-10-09-approval-recovery-release.md) builds on immutable
+controls13 `fc6ef12`. It restores exact pending approvals by authenticated GET,
+retains durable uncertain decisions without another native POST, and adds only
+migration14 for logical journal time ordering. No UI/SDK/locks or migrations15..22
+are imported. Compilation, PostgreSQL, real Hermes and combined contract/UI
+acceptance are pending. `runtime_ready=false`; installed runtime is unchanged.
+
 ## Runtime Controls Source Candidate: 9 October 2026
 
 The [isolated unit13](plans/2026-10-09-runtime-controls-release.md) prepares

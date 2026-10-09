@@ -38,6 +38,9 @@ mod runtime_run_control;
 #[path = "support/runtime_terminal.rs"]
 mod runtime_terminal;
 
+#[path = "support/runtime_approval_recovery.rs"]
+mod runtime_approval_recovery;
+
 async fn fixture() -> Option<(PostgresFleetRepository, Uuid, Uuid)> {
     let Ok(url) = std::env::var("FLEET_TEST_DATABASE_URL") else {
         eprintln!("FLEET_TEST_DATABASE_URL not configured; PostgreSQL tests skipped");
@@ -272,9 +275,17 @@ async fn targeted_approval_http_requires_human_and_unknown_ack_is_not_repeated()
     let Some((repo, owner, _)) = fixture().await else {
         return;
     };
-    let (session, run, approval) = approval_fixture(&repo, owner, "approval-http").await;
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
+    let config = AppConfig {
+        fleet: shared::FleetConfig {
+            runtime_token_secret: "approval-isolated-test-secret".into(),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let (session, run, approval) =
+        runtime_approval_recovery::accepted_fixture(&repo, owner, &config, port).await;
     let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
         .await
         .unwrap();
@@ -287,6 +298,7 @@ async fn targeted_approval_http_requires_human_and_unknown_ack_is_not_repeated()
     .unwrap();
     let calls = Arc::new(AtomicUsize::new(0));
     let counter = calls.clone();
+    let status_calls = calls.clone();
     let runtime=axum::Router::new().route("/v1/runs/run_approval_test/approval",axum::routing::post(move |headers:axum::http::HeaderMap,axum::Json(body):axum::Json<serde_json::Value>| {let counter=counter.clone();async move {
         assert!(headers.get("authorization").unwrap().to_str().unwrap().starts_with("Bearer fc_"));
         assert_eq!(body["choice"],"once"); assert_eq!(body["resolve_all"],false);
@@ -295,10 +307,19 @@ async fn targeted_approval_http_requires_human_and_unknown_ack_is_not_repeated()
         // Success transport but wrong action identity is unknown, never delivered.
         axum::Json(serde_json::json!({"object":"hermes.run.approval_response","run_id":"run_approval_test","request_id":if body["request_id"]=="request_one" {"foreign"} else {"request_two"},"choice":"once","resolved":1}))
     }}));
+    let runtime = runtime.route("/health",axum::routing::get(|| async {axum::Json(serde_json::json!({"status":"ok"}))}))
+        .route("/v1/capabilities",axum::routing::get(|| async {axum::Json(runtime_approval_recovery::capabilities())}))
+        .route("/v1/runs/run_approval_test",axum::routing::get(move || {
+            let calls = status_calls.clone(); async move {
+                axum::Json(serde_json::json!({"object":"hermes.run","run_id":"run_approval_test",
+                    "session_id":"native:approval-test","status":"waiting_for_approval",
+                    "approval":{"event":"approval.request","run_id":"run_approval_test",
+                    "request_id":if calls.load(Ordering::SeqCst)==0 {"request_one"} else {"request_two"},
+                    "description":"Exact fixture action","choices":["once","deny"]}}))
+            }
+        }));
     let hermes = tokio::spawn(async move { axum::serve(listener, runtime).await.unwrap() });
     let repo = Arc::new(repo);
-    let mut config = AppConfig::default();
-    config.fleet.runtime_token_secret = "approval-isolated-test-secret".into();
     let config = Arc::new(config);
     let (events, _) = tokio::sync::broadcast::channel(32);
     let runtime = Arc::new(infra::runtime::LocalRuntimeSupervisor::new(
