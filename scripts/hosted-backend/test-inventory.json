@@ -289,9 +289,9 @@
     "fleet-control/backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "fleet-control/backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a",
     "fleet-control/backend/tests/fixtures/.gitkeep": "1d85c5ed38a3fd81f2faaea018843e4fe329fd190486a34000e756cfba90a618",
-    "fleet-control/docs/TESTING.md": "025c6e7765a320ab4fd5c434e24a4fcca8c03045c7f8302122426203c0508992",
+    "fleet-control/docs/TESTING.md": "583e7f107c2f19390cf8d7d889e38022c2c72c6ed3c3db6c30e5841ec67e512f",
     "fleet-control/openapi/README.md": "2ede8bc480b593789d2192f5f5e82c21475921d616f063cb3bfe2a9dd55ebfe3",
-    "fleet-control/openapi/openapi.json": "b074c77295f7ad89912e3667124545ab66f6727184257d1f72030b4417c87f82",
+    "fleet-control/openapi/openapi.json": "874230b2105a73b8f96aa2c1ecf6685a551dcf721f6e2c512852c831163c7be7",
     "fleet-control/scripts/check_container_activation_contract.py": "80569d79dfef7cf3f16126eb0523ca1ad3da8941cdd255d8290dbcf9fc1fa12a",
     "fleet-control/scripts/check_container_preparation_contract.py": "b936f2e9d06d966b5e21fcb8e3ffa12890fedf12df7d8069b61da7d4229ceea5",
     "fleet-control/scripts/check_recovered_activation_contract.py": "feef97967b41320c3c3d6d1e753619b3a2ac4cae6b55bd0e4b3f56ef1f69ad9a",
@@ -2340,10 +2340,17 @@
   ],
   "journal_preparation": {
     "case_count": 9,
+    "codegen_evidence": {
+      "artifact_id": 11648708483,
+      "artifact_sha256": "aa50d2d654bee3c924345017e8cd3eee604b67ea75c540468313c75a07492e19",
+      "codegen_source": "3b41b3177871cc5bb043b04d1be386b00daf7356",
+      "codegen_workflow_sha": "7792bfc5945052baec209656960296517d6faa4b",
+      "run_id": 37999711562
+    },
     "human_guard_source": "d43f8016184b0e147d7cfe8f7345ece7b89442b8",
     "journal_source": "3b41b3177871cc5bb043b04d1be386b00daf7356",
     "normal_source_merge_into_controls_pending": true,
-    "source_inventory_is_pre_codegen": true
+    "source_inventory_is_pre_codegen": false
   },
   "migration_registries": {
     "canonical": [
@@ -2397,13 +2404,8 @@
     ]
   },
   "openapi_binding": {
-    "artifact_id": 11648708483,
-    "artifact_sha256": "aa50d2d654bee3c924345017e8cd3eee604b67ea75c540468313c75a07492e19",
-    "codegen_source": "3b41b3177871cc5bb043b04d1be386b00daf7356",
-    "codegen_workflow_sha": "7792bfc5945052baec209656960296517d6faa4b",
-    "run_id": 37999711562,
     "sha256": "874230b2105a73b8f96aa2c1ecf6685a551dcf721f6e2c512852c831163c7be7",
-    "status": "pending_source_freeze"
+    "status": "verified"
   },
   "python_contracts": {
     "container_activation_fake": [
@@ -2637,7 +2639,7 @@
     "backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a"
   },
-  "source_commit": "7cc3a81254191c23df4b7d1a8c85246a0019ce97",
+  "source_commit": "b249ee530ab9f8ea38f86cc6955c57eb8459282a",
   "utility_source_sha256": {
     "scripts/runtime_bootstrap.py": "5be8066b6f7dc68f8dda7f1040c0626dad272477c019b07263821df7f86b59a2",
     "scripts/runtime_boundary.py": "2e6bfa6907b93e6d436d2b6668ae20211aca53a64c433f7e1a98ab51245b3e89",

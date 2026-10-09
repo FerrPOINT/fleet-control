@@ -97,18 +97,19 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(rust, REVIEWED["rust_source_sha256"])
         self.assertEqual(gate.digest(gate.canonical(REVIEWED["compiled_source_sha256"])), gate.SOURCE_INVENTORY_SHA)
 
-    def test_prepared_codegen_binding_blocks_preflight_before_private_or_heavy_effects(self):
+    def test_authentic_codegen_binding_and_missing_ancestry_fail_before_private_or_heavy_effects(self):
         self.assertEqual(gate.OPENAPI_SHA, "874230b2105a73b8f96aa2c1ecf6685a551dcf721f6e2c512852c831163c7be7")
-        self.assertEqual(REVIEWED["openapi_binding"]["status"], "pending_source_freeze")
-        self.assertEqual(REVIEWED["openapi_binding"]["sha256"], gate.OPENAPI_SHA)
-        self.assertEqual(REVIEWED["openapi_binding"]["run_id"], 37999711562)
-        self.assertNotEqual(gate.digest(self.source_blob("openapi/openapi.json")), gate.OPENAPI_SHA)
+        self.assertEqual(REVIEWED["openapi_binding"], dict(status="verified", sha256=gate.OPENAPI_SHA))
+        self.assertEqual(REVIEWED["journal_preparation"]["codegen_evidence"]["run_id"], 37999711562)
+        self.assertEqual(gate.digest(self.source_blob("openapi/openapi.json")), gate.OPENAPI_SHA)
+        gate.require_codegen_binding(REVIEWED)
         with mock.patch.object(gate, "hosted_identity", return_value=(Path("owned"), "a" * 40)), \
                 mock.patch.object(gate, "clean_head"), mock.patch.object(gate, "reviewed_inventory", return_value=REVIEWED), \
-                mock.patch.object(gate, "git") as git, mock.patch.object(gate.subprocess, "Popen") as spawn:
-            with self.assertRaisesRegex(ValueError, "Authentic generated OpenAPI/source binding is pending"):
+                mock.patch.object(gate, "git", side_effect=ValueError("Unreconciled source ancestry")) as git, \
+                mock.patch.object(gate.subprocess, "Popen") as spawn:
+            with self.assertRaisesRegex(ValueError, "Unreconciled source ancestry"):
                 gate.preflight()
-            git.assert_not_called()
+            git.assert_called_once_with(Path("owned") / "controls", "merge-base", "--is-ancestor", gate.SOURCE_SHA, "a" * 40)
             spawn.assert_not_called()
         with mock.patch.object(gate, "OPENAPI_SHA", "e" * 64):
             with self.assertRaises(ValueError):
@@ -121,7 +122,9 @@ class HostedBackendTests(unittest.TestCase):
                     gate.require_codegen_binding(dict(REVIEWED, openapi_binding=binding))
 
     def test_prepared_readback_rejects_forged_success_and_never_calls_GitHub(self):
-        with mock.patch.object(gate, "command") as command:
+        pending = dict(REVIEWED, openapi_binding=dict(status="pending_source_freeze", sha256=gate.OPENAPI_SHA))
+        with mock.patch.object(gate, "command") as command, \
+                mock.patch.object(gate, "reviewed_inventory", return_value=pending):
             with self.assertRaises(ValueError):
                 gate.readback(SimpleNamespace())
             command.assert_not_called()
@@ -964,11 +967,6 @@ class HostedBackendTests(unittest.TestCase):
         self.assertFalse(value["sdlc_acceptance"])
 
     def artifact(self, report_changes=None, provenance_changes=None, extra=None):
-        # Synthetic oracle binding only; the prepared real controls remain unbound.
-        fake_hash = "e" * 64
-        self.enterContext(mock.patch.object(gate, "OPENAPI_SHA", fake_hash))
-        self.enterContext(mock.patch.object(gate, "reviewed_inventory", return_value=dict(
-            REVIEWED, openapi_binding=dict(status="verified", sha256=fake_hash))))
         workflow_sha = "a" * 40
         focused = {name: dict(passed=len(names), failed=0, ignored=119 if name == "foundation" else 0,
                               tests=sorted(names)) for name, names in REVIEWED["groups"].items()}

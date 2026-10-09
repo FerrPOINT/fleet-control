@@ -23,12 +23,12 @@ import zipfile
 
 REPOSITORY = "FerrPOINT/fleet-control"
 BRANCH = "build-only/fleet-backend-b249bc8-20261009"
-SOURCE_SHA = "7cc3a81254191c23df4b7d1a8c85246a0019ce97"
+SOURCE_SHA = "b249ee530ab9f8ea38f86cc6955c57eb8459282a"
 BASE_SHA = "19a7a381ae6dbea61a643bb96189e483fa64df5c"
 AUTH_SHA = "01388dfb43332cbe5837fd5e1fadccf09cb8886d"
 UTILITY_SHA = "9b53de7b23593949a9e6c05bd5a4f94b930e50a0"
 UTILITY_INVENTORY_SHA = "8e727d1d2ba02941dc176f26945d25593068fc593cb6199285381291b12cd52f"
-# Authentic codegen is retained; final source/inventory binding is still pending.
+# Authentic retained codegen, matched to the final source Git blob.
 OPENAPI_SHA = "874230b2105a73b8f96aa2c1ecf6685a551dcf721f6e2c512852c831163c7be7"
 SWAGGER_SHA = "481244d0812097b11fbaeef79f71d942b171617f9c9f9514e63acbe13e71ccdc"
 WORKFLOW = ".github/workflows/backend-build-only.yml"
@@ -39,7 +39,7 @@ INVENTORY = "scripts/hosted-backend/test-inventory.json"
 WRITE_SET = {WORKFLOW, HELPER, GATE, INIT, INVENTORY, "scripts/tests/test_hosted_backend_gate.py"}
 ARTIFACT_FILES = {"report.json", "provenance.json", "SHA256SUMS"}
 FAILURE_FILE = "compiler-diagnostics.json"
-SOURCE_INVENTORY_SHA = "7c747972c649a5da76771017074c725d65d315498e682e895fe2bd48f5aa7385"
+SOURCE_INVENTORY_SHA = "b473befb123fa7c8d469b446794d83eaa758e7919a75c62d8db02b39ca8106ab"
 DIAGNOSTIC_LIMIT = 32
 DIAGNOSTIC_INPUT_LIMIT = 16 * 1024 ** 2
 DIAGNOSTIC_LINE_LIMIT = 256 * 1024

@@ -68,7 +68,7 @@ jobs:
         timeout-minutes: 2
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: 7cc3a81254191c23df4b7d1a8c85246a0019ce97 # Preparation source; codegen binding remains blocked in preflight.
+          ref: b249ee530ab9f8ea38f86cc6955c57eb8459282a # Authentic generated schema; source ancestry is required by preflight.
           path: fleet-control
           persist-credentials: false
       - name: Check out pinned build SDK
