@@ -1923,6 +1923,120 @@
         }
       }
     },
+    "/api/v1/sessions/{session_id}/clarification-answer-commands": {
+      "get": {
+        "tags": [
+          "task-chats"
+        ],
+        "operationId": "pending",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ClarificationAnswerCommand"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/clarification-answer-commands/{command_id}": {
+      "get": {
+        "tags": [
+          "task-chats"
+        ],
+        "operationId": "get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "command_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClarificationAnswerCommand"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/clarification-answer-commands/{command_id}/delivery": {
+      "post": {
+        "tags": [
+          "task-chats"
+        ],
+        "operationId": "delivery",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "command_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClarificationAnswerCommand"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sessions/{session_id}/clarifications": {
       "get": {
         "tags": [
@@ -1947,6 +2061,56 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TrackerClarifications"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/clarifications/{question_id}/answer-commands": {
+      "post": {
+        "tags": [
+          "task-chats"
+        ],
+        "operationId": "store",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "question_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClarificationAnswerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClarificationAnswerCommand"
                 }
               }
             }
@@ -4813,6 +4977,66 @@
           }
         }
       },
+      "ClarificationAnswerCommand": {
+        "type": "object",
+        "required": [
+          "id",
+          "session_id",
+          "question_id",
+          "request",
+          "payload_sha256",
+          "state",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "answer": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TrackerAnswer"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "payload_sha256": {
+            "type": "string"
+          },
+          "question_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rejection_status": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "request": {
+            "$ref": "#/components/schemas/ClarificationAnswerRequest"
+          },
+          "session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ClarificationDeliveryState"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        }
+      },
       "ClarificationAnswerRequest": {
         "type": "object",
         "required": [
@@ -4854,6 +5078,16 @@
           }
         },
         "additionalProperties": false
+      },
+      "ClarificationDeliveryState": {
+        "type": "string",
+        "enum": [
+          "stored",
+          "delivering",
+          "uncertain",
+          "delivered",
+          "rejected"
+        ]
       },
       "ConfirmRequirementsRequest": {
         "type": "object",

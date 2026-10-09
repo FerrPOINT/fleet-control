@@ -1,19 +1,7 @@
 import type { AnswerInput } from './task-chats'
 import type { components } from './generated'
 
-// Temporary typed boundary until the coordinated Rust OpenAPI generation gate.
-export type ClarificationCommand = {
-  id: string
-  session_id: string
-  question_id: string
-  request: AnswerInput
-  payload_sha256: string
-  state: 'stored' | 'delivering' | 'uncertain' | 'delivered' | 'rejected'
-  answer: components['schemas']['TrackerAnswer'] | null
-  rejection_status: number | null
-  created_at: string
-  updated_at: string
-}
+export type ClarificationCommand = components['schemas']['ClarificationAnswerCommand']
 
 const object = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
