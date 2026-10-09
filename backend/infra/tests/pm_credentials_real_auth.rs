@@ -84,7 +84,7 @@ async fn real_base_delegation_wire_replay_conflict_and_revoke_match_fleet() {
     assert_eq!(required("FLEET_REAL_AUTH_TEST_OWNED"), "disposable-compose");
     assert_eq!(
         required("FLEET_REAL_AUTH_TEST_SOURCE_SHA"),
-        "30f355a1fa98d4242d8e07f2865657b8a39eb370"
+        "01388dfb43332cbe5837fd5e1fadccf09cb8886d"
     );
     let client = Client::builder()
         .no_proxy()

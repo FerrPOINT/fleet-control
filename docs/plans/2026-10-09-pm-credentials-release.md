@@ -45,7 +45,7 @@ Fresh source inspection confirms neither build SDK19a7 nor accepted Auth
 main15cae15 exposes `/auth/tokens/delegate`. The fake HTTP endpoint in the
 credential tests proves recovery logic only, not installed Auth compatibility.
 Base126 head2754a6d is Draft/conflicting; isolated merge8a34598 and
-test-contract correction30f355a
+test-contract correction30f355a (format follow-up01388df)
 preserves that history and main15cae15, but its Linux/PG and release gates remain
 pending. Build SDK and deployed Auth are separate pins: do not silently repin
 the SDK, promote Auth, or enable credentials from fixture success. Before opt-in,
@@ -54,7 +54,7 @@ replay/revoke/expiry and migration compatibility. This dependency is not model
 admission and does not waive Tracker/Workflow prerequisites.
 
 `infra/tests/pm_credentials_real_auth.rs` adds the separate opt-in real Auth
-consumer gate: exact source30f355a, owned process and loopback-only origin,
+consumer gate: exact source01388df, owned process and loopback-only origin,
 synthetic HTTP bootstrap, actual issuance/replay, changed-payload conflict, four-field
 introspection and child revoke. Missing inputs panic when explicitly selected;
 the default ignored result is not coverage. A source/binary-qualified launcher

@@ -3,7 +3,7 @@
 ## Real Base Delegation Consumer Gate
 
 The separate `infra` integration target `pm_credentials_real_auth` requires a
-source-qualified disposable Auth built from Base30f355a, not the in-process HTTP
+source-qualified disposable Auth built from Base01388df, not the in-process HTTP
 stub. It exercises actual Fleet issuance/replay/conflict, strict introspection
 wire and revoke. It is ignored by default; a default workspace PASS does not
 accept this release prerequisite. Explicit execution fails for absent inputs:
@@ -13,7 +13,7 @@ cargo test --locked -p infra --test pm_credentials_real_auth -- --ignored --test
 ```
 
 The owned launcher supplies `FLEET_REAL_AUTH_TEST_OWNED=disposable-compose`,
-`FLEET_REAL_AUTH_TEST_SOURCE_SHA=30f355a1fa98d4242d8e07f2865657b8a39eb370`,
+`FLEET_REAL_AUTH_TEST_SOURCE_SHA=01388dfb43332cbe5837fd5e1fadccf09cb8886d`,
 `FLEET_REAL_AUTH_TEST_BINARY`, its `FLEET_REAL_AUTH_TEST_BINARY_SHA256`, and
 `FLEET_REAL_AUTH_TEST_DATABASE_URL=postgres://fleet_test@postgres:5432/fleet_real_auth_test`.
 The test owns the Auth process and an unexposed loopback port40000+, registers
