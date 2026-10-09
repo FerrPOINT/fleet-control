@@ -107,6 +107,21 @@ merge-ready claim. The subsequent successor and updated exact-head controls
 must be published normally after review, without cancelling or replaying a live
 run. Task Tracker and Workflow remain unchanged/read-only.
 
+Final sourcef8b9a58 and reviewed controls2b6ae27 are now normally published.
+The controls normally merge that source and change only its two Rust test
+fingerprints, TESTING fingerprint, three declaration locations, aggregate and
+source refs/summary. Parent independently verifies canonical source inputs and
+the exact six-file controls delta; worker Linux90 PASS/Windows88 PASS+two skips
+are preserved. Actual run38004567349 is confirmed in progress on2b6ae27 and
+tests sourcef8b9a58; it is not a blind retry of469dad0. All74 stages,9 journal
+cases, canonical21/split24,167 ignored/294 ordinary and dependency/API pins remain.
+
+The browser worker separately qualifies the current generated-client assembly:
+own build of sourcef8b9a58, then the same two scenarios/three engines and fresh
+27 fixture captures. No source or schema edits are assigned; this task is still
+in progress, so the earlier3b41/7cc evidence is not relabelled as current-client
+acceptance. Production/live PM and native gates remain separate.
+
 These tasks have disjoint write sets. Reviewers do not modify frozen owner
 checkouts. Shared runtime/admission, live PM and native acceptance remain explicit
 later gates, not completion claims or duplicated assignments. Generated API must

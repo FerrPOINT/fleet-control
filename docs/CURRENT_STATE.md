@@ -25,6 +25,11 @@ specific refusal and preserves the ledger. Normal successor5337997 fixes the
 analogous retained-Hermes journal test, targeting time-order14. Both retain their
 data assertions; formatting/source review pass, real Rust/PG rerun is pending.
 
+Reviewed controls2b6ae27 now normally merge and pin sourcef8b9a58; both source
+and controls are published without force. Actual74-stage run38004567349 is
+confirmed in progress. It preserves every gate and dependency/API pin; success
+is not inferred from the source correction or90 pure control tests.
+
 Supported-browser fixture checks pass for explicit answers/confirmation and
 unknown-command reload. The new test is integrated, including its corrected
 Draft mock stage; parent ESLint/Prettier/typecheck pass. Worker retains27 fixture

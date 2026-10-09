@@ -19,6 +19,11 @@ regression coverage; their final backend
 and current-client browser qualification remain pending. Fixture scenarios pass
 in three engines and27 screenshots are retained separately, not as live evidence.
 
+The next actual74-stage run38004567349 is confirmed in progress at reviewed
+controls2b6ae27/sourcef8b9a58. It includes both corrected named-guard tests and
+preserves all gates/counts/pins. Current-client fixture rebuilding/browser checks
+are separately assigned; no current-client or full backend success is claimed yet.
+
 Hosted37995542617 now proves the preflight blocker is passed but finds real
 compile E0599 at container_controller.rs:18:48 on b249. Authenticated safe failure
 artifact11646773562 reports successful owned scratch/DB cleanup. Source373682a
