@@ -16,6 +16,7 @@ import shutil
 import signal
 import subprocess
 import tarfile
+import tempfile
 import time
 import urllib.request
 import zipfile
@@ -281,8 +282,8 @@ def command(args, **kwargs):
                         pipe.close()
 
 
-def git(root, *args):
-    return command(["git", "--no-replace-objects", "-C", str(root), *args])
+def git(root, *args, **kwargs):
+    return command(["git", "--no-replace-objects", "-C", str(root), *args], **kwargs)
 
 
 def clean_head(root, expected):
@@ -330,22 +331,41 @@ def safe_member(name, roots, *, directory=False):
 
 
 def export(root, commit, destination, roots):
-    data = git(root, "-c", "core.autocrlf=false", "-c", "core.eol=lf",
-               "archive", "--format=tar", commit, "--", *roots)
+    # archive applies eol/ident/export-subst attributes; compilation needs exact pinned blob bytes.
+    listing = git(root, "ls-tree", "-r", "-z", "--full-tree", commit, "--", *roots)
+    require(listing.endswith(b"\0"), "Missing source tree records")
+    entries = []
+    for record in listing[:-1].split(b"\0"):
+        header, separator, name = record.partition(b"\t")
+        fields = header.split(b" ")
+        require(separator and len(fields) == 3 and fields[0] in (b"100644", b"100755")
+                and fields[1] == b"blob" and re.fullmatch(b"[0-9a-f]{40}", fields[2]),
+                "Source links/submodules or malformed tree forbidden")
+        path = safe_member(name.decode("utf-8"), roots)
+        entries.append((path, fields[0], fields[2]))
+    require(len({str(path) for path, _, _ in entries}) == len(entries), "Duplicate source tree path")
+    require(all(any(str(path) == allowed or str(path).startswith(allowed + "/") for path, _, _ in entries)
+                for allowed in roots), "Missing required source root")
+    with tempfile.TemporaryFile() as requests:
+        requests.write(b"".join(oid + b"\n" for _, _, oid in entries))
+        requests.seek(0)
+        payload = io.BytesIO(git(root, "cat-file", "--batch", stdin=requests))
     destination.mkdir(parents=True, exist_ok=False)
-    with tarfile.open(fileobj=io.BytesIO(data)) as archive:
-        for member in archive:
-            path = safe_member(member.name.rstrip("/") if member.isdir() else member.name,
-                               roots, directory=member.isdir())
-            target = destination.joinpath(*path.parts)
-            require(member.isdir() or member.isfile(), "Source links/submodules forbidden")
-            require(member.size <= 128 * 1024 ** 2, "Oversized source member")
-            if member.isdir():
-                target.mkdir(parents=True, exist_ok=True)
-            else:
-                target.parent.mkdir(parents=True, exist_ok=True)
-                with archive.extractfile(member) as source, target.open("xb") as output:
-                    shutil.copyfileobj(source, output)
+    for path, mode, oid in entries:
+        header = payload.readline(128)
+        fields = header.rstrip(b"\n").split(b" ")
+        require(header.endswith(b"\n") and len(fields) == 3 and fields[:2] == [oid, b"blob"]
+                and re.fullmatch(b"(?:0|[1-9][0-9]{0,8})", fields[2]), "Malformed source blob frame")
+        size = int(fields[2])
+        require(size <= 128 * 1024 ** 2, "Oversized source member")
+        body = payload.read(size)
+        require(len(body) == size and payload.read(1) == b"\n", "Truncated source blob frame")
+        target = destination.joinpath(*path.parts)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with target.open("xb") as output:
+            output.write(body)
+        target.chmod(0o755 if mode == b"100755" else 0o644)
+    require(not payload.read(1), "Unexpected source blob frames")
 
 
 def inventory(root):

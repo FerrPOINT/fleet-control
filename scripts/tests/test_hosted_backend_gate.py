@@ -195,6 +195,60 @@ class HostedBackendTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 gate.safe_member(name, roots, directory=True)
 
+    def test_export_reads_canonical_blobs_despite_crlf_archive_attributes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = root / "source"
+            repo.mkdir()
+            hooks = root / "empty-hooks"
+            hooks.mkdir()
+            def git(*args):
+                return subprocess.run(["git", "-c", "core.autocrlf=false", "-c", "commit.gpgsign=false",
+                    "-c", "user.name=Owned Source Fixture", "-c", "user.email=fixture@example.invalid",
+                    "-c", "core.hooksPath=" + str(hooks), "-C", str(repo), *args],
+                    capture_output=True, timeout=30, check=True).stdout
+            git("init", "--quiet")
+            (repo / "sql").mkdir()
+            original = b"CREATE TABLE owned_fixture(id integer);\n"
+            (repo / "sql/migration.sql").write_bytes(original)
+            (repo / ".gitattributes").write_bytes(b"*.sql text eol=crlf\n")
+            git("add", ".gitattributes", "sql/migration.sql")
+            git("commit", "--quiet", "-m", "owned canonical byte fixture")
+            revision = git("rev-parse", "HEAD").decode().strip()
+            legacy = git("archive", "--format=tar", revision, "--", "sql")
+            with gate.tarfile.open(fileobj=io.BytesIO(legacy)) as archive:
+                altered = archive.extractfile("sql/migration.sql").read()
+            self.assertNotEqual(altered, original)
+            self.assertEqual(altered, original.replace(b"\n", b"\r\n"))
+            destination = root / "exact-blobs"
+            gate.export(repo, revision, destination, ("sql",))
+            self.assertEqual((destination / "sql/migration.sql").read_bytes(), original)
+            self.assertEqual(gate.inventory(destination), {"sql/migration.sql": gate.digest(original)})
+
+    def test_export_rejects_symlink_submodule_duplicate_and_missing_root(self):
+        oid = b"a" * 40
+        for tree, roots in ((b"120000 blob " + oid + b"\tsql/x\0", ("sql",)),
+                            (b"160000 commit " + oid + b"\tsql/x\0", ("sql",)),
+                            ((b"100644 blob " + oid + b"\tsql/x\0") * 2, ("sql",)),
+                            (b"100644 blob " + oid + b"\tsql/x\0", ("sql", "missing")),
+                            (b"100644 blob " + oid + b"\t../x\0", ("sql",)),
+                            (b"", ("sql",))):
+            with tempfile.TemporaryDirectory() as directory, mock.patch.object(gate, "git", return_value=tree) as git:
+                target = Path(directory) / "export"
+                with self.assertRaises(ValueError):
+                    gate.export(Path(directory), "b" * 40, target, roots)
+                self.assertFalse(target.exists())
+                git.assert_called_once()
+
+    def test_export_rejects_wrong_truncated_oversized_and_extra_blob_frames(self):
+        oid = b"a" * 40
+        tree = b"100644 blob " + oid + b"\tsql/x\0"
+        for batch in (b"b" * 40 + b" blob 1\nx\n", oid + b" missing\n", oid + b" blob 2\nx\n",
+                      oid + b" blob 134217729\n", oid + b" blob 1\nx?", oid + b" blob 1\nx\nextra"):
+            with tempfile.TemporaryDirectory() as directory, mock.patch.object(gate, "git", side_effect=[tree, batch]):
+                with self.assertRaises(ValueError):
+                    gate.export(Path(directory), "b" * 40, Path(directory) / "export", ("sql",))
+
     def test_local_execution_fails_before_any_heavy_or_network_effect(self):
         with mock.patch.dict(os.environ, {}, clear=True), mock.patch.object(gate, "command") as command:
             with self.assertRaises(ValueError):
