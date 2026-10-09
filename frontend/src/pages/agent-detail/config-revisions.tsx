@@ -59,9 +59,17 @@ export function ConfigRevisions({ agentId }: { agentId: string }) {
       {readiness.data ? (
         <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
           <span>{t('configRevisions.runtime')}</span>
-          <StatusBadge value={readiness.data.runtime_healthy ? 'running' : 'stopped'} />
+          <StatusBadge
+            value={
+              readiness.isError ? 'unknown' : readiness.data.runtime_healthy ? 'running' : 'stopped'
+            }
+          />
           <span className="ml-2">SDLC</span>
-          <StatusBadge value={readiness.data.ready_for_sdlc ? 'ready' : 'blocked'} />
+          <StatusBadge
+            value={
+              readiness.isError ? 'unknown' : readiness.data.ready_for_sdlc ? 'ready' : 'blocked'
+            }
+          />
           <span className="text-xs text-text-muted">
             {t('configRevisions.effective')}: {readiness.data.effective_revision ?? '-'}
           </span>

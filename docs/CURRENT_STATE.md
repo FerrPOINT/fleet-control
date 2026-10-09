@@ -1,5 +1,20 @@
 # Current State
 
+## Task-Chat Readiness Reconciliation: 9 October 2026
+
+Foundation source `8faea62e3343cfe2017153bf9e7bcb3d449c626b` passed all five
+hosted CI jobs in run37930186282, including Linux/PostgreSQL, generated OpenAPI,
+frontend and three-browser fixture acceptance. That evidence is source-specific;
+the live PM cases remain unaccepted.
+
+Accepted main `b750e7b` subsequently merged PR63 readiness refresh protection.
+This candidate preserves that source by normal merge, including all three
+running/ready, running/blocked and stopped/blocked refresh regression cases, plus
+the foundation's two localized effective-readback blocker cases. Backend, Base
+pin, generated contracts and lockfiles are unchanged relative to `8faea62`.
+Fresh merged-head verification/publication remains a separate gate. No runtime,
+rollout or PM admission is enabled by this reconciliation.
+
 ## Task-Chat And Monitoring Reconciliation: 9 October 2026
 
 This isolated candidate normally merges PR47 `8befcb6` with accepted main

@@ -65,6 +65,7 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 ## Quality And Delivery
 
 - [TESTING.md](TESTING.md)
+- [UI_READINESS_VERIFICATION.md](UI_READINESS_VERIFICATION.md)
 - [QUALITY_GATE.md](QUALITY_GATE.md)
 - [TRACEABILITY.md](TRACEABILITY.md)
 - [RISK_REGISTER.md](RISK_REGISTER.md)
