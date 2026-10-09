@@ -2,6 +2,20 @@
 
 Status: isolated source candidate, not build or runtime acceptance.
 
+## Integrated Candidate
+
+Coordinator merge `e0e7f1c63ded345e4cde229996775efb0a873082` preserves original
+journal freeze72c05080 and credential/main parent80f3ab6. Accepted main34aaec0
+and foundation8faea62 are ancestors. Production monitoring/log behavior and both
+browser families remain; the build SDK is still19a7. Full Rust formatting and
+diff checks pass; compilation, PostgreSQL, OpenAPI and runtime acceptance do not
+follow from the merge. Foundation47 is published at8fa with fresh CI running.
+
+The approval SSE fixture checks exact canonical ledger versions and registration
+of credential11/journal12, not a fixed length or `last()==12`. Later additive
+migrations must not break this unrelated fixture merely by extending the ledger.
+The source/dependency notes below record the original extraction baseline.
+
 ## Source And Dependencies
 
 - Exact parent: credential candidate `a85a4359cc089b685c97bc5d0062bd14ce064839`.
