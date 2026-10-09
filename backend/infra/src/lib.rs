@@ -656,6 +656,33 @@ impl FleetRepository for PostgresFleetRepository {
     ) -> Result<app::container_activation::Activation, AppError> {
         container_activation::claim(self, claim).await
     }
+    async fn open_container_activation(
+        &self,
+        agent: Uuid,
+    ) -> Result<Option<app::container_activation::Activation>, AppError> {
+        container_activation::open(self, agent).await
+    }
+    async fn container_activation_for_launch(
+        &self,
+        launch: &app::container_runtime::ContainerLaunch,
+    ) -> Result<Option<app::container_activation::Activation>, AppError> {
+        container_activation::for_launch(self, launch).await
+    }
+    async fn authorize_recovered_activation(
+        &self,
+        record: &app::container_activation::Activation,
+        proof: &app::container_activation::RecoveredProof,
+    ) -> Result<(), AppError> {
+        container_activation::authorize(self, record, proof).await
+    }
+    async fn advance_recovered_activation(
+        &self,
+        previous: &app::container_activation::Activation,
+        next: &app::container_activation::Activation,
+        proof: &app::container_activation::RecoveredProof,
+    ) -> Result<(), AppError> {
+        container_activation::advance_proved(self, previous, next, Some(proof)).await
+    }
     async fn advance_container_activation(
         &self,
         previous: &app::container_activation::Activation,

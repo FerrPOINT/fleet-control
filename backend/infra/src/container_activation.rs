@@ -1,8 +1,87 @@
 //! Transactions couple activation progress, launch custody and effective publication.
 use super::*;
+use app::container_activation::RecoveredProof;
 use app::container_activation::{Activation, Claim, Phase, RecoveryHold, held, stopped};
 use app::container_runtime::ContainerLaunch;
 use sea_orm::DatabaseTransaction;
+
+pub(super) async fn open(
+    repo: &PostgresFleetRepository,
+    agent: Uuid,
+) -> Result<Option<Activation>, AppError> {
+    repo.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT a.record FROM runtime_container_activations a JOIN agent_config_heads h USING(agent_id)
+         WHERE a.agent_id=$1 AND ((a.revision=h.desired_revision AND h.draining)
+         OR (a.record->>'phase' IN ('committed','rolled_back')
+           AND EXISTS(SELECT 1 FROM runtime_container_activation_authorities x WHERE x.activation_id=a.id)
+           AND EXISTS(SELECT 1 FROM runtime_container_launches c WHERE c.agent_id=a.agent_id AND c.generation::text=a.record#>>'{readiness,generation}'
+             AND NOT EXISTS(SELECT 1 FROM runtime_container_launches other WHERE other.agent_id=c.agent_id AND other.state<>'exited' AND other.generation<>c.generation))))
+         ORDER BY (a.revision=h.desired_revision AND h.draining) DESC,a.revision DESC LIMIT 1", [agent.into()]))
+        .await.map_err(|_| held())?.map(|r| serde_json::from_value(r.try_get("","record").map_err(|_| held())?).map_err(|_| held())).transpose()
+}
+
+pub(super) async fn authorize(
+    repo: &PostgresFleetRepository,
+    record: &Activation,
+    proof: &RecoveredProof,
+) -> Result<(), AppError> {
+    let tx = repo.db.begin().await.map_err(|_| held())?;
+    if record.phase.terminal() {
+        container_runtime::lock(&tx, record.claim.agent_id).await?;
+        let observation: runtime::container_control::ContainerReceipt =
+            serde_json::from_value(proof.observation.clone()).map_err(|_| held())?;
+        runtime::container_control::validate_receipt(
+            &observation,
+            &record.claim.previous.prepared.container.registration,
+            0,
+            "observe",
+        )?;
+        if encode(&observation.snapshot)?
+            != record.claim.previous.snapshot.clone().ok_or_else(held)?
+        {
+            return Err(held());
+        }
+        let row=tx.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT a.id FROM runtime_container_activations a JOIN runtime_container_recoveries r
+             ON r.generation::text=a.record#>>'{claim,previous,prepared,container,registration,generation}'
+             WHERE a.id=$1 AND a.record=$2 AND r.lease=$3 AND fleet_activation_anchor(r.generation)
+             AND r.receipt IS NOT NULL AND r.lease_receipt IS NOT NULL AND r.expires_at>clock_timestamp()
+             AND NOT EXISTS(SELECT 1 FROM runtime_container_recoveries n WHERE n.generation=r.generation AND n.epoch>r.epoch)
+             FOR UPDATE OF r,a",[record.claim.id.into(),encode(record)?.into(),encode(&proof.lease)?.into()]))
+             .await.map_err(|_| held())?;
+        if row.is_none() {
+            return Err(held());
+        }
+    } else {
+        checked(&tx, &record.claim, Some((record, proof))).await?;
+    }
+    tx.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "INSERT INTO runtime_container_activation_authorities(activation_id,recovery_id,controller_id,plan_sha256,claim)
+         VALUES($1,$2,$3,$4,$5) ON CONFLICT(activation_id,recovery_id) DO NOTHING",
+        [record.claim.id.into(),proof.lease.request.id.into(),proof.lease.request.controller_id.into(),
+        record.claim.intent_sha256.clone().into(),encode(&record.claim)?.into()])).await.map_err(|_| held())?;
+    tx.commit().await.map_err(|_| held())
+}
+
+pub(super) async fn for_launch(
+    repo: &PostgresFleetRepository,
+    launch: &ContainerLaunch,
+) -> Result<Option<Activation>, AppError> {
+    let row=repo.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT a.record FROM runtime_container_activations a WHERE a.agent_id=$1
+         AND (a.record#>>'{claim,candidate,generation}'=$2::text OR a.record#>>'{claim,rollback,generation}'=$2::text)
+         AND EXISTS(SELECT 1 FROM runtime_container_activation_authorities x WHERE x.activation_id=a.id)",
+        [launch.prepared.agent_id.into(),launch.prepared.container.registration.generation.into()])).await.map_err(|_| held())?;
+    let record: Option<Activation> = row
+        .map(|r| {
+            serde_json::from_value(r.try_get("", "record").map_err(|_| held())?).map_err(|_| held())
+        })
+        .transpose()?;
+    if record.as_ref().is_some_and(|a| !a.tracks_launch(launch)) {
+        return Err(held());
+    }
+    Ok(record)
+}
 
 fn encode<T: serde::Serialize>(value: &T) -> Result<Value, AppError> {
     serde_json::to_value(value).map_err(|_| held())
@@ -147,7 +226,11 @@ pub(super) async fn generation_intent_hash(
         .map(|r| r.try_get("", "hash").map_err(|_| held())).transpose()
 }
 
-async fn checked(tx: &DatabaseTransaction, claim: &Claim) -> Result<(), AppError> {
+async fn checked(
+    tx: &DatabaseTransaction,
+    claim: &Claim,
+    recovered: Option<(&Activation, &RecoveredProof)>,
+) -> Result<(), AppError> {
     let agent = container_runtime::lock(tx, claim.agent_id).await?;
     if agent.try_get::<String>("", "kind").map_err(|_| held())? != "hermes"
         || agent
@@ -165,8 +248,37 @@ async fn checked(tx: &DatabaseTransaction, claim: &Claim) -> Result<(), AppError
             AND NOT EXISTS(SELECT 1 FROM session_agent_runs WHERE agent_id=$1 AND state IN ('pending','running','waiting','stopping'))
             AND NOT EXISTS(SELECT 1 FROM hermes_dispatch_journal WHERE agent_id=$1 AND state IN ('prepared','submitted'))
             AND NOT EXISTS(SELECT 1 FROM message_dispatch_outbox WHERE agent_id=$1 AND state IN ('dispatching','uncertain'))
-            AND NOT EXISTS(SELECT 1 FROM runtime_container_recoveries x JOIN runtime_container_launches l USING(generation) WHERE l.agent_id=$1)",
-        [claim.agent_id.into(),claim.revision.into()])).await.map_err(|_| held())?.ok_or_else(held)?;
+            AND (NOT EXISTS(SELECT 1 FROM runtime_container_recoveries x JOIN runtime_container_launches l USING(generation) WHERE l.agent_id=$1)
+                OR ($3::uuid IS NOT NULL AND fleet_activation_anchor($3)
+                  AND NOT EXISTS(SELECT 1 FROM runtime_container_recoveries x JOIN runtime_container_launches l USING(generation) WHERE l.agent_id=$1 AND l.generation<>$3)))",
+        [claim.agent_id.into(),claim.revision.into(),recovered.map(|_| claim.previous.prepared.container.registration.generation).into()])).await.map_err(|_| held())?.ok_or_else(held)?;
+    if let Some((record, proof)) = recovered {
+        let b = &claim.previous.prepared.container;
+        let receipt: runtime::container_control::ContainerReceipt =
+            serde_json::from_value(proof.observation.clone()).map_err(|_| held())?;
+        runtime::container_control::validate_receipt(&receipt, &b.registration, 0, "observe")?;
+        if encode(&record.claim)? != encode(claim)?
+            || proof.lease.request.launch_id != b.registration.generation
+            || proof.lease.request.agent_id != claim.agent_id
+            || proof.lease.request.original_controller_id != claim.controller_id
+            || proof.lease.request.controller_id == claim.controller_id
+            || proof.lease.request.launch_sha256
+                != runtime::container_control::launch_hash(&claim.previous)?
+            || encode(&receipt.snapshot)? != claim.previous.snapshot.clone().ok_or_else(held)?
+        {
+            return Err(held());
+        }
+        let current=tx.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT r.id FROM runtime_container_recoveries r JOIN runtime_container_activations a ON a.id=$1
+             WHERE a.record=$2 AND r.generation=$3 AND r.lease=$4
+             AND r.receipt IS NOT NULL AND r.lease_receipt IS NOT NULL AND r.expires_at>clock_timestamp()
+             AND NOT EXISTS(SELECT 1 FROM runtime_container_recoveries n WHERE n.generation=r.generation AND n.epoch>r.epoch) FOR UPDATE OF r,a",
+            [claim.id.into(),encode(record)?.into(),b.registration.generation.into(),encode(&proof.lease)?.into()]))
+            .await.map_err(|_| held())?;
+        if current.is_none() {
+            return Err(held());
+        }
+    }
     if row
         .try_get::<Option<i64>>("", "effective_revision")
         .map_err(|_| held())?
@@ -202,7 +314,7 @@ pub(super) async fn claim(
     claim: &Claim,
 ) -> Result<Activation, AppError> {
     let tx = repo.db.begin().await.map_err(|_| held())?;
-    checked(&tx, claim).await?;
+    checked(&tx, claim, None).await?;
     if claim.id.is_nil()
         || claim.controller_id.is_nil()
         || claim.previous.controller_id != claim.controller_id
@@ -303,6 +415,15 @@ pub(super) async fn advance(
     old: &Activation,
     next: &Activation,
 ) -> Result<(), AppError> {
+    advance_proved(repo, old, next, None).await
+}
+
+pub(super) async fn advance_proved(
+    repo: &PostgresFleetRepository,
+    old: &Activation,
+    next: &Activation,
+    proof: Option<&RecoveredProof>,
+) -> Result<(), AppError> {
     old.validate_next(next)?;
     if next.previous_stop.is_some() {
         stop_proof(&old.claim.previous, &next.previous_stop)?;
@@ -314,7 +435,24 @@ pub(super) async fn advance(
         )?;
     }
     let tx = repo.db.begin().await.map_err(|_| held())?;
-    checked(&tx, &old.claim).await?;
+    checked(&tx, &old.claim, proof.map(|p| (old, p))).await?;
+    if let Some(proof) = proof {
+        let row=tx.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT activation_id FROM runtime_container_activation_authorities WHERE activation_id=$1 AND recovery_id=$2
+             AND controller_id=$3 AND plan_sha256=$4 AND claim=$5",
+            [old.claim.id.into(),proof.lease.request.id.into(),proof.lease.request.controller_id.into(),old.claim.intent_sha256.clone().into(),encode(&old.claim)?.into()]))
+            .await.map_err(|_| held())?;
+        if row.is_none() {
+            return Err(held());
+        }
+        tx.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT set_config('fleet.container_recovery_id',$1,true)",
+            [proof.lease.request.id.to_string().into()],
+        ))
+        .await
+        .map_err(|_| held())?;
+    }
     tx.execute(Statement::from_sql_and_values(
         DatabaseBackend::Postgres,
         "SELECT set_config('fleet.container_activation_id',$1,true)",

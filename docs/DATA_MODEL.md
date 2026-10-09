@@ -83,6 +83,15 @@ bytes/credentials stay in fsynced0600 private plans. Launch custody and effectiv
 publication commit atomically with their activation steps. Populated custody
 blocks downgrade; empty down restores exact17 guard definitions. See
 [unit18 transitions and gates](CONTAINER_ACTIVATION_RELEASE.md).
+
+Additive `m20261009_000019_recovered_activation` adds immutable
+`runtime_container_activation_authorities`: original activation/claim/plan hash,
+original recovery ID and current logical controller. Every native continuation
+and phase CAS checks the exact current native lease/ACK and original readback;
+history alone is not authority. It narrowly permits exited-anchor renewal only
+for a fenced original activation (or its exact published generation), preserving
+all other16 predicates/OID and empty-down restoration. Canonical/split inventories
+are20/23. See [Base4 consumer](RECOVERED_ACTIVATION_CONSUMER.md).
 The standalone integration introduces no further migration. Configuration,
 intent and mapping JSON hashes use the same Base ASCII-escaped canonical recipe,
 including Unicode/SMP keys and values; existing mismatched hashes are never

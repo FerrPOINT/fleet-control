@@ -17,30 +17,55 @@ use uuid::Uuid;
 const LIMIT: usize = 64 * 1024;
 const DEADLINE: Duration = Duration::from_secs(60);
 // Execute only the exact captured utility bytes, never a mutable checkout import or pyc.
-const BOOTSTRAP: &str = r#"import io,json,sys,types
+const BOOTSTRAP: &str = r#"import io,json,sqlite3,sys,types
 from pathlib import Path
 payload=json.load(sys.stdin)
 sys.stdin=io.TextIOWrapper(io.BytesIO(json.dumps(payload['request'],ensure_ascii=False,separators=(',',':')).encode('utf-8')),encoding='utf-8')
 package=types.ModuleType('scripts')
 package.__path__=[]
 sys.modules['scripts']=package
-for name,source in zip(('runtime_boundary','runtime_bootstrap','runtime_control'),payload['sources'],strict=True):
+for name,source in zip(('runtime_boundary','runtime_bootstrap','runtime_control','runtime_replacement'),payload['sources'],strict=True):
     qualified='scripts.'+name
-    module=types.ModuleType('__main__' if name=='runtime_control' else qualified)
+    module=types.ModuleType(qualified)
     module.__package__='scripts'
     module.__file__=str(Path(sys.argv[1])/'scripts'/(name+'.py'))
     sys.modules[qualified]=module
     setattr(package,name,module)
-    if name=='runtime_control':
-        sys.modules['__main__']=module
     exec(compile(source,module.__file__,'exec'),module.__dict__)
+def original_stop_readback(request, engine_factory=None):
+    control=package.runtime_control
+    boundary=package.runtime_boundary
+    boundary.closed(request,('anchor','operation_id','stop_journal'))
+    anchor=request['anchor']
+    if control.validate_request(anchor)!='observe' or anchor['protocol_version']!=3:
+        raise boundary.BoundaryError('Recovered original observation required')
+    boundary.canonical_uuid(request['operation_id'])
+    path=Path(request['stop_journal'])
+    if not path.is_absolute() or path.parent!=Path(anchor['journal']).parent or str(path)!=request['stop_journal']:
+        raise boundary.BoundaryError('Original private stop evidence required')
+    engine=(engine_factory or control.Engine)(anchor['context'])
+    guard=control.recovered_mount_guard(engine,anchor)
+    result=package.runtime_replacement.stop_readback(engine,anchor['policy'],anchor['registration'],
+        anchor['compose'],anchor['journal'],request['operation_id'],path,guard)
+    guard(anchor['policy'],(Path(anchor['journal']).parent.resolve(),))
+    return {'protocol_version':4,'action':'read_original_stop','result':result,
+            'request_sha256':boundary.digest(request)}
+if payload.get('entry')=='read_original_stop':
+    try:
+        result=original_stop_readback(payload['request'])
+        print(json.dumps(result,separators=(',',':')))
+        raise SystemExit(0 if result['result']['state']=='observed' else 2)
+    except (package.runtime_boundary.BoundaryError,sqlite3.Error,OSError,ValueError,KeyError,TypeError):
+        print(json.dumps({'protocol_version':4,'action':'read_original_stop','result':{'state':'held'}}))
+        raise SystemExit(2)
+raise SystemExit(package.runtime_control.main())
 "#;
 
 #[derive(Debug, Clone)]
 pub struct ControlSource {
     pub root: PathBuf,
-    /// Boundary, bootstrap and control bytes from an operator-pinned Base checkout.
-    pub sha256: [String; 3],
+    /// Exact boundary, bootstrap, control and replacement executable bytes.
+    pub sha256: [String; 4],
 }
 
 #[derive(Debug, Clone)]
@@ -48,6 +73,7 @@ pub struct ContainerControl {
     python: PathBuf,
     source: ControlSource,
     context: String,
+    replacement: Option<super::container_replacement::Replacement>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -387,6 +413,7 @@ impl ContainerControl {
             python,
             source,
             context,
+            replacement: None,
         })
     }
 
@@ -396,11 +423,82 @@ impl ContainerControl {
         action: &str,
         extra: Value,
     ) -> Result<(i32, Value), AppError> {
+        if let Some(replacement) = &self.replacement {
+            return replacement.call(self, files, action, &extra).await;
+        }
+        let request = self.request(files, action, extra)?;
+        let version = request["protocol_version"].as_u64().ok_or_else(held)? as u8;
+        let (status, bytes) = self.execute_request(&request).await?;
+        let envelope: Envelope = serde_json::from_slice(&bytes).map_err(|_| held())?;
+        if envelope.protocol_version != version || envelope.action != action {
+            return Err(held());
+        }
+        Ok((status, envelope.result))
+    }
+
+    pub(super) fn request(
+        &self,
+        files: &ContainerLaunchFiles,
+        action: &str,
+        extra: Value,
+    ) -> Result<Value, AppError> {
+        let version = if files.recovery.is_some() {
+            3
+        } else if files.mapped.is_some() {
+            2
+        } else {
+            1
+        };
+        let mut request = json!({"protocol_version":version,"action":action,"context":self.context,
+            "policy":files.policy,"compose":files.compose,"journal":files.journal});
+        if let Some(mapped) = &files.mapped {
+            request["mount_mapping"] = json!(mapped.mapping);
+            request["mapping_file"] = json!(mapped.mapping_file);
+        }
+        if let Some(recovery) = &files.recovery {
+            request["recovery"] = json!(recovery);
+            request["recovery_journal"] =
+                json!(files.mapped.as_ref().ok_or_else(held)?.recovery_journal);
+        }
+        if !files.compose.is_absolute()
+            || !files.journal.is_absolute()
+            || !files.stop_journal.is_absolute()
+        {
+            return Err(held());
+        }
+        request
+            .as_object_mut()
+            .ok_or_else(held)?
+            .extend(extra.as_object().ok_or_else(held)?.clone());
+        Ok(request)
+    }
+
+    pub(super) fn replacement(
+        mut self,
+        replacement: super::container_replacement::Replacement,
+    ) -> Self {
+        self.replacement = Some(replacement);
+        self
+    }
+
+    pub(super) async fn execute_request(
+        &self,
+        request: &Value,
+    ) -> Result<(i32, Vec<u8>), AppError> {
+        self.execute_entry(request, "control").await
+    }
+
+    async fn execute_entry(
+        &self,
+        request: &Value,
+        entry: &str,
+    ) -> Result<(i32, Vec<u8>), AppError> {
         let mut sources = Vec::new();
         for (name, expected) in [
             "runtime_boundary.py",
             "runtime_bootstrap.py",
             "runtime_control.py",
+            "runtime_replacement.py",
         ]
         .iter()
         .zip(&self.source.sha256)
@@ -422,42 +520,13 @@ impl ContainerControl {
                 .map_err(|_| held())?;
             sources.push(verified_source(bytes, expected)?);
         }
-        let version = if files.recovery.is_some() {
-            3
-        } else if files.mapped.is_some() {
-            2
-        } else {
-            1
-        };
-        let mut request = json!({"protocol_version":version, "action":action, "context":self.context,
-            "policy":files.policy, "compose":files.compose, "journal":files.journal});
-        if let Some(mapped) = &files.mapped {
-            request["mount_mapping"] = json!(mapped.mapping);
-            request["mapping_file"] = json!(mapped.mapping_file);
-        }
-        if let Some(recovery) = &files.recovery {
-            request["recovery"] = json!(recovery);
-            request["recovery_journal"] =
-                json!(files.mapped.as_ref().ok_or_else(held)?.recovery_journal);
-        }
-        if !files.compose.is_absolute()
-            || !files.journal.is_absolute()
-            || !files.stop_journal.is_absolute()
-        {
-            return Err(AppError::validation(
-                "Docker launch storage must be absolute",
-            ));
-        }
-        request
-            .as_object_mut()
-            .ok_or_else(held)?
-            .extend(extra.as_object().ok_or_else(held)?.clone());
         if serde_json::to_vec(&request).map_err(|_| held())?.len() > LIMIT {
             return Err(held());
         }
-        let payload = serde_json::to_vec(&json!({"request":request, "sources":sources}))
-            .map_err(|_| held())?;
-        if payload.len() > 3 * 1024 * 1024 + LIMIT {
+        let payload =
+            serde_json::to_vec(&json!({"request":request, "sources":sources,"entry":entry}))
+                .map_err(|_| held())?;
+        if payload.len() > 4 * 1024 * 1024 + LIMIT {
             return Err(held());
         }
         let mut command = Command::new(&self.python);
@@ -507,11 +576,68 @@ impl ContainerControl {
         if !matches!(result.0, 0 | 2) {
             return Err(held());
         }
-        let envelope: Envelope = serde_json::from_slice(&result.1).map_err(|_| held())?;
-        if envelope.protocol_version != version || envelope.action != action {
+        Ok(result)
+    }
+
+    pub(super) fn recovered_lease(&self) -> Result<Option<ContainerRecoveryCommand>, AppError> {
+        self.replacement
+            .as_ref()
+            .map(|r| serde_json::from_value(r.anchor["recovery"].clone()).map_err(|_| held()))
+            .transpose()
+    }
+
+    /// Uses Base9b's existing read-only primitive, never stop()/claim() or a new permit.
+    pub(super) async fn read_original_stop(
+        &self,
+        files: &ContainerLaunchFiles,
+        original: &ContainerRegistration,
+        operation_id: Uuid,
+    ) -> Result<ContainerStopReceipt, AppError> {
+        if self.replacement.is_some() || files.recovery.is_none() {
             return Err(held());
         }
-        Ok((result.0, envelope.result))
+        let request = json!({"anchor":self.request(files,"observe",json!({"registration":original}))?,
+            "operation_id":operation_id,"stop_journal":files.stop_journal});
+        let (status, bytes) = self.execute_entry(&request, "read_original_stop").await?;
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Readback {
+            protocol_version: u8,
+            action: String,
+            result: ContainerStopReceipt,
+            request_sha256: String,
+        }
+        let e: Readback = serde_json::from_slice(&bytes).map_err(|_| held())?;
+        if status != 0
+            || e.protocol_version != 4
+            || e.action != "read_original_stop"
+            || e.request_sha256 != canonical_hash(&request)?
+        {
+            return Err(held());
+        }
+        let observed = self.observe(files, original).await?;
+        let receipt = e.result;
+        if receipt.contract_version != original.contract_version
+            || receipt.operation_id != operation_id
+            || receipt.container_id != original.container_id
+            || receipt.resource_id != original.resource_id
+            || receipt.generation != original.generation
+            || receipt.state != ContainerReceiptState::Observed
+            || receipt.observation != ContainerObservation::NamespaceExited
+            || observed.observation != ContainerObservation::NamespaceExited
+            || receipt.snapshot_sha256
+                != canonical_hash(observed.snapshot.as_ref().ok_or_else(held)?)?
+        {
+            return Err(held());
+        }
+        Ok(receipt)
+    }
+
+    pub(super) fn permit_stop(mut self, first: bool) -> Self {
+        if let Some(r) = &mut self.replacement {
+            r.stop_first = first;
+        }
+        self
     }
 
     pub async fn observe(
@@ -543,7 +669,11 @@ impl ContainerControl {
                 .ok_or_else(held)?
                 .remove("attachment")
                 .ok_or_else(held)?;
-            validate_attachment(&attachment, files, original)?;
+            if let Some(replacement) = &self.replacement {
+                replacement.validate_attachment(&attachment, original, &files.policy)?;
+            } else {
+                validate_attachment(&attachment, files, original)?;
+            }
         }
         let endpoint: Endpoint = serde_json::from_value(value).map_err(|_| held())?;
         validate_receipt(&endpoint.receipt, original, status, "endpoint")?;
@@ -590,7 +720,11 @@ impl ContainerControl {
         if status != 0 {
             return Err(held());
         }
-        validate_attachment(&value, files, original)
+        if let Some(replacement) = &self.replacement {
+            replacement.validate_attachment(&value, original, &files.policy)
+        } else {
+            validate_attachment(&value, files, original)
+        }
     }
 
     pub(super) async fn controller_restart(
@@ -1023,12 +1157,22 @@ mod tests {
     fn source_configuration_rejects_implicit_context_and_unpinned_sources() {
         let source = ControlSource {
             root: PathBuf::from("relative"),
-            sha256: ["a".repeat(64), "b".repeat(64), "c".repeat(64)],
+            sha256: [
+                "a".repeat(64),
+                "b".repeat(64),
+                "c".repeat(64),
+                "d".repeat(64),
+            ],
         };
         assert!(ContainerControl::new("python".into(), source, "desktop-linux".into()).is_err());
         let source = ControlSource {
             root: std::env::current_dir().unwrap(),
-            sha256: ["a".repeat(64), "b".repeat(64), "c".repeat(64)],
+            sha256: [
+                "a".repeat(64),
+                "b".repeat(64),
+                "c".repeat(64),
+                "d".repeat(64),
+            ],
         };
         for context in ["", "--host=foreign", "a b", "/remote"] {
             assert!(

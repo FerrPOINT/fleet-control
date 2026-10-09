@@ -8,19 +8,19 @@ import re
 import subprocess
 
 
-BASE_REVISION = "ae8af2342b61090094292e75a7c23bf464757468"
-NAMES = ("runtime_boundary.py", "runtime_bootstrap.py", "runtime_control.py")
+BASE_REVISION = "9b53de7b23593949a9e6c05bd5a4f94b930e50a0"
+NAMES = ("runtime_boundary.py", "runtime_bootstrap.py", "runtime_control.py", "runtime_replacement.py")
 SOURCE = Path(__file__).resolve().parents[1] / "backend/infra/src/runtime/container_lifecycle.rs"
 
 
 def utility_hashes():
-    blocks = re.findall(r'const UTILITY_SHA256: \[&str; 3\] = \[(.*?)\];',
+    blocks = re.findall(r'const CONTROL_SHA256: \[&str; 4\] = \[(.*?)\];',
                         SOURCE.read_text(encoding="utf-8"), re.S)
     if len(blocks) != 1:
         raise ValueError("expected one sealed utility hash array")
     hashes = re.findall(r'"([a-f0-9]{64})"', blocks[0])
     if len(hashes) != len(NAMES):
-        raise ValueError("expected exactly three utility hashes")
+        raise ValueError("expected exactly four utility hashes")
     return dict(zip(NAMES, hashes))
 
 
@@ -30,7 +30,7 @@ def verify(base_checkout, revision=BASE_REVISION):
     expected = utility_hashes()
     for name in NAMES:
         blob = subprocess.run(
-            ["git", "show", f"{revision}:scripts/{name}"], cwd=base_checkout,
+            ["git", "-c", f"safe.directory={Path(base_checkout).resolve().as_posix()}", "show", f"{revision}:scripts/{name}"], cwd=base_checkout,
             capture_output=True, check=True, timeout=10,
         ).stdout
         if hashlib.sha256(blob).hexdigest() != expected[name]:

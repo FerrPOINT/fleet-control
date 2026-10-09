@@ -67,14 +67,15 @@ class ContainerUtilityGitTests(unittest.TestCase):
         changed[verifier.NAMES[-1]] += b"VALUE = 2\n"
         revision = self.tree(changed)
         with patch.object(verifier, "utility_hashes", return_value=self.hashes):
-            with self.assertRaisesRegex(ValueError, "runtime_control.py"):
+            with self.assertRaisesRegex(ValueError, "runtime_replacement.py"):
                 verifier.verify(self.root, revision)
 
-    def test_compiled_hashes_are_base169_canonical_git_hashes(self):
+    def test_compiled_hashes_are_base9b_four_canonical_git_hashes(self):
         self.assertEqual(verifier.utility_hashes(), dict(zip(verifier.NAMES, (
             "2e6bfa6907b93e6d436d2b6668ae20211aca53a64c433f7e1a98ab51245b3e89",
             "5be8066b6f7dc68f8dda7f1040c0626dad272477c019b07263821df7f86b59a2",
-            "a650ed055334799af115a229c202b0f8a63a0917284d722a75f0cac19f22ebb8",
+            "1f53542606d6dc9f88f0fead7c269001f449926d8df6ccf4369d6c9874a9445b",
+            "af73f6bac7dd123b2927c79dc4001edb6fcc32cf6a7de06d2be98309a2ce393e",
         ))))
 
 

@@ -5,6 +5,10 @@
 SDLC implementation is in progress, not production accepted. Current scope and
 remaining blockers: [SDLC implementation](docs/SDLC_IMPLEMENTATION.md).
 
+Docker recovered configuration activation has a default-off
+[Base4 source consumer](docs/RECOVERED_ACTIVATION_CONSUMER.md), not native acceptance
+or production readiness. SDK19a is unchanged; utility9b is sealed separately.
+
 Chat/PM work is in progress: [implementation plan](docs/CHAT_CLARIFICATION_IMPLEMENTATION_PLAN.md),
 [contract](docs/contracts/CHAT_CLARIFICATION_CONTRACT.md). Production chat controllers
 use Fleet/Tracker APIs; workflow dispatch/resume and real PM acceptance remain blocked.

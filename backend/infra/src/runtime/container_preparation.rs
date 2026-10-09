@@ -345,7 +345,7 @@ impl LocalRuntimeSupervisor {
             config.python.clone().into(),
             ControlSource {
                 root: source,
-                sha256: UTILITY_SHA256.map(str::to_owned),
+                sha256: container_lifecycle::CONTROL_SHA256.map(str::to_owned),
             },
             config.context.clone(),
         )?;

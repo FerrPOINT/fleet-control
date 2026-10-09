@@ -39,6 +39,13 @@ admission. See the [source candidate](../plans/2026-10-09-runtime-controls-relea
 
 ## Docker Activation Restart Recovery
 
+Default-off [Base4 recovered activation](../RECOVERED_ACTIVATION_CONSUMER.md)
+uses the same immutable plan and phase machine, not a second planner. Fresh native
+recovered lease and original stop/readback proof precede replacement; exact files,
+physical endpoint and authenticated readiness precede effective publication.
+Unknown effects never gain a new permit. Legacy Base169 limits below are retained
+for the old path; protocol4 has its own explicit phase/hold inventory.
+
 The [config18 restart successor](../CONTAINER_ACTIVATION_RECOVERY_RELEASE.md)
 rediscovers interrupted claims without adopting their owner. Complete original
 plans may resume only under the live original custodian. Restart/recovered owners

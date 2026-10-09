@@ -5,6 +5,13 @@ use serde_json::Value;
 use shared::AppError;
 use uuid::Uuid;
 
+/// Fresh readback, not a transferable permit. Repository checks the exact current lease.
+#[derive(Clone)]
+pub struct RecoveredProof {
+    pub lease: crate::container_runtime::ContainerRecoveryCommand,
+    pub observation: Value,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Generation {

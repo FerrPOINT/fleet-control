@@ -234,6 +234,9 @@ pub struct ContainerControlConfig {
     pub mapping_controller: Option<MappingControllerConfig>,
     #[serde(default)]
     pub provisioning: Option<ContainerProvisioningConfig>,
+    /// Explicit opt-in to Base4 original-plan continuation, never a custody takeover.
+    #[serde(default)]
+    pub recovered_activation: bool,
 }
 
 /// Trusted deployment recipe, never populated from agent settings or HTTP input.
