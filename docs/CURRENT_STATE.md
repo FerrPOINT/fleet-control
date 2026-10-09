@@ -23,6 +23,17 @@ scripts. Its early cleanup fallback also fails before helper checkout; platform
 container disposal succeeds. No backend PASS is claimed. A separate reviewed
 controls successor is required; accepted runtime is unchanged.
 
+Controls successor9d75 was reviewed and ordinarily published. Actual
+[run37961376127](https://github.com/FerrPOINT/fleet-control/actions/runs/37961376127)
+passes setup/source/SDK/Auth checkout and compiler prerequisites, but fails
+`check`; no backend PASS artifact exists. Bounded compiler-location diagnostics
+are the next controls change, not an unqualified rerun. Native Hermes packetfea2
+has30 passing pure checks and closes both driver findings, but its two exact
+images are missing and native commit reserve fails. Original Base169 recovery
+selector15 now passes without skips on Linux for separate source452; its Rust/PG
+regressions and recovered replacement remain pending. See the assembly plan for
+exact source, cleanup and evidence limits.
+
 ## Integrated Original-Key Contract: 9 October 2026
 
 Normal merge `82b7c8e9b8dba1afc460d7d3abfb6e368f113c9d` preserves UI `ae027dd`

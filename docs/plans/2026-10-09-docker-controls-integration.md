@@ -79,6 +79,50 @@ checkout failure in cleanup and pass review before publication.
 This gate targets exact98, notbf27. Its result cannot certify the container
 assembly even after a corrected hosted run succeeds.
 
+The reviewed normal controls successor9d75 explicitly selects Bash and guards
+early cleanup on controls-checkout success. Parent and independent reviewer
+pass24 pure tests. Actual [run37961376127](https://github.com/FerrPOINT/fleet-control/actions/runs/37961376127),
+attempt1/job113924765007, passes setup, all source/SDK/Auth checkouts and compiler
+prerequisites, then fails the `check` stage. No success artifact is uploaded.
+Private Cargo diagnostics were not published and cannot identify the exact cause
+from the generic stage receipt. A new diagnostic-controls packet must expose
+only bounded error codes and allowlisted source locations, never raw messages,
+rendered source, private Base logs or credentials, before another invocation.
+
+## Subsequent Source And Physical Gates
+
+Configuration restart successor452709e (normal parent906) adds read-only
+interrupted-claim discovery, complete original-plan reload and deduplicated
+audited recovery holds. It is separate frombf27 and not silently part of this
+assembly. Its15-case original Base169 fake-engine selector runs on Linux/WSL:
+15 pass, zero skips, exit0. This closes only the Windows-skip verification gap;
+the new Rust/PostgreSQL regressions remain uncompiled/unexecuted. Base169 lacks
+recovered new-generation preparation/attachment, so automatic recovered
+replacement/rollback remains unsupported rather than reported successful.
+
+The new two-Hermes packetfea2 targets exactbf27; seal7a24be65c5470920c35bebd8a1fb1ee7bf9e31cced24e0197949260e20465990
+is verified independently, with30 pure driver cases passing. Both driver findings
+are source-closed: volume subpaths use `HostConfig.Mounts`, and replay rereads
+the single assistant mirror and compares its ID/body. No native run is admitted:
+the exact controller/Hermes images are absent and native6/6GiB commit headroom
+is insufficient. The old packet is not repaired or relabelled. Separately
+qualified candidate image recipes/provenance and a new sealed input packet are
+required; accepted runtime tags/images are never replaced to make tests pass.
+
+Fresh Docker-group audit exits0/complete=true, with37 desktop containers and
+zero containers on each rootless runner daemon, no violations. This verifies
+grouping only, not service health, image availability or runtime acceptance.
+The observed host free commit is3888193536 bytes and C free98441158656 bytes;
+neither a memory reserve nor Forge's stricter108279229428-byte reserve is waived.
+
+Forge source25be retains accepted main. Parent independently runs29 successor
+and40 transport pure tests successfully; this is not the full12 native gate.
+The admitted earlier prepare8904 exits1/OSError without native launch/seal; exact
+project cleanup is empty and protected cache/exports/evidence remain retained.
+Its missing errno is unknown, not retrospectively inferred from low disk space.
+New25be preparation is not invoked while capacity fails. A separately reviewed
+hosted alternative must preserve the original complete matrix and disk reserve.
+
 ## Producer Authority
 
 Fresh remote review retains Tracker PR114 source357caa7 and Workflow PR90

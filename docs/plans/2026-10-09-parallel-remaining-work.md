@@ -10,18 +10,19 @@ checkouts rather than restarting completed work:
 
 | Owner    | Current assignment                                                 | Required handoff                                                                                                              |
 | -------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| Feynman  | Configuration activation after restart/recovered custody           | Separate successor from906; original identity/readback, no unknown-effect redispatch, focused regression tests and explicit holds |
-| Pascal   | Real two-agent Docker/Hermes acceptance driver preparation         | Isolated lifecycle/config/rollback live-driver source and explicit unsupported recovery holds; no execution before review/ACK |
-| Ptolemy  | Forge full gate with reviewed transport and accepted main           | Successor packet for25be2e8, all12 stages and original timeouts; terminal cleanup before another attempt, no stale d0 run         |
-| Anscombe | Full hosted Linux/PostgreSQL backend gate for frozen98             | Exact source/SDK, all mandatory ignored selectors, strict Clippy/schema parity, reviewed workflow before push/dispatch          |
-| Leibniz  | Independent real two-Hermes live-driver review                      | Genuine runtime paths, all scenario assertions, original pins, exact owned cleanup; no product edits or heavy jobs              |
+| Feynman  | Generic Base recovered preparation/attachment capability            | Separate utility successor fromae8; original commands, valid custody, physical exit and no unknown-effect redispatch; no business planner |
+| Pascal   | Source-qualified controller/Hermes image build preparation           | Separate recipes/provenance for missing images; own candidate tags, no accepted-runtime replacement or implicit native fallback |
+| Ptolemy  | Hosted Forge full12 preparation for exact25be                       | Preserve all stages, real PG/OCI, exact daemon versions and original disk reserve; no paid runner or dispatch before review      |
+| Anscombe | Safe compiler diagnostics for failed frozen98 hosted gate           | New controls successor after actual check failure; bounded codes/locations only, all46 stages retained, no blind rerun            |
+| Leibniz  | Independent configuration restart452 crash/custody review            | Exact phase matrix, original-effect/readback/fence counterexamples and source findings; no product edits or heavy jobs           |
 | Parent   | Normal integration, documentation and scoped publication            | Resolve906/c1ff merge, retain migration history, freeze source for new driver packet, admit gates and verify exact-head PRs      |
 
 These are continuations of the existing five workers, not additional competing
 implementations. Each has a separate write set; the parent UI is read-only to
-reviewers. Heavy jobs remain parent-admitted one at a time. The local slot is
-reserved for one Forge preparation only, not a native run. No successor is
-admitted merely because a worker prepared an invocation.
+reviewers. Heavy jobs remain parent-admitted one at a time. The Forge prepare
+has terminated failed and cleaned its exact disposable resources; no local
+heavy job is currently admitted. Capacity and exact-image prerequisites fail.
+No successor is admitted merely because a worker prepared an invocation.
 
 Independent source review closes both configuration18 findings at906 and the
 PG capability-fixture finding atc1ff. These are not Rust/PG/native passes.

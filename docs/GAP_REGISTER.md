@@ -21,10 +21,26 @@ an unavailable helper. All Rust/PG stages remain unexecuted. Fix the build
 controls with regression coverage and review a new immutable packet before
 another push; do not rerun the failed controls unchanged.
 
+Reviewed controls9d75 close those setup defects, but actual successor run
+37961376127 fails at `check` after successful prerequisite checkouts. No PASS
+artifact or exact compiler diagnostic exists. New bounded codes/source-location
+diagnostics are required before another attempt; raw private Cargo logs remain
+excluded. Independent source and pure tests do not close compilation.
+
 The real two-Hermes driver has two independently confirmed test defects:
 inspect the authoritative volume subpath in `HostConfig.Mounts`, and recheck
 the assistant message count/identity/body after replay. Both fixes and exactbf27
 retarget belong to a new sealed driver packet; oldbde preparation is ineligible.
+
+Those driver source fixes are verified in the new exactbf27 packetfea2, with30
+pure tests passing. Native acceptance remains blocked by absent exact controller/
+Hermes images and insufficient native commit reserve. Separate image-build
+qualification must precede a new packet; do not substitute accepted images.
+Separate source452 adds interrupted-claim discovery/original-plan readback and
+audited holds; its15 original Base fake-engine cases pass without Linux skips.
+The authored Rust/PG cases and positive recovered replacement/rollback are
+still pending. Base169 lacks the necessary common recovered preparation/
+attachment capability; its successor is a separate implementation assignment.
 
 ## Runtime Successor Evidence (2026-10-09)
 
