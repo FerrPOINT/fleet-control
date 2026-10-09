@@ -556,6 +556,38 @@ class HostedBackendTests(unittest.TestCase):
             "expectations", "swagger_download", "swagger_hash", "postgres_qualification", "postgres_initialization",
             "gate_execution", "gate_receipts"})
 
+    def test_final_failure_metadata_survives_compiler_artifact_and_cleanup_failure(self):
+        import ast
+        from contextlib import redirect_stdout
+        module = ast.parse((ROOT / gate.HELPER).read_text())
+        function = next(node for node in module.body if isinstance(node, ast.FunctionDef) and node.name == "execute")
+        start = next(index for index, node in enumerate(function.body) if isinstance(node, ast.If)
+                     and "compiler_failure is not None" in ast.unparse(node.test))
+        function.name, function.body = "tail_probe", function.body[start:]
+        module = ast.fix_missing_locations(ast.Module(body=[function], type_ignores=[]))
+        for compiler_failure in (None, {"synthetic_safe_field": True}):
+            for phase, category in (("gate_receipts", "validation"), ("cleanup", "io")):
+                with self.subTest(compiler_failure=compiler_failure, phase=phase):
+                    metadata = dict(category=category, exit_code=None)
+                    environment = dict(vars(gate), success=False, failure=metadata, compiler_failure=compiler_failure,
+                        identity=dict(workflow_sha="a" * 40, run_id=1, run_attempt=1), workflow_sha="a" * 40,
+                        before={}, provenance={"control_sha256": {}}, compiler_stage="check", failed_stage=phase,
+                        code=101, cleanup=dict(scratch=phase != "cleanup", synthetic_databases=True), phase=phase,
+                        temporary=mock.MagicMock(), validate_failure_evidence=mock.Mock(), check_budget=mock.Mock())
+                    exec(compile(module, "<execute-tail-regression>", "exec"), environment)
+                    output = io.StringIO()
+                    with redirect_stdout(output):
+                        self.assertEqual(environment["tail_probe"](), 101)
+                    records = [json.loads(line) for line in output.getvalue().splitlines()]
+                    self.assertEqual(records[-1]["failure"], metadata)
+                    self.assertEqual(records[-1]["control_phase"], phase)
+                    self.assertFalse(records[-1]["all_quality_gate"])
+                    if compiler_failure is not None:
+                        self.assertEqual(records[0]["kind"], "safe_compiler_failure")
+                        self.assertEqual(environment["validate_failure_evidence"].call_count, 1)
+                    else:
+                        self.assertEqual(len(records), 1)
+
     def test_private_logs_never_uploaded_cleanup_always_runs(self):
         steps = self.workflow()["jobs"]["backend"]["steps"]
         artifact = next(step for step in steps if step.get("id") == "artifact")

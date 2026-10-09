@@ -872,7 +872,7 @@ def execute():
     (evidence / "SHA256SUMS").write_text("".join(digest((evidence / name).read_bytes()) + "  " + name + "\n"
                                               for name in ("report.json", "provenance.json")), newline="\n")
     if not success and compiler_failure is not None:
-        failure = dict(version=1, kind="safe_compiler_failure", status="failure", repository=REPOSITORY,
+        failure_artifact = dict(version=1, kind="safe_compiler_failure", status="failure", repository=REPOSITORY,
                        branch=BRANCH, workflow_path=WORKFLOW,
                        **identity, source_sha=SOURCE_SHA, base_sha=BASE_SHA, auth_sha=AUTH_SHA,
                        utility_sha=UTILITY_SHA, utility_inventory_sha256=UTILITY_INVENTORY_SHA,
@@ -881,14 +881,14 @@ def execute():
                        gate_exit_code=code if type(code) is int and 0 <= code <= 255 else None,
                        **compiler_failure, cleanup=cleanup, backend_quality_gate=False,
                        all_quality_gate=False, sdlc_acceptance=False)
-        validate_failure_evidence(failure, workflow_sha=workflow_sha, run_id=identity["run_id"], attempt=identity["run_attempt"])
-        data = canonical(failure)
+        validate_failure_evidence(failure_artifact, workflow_sha=workflow_sha, run_id=identity["run_id"], attempt=identity["run_attempt"])
+        data = canonical(failure_artifact)
         require(len(data) <= FAILURE_SIZE_LIMIT, "Safe compiler evidence exceeds bound")
         failure_root = temporary / "fleet-backend-failure-evidence"
         failure_root.mkdir(exist_ok=False)
         with (failure_root / FAILURE_FILE).open("xb") as output:
             output.write(data)
-        print(json.dumps(failure))
+        print(json.dumps(failure_artifact))
     print(json.dumps(dict(state="backend_quality_gate_passed" if success else "backend_quality_gate_failed",
                           failed_stage=None if success else failed_stage, private_logs_uploaded=False,
                           control_phase=None if success else phase, failure=None if success else failure,
