@@ -203,8 +203,8 @@ test('directory uses server counts, concrete cursors and scoped returnTo across 
   await expect(page.getByRole('button', { name: 'Следующая страница' })).toBeDisabled()
   for (const theme of ['dark', 'light']) {
     if (theme === 'light') {
-      await page.getByRole('button', { name: /^Тема:/ }).click()
-      await page.getByRole('button', { name: /^Тема:/ }).click()
+      await page.getByRole('button', { name: 'Аккаунт', exact: true }).click()
+      await page.getByRole('menuitemradio', { name: 'Светлая', exact: true }).click()
     }
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
     for (const viewport of [

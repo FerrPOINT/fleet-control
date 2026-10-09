@@ -3,6 +3,100 @@
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 
+## Accepted-Main Backend Gate (2026-10-09)
+
+Terminal packet `sdlc-qa-fleet-foundation47-62000c1b0949` passed all14 gates
+on foundation HEAD4cc9a8a with pending normal-merge main2fad131 and a fresh
+private Base checkout19a7a381. Linux Rust1.88.0 fmt, all-target check/strict
+Clippy, both named callback tests, workspace tests, all10 PostgreSQL lineage
+tests, central profile, message ordering, chat directory, approval events,
+clean migration up/status/down-one/reapply, byte-identical generated OpenAPI
+and compiled-source parity passed. Source/frozen/Git/SDK parity passed;
+independent exact-project container/network/volume inventories are empty.
+
+Source manifest SHA256:
+`d8bca134575243dcf420008fb8e90c6bfe0fc2d5b74ac5b1f53a3c3e94e685e8`.
+Gate log SHA256:
+`63d5f7c71be410bbae37c9961cbf69f584024e3ab90c49575c74a9add3c852f4`.
+This gate captured an uncommitted normal merge. Frontend results are recorded
+below; publication and exact-head CI are separate release gates. Permanent runtime
+was not mounted or changed; `sdlc_admission=false`. No live PM vertical or full
+SDLC acceptance is inferred. Preparation notes below describe the earlier state.
+
+## Accepted-Main Frontend Compatibility (2026-10-09)
+
+With verified Base19a7a381, Node22.20.0 and pnpm10.28.1, terminal frontend
+packet560d43fc3d2c passes frozen installs, OpenAPI/client drift, eight contract
+and four compatibility regressions, shared-UI contract, Markdown links,
+typecheck, all257 Vitest cases, lint, formatting, build and packed UI consumer.
+Generated API files and lockfiles remain unchanged. A separate read of actual
+Tracker357caa7 source verifies all seven closed DTOs and the accepted snapshot;
+the producer OpenAPI SHA256 remains7a1131a653ad06898170318b25dea9f78760e07f4f58a0d91b081800efbf074e.
+
+Browser packetd080413b4058 passes all36 fixtures across Chromium/Firefox/WebKit
+without retries;27 live cases skip without a configured live backend. Effective
+dark/gray/light contrast passes. Theme tests use the new account-menu radio
+items and retain responsive directory/settings assertions. All9 controller
+screens and their hashes are regenerated/verified; dialogue375, clarification1920
+and requirements2560 are visually inspected. Full135-screen capture and its
+three-viewport manifest verification pass; the owned preview is stopped.
+All visual evidence remains `liveAcceptance=false`.
+
+Earlier browserdce935503abb failed on the helper's noncanonical127.0.0.1 origin;
+browserf69d05978bdb then exposed selectors for the removed theme-cycle button.
+The helper now uses canonical localhost; tests select real named account-menu
+items without modifying application authorization or setting theme attributes
+directly. These failed captures are retained, not reported as accepted runs.
+
+## Earlier Accepted-Main Reconciliation Preparation (2026-10-09)
+
+Normal `--no-commit --no-ff` reconciliation is prepared with foundation HEAD
+`4cc9a8ade539b9df67b9aaebf6ebe039d72814e5` and accepted main MERGE_HEAD
+`2fad13115f3cb8341cd46679691438b24a1c8ee8`. Main contributes only the Base pin
+`19a7a381ae6dbea61a643bb96189e483fa64df5c` and its shared-theme plan. There are
+no conflicts; the three pending callback-guard/documentation files survived
+byte-for-byte before this gate-note update. Migration000010 and historical
+migration blobs are unchanged. No integration runtime tail is imported.
+
+This is an uncommitted pending exact-source gate, not a failed merge or a new
+foundation acceptance. The required gate below now uses a fresh private checkout
+of Base19a7a381, not the old875 checkout or a mutable Base main. Linux/backend,
+PostgreSQL lineage, API2 and OpenAPI checks have not been run for this candidate.
+The Base pin change additionally requires the normal frontend/client/shared-UI
+and effective-theme release checks. Existing CI and live fixture evidence do
+not certify this reconciliation; publication and live PM acceptance remain pending.
+
+## Scoped PM Callback Guard Preparation (2026-10-09)
+
+Prepared on foundation source `4cc9a8ade539b9df67b9aaebf6ebe039d72814e5`,
+not a new validated or published foundation head. Only the pending integration
+`pm_runtime.rs` Authorization cardinality guard and its focused regression are
+transferred: after credential configuration validation, require exactly one
+header before bearer parsing, repository access or runtime probing. The test
+rejects valid/foreign in both orders and equal-valid duplicates; the existing
+single-header and distinct-credential regression remains unchanged. HMAC
+verification, current credential checks and `observe_pm_run` are preserved.
+The guard itself changes no schema, migration000010, SDK pin, runtime adapter
+or admission behavior; the separate accepted-main reconciliation is recorded above.
+
+Parent reports the matching integration API tests passed on Linux (two focused
+cases in each of three captured packets). That is provenance for this scoped
+guard, not compilation/test evidence for the modified foundation checkout;
+the earlier foundation CI also does not cover this pending change. Preparation
+is limited to diff/structural checks, without Cargo, Docker or a CI run.
+
+Required exact-foundation gate: Linux Rust1.88.0 with locked dependencies and
+verified Base `19a7a381ae6dbea61a643bb96189e483fa64df5c`; run
+`cargo test --locked -p api --lib routes::pm_runtime::tests::` from `backend`
+and require both named cases to execute, plus format, all-target check/strict
+Clippy, the existing foundation PostgreSQL/lineage gates and OpenAPI drift check.
+Normal release checks and exact published-head CI remain required. Remote main
+is now `2fad13115f3cb8341cd46679691438b24a1c8ee8` with Base
+`19a7a381ae6dbea61a643bb96189e483fa64df5c`; the pending normal merge imports
+that accepted pin, but compatibility still requires the exact-candidate gate,
+not acceptance inherited from the earlier875 preparation. No real PM admission
+or live acceptance is claimed.
+
 ## Central Privacy And Strict Wire Reconciliation (2026-10-08)
 
 PR47's existing head5f20540 is normally merged with accepted main

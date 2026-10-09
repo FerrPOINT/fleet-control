@@ -329,6 +329,9 @@ files as proof of complete skill inventory/native provenance.
 `GET /internal/runtime/v1/pm/runs/{session_run_id}` is a machine-only callback
 for Project Workflow, outside browser authentication. It requires the dedicated
 `FLEET_CONTROL_PM__READBACK_TOKEN`; an unset/short/reused credential fails closed.
+With a configured separate credential, exactly one `Authorization` header is
+required. Missing or duplicate headers return `401` before bearer parsing,
+repository access or runtime probing, including two equal valid bearer values.
 The response is the flat Workflow `RuntimeObservation`, without a Fleet envelope.
 It contains immutable Tracker/assignment/execution identity, Fleet run UUID,
 binding, dispatch key, fence, checkpoint and a fresh observation UUID/status.

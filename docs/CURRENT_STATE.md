@@ -1,5 +1,25 @@
 # Current State
 
+## Task-Chat Reconciliation: 9 October 2026
+
+The PR47 candidate normally merges accepted main2fad131 and pins Base19a7a381;
+history and historical migrations are retained, with only task chats000010 new.
+PM readback rejects duplicate Authorization headers before parsing or I/O.
+Linux backend/PostgreSQL gate62000c1b0949 passes all14 stages, including the
+two callback cases, ten lineage tests, clean migration rollback/reapply and
+generated OpenAPI parity. New-pin frontend passes257 tests and its source gates;
+all36 three-browser fixtures pass without retries, while27 live cases skip.
+Named themes are selected through the real account menu. Nine controller images
+are refreshed and visually inspected; full135 capture/manifest verification pass
+at375x812,1920x1080,2560x1440, with the owned preview stopped.
+See the [current ledger](CHAT_CLARIFICATION_VERIFICATION.md).
+
+Publication/exact-head CI and installed compatibility remain separate gates.
+PM creation still stops at `awaiting_admission`; real fenced first-step dispatch,
+structured PM tools, checkpoint/resume, Backlog confirmation and full SDLC are
+not accepted. No installed runtime, image, secret, volume or rollout flag changed.
+The sections below retain evidence for their older source packets.
+
 ## Task-Chat Foundation: 8 October 2026
 
 The PR47 release is reconciled by a normal merge with accepted main

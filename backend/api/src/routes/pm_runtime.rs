@@ -20,6 +20,9 @@ fn authorize(headers: &HeaderMap, expected: &str) -> Result<(), AppError> {
             "PM readback credential is not configured".into(),
         ));
     }
+    if headers.get_all(header::AUTHORIZATION).iter().count() != 1 {
+        return Err(AppError::Unauthorized);
+    }
     let supplied = headers
         .get(header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
@@ -97,6 +100,25 @@ fn separate_credential(config: &shared::AppConfig) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn callback_rejects_duplicate_bearer_headers_in_both_orders() {
+        let secret = "readback-test-only-credential-123456789";
+        let other = "other-test-only-credential-123456789";
+        for (first, second) in [(secret, other), (other, secret), (secret, secret)] {
+            let mut headers = HeaderMap::new();
+            for value in [first, second] {
+                headers.append(
+                    header::AUTHORIZATION,
+                    format!("Bearer {value}").parse().unwrap(),
+                );
+            }
+            assert!(matches!(
+                authorize(&headers, secret),
+                Err(AppError::Unauthorized)
+            ));
+        }
+    }
+
     #[test]
     fn callback_requires_a_distinct_configured_machine_credential() {
         let secret = "readback-test-only-credential-123456789";

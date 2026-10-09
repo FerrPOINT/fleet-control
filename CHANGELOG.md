@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- Reject duplicate Authorization headers on PM runtime readback before parsing
+  or repository/runtime access, including repeated equal bearer credentials.
+- Reconcile the accepted Base19a7a381 pin without rewriting branch history.
+  Exercise named gray/light choices through its account menu in browser tests,
+  retaining responsive chat-directory and managed-settings theme assertions.
+
 - Preserve the central private-owner boundary across task directory counts,
   pages, expanded owner selections, cursors and task chat read/control routes.
   Retain accepted central scopes, authentication-generation reset and Base pin.
