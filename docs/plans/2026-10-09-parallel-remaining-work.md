@@ -38,11 +38,11 @@ findings do not certify an unexecuted compiler, database or live runtime gate.
 
 | Owner    | Current assignment                                                 | Required handoff                                                                                                              |
 | -------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| Ptolemy  | Public-safe Forge replacement and private maintenance delivery | Missing prerequisite: qualified private commit/pin and authenticated delivery. Do not publish private Base copies/base64 or their ancestry; preserve frozen local packets. |
-| Leibniz  | Fleet executable backend gate custody successor | Controls0fe/productb249:53 worker pure checks; parent separately validates18 sealed files/HEAD/parent/delta. Fix reaped-leader cleanup with held custody, bounded drain and exact reap; no actual70-stage run. Retain46 original stages/new selections,19 DBs and strict schema/source qualification. |
-| Feynman  | Native protocol4/F6 interrupted-activation crash cuts | Preserve frozen df6574 and all original nine scenarios; genuine ACK/lease/readback at new crash cuts requires qualified images/resources and a separate native ACK. |
-| Anscombe | Private-pin source audit and independent frozen-source review | Independently qualify exact private source/commit/delivery and replacement controls; Fleet controls0fe review is pending. Source closure is not full/native execution. |
-| Pascal   | Current docs/evidence reconciliation | Verify the retained new Base815 run and hashes; update only current-state/gap/plan docs, without transferring fake evidence to CI/native or rewriting historical packets. |
+| Ptolemy  | Independent native-cut review after Forge1db freeze | Review exactbc0 ACK/CAS, recovered-child/F6 rollback and peer isolation without native launch. Public-safe Forge1db awaits Anscombe; private maintenance pin remains missing. |
+| Leibniz  | Fleet executable backend gate custody/deadline successor | Controls0fe/productb249: fix reaped-leader signalling plus setup/global cleanup-upload budget; normal successor only. Retain all70 stages,19 DBs and strict source/schema pins. |
+| Feynman  | Native-image prerequisite audit after cutbc0 freeze | Preserve df657 and all original nine scenarios; locate only known exact archive metadata or record missing artifacts. No load/build/pull, pin replacement or native launch. |
+| Anscombe | Independent public-safe Forge and backend successor review | Maintenance publication audit complete: no qualified pin found in bounded scope. Review1db, then exact backend custody/deadline successor; do not transfer source closure to execution. |
+| Pascal   | Current Fleet/Tracker wire-contract qualification | Compare immutable b249/Tracker357 seven DTOs and command/replay behavior. Tracker/Workflow read-only; missing exact answer-key readback is not an invented endpoint. |
 | Parent   | Normal integration, gate coordination and scoped publication | Review frozen handoffs, normally integrate accepted source, admit combined gates and reconcile exact receipts. Private-pin, private Base CI, native and PM/Workflow prerequisites cannot be waived. |
 
 ### Retained Base815 Fake-Contract Evidence
@@ -85,6 +85,29 @@ admission remain necessary; no prepared invocation is an execution grant.
 
 ### Current Frozen Handoffs
 
+- Public-safe Forge1dbedf85242c3540b70005ce5f0c20badb682c41 has sole
+  parent25be and no unsafe controls ancestry. Parent checks25 components, lock,
+  report hash, exact HEAD/tree/parent and clean checkout. Seal SHA256:
+  e71bed719ff25477adb2d82145069a6df2bac618c7b110febe8daf1a49cece20.
+  Owner118 Linux pure cases pass; independent review is pending. All12 budgets
+  and source265 remain; maintenance commit is null, so authenticated private
+  delivery and actual full12 remain blocked. No push or dispatch occurred.
+- Native-cut helperbc0b85ee47ceb159daf304b25665d1e1cb70a689 has sole
+  parentdf657. Parent checks all27 sealed files, raw hashes/Git blob IDs and
+  exact HEAD/tree/parent/clean checkout. Seal SHA256:
+  06b072bc5adcfe827c59c3f463cc002ca38503ca1621e3cbdebcb514a7f6c584.
+  Owner75 pure cases pass. Genuine original-stop ACK is withheld before Fleet
+  phase-CAS; recovery then exercises A -> next B -> failed C -> current B rollback
+  with peer checks. This is implemented QA source, not native execution.
+  Independent review, locked compile, Linux filesystem and physical timing/
+  cleanup acceptance remain open. Exact controller/Hermes images are currently
+  absent and local heavy RAM guard fails; no native run was started.
+- Fleet controls0fe independent review passes10 bounded probes but confirms two
+  findings: reaped leader is signalled by historical PGID, and setup601s plus
+  relative gate6600s can exceed job120min before cleanup/upload. Counterexample
+  reproduction is not a safety PASS. Source wiring independently covers all70
+  transitions,367 input hashes, canonical20/split23 guards and19 DBs. A normal
+  held-custody/shared-deadline successor owns closure; actual70 is NOT RUN.
 - Fleet sequential-activation successord3066ebbbda168f16f59697831ea92de5132527b
   has sole parentf326. Worker reports21 Linux fake-contract cases and15 Windows
   loader/hash/README cases passing. Two new Rust and four PG regressions have not

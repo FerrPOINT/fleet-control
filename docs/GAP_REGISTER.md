@@ -41,6 +41,14 @@ Source integration is progress, not release acceptance. Its remaining gates are:
   Qualify authenticated private-Git delivery and a public-safe controls history
   first, preserving the frozen local packet without rewriting it.
 
+Public-safe Forge controls1dbedf8 are now separately frozen from product25be;
+parent exact-source/lock/seal checks pass, independent review is pending. The
+missing private maintenance commit remains a real execution dependency, not a
+permission to use dirty/local-install bytes. Native-cut helperbc0b85e similarly
+has a verified source-only seal, not compiled/native acceptance. Fresh read-only
+Docker inspection finds controller076f31/Hermesf42cb images absent; PGb0f956 is
+present. Available local commit RAM remains below the6GiB heavy guard.
+
 New retained Base815 Linux fake-contract evidence is224/224, zero skips,44.041s,
 exit0, with exact canonical inputs/source parity and owned cleanup. It closes the
 new local raw-log retention item only, not CI, image/native acceptance or PM
@@ -49,6 +57,8 @@ keep this run separate from historical88.807s and the prepared execution gates.
 Fleet controls freeze0fe has53 worker pure checks and a separately parent-verified
 18-file seal. Normal exit reaps its child before cleanup signals the old PGID;
 held-leader custody/drain/reap needs a reviewed normal successor before dispatch.
+The same review identifies setup outside the6600s wait and no shared deadline/
+cleanup-upload reserve; both findings remain open on frozen0fe.
 No actual70-stage result exists. This hosted path has no ComposeHelper/local
 Docker dependency; do not apply Forge's maintenance-pin hold to it. Parent remote readback
 keeps Workflow PR90 Draft/master and Tracker PR114 Draft/main, neither merged;

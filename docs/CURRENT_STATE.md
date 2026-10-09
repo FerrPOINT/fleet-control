@@ -30,12 +30,23 @@ heads; they do not accept this assembly.
   closure, including17 actual bounded deadline probes. These substitute external
   I/O and are not full12/PG/OCI acceptance. Product25be/SDK19a and budgets remain
   unchanged; full12 is NOT RUN.
+- Public-safe Forge successor1dbedf8 has sole product25be parent, without the
+  private-copy controls ancestry. Parent verifies its25 component hashes, lock,
+  exact HEAD/tree/parent and clean checkout. Owner118 Linux pure cases pass;
+  independent review remains pending. Maintenance commit is explicitly null and
+  execution fails closed; no private checkout/full12 acceptance is claimed.
 - Separate native-driver source df6574b targets exactb249/Base9b and four
   canonical utility modules, preserving the original nine scenarios. Its47 pure
   tests pass; independent scoped source review passes20 targeted pure cases.
   Compiled source/image qualification and actual native execution remain pending.
   Interrupted protocol4 activation and F6
   sequential recovered-child cuts are not yet exercised by that driver.
+- Separate QA successorbc0b85e preserves df657 and adds the genuine stop-ACK/
+  pre-CAS cut plus recovered A -> next B -> failed C -> current B rollback.
+  Owner75 pure cases pass; parent verifies all27 sealed source files and exact
+  HEAD/tree/parent. Independent review, compilation and native execution remain
+  pending. Fresh image inspection finds PG present but both pinned controller
+  and Hermes images absent; local available commit RAM is below the6GiB guard.
 - Base815 has new retained Linux fake-contract evidence:224 passed, zero skips,
   44.041s, exit0; exact source/parents,14 canonical inputs and cleanup are verified.
   The [retained evidence](plans/2026-10-09-parallel-remaining-work.md#retained-base815-fake-contract-evidence)
@@ -47,7 +58,9 @@ heads; they do not accept this assembly.
 Fleet backend controls freeze0fe has53 worker pure checks; the parent separately
 verifies all18 sealed files, exact HEAD/parent and six-addition delta. Review finds
 a process-custody defect: normal wait reaps the leader before cleanup signals its
-historical PGID. A normal successor is assigned; no actual70-stage gate has run.
+historical PGID. Independent review also finds setup outside the6600s wait with
+no shared cleanup/upload reserve. A normal successor is assigned for both;
+no actual70-stage gate has run.
 This hosted path uses no ComposeHelper/local Docker, so the missing maintenance
 pin blocks Forge/native maintenance paths, not this backend gate. Product assembly
 and combined Rust/PG/native acceptance remain unchanged.
