@@ -17,6 +17,32 @@ checkouts rather than restarting completed work:
 | Leibniz  | Independent Fleet frozen-source closure                             | Closure of all five findings with exact source identity and honest separation of pure, SQL-prepared, Rust and PostgreSQL evidence |
 | Parent   | Normal integration, documentation and scoped publication             | Base PR180 published after exact-head Linux224 and independent review; accept remaining units separately, do not certify full SDLC |
 
+### Current Frozen Handoffs
+
+- Fleet worker sourcef326cdab4045f726449bf07e61a96a1b75e3063a has sole
+  parent30f0993. All five finding fixes are submitted for independent closure.
+  Parent merge-tree preflight against3fa0847 is conflict-free (candidate
+  tree3864fbf6ef66f930b3006c9a0b2b81a6819faf28), not an integrated commit or
+  a Rust/PG gate. Sequential activation from a recovered effective child remains
+  incomplete and is assigned as a separate normal successor, not accepted as
+  a permanent limitation of the requested configuration lifecycle.
+- Forge controls34c80c1b2921550ed0e97961be89089dc5afc075 has sole product
+  parent25be. The final distribution is three fresh sequential jobs A1-5,
+  B6 and C7-12, not the earlier two-job proposal. Parent repeats all73 pure
+  controls tests successfully in14.988s; independent frozen closure and actual
+  full12 remain required. No push or hosted execution occurred.
+- PM conformance packet seal425f0d686a7fff71541f979edc04d4e1718446679e7d8fffc577be5b8be64b2f
+  is independently repeated by parent:24/24, zero skips,457 canonical imported
+  Hermes Git blobs, scratch absent. Eight real-module probes are distinct from
+  sixteen synthetic contract-oracle cases. Admission remains BLOCKED. Porting
+  the reproducible tests/requirements into a separate tracked Fleet source unit
+  is assigned; no runtime endpoint or capability is enabled by these tests.
+- Parent chat fix3fa084753dc3e755c762e0ad8c3554386632d71b preserves the
+  original uncertain clarification answer across questions/versions. Node22
+  passes331 tests, typecheck/lint/build and the three-browser fixture; nine
+  screenshot hashes/dimensions/routes are generated and verified separately.
+  [Scope and remaining live acceptance](2026-10-09-clarification-answer-recovery.md).
+
 These are continuations of the existing five workers, not additional competing
 implementations. Each has a separate write set; the parent UI is read-only to
 reviewers. Heavy jobs remain parent-admitted one at a time. The Forge prepare
