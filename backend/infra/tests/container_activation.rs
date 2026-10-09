@@ -439,6 +439,613 @@ async fn origin_live(db: &impl ConnectionTrait, launch: &ContainerLaunch) -> boo
     .unwrap()
 }
 
+async fn next_claim(
+    repo: &PostgresFleetRepository,
+    db: &DatabaseConnection,
+    a: &Agent,
+    parent: &Activation,
+) -> Claim {
+    let actor:Uuid=db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT created_by_user_id FROM agent_config_revisions WHERE agent_id=$1 AND revision=$2",
+        [a.id.into(),parent.claim.revision.into()])).await.unwrap().unwrap().try_get("","created_by_user_id").unwrap();
+    let draft = repo
+        .create_config_revision(
+            a.id,
+            domain::UpdateAgentConfigRequest {
+                config_json: json!({}),
+                soul_md: format!("next after {}", parent.claim.revision),
+                env_json: json!({}),
+            },
+            actor,
+        )
+        .await
+        .unwrap();
+    repo.validate_config_revision(a.id, draft.revision, vec![])
+        .await
+        .unwrap();
+    repo.request_config_activation(a.id, draft.revision, actor)
+        .await
+        .unwrap();
+    let claimed = repo.claim_config_activation().await.unwrap().unwrap();
+    assert_eq!((claimed.agent_id, claimed.revision), (a.id, draft.revision));
+    let published = if parent.phase == Phase::Committed {
+        parent.candidate.as_ref()
+    } else {
+        parent.rollback.as_ref()
+    }
+    .unwrap();
+    let mut c = parent.claim.clone();
+    c.lineage = Some(Lineage {
+        anchor: parent.claim.anchor().clone(),
+        family_id: parent
+            .claim
+            .lineage
+            .as_ref()
+            .map_or(parent.claim.id, |l| l.family_id),
+        predecessor_activation_id: parent.claim.id,
+        predecessor_intent_sha256: parent.claim.intent_sha256.clone(),
+    });
+    c.id = Uuid::new_v4();
+    c.revision = draft.revision;
+    c.previous = published.clone();
+    c.previous_revision = published.prepared.configuration_revision;
+    c.previous_configuration_sha256 = published.prepared.configuration_sha256.clone();
+    c.previous_files_sha256 = parent.readiness.as_ref().unwrap().files_sha256.clone();
+    c.configuration_sha256 = hash(&draft.snapshot);
+    c.intent_sha256 = hash(&json!({"next":c.id}));
+    c.candidate = generation();
+    c.rollback = generation();
+    c
+}
+
+async fn publish_next(
+    repo: &PostgresFleetRepository,
+    a: &Agent,
+    mut record: Activation,
+    proof: &RecoveredProof,
+    rollback: bool,
+) -> Activation {
+    recovered_step(repo, &mut record, proof, Phase::StoppingPrevious).await;
+    // A restarted worker reads the durable original child stop; no new stop ID/permit.
+    record = repo
+        .get_container_activation(a.id, record.claim.revision)
+        .await
+        .unwrap()
+        .unwrap();
+    let mut next = record.clone();
+    next.phase = Phase::PreviousStopped;
+    next.previous_stop = Some(stop(&record.claim.previous));
+    repo.advance_recovered_activation(&record, &next, proof)
+        .await
+        .unwrap();
+    record = next;
+    recovered_step(repo, &mut record, proof, Phase::ApplyingCandidate).await;
+    recovered_step(repo, &mut record, proof, Phase::PreparingCandidate).await;
+    let mut child = record.claim.previous.clone();
+    child.state = "claimed".into();
+    child.snapshot = None;
+    child.origin = None;
+    child.stop_id = record.claim.candidate.stop_id;
+    child.prepared.configuration_revision = Some(record.claim.revision);
+    child.prepared.configuration_sha256 = Some(record.claim.configuration_sha256.clone());
+    child.prepared.container.registration.generation = record.claim.candidate.generation;
+    child.prepared.container.registration.operation_id = record.claim.candidate.operation_id;
+    child.prepared.container.registration.container_id = record
+        .claim
+        .candidate
+        .generation
+        .simple()
+        .to_string()
+        .repeat(2);
+    let mut next = record.clone();
+    next.phase = Phase::CandidatePrepared;
+    next.candidate = Some(child);
+    repo.advance_recovered_activation(&record, &next, proof)
+        .await
+        .unwrap();
+    record = next;
+    recovered_step(repo, &mut record, proof, Phase::StartingCandidate).await;
+    let mut next = record.clone();
+    next.phase = Phase::CandidateRunning;
+    next.candidate = Some(running(record.candidate.clone().unwrap()));
+    repo.advance_recovered_activation(&record, &next, proof)
+        .await
+        .unwrap();
+    record = next;
+    if rollback {
+        let mut next = record.clone();
+        next.phase = Phase::StoppingCandidate;
+        next.candidate.as_mut().unwrap().state = "stopping".into();
+        repo.advance_recovered_activation(&record, &next, proof)
+            .await
+            .unwrap();
+        record = next;
+        let mut next = record.clone();
+        next.phase = Phase::CandidateStopped;
+        next.candidate_stop = Some(stop(record.candidate.as_ref().unwrap()));
+        next.candidate.as_mut().unwrap().state = "exited".into();
+        repo.advance_recovered_activation(&record, &next, proof)
+            .await
+            .unwrap();
+        record = next;
+        recovered_step(repo, &mut record, proof, Phase::ApplyingRollback).await;
+        recovered_step(repo, &mut record, proof, Phase::PreparingRollback).await;
+        let mut restored = record.claim.previous.clone();
+        restored.state = "claimed".into();
+        restored.snapshot = None;
+        restored.origin = None;
+        restored.stop_id = record.claim.rollback.stop_id;
+        restored.prepared.container.registration.generation = record.claim.rollback.generation;
+        restored.prepared.container.registration.operation_id = record.claim.rollback.operation_id;
+        restored.prepared.container.registration.container_id = record
+            .claim
+            .rollback
+            .generation
+            .simple()
+            .to_string()
+            .repeat(2);
+        let mut next = record.clone();
+        next.phase = Phase::RollbackPrepared;
+        next.rollback = Some(restored);
+        repo.advance_recovered_activation(&record, &next, proof)
+            .await
+            .unwrap();
+        record = next;
+        recovered_step(repo, &mut record, proof, Phase::StartingRollback).await;
+        let mut next = record.clone();
+        next.phase = Phase::RollbackRunning;
+        next.rollback = Some(running(record.rollback.clone().unwrap()));
+        repo.advance_recovered_activation(&record, &next, proof)
+            .await
+            .unwrap();
+        record = next;
+    }
+    let mut next = record.clone();
+    next.phase = if rollback {
+        Phase::RollbackReady
+    } else {
+        Phase::CandidateReady
+    };
+    assert!(
+        repo.advance_recovered_activation(&record, &next, proof)
+            .await
+            .is_err()
+    );
+    next.readiness = Some(Readiness {
+        generation: if rollback {
+            record.claim.rollback.generation
+        } else {
+            record.claim.candidate.generation
+        },
+        files_sha256: if rollback {
+            record.claim.previous_files_sha256.clone()
+        } else {
+            record.claim.files_sha256.clone()
+        },
+        capabilities_sha256: "8".repeat(64),
+    });
+    repo.advance_recovered_activation(&record, &next, proof)
+        .await
+        .unwrap();
+    record = next;
+    recovered_step(
+        repo,
+        &mut record,
+        proof,
+        if rollback {
+            Phase::RolledBack
+        } else {
+            Phase::Committed
+        },
+    )
+    .await;
+    record
+}
+
+async fn sequential_publication(previous_rollback: bool) {
+    for rollback in [false, true] {
+        let (repo, db, a, parent, proof) = recovered_publication(previous_rollback).await;
+        let frozen = json!(parent);
+        let claim = next_claim(&repo, &db, &a, &parent).await;
+        repo.authorize_recovered_activation(&parent, &proof)
+            .await
+            .unwrap();
+        assert!(repo.claim_container_activation(&claim).await.is_err());
+        let record = repo
+            .claim_recovered_container_activation(&claim, &proof)
+            .await
+            .unwrap();
+        let current = publish_next(&repo, &a, record, &proof, rollback).await;
+        let published = if rollback {
+            current.rollback.as_ref()
+        } else {
+            current.candidate.as_ref()
+        }
+        .unwrap();
+        assert_eq!(published.controller_id, parent.claim.controller_id);
+        assert_eq!(
+            current
+                .claim
+                .anchor()
+                .prepared
+                .container
+                .registration
+                .generation,
+            proof.lease.request.launch_id
+        );
+        assert_ne!(
+            current
+                .claim
+                .previous
+                .prepared
+                .container
+                .registration
+                .generation,
+            proof.lease.request.launch_id
+        );
+        assert_eq!(
+            published.prepared.configuration_revision,
+            if rollback {
+                claim.previous_revision
+            } else {
+                Some(claim.revision)
+            }
+        );
+        assert_eq!(
+            published.prepared.configuration_sha256,
+            if rollback {
+                claim.previous_configuration_sha256.clone()
+            } else {
+                Some(claim.configuration_sha256.clone())
+            }
+        );
+        assert!(origin_live(&db, published).await);
+        assert!(!origin_live(&db, &claim.previous).await);
+        assert_eq!(
+            json!(
+                repo.get_container_activation(a.id, parent.claim.revision)
+                    .await
+                    .unwrap()
+                    .unwrap()
+            ),
+            frozen
+        );
+        assert!(
+            repo.claim_container_recovery(published, &recovered_command(published))
+                .await
+                .is_err()
+        );
+        // A third requested revision also inherits the root, not this newly effective child.
+        let third = next_claim(&repo, &db, &a, &current).await;
+        repo.authorize_recovered_activation(&current, &proof)
+            .await
+            .unwrap();
+        let planned = repo
+            .claim_recovered_container_activation(&third, &proof)
+            .await
+            .unwrap();
+        assert_eq!(
+            planned
+                .claim
+                .anchor()
+                .prepared
+                .container
+                .registration
+                .generation,
+            proof.lease.request.launch_id
+        );
+        assert_eq!(
+            planned.claim.lineage.as_ref().unwrap().family_id,
+            parent.claim.id
+        );
+        db.close().await.unwrap();
+    }
+}
+
+#[tokio::test]
+#[ignore = "requires isolated FLEET_CONTAINER_ACTIVATION_TEST_DATABASE_URL"]
+async fn recovered_committed_child_next_activation_and_failure_rollback_keep_original_anchor() {
+    sequential_publication(false).await;
+}
+
+#[tokio::test]
+#[ignore = "requires isolated FLEET_CONTAINER_ACTIVATION_TEST_DATABASE_URL"]
+async fn recovered_rolled_back_child_next_activation_and_failure_rollback_keep_original_anchor() {
+    sequential_publication(true).await;
+}
+
+#[tokio::test]
+#[ignore = "requires isolated FLEET_CONTAINER_ACTIVATION_TEST_DATABASE_URL"]
+async fn recovered_next_claim_rejects_foreign_lineage_unknown_lease_and_duplicate_plan() {
+    let (repo, db, a, parent, proof) = recovered_publication(false).await;
+    let claim = next_claim(&repo, &db, &a, &parent).await;
+    let revision = repo
+        .list_config_revisions(a.id)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|r| r.revision == claim.revision)
+        .unwrap();
+    let mut preplan = RecoveryHold::new(proof.lease.request.controller_id, &claim.previous, None);
+    preplan.bind_custody(parent.claim.anchor());
+    repo.hold_container_activation(&revision, None, &claim.previous, &preplan)
+        .await
+        .unwrap();
+    assert!(
+        repo.get_container_activation(a.id, claim.revision)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    let actor:Uuid=db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT created_by_user_id FROM agent_config_revisions WHERE agent_id=$1 AND revision=1",[a.id.into()]))
+        .await.unwrap().unwrap().try_get("","created_by_user_id").unwrap();
+    let session = Uuid::new_v4();
+    let run = Uuid::new_v4();
+    db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "INSERT INTO agent_sessions(id,agent_id,user_id,title,state) VALUES($1,$2,$3,'next drain','active')",
+        [session.into(),a.id.into(),actor.into()])).await.unwrap();
+    db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "INSERT INTO session_agent_runs(id,session_id,agent_id,run_role,state,runtime_session_id) VALUES($1,$2,$3,'primary','pending',$4)",
+        [run.into(),session.into(),a.id.into(),format!("fleet:{session}:{}",a.id).into()])).await.unwrap();
+    for state in ["pending", "running", "waiting", "stopping"] {
+        db.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE session_agent_runs SET state=$2 WHERE id=$1",
+            [run.into(), state.into()],
+        ))
+        .await
+        .unwrap();
+        assert!(
+            repo.claim_recovered_container_activation(&claim, &proof)
+                .await
+                .is_err(),
+            "{state}"
+        );
+    }
+    db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE session_agent_runs SET state='completed' WHERE id=$1",
+        [run.into()],
+    ))
+    .await
+    .unwrap();
+    for key in [
+        "anchor",
+        "family",
+        "predecessor",
+        "hash",
+        "snapshot",
+        "stop",
+        "configuration",
+    ] {
+        let mut c = claim.clone();
+        match key {
+            "anchor" => c.lineage.as_mut().unwrap().anchor.controller_id = Uuid::new_v4(),
+            "family" => c.lineage.as_mut().unwrap().family_id = Uuid::new_v4(),
+            "predecessor" => c.lineage.as_mut().unwrap().predecessor_activation_id = Uuid::new_v4(),
+            "hash" => c.lineage.as_mut().unwrap().predecessor_intent_sha256 = "f".repeat(64),
+            "snapshot" => c.previous.snapshot.as_mut().unwrap()["init_pid"] = json!(987),
+            "stop" => c.previous.stop_id = Uuid::new_v4(),
+            _ => c.previous_revision = Some(999),
+        }
+        assert!(
+            repo.claim_recovered_container_activation(&c, &proof)
+                .await
+                .is_err(),
+            "{key}"
+        );
+    }
+    for key in ["owner", "epoch", "version", "observation", "root_running"] {
+        let mut p = proof.clone();
+        match key {
+            "owner" => p.lease.request.controller_id = Uuid::new_v4(),
+            "epoch" => p.lease.epoch += 1,
+            "version" => p.lease.lease_version += 1,
+            "root_running" => p.observation["observation"] = json!("running"),
+            _ => p.observation["snapshot"]["init_pid"] = json!(999),
+        }
+        assert!(
+            repo.claim_recovered_container_activation(&claim, &p)
+                .await
+                .is_err(),
+            "{key}"
+        );
+    }
+    let prior = repo
+        .get_container_recovery(proof.lease.request.launch_id)
+        .await
+        .unwrap()
+        .unwrap();
+    let mut lease = proof.lease.clone();
+    lease.lease_version += 1;
+    lease.lease_expires_at = (chrono::Utc::now() + chrono::Duration::seconds(30))
+        .to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
+    repo.claim_container_lease(&prior, &lease).await.unwrap();
+    assert!(
+        repo.claim_recovered_container_activation(&claim, &proof)
+            .await
+            .is_err()
+    );
+    let mut fresh = proof.clone();
+    fresh.lease = lease.clone();
+    assert!(
+        repo.claim_recovered_container_activation(&claim, &fresh)
+            .await
+            .is_err()
+    );
+    assert!(
+        repo.get_container_activation(a.id, claim.revision)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    repo.acknowledge_container_lease(&lease,json!({"ack":{"state":"controller_heartbeat","recovery_id":lease.request.id,
+        "lease_version":lease.lease_version,"lease_expires_at":lease.lease_expires_at},"receipt":proof.observation})).await.unwrap();
+    repo.authorize_recovered_activation(&parent, &fresh)
+        .await
+        .unwrap();
+    let planned = repo
+        .claim_recovered_container_activation(&claim, &fresh)
+        .await
+        .unwrap();
+    let revision = repo
+        .list_config_revisions(a.id)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|r| r.revision == claim.revision)
+        .unwrap();
+    let hold = RecoveryHold::new(
+        fresh.lease.request.controller_id,
+        &claim.previous,
+        Some(&planned),
+    );
+    assert_eq!(hold.custody_generation, fresh.lease.request.launch_id);
+    assert_eq!(
+        hold.generation,
+        claim.previous.prepared.container.registration.generation
+    );
+    repo.hold_container_activation(&revision, Some(&planned), &claim.previous, &hold)
+        .await
+        .unwrap();
+    let (first, second) = tokio::join!(
+        repo.claim_recovered_container_activation(&claim, &fresh),
+        repo.claim_recovered_container_activation(&claim, &fresh)
+    );
+    assert_eq!(json!(first.unwrap()), json!(planned));
+    assert_eq!(json!(second.unwrap()), json!(planned));
+    let mut raw = planned.clone();
+    raw.phase = Phase::StoppingPrevious;
+    assert!(
+        db.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE runtime_container_activations SET record=$2 WHERE id=$1",
+            [planned.claim.id.into(), json!(raw).into()]
+        ))
+        .await
+        .is_err()
+    );
+    assert_eq!(
+        json!(
+            repo.claim_recovered_container_activation(&claim, &fresh)
+                .await
+                .unwrap()
+        ),
+        json!(planned)
+    );
+    let mut conflict = claim.clone();
+    conflict.id = Uuid::new_v4();
+    conflict.candidate = generation();
+    conflict.intent_sha256 = "e".repeat(64);
+    assert!(
+        repo.claim_recovered_container_activation(&conflict, &fresh)
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        repo.get_container_activation(a.id, claim.revision)
+            .await
+            .unwrap()
+            .unwrap()
+            .claim
+            .id,
+        planned.claim.id
+    );
+    db.close().await.unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires isolated FLEET_CONTAINER_ACTIVATION_TEST_DATABASE_URL"]
+async fn recovered_next_claim_expiry_and_new_epoch_require_latest_original_authority() {
+    let (repo, db, a, parent, proof) = recovered_publication(false).await;
+    let claim = next_claim(&repo, &db, &a, &parent).await;
+    let deadline = chrono::DateTime::parse_from_rfc3339(&proof.lease.lease_expires_at).unwrap();
+    tokio::time::sleep(
+        (deadline - chrono::Utc::now()).to_std().unwrap_or_default()
+            + std::time::Duration::from_millis(10),
+    )
+    .await;
+    assert!(
+        repo.claim_recovered_container_activation(&claim, &proof)
+            .await
+            .is_err()
+    );
+    assert!(
+        repo.get_container_activation(a.id, claim.revision)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    let mut next = proof.lease.clone();
+    next.request.id = Uuid::new_v4();
+    next.request.controller_id = Uuid::new_v4();
+    next.request.predecessor_id = Some(proof.lease.request.id);
+    next.request.controller_snapshot.started_at = "2026-10-09T13:00:00Z".into();
+    next.request.controller_snapshot.init_pid += 1;
+    next.epoch += 1;
+    next.lease_version = 1;
+    next.lease_expires_at = (chrono::Utc::now() + chrono::Duration::seconds(30))
+        .to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
+    repo.claim_container_recovery(parent.claim.anchor(), &next)
+        .await
+        .unwrap();
+    assert!(
+        repo.claim_recovered_container_activation(&claim, &proof)
+            .await
+            .is_err()
+    );
+    let mut exited = parent.claim.anchor().clone();
+    exited.state = "exited".into();
+    let fresh = recovered_ack(&repo, &exited, &next).await;
+    // Native ACK alone cannot silently transfer the predecessor's activation authority.
+    assert!(
+        repo.claim_recovered_container_activation(&claim, &fresh)
+            .await
+            .is_err()
+    );
+    assert!(
+        repo.get_container_activation(a.id, claim.revision)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    repo.authorize_recovered_activation(&parent, &fresh)
+        .await
+        .unwrap();
+    let planned = repo
+        .claim_recovered_container_activation(&claim, &fresh)
+        .await
+        .unwrap();
+    let mut stopping = planned.clone();
+    stopping.phase = Phase::StoppingPrevious;
+    assert!(
+        repo.advance_recovered_activation(&planned, &stopping, &proof)
+            .await
+            .is_err()
+    );
+    repo.advance_recovered_activation(&planned, &stopping, &fresh)
+        .await
+        .unwrap();
+    assert_eq!(
+        planned
+            .claim
+            .anchor()
+            .prepared
+            .container
+            .registration
+            .generation,
+        proof.lease.request.launch_id
+    );
+    assert!(
+        repo.get_container_recovery(claim.previous.prepared.container.registration.generation)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    db.close().await.unwrap();
+}
+
 #[tokio::test]
 #[ignore = "requires isolated FLEET_CONTAINER_ACTIVATION_TEST_DATABASE_URL"]
 async fn recovered_terminal_draft_keeps_historical_custody_and_fenced_regular_stop_both_outcomes() {
@@ -887,6 +1494,7 @@ async fn fixture_mode(
     let configuration_sha256 =
         "a5de7dfacd6c2771ef639bb9cbbfe24b3f38b4eeb5170ad7f6c7a6c6b2404e69".into();
     let claim = Claim {
+        lineage: None,
         id: Uuid::new_v4(),
         agent_id: a.id,
         controller_id: owner,

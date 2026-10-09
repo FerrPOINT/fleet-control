@@ -40,6 +40,10 @@ admission. See the [source candidate](../plans/2026-10-09-runtime-controls-relea
 ## Docker Activation Restart Recovery
 
 Default-off [Base4 recovered activation](../RECOVERED_ACTIVATION_CONSUMER.md)
+also permits sequential desired revisions over the proved effective child using
+the same immutable root custody/journal and exact predecessor lineage. Rollback
+targets current effective bytes/revision; no child takeover or unknown replay.
+The capability remains source-only pending native acceptance. Base4
 uses the same immutable plan and phase machine, not a second planner. Fresh native
 recovered lease and original stop/readback proof precede replacement; exact files,
 physical endpoint and authenticated readiness precede effective publication.

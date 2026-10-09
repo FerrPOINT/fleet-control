@@ -82,6 +82,10 @@ and must be coordinated with consumers before enabling unit13.
 
 The opt-in [Base4 consumer](RECOVERED_ACTIVATION_CONSUMER.md) adds no public API or
 DTO. Existing desired/effective activation endpoints retain their drain gates.
+Sequential revisions over an effective recovered child use those same endpoints,
+the original anchor/latest lease and sealed predecessor lineage; there is no
+new public override or child takeover API. Failed-next rollback targets current
+effective, not the obsolete root revision. Native acceptance remains pending.
 Its private recovered authority is not a human override, takeover API or permission
 to replay unknown native commands. Older unit18 recovery limitations below refer
 to the legacy Base169 path; unsupported Base4 phases still retain typed holds.

@@ -39,18 +39,79 @@ CREATE TABLE runtime_container_activation_authorities (
  claim jsonb NOT NULL,
  PRIMARY KEY(activation_id,recovery_id)
 );
+CREATE FUNCTION fleet_activation_scope(a jsonb) RETURNS uuid LANGUAGE sql IMMUTABLE AS $$
+ SELECT COALESCE(a#>>'{claim,lineage,anchor,prepared,container,registration,generation}',
+                 a#>>'{claim,previous,prepared,container,registration,generation}')::uuid
+$$;
+-- Only an exact already-published predecessor can extend a recovered family.
+CREATE FUNCTION fleet_activation_lineage(c jsonb) RETURNS boolean LANGUAGE sql AS $$
+ SELECT EXISTS(SELECT 1 FROM runtime_container_activations p
+ JOIN runtime_container_activations root ON root.id::text=c#>>'{lineage,family_id}'
+ JOIN runtime_container_launches l ON l.generation::text=c#>>'{previous,prepared,container,registration,generation}'
+ WHERE p.id::text=c#>>'{lineage,predecessor_activation_id}' AND p.agent_id::text=c->>'agent_id'
+ AND root.agent_id=p.agent_id AND root.record#>'{claim,lineage}' IS NULL
+ AND p.record->>'phase' IN ('committed','rolled_back')
+ AND p.record#>>'{claim,intent_sha256}'=c#>>'{lineage,predecessor_intent_sha256}'
+ AND p.record#>>'{claim,controller_id}'=c->>'controller_id'
+ AND root.record#>'{claim,previous}'=c#>'{lineage,anchor}'
+ AND fleet_activation_scope(p.record)=fleet_activation_scope(root.record)
+ AND COALESCE(p.record#>>'{claim,lineage,family_id}',p.id::text)=root.id::text
+ AND p.record#>>'{readiness,generation}'=l.generation::text
+ AND l.agent_id=p.agent_id AND l.controller_id::text=c->>'controller_id'
+ AND l.prepared=c#>'{previous,prepared}' AND l.snapshot=c#>'{previous,snapshot}'
+ AND l.origin=c#>>'{previous,origin}' AND l.stop_id::text=c#>>'{previous,stop_id}'
+ AND c#>'{previous,prepared}'=CASE WHEN p.record->>'phase'='committed' THEN p.record#>'{candidate,prepared}' ELSE p.record#>'{rollback,prepared}' END
+ AND c#>'{previous,snapshot}'=CASE WHEN p.record->>'phase'='committed' THEN p.record#>'{candidate,snapshot}' ELSE p.record#>'{rollback,snapshot}' END
+ AND c#>>'{previous,origin}'=CASE WHEN p.record->>'phase'='committed' THEN p.record#>>'{candidate,origin}' ELSE p.record#>>'{rollback,origin}' END
+ AND EXISTS(SELECT 1 FROM runtime_container_activation_authorities x WHERE x.activation_id=p.id
+   AND x.claim=p.record->'claim' AND x.plan_sha256=p.record#>>'{claim,intent_sha256}'))
+$$;
+CREATE FUNCTION fleet_guard_activation_lineage() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE latest runtime_container_recoveries; anchor uuid;
+BEGIN
+ IF NEW.record#>'{claim,lineage}' IS NULL THEN
+   IF TG_OP='INSERT' AND fleet_activation_parent((NEW.record#>>'{claim,previous,prepared,container,registration,generation}')::uuid) IS NOT NULL
+   THEN RAISE EXCEPTION 'Recovered child requires original lineage' USING ERRCODE='23514'; END IF;
+   RETURN NEW;
+ END IF;
+ PERFORM id FROM agents WHERE id=NEW.agent_id FOR UPDATE;
+ anchor:=fleet_activation_scope(NEW.record);
+ PERFORM generation FROM runtime_container_launches WHERE generation=anchor FOR UPDATE;
+ SELECT * INTO latest FROM runtime_container_recoveries WHERE generation=anchor ORDER BY epoch DESC LIMIT 1 FOR UPDATE;
+ IF NOT fleet_activation_lineage(NEW.record->'claim') OR latest.id IS NULL
+ OR latest.id::text IS DISTINCT FROM current_setting('fleet.container_recovery_id',true)
+ OR latest.receipt IS NULL OR latest.lease_receipt IS NULL OR latest.expires_at<=clock_timestamp()
+ OR NOT fleet_activation_anchor(anchor)
+ OR NOT EXISTS(SELECT 1 FROM runtime_container_launches root WHERE root.generation=anchor AND root.state='exited')
+ OR NOT EXISTS(SELECT 1 FROM agent_config_heads h JOIN agent_config_revisions r ON r.agent_id=h.agent_id AND r.revision=h.desired_revision
+   WHERE h.agent_id=NEW.agent_id AND h.draining AND h.desired_revision=NEW.revision
+   AND h.effective_revision::text IS NOT DISTINCT FROM NEW.record#>>'{claim,previous_revision}'
+   AND r.state='activating' AND r.claimed_at IS NOT NULL AND r.validation_errors='[]'::jsonb)
+ OR (TG_OP='INSERT' AND NOT EXISTS(SELECT 1 FROM runtime_container_launches l WHERE l.generation::text=NEW.record#>>'{claim,previous,prepared,container,registration,generation}' AND l.state='running'))
+ OR EXISTS(SELECT 1 FROM session_agent_runs WHERE agent_id=NEW.agent_id AND state IN ('pending','running','waiting','stopping'))
+ OR EXISTS(SELECT 1 FROM hermes_dispatch_journal WHERE agent_id=NEW.agent_id AND state IN ('prepared','submitted'))
+ OR EXISTS(SELECT 1 FROM message_dispatch_outbox WHERE agent_id=NEW.agent_id AND state IN ('dispatching','uncertain'))
+ OR NOT EXISTS(SELECT 1 FROM runtime_container_activation_authorities x
+   WHERE x.activation_id::text=CASE WHEN TG_OP='INSERT' THEN NEW.record#>>'{claim,lineage,predecessor_activation_id}' ELSE NEW.id::text END
+   AND x.recovery_id=latest.id AND x.controller_id::text=latest.command#>>'{request,controller_id}')
+ THEN RAISE EXCEPTION 'Sequential activation requires original current custody and drained published predecessor' USING ERRCODE='23514'; END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER fleet_activation_lineage_guard BEFORE INSERT OR UPDATE ON runtime_container_activations
+ FOR EACH ROW EXECUTE FUNCTION fleet_guard_activation_lineage();
 CREATE FUNCTION fleet_activation_anchor(g uuid) RETURNS boolean LANGUAGE sql AS $$
  SELECT EXISTS(SELECT 1 FROM runtime_container_activations a
  JOIN runtime_container_launches l ON l.generation=g AND l.agent_id=a.agent_id
  JOIN agents agent ON agent.id=a.agent_id
  JOIN agent_config_heads h ON h.agent_id=a.agent_id
  JOIN agent_config_revisions r ON r.agent_id=a.agent_id AND r.revision=a.revision
- WHERE a.record#>>'{claim,previous,prepared,container,registration,generation}'=g::text
- AND l.prepared=a.record#>'{claim,previous,prepared}'
- AND l.snapshot=a.record#>'{claim,previous,snapshot}'
- AND l.origin=a.record#>>'{claim,previous,origin}'
+ WHERE fleet_activation_scope(a.record)=g
+ AND l.prepared=COALESCE(a.record#>'{claim,lineage,anchor,prepared}',a.record#>'{claim,previous,prepared}')
+ AND l.snapshot=COALESCE(a.record#>'{claim,lineage,anchor,snapshot}',a.record#>'{claim,previous,snapshot}')
+ AND l.origin=COALESCE(a.record#>>'{claim,lineage,anchor,origin}',a.record#>>'{claim,previous,origin}')
  AND l.controller_id::text=a.record#>>'{claim,controller_id}'
- AND l.stop_id::text=a.record#>>'{claim,previous,stop_id}'
+ AND l.stop_id::text=COALESCE(a.record#>>'{claim,lineage,anchor,stop_id}',a.record#>>'{claim,previous,stop_id}')
+ AND (a.record#>'{claim,lineage}' IS NULL OR fleet_activation_lineage(a.record->'claim'))
  AND agent.kind='hermes' AND agent.archived_at IS NULL
  AND agent.api_port::text=l.prepared->>'api_port'
  AND agent.runtime_path=l.prepared#>>'{paths,runtime}'
@@ -59,10 +120,12 @@ CREATE FUNCTION fleet_activation_anchor(g uuid) RETURNS boolean LANGUAGE sql AS 
  AND agent.logs_path=l.prepared#>>'{paths,logs}'
  AND r.claimed_at IS NOT NULL AND r.validation_errors='[]'::jsonb
  AND (l.state IN ('running','stopping') OR (l.state='exited'
-      AND a.record#>>'{previous_stop,observation}'='namespace_exited'
-      AND a.record#>>'{previous_stop,generation}'=g::text
-      AND a.record#>>'{previous_stop,operation_id}'=l.stop_id::text
-      AND a.record#>>'{previous_stop,container_id}'=l.prepared#>>'{container,registration,container_id}'))
+      AND EXISTS(SELECT 1 FROM runtime_container_activations original WHERE original.agent_id=a.agent_id
+       AND original.record#>>'{claim,previous,prepared,container,registration,generation}'=g::text
+       AND original.record#>>'{previous_stop,observation}'='namespace_exited'
+       AND original.record#>>'{previous_stop,generation}'=g::text
+       AND original.record#>>'{previous_stop,operation_id}'=l.stop_id::text
+       AND original.record#>>'{previous_stop,container_id}'=l.prepared#>>'{container,registration,container_id}')))
  AND ((a.record->>'phase' NOT IN ('committed','rolled_back') AND h.desired_revision=a.revision AND h.draining AND r.state='activating'
  AND h.effective_revision::text IS NOT DISTINCT FROM a.record#>>'{claim,previous_revision}'
  AND NOT EXISTS(SELECT 1 FROM session_agent_runs WHERE agent_id=a.agent_id AND state IN ('pending','running','waiting','stopping'))
@@ -84,7 +147,7 @@ BEGIN
  IF NOT EXISTS(SELECT 1 FROM runtime_container_activations a JOIN runtime_container_recoveries r
     ON r.id=NEW.recovery_id WHERE a.id=NEW.activation_id AND a.record->'claim'=NEW.claim
     AND a.record#>>'{claim,intent_sha256}'=NEW.plan_sha256
-    AND r.generation::text=NEW.claim#>>'{previous,prepared,container,registration,generation}'
+    AND r.generation=fleet_activation_scope(jsonb_build_object('claim',NEW.claim))
     AND r.command#>>'{request,controller_id}'=NEW.controller_id::text
     AND r.receipt IS NOT NULL AND r.lease_receipt IS NOT NULL AND r.expires_at>clock_timestamp()
     AND NOT EXISTS(SELECT 1 FROM runtime_container_recoveries n WHERE n.generation=r.generation AND n.epoch>r.epoch)
@@ -97,7 +160,7 @@ END $$;
 CREATE TRIGGER runtime_container_activation_authority_guard BEFORE INSERT OR UPDATE OR DELETE
  ON runtime_container_activation_authorities FOR EACH ROW EXECUTE FUNCTION fleet_guard_activation_authority();
 CREATE FUNCTION fleet_activation_parent(g uuid) RETURNS uuid LANGUAGE sql AS $$
- SELECT (a.record#>>'{claim,previous,prepared,container,registration,generation}')::uuid
+ SELECT fleet_activation_scope(a.record)
  FROM runtime_container_activations a
  WHERE (a.record#>>'{claim,candidate,generation}'=g::text OR a.record#>>'{claim,rollback,generation}'=g::text)
  AND EXISTS(SELECT 1 FROM runtime_container_activation_authorities x WHERE x.activation_id=a.id
@@ -114,7 +177,7 @@ BEGIN
    OR EXISTS(SELECT 1 FROM runtime_container_recoveries WHERE generation=g)
    OR NOT EXISTS(SELECT 1 FROM runtime_container_launches l JOIN runtime_container_activations a ON a.agent_id=l.agent_id
      WHERE l.generation=g AND l.state='running'
-     AND a.record#>>'{claim,previous,prepared,container,registration,generation}'=anchor::text
+     AND fleet_activation_scope(a.record)=anchor
      AND l.controller_id::text=a.record#>>'{claim,controller_id}'
      AND ((l.prepared=a.record#>'{candidate,prepared}' AND l.stop_id::text=a.record#>>'{claim,candidate,stop_id}')
        OR (l.prepared=a.record#>'{rollback,prepared}' AND l.stop_id::text=a.record#>>'{claim,rollback,stop_id}'))))
@@ -142,7 +205,7 @@ BEGIN
    OR latest.receipt IS NULL OR latest.lease_receipt IS NULL OR latest.expires_at<=clock_timestamp()
    OR NOT fleet_activation_anchor(anchor)
    OR NOT EXISTS(SELECT 1 FROM runtime_container_activations a WHERE a.agent_id=bound.agent_id
-     AND a.record#>>'{claim,previous,prepared,container,registration,generation}'=anchor::text
+     AND fleet_activation_scope(a.record)=anchor
      AND bound.controller_id::text=a.record#>>'{claim,controller_id}'
      AND EXISTS(SELECT 1 FROM runtime_container_activation_authorities x WHERE x.activation_id=a.id
        AND x.recovery_id=latest.id AND x.controller_id::text=latest.command#>>'{request,controller_id}'
@@ -194,6 +257,10 @@ CREATE OR REPLACE FUNCTION fleet_container_custody_live(g uuid) RETURNS boolean 
         $$ LANGUAGE sql;
 DROP FUNCTION fleet_activation_parent(uuid);
 DROP FUNCTION fleet_activation_anchor(uuid);
+DROP TRIGGER fleet_activation_lineage_guard ON runtime_container_activations;
+DROP FUNCTION fleet_guard_activation_lineage();
+DROP FUNCTION fleet_activation_lineage(jsonb);
+DROP FUNCTION fleet_activation_scope(jsonb);
 DROP TABLE runtime_container_activation_authorities;
 DROP FUNCTION fleet_guard_activation_authority();
 "#).await?;

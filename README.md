@@ -5,7 +5,8 @@
 SDLC implementation is in progress, not production accepted. Current scope and
 remaining blockers: [SDLC implementation](docs/SDLC_IMPLEMENTATION.md).
 
-Docker recovered configuration activation has a default-off
+Docker recovered configuration activation, including sequential revisions over
+the proved effective child, has a default-off
 [Base4 source consumer](docs/RECOVERED_ACTIVATION_CONSUMER.md), not native acceptance
 or production readiness. SDK19a is unchanged; utility9b is sealed separately.
 
