@@ -247,6 +247,31 @@ async fn lookup_http_auth_header_scope_and_single_receipt_never_fall_back_to_lis
     assert!(found.get("idempotency_key").is_none());
     assert!(found.get("payload_sha256").is_none());
     assert!(!found.to_string().contains(&actor.idempotency_key));
+    let concurrent_reads = futures_util::future::join_all((0..12).map(|index| {
+        let request = if index % 2 == 0 {
+            client.get(&url).bearer_auth(&owner)
+        } else {
+            client.get(&url).bearer_auth(&operator_token)
+        };
+        request
+            .header("Idempotency-Key", &actor.idempotency_key)
+            .send()
+    }))
+    .await;
+    for (index, response) in concurrent_reads.into_iter().enumerate() {
+        let response = response.unwrap();
+        if index % 2 == 0 {
+            assert_eq!(response.status(), StatusCode::OK);
+            let receipt = response
+                .json::<domain::RuntimeControlReceipt>()
+                .await
+                .unwrap();
+            assert_eq!(receipt.id, original.id);
+            assert_eq!(receipt.actor_user_id, f.owner);
+        } else {
+            assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        }
+    }
     for (token, key) in [
         (&owner, "new-unknown-key"),
         (&operator_token, actor.idempotency_key.as_str()),
@@ -441,4 +466,58 @@ async fn lookup_http_existing_project_guard_denies_unavailable_binding() {
     assert_eq!(lookup_snapshot(&f).await, before);
     assert_eq!(f.calls.load(Ordering::SeqCst), 0);
     server.abort();
+}
+
+#[tokio::test]
+#[ignore = "requires isolated FLEET_TEST_DATABASE_URL"]
+async fn concurrent_original_key_reads_race_claim_without_mutation_or_new_permit() {
+    let f = ledger_fixture(stop_ack()).await.unwrap();
+    let actor = f.actor();
+    let id = f
+        .repo
+        .reserve_runtime_control(&f.run, &actor, domain::RuntimeControlOperation::Stop, None)
+        .await
+        .unwrap()
+        .receipt
+        .id;
+    let reads = futures_util::future::join_all((0..16).map(|_| {
+        f.repo
+            .find_runtime_control_by_key(f.run.session_id, f.run.id, &actor)
+    }));
+    let (reads, claimed) = tokio::join!(reads, f.repo.claim_runtime_control(id));
+    assert!(claimed.unwrap());
+    for receipt in reads {
+        let receipt = receipt.unwrap().unwrap();
+        assert_eq!(receipt.id, id);
+        assert_eq!(receipt.actor_user_id, f.owner);
+        assert!(matches!(
+            receipt.state,
+            domain::RuntimeControlState::Reserved | domain::RuntimeControlState::Submitted
+        ));
+    }
+    let before = lookup_snapshot(&f).await;
+    let stable = futures_util::future::join_all((0..16).map(|_| {
+        f.repo
+            .find_runtime_control_by_key(f.run.session_id, f.run.id, &actor)
+    }))
+    .await;
+    for receipt in stable {
+        let receipt = receipt.unwrap().unwrap();
+        assert_eq!(receipt.id, id);
+        assert_eq!(receipt.state, domain::RuntimeControlState::Submitted);
+    }
+    assert_eq!(lookup_snapshot(&f).await, before);
+    assert!(!f.repo.claim_runtime_control(id).await.unwrap());
+    assert!(matches!(
+        f.repo
+            .reserve_runtime_control(
+                &f.run,
+                &f.actor(),
+                domain::RuntimeControlOperation::Stop,
+                None
+            )
+            .await,
+        Err(shared::AppError::Conflict(_))
+    ));
+    assert_eq!(f.calls.load(Ordering::SeqCst), 0);
 }
