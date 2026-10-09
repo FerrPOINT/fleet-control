@@ -1,5 +1,15 @@
 # Testing
 
+## PM Tools Offline Conformance
+
+The [offline runner](../scripts/pm_tools_conformance/README.md) requires an explicit
+clean pinned Hermes checkout and executes 24 cases: 8 real Python extension/native
+context probes plus 16 synthetic contract tests. It performs no model, network,
+Docker, Cargo or activation; measured host Python dependencies are not a qualified
+Hermes venv. The [handoff requirements](contracts/PM_TOOLS_HANDOFF_REQUIREMENTS.md)
+retain producer pre-model barrier, identity and credential-custody blockers.
+Offline PASS never grants task admission or proves production runtime readiness.
+
 ## Combined Steer Successor Inventory
 
 The successor to `a26d8b35` with steer `71b17da7` requires all 130 default-ignored
