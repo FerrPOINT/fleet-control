@@ -2,8 +2,8 @@
 
 ## Current Integration Snapshot: 10 October 2026
 
-Current assembly `cf86d203ddb1ba7bdde68020c7c858740b8b5438`, a normal descendant
-of b249 with documentation, isolated-connection and timezone test fixes, is **not
+Current committed assembly `9a57d1121523c06ae98b8c36b42fd8e62fce65d0`, a normal descendant
+of b249 with documentation, isolated-connection, timezone and Clippy corrections, is **not
 merge-ready or live SDLC accepted**. Historical sections below qualify their own
 heads; they do not accept this assembly.
 
@@ -23,8 +23,27 @@ Authenticated safe artifact11648090014 and successful owned cleanup are retained
 Sourcecf86d20 uses pinned Chrono0.4.45 signed_duration_since across timezone types,
 preserving max(deadline-now,0)+10ms; formatting and independent source review pass.
 Reviewed controls a78cbf6 retarget only that source/file hash and aggregate;76 Linux
-and74 Windows/two skip cases pass. Normal FF push starts run37997222729, currently
-in progress. Successful compile/PG/full70 is not inferred from these fixes.
+and74 Windows/two skip cases pass. Actual run37997222729 passes all-target check
+and fails Clippy. Sourcea95ea81 fixes the registration version range and extends
+its existing boundary test. Reviewed controls851c355 are normally pushed; actual
+run37998388510 again passes check and fails Clippy in activation/preparation.
+Safe artifact11647977851 is authenticated and owned scratch/DB cleanup passes.
+Source9a57d11 removes three redundant test borrows and moves the byte-identical
+preparation test module to EOF; independent source review and rustfmt/diff pass.
+Controls3600cb7 preserve all gate counts/dependency pins and exact updated hashes;
+Linux76/76 and Windows74 PASS/two skips pass. Normal FF push starts actual
+run37999665761, currently in progress. Successful Clippy/PG/full70 is not inferred
+from source fixes.
+
+Separate frozen clarification journal3b41 has parent-executed typecheck PASS,
+42 focused chat-detail tests PASS and the complete36-file/337-test frontend suite
+PASS. This is mocked-HTTP/unit evidence, not live PM or PostgreSQL acceptance.
+Client generation uses the existing checked-in schema; authentic Rust generation
+for the new journal routes is separately assigned. Codegen controls7792bfc pass
+parent15/15 pure checks/seal verification and are normally pushed to a dedicated
+build-only branch; no generated artifact is accepted yet. Independent backend
+review and frontend lint/build proceed separately. The [current ownership table](plans/2026-10-09-parallel-remaining-work.md#latest-assignment-checkpoint)
+defines disjoint work and remaining integration gates.
 
 Read-only browser observation of the existing sdlc1 deployment: /agents and
 /chats load after SSO; the current-owner filter and two concrete agents render.

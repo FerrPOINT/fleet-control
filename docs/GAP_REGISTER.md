@@ -2,8 +2,8 @@
 
 ## Current Open Release Gates: 10 October 2026
 
-The current source assembly iscf86d20 (normal b249 descendant with isolated
-connection/timezone test fixes and documentation), not the historical heads below.
+The current committed source assembly is9a57d11 (normal b249 descendant with
+isolated connection/timezone/Clippy fixes and documentation), not the historical heads below.
 Source integration is progress, not release acceptance. Its remaining gates are:
 
 Hosted37995542617 now proves the preflight blocker is passed but finds real
@@ -15,8 +15,22 @@ gate scope and exact updated hashes; hosted37996397284 completes FAILURE with
 E0277 at container_activation.rs:965/1268. Its safe failure artifact11648090014
 is authenticated and cleanup passes. Sourcecf86d20 fixes the cross-timezone
 deadline comparison using pinned Chrono API, preserving the lease wait and10ms
-margin. Reviewed controls a78cbf6 are normally pushed; run37997222729 is in progress.
-Compilation/PG/full70 remain open until actual acceptance, not source review alone.
+margin. Reviewed controls a78cbf6 are normally pushed; actual37997222729 passes
+all-target check and fails Clippy. Sourcea95ea81 fixes the version range; reviewed
+controls851c355 are pushed. Actual37998388510 passes check and fails Clippy in
+activation/preparation. Authenticated safe artifact11647977851 confirms owned
+cleanup. Test-only correction9a57d11 has independent source closure and formatting
+PASS. Controls3600cb7 preserve exact scope/pins; Linux76/76, Windows74 PASS/two
+skips pass and normal FF push starts actual37999665761 (in progress). Clippy/PG/
+full70 remain open until actual acceptance, not source review alone.
+
+Separate journal3b41 implements durable original-command/reload custody but is
+not integrated or backend-accepted. Parent typecheck and337 frontend tests pass;
+these use the existing schema and mocked HTTP. New-route Rust OpenAPI generation,
+server correctness review, lint/format/build, Rust/PG and live recovery remain
+explicit gates. Dedicated codegen controls7792bfc are reviewed/pushed with15/15
+pure checks; this is not a generated artifact. The legacy answer proxy below describes the current integrated
+source, not a denial of the isolated journal implementation.
 
 Read-only existing sdlc1 UI shows two agents and empty current-owner session lists;
 the create dialog was closed without saving. This is reachability/empty-state

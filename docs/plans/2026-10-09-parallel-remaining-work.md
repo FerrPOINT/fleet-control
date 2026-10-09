@@ -12,11 +12,26 @@ owned checkouts; Tracker and Workflow remain read-only references.
 
 | Owner | Independent work | Acceptance boundary |
 | ----- | ---------------- | ------------------- |
-| Pascal | Durable clarification answer-command journal and reload recovery in Fleet | Original key/payload retained server-side; ownership/project authorization before replay; unknown delivery never creates a new command or runtime run; focused tests and API/docs handoff. No invented Tracker GET receipt. |
-| Ptolemy | Image metadata retained-file FIFO successor completed | Owner Linux56/56, Windows53 PASS/three skips; Feynman closes focused Linux5/5. Actual image qualification/build remain separate prerequisites. |
-| Feynman | Native execution prerequisites/handoff, then focused image-fix review | Actual native execution remains unproved; identify existing launch/cleanup commands and concrete blockers, without launching Docker or changing pins. |
-| Anscombe | Focused independent backend-controls closure completed | Raw-blob export,5259 diagnostics collision and0709588 source retarget are source-closed; actual compile/PG/full70 remain CI gates. |
-| Parent | CI correction, GitHub checks, integration and current documentation | Fix diagnostics, publish only the scoped build-only branch after closure, inspect actual hosted results; do not claim full SDLC or merge readiness from pure tests. |
+| Pascal | Independent runtime Clippy correction review completed | Source9a57d11 preserves byte-identical preparation tests and production behavior; only three redundant test borrows removed. Actual Clippy/PG remain hosted gates. Completed journal3b41 stays frozen. |
+| Ptolemy | Actual Rust OpenAPI generation for clarification journal3b41 | Reuse hosted codegen controls; qualify generated schema, then generated client. No handwritten API or changes to frozen implementation. |
+| Feynman | Server-side clarification journal review and bounded fixes | Authorization before journal access/replay; original command custody, fenced delivery and sticky unknown outcome. Any fix goes into an isolated successor with regression tests. |
+| Anscombe | Frontend lint/format/build closure for journal3b41 | Do not repeat the completed337 unit tests. Fix concrete failures only in a separate frontend successor; no backend/schema/generated-client edits. |
+| Parent | Actual backend CI, integration, documentation and scoped publication | Resolve current Clippy findings, preserve gate scope, integrate independently checked successors, inspect hosted results. No acceptance from static checks alone. |
+
+These tasks have disjoint write sets. Reviewers do not modify frozen owner
+checkouts. Shared runtime/admission, live PM and native acceptance remain explicit
+later gates, not completion claims or duplicated assignments. Generated API must
+precede final client/contract verification; backend compilation must precede
+physical lifecycle and cross-service acceptance. Tracker and Workflow remain
+read-only. No worker may bypass resource, secret or cleanup guards.
+
+Journal3b41 has parent-executed typecheck PASS and36 frontend test files/337
+tests PASS (including42 chat-detail cases). Client generation used the existing
+checked-in schema; it does not prove the four new journal routes are generated
+from Rust. Journal Rust/PG, reload against live services and PM resume remain open.
+Dedicated codegen controls7792bfc have parent15/15 pure PASS and seal/source
+review. The previously absent build-only branch is pushed normally; Ptolemy owns
+actual exact-head outcome and authenticated artifact readback, not invented schema.
 
 Native-cut c89df468 independently closes both prior ready-publication and
 restart-window findings at source/pure scope. Owner Windows87 PASS/11 skips,
@@ -43,7 +58,17 @@ comparisons). Safe artifact11648090014 readback and owned cleanup pass. Normal
 sourcecf86d20 replaces both expressions with the pinned Chrono cross-timezone
 duration API, preserving max(deadline-now,0)+10ms. Reviewed controls a78cbf6 retain
 all counts/pins and retarget only that source/file fingerprint/aggregate. Normal
-FF push starts run37997222729, currently in progress, not accepted full70.
+FF push starts run37997222729, now terminal FAILURE at Clippy after all-target
+check passes. Sourcea95ea81 replaces the registration version or-pattern with an
+equivalent inclusive range and extends its existing boundary test. Reviewed
+controls851c355 are pushed normally. Actual run37998388510 also passes check and
+fails at Clippy in activation/preparation. Authenticated safe artifact11647977851
+reports successful scratch/DB cleanup. Independently reviewed source9a57d11
+removes three redundant test borrows and moves a byte-identical test module after
+production items. Controls3600cb7 preserve all counts/dependency pins and update
+only source/file hashes/aggregate; Linux76/76 and Windows74 PASS/two skips pass.
+Normal FF push starts actual37999665761, in progress; its Clippy/PG/full70 are
+not accepted before the result.
 
 Read-only existing sdlc1 browser pass confirms agents/chats reachability and the
 current-owner empty state; no task/run/message was created. Existing deployed
