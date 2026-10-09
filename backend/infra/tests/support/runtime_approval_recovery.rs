@@ -691,14 +691,37 @@ async fn approval_recovery_native_preflight_requires_current_original_scope_and_
             .await
             .unwrap();
         match mode {
-            "moved" => f.sql("UPDATE agents SET api_port=$2 WHERE id=$1",
-                vec![p.agent_id.into(),if f.port==65535 {65534i32} else {65535i32}.into()]).await,
+            "moved" => {
+                f.sql(
+                    "UPDATE agents SET api_port=$2 WHERE id=$1",
+                    vec![
+                        p.agent_id.into(),
+                        if f.port == 65535 { 65534i32 } else { 65535i32 }.into(),
+                    ],
+                )
+                .await
+            }
             "task" => f.bind_task(&p).await,
-            "pm" => f.sql("INSERT INTO pm_run_bindings(session_run_id,session_id,agent_id,reservation,dispatch_operation_key,runtime_session_id)
+            "pm" => {
+                f.bind_task(&p).await;
+                f.sql("INSERT INTO pm_run_bindings(session_run_id,session_id,agent_id,reservation,dispatch_operation_key,runtime_session_id)
                 VALUES($1,$2,$3,'{}'::jsonb,$4,$5)",
-                vec![p.run.id.into(),p.session_id.into(),p.agent_id.into(),Uuid::new_v4().to_string().into(),p.native.effective.clone().into()]).await,
-            "archived" => f.sql("UPDATE agents SET archived_at=clock_timestamp() WHERE id=$1",vec![p.agent_id.into()]).await,
-            "terminal" => f.sql("UPDATE session_agent_runs SET state='completed' WHERE id=$1",vec![p.run.id.into()]).await,
+                vec![p.run.id.into(),p.session_id.into(),p.agent_id.into(),Uuid::new_v4().to_string().into(),p.native.effective.clone().into()]).await;
+            }
+            "archived" => {
+                f.sql(
+                    "UPDATE agents SET archived_at=clock_timestamp() WHERE id=$1",
+                    vec![p.agent_id.into()],
+                )
+                .await
+            }
+            "terminal" => {
+                f.sql(
+                    "UPDATE session_agent_runs SET state='completed' WHERE id=$1",
+                    vec![p.run.id.into()],
+                )
+                .await
+            }
             _ => {}
         }
         cases.push((mode, p, approval));
