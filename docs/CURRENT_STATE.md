@@ -14,7 +14,8 @@ heads; they do not accept this assembly.
 - Follow-up b249bc8 fixes two stale migration-test boundaries without changing
   SQL: split single-down verifies exact prior ledger minus activation19, and
   historical downgrade selects task_chats10 from the registry rather than down8.
-  Formatting/diff pass; independent closure and actual PG remain separate.
+  Formatting/diff pass. Independent source review closes both findings with4/4
+  pure/static probes; actual Rust/PostgreSQL execution remains open.
 - Chat production fix8e5d75d has no actionable independent source finding.
   Coverage5d52c8a waits for fresh rendered permissions before replay. Full334
   frontend cases and3/3 ordered browser fixtures pass; nine generated captures
@@ -24,8 +25,9 @@ heads; they do not accept this assembly.
   pins. Its actual24-case offline report is independently checked;16 synthetic
   oracle cases and8 real-module probes remain distinct. Producer admission stays
   BLOCKED/live=false. No pre-model authority or credential custody is invented.
-- Forge daf's independent review finds a remaining actual bridge cleanup
-  deadline defect; its successor and full12 acceptance are still pending.
+- Forge daf's independent review finds an actual bridge cleanup deadline defect.
+  Frozen successor89420cd has84/84 parent pure checks; independent closure and
+  full12 acceptance remain pending. Product25be/SDK19a and budgets are unchanged.
 - Base PR180 remains Draft at815982b; all11 CI jobs are denied before steps by
   billing. Reported local224 fake-engine tests do not replace exact-head CI or
   native Docker acceptance. Protected runtime images and services are unchanged.

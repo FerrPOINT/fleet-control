@@ -40,7 +40,7 @@ findings do not certify an unexecuted compiler, database or live runtime gate.
 | -------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
 | Feynman  | Independent combined Fleet/PM integration review                     | Exact379b48e; preserve reviewed2ee packet, production UI guards and source pins; no duplicate runner execution |
 | Pascal   | Base release-readiness audit                                        | Exact815982b and PR180; distinguish actionable defects, review closure and external CI blockers; read-only report |
-| Ptolemy  | Forge actual bridge/global deadline fix                              | Normal successor to daf for swallowed/consumed cleanup alarm; real one/multi-OCI regressions, no relaxed budgets |
+| Ptolemy  | Frozen Forge actual bridge/global deadline successor                 | Exact89420cd submitted; preserve frozen source and original budgets pending independent closure |
 | Anscombe | Independent Forge successor closure                                 | Actual helper boundaries, outer finally and next parent.close; full12 remains a separate unexecuted gate |
 | Leibniz  | Fleet backend gate/inventory audit                                  | Exact1801201 backend; migration20/23,13 PG selectors and2 new Rust cases, stale fixtures/selector risks; source-only |
 | Parent   | UI evidence, normal integration, documentation and publication      | Integrate accepted source, combined admissible checks and exact evidence; do not certify full SDLC from fixture passes |
@@ -61,8 +61,11 @@ findings do not certify an unexecuted compiler, database or live runtime gate.
   down8 probes stop at credentials11 rather than task_chats10. Parent follow-up
   derives the successor count from the selected registry and asserts the exact
   retained ledger, preserving history checks and the blocked-down invariant.
-  Only test files change; no migration SQL or product API changes. Source review
-  and actual Rust/PostgreSQL acceptance of this follow-up remain separate gates.
+  Only test files change; no migration SQL or product API changes. Independent
+  review closes both findings at exactb249bc8 with4/4 pure/static probes. Actual
+  Rust/PostgreSQL acceptance remains open. Retarget milestone1 freezes the
+  162/290 inventory and19DB/utility9b/strict-schema contract with8 pure checks;
+  the executable full gate is not yet retargeted or ready70.
 - Forge timing successordaf044da141c0e03847e9b3d9406c4d04f823917 has sole
   parent34c. Parent repeats79/79 pure checks, zero skips,1.383s. Its component
   lock SHA256 is c58c63c4f203873ef4565d4240a85b6b8734ac1c309fa3c874f84576e687274e.
@@ -70,9 +73,15 @@ findings do not certify an unexecuted compiler, database or live runtime gate.
   Independent review closes initial sourceprep/shared and assertion-to-teardown
   budgets, but reproduces P1 in the actual bridge: the product adapter catches
   the teardown alarm and the next parent.close has no active timer. One real OCI
-  cleanup exceeds its120ms allowance at371ms. Ptolemy owns the normal successor;
-  Anscombe checks actual one/multi-OCI and outer-finally boundaries. No actual
-  full12, hosted dispatch or publication occurred.
+  cleanup exceeds its120ms allowance at371ms. Normal successor
+  89420cdeec55f8e5583857c2e520de3b42462f1b preserves product25be/SDK19a and
+  every original budget, adds an absolute sticky phase deadline and guards
+  actual bridge/SDK close and late record I/O. Parent repeats84/84 pure cases,
+  zero skips,21.228s. Lock SHA256:
+  4c8306ea5a5c71569f648b13515e7a3140aa7731b00e4c726d34eadb86e963ad.
+  Owner reports101 Linux cases; Anscombe independently checks one/multi-OCI,
+  consumed alarms and outer-finally boundaries. Closure remains pending. No
+  actual full12, hosted dispatch or publication occurred.
 - PM receipt successore05e77e7c41803a597b07ef669d915e7cae44d15 has sole
   parentdc6ab. Parent runs the actual24-case packet successfully with strict
   receipt/provenance validation,457 canonical imports and closed owned Git reader.
