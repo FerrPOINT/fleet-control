@@ -42,7 +42,10 @@ not live runtime authorization, backend dispatch or SDLC acceptance.
 
 ## Remaining Integration
 
-- Integrate the reconciled recovery source preserving both parent histories.
+- Source integration is complete at `f32ecb7`: normal merge parents are the UI
+  candidate `f96fcdc` and recovery/controls candidate `ed798638`. The frontend
+  and Base pin are unchanged by that merge; integrated Rust formatting passes.
+  This does not replace Linux compilation, PostgreSQL or runtime acceptance.
 - Generate OpenAPI from Rust and frontend types from that output; do not invent
   handwritten receipt DTOs or patch the generated files manually.
 - Show reserved/submitted/uncertain/acknowledged/terminal_observed separately.

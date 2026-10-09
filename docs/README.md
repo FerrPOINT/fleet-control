@@ -5,6 +5,7 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 
 ## Product And State
 
+- [Parallel remaining-work assignments](plans/2026-10-09-parallel-remaining-work.md)
 - [Runtime controls UI and remaining receipt integration](plans/2026-10-09-runtime-controls-ui.md)
 - [Runtime control fixture screenshots](assets/design/runtime-controls/manifest.json)
 - [Hermes original-key recovery and atomic terminal candidate](plans/2026-10-09-hermes-recovery-release.md)

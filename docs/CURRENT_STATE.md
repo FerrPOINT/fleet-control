@@ -1,5 +1,26 @@
 # Current State
 
+## Integrated UI Candidate: 9 October 2026
+
+Source `f32ecb7b77412d6b6a4843d64b753d3be1926efe` normally merges UI
+`f96fcdc` and backend recovery/controls `ed798638`. The merge leaves frontend
+and Base pins unchanged; integrated Rust formatting passes. Frontend evidence
+for the identical UI tree is 267 unit tests across 33 files, typecheck,
+production build, targeted lint and all three browser fixture flows. Nine
+screenshots have verified dimensions/hashes; mobile and desktop were inspected.
+The existing production bundle-size warning remains documented.
+
+HTTP200 with `accepted=false` no longer reports control success or clears steer
+input. Retry keeps the original session/run/input/key, including legacy controls.
+Generated receipt DTOs, receipt-state UI/readback and reload recovery remain open;
+backend steer transcript mirroring is a separate follow-up. Fixture evidence is
+not live authorization, dispatch, physical-stop or SDLC acceptance. No Linux/PG
+acceptance or installed runtime change is claimed for this integrated source.
+
+See the [parallel work split](plans/2026-10-09-parallel-remaining-work.md) and
+[UI evidence](plans/2026-10-09-runtime-controls-ui.md). Older sections below are
+source-qualified historical packets, not acceptance for this head.
+
 ## Combined Recovery And Controls Candidate
 
 Normal integration retains recovery `1595552b7853cdaf201720d2fb4d84c62cf4ddcd`
