@@ -2,8 +2,8 @@
 
 ## Docker And Controls Assembly: 9 October 2026
 
-Normal merge a634e01052f6b2a658b104e589b08ab5157ac17c now retains audited
-restart recovery452 and the scoped archive-guard fixe2e33b2. The recovery union
+Normal merge a0068e2c58835ca6ed315ae7bb1963a99cb5944a now retains audited
+restart recovery452, archive-guard fixe2e33b2 and ordered regressionc02ee92. The recovery union
 preserves19 canonical/22 split migrations and65 focused container selectors.
 Parent independently passes the22-case crash matrix and the65-name/static/Bash
 inventory checks. These are not Rust/PG/native execution.
@@ -14,8 +14,11 @@ Worker and parent authenticate safe artifact11632134258 independently; owned
 scratch/databases and platform containers clean successfully. The fix uses the
 existing AgentStatus::Archived and extends the existing PostgreSQL scope test
 with separate status-only/marker-only archive cases. Formatting/README checks
-pass; the new full backend gate targets fixed sourcee2e33b2, not failed98 or the
+pass; the new full backend gate targets fixed sourcec02ee92, not failed98 or the
 broader runtime assembly. No compiler/PG/native PASS is yet claimed.
+Independent review found a pagination false-positive in the first new regression;
+the successor archives the lower UUID and waits for the higher positive sentinel.
+This source fix is awaiting independent closure and actual PostgreSQL execution.
 
 The isolated [assembly](plans/2026-10-09-docker-controls-integration.md) preserves
 frozen98 UI/control/recovery and be1 Docker/preparation sources by normal merge,

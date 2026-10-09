@@ -18,7 +18,12 @@ Normal parent mergea634e01052f6b2a658b104e589b08ab5157ac17c combines it with
 recoveriese391f25/452. The sole source conflict preserves the async Base-verified
 origin and generation checks while using AgentStatus::Archived. Parent formatting,
 README and diff checks pass; no Rust compilation/PG/native proof is claimed.
-The next full46 hosted gate uses exact fixede2e33b2; it cannot certify the larger
+Independent review finds a pagination false-positive in the first archive test.
+Successorc02ee920a6ba8028038ffc24a293dd8de95bf731 assigns the lower of two
+accepted UUIDs to the archived case and the higher to the positive sentinel,
+before starting the worker. Parent normal mergea0068e2 retains it without conflicts.
+Independent closure and actual PG proof remain pending; formatting/diff pass.
+The next full46 hosted gate uses exact fixedc02ee92; it cannot certify the larger
 container65 union. Frozenbf27 native packet is retained unchanged but needs a new
 corrected source/image packet before execution.
 

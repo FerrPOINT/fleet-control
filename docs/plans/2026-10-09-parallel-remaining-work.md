@@ -13,9 +13,9 @@ checkouts rather than restarting completed work:
 | Feynman  | Generic Base recovered preparation/attachment capability            | Separate utility successor fromae8; original commands, valid custody, physical exit and no unknown-effect redispatch; no business planner |
 | Pascal   | Qualify original image dependencies and an owned build wrapper      | Frozen recipe packet exists; prove parent toolchain/venv inputs and cleanup before any candidate build, no accepted tag changes |
 | Ptolemy  | Review a genuinely fresh hosted Forge test environment              | Preserve full12 semantics/reserves/deadlines; distinguish old QA daemon identity from product custody and assess bounded jobs |
-| Anscombe | Full backend gate preparation for proved archive fixe2e33b2         | Actual safe diagnosticE0609 obtained; normal controls/source merge with all46 stages and135 ignored identities retained |
+| Anscombe | Full backend gate preparation for archive fixc02ee92                | Actual safe diagnosticE0609 obtained; normal controls/source merge with all46 stages and135 ignored identities retained |
 | Leibniz  | Independently review archive fix and its scope regression           | Recovery mergee391 completed and parent-verified; check the new status-only/marker-only archive cases without heavy execution |
-| Parent   | Normal integration, documentation and scoped publication            | Recovery452 and archive fix integrated ata634; review/admit new gates and publish only exact-head qualified release units |
+| Parent   | Normal integration, documentation and scoped publication            | Recovery452/archive fix and ordered regression integrated ata006; review/admit new gates and publish qualified release units |
 
 These are continuations of the existing five workers, not additional competing
 implementations. Each has a separate write set; the parent UI is read-only to
@@ -28,7 +28,9 @@ Safe diagnostics controlsbc4ee52 were reviewed, passed41 pure tests and were
 normally pushed once. Actual run37964514708 fails check with authenticated E0609
 at acceptance_readback.rs:58:30; both independent readbacks and all cleanup
 steps succeed. Parent fixes the proved source defect in separatee2e33b2, then
-normally merges it with recoverye391 ata634. The old source packets remain
+normally merges it with recoverye391 ata634. Review finds and fixes a pagination
+false-positive in the added test; newc02ee92 uses an ordered negative/positive
+sentinel and is normally integrated ata006. The old source packets remain
 immutable. Full backend/PG and corrected native acceptance still remain open.
 
 Independent source review closes both configuration18 findings at906 and the
