@@ -18,6 +18,9 @@ spending limit blocks execution. Account CI access and all required checks remai
 open; do not classify a job with no steps as a failed product test or waive it.
 Fleet protocol4 consumption/recovered activation and native image/driver
 qualification are independent remaining implementation/acceptance gates.
+Build wrapper successor9cda3075/seal459f0371 has source closure for stopped
+foreign-container cleanup and materialized-context drift. Parent23 pure cases
+and6 independent counterproofs pass; no build/image/native grant follows.
 
 The previous compiler blocker was identified, not guessed: authenticated
 run37964514708 reports E0609 at acceptance_readback.rs:58:30. Scoped sourcee2e33b2

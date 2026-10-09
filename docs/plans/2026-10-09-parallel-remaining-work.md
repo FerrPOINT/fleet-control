@@ -11,10 +11,10 @@ checkouts rather than restarting completed work:
 | Owner    | Current assignment                                                 | Required handoff                                                                                                              |
 | -------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
 | Feynman  | Fleet consumer of recovered-generation protocol4                    | Actual recovered config activation, positive DB authority and canonical utility hashes; preserve original custody, SDK19a and unknown-effect fences |
-| Pascal   | Close two independently reproduced build-wrapper defects           | New immutable successor: all-container cleanup custody and exact materialized recipe/context parity; no resource-guard waiver |
+| Pascal   | Build-wrapper successor handed off with both findings closed         | Seal459f0371; parent repeats23 pure cases and6 independent counterproofs, no build/native grant or resource-guard waiver |
 | Ptolemy  | Implement hermetic hosted Forge full12 controls                      | Two bounded jobs retain all12 stages, original per-stage deadlines, disk reserve, receipts and own-only cleanup; no custody transfer |
-| Anscombe | Compiler source fix and exact-source gate handed off                | Fix6e9 independently reviewed and normally integrated; gate successor da9473a prepared, no publication/automatic retry during CI hold |
-| Leibniz  | Independently review the image-build wrapper                         | Exact parents, inherited volumes, dependency qualification, resource guards and every cleanup failure path; read-only/pure checks |
+| Anscombe | Early independent review of hermetic Forge controls                 | Compiler6e9/gateda9473a handed off; inspect draft full12/evidence/cleanup invariants without edits or hosted execution |
+| Leibniz  | Early independent review of Fleet recovered activation              | Wrapper closure completed; inspect draft migration19/authority/lease/effect fencing, final frozen-source review still required |
 | Parent   | Normal integration, documentation and scoped publication             | Base PR180 published after exact-head Linux224 and independent review; accept remaining units separately, do not certify full SDLC |
 
 These are continuations of the existing five workers, not additional competing
@@ -52,9 +52,13 @@ the explicit CI availability hold.
 Independent review of image-build wrapper seal7c8c8e94 finds two P2 control-flow
 defects: stopped foreign containers are missing from cleanup inventory, and
 materialized recipe bytes are not compared against sealed inputs. Two pure
-reproductions confirm them; no Docker effect occurred. Pascal owns a new immutable
-successor and regressions, Leibniz owns independent closure. The old wrapper is
-not admitted for builds even if capacity becomes available.
+reproductions confirm them; no Docker effect occurred. Successor packet9cda3075
+seal459f037177b1f649ef0907c78413a9a6bfc64f9dbcae1f4cafa3ea691e804c3d
+uses all-container inventory and sealed recipes/full-context prebuild/terminal
+parity. Independent review closes both findings with six counterproofs; parent
+repeats23 wrapper tests and6 counterproofs and verifies the exact seal. These
+are source/pure checks, not image builds or native acceptance. Old7c8 stays
+unaccepted. Exact image transport, qualification and resource prerequisites remain.
 
 Safe diagnostics controlsbc4ee52 were reviewed, passed41 pure tests and were
 normally pushed once. Actual run37964514708 fails check with authenticated E0609
