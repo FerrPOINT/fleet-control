@@ -14,8 +14,13 @@ The domain Agent has status, not archived_at: the corrected guard rejects
 AgentStatus::Archived. The existing scope regression additionally covers an
 archived status without a marker and an archive marker without a status change;
 both must retain pending capacity and produce no runtime GET. DB marker checks
-remain unchanged. This source fix and its regression require a new compiler/PG
-gate; the failure artifact is not a PASS or native/PM acceptance.
+remain unchanged. Independent review found that waiting for an arbitrary positive
+UUID could miss the status-only case on a later page. The regression now sorts
+two accepted candidates, archives the lower UUID and uses the higher as its
+positive sentinel before starting the worker. Positive completion therefore
+requires scanning the archived candidate first. This source fix and its
+regression require a new compiler/PG gate; the failure artifact is not a PASS
+or native/PM acceptance.
 
 ## Published Monitoring Merge Gate (2026-10-09)
 
