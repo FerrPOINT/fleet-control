@@ -2370,12 +2370,12 @@ def main():
         );
         let path = root.join("activation.json");
         assert!(matches!(
-            seal_plan(&root, &path, &p).await,
+            seal_plan(root, &path, &p).await,
             Err(AppError::Validation(_))
         ));
         assert!(!path.exists());
-        assert!(!recipe_path(&root, &p.candidate).exists());
-        assert!(!recipe_path(&root, &p.rollback).exists());
+        assert!(!recipe_path(root, &p.candidate).exists());
+        assert!(!recipe_path(root, &p.rollback).exists());
         assert_eq!(read_managed(&soul).await.unwrap(), Some(original));
     }
 
