@@ -83,7 +83,7 @@ class HostedBackendTests(unittest.TestCase):
             entries.append((path.decode(), oid))
         batch = subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT), "cat-file", "--batch"],
             input=b"".join(oid + b"\n" for _, oid in entries), capture_output=True, check=True, timeout=30).stdout
-        frames, actual, rust = io.BytesIO(batch), {}, {}
+        frames, actual, rust, sources = io.BytesIO(batch), {}, {}, {}
         for path, oid in entries:
             parts = frames.readline().split()
             self.assertEqual(parts[:2], [oid, b"blob"])
@@ -92,10 +92,23 @@ class HostedBackendTests(unittest.TestCase):
             actual["fleet-control/" + path] = gate.digest(body)
             if path.startswith("backend/") and path.endswith(".rs"):
                 rust[path] = gate.digest(body)
+                sources[path] = body.decode()
         self.assertEqual(frames.read(), b"")
         self.assertEqual(actual, {k: v for k, v in REVIEWED["compiled_source_sha256"].items() if k.startswith("fleet-control/")})
         self.assertEqual(rust, REVIEWED["rust_source_sha256"])
         self.assertEqual(gate.digest(gate.canonical(REVIEWED["compiled_source_sha256"])), gate.SOURCE_INVENTORY_SHA)
+        for record in REVIEWED["ignored"] + REVIEWED["workspace_default_declarations"]:
+            text = sources[record["source"]]
+            lines = text.splitlines(keepends=True)
+            line = record["line"]
+            name = record["name"].rsplit("::", 1)[-1]
+            with self.subTest(source=record["source"], name=name, line=line):
+                self.assertRegex(lines[line - 1], r"\bfn " + re.escape(name) + r"\(")
+                prefix = "".join(lines[:line - 1])
+                markers = list(re.finditer(r"#\[(?:tokio::)?test\]", prefix))
+                self.assertTrue(markers)
+                attrs = prefix[markers[-1].start():]
+                self.assertEqual("#[ignore" in attrs, record.get("ignored", True))
 
     def test_authentic_codegen_binding_and_missing_ancestry_fail_before_private_or_heavy_effects(self):
         self.assertEqual(gate.OPENAPI_SHA, "874230b2105a73b8f96aa2c1ecf6685a551dcf721f6e2c512852c831163c7be7")
@@ -180,6 +193,14 @@ class HostedBackendTests(unittest.TestCase):
 
     def workflow(self):
         return yaml.load((ROOT / gate.WORKFLOW).read_text(), Loader=yaml.BaseLoader)
+
+    def test_workflow_summary_source_matches_checkout_and_helper_pin(self):
+        steps = self.workflow()["jobs"]["backend"]["steps"]
+        checkout = next(step for step in steps if step.get("with", {}).get("path") == "fleet-control")
+        summary = next(step["run"] for step in steps if "GITHUB_STEP_SUMMARY" in step.get("run", ""))
+        pins = re.findall(r"printf 'Source: `%s`\\n\\n' ([0-9a-f]{40})", summary)
+        self.assertEqual(pins, [gate.SOURCE_SHA])
+        self.assertEqual(checkout["with"]["ref"], gate.SOURCE_SHA)
 
     def test_exact_push_only_branch_permissions_and_one_bounded_job(self):
         flow = self.workflow()
