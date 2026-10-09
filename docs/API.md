@@ -80,6 +80,12 @@ and must be coordinated with consumers before enabling unit13.
 
 ## Docker Activation Restart Recovery
 
+The opt-in [Base4 consumer](RECOVERED_ACTIVATION_CONSUMER.md) adds no public API or
+DTO. Existing desired/effective activation endpoints retain their drain gates.
+Its private recovered authority is not a human override, takeover API or permission
+to replay unknown native commands. Older unit18 recovery limitations below refer
+to the legacy Base169 path; unsupported Base4 phases still retain typed holds.
+
 The [config18 restart successor](CONTAINER_ACTIVATION_RECOVERY_RELEASE.md) exposes
 typed recovery reason/action JSON through the existing revision `last_error`
 string and `agent_config.recovery_required` audit event. This is a recovery

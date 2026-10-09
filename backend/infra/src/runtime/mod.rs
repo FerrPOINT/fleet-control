@@ -32,6 +32,7 @@ mod container_preparation;
 #[cfg(test)]
 mod container_preparation_tests;
 mod container_recovery;
+mod container_replacement;
 mod container_workers;
 mod hermes_wire;
 mod native_context;

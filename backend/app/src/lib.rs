@@ -167,6 +167,33 @@ pub trait FleetRepository: Send + Sync {
     ) -> Result<Option<container_activation::Activation>, AppError> {
         Ok(None)
     }
+    async fn open_container_activation(
+        &self,
+        _agent: Uuid,
+    ) -> Result<Option<container_activation::Activation>, AppError> {
+        Ok(None)
+    }
+    async fn container_activation_for_launch(
+        &self,
+        _launch: &container_runtime::ContainerLaunch,
+    ) -> Result<Option<container_activation::Activation>, AppError> {
+        Ok(None)
+    }
+    async fn authorize_recovered_activation(
+        &self,
+        _record: &container_activation::Activation,
+        _proof: &container_activation::RecoveredProof,
+    ) -> Result<(), AppError> {
+        Err(container_activation::held())
+    }
+    async fn advance_recovered_activation(
+        &self,
+        _previous: &container_activation::Activation,
+        _next: &container_activation::Activation,
+        _proof: &container_activation::RecoveredProof,
+    ) -> Result<(), AppError> {
+        Err(container_activation::held())
+    }
     async fn container_generation_intent_hash(
         &self,
         _agent: Uuid,

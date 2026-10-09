@@ -29,6 +29,19 @@ impl LocalRuntimeSupervisor {
         &self,
         launch: &ContainerLaunch,
     ) -> Result<(ContainerControl, ContainerLaunchFiles), AppError> {
+        if let Some(files) = self
+            .activation_replacement_owner_files(launch, false)
+            .await?
+        {
+            return Ok(files);
+        }
+        self.container_anchor_files(launch).await
+    }
+
+    pub(super) async fn container_anchor_files(
+        &self,
+        launch: &ContainerLaunch,
+    ) -> Result<(ContainerControl, ContainerLaunchFiles), AppError> {
         let (control, mut files) = self.container_files(&launch.prepared.container).await?;
         let recovery = self
             .repo
@@ -58,8 +71,8 @@ impl LocalRuntimeSupervisor {
         launch: &ContainerLaunch,
         state: &str,
     ) -> Result<(), AppError> {
-        let (_, files) = self.container_owner_files(launch).await?;
-        if let Some(command) = files.recovery {
+        let (control, files) = self.container_owner_files(launch).await?;
+        if let Some(command) = control.recovered_lease()?.or(files.recovery) {
             self.repo
                 .advance_recovered_container(launch, &command, state)
                 .await
@@ -103,7 +116,12 @@ impl LocalRuntimeSupervisor {
     }
 
     async fn reconcile_container_owner(&self, agent: &Agent) -> Result<(), AppError> {
-        let Some(launch) = self.repo.get_container_launch(agent.id).await? else {
+        let activation_anchor = self.activation_recovery_anchor(agent).await?;
+        let for_activation = activation_anchor.is_some();
+        let Some(launch) = (match activation_anchor {
+            Some(anchor) => Some(anchor),
+            None => self.repo.get_container_launch(agent.id).await?,
+        }) else {
             return Ok(());
         };
         if !matches!(launch.state.as_str(), "running" | "stopping")
@@ -111,7 +129,9 @@ impl LocalRuntimeSupervisor {
         {
             return Ok(());
         }
-        self.checked_prepared(agent, &launch.prepared).await?;
+        if !for_activation {
+            self.checked_prepared(agent, &launch.prepared).await?;
+        }
         let (control, mut files) = self.container_files(&launch.prepared.container).await?;
         let original = &launch.prepared.container.registration;
         let mut prior = self
@@ -165,7 +185,11 @@ impl LocalRuntimeSupervisor {
                         json!({"ack":ack,"receipt":receipt}),
                     )
                     .await?;
-                return self.finish_recovered_stop(agent, &launch).await;
+                return if for_activation {
+                    Ok(())
+                } else {
+                    self.finish_recovered_stop(agent, &launch).await
+                };
             }
             // Base169 heartbeat is a write, not an unknown-delivery lookup. A foreign
             // process cannot settle it, even with the exact frozen version/deadline.
@@ -221,7 +245,11 @@ impl LocalRuntimeSupervisor {
         self.repo
             .acknowledge_container_lease(&command, json!({"ack":heartbeat,"receipt":receipt}))
             .await?;
-        self.finish_recovered_stop(agent, &launch).await
+        if for_activation {
+            Ok(())
+        } else {
+            self.finish_recovered_stop(agent, &launch).await
+        }
     }
 
     async fn finish_recovered_stop(

@@ -2,6 +2,12 @@
 
 ## Recovery Candidate Boundary
 
+Default-off `fleet.container_control.recovered_activation` enables the
+[Base4 original-plan consumer](RECOVERED_ACTIVATION_CONSUMER.md). It retains the
+original activation/commands/receipts, native recovered anchor and run fences.
+Only supported proved phases continue; missing evidence/unknown old effects hold.
+Successful readiness/publication is not SDLC admission or native acceptance.
+
 Free-chat unknown acceptance may recover only the original native run ID through
 the default-off [durable witness lookup](contracts/HERMES_RECOVERY_V1.md).
 Original bytes/key/hash/origin/credential/scope/store epoch must match. Known-ID

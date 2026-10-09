@@ -52,6 +52,13 @@ restart through the recovery slice; fixtures are not installed-runtime acceptanc
 
 ## Docker Activation Restart Recovery
 
+The [Base4 opt-in consumer](../RECOVERED_ACTIVATION_CONSUMER.md) continues only
+sealed original Docker activation under proved recovered custody. Original API
+credentials, image, isolated layout, command IDs and receipts stay fixed; agents
+receive no Docker socket or controller evidence. Physical/file/API readiness is
+not loaded-model/tool self-attestation or production admission. Historical Base169
+recovery limits below do not describe the additional protocol4 capability.
+
 Docker config18 [restart reconciliation](../CONTAINER_ACTIVATION_RECOVERY_RELEASE.md)
 preserves the original private plan, recipe, credentials and native IDs. An
 interrupted pre-plan claim is discoverable without clearing/reclaiming its queue

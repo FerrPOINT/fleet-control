@@ -130,9 +130,13 @@ pub(super) async fn acknowledge(
     receipt: Value,
     heartbeat: bool,
 ) -> Result<(), AppError> {
-    let launch = crate::container_runtime::get(repo, command.request.agent_id)
-        .await?
-        .ok_or_else(held)?;
+    let launch = crate::container_runtime::get_generation(
+        repo,
+        command.request.agent_id,
+        command.request.launch_id,
+    )
+    .await?
+    .ok_or_else(held)?;
     let b = &launch.prepared.container;
     if b.registration.generation != command.request.launch_id {
         return Err(held());

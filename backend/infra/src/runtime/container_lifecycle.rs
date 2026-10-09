@@ -7,11 +7,29 @@ use container_control::{
 use std::path::{Path, PathBuf};
 use tokio::io::AsyncReadExt;
 
-// Canonical Git blob bytes at Base utility169, independent of the Rust/UI SDK pin.
-pub(super) const UTILITY_SHA256: [&str; 3] = [
+// Immutable legacy receipt provenance; never rewrite existing receipts or plans.
+const LEGACY_UTILITY_SHA256: [&str; 3] = [
     "2e6bfa6907b93e6d436d2b6668ae20211aca53a64c433f7e1a98ab51245b3e89",
     "5be8066b6f7dc68f8dda7f1040c0626dad272477c019b07263821df7f86b59a2",
     "a650ed055334799af115a229c202b0f8a63a0917284d722a75f0cac19f22ebb8",
+];
+pub(super) const UTILITY_SHA256: [&str; 3] = [
+    "2e6bfa6907b93e6d436d2b6668ae20211aca53a64c433f7e1a98ab51245b3e89",
+    "5be8066b6f7dc68f8dda7f1040c0626dad272477c019b07263821df7f86b59a2",
+    "1f53542606d6dc9f88f0fead7c269001f449926d8df6ccf4369d6c9874a9445b",
+];
+
+fn known_provenance(hashes: &[String; 3]) -> bool {
+    *hashes == UTILITY_SHA256.map(str::to_owned)
+        || *hashes == LEGACY_UTILITY_SHA256.map(str::to_owned)
+}
+
+// Executable utility9b bytes, independent of historical provenance and SDK19a.
+pub(super) const CONTROL_SHA256: [&str; 4] = [
+    "2e6bfa6907b93e6d436d2b6668ae20211aca53a64c433f7e1a98ab51245b3e89",
+    "5be8066b6f7dc68f8dda7f1040c0626dad272477c019b07263821df7f86b59a2",
+    "1f53542606d6dc9f88f0fead7c269001f449926d8df6ccf4369d6c9874a9445b",
+    "af73f6bac7dd123b2927c79dc4001edb6fcc32cf6a7de06d2be98309a2ce393e",
 ];
 
 fn held() -> AppError {
@@ -121,7 +139,7 @@ pub(super) fn validate_recipe(
             && !policy["project"]
                 .as_str()
                 .is_some_and(|v| v.starts_with("sdlc-qa-"))
-        || b.source_sha256 != UTILITY_SHA256.map(str::to_owned)
+        || !known_provenance(&b.source_sha256)
         || container_control::canonical_hash(policy)? != b.registration.policy_sha256
         || container_control::canonical_hash(compose)? != b.registration.compose_sha256
     {
@@ -234,7 +252,7 @@ impl LocalRuntimeSupervisor {
             || source.starts_with(&root)
             || root.starts_with(&source)
             || b.context != config.context
-            || b.source_sha256 != UTILITY_SHA256.map(str::to_owned)
+            || !known_provenance(&b.source_sha256)
             || [
                 b.compose.as_str(),
                 b.journal.as_str(),
@@ -286,7 +304,7 @@ impl LocalRuntimeSupervisor {
             config.python.clone().into(),
             ControlSource {
                 root: source,
-                sha256: b.source_sha256.clone(),
+                sha256: CONTROL_SHA256.map(str::to_owned),
             },
             config.context.clone(),
         )?;
@@ -619,7 +637,8 @@ impl LocalRuntimeSupervisor {
                 )
                 .await;
         }
-        if launch.state == "running" {
+        let first_stop = launch.state == "running";
+        if first_stop {
             self.advance_container(&launch, "stopping").await?;
             launch.state = "stopping".into();
         }
@@ -627,6 +646,7 @@ impl LocalRuntimeSupervisor {
             return Err(held());
         }
         let (control, files) = self.container_owner_files(&launch).await?;
+        let control = control.permit_stop(first_stop);
         let original = &launch.prepared.container.registration;
         let observed = control.observe(&files, original).await?;
         if serde_json::to_value(&observed.snapshot).map_err(|_| held())?

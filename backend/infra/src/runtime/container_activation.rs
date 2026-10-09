@@ -272,6 +272,61 @@ fn recipe_path(root: &Path, intent: &Intent) -> PathBuf {
     ))
 }
 
+fn replacement_command(
+    root: &Path,
+    plan: &Plan,
+    record: &Activation,
+    intent: &Intent,
+) -> Result<Value, AppError> {
+    if canonical_hash(&plan.claim()?)? != canonical_hash(&record.claim)? {
+        return Err(held());
+    }
+    let rollback = intent.generation == plan.rollback.generation;
+    if !rollback && intent.generation != plan.candidate.generation {
+        return Err(held());
+    }
+    if canonical_hash(intent)?
+        != canonical_hash(if rollback {
+            &plan.rollback
+        } else {
+            &plan.candidate
+        })?
+    {
+        return Err(held());
+    }
+    let (predecessor, proof) = if rollback && record.candidate.is_some() {
+        (
+            record.candidate.as_ref().ok_or_else(held)?,
+            record.candidate_stop.as_ref().ok_or_else(held)?,
+        )
+    } else {
+        (
+            &plan.previous,
+            record.previous_stop.as_ref().ok_or_else(held)?,
+        )
+    };
+    if !app::container_activation::stopped(
+        predecessor,
+        proof,
+        &canonical_hash(predecessor.snapshot.as_ref().ok_or_else(held)?)?,
+    ) {
+        return Err(held());
+    }
+    let files = intent.files(root);
+    let mapped = intent.mapped.as_ref().ok_or_else(held)?;
+    let name = format!("{}.{}", intent.agent_id, intent.generation);
+    Ok(
+        json!({"contract_version":1,"operation_id":intent.operation_id,"intent_sha256":record.claim.intent_sha256,
+        "predecessor_generation":predecessor.prepared.container.registration.generation,
+        "previous_stop":{"operation_id":predecessor.stop_id,"journal":predecessor.prepared.container.stop_journal,"receipt":proof},
+        "policy":intent.policy,"process":intent.process,"mount_mapping":mapped.mapping,
+        "stop_id":if rollback { plan.rollback_stop_id } else { plan.candidate_stop_id },
+        "compose":files.compose,"journal":files.journal,"creation_compose":root.join(format!("{name}.create.json")),
+        "creation_journal":root.join(format!("{name}.create.sqlite")),"mapping_file":mapped.mapping_file,
+        "attachment_journal":mapped.attachment_journal,"stop_journal":files.stop_journal}),
+    )
+}
+
 async fn read_managed(path: &Path) -> Result<Option<Vec<u8>>, AppError> {
     match tokio::fs::symlink_metadata(path).await {
         Ok(_) => Ok(Some(
@@ -288,6 +343,245 @@ async fn read_managed(path: &Path) -> Result<Option<Vec<u8>>, AppError> {
 }
 
 impl LocalRuntimeSupervisor {
+    fn recovered_activation_enabled(&self) -> bool {
+        self.config
+            .fleet
+            .container_control
+            .as_ref()
+            .is_some_and(|c| c.recovered_activation)
+    }
+
+    /// Renewal selects the immutable anchor, never the newest candidate row.
+    pub(super) async fn activation_recovery_anchor(
+        &self,
+        agent: &Agent,
+    ) -> Result<Option<ContainerLaunch>, AppError> {
+        if !self.recovered_activation_enabled() {
+            return Ok(None);
+        }
+        let Some(record) = self.repo.open_container_activation(agent.id).await? else {
+            return Ok(None);
+        };
+        let root = private_root(
+            &self
+                .config
+                .fleet
+                .container_control
+                .as_ref()
+                .ok_or_else(held)?
+                .controller_root,
+        )
+        .await?;
+        let path = root.join(format!(
+            "{}.{}.activation.json",
+            agent.id, record.claim.revision
+        ));
+        let plan = read_plan(&root, &path, Some(&record)).await?;
+        if self.activation_marker(agent).await? != plan.marker_sha256 {
+            return Err(held());
+        }
+        let prepared = if record.phase.terminal() {
+            if record.phase == Phase::Committed {
+                &record.candidate
+            } else {
+                &record.rollback
+            }
+            .as_ref()
+            .ok_or_else(held)?
+        } else {
+            &plan.previous
+        };
+        self.checked_prepared(agent, &prepared.prepared).await?;
+        Ok(Some(plan.previous))
+    }
+
+    async fn recovered_activation_proof(
+        &self,
+        agent: &Agent,
+        plan: &Plan,
+        record: &Activation,
+    ) -> Result<app::container_activation::RecoveredProof, AppError> {
+        if !self.recovered_activation_enabled()
+            || self.activation_marker(agent).await? != plan.marker_sha256
+        {
+            return Err(held());
+        }
+        let prepared = if record.phase.terminal() {
+            if record.phase == Phase::Committed {
+                &record.candidate
+            } else {
+                &record.rollback
+            }
+            .as_ref()
+            .ok_or_else(held)?
+        } else {
+            &plan.previous
+        };
+        self.checked_prepared(agent, &prepared.prepared).await?;
+        if record.phase.terminal() {
+            self.activation_files(agent, plan, record.phase == Phase::RolledBack, false)
+                .await?;
+        }
+        let (control, files) = self.container_anchor_files(&plan.previous).await?;
+        let lease = files.recovery.as_ref().ok_or_else(held)?.clone();
+        if lease.request.controller_id != self.controller_id {
+            return Err(held());
+        }
+        let observation = control
+            .observe(&files, &plan.previous.prepared.container.registration)
+            .await?;
+        if !matches!(
+            observation.observation,
+            ContainerObservation::Running | ContainerObservation::NamespaceExited
+        ) || serde_json::to_value(&observation.snapshot).map_err(|_| held())?
+            != plan.previous.snapshot.clone().ok_or_else(held)?
+        {
+            return Err(held());
+        }
+        let proof = app::container_activation::RecoveredProof {
+            lease,
+            observation: serde_json::to_value(observation).map_err(|_| held())?,
+        };
+        self.repo
+            .authorize_recovered_activation(record, &proof)
+            .await?;
+        Ok(proof)
+    }
+
+    async fn recovered_replacement_control(
+        &self,
+        agent: &Agent,
+        root: &Path,
+        plan: &Plan,
+        record: &Activation,
+        intent: &Intent,
+        first: bool,
+    ) -> Result<ContainerControl, AppError> {
+        if first && record.phase.terminal() {
+            return Err(held());
+        }
+        let proof = self.recovered_activation_proof(agent, plan, record).await?;
+        let (control, mut anchor_files) = self
+            .container_files(&plan.previous.prepared.container)
+            .await?;
+        anchor_files.recovery = Some(proof.lease);
+        let anchor = control.request(
+            &anchor_files,
+            "observe",
+            json!({"registration":plan.previous.prepared.container.registration}),
+        )?;
+        let command = replacement_command(root, plan, record, intent)?;
+        let path = root.join(format!(
+            "{}.{}.replacement-command.json",
+            agent.id, intent.generation
+        ));
+        match tokio::fs::symlink_metadata(&path).await {
+            Ok(_) => {
+                let saved: Value =
+                    serde_json::from_slice(&private_file(root, &path, 65_536).await?)
+                        .map_err(|_| held())?;
+                if canonical_hash(&saved)? != canonical_hash(&command)? {
+                    return Err(held());
+                }
+            }
+            Err(e)
+                if e.kind() == std::io::ErrorKind::NotFound
+                    && first
+                    && matches!(
+                        record.phase,
+                        Phase::PreparingCandidate | Phase::PreparingRollback
+                    ) =>
+            {
+                write_once(root, &path, &command).await?
+            }
+            _ => return Err(held()),
+        }
+        Ok(
+            control.replacement(super::container_replacement::Replacement {
+                anchor,
+                command,
+                journal: root.join(format!("{}.{}.replacement.sqlite", agent.id, plan.id)),
+                first,
+                stop_first: false,
+            }),
+        )
+    }
+
+    async fn activation_control(
+        &self,
+        launch: &ContainerLaunch,
+        first: bool,
+    ) -> Result<(ContainerControl, ContainerLaunchFiles), AppError> {
+        if let Some(files) = self
+            .activation_replacement_owner_files(launch, first)
+            .await?
+        {
+            return Ok(files);
+        }
+        self.container_anchor_files(launch).await
+    }
+
+    pub(super) async fn activation_replacement_owner_files(
+        &self,
+        launch: &ContainerLaunch,
+        first: bool,
+    ) -> Result<Option<(ContainerControl, ContainerLaunchFiles)>, AppError> {
+        if let Some(record) = self.repo.container_activation_for_launch(launch).await? {
+            let anchor_generation = record
+                .claim
+                .previous
+                .prepared
+                .container
+                .registration
+                .generation;
+            let recovered = self
+                .repo
+                .get_container_recovery(anchor_generation)
+                .await?
+                .is_some();
+            if recovered && launch.prepared.container.registration.generation != anchor_generation {
+                if !record.tracks_launch(launch) {
+                    return Err(held());
+                }
+                let agent = self.repo.get_agent(launch.prepared.agent_id).await?;
+                let root = private_root(
+                    &self
+                        .config
+                        .fleet
+                        .container_control
+                        .as_ref()
+                        .ok_or_else(held)?
+                        .controller_root,
+                )
+                .await?;
+                let path = root.join(format!(
+                    "{}.{}.activation.json",
+                    agent.id, record.claim.revision
+                ));
+                let plan = read_plan(&root, &path, Some(&record)).await?;
+                let intent = if launch.prepared.container.registration.generation
+                    == plan.candidate.generation
+                {
+                    &plan.candidate
+                } else if launch.prepared.container.registration.generation
+                    == plan.rollback.generation
+                {
+                    &plan.rollback
+                } else {
+                    return Err(held());
+                };
+                let control = self
+                    .recovered_replacement_control(&agent, &root, &plan, &record, intent, first)
+                    .await?;
+                return Ok(Some((
+                    control,
+                    self.container_files(&launch.prepared.container).await?.1,
+                )));
+            }
+        }
+        Ok(None)
+    }
+
     pub(super) async fn reconcile_container_revision(
         &self,
         revision: &domain::AgentConfigRevision,
@@ -755,7 +1049,7 @@ impl LocalRuntimeSupervisor {
         agent: &Agent,
         launch: &ContainerLaunch,
     ) -> Result<(), AppError> {
-        let (control, files) = self.container_files(&launch.prepared.container).await?;
+        let (control, files) = self.activation_control(launch, false).await?;
         let r = control
             .observe(&files, &launch.prepared.container.registration)
             .await?;
@@ -782,7 +1076,7 @@ impl LocalRuntimeSupervisor {
     }
 
     async fn activation_exited(&self, launch: &ContainerLaunch) -> Result<(), AppError> {
-        let (control, files) = self.container_files(&launch.prepared.container).await?;
+        let (control, files) = self.activation_control(launch, false).await?;
         let r = control
             .observe(&files, &launch.prepared.container.registration)
             .await?;
@@ -805,7 +1099,7 @@ impl LocalRuntimeSupervisor {
         agent: &Agent,
         root: &Path,
         intent: &Intent,
-        stop_id: Uuid,
+        custody: (Uuid, Uuid),
         first: bool,
         control: &ContainerControl,
     ) -> Result<ContainerLaunch, AppError> {
@@ -851,11 +1145,11 @@ impl LocalRuntimeSupervisor {
         self.container_files(&prepared.container).await?;
         Ok(ContainerLaunch {
             prepared,
-            controller_id: self.controller_id,
+            controller_id: custody.1,
             state: "claimed".into(),
             snapshot: None,
             origin: None,
-            stop_id,
+            stop_id: custody.0,
         })
     }
 
@@ -865,7 +1159,7 @@ impl LocalRuntimeSupervisor {
         launch: &ContainerLaunch,
         first: bool,
     ) -> Result<ContainerLaunch, AppError> {
-        let (control, files) = self.container_files(&launch.prepared.container).await?;
+        let (control, files) = self.activation_control(launch, first).await?;
         let r = if first {
             control
                 .start(&files, &launch.prepared.container.registration)
@@ -976,12 +1270,13 @@ impl LocalRuntimeSupervisor {
             {
                 return Err(held().into());
             }
-            if plan.controller_id != self.controller_id
+            if (plan.controller_id != self.controller_id
                 || self
                     .repo
                     .get_container_recovery(launch.prepared.container.registration.generation)
                     .await?
-                    .is_some()
+                    .is_some())
+                && (!self.recovered_activation_enabled() || saved.is_none())
             {
                 return Err(self
                     .activation_restart_hold(&launch, saved.as_ref())
@@ -1016,6 +1311,16 @@ impl LocalRuntimeSupervisor {
         if canonical_hash(&record.claim)? != canonical_hash(&claim)? {
             return Err(held().into());
         }
+        let recovered = plan.controller_id != self.controller_id
+            || self
+                .repo
+                .get_container_recovery(plan.previous.prepared.container.registration.generation)
+                .await?
+                .is_some();
+        if recovered {
+            self.recovered_activation_proof(&agent, &plan, &record)
+                .await?;
+        }
         let (control, _) = self
             .container_files(&plan.previous.prepared.container)
             .await?;
@@ -1040,20 +1345,25 @@ impl LocalRuntimeSupervisor {
                     next.phase = StoppingPrevious;
                 }
                 StoppingPrevious => {
-                    let files = self
-                        .container_files(&plan.previous.prepared.container)
-                        .await?
-                        .1;
+                    let (control, files) = self.activation_control(&plan.previous, false).await?;
                     next.previous_stop = Some(
-                        serde_json::to_value(
+                        serde_json::to_value(if recovered && !fresh {
+                            control
+                                .read_original_stop(
+                                    &files,
+                                    &plan.previous.prepared.container.registration,
+                                    plan.previous.stop_id,
+                                )
+                                .await?
+                        } else {
                             control
                                 .stop(
                                     &files,
                                     &plan.previous.prepared.container.registration,
                                     plan.previous.stop_id,
                                 )
-                                .await?,
-                        )
+                                .await?
+                        })
                         .map_err(|_| held())?,
                     );
                     next.phase = PreviousStopped;
@@ -1094,13 +1404,23 @@ impl LocalRuntimeSupervisor {
                             &agent,
                             &root,
                             intent,
-                            if rollback {
-                                plan.rollback_stop_id
-                            } else {
-                                plan.candidate_stop_id
-                            },
+                            (
+                                if rollback {
+                                    plan.rollback_stop_id
+                                } else {
+                                    plan.candidate_stop_id
+                                },
+                                plan.controller_id,
+                            ),
                             fresh,
-                            &control,
+                            &if recovered {
+                                self.recovered_replacement_control(
+                                    &agent, &root, &plan, &record, intent, fresh,
+                                )
+                                .await?
+                            } else {
+                                control.clone()
+                            },
                         )
                         .await?;
                     if rollback {
@@ -1122,7 +1442,7 @@ impl LocalRuntimeSupervisor {
                     }
                     .as_ref()
                     .ok_or_else(held)?;
-                    let files = self.container_files(&l.prepared.container).await?.1;
+                    let (control, files) = self.activation_control(l, fresh).await?;
                     if files.mapped.is_some() {
                         control
                             .attach(&files, &l.prepared.container.registration)
@@ -1183,7 +1503,7 @@ impl LocalRuntimeSupervisor {
                 }
                 StoppingCandidate => {
                     let l = record.candidate.as_ref().ok_or_else(held)?;
-                    let files = self.container_files(&l.prepared.container).await?.1;
+                    let (control, files) = self.activation_control(l, fresh).await?;
                     next.candidate_stop = Some(
                         serde_json::to_value(
                             control
@@ -1219,9 +1539,18 @@ impl LocalRuntimeSupervisor {
                 }
                 Committed | RolledBack => return Ok(()),
             }
-            self.repo
-                .advance_container_activation(&record, &next)
-                .await?;
+            if recovered {
+                let proof = self
+                    .recovered_activation_proof(&agent, &plan, &record)
+                    .await?;
+                self.repo
+                    .advance_recovered_activation(&record, &next, &proof)
+                    .await?;
+            } else {
+                self.repo
+                    .advance_container_activation(&record, &next)
+                    .await?;
+            }
             fresh = true;
             record = next;
         }
@@ -1231,6 +1560,78 @@ impl LocalRuntimeSupervisor {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn recovered_plan() -> (Plan, Activation) {
+        let mut p = plan();
+        let (_, mapping, _) = super::super::container_mapping::tests::fixture();
+        let mapped = app::container_runtime::MappedContainer {
+            mapping,
+            mapping_file: "/private/mapping.json".into(),
+            attachment_journal: "/private/attach.sqlite".into(),
+            recovery_journal: "/private/recovery.sqlite".into(),
+        };
+        p.candidate.mapped = Some(mapped.clone());
+        p.rollback.mapped = Some(mapped);
+        let mut a = Activation::planned(p.claim().unwrap());
+        let r = &p.previous.prepared.container.registration;
+        a.previous_stop = Some(
+            json!({"contract_version":r.contract_version,"operation_id":p.previous.stop_id,
+            "generation":r.generation,"resource_id":r.resource_id,"container_id":r.container_id,
+            "snapshot_sha256":canonical_hash(p.previous.snapshot.as_ref().unwrap()).unwrap(),"state":"observed","observation":"namespace_exited"}),
+        );
+        a.phase = Phase::PreviousStopped;
+        (p, a)
+    }
+
+    #[test]
+    fn recovered_commands_preserve_original_reserved_identity_and_plan_digest() {
+        let (p, mut a) = recovered_plan();
+        let root = Path::new("/private");
+        let first = replacement_command(root, &p, &a, &p.candidate).unwrap();
+        assert_eq!(first["operation_id"], json!(p.candidate.operation_id));
+        assert_eq!(first["stop_id"], json!(p.candidate_stop_id));
+        assert_eq!(first["intent_sha256"], json!(a.claim.intent_sha256));
+        assert_eq!(first["process"], p.candidate.process);
+        a.phase = Phase::CandidateRunning;
+        assert_eq!(
+            first,
+            replacement_command(root, &p, &a, &p.candidate).unwrap()
+        );
+        let mut foreign = p.candidate.clone();
+        foreign.process["environment"]["API_SERVER_KEY"] = json!("rotated");
+        assert!(replacement_command(root, &p, &a, &foreign).is_err());
+        a.claim.controller_id = Uuid::new_v4();
+        assert!(replacement_command(root, &p, &a, &p.candidate).is_err());
+    }
+
+    #[test]
+    fn recovered_rollback_requires_original_candidate_exit_and_never_forks_unknown_generation() {
+        let (p, mut a) = recovered_plan();
+        let root = Path::new("/private");
+        let direct = replacement_command(root, &p, &a, &p.rollback).unwrap();
+        assert_eq!(
+            direct["predecessor_generation"],
+            json!(p.previous.prepared.container.registration.generation)
+        );
+        let mut child = p.previous.clone();
+        child.prepared.container.registration.generation = p.candidate.generation;
+        child.prepared.container.registration.operation_id = p.candidate.operation_id;
+        child.stop_id = p.candidate_stop_id;
+        a.candidate = Some(child.clone());
+        assert!(replacement_command(root, &p, &a, &p.rollback).is_err());
+        let mut proof = a.previous_stop.clone().unwrap();
+        proof["generation"] = json!(p.candidate.generation);
+        proof["operation_id"] = json!(p.candidate_stop_id);
+        a.candidate_stop = Some(proof);
+        let rollback = replacement_command(root, &p, &a, &p.rollback).unwrap();
+        assert_eq!(
+            rollback["predecessor_generation"],
+            json!(p.candidate.generation)
+        );
+        assert_eq!(rollback["operation_id"], json!(p.rollback.operation_id));
+        a.candidate.as_mut().unwrap().snapshot = None;
+        assert!(replacement_command(root, &p, &a, &p.rollback).is_err());
+    }
 
     struct Scratch(PathBuf);
 

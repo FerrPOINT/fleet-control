@@ -43,6 +43,16 @@ fn decode(row: QueryResult) -> Result<ContainerLaunch, AppError> {
     })
 }
 
+pub(super) async fn get_generation(
+    repo: &PostgresFleetRepository,
+    agent: Uuid,
+    generation: Uuid,
+) -> Result<Option<ContainerLaunch>, AppError> {
+    repo.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT prepared,controller_id,state,snapshot,origin,stop_id FROM runtime_container_launches WHERE agent_id=$1 AND generation=$2",
+        [agent.into(),generation.into()])).await.map_err(|_| held())?.map(decode).transpose()
+}
+
 pub(super) async fn lock(txn: &DatabaseTransaction, agent: Uuid) -> Result<QueryResult, AppError> {
     txn.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "SELECT kind,status,archived_at,api_port,runtime_path,config_path,workspace_path,logs_path FROM agents WHERE id=$1 FOR UPDATE",
