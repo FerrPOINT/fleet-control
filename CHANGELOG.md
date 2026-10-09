@@ -118,6 +118,10 @@
 - Integrate exact-request human tool approvals with immutable command replay,
   stale-assignment protection and no automatic redispatch after an unknown outcome.
   PM structured dispatch/resume and live clarification acceptance remain incomplete.
+- После ошибки readiness refresh страница конфигурации показывает «Неизвестно»
+  для runtime и SDLC, сохраняя действующую редакцию; успешный повтор возвращает
+  свежие статусы, включая легитимные stopped/blocked состояния.
+
 - Process-log inserts return their own persisted redacted row atomically, even
   when another stdout/stderr writer has already inserted a newer log. PostgreSQL
   regressions cover deterministic interleaving, 64 writers and rejected inserts.

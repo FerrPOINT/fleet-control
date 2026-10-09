@@ -3,6 +3,27 @@
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 
+## Published Monitoring Merge Gate (2026-10-09)
+
+Hosted [CI37930186282](https://github.com/FerrPOINT/fleet-control/actions/runs/37930186282)
+completed successfully for exact source
+`8faea62e3343cfe2017153bf9e7bcb3d449c626b`: containers, backend, minimum Rust,
+frontend and documentation jobs all passed. Backend includes strict Clippy,
+workspace tests, explicit PostgreSQL lineage/directory/SSE cases, clean migration
+rollback/reapply and OpenAPI drift. Frontend includes generated-contract parity,
+typecheck/tests/lint/format/build, shared UI/theme checks, three-browser fixture
+flows and screenshot manifest verification. This is not live PM/SDLC acceptance.
+
+The subsequent normal merge with accepted main `b750e7b` retains PR63 readiness
+refresh protection and both test families. Backend/SDK/generated inputs are
+unchanged, but that does not certify the new merge's frontend or exact-head CI.
+Merged-tree local checks pass: all five combined readiness cases, typecheck,
+targeted ESLint/Prettier, generated OpenAPI/client parity, seven-DTO accepted
+local snapshot and 98 Markdown link checks. The full unit suite, browser flow
+and fresh exact-head CI remain pending at this source freeze. The contract check
+did not read a new Tracker source export; no new producer/live parity is claimed.
+Old packets below are retained.
+
 ## Accepted-Main Backend Gate (2026-10-09)
 
 Terminal packet `sdlc-qa-fleet-foundation47-62000c1b0949` passed all14 gates

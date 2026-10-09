@@ -46,6 +46,10 @@ not live runtime authorization, backend dispatch or SDLC acceptance.
   candidate `f96fcdc` and recovery/controls candidate `ed798638`. The frontend
   and Base pin are unchanged by that merge; integrated Rust formatting passes.
   This does not replace Linux compilation, PostgreSQL or runtime acceptance.
+- A subsequent normal integration retains review-ready foundation `28c9a5e`
+  and accepted main `b750e7b` readiness refresh protection. Only CURRENT_STATE
+  needed manual conflict resolution. Foundation's CI evidence does not certify
+  the combined runtime source; its control receipt work below remains open.
 - Generate OpenAPI from Rust and frontend types from that output; do not invent
   handwritten receipt DTOs or patch the generated files manually.
 - Show reserved/submitted/uncertain/acknowledged/terminal_observed separately.

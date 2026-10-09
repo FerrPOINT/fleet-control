@@ -1,5 +1,22 @@
 # Current State
 
+## Review-Ready Foundation Integration: 9 October 2026
+
+The integration candidate normally merges UI documentation/source `10d1d0e`
+with foundation `28c9a5ee757253d90b169e8b3e1a173297d046e6`. Only CURRENT_STATE
+needed manual conflict resolution; both source-qualified histories are retained.
+Foundation PR47 is review-ready/main/CLEAN with all five exact-head CI jobs
+successful in run37941301270: 262 frontend tests, 48 browser fixtures,
+27 live skips and 135 verified screenshots, plus Linux/PG/OpenAPI gates.
+Local foundation verification also passed nine readiness browser cases; the
+owned preview was stopped. These results certify foundation, not the combined
+runtime tree or live PM/SDLC. The combined tree separately passes 270 frontend
+tests in 33 files, typecheck, production build, Rust formatting,
+109 Markdown link checks and verification
+of the nine unchanged runtime-control fixture images. Backend/API/Base inputs
+and the control UI are unchanged by this foundation merge. Generated receipt
+integration and combined Linux/PG/native acceptance remain open.
+
 ## Integrated UI Candidate: 9 October 2026
 
 Source `f32ecb7b77412d6b6a4843d64b753d3be1926efe` normally merges UI
@@ -56,6 +73,21 @@ The normal merge of coordinator journal `cb720d7` preserves accepted
 main/credentials/foundation history. Linux compilation/PG, real Hermes compatibility,
 generated contracts and UI integration are not accepted.
 `runtime_ready=false`; no PM/model admission or installed runtime changed.
+
+## Task-Chat Readiness Reconciliation: 9 October 2026
+
+Foundation source `8faea62e3343cfe2017153bf9e7bcb3d449c626b` passed all five
+hosted CI jobs in run37930186282, including Linux/PostgreSQL, generated OpenAPI,
+frontend and three-browser fixture acceptance. That evidence is source-specific;
+the live PM cases remain unaccepted.
+
+Accepted main `b750e7b` subsequently merged PR63 readiness refresh protection.
+This candidate preserves that source by normal merge, including all three
+running/ready, running/blocked and stopped/blocked refresh regression cases, plus
+the foundation's two localized effective-readback blocker cases. Backend, Base
+pin, generated contracts and lockfiles are unchanged relative to `8faea62`.
+Fresh merged-head verification/publication remains a separate gate. No runtime,
+rollout or PM admission is enabled by this reconciliation.
 
 ## Task-Chat And Monitoring Reconciliation: 9 October 2026
 

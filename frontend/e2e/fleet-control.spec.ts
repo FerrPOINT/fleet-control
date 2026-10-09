@@ -1443,6 +1443,138 @@ test('uses the shared work-area geometry across semantic page modes', async ({
   }
 })
 
+for (const viewport of [
+  { width: 375, height: 812 },
+  { width: 1920, height: 1080 },
+  { width: 2560, height: 1440 },
+]) {
+  test(`config revisions hold cached readiness after a failed refresh at ${viewport.width}x${viewport.height}`, async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(60000)
+    await page.setViewportSize(viewport)
+    const state = createState()
+    await installMocks(page, state)
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    let unavailable = false
+    let readinessReads = 0
+    let revisionReads = 0
+    await page.route(`**/api/v1/agents/${ids.dev}/readiness`, (route) => {
+      if (route.request().method() !== 'GET') return route.fallback()
+      readinessReads += 1
+      return unavailable
+        ? fulfill(route, { error: { message: 'Readiness refresh unavailable' } }, 503)
+        : fulfill(route, {
+            agent_id: ids.dev,
+            runtime_healthy: true,
+            ready_for_sdlc: true,
+            effective_revision: 7,
+            blockers: [],
+          })
+    })
+    await page.route(`**/api/v1/agents/${ids.dev}/config/revisions`, (route) => {
+      if (route.request().method() !== 'GET') return route.fallback()
+      revisionReads += 1
+      return fulfill(route, [
+        {
+          agent_id: ids.dev,
+          revision: 7,
+          state: 'active',
+          snapshot: {
+            config: agentConfig(state.agents[0]),
+            renderer_version: 1,
+            skills: state.skillsByAgent[ids.dev],
+          },
+          validation_errors: [],
+          last_error: null,
+          is_desired: true,
+          is_effective: true,
+          draining: false,
+          created_at: now,
+        },
+      ])
+    })
+    await page.goto(`/agents/${ids.dev}/config`)
+    const revisions = page.getByRole('region', { name: 'Редакции конфигурации', exact: true })
+    const running = revisions.getByText('Работает', { exact: true })
+    const ready = revisions.getByText('Готов', { exact: true })
+    const unknown = revisions.getByText('Неизвестно', { exact: true })
+    const error = revisions.getByText('Не удалось загрузить редакции конфигурации', {
+      exact: true,
+    })
+    const retry = revisions.getByRole('button', { name: 'Повторить', exact: true })
+    const effective = revisions.getByText('Действующая редакция: 7', { exact: true })
+    await expect(running).toBeVisible()
+    await expect(ready).toBeVisible()
+    await expect(effective).toBeVisible()
+    await expect(revisions.getByText('#7', { exact: true })).toBeVisible()
+    expect(readinessReads).toBeGreaterThan(0)
+    expect(revisionReads).toBeGreaterThan(0)
+
+    // Refetch in place so the successful readiness remains in the query cache.
+    unavailable = true
+    // Start with keyboard activation: Linux WebKit retains a mouse-click tab origin.
+    await retry.focus()
+    await expect(retry).toBeFocused()
+    await page.keyboard.press('Enter')
+    // The application retries HTTP 503 before exposing the refresh failure.
+    await expect(error).toBeVisible({ timeout: 25000 })
+    await expect(running).toHaveCount(0)
+    await expect(ready).toHaveCount(0)
+    await expect(unknown).toHaveCount(2)
+    await expect(unknown.nth(0)).toBeVisible()
+    await expect(unknown.nth(1)).toBeVisible()
+    await expect(effective).toBeVisible()
+    await expect(revisions.getByText('#7', { exact: true })).toBeVisible()
+    await expect(retry).toBeEnabled()
+    await expect(retry).toBeFocused()
+    // Option/Alt includes buttons in macOS WebKit's default tab order.
+    const tabKey =
+      testInfo.project.name === 'webkit' && process.platform === 'darwin' ? 'Alt+Tab' : 'Tab'
+    await page.keyboard.press(`Shift+${tabKey}`)
+    await expect(retry).not.toBeFocused()
+    await page.keyboard.press(tabKey)
+    await expect(retry).toBeFocused()
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
+    ).toBe(true)
+    await revisions.scrollIntoViewIfNeeded()
+    await page.waitForTimeout(1000)
+    for (const control of [unknown.nth(0), unknown.nth(1), error, retry]) {
+      await expect(control).toBeInViewport()
+      expect(
+        await control.evaluate((element) => {
+          const rect = element.getBoundingClientRect()
+          const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)
+          return hit === element || (hit !== null && element.contains(hit))
+        }),
+      ).toBe(true)
+    }
+    await page.screenshot({
+      path: testInfo.outputPath(
+        `fixture-config-revisions-readiness-unknown-${viewport.width}x${viewport.height}.png`,
+      ),
+      fullPage: false,
+      animations: 'disabled',
+      scale: 'css',
+    })
+
+    const readsBeforeRetry = { readiness: readinessReads, revisions: revisionReads }
+    unavailable = false
+    await page.keyboard.press('Enter')
+    await expect.poll(() => readinessReads).toBeGreaterThan(readsBeforeRetry.readiness)
+    await expect.poll(() => revisionReads).toBeGreaterThan(readsBeforeRetry.revisions)
+    await expect(running).toBeVisible()
+    await expect(ready).toBeVisible()
+    await expect(unknown).toHaveCount(0)
+    await expect(error).toHaveCount(0)
+    expect(errors).toEqual([])
+  })
+}
+
 test('workflow bindings rebind only to a workflow in the selected namespace', async ({ page }) => {
   const state = createState()
   await installMocks(page, state)

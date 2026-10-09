@@ -18,6 +18,40 @@ Each worker owns a separate checkout/write set. Frozen commits and previous
 evidence packets remain immutable. Task Tracker and project-workflow remain
 read-only. Generated API/client files belong to the parent integration path.
 
+## Successors And Verified Progress
+
+The table above records the initial split. Completed source work now advances
+through these non-overlapping successor assignments:
+
+- Ptolemy: integrate the sealed diagnostic component into a new prepare-only
+  full Forge orchestrator, keeping all 12 stages and the 300-second deadline.
+  Parent independently passed all 32 diagnostic pure tests; no native rerun yet.
+- Pascal: frozen steer mirror `71b17da7` adds seven regression cases and no
+  migration. Review frozen mapped/controller16 correctness independently while
+  Leibniz integrates that mirror. Linux/PG/native mirror acceptance is pending.
+- Leibniz: frozen approval integration `a26d8b35` preserves normal parents
+  recovery/controls and approval14; prepare42 passes 25 pure tests and inventories
+  123 ignored cases. Next normal merge adds the separate steer mirror, not UI.
+- Feynman: frozen mapped/controller16 `fc2e27b7` adds one migration and remains
+  source-only. Next isolated unit implements automatic preparation with a durable
+  pre-create intent and original Base reconciliation, not config activation.
+- Anscombe: reviewed hosted-codegen controls are committed at `db2bb4bd`.
+  Both pushes were rejected by missing shallow-ancestry object `09b35f1e`;
+  no workflow run exists. Recover complete ancestry in a separate object DB,
+  without modifying existing shared histories or inventing an ancestor.
+- Parent: foundation [PR47](https://github.com/FerrPOINT/fleet-control/pull/47)
+  is review-ready at `28c9a5ee`, main/CLEAN, all five exact-head CI jobs green
+  after readiness reconciliation. CI passes 262 unit tests, 48 browser fixtures
+  and 135 screenshot entries; 27 live tests skip. Local readiness browser9 pass,
+  captures were inspected and the owned preview stopped.
+
+The new foundation/UI integration passes all 270 unit tests across 33 files,
+typecheck, production build, Rust formatting and 109 Markdown link checks. The
+existing bundle-size warning is retained. Backend, API, Base pin and runtime
+control UI code are unchanged by the foundation merge. Nine existing control
+fixture images verify again. This does not certify controls/recovery on Linux,
+physical Docker behavior, model admission or the live PM vertical.
+
 ## Existing Results
 
 - Approval14 source is frozen at `68b59625e1b8a57139131a7672d90b6a3f465271`:
