@@ -13,9 +13,9 @@ async fn fixture() -> (PostgresFleetRepository, DatabaseConnection, Agent) {
         reqwest::Url::parse(&url).unwrap().path(),
         "/fleet_container_controller_test"
     );
-    let db = Database::connect(url).await.unwrap();
+    let db = Database::connect(url.clone()).await.unwrap();
     migration::Migrator::up(&db, None).await.unwrap();
-    let repo = PostgresFleetRepository::new(db.clone());
+    let repo = PostgresFleetRepository::new(Database::connect(url).await.unwrap());
     repo.ensure_runtime_templates().await.unwrap();
     let a = repo
         .create_agent(

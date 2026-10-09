@@ -1207,7 +1207,7 @@ async fn recovered_child_sql_origin_serializes_heartbeat_then_holds_unknown_expi
         .to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
     let tx = db.begin().await.unwrap();
     assert!(origin_live(&tx, &child).await);
-    let writer = PostgresFleetRepository::new(db.clone());
+    let writer = PostgresFleetRepository::new(test_database().await);
     let pending = next.clone();
     let (started, seen) = tokio::sync::oneshot::channel();
     let mut task = tokio::spawn(async move {
@@ -1314,7 +1314,7 @@ async fn recovered_child_sql_origin_serializes_heartbeat_then_holds_unknown_expi
         ))
         .await
         .unwrap();
-    let reader = db.clone();
+    let reader = test_database().await;
     let original = child.clone();
     let (started, seen) = tokio::sync::oneshot::channel();
     let mut reading = tokio::spawn(async move {
@@ -1387,6 +1387,16 @@ async fn fixture_with_record(
     fixture_mode(recorded, false).await
 }
 
+async fn test_database() -> DatabaseConnection {
+    let url = std::env::var("FLEET_CONTAINER_ACTIVATION_TEST_DATABASE_URL")
+        .expect("own activation database required");
+    assert_eq!(
+        reqwest::Url::parse(&url).unwrap().path(),
+        "/fleet_container_activation_test"
+    );
+    Database::connect(url).await.unwrap()
+}
+
 async fn fixture_mode(
     recorded: bool,
     mapped: bool,
@@ -1396,15 +1406,9 @@ async fn fixture_mode(
     Agent,
     Activation,
 ) {
-    let url = std::env::var("FLEET_CONTAINER_ACTIVATION_TEST_DATABASE_URL")
-        .expect("own activation database required");
-    assert_eq!(
-        reqwest::Url::parse(&url).unwrap().path(),
-        "/fleet_container_activation_test"
-    );
-    let db = Database::connect(url).await.unwrap();
+    let db = test_database().await;
     migration::Migrator::up(&db, None).await.unwrap();
-    let repo = PostgresFleetRepository::new(db.clone());
+    let repo = PostgresFleetRepository::new(test_database().await);
     repo.ensure_runtime_templates().await.unwrap();
     let a = repo
         .create_agent(
