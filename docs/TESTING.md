@@ -1,5 +1,16 @@
 # Testing
 
+## Task Control Project Revocation Regression
+
+The existing foundation case
+`task_approval_history_survives_reassignment_but_not_project_access_revocation`
+now sends valid immutable request keys for both stop and steer. Before project
+revocation, task-bound requests remain409 without a verified workflow assignment;
+after revocation, both return403. The runtime-control journal stays empty in
+both states. Existing approval replay, history and SSE revocation assertions
+remain. Formatting/source review are separate from actual PostgreSQL acceptance;
+run38004567349 exposed the predecessor failure, not a pass of this correction.
+
 ## PM Tools Offline Conformance
 
 The [offline runner](../scripts/pm_tools_conformance/README.md) requires an explicit

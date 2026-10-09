@@ -19,10 +19,15 @@ regression coverage; their final backend
 and current-client browser qualification remain pending. Fixture scenarios pass
 in three engines and27 screenshots are retained separately, not as live evidence.
 
-The next actual74-stage run38004567349 is confirmed in progress at reviewed
-controls2b6ae27/sourcef8b9a58. It includes both corrected named-guard tests and
-preserves all gates/counts/pins. Current-client fixture rebuilding/browser checks
-are separately assigned; no current-client or full backend success is claimed yet.
+Actual74-stage run38004567349 at controls2b6ae27/sourcef8b9a58 completes FAILURE
+at foundation; credentials_pg passes. Authenticated artifact11651341407 identifies
+the project-revocation approval-history case, line2126; scratch/DB cleanup passes.
+The next source correction supplies valid control request keys and checks project
+access before task-bound stop/steer conflicts, with no control reservation.
+Its PostgreSQL acceptance remains pending; all gates/counts/pins are preserved.
+Current-client two-scenario/three-engine checks pass, but parent visual inspection
+finds missing SDK styling. The worker owns bounded SDK build-layout diagnosis;
+current-client visual qualification and full backend success remain open.
 
 Hosted37995542617 now proves the preflight blocker is passed but finds real
 compile E0599 at container_controller.rs:18:48 on b249. Authenticated safe failure

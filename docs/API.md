@@ -42,6 +42,9 @@ free-chat steer/stop. Responses add nullable `command`; scoped
 durable receipts without dispatch. Existing owner/project guards remain.
 Task/PM-bound commands remain denied. Unknown ACK is not success or a retry
 permit; stop ACK does not prove safe OS stop or SDLC completion.
+Both stop and steer check current Tracker project access before returning the
+task-bound assignment conflict. With a valid request key, revoked access returns
+403 rather than 409; neither path reserves a control or dispatches to runtime.
 Authentic Rust-generated OpenAPI and TypeScript types are now integrated;
 see [generator and consumer evidence](plans/2026-10-09-runtime-controls-ui.md).
 Explicit original-key UI settlement/reload recovery is fixture-verified;

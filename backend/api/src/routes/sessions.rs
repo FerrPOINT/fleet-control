@@ -664,6 +664,7 @@ pub async fn steer_session_run(
     let actor = control_actor(&user, &headers)?;
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_write_access(&session, &user)?;
+    super::task_chats::require_project_access(&ctx, &user, session_id, &headers).await?;
     if ctx.repo.get_task_chat_binding(session_id).await?.is_some() {
         return Err(AppError::conflict(
             "task-bound chat control requires a verified workflow assignment",
@@ -690,6 +691,7 @@ pub async fn stop_session_run(
     let actor = control_actor(&user, &headers)?;
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_write_access(&session, &user)?;
+    super::task_chats::require_project_access(&ctx, &user, session_id, &headers).await?;
     if ctx.repo.get_task_chat_binding(session_id).await?.is_some() {
         return Err(AppError::conflict(
             "task-bound chat control requires a verified workflow assignment",
@@ -698,7 +700,6 @@ pub async fn stop_session_run(
     let run = ctx.repo.get_session_agent_run(run_id).await?;
     ensure_run_belongs_to_session(&run, session_id)?;
     let agent = ctx.repo.get_agent(run.agent_id).await?;
-    super::task_chats::require_project_access(&ctx, &user, session_id, &headers).await?;
     let response = ctx.runtime.stop_run(&agent, &run, actor).await?;
     Ok(Json(response))
 }

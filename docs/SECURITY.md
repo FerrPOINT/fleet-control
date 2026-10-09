@@ -126,7 +126,9 @@ lease. This check cannot authorize dispatch or bypass missing native readiness.
   performs deletion or marker repair by itself.
 - Session lists default to the authenticated user on the backend.
 - Task-bound detail/history/messages/participants/runs/control reads and runtime
-  stop require current project access, even for Fleet operators. Historical
+  stop/steer require current project access, even for Fleet operators. Stop/steer
+  enforce this before the task-bound assignment conflict and reserve no control
+  when denied. Historical
   reassignment does not erase read access; it never authorizes fresh commands.
   Directory counts and legacy lists filter by one uncached Tracker project scope
   before pagination. Missing scope never exposes task-bound metadata. Standalone
