@@ -248,10 +248,17 @@ async fn targeted_approval_reservation_is_atomic_scoped_and_replay_never_redispa
 
 #[tokio::test]
 async fn targeted_approval_http_requires_human_and_unknown_ack_is_not_repeated() {
-    let Some((repo, owner, _)) = fixture().await else {
+    let Some((repo, owner, stranger)) = fixture().await else {
         return;
     };
     let (session, run, approval) = approval_fixture(&repo, owner, "approval-http").await;
+    assert_eq!(session.visibility, domain::SessionVisibility::Private);
+    assert!(
+        repo.get_task_chat_binding(session.id)
+            .await
+            .unwrap()
+            .is_none()
+    );
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
     let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
@@ -261,6 +268,13 @@ async fn targeted_approval_http_requires_human_and_unknown_ack_is_not_repeated()
         DatabaseBackend::Postgres,
         "UPDATE agents SET api_port=$2 WHERE id=$1",
         [run.agent_id.into(), i32::from(port).into()],
+    ))
+    .await
+    .unwrap();
+    db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE users SET system_role='admin',is_system_admin=true WHERE id=$1",
+        [stranger.into()],
     ))
     .await
     .unwrap();
@@ -306,26 +320,86 @@ async fn targeted_approval_http_requires_human_and_unknown_ack_is_not_repeated()
     );
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let base = format!("http://{}", listener.local_addr().unwrap());
-    let router = axum::Router::new()
+    let approval_routes = || {
+        axum::Router::new()
+            .route(
+                "/api/v1/sessions/{session_id}/approvals",
+                axum::routing::get(api::routes::approvals::list),
+            )
+            .route(
+                "/api/v1/sessions/{session_id}/approvals/{approval_id}/decision",
+                axum::routing::get(api::routes::approvals::read)
+                    .post(api::routes::approvals::decide),
+            )
+    };
+    let mut router = axum::Router::new()
         .route(
             "/machine/api/v1/sessions/{session_id}/approvals/{approval_id}/decision",
             axum::routing::post(api::routes::approvals::decide),
         )
         .nest(
             "/human",
-            axum::Router::new()
-                .route(
-                    "/api/v1/sessions/{session_id}/approvals/{approval_id}/decision",
-                    axum::routing::get(api::routes::approvals::read)
-                        .post(api::routes::approvals::decide),
-                )
-                .layer(axum::Extension(api::middleware::VerifiedHumanSession)),
+            approval_routes().layer(axum::Extension(api::middleware::VerifiedHumanSession)),
         )
-        .layer(axum::Extension(user))
-        .with_state(ctx);
+        .nest(
+            "/central-owner",
+            approval_routes()
+                .layer(axum::Extension(api::middleware::CurrentUser {
+                    central_write: Some(true),
+                    ..user.clone()
+                }))
+                .layer(axum::Extension(api::middleware::VerifiedHumanSession)),
+        );
+    for (prefix, central_write) in [
+        ("/foreign-central-read", Some(false)),
+        ("/foreign-central-write", Some(true)),
+        ("/legacy-admin", None),
+    ] {
+        router = router.nest(
+            prefix,
+            approval_routes()
+                .layer(axum::Extension(api::middleware::CurrentUser {
+                    id: stranger,
+                    role: domain::SystemRole::Admin,
+                    is_system_admin: true,
+                    central_write,
+                }))
+                .layer(axum::Extension(api::middleware::VerifiedHumanSession)),
+        );
+    }
+    let router = router.layer(axum::Extension(user)).with_state(ctx);
     let fleet = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
     let client = reqwest::Client::new();
     let body = serde_json::json!({"choice":"once","idempotency_key":"http-command"});
+    let list_route = format!("/api/v1/sessions/{}/approvals", session.id);
+    for prefix in ["/foreign-central-read", "/foreign-central-write"] {
+        for path in [&list_route, &route] {
+            assert_eq!(
+                client
+                    .get(format!("{base}{prefix}{path}"))
+                    .send()
+                    .await
+                    .unwrap()
+                    .status(),
+                reqwest::StatusCode::FORBIDDEN
+            );
+        }
+        assert_eq!(
+            client
+                .post(format!("{base}{prefix}{route}"))
+                .json(&body)
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            reqwest::StatusCode::FORBIDDEN
+        );
+    }
+    assert!(matches!(
+        repo.approval_decision(session.id, approval.id).await,
+        Err(shared::AppError::NotFound(_))
+    ));
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
     assert_eq!(
         client
             .post(format!("{base}/machine{route}"))
@@ -432,6 +506,64 @@ async fn targeted_approval_http_requires_human_and_unknown_ack_is_not_repeated()
         listed.iter().find(|x| x.id == approval.id).unwrap().state,
         domain::RuntimeApprovalState::Pending
     );
+    // Authorization also precedes historical receipt replay, not only reservation.
+    for prefix in ["/foreign-central-read", "/foreign-central-write"] {
+        for path in [&list_route, &route] {
+            assert_eq!(
+                client
+                    .get(format!("{base}{prefix}{path}"))
+                    .send()
+                    .await
+                    .unwrap()
+                    .status(),
+                reqwest::StatusCode::FORBIDDEN
+            );
+        }
+        assert_eq!(
+            client
+                .post(format!("{base}{prefix}{route}"))
+                .json(&body)
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            reqwest::StatusCode::FORBIDDEN
+        );
+    }
+    for prefix in ["/human", "/central-owner", "/legacy-admin"] {
+        for path in [&list_route, &route] {
+            assert_eq!(
+                client
+                    .get(format!("{base}{prefix}{path}"))
+                    .send()
+                    .await
+                    .unwrap()
+                    .status(),
+                reqwest::StatusCode::OK
+            );
+        }
+    }
+    assert_eq!(
+        client
+            .post(format!("{base}/central-owner{route}"))
+            .json(&body)
+            .send()
+            .await
+            .unwrap()
+            .json::<domain::ApprovalDecision>()
+            .await
+            .unwrap()
+            .id,
+        first.id
+    );
+    assert_eq!(
+        repo.approval_decision(session.id, approval.id)
+            .await
+            .unwrap()
+            .id,
+        first.id
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
     hermes.abort();
     fleet.abort();
 }
