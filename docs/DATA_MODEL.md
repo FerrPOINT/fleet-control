@@ -373,3 +373,36 @@ must be fetched again from the persisted cursor, never merged speculatively.
 This repository foundation is implemented. The authenticated background poller
 and answer-to-PM continuation are not yet wired; a projection receipt is not a
 runtime delivery receipt and does not transition Tracker business state.
+
+## Clarification Answer Command Custody
+
+One additive `m20261010_000020_clarification_commands` is appended to both
+canonical and legacy split lineages. Historical migration SQL is unchanged.
+`clarification_answer_commands` references the immutable task-chat binding and
+local human user. Its identity, owner subject, full binding, question, original
+key, canonical request bytes/hash and creation time are write-once. Option IDs
+are a sorted set; text/comment, versions, nulls and key are retained unchanged.
+PostgreSQL verifies SHA-256 of the UTF-8 body without an added extension.
+
+`(actor_user_id,idempotency_key)` is unique. Partial unique indexes fence
+unresolved commands both by session/question and by Tracker instance/task/
+question/actor across chats and reassignments. Terminal history is retained.
+Every repository operation rechecks active local owner/central subject/exact
+binding under shared locks before querying the journal. The API supplies fresh
+Tracker project proof before repository access; the repository does not treat a
+client-supplied binding as project authorization.
+
+Transitions are `stored -> delivering -> delivered|rejected|uncertain` and
+`uncertain -> delivering`. Claim commits before HTTP. A database-clock 30-second
+lease and new attempt UUID fence concurrent claims and expired-attempt recovery;
+completion compare-and-swaps the exact attempt. Request-local Tracker HTTP is
+bounded to 10 seconds and has no automatic retries. `ever_uncertain` is sticky:
+unknown outcomes and recovery of an expired attempt prohibit a later rejection
+from freeing the question. Only exact original-answer acknowledgement can then
+settle it. No runtime dispatch or transcript completion is inferred.
+
+Triggers reject identity changes, deletion, invalid transitions and uncertainty
+erasure. Down migration refuses any nonempty journal; empty down/reapply and
+ledger/history preservation require the focused PostgreSQL gate. Private answer
+body is required for replay, not an audit/log payload. The new unit provides no
+retention purge or unattended credential custody.

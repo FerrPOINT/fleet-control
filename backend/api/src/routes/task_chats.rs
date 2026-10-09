@@ -108,7 +108,7 @@ impl TrackerGateway {
         }
         Ok(Self { url, instance })
     }
-    async fn request(
+    pub(super) async fn request(
         &self,
         task: Uuid,
         segments: &[String],
@@ -401,21 +401,26 @@ pub async fn answer(
     headers: HeaderMap,
     Json(req): Json<ClarificationAnswerRequest>,
 ) -> Result<(StatusCode, Json<Value>), AppError> {
-    let Extension(_) = subject.ok_or(AppError::Unauthorized)?;
-    proxy(
-        &ctx,
-        id,
-        &user,
-        &headers,
-        true,
-        vec![
-            "clarifications".into(),
-            question.to_string(),
-            "answers".into(),
-        ],
-        Some(serde_json::to_value(req).map_err(AppError::internal)?),
+    let Extension(subject) = subject.ok_or(AppError::Unauthorized)?;
+    let command = super::clarification_commands::store_and_deliver(
+        &ctx, &user, &subject.0, id, question, &headers, req,
     )
-    .await
+    .await?;
+    match (command.state, command.answer, command.rejection_status) {
+        (domain::ClarificationDeliveryState::Delivered, Some(answer), _) => Ok((
+            StatusCode::OK,
+            Json(serde_json::to_value(answer).map_err(AppError::internal)?),
+        )),
+        (domain::ClarificationDeliveryState::Rejected, _, Some(status)) => Ok((
+            StatusCode::from_u16(status).map_err(AppError::internal)?,
+            Json(
+                serde_json::json!({"error":{"code":"tracker_rejection","message":"Tracker rejected the original answer"}}),
+            ),
+        )),
+        _ => Err(AppError::Unavailable(
+            "original answer is stored; reconcile its server command before retry".into(),
+        )),
+    }
 }
 
 #[utoipa::path(get,path="/api/v1/sessions/{session_id}/requirements",tag="task-chats",params(("session_id"=Uuid,Path)),responses((status=200,body=domain::TrackerRequirements)))]
@@ -521,7 +526,7 @@ async fn proxy(
     Ok((status, Json(value)))
 }
 
-fn decode_response<T: DeserializeOwned>(value: Value) -> Result<T, AppError> {
+pub(super) fn decode_response<T: DeserializeOwned>(value: Value) -> Result<T, AppError> {
     validate_versions(&value)?;
     serde_json::from_value(value)
         .map_err(|_| AppError::Unavailable("Tracker response does not match contract v1".into()))

@@ -26,6 +26,7 @@ mod m20261009_000016_mapped_controller_recovery;
 mod m20261009_000017_container_preparation;
 mod m20261009_000018_container_activation;
 mod m20261009_000019_recovered_activation;
+mod m20261010_000020_clarification_commands;
 
 pub struct Migrator;
 
@@ -105,6 +106,7 @@ impl MigratorTrait for CanonicalMigrator {
         migrations.push(Box::new(m20261009_000017_container_preparation::Migration));
         migrations.push(Box::new(m20261009_000018_container_activation::Migration));
         migrations.push(Box::new(m20261009_000019_recovered_activation::Migration));
+        migrations.push(Box::new(m20261010_000020_clarification_commands::Migration));
         migrations
     }
 }
@@ -130,6 +132,7 @@ impl MigratorTrait for LegacyMigrator {
             Box::new(m20261009_000017_container_preparation::Migration),
             Box::new(m20261009_000018_container_activation::Migration),
             Box::new(m20261009_000019_recovered_activation::Migration),
+            Box::new(m20261010_000020_clarification_commands::Migration),
         ]);
         migrations
     }

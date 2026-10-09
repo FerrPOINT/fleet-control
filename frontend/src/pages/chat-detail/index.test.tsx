@@ -8,6 +8,7 @@ import * as chats from '@/api/task-chats'
 import { listRuntimeControls, lookupRuntimeControl } from '@/api/runtime-controls'
 import { saveControlHandle } from './control-journal'
 import type { AgentSession, SessionMessage } from '@/api/types'
+import type { ClarificationCommand } from '@/api/clarification-custody'
 import { useAuthStore } from '@/shared/auth/store'
 import { ApiError, connectAuthenticatedEventStream } from '@sdlc/ui/lib'
 import userEvent from '@testing-library/user-event'
@@ -32,6 +33,8 @@ vi.mock('@/api/task-chats', async (original) => ({
   getClarifications: vi.fn(),
   getRequirements: vi.fn(),
   answerClarification: vi.fn(),
+  listPendingAnswerCommands: vi.fn(),
+  deliverAnswerCommand: vi.fn(),
   confirmRequirements: vi.fn(),
 }))
 vi.mock('@sdlc/ui/lib', async (original) => ({
@@ -129,6 +132,7 @@ function renderPage(tab = 'dialogue') {
   return { router, client }
 }
 beforeEach(() => {
+  vi.mocked(chats.listPendingAnswerCommands).mockResolvedValue([])
   sessionStorage.clear()
   vi.clearAllMocks()
   vi.mocked(lookupRuntimeControl).mockRejectedValue(new Error('Lookup unavailable'))
@@ -269,6 +273,71 @@ describe('production chat', () => {
     expect(screen.queryByText('Outdated overlap')).not.toBeInTheDocument()
   })
 
+  it('recovers server custody after reload even when new-answer permission closed', async () => {
+    const command: ClarificationCommand = {
+      id: 'durable-original',
+      session_id: 'session1',
+      question_id: 'q1',
+      request: {
+        expected_question_version: 1,
+        requirement_revision: 3,
+        selected_option_ids: ['project'],
+        text: 'Retained only on server',
+        comment: null,
+        idempotency_key: 'original-key',
+      },
+      payload_sha256: 'a'.repeat(64),
+      state: 'uncertain',
+      answer: null,
+      rejection_status: null,
+      created_at: '2026-10-10T00:00:00Z',
+      updated_at: '2026-10-10T00:00:00Z',
+    }
+    vi.mocked(chats.listPendingAnswerCommands).mockResolvedValue([command])
+    vi.mocked(chats.deliverAnswerCommand).mockResolvedValue(command)
+    vi.mocked(chats.getTaskContext).mockResolvedValue({
+      ...context,
+      tracker: { ...context.tracker!, permissions: { can_answer: false, can_confirm: false } },
+    })
+    renderPage('clarification')
+    await screen.findByText('Retained only on server')
+    expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: 'Продолжить исходную команду' }))
+    await waitFor(() =>
+      expect(chats.deliverAnswerCommand).toHaveBeenCalledWith('session1', 'durable-original'),
+    )
+    expect(chats.answerClarification).not.toHaveBeenCalled()
+    expect(chats.confirmRequirements).not.toHaveBeenCalled()
+    expect(sessionStorage.length).toBe(0)
+    expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+  })
+  it('holds new answer creation until server journal readback completes', async () => {
+    let resolve!: (values: ClarificationCommand[]) => void
+    vi.mocked(chats.listPendingAnswerCommands).mockImplementation(
+      () =>
+        new Promise((done) => {
+          resolve = done
+        }),
+    )
+    renderPage('clarification')
+    await screen.findByRole('radio', { name: /Участники проекта/ })
+    expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+    expect(chats.answerClarification).not.toHaveBeenCalled()
+    await act(async () => {
+      resolve([])
+    })
+    await userEvent.click(screen.getByRole('radio', { name: /Участники проекта/ }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeEnabled(),
+    )
+  })
+  it('journal readback failure cannot authorize a new key', async () => {
+    vi.mocked(chats.listPendingAnswerCommands).mockRejectedValue(new Error('Journal unavailable'))
+    renderPage('clarification')
+    await screen.findByText('Journal unavailable')
+    expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+    expect(chats.answerClarification).not.toHaveBeenCalled()
+  })
   it('requires explicit answer and does not publish after saving it', async () => {
     renderPage('clarification')
     const choice = await screen.findByRole('radio', { name: /Участники проекта/ })

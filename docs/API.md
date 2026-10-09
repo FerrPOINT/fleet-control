@@ -495,6 +495,54 @@ The endpoint does not create assignments, dispatch a prompt or resume Workflow.
 - `POST /api/v1/fleet-alerts/{alert_id}/acknowledge` — Operator+; ack только для `open`-алертов; аудит `fleet_alert.acknowledge`.
 - Переходы пишутся в `fleet_alerts` (миграция 6) из start/stop/health операций без блокировки ответа.
 
+## Durable Clarification Answer Commands
+
+All paths below include `/api/v1`. These are Fleet journal endpoints, not new
+Tracker capabilities. Each request requires a verified human, the local session
+owner and fresh Tracker project/immutable-binding authorization before journal
+access. Operator history access alone is insufficient. Store/delivery also
+require the bound current PM agent; history readback does not require the old
+assignment to remain current. No human bearer token is persisted.
+
+- `POST /sessions/{session_id}/clarifications/{question_id}/answer-commands`:
+  existing `ClarificationAnswerRequest` body, including original `idempotency_key`.
+  Returns `200 ClarificationAnswerCommand` after committing custody, without
+  delivering to Tracker. Exact key/body replay returns the same command;
+  changed target/body or another unresolved command for the task/question/owner
+  conflicts. This also fences attempts through another chat or assigned agent.
+- `GET /sessions/{session_id}/clarification-answer-commands`: returns unresolved
+  `stored`, `delivering`, `uncertain` receipts, oldest first. More than 100 is
+  fail-closed, never silently truncated. An empty list is not an exact historical
+  command acceptance receipt.
+- `GET /sessions/{session_id}/clarification-answer-commands/{command_id}`:
+  reads that owner's exact Fleet receipt, including terminal state; never sends.
+- `POST /sessions/{session_id}/clarification-answer-commands/{command_id}/delivery`:
+  no replacement body/key. Explicitly claims one fenced delivery attempt, using
+  the saved body/key against Tracker's existing clarification answer POST.
+  Returns `200` with the current receipt; HTTP success alone is not delivery.
+
+The receipt contains `id`, `session_id`, `question_id`, original `request`,
+`payload_sha256`, `state`, nullable `answer`/`rejection_status`, `created_at` and
+`updated_at`. These owner-private responses use `Cache-Control: no-store`.
+They contain the private original answer for recovery; do not put them in logs,
+URLs, browser persistent storage or shared caches.
+
+Only an exact typed Tracker `200` answer with matching question/version/revision,
+owner and payload proves `delivered`. Unknown transport/status/body stays
+`uncertain`. A known first-attempt rejection may be `rejected`, but a later
+rejection cannot erase earlier uncertainty. Expired attempts recover only the
+same command with a new internal attempt token, never a new business key.
+Concurrent live attempts return the existing receipt without another POST.
+
+The legacy `POST .../clarifications/{question_id}/answers` now uses the same
+journal and retains its successful `TrackerAnswer` response; unresolved delivery
+returns `503`. Saved-answer GET is not original-key lookup. No Tracker exact-
+command GET, unattended background delivery, PM continuation, runtime run or
+requirements publication is introduced. Rust route/schema declarations are
+included; generated OpenAPI/TypeScript regeneration and compatibility checks
+remain a coordinated pre-release gate, not completed evidence for this unit.
+See [the source boundary](plans/2026-10-10-clarification-command-custody.md).
+
 ## Общая база
 
 Подключение версий, границы контрактов и проверки описаны в [BASE_INTEGRATION](BASE_INTEGRATION.md).
