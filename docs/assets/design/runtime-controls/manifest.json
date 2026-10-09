@@ -1,0 +1,133 @@
+{
+  "evidence": "production-chat-with-fixture-api",
+  "liveAcceptance": false,
+  "command": "PLAYWRIGHT_BASE_URL=http://127.0.0.1:4189 pnpm exec playwright test e2e/runtime-controls.spec.ts --workers=1 --output=test-results/runtime-controls-css",
+  "screenshots": [
+    {
+      "browser": "chromium",
+      "file": "chromium-375.png",
+      "route": "/chats/session1",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "size": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "8b863121b5b4dea937a691a6ad621ffae667950901442db4add34380ef4adb63"
+    },
+    {
+      "browser": "chromium",
+      "file": "chromium-1920.png",
+      "route": "/chats/session1",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "9be5268769b8998c36261a9f714d9a0038fa7c48e025b690e609eb595d71bbb3"
+    },
+    {
+      "browser": "chromium",
+      "file": "chromium-2560.png",
+      "route": "/chats/session1",
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      },
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "19f1a64eb2f59a8e038803d11b7effe4b55ed10ced2237596eed28d8e0151d8d"
+    },
+    {
+      "browser": "firefox",
+      "file": "firefox-375.png",
+      "route": "/chats/session1",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "size": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "40e0366e30dfb9eeea0c53e492b007877f0b78a26adba96a55778a818fd78c27"
+    },
+    {
+      "browser": "firefox",
+      "file": "firefox-1920.png",
+      "route": "/chats/session1",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "e51f242ebbd638985db7474c3cedf71f41dfaca0c83b94625ca0461a0f62aef1"
+    },
+    {
+      "browser": "firefox",
+      "file": "firefox-2560.png",
+      "route": "/chats/session1",
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      },
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "4bf76a4c1d9386413a149b76de2714e4a217180df4d66f37d9286ce0160ac94c"
+    },
+    {
+      "browser": "webkit",
+      "file": "webkit-375.png",
+      "route": "/chats/session1",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "size": {
+        "width": 375,
+        "height": 812
+      },
+      "sha256": "418c545cafa763a4689e875af8e3a3a20e1562f7dcd35fde1b88e07333b533af"
+    },
+    {
+      "browser": "webkit",
+      "file": "webkit-1920.png",
+      "route": "/chats/session1",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "size": {
+        "width": 1920,
+        "height": 1080
+      },
+      "sha256": "e2bdc9c7046d2fa53f7a9934a6cc86602321f16c63377c5375fd779d60572253"
+    },
+    {
+      "browser": "webkit",
+      "file": "webkit-2560.png",
+      "route": "/chats/session1",
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      },
+      "size": {
+        "width": 2560,
+        "height": 1440
+      },
+      "sha256": "5220979c2102b425c0be6bc18a2b49ac9daa6e5934d049f06fba7895db64d0d4"
+    }
+  ]
+}

@@ -5,6 +5,8 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 
 ## Product And State
 
+- [Runtime controls UI and remaining receipt integration](plans/2026-10-09-runtime-controls-ui.md)
+- [Runtime control fixture screenshots](assets/design/runtime-controls/manifest.json)
 - [Persisted PM credential release](plans/2026-10-09-pm-credentials-release.md)
 
 - [Chat clarification implementation plan](CHAT_CLARIFICATION_IMPLEMENTATION_PLAN.md)

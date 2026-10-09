@@ -259,6 +259,11 @@ function ChatWorkspace({ id }: { id: string }) {
         ? steerSessionRun(id, command.runId, { input: command.input }, command.key)
         : createSessionMessage(id, { body: command.input, idempotency_key: command.key }),
     onSuccess: async (result) => {
+      if ('accepted' in result && !result.accepted) {
+        setReceipt('Принятие команды не подтверждено. Текст и ключ команды сохранены.')
+        await invalidate()
+        return
+      }
       setBody('')
       setMessageKey(requestKey())
       setReceipt(
@@ -294,7 +299,9 @@ function ChatWorkspace({ id }: { id: string }) {
   const answerUncertain =
     answer.isError && (!(answer.error instanceof ApiError) || answer.error.status >= 500)
   const messageUncertain =
-    message.isError && (!(message.error instanceof ApiError) || message.error.status >= 500)
+    (message.isError && (!(message.error instanceof ApiError) || message.error.status >= 500)) ||
+    (message.isSuccess && 'accepted' in message.data && !message.data.accepted)
+  const stopUnacknowledged = stop.isSuccess && !stop.data.accepted
   const uncertainSteer = messageUncertain && message.variables?.kind === 'steer'
   const canSubmitMessage =
     owner &&
@@ -608,7 +615,7 @@ function ChatWorkspace({ id }: { id: string }) {
                       disabled={stop.isPending}
                       onClick={() => {
                         const command =
-                          stop.isError && stop.variables
+                          (stop.isError || stopUnacknowledged) && stop.variables
                             ? stop.variables
                             : { runId: controls.data!.active_run_id!, key: requestKey() }
                         stop.mutate(command)
@@ -619,6 +626,12 @@ function ChatWorkspace({ id }: { id: string }) {
                   )}
                 </div>
                 {stop.isError && <ReadableError error={stop.error} />}
+                {stopUnacknowledged && (
+                  <p role="status">
+                    Принятие остановки не подтверждено. Повтор проверяет исходную команду, а не
+                    останавливает другой запуск.
+                  </p>
+                )}
               </form>
             </TabsContent>
             <TabsContent value="clarification" className="fc-chat-panel">

@@ -346,6 +346,7 @@
     "sendMessage": "Send",
     "sending": "Sending...",
     "messageSuccess": "Message sent",
+    "controlUnconfirmed": "Command acceptance is unconfirmed. The original input and key are retained; retry checks the same command, not a new run.",
     "messageError": "Could not send the message. Your text is preserved; try again.",
     "technicalDetails": "Technical details",
     "technicalDetailsRun": "Technical details for {{agent}} run",

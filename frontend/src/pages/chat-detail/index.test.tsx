@@ -484,4 +484,77 @@ describe('production chat', () => {
     await waitFor(() => expect(fleet.stopSessionRun).toHaveBeenCalledTimes(2))
     expect(vi.mocked(fleet.stopSessionRun).mock.calls[1]).toEqual(original)
   })
+
+  it('retains an unacknowledged steer returned with HTTP success without creating a new prompt', async () => {
+    vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      can_send: false,
+      can_steer: true,
+      can_stop: true,
+      active_run_id: 'original-run',
+      blocked_reason: null,
+    })
+    vi.mocked(fleet.steerSessionRun).mockResolvedValue({
+      session_id: 'session1',
+      run_id: 'original-run',
+      runtime_run_id: 'native-run',
+      accepted: false,
+      state: 'running',
+      message: 'Acceptance unknown',
+    })
+    const { client } = renderPage()
+    const input = await screen.findByLabelText('Уточнение активному запуску')
+    fireEvent.change(input, { target: { value: 'Keep this guidance' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Передать уточнение запуску' }))
+    await screen.findByText('Принятие команды не подтверждено. Текст и ключ команды сохранены.')
+    expect(input).toHaveValue('Keep this guidance')
+    expect(input).toBeDisabled()
+    act(() =>
+      client.setQueryData(['chat-controls', 'session1'], {
+        can_send: true,
+        can_steer: false,
+        can_stop: false,
+        active_run_id: null,
+        blocked_reason: null,
+      }),
+    )
+    expect(await screen.findByRole('button', { name: 'Отправить сообщение' })).toBeDisabled()
+    expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+    expect(fleet.steerSessionRun).toHaveBeenCalledTimes(1)
+  })
+
+  it('replays an unacknowledged stop returned with HTTP success only against its original run', async () => {
+    vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      can_send: false,
+      can_steer: true,
+      can_stop: true,
+      active_run_id: 'original-run',
+      blocked_reason: null,
+    })
+    vi.mocked(fleet.stopSessionRun).mockResolvedValue({
+      session_id: 'session1',
+      run_id: 'original-run',
+      runtime_run_id: 'native-run',
+      accepted: false,
+      state: 'running',
+      message: 'Acceptance unknown',
+    })
+    const { client } = renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: 'Остановить запуск' }))
+    await screen.findByText(/Принятие остановки не подтверждено/)
+    const original = vi.mocked(fleet.stopSessionRun).mock.calls[0]
+    act(() =>
+      client.setQueryData(['chat-controls', 'session1'], {
+        can_send: false,
+        can_steer: true,
+        can_stop: true,
+        active_run_id: 'new-run',
+        blocked_reason: null,
+      }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Остановить запуск' }))
+    await waitFor(() => expect(fleet.stopSessionRun).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(fleet.stopSessionRun).mock.calls[1]).toEqual(original)
+  })
 })

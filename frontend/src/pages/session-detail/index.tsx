@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { connectAuthenticatedEventStream } from '@sdlc/ui/lib'
+import { ApiError, connectAuthenticatedEventStream } from '@sdlc/ui/lib'
 import { apiBaseUrl } from '@/api/client'
 import {
   assignSessionLeader,
@@ -228,6 +228,7 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
   })
   const messageMutation = useMutation({
     mutationFn: async (command: {
+      sessionId: string
       runId: string | null
       input: string
       key: string
@@ -235,18 +236,22 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
     }) => {
       if (command.runId)
         return await steerSessionRun(
-          sessionId!,
+          command.sessionId,
           command.runId,
           { input: command.input },
           command.key,
         )
-      return await createSessionMessage(sessionId!, {
+      return await createSessionMessage(command.sessionId, {
         body: command.input,
         author_agent_id: command.authorAgentId,
         idempotency_key: command.key,
       })
     },
-    onSuccess: async () => {
+    onSuccess: async (result) => {
+      if ('accepted' in result && !result.accepted) {
+        await queryClient.invalidateQueries({ queryKey: ['session-runs', sessionId] })
+        return
+      }
       setMessageBody('')
       setMessageRequestKey(newIdempotencyKey())
       await Promise.all([
@@ -258,6 +263,12 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
       toast.success(t('sessionDetail.messageSuccess'))
     },
   })
+  const messageUncertain =
+    (messageMutation.isError &&
+      (!(messageMutation.error instanceof ApiError) || messageMutation.error.status >= 500)) ||
+    (messageMutation.isSuccess &&
+      'accepted' in messageMutation.data &&
+      !messageMutation.data.accepted)
   const delegationMutation = useMutation({
     mutationFn: () =>
       createSessionDelegation(sessionId!, {
@@ -303,9 +314,10 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
     event.preventDefault()
     if (messageBody.trim() && !messageMutation.isPending) {
       messageMutation.mutate(
-        messageMutation.isError && messageMutation.variables
+        (messageMutation.isError || messageUncertain) && messageMutation.variables
           ? messageMutation.variables
           : {
+              sessionId: sessionId!,
               runId: activeRun?.id ?? null,
               input: messageBody.trim(),
               key: messageRequestKey,
@@ -397,7 +409,7 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
                 <select
                   id="session-message-author"
                   value={authorMode}
-                  disabled={messageMutation.isPending}
+                  disabled={messageMutation.isPending || messageUncertain}
                   onChange={(event) => {
                     setAuthorMode(event.target.value as 'user' | 'leader')
                     messageMutation.reset()
@@ -417,7 +429,7 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
                   id="session-message-body"
                   className="min-h-24"
                   value={messageBody}
-                  disabled={messageMutation.isPending}
+                  disabled={messageMutation.isPending || messageUncertain}
                   onChange={(event) => changeMessageBody(event.target.value)}
                   placeholder={t('sessionDetail.messagePlaceholder')}
                 />
@@ -425,6 +437,7 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
               {messageMutation.isError ? (
                 <ErrorState message={t('sessionDetail.messageError')} />
               ) : null}
+              {messageUncertain && <p role="status">{t('sessionDetail.controlUnconfirmed')}</p>}
               <div className="flex justify-end">
                 <Button
                   type="submit"
@@ -903,7 +916,11 @@ function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: st
   const canControl = run.state === 'running' || run.state === 'waiting'
   const stopMutation = useMutation({
     mutationFn: () => stopSessionRun(sessionId, run.id, stopKey),
-    onSuccess: async () => {
+    onSuccess: async (result) => {
+      if (!result.accepted) {
+        await queryClient.invalidateQueries({ queryKey: ['session-runs', sessionId] })
+        return
+      }
       setStopDialogOpen(false)
       await queryClient.invalidateQueries({ queryKey: ['session-runs', sessionId] })
       toast.success(t('sessionDetail.stopSuccess', { agent: run.agent_name }))
@@ -912,7 +929,11 @@ function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: st
   const steerMutation = useMutation({
     mutationFn: (command: { runId: string; input: string; key: string }) =>
       steerSessionRun(sessionId, command.runId, { input: command.input }, command.key),
-    onSuccess: async () => {
+    onSuccess: async (result) => {
+      if (!result.accepted) {
+        await queryClient.invalidateQueries({ queryKey: ['session-runs', sessionId] })
+        return
+      }
       setSteerDraft('')
       setSteerKey(newIdempotencyKey())
       await queryClient.invalidateQueries({ queryKey: ['session-runs', sessionId] })
@@ -921,12 +942,15 @@ function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: st
   })
   const actionPending = stopMutation.isPending || steerMutation.isPending
   const actionFailed = steerMutation.isError
+  const steerUnconfirmed =
+    steerMutation.isError || (steerMutation.isSuccess && !steerMutation.data.accepted)
+  const stopUnconfirmed = stopMutation.isSuccess && !stopMutation.data.accepted
 
   function submitSteer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (steerDraft.trim() && !actionPending) {
       steerMutation.mutate(
-        steerMutation.isError && steerMutation.variables
+        steerUnconfirmed && steerMutation.variables
           ? steerMutation.variables
           : {
               runId: run.id,
@@ -984,11 +1008,9 @@ function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: st
               open={stopDialogOpen}
               onOpenChange={(open) => {
                 if (open) {
-                  stopMutation.reset()
                   setStopDialogOpen(true)
                 } else if (!stopMutation.isPending) {
                   setStopDialogOpen(false)
-                  stopMutation.reset()
                 }
               }}
             >
@@ -1015,6 +1037,7 @@ function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: st
                 {stopMutation.isError ? (
                   <ErrorState message={t('sessionDetail.stopError')} />
                 ) : null}
+                {stopUnconfirmed && <p role="status">{t('sessionDetail.controlUnconfirmed')}</p>}
                 <AlertDialogFooter>
                   <AlertDialogCancel disabled={stopMutation.isPending}>
                     {t('sessionDetail.cancel')}
@@ -1029,7 +1052,7 @@ function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: st
                   >
                     {stopMutation.isPending
                       ? t('sessionDetail.stopping')
-                      : stopMutation.isError
+                      : stopMutation.isError || stopUnconfirmed
                         ? t('sessionDetail.retryStop')
                         : t('sessionDetail.stopAction')}
                   </AlertDialogAction>
@@ -1045,7 +1068,7 @@ function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: st
               id={`steer-${run.id}`}
               className="h-10 min-w-0"
               value={steerDraft}
-              disabled={actionPending}
+              disabled={actionPending || steerUnconfirmed}
               onChange={(event) => {
                 setSteerDraft(event.target.value)
                 setSteerKey(newIdempotencyKey())
@@ -1064,6 +1087,9 @@ function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: st
             </Button>
           </form>
           {actionFailed ? <ErrorState message={t('sessionDetail.runActionError')} /> : null}
+          {steerMutation.isSuccess && !steerMutation.data.accepted && (
+            <p role="status">{t('sessionDetail.controlUnconfirmed')}</p>
+          )}
         </div>
       ) : null}
     </li>

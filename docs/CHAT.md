@@ -1,5 +1,20 @@
 # Чаты и сессии Fleet Control
 
+## Управляющие Команды: 9 Октября 2026
+
+Stop/steer передают caller-owned `Idempotency-Key`. Потерянный ответ и
+HTTP200/`accepted=false` не означают успешную доставку: исходные текст, session,
+run и ключ сохраняются; повтор не переключается на новый активный run.
+Неизвестный steer не становится новым prompt. ACK не означает завершение
+запуска или подтверждённую физическую остановку. Scoped receipt readback и
+восстановление после reload ещё требуют подключения сгенерированных API-типов.
+
+Проверены30 focused component/API cases и fixture-сценарий production chat в
+Chromium/Firefox/WebKit. Девять скриншотов отделены от live evidence:
+[манифест](assets/design/runtime-controls/manifest.json),
+[границы реализации и остаток](plans/2026-10-09-runtime-controls-ui.md).
+Эти результаты не подтверждают runtime admission, PM resume или полный SDLC.
+
 ## Проверка task-chat foundation 8 октября 2026
 
 Каталог, счётчики, страницы и курсоры сохраняют private-owner границу
