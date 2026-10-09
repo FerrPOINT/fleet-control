@@ -408,6 +408,10 @@ async fn http_reload_replays_exact_original_post_after_current_project_and_owner
     let routes = || {
         Router::new()
             .route(
+                "/api/v1/sessions/{session_id}/clarifications/{question_id}/answers",
+                post(api::routes::task_chats::answer),
+            )
+            .route(
                 "/api/v1/sessions/{session_id}/clarifications/{question_id}/answer-commands",
                 post(api::routes::clarification_commands::store),
             )
@@ -431,9 +435,22 @@ async fn http_reload_replays_exact_original_post_after_current_project_and_owner
         is_system_admin: false,
         central_write: Some(true),
     };
+    // Production gives sessionless central tokens BOTH identity extensions.
+    // Only the trusted human marker is absent; a request header cannot supply it.
+    let (machine_url, _machine) = serve(
+        routes()
+            .layer(Extension(user.clone()))
+            .layer(Extension(api::middleware::VerifiedCentralSubject(
+                actor.subject.clone(),
+            )))
+            .with_state(ctx.clone()),
+    )
+    .await;
+    let machine_base = format!("{machine_url}/api/v1/sessions/{}", actor.session_id);
     let (url, _fleet) = serve(
         routes()
             .layer(Extension(user.clone()))
+            .layer(Extension(api::middleware::VerifiedHumanSession))
             .layer(Extension(api::middleware::VerifiedCentralSubject(
                 actor.subject.clone(),
             )))
@@ -481,6 +498,44 @@ async fn http_reload_replays_exact_original_post_after_current_project_and_owner
         restored[0].request.idempotency_key,
         original.idempotency_key
     );
+    let unknown_before = repo
+        .get_clarification_command(&actor, stored.id)
+        .await
+        .unwrap();
+    let context_before = context_calls.load(Ordering::SeqCst);
+    for (method, suffix) in [
+        (
+            reqwest::Method::GET,
+            format!("clarification-answer-commands/{}", stored.id),
+        ),
+        (
+            reqwest::Method::POST,
+            format!("clarification-answer-commands/{}/delivery", stored.id),
+        ),
+    ] {
+        assert_eq!(
+            client
+                .request(method, format!("{machine_base}/{suffix}"))
+                .bearer_auth("synthetic-sessionless-owner")
+                .header("X-Verified-Human-Session", "true")
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::UNAUTHORIZED
+        );
+    }
+    assert_eq!(context_calls.load(Ordering::SeqCst), context_before);
+    assert_eq!(posts.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        serde_json::to_value(
+            repo.get_clarification_command(&actor, stored.id)
+                .await
+                .unwrap()
+        )
+        .unwrap(),
+        serde_json::to_value(unknown_before).unwrap()
+    );
     allowed.store(false, Ordering::SeqCst);
     assert_eq!(
         client
@@ -507,6 +562,7 @@ async fn http_reload_replays_exact_original_post_after_current_project_and_owner
     let (reloaded_url, _reloaded) = serve(
         routes()
             .layer(Extension(user.clone()))
+            .layer(Extension(api::middleware::VerifiedHumanSession))
             .layer(Extension(api::middleware::VerifiedCentralSubject(
                 actor.subject.clone(),
             )))
@@ -552,6 +608,7 @@ async fn http_reload_replays_exact_original_post_after_current_project_and_owner
                 id: Uuid::new_v4(),
                 ..user.clone()
             }))
+            .layer(Extension(api::middleware::VerifiedHumanSession))
             .layer(Extension(api::middleware::VerifiedCentralSubject(
                 actor.subject.clone(),
             )))
@@ -571,19 +628,55 @@ async fn http_reload_replays_exact_original_post_after_current_project_and_owner
             .status(),
         StatusCode::FORBIDDEN
     );
-    let (machine_url, _machine) = serve(routes().layer(Extension(user)).with_state(ctx)).await;
-    assert_eq!(
-        client
-            .get(format!(
-                "{machine_url}/api/v1/sessions/{}/clarification-answer-commands",
-                actor.session_id
-            ))
+    let pending_before = repo
+        .list_pending_clarification_commands(&actor)
+        .await
+        .unwrap();
+    let mut sessionless_request = original.clone();
+    sessionless_request.idempotency_key = Uuid::new_v4().to_string();
+    for (method, suffix) in [
+        (reqwest::Method::GET, "clarification-answer-commands".into()),
+        (
+            reqwest::Method::GET,
+            format!("clarification-answer-commands/{}", stored.id),
+        ),
+        (
+            reqwest::Method::POST,
+            format!("clarifications/{question}/answer-commands"),
+        ),
+        (
+            reqwest::Method::POST,
+            format!("clarification-answer-commands/{}/delivery", stored.id),
+        ),
+        (
+            reqwest::Method::POST,
+            format!("clarifications/{question}/answers"),
+        ),
+    ] {
+        let response = client
+            .request(method.clone(), format!("{machine_base}/{suffix}"))
+            .bearer_auth("synthetic-sessionless-owner")
             .header("X-Verified-Human-Session", "true")
+            .json(&sessionless_request)
             .send()
             .await
-            .unwrap()
-            .status(),
-        StatusCode::UNAUTHORIZED
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            StatusCode::UNAUTHORIZED,
+            "{method} {suffix}"
+        );
+        assert_eq!(context_calls.load(Ordering::SeqCst), before);
+        assert_eq!(posts.load(Ordering::SeqCst), 2);
+    }
+    assert_eq!(
+        serde_json::to_value(
+            repo.list_pending_clarification_commands(&actor)
+                .await
+                .unwrap()
+        )
+        .unwrap(),
+        serde_json::to_value(pending_before).unwrap()
     );
     assert_eq!(context_calls.load(Ordering::SeqCst), before);
     assert_eq!(posts.load(Ordering::SeqCst), 2);

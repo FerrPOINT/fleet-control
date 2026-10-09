@@ -1,5 +1,5 @@
 use super::task_chats::{TrackerGateway, decode_response, load_task_context};
-use crate::middleware::{CurrentUser, VerifiedCentralSubject};
+use crate::middleware::{CurrentUser, VerifiedCentralSubject, VerifiedHumanSession};
 use app::AppContext;
 use axum::{
     Extension, Json,
@@ -27,10 +27,12 @@ async fn authorize(
     ctx: &Arc<AppContext>,
     user: &CurrentUser,
     subject: &str,
+    human: Option<Extension<VerifiedHumanSession>>,
     session: Uuid,
     headers: &HeaderMap,
     require_current_agent: bool,
 ) -> Result<ClarificationCommandActor, AppError> {
+    let Extension(_) = human.ok_or(AppError::Unauthorized)?;
     let local = ctx.repo.get_session(session).await?;
     if local.user_id != user.id {
         return Err(AppError::Forbidden);
@@ -103,12 +105,12 @@ pub(super) async fn store_and_deliver(
     ctx: &Arc<AppContext>,
     user: &CurrentUser,
     subject: &str,
-    session: Uuid,
-    question: Uuid,
+    human: Option<Extension<VerifiedHumanSession>>,
+    (session, question): (Uuid, Uuid),
     headers: &HeaderMap,
     request: ClarificationAnswerRequest,
 ) -> Result<ClarificationAnswerCommand, AppError> {
-    let actor = authorize(ctx, user, subject, session, headers, true).await?;
+    let actor = authorize(ctx, user, subject, human, session, headers, true).await?;
     let command = ctx
         .repo
         .store_clarification_command(&actor, question, request)
@@ -121,12 +123,13 @@ pub async fn store(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<CurrentUser>,
     subject: Option<Extension<VerifiedCentralSubject>>,
+    human: Option<Extension<VerifiedHumanSession>>,
     Path((session, question)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
     Json(request): Json<ClarificationAnswerRequest>,
 ) -> Result<(HeaderMap, Json<ClarificationAnswerCommand>), AppError> {
     let Extension(subject) = subject.ok_or(AppError::Unauthorized)?;
-    let actor = authorize(&ctx, &user, &subject.0, session, &headers, true).await?;
+    let actor = authorize(&ctx, &user, &subject.0, human, session, &headers, true).await?;
     Ok(private(
         ctx.repo
             .store_clarification_command(&actor, question, request)
@@ -139,11 +142,12 @@ pub async fn pending(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<CurrentUser>,
     subject: Option<Extension<VerifiedCentralSubject>>,
+    human: Option<Extension<VerifiedHumanSession>>,
     Path(session): Path<Uuid>,
     headers: HeaderMap,
 ) -> Result<(HeaderMap, Json<Vec<ClarificationAnswerCommand>>), AppError> {
     let Extension(subject) = subject.ok_or(AppError::Unauthorized)?;
-    let actor = authorize(&ctx, &user, &subject.0, session, &headers, false).await?;
+    let actor = authorize(&ctx, &user, &subject.0, human, session, &headers, false).await?;
     Ok(private(
         ctx.repo.list_pending_clarification_commands(&actor).await?,
     ))
@@ -154,11 +158,12 @@ pub async fn get(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<CurrentUser>,
     subject: Option<Extension<VerifiedCentralSubject>>,
+    human: Option<Extension<VerifiedHumanSession>>,
     Path((session, id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<(HeaderMap, Json<ClarificationAnswerCommand>), AppError> {
     let Extension(subject) = subject.ok_or(AppError::Unauthorized)?;
-    let actor = authorize(&ctx, &user, &subject.0, session, &headers, false).await?;
+    let actor = authorize(&ctx, &user, &subject.0, human, session, &headers, false).await?;
     Ok(private(
         ctx.repo.get_clarification_command(&actor, id).await?,
     ))
@@ -169,11 +174,12 @@ pub async fn delivery(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<CurrentUser>,
     subject: Option<Extension<VerifiedCentralSubject>>,
+    human: Option<Extension<VerifiedHumanSession>>,
     Path((session, id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<(HeaderMap, Json<ClarificationAnswerCommand>), AppError> {
     let Extension(subject) = subject.ok_or(AppError::Unauthorized)?;
-    let actor = authorize(&ctx, &user, &subject.0, session, &headers, true).await?;
+    let actor = authorize(&ctx, &user, &subject.0, human, session, &headers, true).await?;
     Ok(private(deliver(&ctx, &actor, id, &headers).await?))
 }
 

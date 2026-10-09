@@ -1,4 +1,4 @@
-use crate::middleware::{CurrentUser, VerifiedCentralSubject};
+use crate::middleware::{CurrentUser, VerifiedCentralSubject, VerifiedHumanSession};
 use app::AppContext;
 use axum::{
     Extension, Json,
@@ -397,13 +397,20 @@ pub async fn answer(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<CurrentUser>,
     subject: Option<Extension<VerifiedCentralSubject>>,
+    human: Option<Extension<VerifiedHumanSession>>,
     Path((id, question)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
     Json(req): Json<ClarificationAnswerRequest>,
 ) -> Result<(StatusCode, Json<Value>), AppError> {
     let Extension(subject) = subject.ok_or(AppError::Unauthorized)?;
     let command = super::clarification_commands::store_and_deliver(
-        &ctx, &user, &subject.0, id, question, &headers, req,
+        &ctx,
+        &user,
+        &subject.0,
+        human,
+        (id, question),
+        &headers,
+        req,
     )
     .await?;
     match (command.state, command.answer, command.rejection_status) {
