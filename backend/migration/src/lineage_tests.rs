@@ -215,8 +215,15 @@ async fn split_down_one_and_reapply_preserves_other_history() {
     let data = history(&fixture.db).await;
     Migrator::down(&fixture.db, Some(1)).await.unwrap();
     let remaining = ledger(&fixture.db).await;
-    assert_eq!(remaining.len(), 21);
-    assert!(remaining.iter().all(|entry| before.contains(entry)));
+    assert_eq!(remaining.len(), before.len() - 1);
+    assert_eq!(
+        remaining,
+        before
+            .iter()
+            .filter(|(version, _)| version != RECOVERED_ACTIVATION)
+            .cloned()
+            .collect::<Vec<_>>()
+    );
     Migrator::up(&fixture.db, None).await.unwrap();
     let after = ledger(&fixture.db).await;
     assert_eq!(after.len(), 23);
@@ -407,9 +414,31 @@ async fn both_accepted_foundations_upgrade_task_chats_without_legacy_rebinding()
             assert_eq!(row.try_get::<i64>("", column).unwrap(), 0);
         }
         assert_eq!(row.try_get::<i64>("", "sequence").unwrap(), 1);
-        Migrator::down(&fixture.db, Some(8)).await.unwrap();
+        let migrations = if split {
+            LegacyMigrator::migrations()
+        } else {
+            Migrator::migrations()
+        };
+        let task_chat_index = migrations
+            .iter()
+            .position(|migration| migration.name() == TASK_CHATS)
+            .unwrap();
+        let successors = u32::try_from(migrations.len() - task_chat_index - 1).unwrap();
+        Migrator::down(&fixture.db, Some(successors)).await.unwrap();
         let task_chat_ledger = ledger(&fixture.db).await;
-        assert_eq!(task_chat_ledger.len(), expected - 8);
+        assert_eq!(task_chat_ledger.len(), task_chat_index + 1);
+        assert_eq!(
+            task_chat_ledger,
+            upgraded
+                .iter()
+                .filter(|(version, _)| {
+                    migrations[..=task_chat_index]
+                        .iter()
+                        .any(|migration| migration.name() == version.as_str())
+                })
+                .cloned()
+                .collect::<Vec<_>>()
+        );
         assert_eq!(runtime_history(&fixture.db).await, data);
         let error = Migrator::down(&fixture.db, Some(1))
             .await

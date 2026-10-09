@@ -55,6 +55,14 @@ findings do not certify an unexecuted compiler, database or live runtime gate.
   no new actionable finding. Normal parent merge1801201c3ad5c47248edec45fcde6609b7a32bd3
   preserves both parents and0be22c7 fixture fixes. Combined16 loader/hash cases
   pass in6.114s and Rust formatting passes; compile/PG/native are still pending.
+  A subsequent source inventory finds162 ignored and290 ordinary declarations;
+  these are not compiled discovery or execution counts. It also finds two stale
+  downgrade fixtures: split single-down expects21 rather than22, and two
+  down8 probes stop at credentials11 rather than task_chats10. Parent follow-up
+  derives the successor count from the selected registry and asserts the exact
+  retained ledger, preserving history checks and the blocked-down invariant.
+  Only test files change; no migration SQL or product API changes. Source review
+  and actual Rust/PostgreSQL acceptance of this follow-up remain separate gates.
 - Forge timing successordaf044da141c0e03847e9b3d9406c4d04f823917 has sole
   parent34c. Parent repeats79/79 pure checks, zero skips,1.383s. Its component
   lock SHA256 is c58c63c4f203873ef4565d4240a85b6b8734ac1c309fa3c874f84576e687274e.

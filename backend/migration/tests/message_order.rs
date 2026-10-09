@@ -85,9 +85,34 @@ async fn historical_backfill_and_clock_rollback_keep_order_without_changing_wire
         "INSERT INTO session_messages(id,session_id,author_type,body,message_kind,append_sequence) VALUES
           (gen_random_uuid(),'cccccccc-cccc-4ccc-8ccc-cccccccccccc','system','Forbidden','system_event',100);"
     ).await.is_err());
-    Migrator::down(&db, Some(8)).await.unwrap();
+    let migrations = Migrator::migrations();
+    let task_chat_index = migrations
+        .iter()
+        .position(|migration| migration.name() == "m20261001_000010_task_chats")
+        .unwrap();
+    let successors = u32::try_from(migrations.len() - task_chat_index - 1).unwrap();
+    Migrator::down(&db, Some(successors)).await.unwrap();
+    let ledger = Migrator::get_migration_models(&db).await.unwrap();
+    assert_eq!(ledger.len(), task_chat_index + 1);
+    assert!(ledger.iter().all(|row| {
+        migrations[..=task_chat_index]
+            .iter()
+            .any(|migration| migration.name() == row.version.as_str())
+    }));
     let error = Migrator::down(&db, Some(1)).await.unwrap_err().to_string();
     assert!(error.contains("task-chat history prevents downgrade"));
+    assert_eq!(
+        Migrator::get_migration_models(&db)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|row| (row.version, row.applied_at))
+            .collect::<Vec<_>>(),
+        ledger
+            .into_iter()
+            .map(|row| (row.version, row.applied_at))
+            .collect::<Vec<_>>()
+    );
     Migrator::up(&db, None).await.unwrap();
     let after = db
         .query_all(Statement::from_string(
