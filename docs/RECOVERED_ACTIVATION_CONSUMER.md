@@ -73,6 +73,41 @@ stopping and exited states remain bound to the same original authority; only an
 own successful running-to-stopping CAS permits the first regular child stop.
 Re-entry only reconciles the existing original stop; other actions gain no permit.
 
+## Sequential Revisions
+
+A next desired revision can now activate over an effective recovered committed
+OR rolled-back child. Fleet seals a NEW immutable plan before effects, retaining
+the original controller/anchor, family journal, exact predecessor activation ID/
+hash and published launch. Old claims, commands, credentials and receipts are
+not rewritten. Optional lineage is absent from old serialized plans/claims, so
+their canonical hashes do not change. Private ancestry is bounded, cycle-checked
+and read back against every original PG claim and sealed plan.
+
+The new claim transaction locks agent/root/latest lease, checks exact root native
+proof and predecessor authority, current effective revision, desired/draining
+target, marker/paths and all active/unknown-run fences. Migration19 guards lineage
+inserts AND updates; child SQL origin/mutations still inherit the latest ROOT
+lease, never a child recovery row. Missing latest authority/ACK, expiry, stale
+epoch or conflicting next plan is held before a new native permit. A complete
+sealed next plan without PG claim can retry only this guarded pre-effect claim.
+
+Original mapped volume/controller evidence is retained, not resolved against a
+new controller snapshot. Base4 validates fresh same-engine/controller/volume
+custody. Only the reserved generation/service/network and mapping input hash
+change. Process/image/credential changes remain outside this capability.
+
+Own successful Planned->StoppingPrevious CAS permits the predecessor's original
+Base4 stop once. Restored stopping reconciles that exact stop, not root stop and
+not a fresh permit. Before config writes, its original start ACK/stop claim and
+physical exit are read back. Once a candidate becomes the Base4 journal head,
+its existing guard rechecks the exact predecessor stop on every operation; Fleet
+does not attempt to make a historical generation head again. Failure restores
+the CURRENT effective revision/bytes on the reserved new rollback generation,
+only after candidate exit and with full readiness before effective publication.
+The terminal predecessor's managed-byte check is handed to that exact in-progress
+successor plan; it cannot require obsolete bytes while the successor applies its
+new config. Root readback, latest lease and all SQL fences remain required.
+
 ## Phase Coverage
 
 | Recorded cut | Behavior |
@@ -90,6 +125,8 @@ Re-entry only reconciles the existing original stop; other actions gain no permi
 | Candidate stopped / rollback | Exact previous bytes and reserved NEW rollback generation only after original candidate exit |
 | Committed / rolled back | Effective/drain publication atomic with proof; exact published generation remains on original anchor |
 | Terminal child regular stop | Own running-to-stopping CAS permits Base4 stop once; restored stopping reconciles only; no new prepare/start/attachment permit |
+| Next revision on effective recovered child | Exact terminal predecessor + sealed lineage + fresh root proof; same machine, same root journal, no child custody anchor |
+| Next candidate failure | Exact current effective bytes/revision on reserved rollback generation, not the root's obsolete config |
 
 Original stop recovery calls the existing sealed Base9b `stop_readback` primitive
 with its recovered mount guard, not Base3 `stop()` (which can claim a journal).
@@ -106,7 +143,24 @@ Failures keep existing typed audited recovery actions. Utility capability execut
 
 ## Evidence And Gates
 
-Local light evidence, not Rust/native acceptance:
+Current successor light evidence, not Rust/native acceptance:
+
+- Linux sealed four-module CLI/private fake Engine:21 passed,0 skips,47.785s
+  (final repeat; preceding21/21 repeat60.692s).
+  Six new cases cover committed->next, rolled-back->next, expired lease, unknown/
+  changed epoch, duplicate/conflicting next commands and failed-next rollback.
+  Earlier successor attempt:20 passed/1 error,111.955s; a positive fixture lost
+  its 20-second lease before start. Repeat uses the supported30-second bound,
+  never a fake clock or relaxed guard. Negative expiry checks remain active.
+- Authored, NOT locally executed: activation intent14 (two new successor plan/
+  command cases), PG13 (four new sequential success/rollback, lineage/drain/
+  concurrency/unknown heartbeat and expiry/new-epoch cases). CI requires exact
+  counts with no ignored cases; migration19 still owns one roundtrip selector.
+- Parent0be22c7 independently fixes pre-existing four-module Rust fixtures and
+  lineage single-down. It is not copied here; normal integration must preserve
+  those fixes and this file's two new tests. Rust/PG acceptance remains pending.
+
+Historical f326 light evidence (not rerun/reattributed to this successor):
 
 - Linux sealed FOUR-module CLI/private fake Engine gate:15 passed,0 skips,21.861s
   (final mandatory-selector repeat; preceding corrected run48.705s also passed).
@@ -148,11 +202,18 @@ stop remain held. No journal reconstruction or abort-before-start cleanup exists
 Base4 native durability/races still need acceptance, including lease loss during
 effects and second physical restart while a candidate/rollback is unpublished.
 
-A subsequent independent config revision after recovered publication is not
-planned here. It cannot silently treat the child as a new physical recovery
-anchor: historical lookup retains the original authority through saving/requesting
-the next revision, but creating a new activation/plan on that recovered child
-remains explicitly held (no second business planner or rewritten original plan).
+Sequential activation uses the existing business planner, not a second scheduler.
+Base4 bounds a native replacement family to256 commands (including rollback).
+Fleet preflights a conservative128-plan ancestry budget BEFORE sealing/stopping,
+reserving two commands per plan, even when earlier plans did not roll back.
+Exhaustion holds with current effective child untouched, not journal rotation/
+cleanup/new-anchor takeover. Recovered pre-plan proof failures are audited HOLD,
+not fresh native retry permits; diagnostics retain original root custody identity.
+No in-place upgrade of an already-applied
+f326 migration19 is supplied: this source successor extends that same unreleased
+migration19, applied from18 in the final clean release lineage. Parent owns native
+acceptance, both SQL lineages and source integration. Process-only takeover and
+missing original native proof remain unsupported, not successful recovery.
 Regular post-publication stop is supported; stop-CAS-before-native-claim crash
 remains held when the original stop permit is absent. Generic restart permits
 are not added. Health readback is supported;

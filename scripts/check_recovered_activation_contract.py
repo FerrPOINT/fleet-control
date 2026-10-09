@@ -36,6 +36,12 @@ SELECTORS = (
     "test_original_stop_without_start_ack_or_exit_is_held",
     "test_original_stop_foreign_or_unacknowledged_lease_is_held",
     "test_terminal_child_stop_known_and_unknown_ack_reconcile_without_repeat",
+    "test_committed_child_next_revision_uses_original_scope_and_credentials",
+    "test_rolled_back_child_next_revision_remains_linear",
+    "test_next_revision_expired_original_lease_has_no_effects",
+    "test_next_revision_changed_epoch_requires_new_original_proof",
+    "test_duplicate_next_plan_conflicts_without_new_effects",
+    "test_next_failure_rollback_uses_current_effective_predecessor",
 )
 
 
@@ -72,6 +78,10 @@ def main():
     from scripts.tests.test_runtime_replacement import ReplacementTests
 
     class FleetSealedCLI(ReplacementTests):
+        def recovery_command(self, seconds=30):
+            # Use the supported 30-second bound, not a fake clock or relaxed lease guard.
+            return super().recovery_command(seconds=seconds)
+
         def original_stop(self, request=None):
             return original_stop_readback(request or {"anchor":self.anchor,
                 "operation_id":self.stop_id,"stop_journal":self.stop_path}, lambda _:self.engine)
@@ -153,12 +163,127 @@ def main():
                 self.assertIn(code, (1, 2))
             return envelope.get("result", envelope)
 
+        def live(self, request):
+            prepared=self.run_action(request=request)
+            self.assertEqual(prepared["state"],"prepared",prepared)
+            self.assertEqual(self.run_action("attach_replacement",request)["state"],"attached")
+            started=self.run_action("start_replacement",request)
+            self.assertEqual(started.get("observation"),"running",started)
+            return prepared
+
+        def successor(self, request):
+            stopped=self.run_action("stop_replacement",request)
+            self.assertEqual(stopped["observation"],"namespace_exited",stopped)
+            return self.new_command(request["command"]["policy"]["generation"],stopped,request["command"]["stop_journal"])
+
+        def test_committed_child_next_revision_uses_original_scope_and_credentials(self):
+            self.live(self.request)
+            original=self.retained_files()
+            successor,child=self.successor(self.request)
+            prepared=self.live(successor)
+            self.assertEqual(successor["anchor"],self.request["anchor"])
+            self.assertEqual(successor["replacement_journal"],self.request["replacement_journal"])
+            self.assertEqual(successor["command"]["process"],self.request["command"]["process"])
+            self.assertEqual(child.item["Config"]["Env"],self.child.item["Config"]["Env"])
+            self.assertNotEqual(prepared["registration"]["generation"],self.request["command"]["policy"]["generation"])
+            # Original immutable receipts/credentials survive; only stop and root scope append.
+            for path,body in original.items():
+                if path not in (Path(self.request["replacement_journal"]).name,Path(self.request["command"]["stop_journal"]).name):
+                    self.assertEqual((self.root/path).read_bytes(),body)
+            before=self.effects()
+            self.assertEqual(self.run_action("reconcile_replacement",successor),prepared)
+            self.assertEqual(self.effects(),before)
+            self.assert_held("start_replacement",self.request)
+
+        def test_rolled_back_child_next_revision_remains_linear(self):
+            self.live(self.request)
+            restored,_=self.successor(self.request)
+            self.live(restored)
+            successor,_=self.successor(restored)
+            self.live(successor)
+            self.assertEqual(successor["anchor"],self.anchor)
+            with closing(sqlite3.connect(successor["replacement_journal"])) as db:
+                chain=db.execute("SELECT generation,predecessor FROM commands ORDER BY rowid").fetchall()
+            self.assertEqual(chain,[(self.request["command"]["policy"]["generation"],self.anchor["policy"]["generation"]),
+                (restored["command"]["policy"]["generation"],self.request["command"]["policy"]["generation"]),
+                (successor["command"]["policy"]["generation"],restored["command"]["policy"]["generation"])])
+
+        def test_next_revision_expired_original_lease_has_no_effects(self):
+            self.live(self.request)
+            successor,child=self.successor(self.request)
+            with closing(sqlite3.connect(self.anchor["recovery_journal"])) as db:
+                db.execute("UPDATE owner_lease SET deadline_ns=0")
+                db.commit()
+            self.assert_held(request=successor)
+            self.assertEqual(child.creates,0)
+            with closing(sqlite3.connect(successor["replacement_journal"])) as db:
+                self.assertEqual(db.execute("SELECT count(*) FROM commands").fetchone(),(1,))
+
+        def test_next_revision_changed_epoch_requires_new_original_proof(self):
+            from datetime import datetime,timedelta,timezone
+            self.live(self.request)
+            successor,child=self.successor(self.request)
+            unknown=copy.deepcopy(successor)
+            unknown["anchor"]["recovery"]["lease_version"]+=1
+            self.assert_held(request=unknown)
+            with closing(sqlite3.connect(self.anchor["recovery_journal"])) as db:
+                db.execute("UPDATE owner_lease SET deadline_ns=0")
+                db.commit()
+            self.item["State"].update(Pid=777,StartedAt="2026-10-06T12:00:00Z")
+            witness=self.call("observe_controller_restart",registration=self.anchor["registration"])
+            fresh=copy.deepcopy(self.anchor)
+            r=fresh["recovery"]
+            r["request"].update(id=str(uuid.uuid4()),controller_id=str(uuid.uuid4()),predecessor_id=self.anchor["recovery"]["request"]["id"],
+                controller_snapshot=witness["current_controller_snapshot"])
+            r.update(epoch=2,lease_version=1,lease_expires_at=(datetime.now(timezone.utc)+timedelta(seconds=20)).isoformat())
+            self.assertEqual(self.owner_call(fresh,"recover_controller")["state"],"controller_recovered")
+            self.assert_held(request=successor)
+            self.assertEqual(child.creates,0)
+            successor["anchor"]=fresh
+            self.live(successor)
+
+        def test_duplicate_next_plan_conflicts_without_new_effects(self):
+            self.live(self.request)
+            successor,_=self.successor(self.request)
+            prepared=self.live(successor)
+            before=self.effects()
+            self.assertEqual(self.run_action(request=successor),prepared)
+            self.assertEqual(self.effects(),before)
+            conflict=copy.deepcopy(successor)
+            conflict["command"]["intent_sha256"]="f"*64
+            self.assert_held(request=conflict)
+            fork,_=self.new_command(successor["command"]["predecessor_generation"],
+                successor["command"]["previous_stop"]["receipt"],successor["command"]["previous_stop"]["journal"])
+            self.assert_held(request=fork)
+
+        def test_next_failure_rollback_uses_current_effective_predecessor(self):
+            self.live(self.request)  # Existing effective child, not the exited root.
+            candidate,child=self.successor(self.request)
+            self.live(candidate)
+            child.stay_running=child.lost_ack=True
+            unknown=self.run_action("stop_replacement",candidate)
+            self.assertEqual(unknown["state"],"held")
+            expected=copy.deepcopy(unknown)
+            expected.update(state="observed",observation="namespace_exited")
+            guessed,_=self.new_command(candidate["command"]["policy"]["generation"],
+                expected,candidate["command"]["stop_journal"])
+            self.assert_held(request=guessed)
+            child.exited()
+            stopped=self.run_action("reconcile_replacement_stop",candidate)
+            self.assertEqual(stopped["observation"],"namespace_exited")
+            self.assertEqual(stopped,expected)
+            restored=guessed  # Same reserved rollback operation/generation, never rekey on unknown.
+            self.live(restored)
+            self.assertEqual(restored["command"]["process"],self.request["command"]["process"])
+            self.assertEqual(restored["anchor"],self.anchor)
+            self.assertEqual(child.kills,1)
+
     # Explicit selectors run only these cases; do not silently inherit the Base suite count.
     suite = unittest.TestSuite(FleetSealedCLI(name) for name in SELECTORS)
-    if suite.countTestCases()!=15:
+    if suite.countTestCases()!=21:
         raise SystemExit("Mandatory recovered activation selectors changed")
     result = unittest.TextTestRunner(verbosity=2).run(suite)
-    return 0 if result.wasSuccessful() and result.testsRun == 15 and not result.skipped else 1
+    return 0 if result.wasSuccessful() and result.testsRun == 21 and not result.skipped else 1
 
 
 if __name__ == "__main__":

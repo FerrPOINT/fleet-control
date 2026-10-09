@@ -52,8 +52,12 @@ restart through the recovery slice; fixtures are not installed-runtime acceptanc
 
 ## Docker Activation Restart Recovery
 
-The [Base4 opt-in consumer](../RECOVERED_ACTIVATION_CONSUMER.md) continues only
-sealed original Docker activation under proved recovered custody. Original API
+The [Base4 opt-in consumer](../RECOVERED_ACTIVATION_CONSUMER.md) requires
+proved original custody, including sequential revisions over committed/rolled-
+back effective children. New plans preserve root authority and predecessor
+receipts/credentials; failed-next rollback restores current effective after
+physical candidate exit and full readiness. Sealed original Docker activation
+can also continue under that same proved recovered custody. Original API
 credentials, image, isolated layout, command IDs and receipts stay fixed; agents
 receive no Docker socket or controller evidence. Physical/file/API readiness is
 not loaded-model/tool self-attestation or production admission. Historical Base169

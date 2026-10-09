@@ -1,8 +1,8 @@
 //! Original-custody replacement and read-only restart recovery, never a host controller.
 use super::*;
 use app::container_activation::{
-    Activation, Claim, Generation, Phase, Readiness, RecoveryAction, RecoveryHold, RecoveryReason,
-    held,
+    Activation, Claim, Generation, Lineage, Phase, Readiness, RecoveryAction, RecoveryHold,
+    RecoveryReason, held,
 };
 use app::container_runtime::{ContainerBinding, ContainerLaunch, PreparedContainer};
 use container_control::{
@@ -21,7 +21,18 @@ use tokio::io::AsyncWriteExt;
 type Files = BTreeMap<String, Option<Vec<u8>>>;
 const MANAGED_FILE_LIMIT: usize = 262_144;
 const PLAN_LIMIT: usize = 1_048_576;
+// Each plan can consume candidate AND rollback commands in Base's 256-command family.
+const FAMILY_PLAN_LIMIT: usize = 128;
 const PREPLAN_RETRY_DELAY: Duration = Duration::from_secs(5);
+
+fn check_family_depth(depth: usize) -> Result<(), AppError> {
+    if depth >= FAMILY_PLAN_LIMIT {
+        return Err(AppError::validation(
+            "Original replacement family plan budget exhausted; no new generation permit",
+        ));
+    }
+    Ok(())
+}
 
 fn validate_managed_files(files: &Files) -> Result<(), AppError> {
     if files
@@ -83,6 +94,8 @@ where
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Plan {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    lineage: Option<Lineage>,
     id: Uuid,
     controller_id: Uuid,
     revision: i64,
@@ -97,6 +110,14 @@ struct Plan {
 }
 
 impl Plan {
+    fn anchor(&self) -> &ContainerLaunch {
+        self.lineage.as_ref().map_or(&self.previous, |l| &l.anchor)
+    }
+
+    fn family_id(&self) -> Uuid {
+        self.lineage.as_ref().map_or(self.id, |l| l.family_id)
+    }
+
     fn validate_bytes(&self) -> Result<(), AppError> {
         validate_managed_files(&self.files)?;
         validate_managed_files(&self.previous_files)?;
@@ -110,6 +131,7 @@ impl Plan {
 
     fn claim(&self) -> Result<Claim, AppError> {
         Ok(Claim {
+            lineage: self.lineage.clone(),
             id: self.id,
             agent_id: self.previous.prepared.agent_id,
             controller_id: self.controller_id,
@@ -392,7 +414,54 @@ impl LocalRuntimeSupervisor {
             &plan.previous
         };
         self.checked_prepared(agent, &prepared.prepared).await?;
-        Ok(Some(plan.previous))
+        self.activation_lineage(&root, &plan).await?;
+        Ok(Some(plan.anchor().clone()))
+    }
+
+    /// Walk immutable, hash-checked private plans; never infer an ancestor from a live child.
+    async fn activation_lineage(&self, root: &Path, plan: &Plan) -> Result<(), AppError> {
+        let expected = canonical_hash(plan.anchor())?;
+        let family = plan.family_id();
+        let mut current: Plan =
+            serde_json::from_value(serde_json::to_value(plan).map_err(|_| held())?)
+                .map_err(|_| held())?;
+        let mut seen = std::collections::HashSet::new();
+        loop {
+            check_family_depth(seen.len())?;
+            if !seen.insert(current.id)
+                || canonical_hash(current.anchor())? != expected
+                || current.family_id() != family
+                || current.marker_sha256 != plan.marker_sha256
+            {
+                return Err(held());
+            }
+            let Some(lineage) = &current.lineage else {
+                return if current.id == family {
+                    Ok(())
+                } else {
+                    Err(held())
+                };
+            };
+            let predecessor = self
+                .repo
+                .container_activation_for_launch(&current.previous)
+                .await?
+                .ok_or_else(held)?;
+            if !predecessor.phase.terminal()
+                || predecessor.claim.id != lineage.predecessor_activation_id
+                || predecessor.claim.intent_sha256 != lineage.predecessor_intent_sha256
+                || predecessor.readiness.as_ref().map(|r| r.generation)
+                    != Some(current.previous.prepared.container.registration.generation)
+                || predecessor.claim.controller_id != current.controller_id
+            {
+                return Err(held());
+            }
+            let path = root.join(format!(
+                "{}.{}.activation.json",
+                predecessor.claim.agent_id, predecessor.claim.revision
+            ));
+            current = read_plan(root, &path, Some(&predecessor)).await?;
+        }
     }
 
     async fn recovered_activation_proof(
@@ -406,6 +475,19 @@ impl LocalRuntimeSupervisor {
         {
             return Err(held());
         }
+        self.activation_lineage(
+            Path::new(
+                &self
+                    .config
+                    .fleet
+                    .container_control
+                    .as_ref()
+                    .ok_or_else(held)?
+                    .controller_root,
+            ),
+            plan,
+        )
+        .await?;
         let prepared = if record.phase.terminal() {
             if record.phase == Phase::Committed {
                 &record.candidate
@@ -419,22 +501,35 @@ impl LocalRuntimeSupervisor {
         };
         self.checked_prepared(agent, &prepared.prepared).await?;
         if record.phase.terminal() {
-            self.activation_files(agent, plan, record.phase == Phase::RolledBack, false)
-                .await?;
+            let successor = self.repo.open_container_activation(agent.id).await?;
+            let handed_off = successor.as_ref().is_some_and(|next| {
+                !next.phase.terminal()
+                    && next.claim.lineage.as_ref().is_some_and(|l| {
+                        l.predecessor_activation_id == record.claim.id
+                            && l.predecessor_intent_sha256 == record.claim.intent_sha256
+                    })
+                    && record.tracks_launch(&next.claim.previous)
+            });
+            if !handed_off {
+                self.activation_files(agent, plan, record.phase == Phase::RolledBack, false)
+                    .await?;
+            }
         }
-        let (control, files) = self.container_anchor_files(&plan.previous).await?;
+        let (control, files) = self.container_anchor_files(plan.anchor()).await?;
         let lease = files.recovery.as_ref().ok_or_else(held)?.clone();
         if lease.request.controller_id != self.controller_id {
             return Err(held());
         }
         let observation = control
-            .observe(&files, &plan.previous.prepared.container.registration)
+            .observe(&files, &plan.anchor().prepared.container.registration)
             .await?;
         if !matches!(
             observation.observation,
             ContainerObservation::Running | ContainerObservation::NamespaceExited
-        ) || serde_json::to_value(&observation.snapshot).map_err(|_| held())?
-            != plan.previous.snapshot.clone().ok_or_else(held)?
+        ) || (plan.lineage.is_some()
+            && observation.observation != ContainerObservation::NamespaceExited)
+            || serde_json::to_value(&observation.snapshot).map_err(|_| held())?
+                != plan.anchor().snapshot.clone().ok_or_else(held)?
         {
             return Err(held());
         }
@@ -462,13 +557,13 @@ impl LocalRuntimeSupervisor {
         }
         let proof = self.recovered_activation_proof(agent, plan, record).await?;
         let (control, mut anchor_files) = self
-            .container_files(&plan.previous.prepared.container)
+            .container_files(&plan.anchor().prepared.container)
             .await?;
         anchor_files.recovery = Some(proof.lease);
         let anchor = control.request(
             &anchor_files,
             "observe",
-            json!({"registration":plan.previous.prepared.container.registration}),
+            json!({"registration":plan.anchor().prepared.container.registration}),
         )?;
         let command = replacement_command(root, plan, record, intent)?;
         let path = root.join(format!(
@@ -500,7 +595,11 @@ impl LocalRuntimeSupervisor {
             control.replacement(super::container_replacement::Replacement {
                 anchor,
                 command,
-                journal: root.join(format!("{}.{}.replacement.sqlite", agent.id, plan.id)),
+                journal: root.join(format!(
+                    "{}.{}.replacement.sqlite",
+                    agent.id,
+                    plan.family_id()
+                )),
                 first,
                 stop_first: false,
             }),
@@ -529,7 +628,7 @@ impl LocalRuntimeSupervisor {
         if let Some(record) = self.repo.container_activation_for_launch(launch).await? {
             let anchor_generation = record
                 .claim
-                .previous
+                .anchor()
                 .prepared
                 .container
                 .registration
@@ -609,6 +708,14 @@ impl LocalRuntimeSupervisor {
                         recovery
                     }
                 };
+                let mut recovery = recovery;
+                if record.is_none() {
+                    if let Ok(Some(predecessor)) =
+                        self.repo.container_activation_for_launch(&launch).await
+                    {
+                        recovery.bind_custody(predecessor.claim.anchor());
+                    }
+                }
                 if self
                     .repo
                     .hold_container_activation(revision, record.as_ref(), &launch, &recovery)
@@ -643,6 +750,11 @@ impl LocalRuntimeSupervisor {
             return Err(held());
         }
         let mut recovery = RecoveryHold::new(self.controller_id, launch, activation);
+        if activation.is_none() {
+            if let Some(predecessor) = self.repo.container_activation_for_launch(launch).await? {
+                recovery.bind_custody(predecessor.claim.anchor());
+            }
+        }
         let (control, mut files) = self.container_files(&launch.prepared.container).await?;
         let original = &launch.prepared.container.registration;
         if let Some(saved) = self
@@ -818,6 +930,7 @@ impl LocalRuntimeSupervisor {
         hash: Option<String>,
         root: &Path,
         control: &ContainerControl,
+        recovered: bool,
     ) -> Result<Intent, AppError> {
         let mut intent = original.clone();
         intent.generation = Uuid::new_v4();
@@ -853,9 +966,16 @@ impl LocalRuntimeSupervisor {
                 .as_ref()
                 .and_then(|c| c.mapping_controller.as_ref())
                 .ok_or_else(held)?;
-            let mapping = control
-                .resolve_mounts(&intent.files(root), trusted, &self.config.fleet.agents_root)
-                .await?;
+            let mapping = if recovered {
+                // Preserve the ORIGINAL volume/controller witness; Base4 verifies its fresh custody.
+                let mut mapping = old.mapping.clone();
+                mapping.input_policy_sha256 = canonical_hash(&intent.local_policy)?;
+                mapping
+            } else {
+                control
+                    .resolve_mounts(&intent.files(root), trusted, &self.config.fleet.agents_root)
+                    .await?
+            };
             if mapping.controller != old.mapping.controller
                 || mapping.snapshot != old.mapping.snapshot
                 || mapping.engine != old.mapping.engine
@@ -903,7 +1023,28 @@ impl LocalRuntimeSupervisor {
             .get_container_launch(agent.id)
             .await?
             .ok_or_else(held)?;
-        if previous.controller_id != self.controller_id
+        let predecessor = self.repo.container_activation_for_launch(&previous).await?;
+        let lineage = if let Some(record) = predecessor {
+            if !self.recovered_activation_enabled() || !record.phase.terminal() {
+                return Err(held());
+            }
+            let path = root.join(format!(
+                "{}.{}.activation.json",
+                agent.id, record.claim.revision
+            ));
+            let parent = read_plan(root, &path, Some(&record)).await?;
+            self.recovered_activation_proof(agent, &parent, &record)
+                .await?;
+            Some(Lineage {
+                anchor: parent.anchor().clone(),
+                family_id: parent.family_id(),
+                predecessor_activation_id: record.claim.id,
+                predecessor_intent_sha256: record.claim.intent_sha256.clone(),
+            })
+        } else {
+            None
+        };
+        if (lineage.is_none() && previous.controller_id != self.controller_id)
             || previous.state != "running"
             || self
                 .repo
@@ -1016,6 +1157,7 @@ impl LocalRuntimeSupervisor {
                 Some(canonical_hash(&revision.snapshot)?),
                 root,
                 &control,
+                lineage.is_some(),
             )
             .await?;
         let rollback = self
@@ -1025,11 +1167,13 @@ impl LocalRuntimeSupervisor {
                 previous.prepared.configuration_sha256.clone(),
                 root,
                 &control,
+                lineage.is_some(),
             )
             .await?;
         let plan = Plan {
+            lineage,
             id: Uuid::new_v4(),
-            controller_id: self.controller_id,
+            controller_id: previous.controller_id,
             revision: revision.revision,
             previous,
             candidate,
@@ -1041,6 +1185,7 @@ impl LocalRuntimeSupervisor {
             marker_sha256: self.activation_marker(agent).await?,
         };
         plan.validate_bytes()?;
+        self.activation_lineage(root, &plan).await?;
         Ok(plan)
     }
 
@@ -1276,7 +1421,8 @@ impl LocalRuntimeSupervisor {
                     .get_container_recovery(launch.prepared.container.registration.generation)
                     .await?
                     .is_some())
-                && (!self.recovered_activation_enabled() || saved.is_none())
+                && (!self.recovered_activation_enabled()
+                    || (saved.is_none() && plan.lineage.is_none()))
             {
                 return Err(self
                     .activation_restart_hold(&launch, saved.as_ref())
@@ -1284,12 +1430,18 @@ impl LocalRuntimeSupervisor {
             }
             plan
         } else {
-            if launch.controller_id != self.controller_id
+            let recovered_predecessor = self
+                .repo
+                .container_activation_for_launch(&launch)
+                .await?
+                .is_some();
+            if (launch.controller_id != self.controller_id
                 || self
                     .repo
                     .get_container_recovery(launch.prepared.container.registration.generation)
                     .await?
-                    .is_some()
+                    .is_some())
+                && !recovered_predecessor
             {
                 return Err(self.activation_restart_hold(&launch, None).await?);
             }
@@ -1297,7 +1449,13 @@ impl LocalRuntimeSupervisor {
             let plan = self
                 .activation_plan(&agent, revision, &root)
                 .await
-                .map_err(preplan_failure)?;
+                .map_err(|error| {
+                    if recovered_predecessor {
+                        ActivationFailure::Held(error)
+                    } else {
+                        preplan_failure(error)
+                    }
+                })?;
             // Sealing/unknown writes never return a read-only retry permit.
             seal_plan(&root, &path, &plan).await?;
             plan
@@ -1306,12 +1464,48 @@ impl LocalRuntimeSupervisor {
         let claim = plan.claim()?;
         let mut record = match saved {
             Some(record) => record,
+            None if plan.lineage.is_some() => {
+                // Read original custody before claiming. The transaction rechecks latest lease,
+                // predecessor publication and all drain/unknown-run guards, then binds authority.
+                self.activation_lineage(&root, &plan).await?;
+                let predecessor = self
+                    .repo
+                    .container_activation_for_launch(&plan.previous)
+                    .await?
+                    .ok_or_else(held)?;
+                let predecessor_path = root.join(format!(
+                    "{}.{}.activation.json",
+                    agent.id, predecessor.claim.revision
+                ));
+                let predecessor_plan =
+                    read_plan(&root, &predecessor_path, Some(&predecessor)).await?;
+                self.recovered_activation_proof(&agent, &predecessor_plan, &predecessor)
+                    .await?;
+                let (anchor_control, anchor_files) =
+                    self.container_anchor_files(plan.anchor()).await?;
+                let proof = app::container_activation::RecoveredProof {
+                    lease: anchor_files.recovery.clone().ok_or_else(held)?,
+                    observation: serde_json::to_value(
+                        anchor_control
+                            .observe(
+                                &anchor_files,
+                                &plan.anchor().prepared.container.registration,
+                            )
+                            .await?,
+                    )
+                    .map_err(|_| held())?,
+                };
+                self.repo
+                    .claim_recovered_container_activation(&claim, &proof)
+                    .await?
+            }
             None => self.repo.claim_container_activation(&claim).await?,
         };
         if canonical_hash(&record.claim)? != canonical_hash(&claim)? {
             return Err(held().into());
         }
-        let recovered = plan.controller_id != self.controller_id
+        let recovered = plan.lineage.is_some()
+            || plan.controller_id != self.controller_id
             || self
                 .repo
                 .get_container_recovery(plan.previous.prepared.container.registration.generation)
@@ -1346,8 +1540,9 @@ impl LocalRuntimeSupervisor {
                 }
                 StoppingPrevious => {
                     let (control, files) = self.activation_control(&plan.previous, false).await?;
+                    let control = control.permit_stop(fresh);
                     next.previous_stop = Some(
-                        serde_json::to_value(if recovered && !fresh {
+                        serde_json::to_value(if recovered && !fresh && plan.lineage.is_none() {
                             control
                                 .read_original_stop(
                                     &files,
@@ -1374,7 +1569,11 @@ impl LocalRuntimeSupervisor {
                 }
                 ApplyingCandidate | ApplyingRollback => {
                     let rollback = record.phase == ApplyingRollback;
-                    self.activation_exited(&plan.previous).await?;
+                    // Once a candidate exists its Base4 head guard rechecks the predecessor's
+                    // exact stop on every read. Historical children cannot become heads again.
+                    if record.candidate.is_none() {
+                        self.activation_exited(&plan.previous).await?;
+                    }
                     if let Some(candidate) = &record.candidate {
                         self.activation_exited(candidate).await?;
                     }
@@ -1667,6 +1866,7 @@ mod tests {
         rollback.generation = Uuid::new_v4();
         rollback.operation_id = Uuid::new_v4();
         Plan {
+            lineage: None,
             id: Uuid::new_v4(),
             controller_id: previous.controller_id,
             revision: 1,
@@ -1685,6 +1885,113 @@ mod tests {
             )]),
             marker_sha256: "1".repeat(64),
         }
+    }
+
+    #[test]
+    fn successor_plan_keeps_original_anchor_and_rolls_back_to_current_effective() {
+        assert_eq!(FAMILY_PLAN_LIMIT * 2, 256);
+        assert!(check_family_depth(FAMILY_PLAN_LIMIT - 1).is_ok());
+        assert!(matches!(
+            check_family_depth(FAMILY_PLAN_LIMIT),
+            Err(AppError::Validation(_))
+        ));
+        let previous = plan();
+        assert!(
+            serde_json::to_value(&previous)
+                .unwrap()
+                .get("lineage")
+                .is_none()
+        );
+        assert!(
+            serde_json::to_value(previous.claim().unwrap())
+                .unwrap()
+                .get("lineage")
+                .is_none()
+        );
+        let mut successor = plan();
+        successor.lineage = Some(Lineage {
+            anchor: previous.previous.clone(),
+            family_id: previous.id,
+            predecessor_activation_id: previous.id,
+            predecessor_intent_sha256: previous.claim().unwrap().intent_sha256,
+        });
+        successor.previous.prepared.configuration_revision = Some(7);
+        successor.previous.prepared.configuration_sha256 = Some("7".repeat(64));
+        successor.rollback.configuration_revision = Some(7);
+        successor.rollback.configuration_sha256 = Some("7".repeat(64));
+        let claim = successor.claim().unwrap();
+        assert_eq!(claim.previous_revision, Some(7));
+        assert_eq!(
+            claim.anchor().prepared.container.registration.generation,
+            previous.previous.prepared.container.registration.generation
+        );
+        assert_eq!(successor.family_id(), previous.id);
+        let recovery = RecoveryHold::new(
+            Uuid::new_v4(),
+            &successor.previous,
+            Some(&Activation::planned(claim.clone())),
+        );
+        assert_eq!(
+            recovery.custody_generation,
+            previous.previous.prepared.container.registration.generation
+        );
+        assert_eq!(
+            recovery.generation,
+            successor
+                .previous
+                .prepared
+                .container
+                .registration
+                .generation
+        );
+        let mut preplan = RecoveryHold::new(Uuid::new_v4(), &successor.previous, None);
+        preplan.bind_custody(successor.anchor());
+        assert_eq!(preplan.custody_generation, recovery.custody_generation);
+        assert_eq!(preplan.generation, recovery.generation);
+        for field in ["anchor", "family", "predecessor", "hash"] {
+            let mut changed: Plan =
+                serde_json::from_value(serde_json::to_value(&successor).unwrap()).unwrap();
+            let lineage = changed.lineage.as_mut().unwrap();
+            match field {
+                "anchor" => lineage.anchor.stop_id = Uuid::new_v4(),
+                "family" => lineage.family_id = Uuid::new_v4(),
+                "predecessor" => lineage.predecessor_activation_id = Uuid::new_v4(),
+                _ => lineage.predecessor_intent_sha256 = "f".repeat(64),
+            }
+            assert_ne!(changed.claim().unwrap().intent_sha256, claim.intent_sha256);
+        }
+    }
+
+    #[test]
+    fn successor_command_uses_exact_current_child_stop_not_root_stop() {
+        let (mut p, mut record) = recovered_plan();
+        let anchor = plan().previous;
+        p.lineage = Some(Lineage {
+            anchor: anchor.clone(),
+            family_id: Uuid::new_v4(),
+            predecessor_activation_id: Uuid::new_v4(),
+            predecessor_intent_sha256: "a".repeat(64),
+        });
+        record.claim = p.claim().unwrap();
+        let r = &p.previous.prepared.container.registration;
+        record.previous_stop = Some(
+            json!({"contract_version":r.contract_version,"operation_id":p.previous.stop_id,"generation":r.generation,
+            "resource_id":r.resource_id,"container_id":r.container_id,"state":"observed","observation":"namespace_exited",
+            "snapshot_sha256":canonical_hash(p.previous.snapshot.as_ref().unwrap()).unwrap()}),
+        );
+        let command =
+            replacement_command(Path::new("/private"), &p, &record, &p.candidate).unwrap();
+        assert_eq!(command["predecessor_generation"], json!(r.generation));
+        assert_eq!(
+            command["previous_stop"]["operation_id"],
+            json!(p.previous.stop_id)
+        );
+        assert_ne!(
+            command["previous_stop"]["operation_id"],
+            json!(anchor.stop_id)
+        );
+        record.previous_stop.as_mut().unwrap()["operation_id"] = json!(anchor.stop_id);
+        assert!(replacement_command(Path::new("/private"), &p, &record, &p.candidate).is_err());
     }
 
     #[test]

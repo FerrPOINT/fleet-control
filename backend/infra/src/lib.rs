@@ -662,6 +662,13 @@ impl FleetRepository for PostgresFleetRepository {
     ) -> Result<Option<app::container_activation::Activation>, AppError> {
         container_activation::open(self, agent).await
     }
+    async fn claim_recovered_container_activation(
+        &self,
+        claim: &app::container_activation::Claim,
+        proof: &app::container_activation::RecoveredProof,
+    ) -> Result<app::container_activation::Activation, AppError> {
+        container_activation::claim_proved(self, claim, Some(proof)).await
+    }
     async fn container_activation_for_launch(
         &self,
         launch: &app::container_runtime::ContainerLaunch,

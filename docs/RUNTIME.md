@@ -7,6 +7,10 @@ Default-off `fleet.container_control.recovered_activation` enables the
 original activation/commands/receipts, native recovered anchor and run fences.
 Only supported proved phases continue; missing evidence/unknown old effects hold.
 Successful readiness/publication is not SDLC admission or native acceptance.
+Sequential desired revisions can use the proved effective committed/rolled-back
+child, preserving the root journal/authority and exact predecessor lineage.
+Failed-next rollback restores current effective, not obsolete root config; expiry,
+unknown effects or missing original proofs still hold before new native permits.
 
 Free-chat unknown acceptance may recover only the original native run ID through
 the default-off [durable witness lookup](contracts/HERMES_RECOVERY_V1.md).

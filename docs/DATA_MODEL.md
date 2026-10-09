@@ -92,6 +92,12 @@ history alone is not authority. It narrowly permits exited-anchor renewal only
 for a fenced original activation (or its exact published generation), preserving
 all other16 predicates/OID and empty-down restoration. Canonical/split inventories
 are20/23. See [Base4 consumer](RECOVERED_ACTIVATION_CONSUMER.md).
+Sequential claims optionally seal lineage to the original anchor/family and exact
+terminal predecessor ID/hash. Old claim JSON/hashes remain byte-compatible.
+The same unreleased migration19 adds closed predecessor/effective/drain checks
+and latest-root-lease fences on sequential activation insert/update; no new table,
+migration20, child anchor or rewritten original claim is introduced. This is a
+source successor, not an upgrade for a database already migrated with f32619.
 The standalone integration introduces no further migration. Configuration,
 intent and mapping JSON hashes use the same Base ASCII-escaped canonical recipe,
 including Unicode/SMP keys and values; existing mismatched hashes are never

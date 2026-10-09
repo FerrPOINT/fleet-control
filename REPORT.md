@@ -1,4 +1,97 @@
-# Fleet Protocol4 Activation Source Handoff
+# Fleet Sequential Recovered Activation Successor
+
+Own checkout: `C:/git/azhukov/sdlc/.local/fleet-protocol4-activation-release-20261009/fleet-control`.
+Branch: `feat/recovered-configuration-activation-20261009`.
+Normal immutable parent: `f326cdab4045f726449bf07e61a96a1b75e3063a`.
+Resulting normal successor SHA is supplied in the handoff; f326 is not amended.
+SOURCE implementation for independent review, NOT native/production acceptance.
+
+## Implemented In This Successor
+
+- Next revisions activate over an effective committed OR rolled-back recovered
+  child using the existing activation machine, not a new business planner.
+- A new private plan/claim seals root anchor/family and exact terminal predecessor
+  ID/hash before effects. Original controller, receipts and credentials remain
+  immutable. Old plans/claims omit optional lineage, preserving their hashes.
+- All private ancestors are read/hash-checked with cycle/depth bounds. New claims
+  require fresh original root exit/readback, current native lease/ACK, latest
+  predecessor authority, effective config, desired drain and no active/unknown runs.
+  Stable next plan replays are serialized/idempotent; conflicting plans are held.
+- Original mapping evidence/root journal is reused under Base4 fresh custody,
+  never resolve/new child recovery. SQL lineage insertion/progress and child
+  control mutations retain inherited latest-root fencing. First predecessor stop
+  follows own CAS; restored stop reconciles exact original claim/ACK/physical exit.
+  Recovered pre-plan proof failures become audited HOLD, not native retry permits;
+  sequential hold diagnostics name the root custody and current intended command.
+- Candidate-head readback rechecks original predecessor exit. Failed-next rollback
+  uses CURRENT effective bytes/revision and reserved new rollback generation;
+  candidate exit/full physical/file/API readiness precede effective publication.
+- Only existing unreleased migration19 is extended; no second migration/table,
+  no edits to15..18. Inventories remain20/23. This is not an in-place DB upgrade
+  for already-applied f32619: final source release applies updated19 from18.
+
+## Successor Checks
+
+- Linux sealed loader + exact Base9b private fake Engine:21/21,0 skips,47.785s
+  (final repeat; preceding21/21 repeat60.692s).
+  Six added native-contract cases cover next committed/rolled-back chains,
+  lease expiry/unknown/new epoch without effects, duplicate/conflicting plans,
+  failure rollback after exact current candidate stop (no repeated kill).
+- Earlier successor attempt:20 passed/1 error,111.955s. A positive fixture lost
+  its20-second lease before start. Repeated with supported30-second bound; no
+  lease guard/clock bypass. Negative expiry checks remain active.
+- Windows captured loader7/canonical utility5/README3:15/15,33.945s.
+- `cargo fmt --all --check`; locked/offline/no-deps metadata (8 packages), pinned
+  SDK19a, canonical four utility Git hashes, README/Python/CI/inventory and diff
+  checks are light gates only, not Rust compilation or SQL execution.
+- Authored mandatory selectors, NOT executed here: activation intent14 (two
+  new); activation PG13 (four new). App2/replacement3/migration19 roundtrip1 and
+  original focused selectors retained. CI count checks updated, zero ignored.
+  PG cases explicitly cover both terminal outcomes, next failure rollback,
+  third-plan lineage, active runs, exact immutable predecessor, concurrent replay,
+  conflict, unknown heartbeat, expired lease and changed epoch authority.
+  Exact new PG selectors (all mandatory in CI):
+  `recovered_committed_child_next_activation_and_failure_rollback_keep_original_anchor`;
+  `recovered_rolled_back_child_next_activation_and_failure_rollback_keep_original_anchor`;
+  `recovered_next_claim_rejects_foreign_lineage_unknown_lease_and_duplicate_plan`;
+  `recovered_next_claim_expiry_and_new_epoch_require_latest_original_authority`.
+
+## Integration And Pending Gates
+
+SDK remains19a7a381ae6dbea61a643bb96189e483fa64df5c; utilities remain exact9b53de7b23593949a9e6c05bd5a4f94b930e50a0.
+Base/SDK/parent/UI/PM/Forge unchanged. Parent fixture/lineage fix0be22c7 is a
+separate normal integration dependency, not duplicated/cherry-picked here.
+Preserve its corrected activation test fixture plus this successor's two new
+tests when merging the same runtime activation file tail.
+
+Pending: parent locked compile/Clippy/Rust tests, PG both20/23 lineages and19
+roundtrip, canonical Linux export, actual Docker/Compose/restarts/lost ACK and
+authenticated Hermes readiness. No heavy/native/PG/cache prep/push/dispatch.
+Base4 permits at most256 commands per root family, including rollback. Fleet
+preflights a conservative128-plan ancestry budget before sealing/stopping,
+reserving two native commands per plan, even when earlier plans did not roll back.
+Capacity exhaustion holds with current effective child untouched, never rotates
+journals or mints a new anchor. Missing original private plan/prepare/start/attachment/stop
+proof or permit remains typed HOLD. Process-only takeover, image/process/token
+rotation, log ingestion and business/runtime admission are not implemented here.
+
+## Successor Changed Paths
+
+`.github/workflows/ci.yml`, `README.md`, `REPORT.md`;
+`backend/app/src/{container_activation.rs,lib.rs}`;
+`backend/infra/src/{container_activation.rs,lib.rs,runtime/container_activation.rs}`;
+`backend/infra/tests/container_activation.rs`;
+`backend/migration/src/m20261009_000019_recovered_activation.rs`;
+`scripts/check_recovered_activation_contract.py`;
+`docs/{API.md,DATA_MODEL.md,RUNTIME.md,RECOVERED_ACTIVATION_CONSUMER.md}`;
+`docs/contracts/{AGENT_RUNTIME_CONTRACT.md,HERMES_ADAPTER_CONTRACT.md,JAVA_AGENT_ADAPTER_CONTRACT.md}`.
+
+---
+
+# Historical f326 Handoff (Superseded Only For Sequential Activation)
+
+The following is the prior source packet/evidence. Its next-plan limitation and
+counts describe f326, not this successor. The frozen f326 commit is unchanged.
 
 Own checkout: `.local/fleet-protocol4-activation-release-20261009/fleet-control`.
 Branch: `feat/recovered-configuration-activation-20261009`.

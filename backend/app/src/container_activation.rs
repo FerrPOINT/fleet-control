@@ -20,9 +20,21 @@ pub struct Generation {
     pub stop_id: Uuid,
 }
 
+/// Immutable lineage, not another owner or a transferable recovery permit.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Lineage {
+    pub anchor: ContainerLaunch,
+    pub family_id: Uuid,
+    pub predecessor_activation_id: Uuid,
+    pub predecessor_intent_sha256: String,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Claim {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lineage: Option<Lineage>,
     pub id: Uuid,
     pub agent_id: Uuid,
     pub controller_id: Uuid,
@@ -38,6 +50,12 @@ pub struct Claim {
     pub previous: ContainerLaunch,
     pub candidate: Generation,
     pub rollback: Generation,
+}
+
+impl Claim {
+    pub fn anchor(&self) -> &ContainerLaunch {
+        self.lineage.as_ref().map_or(&self.previous, |l| &l.anchor)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -161,6 +179,11 @@ pub struct RecoveryHold {
 }
 
 impl RecoveryHold {
+    pub fn bind_custody(&mut self, anchor: &ContainerLaunch) {
+        self.original_controller_id = anchor.controller_id;
+        self.custody_generation = anchor.prepared.container.registration.generation;
+    }
+
     pub fn new(
         controller: Uuid,
         launch: &ContainerLaunch,
@@ -177,7 +200,10 @@ impl RecoveryHold {
                     | Phase::StartingRollback
             )
         });
-        let original = &launch.prepared.container.registration;
+        let custody = activation
+            .and_then(|a| a.claim.lineage.as_ref())
+            .map_or(launch, |lineage| &lineage.anchor);
+        let original = &custody.prepared.container.registration;
         let command = activation
             .map(|a| match a.phase {
                 Phase::ApplyingCandidate
@@ -224,7 +250,7 @@ impl RecoveryHold {
                 RecoveryAction::RecoverOriginalCustody
             },
             controller_id: controller,
-            original_controller_id: launch.controller_id,
+            original_controller_id: custody.controller_id,
             custody_generation: original.generation,
             generation: command.generation,
             operation_id: command.operation_id,

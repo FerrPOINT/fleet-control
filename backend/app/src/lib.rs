@@ -229,6 +229,13 @@ pub trait FleetRepository: Send + Sync {
     ) -> Result<(), AppError> {
         Err(container_activation::held())
     }
+    async fn claim_recovered_container_activation(
+        &self,
+        _claim: &container_activation::Claim,
+        _proof: &container_activation::RecoveredProof,
+    ) -> Result<container_activation::Activation, AppError> {
+        Err(container_activation::held())
+    }
     async fn get_container_preparation(
         &self,
         _agent: Uuid,

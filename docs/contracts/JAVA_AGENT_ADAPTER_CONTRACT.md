@@ -24,6 +24,8 @@ are introduced or accepted by this source freeze.
 ## Docker Activation Restart Recovery
 
 The [Base4 consumer](../RECOVERED_ACTIVATION_CONSUMER.md) is Docker/Hermes-only.
+Its sequential recovered-child activation/rollback does not change Java/process
+configuration activation support, lifecycle or readiness.
 Java/process lifecycle, configuration behavior and SDK19a remain unchanged.
 No fallback, endpoint authority or recovered Docker lease applies to Java.
 
