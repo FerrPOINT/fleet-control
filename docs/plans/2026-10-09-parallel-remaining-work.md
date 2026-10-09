@@ -13,9 +13,9 @@ owned checkouts; Tracker and Workflow remain read-only references.
 | Owner | Independent work | Acceptance boundary |
 | ----- | ---------------- | ------------------- |
 | Pascal | Durable clarification answer-command journal and reload recovery in Fleet | Original key/payload retained server-side; ownership/project authorization before replay; unknown delivery never creates a new command or runtime run; focused tests and API/docs handoff. No invented Tracker GET receipt. |
-| Ptolemy | Image metadata retained-file FIFO fix in a separate successor | Nonblocking/nofollow regular-file reads, bounded failure and cleanup regression; preserve frozen predecessor and all image/source pins. No heavy build. |
+| Ptolemy | Image metadata retained-file FIFO successor completed | Owner Linux56/56, Windows53 PASS/three skips; Feynman closes focused Linux5/5. Actual image qualification/build remain separate prerequisites. |
 | Feynman | Native execution prerequisites/handoff, then focused image-fix review | Actual native execution remains unproved; identify existing launch/cleanup commands and concrete blockers, without launching Docker or changing pins. |
-| Anscombe | Focused independent backend-controls closure | Raw-blob export is source-closed at c3b950; compiler-diagnostics variable collision remains open until the parent successor passes its regression and review. |
+| Anscombe | Focused independent backend-controls closure completed | Raw-blob export,5259 diagnostics collision and0709588 source retarget are source-closed; actual compile/PG/full70 remain CI gates. |
 | Parent | CI correction, GitHub checks, integration and current documentation | Fix diagnostics, publish only the scoped build-only branch after closure, inspect actual hosted results; do not claim full SDLC or merge readiness from pure tests. |
 
 Native-cut c89df468 independently closes both prior ready-publication and
@@ -29,6 +29,16 @@ stage success is established. A real Git archive CRLF transformation was
 reproduced and replaced with exact Git blob export without changing expected
 hashes. Lightweight Fleet193 + SDK85 source parity passes with owned scratch
 removed; Auth89/full70 are not proved by that probe.
+
+Subsequent actual hosted37995542617 completes FAILURE in real compiler check at
+container_controller.rs:18:48 (E0599, DatabaseConnection clone under SeaORM mock).
+The existing safe-artifact readback authenticates run/attempt/head/digest and
+owned scratch/DB cleanup; no raw private logs are uploaded. Product373682a fixes
+three test files using separate isolated connections while retaining transaction
+concurrency assertions. Controls0709588 normally merge that source, retarget only
+its exact fingerprints and preserve all gate counts/pins. Independent review,
+Linux76/76 and Windows74 PASS/two skips pass; normal FF publication starts actual
+run37996397284, currently in progress. This is not a successful backend result.
 
 The renewed parallel split keeps the existing workers and their isolated
 checkouts rather than restarting completed work:

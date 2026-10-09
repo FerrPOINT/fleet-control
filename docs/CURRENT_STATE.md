@@ -2,9 +2,29 @@
 
 ## Current Integration Snapshot: 10 October 2026
 
-Source-only assembly `b249bc895e5160fe13383c49d42a24c9308852b3` is **not
+Current assembly `373682aae01e4f1f295a2ccaa5e871c91c486318`, a normal descendant
+of b249 with documentation and isolated-connection test fixes, is **not
 merge-ready or live SDLC accepted**. Historical sections below qualify their own
 heads; they do not accept this assembly.
+
+Latest hosted run37995542617 at controls5259a40/sourceb249 completes FAILURE at
+real `cargo check --all-targets`, E0599 in container_controller.rs:18:48. Its safe
+compiler artifact11646773562 is authenticated by the existing failure readback;
+scratch and synthetic DB cleanup pass. This run proves preflight/formatting,
+not successful compilation or execution of the remaining70-stage gate.
+Source373682a replaces unavailable DatabaseConnection clones under SeaORM mock
+with independent isolated connections in three test files; Rust formatting and
+focused source review pass. Controls0709588 retain all70 stages,367 input paths,
+162 ignored/290 ordinary declarations,19 DBs and dependency/OpenAPI pins, changing
+only the source pin and three exact Git fingerprints. Linux76/76, Windows74
+PASS/two skips and independent scoped review pass. Normal FF publication starts
+run37996397284, currently in progress; no compiler/PG success is inferred yet.
+
+Image metadata FIFO fix is separately source/pure closed: owner Linux56/56,
+Windows53 PASS/three skips; independent focused Linux5/5, Windows2 PASS/three
+skips. Parent verifies ten successor files and the unchanged predecessor scope.
+This does not qualify an actual image or Docker cleanup. Fresh local resource
+probe shows about3.2GiB available commit RAM, below6GiB; local heavy is not admitted.
 
 - Normal merge1801201 retains reviewed recovered/sequential activation d306
   and the loader/fixture fixes. Independent F6 source review closes the reported
@@ -87,7 +107,8 @@ setup passed; actual70 has no accepted result yet. Exact Git blob export c3b950
 fixes a reproduced archive CRLF hash transformation without changing expected
 inputs. Lightweight Fleet193 + SDK85 parity passes; Auth89/full70 remain open.
 Normal child5259a40 fixes the independently found diagnostics variable collision;
-Linux76/76 and Windows74 PASS/two skips pass. Focused final closure is pending.
+Linux76/76 and Windows74 PASS/two skips pass. Independent closure passes all four
+compiler-artifact/cleanup combinations. Its hosted outcome is recorded above.
 Historical0fe's53 worker checks and separate18-file parent seal stay immutable;
 neither those counts nor successor pure tests establish compiler/PG acceptance.
 This hosted path uses no ComposeHelper/local Docker, so the missing maintenance
