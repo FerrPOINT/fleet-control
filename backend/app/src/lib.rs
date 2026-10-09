@@ -120,6 +120,17 @@ pub struct HermesDispatchIntent {
     pub recovery_deadline: shared::Timestamp,
 }
 
+/// Internal terminal proof; never a public request or permission to dispatch.
+pub struct HermesTerminalCommit {
+    pub message_id: Uuid,
+    pub run_id: Uuid,
+    pub runtime_run_id: String,
+    pub runtime_session_id: String,
+    pub state: SessionRunState,
+    pub body: Option<String>,
+    pub error: Option<String>,
+}
+
 #[async_trait]
 pub trait FleetRepository: Send + Sync {
     async fn prepare_hermes_dispatch(
@@ -148,6 +159,87 @@ pub trait FleetRepository: Send + Sync {
             "Hermes dispatch journal is unavailable".into(),
         ))
     }
+    async fn get_hermes_dispatch_intent_for_run(
+        &self,
+        _run_id: Uuid,
+    ) -> Result<Option<HermesDispatchIntent>, AppError> {
+        Err(AppError::Unavailable(
+            "Hermes dispatch journal is unavailable".into(),
+        ))
+    }
+
+    async fn commit_hermes_terminal(
+        &self,
+        _command: HermesTerminalCommit,
+    ) -> Result<(SessionAgentRun, Option<SessionMessage>, bool), AppError> {
+        Err(AppError::Unavailable(
+            "Hermes terminal journal is unavailable".into(),
+        ))
+    }
+    async fn reserve_runtime_control(
+        &self,
+        _run: &SessionAgentRun,
+        _actor: &domain::RuntimeControlActor,
+        _operation: domain::RuntimeControlOperation,
+        _input: Option<&str>,
+    ) -> Result<domain::RuntimeControlReservation, AppError> {
+        Err(AppError::Unavailable(
+            "runtime control journal is unavailable".into(),
+        ))
+    }
+
+    async fn claim_runtime_control(&self, _id: Uuid) -> Result<bool, AppError> {
+        Err(AppError::Unavailable(
+            "runtime control journal is unavailable".into(),
+        ))
+    }
+
+    async fn finish_runtime_control(
+        &self,
+        _id: Uuid,
+        _acknowledgement: &str,
+    ) -> Result<domain::RuntimeControlReceipt, AppError> {
+        Err(AppError::Unavailable(
+            "runtime control journal is unavailable".into(),
+        ))
+    }
+
+    async fn retire_runtime_control(
+        &self,
+        _id: Uuid,
+        _submitted: bool,
+    ) -> Result<domain::RuntimeControlReceipt, AppError> {
+        Err(AppError::Unavailable(
+            "runtime control journal is unavailable".into(),
+        ))
+    }
+
+    async fn get_runtime_control(
+        &self,
+        _session: Uuid,
+        _id: Uuid,
+    ) -> Result<domain::RuntimeControlReceipt, AppError> {
+        Err(AppError::Unavailable(
+            "runtime control journal is unavailable".into(),
+        ))
+    }
+
+    async fn list_runtime_controls(
+        &self,
+        _session: Uuid,
+        _run: Uuid,
+    ) -> Result<Vec<domain::RuntimeControlReceipt>, AppError> {
+        Err(AppError::Unavailable(
+            "runtime control journal is unavailable".into(),
+        ))
+    }
+
+    async fn reconcile_runtime_controls(&self) -> Result<u64, AppError> {
+        Err(AppError::Unavailable(
+            "runtime control journal is unavailable".into(),
+        ))
+    }
+
     async fn reserve_pm_draft_operation(
         &self,
         _operation: domain::PmDraftOperation,
@@ -787,11 +879,13 @@ pub trait RuntimeSupervisor: Send + Sync {
         agent: &Agent,
         run: &SessionAgentRun,
         req: SteerSessionRunRequest,
+        actor: domain::RuntimeControlActor,
     ) -> Result<RuntimeRunControlResponse, AppError>;
     async fn stop_run(
         &self,
         agent: &Agent,
         run: &SessionAgentRun,
+        actor: domain::RuntimeControlActor,
     ) -> Result<RuntimeRunControlResponse, AppError>;
     async fn resolve_approval(
         &self,

@@ -21,6 +21,9 @@ pub use tracker_events::*;
 pub mod tracker_metadata;
 pub use tracker_metadata::*;
 
+pub mod runtime_controls;
+pub use runtime_controls::*;
+
 pub type Timestamp = String;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
@@ -1594,6 +1597,8 @@ pub struct RuntimeRunControlResponse {
     pub accepted: bool,
     pub state: SessionRunState,
     pub message: String,
+    #[serde(default)]
+    pub command: Option<RuntimeControlReceipt>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

@@ -1,5 +1,16 @@
 # Current State
 
+## Runtime Controls Source Candidate: 9 October 2026
+
+The [isolated unit13](plans/2026-10-09-runtime-controls-release.md) prepares
+durable free-chat stop/steer, one-attempt native dispatch, unknown holds,
+atomic ACK/terminal persistence and scoped receipt reads. Only migration13
+is added; no config64, SDK repin, UI or future runtime migration is imported.
+Its parent is committed journal72, with coordinator cb720d7 normal-history
+integration still pending. Linux compilation/PG, real Hermes compatibility,
+generated contracts and UI integration are not accepted.
+`runtime_ready=false`; no PM/model admission or installed runtime changed.
+
 ## Task-Chat Reconciliation: 9 October 2026
 
 The PR47 candidate normally merges accepted main2fad131 and pins Base19a7a381;
