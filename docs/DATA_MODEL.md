@@ -1,5 +1,14 @@
 # Data Model
 
+`m20261009_000018_container_activation` adds controller-private
+`runtime_container_activations`, one immutable claim and monotonic CAS record per
+agent/target revision, at most one open activation per agent. Non-secret hashes,
+original launches/stop receipts and readiness proofs are persisted; exact config
+bytes/credentials stay in fsynced0600 private plans. Launch custody and effective
+publication commit atomically with their activation steps. Populated custody
+blocks downgrade; empty down restores exact17 guard definitions. See
+[unit18 transitions and gates](CONTAINER_ACTIVATION_RELEASE.md).
+
 Private `runtime_container_preparations` (unit17) stores immutable initial-generation
 intent hashes, one create-delivery permit and the original prepared receipt.
 See [custody and downgrade fences](AUTOMATIC_CONTAINER_PREPARATION_RELEASE.md).

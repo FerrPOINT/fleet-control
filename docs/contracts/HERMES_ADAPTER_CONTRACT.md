@@ -1,5 +1,11 @@
 # Hermes Adapter Contract
 
+The configured Docker path can activate a revision on a fresh original generation
+under live original custody. Failed bounded API readiness requires candidate exit
+proof before exact previous-file restoration and fresh rollback preparation.
+Only original Base readback derives endpoints. See
+[unit18 source contract](../CONTAINER_ACTIVATION_RELEASE.md); health is not admission.
+
 [Unit17](../AUTOMATIC_CONTAINER_PREPARATION_RELEASE.md) automates configured first
 generation preparation and original unknown readback; operator-prepared input is
 only the legacy path. Native acceptance and replacement remain pending.

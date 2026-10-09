@@ -1,5 +1,10 @@
 # Migrations
 
+Unit18 appends only `m20261009_000018_container_activation`, yielding17 canonical
+or20 split ledger entries after the frozen15/16/17 releases. Its empty-history
+down restores exact17 guard definitions; any activation custody blocks downgrade.
+See [unit18 source contract](CONTAINER_ACTIVATION_RELEASE.md).
+
 ## Historical Lineages And Task Chats
 
 Accepted main has two supported foundations: canonical ten-step combined SDLC

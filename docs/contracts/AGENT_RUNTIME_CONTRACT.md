@@ -1,5 +1,11 @@
 # Agent Runtime Contract
 
+Docker configuration uses the existing desired/effective drain protocol plus
+original Base safe-stop, fresh preparation and physical/file/API readiness proof.
+Unknown native effects remain held without rollback or new delivery authority.
+See [unit18 source contract](../CONTAINER_ACTIVATION_RELEASE.md); native acceptance
+and assignment admission are distinct, still mandatory gates.
+
 Configured initial Docker generation preparation now uses original Base custody
 and a one-shot durable permit. See [unit17](../AUTOMATIC_CONTAINER_PREPARATION_RELEASE.md);
 it does not grant runtime admission or implement replacement/config activation.

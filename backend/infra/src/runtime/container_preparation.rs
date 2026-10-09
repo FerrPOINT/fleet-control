@@ -12,21 +12,21 @@ use tokio::io::AsyncWriteExt;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct Intent {
-    agent_id: Uuid,
-    generation: Uuid,
-    operation_id: Uuid,
-    paths: domain::AgentPaths,
-    api_port: Option<i32>,
-    configuration_revision: Option<i64>,
-    configuration_sha256: Option<String>,
-    local_policy: Value,
-    policy: Value,
-    process: Value,
-    source_sha256: [String; 3],
-    context: String,
-    mapped: Option<MappedContainer>,
-    files_sha256: std::collections::BTreeMap<String, String>,
+pub(super) struct Intent {
+    pub(super) agent_id: Uuid,
+    pub(super) generation: Uuid,
+    pub(super) operation_id: Uuid,
+    pub(super) paths: domain::AgentPaths,
+    pub(super) api_port: Option<i32>,
+    pub(super) configuration_revision: Option<i64>,
+    pub(super) configuration_sha256: Option<String>,
+    pub(super) local_policy: Value,
+    pub(super) policy: Value,
+    pub(super) process: Value,
+    pub(super) source_sha256: [String; 3],
+    pub(super) context: String,
+    pub(super) mapped: Option<MappedContainer>,
+    pub(super) files_sha256: std::collections::BTreeMap<String, String>,
 }
 
 #[cfg(test)]
@@ -116,7 +116,7 @@ fn held() -> AppError {
 }
 
 impl Intent {
-    fn claim(&self) -> Result<ContainerPreparationClaim, AppError> {
+    pub(super) fn claim(&self) -> Result<ContainerPreparationClaim, AppError> {
         Ok(ContainerPreparationClaim {
             agent_id: self.agent_id,
             generation: self.generation,
@@ -129,7 +129,7 @@ impl Intent {
         })
     }
 
-    fn files(&self, root: &Path) -> ContainerLaunchFiles {
+    pub(super) fn files(&self, root: &Path) -> ContainerLaunchFiles {
         let name = format!("{}.{}", self.agent_id, self.generation);
         ContainerLaunchFiles {
             policy: self.policy.clone(),
@@ -166,7 +166,7 @@ async fn immutable_intent(root: &Path, path: &Path, intent: &Intent) -> Result<(
         .map_err(|_| held())
 }
 
-fn mapped_policy(
+pub(super) fn mapped_policy(
     local: &Value,
     mapped: &MappedContainer,
     trusted: &shared::config::MappingControllerConfig,

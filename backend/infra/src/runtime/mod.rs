@@ -23,6 +23,7 @@ use tokio::{
 };
 use uuid::Uuid;
 mod acceptance_readback;
+mod container_activation;
 pub(crate) mod container_control;
 mod container_lifecycle;
 mod container_mapping;
@@ -137,8 +138,42 @@ impl LocalRuntimeSupervisor {
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
             handle.spawn(async move {
                 loop {
+                    // Only this live custodian may resume its sealed native commands.
+                    if let Ok(pending) = supervisor
+                        .repo
+                        .pending_container_activations(supervisor.controller_id)
+                        .await
+                    {
+                        for revision in pending {
+                            if let Err(error) = supervisor.apply_container_revision(&revision).await
+                            {
+                                tracing::warn!(
+                                    "Docker configuration remains drained: {}",
+                                    crate::redact_text(&error.to_string())
+                                );
+                            }
+                        }
+                    }
                     match supervisor.repo.claim_config_activation().await {
                         Ok(Some(revision)) => {
+                            let container = match supervisor.repo.get_agent(revision.agent_id).await
+                            {
+                                Ok(agent) => {
+                                    supervisor.container_mode(&agent).await.unwrap_or(true)
+                                }
+                                Err(_) => true,
+                            };
+                            if container {
+                                if let Err(error) =
+                                    supervisor.apply_container_revision(&revision).await
+                                {
+                                    tracing::warn!(
+                                        "Docker configuration remains drained: {}",
+                                        crate::redact_text(&error.to_string())
+                                    );
+                                }
+                                continue;
+                            }
                             let result = supervisor.apply_config_revision(&revision).await;
                             let reconciled = !matches!(&result, Err(AppError::Unavailable(_)));
                             let error = result
@@ -1065,11 +1100,16 @@ impl LocalRuntimeSupervisor {
     async fn probe_hermes(&self, agent: &Agent) -> Result<Value, AppError> {
         let base = self.hermes_base_url(agent).await?;
         let token = crate::agent_runtime_token(&self.config, agent.id)?;
+        self.probe_hermes_at(&base, &token).await
+    }
+
+    // Callers must derive this origin from original Base endpoint readback, never configuration.
+    async fn probe_hermes_at(&self, base: &str, token: &str) -> Result<Value, AppError> {
         let health = self
             .client
             .get(format!("{base}/health"))
             .timeout(Duration::from_secs(3))
-            .bearer_auth(&token)
+            .bearer_auth(token)
             .send()
             .await
             .map_err(AppError::internal)?;

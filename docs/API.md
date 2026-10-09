@@ -1,5 +1,11 @@
 # API
 
+Docker configuration activation uses the existing config revision endpoints;
+there is no new public endpoint or generated schema. Desired remains the
+requested revision; effective changes only after original generation, file and
+API proof. Unknown effects retain drain. See
+[unit18 private activation contract](CONTAINER_ACTIVATION_RELEASE.md).
+
 Public routes are unchanged by [automatic Docker preparation unit17](AUTOMATIC_CONTAINER_PREPARATION_RELEASE.md).
 The configured initial-generation path no longer requires an operator-prepared
 document; it still requires original physical and admission gates.

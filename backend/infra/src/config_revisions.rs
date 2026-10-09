@@ -64,7 +64,7 @@ pub(super) async fn list(
         .collect()
 }
 
-async fn get(
+pub(super) async fn get(
     repo: &PostgresFleetRepository,
     id: Uuid,
     revision: i64,
@@ -234,8 +234,10 @@ pub(super) async fn claim(
             JOIN agent_config_heads h USING(agent_id)
             WHERE r.state = 'activating' AND r.claimed_at IS NULL AND h.draining
               AND NOT EXISTS (SELECT 1 FROM session_agent_runs run WHERE run.agent_id = r.agent_id
-                AND run.runtime_session_id IS NOT NULL AND run.state IN ('pending','running','waiting','stopping'))
+                AND (run.runtime_session_id IS NOT NULL OR EXISTS(SELECT 1 FROM runtime_container_launches c WHERE c.agent_id=r.agent_id))
+                AND run.state IN ('pending','running','waiting','stopping'))
               AND NOT EXISTS (SELECT 1 FROM message_dispatch_outbox o WHERE o.agent_id = r.agent_id AND o.state IN ('dispatching','uncertain'))
+              AND NOT EXISTS (SELECT 1 FROM hermes_dispatch_journal j WHERE j.agent_id = r.agent_id AND j.state IN ('prepared','submitted'))
             ORDER BY r.created_at FOR UPDATE OF r, h SKIP LOCKED LIMIT 1)
          UPDATE agent_config_revisions r SET claimed_at = now() FROM candidate c
             WHERE r.agent_id = c.agent_id AND r.revision = c.revision RETURNING r.agent_id, r.revision".to_string()))
@@ -261,6 +263,20 @@ pub(super) async fn finish(
     reconciled: bool,
 ) -> Result<(), AppError> {
     let txn = repo.db.begin().await.map_err(AppError::database)?;
+    super::container_runtime::lock(&txn, id).await?;
+    let container = txn
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT generation FROM runtime_container_launches WHERE agent_id=$1 LIMIT 1",
+            [id.into()],
+        ))
+        .await
+        .map_err(AppError::database)?;
+    if container.is_some() {
+        return Err(AppError::Unavailable(
+            "Docker activation can only finish with original physical and readiness proof".into(),
+        ));
+    }
     let changed = txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "UPDATE agent_config_revisions SET state = $3, last_error = $4 WHERE agent_id = $1 AND revision = $2 AND state = 'activating'",
         [id.into(), revision.into(), if error.is_some() { "failed" } else { "active" }.into(), error.clone().map(|error| redact_text(&error)).into()]))

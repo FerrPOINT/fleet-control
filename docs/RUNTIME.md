@@ -1,5 +1,10 @@
 # Runtime
 
+Docker config activation now has a bounded live-custodian fresh-generation path;
+see [unit18 source contract](CONTAINER_ACTIVATION_RELEASE.md). Desired/effective
+publication, drain, original safe-stop and exact rollback remain separate gates.
+Native acceptance and production admission are still pending.
+
 Opt-in original Docker lifecycle is available as a bounded source release. It
 uses Base utility169 separately from the unchanged SDK pin, one container journal
 migration and private operator-prepared v2 containers. See
