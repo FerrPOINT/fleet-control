@@ -3,6 +3,24 @@
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 
+## Closed-Question Answer Recovery (2026-10-09)
+
+Tracker357caa7a closes new-answer permission once its final question is answered.
+The production chat now keeps explicit original-key reconciliation available to
+the current owner with a valid binding/context and successful question reads,
+without enabling any new answer. Ownership changes and Tracker access errors
+deny replay. Backend authorization and Tracker's owner-authorized idempotency
+contract are unchanged; no new prompt, confirmation or PM run is dispatched.
+
+The original disabled-button defect is reproduced before the fix. Node22 passes
+all334 frontend cases (39 on this page), typecheck, targeted ESLint/Prettier and
+the3870-module production build. The updated browser fixture passes3/3 in2.7m,
+including identical original payload/key after the final question closes. Nine
+generated screenshot hashes/dimensions/routes are verified, and mobile/desktop
+captures visually inspected. [Detailed evidence and retained failure history](plans/2026-10-09-clarification-answer-recovery.md).
+This remains fixture-backed mounted-controller evidence, not live PM acceptance
+or durable answer recovery after browser reload.
+
 ## Original Answer Recovery (2026-10-09)
 
 The production controller now retains an uncertain answer across selection of a

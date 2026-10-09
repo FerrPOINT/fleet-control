@@ -352,7 +352,7 @@ test('fixture: uncertain clarification retains its original command across quest
             stage: 'Draft',
             requirement_revision: 3,
             waiting_reason: 'Требуется ответ',
-            permissions: { can_answer: true, can_confirm: false },
+            permissions: { can_answer: commands.length < 2, can_confirm: false },
             assignment: null,
           },
         },
@@ -371,8 +371,14 @@ test('fixture: uncertain clarification retains its original command across quest
       return route.fulfill({
         json: {
           questions: [
-            { ...question, version },
-            { ...question, id: 'q2', text: 'Второй вопрос', version: 1 },
+            { ...question, version, state: commands.length < 2 ? 'open' : 'answered' },
+            {
+              ...question,
+              id: 'q2',
+              text: 'Второй вопрос',
+              version: 1,
+              state: commands.length < 2 ? 'open' : 'answered',
+            },
           ],
         },
       })
@@ -423,5 +429,11 @@ test('fixture: uncertain clarification retains its original command across quest
     expected_question_version: 1,
     comment: 'Исходный ответ владельца',
   })
+  await expect(choice).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+  await expect(retry).toBeEnabled()
+  await retry.click()
+  await expect.poll(() => commands.length).toBe(3)
+  expect(commands[2]).toEqual(commands[0])
   expect(errors).toEqual([])
 })

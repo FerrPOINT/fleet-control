@@ -15,11 +15,12 @@ The controller now blocks new answers, editing and draft transfer while an answe
 outcome is unknown. Its separate recovery action uses the original mutation's
 question ID, expected versions, payload and key regardless of current selection.
 The original question title is captured for display rather than taken from a
-newly selected question. Ownership and fresh context/question permissions still
-gate recovery. Acknowledgement unlocks subsequent answers, clears only the
+newly selected question. Ownership and successful context/question reads still
+gate recovery. New-answer permission gates new answers, not acknowledgement of
+an original retained command. Acknowledgement unlocks subsequent answers, clears only the
 original draft and does not confirm requirements or dispatch a runtime run.
 
-## Executed Evidence
+## Initial Executed Evidence
 
 - Initial negative reproduction: two tests fail at the intended enabled-control
   assertions before the controller fix.
@@ -51,6 +52,37 @@ node scripts/runtime-controls-evidence.mjs --verify
 
 The fixture serves its own production component bundle and mocked HTTP; no
 accepted service is restarted. Screenshot evidence has `liveAcceptance=false`.
+
+## Closed-Question Follow-Up
+
+The pinned Tracker source357caa7a computes `can_answer` from owner, stage and
+whether any question remains open. Saving the final answer therefore closes
+that flag before a client with a lost response can acknowledge its original key.
+The original UI incorrectly disabled that recovery action. A new regression
+reproduces this exact disabled-button failure before the follow-up fix.
+
+Explicit replay now requires the retained original variables, current session
+ownership, a task binding, available Tracker context and successful question
+reads; it does not require permission to create another answer. The submit and
+editing controls still require `can_answer`. No key, body or question version is
+regenerated. Fleet gateway authorization is unchanged. Tracker357caa7a authorizes
+the owner and project before exact idempotency replay, and replays before applying
+new-answer business gates; this source read is not deployed HTTP acceptance.
+
+Node22 passes39 chat-page cases and334 total cases across36 files. New negative
+cases deny replay after a changed session owner or failed fresh Tracker access.
+Typecheck, targeted ESLint and Prettier pass. The first attempted reproduction
+had a fork-worker startup timeout and executed no tests; the next attempt
+reproduced the actual product defect. Two initial negative tests were corrected
+to await React Query notifications rather than inspect before rendering updates.
+The follow-up browser run `clarification-closed-final-20261009` terminates3/3
+PASS in2.7m across Chromium/Firefox/WebKit. It also closes the question/permission
+snapshot after the second lost response and proves the third command still
+equals the original. Nine current captures replace the generated manifest;
+hashes, dimensions and routes pass, and mobile/desktop captures were opened and
+visually inspected. Vite build passes3870 modules in13.82s with the existing
+large-chunk warning unchanged. The earlier evidence above is historical, not
+relabeled as this new run.
 
 ## Remaining Scope
 

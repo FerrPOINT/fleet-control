@@ -323,6 +323,65 @@ describe('production chat', () => {
     const calls = vi.mocked(chats.answerClarification).mock.calls
     expect(calls[1]).toEqual(calls[0])
   })
+  it('can reconcile the original answer after the last question closes', async () => {
+    vi.mocked(chats.answerClarification).mockRejectedValue(new Error('Connection interrupted'))
+    renderPage('clarification')
+    fireEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))
+    vi.mocked(chats.getTaskContext).mockResolvedValue({
+      ...context,
+      tracker: {
+        ...context.tracker!,
+        permissions: { can_answer: false, can_confirm: true },
+      },
+    })
+    vi.mocked(chats.getClarifications).mockResolvedValue({
+      questions: [{ ...question, state: 'answered' }],
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+    await screen.findByText('Connection interrupted')
+    await waitFor(() =>
+      expect(screen.getByRole('radio', { name: /Участники проекта/ })).toBeDisabled(),
+    )
+    expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+    const retry = screen.getByRole('button', { name: 'Повторить исходный ответ' })
+    expect(retry).toBeEnabled()
+    fireEvent.click(retry)
+    await waitFor(() => expect(chats.answerClarification).toHaveBeenCalledTimes(2))
+    const calls = vi.mocked(chats.answerClarification).mock.calls
+    expect(calls[1]).toEqual(calls[0])
+    expect(chats.confirmRequirements).not.toHaveBeenCalled()
+  })
+  it('cannot replay an uncertain answer after session ownership changes', async () => {
+    vi.mocked(chats.answerClarification).mockRejectedValue(new Error('Connection interrupted'))
+    const { client } = renderPage('clarification')
+    fireEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+    await screen.findByText('Connection interrupted')
+    vi.mocked(fleet.getSession).mockResolvedValue({
+      id: 'session1',
+      user_id: 'other',
+      primary_agent_id: 'agent1',
+      visibility: 'private',
+    } as AgentSession)
+    await act(() => client.invalidateQueries({ queryKey: ['session', 'session1'] }))
+    const retry = screen.getByRole('button', { name: 'Повторить исходный ответ' })
+    await waitFor(() => expect(retry).toBeDisabled())
+    fireEvent.click(retry)
+    expect(chats.answerClarification).toHaveBeenCalledTimes(1)
+  })
+  it('cannot replay an uncertain answer when fresh Tracker access fails', async () => {
+    vi.mocked(chats.answerClarification).mockRejectedValue(new Error('Connection interrupted'))
+    const { client } = renderPage('clarification')
+    fireEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+    await screen.findByText('Connection interrupted')
+    vi.mocked(chats.getTaskContext).mockRejectedValue(new ApiError(403, 'Project access revoked'))
+    await act(() => client.invalidateQueries({ queryKey: ['task-context', 'session1'] }))
+    const retry = screen.getByRole('button', { name: 'Повторить исходный ответ' })
+    await waitFor(() => expect(retry).toBeDisabled())
+    fireEvent.click(retry)
+    expect(chats.answerClarification).toHaveBeenCalledTimes(1)
+  })
   it('warns when leaving the chat but not when selecting another tab', async () => {
     const { router } = renderPage('clarification')
     fireEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))

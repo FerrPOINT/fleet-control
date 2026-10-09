@@ -909,11 +909,14 @@ function ChatWorkspace({ id }: { id: string }) {
                       variant="outline"
                       disabled={
                         !owner ||
+                        !bound ||
+                        !context ||
+                        !answer.variables ||
                         task.isError ||
-                        questions.isError ||
-                        !context?.permissions.can_answer
+                        questions.isError
                       }
                       onClick={() => {
+                        // New-answer permission can close before the original key is acknowledged.
                         if (answerUncertain && answer.variables) answer.mutate(answer.variables)
                       }}
                     >
