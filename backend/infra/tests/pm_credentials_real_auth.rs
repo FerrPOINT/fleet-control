@@ -69,6 +69,13 @@ async fn real_base_delegation_wire_replay_conflict_and_revoke_match_fleet() {
         .unwrap();
     let child = bound_request.headers()[header::AUTHORIZATION].clone();
     assert!(child.is_sensitive());
+    let replay_request = replay
+        .authorize(client.get(format!(
+            "https://tracker.example.test/api/v1/issues/{}/sdlc/context",
+            identity.task_ref
+        )))
+        .unwrap();
+    assert!(replay_request.headers()[header::AUTHORIZATION] == child);
     let introspection = client
         .get(url.join("auth/tokens/introspect").unwrap())
         .header(header::AUTHORIZATION, child.clone())
