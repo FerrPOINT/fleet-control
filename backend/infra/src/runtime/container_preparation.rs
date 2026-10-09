@@ -29,85 +29,6 @@ pub(super) struct Intent {
     pub(super) files_sha256: std::collections::BTreeMap<String, String>,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn intent() -> Intent {
-        serde_json::from_value(json!({"agent_id":Uuid::new_v4(),"generation":Uuid::new_v4(),"operation_id":Uuid::new_v4(),
-            "paths":{"runtime":"/agents/agent1/runtime","config":"/agents/agent1/config","workspace":"/agents/agent1/workspace","logs":"/agents/agent1/logs"},
-            "api_port":24003,"configuration_revision":1,"configuration_sha256":"a".repeat(64),"local_policy":{"image_id":"sha256:original"},
-            "policy":{"image_id":"sha256:original"},"process":{"environment":{"API_SERVER_KEY":"original-secret"}},
-            "source_sha256":UTILITY_SHA256,"context":"desktop-linux","mapped":null,"files_sha256":{".env":"b".repeat(64)}})).unwrap()
-    }
-
-    #[test]
-    fn immutable_intent_hash_seals_credentials_config_recipe_and_generation() {
-        let original = intent();
-        let claim = original.claim().unwrap();
-        assert!(
-            !serde_json::to_string(&claim)
-                .unwrap()
-                .contains("original-secret")
-        );
-        for field in [
-            "credential",
-            "configuration",
-            "image",
-            "mapping",
-            "generation",
-            "local",
-            "context",
-            "file",
-        ] {
-            let mut changed = original.clone();
-            match field {
-                "credential" => changed.process["environment"]["API_SERVER_KEY"] = json!("rotated"),
-                "configuration" => changed.configuration_revision = Some(2),
-                "image" => changed.policy["image_id"] = json!("sha256:replacement"),
-                "mapping" => {
-                    changed.policy["mounts"] = json!([{"source":"foreign-volume"}]);
-                }
-                "generation" => changed.generation = Uuid::new_v4(),
-                "local" => changed.local_policy["image_id"] = json!("foreign"),
-                "context" => changed.context = "foreign".into(),
-                _ => {
-                    changed.files_sha256.insert(".env".into(), "foreign".into());
-                }
-            }
-            assert_ne!(changed.claim().unwrap().intent_sha256, claim.intent_sha256);
-        }
-    }
-
-    #[cfg(target_os = "linux")]
-    #[tokio::test]
-    async fn intent_is_private_durable_and_never_overwritten_after_crash() {
-        let root =
-            std::env::temp_dir().join(format!("fleet-preparation-intent-{}", Uuid::new_v4()));
-        tokio::fs::create_dir(&root).await.unwrap();
-        use std::os::unix::fs::PermissionsExt;
-        tokio::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
-            .await
-            .unwrap();
-        let root = private_root(root.to_str().unwrap()).await.unwrap();
-        let path = root.join("intent.json");
-        let original = intent();
-        immutable_intent(&root, &path, &original).await.unwrap();
-        let bytes = private_file(&root, &path, 65_536).await.unwrap();
-        assert_eq!(
-            canonical_hash(&serde_json::from_slice::<Intent>(&bytes).unwrap()).unwrap(),
-            original.claim().unwrap().intent_sha256
-        );
-        assert!(immutable_intent(&root, &path, &intent()).await.is_err());
-        assert_eq!(private_file(&root, &path, 65_536).await.unwrap(), bytes);
-        let partial = root.join("partial.json");
-        tokio::fs::write(&partial, b"{").await.unwrap();
-        assert!(immutable_intent(&root, &partial, &original).await.is_err());
-        assert_eq!(tokio::fs::read(&partial).await.unwrap(), b"{");
-        tokio::fs::remove_dir_all(root).await.unwrap();
-    }
-}
-
 fn held() -> AppError {
     AppError::Unavailable(
         "Original preparation requires readback; no duplicate namespace or credential rotation"
@@ -474,5 +395,84 @@ impl LocalRuntimeSupervisor {
             .acknowledge_container_preparation(&claim, &prepared)
             .await?;
         Ok(prepared)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn intent() -> Intent {
+        serde_json::from_value(json!({"agent_id":Uuid::new_v4(),"generation":Uuid::new_v4(),"operation_id":Uuid::new_v4(),
+            "paths":{"runtime":"/agents/agent1/runtime","config":"/agents/agent1/config","workspace":"/agents/agent1/workspace","logs":"/agents/agent1/logs"},
+            "api_port":24003,"configuration_revision":1,"configuration_sha256":"a".repeat(64),"local_policy":{"image_id":"sha256:original"},
+            "policy":{"image_id":"sha256:original"},"process":{"environment":{"API_SERVER_KEY":"original-secret"}},
+            "source_sha256":UTILITY_SHA256,"context":"desktop-linux","mapped":null,"files_sha256":{".env":"b".repeat(64)}})).unwrap()
+    }
+
+    #[test]
+    fn immutable_intent_hash_seals_credentials_config_recipe_and_generation() {
+        let original = intent();
+        let claim = original.claim().unwrap();
+        assert!(
+            !serde_json::to_string(&claim)
+                .unwrap()
+                .contains("original-secret")
+        );
+        for field in [
+            "credential",
+            "configuration",
+            "image",
+            "mapping",
+            "generation",
+            "local",
+            "context",
+            "file",
+        ] {
+            let mut changed = original.clone();
+            match field {
+                "credential" => changed.process["environment"]["API_SERVER_KEY"] = json!("rotated"),
+                "configuration" => changed.configuration_revision = Some(2),
+                "image" => changed.policy["image_id"] = json!("sha256:replacement"),
+                "mapping" => {
+                    changed.policy["mounts"] = json!([{"source":"foreign-volume"}]);
+                }
+                "generation" => changed.generation = Uuid::new_v4(),
+                "local" => changed.local_policy["image_id"] = json!("foreign"),
+                "context" => changed.context = "foreign".into(),
+                _ => {
+                    changed.files_sha256.insert(".env".into(), "foreign".into());
+                }
+            }
+            assert_ne!(changed.claim().unwrap().intent_sha256, claim.intent_sha256);
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn intent_is_private_durable_and_never_overwritten_after_crash() {
+        let root =
+            std::env::temp_dir().join(format!("fleet-preparation-intent-{}", Uuid::new_v4()));
+        tokio::fs::create_dir(&root).await.unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        tokio::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
+            .await
+            .unwrap();
+        let root = private_root(root.to_str().unwrap()).await.unwrap();
+        let path = root.join("intent.json");
+        let original = intent();
+        immutable_intent(&root, &path, &original).await.unwrap();
+        let bytes = private_file(&root, &path, 65_536).await.unwrap();
+        assert_eq!(
+            canonical_hash(&serde_json::from_slice::<Intent>(&bytes).unwrap()).unwrap(),
+            original.claim().unwrap().intent_sha256
+        );
+        assert!(immutable_intent(&root, &path, &intent()).await.is_err());
+        assert_eq!(private_file(&root, &path, 65_536).await.unwrap(), bytes);
+        let partial = root.join("partial.json");
+        tokio::fs::write(&partial, b"{").await.unwrap();
+        assert!(immutable_intent(&root, &partial, &original).await.is_err());
+        assert_eq!(tokio::fs::read(&partial).await.unwrap(), b"{");
+        tokio::fs::remove_dir_all(root).await.unwrap();
     }
 }
