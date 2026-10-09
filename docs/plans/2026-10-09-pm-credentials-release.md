@@ -67,6 +67,12 @@ This case does not contact Tracker, claim a lease or test model dispatch. It has
 not run yet. The prepared twenty-stage gate explicitly includes both the real
 Auth build and this consumer case alongside fixture/DB recovery checks.
 
+The new `real-base-auth` hosted CI job makes the same consumer mandatory. It
+uses isolated GitHub-managed job services (not a claimed local Compose group),
+exports committed sources and records source/binary hashes without PAT inputs.
+It cannot pass until Base126 publishes the pinned Auth commit. Its configuration
+is added here; no hosted execution is claimed before this candidate is published.
+
 Run locked Linux Rust1.88 fmt/check/strict Clippy/workspace tests, explicit real
 PostgreSQL `sdlc_foundation`, all ignored migration lineage cases, dedicated
 credential migration and historical message-order cases, clean up/down/up and

@@ -12,7 +12,7 @@ accept this release prerequisite. Explicit execution fails for absent inputs:
 cargo test --locked -p infra --test pm_credentials_real_auth -- --ignored --test-threads=1
 ```
 
-The owned launcher supplies `FLEET_REAL_AUTH_TEST_OWNED=disposable-compose`,
+The owned launcher supplies `FLEET_REAL_AUTH_TEST_OWNED=source-qualified-disposable`,
 `FLEET_REAL_AUTH_TEST_SOURCE_SHA=01388dfb43332cbe5837fd5e1fadccf09cb8886d`,
 `FLEET_REAL_AUTH_TEST_BINARY`, its `FLEET_REAL_AUTH_TEST_BINARY_SHA256`, and
 `FLEET_REAL_AUTH_TEST_DATABASE_URL=postgres://fleet_test@postgres:5432/fleet_real_auth_test`.
@@ -27,6 +27,14 @@ assignment claim, workflow receipt or full SDLC completion is asserted here.
 The twenty-stage source-exported backend gate explicitly builds this Auth binary,
 records its digest/source commit and requires this otherwise-ignored consumer case.
 The case is implemented but not executed; real compatibility remains pending.
+
+The mandatory `real-base-auth` CI job uses a GitHub-managed Rust container and
+isolated PostgreSQL service with no published host port. It exports committed
+Fleet/SDK/Auth sources, builds Auth01388df separately from SDK19a7, records source
+and binary hashes, and requires the otherwise-ignored consumer case with exactly
+one PASS and zero ignores. It is not a local Compose project or installed-runtime
+acceptance. This CI job depends on Base126 publishing the pinned Auth commit;
+the workflow itself has not run yet.
 
 ## Persisted Credential Candidate
 
