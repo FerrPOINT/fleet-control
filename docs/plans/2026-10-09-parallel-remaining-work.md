@@ -8,6 +8,34 @@ records work ownership, not completion or permission to deploy.
 The renewed parallel split keeps the existing workers and their isolated
 checkouts rather than restarting completed work:
 
+### Latest Review Checkpoint
+
+- Parent fixture/lineage fix0be22c7b3f32f1547bce907b6a30c0ae108fd877 is
+  independently closed at SOURCE/PURE level:16/16 loader/utility cases, zero
+  skips,11.091s with the reviewer's base Python. A preceding PATH-venv attempt
+  retained three subprocess timeouts; it is not represented as a pass. Rust
+  compilation, PostgreSQL and native execution are still not proved. Feynman's
+  next-activation lifecycle finding remains open.
+- Exact Forge34c independent review closes the inventory adapter and reviewed
+  process-group custody path, but finds two P1 timing defects: initial source
+  proof is outside the enforced budget, and an expired one-shot assertion alarm
+  leaves finally unbounded. Six actual Linux process proofs, six adapter tests
+  and24 aggregation tests pass; three timing regression failures reproduce the
+  defects. Ptolemy owns the normal successor, Anscombe its independent closure.
+  The prior arithmetic is not a proven total upper bound. Actual full12 was not
+  run and publication/dispatch remains held.
+- Exact PMdc6 independent review reproduces a P2 evidence bug twice: child
+  exit0 can yield PASS with missing/FAIL test receipt. Pascal owns strict receipt,
+  inventory and provenance validation plus negative tests; Leibniz owns closure.
+  Parent execution of the actual offline packet separately terminates FAILED at
+  its unchanged90-second child deadline after16 oracle and four native probes;
+  retained report run-e35178825a60 confirms scratch absence. Its performance
+  cause is not established. Neither this failed run nor the earlier worker pass
+  closes the missing producer barrier/custody/live PM acceptance.
+
+All three follow-ups have separate owners and were dispatched. Closed source
+findings do not certify an unexecuted compiler, database or live runtime gate.
+
 | Owner    | Current assignment                                                 | Required handoff                                                                                                              |
 | -------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
 | Feynman  | Next configuration activation from a recovered effective child      | New normal successor to frozen f326; drain, inherited lease, readiness and rollback regressions; no UI, PM or Forge edits |
