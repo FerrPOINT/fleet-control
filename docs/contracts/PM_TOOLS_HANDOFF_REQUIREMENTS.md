@@ -34,7 +34,7 @@ dynamic `spec_from_file_location` provider imports use the same blob loader.
    real tool execution; task/session kwargs remain conversation-oriented.
    These internal ContextVars are executable selectors, NOT a supported,
    authenticated cross-process PM identity API or an admission proof.
-4. `tools/approval_context.py:112` and `gateway/session_context.py:173` retain
+4. `tools/approval_context.py:102` and `gateway/session_context.py:173` retain
    process-environment fallbacks. An env-only value must not authorize a call.
    A copied old Context may still contain an old run after its native turn ends.
    Fresh server-owned binding/fence checks remain necessary on every request.

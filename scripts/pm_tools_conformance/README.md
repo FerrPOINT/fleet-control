@@ -33,9 +33,51 @@ canonical Hermes import blob IDs/SHA-256, all selectors/counts, source-file seal
 donor status before/after, failure details and disposable scratch absence.
 The runner fails for errors, skips, missing tests or unsealed Hermes imports.
 It blocks network and non-Git subprocess side effects during source execution,
-allows only exact pinned Git blob reads, and denies writes outside its own
+allows only pinned Python blob reads through one pre-opened owned Git process,
+denies all new subprocesses during source execution, and denies writes outside its own
 disposable scratch. This is an operational guard, not a hostile-code sandbox.
 The Python host environment is measured, not claimed to be a locked Hermes venv.
+
+## Runner validation successor
+
+`dc6ab80091eb4d7ac8d8f5c02d233e49b2f51a65` remains immutable. Its parent rerun
+`run-e35178825a60` is FAIL: 90-second child timeout after 16 oracle plus four
+Hermes probes, during the real native-context case. Scratch was absent. Earlier
+successful runs are separate evidence, not a relabeling of that failure.
+
+The log cannot distinguish the lazy `model_tools` import/discovery from later
+middleware execution; there was no inner stack/progress trace. A bounded
+read-only diagnostic measured three per-object Git calls at 49.82/44.01/44.38 ms
+versus 56.76 ms for a batch of the same three canonical blobs, with byte/hash
+parity. One Git launch per imported blob was a measured overhead (457 imports
+in earlier successful runs), NOT a proven complete cause of the historical
+90-second stall. Concurrent host I/O is also not established as the cause.
+
+The successor uses one owned `cat-file --batch` process, exact pinned object
+allowlisting, Git object-hash checks and memory-only reuse within that process.
+It closes/waits its exact process handle in finally. Parent independently
+revalidates every receipt import against pinned Git bytes, sizes and SHA-256.
+Exit0 without a receipt, FAIL, malformed/ambiguous JSON, wrong closed fields,
+inventory/selectors/counts/pins, unsafe flags or incomplete provenance is FAIL.
+No new endpoint, producer capability or runtime authority is added.
+
+The original 90-second execution budget is NOT increased; receipt batch
+verification uses only its remaining time. Import progress and 30-second
+repeating diagnostic stack dumps identify the pending phase on a future
+authorized run. Existing sealed evidence is never overwritten.
+
+Runner unit tests are a separate synthetic boundary family, not additional
+Hermes probes or live acceptance:
+
+```bash
+python -B -X utf8 -m unittest discover -s scripts/pm_tools_conformance/runner_tests -v
+```
+
+This family has 18 cases, including missing/FAIL/wrong-inventory/forged-exit0
+negative cases, full parent run() failure paths, canonical batch/hash/parity
+checks and exact-handle cleanup failure. The 24 conformance cases remain
+unchanged and separate. Successor conformance execution awaits parent review;
+runner-unit PASS does not accept the historical failed or a future live run.
 
 ## Scope and interpretation
 

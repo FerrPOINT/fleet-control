@@ -9,6 +9,9 @@ Docker, Cargo or activation; measured host Python dependencies are not a qualifi
 Hermes venv. The [handoff requirements](contracts/PM_TOOLS_HANDOFF_REQUIREMENTS.md)
 retain producer pre-model barrier, identity and credential-custody blockers.
 Offline PASS never grants task admission or proves production runtime readiness.
+The runner successor separately tests 18 synthetic receipt/batch/cleanup cases;
+exit0 alone cannot grant PASS. The retained dc6ab 90-second rerun timeout remains
+FAIL, with no timeout increase or skipped conformance cases.
 
 ## Combined Steer Successor Inventory
 

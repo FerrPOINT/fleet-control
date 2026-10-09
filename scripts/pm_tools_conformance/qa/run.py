@@ -5,9 +5,11 @@ access. Missing dependencies/errors fail the suite, never become silent skips.
 """
 
 import argparse
+import faulthandler
 import hashlib
 import importlib.abc
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -16,8 +18,12 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import unittest
 import uuid
+
+from receipt import EXPECTED_COUNTS, EXPECTED_SELECTORS, load_receipt, validate_receipt
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,7 +44,12 @@ FLEET_PATHS = (
 
 
 def git(repo, *args):
-    return subprocess.check_output(["git", "-C", str(repo), *args], stderr=subprocess.PIPE)
+    return subprocess.check_output(["git", "-C", str(repo), *args], stderr=subprocess.PIPE,
+                                   env=git_environment())
+
+
+def git_environment():
+    return {**os.environ, "GIT_NO_LAZY_FETCH": "1", "GIT_TERMINAL_PROMPT": "0", "GIT_OPTIONAL_LOCKS": "0"}
 
 
 def sha(data):
@@ -46,7 +57,7 @@ def sha(data):
 
 
 def packet_inventory():
-    files = [*ROOT.glob("qa/*.py"), *ROOT.glob("probes/*.py"),
+    files = [*ROOT.glob("qa/*.py"), *ROOT.glob("probes/*.py"), *ROOT.glob("runner_tests/*.py"),
              ROOT / "README.md", ROOT / ".gitignore",
              FLEET / "docs/contracts/PM_TOOLS_HANDOFF_REQUIREMENTS.md",
              FLEET / "docs/README.md", FLEET / "docs/TESTING.md"]
@@ -80,6 +91,80 @@ def tree(repo, pin):
     return result
 
 
+def read_git_blob(stream, oid):
+    header = stream.readline().split()
+    if len(header) != 3 or header[:2] != [oid.encode(), b"blob"]:
+        raise ValueError("invalid Git batch header")
+    size = int(header[2])
+    if not 0 <= size <= 32 * 1024 * 1024:
+        raise ValueError("invalid Python blob size")
+    body = stream.read(size)
+    if len(body) != size or stream.read(1) != b"\n":
+        raise ValueError("truncated Git batch body")
+    actual = hashlib.sha1(b"blob " + str(size).encode() + b"\0" + body).hexdigest()
+    if actual != oid:
+        raise ValueError("Git batch object hash mismatch")
+    return body
+
+
+class GitBlobReader:
+    """One owned read-only Git process; only pinned blob IDs reach its stdin."""
+    def __init__(self, repo, allowed):
+        self.allowed = frozenset(allowed)
+        self.lock = threading.RLock()
+        self.cache = {}
+        self.requests = 0
+        self.seconds = 0.0
+        self.process = subprocess.Popen(["git", "-C", str(repo), "cat-file", "--batch"],
+                                        stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                        stderr=subprocess.DEVNULL, env=git_environment())
+
+    def read(self, oid):
+        if oid not in self.allowed or not re.fullmatch(r"[0-9a-f]{40}", oid):
+            raise ValueError("blob outside pinned tree")
+        with self.lock:
+            if oid in self.cache:
+                return self.cache[oid]
+            started = time.monotonic()
+            self.process.stdin.write((oid + "\n").encode("ascii"))
+            self.process.stdin.flush()
+            body = read_git_blob(self.process.stdout, oid)
+            self.requests += 1
+            self.seconds += time.monotonic() - started
+            self.cache[oid] = body
+            return body
+
+    def close(self):
+        self.process.stdin.close()
+        self.process.stdout.close()
+        try:
+            self.process.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            self.process.kill()  # Only this exact Popen handle, never a PID search/tree kill.
+            self.process.wait()
+        if self.process.returncode != 0:
+            raise RuntimeError("owned Git blob reader did not exit cleanly")
+
+
+def verify_import_provenance(imports, timeout):
+    files = tree(HERMES, PINS["hermes"])
+    for name, entry in imports.items():
+        if files.get(name) != entry["git_blob"]:
+            raise ValueError("receipt import absent from pinned Git tree")
+    entries = list(imports.values())
+    requested = "".join(entry["git_blob"] + "\n" for entry in entries).encode("ascii")
+    completed = subprocess.run(["git", "-C", str(HERMES), "cat-file", "--batch"],
+                               input=requested, capture_output=True, check=True, timeout=timeout,
+                               env=git_environment())
+    stream = io.BytesIO(completed.stdout)
+    for entry in entries:
+        blob = read_git_blob(stream, entry["git_blob"])
+        if len(blob) != entry["bytes"] or sha(blob) != entry["sha256"]:
+            raise ValueError("receipt import content hash/size mismatch")
+    if stream.read(1):
+        raise ValueError("unexpected extra Git batch output")
+
+
 class BlobSource(importlib.abc.Loader):
     def __init__(self, finder, name):
         self.finder, self.name = finder, name
@@ -96,6 +181,7 @@ class BlobImports(importlib.abc.MetaPathFinder):
     def __init__(self):
         self.files = tree(HERMES, PINS["hermes"])
         self.imported = {}
+        self.reader = GitBlobReader(HERMES, (oid for path, oid in self.files.items() if path.endswith(".py")))
 
     def path(self, fullname):
         base = fullname.replace(".", "/")
@@ -127,12 +213,16 @@ class BlobImports(importlib.abc.MetaPathFinder):
         return None
 
     def exec_path(self, module, name):
-        blob = git(HERMES, "cat-file", "blob", self.files[name])
+        print(json.dumps({"event": "blob_read", "path": name, "time": time.monotonic()}),
+              file=sys.stderr, flush=True)
+        blob = self.reader.read(self.files[name])
         location = HERMES / name
         module.__file__ = str(location)
         if name.endswith("/__init__.py"):
             module.__path__ = [str(location.parent)]
         self.imported[name] = {"git_blob": self.files[name], "sha256": sha(blob), "bytes": len(blob)}
+        print(json.dumps({"event": "module_exec", "path": name, "time": time.monotonic()}),
+              file=sys.stderr, flush=True)
         exec(compile(blob, str(location), "exec"), module.__dict__)
 
     def install_file_imports(self):
@@ -150,10 +240,6 @@ class BlobImports(importlib.abc.MetaPathFinder):
 
 
 def install_safety(scratch, finder):
-    allowed_git_commands = {
-        subprocess.list2cmdline(["git", "-C", str(HERMES), "cat-file", "blob", oid])
-        for oid in finder.files.values()
-    }
     def owned(path):
         try:
             return Path(path).resolve().is_relative_to(scratch)
@@ -164,10 +250,7 @@ def install_safety(scratch, finder):
         if event in ("socket.connect", "socket.bind", "socket.getaddrinfo", "os.system"):
             raise RuntimeError("offline probe forbids network/process side effects")
         if event == "subprocess.Popen":
-            command = args[1]
-            rendered = subprocess.list2cmdline(command) if isinstance(command, list) else command
-            if rendered not in allowed_git_commands:
-                raise RuntimeError("probe forbids subprocess outside pinned Git blob reads")
+            raise RuntimeError("probe forbids new subprocesses; pinned Git reader is already owned")
         if event == "open":
             path, mode, flags = args
             if isinstance(path, int) or str(path).lower() == os.devnull.lower():
@@ -188,9 +271,24 @@ def install_safety(scratch, finder):
 def child(scratch):
     scratch = Path(scratch).resolve()
     verify_inputs()
-    finder = BlobImports()
     # Windows stdlib may query `ver` once, before source execution is fenced.
     platform.uname()
+    finder = BlobImports()
+    print(json.dumps({"event": "git_reader_owned", "pid": finder.reader.process.pid}),
+          file=sys.stderr, flush=True)
+    faulthandler.dump_traceback_later(30, repeat=True)
+    try:
+        receipt = execute_child(scratch, finder)
+    finally:
+        faulthandler.cancel_dump_traceback_later()
+        finder.reader.close()
+    receipt["git_reader"] = {"pid": finder.reader.process.pid, "exit_code": finder.reader.process.returncode,
+                             "requests": finder.reader.requests, "read_seconds": finder.reader.seconds}
+    (scratch / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8", newline="\n")
+    return 0 if receipt["test_status"] == "PASS" else 1
+
+
+def execute_child(scratch, finder):
     os.chdir(scratch)
     sys.path.insert(0, str(ROOT / "qa"))
     install_safety(scratch, finder)
@@ -225,14 +323,14 @@ def child(scratch):
                    unsealed_imports=unsealed, python=sys.version, host_dependencies=versions,
                    test_status="PASS" if result.wasSuccessful() and not result.skipped and not unsealed else "FAIL",
                    producer_admission="BLOCKED", live_evidence=False)
-    expected_counts = {"test_contract.ContractTests": 16, "test_hermes.HermesProbes": 8}
+    expected_counts = EXPECTED_COUNTS
     actual_counts = {group: sum(s.rsplit(".", 1)[0] == group for s in selectors) for group in expected_counts}
     receipt["expected_counts"] = expected_counts
     receipt["actual_counts"] = actual_counts
-    if actual_counts != expected_counts or len(selectors) != sum(expected_counts.values()):
+    if actual_counts != expected_counts or sorted(selectors) != sorted(EXPECTED_SELECTORS):
         receipt["test_status"] = "FAIL"
-    (scratch / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8", newline="\n")
-    return 0 if receipt["test_status"] == "PASS" else 1
+    receipt["pins"] = dict(PINS)
+    return receipt
 
 
 def run():
@@ -241,6 +339,7 @@ def run():
     evidence = ROOT / "qa/evidence" / ("run-" + uuid.uuid4().hex[:12])
     evidence.mkdir(parents=True)
     scratch_path = None
+    timeout_stage = "preflight"
     try:
         verify_inputs()
         report["source_revision"] = git(FLEET, "rev-parse", "HEAD").decode().strip()
@@ -259,17 +358,25 @@ def run():
             env = {key: os.environ[key] for key in allowed if key in os.environ}
             env.update(HOME=temp, USERPROFILE=temp, APPDATA=temp, LOCALAPPDATA=temp,
                        TEMP=temp, TMP=temp, HERMES_HOME=str(home), PYTHONDONTWRITEBYTECODE="1",
-                       PYTHONUTF8="1", HERMES_SKIP_UPDATE_CHECK="1")
+                       PYTHONUTF8="1", HERMES_SKIP_UPDATE_CHECK="1", GIT_NO_LAZY_FETCH="1",
+                       GIT_TERMINAL_PROMPT="0", GIT_OPTIONAL_LOCKS="0")
+            deadline = time.monotonic() + 90
+            timeout_stage = "child execution"
             completed = subprocess.run([sys.executable, "-B", "-X", "utf8", str(Path(__file__).resolve()),
                                         "--hermes-repo", str(HERMES), "--fleet-pin", PINS["fleet"],
                                         "--child", temp], env=env, capture_output=True, timeout=90)
             (evidence / "tests.log").write_bytes(completed.stdout + completed.stderr)
             receipt = scratch_path / "receipt.json"
-            if receipt.is_file():
-                report["execution"] = json.loads(receipt.read_text(encoding="utf-8"))
             report["exit_code"] = completed.returncode
-            if completed.returncode != 0:
-                raise RuntimeError("offline tests failed; see retained tests.log")
+            timeout_stage = "receipt validation"
+            execution = load_receipt(receipt)
+            report["execution"] = execution
+            validate_receipt(execution, completed.returncode, PINS)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise RuntimeError("receipt validation exceeded original 90s budget")
+            verify_import_provenance(execution["git_imports"], timeout=remaining)
+            report["receipt_validated"] = True
         report["donor_status_after"] = {name: git(repo, "status", "--porcelain").decode()
                                         for name, repo in (("fleet", FLEET), ("hermes", HERMES))}
         if report["donor_status_before"] != report["donor_status_after"]:
@@ -278,8 +385,10 @@ def run():
             raise RuntimeError("packet changed during probes")
         report["status"] = "PASS_OFFLINE_ONLY"
     except subprocess.TimeoutExpired as exc:
-        (evidence / "tests.log").write_bytes((exc.stdout or b"") + (exc.stderr or b""))
-        report["error"] = "offline child timeout; retained partial output"
+        log = evidence / "tests.log"
+        if not log.exists():
+            log.write_bytes((exc.stdout or b"") + (exc.stderr or b""))
+        report["error"] = "offline " + timeout_stage + " timeout; receipt not accepted"
     except Exception as exc:
         report["error"] = f"{type(exc).__name__}: {exc}"
     finally:
