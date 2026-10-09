@@ -5,6 +5,8 @@ is Hermes-only and does not change Java provisioning, process paths or readiness
 
 [Mapped controller recovery unit16](../MAPPED_CONTROLLER_RECOVERY_RELEASE.md) is
 Hermes-only; it does not change Java process lifecycle or readiness.
+The canonical-source/hash and recovery-loop correctness follow-up is also
+Hermes-only and changes no Java lease, path, process or readiness behavior.
 
 The optional [Docker lifecycle source release](../DOCKER_LIFECYCLE_RELEASE.md)
 applies to Hermes only. Java continues using its externally provisioned jar,

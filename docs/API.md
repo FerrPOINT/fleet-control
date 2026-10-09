@@ -6,6 +6,8 @@ document; it still requires original physical and admission gates.
 
 Unit16 adds no public route or DTO. Its private mapped-volume/controller recovery
 contract and pending native gates are in [the source handoff](MAPPED_CONTROLLER_RECOVERY_RELEASE.md).
+Its correctness follow-up keeps foreign unknown heartbeats held without native
+mutation and isolates agents' renewal work; no public readiness/admission changes.
 
 ## Original Docker Lifecycle
 

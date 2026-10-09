@@ -8,6 +8,9 @@ Unit16 supports original mapped v3 custody and same-container physical controlle
 restart recovery without changing original run origins, credentials or POST
 permits. Automatic generation preparation/replacement and config activation
 remain pending. See [the unit contract](../MAPPED_CONTROLLER_RECOVERY_RELEASE.md).
+Canonical Git utility bytes and Base ASCII mapping hashes are mandatory;
+sibling native delays do not serialize renewals, and an unknown foreign-owner
+heartbeat remains held without mutation. No journal/POST permit is reopened.
 
 Docker opt-in starts only an operator-prepared original Base v2 container with
 isolated `/config` HOME/HERMES_HOME, `/workspace` cwd and four guarded agent areas.

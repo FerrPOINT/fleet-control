@@ -7,6 +7,9 @@ it does not grant runtime admission or implement replacement/config activation.
 Unit16 extends Hermes custody with original Base named-volume subpaths and
 fenced physical controller restart recovery. It does not complete automatic
 provisioning/restart/config activation. See [the unit contract](../MAPPED_CONTROLLER_RECOVERY_RELEASE.md).
+The follow-up uses canonical Git utility bytes and Base ASCII JSON hashing,
+independent per-agent renewals and no foreign-owner heartbeat delivery; leases
+and physical namespace proof are unchanged.
 
 Optional Docker lifecycle uses the original Base registration and physical
 snapshot, a durable pre-start generation claim and original namespace stop.

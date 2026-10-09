@@ -13,7 +13,8 @@ follow-on units; operator preparation is only a compatibility entry point.
   the existing 000015 snapshot constraint and adds a private recovery journal;
   historical migration files and original journal12 guards are unchanged.
 - Base utility169 remains `ae8af2342b61090094292e75a7c23bf464757468`;
-  its three captured-source hashes are unchanged from 000015. Utility source
+  the follow-up fixes its compiled hashes to canonical LF Git blob bytes, not
+  Windows CRLF working-tree bytes. Utility source
   `dc43d0e25d60afa073c201e74d1a2cfe9aab8939` has the same bytes.
 - Rust/UI SDK remains `19a7a381ae6dbea61a643bb96189e483fa64df5c`.
   No Base, Tracker, Workflow, generated API, UI, lockfile or pin changes.
@@ -74,13 +75,20 @@ The full Base recovery ACK is retained immutably. Historical ACK readback does
 not grant live ownership. Fleet separately claims each heartbeat command before
 Base, retaining its original heartbeat ACK and a guarded original observation.
 Database deadline and Base Linux boot-clock lease must both be live. Each lease
-is at most 30 seconds; the worker attempts renewal every five seconds. Slow or
-unavailable native calls fail closed, not into a grace-period permit.
+is at most 30 seconds; the worker attempts renewal every five seconds, with one
+in-flight reconciliation per agent. A slow native call cannot queue other
+agents' renewals. A busy lifecycle lock defers recovered stop to the next
+reconciliation instead of blocking heartbeat behind another agent's stop.
+Slow or unavailable native calls still fail closed, not into a grace-period
+permit; the 60-second subprocess budget and 30-second leases are unchanged.
 
 Lost recovery ACKs use the frozen command: the same process may invoke Base's
 idempotent delivery; another process can only read its original receipt. A lost
-heartbeat ACK can only use its exact original version/deadline, never extend a
-dead owner's lease. Unaccepted/ambiguous expired deliveries remain held.
+heartbeat ACK can only be retried by its own logical owner with the exact
+original version/deadline. Base169 has no read-only heartbeat-outcome lookup;
+a foreign process with an unknown heartbeat ACK remains held without invoking
+heartbeat or extending that owner's lease, even after expiry.
+Unaccepted/ambiguous expired deliveries remain held.
 An expired acknowledged owner needs the exact predecessor and another physical
 controller restart before a new epoch. The budget is 1024 epochs per generation.
 
@@ -94,8 +102,9 @@ release runs, repeat POSTs, rotate original credentials or bypass origin checks.
 
 ## Verification And Handoff
 
-Mandatory CI selects the existing seven client and four lifecycle/path tests,
-five new mapping tests, five new recovery/attachment receipt tests, five PG
+Mandatory CI selects nine client and four lifecycle/path tests,
+six mapping tests, six recovery/attachment receipt tests, two recovery scheduler
+tests, five PG
 controller cases (two existing, three mapped/recovery), and separate one-case
 000015/000016 migration suites. Exact passed counts make missing selectors fail.
 Lineage tests retain canonical and split histories and the task-chat downgrade
@@ -107,6 +116,42 @@ offline locked Cargo metadata, SDK revision verification, static Base Docker
 invocation gate and diff checks. Rust compilation/unit tests, PostgreSQL and
 Docker acceptance belong to parent-owned exported-source QA, not this checkout.
 No build, target/cache preparation, runtime/container operation, push or deploy.
+
+### Bounded Correctness Follow-Up From fc2e27b
+
+This fix adds no migration or public API, changes no SDK pin or Base receipt,
+and imports no provisioning17, configuration or UI implementation. Canonical
+mapping/policy/registration hashing now matches Base's compact, sorted,
+`ensure_ascii=True` JSON, including Unicode keys, non-BMP paths and DEL.
+Existing captured bindings, journals and receipts are never rewritten or
+automatically repinned. A historical CRLF-bound generation stays held and needs
+separate operator reconciliation; it is not silently made compatible.
+
+Canonical utility SHA256 values in `runtime_boundary.py`, `runtime_bootstrap.py`,
+`runtime_control.py` order are:
+
+```text
+2e6bfa6907b93e6d436d2b6668ae20211aca53a64c433f7e1a98ab51245b3e89
+5be8066b6f7dc68f8dda7f1040c0626dad272477c019b07263821df7f86b59a2
+a650ed055334799af115a229c202b0f8a63a0917284d722a75f0cac19f22ebb8
+```
+
+`python -B scripts/verify_container_utilities.py <Base checkout>` reads these
+three blobs at the exact utility169 Git SHA, without checkout filters or file
+normalization. Local light verification passed 13 Python loader/Git-export/README
+tests (including actual temporary Git objects and CRLF working-tree fixtures),
+rustfmt and diff checks. Read-only GitHub object content at utility169 independently
+matched all three compiled hashes; local `dd4a6d118eefacdb49741685def0cd612ffd3d0e`
+Git blobs matched the same hashes. Unicode golden hashes were computed with
+Python's Base canonical recipe, not the Rust implementation under test.
+
+The six added Rust cases cover byte-exact source verification, Unicode/DEL,
+Unicode local policy, independent repeated sibling reconciliation, single
+in-flight work/shutdown, and foreign-owner denial with an exact subprocess
+counter. They are mandatory CI selectors but have not been compiled or executed
+locally. Linux Rust/Clippy, PG lineage/recovery and real Base native lease,
+slow-agent and physical-stop gates remain pending; source-only checks are not
+runtime acceptance or admission. `runtime_ready` remains false.
 
 Parent runtime QA must verify two agents, original subpath mounts, private-storage
 isolation, initial attach/start/readiness, repeated same-container controller
