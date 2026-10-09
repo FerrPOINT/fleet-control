@@ -149,6 +149,9 @@ Runtime:
 - `GET /deployments/jobs/{job_id}`
 - `POST /deployments/jobs/{job_id}/cancel`
 - `GET /logs`
+  returns persisted redacted process records. Internal writes acknowledge the
+  exact inserted row, even if another stream has already written a newer row;
+  public response fields and ordering are unchanged.
 - `GET /events` as SSE. The bearer token is revalidated before delivery and once
   per second while idle. Revocation, expiry, disabled users or Auth unavailability
   terminate the existing connection; the client must authenticate again.
@@ -212,7 +215,19 @@ regeneration requires MSVC `link.exe`; WSL/Linux generation is supported.
 
 ## Fleet alerts (monitoring, Phase 3)
 
-- `GET /api/v1/fleet-alerts?state=open|acknowledged|resolved` — алерты переходов здоровья агентов (Operator+). Kinds: `agent_down` (critical, running/ready → failed/stopped/degraded), `agent_recovered` (авто-resolve открытых или подтверждённых `agent_down`/`agent_restart_loop`/`agent_heartbeat_stale` при возврате в running/ready), `agent_restart_loop` (warning: ≥3 restart-событий за 15 минут — перекрывает одиночный `agent_down`, чтобы оператор видел цикл, а не шторм), `agent_heartbeat_stale` (warning: running-агент без свежего health ≥10 минут; сканируется reconciler-циклом, дедуп по одному активному алерту на агента).
+- `GET /api/v1/fleet-alerts?state=open|acknowledged|resolved`: Operator+;
+  canonical persisted kinds are `agent_down`, `agent_recovered`,
+  `agent_restart_loop`, and `heartbeat_stale`. Heartbeat warnings apply only to
+  `running` agents with a valid, nonfuture health timestamp older than ten
+  minutes. Acknowledgement does not resolve an incident. Concurrent creation
+  uses an agent-row transaction lock and returns the existing open/acknowledged
+  incident. A fresh heartbeat resolves that incident even without a status
+  transition, while leaving unrelated down/loop alerts unchanged. Missing or
+  future health timestamps and nonrunning statuses do not prove recovery.
+  Explicit failed/stopped-to-running/ready health recovery resolves active
+  down/loop/heartbeat incidents. Resolution and its redacted audit commit
+  together. Legacy `agent_heartbeat_stale` is a display alias only, not a
+  supported database kind.
 - `POST /api/v1/fleet-alerts/{alert_id}/acknowledge` — Operator+; ack только для `open`-алертов; аудит `fleet_alert.acknowledge`.
 - Переходы пишутся в `fleet_alerts` (миграция 6) из start/stop/health операций без блокировки ответа.
 
