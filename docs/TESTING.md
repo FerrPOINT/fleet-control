@@ -1,5 +1,20 @@
 # Testing
 
+## PM Tools Offline Conformance
+
+The [offline runner](../scripts/pm_tools_conformance/README.md) requires an explicit
+clean pinned Hermes checkout and executes 24 cases: 8 real Python extension/native
+context probes plus 16 synthetic contract tests. It performs no model, network,
+Docker, Cargo or activation; measured host Python dependencies are not a qualified
+Hermes venv. The [handoff requirements](contracts/PM_TOOLS_HANDOFF_REQUIREMENTS.md)
+retain producer pre-model barrier, identity and credential-custody blockers.
+Offline PASS never grants task admission or proves production runtime readiness.
+The runner successor separately tests 28 synthetic receipt/batch/cleanup/deadline cases;
+exit0 alone cannot grant PASS. The retained dc6ab 90-second rerun timeout remains
+FAIL; the separate actual e05 parent run passed all 24 offline cases. One absolute
+90-second child/verification deadline is enforced without increased timeouts or
+skipped conformance cases. This deadline successor's full 24-case run is pending review.
+
 ## Combined Steer Successor Inventory
 
 The successor to `a26d8b35` with steer `71b17da7` requires all 130 default-ignored
