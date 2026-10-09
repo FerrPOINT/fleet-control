@@ -170,7 +170,7 @@ async fn authenticated_hermes_sse_ingests_exact_requests_and_never_response_even
         .into_iter()
         .map(|row| row.try_get("", "version").unwrap())
         .collect();
-    let expected: Vec<String> = Migrator::migrations()
+    let mut expected: Vec<String> = Migrator::migrations()
         .into_iter()
         .map(|migration| migration.name().to_owned())
         .collect();
@@ -185,6 +185,7 @@ async fn authenticated_hermes_sse_ingests_exact_requests_and_never_response_even
         Some("m20261004_000012_hermes_dispatch_journal"),
         "this release must end at the journal migration"
     );
+    expected.sort();
     assert_eq!(
         migrations, expected,
         "fixture must have the exact ordered canonical migration ledger"
