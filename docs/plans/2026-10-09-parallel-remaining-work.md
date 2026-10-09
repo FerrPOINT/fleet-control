@@ -3,6 +3,33 @@
 Status: five implementation/preparation assignments dispatched. This document
 records work ownership, not completion or permission to deploy.
 
+## Current Dispatch
+
+The renewed parallel split keeps the existing workers and their isolated
+checkouts rather than restarting completed work:
+
+| Owner    | Current assignment                                                     | Required handoff                                                                                                     |
+| -------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Feynman  | Automatic Docker provisioning, isolated unit17 after mapped recovery16 | Source commit, focused checks, durable preparation/reconciliation evidence and remaining capabilities                |
+| Pascal   | Independent correctness review of mapped recovery16                    | Findings with exact locations and missing regressions, or an explicit no-findings report; no edits to provisioning17 |
+| Ptolemy  | Complete Forge 12-stage diagnostic gate preparation                    | Immutable helper/seal, pure tests, invocation and exact cleanup; preserve the original aggregate deadline            |
+| Anscombe | Recover original Git ancestry for hosted OpenAPI publication           | Complete-history proof or exact missing-object blocker; no rewritten ancestry or unapproved push                     |
+| Leibniz  | Retarget backend acceptance preparation to integrated source           | Exact-source test inventory, strict schema/migration gates, pure helper tests and immutable preparation seal         |
+| Parent   | Chat/control UI, integration and scoped PR publication                 | Generated types, receipt-state/readback UX, browser evidence and exact-head release checks                           |
+
+The parent integration is frozen at
+`7f9ae892f9db482bbf44fda5d3082a074b6421b1`: a normal merge of the checked
+foundation/UI source and backend `37ec604a`. Backend, CI and migrations match
+that backend commit; frontend/API/Base inputs match `3f8ed8f`. Formatting and
+staged-diff checks pass. The earlier 270 frontend tests apply to the identical
+frontend tree, not to native execution of the newly integrated backend.
+The acceptance worker receives this exact immutable source, including its 130
+ignored integration cases. An inventory or prepared command is not a test pass.
+
+All five assignments have been sent to the workers. Only the parent coordinates
+heavy-job admission, integration and publication; workers do not independently
+deploy or push release branches.
+
 ## Work Ownership
 
 | Owner    | Independent task                                          | Deliverable and boundary                                                                                                                                                                                                                    |
