@@ -44,7 +44,8 @@ Real delegation also depends on [Base126](https://github.com/FerrPOINT/services-
 Fresh source inspection confirms neither build SDK19a7 nor accepted Auth
 main15cae15 exposes `/auth/tokens/delegate`. The fake HTTP endpoint in the
 credential tests proves recovery logic only, not installed Auth compatibility.
-Base126 head2754a6d is Draft/conflicting; isolated merge candidate8a34598
+Base126 head2754a6d is Draft/conflicting; isolated merge8a34598 and
+test-contract correction30f355a
 preserves that history and main15cae15, but its Linux/PG and release gates remain
 pending. Build SDK and deployed Auth are separate pins: do not silently repin
 the SDK, promote Auth, or enable credentials from fixture success. Before opt-in,
@@ -53,13 +54,18 @@ replay/revoke/expiry and migration compatibility. This dependency is not model
 admission and does not waive Tracker/Workflow prerequisites.
 
 `infra/tests/pm_credentials_real_auth.rs` adds the separate opt-in real Auth
-consumer gate: exact source8a34598, disposable loopback-only origin, synthetic
-parent/subject, actual issuance/replay, changed-payload conflict, four-field
+consumer gate: exact source30f355a, owned process and loopback-only origin,
+synthetic HTTP bootstrap, actual issuance/replay, changed-payload conflict, four-field
 introspection and child revoke. Missing inputs panic when explicitly selected;
 the default ignored result is not coverage. A source/binary-qualified launcher
-must supply these inputs; environment assertions alone are not provenance.
+must build the Auth binary, record its digest and supply only its path/digest
+and an owned disposable database. The test creates its own user and parent PAT,
+restarts Auth with exact-subject delegation policy and kills/waits its child
+even after assertion failure. It never accepts installed runtime credentials.
+Environment assertions alone are not provenance.
 This case does not contact Tracker, claim a lease or test model dispatch. It has
-not run yet and remains separate from the eighteen-stage fixture/DB gate.
+not run yet. The prepared twenty-stage gate explicitly includes both the real
+Auth build and this consumer case alongside fixture/DB recovery checks.
 
 Run locked Linux Rust1.88 fmt/check/strict Clippy/workspace tests, explicit real
 PostgreSQL `sdlc_foundation`, all ignored migration lineage cases, dedicated
@@ -69,7 +75,7 @@ Rust OpenAPI byte parity. Set `FLEET_TEST_DATABASE_URL`,
 and `FLEET_MESSAGE_ORDER_TEST_DATABASE_URL` to separate owned disposable DBs.
 An absent database variable or skipped case is not acceptance.
 
-Local QA waits for Forge's exclusive heavy slot. Export exact committed Git
+Local QA waits for the coordinator's exclusive heavy slot. Export exact committed Git
 sources; use verified Base ComposeHelper journal v2, owned temporary projects,
 capacity guards and exact disposable cleanup. Preserve external caches,
 runtime volumes, backups, secrets and earlier evidence. No gate or publication
