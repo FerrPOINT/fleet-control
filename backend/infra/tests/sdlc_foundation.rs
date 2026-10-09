@@ -2697,9 +2697,12 @@ async fn pm_callback_requires_machine_auth_and_fresh_authenticated_runtime_proof
             runtime_token_secret: "isolated-test-runtime-secret".into(),
             ..Default::default()
         },
+        pm: shared::PmConfig {
+            readback_token: "isolated-readback-test-secret-123456789".into(),
+            ..Default::default()
+        },
         ..Default::default()
     };
-    config.pm.readback_token = "isolated-readback-test-secret-123456789".into();
     let secret = config.pm.readback_token.clone();
     let config = Arc::new(config);
     let (events, _) = tokio::sync::broadcast::channel(32);
