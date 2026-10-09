@@ -2,12 +2,12 @@
 
 ## Current Integration Snapshot: 10 October 2026
 
-Current assembly `373682aae01e4f1f295a2ccaa5e871c91c486318`, a normal descendant
-of b249 with documentation and isolated-connection test fixes, is **not
+Current assembly `cf86d203ddb1ba7bdde68020c7c858740b8b5438`, a normal descendant
+of b249 with documentation, isolated-connection and timezone test fixes, is **not
 merge-ready or live SDLC accepted**. Historical sections below qualify their own
 heads; they do not accept this assembly.
 
-Latest hosted run37995542617 at controls5259a40/sourceb249 completes FAILURE at
+Earlier hosted run37995542617 at controls5259a40/sourceb249 completes FAILURE at
 real `cargo check --all-targets`, E0599 in container_controller.rs:18:48. Its safe
 compiler artifact11646773562 is authenticated by the existing failure readback;
 scratch and synthetic DB cleanup pass. This run proves preflight/formatting,
@@ -17,8 +17,22 @@ with independent isolated connections in three test files; Rust formatting and
 focused source review pass. Controls0709588 retain all70 stages,367 input paths,
 162 ignored/290 ordinary declarations,19 DBs and dependency/OpenAPI pins, changing
 only the source pin and three exact Git fingerprints. Linux76/76, Windows74
-PASS/two skips and independent scoped review pass. Normal FF publication starts
-run37996397284, currently in progress; no compiler/PG success is inferred yet.
+PASS/two skips and independent scoped review pass. Its actual run37996397284
+completes FAILURE at check with E0277 in container_activation.rs:965/1268.
+Authenticated safe artifact11648090014 and successful owned cleanup are retained.
+Sourcecf86d20 uses pinned Chrono0.4.45 signed_duration_since across timezone types,
+preserving max(deadline-now,0)+10ms; formatting and independent source review pass.
+Reviewed controls a78cbf6 retarget only that source/file hash and aggregate;76 Linux
+and74 Windows/two skip cases pass. Normal FF push starts run37997222729, currently
+in progress. Successful compile/PG/full70 is not inferred from these fixes.
+
+Read-only browser observation of the existing sdlc1 deployment: /agents and
+/chats load after SSO; the current-owner filter and two concrete agents render.
+The selected owner's session lists are empty. New-chat form is inspected and
+closed without saving; no task/message/run/config is created. No live dialogue,
+clarification, requirements or owner-confirmation scenario is proved. Existing
+backend imagec0f6b1a5d2c0 and web0054023ff568 are not claimed to be this candidate;
+the browser observation is not a candidate screenshot or runtime acceptance.
 
 Image metadata FIFO fix is separately source/pure closed: owner Linux56/56,
 Windows53 PASS/three skips; independent focused Linux5/5, Windows2 PASS/three
