@@ -36,6 +36,12 @@ successor must close oversized-target and pre-plan retry findings before merge.
 
 ## Evidence Boundaries
 
+Independent review of74d found an incomplete capability fixture in the new PG
+regression: generation alone failed durable dispatch protocol validation before
+the intended assertions. The successor supplies the full server-agent/bearer/
+durable-idempotency/endpoints contract plus the original generation. Production
+validation is unchanged. Review closure and actual PG execution remain separate.
+
 Formatting/parser, offline locked metadata and ten sealed-loader/utility Python
 cases pass on this assembly. These do not compile Rust test fixtures or execute
 PostgreSQL, Docker, Hermes, native controls or full SDLC. The new PG regression

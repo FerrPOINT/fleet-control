@@ -654,7 +654,18 @@ async fn original_container_origin_scopes_controls_and_approval_recovery() {
         input: message.body,
         origin: origin.clone(),
         credential_fingerprint: fingerprint.clone(),
-        capabilities: json!({"fleet_container_generation":launch.prepared.container.registration.generation}),
+        capabilities: json!({
+            "object":"hermes.api_server.capabilities", "platform":"hermes-agent",
+            "auth":{"type":"bearer","required":true},
+            "runtime":{"mode":"server_agent","tool_execution":"server","split_runtime":false},
+            "features":{"run_submission":true,"run_status":true,"run_events_sse":true,"run_stop":true,
+                "runs_idempotency":{"supported":true,"durable":true,"retention_seconds":86400}},
+            "endpoints":{"runs":{"method":"POST","path":"/v1/runs"},
+                "run_status":{"method":"GET","path":"/v1/runs/{run_id}"},
+                "run_events":{"method":"GET","path":"/v1/runs/{run_id}/events"},
+                "run_stop":{"method":"POST","path":"/v1/runs/{run_id}/stop"}},
+            "fleet_container_generation":launch.prepared.container.registration.generation
+        }),
     };
     let mut foreign = draft.clone();
     foreign.capabilities["fleet_container_generation"] = json!(Uuid::new_v4());
