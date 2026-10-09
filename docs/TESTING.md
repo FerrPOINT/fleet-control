@@ -16,8 +16,13 @@ export FLEET_MIGRATION_TEST_DATABASE_URL=postgres://USER:PASSWORD@HOST:PORT/flee
 cargo test --workspace -- --test-threads=1
 ```
 
-Without these variables, database test functions return early; a green unit run
-alone is not PostgreSQL evidence. The central-subject migration fixture uses a
+Without these variables, some legacy database test functions return early; a
+green unit run alone is not PostgreSQL evidence. The `agent_logs` integration
+suite instead fails if `FLEET_TEST_DATABASE_URL` is missing. It checks an
+interleaved newer row using an agent-scoped PostgreSQL trigger, 64 concurrent
+stdout/stderr writers, exact persisted/redacted acknowledgements and a failed
+foreign-key insert without a phantom row. CI runs these tests in its ordinary
+PostgreSQL workspace gate. The central-subject migration fixture uses a
 fresh database. Fixture Playwright cases run on Chromium, Firefox and WebKit;
 live cases require `SDLC_LIVE_QA=1`. Screenshots are fixture evidence, not a real
 seven-agent PM/decomposition/Rework/deployment acceptance.

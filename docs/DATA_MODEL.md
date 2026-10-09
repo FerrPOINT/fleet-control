@@ -57,6 +57,9 @@ Tables:
   a new identity only after resolution. Resolution and its redacted audit are
   atomic; an audit failure leaves the incident active. No migration is needed
   for this correction.
+  Insert acknowledgements return the stored UUID, agent, stream, redacted message
+  and timestamp from the same PostgreSQL statement. No latest-row lookup, schema
+  change, generation cursor or Docker ingestion table is introduced by this fix.
 - `audit_log`: immutable operator action audit for agent changes, runtime
   actions, config/skill edits, leader assignments, handoff and message writes.
 

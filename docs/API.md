@@ -149,6 +149,9 @@ Runtime:
 - `GET /deployments/jobs/{job_id}`
 - `POST /deployments/jobs/{job_id}/cancel`
 - `GET /logs`
+  returns persisted redacted process records. Internal writes acknowledge the
+  exact inserted row, even if another stream has already written a newer row;
+  public response fields and ordering are unchanged.
 - `GET /events` as SSE. The bearer token is revalidated before delivery and once
   per second while idle. Revocation, expiry, disabled users or Auth unavailability
   terminate the existing connection; the client must authenticate again.

@@ -16,6 +16,11 @@ Redaction:
 
 Operational expectations:
 
+- A process-log write returns its own persisted, redacted row via PostgreSQL
+  `INSERT ... RETURNING`, never the current latest log for that agent. Concurrent
+  stdout/stderr writes must not turn a successful insert into a false not-found
+  error. This acknowledgement is not Docker cursor/deduplication or durable log
+  ingestion; those require separate generation-bound collection semantics.
 - API requests pass through the `shared::telemetry` middleware, which mirrors
   the `services-base` `sdlc-telemetry` request-id contract, and return an
   `x-request-id` header.

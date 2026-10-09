@@ -3003,21 +3003,23 @@ impl FleetRepository for PostgresFleetRepository {
     ) -> Result<AgentLogEntry, AppError> {
         let id = Uuid::new_v4();
         let ts = now();
-        agent_log::Entity::insert(agent_log::ActiveModel {
+        let row = agent_log::Entity::insert(agent_log::ActiveModel {
             id: Set(id),
             agent_id: Set(agent_id),
             stream: Set(stream.to_string()),
             message: Set(redact_text(message)),
             created_at: Set(ts),
         })
-        .exec(&self.db)
+        .exec_with_returning(&self.db)
         .await
         .map_err(AppError::database)?;
-        self.list_logs(Some(agent_id), 1)
-            .await?
-            .into_iter()
-            .find(|entry| entry.id == id)
-            .ok_or_else(|| AppError::not_found("agent_log", id))
+        Ok(AgentLogEntry {
+            id: row.id,
+            agent_id: row.agent_id,
+            stream: row.stream,
+            message: row.message,
+            created_at: api_ts(row.created_at),
+        })
     }
 
     async fn find_user_by_email(

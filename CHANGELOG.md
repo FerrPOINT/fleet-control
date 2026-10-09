@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Process-log inserts return their own persisted redacted row atomically, even
+  when another stdout/stderr writer has already inserted a newer log. PostgreSQL
+  regressions cover deterministic interleaving, 64 writers and rejected inserts.
 - Диалоги apply/rollback настроек возвращают фокус на кнопку preview; новое подтверждение очищает ошибку предыдущей операции. Pending и product-owned preview/retry сохранены. Base закреплён на проверенный SHA для воспроизводимой общей поставки.
 
 - Active Central Auth users can operate Fleet without local role grants.
