@@ -24,6 +24,8 @@ pending list or saved-answer observation.
 ## Implemented Unit
 
 - Owner/project-authorized Fleet command storage and exact/pending readback.
+- Trusted human-session authorization precedes all journal reads/effects;
+  sessionless owner tokens and forged human headers cannot enter the journal.
 - Original body/key/hash persisted before HTTP; no credential persistence.
 - One-at-a-time leased delivery with fenced completion and sticky uncertainty.
 - Explicit same-command recovery via the existing Tracker answer POST; no new
@@ -41,9 +43,12 @@ confirmation/publication, PM consumption or SDLC completion.
 ## Evidence and Remaining Gates
 
 Eight actual pure Node tests exercise the source response validator with
-synthetic data; they do not prove live Tracker behaviour. Rust/domain/API/PG/
-HTTP/migration and React/browser regressions are authored but unexecuted under
-the no-heavy constraint. Formatting, links and diff checks are lightweight only.
+synthetic data; they do not prove live Tracker behaviour. Parent integration7cc
+normally merges journal3b41 and the reviewed human-guard correctiond43f801,
+preserving runtime corrections/history. Parent8/8 pure and formatting/diff pass.
+The byte-identical3b41 frontend passes typecheck,42 focused React cases,337 full
+unit tests, lint, format:check and production build. Rust/domain/API/PG/HTTP/
+migration execution and browser acceptance are still pending.
 
 Mandatory next gate is a coordinated Linux Rust1.88 exact-source compile,
 strict Clippy, focused and complete PostgreSQL/lineage suites, genuine Rust
@@ -52,7 +57,8 @@ typecheck/unit/browser checks and inspected UI evidence. Generated artifacts
 are deliberately not handwritten in this candidate; the temporary frontend
 receipt type must be reconciled with that output before release. Migration20
 ownership/order must be reconciled normally with parent integration, not by
-rewriting historical migrations. No push/PR or runtime acceptance is claimed.
+rewriting historical migrations. Separate build-only codegen controls are pushed;
+the product release PR and runtime acceptance remain pending.
 
 Existing producer pre-model veto/run identity/custody and Workflow dependencies
 remain external. Requirements confirmation recovery is a separate command

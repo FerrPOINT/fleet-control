@@ -504,6 +504,11 @@ access. Operator history access alone is insufficient. Store/delivery also
 require the bound current PM agent; history readback does not require the old
 assignment to remain current. No human bearer token is persisted.
 
+The trusted `VerifiedHumanSession` middleware extension is mandatory before
+local session, Tracker context or journal access, including legacy answer
+ingress. A sessionless owner-subject PAT or a caller-supplied human header is
+not a human session and receives `401` without journal reads or delivery.
+
 - `POST /sessions/{session_id}/clarifications/{question_id}/answer-commands`:
   existing `ClarificationAnswerRequest` body, including original `idempotency_key`.
   Returns `200 ClarificationAnswerCommand` after committing custody, without

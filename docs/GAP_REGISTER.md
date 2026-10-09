@@ -2,8 +2,8 @@
 
 ## Current Open Release Gates: 10 October 2026
 
-The current committed source assembly is9a57d11 (normal b249 descendant with
-isolated connection/timezone/Clippy fixes and documentation), not the historical heads below.
+The current committed source assembly is7cc3a81 (normal integration of runtime
+corrections, journal3b41 and human-guard correctiond43f801), not the historical heads below.
 Source integration is progress, not release acceptance. Its remaining gates are:
 
 Hosted37995542617 now proves the preflight blocker is passed but finds real
@@ -24,13 +24,14 @@ PASS. Controls3600cb7 preserve exact scope/pins; Linux76/76, Windows74 PASS/two
 skips pass and normal FF push starts actual37999665761 (in progress). Clippy/PG/
 full70 remain open until actual acceptance, not source review alone.
 
-Separate journal3b41 implements durable original-command/reload custody but is
-not integrated or backend-accepted. Parent typecheck and337 frontend tests pass;
-these use the existing schema and mocked HTTP. New-route Rust OpenAPI generation,
-server correctness review, lint/format/build, Rust/PG and live recovery remain
-explicit gates. Dedicated codegen controls7792bfc are reviewed/pushed with15/15
-pure checks; this is not a generated artifact. The legacy answer proxy below describes the current integrated
-source, not a denial of the isolated journal implementation.
+Journal3b41 and the source-reviewed human-guard correctiond43f801 are normally
+integrated in7cc. Parent typecheck and337 frontend tests pass; assigned
+lint/format/build also pass, using the existing schema and mocked HTTP. New-route
+Rust OpenAPI generation, Rust/PG and live recovery remain explicit gates.
+Dedicated codegen controls7792bfc are reviewed/pushed with15/15 pure checks; this
+is not a generated artifact. Historical no-journal observations below apply to
+b249, not the new assembly. Actual backend37999665761 still targets9a57 and
+cannot accept journal migration21/24 or its nine authored cases.
 
 Read-only existing sdlc1 UI shows two agents and empty current-owner session lists;
 the create dialog was closed without saving. This is reachability/empty-state
@@ -38,9 +39,10 @@ evidence only. There is no observed live PM dialogue/clarification/confirmation,
 and deployed images are not qualified as the current candidate.
 
 - **Combined backend:** all-target Rust/Clippy, actual default/ignored test
-  discovery and execution, both20/23 PostgreSQL lineages, populated downgrade
-  guards and strict generated OpenAPI comparison. Static162 ignored/290 ordinary
-  inventory and a proposed70-stage mapping are not an executed gate.
+  discovery and execution, both21/24 PostgreSQL lineages, populated downgrade
+  guards and strict generated OpenAPI comparison. Old source9a57 retains20/23,
+  static162 ignored/290 ordinary inventory and70-stage mapping; extending them
+  for the nine new journal cases is not acceptance of either source.
 - **Runtime:** exact-image qualification and actual isolated Hermes
   lifecycle/configuration/recovered activation/rollback, safe process stop,
   streams/logs and crash/readback acceptance. Original protocol4 findings and
@@ -55,14 +57,11 @@ and deployed images are not qualified as the current candidate.
   no Rust/PG/live HTTP. Canonical schemas and owner-before-replay source match;
   this does not extend historical PR47 live evidence or establish PM admission.
 - **Chats:** live cross-service ownership/project/reconnect acceptance and
-  clarification unknown-outcome recovery across reload. The mounted original
-  command guard and closed-question retry have frontend/browser fixture evidence
-  only; no new-answer permission bypass is permitted. [TrackerAnswer](../backend/domain/src/task_chats.rs)
-  has no original command key. Clarification GET returns saved answers, not
-  exact-command receipts; the answer route is POST-only, with no original-key GET.
-  The [answer proxy](../backend/api/src/routes/task_chats.rs)
-  has no durable command journal, and the [mounted answer mutation](../frontend/src/pages/chat-detail/index.tsx)
-  retains retry state in memory only. Fix8e5d75d does not close durable reload recovery.
+  clarification unknown-outcome recovery across reload. Integrated Fleet journal
+  retains original key/body/hash with human/owner/project checks; actual PostgreSQL,
+  lease expiry/concurrency and HTTP reload tests remain open. Tracker saved-answer
+  GET still is not exact-command lookup. Frontend reload/retry has unit evidence;
+  live recovery is not proved by earlier8e5d75d browser fixtures or new337 unit cases.
 - **Forge:** actual bridge/global cleanup deadline has scoped independent source
   closure at89420cd. Run the unchanged full12 matrix and real
   deployment/evidence/rollback acceptance; bounded external-I/O probes do not

@@ -12,10 +12,10 @@ owned checkouts; Tracker and Workflow remain read-only references.
 
 | Owner | Independent work | Acceptance boundary |
 | ----- | ---------------- | ------------------- |
-| Pascal | Independent runtime Clippy correction review completed | Source9a57d11 preserves byte-identical preparation tests and production behavior; only three redundant test borrows removed. Actual Clippy/PG remain hosted gates. Completed journal3b41 stays frozen. |
+| Pascal | Full backend gate expansion for journal9 cases and21/24 lineages | Extend existing controls only; preserve all old cases/guards and add exact new selectors/DB cleanup/ledger. Final source/schema pins remain parent-owned; no dispatch before authentic API generation. Source9a57 Clippy correction review is complete. |
 | Ptolemy | Actual Rust OpenAPI generation for clarification journal3b41 | Reuse hosted codegen controls; qualify generated schema, then generated client. No handwritten API or changes to frozen implementation. |
-| Feynman | Server-side clarification journal review and bounded fixes | Authorization before journal access/replay; original command custody, fenced delivery and sticky unknown outcome. Any fix goes into an isolated successor with regression tests. |
-| Anscombe | Frontend lint/format/build closure for journal3b41 | Do not repeat the completed337 unit tests. Fix concrete failures only in a separate frontend successor; no backend/schema/generated-client edits. |
+| Feynman | Server journal review and human-session correction completed | P1 owner-subject PAT bypass fixed atd43f801 before journal access; seven negatives extend existing PG/HTTP case. Parent merges normally in7cc. Actual Rust/PG/auth acceptance stays open. |
+| Anscombe | Supported-browser fixture checks and unknown-command reload regression | Lint/format/build pass. Run focused existing scenario/screens and add one browser reload/permission/original-command test in an isolated frontend successor; no backend/schema edits or live PM claim. |
 | Parent | Actual backend CI, integration, documentation and scoped publication | Resolve current Clippy findings, preserve gate scope, integrate independently checked successors, inspect hosted results. No acceptance from static checks alone. |
 
 These tasks have disjoint write sets. Reviewers do not modify frozen owner
@@ -29,6 +29,9 @@ Journal3b41 has parent-executed typecheck PASS and36 frontend test files/337
 tests PASS (including42 chat-detail cases). Client generation used the existing
 checked-in schema; it does not prove the four new journal routes are generated
 from Rust. Journal Rust/PG, reload against live services and PM resume remain open.
+Combined7cc normally merges3b41+d43f801, preserving parent runtime fixes and
+both histories. Parent verifies byte-identical frontend, rustfmt and8/8 pure
+boundary cases. No product-wide/backend/native acceptance follows from that merge.
 Dedicated codegen controls7792bfc have parent15/15 pure PASS and seal/source
 review. The previously absent build-only branch is pushed normally; Ptolemy owns
 actual exact-head outcome and authenticated artifact readback, not invented schema.

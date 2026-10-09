@@ -2,8 +2,8 @@
 
 ## Current Integration Snapshot: 10 October 2026
 
-Current committed assembly `9a57d1121523c06ae98b8c36b42fd8e62fce65d0`, a normal descendant
-of b249 with documentation, isolated-connection, timezone and Clippy corrections, is **not
+Current committed assembly `7cc3a81254191c23df4b7d1a8c85246a0019ce97`, a normal descendant
+of b249 with runtime corrections and durable clarification custody, is **not
 merge-ready or live SDLC accepted**. Historical sections below qualify their own
 heads; they do not accept this assembly.
 
@@ -42,7 +42,14 @@ Client generation uses the existing checked-in schema; authentic Rust generation
 for the new journal routes is separately assigned. Codegen controls7792bfc pass
 parent15/15 pure checks/seal verification and are normally pushed to a dedicated
 build-only branch; no generated artifact is accepted yet. Independent backend
-review and frontend lint/build proceed separately. The [current ownership table](plans/2026-10-09-parallel-remaining-work.md#latest-assignment-checkpoint)
+review finds and fixes a real P1: verified central owner identity without a
+trusted human session could access the journal. Normal successord43f801 adds the
+human guard before local/Tracker/journal access and extends the existing PG/HTTP
+case with seven negative requests. Combined7cc normally merges this correction
+and journal3b41, preserving both histories. Rustfmt and parent8/8 pure cases pass;
+new Rust/PG and final API checks remain unexecuted. Frontend is byte-identical to
+3b41, whose lint/format/build now pass; the bundle-size warning remains. The old
+backend run37999665761 targets9a57, not this new journal assembly. The [current ownership table](plans/2026-10-09-parallel-remaining-work.md#latest-assignment-checkpoint)
 defines disjoint work and remaining integration gates.
 
 Read-only browser observation of the existing sdlc1 deployment: /agents and

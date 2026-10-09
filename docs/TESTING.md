@@ -493,10 +493,19 @@ foreign/machine callers denied before journal access. HTTP auth extensions are
 fixture-only, not Central Auth/JWKS acceptance. The migration case tests upgrade,
 empty down/reapply, populated down refusal and history preservation.
 
+The HTTP reload case also attempts seven sessionless-owner requests with both
+identity extensions, write scope and a forged human header. Exact read/delivery
+during uncertainty and all five ingress/read routes must return401 before
+Tracker requests or journal changes. The trusted human extension is absent;
+this is stronger than testing a caller with no verified subject. These authored
+PG/HTTP assertions still require actual execution.
+
 Three additional `src/pages/chat-detail/index.test.tsx` cases cover reload
 recovery with closed new-answer permission, pending readback hold and failed
-readback hold. Execute that complete file plus frontend typecheck/lint/format,
-the adapted `e2e/fleet-control.spec.ts` in all supported browsers and genuine
-Rust OpenAPI generation/strict compatibility before release. Those checks and
-UI screenshots remain pending; pure boundary PASS is not React/browser, live
+readback hold. On exact3b41, parent executes42/42 chat-detail cases and the full
+36-file/337-test suite; typecheck passes after client generation from the existing
+schema. Assigned frontend verification passes lint, format:check and production
+build. Combined7cc has byte-identical frontend; parent reruns8/8 pure boundary
+cases. Authentic Rust generation/strict compatibility, supported-browser and
+new UI screenshot gates remain pending. These unit/build results are not live
 Tracker, PM admission or native evidence.
