@@ -2,6 +2,20 @@
 
 ## Docker And Controls Integration Gate
 
+Current compiler blockers: actual full gate37967213470, controls160bd/sourcec02,
+reports E0425 runtime_acceptance.rs:542:33 and E0594 sdlc_foundation.rs:2702:5.
+Safe evidence/source identity and cleanup are verified. Scoped corrections are
+assigned; the current assembled backend is not compiler/PG accepted.
+
+Base protocol4 source is published in Draft
+[PR180](https://github.com/FerrPOINT/services-base/pull/180) at815982b.
+Its exact-head224 Linux fake tests and independent review pass, not native Docker.
+Actual GitHub run37968542132 cannot start any of11 jobs because account billing/
+spending limit blocks execution. Account CI access and all required checks remain
+open; do not classify a job with no steps as a failed product test or waive it.
+Fleet protocol4 consumption/recovered activation and native image/driver
+qualification are independent remaining implementation/acceptance gates.
+
 The actual compiler blocker is now identified, not guessed: authenticated
 run37964514708 reports E0609 at acceptance_readback.rs:58:30. Scoped sourcee2e33b2
 replaces the nonexistent Agent.archived_at with AgentStatus::Archived and adds

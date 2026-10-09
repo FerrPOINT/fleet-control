@@ -2,6 +2,19 @@
 
 ## Docker And Controls Assembly: 9 October 2026
 
+Latest full backend run37967213470 on reviewed controls160bd/sourcec02ee92
+fails check101: authenticated E0425 runtime_acceptance.rs:542:33 and E0594
+sdlc_foundation.rs:2702:5. Safe artifact11634537223 and source-plan/cleanup
+readback are verified; no Rust/PG PASS is claimed. Separate compiler fixes are
+assigned, not yet integrated.
+
+[Base PR180](https://github.com/FerrPOINT/services-base/pull/180) publishes
+protocol4 at815982b with parent-verified Linux224/224, zero skips, documentation
+checks and independent source/merge review. It remains Draft: actual CI
+run37968542132 has11 jobs blocked before any step by account billing/spending
+limit. Fleet consumption and native Docker acceptance remain separate work.
+See the [current worker ownership](plans/2026-10-09-parallel-remaining-work.md).
+
 Normal merge a0068e2c58835ca6ed315ae7bb1963a99cb5944a now retains audited
 restart recovery452, archive-guard fixe2e33b2 and ordered regressionc02ee92. The recovery union
 preserves19 canonical/22 split migrations and65 focused container selectors.
@@ -14,8 +27,9 @@ Worker and parent authenticate safe artifact11632134258 independently; owned
 scratch/databases and platform containers clean successfully. The fix uses the
 existing AgentStatus::Archived and extends the existing PostgreSQL scope test
 with separate status-only/marker-only archive cases. Formatting/README checks
-pass; the new full backend gate targets fixed sourcec02ee92, not failed98 or the
-broader runtime assembly. No compiler/PG/native PASS is yet claimed.
+pass; the subsequent full backend gate targets fixed sourcec02ee92, not failed98
+or the broader runtime assembly, and fails on the two test compiler errors above.
+No compiler/PG/native PASS is yet claimed.
 Independent review found a pagination false-positive in the first new regression;
 the successor archives the lower UUID and waits for the higher positive sentinel.
 Independent review closes the source finding atc02ee92 with4950 ordered model

@@ -10,12 +10,12 @@ checkouts rather than restarting completed work:
 
 | Owner    | Current assignment                                                 | Required handoff                                                                                                              |
 | -------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| Feynman  | Generic Base recovered preparation/attachment capability            | Separate utility successor fromae8; original commands, valid custody, physical exit and no unknown-effect redispatch; no business planner |
-| Pascal   | Qualify original image dependencies and an owned build wrapper      | Frozen recipe packet exists; prove parent toolchain/venv inputs and cleanup before any candidate build, no accepted tag changes |
-| Ptolemy  | Review a genuinely fresh hosted Forge test environment              | Preserve full12 semantics/reserves/deadlines; distinguish old QA daemon identity from product custody and assess bounded jobs |
-| Anscombe | Full backend gate preparation for archive fixc02ee92                | Actual safe diagnosticE0609 obtained; normal controls/source merge with all46 stages and135 ignored identities retained |
-| Leibniz  | Independently review archive fix and its scope regression           | Recovery mergee391 completed and parent-verified; check the new status-only/marker-only archive cases without heavy execution |
-| Parent   | Normal integration, documentation and scoped publication            | Recovery452/archive fix and ordered regression integrated ata006; review/admit new gates and publish qualified release units |
+| Feynman  | Fleet consumer of recovered-generation protocol4                    | Actual recovered config activation, positive DB authority and canonical utility hashes; preserve original custody, SDK19a and unknown-effect fences |
+| Pascal   | Qualify a reproducible runtime-image build route                    | Executable owned wrapper prepared; identify exact parent OCI transport and dependency closure before build; no resource-guard waiver |
+| Ptolemy  | Implement hermetic hosted Forge full12 controls                      | Two bounded jobs retain all12 stages, original per-stage deadlines, disk reserve, receipts and own-only cleanup; no custody transfer |
+| Anscombe | Fix actual backend compiler findings on separate source             | Exact run37967213470 E0425/E0594; minimal source/test corrections, light checks and a new sealed gate; no automatic retry |
+| Leibniz  | Independently review the image-build wrapper                         | Exact parents, inherited volumes, dependency qualification, resource guards and every cleanup failure path; read-only/pure checks |
+| Parent   | Normal integration, documentation and scoped publication             | Base PR180 published after exact-head Linux224 and independent review; accept remaining units separately, do not certify full SDLC |
 
 These are continuations of the existing five workers, not additional competing
 implementations. Each has a separate write set; the parent UI is read-only to
@@ -23,6 +23,25 @@ reviewers. Heavy jobs remain parent-admitted one at a time. The Forge prepare
 has terminated failed and cleaned its exact disposable resources; no local
 heavy job is currently admitted. Capacity and exact-image prerequisites fail.
 No successor is admitted merely because a worker prepared an invocation.
+
+Current publication: [Base PR180](https://github.com/FerrPOINT/services-base/pull/180)
+is Draft on815982b, a normal merge of9b53 and accepted maina119. Its ten-path diff
+does not change product migrations, SDK, auth or UI. Parent exact-head Linux
+gate passes224/224 with zero skips (88.807s); documentation12, README/hub/manifest
+and independent merge review pass. Fake Engine execution is not native acceptance.
+Actual GitHub run37968542132 does not start any of its11 jobs: authenticated check
+annotations report failed account payments/spending limit. No steps execute.
+Restore account CI access explicitly before hosted execution; do not retry, buy
+resources or relax gates to bypass this blocker.
+
+The reviewed Fleet full46 gate was normally pushed at160bd againstc02ee92.
+Actual run37967213470 fails check101 with authenticated E0425 at
+runtime_acceptance.rs:542:33 and E0594 at sdlc_foundation.rs:2702:5.
+Safe artifact11634537223 has ZIP SHA256
+7b6a9894766f451bf617a4b973c4ac43ef7f01f7bf91729b24e19b3e35227b3a.
+Source-plan readback and exact scratch/database/platform cleanup succeed.
+The previously fixed archive defect is not the new failure. Minimal compiler
+fixes are a separate worker write set; full Rust/PG acceptance remains open.
 
 Safe diagnostics controlsbc4ee52 were reviewed, passed41 pure tests and were
 normally pushed once. Actual run37964514708 fails check with authenticated E0609
