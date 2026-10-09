@@ -456,7 +456,33 @@ async fn pm_credentials_pg_database_guards_monotonic_journal_and_single_redacted
                 && !bytes.contains("parent_fingerprint")
         );
     }
-    assert!(migration::Migrator::down(&db, Some(1)).await.is_err());
+    let ledger_before = migration::Migrator::get_migration_models(&db)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|row| (row.version, row.applied_at))
+        .collect::<std::collections::BTreeMap<_, _>>();
+    // Later migrations must not change which recovery guard this case exercises.
+    let credential_migration = migration::Migrator::migrations()
+        .into_iter()
+        .find(|item| item.name() == "m20261004_000011_pm_credentials")
+        .expect("credential migration must remain registered");
+    let error = credential_migration
+        .down(&migration::SchemaManager::new(&db))
+        .await
+        .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("PM credential journals require explicit reconciliation before downgrade")
+    );
+    let ledger_after = migration::Migrator::get_migration_models(&db)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|row| (row.version, row.applied_at))
+        .collect::<std::collections::BTreeMap<_, _>>();
+    assert_eq!(ledger_before, ledger_after);
     assert_eq!(fixture.operation().await.credentials, saved.credentials);
 }
 

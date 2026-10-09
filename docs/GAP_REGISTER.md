@@ -2,14 +2,22 @@
 
 ## Current Open Release Gates: 10 October 2026
 
-The current product-code assembly is9025d42
+The current product-code assembly is5337997
 (runtime corrections, journal3b41, human guard, genuine generated API and private-
 approval ownership correction), not the historical heads below.
 Source integration is progress, not release acceptance. Its remaining gates are:
 
-The new approval-owner regression and existing PR47 successor require fresh
-Rust/PG/CI execution; old green PR checks do not accept this correction. Parent
-has ported the narrow guard without reverting its accepted-runtime fixture.
+PR47 at11f97aa now has five fresh green CI jobs and a passed PostgreSQL owner-
+approval regression. That narrow PR does not accept the parent assembly, whose
+accepted-runtime fixture differs. Actual combined74-stage run38002746761 targets
+469dad0 and completes FAILURE at credentials_pg. Authenticated safe artifact
+11650212282 identifies the named credential database-guard case at the old
+last-migration assertion, line459. Cleanup passes. Later e0d541e corrects that
+target and5337997 fixes the analogous Hermes time-order downgrade case without
+changing SQL or removing retained-data checks. aabd711 integrates browser
+regression coverage; their final backend
+and current-client browser qualification remain pending. Fixture scenarios pass
+in three engines and27 screenshots are retained separately, not as live evidence.
 
 Hosted37995542617 now proves the preflight blocker is passed but finds real
 compile E0599 at container_controller.rs:18:48 on b249. Authenticated safe failure
@@ -29,8 +37,9 @@ PASS. Controls3600cb7 preserve exact scope/pins; Linux76/76, Windows74 PASS/two
 skips pass. Actual37999665761 passes check/Clippy and initial Auth/API/credential
 unit stages, then fails credentials_pg with exit101. Owned cleanup succeeds;
 no safe test artifact is retained by the old compiler-only parser. Test root
-cause remains unknown. Successor7a3333d adds bounded safe test failure readback
-(80 Linux PASS,78 Windows PASS/two skips), not a product fix. PG/full70 remain open.
+cause for that historical run is not retrospectively inferred. Successor7a3333d adds bounded safe test failure readback
+(80 Linux PASS,78 Windows PASS/two skips), not a product fix. New4113950 keeps the
+safe parser and expands to74 stages; its current failure is diagnosed above.
 
 Journal3b41 and the source-reviewed human-guard correctiond43f801 are normally
 integrated in7cc. Parent typecheck and337 frontend tests pass; assigned

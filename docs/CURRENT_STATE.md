@@ -2,7 +2,7 @@
 
 ## Current Integration Snapshot: 10 October 2026
 
-Current product-code assembly `9025d42`, a normal descendant
+Current product-code assembly `5337997`, a normal descendant
 of b249 with runtime corrections, durable clarification custody, generated API
 and the private-approval ownership correction, is **not
 merge-ready or live SDLC accepted**. Historical sections below qualify their own
@@ -13,16 +13,33 @@ reserving private-session decisions, including historical replay. Its regression
 preserves the accepted-runtime fixture and verifies owner/legacy-admin access.
 Formatting/source integration pass; real Rust/PG execution remains pending.
 
-Latest actual backend run37999665761 at controls3600cb7/source9a57 completes
+The narrow public PR47 at11f97aa separately passes all five fresh CI jobs in
+38002207012; its extended private-approval PostgreSQL regression passes and fresh
+review-thread enumeration is empty. This does not accept the combined assembly.
+Combined backend controls4113950 are published; actual74-stage Linux/PG run
+38002746761 completes FAILURE at credentials_pg. Its authenticated safe artifact
+11650212282 names the credential database-guard case and old source469dad0 line459,
+the stale `Migrator::down(Some(1))` assertion. Owned scratch/DB cleanup passes.
+Later test-only correctione0d541e selects credential11 by name, requires its
+specific refusal and preserves the ledger. Normal successor5337997 fixes the
+analogous retained-Hermes journal test, targeting time-order14. Both retain their
+data assertions; formatting/source review pass, real Rust/PG rerun is pending.
+
+Supported-browser fixture checks pass for explicit answers/confirmation and
+unknown-command reload. The new test is integrated, including its corrected
+Draft mock stage; parent ESLint/Prettier/typecheck pass. Worker retains27 fixture
+screenshots, with parent mobile/desktop visual inspection. This is3b41/7cc
+application evidence, not live PM, current runtime or production-manifest evidence.
+
+Actual backend run38002746761 at controls4113950/source469dad0 completes
 FAILURE at credentials_pg, exit101. Sequential gate receipts establish prior
 fmt/check/Clippy, Auth build, runtime inventory, real Auth consumer, API and
 credential unit stages passed. Credentials PG and the remaining stages are not
-accepted. Owned scratch/DB cleanup succeeds. No failure artifact exists because
-the previous parser covered compiler failures only; raw private logs are not
-published, and the failing assertion remains unknown. The existing controls
-successor7a3333d adds bounded allowlisted test names/source locations and strict
-failure readback, with80 Linux PASS and78 Windows PASS/two skips. It does not
-fix or accept the product test. Earlier corrections and immutable failed-run
+accepted. Parent verifies the safe-test artifact against run/attempt/workflow/
+source/control hashes and ZIP digest. The failure is the unrelated-last-migration
+test target, not an authenticated production credential failure. No raw private
+logs are published. Existing controls90 Linux PASS/88 Windows PASS/two skips
+are control-test evidence, not product acceptance. Earlier corrections and immutable failed-run
 evidence remain in the [work plan](plans/2026-10-09-parallel-remaining-work.md).
 
 Separate frozen clarification journal3b41 has parent-executed typecheck PASS,
@@ -41,8 +58,9 @@ backend review finds and fixes a real P1: verified central owner identity withou
 trusted human session could access the journal. Normal successord43f801 adds the
 human guard before local/Tracker/journal access and extends the existing PG/HTTP
 case with seven negative requests. Combined7cc normally merges this correction
-and journal3b41, preserving both histories. New Rust/PG and final strict Rust
-schema parity remain unexecuted. Original3b41 lint/format/build pass; the bundle-
+and journal3b41, preserving both histories. All-target check/Clippy now pass on
+469dad0, but journal PG cases and final strict Rust schema parity remain
+unexecuted. Original3b41 lint/format/build pass; the bundle-
 size warning remains. The old backend run37999665761 targets9a57, not this new
 journal assembly. The [current ownership table](plans/2026-10-09-parallel-remaining-work.md#latest-assignment-checkpoint)
 defines disjoint work and remaining integration gates.

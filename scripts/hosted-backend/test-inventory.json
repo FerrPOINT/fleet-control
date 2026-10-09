@@ -219,9 +219,9 @@
     "fleet-control/backend/infra/tests/runtime_approval_events.rs": "462727f4a50969e0f971de209c8972c5194136b528d8236c901f127ec038a7b5",
     "fleet-control/backend/infra/tests/sdlc_foundation.rs": "e237891237b70b2bfda00f6c86012217cfe5c218603bee4ae5e606693a90a892",
     "fleet-control/backend/infra/tests/support/clarification_custody.rs": "317068591661a9ece1b8e994a5b1ef08bd87a24835e580941a83b42970a1a83a",
-    "fleet-control/backend/infra/tests/support/hermes_dispatch_journal.rs": "1fc76e4adc13c5586a15a6f88a2bc4260ed24075366f682878fdf05d58d046bb",
+    "fleet-control/backend/infra/tests/support/hermes_dispatch_journal.rs": "c1fb6a5519b4ab9dcb0a350c76bbc01d0bf5cb56bbbd2c4bc896b2d6ae5f4d05",
     "fleet-control/backend/infra/tests/support/hermes_protocol_fixture.rs": "e7173c88917f5d3f442462271d79b38d83c856b9396d033f503dc97dae6b445e",
-    "fleet-control/backend/infra/tests/support/pm_credential_creation.rs": "84d5a84f8f2c1a1c5347660ce207db86c0f2e22ffc7c5c75eb005df406e71c71",
+    "fleet-control/backend/infra/tests/support/pm_credential_creation.rs": "7f137e3a478c378819120eb30622ed16288c0ba71a2421e40d368a1a5a0b5d4a",
     "fleet-control/backend/infra/tests/support/pm_draft_creation.rs": "ac8266c52998abb22702b5a2a454ae101471cbfc4d84a53d7846f0e0ebd8883f",
     "fleet-control/backend/infra/tests/support/runtime_acceptance.rs": "45416320e99ce5a9d6315ec2c973ab045a4ba3cbfad019100c4adbe0e953b993",
     "fleet-control/backend/infra/tests/support/runtime_acceptance_readback_http.rs": "c8d19de02071414eab6f886e2daa66c43d7aa923d3b0328fae33c62381a99c55",
@@ -289,7 +289,7 @@
     "fleet-control/backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "fleet-control/backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a",
     "fleet-control/backend/tests/fixtures/.gitkeep": "1d85c5ed38a3fd81f2faaea018843e4fe329fd190486a34000e756cfba90a618",
-    "fleet-control/docs/TESTING.md": "bcb09b6e734a35b9b80c6b831300a07c67ea62c556b8da19062cd1aeacc488db",
+    "fleet-control/docs/TESTING.md": "a132bcfe26b4cf3df165c2a5d48b7d858cbb798276cf1cc072ec53de71d06591",
     "fleet-control/openapi/README.md": "2ede8bc480b593789d2192f5f5e82c21475921d616f063cb3bfe2a9dd55ebfe3",
     "fleet-control/openapi/openapi.json": "874230b2105a73b8f96aa2c1ecf6685a551dcf721f6e2c512852c831163c7be7",
     "fleet-control/scripts/check_container_activation_contract.py": "80569d79dfef7cf3f16126eb0523ca1ad3da8941cdd255d8290dbcf9fc1fa12a",
@@ -2573,9 +2573,9 @@
     "backend/infra/tests/runtime_approval_events.rs": "462727f4a50969e0f971de209c8972c5194136b528d8236c901f127ec038a7b5",
     "backend/infra/tests/sdlc_foundation.rs": "e237891237b70b2bfda00f6c86012217cfe5c218603bee4ae5e606693a90a892",
     "backend/infra/tests/support/clarification_custody.rs": "317068591661a9ece1b8e994a5b1ef08bd87a24835e580941a83b42970a1a83a",
-    "backend/infra/tests/support/hermes_dispatch_journal.rs": "1fc76e4adc13c5586a15a6f88a2bc4260ed24075366f682878fdf05d58d046bb",
+    "backend/infra/tests/support/hermes_dispatch_journal.rs": "c1fb6a5519b4ab9dcb0a350c76bbc01d0bf5cb56bbbd2c4bc896b2d6ae5f4d05",
     "backend/infra/tests/support/hermes_protocol_fixture.rs": "e7173c88917f5d3f442462271d79b38d83c856b9396d033f503dc97dae6b445e",
-    "backend/infra/tests/support/pm_credential_creation.rs": "84d5a84f8f2c1a1c5347660ce207db86c0f2e22ffc7c5c75eb005df406e71c71",
+    "backend/infra/tests/support/pm_credential_creation.rs": "7f137e3a478c378819120eb30622ed16288c0ba71a2421e40d368a1a5a0b5d4a",
     "backend/infra/tests/support/pm_draft_creation.rs": "ac8266c52998abb22702b5a2a454ae101471cbfc4d84a53d7846f0e0ebd8883f",
     "backend/infra/tests/support/runtime_acceptance.rs": "45416320e99ce5a9d6315ec2c973ab045a4ba3cbfad019100c4adbe0e953b993",
     "backend/infra/tests/support/runtime_acceptance_readback_http.rs": "c8d19de02071414eab6f886e2daa66c43d7aa923d3b0328fae33c62381a99c55",
@@ -2639,7 +2639,7 @@
     "backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a"
   },
-  "source_commit": "469dad0e0b774eabacd96a6779f5b21f6e493741",
+  "source_commit": "f8b9a580e0bf054a948bd015bb7e88eb99b62dfd",
   "utility_source_sha256": {
     "scripts/runtime_bootstrap.py": "5be8066b6f7dc68f8dda7f1040c0626dad272477c019b07263821df7f86b59a2",
     "scripts/runtime_boundary.py": "2e6bfa6907b93e6d436d2b6668ae20211aca53a64c433f7e1a98ab51245b3e89",
@@ -4574,21 +4574,21 @@
     },
     {
       "ignored": false,
-      "line": 464,
+      "line": 490,
       "name": "pm_credentials_pg_first_intent_and_ack_require_readable_strict_shapes",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 568,
+      "line": 594,
       "name": "pm_credentials_pg_revoked_parent_prevents_post_and_does_not_erase_ack",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 584,
+      "line": 610,
       "name": "pm_credentials_pg_audit_failure_rolls_back_journal_and_recovers_original_child",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
