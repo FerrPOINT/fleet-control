@@ -4,8 +4,11 @@
 
 Current compiler blockers: actual full gate37967213470, controls160bd/sourcec02,
 reports E0425 runtime_acceptance.rs:542:33 and E0594 sdlc_foundation.rs:2702:5.
-Safe evidence/source identity and cleanup are verified. Scoped corrections are
-assigned; the current assembled backend is not compiler/PG accepted.
+Safe evidence/source identity and cleanup are verified. Scoped corrections6e9
+have independent source closure and nine passing source checks, and are normally
+integrated ate963ab1; parent formatting/README/diff pass. The current assembled
+backend is still not compiler/PG accepted. New full46 controlsda9473a/seal8ccf3f9c
+are parent-verified prepare-only, not published/executed during the CI hold.
 
 Base protocol4 source is published in Draft
 [PR180](https://github.com/FerrPOINT/services-base/pull/180) at815982b.

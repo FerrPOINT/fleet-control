@@ -5,8 +5,13 @@
 Latest full backend run37967213470 on reviewed controls160bd/sourcec02ee92
 fails check101: authenticated E0425 runtime_acceptance.rs:542:33 and E0594
 sdlc_foundation.rs:2702:5. Safe artifact11634537223 and source-plan/cleanup
-readback are verified; no Rust/PG PASS is claimed. Separate compiler fixes are
-assigned, not yet integrated.
+readback are verified; no Rust/PG PASS is claimed. Scoped fixes6e9ad76 add the
+required typed PM fixture and initialize immutable PmConfig correctly, preserving
+all assertions and original-origin/archive guards. Independent source review
+finds no issues; nine source checks pass. Normal mergee963ab1 integrates them
+without conflicts; parent cargo fmt/README/diff pass. Full compilation/PG remains
+open. A separately sealed controls successorda9473a passes41 pure checks and
+is prepare-only while CI availability is blocked.
 
 [Base PR180](https://github.com/FerrPOINT/services-base/pull/180) publishes
 protocol4 at815982b with parent-verified Linux224/224, zero skips, documentation

@@ -13,7 +13,7 @@ checkouts rather than restarting completed work:
 | Feynman  | Fleet consumer of recovered-generation protocol4                    | Actual recovered config activation, positive DB authority and canonical utility hashes; preserve original custody, SDK19a and unknown-effect fences |
 | Pascal   | Close two independently reproduced build-wrapper defects           | New immutable successor: all-container cleanup custody and exact materialized recipe/context parity; no resource-guard waiver |
 | Ptolemy  | Implement hermetic hosted Forge full12 controls                      | Two bounded jobs retain all12 stages, original per-stage deadlines, disk reserve, receipts and own-only cleanup; no custody transfer |
-| Anscombe | Fix actual backend compiler findings on separate source             | Exact run37967213470 E0425/E0594; minimal source/test corrections, light checks and a new sealed gate; no automatic retry |
+| Anscombe | Compiler source fix and exact-source gate handed off                | Fix6e9 independently reviewed and normally integrated; gate successor da9473a prepared, no publication/automatic retry during CI hold |
 | Leibniz  | Independently review the image-build wrapper                         | Exact parents, inherited volumes, dependency qualification, resource guards and every cleanup failure path; read-only/pure checks |
 | Parent   | Normal integration, documentation and scoped publication             | Base PR180 published after exact-head Linux224 and independent review; accept remaining units separately, do not certify full SDLC |
 
@@ -41,7 +41,13 @@ Safe artifact11634537223 has ZIP SHA256
 7b6a9894766f451bf617a4b973c4ac43ef7f01f7bf91729b24e19b3e35227b3a.
 Source-plan readback and exact scratch/database/platform cleanup succeed.
 The previously fixed archive defect is not the new failure. Minimal compiler
-fixes are a separate worker write set; full Rust/PG acceptance remains open.
+fix6e9 changes only the two existing test files and verification ledger. Parent
+repeats all nine source checks; independent review finds no issues. Normal
+mergee963ab1 integrates the three paths without conflicts and parent formatting/
+README/diff pass. Full Rust/PG acceptance remains open. Parent verifies prepared
+controlsda9473a, its26-file seal8ccf3f9c and all41 pure checks; unchanged full46/
+135 ignored gates still require real execution. No push/dispatch occurs during
+the explicit CI availability hold.
 
 Independent review of image-build wrapper seal7c8c8e94 finds two P2 control-flow
 defects: stopped foreign containers are missing from cleanup inventory, and

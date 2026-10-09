@@ -24,9 +24,16 @@ accepted UUIDs to the archived case and the higher to the positive sentinel,
 before starting the worker. Parent normal mergea0068e2 retains it without conflicts.
 Independent review closes the source finding (4950 ordered model pairs); actual
 Rust/PG proof remains pending. Formatting and diff checks pass.
-The next full46 hosted gate uses exact fixedc02ee92; it cannot certify the larger
-container65 union. Frozenbf27 native packet is retained unchanged but needs a new
-corrected source/image packet before execution.
+The subsequent full46 hosted gate160bd uses exactc02ee92 and fails check101
+in run37967213470: E0425 runtime_acceptance.rs:542:33 and E0594
+sdlc_foundation.rs:2702:5. Source fix6e9 adds the required typed PM fixture and
+initializes immutable PmConfig without dropping assertions. Independent source
+review and nine pure checks pass. Parent normal mergee963ab1 retains it, with
+formatting/README/diff passing. New controlsda9473a/seal8ccf3f9c are parent-verified
+with41 pure cases but remain unpublished/unexecuted during the CI billing hold.
+Even a future PASS on6e9 cannot certify the larger container65 union.
+Frozenbf27 native packet is retained unchanged but needs a new corrected
+source/image packet before execution.
 
 ## Sources And Ownership
 
