@@ -2,6 +2,16 @@
 
 ## Docker And Controls Integration Gate
 
+The actual compiler blocker is now identified, not guessed: authenticated
+run37964514708 reports E0609 at acceptance_readback.rs:58:30. Scoped sourcee2e33b2
+replaces the nonexistent Agent.archived_at with AgentStatus::Archived and adds
+archive-status/archive-marker scope coverage. Parent normal mergea634e01 retains
+this fix plus reviewed recovery452, all historical migrations and controls.
+Full compiler/PG acceptance for the fix and broader assembly remains open.
+The old native packet still targetsbf27, which contains the identified compile
+defect; it must not be executed as acceptance of the corrected source. New
+qualified images and a newly reviewed driver/source packet remain necessary.
+
 The [source assembly](plans/2026-10-09-docker-controls-integration.md) now combines
 original-key recovery/controls with Docker15/16/preparation17/configuration18.
 SQL origin checks

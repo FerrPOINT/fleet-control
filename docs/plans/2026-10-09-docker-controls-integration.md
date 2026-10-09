@@ -2,6 +2,26 @@
 
 Status: source assembly; native acceptance is pending.
 
+## Verified Compiler Finding And Scoped Fix
+
+Actual hosted run37964514708 on controlsbc4ee52/source98 terminates check101.
+The safe authenticated artifact11632134258 reports E0609 at
+backend/infra/src/runtime/acceptance_readback.rs:58:30, with no truncated context.
+Its ZIP digest is eeea7798af77fa3870cd0bb399cdc05c53bb8fbf1f4c4cbf6a2b65e6d72d5d41.
+Both independent readbacks and scratch/DB/platform cleanup succeed. This is
+failure evidence, not backend acceptance.
+
+Scoped direct successor of98, e2e33b2e655df84d47ceabcc781495d60ed4e8c0,
+uses the domain archive status instead of a nonexistent DTO field and extends
+the existing scope regression, without changing test identities, API or schema.
+Normal parent mergea634e01052f6b2a658b104e589b08ab5157ac17c combines it with
+recoveriese391f25/452. The sole source conflict preserves the async Base-verified
+origin and generation checks while using AgentStatus::Archived. Parent formatting,
+README and diff checks pass; no Rust compilation/PG/native proof is claimed.
+The next full46 hosted gate uses exact fixede2e33b2; it cannot certify the larger
+container65 union. Frozenbf27 native packet is retained unchanged but needs a new
+corrected source/image packet before execution.
+
 ## Sources And Ownership
 
 This isolated assembly normally merges frozen UI/control/recovery source

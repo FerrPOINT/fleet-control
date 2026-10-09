@@ -11,11 +11,11 @@ checkouts rather than restarting completed work:
 | Owner    | Current assignment                                                 | Required handoff                                                                                                              |
 | -------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
 | Feynman  | Generic Base recovered preparation/attachment capability            | Separate utility successor fromae8; original commands, valid custody, physical exit and no unknown-effect redispatch; no business planner |
-| Pascal   | Source-qualified controller/Hermes image build preparation           | Separate recipes/provenance for missing images; own candidate tags, no accepted-runtime replacement or implicit native fallback |
-| Ptolemy  | Hosted Forge full12 preparation for exact25be                       | Preserve all stages, real PG/OCI, exact daemon versions and original disk reserve; no paid runner or dispatch before review      |
-| Anscombe | Safe compiler diagnostics for failed frozen98 hosted gate           | New controls successor after actual check failure; bounded codes/locations only, all46 stages retained, no blind rerun            |
-| Leibniz  | Independent configuration restart452 crash/custody review            | Exact phase matrix, original-effect/readback/fence counterexamples and source findings; no product edits or heavy jobs           |
-| Parent   | Normal integration, documentation and scoped publication            | Resolve906/c1ff merge, retain migration history, freeze source for new driver packet, admit gates and verify exact-head PRs      |
+| Pascal   | Qualify original image dependencies and an owned build wrapper      | Frozen recipe packet exists; prove parent toolchain/venv inputs and cleanup before any candidate build, no accepted tag changes |
+| Ptolemy  | Review a genuinely fresh hosted Forge test environment              | Preserve full12 semantics/reserves/deadlines; distinguish old QA daemon identity from product custody and assess bounded jobs |
+| Anscombe | Full backend gate preparation for proved archive fixe2e33b2         | Actual safe diagnosticE0609 obtained; normal controls/source merge with all46 stages and135 ignored identities retained |
+| Leibniz  | Independently review archive fix and its scope regression           | Recovery mergee391 completed and parent-verified; check the new status-only/marker-only archive cases without heavy execution |
+| Parent   | Normal integration, documentation and scoped publication            | Recovery452 and archive fix integrated ata634; review/admit new gates and publish only exact-head qualified release units |
 
 These are continuations of the existing five workers, not additional competing
 implementations. Each has a separate write set; the parent UI is read-only to
@@ -23,6 +23,13 @@ reviewers. Heavy jobs remain parent-admitted one at a time. The Forge prepare
 has terminated failed and cleaned its exact disposable resources; no local
 heavy job is currently admitted. Capacity and exact-image prerequisites fail.
 No successor is admitted merely because a worker prepared an invocation.
+
+Safe diagnostics controlsbc4ee52 were reviewed, passed41 pure tests and were
+normally pushed once. Actual run37964514708 fails check with authenticated E0609
+at acceptance_readback.rs:58:30; both independent readbacks and all cleanup
+steps succeed. Parent fixes the proved source defect in separatee2e33b2, then
+normally merges it with recoverye391 ata634. The old source packets remain
+immutable. Full backend/PG and corrected native acceptance still remain open.
 
 Independent source review closes both configuration18 findings at906 and the
 PG capability-fixture finding atc1ff. These are not Rust/PG/native passes.
