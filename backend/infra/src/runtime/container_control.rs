@@ -1340,6 +1340,7 @@ mod mapped_tests {
             "runtime_boundary.py",
             "runtime_bootstrap.py",
             "runtime_control.py",
+            "runtime_replacement.py",
         ] {
             std::fs::write(root.0.join("scripts").join(name), source).unwrap();
         }

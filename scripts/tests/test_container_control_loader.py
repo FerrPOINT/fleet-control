@@ -135,6 +135,92 @@ class ContainerControlLoaderTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr.decode())
         self.assertEqual(json.loads(result.stdout)["result"], "v\u00e9rified")
 
+    def rust_fixture(self, filename, function, bindings):
+        text = (ROOT / "backend/infra/src/runtime" / filename).read_text()
+        marker = "async fn " + function + "("
+        self.assertEqual(text.count(marker), 1)
+        body = text.split(marker, 1)[1]
+        setup = body.split("let control = ContainerControl::new(", 1)[0]
+        self.assertEqual(re.findall(r'"(runtime_\w+\.py)"', setup),
+                         [name + ".py" for name in self.names()])
+        arrays = re.findall(r'let sources = \[(.*?)\];', setup, re.S)
+        self.assertEqual(len(arrays), 1)
+        self.assertEqual(arrays[0].count(".to_owned()"), 3)
+        self.assertEqual(len(re.findall(r'\bsource\b', arrays[0])), 1)
+        templates = re.findall(r'let source = format!\(\s*r#"(.*?)"#,', setup, re.S)
+        self.assertEqual(len(templates), 1)
+        # This is only the two reviewed fixture templates, not a Rust format parser.
+        source = templates[0].replace("{{", "{").replace("}}", "}")
+        for key, value in bindings.items():
+            slot = "{" + key + ":?}"
+            self.assertEqual(source.count(slot), 1)
+            source = source.replace(slot, json.dumps(value))
+        self.assertNotRegex(source, r'\{\w+:\?\}')
+        return source.encode()
+
+    def test_rust_preparation_fixture_uses_four_modules_and_main_entry(self):
+        operation = "00000000-0000-4000-8000-000000000001"
+        receipt = {"state": "prepared", "registration": {"operation_id": operation}}
+        self.sources[2] = self.rust_fixture(
+            "container_preparation_tests.rs",
+            "adapter_fake_preserves_original_command_on_unknown_readback",
+            {"operation": operation, "encoded": json.dumps(receipt)},
+        )
+        request = {
+            "protocol_version": 1, "action": "prepare", "context": "fixture",
+            "policy": {}, "compose": str(self.root / "start.json"),
+            "journal": str(self.root / "launch.sqlite"),
+            "process": {"environment": {"API_SERVER_KEY": "private-original"}},
+            "operation_id": operation, "creation_compose": str(self.root / "create.json"),
+            "creation_journal": str(self.root / "create.sqlite"),
+        }
+        first = self.execute(request=request)
+        self.assertEqual(first.returncode, 2, first.stderr.decode())
+        self.assertEqual(json.loads(first.stdout)["result"], {"state": "held"})
+        request["action"] = "reconcile_preparation"
+        for _ in range(2):
+            replay = self.execute(request=request)
+            self.assertEqual(replay.returncode, 0, replay.stderr.decode())
+            self.assertEqual(json.loads(replay.stdout)["result"], receipt)
+        self.assertEqual((self.root / "create.sqlite").read_text(),
+                         "prepare\nreconcile_preparation\nreconcile_preparation\n")
+
+    def test_rust_observe_fixture_uses_four_modules_and_read_only_retry(self):
+        original = {"operation_id": "original-operation"}
+        snapshot = {"init_pid": 42, "started_at": "2026-10-09T10:00:00Z"}
+        receipt = {"state": "observed", "observation": "running", "snapshot": snapshot}
+        self.sources[2] = self.rust_fixture(
+            "container_activation.rs",
+            "read_only_observe_failure_retries_original_command_until_recovery",
+            {"original": json.dumps(original), "receipt": json.dumps(receipt)},
+        )
+        request = {"protocol_version": 1, "action": "observe", "registration": original}
+        first = self.execute(request=request)
+        self.assertEqual(first.returncode, 2, first.stderr.decode())
+        self.assertEqual(json.loads(first.stdout)["result"],
+                         {"state": "held", "observation": "unavailable", "snapshot": None})
+        second = self.execute(request=request)
+        self.assertEqual(second.returncode, 0, second.stderr.decode())
+        self.assertEqual(json.loads(second.stdout)["result"], receipt)
+        self.assertEqual((self.root / "read-attempts").read_text(), "observe\nobserve\n")
+
+    def test_heartbeat_rust_fixture_materializes_the_entire_sealed_source_set(self):
+        text = SOURCE.read_text()
+        body = text.split("async fn foreign_owner_cannot_deliver_or_extend_any_heartbeat()", 1)[1]
+        setup = body.split("let (mut files, r, _)", 1)[0]
+        self.assertEqual(re.findall(r'"(runtime_\w+\.py)"', setup),
+                         [name + ".py" for name in self.names()])
+
+    def test_lineage_single_down_asserts_exact_recovered_activation_removal(self):
+        text = (ROOT / "backend/migration/src/lineage_tests.rs").read_text()
+        body = text.split("async fn fresh_canonical_install_is_repeatable()", 1)[1]
+        body = body.split("async fn common_prefix_completes_with_canonical_foundation()", 1)[0]
+        self.assertIn("Migrator::down(&fixture.db, Some(1))", body)
+        self.assertIn("assert_eq!(after_down.len(), before.len() - 1)", body)
+        self.assertIn(".filter(|(version, _)| version != RECOVERED_ACTIVATION)", body)
+        self.assertIn("Migrator::up(&fixture.db, None)", body)
+        self.assertNotIn("ledger(&fixture.db).await.len(), 18", body)
+
 
 if __name__ == "__main__":
     unittest.main()

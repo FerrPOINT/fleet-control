@@ -10,20 +10,26 @@ checkouts rather than restarting completed work:
 
 | Owner    | Current assignment                                                 | Required handoff                                                                                                              |
 | -------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| Feynman  | Fleet recovered configuration activation and five review fixes      | Frozen source, additive migration19, regression tests for inherited lease, redacted Debug, original stop recovery, child stop and effective-generation continuity |
-| Pascal   | PM structured-tool contract and executable conformance checks       | Exact-run versus conversation identity, no environment fallback authority, stale/concurrent-run and unknown-write checks; explicit missing pre-model admission primitive |
-| Ptolemy  | Forge hermetic full12 controls and three review fixes                | Frozen controls, actual inventory adapter, bounded complete job budget and safe RequestLease process cleanup; all12 original stage budgets retained |
-| Anscombe | Independent Forge frozen-source closure                             | Bounded Linux process proofs and closure of inventory, global-deadline and stale-PID findings; no worker source edits |
-| Leibniz  | Independent Fleet frozen-source closure                             | Closure of all five findings with exact source identity and honest separation of pure, SQL-prepared, Rust and PostgreSQL evidence |
+| Feynman  | Next configuration activation from a recovered effective child      | New normal successor to frozen f326; drain, inherited lease, readiness and rollback regressions; no UI, PM or Forge edits |
+| Pascal   | Tracked PM conformance and remaining producer admission contract     | Frozen dc6ab, reproducible checks and exact missing primitives; no invented endpoint or runtime enablement |
+| Ptolemy  | Forge full12 controls and independent-review fixes                   | Frozen 34c, then scoped successor for confirmed findings; all12 stage budgets retained; no push during CI hold |
+| Anscombe | Independent Forge frozen-source closure                             | Exact34c inventory, complete deadline and process-group custody review; actual full12 remains separate |
+| Leibniz  | Independent Fleet and PM conformance source review                  | Close parent fixture/lineage fixes and review dc6ab without editing implementation; distinguish source checks from Rust/PG/live evidence |
 | Parent   | Normal integration, documentation and scoped publication             | Base PR180 published after exact-head Linux224 and independent review; accept remaining units separately, do not certify full SDLC |
 
 ### Current Frozen Handoffs
 
 - Fleet worker sourcef326cdab4045f726449bf07e61a96a1b75e3063a has sole
-  parent30f0993. All five finding fixes are submitted for independent closure.
-  Parent merge-tree preflight against3fa0847 is conflict-free (candidate
-  tree3864fbf6ef66f930b3006c9a0b2b81a6819faf28), not an integrated commit or
-  a Rust/PG gate. Sequential activation from a recovered effective child remains
+  parent30f0993. Independent review closes the original five findings at source/
+  pure-check level. Normal parent merge44fa0b562702ce1520031d930c36e9a437aec0d6
+  integrates it without rewriting either parent. Review also identifies stale
+  three-module Rust fixtures and a stale single-down migration count. The parent
+  fixes the fixture module inventory/main entry and asserts the exact preceding
+  migration ledger rather than weakening the down/up check. Sixteen loader and
+  utility tests pass, including execution of the two captured Python fixture
+  templates through the actual loader. These are not Rust compilation or a
+  PostgreSQL migration roundtrip; both remain required. Sequential activation
+  from a recovered effective child remains
   incomplete and is assigned as a separate normal successor, not accepted as
   a permanent limitation of the requested configuration lifecycle.
 - Forge controls34c80c1b2921550ed0e97961be89089dc5afc075 has sole product
@@ -34,9 +40,12 @@ checkouts rather than restarting completed work:
 - PM conformance packet seal425f0d686a7fff71541f979edc04d4e1718446679e7d8fffc577be5b8be64b2f
   is independently repeated by parent:24/24, zero skips,457 canonical imported
   Hermes Git blobs, scratch absent. Eight real-module probes are distinct from
-  sixteen synthetic contract-oracle cases. Admission remains BLOCKED. Porting
-  the reproducible tests/requirements into a separate tracked Fleet source unit
-  is assigned; no runtime endpoint or capability is enabled by these tests.
+  sixteen synthetic contract-oracle cases. Admission remains BLOCKED. The tracked
+  successor dc6ab80091eb4d7ac8d8f5c02d233e49b2f51a65 has sole parent3fa0847;
+  worker reports24 passing cases, and parent/independent source review is next.
+  Its runner requires an explicit Hermes checkout. The old packet seal does not
+  authenticate this new tracked unit; no runtime endpoint or capability is
+  enabled by these tests.
 - Parent chat fix3fa084753dc3e755c762e0ad8c3554386632d71b preserves the
   original uncertain clarification answer across questions/versions. Node22
   passes331 tests, typecheck/lint/build and the three-browser fixture; nine

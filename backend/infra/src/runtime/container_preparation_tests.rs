@@ -40,18 +40,20 @@ async fn adapter_fake_preserves_original_command_on_unknown_readback() {
     let source = format!(
         r#"import json,sys
 from pathlib import Path
-r=json.load(sys.stdin)
-assert r['protocol_version']==1
-assert r['operation_id']=={operation:?}
-assert r['process']['environment']['API_SERVER_KEY']=='private-original'
-assert set(r)=={{'protocol_version','action','context','policy','compose','journal','process','operation_id','creation_compose','creation_journal'}}
-with Path(r['creation_journal']).open('a') as f: f.write(r['action']+'\n')
-result=json.loads({encoded:?})
-if r['action']=='prepare':
-    print(json.dumps({{'protocol_version':1,'action':r['action'],'result':{{'state':'held'}}}}))
-    sys.exit(2)
-assert r['action']=='reconcile_preparation'
-print(json.dumps({{'protocol_version':1,'action':r['action'],'result':result}}))
+def main():
+    r=json.load(sys.stdin)
+    assert r['protocol_version']==1
+    assert r['operation_id']=={operation:?}
+    assert r['process']['environment']['API_SERVER_KEY']=='private-original'
+    assert set(r)=={{'protocol_version','action','context','policy','compose','journal','process','operation_id','creation_compose','creation_journal'}}
+    with Path(r['creation_journal']).open('a') as f: f.write(r['action']+'\n')
+    result=json.loads({encoded:?})
+    if r['action']=='prepare':
+        print(json.dumps({{'protocol_version':1,'action':r['action'],'result':{{'state':'held'}}}}))
+        return 2
+    assert r['action']=='reconcile_preparation'
+    print(json.dumps({{'protocol_version':1,'action':r['action'],'result':result}}))
+    return 0
 "#,
         operation = operation.to_string(),
         encoded = receipt.to_string()
@@ -60,11 +62,13 @@ print(json.dumps({{'protocol_version':1,'action':r['action'],'result':result}}))
         "# fake boundary\n".to_owned(),
         "# fake bootstrap\n".to_owned(),
         source,
+        "# fake replacement\n".to_owned(),
     ];
     for (name, source) in [
         "runtime_boundary.py",
         "runtime_bootstrap.py",
         "runtime_control.py",
+        "runtime_replacement.py",
     ]
     .iter()
     .zip(&sources)

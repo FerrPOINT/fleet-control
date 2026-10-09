@@ -173,7 +173,16 @@ async fn fresh_canonical_install_is_repeatable() {
             .is_empty()
     );
     Migrator::down(&fixture.db, Some(1)).await.unwrap();
-    assert_eq!(ledger(&fixture.db).await.len(), 18);
+    let after_down = ledger(&fixture.db).await;
+    assert_eq!(after_down.len(), before.len() - 1);
+    assert_eq!(
+        after_down,
+        before
+            .iter()
+            .filter(|(version, _)| version != RECOVERED_ACTIVATION)
+            .cloned()
+            .collect::<Vec<_>>()
+    );
     Migrator::up(&fixture.db, None).await.unwrap();
     assert_eq!(ledger(&fixture.db).await.len(), 20);
     fixture.close().await;

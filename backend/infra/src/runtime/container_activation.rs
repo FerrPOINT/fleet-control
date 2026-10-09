@@ -1852,16 +1852,17 @@ mod tests {
         let source = format!(
             r#"import json,sys
 from pathlib import Path
-r=json.load(sys.stdin)
-assert r['action']=='observe'
-assert r['registration']==json.loads({original:?})
-audit=Path(sys.argv[1])/'read-attempts'
-failed=not audit.exists()
-with audit.open('a') as f: f.write(r['action']+'\n')
-result=json.loads({receipt:?})
-if failed: result.update(state='held',observation='unavailable',snapshot=None)
-print(json.dumps({{'protocol_version':1,'action':r['action'],'result':result}}))
-sys.exit(2 if failed else 0)
+def main():
+    r=json.load(sys.stdin)
+    assert r['action']=='observe'
+    assert r['registration']==json.loads({original:?})
+    audit=Path(sys.argv[1])/'read-attempts'
+    failed=not audit.exists()
+    with audit.open('a') as f: f.write(r['action']+'\n')
+    result=json.loads({receipt:?})
+    if failed: result.update(state='held',observation='unavailable',snapshot=None)
+    print(json.dumps({{'protocol_version':1,'action':r['action'],'result':result}}))
+    return 2 if failed else 0
 "#,
             original = serde_json::to_string(r).unwrap(),
             receipt = receipt.to_string()
@@ -1870,11 +1871,13 @@ sys.exit(2 if failed else 0)
             "# fake boundary\n".to_owned(),
             "# fake bootstrap\n".to_owned(),
             source,
+            "# fake replacement\n".to_owned(),
         ];
         for (name, source) in [
             "runtime_boundary.py",
             "runtime_bootstrap.py",
             "runtime_control.py",
+            "runtime_replacement.py",
         ]
         .iter()
         .zip(&sources)
