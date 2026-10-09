@@ -30,14 +30,20 @@ def main():
         "test_runtime_control.MappedLifecycleTests": (
             "test_mapped_prepare_start_observe_stop_replay_preserves_original_identity",
             "test_actual_mapping_drift_denies_all_lifecycle_actions_without_effects",
+            "test_recovery_concurrent_same_key_and_readback_have_one_immutable_receipt",
+            "test_recovery_unknown_ack_readback_after_expiry_never_renews_owner_authority",
+            "test_recovery_missing_foreign_or_linked_journal_never_adopts_or_changes_it",
+            "test_recovery_protocol_is_closed_before_any_engine_call",
+            "test_controller_restart_observation_denies_unacknowledged_or_unknown_agent_start",
+            "test_controller_restart_observation_never_rebuilds_missing_original_documents",
         ),
     }
     names = ["scripts.tests." + cls + "." + name for cls, tests in cases.items() for name in tests]
     suite = unittest.defaultTestLoader.loadTestsFromNames(names)
-    if suite.countTestCases() != 9:
+    if suite.countTestCases() != 15:
         raise SystemExit("Mandatory activation contract selectors changed")
     result = unittest.TextTestRunner(verbosity=2).run(suite)
-    return 0 if result.wasSuccessful() and result.testsRun == 9 and not result.skipped else 1
+    return 0 if result.wasSuccessful() and result.testsRun == 15 and not result.skipped else 1
 
 
 if __name__ == "__main__":

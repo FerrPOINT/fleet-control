@@ -1,6 +1,6 @@
 //! Transactions couple activation progress, launch custody and effective publication.
 use super::*;
-use app::container_activation::{Activation, Claim, Phase, held, stopped};
+use app::container_activation::{Activation, Claim, Phase, RecoveryHold, held, stopped};
 use app::container_runtime::ContainerLaunch;
 use sea_orm::DatabaseTransaction;
 
@@ -29,12 +29,17 @@ pub(super) async fn get(
 
 pub(super) async fn pending(
     repo: &PostgresFleetRepository,
-    owner: Uuid,
+    after_agent: Option<Uuid>,
 ) -> Result<Vec<domain::AgentConfigRevision>, AppError> {
     let rows = repo.db.query_all(Statement::from_sql_and_values(DatabaseBackend::Postgres,
-        "SELECT agent_id,revision FROM runtime_container_activations WHERE record#>>'{claim,controller_id}'=$1
-            AND record->>'phase' NOT IN ('committed','rolled_back') ORDER BY agent_id LIMIT 16",
-        [owner.to_string().into()])).await.map_err(|_| held())?;
+        "SELECT r.agent_id,r.revision FROM agent_config_revisions r JOIN agent_config_heads h USING(agent_id)
+         LEFT JOIN runtime_container_activations a ON a.agent_id=r.agent_id AND a.revision=r.revision
+         WHERE r.revision=h.desired_revision AND h.draining AND r.state='activating' AND r.claimed_at IS NOT NULL
+            AND ($1::uuid IS NULL OR r.agent_id>$1)
+            AND (a.record IS NULL OR a.record->>'phase' NOT IN ('committed','rolled_back'))
+            AND EXISTS(SELECT 1 FROM runtime_container_launches l WHERE l.agent_id=r.agent_id)
+         ORDER BY r.agent_id LIMIT 16",
+        [after_agent.into()])).await.map_err(|_| held())?;
     let mut revisions = Vec::new();
     for row in rows {
         revisions.push(
@@ -47,6 +52,83 @@ pub(super) async fn pending(
         );
     }
     Ok(revisions)
+}
+
+/// Publish a typed diagnostic and recovery action atomically, without changing any custody.
+pub(super) async fn hold(
+    repo: &PostgresFleetRepository,
+    revision: &domain::AgentConfigRevision,
+    activation: Option<&Activation>,
+    launch: &ContainerLaunch,
+    recovery: &RecoveryHold,
+) -> Result<(), AppError> {
+    let expected = RecoveryHold::new(recovery.controller_id, launch, activation);
+    if recovery.controller_id.is_nil()
+        || recovery.original_controller_id != expected.original_controller_id
+        || recovery.custody_generation != expected.custody_generation
+        || recovery.generation != expected.generation
+        || recovery.operation_id != expected.operation_id
+        || recovery.stop_id != expected.stop_id
+        || recovery.activation_id != expected.activation_id
+        || recovery.phase != expected.phase
+        || recovery.intent_sha256 != expected.intent_sha256
+        || launch.prepared.agent_id != revision.agent_id
+        || activation.is_some_and(|a| !a.tracks_launch(launch))
+    {
+        return Err(held());
+    }
+    let tx = repo.db.begin().await.map_err(|_| held())?;
+    container_runtime::lock(&tx, revision.agent_id).await?;
+    let row = tx.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT r.snapshot,r.last_error,a.record FROM agent_config_revisions r JOIN agent_config_heads h USING(agent_id)
+         LEFT JOIN runtime_container_activations a ON a.agent_id=r.agent_id AND a.revision=r.revision
+         WHERE r.agent_id=$1 AND r.revision=$2 AND h.desired_revision=r.revision AND h.draining
+            AND r.state='activating' AND r.claimed_at IS NOT NULL FOR UPDATE OF r,h",
+        [revision.agent_id.into(),revision.revision.into()])).await.map_err(|_| held())?.ok_or_else(held)?;
+    if row.try_get::<Value>("", "snapshot").map_err(|_| held())? != encode(&revision.snapshot)?
+        || row
+            .try_get::<Option<Value>>("", "record")
+            .map_err(|_| held())?
+            != activation.map(encode).transpose()?
+    {
+        return Err(held());
+    }
+    let original = tx.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT generation FROM runtime_container_launches WHERE agent_id=$1 AND generation=$2 AND controller_id=$3
+            AND prepared=$4 AND state=$5 AND snapshot IS NOT DISTINCT FROM $6
+            AND origin IS NOT DISTINCT FROM $7 AND stop_id=$8 FOR UPDATE",
+        [revision.agent_id.into(),recovery.custody_generation.into(),launch.controller_id.into(),encode(&launch.prepared)?.into(),
+            launch.state.clone().into(),launch.snapshot.clone().into(),launch.origin.clone().into(),launch.stop_id.into()]))
+        .await.map_err(|_| held())?;
+    if original.is_none() {
+        return Err(held());
+    }
+    let payload = encode(recovery)?;
+    let error = serde_json::to_string(&payload).map_err(|_| held())?;
+    if row
+        .try_get::<Option<String>>("", "last_error")
+        .map_err(|_| held())?
+        .as_ref()
+        != Some(&error)
+    {
+        tx.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE agent_config_revisions SET last_error=$3 WHERE agent_id=$1 AND revision=$2",
+            [
+                revision.agent_id.into(),
+                revision.revision.into(),
+                error.into(),
+            ],
+        ))
+        .await
+        .map_err(|_| held())?;
+        tx.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "INSERT INTO audit_log(id,actor_user_id,action,entity_type,entity_id,payload,created_at)
+             VALUES($1,NULL,'agent_config.recovery_required','agent_config',$2,$3,now())",
+            [Uuid::new_v4().into(),revision.agent_id.to_string().into(),
+                serde_json::json!({"revision":revision.revision,"hold":payload}).into()])).await.map_err(|_| held())?;
+    }
+    tx.commit().await.map_err(|_| held())
 }
 
 pub(super) async fn generation_intent_hash(

@@ -1,5 +1,10 @@
 # API
 
+The [config18 restart successor](CONTAINER_ACTIVATION_RECOVERY_RELEASE.md) exposes
+typed recovery reason/action JSON through the existing revision `last_error`
+string and `agent_config.recovery_required` audit event. This is a recovery
+request, not a new command endpoint or successful activation. Drain remains set.
+
 The [config18 P2 successor](CONTAINER_ACTIVATION_PREFLIGHT_FIX.md) adds Docker-only
 rendered-byte preflight and live-custodian read-only retry. No public routes or
 schemas change; invalid targets/unknown effects retain drain.

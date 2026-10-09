@@ -1,5 +1,10 @@
 # Java Agent Adapter Contract
 
+The [config18 restart successor](../CONTAINER_ACTIVATION_RECOVERY_RELEASE.md) only
+discovers Docker activation history. Java/process queues, lifecycle, validation
+and db-only readiness remain unchanged; no fallback or recovered Docker authority
+is granted to these adapters.
+
 The Docker config18 [P2 successor](../CONTAINER_ACTIVATION_PREFLIGHT_FIX.md) changes
 no Java/process validation, provisioning, lifecycle or db-only readiness behavior.
 

@@ -1,5 +1,13 @@
 # Data Model
 
+The [config18 restart successor](CONTAINER_ACTIVATION_RECOVERY_RELEASE.md) adds no
+migration. Read-only keyset discovery includes claimed desired Docker revisions
+with or without a recorded activation. `last_error` and an atomic deduplicated
+audit retain typed recovery action, original phase/command IDs, custody generation
+and original-command/readback hashes. They never change `claimed_at`, activation
+identity, receipts, lease, effective revision or drain. Stale observations cannot
+overwrite newer configuration/progress; existing run and custody fences remain.
+
 The [config18 P2 successor](CONTAINER_ACTIVATION_PREFLIGHT_FIX.md) changes no schema
 or historical custody. `claimed_at` is not cleared to retry; only an unsealed
 read-only plan attempt may be retried by its live worker. Durable native permits

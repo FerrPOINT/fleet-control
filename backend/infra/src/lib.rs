@@ -604,9 +604,18 @@ impl FleetRepository for PostgresFleetRepository {
     }
     async fn pending_container_activations(
         &self,
-        owner: Uuid,
+        after_agent: Option<Uuid>,
     ) -> Result<Vec<domain::AgentConfigRevision>, AppError> {
-        container_activation::pending(self, owner).await
+        container_activation::pending(self, after_agent).await
+    }
+    async fn hold_container_activation(
+        &self,
+        revision: &domain::AgentConfigRevision,
+        activation: Option<&app::container_activation::Activation>,
+        launch: &app::container_runtime::ContainerLaunch,
+        hold: &app::container_activation::RecoveryHold,
+    ) -> Result<(), AppError> {
+        container_activation::hold(self, revision, activation, launch, hold).await
     }
     async fn claim_container_activation(
         &self,

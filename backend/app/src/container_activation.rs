@@ -109,6 +109,129 @@ pub struct Activation {
     pub readiness: Option<Readiness>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RecoveryReason {
+    OriginalCustodyRequired,
+    RecoveredGenerationChangeUnsupported,
+    UnknownOriginalEffect,
+    EvidenceUnavailable,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RecoveryAction {
+    RecoverOriginalCustody,
+    ReconcileOriginalCommand,
+    ResumeOrRollbackOriginalPlanWithCompatibleBase,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RecoveryState {
+    Held,
+}
+
+/// A durable recovery request, not an execution permit or successful activation.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecoveryHold {
+    pub state: RecoveryState,
+    pub reason: RecoveryReason,
+    pub action: RecoveryAction,
+    pub controller_id: Uuid,
+    pub original_controller_id: Uuid,
+    pub custody_generation: Uuid,
+    pub generation: Uuid,
+    pub operation_id: Uuid,
+    pub stop_id: Uuid,
+    pub activation_id: Option<Uuid>,
+    pub phase: Option<Phase>,
+    pub intent_sha256: Option<String>,
+    pub recovery_id: Option<Uuid>,
+    pub recovery_command_sha256: Option<String>,
+    pub readback_sha256: Option<String>,
+}
+
+impl RecoveryHold {
+    pub fn new(
+        controller: Uuid,
+        launch: &ContainerLaunch,
+        activation: Option<&Activation>,
+    ) -> Self {
+        let unknown = activation.is_some_and(|a| {
+            matches!(
+                a.phase,
+                Phase::StoppingPrevious
+                    | Phase::PreparingCandidate
+                    | Phase::StartingCandidate
+                    | Phase::StoppingCandidate
+                    | Phase::PreparingRollback
+                    | Phase::StartingRollback
+            )
+        });
+        let original = &launch.prepared.container.registration;
+        let command = activation
+            .map(|a| match a.phase {
+                Phase::ApplyingCandidate
+                | Phase::PreparingCandidate
+                | Phase::CandidatePrepared
+                | Phase::StartingCandidate
+                | Phase::CandidateRunning
+                | Phase::CandidateReady
+                | Phase::StoppingCandidate
+                | Phase::CandidateStopped => a.claim.candidate.clone(),
+                Phase::ApplyingRollback
+                | Phase::PreparingRollback
+                | Phase::RollbackPrepared
+                | Phase::StartingRollback
+                | Phase::RollbackRunning
+                | Phase::RollbackReady => a.claim.rollback.clone(),
+                _ => Generation {
+                    generation: a.claim.previous.prepared.container.registration.generation,
+                    operation_id: a
+                        .claim
+                        .previous
+                        .prepared
+                        .container
+                        .registration
+                        .operation_id,
+                    stop_id: a.claim.previous.stop_id,
+                },
+            })
+            .unwrap_or(Generation {
+                generation: original.generation,
+                operation_id: original.operation_id,
+                stop_id: launch.stop_id,
+            });
+        Self {
+            state: RecoveryState::Held,
+            reason: if unknown {
+                RecoveryReason::UnknownOriginalEffect
+            } else {
+                RecoveryReason::OriginalCustodyRequired
+            },
+            action: if unknown {
+                RecoveryAction::ReconcileOriginalCommand
+            } else {
+                RecoveryAction::RecoverOriginalCustody
+            },
+            controller_id: controller,
+            original_controller_id: launch.controller_id,
+            custody_generation: original.generation,
+            generation: command.generation,
+            operation_id: command.operation_id,
+            stop_id: command.stop_id,
+            activation_id: activation.map(|a| a.claim.id),
+            phase: activation.map(|a| a.phase),
+            intent_sha256: activation.map(|a| a.claim.intent_sha256.clone()),
+            recovery_id: None,
+            recovery_command_sha256: None,
+            readback_sha256: None,
+        }
+    }
+}
+
 pub fn held() -> AppError {
     AppError::Unavailable("Original Docker activation is held; no replacement, rollback or credential rotation without proof".into())
 }
@@ -130,6 +253,19 @@ pub fn stopped(launch: &ContainerLaunch, proof: &Value, snapshot_hash: &str) -> 
 }
 
 impl Activation {
+    pub fn tracks_launch(&self, launch: &ContainerLaunch) -> bool {
+        std::iter::once(&self.claim.previous)
+            .chain(self.candidate.iter())
+            .chain(self.rollback.iter())
+            .any(|original| {
+                original.controller_id == launch.controller_id
+                    && original.stop_id == launch.stop_id
+                    && same(&original.prepared, &launch.prepared)
+                    && original.snapshot == launch.snapshot
+                    && original.origin == launch.origin
+            })
+    }
+
     pub fn planned(claim: Claim) -> Self {
         Self {
             claim,

@@ -63,6 +63,17 @@ async fn fixture() -> (
     Agent,
     Activation,
 ) {
+    fixture_with_record(true).await
+}
+
+async fn fixture_with_record(
+    recorded: bool,
+) -> (
+    PostgresFleetRepository,
+    DatabaseConnection,
+    Agent,
+    Activation,
+) {
     let url = std::env::var("FLEET_CONTAINER_ACTIVATION_TEST_DATABASE_URL")
         .expect("own activation database required");
     assert_eq!(
@@ -162,7 +173,11 @@ async fn fixture() -> (
         candidate: generation(),
         rollback: generation(),
     };
-    let record = repo.claim_container_activation(&claim).await.unwrap();
+    let record = if recorded {
+        repo.claim_container_activation(&claim).await.unwrap()
+    } else {
+        Activation::planned(claim)
+    };
     (repo, db, a, record)
 }
 
@@ -510,16 +525,149 @@ async fn unknown_preparation_and_foreign_claim_cannot_release_drain() {
             .unwrap()
             .is_none()
     );
-    let pending = repo
-        .pending_container_activations(record.claim.controller_id)
-        .await
-        .unwrap();
+    let pending = repo.pending_container_activations(None).await.unwrap();
     assert!(pending.iter().any(|r| r.agent_id == a.id));
     assert!(
-        repo.pending_container_activations(Uuid::new_v4())
+        repo.pending_container_activations(Some(a.id))
             .await
             .unwrap()
-            .is_empty()
+            .iter()
+            .all(|r| r.agent_id > a.id)
+    );
+    db.close().await.unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires own activation PostgreSQL database"]
+async fn claimed_preplan_survives_restart_as_audited_hold_without_reclaim_or_drain_release() {
+    let (repo, db, a, _) = fixture_with_record(false).await;
+    let pending = repo.pending_container_activations(None).await.unwrap();
+    let revision = pending.iter().find(|r| r.agent_id == a.id).unwrap();
+    assert!(
+        repo.get_container_activation(a.id, 1)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    let before = db
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT claimed_at FROM agent_config_revisions WHERE agent_id=$1 AND revision=1",
+            [a.id.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get::<shared::Timestamp>("", "claimed_at")
+        .unwrap();
+    let launch = repo.get_container_launch(a.id).await.unwrap().unwrap();
+    let hold = RecoveryHold::new(Uuid::new_v4(), &launch, None);
+    assert_ne!(hold.controller_id, launch.controller_id);
+    let (one, two) = tokio::join!(
+        repo.hold_container_activation(revision, None, &launch, &hold),
+        repo.hold_container_activation(revision, None, &launch, &hold)
+    );
+    one.unwrap();
+    two.unwrap();
+    let row = db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT claimed_at,last_error,state FROM agent_config_revisions WHERE agent_id=$1 AND revision=1", [a.id.into()])).await.unwrap().unwrap();
+    assert_eq!(
+        row.try_get::<shared::Timestamp>("", "claimed_at").unwrap(),
+        before
+    );
+    assert_eq!(row.try_get::<String>("", "state").unwrap(), "activating");
+    assert_eq!(
+        serde_json::from_str::<RecoveryHold>(&row.try_get::<String>("", "last_error").unwrap())
+            .unwrap(),
+        hold
+    );
+    let audits = db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT count(*) AS n FROM audit_log WHERE entity_id=$1 AND action='agent_config.recovery_required'",
+        [a.id.to_string().into()])).await.unwrap().unwrap();
+    assert_eq!(audits.try_get::<i64>("", "n").unwrap(), 1);
+    let mut foreign = hold.clone();
+    foreign.generation = Uuid::new_v4();
+    assert!(
+        repo.hold_container_activation(revision, None, &launch, &foreign)
+            .await
+            .is_err()
+    );
+    assert!(repo.agent_is_draining(a.id).await.unwrap());
+    assert!(
+        repo.get_container_configuration(a.id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        repo.get_container_activation(a.id, 1)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(
+        repo.get_container_launch(a.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .controller_id,
+        launch.controller_id
+    );
+    db.close().await.unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires own activation PostgreSQL database"]
+async fn recorded_unknown_restart_audits_original_command_and_rejects_stale_progress() {
+    let (repo, db, a, mut activation) = fixture().await;
+    stopped_previous(&repo, &mut activation).await;
+    let stale = activation.clone();
+    step(&repo, &mut activation, Phase::ApplyingCandidate).await;
+    step(&repo, &mut activation, Phase::PreparingCandidate).await;
+    let revision = repo
+        .pending_container_activations(None)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|r| r.agent_id == a.id)
+        .unwrap();
+    let launch = repo.get_container_launch(a.id).await.unwrap().unwrap();
+    let hold = RecoveryHold::new(Uuid::new_v4(), &launch, Some(&activation));
+    assert_eq!(hold.generation, activation.claim.candidate.generation);
+    assert_eq!(hold.operation_id, activation.claim.candidate.operation_id);
+    assert_eq!(hold.reason, RecoveryReason::UnknownOriginalEffect);
+    repo.hold_container_activation(&revision, Some(&activation), &launch, &hold)
+        .await
+        .unwrap();
+    let stale_hold = RecoveryHold::new(hold.controller_id, &launch, Some(&stale));
+    assert!(
+        repo.hold_container_activation(&revision, Some(&stale), &launch, &stale_hold)
+            .await
+            .is_err()
+    );
+    let mut changed = revision.clone();
+    changed.snapshot.config.soul_md.push_str("changed");
+    assert!(
+        repo.hold_container_activation(&changed, Some(&activation), &launch, &hold)
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        serde_json::to_value(
+            repo.get_container_activation(a.id, 1)
+                .await
+                .unwrap()
+                .unwrap()
+        )
+        .unwrap(),
+        serde_json::to_value(&activation).unwrap()
+    );
+    assert!(repo.agent_is_draining(a.id).await.unwrap());
+    assert!(
+        repo.get_container_configuration(a.id)
+            .await
+            .unwrap()
+            .is_none()
     );
     db.close().await.unwrap();
 }
