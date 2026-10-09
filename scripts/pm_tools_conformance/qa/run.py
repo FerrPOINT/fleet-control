@@ -43,9 +43,20 @@ FLEET_PATHS = (
 )
 
 
-def git(repo, *args):
-    return subprocess.check_output(["git", "-C", str(repo), *args], stderr=subprocess.PIPE,
-                                   env=git_environment())
+def remaining_budget(deadline):
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise TimeoutError("original 90s child/verification deadline exhausted")
+    return remaining
+
+
+def git(repo, *args, deadline=None):
+    timeout = None if deadline is None else remaining_budget(deadline)
+    result = subprocess.check_output(["git", "-C", str(repo), *args], stderr=subprocess.PIPE,
+                                     env=git_environment(), timeout=timeout)
+    if deadline is not None:
+        remaining_budget(deadline)
+    return result
 
 
 def git_environment():
@@ -78,8 +89,8 @@ def verify_inputs():
         raise RuntimeError("Hermes resource checkout is not clean")
 
 
-def tree(repo, pin):
-    records = git(repo, "ls-tree", "-r", "-z", pin).split(b"\0")
+def tree(repo, pin, *, deadline=None):
+    records = git(repo, "ls-tree", "-r", "-z", pin, deadline=deadline).split(b"\0")
     result = {}
     for record in records:
         if not record:
@@ -88,6 +99,8 @@ def tree(repo, pin):
         mode, kind, oid = header.decode("ascii").split()
         if kind == "blob" and mode in ("100644", "100755"):
             result[path.decode("utf-8")] = oid
+    if deadline is not None:
+        remaining_budget(deadline)
     return result
 
 
@@ -146,23 +159,28 @@ class GitBlobReader:
             raise RuntimeError("owned Git blob reader did not exit cleanly")
 
 
-def verify_import_provenance(imports, timeout):
-    files = tree(HERMES, PINS["hermes"])
+def verify_import_provenance(imports, *, deadline):
+    remaining_budget(deadline)
+    files = tree(HERMES, PINS["hermes"], deadline=deadline)
     for name, entry in imports.items():
         if files.get(name) != entry["git_blob"]:
             raise ValueError("receipt import absent from pinned Git tree")
     entries = list(imports.values())
     requested = "".join(entry["git_blob"] + "\n" for entry in entries).encode("ascii")
     completed = subprocess.run(["git", "-C", str(HERMES), "cat-file", "--batch"],
-                               input=requested, capture_output=True, check=True, timeout=timeout,
+                               input=requested, capture_output=True, check=True,
+                               timeout=remaining_budget(deadline),
                                env=git_environment())
+    remaining_budget(deadline)
     stream = io.BytesIO(completed.stdout)
     for entry in entries:
+        remaining_budget(deadline)
         blob = read_git_blob(stream, entry["git_blob"])
         if len(blob) != entry["bytes"] or sha(blob) != entry["sha256"]:
             raise ValueError("receipt import content hash/size mismatch")
     if stream.read(1):
         raise ValueError("unexpected extra Git batch output")
+    remaining_budget(deadline)
 
 
 class BlobSource(importlib.abc.Loader):
@@ -364,25 +382,26 @@ def run():
             timeout_stage = "child execution"
             completed = subprocess.run([sys.executable, "-B", "-X", "utf8", str(Path(__file__).resolve()),
                                         "--hermes-repo", str(HERMES), "--fleet-pin", PINS["fleet"],
-                                        "--child", temp], env=env, capture_output=True, timeout=90)
+                                        "--child", temp], env=env, capture_output=True,
+                                        timeout=remaining_budget(deadline))
             (evidence / "tests.log").write_bytes(completed.stdout + completed.stderr)
             receipt = scratch_path / "receipt.json"
             report["exit_code"] = completed.returncode
             timeout_stage = "receipt validation"
+            remaining_budget(deadline)
             execution = load_receipt(receipt)
             report["execution"] = execution
             validate_receipt(execution, completed.returncode, PINS)
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise RuntimeError("receipt validation exceeded original 90s budget")
-            verify_import_provenance(execution["git_imports"], timeout=remaining)
+            verify_import_provenance(execution["git_imports"], deadline=deadline)
+            remaining_budget(deadline)
             report["receipt_validated"] = True
-        report["donor_status_after"] = {name: git(repo, "status", "--porcelain").decode()
+        report["donor_status_after"] = {name: git(repo, "status", "--porcelain", deadline=deadline).decode()
                                         for name, repo in (("fleet", FLEET), ("hermes", HERMES))}
         if report["donor_status_before"] != report["donor_status_after"]:
             raise RuntimeError("donor status changed during probes")
         if before != packet_inventory():
             raise RuntimeError("packet changed during probes")
+        remaining_budget(deadline)
         report["status"] = "PASS_OFFLINE_ONLY"
     except subprocess.TimeoutExpired as exc:
         log = evidence / "tests.log"

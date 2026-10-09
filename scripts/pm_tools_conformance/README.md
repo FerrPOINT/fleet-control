@@ -61,9 +61,11 @@ Exit0 without a receipt, FAIL, malformed/ambiguous JSON, wrong closed fields,
 inventory/selectors/counts/pins, unsafe flags or incomplete provenance is FAIL.
 No new endpoint, producer capability or runtime authority is added.
 
-The original 90-second execution budget is NOT increased; receipt batch
-verification uses only its remaining time. Import progress and 30-second
-repeating diagnostic stack dumps identify the pending phase on a future
+The original 90-second execution budget is NOT increased. One absolute deadline
+covers child execution and all subsequent verification. Each verification Git
+call, including `ls-tree` and final donor status, recomputes its remaining timeout;
+readback/hash completion and the final PASS decision recheck that deadline.
+Import progress and 30-second repeating diagnostic stack dumps identify the pending phase on a future
 authorized run. Existing sealed evidence is never overwritten.
 
 Runner unit tests are a separate synthetic boundary family, not additional
@@ -73,11 +75,19 @@ Hermes probes or live acceptance:
 python -B -X utf8 -m unittest discover -s scripts/pm_tools_conformance/runner_tests -v
 ```
 
-This family has 18 cases, including missing/FAIL/wrong-inventory/forged-exit0
+This family has 28 cases, including missing/FAIL/wrong-inventory/forged-exit0
 negative cases, full parent run() failure paths, canonical batch/hash/parity
-checks and exact-handle cleanup failure. The 24 conformance cases remain
-unchanged and separate. Successor conformance execution awaits parent review;
-runner-unit PASS does not accept the historical failed or a future live run.
+checks and exact-handle cleanup failure. Ten deadline cases include the review
+counterexample (child89s + tree2s must FAIL at virtual t=91), exhaustion before
+launch, fresh batch timeouts, late readback/hashing and denial before PASS.
+The 24 conformance cases remain unchanged and separate.
+
+Frozen `e05e77e7c41803a597b07ef669d915e7cae44d15` has a separately retained actual
+parent run `run-c74568ddf359`: 24 cases, receipt validated, scratch absent,
+PASS_OFFLINE_ONLY. That fast execution is not invalidated by the independent
+deadline finding; nor does it validate this deadline successor. Successor
+conformance execution awaits parent review. Runner-unit PASS does not accept
+the historical failed or a future live run.
 
 ## Scope and interpretation
 
