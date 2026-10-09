@@ -8,14 +8,14 @@ records work ownership, not completion or permission to deploy.
 The renewed parallel split keeps the existing workers and their isolated
 checkouts rather than restarting completed work:
 
-| Owner    | Current assignment                                                     | Required handoff                                                                                                     |
-| -------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Feynman  | Automatic Docker provisioning, isolated unit17 after mapped recovery16 | Source commit, focused checks, durable preparation/reconciliation evidence and remaining capabilities                |
-| Pascal   | Independent correctness review of mapped recovery16                    | Findings with exact locations and missing regressions, or an explicit no-findings report; no edits to provisioning17 |
-| Ptolemy  | Complete Forge 12-stage diagnostic gate preparation                    | Immutable helper/seal, pure tests, invocation and exact cleanup; preserve the original aggregate deadline            |
-| Anscombe | Recover original Git ancestry for hosted OpenAPI publication           | Complete-history proof or exact missing-object blocker; no rewritten ancestry or unapproved push                     |
-| Leibniz  | Retarget backend acceptance preparation to integrated source           | Exact-source test inventory, strict schema/migration gates, pure helper tests and immutable preparation seal         |
-| Parent   | Chat/control UI, integration and scoped PR publication                 | Generated types, receipt-state/readback UX, browser evidence and exact-head release checks                           |
+| Owner    | Current assignment                                                  | Required handoff                                                                                                                      |
+| -------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Feynman  | Configuration activation/drain/rollback after frozen provisioning17 | Separate source unit with exact revision/generation evidence, focused checks and explicit Base capability gaps                        |
+| Pascal   | Fix four independently reviewed defects in mapped recovery16        | Canonical utility hashes, Unicode mapping parity, lease-loop isolation and foreign-owner heartbeat safety; no edits to provisioning17 |
+| Ptolemy  | Complete Forge 12-stage diagnostic gate preparation                 | Immutable helper/seal, pure tests, invocation and exact cleanup; preserve the original aggregate deadline                             |
+| Anscombe | Independent review of generated-contract/readback UI integration    | Precise findings covering scoped receipts, truthful control states and narrow security migration; no Docker implementation overlap    |
+| Leibniz  | Retarget backend acceptance preparation to integrated source        | Exact-source test inventory, strict schema/migration gates, pure helper tests and immutable preparation seal                          |
+| Parent   | Chat/control UI, integration and scoped PR publication              | Generated types, receipt-state/readback UX, browser evidence and exact-head release checks                                            |
 
 The parent integration is frozen at
 `7f9ae892f9db482bbf44fda5d3082a074b6421b1`: a normal merge of the checked
@@ -29,6 +29,37 @@ ignored integration cases. An inventory or prepared command is not a test pass.
 All five assignments have been sent to the workers. Only the parent coordinates
 heavy-job admission, integration and publication; workers do not independently
 deploy or push release branches.
+
+## Latest Frozen Results
+
+Parent source `0e854c0e97beb9b3ac64eb1415247ce81604a460` retains the integrated
+backend and adds authentic generated OpenAPI, typed GET-only command readback,
+explicit security migration checks and regenerated fixture evidence. All286
+frontend tests, typecheck/build/targeted lint, schema equality, contract snapshot,
+compatibility8 tests and all three browser fixture cases pass. Nine screenshots
+are generated/verified; native execution and automatic UI uncertainty settlement
+remain unaccepted. Leibniz retargets the strict backend preparation to this SHA.
+
+Original ancestry recovery is complete in a standalone object DB, with fsck
+passing and no rewritten history. The parent normal-pushed build-only commit
+`db2bb4bd`; [hosted run37945042300](https://github.com/FerrPOINT/fleet-control/actions/runs/37945042300)
+successfully generated the exact fc6 source schema. Both worker and parent
+authenticated artifact11622004476. No release PR or runtime deployment follows
+from this generator run. The worker now reviews the consumer independently.
+
+Automatic initial Docker preparation is frozen separately at
+`337aac87092be42027f669fc0730858f3724824f`, one own migration17. Fourteen Python
+checks and light source gates pass; Rust/PG/physical Docker remain pending.
+Pascal's independent16 review found canonical Git/CRLF utility hash mismatch,
+Unicode mapping serialization mismatch, slow-loop lease expiry and foreign-owner
+heartbeat settlement risks. Fixes are a separate source unit, not silently
+folded into the frozen provisioning commit. Config activation and replacement
+remain Feynman's next implementation scope, not completed by preparation17.
+
+Forge's reviewed diagnostic full12 helper passes35 pure integration tests
+independently. Prepare-only orchestration is authorized with the original
+resource/ownership guards; actual run requires a fresh seal review and separate
+ACK. No inherited partial stage result is promoted to acceptance.
 
 ## Work Ownership
 
