@@ -1,9 +1,13 @@
 # Data Model
 
-PM execution lease readback is ephemeral typed Tracker evidence, not a new Fleet
-lease table or durable dispatch permission. The existing credential journal's
-intent/ACK remains unchanged after readback failure; no backfill, migration or
-run is created. See [contract](contracts/PM_EXECUTION_LEASE_READBACK_V1.md).
+PM execution lease readback is typed Tracker evidence, not Fleet-owned lease
+authority or dispatch permission. The internal claim coordinator stores its
+original command/hash and immutable acknowledgement in the existing creation
+operation's optional `execution_lease` journal. Additive migration
+`m20261009_000023_pm_execution_lease` guards its assignment binding, closed shape
+and monotonic progress. Earlier migration bytes and operations without the field
+are preserved; no backfill or run is created. Downgrade refuses retained claim
+recovery material. See [contract](contracts/PM_EXECUTION_LEASE_READBACK_V1.md).
 
 Original preparation readback verifies the existing
 `runtime_container_preparations` row under the same agent/runtime/configuration/

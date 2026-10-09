@@ -42,6 +42,7 @@ impl PostgresFleetRepository {
             || operation.reservation.is_some()
             || operation.session_id.is_some()
             || operation.credentials.is_some()
+            || operation.execution_lease.is_some()
         {
             return Err(AppError::validation("invalid PM creation operation"));
         }
@@ -142,6 +143,21 @@ impl PostgresFleetRepository {
             }
         }
         let credential_event = match &proof {
+            PmDraftProof::LeaseIntent(_) if operation.execution_lease.is_none() => Some((
+                "pm_lease.intent",
+                serde_json::json!({"operation_id":operation.id}),
+            )),
+            PmDraftProof::LeaseAcknowledged(receipt)
+                if operation
+                    .execution_lease
+                    .as_ref()
+                    .is_some_and(|v| v.receipt.is_none()) =>
+            {
+                Some((
+                    "pm_lease.acknowledged",
+                    serde_json::json!({"lease_id":receipt.lease.lease_id}),
+                ))
+            }
             PmDraftProof::CredentialIntent(intent) if operation.credentials.is_none() => Some((
                 "pm_credentials.intent",
                 serde_json::json!({"request_sha256": intent.request_sha256}),

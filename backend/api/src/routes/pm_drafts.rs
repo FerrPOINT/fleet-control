@@ -362,6 +362,7 @@ pub async fn create(
             reservation: None,
             session_id: None,
             credentials: None,
+            execution_lease: None,
         })
         .await?;
     Ok((
@@ -657,6 +658,7 @@ mod tests {
             reservation: None,
             session_id: None,
             credentials: None,
+            execution_lease: None,
         };
         op.apply(PmDraftProof::Created(TrackerCreatedDraft {
             tracker_instance_id: binding.tracker_instance_id.clone(),
@@ -828,6 +830,7 @@ mod tests {
             reservation: None,
             session_id: None,
             credentials: None,
+            execution_lease: None,
         };
         assert!(gateway.find_draft(&op).await.unwrap().is_none());
         assert!(gateway.find_draft(&op).await.unwrap().is_none());

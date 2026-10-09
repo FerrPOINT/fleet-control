@@ -53,6 +53,154 @@ fn claim() -> PmExecutionLeaseCommand {
     )
 }
 
+#[test]
+fn claim_receipt_is_bound_to_the_original_owner_fence_and_never_dispatches() {
+    let command = claim();
+    let PmExecutionLeaseCommand::Claim(claim) = &command else {
+        unreachable!()
+    };
+    let response = with_operation(readback(lease(1, 0)), &command, lease(1, 0));
+    let receipt: PmExecutionLeaseReceipt =
+        serde_json::from_value(response["operation"]["result"].clone()).unwrap();
+    receipt.verify_claim(&reservation(), claim).unwrap();
+    for field in ["lease_id", "holder_subject", "expires_at"] {
+        let mut changed = response["operation"]["result"].clone();
+        changed["lease"][field] = json!(if field == "expires_at" {
+            timestamp(31)
+        } else {
+            FOREIGN_ID.into()
+        });
+        let changed: PmExecutionLeaseReceipt = serde_json::from_value(changed).unwrap();
+        if field == "lease_id" {
+            // A fresh valid UUID alone is not authority; original-key readback anchors it.
+            let changed_readback =
+                with_operation(readback(lease(1, 0)), &command, json!(changed.lease));
+            assert!(
+                PmExecutionLeaseReadback::verified(
+                    changed_readback,
+                    &reservation(),
+                    Some(&command)
+                )
+                .is_err()
+            );
+        } else {
+            assert!(changed.verify_claim(&reservation(), claim).is_err());
+        }
+    }
+    let mut foreign = reservation();
+    foreign.binding.project_id = Uuid::parse_str(FOREIGN_ID).unwrap();
+    assert!(receipt.verify_claim(&foreign, claim).is_err());
+    let mut changed = receipt.clone();
+    changed.dispatch_allowed = true;
+    assert!(changed.verify_claim(&reservation(), claim).is_err());
+}
+
+#[test]
+fn private_claim_journal_is_original_key_only_and_preserves_creation_response() {
+    let mut reserved = reservation();
+    let request = crate::CreatePmDraftRequest {
+        agent_id: reserved.assignment.agent_id,
+        title: "Frozen intake".into(),
+        description: "Original request".into(),
+        idempotency_key: "create-one".into(),
+    };
+    reserved.input.sha256 = crate::pm_input_hash(&request.title, &request.description);
+    let mut operation = crate::PmDraftOperation {
+        id: Uuid::new_v4(),
+        owner_user_id: Uuid::new_v4(),
+        owner_subject: reserved.binding.owner_subject.clone(),
+        tracker_instance_id: reserved.binding.tracker_instance_id.clone(),
+        project_id: reserved.binding.project_id,
+        request,
+        draft: Some(crate::TrackerCreatedDraft {
+            tracker_instance_id: reserved.binding.tracker_instance_id.clone(),
+            project_id: reserved.binding.project_id,
+            task_id: reserved.binding.task_id,
+            root_task_id: reserved.binding.root_task_id,
+            task_key: "PM-1".into(),
+            owner_subject: reserved.binding.owner_subject.clone(),
+            stage: "Draft".into(),
+        }),
+        input: None,
+        reservation: Some(reserved.clone()),
+        session_id: Some(Uuid::new_v4()),
+        credentials: None,
+        execution_lease: None,
+    };
+    assert!(operation.lease_claim().is_err());
+    let credential = crate::PmCredentialCommand::tracker(
+        &operation.execution_identity().unwrap(),
+        operation.credential_key(),
+        300,
+    )
+    .unwrap();
+    let command = serde_json::to_value(credential).unwrap();
+    operation
+        .apply(crate::PmDraftProof::CredentialIntent(
+            crate::PmCredentialIntent {
+                request_sha256: crate::pm_canonical_hash(&command),
+                command,
+                parent_fingerprint: "a".repeat(64),
+                base_origin: "http://base.test".into(),
+                tracker_origin: "http://tracker.test".into(),
+                machine_subject: reserved.assignment.machine_subject.clone(),
+            },
+        ))
+        .unwrap();
+    operation
+        .apply(crate::PmDraftProof::CredentialAcknowledged(
+            crate::PmCredentialReceipt {
+                token_id: Uuid::new_v4(),
+                expires_at: Utc::now() + Duration::seconds(60),
+                scopes: serde_json::from_value(
+                    operation.credentials.as_ref().unwrap().intent.command["scopes"].clone(),
+                )
+                .unwrap(),
+            },
+        ))
+        .unwrap();
+    let claim = operation.lease_claim().unwrap();
+    let command = PmExecutionLeaseCommand::Claim(claim.clone());
+    let response = with_operation(readback(lease(1, 0)), &command, lease(1, 0));
+    let receipt: PmExecutionLeaseReceipt =
+        serde_json::from_value(response["operation"]["result"].clone()).unwrap();
+    assert!(
+        operation
+            .apply(crate::PmDraftProof::LeaseAcknowledged(receipt.clone()))
+            .is_err()
+    );
+    operation
+        .apply(crate::PmDraftProof::LeaseIntent(claim.clone()))
+        .unwrap();
+    operation
+        .apply(crate::PmDraftProof::LeaseAcknowledged(receipt.clone()))
+        .unwrap();
+    let saved = operation.clone();
+    operation
+        .apply(crate::PmDraftProof::LeaseIntent(claim.clone()))
+        .unwrap();
+    operation
+        .apply(crate::PmDraftProof::LeaseAcknowledged(receipt.clone()))
+        .unwrap();
+    assert_eq!(operation, saved);
+    let mut foreign = claim;
+    foreign.idempotency_key = "different-key".into();
+    assert!(
+        operation
+            .apply(crate::PmDraftProof::LeaseIntent(foreign))
+            .is_err()
+    );
+    let mut foreign = receipt;
+    foreign.lease.lease_id = Uuid::new_v4();
+    assert!(
+        operation
+            .apply(crate::PmDraftProof::LeaseAcknowledged(foreign))
+            .is_err()
+    );
+    assert_eq!(operation, saved);
+    assert!(!operation.response().dispatch_allowed);
+}
+
 fn heartbeat() -> PmExecutionLeaseCommand {
     // Exact renewal command shape from Tracker's execution_lease HTTP example.
     PmExecutionLeaseCommand::Heartbeat(
