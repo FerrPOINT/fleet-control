@@ -21,6 +21,11 @@ qualification are independent remaining implementation/acceptance gates.
 Build wrapper successor9cda3075/seal459f0371 has source closure for stopped
 foreign-container cleanup and materialized-context drift. Parent23 pure cases
 and6 independent counterproofs pass; no build/image/native grant follows.
+The new Fleet protocol4 consumer is still a draft. Pre-review requires inherited
+anchor lease fencing for child SQL mutations, redacted Debug compatibility,
+proved original-stop readback after lost phase CAS, terminal child stop permits
+and preservation of effective custody when the next config draft is saved.
+All five findings are assigned; this draft is not integrated or accepted.
 
 The previous compiler blocker was identified, not guessed: authenticated
 run37964514708 reports E0609 at acceptance_readback.rs:58:30. Scoped sourcee2e33b2

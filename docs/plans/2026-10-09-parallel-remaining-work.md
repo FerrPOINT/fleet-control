@@ -11,7 +11,7 @@ checkouts rather than restarting completed work:
 | Owner    | Current assignment                                                 | Required handoff                                                                                                              |
 | -------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
 | Feynman  | Fleet consumer of recovered-generation protocol4                    | Actual recovered config activation, positive DB authority and canonical utility hashes; preserve original custody, SDK19a and unknown-effect fences |
-| Pascal   | Build-wrapper successor handed off with both findings closed         | Seal459f0371; parent repeats23 pure cases and6 independent counterproofs, no build/native grant or resource-guard waiver |
+| Pascal   | Inspect actual Hermes PM structured-tool handoff primitives          | Wrapper459f source closure complete; identify exact per-run scoped tool/capability mechanism without parent PAT or admission bypass |
 | Ptolemy  | Implement hermetic hosted Forge full12 controls                      | Two bounded jobs retain all12 stages, original per-stage deadlines, disk reserve, receipts and own-only cleanup; no custody transfer |
 | Anscombe | Early independent review of hermetic Forge controls                 | Compiler6e9/gateda9473a handed off; inspect draft full12/evidence/cleanup invariants without edits or hosted execution |
 | Leibniz  | Early independent review of Fleet recovered activation              | Wrapper closure completed; inspect draft migration19/authority/lease/effect fencing, final frozen-source review still required |
@@ -59,6 +59,24 @@ parity. Independent review closes both findings with six counterproofs; parent
 repeats23 wrapper tests and6 counterproofs and verifies the exact seal. These
 are source/pure checks, not image builds or native acceptance. Old7c8 stays
 unaccepted. Exact image transport, qualification and resource prerequisites remain.
+
+Recovered-activation draft pre-review finds four independent issues: child SQL
+custody does not inherit the original anchor lease, secret-bearing Replacement
+has no compatible redacted Debug, a proved original-stop/phase-CAS-loss cut is
+unconditionally held, and stopping a published child invalidates its owner anchor.
+Parent adds a fifth concrete liveness issue: saving a next config draft changes
+desired revision and loses terminal activation provenance although effective
+runtime is unchanged. Findings are assigned before freeze/integration; no
+compiler/PG/source closure is claimed for this draft. Original missing/unknown
+evidence must remain held rather than gaining new authority.
+
+Parent actual Linux review of the new Forge controls reproduces a live orphan
+after its command leader exits. The worker changes group cleanup to keep the
+leader unreaped with WNOWAIT before signalling its verified session/group.
+Parent repeat passes1/1 in0.196s on observed host.py SHA256
+5b189daa6451a734bd60b12f6424c497f03e29a98841e72745d275430ffa1cb0.
+This is a draft process-cut check, not final full12 acceptance. Bounded hosted
+startup/stage/cleanup timing and final frozen controls review remain required.
 
 Safe diagnostics controlsbc4ee52 were reviewed, passed41 pure tests and were
 normally pushed once. Actual run37964514708 fails check with authenticated E0609
