@@ -47,13 +47,31 @@ to redispatch. A historical receipt cannot renew expiry or grant current authori
 ## Creation And Remaining Execution
 
 Credential preparation now consumes this fresh GET after storing the child ACK.
-Only `unclaimed` completes this prerequisite; active/expired claims require
-original-key reconciliation and quiescence, never automatic adoption. Failure
-preserves the credential ACK and awaiting-admission state, with no runtime run.
+An unclaimed lease completes credential preparation. A known active lease also
+requires the saved original claim and exact keyed operation evidence; foreign
+active or expired claims require reconciliation and quiescence, never automatic
+adoption. Failure preserves the credential ACK and awaiting-admission state,
+with no runtime run.
 
-This is not claim/heartbeat scheduling, trusted first-step admission, loaded
-configuration attestation, model dispatch, structured PM tools or checkpoint
-resume. Workflow90 `11398711aa04605bc1a618622a84ae648e6de0c8` only changes an
-OpenAPI description from the prior inspected head; its missing trusted owner
-evidence and post-dispatch PM bind remain blockers. No public API, migration,
-SDK/image pin, installed runtime or Java capability is changed.
+## Original Claim Coordination
+
+`claim_execution_lease` derives its command from the immutable reservation and
+uses `fleet-pm-lease:{creation-operation-uuid}`. The existing locked creation
+saga persists command/hash before POST. Fresh delegated-token introspection,
+Tracker context and keyed lease readback precede the mutation. Only an unclaimed
+lease without its original receipt permits POST. HTTP 201 or 200 must contain a
+closed canonical claim receipt; a subsequent fresh keyed GET must agree with
+that receipt and show the same lease active. Lost ACK leaves the intent pending.
+Reconciliation reads its original key and persists the original acknowledgement;
+it never chooses another key, adopts a different lease or renews an expired one.
+
+Private journal progress is absent -> original claim -> immutable ACK. Migration
+000023 adds assignment/owner/holder/TTL and immutable JSON guards without changing
+000010/000011. Audit stores only operation/lease identifiers once. Tokens stay in
+memory. The public creation response still has `dispatch_allowed=false`; this
+internal coordinator is not wired to automatic creation dispatch.
+
+Heartbeat scheduling, trusted first-step admission, loaded configuration
+attestation, model dispatch, structured PM tools and checkpoint resume remain
+separate work. Claim coordination adds the explicit journal migration, but no
+public endpoint, SDK/image pin, installed-runtime or Java capability change.

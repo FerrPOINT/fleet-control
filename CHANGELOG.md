@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- Journal the original Tracker PM execution-lease claim before mutation and
+  reconcile lost acknowledgements by its original key. Guard immutable claim/ACK
+  metadata with additive migration 000023; preserve existing operations and the
+  awaiting-admission creation response. Accept Auth's additive display-name field
+  while keeping exact subject/scope verification.
+
 - Preserve a confirmed recovered namespace exit during subsequent health checks;
   do not replace stopped metadata with an unhealthy TCP probe or adopt its old
   port. Add repeated stale-snapshot health regression coverage.

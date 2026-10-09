@@ -185,6 +185,8 @@ pub struct PmDraftOperation {
     pub session_id: Option<Uuid>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub credentials: Option<crate::PmCredentialJournal>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub execution_lease: Option<crate::PmExecutionLeaseJournal>,
 }
 
 #[derive(Debug, Clone)]
@@ -195,6 +197,8 @@ pub enum PmDraftProof {
     Chat(Uuid),
     CredentialIntent(crate::PmCredentialIntent),
     CredentialAcknowledged(crate::PmCredentialReceipt),
+    LeaseIntent(crate::PmExecutionLeaseClaim),
+    LeaseAcknowledged(crate::PmExecutionLeaseReceipt),
 }
 
 impl PmDraftOperation {
@@ -209,6 +213,31 @@ impl PmDraftOperation {
     }
     pub fn credential_key(&self) -> String {
         format!("fleet-pm-credential:{}", self.id)
+    }
+    pub fn lease_key(&self) -> String {
+        format!("fleet-pm-lease:{}", self.id)
+    }
+    pub fn lease_claim(&self) -> Result<crate::PmExecutionLeaseClaim, AppError> {
+        let reservation = self.reservation.as_ref().ok_or_else(inconsistent)?;
+        if self.session_id.is_none()
+            || self
+                .credentials
+                .as_ref()
+                .and_then(|v| v.receipt.as_ref())
+                .is_none()
+        {
+            return Err(inconsistent());
+        }
+        Ok(crate::PmExecutionLeaseClaim {
+            expected_owner_version: reservation.owner_cas.version,
+            fence: crate::PmExecutionLeaseFence {
+                assignment_id: reservation.assignment.assignment_id,
+                execution_id: reservation.assignment.execution_id,
+                agent_id: reservation.assignment.agent_id,
+                assignment_version: reservation.assignment.version,
+            },
+            idempotency_key: self.lease_key(),
+        })
     }
     pub fn execution_identity(&self) -> Result<crate::PmExecutionIdentity, AppError> {
         let reservation = self.reservation.as_ref().ok_or_else(inconsistent)?;
@@ -245,6 +274,36 @@ impl PmDraftOperation {
     }
     pub fn apply(&mut self, proof: PmDraftProof) -> Result<(), AppError> {
         match proof {
+            PmDraftProof::LeaseIntent(claim) => {
+                if claim != self.lease_claim()? {
+                    return Err(inconsistent());
+                }
+                let hash = crate::PmExecutionLeaseCommand::Claim(claim.clone()).request_sha256();
+                match &self.execution_lease {
+                    Some(saved) if saved.claim != claim || saved.request_sha256 != hash => {
+                        return Err(inconsistent());
+                    }
+                    Some(_) => (),
+                    None => {
+                        self.execution_lease = Some(crate::PmExecutionLeaseJournal {
+                            claim,
+                            request_sha256: hash,
+                            receipt: None,
+                        })
+                    }
+                }
+            }
+            PmDraftProof::LeaseAcknowledged(receipt) => {
+                let reservation = self.reservation.as_ref().ok_or_else(inconsistent)?;
+                let journal = self.execution_lease.as_mut().ok_or_else(inconsistent)?;
+                receipt.verify_claim(reservation, &journal.claim)?;
+                if journal.request_sha256
+                    != crate::PmExecutionLeaseCommand::Claim(journal.claim.clone()).request_sha256()
+                {
+                    return Err(inconsistent());
+                }
+                retain(&mut journal.receipt, receipt)?;
+            }
             PmDraftProof::Created(draft) => {
                 if draft.tracker_instance_id != self.tracker_instance_id
                     || draft.project_id != self.project_id

@@ -200,6 +200,7 @@ async fn operation() -> Option<(PostgresFleetRepository, PmDraftOperation)> {
         reservation: None,
         session_id: None,
         credentials: None,
+        execution_lease: None,
     };
     sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
         .await

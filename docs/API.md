@@ -12,9 +12,11 @@ Rust OpenAPI parity gate pass. The actual managed observer core scenario also
 passes; interrupted observer activation/Fleet-death, full readiness and current
 release-head CI remain open, not implied by these checks or earlier CI.
 
-Machine-only PM lease GET is an internal outbound Tracker operation, not a new
-Fleet/browser endpoint. It requires the acknowledged delegated credential and
-original reservation; failure preserves awaiting-admission rather than dispatch.
+Machine-only PM lease GET and claim POST are internal outbound Tracker operations,
+not new Fleet/browser endpoints. They require the acknowledged delegated
+credential and original reservation; claim persists its original intent first
+and reconciles lost acknowledgements through keyed GET. Failure preserves
+awaiting-admission rather than dispatch.
 Fleet OpenAPI and public DTOs are unchanged. See
 [contract](contracts/PM_EXECUTION_LEASE_READBACK_V1.md).
 
