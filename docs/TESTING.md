@@ -1,5 +1,13 @@
 # Testing
 
+## Hermes Journal Unit12
+
+The [isolated release plan](plans/2026-10-09-hermes-journal-release.md) names
+mandatory journal, single-submission, atomic ACK, GET-only recovery, terminal
+evidence and both-lineage migration gates. New DB cases are explicit opt-in;
+default ignored results are not coverage. All exact-source Linux execution is
+pending at source preparation, without any runtime-ready claim.
+
 ## Real Base Delegation Consumer Gate
 
 The separate `infra` integration target `pm_credentials_real_auth` requires a

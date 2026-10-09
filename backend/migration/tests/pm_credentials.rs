@@ -8,9 +8,11 @@ async fn credentials_additive_upgrade_preserves_legacy_operation_and_empty_downg
     let url = std::env::var("FLEET_CREDENTIAL_MIGRATION_TEST_DATABASE_URL")
         .expect("isolated credential migration database is required");
     let db = Database::connect(&url).await.unwrap();
-    Migrator::up(&db, Some((Migrator::migrations().len() - 1) as u32))
-        .await
-        .unwrap();
+    let target = Migrator::migrations()
+        .iter()
+        .position(|migration| migration.name() == "m20261004_000011_pm_credentials")
+        .expect("credential migration must remain registered");
+    Migrator::up(&db, Some(target as u32)).await.unwrap();
     db.execute_unprepared(
         "INSERT INTO users(id,email,username,display_name,password_hash)
          VALUES('11111111-1111-4111-8111-111111111111','migration@example.test','credentials-migration','Migration','disabled');
@@ -33,7 +35,7 @@ async fn credentials_additive_upgrade_preserves_legacy_operation_and_empty_downg
         .unwrap()
         .try_get("", "operation")
         .unwrap();
-    Migrator::up(&db, None).await.unwrap();
+    Migrator::up(&db, Some(1)).await.unwrap();
     let current: Value = db
         .query_one(read())
         .await
@@ -54,7 +56,7 @@ async fn credentials_additive_upgrade_preserves_legacy_operation_and_empty_downg
         .try_get("", "operation")
         .unwrap();
     assert_eq!(original, restored);
-    Migrator::up(&db, None).await.unwrap();
+    Migrator::up(&db, Some(1)).await.unwrap();
     let final_value: Value = db
         .query_one(read())
         .await

@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+- Prepare the isolated free-chat Hermes immutable request journal, single POST
+  permit and atomic ACK/session readback release. Own only additive migration12;
+  compilation, real PostgreSQL and exact-source release gates remain pending.
+
 - Reject duplicate Authorization headers on PM runtime readback before parsing
   or repository/runtime access, including repeated equal bearer credentials.
 - Reconcile the accepted Base19a7a381 pin without rewriting branch history.

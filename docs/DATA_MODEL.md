@@ -1,5 +1,15 @@
 # Data Model
 
+## Hermes Journal Release Unit12
+
+`m20261004_000012_hermes_dispatch_journal` is appended after PM credentials in
+both canonical and legacy lineages (13 and 16 entries respectively). It records
+immutable exact request bytes/hash, original origin/credential fingerprint,
+capabilities, scope, deadline and the prepared/submitted/accepted progression.
+The single submission permit is consumed before POST; run/message/outbox ACK
+and journal acceptance commit atomically. Existing rows are not backfilled.
+Nonempty journal history refuses downgrade. No migration13..22 is included.
+
 ## PM Credential Journal
 
 Migration `m20261004_000011_pm_credentials` adds guarded optional `credentials`

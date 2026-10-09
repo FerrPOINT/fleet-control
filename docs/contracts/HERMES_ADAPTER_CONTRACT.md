@@ -1,5 +1,15 @@
 # Hermes Adapter Contract
 
+## Hermes Journal Release Unit12
+
+Free-chat dispatch requires the exact authenticated server-agent capabilities,
+durable run idempotency with 86400-second retention and verified run/status/SSE/
+stop endpoint definitions. Persist the exact serialized request before claiming
+one submission permit; POST those bytes once with the original message UUID.
+Commit the native ACK atomically before reading the effective session. Recovery
+never repeats POST, changes origin/credential context or synthesizes legacy
+journal entries. Invalid terminal run/session evidence retains capacity.
+
 Hermes is the first implemented runtime.
 
 Environment:

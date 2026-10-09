@@ -18,6 +18,7 @@ mod m20261001_000010_task_chats;
 mod m20261001_000011_message_dispatch;
 mod m20261001_000012_config_revisions;
 mod m20261004_000011_pm_credentials;
+mod m20261004_000012_hermes_dispatch_journal;
 
 pub struct Migrator;
 
@@ -83,6 +84,9 @@ impl MigratorTrait for CanonicalMigrator {
         migrations.push(Box::new(m20261001_000009_sdlc_foundation::Migration));
         migrations.push(Box::new(m20261001_000010_task_chats::Migration));
         migrations.push(Box::new(m20261004_000011_pm_credentials::Migration));
+        migrations.push(Box::new(
+            m20261004_000012_hermes_dispatch_journal::Migration,
+        ));
         migrations
     }
 }
@@ -100,6 +104,7 @@ impl MigratorTrait for LegacyMigrator {
             Box::new(m20261001_000012_config_revisions::Migration),
             Box::new(m20261001_000010_task_chats::Migration),
             Box::new(m20261004_000011_pm_credentials::Migration),
+            Box::new(m20261004_000012_hermes_dispatch_journal::Migration),
         ]);
         migrations
     }

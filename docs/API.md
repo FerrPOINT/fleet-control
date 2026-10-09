@@ -1,5 +1,12 @@
 # API
 
+## Hermes Journal Release Unit12
+
+The isolated Hermes journal unit changes internal dispatch persistence only; no
+public endpoint, DTO or OpenAPI schema is added. An accepted run whose effective
+session is unresolved remains pending and cannot receive run-control mutations.
+See [the unit12 release plan](plans/2026-10-09-hermes-journal-release.md).
+
 ## Task-Chat Wire And Privacy Boundary
 
 The seven clarification DTOs use closed nested schemas and JavaScript-safe

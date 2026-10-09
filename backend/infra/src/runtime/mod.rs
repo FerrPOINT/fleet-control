@@ -11,7 +11,7 @@ use domain::{
     SteerSessionRunRequest,
 };
 use futures_util::StreamExt;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::{Value, json};
 use shared::{AppConfig, AppError, FleetEvent};
 use std::{collections::HashMap, process::Stdio, sync::Arc, time::Duration};
@@ -22,6 +22,8 @@ use tokio::{
     time::sleep,
 };
 use uuid::Uuid;
+mod acceptance_readback;
+mod hermes_wire;
 mod pm_readback;
 mod targeted_approval;
 
@@ -37,23 +39,6 @@ pub struct LocalRuntimeSupervisor {
     client: reqwest::Client,
     events: broadcast::Sender<FleetEvent>,
     alerts: Arc<app::RepositoryAlertService>,
-}
-
-#[derive(Debug, Serialize)]
-struct HermesRunStartRequest {
-    input: String,
-    session_id: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    model: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    provider: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    model_options: Option<Value>,
-}
-
-#[derive(Debug, Deserialize)]
-struct HermesRunStartResponse {
-    run_id: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -79,6 +64,8 @@ impl LocalRuntimeSupervisor {
             children: Arc::new(Mutex::new(HashMap::new())),
             client: reqwest::Client::builder()
                 .redirect(reqwest::redirect::Policy::none())
+                .retry(reqwest::retry::never())
+                .no_proxy()
                 .connect_timeout(Duration::from_secs(5))
                 .build()
                 .expect("runtime HTTP client configuration"),
@@ -89,6 +76,7 @@ impl LocalRuntimeSupervisor {
         };
         supervisor.spawn_reconciler();
         supervisor.spawn_message_dispatcher();
+        supervisor.spawn_acceptance_readback();
         supervisor.spawn_config_activator();
         supervisor
     }
@@ -1066,6 +1054,7 @@ impl LocalRuntimeSupervisor {
         let capabilities = self
             .client
             .get(format!("{base}/v1/capabilities"))
+            .header(reqwest::header::ACCEPT_ENCODING, "identity")
             .timeout(Duration::from_secs(3))
             .bearer_auth(token)
             .send()
@@ -1077,7 +1066,8 @@ impl LocalRuntimeSupervisor {
                 capabilities.status()
             )));
         }
-        let capabilities: Value = capabilities.json().await.map_err(AppError::internal)?;
+        let capabilities =
+            hermes_wire::read_json(capabilities, reqwest::StatusCode::OK, 262_144).await?;
         for feature in ["run_status", "run_events_sse", "run_stop"] {
             if capabilities
                 .get("features")
@@ -1115,69 +1105,74 @@ impl LocalRuntimeSupervisor {
         session: &AgentSession,
         message: &SessionMessage,
     ) -> Result<(SessionAgentRun, String), AppError> {
-        let runtime_session_id = Self::runtime_session_id(session, agent);
-        let run = self
-            .repo
-            .prepare_session_agent_run(
-                session.id,
-                agent.id,
-                Self::run_role(session, agent),
-                runtime_session_id.clone(),
-            )
-            .await?;
+        if let Some(binding) = self.repo.get_task_chat_binding(session.id).await? {
+            if binding.agent_id != agent.id || agent.id != session.primary_agent_id {
+                return Err(AppError::conflict(
+                    "task runtime identity does not match binding",
+                ));
+            }
+            let capabilities = self.probe_hermes(agent).await?;
+            hermes_wire::task_protocol(&capabilities)?;
+            return Err(AppError::Unavailable(
+                "task runtime admission is not yet verified".into(),
+            ));
+        }
+        let capabilities = self.probe_hermes(agent).await?;
+        let capabilities = hermes_wire::dispatch_capabilities(&capabilities)?;
         let base = Self::hermes_base_url(agent)?;
         let token = crate::agent_runtime_token(&self.config, agent.id)?;
-        let model_options = (!matches!(&run.model_options, Value::Object(map) if map.is_empty()))
-            .then_some(run.model_options.clone());
-        let response = self
-            .client
-            .post(format!("{base}/v1/runs"))
-            .bearer_auth(token)
-            .header("Idempotency-Key", message.id.to_string())
-            .timeout(Duration::from_secs(30))
-            .json(&HermesRunStartRequest {
+        let fingerprint = hermes_wire::credential_fingerprint(&token);
+        self.repo
+            .prepare_hermes_dispatch(app::HermesDispatchDraft {
+                message_id: message.id,
+                session_id: session.id,
+                agent_id: agent.id,
+                run_role: Self::run_role(session, agent),
+                requested_session_id: Self::runtime_session_id(session, agent),
                 input: Self::runtime_input(agent, session, message),
-                session_id: runtime_session_id,
-                model: run.model.clone(),
-                provider: run.provider.clone(),
-                model_options,
+                origin: base.clone(),
+                credential_fingerprint: fingerprint.clone(),
+                capabilities,
             })
-            .send()
-            .await
-            .map_err(AppError::internal)?;
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            return Err(AppError::validation(format!(
-                "Hermes /v1/runs rejected dispatch with {status}: {}",
-                crate::redact_text(&body)
-            )));
+            .await?;
+        // Consume the durable permit before any network side effect. An unknown POST
+        // may not be repeated merely because the native idempotency key was saved.
+        let claimed = self
+            .repo
+            .claim_hermes_submission(message.id, base.clone(), fingerprint)
+            .await?
+            .ok_or_else(|| {
+                AppError::Unavailable(
+                    "Hermes submission was already attempted; reconciliation is required".into(),
+                )
+            })?;
+        if claimed.message_id != message.id
+            || claimed.run.agent_id != agent.id
+            || claimed.run.session_id != session.id
+        {
+            return Err(AppError::conflict(
+                "Hermes submission journal scope does not match",
+            ));
         }
-        let accepted: HermesRunStartResponse = response.json().await.map_err(AppError::internal)?;
+        hermes_wire::verify_intent(&claimed, &base, &token)?;
+        let runtime_run_id = hermes_wire::submit(
+            &self.client,
+            &base,
+            &token,
+            message.id,
+            &claimed.request_body,
+        )
+        .await?;
         let run = self
             .repo
-            .update_session_agent_run_dispatch(
-                run.id,
-                Some(accepted.run_id.clone()),
-                SessionRunState::Running,
-                None,
-            )
+            .accept_hermes_run(message.id, claimed.run.id, runtime_run_id.clone())
             .await?;
-        self.repo
-            .update_session_message_delivery(
-                message.id,
-                MessageDeliveryState::Dispatched,
-                Some(accepted.run_id.clone()),
-                None,
-            )
-            .await?;
-        self.emit_run(&run);
-        let _ = self.events.send(FleetEvent::SessionMessageChanged {
-            session_id: session.id.to_string(),
-            message_id: message.id.to_string(),
-            event: "message.dispatched".to_string(),
-        });
-        Ok((run, accepted.run_id))
+        // ACK is durable even if HTTP readback fails. The recovery worker only reads this run.
+        let run = self
+            .finish_acceptance_readback(agent, session, message, &run)
+            .await
+            .unwrap_or(run);
+        Ok((run, runtime_run_id))
     }
 
     fn spawn_hermes_event_worker(
@@ -1289,6 +1284,10 @@ impl LocalRuntimeSupervisor {
                                 &mut final_text,
                             )
                             .await?;
+                        if terminal_seen {
+                            // Stop consuming once accepted run evidence is persisted.
+                            return Ok(());
+                        }
                         data_lines.clear();
                     }
                 } else if let Some(name) = line.strip_prefix("event:") {
@@ -1312,28 +1311,33 @@ impl LocalRuntimeSupervisor {
                     &mut final_text,
                 )
                 .await?;
+            if terminal_seen {
+                return Ok(());
+            }
         }
 
         if !terminal_seen {
             let response = self
                 .client
                 .get(format!("{base}/v1/runs/{runtime_run_id}"))
+                .header(reqwest::header::ACCEPT_ENCODING, "identity")
                 .timeout(Duration::from_secs(10))
                 .bearer_auth(crate::agent_runtime_token(&self.config, agent.id)?)
                 .send()
                 .await
-                .map_err(AppError::internal)?;
-            if !response.status().is_success() {
-                return Err(AppError::Unavailable("Hermes stream ended without a terminal event; status reconciliation is required".into()));
+                .map_err(|_| {
+                    AppError::Unavailable("Hermes terminal readback is unavailable".into())
+                })?;
+            let payload =
+                hermes_wire::read_json(response, reqwest::StatusCode::OK, 1024 * 1024).await?;
+            if hermes_wire::effective_session(&payload, &runtime_run_id)?
+                != run.runtime_session_id.as_deref().unwrap_or_default()
+            {
+                return Err(AppError::Unavailable(
+                    "Hermes terminal session identity changed".into(),
+                ));
             }
-            let payload: Value = response.json().await.map_err(AppError::internal)?;
-            let state = pick_string(&payload, &["state", "status"]).unwrap_or_default();
-            let event = match state.as_str() {
-                "completed" | "succeeded" => "run.completed",
-                "failed" | "interrupted" => "run.failed",
-                "cancelled" | "stopped" => "run.cancelled",
-                _ => return Err(AppError::Unavailable("Hermes stream ended while run status is non-terminal; reconciliation is required".into())),
-            };
+            let event = hermes_wire::terminal_readback(&payload, &runtime_run_id)?;
             self.handle_hermes_event(
                 &agent,
                 &session,
@@ -1363,8 +1367,14 @@ impl LocalRuntimeSupervisor {
     ) -> Result<bool, AppError> {
         let payload = serde_json::from_str::<Value>(&data).unwrap_or(Value::String(data));
         let event_type = event_name
-            .or_else(|| pick_string(&payload, &["event", "type", "object"]))
+            .or_else(|| {
+                payload
+                    .get("event")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)
+            })
             .unwrap_or_else(|| "message".to_string());
+        let terminal_state = hermes_wire::terminal_event(&event_type, &payload, runtime_run_id)?;
 
         if event_type.contains("delta") {
             if let Some(delta) = pick_string(&payload, &["delta", "text", "output_text"]) {
@@ -1454,7 +1464,7 @@ impl LocalRuntimeSupervisor {
             return Ok(false);
         }
 
-        if event_type.contains("cancel") || event_type.contains("stopped") {
+        if terminal_state == Some(SessionRunState::Cancelled) {
             let updated = self
                 .repo
                 .update_session_agent_run_dispatch(
@@ -1468,10 +1478,7 @@ impl LocalRuntimeSupervisor {
             return Ok(true);
         }
 
-        if event_type.contains("fail")
-            || event_type.contains("error")
-            || event_type.contains("interrupted")
-        {
+        if terminal_state == Some(SessionRunState::Failed) {
             let error =
                 pick_error(&payload).unwrap_or_else(|| format!("Hermes event {event_type}"));
             self.repo
@@ -1495,7 +1502,7 @@ impl LocalRuntimeSupervisor {
             return Ok(true);
         }
 
-        if event_type.contains("completed") || event_type.contains("done") {
+        if terminal_state == Some(SessionRunState::Completed) {
             let body = pick_string(
                 &payload,
                 &[
@@ -1584,6 +1591,18 @@ impl LocalRuntimeSupervisor {
         path: &str,
         body: Option<&T>,
     ) -> Result<Value, AppError> {
+        let current = self.repo.get_session_agent_run(run.id).await?;
+        if current.agent_id != agent.id
+            || current.session_id != run.session_id
+            || current.runtime_run_id != run.runtime_run_id
+        {
+            return Err(AppError::conflict("runtime control identity changed"));
+        }
+        if current.state == SessionRunState::Pending {
+            return Err(AppError::conflict(
+                "runtime session readback must finish before control",
+            ));
+        }
         let runtime_run_id = run
             .runtime_run_id
             .as_ref()
@@ -2222,13 +2241,6 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
 
         match self.start_hermes_run(agent, session, message).await {
             Ok((run, runtime_run_id)) => {
-                self.spawn_hermes_event_worker(
-                    agent.clone(),
-                    session.clone(),
-                    message.clone(),
-                    run,
-                    runtime_run_id.clone(),
-                );
                 let _ = self
                     .repo
                     .insert_log(
@@ -2243,7 +2255,12 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
                 Ok(RuntimeOperationResponse {
                     agent_id: agent.id,
                     status: AgentStatus::Running,
-                    message: "Hermes run started".to_string(),
+                    message: if run.state == SessionRunState::Pending {
+                        "Hermes accepted the run; session readback is pending"
+                    } else {
+                        "Hermes run started"
+                    }
+                    .to_string(),
                 })
             }
             Err(err) => {

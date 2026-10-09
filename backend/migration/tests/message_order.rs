@@ -85,7 +85,7 @@ async fn historical_backfill_and_clock_rollback_keep_order_without_changing_wire
         "INSERT INTO session_messages(id,session_id,author_type,body,message_kind,append_sequence) VALUES
           (gen_random_uuid(),'cccccccc-cccc-4ccc-8ccc-cccccccccccc','system','Forbidden','system_event',100);"
     ).await.is_err());
-    Migrator::down(&db, Some(1)).await.unwrap();
+    Migrator::down(&db, Some(2)).await.unwrap();
     let error = Migrator::down(&db, Some(1)).await.unwrap_err().to_string();
     assert!(error.contains("task-chat history prevents downgrade"));
     Migrator::up(&db, None).await.unwrap();

@@ -1,5 +1,11 @@
 # Java Agent Adapter Contract
 
+## Hermes Journal Release Unit12
+
+The isolated Hermes journal release does not change the Java Agent adapter,
+readiness, launch or control contract. Its permit, atomic ACK and GET-only recovery
+are Hermes-specific and do not establish Java Agent or SDLC runtime acceptance.
+
 Java Agent is modeled alongside Hermes. Existing local jar provisioning layout,
 start/stop/restart and readiness checks are implemented and retained. Chat/control,
 configuration activation and automatic SDLC admission remain phase 2.

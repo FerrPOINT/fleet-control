@@ -3,10 +3,12 @@ mod chats_directory;
 mod config_revisions;
 mod effective_configuration;
 pub mod entities;
+mod hermes_dispatch_journal;
 pub mod pm_credentials;
 mod pm_draft;
 mod pm_execution;
 pub mod runtime;
+mod runtime_acceptance;
 mod task_chats;
 pub mod tracker_event_poller;
 mod tracker_events;
@@ -2579,6 +2581,29 @@ impl FleetRepository for PostgresFleetRepository {
         session_run_from_model(&self.db, row).await
     }
 
+    async fn prepare_hermes_dispatch(
+        &self,
+        draft: app::HermesDispatchDraft,
+    ) -> Result<app::HermesDispatchIntent, AppError> {
+        hermes_dispatch_journal::prepare(self, draft).await
+    }
+
+    async fn claim_hermes_submission(
+        &self,
+        message_id: Uuid,
+        origin: String,
+        credential_fingerprint: String,
+    ) -> Result<Option<app::HermesDispatchIntent>, AppError> {
+        hermes_dispatch_journal::claim(self, message_id, origin, credential_fingerprint).await
+    }
+
+    async fn get_hermes_dispatch_intent(
+        &self,
+        message_id: Uuid,
+    ) -> Result<Option<app::HermesDispatchIntent>, AppError> {
+        hermes_dispatch_journal::get(self, message_id).await
+    }
+
     async fn update_session_agent_run_dispatch(
         &self,
         id: Uuid,
@@ -2589,13 +2614,24 @@ impl FleetRepository for PostgresFleetRepository {
         let txn = self.db.begin().await.map_err(AppError::database)?;
         // Match readback's lock order; late SSE/error updates cannot regress verified PM proof.
         let pm = pm_execution::locked(&txn, id).await?;
-        let mut model = session_agent_run::Entity::find_by_id(id)
+        let row = session_agent_run::Entity::find_by_id(id)
             .lock_exclusive()
             .one(&txn)
             .await
             .map_err(AppError::database)?
-            .ok_or_else(|| AppError::not_found("session_agent_run", id))?
-            .into_active_model();
+            .ok_or_else(|| AppError::not_found("session_agent_run", id))?;
+        if row
+            .runtime_run_id
+            .as_ref()
+            .is_some_and(|old| runtime_run_id.as_ref().is_some_and(|new| new != old))
+        {
+            return Err(AppError::conflict("runtime run identity is immutable"));
+        }
+        if pm.is_none() && matches!(row.state.as_str(), "completed" | "failed" | "cancelled") {
+            txn.commit().await.map_err(AppError::database)?;
+            return session_run_from_model(&self.db, row).await;
+        }
+        let mut model = row.into_active_model();
         if let Some(pm) = &pm
             && runtime_run_id
                 .as_ref()
@@ -2631,6 +2667,61 @@ impl FleetRepository for PostgresFleetRepository {
         let updated = model.update(&txn).await.map_err(AppError::database)?;
         txn.commit().await.map_err(AppError::database)?;
         session_run_from_model(&self.db, updated).await
+    }
+
+    async fn accept_hermes_run(
+        &self,
+        message_id: Uuid,
+        run_id: Uuid,
+        runtime_run_id: String,
+    ) -> Result<SessionAgentRun, AppError> {
+        runtime_acceptance::accept(self, message_id, run_id, runtime_run_id).await
+    }
+
+    async fn pin_hermes_run_session(
+        &self,
+        run_id: Uuid,
+        runtime_run_id: String,
+        requested_session_id: String,
+        effective_session_id: String,
+    ) -> Result<(SessionAgentRun, bool), AppError> {
+        runtime_acceptance::pin_session(
+            self,
+            run_id,
+            runtime_run_id,
+            requested_session_id,
+            effective_session_id,
+        )
+        .await
+    }
+
+    async fn list_pending_hermes_acceptances(
+        &self,
+        after: Option<Uuid>,
+    ) -> Result<Vec<(SessionMessage, SessionAgentRun)>, AppError> {
+        let rows = self.db.query_all(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT r.id AS run_id,m.id AS message_id FROM session_agent_runs r
+             JOIN session_messages m ON m.session_id=r.session_id AND m.runtime_message_id=r.runtime_run_id
+             JOIN agent_sessions s ON s.id=r.session_id AND s.agent_id=r.agent_id
+             JOIN agents a ON a.id=r.agent_id
+             WHERE r.state='pending' AND r.runtime_run_id IS NOT NULL AND a.kind='hermes'
+               AND m.author_type IN ('user','agent') AND m.message_kind IN ('user_prompt','control')
+               AND m.delivery_state='dispatched'
+               AND NOT EXISTS(SELECT 1 FROM task_chat_bindings b WHERE b.session_id=r.session_id)
+               AND NOT EXISTS(SELECT 1 FROM pm_run_bindings p WHERE p.session_run_id=r.id)
+               AND ($1::uuid IS NULL OR r.id>$1)
+             ORDER BY r.id LIMIT 20", [after.into()]))
+            .await.map_err(AppError::database)?;
+        let mut result = Vec::with_capacity(rows.len());
+        for row in rows {
+            let message_id: Uuid = row.try_get("", "message_id").map_err(AppError::database)?;
+            let run_id: Uuid = row.try_get("", "run_id").map_err(AppError::database)?;
+            result.push((
+                self.message_by_id(message_id).await?,
+                self.get_session_agent_run(run_id).await?,
+            ));
+        }
+        Ok(result)
     }
 
     async fn insert_session_message_mirror(
@@ -2716,18 +2807,67 @@ impl FleetRepository for PostgresFleetRepository {
         runtime_message_id: Option<String>,
         delivery_error: Option<String>,
     ) -> Result<(), AppError> {
-        let mut model = session_message::Entity::find_by_id(id)
-            .one(&self.db)
+        let txn = self.db.begin().await.map_err(AppError::database)?;
+        let row = session_message::Entity::find_by_id(id)
+            .lock_exclusive()
+            .one(&txn)
             .await
             .map_err(AppError::database)?
-            .ok_or_else(|| AppError::not_found("session_message", id))?
-            .into_active_model();
+            .ok_or_else(|| AppError::not_found("session_message", id))?;
+        if let Some(previous) = &row.runtime_message_id {
+            if runtime_message_id
+                .as_ref()
+                .is_some_and(|next| next != previous)
+            {
+                return Err(AppError::conflict("runtime message identity is immutable"));
+            }
+            // A post-commit failure cannot erase an ACK, nor reopen terminal delivery.
+            if runtime_message_id.is_none()
+                || matches!(row.delivery_state.as_str(), "completed" | "failed")
+            {
+                txn.commit().await.map_err(AppError::database)?;
+                return Ok(());
+            }
+            if delivery_state == MessageDeliveryState::Pending {
+                return Err(AppError::conflict(
+                    "acknowledged delivery cannot become pending",
+                ));
+            }
+        }
+        // Submission also locks this message before advancing the journal. Classify
+        // an unacknowledged error here, not from a stale pre-transaction read.
+        let delivery_state = if delivery_state == MessageDeliveryState::Failed
+            && runtime_message_id.is_none()
+        {
+            let journal = txn
+                .query_one(Statement::from_sql_and_values(
+                    DatabaseBackend::Postgres,
+                    "SELECT state FROM hermes_dispatch_journal WHERE message_id=$1",
+                    [id.into()],
+                ))
+                .await
+                .map_err(|_| AppError::Database("Hermes delivery classification failed".into()))?;
+            let submitted = journal
+                .map(|row| row.try_get::<String>("", "state"))
+                .transpose()
+                .map_err(|_| AppError::Database("Hermes delivery classification failed".into()))?
+                .is_some_and(|state| matches!(state.as_str(), "submitted" | "accepted"));
+            if submitted {
+                MessageDeliveryState::Pending
+            } else {
+                delivery_state
+            }
+        } else {
+            delivery_state
+        };
+        let mut model = row.into_active_model();
         model.delivery_state = Set(delivery_state.as_str().to_string());
         if runtime_message_id.is_some() {
             model.runtime_message_id = Set(runtime_message_id);
         }
         model.delivery_error = Set(delivery_error.map(|error| redact_text(&error)));
-        model.update(&self.db).await.map_err(AppError::database)?;
+        model.update(&txn).await.map_err(AppError::database)?;
+        txn.commit().await.map_err(AppError::database)?;
         Ok(())
     }
 
