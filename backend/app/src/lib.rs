@@ -252,6 +252,17 @@ pub trait FleetRepository: Send + Sync {
         ))
     }
 
+    async fn find_runtime_control_by_key(
+        &self,
+        _session: Uuid,
+        _run: Uuid,
+        _actor: &domain::RuntimeControlActor,
+    ) -> Result<Option<domain::RuntimeControlReceipt>, AppError> {
+        Err(AppError::Unavailable(
+            "runtime control key lookup is not implemented".into(),
+        ))
+    }
+
     async fn reconcile_runtime_controls(&self) -> Result<u64, AppError> {
         Err(AppError::Unavailable(
             "runtime control journal is unavailable".into(),

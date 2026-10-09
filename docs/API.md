@@ -46,6 +46,25 @@ Authentic Rust-generated OpenAPI and TypeScript types are now integrated;
 see [generator and consumer evidence](plans/2026-10-09-runtime-controls-ui.md).
 Automatic UI settlement/reload recovery and combined native gates remain open.
 
+`GET /api/v1/sessions/{session_id}/runs/{run_id}/controls/lookup` recovers the
+original command receipt when the POST response (including its command ID) was
+lost. It requires a verified human session and exactly one bounded, validated
+`Idempotency-Key` header. Existing session read, project and run guards apply.
+The actor is always the authenticated user, never a supplied actor ID; even an
+operator cannot look up another actor's key. The existing unique actor/key pair
+is constrained by the exact session/run. A match returns one
+`RuntimeControlReceipt` object (200); no match returns 404, never a list or a
+fallback to the most recent command. Keys and payload hashes are not returned.
+The original collection GET remains the unchanged latest-100 bounded list.
+The literal lookup route is distinct from the UUID receipt route: an old server
+rejects it rather than silently ignoring a header on the collection endpoint.
+Missing/404, transport/auth errors and old-server rejection never prove that
+the unknown POST did not execute, clear a hold, or authorize a fresh key or
+redispatch. Clients must retain the original actor/session/run/key context.
+This is Fleet-ledger readback only: no native I/O, ledger mutation, outbox action
+or migration. The Rust registration is added; generated OpenAPI/TS integration
+awaits separate authenticated codegen for this frozen source, not manual edits.
+
 Requiring the header is an intentional security-breaking migration on these
 two existing POST operations: old clients must provide one stable key for the
 original command and retain it on replay. Missing keys are rejected before

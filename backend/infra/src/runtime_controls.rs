@@ -65,6 +65,37 @@ pub(super) async fn list(
         [session.into(),run.into()])).await.map_err(database_error)?.iter().map(receipt).collect()
 }
 
+pub(super) async fn find_by_key(
+    repo: &PostgresFleetRepository,
+    session: Uuid,
+    run: Uuid,
+    actor: &RuntimeControlActor,
+) -> Result<Option<RuntimeControlReceipt>, AppError> {
+    if !domain::valid_ref(&actor.idempotency_key, 128) {
+        return Err(AppError::validation("invalid runtime control key"));
+    }
+    repo.db
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            format!(
+                "SELECT {RECORD} AS record FROM runtime_control_commands c
+                 WHERE c.actor_user_id=$1 AND c.idempotency_key=$2
+                   AND c.session_id=$3 AND c.session_run_id=$4 LIMIT 1"
+            ),
+            [
+                actor.user_id.into(),
+                actor.idempotency_key.clone().into(),
+                session.into(),
+                run.into(),
+            ],
+        ))
+        .await
+        .map_err(database_error)?
+        .as_ref()
+        .map(receipt)
+        .transpose()
+}
+
 async fn authorize(txn: &DatabaseTransaction, actor: Uuid, session: Uuid) -> Result<(), AppError> {
     let user = txn
         .query_one(Statement::from_sql_and_values(

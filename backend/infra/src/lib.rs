@@ -797,6 +797,15 @@ impl FleetRepository for PostgresFleetRepository {
         runtime_controls::list(self, session, run).await
     }
 
+    async fn find_runtime_control_by_key(
+        &self,
+        session: Uuid,
+        run: Uuid,
+        actor: &domain::RuntimeControlActor,
+    ) -> Result<Option<domain::RuntimeControlReceipt>, AppError> {
+        runtime_controls::find_by_key(self, session, run, actor).await
+    }
+
     async fn reconcile_runtime_controls(&self) -> Result<u64, AppError> {
         runtime_controls::reconcile(self).await
     }

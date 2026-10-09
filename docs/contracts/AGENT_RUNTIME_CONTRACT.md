@@ -26,6 +26,11 @@ only the local mirror and cannot submit another native effect.
 
 ## Durable Runtime Controls Unit13
 
+Fleet's literal controls/lookup GET can recover a lost POST receipt ID using the
+original authenticated human actor/key and exact session/run. It reads only the
+existing ledger. A missing result never authorizes native redispatch or a new
+command identity; no adapter protocol, runtime effect or completion proof changes.
+
 Free-chat steer/stop require authenticated human/owner authority, an immutable
 request key and one committed submission permit. Unknown effects hold the run;
 readback never replays a mutation. ACK, terminal runtime evidence, OS process

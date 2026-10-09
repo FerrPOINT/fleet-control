@@ -13,6 +13,9 @@ use sha2::{Digest, Sha256};
 #[path = "runtime_steer_transcript.rs"]
 mod steer_transcript;
 
+#[path = "runtime_control_lookup.rs"]
+mod key_lookup;
+
 async fn required_fixture() -> Option<(PostgresFleetRepository, Uuid, Uuid)> {
     std::env::var("FLEET_TEST_DATABASE_URL")
         .expect("isolated PostgreSQL is required for runtime control tests");
@@ -435,6 +438,10 @@ fn control_http_routes() -> Router<Arc<app::AppContext>> {
         .route(
             "/api/v1/sessions/{session_id}/runs/{run_id}/controls",
             get(api::routes::sessions::list_controls),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/runs/{run_id}/controls/lookup",
+            get(api::routes::sessions::lookup_control),
         )
         .route(
             "/api/v1/sessions/{session_id}/runs/{run_id}/controls/{command_id}",
