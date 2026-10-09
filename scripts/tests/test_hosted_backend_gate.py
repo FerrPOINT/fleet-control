@@ -916,12 +916,82 @@ class HostedBackendTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.validate_failure(dict(value, diagnostics=[dict(value["diagnostics"][0], **{key: item})]))
 
-    def failure_artifact(self, extra=None):
+    def failure_test_value(self):
+        value = self.failure_value()
+        name = REVIEWED["groups"]["credentials_pg"][0]
+        value.update(kind="safe_test_failure", stage="credentials_pg", gate_failed_stage="credentials_pg",
+                     failed_tests=[name], categories=["test_failure"],
+                     diagnostics=[dict(error_code=None, file="backend/infra/tests/support/pm_credential_creation.rs", line=300, column=5)])
+        return value
+
+    def test_test_failure_parser_emits_only_reviewed_names_and_fleet_locations(self):
+        name = REVIEWED["groups"]["credentials_pg"][0]
+        path = "infra/tests/support/pm_credential_creation.rs"
+        data = (f"test {name} ... FAILED\nthread 'PRIVATE_SENTINEL' panicked at {path}:300:5:\n"
+                "Database error PRIVATE_SENTINEL\n"
+                "thread 'secret' panicked at /qa/src/services-base/private.rs:10:2:\n"
+                "test PRIVATE_SENTINEL ... FAILED\n").encode()
+        result = gate.safe_test_diagnostics(io.BytesIO(data), {name}, REVIEWED["rust_source_sha256"], Path("/qa/src/fleet-control/backend"))
+        self.assertEqual(result, dict(failed_tests=[name], categories=["test_failure"], truncated=False,
+                                     diagnostics=[dict(error_code=None, file="backend/" + path, line=300, column=5)]))
+        self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+
+    def test_test_failure_parser_rejects_unsafe_locations_and_bounds_private_input(self):
+        data = ("thread 'secret' panicked at ../services-base/private.rs:10:2:\n"
+                "thread 'secret' panicked at infra/tests/support/pm_credential_creation.rs:0:1:\n"
+                "thread 'secret' panicked at infra/tests/support/pm_credential_creation.rs:1:10001:\n").encode()
+        result = gate.safe_test_diagnostics(io.BytesIO(data), set(), REVIEWED["rust_source_sha256"], Path("/qa/src/fleet-control/backend"))
+        self.assertEqual(result["diagnostics"], [])
+        self.assertEqual(result["categories"], ["unknown"])
+        with mock.patch.object(gate, "DIAGNOSTIC_INPUT_LIMIT", 16):
+            result = gate.safe_test_diagnostics(io.BytesIO(b"PRIVATE_SENTINEL" * 100), set(), {}, Path("/qa/backend"))
+        self.assertTrue(result["truncated"])
+        self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+
+    def test_test_failure_schema_rejects_private_names_extra_fields_and_compiler_claims(self):
+        value = self.failure_test_value()
+        self.validate_failure(value)
+        for change in (dict(failed_tests=["PRIVATE_SENTINEL"]), dict(stage="preflight"),
+                       dict(stage=[]), dict(message="PRIVATE_SENTINEL"), dict(categories=["PRIVATE_SENTINEL"]),
+                       dict(kind="safe_compiler_failure"), dict(backend_quality_gate=True),
+                       dict(failed_tests=value["failed_tests"] * 2),
+                       dict(diagnostics=[dict(value["diagnostics"][0], error_code="E0308")])):
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                self.validate_failure(dict(value, **change))
+
+    def test_test_failure_readback_is_authenticated_failure_not_acceptance(self):
+        run, artifact, payload, args = self.failure_artifact(value=self.failure_test_value())
+        files = gate.validate_failure_readback(run, artifact, payload, **args)
+        value = json.loads(files[gate.FAILURE_FILE])
+        self.assertEqual(value["kind"], "safe_test_failure")
+        self.assertFalse(value["backend_quality_gate"])
+        with self.assertRaises(ValueError):
+            gate.validate_readback(run, artifact, payload, **args)
+
+    def test_journal_groups_use_safe_test_failure_without_cross_group_identity_or_acceptance(self):
+        for stage in ("clarification_domain", "clarification_api", "clarification_pg", "clarification_migration"):
+            name = REVIEWED["groups"][stage][0]
+            foreign = REVIEWED["groups"]["credentials_pg"][0]
+            with self.subTest(stage=stage):
+                parsed = gate.safe_test_diagnostics(io.BytesIO(
+                    f"test {name} ... FAILED\ntest {foreign} ... FAILED\nPRIVATE_SENTINEL\n".encode()),
+                    gate.failure_test_names(REVIEWED, stage), REVIEWED["rust_source_sha256"], Path("/qa/src/fleet-control/backend"))
+                self.assertEqual(parsed["failed_tests"], [name])
+                value = dict(self.failure_test_value(), stage=stage, gate_failed_stage=stage, **parsed)
+                self.validate_failure(value)
+                with self.assertRaises(ValueError):
+                    self.validate_failure(dict(value, failed_tests=[foreign]))
+                run, artifact, payload, args = self.failure_artifact(value=value)
+                gate.validate_failure_readback(run, artifact, payload, **args)
+                with self.assertRaises(ValueError):
+                    gate.validate_readback(run, artifact, payload, **args)
+
+    def failure_artifact(self, extra=None, value=None):
         run, artifact, _, args = self.artifact()
         run["conclusion"] = "failure"
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, "w") as archive:
-            archive.writestr(gate.FAILURE_FILE, gate.canonical(self.failure_value()))
+            archive.writestr(gate.FAILURE_FILE, gate.canonical(value or self.failure_value()))
             for name in extra or ():
                 archive.writestr(name, b"PRIVATE_SENTINEL")
         payload = buffer.getvalue()

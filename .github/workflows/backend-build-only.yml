@@ -118,7 +118,7 @@ jobs:
           FLEET_GATE_READ_TOKEN: ${{ github.token }}
         if: always() && steps.controls.outcome == 'success'
         run: python3 -B controls/scripts/hosted_backend_gate.py cleanup
-      - name: Retain explicitly safe compiler failure evidence only
+      - name: Retain explicitly safe compiler or test failure evidence only
         timeout-minutes: 1
         if: failure() && steps.gate.outcome == 'failure'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

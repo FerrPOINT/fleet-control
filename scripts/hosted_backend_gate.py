@@ -576,9 +576,68 @@ def compiler_failure_logs(root, stage, reviewed):
     return result
 
 
+def failure_test_names(reviewed, stage):
+    if stage == "workspace":
+        return {item["name"] for item in reviewed["workspace_default_declarations"]}
+    return set(reviewed["groups"].get(stage, ()))
+
+
+def safe_test_diagnostics(stream, names, allowed, fleet_backend):
+    # Only reviewed test identities and Fleet source locations may leave private logs.
+    diagnostics, seen, failed, truncated = [], set(), set(), False
+    remaining = DIAGNOSTIC_INPUT_LIMIT
+    while remaining > 0:
+        line = stream.readline(min(DIAGNOSTIC_LINE_LIMIT + 1, remaining + 1))
+        if not line:
+            break
+        remaining -= len(line)
+        if len(line) > DIAGNOSTIC_LINE_LIMIT or remaining < 0:
+            truncated = True
+            continue
+        text = line.decode("utf-8", errors="replace").rstrip("\r\n")
+        result = re.fullmatch(r"test ([^\r\n ]+) \.\.\. FAILED", text)
+        if result and result[1] in names:
+            if len(failed) < DIAGNOSTIC_LIMIT:
+                failed.add(result[1])
+            else:
+                truncated = True
+        panic = re.fullmatch(r"thread '[^'\r\n]{1,256}' panicked at ([^:\r\n]{1,4096}):([0-9]{1,7}):([0-9]{1,5}):?", text)
+        if not panic:
+            continue
+        file = diagnostic_file(panic[1], allowed, fleet_backend)
+        line_number, column = int(panic[2]), int(panic[3])
+        if file is None or not (1 <= line_number <= 1000000 and 1 <= column <= 10000):
+            continue
+        key = (file, line_number, column)
+        if key in seen:
+            continue
+        if len(diagnostics) >= DIAGNOSTIC_LIMIT:
+            truncated = True
+            continue
+        seen.add(key)
+        diagnostics.append(dict(error_code=None, file=file, line=line_number, column=column))
+    if remaining <= 0:
+        truncated = True
+    return dict(diagnostics=diagnostics, failed_tests=sorted(failed),
+                categories=["test_failure" if diagnostics or failed else "unknown"], truncated=truncated)
+
+
+def test_failure_logs(root, stage, reviewed):
+    result = dict(diagnostics=[], failed_tests=[], categories=["unknown"], truncated=False, command_exit_code=None)
+    try:
+        with (root / "private" / (stage + ".log")).open("rb") as stream:
+            result.update(safe_test_diagnostics(stream, failure_test_names(reviewed, stage),
+                                               reviewed["rust_source_sha256"], root / "src/fleet-control/backend"))
+    except Exception:
+        pass
+    return result
+
+
 def validate_failure_evidence(value, *, workflow_sha, run_id, attempt):
     controls = Path(__file__).resolve().parents[1]
-    expected = dict(version=1, kind="safe_compiler_failure", status="failure", repository=REPOSITORY,
+    require(isinstance(value, dict) and value.get("kind") in ("safe_compiler_failure", "safe_test_failure"), "Invalid failure kind")
+    test_failure = value["kind"] == "safe_test_failure"
+    expected = dict(version=1, kind=value["kind"], status="failure", repository=REPOSITORY,
                     branch=BRANCH, workflow_sha=workflow_sha, workflow_path=WORKFLOW,
                     source_sha=SOURCE_SHA, base_sha=BASE_SHA, auth_sha=AUTH_SHA, run_id=run_id, run_attempt=attempt,
                     source_inventory_sha256=SOURCE_INVENTORY_SHA, backend_quality_gate=False,
@@ -586,22 +645,34 @@ def validate_failure_evidence(value, *, workflow_sha, run_id, attempt):
                     utility_sha=UTILITY_SHA, utility_inventory_sha256=UTILITY_INVENTORY_SHA,
                     control_sha256={name: digest((controls / name).read_bytes()) for name in sorted(WRITE_SET)})
     extra = {"stage", "gate_failed_stage", "gate_exit_code", "command_exit_code", "diagnostics", "categories", "truncated", "cleanup"}
+    if test_failure:
+        extra.add("failed_tests")
     require(isinstance(value, dict) and set(value) == set(expected) | extra, "Unsafe failure evidence fields")
     require(all(type(value[key]) is type(item) and value[key] == item for key, item in expected.items()), "Failure provenance mismatch")
-    require(value["stage"] in ("check", "clippy") and value["gate_failed_stage"] in (value["stage"], "cleanup"), "Invalid compiler stage")
+    reviewed = reviewed_inventory(controls)
+    require(isinstance(value["stage"], str) and value["stage"] in GATES, "Invalid failure stage")
+    require((bool(failure_test_names(reviewed, value["stage"])) if test_failure else value["stage"] in ("check", "clippy"))
+            and value["gate_failed_stage"] in (value["stage"], "cleanup"), "Invalid failure stage")
+    if test_failure:
+        names = value["failed_tests"]
+        allowed_names = failure_test_names(reviewed, value["stage"])
+        require(isinstance(names, list) and len(names) <= DIAGNOSTIC_LIMIT
+                and all(isinstance(name, str) and name in allowed_names for name in names)
+                and names == sorted(set(names)), "Unsafe failed test identities")
     require(all(value[key] is None or type(value[key]) is int and 0 <= value[key] <= 255
                 for key in ("gate_exit_code", "command_exit_code")), "Invalid exit code")
     require(type(value["truncated"]) is bool and isinstance(value["categories"], list)
-            and all(isinstance(item, str) and item in {*CATEGORY_PATTERNS, "unknown"} for item in value["categories"])
+            and all(isinstance(item, str) and item in ({"test_failure", "unknown"} if test_failure else {*CATEGORY_PATTERNS, "unknown"}) for item in value["categories"])
             and value["categories"] == sorted(set(value["categories"])), "Invalid fixed failure categories")
     records = value["diagnostics"]
-    allowed = reviewed_inventory(controls)["rust_source_sha256"]
+    allowed = reviewed["rust_source_sha256"]
     require(isinstance(records, list) and len(records) <= DIAGNOSTIC_LIMIT, "Diagnostic count bound")
     seen = set()
     for record in records:
         require(isinstance(record, dict) and set(record) == {"error_code", "file", "line", "column"}, "Unsafe diagnostic fields")
         code, file = record["error_code"], record["file"]
         require(code is None or isinstance(code, str) and re.fullmatch(r"E[0-9]{4}", code), "Unsafe diagnostic code")
+        require(not test_failure or code is None, "Test failure cannot claim compiler diagnostics")
         require(isinstance(file, str) and file in allowed, "Non-allowlisted Fleet diagnostic file")
         require(type(record["line"]) is int and 1 <= record["line"] <= 1000000
                 and type(record["column"]) is int and 1 <= record["column"] <= 10000, "Invalid diagnostic location")
@@ -866,6 +937,9 @@ def execute():
             if not success and failed_stage in ("check", "clippy"):
                 compiler_stage = failed_stage
                 compiler_failure = compiler_failure_logs(root, compiler_stage, reviewed)
+            elif not success and failure_test_names(reviewed, failed_stage):
+                compiler_stage = failed_stage
+                compiler_failure = test_failure_logs(root, compiler_stage, reviewed)
             if owned_dbs:
                 drop_databases(owned_dbs)
                 cleanup["synthetic_databases"] = True
@@ -904,7 +978,7 @@ def execute():
     (evidence / "SHA256SUMS").write_text("".join(digest((evidence / name).read_bytes()) + "  " + name + "\n"
                                               for name in ("report.json", "provenance.json")), newline="\n")
     if not success and compiler_failure is not None:
-        failure_artifact = dict(version=1, kind="safe_compiler_failure", status="failure", repository=REPOSITORY,
+        failure_artifact = dict(version=1, kind="safe_compiler_failure" if compiler_stage in ("check", "clippy") else "safe_test_failure", status="failure", repository=REPOSITORY,
                        branch=BRANCH, workflow_path=WORKFLOW,
                        **identity, source_sha=SOURCE_SHA, base_sha=BASE_SHA, auth_sha=AUTH_SHA,
                        utility_sha=UTILITY_SHA, utility_inventory_sha256=UTILITY_INVENTORY_SHA,
@@ -915,7 +989,7 @@ def execute():
                        all_quality_gate=False, sdlc_acceptance=False)
         validate_failure_evidence(failure_artifact, workflow_sha=workflow_sha, run_id=identity["run_id"], attempt=identity["run_attempt"])
         data = canonical(failure_artifact)
-        require(len(data) <= FAILURE_SIZE_LIMIT, "Safe compiler evidence exceeds bound")
+        require(len(data) <= FAILURE_SIZE_LIMIT, "Safe failure evidence exceeds bound")
         failure_root = temporary / "fleet-backend-failure-evidence"
         failure_root.mkdir(exist_ok=False)
         with (failure_root / FAILURE_FILE).open("xb") as output:
@@ -1048,7 +1122,7 @@ def readback(args):
     args.output.mkdir(parents=True, exist_ok=False)
     for name, data in files.items():
         (args.output / name).write_bytes(data)
-    print(json.dumps(dict(state="verified_safe_compiler_failure" if failure else "verified_hosted_backend_gate",
+    print(json.dumps(dict(state="verified_" + json.loads(files[FAILURE_FILE])["kind"] if failure else "verified_hosted_backend_gate",
                           output=str(args.output.resolve()), backend_quality_gate=not failure,
                           all_quality_gate=False, sdlc_acceptance=False)))
 
