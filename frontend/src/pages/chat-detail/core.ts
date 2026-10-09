@@ -1,5 +1,10 @@
 import { ApiError } from '@sdlc/ui/lib'
-import type { AgentSession, SessionAgentRun, SessionMessage } from '@/api/types'
+import type {
+  AgentSession,
+  CreateSessionMessageRequest,
+  SessionAgentRun,
+  SessionMessage,
+} from '@/api/types'
 
 export function unknownOutcome(error: unknown) {
   return (
@@ -95,6 +100,16 @@ export function legacyControlHeld(sessionId: string) {
     return sessionStorage.getItem(`fleet-control.control-recovery.v1:${sessionId}`) !== null
   } catch {
     return true
+  }
+}
+export function chatMessageRequest(body: string, key: string): CreateSessionMessageRequest {
+  // Match the stored serde_json request digest: sorted keys and explicit nulls.
+  return {
+    author_agent_id: null,
+    body,
+    idempotency_key: key,
+    message_kind: null,
+    runtime_message_id: null,
   }
 }
 export async function payloadDigest(value: unknown) {

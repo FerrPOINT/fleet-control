@@ -31,6 +31,7 @@ import { EmptyState, ErrorState, StatusBadge, formatDate } from '../common'
 import {
   chatActivity,
   chatBackTo,
+  chatMessageRequest,
   clearDispatch,
   commandService,
   dispatchHeld,
@@ -257,12 +258,13 @@ function ChatWorkspace({ sessionId }: { sessionId: string }) {
       if (!original) {
         if (dispatchHeld(sessionId)) throw new Error(t('chatCore.held'))
         const body = draft.trim()
+        const key = crypto.randomUUID()
         const marker = {
           actor: scope.userId!,
           agent: fresh.primary_agent_id,
           service: commandService(apiBaseUrl, ssoConfig.issuer),
-          key: crypto.randomUUID(),
-          digest: await payloadDigest({ body, author_agent_id: null }),
+          key,
+          digest: await payloadDigest(chatMessageRequest(body, key)),
         }
         if (!isCurrentAuth(scope) || !live.current) return
         markDispatch(sessionId, marker)
@@ -271,17 +273,19 @@ function ChatWorkspace({ sessionId }: { sessionId: string }) {
         setHeld(true)
       }
       sent = true
-      const response = await createSessionMessage(sessionId, {
-        body: original.body,
-        author_agent_id: null,
-        idempotency_key: original.marker.key,
-      })
+      const response = await createSessionMessage(
+        sessionId,
+        chatMessageRequest(original.body, original.marker.key),
+      )
       if (!live.current || !isCurrentAuth(scope)) return
       if (
         !response.id ||
         response.session_id !== sessionId ||
         response.author_user_id !== scope.userId ||
-        response.body !== original.body ||
+        response.author_type !== 'user' ||
+        response.author_agent_id !== null ||
+        response.message_kind !== 'user_prompt' ||
+        response.request_payload_hash !== original.marker.digest ||
         !clearDispatch(sessionId, original.marker)
       )
         throw new Error(t('chatCore.held'))

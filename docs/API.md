@@ -108,6 +108,16 @@ agent authorship и различия central/legacy permissions; наличие 
 - `GET/POST /sessions/{session_id}/messages`
 - `POST /sessions/{session_id}/messages` is idempotent by request key and avoids
   duplicate runtime dispatch on replay.
+- A successful message POST acknowledges its specific persisted row, including
+  when it is beyond the first 500 messages returned by history. The authorized
+  POST receipt includes optional `request_payload_hash`, taken from the stored
+  idempotency payload hash. History, runtime dispatch and assistant mirrors do
+  not expose that digest. Requests without an idempotency key may omit it.
+- The digest is SHA-256 of the parsed request serialized as compact JSON with
+  sorted keys: `author_agent_id`, `body`, `idempotency_key`, `message_kind` and
+  `runtime_message_id`; missing optional fields serialize as `null`. Public body
+  redaction does not change this digest. A client requiring positive command
+  confirmation must retain the original key if the digest is missing or differs.
 - `GET /sessions/{session_id}/stream`
 - `GET /sessions/{session_id}/participants`
 - `PUT /sessions/{session_id}/leader`

@@ -4,11 +4,13 @@ import type { AgentSession, SessionAgentRun, SessionMessage } from '@/api/types'
 import {
   chatActivity,
   chatBackTo,
+  chatMessageRequest,
   clearDispatch,
   commandService,
   dispatchHeld,
   legacyControlHeld,
   markDispatch,
+  payloadDigest,
   unknownOutcome,
 } from './core'
 
@@ -121,5 +123,15 @@ describe('core contract guards', () => {
     expect(service).toContain('https://example.test/api')
     expect(service).not.toContain('secret')
     expect(service).not.toContain('private')
+  })
+  it('matches the server request digest including nulls and the original key', async () => {
+    expect(
+      await payloadDigest(
+        chatMessageRequest(
+          'Discuss password=fixture-value',
+          '00000000-0000-4000-8000-000000000399',
+        ),
+      ),
+    ).toBe('ae34a8dd992f505a7b8e0f5ad8248284d857471f3a8067a041aa8632eff34087')
   })
 })
