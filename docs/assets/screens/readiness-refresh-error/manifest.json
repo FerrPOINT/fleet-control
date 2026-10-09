@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "mocked-api-ui-regression-fixtures",
+  "liveRuntimeAcceptance": false,
+  "fleetBaseline": "c8093aace07e54436893c5f7e35df1f968690266",
+  "baseRevision": "875cac2edf1a18c3a8a59e2f67256d02a8fc04e4",
+  "productionComponentBlob": "d337e82609d128c927d43ebdef27c81276c8880a",
+  "sourceHead": "d3470e60e97d8fbf70ded9aa4310728dc3a7eb8d",
+  "testWorkingTreeBlob": "a75f3ae5fbc56c1e5de7946d24149bde032bfaa4",
+  "node": "v22.20.0",
+  "pnpm": "10.28.1",
+  "verificationPlatform": "win32",
+  "keyboardTraversal": {
+    "chromium": "Shift+Tab, Tab, Enter",
+    "firefox": "Shift+Tab, Tab, Enter",
+    "webkit": "Shift+Tab, Tab, Enter"
+  },
+  "baseURL": "http://localhost:50635",
+  "readinessQueryRetries": "application defaults",
+  "playwrightRetries": 0,
+  "reportStats": {
+    "startTime": "2026-10-08T23:52:23.684Z",
+    "duration": 177255.93,
+    "expected": 9,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "screenshots": [
+    {
+      "file": "mock-fixture-chromium-1920x1080.png",
+      "browser": "chromium",
+      "width": 1920,
+      "height": 1080,
+      "fullPage": false,
+      "sha256": "2752522790e47e4dd141ed83e3fc27fa3675401e1c664419b208487040dd4b12",
+      "source": "private:fleet-webkit-proof-20261009/evidence/windows-regates/artifacts/fleet-control-config-revis-73e89-failed-refresh-at-1920x1080-chromium/fixture-config-revisions-readiness-unknown-1920x1080.png"
+    },
+    {
+      "file": "mock-fixture-chromium-2560x1440.png",
+      "browser": "chromium",
+      "width": 2560,
+      "height": 1440,
+      "fullPage": false,
+      "sha256": "41e1c1bd9aac3b7a07ec62e6777ef8e8b1e60904941bc05404ef9fc64b49a8ef",
+      "source": "private:fleet-webkit-proof-20261009/evidence/windows-regates/artifacts/fleet-control-config-revis-64a03-failed-refresh-at-2560x1440-chromium/fixture-config-revisions-readiness-unknown-2560x1440.png"
+    },
+    {
+      "file": "mock-fixture-chromium-375x812.png",
+      "browser": "chromium",
+      "width": 375,
+      "height": 812,
+      "fullPage": false,
+      "sha256": "6e73919aca699998afcd7eca2531fa17508d3a3fb39b164dc3262347716bdea2",
+      "source": "private:fleet-webkit-proof-20261009/evidence/windows-regates/artifacts/fleet-control-config-revis-ea0a6-a-failed-refresh-at-375x812-chromium/fixture-config-revisions-readiness-unknown-375x812.png"
+    },
+    {
+      "file": "mock-fixture-firefox-1920x1080.png",
+      "browser": "firefox",
+      "width": 1920,
+      "height": 1080,
+      "fullPage": false,
+      "sha256": "b1fb55cfaf1371b7b61d601f1ff239f191e5f516fc7c82463c3eefdc14d28c28",
+      "source": "private:fleet-webkit-proof-20261009/evidence/windows-regates/artifacts/fleet-control-config-revis-73e89-failed-refresh-at-1920x1080-firefox/fixture-config-revisions-readiness-unknown-1920x1080.png"
+    },
+    {
+      "file": "mock-fixture-firefox-2560x1440.png",
+      "browser": "firefox",
+      "width": 2560,
+      "height": 1440,
+      "fullPage": false,
+      "sha256": "9d518e970655b1777522e72c91bfd4e39a185950d0add2d31bb84db0bd75f4d7",
+      "source": "private:fleet-webkit-proof-20261009/evidence/windows-regates/artifacts/fleet-control-config-revis-64a03-failed-refresh-at-2560x1440-firefox/fixture-config-revisions-readiness-unknown-2560x1440.png"
+    },
+    {
+      "file": "mock-fixture-firefox-375x812.png",
+      "browser": "firefox",
+      "width": 375,
+      "height": 812,
+      "fullPage": false,
+      "sha256": "1466b20ba360ffb0e17bac03f7a7dccab474dcb11315b061e3ce8324092d706c",
+      "source": "private:fleet-webkit-proof-20261009/evidence/windows-regates/artifacts/fleet-control-config-revis-ea0a6-a-failed-refresh-at-375x812-firefox/fixture-config-revisions-readiness-unknown-375x812.png"
+    },
+    {
+      "file": "mock-fixture-webkit-1920x1080.png",
+      "browser": "webkit",
+      "width": 1920,
+      "height": 1080,
+      "fullPage": false,
+      "sha256": "e5cbba4db963e9cba81013ed731626b0c0c445447768e58354b74a98e1a4a8d9",
+      "source": "private:fleet-webkit-proof-20261009/evidence/windows-regates/artifacts/fleet-control-config-revis-73e89-failed-refresh-at-1920x1080-webkit/fixture-config-revisions-readiness-unknown-1920x1080.png"
+    },
+    {
+      "file": "mock-fixture-webkit-2560x1440.png",
+      "browser": "webkit",
+      "width": 2560,
+      "height": 1440,
+      "fullPage": false,
+      "sha256": "70684fc77a4b666aae22ed043d2faec249db9b718a23e9b9093fb5bbaddf3c5d",
+      "source": "private:fleet-webkit-proof-20261009/evidence/windows-regates/artifacts/fleet-control-config-revis-64a03-failed-refresh-at-2560x1440-webkit/fixture-config-revisions-readiness-unknown-2560x1440.png"
+    },
+    {
+      "file": "mock-fixture-webkit-375x812.png",
+      "browser": "webkit",
+      "width": 375,
+      "height": 812,
+      "fullPage": false,
+      "sha256": "77e5e28684659ebf7f9ed266dac5813fd4af0c3cbeef4244d33a8df22888c23d",
+      "source": "private:fleet-webkit-proof-20261009/evidence/windows-regates/artifacts/fleet-control-config-revis-ea0a6-a-failed-refresh-at-375x812-webkit/fixture-config-revisions-readiness-unknown-375x812.png"
+    }
+  ],
+  "verificationRun": "windows-regates",
+  "keyboardActivation": "focus Retry, Enter; assert focus retained after failed refresh",
+  "keyboardRegressionVerification": {
+    "sourceHead": "d3470e60e97d8fbf70ded9aa4310728dc3a7eb8d",
+    "testWorkingTreeBlob": "a75f3ae5fbc56c1e5de7946d24149bde032bfaa4",
+    "productionComponentBlob": "d337e82609d128c927d43ebdef27c81276c8880a",
+    "linux": {
+      "node": "v22.20.0",
+      "executable": "/home/sdlc1-runner/.local/fleet-webkit-proof-20261009/node-v22.20.0-linux-x64/bin/node",
+      "platform": "linux",
+      "playwright": "1.61.1",
+      "webkit": "26.5",
+      "webkitRevision": "2311",
+      "os": "Ubuntu 24.04.4 LTS (WSL2)",
+      "baseURL": "http://localhost:40367",
+      "reportStats": {
+        "startTime": "2026-10-08T23:53:34.593Z",
+        "duration": 62139.333,
+        "expected": 3,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "playwrightRetries": 0,
+      "keyboardTraversal": "Shift+Tab, Tab, Enter",
+      "serverClosed": true
+    },
+    "windows": {
+      "node": "v22.20.0",
+      "executable": "C:\\git\\azhukov\\sdlc\\.local\\tools\\node-v22.20.0-win-x64\\node.exe",
+      "playwright": "1.61.1",
+      "reportStats": {
+        "startTime": "2026-10-08T23:52:23.684Z",
+        "duration": 177255.93,
+        "expected": 9,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "playwrightRetries": 0,
+      "serverClosed": true
+    },
+    "ciOnSourceHead": {
+      "37857695332": "failure on 0fc8826",
+      "37860129682": "failure on d3470e6"
+    },
+    "correctedPatchPublished": false
+  }
+}

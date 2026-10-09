@@ -30,6 +30,10 @@ Lifecycle:
 - readiness: `/health` plus `/v1/capabilities` containing `run_status`,
   `run_events_sse` and `run_stop`
 
+Native stdout/stderr writes use the shared repository's exact persisted-row
+acknowledgement after redaction. See [Logging Standards](../LOGGING_STANDARDS.md).
+This does not implement production Docker collection, replay or secret snapshots.
+
 Session control:
 
 - Fleet stores transcript/control mirrors in `session_messages`.
