@@ -38,14 +38,41 @@ findings do not certify an unexecuted compiler, database or live runtime gate.
 
 | Owner    | Current assignment                                                 | Required handoff                                                                                                              |
 | -------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| Feynman  | Next configuration activation from a recovered effective child      | New normal successor to frozen f326; drain, inherited lease, readiness and rollback regressions; no UI, PM or Forge edits |
-| Pascal   | Tracked PM conformance and remaining producer admission contract     | Frozen dc6ab, reproducible checks and exact missing primitives; no invented endpoint or runtime enablement |
-| Ptolemy  | Forge full12 controls and independent-review fixes                   | Frozen 34c, then scoped successor for confirmed findings; all12 stage budgets retained; no push during CI hold |
-| Anscombe | Independent Forge frozen-source closure                             | Exact34c inventory, complete deadline and process-group custody review; actual full12 remains separate |
-| Leibniz  | Independent Fleet and PM conformance source review                  | Close parent fixture/lineage fixes and review dc6ab without editing implementation; distinguish source checks from Rust/PG/live evidence |
+| Feynman  | Frozen Fleet successor submitted; independent PM source review      | Review exacte05 receipt/provenance/batch-reader changes without editing Pascal's implementation |
+| Pascal   | PM receipt fix and reproducible conformance                          | Frozene05, retain failed predecessor evidence and missing producer primitives; no runtime enablement |
+| Ptolemy  | Frozen Forge successor submitted; independent chat source review    | Review exact8e5 closed-question recovery, ownership and context-error guards; no parent UI edits |
+| Anscombe | Independent Forge successor closure                                 | Exactdaf sourceprep/shared deadline, independent teardown and overall budget proof; actual full12 remains separate |
+| Leibniz  | Independent Fleet sequential-activation source review               | Exactd306 F6 closure and inherited custody/fencing; keep source/Rust/PG/native evidence distinct |
 | Parent   | Normal integration, documentation and scoped publication             | Base PR180 published after exact-head Linux224 and independent review; accept remaining units separately, do not certify full SDLC |
 
 ### Current Frozen Handoffs
+
+- Fleet sequential-activation successord3066ebbbda168f16f59697831ea92de5132527b
+  has sole parentf326. Worker reports21 Linux fake-contract cases and15 Windows
+  loader/hash/README cases passing. Two new Rust and four PG regressions have not
+  executed. Unreleased migration19 is extended; no upgrade of an already-applied
+  f32619 is claimed. Parent normal merge-tree preflight is conflict-free and
+  preserves0be22c7 fixture fixes. Independent review precedes integration.
+- Forge timing successordaf044da141c0e03847e9b3d9406c4d04f823917 has sole
+  parent34c. Parent repeats79/79 pure checks, zero skips,1.383s. Its component
+  lock SHA256 is c58c63c4f203873ef4565d4240a85b6b8734ac1c309fa3c874f84576e687274e.
+  The worker's Linux89 and product75 results are source-only. Independent timing
+  closure is pending; no actual full12, hosted dispatch or publication occurred.
+- PM receipt successore05e77e7c41803a597b07ef669d915e7cae44d15 has sole
+  parentdc6ab. Parent runs the actual24-case packet successfully with strict
+  receipt/provenance validation,457 canonical imports and closed owned Git reader.
+  Retained report run-c74568ddf359 records scratch absence and seal
+  685f2a8cd4ccb5f18dfa8a203b16330af75b91bd6795c548beb33a7133dac572.
+  Eight real-module probes remain distinct from16 synthetic oracle cases.
+  Independent closure is pending. Earlier failed run-e35178825a60 is preserved;
+  its cause is not reinterpreted. Producer admission remains BLOCKED/live=false.
+- Parent chat successor8e5d75d allows only original-key reconciliation after
+  the final question closes new-answer permission. Node22 passes334 tests,
+  typecheck/targeted lint/format/build, and3/3 browsers in2.7m. Nine screenshot
+  hashes/dimensions/routes pass and mobile/desktop captures were visually read.
+  Independent review is pending; live PM/durable-reload acceptance is not claimed.
+
+The predecessor handoffs below retain their original evidence and limitations:
 
 - Fleet worker sourcef326cdab4045f726449bf07e61a96a1b75e3063a has sole
   parent30f0993. Independent review closes the original five findings at source/
