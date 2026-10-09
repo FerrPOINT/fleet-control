@@ -106,6 +106,29 @@ BUDGET = None
 VERIFY_IN_GATE = False
 
 
+class CommandFailed(ValueError):
+    def __init__(self, returncode):
+        super().__init__("Command failed; backend gate withheld")
+        self.returncode = returncode
+
+
+def failure_kind(error):
+    category, code = "unexpected", None
+    if isinstance(error, CommandFailed):
+        category = "command"
+        value = error.returncode
+        code = value if type(value) is int and -255 <= value <= 255 else None
+    elif isinstance(error, (TimeoutError, subprocess.TimeoutExpired)):
+        category = "timeout"
+    elif isinstance(error, tarfile.TarError):
+        category = "archive"
+    elif isinstance(error, OSError):
+        category = "io"
+    elif isinstance(error, ValueError):
+        category = "validation"
+    return dict(category=category, exit_code=code)
+
+
 class JobBudget:
     def __init__(self, remaining):
         require(0 < remaining <= JOB_SECONDS, "Invalid hosted job budget")
@@ -217,7 +240,8 @@ def command(args, **kwargs):
         # verify-log already belongs to the held gate group; never let its children escape it.
         require(BUDGET is None, "Independent hosted budget requires owned Linux commands")
         result = subprocess.run(args, capture_output=True, timeout=300, **kwargs)
-        require(result.returncode == 0, "Command failed; backend gate withheld")
+        if result.returncode != 0:
+            raise CommandFailed(result.returncode)
         return result.stdout
     deadline = time.monotonic() + bounded_timeout(300)
     process = None
@@ -244,7 +268,8 @@ def command(args, **kwargs):
                         output.extend(block)
                         require(len(output) <= 256 * 1024 ** 2, "Owned command output oversized")
         check_budget()
-        require(process.returncode == 0, "Command failed; backend gate withheld")
+        if process.returncode != 0:
+            raise CommandFailed(process.returncode)
         return bytes(output)
     finally:
         try:
@@ -701,22 +726,31 @@ def execute():
     runtime_inventory, auth_binary_sha, failed_stage = {}, None, "preflight"
     contracts, migration_ledger = {}, {}
     cleanup, success = dict(scratch=False, synthetic_databases=False), False
+    phase, failure = "source_export_fleet", None
     try:
         export(checkouts[0][0], SOURCE_SHA, root / "src/fleet-control", FLEET_ROOTS)
+        phase = "source_export_sdk"
         export(checkouts[1][0], BASE_SHA, root / "src/services-base", ("crates", "Cargo.toml", "Cargo.lock", "LICENSE"))
+        phase = "source_export_auth"
         export(checkouts[2][0], AUTH_SHA, root / "src/base-auth-source", ("crates", "Cargo.toml", "Cargo.lock", "LICENSE", "frontend/src/lib/theme-preference.js"))
+        phase = "source_inventory"
         before = inventory(root / "src")
         require(before == reviewed["compiled_source_sha256"] and digest(canonical(before)) == SOURCE_INVENTORY_SHA, "Compiled input aggregate pin drift")
+        phase = "source_declarations"
         validate_source_inventory(root / "src/fleet-control", reviewed)
+        phase = "expectations"
         for name in ("tmp", "cargo", "target", "private", "expected"):
             (root / name).mkdir()
         for name, tests in reviewed["groups"].items():
             require(bool(tests) and len(tests) == len(set(tests)), "Empty/duplicate expectation")
             (root / "expected" / (name + ".txt")).write_text("\n".join(tests) + "\n", newline="\n")
         (root / "sources.sha256").write_text("".join(value + "  " + name + "\n" for name, value in before.items()), newline="\n")
+        phase = "swagger_download"
         command(["curl", "--fail", "--location", "--proto", "=https", "--proto-redir", "=https", "--retry", "0",
                  "https://github.com/swagger-api/swagger-ui/archive/refs/tags/v5.17.14.zip", "--output", str(root / "swagger.zip")])
+        phase = "swagger_hash"
         require(digest((root / "swagger.zip").read_bytes()) == SWAGGER_SHA, "Swagger hash mismatch")
+        phase = "postgres_qualification"
         require(database_catalog() == ["fleet_foundation_test", "postgres"], "Service not a fresh owned PostgreSQL")
         require(psql("SHOW server_version_num").strip() == b"170006", "PostgreSQL version drift")
         require(psql("SELECT current_user").strip() == b"fleet_test", "Synthetic PG owner drift")
@@ -725,8 +759,10 @@ def execute():
         require(psql("SELECT rolname FROM pg_roles WHERE rolname='fleet_approval_events_test'").strip() == b"", "Fixture role already exists")
         owned_dbs = list(DATABASES)
         (root / "owned-databases.json").write_bytes(canonical(owned_dbs))
+        phase = "postgres_initialization"
         psql(file=controls / INIT)
         require(database_catalog() == sorted([*DATABASES, "postgres"]), "Synthetic DB initialization incomplete")
+        phase = "gate_execution"
         environment = {key: os.environ[key] for key in ("PATH", "HOME", "RUSTUP_HOME", "RUNNER_TRACKING_ID") if key in os.environ}
         environment.update(database_environment())
         environment.update(QA_ROOT=str(root), QA_OUTPUT=str(root / "private"), QA_EXPECTED=str(root / "expected"),
@@ -742,6 +778,7 @@ def execute():
                                        stdout=diagnostics, stderr=diagnostics, start_new_session=True)
             code = wait_owned_exit(process, GATE_SECONDS)
             stop_owned_group(process)
+        phase = "gate_receipts"
         rows = [line.split("\t") for line in (root / "private/gates.tsv").read_text().splitlines()]
         failed_stage = failure_stage(rows)
         require(code == 0 and rows == [[name, "passed"] for name in GATES], "Incomplete or failed backend gate")
@@ -763,8 +800,9 @@ def execute():
         require(bool(re.fullmatch(r"[0-9a-f]{64}", auth_binary_sha)), "Missing fresh Auth binary hash")
         check_budget()
         success = True
-    except Exception:
+    except Exception as error:
         # Never print raw Cargo/Base/test diagnostics, arguments or exception text.
+        failure = failure_kind(error)
         if (root / "private/gates.tsv").exists():
             rows = [line.split("\t") for line in (root / "private/gates.tsv").read_text().splitlines()]
             failed_stage = failure_stage(rows)
@@ -783,8 +821,9 @@ def execute():
                 cleanup["synthetic_databases"] = "not_initialized"
             remove_scratch(root, temporary, identity)
             cleanup["scratch"] = True
-        except Exception:
+        except Exception as error:
             success, failed_stage = False, "cleanup"
+            phase, failure = "cleanup", failure_kind(error)
     safe_rows = [{"stage": name, "status": state} for name, state in rows
                  if name in GATES and state in ("passed", "failed")]
     report = dict(version=1, backend_quality_gate=success, all_quality_gate=False, sdlc_acceptance=False,
@@ -832,6 +871,8 @@ def execute():
         print(json.dumps(failure))
     print(json.dumps(dict(state="backend_quality_gate_passed" if success else "backend_quality_gate_failed",
                           failed_stage=None if success else failed_stage, private_logs_uploaded=False,
+                          control_phase=None if success else phase, failure=None if success else failure,
+                          cleanup=cleanup,
                           all_quality_gate=False, sdlc_acceptance=False)))
     check_budget()
     return 0 if success else code if type(code) is int and 1 <= code <= 255 else 1

@@ -471,6 +471,37 @@ class HostedBackendTests(unittest.TestCase):
         self.assertNotIn("process.poll(", body)
         self.assertNotIn("process.communicate(", body)
 
+    def test_failure_kind_never_exposes_exception_arguments_or_private_context(self):
+        sentinel = "PRIVATE_SENTINEL_TOKEN_AND_SOURCE"
+        for error, category in ((ValueError(sentinel), "validation"), (OSError(sentinel), "io"),
+                                (TimeoutError(sentinel), "timeout"),
+                                (subprocess.TimeoutExpired(sentinel, 12, output=sentinel), "timeout"),
+                                (gate.tarfile.ReadError(sentinel), "archive"), (RuntimeError(sentinel), "unexpected")):
+            actual = gate.failure_kind(error)
+            self.assertEqual(actual, dict(category=category, exit_code=None))
+            self.assertNotIn(sentinel, json.dumps(actual))
+
+    def test_command_failure_retains_only_bounded_numeric_exit_code(self):
+        for code in (1, 22, 128, -9):
+            self.assertEqual(gate.failure_kind(gate.CommandFailed(code)), dict(category="command", exit_code=code))
+        for code in (True, "PRIVATE_SENTINEL", 256, -256, None):
+            self.assertEqual(gate.failure_kind(gate.CommandFailed(code)), dict(category="command", exit_code=None))
+
+    def test_preflight_phase_diagnostics_use_only_static_literals(self):
+        import ast
+        module = ast.parse((ROOT / gate.HELPER).read_text())
+        function = next(node for node in module.body if isinstance(node, ast.FunctionDef) and node.name == "execute")
+        phases = set()
+        for node in ast.walk(function):
+            if isinstance(node, ast.Assign):
+                if any(isinstance(target, ast.Name) and target.id == "phase" for target in node.targets):
+                    self.assertIsInstance(node.value, ast.Constant)
+                    self.assertIsInstance(node.value.value, str)
+                    phases.add(node.value.value)
+        self.assertEqual(phases, {"source_export_sdk", "source_export_auth", "source_inventory", "source_declarations",
+            "expectations", "swagger_download", "swagger_hash", "postgres_qualification", "postgres_initialization",
+            "gate_execution", "gate_receipts"})
+
     def test_private_logs_never_uploaded_cleanup_always_runs(self):
         steps = self.workflow()["jobs"]["backend"]["steps"]
         artifact = next(step for step in steps if step.get("id") == "artifact")
