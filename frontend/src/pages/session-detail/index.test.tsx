@@ -295,9 +295,14 @@ describe('SessionDetailPage', () => {
     await waitFor(() =>
       expect(toast.success).toHaveBeenCalledWith('Уточнение для Agent Alpha отправлено'),
     )
-    expect(fleet.steerSessionRun).toHaveBeenCalledWith(session.id, runAlpha.id, {
-      input: 'Continue carefully',
-    })
+    expect(fleet.steerSessionRun).toHaveBeenCalledWith(
+      session.id,
+      runAlpha.id,
+      {
+        input: 'Continue carefully',
+      },
+      expect.any(String),
+    )
   })
 
   it('keeps stop confirmation open while pending and allows retry after an error', async () => {
@@ -333,7 +338,14 @@ describe('SessionDetailPage', () => {
 
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
     expect(fleet.stopSessionRun).toHaveBeenCalledTimes(2)
-    expect(fleet.stopSessionRun).toHaveBeenLastCalledWith(session.id, runAlpha.id)
+    expect(fleet.stopSessionRun).toHaveBeenLastCalledWith(
+      session.id,
+      runAlpha.id,
+      expect.any(String),
+    )
+    expect(vi.mocked(fleet.stopSessionRun).mock.calls[1]).toEqual(
+      vi.mocked(fleet.stopSessionRun).mock.calls[0],
+    )
     expect(toast.success).toHaveBeenCalledWith('Остановка запуска Agent Alpha запрошена')
   })
 })

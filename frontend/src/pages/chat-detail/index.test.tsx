@@ -448,5 +448,40 @@ describe('production chat', () => {
     )
     expect(fleet.createSessionMessage).not.toHaveBeenCalled()
     expect(fleet.steerSessionRun).toHaveBeenCalledTimes(1)
+    expect(fleet.steerSessionRun).toHaveBeenCalledWith(
+      'session1',
+      'run-1',
+      { input: 'A scoped steer' },
+      expect.any(String),
+    )
+  })
+
+  it('replays a lost stop response only against its original run and key', async () => {
+    vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      can_send: false,
+      can_steer: true,
+      can_stop: true,
+      active_run_id: 'original-run',
+      blocked_reason: null,
+    })
+    vi.mocked(fleet.stopSessionRun).mockRejectedValue(new Error('Unknown stop outcome'))
+    const { client } = renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: 'Остановить запуск' }))
+    await screen.findByText('Unknown stop outcome')
+    const original = vi.mocked(fleet.stopSessionRun).mock.calls[0]
+    expect(original).toEqual(['session1', 'original-run', expect.any(String)])
+    act(() =>
+      client.setQueryData(['chat-controls', 'session1'], {
+        can_send: false,
+        can_steer: true,
+        can_stop: true,
+        active_run_id: 'new-run',
+        blocked_reason: null,
+      }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Остановить запуск' }))
+    await waitFor(() => expect(fleet.stopSessionRun).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(fleet.stopSessionRun).mock.calls[1]).toEqual(original)
   })
 })

@@ -252,11 +252,11 @@ function ChatWorkspace({ id }: { id: string }) {
   const message = useMutation({
     mutationFn: async (
       command:
-        | { kind: 'steer'; runId: string; input: string }
+        | { kind: 'steer'; runId: string; input: string; key: string }
         | { kind: 'prompt'; input: string; key: string },
     ) =>
       command.kind === 'steer'
-        ? steerSessionRun(id, command.runId, { input: command.input })
+        ? steerSessionRun(id, command.runId, { input: command.input }, command.key)
         : createSessionMessage(id, { body: command.input, idempotency_key: command.key }),
     onSuccess: async (result) => {
       setBody('')
@@ -287,7 +287,8 @@ function ChatWorkspace({ id }: { id: string }) {
     },
   })
   const stop = useMutation({
-    mutationFn: () => stopSessionRun(id, controls.data!.active_run_id!),
+    mutationFn: (command: { runId: string; key: string }) =>
+      stopSessionRun(id, command.runId, command.key),
     onSuccess: invalidate,
   })
   const answerUncertain =
@@ -310,7 +311,7 @@ function ChatWorkspace({ id }: { id: string }) {
     }
     message.mutate(
       controls.data?.can_steer && controls.data.active_run_id
-        ? { kind: 'steer', runId: controls.data.active_run_id, input: body.trim() }
+        ? { kind: 'steer', runId: controls.data.active_run_id, input: body.trim(), key: messageKey }
         : { kind: 'prompt', input: body.trim(), key: messageKey },
     )
   }
@@ -605,7 +606,13 @@ function ChatWorkspace({ id }: { id: string }) {
                       aria-label="Остановить запуск"
                       title="Остановить запуск"
                       disabled={stop.isPending}
-                      onClick={() => stop.mutate()}
+                      onClick={() => {
+                        const command =
+                          stop.isError && stop.variables
+                            ? stop.variables
+                            : { runId: controls.data!.active_run_id!, key: requestKey() }
+                        stop.mutate(command)
+                      }}
                     >
                       <Square size={15} />
                     </Button>

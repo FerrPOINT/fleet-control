@@ -227,16 +227,23 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
     },
   })
   const messageMutation = useMutation({
-    mutationFn: async () => {
-      if (activeRun)
-        return await steerSessionRun(sessionId!, activeRun.id, { input: messageBody.trim() })
+    mutationFn: async (command: {
+      runId: string | null
+      input: string
+      key: string
+      authorAgentId: string | null
+    }) => {
+      if (command.runId)
+        return await steerSessionRun(
+          sessionId!,
+          command.runId,
+          { input: command.input },
+          command.key,
+        )
       return await createSessionMessage(sessionId!, {
-        body: messageBody.trim(),
-        author_agent_id:
-          authorMode === 'leader' && session.data?.leader_agent_id
-            ? session.data.leader_agent_id
-            : null,
-        idempotency_key: messageRequestKey,
+        body: command.input,
+        author_agent_id: command.authorAgentId,
+        idempotency_key: command.key,
       })
     },
     onSuccess: async () => {
@@ -294,7 +301,19 @@ export function SessionDetailPage({ legacyControls = true }: { legacyControls?: 
 
   function submitMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (messageBody.trim() && !messageMutation.isPending) messageMutation.mutate()
+    if (messageBody.trim() && !messageMutation.isPending) {
+      messageMutation.mutate(
+        messageMutation.isError && messageMutation.variables
+          ? messageMutation.variables
+          : {
+              runId: activeRun?.id ?? null,
+              input: messageBody.trim(),
+              key: messageRequestKey,
+              authorAgentId:
+                authorMode === 'leader' ? (session.data?.leader_agent_id ?? null) : null,
+            },
+      )
+    }
   }
 
   function submitDelegation(event: FormEvent<HTMLFormElement>) {
@@ -878,10 +897,12 @@ function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: st
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [steerDraft, setSteerDraft] = useState('')
+  const [steerKey, setSteerKey] = useState(newIdempotencyKey)
+  const [stopKey] = useState(newIdempotencyKey)
   const [stopDialogOpen, setStopDialogOpen] = useState(false)
   const canControl = run.state === 'running' || run.state === 'waiting'
   const stopMutation = useMutation({
-    mutationFn: () => stopSessionRun(sessionId, run.id),
+    mutationFn: () => stopSessionRun(sessionId, run.id, stopKey),
     onSuccess: async () => {
       setStopDialogOpen(false)
       await queryClient.invalidateQueries({ queryKey: ['session-runs', sessionId] })
@@ -889,9 +910,11 @@ function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: st
     },
   })
   const steerMutation = useMutation({
-    mutationFn: () => steerSessionRun(sessionId, run.id, { input: steerDraft.trim() }),
+    mutationFn: (command: { runId: string; input: string; key: string }) =>
+      steerSessionRun(sessionId, command.runId, { input: command.input }, command.key),
     onSuccess: async () => {
       setSteerDraft('')
+      setSteerKey(newIdempotencyKey())
       await queryClient.invalidateQueries({ queryKey: ['session-runs', sessionId] })
       toast.success(t('sessionDetail.steerSuccess', { agent: run.agent_name }))
     },
@@ -901,7 +924,17 @@ function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: st
 
   function submitSteer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (steerDraft.trim() && !actionPending) steerMutation.mutate()
+    if (steerDraft.trim() && !actionPending) {
+      steerMutation.mutate(
+        steerMutation.isError && steerMutation.variables
+          ? steerMutation.variables
+          : {
+              runId: run.id,
+              input: steerDraft.trim(),
+              key: steerKey,
+            },
+      )
+    }
   }
 
   return (
@@ -1015,6 +1048,7 @@ function RuntimeRunRow({ run, sessionId }: { run: SessionAgentRun; sessionId: st
               disabled={actionPending}
               onChange={(event) => {
                 setSteerDraft(event.target.value)
+                setSteerKey(newIdempotencyKey())
                 steerMutation.reset()
               }}
               placeholder={t('sessionDetail.steerPlaceholder')}

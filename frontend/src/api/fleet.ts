@@ -225,16 +225,23 @@ export function listSessionAgentRuns(id: string) {
   return apiRequest<SessionAgentRun[]>(`/api/v1/sessions/${id}/runs`)
 }
 
-export function steerSessionRun(id: string, runId: string, req: SteerSessionRunRequest) {
+export function steerSessionRun(
+  id: string,
+  runId: string,
+  req: SteerSessionRunRequest,
+  key: string,
+) {
   return apiRequest<RuntimeRunControlResponse>(`/api/v1/sessions/${id}/runs/${runId}/steer`, {
     method: 'POST',
+    headers: { 'Idempotency-Key': key },
     body: JSON.stringify(req),
   })
 }
 
-export function stopSessionRun(id: string, runId: string) {
+export function stopSessionRun(id: string, runId: string, key: string) {
   return apiRequest<RuntimeRunControlResponse>(`/api/v1/sessions/${id}/runs/${runId}/stop`, {
     method: 'POST',
+    headers: { 'Idempotency-Key': key },
     body: '{}',
   })
 }
