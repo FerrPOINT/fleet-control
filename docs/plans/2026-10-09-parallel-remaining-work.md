@@ -39,7 +39,7 @@ findings do not certify an unexecuted compiler, database or live runtime gate.
 | Owner    | Current assignment                                                 | Required handoff                                                                                                              |
 | -------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
 | Ptolemy  | Public-safe Forge replacement and private maintenance delivery | Missing prerequisite: qualified private commit/pin and authenticated delivery. Do not publish private Base copies/base64 or their ancestry; preserve frozen local packets. |
-| Leibniz  | Fleet executable backend gate retarget | Controls0fe/productb249: parent validates53 pure checks and18-file seal; Anscombe review pending, no actual70-stage run. Retain46 original stages/new selections,19 DBs and strict schema/source qualification; review/admission precedes execution. |
+| Leibniz  | Fleet executable backend gate custody successor | Controls0fe/productb249:53 worker pure checks; parent separately validates18 sealed files/HEAD/parent/delta. Fix reaped-leader cleanup with held custody, bounded drain and exact reap; no actual70-stage run. Retain46 original stages/new selections,19 DBs and strict schema/source qualification. |
 | Feynman  | Native protocol4/F6 interrupted-activation crash cuts | Preserve frozen df6574 and all original nine scenarios; genuine ACK/lease/readback at new crash cuts requires qualified images/resources and a separate native ACK. |
 | Anscombe | Private-pin source audit and independent frozen-source review | Independently qualify exact private source/commit/delivery and replacement controls; Fleet controls0fe review is pending. Source closure is not full/native execution. |
 | Pascal   | Current docs/evidence reconciliation | Verify the retained new Base815 run and hashes; update only current-state/gap/plan docs, without transferring fake evidence to CI/native or rewriting historical packets. |
@@ -125,7 +125,10 @@ admission remain necessary; no prepared invocation is an execution grant.
 - Native-driver source df6574bfe5d26445b9ce31a8f396d42914c8c653 retargets the
   preserved nine-scenario matrix to exactb249/Base9b, four raw canonical utility
   modules and a separate opt-in/ACK namespace. Owner47 unique pure cases pass;
-  independent source review is assigned. Compile/images/native remain unqualified.
+  independent source review passes20 targeted pure cases with no actionable
+  finding in this bounded retarget diff. Review seal is
+  bc4ad45a6abc10c4da8f4fe91adca9c69f90d0f26dfbcf8fa61368fcb28d3fc3.
+  Compile/images/native remain unqualified.
   It activates before controller restart, so interrupted protocol4 activation
   and sequential recovered-child F6 cuts are explicitly not exercised. A separate
   QA successor owns those cuts without fabricating SQL/custody or weakening the

@@ -32,8 +32,9 @@ heads; they do not accept this assembly.
   unchanged; full12 is NOT RUN.
 - Separate native-driver source df6574b targets exactb249/Base9b and four
   canonical utility modules, preserving the original nine scenarios. Its47 pure
-  tests pass; independent review, compiled source/image qualification and actual
-  native execution remain pending. Interrupted protocol4 activation and F6
+  tests pass; independent scoped source review passes20 targeted pure cases.
+  Compiled source/image qualification and actual native execution remain pending.
+  Interrupted protocol4 activation and F6
   sequential recovered-child cuts are not yet exercised by that driver.
 - Base815 has new retained Linux fake-contract evidence:224 passed, zero skips,
   44.041s, exit0; exact source/parents,14 canonical inputs and cleanup are verified.
@@ -43,9 +44,13 @@ heads; they do not accept this assembly.
   Base. Public Forge run37973076579 success does not restore private Base CI or
   accept full12/native gates. Protected runtime images and services are unchanged.
 
-Fleet backend controls freeze0fe has parent-validated53 pure checks and an18-file
-seal; Anscombe review is pending and no actual70-stage gate has run. This does
-not change the product assembly above or qualify combined Rust/PG/native gates.
+Fleet backend controls freeze0fe has53 worker pure checks; the parent separately
+verifies all18 sealed files, exact HEAD/parent and six-addition delta. Review finds
+a process-custody defect: normal wait reaps the leader before cleanup signals its
+historical PGID. A normal successor is assigned; no actual70-stage gate has run.
+This hosted path uses no ComposeHelper/local Docker, so the missing maintenance
+pin blocks Forge/native maintenance paths, not this backend gate. Product assembly
+and combined Rust/PG/native acceptance remain unchanged.
 
 The five current workers own public-safe Forge/private-pin delivery (Ptolemy),
 the executable Fleet gate (Leibniz), native crash cuts (Feynman), independent

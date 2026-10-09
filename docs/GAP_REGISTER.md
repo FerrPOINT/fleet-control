@@ -46,8 +46,11 @@ exit0, with exact canonical inputs/source parity and owned cleanup. It closes th
 new local raw-log retention item only, not CI, image/native acceptance or PM
 admission. The [evidence hashes and current owner/dependency matrix](plans/2026-10-09-parallel-remaining-work.md#retained-base815-fake-contract-evidence)
 keep this run separate from historical88.807s and the prepared execution gates.
-Fleet controls freeze0fe has parent-validated53 pure checks/18-file seal, with
-Anscombe review pending: no actual70-stage result exists. Parent remote readback
+Fleet controls freeze0fe has53 worker pure checks and a separately parent-verified
+18-file seal. Normal exit reaps its child before cleanup signals the old PGID;
+held-leader custody/drain/reap needs a reviewed normal successor before dispatch.
+No actual70-stage result exists. This hosted path has no ComposeHelper/local
+Docker dependency; do not apply Forge's maintenance-pin hold to it. Parent remote readback
 keeps Workflow PR90 Draft/master and Tracker PR114 Draft/main, neither merged;
 separate namespace PR99/126 do not close the legacy PM producer gate. Exact
 heads and the current no-local-heavy resource observation are in the work plan.
