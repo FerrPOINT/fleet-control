@@ -5,6 +5,9 @@ original Base safe-stop, fresh preparation and physical/file/API readiness proof
 Unknown native effects remain held without rollback or new delivery authority.
 See [unit18 source contract](../CONTAINER_ACTIVATION_RELEASE.md); native acceptance
 and assignment admission are distinct, still mandatory gates.
+The [standalone integration](../CONTAINER_ACTIVATION_INTEGRATION.md) serializes
+Docker lifecycle/activation per agent, not globally, while preserving independent
+recovery renewals, durable intent/receipts and all unknown-effect holds.
 
 Configured initial Docker generation preparation now uses original Base custody
 and a one-shot durable permit. See [unit17](../AUTOMATIC_CONTAINER_PREPARATION_RELEASE.md);
@@ -13,6 +16,9 @@ it does not grant runtime admission or implement replacement/config activation.
 Unit16 extends Hermes custody with original Base named-volume subpaths and
 fenced physical controller restart recovery. It does not complete automatic
 provisioning/restart/config activation. See [the unit contract](../MAPPED_CONTROLLER_RECOVERY_RELEASE.md).
+The follow-up uses canonical Git utility bytes and Base ASCII JSON hashing,
+independent per-agent renewals and no foreign-owner heartbeat delivery; leases
+and physical namespace proof are unchanged.
 
 Optional Docker lifecycle uses the original Base registration and physical
 snapshot, a durable pre-start generation claim and original namespace stop.

@@ -5,6 +5,12 @@ see [unit18 source contract](CONTAINER_ACTIVATION_RELEASE.md). Desired/effective
 publication, drain, original safe-stop and exact rollback remain separate gates.
 Native acceptance and production admission are still pending.
 
+The [standalone integration](CONTAINER_ACTIVATION_INTEGRATION.md) retains the
+unit16 ownership/heartbeat guards with unit17 preparation and unit18 activation.
+Reconcile, recovery renewal and Docker activation have independent per-agent
+workers. Docker lifecycle and activation serialize only the same agent; recovery
+renewal never waits for an activation readiness poll. Drain and proof gates remain.
+
 Opt-in original Docker lifecycle is available as a bounded source release. It
 uses Base utility169 separately from the unchanged SDK pin, one container journal
 migration and private operator-prepared v2 containers. See

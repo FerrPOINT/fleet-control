@@ -176,6 +176,19 @@ async fn read_managed(path: &Path) -> Result<Option<Vec<u8>>, AppError> {
 }
 
 impl LocalRuntimeSupervisor {
+    pub(super) async fn reconcile_container_revision(
+        &self,
+        revision: &domain::AgentConfigRevision,
+    ) {
+        if let Err(error) = self.apply_container_revision(revision).await {
+            tracing::warn!(
+                agent_id = %revision.agent_id,
+                "Docker configuration remains drained: {}",
+                crate::redact_text(&error.to_string())
+            );
+        }
+    }
+
     async fn activation_marker(&self, agent: &Agent) -> Result<String, AppError> {
         let agents = Path::new(&self.config.fleet.agents_root);
         crate::reject_symlink_components(Path::new("/"), agents)
@@ -707,7 +720,7 @@ impl LocalRuntimeSupervisor {
         &self,
         revision: &domain::AgentConfigRevision,
     ) -> Result<(), AppError> {
-        let _operations = self.container_operations.lock().await;
+        let _operations = self.container_operations.lock(revision.agent_id).await;
         let agent = self.repo.get_agent(revision.agent_id).await?;
         let config = self
             .config
@@ -1010,8 +1023,23 @@ mod tests {
 
     #[test]
     fn saved_plan_seals_exact_rollback_credentials_recipe_and_both_generations() {
-        let original = plan();
+        let mut original = plan();
+        original.files.insert(
+            "/agents/agent1/config/skills/\u{e9}\u{1f600}/SKILL.md".into(),
+            Some(
+                "\u{43f}\u{440}\u{438}\u{432}\u{435}\u{442}"
+                    .as_bytes()
+                    .to_vec(),
+            ),
+        );
         let claim = original.claim().unwrap();
+        let reloaded: Plan =
+            serde_json::from_slice(&serde_json::to_vec(&original).unwrap()).unwrap();
+        assert_eq!(reloaded.claim().unwrap().intent_sha256, claim.intent_sha256);
+        assert_eq!(
+            canonical_hash(&json!({"config":{"config_json":{},"soul_md":"\u{43f}\u{440}\u{438}\u{432}\u{435}\u{442} \u{1f600}","env_json":{}},"skills":[]})).unwrap(),
+            "a5de7dfacd6c2771ef639bb9cbbfe24b3f38b4eeb5170ad7f6c7a6c6b2404e69"
+        );
         let public = serde_json::to_string(&claim).unwrap();
         for secret in [
             "private-target",

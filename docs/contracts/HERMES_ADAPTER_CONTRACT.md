@@ -5,6 +5,10 @@ under live original custody. Failed bounded API readiness requires candidate exi
 proof before exact previous-file restoration and fresh rollback preparation.
 Only original Base readback derives endpoints. See
 [unit18 source contract](../CONTAINER_ACTIVATION_RELEASE.md); health is not admission.
+The [standalone integration](../CONTAINER_ACTIVATION_INTEGRATION.md) uses canonical
+Base Unicode JSON hashing for config and generation intent as well as mapping.
+Sibling activation/readiness work cannot queue recovery heartbeats or lifecycle
+operations behind a global agent-operation lock. Same-agent custody stays exclusive.
 
 [Unit17](../AUTOMATIC_CONTAINER_PREPARATION_RELEASE.md) automates configured first
 generation preparation and original unknown readback; operator-prepared input is
@@ -14,6 +18,9 @@ Unit16 supports original mapped v3 custody and same-container physical controlle
 restart recovery without changing original run origins, credentials or POST
 permits. Automatic generation preparation/replacement and config activation
 remain pending. See [the unit contract](../MAPPED_CONTROLLER_RECOVERY_RELEASE.md).
+Canonical Git utility bytes and Base ASCII mapping hashes are mandatory;
+sibling native delays do not serialize renewals, and an unknown foreign-owner
+heartbeat remains held without mutation. No journal/POST permit is reopened.
 
 Docker opt-in starts only an operator-prepared original Base v2 container with
 isolated `/config` HOME/HERMES_HOME, `/workspace` cwd and four guarded agent areas.

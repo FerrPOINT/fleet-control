@@ -8,6 +8,10 @@ bytes/credentials stay in fsynced0600 private plans. Launch custody and effectiv
 publication commit atomically with their activation steps. Populated custody
 blocks downgrade; empty down restores exact17 guard definitions. See
 [unit18 transitions and gates](CONTAINER_ACTIVATION_RELEASE.md).
+The standalone integration introduces no further migration. Configuration,
+intent and mapping JSON hashes use the same Base ASCII-escaped canonical recipe,
+including Unicode/SMP keys and values; existing mismatched hashes are never
+rewritten. See [integration inventory](CONTAINER_ACTIVATION_INTEGRATION.md).
 
 Private `runtime_container_preparations` (unit17) stores immutable initial-generation
 intent hashes, one create-delivery permit and the original prepared receipt.
@@ -16,6 +20,8 @@ See [custody and downgrade fences](AUTOMATIC_CONTAINER_PREPARATION_RELEASE.md).
 Unit16 adds `runtime_container_recoveries` with frozen per-generation epoch
 commands/ACKs and durable bounded heartbeat delivery, while retaining original
 000015 launch identity. See [the private unit contract](MAPPED_CONTROLLER_RECOVERY_RELEASE.md).
+The unit16 correctness follow-up needs no schema change and never rewrites
+historical bindings/receipts; foreign unknown heartbeat delivery stays held.
 
 ## Original Docker Controller
 

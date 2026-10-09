@@ -30,7 +30,11 @@ Docker is disabled unless trusted server configuration defines
 `fleet.container_control` with `python`, `base_root`, `context`, and
 `controller_root`. The Python executable and explicit Docker context are operator
 authority. Host/TLS environment overrides are rejected by Base. `base_root` must
-contain the three utility169 sources with the compiled hashes. It is independent
+contain the three utility169 sources exported as canonical Git blobs with the
+compiled hashes, not CRLF checkout copies. The unit16 follow-up corrects those
+hashes without repinning historical bindings; old mismatched generations remain
+held. See [the follow-up evidence](MAPPED_CONTROLLER_RECOVERY_RELEASE.md#bounded-correctness-follow-up-from-fc2e27b).
+It is independent
 of the adjacent SDK checkout. No user/agent request supplies a Docker endpoint,
 utility source, Compose file or container identity.
 

@@ -1,24 +1,16 @@
 """Original Base169 fake-engine acceptance selectors. No native Docker or setup."""
 import argparse
-import hashlib
 from pathlib import Path
-import re
 import sys
 import unittest
+from verify_container_utilities import verify_contract_checkout
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--base", required=True, type=Path)
     args = parser.parse_args()
-    fleet = (Path(__file__).resolve().parents[1] /
-             "backend/infra/src/runtime/container_lifecycle.rs").read_text()
-    hashes = re.findall(r'"([a-f0-9]{64})"', fleet.split("UTILITY_SHA256", 1)[1].split("];", 1)[0])
-    if len(hashes) != 3:
-        raise SystemExit("Missing sealed Base utilities")
-    for name, expected in zip(("runtime_boundary", "runtime_bootstrap", "runtime_control"), hashes):
-        if hashlib.sha256((args.base / "scripts" / (name + ".py")).read_bytes()).hexdigest() != expected:
-            raise SystemExit("Original Base utility source mismatch")
+    verify_contract_checkout(args.base)
     sys.dont_write_bytecode = True
     sys.path.insert(0, str(args.base.resolve()))
     cases = {

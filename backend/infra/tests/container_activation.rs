@@ -131,7 +131,7 @@ async fn fixture() -> (
     db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "INSERT INTO users(id,email,username,display_name,password_hash,system_role,is_active) VALUES($1,$2,$2,'activation','!','operator',false)",
         [actor.into(),format!("activation-{actor}@test.invalid").into()])).await.unwrap();
-    let snapshot = json!({"config":{"config_json":{},"soul_md":"original candidate","env_json":{}},"skills":[]});
+    let snapshot = json!({"config":{"config_json":{},"soul_md":"\u{43f}\u{440}\u{438}\u{432}\u{435}\u{442} \u{1f600}","env_json":{}},"skills":[]});
     db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "INSERT INTO agent_config_revisions(agent_id,revision,state,snapshot,created_by_user_id,claimed_at) VALUES($1,1,'activating',$2,$3,now())",
         [a.id.into(),snapshot.clone().into(),actor.into()])).await.unwrap();
@@ -142,8 +142,9 @@ async fn fixture() -> (
     ))
     .await
     .unwrap();
-    use sha2::{Digest, Sha256};
-    let configuration_sha256 = hex::encode(Sha256::digest(serde_json::to_vec(&snapshot).unwrap()));
+    // Independent Base json.dumps(sort_keys=True, separators=(',', ':'), ensure_ascii=True).
+    let configuration_sha256 =
+        "a5de7dfacd6c2771ef639bb9cbbfe24b3f38b4eeb5170ad7f6c7a6c6b2404e69".into();
     let claim = Claim {
         id: Uuid::new_v4(),
         agent_id: a.id,

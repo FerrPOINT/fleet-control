@@ -31,6 +31,7 @@ mod container_preparation;
 #[cfg(test)]
 mod container_preparation_tests;
 mod container_recovery;
+mod container_workers;
 mod hermes_wire;
 mod pm_readback;
 mod targeted_approval;
@@ -45,8 +46,7 @@ pub struct LocalRuntimeSupervisor {
     repo: Arc<dyn FleetRepository>,
     children: Arc<Mutex<HashMap<Uuid, Child>>>,
     controller_id: Uuid,
-    container_operations: Arc<Mutex<()>>,
-    container_custody: Arc<Mutex<()>>,
+    container_operations: Arc<container_workers::ContainerOperations>,
     client: reqwest::Client,
     events: broadcast::Sender<FleetEvent>,
     alerts: Arc<app::RepositoryAlertService>,
@@ -74,8 +74,7 @@ impl LocalRuntimeSupervisor {
             repo: repo.clone(),
             children: Arc::new(Mutex::new(HashMap::new())),
             controller_id: Uuid::new_v4(),
-            container_operations: Arc::new(Mutex::new(())),
-            container_custody: Arc::new(Mutex::new(())),
+            container_operations: Arc::new(container_workers::ContainerOperations::default()),
             client: reqwest::Client::builder()
                 .redirect(reqwest::redirect::Policy::none())
                 .retry(reqwest::retry::never())
@@ -137,7 +136,21 @@ impl LocalRuntimeSupervisor {
         let supervisor = self.clone();
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
             handle.spawn(async move {
+                let mut tasks = container_workers::AgentTasks::default();
+                let mut claimed = Vec::<domain::AgentConfigRevision>::new();
                 loop {
+                    tasks.reap();
+                    // A freshly claimed revision must not be dropped while its predecessor finishes.
+                    for revision in std::mem::take(&mut claimed) {
+                        if tasks.is_running(revision.agent_id) {
+                            claimed.push(revision);
+                        } else {
+                            let supervisor = supervisor.clone();
+                            tasks.spawn(revision.agent_id, async move {
+                                supervisor.reconcile_container_revision(&revision).await;
+                            });
+                        }
+                    }
                     // Only this live custodian may resume its sealed native commands.
                     if let Ok(pending) = supervisor
                         .repo
@@ -145,13 +158,10 @@ impl LocalRuntimeSupervisor {
                         .await
                     {
                         for revision in pending {
-                            if let Err(error) = supervisor.apply_container_revision(&revision).await
-                            {
-                                tracing::warn!(
-                                    "Docker configuration remains drained: {}",
-                                    crate::redact_text(&error.to_string())
-                                );
-                            }
+                            let supervisor = supervisor.clone();
+                            tasks.spawn(revision.agent_id, async move {
+                                supervisor.reconcile_container_revision(&revision).await;
+                            });
                         }
                     }
                     match supervisor.repo.claim_config_activation().await {
@@ -164,14 +174,7 @@ impl LocalRuntimeSupervisor {
                                 Err(_) => true,
                             };
                             if container {
-                                if let Err(error) =
-                                    supervisor.apply_container_revision(&revision).await
-                                {
-                                    tracing::warn!(
-                                        "Docker configuration remains drained: {}",
-                                        crate::redact_text(&error.to_string())
-                                    );
-                                }
+                                claimed.push(revision);
                                 continue;
                             }
                             let result = supervisor.apply_config_revision(&revision).await;
@@ -350,43 +353,51 @@ impl LocalRuntimeSupervisor {
         let supervisor = self.clone();
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
             handle.spawn(async move {
+                let mut tasks = container_workers::AgentTasks::default();
                 loop {
                     sleep(RECONCILE_INTERVAL).await;
+                    tasks.reap();
                     let Ok(agents) = supervisor.repo.list_agents().await else {
                         continue;
                     };
                     for agent in agents {
-                        if supervisor
-                            .repo
-                            .agent_is_draining(agent.id)
-                            .await
-                            .unwrap_or(true)
-                        {
-                            continue;
-                        }
-                        match app::reconcile_action(agent.status, agent.runtime.desired_state) {
-                            app::ReconcileAction::Restart => {
-                                tracing::info!(
-                                    "reconciler: restarting failed agent {} (desired=running)",
-                                    agent.name
-                                );
-                                if let Err(err) = supervisor.restart(&agent).await {
-                                    tracing::warn!(
-                                        "reconciler restart failed for {}: {err}",
+                        let supervisor = supervisor.clone();
+                        tasks.spawn(agent.id, async move {
+                            let Ok(agent) = supervisor.repo.get_agent(agent.id).await else {
+                                return;
+                            };
+                            if supervisor
+                                .repo
+                                .agent_is_draining(agent.id)
+                                .await
+                                .unwrap_or(true)
+                            {
+                                return;
+                            }
+                            match app::reconcile_action(agent.status, agent.runtime.desired_state) {
+                                app::ReconcileAction::Restart => {
+                                    tracing::info!(
+                                        "reconciler: restarting failed agent {} (desired=running)",
                                         agent.name
                                     );
+                                    if let Err(err) = supervisor.restart(&agent).await {
+                                        tracing::warn!(
+                                            "reconciler restart failed for {}: {err}",
+                                            agent.name
+                                        );
+                                    }
                                 }
+                                app::ReconcileAction::HealthCheck => {
+                                    let _ = supervisor.health(&agent).await;
+                                }
+                                app::ReconcileAction::Stop | app::ReconcileAction::None => {}
                             }
-                            app::ReconcileAction::HealthCheck => {
-                                let _ = supervisor.health(&agent).await;
+                            if agent.kind == AgentKind::JavaAgent
+                                && agent.status == AgentStatus::Running
+                            {
+                                let _ = supervisor.sync_java_agent_sessions(&agent).await;
                             }
-                            app::ReconcileAction::Stop | app::ReconcileAction::None => {}
-                        }
-                        if agent.kind == AgentKind::JavaAgent
-                            && agent.status == AgentStatus::Running
-                        {
-                            let _ = supervisor.sync_java_agent_sessions(&agent).await;
-                        }
+                        });
                     }
                     let _ = supervisor.process_deployment_jobs().await;
                     let _ = supervisor.sync_project_workflow().await;
@@ -1917,7 +1928,7 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
     }
     async fn start(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
         if self.container_mode(agent).await? {
-            let _guard = self.container_operations.lock().await;
+            let _guard = self.container_operations.lock(agent.id).await;
             return self.start_container(agent).await;
         }
         if agent.kind == AgentKind::JavaAgent {
@@ -2075,7 +2086,7 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
 
     async fn stop(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
         if self.container_mode(agent).await? {
-            let _guard = self.container_operations.lock().await;
+            let _guard = self.container_operations.lock(agent.id).await;
             return self.stop_container(agent).await;
         }
         let mut children = self.children.lock().await;
@@ -2119,7 +2130,7 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
 
     async fn health(&self, agent: &Agent) -> Result<RuntimeOperationResponse, AppError> {
         if self.container_mode(agent).await? {
-            let _guard = self.container_operations.lock().await;
+            let _guard = self.container_operations.lock(agent.id).await;
             return self.health_container(agent).await;
         }
         let mut children = self.children.lock().await;

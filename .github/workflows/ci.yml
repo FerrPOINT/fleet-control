@@ -67,7 +67,7 @@ jobs:
         run: python3 scripts/verify_readme.py
       - name: Sealed container utility loader contracts (no Docker)
         working-directory: fleet-control
-        run: python3 -B -m unittest scripts.tests.test_container_control_loader -v
+        run: python3 -B -m unittest scripts.tests.test_container_control_loader scripts.tests.test_verify_container_utilities -v
 
   backend:
     runs-on: ubuntu-latest
@@ -136,7 +136,7 @@ jobs:
           psql -h 127.0.0.1 -U fleet_control -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE fleet_container_controller_test;'
           psql -h 127.0.0.1 -U fleet_control -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE fleet_container_controller_migration_test;'
           cargo test --locked -p infra --lib runtime::container_control::tests:: -- --test-threads=1 | tee "$RUNNER_TEMP/container-control-unit.log"
-          grep -F 'test result: ok. 7 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/container-control-unit.log"
+          grep -F 'test result: ok. 9 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/container-control-unit.log"
           cargo test --locked -p infra --lib runtime::container_lifecycle::tests:: -- --test-threads=1 | tee "$RUNNER_TEMP/container-lifecycle-unit.log"
           grep -F 'test result: ok. 4 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/container-lifecycle-unit.log"
           cargo test --locked -p infra --test container_controller -- --ignored --test-threads=1 | tee "$RUNNER_TEMP/container-controller-pg.log"
@@ -151,9 +151,13 @@ jobs:
           set -euo pipefail
           psql -h 127.0.0.1 -U fleet_control -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE fleet_mapped_controller_migration_test;'
           cargo test --locked -p infra --lib runtime::container_mapping::tests:: -- --test-threads=1 | tee "$RUNNER_TEMP/container-mapping-unit.log"
-          grep -F 'test result: ok. 5 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/container-mapping-unit.log"
+          grep -F 'test result: ok. 6 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/container-mapping-unit.log"
           cargo test --locked -p infra --lib runtime::container_control::mapped_tests:: -- --test-threads=1 | tee "$RUNNER_TEMP/controller-recovery-unit.log"
-          grep -F 'test result: ok. 5 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/controller-recovery-unit.log"
+          grep -F 'test result: ok. 6 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/controller-recovery-unit.log"
+          cargo test --locked -p infra --lib runtime::container_recovery::tests:: -- --test-threads=1 | tee "$RUNNER_TEMP/controller-recovery-loop-unit.log"
+          grep -F 'test result: ok. 2 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/controller-recovery-loop-unit.log"
+          cargo test --locked -p infra --lib runtime::container_workers::tests:: -- --test-threads=1 | tee "$RUNNER_TEMP/container-agent-isolation-unit.log"
+          grep -F 'test result: ok. 2 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/container-agent-isolation-unit.log"
           cargo test --locked -p migration --test mapped_controller_recovery -- --ignored --test-threads=1 | tee "$RUNNER_TEMP/controller-recovery-migration.log"
           grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/controller-recovery-migration.log"
       - name: Check out original runtime utilities separately from SDK

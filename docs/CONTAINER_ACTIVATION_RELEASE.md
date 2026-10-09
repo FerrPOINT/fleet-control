@@ -74,6 +74,8 @@ namespaces are not automatically deleted.
   fixes (`be1b040`, combining `337aac` and `ce5ca`) before source/native acceptance.
   This unit makes only visibility/serialization additions to lifecycle/control
   helpers; it does not alter their hashes, canonicalization or recovery logic.
+  This describes the frozen unit18 dependency. The standalone normal integration
+  now includes both frozen heads; see [integration evidence](CONTAINER_ACTIVATION_INTEGRATION.md).
 - Recovered/foreign-owner generations, stopped/unstarted activation and image
   upgrades remain held. Base169 has no process-only owner takeover or authority
   to resend a missing native prepare/start claim. Mid-activation controller

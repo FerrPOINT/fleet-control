@@ -95,3 +95,65 @@ These Windows checkout checks do not resolve the separately reported canonical
 Linux-export P1. Rust adapter/intent/projection and PostgreSQL selectors are
 mandatory CI work, not claimed local passes. No build, live Docker, database run,
 cache preparation, push, merge or deployment was performed.
+
+## Bounded Integration With Unit16 Fixes
+
+The separate integration candidate normally merges frozen unit17
+`337aac87092be42027f669fc0730858f3724824f` and recovery fix
+`ce5ca210c1937308a74972bb5f0c859b436e3909`, retaining both parents and their
+shared `fc2e27b78538f58ca014b251487024977b91f8a9` ancestry. The source-unit
+evidence above remains historical evidence, not acceptance of this merge.
+
+No textual conflicts required resolution. Semantic overlap checks verified
+that lifecycle contains exactly frozen17 plus the corrected canonical utility
+hashes; the control client retains the original preparation/readback validation
+and the corrected Base-compatible Unicode hashing and current-owner heartbeat
+guard. Mapping and recovery-loop files are exact fix16 blobs. All 15 disjoint
+unit17 source/test files, including its intent/permit implementation and migration,
+retain their original Git blobs; its release document retains its original text
+with this integration evidence appended. Migration17 blob is
+`02191b5bb96eb6ccd8036c32bb81e32c9982a17d`; no other migration is introduced or
+edited by integration. No config18, UI, SDK/pin or generated API changes.
+
+On 2026-10-09 the integration light checks passed:
+
+- 13 canonical-utility/loader/README Python cases.
+- Unit17 source checks: five original Base preparation fake-engine cases and
+  nine existing loader/README cases, or 14 cases. The nine overlap the suite
+  above: 18 distinct Python cases overall, not 27.
+- Exact Base169 Git blob SHA256 verification and actual canonical Git source
+  export used by all five fake-engine cases, with zero skips.
+- Rustfmt, README validation, workflow YAML/Bash syntax, static selector/count
+  inventory and whitespace checks. No Rust compilation or execution is claimed.
+
+Windows `git archive` inherits `core.autocrlf=true` here: an initial export was
+correctly rejected by the byte-exact source guard. Export with explicit
+`git -c core.autocrlf=false -c core.eol=lf archive`, then verify the exported
+utility bytes against the pinned Git blobs before using them. Never normalize
+or relax utility validation at runtime. The rejected export was not a Rust or
+native runtime failure, and no saved Base/Fleet receipt was rewritten.
+
+Exact Linux Rust inventory below is pending parent-owned native QA. Counts are
+source/CI inventory only; database suites require explicit `--ignored`.
+
+| Package / Target / Selector | Cases | Execution |
+| --- | ---: | --- |
+| infra lib `runtime::container_control::tests::` | 9 | Pending |
+| infra lib `runtime::container_lifecycle::tests::` | 4 | Pending |
+| infra lib `runtime::container_mapping::tests::` | 6 | Pending |
+| infra lib `runtime::container_control::mapped_tests::` | 6 | Pending |
+| infra lib `runtime::container_recovery::tests::` | 2 | Pending |
+| infra lib `runtime::container_preparation_tests::` | 3 | Pending |
+| infra lib `runtime::container_preparation::tests::` | 2 | Pending |
+| infra lib `tests::docker_bootstrap_projection_preserves_process_and_java_paths` (exact) | 1 | Pending |
+| infra integration `container_controller` | 5 | Pending, ignored PG |
+| infra integration `container_preparation` | 3 | Pending, ignored PG |
+| migration integration `container_controller` | 1 | Pending, ignored PG |
+| migration integration `mapped_controller_recovery` | 1 | Pending, ignored PG |
+| migration integration `container_preparation` | 1 | Pending, ignored PG |
+
+These focused selectors total 44 Rust cases. Canonical/split lineage retains
+its one ordinary and nine ignored PG cases; message-order retains its one
+ignored PG case. Full locked Rust/Clippy/workspace, PG and Base physical gates
+remain required. Preparation/recovery source checks do not grant task/PM
+admission, new-generation replacement, config activation or runtime readiness.
