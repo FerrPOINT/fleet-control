@@ -1,5 +1,21 @@
 # Operations
 
+## PM Credential Reconciliation
+
+Credential preparation is disabled by default. Enable only with approved Base
+delegation policy, fixed integration origins and the exact Tracker machine
+subject. After an unknown response, continue the same owner creation operation;
+do not change the operation key, parent PAT or TTL to force a retry. Saved
+acknowledgement is separate from Tracker verification and model dispatch.
+
+An expired receipt or changed parent/origin/subject is a reconciliation blocker,
+not permission to remint or edit the database. Preserve the existing operation,
+token metadata and audit history. Downgrade migration000011 only after explicit
+reconciliation; populated credential journals are deliberately protected.
+Never publish token secrets when diagnosing Base/Tracker failures. See
+[configuration](ENV.md#pm-credential-preparation) and
+[pending acceptance](plans/2026-10-09-pm-credentials-release.md).
+
 Task-chat rollback supports empty schema only. Populated transcript/allocation
 order, bindings, creation, projection, PM run or approval history prevents down
 before DDL, under table locks. Retain the schema and use a forward correction or

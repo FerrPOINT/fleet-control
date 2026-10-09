@@ -1,5 +1,16 @@
 # Security
 
+## Persisted PM Credential Preparation
+
+The opt-in PM coordinator pins the exact Base command, parent fingerprint,
+machine subject, fixed origins and frozen Tracker assignment before issuance.
+Every continuation freshly verifies parent/child scopes and Tracker ownership
+context; changed or expired receipts fail closed. Raw bearers stay memory-only,
+are excluded from config serialization/Debug and never enter journal/audit/API
+payloads. Persisted token metadata is not workflow or model authority. See
+[ADR0014](adr/0014-persisted-pm-credential-preparation.md) and
+[release limitations](plans/2026-10-09-pm-credentials-release.md).
+
 ## Central Private-Owner Boundary
 
 Central service access and an expanded user filter do not expose another user's

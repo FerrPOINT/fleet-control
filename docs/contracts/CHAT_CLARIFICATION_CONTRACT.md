@@ -203,10 +203,17 @@ assignment authority for allowed task-scoped reads and writes. Broad service
 read/write scopes do not confer legacy authority on the PM child. Runtime handoff
 remains disabled until this server boundary is independently accepted.
 
-This client is not yet connected to the PM creation coordinator or runtime tools.
-Root PAT configuration, persisted issuance/revocation operations, short-lived
-child handoff, parent identity pinning and actual Base/Tracker acceptance remain
-release prerequisites. No root PAT is placed in a runtime env or tool argument.
+The credential release connects this client to the owner creation coordinator
+behind `pm.credentials.enabled=false` by default. Persisted issuance intent
+precedes Base mutation; immutable acknowledgement stores only token ID, expiry
+and scopes. Replays freshly introspect both credentials and verify the frozen
+Tracker context. Exact command/parent identity pinning prevents a changed key,
+parent or assignment from silently issuing a replacement child.
+
+No runtime-tool handoff, lease claim, first-step authority, revocation workflow
+or model dispatch is connected by this preparation. Actual Base/Tracker live
+acceptance remains pending. No root PAT is placed in a runtime env or tool
+argument. See the [candidate scope and gates](../plans/2026-10-09-pm-credentials-release.md).
 
 ## Interface
 
