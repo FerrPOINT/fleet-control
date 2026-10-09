@@ -15,6 +15,12 @@ The sole new migration is `m20261004_000011_pm_credentials`, appended to both
 canonical and legacy lineages. It extends the existing PM creation JSON journal;
 it does not create a second assignment, scheduler, run or secret store.
 
+Counter-review found the copied introspection fixture omitted Base19a7's required
+`display_name`. The closed DTO and HTTP fixture now match all four actual Base
+fields; a regression keeps missing/invalid display names and unknown fields
+rejected. This fixes a real opt-in parent-verification failure, not permission
+relaxation. Execution of the regression remains part of the pending Linux gate.
+
 ## Behavior And Security
 
 - Opt-in server configuration defaults to disabled. Enabling requires fixed

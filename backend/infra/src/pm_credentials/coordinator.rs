@@ -17,6 +17,8 @@ struct Principal {
     sub: String,
     email: String,
     scopes: Vec<String>,
+    #[serde(rename = "display_name")]
+    _display_name: String,
 }
 
 fn unavailable() -> AppError {
@@ -265,6 +267,26 @@ impl PmDraftCredentials for PmCredentialCoordinator {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn introspection_accepts_the_pinned_base_dto_without_weakening_closed_fields() {
+        let value = serde_json::json!({
+            "sub": Uuid::new_v4().to_string(),
+            "email": "machine@example.test",
+            "scopes": ["task-tracker:read", "task-tracker:write"],
+            "display_name": "PM machine"
+        });
+        assert!(serde_json::from_value::<Principal>(value.clone()).is_ok());
+        let mut missing = value.clone();
+        missing.as_object_mut().unwrap().remove("display_name");
+        assert!(serde_json::from_value::<Principal>(missing).is_err());
+        let mut invalid = value.clone();
+        invalid["display_name"] = serde_json::Value::Null;
+        assert!(serde_json::from_value::<Principal>(invalid).is_err());
+        let mut unknown = value;
+        unknown["role"] = serde_json::json!("admin");
+        assert!(serde_json::from_value::<Principal>(unknown).is_err());
+    }
 
     #[test]
     fn configuration_is_opt_in_and_requires_canonical_subject_and_fixed_origins() {

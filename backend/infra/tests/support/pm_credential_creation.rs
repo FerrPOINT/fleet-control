@@ -48,8 +48,10 @@ async fn introspection(
     }
     (
         StatusCode::OK,
-        Json(json!({"sub":remote.subject,"email":"machine@example.test",
-        "scopes":if root {vec!["task-tracker:read".to_string(),"task-tracker:write".to_string()]} else {remote.scopes.clone()}})),
+        Json(
+            json!({"sub":remote.subject,"email":"machine@example.test","display_name":"PM machine",
+        "scopes":if root {vec!["task-tracker:read".to_string(),"task-tracker:write".to_string()]} else {remote.scopes.clone()}}),
+        ),
     )
 }
 
