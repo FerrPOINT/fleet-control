@@ -2,7 +2,7 @@
 
 ## Current Open Release Gates: 10 October 2026
 
-The current product-code assembly is5337997
+The current product-code assembly is140234b
 (runtime corrections, journal3b41, human guard, genuine generated API and private-
 approval ownership correction), not the historical heads below.
 Source integration is progress, not release acceptance. Its remaining gates are:
@@ -28,6 +28,12 @@ Its PostgreSQL acceptance remains pending; all gates/counts/pins are preserved.
 Current-client two-scenario/three-engine checks pass, but parent visual inspection
 finds missing SDK styling. The worker owns bounded SDK build-layout diagnosis;
 current-client visual qualification and full backend success remain open.
+The SDK junction diagnosis is now confirmed; an actual clean SDK19a directory
+restores Base styles and all six fixture browser cases pass again. A separate
+native requirements-selector contrast defect remains and has a narrow fix owner.
+Reviewed controls4a8f71f/source140234b are normally published and actual Linux/PG
+run38006625294 is in progress. Independent source review,163 Rust-blob parity
+and90 Linux control tests pass; no actual full backend PASS is claimed.
 
 Hosted37995542617 now proves the preflight blocker is passed but finds real
 compile E0599 at container_controller.rs:18:48 on b249. Authenticated safe failure

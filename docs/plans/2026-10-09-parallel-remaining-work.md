@@ -12,10 +12,10 @@ owned checkouts; Tracker and Workflow remain read-only references.
 
 | Owner | Independent work | Acceptance boundary |
 | ----- | ---------------- | ------------------- |
-| Pascal | Retarget existing backend controls after the reviewed project-access fix | Wait for final source SHA, then normal merge and exact inventory/declaration updates. Preserve74 stages,9 journal cases,21/24 migrations and90 pure cases. No old-source rerun or bypass. |
-| Feynman | Independent review of stop/steer project-revocation correction | Read-only review of the parent's two-file patch: free-chat compatibility, authorization ordering, valid keys and no control reservation. Prior narrow PR47 work is complete. |
-| Anscombe | Resolve current-client screenshot qualification | Diagnose missing SDK styling in the owned build; if junction scanning is the cause, rebuild using real clean SDK19a files and repeat the same six cases/27 captures. No speculative product styles or production manifest replacement. |
-| Parent | Fix the actual backend failure and integrate reviewed results | Implement stop/steer project authorization and its regression; review source/control changes, publish scoped successors and launch the next exact-head gate. Keep native/live dependencies explicit. |
+| Pascal | Retarget4a8f71f complete; actual CI outcome/readback in progress | Normal merge of140234b; exact six additions,74 stages/9 journal cases/21/24 migrations retained. Linux90 PASS, Windows88 PASS/two Linux-only skips. Observe38006625294 and authenticate only its safe artifact; no raw logs or automatic rerun. |
+| Feynman | Completed independent stop/steer review | No P1/P2 in the actual two-file correction; free-chat early return, guard order, keyed409/403 and empty journal checked. No edits or runtime execution. |
+| Anscombe | Narrow requirements-selector fix and current-client captures | SDK junction cause confirmed and corrected in own build layout. Fix the proved native-select contrast defect only; rebuild, repeat the same six cases/27 captures and inspect WebKit/mobile. No backend/schema edits. |
+| Parent | Published correction and reviewed controls; actual CI/integration | Source140234b and controls4a8f71f published normally; actual38006625294 in progress. Review/integrate the UI successor, verify actual CI outcome and retain native/live dependencies. |
 
 Ptolemy's codegen work is complete: run37999711562 succeeds and artifact11648708483
 contains authenticated schema874230b2. Parent independently reads it back and
@@ -141,6 +141,24 @@ Anscombe checks only the owned SDK junction/build layout and corrects the
 evidence; source changes require a demonstrated product defect first. No live
 PM/backend/native acceptance or production-manifest update follows from these
 fixtures.
+
+Source140234b is normally published with the project-control correction and
+documentation. Feynman's independent actual-diff review finds no P1/P2; free
+chats return before Tracker I/O. Pascal normally merges that source into4a8f71f,
+with exactly six controls additions. Parent verifies all163 Rust Git blobs,
+the changed compiled inputs and canonical aggregate9f0bb1ed. Gate logic,
+dependencies and coverage are unchanged; Linux90/Windows88+two skips pass.
+Normal controls publication starts actual38006625294, confirmed in progress.
+No full PostgreSQL/backend acceptance is inferred before terminal readback.
+
+Anscombe proves that the Windows SDK junction omitted Base Tailwind utilities;
+an actual clean SDK19a directory restores those bytes. Six fresh browser cases
+pass,27 captures retained, own processes removed. Parent independently views
+mobile clarification and WebKit desktop requirements: header/filled buttons are
+restored but the revision select still has white-on-white text. The worker now
+owns a minimal local select-theme correction, existing regression checks and
+fresh screenshots. No redesign, backend change or production-manifest rewrite
+is authorized by this narrow assignment.
 
 These tasks have disjoint write sets. Reviewers do not modify frozen owner
 checkouts. Shared runtime/admission, live PM and native acceptance remain explicit

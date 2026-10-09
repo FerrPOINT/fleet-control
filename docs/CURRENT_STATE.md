@@ -2,7 +2,7 @@
 
 ## Current Integration Snapshot: 10 October 2026
 
-Current product-code assembly `5337997`, a normal descendant
+Current product-code assembly `140234b`, a normal descendant
 of b249 with runtime corrections, durable clarification custody, generated API
 and the private-approval ownership correction, is **not
 merge-ready or live SDLC accepted**. Historical sections below qualify their own
@@ -37,11 +37,22 @@ Formatting passes; actual PostgreSQL execution of this correction is pending.
 Every gate and dependency/API pin is preserved;90 pure controls are not product
 acceptance.
 
+Source140234b and reviewed controls4a8f71f are normally published. Independent
+review finds no P1/P2 in the project-control correction; fmt/diff and123 Markdown
+links pass. Parent verifies all163 Rust Git blobs, changed compiled inputs and
+the aggregate. Controls retain74 stages/9 clarification cases/21 canonical and24
+split migrations; Linux90 PASS and Windows88 PASS/two Linux-only skips qualify
+only control logic. Actual run38006625294 is confirmed in progress at4a8f71f,
+testing source140234b. It is not a retry of the unchanged failed source.
+
 Current-client sourcef8b9a58 builds and its two fixture scenarios pass in three
 engines (six cases). Parent inspection of the27 fresh captures finds missing SDK
 styling and unreadable controls. Browser qualification remains open while the
 worker checks the owned SDK junction/build layout; functional PASS alone does not
-qualify visual evidence. No production screenshot manifest is replaced.
+qualify visual evidence. Using an actual clean SDK19a directory fixes missing
+Base styles and six browser cases pass again. Parent confirms that a white-text/
+white-background requirements selector remains: a narrow production fix and
+fresh captures are assigned. No production screenshot manifest is replaced.
 
 Supported-browser fixture checks pass for explicit answers/confirmation and
 unknown-command reload. The new test is integrated, including its corrected
