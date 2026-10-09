@@ -61,6 +61,17 @@ is confirmed running. This gate has74 stages,9 journal cases and canonical21/
 split24 migrations. No backend success or credentials-PG fix is inferred before
 the terminal result and authenticated readback.
 
+That run38002746761 is now terminal FAILURE at credentials_pg, exit101.
+Artifact11650212282 (ZIP SHA-256
+bb8ecca71739063181fb8686bdf944d57fc3937ca3d56e3228a0a94146f3c3fb)
+is authenticated by the existing failure readback. It names only the reviewed
+credential database-guard case and source469dad0 location
+backend/infra/tests/support/pm_credential_creation.rs:459:5. Parent reads that
+exact Git source: the assertion calls down(Some(1)) on the wrong latest migration.
+Scratch and synthetic DB cleanup both pass; no raw private diagnostics are
+published. This is the concrete failure addressed bye0d541e, not an invented
+credential-runtime root cause. The full gate still has not passed.
+
 Browser worker completes the existing explicit-answer/confirmation scenario in
 Chromium, Firefox and WebKit and retains27 fixture PNGs (three tabs, three sizes,
 three engines). Parent visually inspects mobile clarification and desktop
@@ -78,8 +89,23 @@ must select credential11 by registered name, not whichever later migration is
 last. It now requires the exact recovery-guard refusal, unchanged version/
 applied_at ledger and intact credentials. Independent source review and fmt/diff
 pass; Rust/PG execution is pending. This is not yet the authenticated root cause
-of the old credentials_pg failure. Running4113950 still tests source469dad0 and
-does not accept this later correction or browser-test integration.
+of the old37999665761 failure; the new38002746761 authenticated artifact now
+confirms the same stale target in its source469dad0. Neither run accepts the
+later correction or browser-test integration.
+
+Read-through finds one analogous last-migration assertion in the retained Hermes
+journal clock-regression case. Independent worker5337997 (sole parent5fb9dc8)
+changes only support/hermes_dispatch_journal.rs: select applied time-order14 by
+name, require its specific recovery refusal, preserve version/applied_at ledger
+and every existing retained-journal assertion. Parent reviews the actual SQL guard,
+normally fast-forwards that commit and passes rustfmt/diff checks. Real Rust/PG
+remains pending; no historical migration or production guard is changed.
+
+The product source branch feat/runtime-docker-integration-20261009 is normally
+published at5fb9dc8 before that successor; it is not a broad release PR or a
+merge-ready claim. The subsequent successor and updated exact-head controls
+must be published normally after review, without cancelling or replaying a live
+run. Task Tracker and Workflow remain unchanged/read-only.
 
 These tasks have disjoint write sets. Reviewers do not modify frozen owner
 checkouts. Shared runtime/admission, live PM and native acceptance remain explicit
