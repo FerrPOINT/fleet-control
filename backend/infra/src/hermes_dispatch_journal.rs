@@ -195,7 +195,23 @@ pub(super) async fn get(
     repo: &PostgresFleetRepository,
     message_id: Uuid,
 ) -> Result<Option<HermesDispatchIntent>, AppError> {
+    read(repo, message_id, false).await
+}
+
+pub(super) async fn get_for_run(
+    repo: &PostgresFleetRepository,
+    run_id: Uuid,
+) -> Result<Option<HermesDispatchIntent>, AppError> {
+    read(repo, run_id, true).await
+}
+
+async fn read(
+    repo: &PostgresFleetRepository,
+    id: Uuid,
+    by_run: bool,
+) -> Result<Option<HermesDispatchIntent>, AppError> {
     // One statement observes the receipt and live run together; readback never renews/reset anything.
+    let identity = if by_run { "j.run_id" } else { "j.message_id" };
     let row = repo.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         format!("SELECT {JOURNAL_COLUMNS},a.name AS agent_name,
             r.id AS r_id,r.session_id AS r_session_id,r.agent_id AS r_agent_id,
@@ -204,8 +220,8 @@ pub(super) async fn get(
             r.last_event_at AS r_last_event_at,r.model AS r_model,r.provider AS r_provider,
             r.model_options AS r_model_options,r.created_at AS r_created_at,r.updated_at AS r_updated_at
          FROM hermes_dispatch_journal j
-         JOIN session_agent_runs r ON r.id=j.run_id JOIN agents a ON a.id=j.agent_id WHERE j.message_id=$1"),
-        [message_id.into()])).await.map_err(database_error)?;
+         JOIN session_agent_runs r ON r.id=j.run_id JOIN agents a ON a.id=j.agent_id WHERE {identity}=$1"),
+        [id.into()])).await.map_err(database_error)?;
     row.map(|row| {
         let run =
             session_agent_run::Model::from_query_result(&row, "r_").map_err(database_error)?;

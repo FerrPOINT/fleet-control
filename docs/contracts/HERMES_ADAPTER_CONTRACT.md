@@ -12,6 +12,19 @@ replay is read-only, contradictions fail. [Stream bounds](HERMES_EVENT_STREAM_V1
 require a complete frame or independent terminal status at EOF. Native producer
 and managed-runtime compatibility are not yet accepted for this candidate.
 
+## Durable Runtime Controls Unit13
+
+Controls require fresh exact original origin/credential/native run/session,
+verified POST capabilities and authenticated current run GET. Send one POST
+only after the durable submitted claim; validate bounded exact ACK shape,
+run identity, status, boolean acceptance, MIME and encoding. Invalid/lost ACK
+retains submitted/uncertain hold without retry. Stopping acknowledgement is not
+terminal proof. Independent terminal mirror commits prompt/run/optional answer
+and events atomically; scoped control GETs never reconnect or dispatch.
+Native installed compatibility remains separate from this source candidate.
+The combined candidate restores pinned active-run GET-only recovery after Fleet
+restart through the recovery slice; fixtures are not installed-runtime acceptance.
+
 ## Hermes Journal Release Unit12
 
 Free-chat dispatch requires the exact authenticated server-agent capabilities,

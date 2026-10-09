@@ -8,9 +8,25 @@ plus 8 existing/extended runtime HTTP cases. They are ignored by default, requir
 `FLEET_TEST_DATABASE_URL` when selected and run serially against disposable PG.
 CI gives each new family its own database and requires exact nonzero PASS counts
 with no ignores; recovery-wire (3) and SSE-wire (10) unit selectors are explicit.
+In the combined controls/recovery tree, the shared terminal selector runs once
+in the controls database and requires 14 PASS, retaining all nine controls names
+and five recovery additions. Recovery families retain their separate databases.
 Existing journal (15), atomic ACK (11), GET readback (5), lineage and workspace
 gates are retained. Local light checks are not Rust compilation, PG/HTTP/concurrency
 execution or installed/native compatibility. No previous packet accepts this new tree.
+
+## Durable Runtime Controls Unit13
+
+The [control release plan](plans/2026-10-09-runtime-controls-release.md)
+originally specifies 32 focused cases: API1, native ACK3, control PG/HTTP18,
+atomic terminal9 and migration1. Combined recovery integration expands that
+same terminal selector to 14, not a second module or an extra nine tests.
+New PG cases are explicitly ignored by default;
+CI requires each name and exact success counts using separate disposable DBs.
+Whole-ledger lineage/SSE, parent guards, strict Linux all-targets Clippy/check,
+workspace, real Auth and generated OpenAPI parity remain required.
+Formatting/static checks are not execution; all new Rust tests remain pending.
+Current generated contracts/UI have not been promoted for the new API.
 
 ## Hermes Journal Unit12
 

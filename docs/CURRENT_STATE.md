@@ -1,5 +1,18 @@
 # Current State
 
+## Combined Recovery And Controls Candidate
+
+Normal integration retains recovery `1595552b7853cdaf201720d2fb4d84c62cf4ddcd`
+and controls13 `fc6ef12df757a0858f0931cfd88a66fc7f133ed4` as parents.
+The shared terminal suite is the union of 14 cases, run once by CI; controls
+retain all 18 PG/HTTP cases. Only controls migration13 is added (14/17 lineage
+entries); recovery adds none. SDK/pins, generated contracts and UI are unchanged.
+No Docker, Cargo, PostgreSQL or native acceptance was executed for this merge.
+The isolated source sections below describe the original slices, not an exclusion
+of the other slice from this integrated tree. Installed/native compatibility and
+generated/client integration remain separate release gates; runtime readiness
+and task/PM admission remain false.
+
 ## Hermes Recovery Candidate: 9 October 2026
 
 The isolated successor to journal `cb720d7258294ca5d71c7f586a86f7407e9201b1`
@@ -10,6 +23,18 @@ Focused PostgreSQL/HTTP/concurrency selectors are mandatory in CI, not executed
 acceptance for this candidate. Native source/plugin/managed compatibility remains
 unverified. See the [scope and inventory](plans/2026-10-09-hermes-recovery-release.md).
 All older packet evidence below remains qualified to its original source.
+
+## Runtime Controls Source Candidate: 9 October 2026
+
+The [isolated unit13](plans/2026-10-09-runtime-controls-release.md) prepares
+durable free-chat stop/steer, one-attempt native dispatch, unknown holds,
+atomic ACK/terminal persistence and scoped receipt reads. Only migration13
+is added; no config64, SDK repin, UI or future runtime migration is imported.
+Its original product freeze is `3a07a331`, based on committed journal72.
+The normal merge of coordinator journal `cb720d7` preserves accepted
+main/credentials/foundation history. Linux compilation/PG, real Hermes compatibility,
+generated contracts and UI integration are not accepted.
+`runtime_ready=false`; no PM/model admission or installed runtime changed.
 
 ## Task-Chat And Monitoring Reconciliation: 9 October 2026
 

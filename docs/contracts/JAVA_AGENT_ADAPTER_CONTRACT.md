@@ -4,6 +4,12 @@ Hermes original-key recovery and atomic terminal persistence are Hermes-only.
 This candidate adds no Java chat/control/readback capability or task/PM authority.
 See the [release boundary](../plans/2026-10-09-hermes-recovery-release.md).
 
+## Durable Runtime Controls Unit13
+
+The new journal/native control protocol is Hermes-only. Java Agent chat/control
+remains unavailable; no Java readiness, process lifecycle or SDK contract changes
+are introduced or accepted by this source freeze.
+
 ## Hermes Journal Release Unit12
 
 The isolated Hermes journal release does not change the Java Agent adapter,

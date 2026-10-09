@@ -26,6 +26,9 @@ impl LocalRuntimeSupervisor {
                         }
                         Err(_) => tracing::warn!("Hermes acceptance readback queue is unavailable"),
                     }
+                    if supervisor.repo.reconcile_runtime_controls().await.is_err() {
+                        tracing::warn!("Runtime control terminal readback is unavailable");
+                    }
                     sleep(Duration::from_secs(5)).await;
                 }
             });

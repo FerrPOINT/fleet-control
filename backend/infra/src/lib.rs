@@ -9,6 +9,7 @@ mod pm_draft;
 mod pm_execution;
 pub mod runtime;
 mod runtime_acceptance;
+mod runtime_controls;
 mod task_chats;
 pub mod tracker_event_poller;
 mod tracker_events;
@@ -710,6 +711,63 @@ impl FleetRepository for PostgresFleetRepository {
     ) -> Result<AgentSession, AppError> {
         self.persist_pm_draft_chat(command, owner_user_id).await
     }
+    async fn get_hermes_dispatch_intent_for_run(
+        &self,
+        run_id: Uuid,
+    ) -> Result<Option<app::HermesDispatchIntent>, AppError> {
+        hermes_dispatch_journal::get_for_run(self, run_id).await
+    }
+
+    async fn reserve_runtime_control(
+        &self,
+        run: &SessionAgentRun,
+        actor: &domain::RuntimeControlActor,
+        operation: domain::RuntimeControlOperation,
+        input: Option<&str>,
+    ) -> Result<domain::RuntimeControlReservation, AppError> {
+        runtime_controls::reserve(self, run, actor, operation, input).await
+    }
+
+    async fn claim_runtime_control(&self, id: Uuid) -> Result<bool, AppError> {
+        runtime_controls::claim(self, id).await
+    }
+
+    async fn finish_runtime_control(
+        &self,
+        id: Uuid,
+        acknowledgement: &str,
+    ) -> Result<domain::RuntimeControlReceipt, AppError> {
+        runtime_controls::finish(self, id, acknowledgement).await
+    }
+
+    async fn retire_runtime_control(
+        &self,
+        id: Uuid,
+        submitted: bool,
+    ) -> Result<domain::RuntimeControlReceipt, AppError> {
+        runtime_controls::retire(self, id, submitted).await
+    }
+
+    async fn get_runtime_control(
+        &self,
+        session: Uuid,
+        id: Uuid,
+    ) -> Result<domain::RuntimeControlReceipt, AppError> {
+        runtime_controls::get(self, session, id).await
+    }
+
+    async fn list_runtime_controls(
+        &self,
+        session: Uuid,
+        run: Uuid,
+    ) -> Result<Vec<domain::RuntimeControlReceipt>, AppError> {
+        runtime_controls::list(self, session, run).await
+    }
+
+    async fn reconcile_runtime_controls(&self) -> Result<u64, AppError> {
+        runtime_controls::reconcile(self).await
+    }
+
     async fn reserve_pm_draft_operation(
         &self,
         operation: domain::PmDraftOperation,
@@ -2905,12 +2963,28 @@ impl FleetRepository for PostgresFleetRepository {
         delivery_error: Option<String>,
     ) -> Result<(), AppError> {
         let txn = self.db.begin().await.map_err(AppError::database)?;
+        // Serialize with dispatch/terminal writers before locking the child message.
+        let session_id: Uuid = txn
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT s.id FROM agent_sessions s JOIN session_messages m ON m.session_id=s.id
+                 WHERE m.id=$1 FOR NO KEY UPDATE OF s",
+                [id.into()],
+            ))
+            .await
+            .map_err(AppError::database)?
+            .ok_or_else(|| AppError::not_found("session_message", id))?
+            .try_get("", "id")
+            .map_err(AppError::database)?;
         let row = session_message::Entity::find_by_id(id)
             .lock_exclusive()
             .one(&txn)
             .await
             .map_err(AppError::database)?
             .ok_or_else(|| AppError::not_found("session_message", id))?;
+        if row.session_id != session_id {
+            return Err(AppError::conflict("message session identity changed"));
+        }
         if let Some(previous) = &row.runtime_message_id {
             if runtime_message_id
                 .as_ref()

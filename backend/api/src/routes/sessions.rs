@@ -124,6 +124,36 @@ mod tests {
     use super::*;
 
     #[test]
+    fn runtime_controls_require_one_bounded_key_and_derive_the_actor() {
+        let user = crate::middleware::CurrentUser {
+            id: Uuid::new_v4(),
+            role: domain::SystemRole::User,
+            is_system_admin: false,
+            central_write: None,
+        };
+        let mut headers = HeaderMap::new();
+        assert!(control_actor(&user, &headers).is_err());
+        for key in ["", "bad key", &"x".repeat(129)] {
+            headers.insert("Idempotency-Key", key.parse().unwrap());
+            assert!(control_actor(&user, &headers).is_err());
+        }
+        headers.insert("Idempotency-Key", "control-key".parse().unwrap());
+        let actor = control_actor(&user, &headers).unwrap();
+        assert_eq!(actor.user_id, user.id);
+        assert_eq!(actor.idempotency_key, "control-key");
+        for (first, second) in [
+            ("control-key", "foreign-key"),
+            ("foreign-key", "control-key"),
+            ("control-key", "control-key"),
+        ] {
+            headers.clear();
+            headers.append("Idempotency-Key", first.parse().unwrap());
+            headers.append("Idempotency-Key", second.parse().unwrap());
+            assert!(control_actor(&user, &headers).is_err());
+        }
+    }
+
+    #[test]
     fn parses_multiple_user_ids() {
         let first = Uuid::new_v4();
         let second = Uuid::new_v4();
@@ -593,13 +623,19 @@ pub async fn stream_session(
     Ok(Sse::new(stream).keep_alive(KeepAlive::new().interval(Duration::from_secs(20))))
 }
 
-#[utoipa::path(post, path = "/api/v1/sessions/{session_id}/runs/{run_id}/steer", tag = "sessions", params(("session_id" = Uuid, Path), ("run_id" = Uuid, Path)), request_body = SteerSessionRunRequest, responses((status = 200, body = RuntimeRunControlResponse)))]
+#[utoipa::path(post, path = "/api/v1/sessions/{session_id}/runs/{run_id}/steer", tag = "sessions", params(("session_id" = Uuid, Path), ("run_id" = Uuid, Path), ("Idempotency-Key" = String, Header)), request_body = SteerSessionRunRequest, responses((status = 200, body = RuntimeRunControlResponse)))]
 pub async fn steer_session_run(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<crate::middleware::CurrentUser>,
+    human: Option<Extension<crate::middleware::VerifiedHumanSession>>,
     Path((session_id, run_id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
     Json(req): Json<SteerSessionRunRequest>,
 ) -> Result<Json<RuntimeRunControlResponse>, AppError> {
+    if human.is_none() {
+        return Err(AppError::Forbidden);
+    }
+    let actor = control_actor(&user, &headers)?;
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_write_access(&session, &user)?;
     if ctx.repo.get_task_chat_binding(session_id).await?.is_some() {
@@ -610,43 +646,91 @@ pub async fn steer_session_run(
     let run = ctx.repo.get_session_agent_run(run_id).await?;
     ensure_run_belongs_to_session(&run, session_id)?;
     let agent = ctx.repo.get_agent(run.agent_id).await?;
-    let response = ctx.runtime.steer_run(&agent, &run, req).await?;
-    ctx.repo
-        .insert_audit(
-            Some(user.id),
-            "session_run.steer",
-            "session_run",
-            Some(run.id.to_string()),
-            serde_json::json!({ "session_id": session_id, "runtime_run_id": run.runtime_run_id }),
-        )
-        .await?;
+    let response = ctx.runtime.steer_run(&agent, &run, req, actor).await?;
     Ok(Json(response))
 }
 
-#[utoipa::path(post, path = "/api/v1/sessions/{session_id}/runs/{run_id}/stop", tag = "sessions", params(("session_id" = Uuid, Path), ("run_id" = Uuid, Path)), responses((status = 200, body = RuntimeRunControlResponse)))]
+#[utoipa::path(post, path = "/api/v1/sessions/{session_id}/runs/{run_id}/stop", tag = "sessions", params(("session_id" = Uuid, Path), ("run_id" = Uuid, Path), ("Idempotency-Key" = String, Header)), responses((status = 200, body = RuntimeRunControlResponse)))]
 pub async fn stop_session_run(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<crate::middleware::CurrentUser>,
+    human: Option<Extension<crate::middleware::VerifiedHumanSession>>,
     Path((session_id, run_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<Json<RuntimeRunControlResponse>, AppError> {
+    if human.is_none() {
+        return Err(AppError::Forbidden);
+    }
+    let actor = control_actor(&user, &headers)?;
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_write_access(&session, &user)?;
+    if ctx.repo.get_task_chat_binding(session_id).await?.is_some() {
+        return Err(AppError::conflict(
+            "task-bound chat control requires a verified workflow assignment",
+        ));
+    }
     let run = ctx.repo.get_session_agent_run(run_id).await?;
     ensure_run_belongs_to_session(&run, session_id)?;
     let agent = ctx.repo.get_agent(run.agent_id).await?;
     super::task_chats::require_project_access(&ctx, &user, session_id, &headers).await?;
-    let response = ctx.runtime.stop_run(&agent, &run).await?;
-    ctx.repo
-        .insert_audit(
-            Some(user.id),
-            "session_run.stop",
-            "session_run",
-            Some(run.id.to_string()),
-            serde_json::json!({ "session_id": session_id, "runtime_run_id": run.runtime_run_id }),
-        )
-        .await?;
+    let response = ctx.runtime.stop_run(&agent, &run, actor).await?;
     Ok(Json(response))
+}
+
+fn control_actor(
+    user: &crate::middleware::CurrentUser,
+    headers: &HeaderMap,
+) -> Result<domain::RuntimeControlActor, AppError> {
+    if headers.get_all("Idempotency-Key").iter().count() != 1 {
+        return Err(AppError::validation(
+            "exactly one Idempotency-Key is required",
+        ));
+    }
+    let key = headers
+        .get("Idempotency-Key")
+        .and_then(|v| v.to_str().ok())
+        .filter(|key| domain::valid_ref(key, 128))
+        .ok_or_else(|| AppError::validation("Idempotency-Key is required for runtime controls"))?;
+    Ok(domain::RuntimeControlActor {
+        user_id: user.id,
+        idempotency_key: key.to_owned(),
+    })
+}
+
+#[utoipa::path(get,path="/api/v1/sessions/{session_id}/runs/{run_id}/controls",tag="sessions",
+    params(("session_id"=Uuid,Path),("run_id"=Uuid,Path)),responses((status=200,body=Vec<domain::RuntimeControlReceipt>)))]
+pub async fn list_controls(
+    State(ctx): State<Arc<AppContext>>,
+    Extension(user): Extension<crate::middleware::CurrentUser>,
+    Path((session_id, run_id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+) -> Result<Json<Vec<domain::RuntimeControlReceipt>>, AppError> {
+    let session = ctx.repo.get_session(session_id).await?;
+    ensure_session_read_access(&session, &user)?;
+    super::task_chats::require_project_access(&ctx, &user, session_id, &headers).await?;
+    ensure_run_belongs_to_session(&ctx.repo.get_session_agent_run(run_id).await?, session_id)?;
+    Ok(Json(
+        ctx.repo.list_runtime_controls(session_id, run_id).await?,
+    ))
+}
+
+#[utoipa::path(get,path="/api/v1/sessions/{session_id}/runs/{run_id}/controls/{command_id}",tag="sessions",
+    params(("session_id"=Uuid,Path),("run_id"=Uuid,Path),("command_id"=Uuid,Path)),
+    responses((status=200,body=domain::RuntimeControlReceipt),(status=404)))]
+pub async fn read_control(
+    State(ctx): State<Arc<AppContext>>,
+    Extension(user): Extension<crate::middleware::CurrentUser>,
+    Path((session_id, run_id, command_id)): Path<(Uuid, Uuid, Uuid)>,
+    headers: HeaderMap,
+) -> Result<Json<domain::RuntimeControlReceipt>, AppError> {
+    let session = ctx.repo.get_session(session_id).await?;
+    ensure_session_read_access(&session, &user)?;
+    super::task_chats::require_project_access(&ctx, &user, session_id, &headers).await?;
+    let receipt = ctx.repo.get_runtime_control(session_id, command_id).await?;
+    if receipt.session_run_id != run_id {
+        return Err(AppError::not_found("runtime_control_command", command_id));
+    }
+    Ok(Json(receipt))
 }
 
 #[utoipa::path(post, path = "/api/v1/sessions/{session_id}/runs/{run_id}/approval", tag = "sessions", params(("session_id" = Uuid, Path), ("run_id" = Uuid, Path)), request_body = ResolveRuntimeApprovalRequest, responses((status = 409, description = "Use the exact approval request decision endpoint")))]

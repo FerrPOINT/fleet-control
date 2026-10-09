@@ -546,7 +546,7 @@ async fn terminal_requires_exact_message_native_pin_current_primary_and_accepted
         Err(AppError::Conflict(_))
     ));
     assert_eq!(snapshot(&p).await, changed_primary);
-    for (journal, pin) in [(false, true), (true, false)] {
+    for (journal, pin) in [(false, false), (false, true), (true, false)] {
         let p = setup(journal, pin, SessionRunRole::Primary).await.unwrap();
         let before = snapshot(&p).await;
         let mut request = command(&p, SessionRunState::Completed, Some("answer"), None);

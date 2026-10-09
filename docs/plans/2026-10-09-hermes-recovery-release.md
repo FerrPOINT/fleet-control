@@ -3,6 +3,21 @@
 Status: source prepared; exact-tree Rust/Linux/PostgreSQL/HTTP/concurrency and
 native compatibility gates are pending. No previous QA packet accepts this tree.
 
+## Controls13 Integration
+
+The normal merge uses exact recovery `1595552b7853cdaf201720d2fb4d84c62cf4ddcd`
+and controls `fc6ef12df757a0858f0931cfd88a66fc7f133ed4`, preserving both histories.
+The scope below describes the original recovery slice. The integrated tree adds
+only controls migration13, not a recovery migration; lineages become14/17.
+The shared terminal module retains all14 cases, with one DTO/repository method
+and one CI invocation (exact count14 and all14 names). Its missing-journal
+matrix retains both controls' unpinned and recovery's pinned legacy cases.
+Control PG/HTTP18 and migration1 are additional mandatory selectors. Four other
+recovery PG families retain separate databases; terminal uses the controls DB.
+Recovery acceptance, wire framing and original-key guards remain unchanged.
+No UI/generated files, dependency pins, approval14 or Docker/lifecycle15..22
+are imported. This merge has source-light checks only, not Rust/PG/native acceptance.
+
 ## Scope
 
 Baseline: `cb720d7258294ca5d71c7f586a86f7407e9201b1` (journal source stays frozen).
@@ -44,8 +59,9 @@ No task/PM model authority, Workflow receipt or Tracker stage completion is gran
 
 Backend CI retains locked workspace check, strict Clippy, workspace tests,
 lineages, existing journal15/ACK11/readback5/migration1, OpenAPI and approval SSE.
-The existing `runtime_http_` selector becomes8. Each of the five new PG families
-gets its own disposable CI database. Shell uses `set -euo pipefail`; every family
+The existing `runtime_http_` selector becomes8. Originally each of the five new PG
+families gets its own disposable CI database; combined terminal runs once in the
+controls database as described above. Shell uses `set -euo pipefail`; every family
 requires exact nonzero PASS counts and zero ignores. Without
 `FLEET_TEST_DATABASE_URL`, explicitly selected PG cases fail instead of skipping.
 

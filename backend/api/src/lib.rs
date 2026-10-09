@@ -71,6 +71,8 @@ pub mod routes;
         routes::sessions::stream_session,
         routes::sessions::steer_session_run,
         routes::sessions::stop_session_run,
+        routes::sessions::list_controls,
+        routes::sessions::read_control,
         routes::sessions::resolve_session_run_approval,
         routes::task_chats::bind_task_chat,
         routes::task_chats::task_context,
@@ -221,6 +223,9 @@ pub mod routes;
         domain::SteerSessionRunRequest,
         domain::ResolveRuntimeApprovalRequest,
         domain::RuntimeRunControlResponse,
+        domain::RuntimeControlReceipt,
+        domain::RuntimeControlOperation,
+        domain::RuntimeControlState,
         domain::UpdateLeaderExecutorsRequest,
         domain::CreateDeploymentJobRequest,
         domain::BulkDeploymentRequest,
@@ -461,6 +466,14 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
             post(routes::sessions::stop_session_run),
         )
         .route(
+            "/api/v1/sessions/{session_id}/runs/{run_id}/controls",
+            get(routes::sessions::list_controls),
+        )
+        .route(
+            "/api/v1/sessions/{session_id}/runs/{run_id}/controls/{command_id}",
+            get(routes::sessions::read_control),
+        )
+        .route(
             "/api/v1/sessions/{session_id}/runs/{run_id}/approval",
             post(routes::sessions::resolve_session_run_approval),
         )
@@ -621,7 +634,7 @@ mod tests {
                     .header(ACCESS_CONTROL_REQUEST_METHOD, "GET")
                     .header(
                         ACCESS_CONTROL_REQUEST_HEADERS,
-                        "authorization,content-type,last-event-id",
+                        "authorization,content-type,last-event-id,idempotency-key",
                     )
                     .body(Body::empty())
                     .expect("request"),
@@ -647,6 +660,7 @@ mod tests {
         assert!(allow_headers.contains("authorization"));
         assert!(allow_headers.contains("content-type"));
         assert!(allow_headers.contains("last-event-id"));
+        assert!(allow_headers.contains("idempotency-key"));
     }
 
     #[tokio::test]

@@ -2,7 +2,7 @@
 
 ## Hermes Recovery And Terminal Atomicity
 
-No new migration or lineage entry is introduced. Optional verified recovery facts
+The recovery slice introduces no new migration or lineage entry. Optional verified recovery facts
 are frozen inside the existing journal capabilities before its only submission
 permit. Unknown-key acceptance checks the original DB-clock deadline again under
 lock and at the mapping update; exact accepted replay does not rewrite history.
@@ -13,6 +13,19 @@ An identical terminal replay changes neither timestamps nor event cursor; a
 contradiction rolls back. EOF, lookup absence and expiry never release capacity.
 See [ADR 0018](adr/0018-atomic-terminal-pinned-recovery.md) and
 [ADR 0019](adr/0019-native-original-key-recovery.md).
+
+## Durable Runtime Controls Unit13
+
+Only `m20261005_000013_runtime_controls` is new in this unit. Both lineages
+append it after the unchanged journal12 (current lengths14/17).
+`runtime_control_commands` freezes actor/key, payload hash, scope, original
+context and native pins. No guidance body or bearer is stored.
+Reserved/submitted/uncertain commands hold a run; claims are single-use.
+Immutable history cannot be deleted or downgraded while populated.
+ACK, audit/event and stopping state commit together. Independent atomic
+terminal prompt/run/optional-assistant evidence can settle an unknown hold
+as terminal-observed, never as proven command acceptance.
+The following unit12 section records that earlier release's own scope.
 
 ## Hermes Journal Release Unit12
 

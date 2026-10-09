@@ -26,6 +26,7 @@ mod acceptance_readback;
 mod hermes_wire;
 mod pm_readback;
 pub(crate) mod recovery_wire;
+mod run_control;
 mod sse_wire;
 mod targeted_approval;
 
@@ -46,12 +47,6 @@ pub struct LocalRuntimeSupervisor {
 #[derive(Debug, Serialize)]
 struct HermesSteerRequest {
     input: String,
-}
-
-#[derive(Debug, Serialize)]
-struct HermesApprovalRequest {
-    choice: String,
-    resolve_all: bool,
 }
 
 impl LocalRuntimeSupervisor {
@@ -1563,50 +1558,18 @@ impl LocalRuntimeSupervisor {
             state: run.state.as_str().to_string(),
         });
     }
+}
 
-    async fn post_run_control<T: Serialize + ?Sized>(
-        &self,
-        agent: &Agent,
-        run: &SessionAgentRun,
-        path: &str,
-        body: Option<&T>,
-    ) -> Result<Value, AppError> {
-        let current = self.repo.get_session_agent_run(run.id).await?;
-        if current.agent_id != agent.id
-            || current.session_id != run.session_id
-            || current.runtime_run_id != run.runtime_run_id
-        {
-            return Err(AppError::conflict("runtime control identity changed"));
+fn control_message(command: &domain::RuntimeControlReceipt) -> &'static str {
+    match command.state {
+        domain::RuntimeControlState::Acknowledged => {
+            "Runtime acknowledged the command; terminal readback is independent"
         }
-        if current.state == SessionRunState::Pending {
-            return Err(AppError::conflict(
-                "runtime session readback must finish before control",
-            ));
+        domain::RuntimeControlState::Rejected => "Command was not dispatched",
+        domain::RuntimeControlState::TerminalObserved => {
+            "Run terminal observed; command acceptance remains unknown"
         }
-        let runtime_run_id = run
-            .runtime_run_id
-            .as_ref()
-            .ok_or_else(|| AppError::validation("session run has no runtime_run_id"))?;
-        let base = Self::hermes_base_url(agent)?;
-        let token = crate::agent_runtime_token(&self.config, agent.id)?;
-        let request = self
-            .client
-            .post(format!("{base}/v1/runs/{runtime_run_id}/{path}"))
-            .bearer_auth(token);
-        let request = match body {
-            Some(body) => request.json(body),
-            None => request,
-        };
-        let response = request.send().await.map_err(AppError::internal)?;
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            return Err(AppError::validation(format!(
-                "Hermes run control {path} failed with {status}: {}",
-                crate::redact_text(&body)
-            )));
-        }
-        response.json().await.map_err(AppError::internal)
+        _ => "Command acceptance is unknown; do not resend with a new key",
     }
 }
 
@@ -2276,6 +2239,7 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
         agent: &Agent,
         run: &SessionAgentRun,
         req: SteerSessionRunRequest,
+        actor: domain::RuntimeControlActor,
     ) -> Result<RuntimeRunControlResponse, AppError> {
         if agent.kind == AgentKind::JavaAgent {
             return Err(AppError::validation(
@@ -2285,32 +2249,28 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
         if req.input.trim().is_empty() {
             return Err(AppError::validation("steer input is required"));
         }
-        self.post_run_control(
+        let command = run_control::send(
+            self,
             agent,
             run,
-            "steer",
+            run_control::Operation::Steer,
             Some(&HermesSteerRequest {
                 input: req.input.trim().to_string(),
             }),
+            &actor,
+            Some(req.input.trim()),
         )
         .await?;
-        let updated = self
-            .repo
-            .update_session_agent_run_dispatch(
-                run.id,
-                run.runtime_run_id.clone(),
-                SessionRunState::Running,
-                None,
-            )
-            .await?;
-        self.emit_run(&updated);
+        // Guidance acknowledgement cannot regress a concurrent waiting/stopping/terminal run.
+        let updated = self.repo.get_session_agent_run(run.id).await?;
         Ok(RuntimeRunControlResponse {
             session_id: run.session_id,
             run_id: run.id,
             runtime_run_id: run.runtime_run_id.clone(),
-            accepted: true,
+            accepted: command.state == domain::RuntimeControlState::Acknowledged,
             state: updated.state,
-            message: "Hermes run steer accepted".to_string(),
+            message: control_message(&command).to_string(),
+            command: Some(command),
         })
     }
 
@@ -2318,73 +2278,45 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
         &self,
         agent: &Agent,
         run: &SessionAgentRun,
+        actor: domain::RuntimeControlActor,
     ) -> Result<RuntimeRunControlResponse, AppError> {
         if agent.kind == AgentKind::JavaAgent {
             return Err(AppError::validation(
                 "Java Agent runtime stop is planned for phase 2",
             ));
         }
-        self.post_run_control::<Value>(agent, run, "stop", None)
-            .await?;
-        let updated = self
-            .repo
-            .update_session_agent_run_dispatch(
-                run.id,
-                run.runtime_run_id.clone(),
-                SessionRunState::Stopping,
-                None,
-            )
-            .await?;
+        let command = run_control::send::<Value>(
+            self,
+            agent,
+            run,
+            run_control::Operation::Stop,
+            None,
+            &actor,
+            None,
+        )
+        .await?;
+        let updated = self.repo.get_session_agent_run(run.id).await?;
         self.emit_run(&updated);
         Ok(RuntimeRunControlResponse {
             session_id: run.session_id,
             run_id: run.id,
             runtime_run_id: run.runtime_run_id.clone(),
-            accepted: true,
+            accepted: command.state == domain::RuntimeControlState::Acknowledged,
             state: updated.state,
-            message: "Hermes run stop accepted".to_string(),
+            message: control_message(&command).to_string(),
+            command: Some(command),
         })
     }
 
     async fn resolve_approval(
         &self,
-        agent: &Agent,
-        run: &SessionAgentRun,
-        req: ResolveRuntimeApprovalRequest,
+        _agent: &Agent,
+        _run: &SessionAgentRun,
+        _req: ResolveRuntimeApprovalRequest,
     ) -> Result<RuntimeRunControlResponse, AppError> {
-        if agent.kind == AgentKind::JavaAgent {
-            return Err(AppError::validation(
-                "Java Agent runtime approval is planned for phase 2",
-            ));
-        }
-        self.post_run_control(
-            agent,
-            run,
-            "approval",
-            Some(&HermesApprovalRequest {
-                choice: req.choice,
-                resolve_all: req.resolve_all,
-            }),
-        )
-        .await?;
-        let updated = self
-            .repo
-            .update_session_agent_run_dispatch(
-                run.id,
-                run.runtime_run_id.clone(),
-                SessionRunState::Running,
-                None,
-            )
-            .await?;
-        self.emit_run(&updated);
-        Ok(RuntimeRunControlResponse {
-            session_id: run.session_id,
-            run_id: run.id,
-            runtime_run_id: run.runtime_run_id.clone(),
-            accepted: true,
-            state: updated.state,
-            message: "Hermes run approval accepted".to_string(),
-        })
+        Err(AppError::conflict(
+            "use the exact approval request decision endpoint",
+        ))
     }
 
     fn command_preview(&self, agent: &Agent) -> String {
