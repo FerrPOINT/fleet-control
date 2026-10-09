@@ -92,9 +92,12 @@ Linux Rust 1.88.0/PostgreSQL packet `sdlc-qa-fleet-config-ba43ca138e39`
 completed with exit 0 on 2026-10-09 at 11:09:15 UTC. Tested product code is exactly
 `011afd9151c828279976aec5e6cf0a28b78c1f69`, build SDK is `19a7a381`, and the
 separate real Git package input is `4b9b4c9` with canonical Base origin metadata.
-The subsequent publication commit changes documentation only; it is not a new
-execution of the code gates. Integration CI and Fleet47 evidence are not used
-as acceptance of this delta.
+Publication commit `b7ecfbb` changes documentation only; it is not a new
+execution of the code gates. The CI follow-up canonicalizes the package origin
+created by `actions/checkout` (HTTPS without `.git`) to the exact URL accepted
+by the unchanged Rust guard, and asserts the package SHA and manifest object.
+Rust/product code remains identical to the tested SHA above. Integration CI
+and Fleet47 evidence are not used as acceptance of this delta.
 
 All 18 named gates passed: preflight, fmt, workspace/all-target check, strict
 Clippy (`-D warnings`), API2 (2), configuration API (8), Base package (17),

@@ -115,6 +115,13 @@ jobs:
           path: base-role-package
           token: ${{ secrets.SERVICES_BASE_TOKEN }}
           ref: 4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58
+      - name: Verify canonical Base package input
+        working-directory: base-role-package
+        run: |
+          git remote set-url origin https://github.com/FerrPOINT/services-base.git
+          test "$(git config --get remote.origin.url)" = https://github.com/FerrPOINT/services-base.git
+          test "$(git rev-parse HEAD)" = 4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58
+          git cat-file -e 4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58:agent-skills/manifest.json
       - run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev postgresql-client
       - uses: dtolnay/rust-toolchain@stable
         with:
