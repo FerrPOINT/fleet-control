@@ -1,8 +1,39 @@
 # Gap Register
 
+## Current Open Release Gates: 9 October 2026
+
+The current source assembly is b249bc8, not the historical heads below.
+Source integration is progress, not release acceptance. Its remaining gates are:
+
+- **Combined backend:** all-target Rust/Clippy, actual default/ignored test
+  discovery and execution, both20/23 PostgreSQL lineages, populated downgrade
+  guards and strict generated OpenAPI comparison. Static162 ignored/290 ordinary
+  inventory and a proposed70-stage mapping are not an executed gate.
+- **Runtime:** exact-image qualification and actual isolated Hermes
+  lifecycle/configuration/recovered activation/rollback, safe process stop,
+  streams/logs and crash/readback acceptance. Original protocol4 findings and
+  sequential-activation F6 are closed at source review, not native acceptance.
+- **PM:** trusted producer pre-model admission, fenced first-step authority,
+  server credential custody, durable tool gateway and exact write readback,
+  answer delivery/checkpoint/rebind and live owner-confirmation flow. Reviewed
+  offline24-case packet does not close these requirements.
+- **Chats:** live cross-service ownership/project/reconnect acceptance and
+  clarification unknown-outcome recovery across reload. The mounted original
+  command guard and closed-question retry have frontend/browser fixture evidence
+  only; no new-answer permission bypass is permitted.
+- **Forge:** close the actual bridge/global cleanup deadline finding, then run
+  the unchanged full12 matrix and real deployment/evidence/rollback acceptance.
+- **Publication:** account billing must allow exact-head CI; publish only
+  task-owned scoped units after their gates, retaining migration ownership and
+  independent review. Base PR180 stays Draft; no paid-resource bypass is allowed.
+
+The [current source/evidence snapshot](CURRENT_STATE.md) and
+[parallel owners](plans/2026-10-09-parallel-remaining-work.md) distinguish
+implemented, independently reviewed, executed and still-blocked work.
+
 ## Docker And Controls Integration Gate
 
-Current compiler blockers: actual full gate37967213470, controls160bd/sourcec02,
+Historical compiler failures: actual full gate37967213470, controls160bd/sourcec02,
 reports E0425 runtime_acceptance.rs:542:33 and E0594 sdlc_foundation.rs:2702:5.
 Safe evidence/source identity and cleanup are verified. Scoped corrections6e9
 have independent source closure and nine passing source checks, and are normally
@@ -21,11 +52,13 @@ qualification are independent remaining implementation/acceptance gates.
 Build wrapper successor9cda3075/seal459f0371 has source closure for stopped
 foreign-container cleanup and materialized-context drift. Parent23 pure cases
 and6 independent counterproofs pass; no build/image/native grant follows.
-The new Fleet protocol4 consumer is still a draft. Pre-review requires inherited
-anchor lease fencing for child SQL mutations, redacted Debug compatibility,
-proved original-stop readback after lost phase CAS, terminal child stop permits
-and preservation of effective custody when the next config draft is saved.
-All five findings are assigned; this draft is not integrated or accepted.
+The Fleet protocol4 consumer's five original source findings (anchor lease
+fencing, redacted Debug, original-stop readback after lost CAS, terminal child
+stop permits and effective custody after a new draft) are independently closed
+at f326 and normally integrated. Its d306 sequential-activation successor also
+has source closure and normal integration. Actual combined Rust/PG/native
+acceptance remains open; the historical draft status is not the current source
+status.
 
 The previous compiler blocker was identified, not guessed: authenticated
 run37964514708 reports E0609 at acceptance_readback.rs:58:30. Scoped sourcee2e33b2

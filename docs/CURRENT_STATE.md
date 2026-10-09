@@ -1,5 +1,38 @@
 # Current State
 
+## Current Integration Snapshot: 9 October 2026
+
+Source-only assembly `b249bc895e5160fe13383c49d42a24c9308852b3` is **not
+merge-ready or live SDLC accepted**. Historical sections below qualify their own
+heads; they do not accept this assembly.
+
+- Normal merge1801201 retains reviewed recovered/sequential activation d306
+  and the loader/fixture fixes. Independent F6 source review closes the reported
+  lifecycle finding. Canonical/split migrations are20/23; Rust/PG/native gates
+  remain unexecuted for this source. Inventory162 ignored/290 ordinary is static
+  declaration counting, not compiled test discovery.
+- Follow-up b249bc8 fixes two stale migration-test boundaries without changing
+  SQL: split single-down verifies exact prior ledger minus activation19, and
+  historical downgrade selects task_chats10 from the registry rather than down8.
+  Formatting/diff pass; independent closure and actual PG remain separate.
+- Chat production fix8e5d75d has no actionable independent source finding.
+  Coverage5d52c8a waits for fresh rendered permissions before replay. Full334
+  frontend cases and3/3 ordered browser fixtures pass; nine generated captures
+  verify and mobile/desktop are visually checked. These are mocked-HTTP fixture
+  results, not live PM evidence or durable clarification recovery across reload.
+- Normal merge379b48e integrates reviewed PM packet2ee without losing guards or
+  pins. Its actual24-case offline report is independently checked;16 synthetic
+  oracle cases and8 real-module probes remain distinct. Producer admission stays
+  BLOCKED/live=false. No pre-model authority or credential custody is invented.
+- Forge daf's independent review finds a remaining actual bridge cleanup
+  deadline defect; its successor and full12 acceptance are still pending.
+- Base PR180 remains Draft at815982b; all11 CI jobs are denied before steps by
+  billing. Reported local224 fake-engine tests do not replace exact-head CI or
+  native Docker acceptance. Protected runtime images and services are unchanged.
+
+Exact sources, handoffs and remaining dependencies are recorded in the
+[parallel work plan](plans/2026-10-09-parallel-remaining-work.md).
+
 ## Docker And Controls Assembly: 9 October 2026
 
 Latest full backend run37967213470 on reviewed controls160bd/sourcec02ee92
