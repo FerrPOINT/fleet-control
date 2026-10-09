@@ -60,6 +60,8 @@ import {
 import { useAuthStore } from '@/shared/auth/store'
 import { TaskApprovalsPanel } from './approvals'
 import { RuntimeControlsPanel } from './runtime-controls'
+import { ControlRecovery } from './control-recovery'
+import { useControlJournal, type ControlHandle } from './control-journal'
 import { UserAvatar } from '@/shared/ui/user-avatar'
 import { EmptyState, ErrorState, StatusBadge, formatDate } from '../common'
 import './chat.css'
@@ -67,6 +69,9 @@ import './chat.css'
 function requestKey() {
   return crypto.randomUUID()
 }
+const steerByteLimit = 64 * 1024
+const exceedsSteerLimit = (input: string) =>
+  new TextEncoder().encode(input).byteLength > steerByteLimit
 async function refreshHistory(client: QueryClient, id: string) {
   const queryKey = ['chat-history', id]
   const alreadyFetching = client.isFetching({ queryKey, exact: true }) > 0
@@ -82,7 +87,8 @@ function ReadableError({ error }: { error: unknown }) {
 
 export function ChatDetailPage() {
   const { sessionId = '' } = useParams()
-  return <ChatWorkspace key={sessionId} id={sessionId} />
+  const actorId = useAuthStore((state) => state.userId)
+  return <ChatWorkspace key={`${actorId}:${sessionId}`} id={sessionId} />
 }
 
 function ChatWorkspace({ id }: { id: string }) {
@@ -90,6 +96,8 @@ function ChatWorkspace({ id }: { id: string }) {
   const client = useQueryClient()
   const token = useAuthStore((state) => state.token)
   const userId = useAuthStore((state) => state.userId)
+  const journal = useControlJournal(userId, id)
+  const controlCallbacks = useRef<Partial<Record<ControlHandle['operation'], string>>>({})
   const session = useQuery({ queryKey: ['session', id], queryFn: () => getSession(id) })
   const agents = useQuery({ queryKey: ['agent-directory'], queryFn: listAgentDirectory })
   const task = useQuery({
@@ -181,6 +189,7 @@ function ChatWorkspace({ id }: { id: string }) {
         'chat-history',
         'session-runs',
         'runtime-controls',
+        'runtime-control-recovery',
         'chat-controls',
         'task-context',
         'clarifications',
@@ -225,6 +234,7 @@ function ChatWorkspace({ id }: { id: string }) {
             'chat-history',
             'session-runs',
             'runtime-controls',
+            'runtime-control-recovery',
             'chat-controls',
             'task-context',
             'clarifications',
@@ -257,15 +267,28 @@ function ChatWorkspace({ id }: { id: string }) {
       command:
         | { kind: 'steer'; runId: string; input: string; key: string }
         | { kind: 'prompt'; input: string; key: string },
-    ) =>
-      command.kind === 'steer'
-        ? steerSessionRun(id, command.runId, { input: command.input }, command.key)
-        : createSessionMessage(id, { body: command.input, idempotency_key: command.key }),
-    onSuccess: async (result) => {
+    ) => {
+      if (command.kind === 'steer') {
+        if (exceedsSteerLimit(command.input))
+          throw new ApiError(400, 'Уточнение не должно превышать 64 КиБ в UTF-8.')
+        journal.save({ operation: 'steer', runId: command.runId, key: command.key })
+        controlCallbacks.current.steer = command.key
+        return steerSessionRun(id, command.runId, { input: command.input }, command.key)
+      }
+      return createSessionMessage(id, { body: command.input, idempotency_key: command.key })
+    },
+    onSuccess: async (result, command) => {
+      if (command.kind === 'steer' && controlCallbacks.current.steer !== command.key) return
       if ('accepted' in result && !result.accepted) {
         setReceipt('Принятие команды не подтверждено. Текст и ключ команды сохранены.')
         await invalidate()
         return
+      }
+      if (command.kind === 'steer') {
+        if (!('run_id' in result) || result.run_id !== command.runId || result.session_id !== id)
+          throw new Error('Ответ runtime не соответствует исходной команде')
+        journal.clear({ operation: 'steer', runId: command.runId, key: command.key })
+        delete controlCallbacks.current.steer
       }
       setBody('')
       setMessageKey(requestKey())
@@ -295,22 +318,53 @@ function ChatWorkspace({ id }: { id: string }) {
     },
   })
   const stop = useMutation({
-    mutationFn: (command: { runId: string; key: string }) =>
-      stopSessionRun(id, command.runId, command.key),
-    onSuccess: invalidate,
+    mutationFn: (command: { runId: string; key: string }) => {
+      journal.save({ operation: 'stop', ...command })
+      controlCallbacks.current.stop = command.key
+      return stopSessionRun(id, command.runId, command.key)
+    },
+    onSuccess: async (result, command) => {
+      if (controlCallbacks.current.stop !== command.key) return
+      if (result.accepted) {
+        if (result.run_id !== command.runId || result.session_id !== id)
+          throw new Error('Ответ runtime не соответствует исходной команде')
+        journal.clear({ operation: 'stop', ...command })
+        delete controlCallbacks.current.stop
+      }
+      await invalidate()
+    },
   })
   const answerUncertain =
     answer.isError && (!(answer.error instanceof ApiError) || answer.error.status >= 500)
   const messageUncertain =
     (message.isError && (!(message.error instanceof ApiError) || message.error.status >= 500)) ||
     (message.isSuccess && 'accepted' in message.data && !message.data.accepted)
-  const stopUnacknowledged = stop.isSuccess && !stop.data.accepted
-  const uncertainSteer = messageUncertain && message.variables?.kind === 'steer'
+  const stopUnacknowledged =
+    Boolean(journal.entries.stop) || (stop.isSuccess && !stop.data.accepted)
+  const uncertainSteer =
+    Boolean(journal.entries.steer) || (messageUncertain && message.variables?.kind === 'steer')
+  const readbackRunIds = [
+    ...new Set(
+      [
+        stop.isPending || stop.isError || stopUnacknowledged ? stop.variables?.runId : null,
+        message.variables?.kind === 'steer' && (message.isPending || messageUncertain)
+          ? message.variables.runId
+          : null,
+        controls.data?.active_run_id,
+        journal.entries.stop?.runId,
+        journal.entries.steer?.runId,
+      ].filter((runId): runId is string => Boolean(runId)),
+    ),
+  ]
+  if (!readbackRunIds.length && runs.data?.[0]) readbackRunIds.push(runs.data[0].id)
+  const steerTooLarge = Boolean(controls.data?.can_steer) && exceedsSteerLimit(body.trim())
   const canSubmitMessage =
     owner &&
     !controls.isError &&
     !message.isPending &&
+    !journal.error &&
     !uncertainSteer &&
+    !steerTooLarge &&
     Boolean(body.trim()) &&
     (messageUncertain || controls.data?.can_send || controls.data?.can_steer)
   const submitMessage = () => {
@@ -324,6 +378,24 @@ function ChatWorkspace({ id }: { id: string }) {
         ? { kind: 'steer', runId: controls.data.active_run_id, input: body.trim(), key: messageKey }
         : { kind: 'prompt', input: body.trim(), key: messageKey },
     )
+  }
+  const settleControl = (handle: ControlHandle) => {
+    try {
+      journal.clear(handle)
+    } catch {
+      setReceipt('Не удалось закрыть сверку. Новая отправка остаётся заблокированной.')
+      return
+    }
+    delete controlCallbacks.current[handle.operation]
+    if (handle.operation === 'steer') {
+      setBody('')
+      setMessageKey(requestKey())
+      message.reset()
+    } else stop.reset()
+    setReceipt(
+      'Сверка закрыта. Состояние выполнения проверяется отдельно; команда не отправляется повторно.',
+    )
+    void invalidate()
   }
   const updateDraft = (change: Partial<typeof draft>) =>
     setDrafts((current) => ({
@@ -533,15 +605,19 @@ function ChatWorkspace({ id }: { id: string }) {
                   </article>
                 )}
                 <TaskApprovalsPanel sessionId={id} canResolve={canResolveApprovals} hideWhenEmpty />
-                <RuntimeControlsPanel
-                  sessionId={id}
-                  runId={
-                    stop.variables?.runId ??
-                    (message.variables?.kind === 'steer' ? message.variables.runId : null) ??
-                    controls.data?.active_run_id ??
-                    runs.data?.[0]?.id
-                  }
-                />
+                {readbackRunIds.map((runId) => (
+                  <RuntimeControlsPanel key={runId} sessionId={id} runId={runId} />
+                ))}
+                {userId &&
+                  Object.values(journal.entries).map((handle) => (
+                    <ControlRecovery
+                      key={handle.key}
+                      actorId={userId}
+                      sessionId={id}
+                      handle={handle}
+                      onSettled={() => settleControl(handle)}
+                    />
+                  ))}
               </div>
               {newMessages && (
                 <Button
@@ -580,7 +656,9 @@ function ChatWorkspace({ id }: { id: string }) {
                     !owner ||
                     (!controls.data?.can_send && !controls.data?.can_steer) ||
                     message.isPending ||
-                    messageUncertain
+                    messageUncertain ||
+                    uncertainSteer ||
+                    journal.error
                   }
                   onChange={(event) => {
                     setBody(event.target.value)
@@ -589,7 +667,8 @@ function ChatWorkspace({ id }: { id: string }) {
                   rows={2}
                 />
                 {message.isError && <ReadableError error={message.error} />}
-                {messageUncertain && (
+                {steerTooLarge && <p role="alert">Уточнение не должно превышать 64 КиБ в UTF-8.</p>}
+                {(messageUncertain || uncertainSteer) && !message.isPending && (
                   <p role="status">
                     {uncertainSteer
                       ? 'Исход уточнения запуску неизвестен. Нельзя повторить его как новый prompt; требуется сверка runtime.'
@@ -597,6 +676,11 @@ function ChatWorkspace({ id }: { id: string }) {
                   </p>
                 )}
                 {controls.isError && <ReadableError error={controls.error} />}
+                {journal.error && (
+                  <p role="alert">
+                    Метаданные исходной команды недоступны. Новая отправка заблокирована.
+                  </p>
+                )}
                 <div>
                   <span>
                     <ShieldCheck size={14} />
@@ -624,12 +708,13 @@ function ChatWorkspace({ id }: { id: string }) {
                       variant="outline"
                       aria-label="Остановить запуск"
                       title="Остановить запуск"
-                      disabled={stop.isPending}
+                      disabled={stop.isPending || journal.error}
                       onClick={() => {
                         const command =
-                          (stop.isError || stopUnacknowledged) && stop.variables
+                          journal.entries.stop ??
+                          ((stop.isError || stopUnacknowledged) && stop.variables
                             ? stop.variables
-                            : { runId: controls.data!.active_run_id!, key: requestKey() }
+                            : { runId: controls.data!.active_run_id!, key: requestKey() })
                         stop.mutate(command)
                       }}
                     >

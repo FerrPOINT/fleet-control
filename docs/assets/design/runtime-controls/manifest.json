@@ -15,7 +15,7 @@
         "width": 375,
         "height": 812
       },
-      "sha256": "8d954f084de45e9d43fa0454046c3ad360340b87e4cb82262b42cffbe63ebeda"
+      "sha256": "028b96b5a972ee8739722627aa75ece3faf0596d6ac9dacbdab700d98c99874e"
     },
     {
       "browser": "chromium",
@@ -29,7 +29,7 @@
         "width": 1920,
         "height": 1080
       },
-      "sha256": "b3539620f2e84aa60ffec5da0ba7a09d56573ed3e202f573890d94694c9f42eb"
+      "sha256": "6fee6b23f6daac17b3c44938ac29412d864634eb412e68735bef7f57c3ddcc88"
     },
     {
       "browser": "chromium",
@@ -43,7 +43,7 @@
         "width": 2560,
         "height": 1440
       },
-      "sha256": "01572b5f2ab66485463807ebfae02ce72039cbf11a255a7e739892e5bb576c6c"
+      "sha256": "f1b978b78d77e829155c31f1cab9d0e2129df68837ddf25654daac1ece72b4e1"
     },
     {
       "browser": "firefox",
@@ -57,7 +57,7 @@
         "width": 375,
         "height": 812
       },
-      "sha256": "ab30e6eba024ee9ab7626a57f87892af2edcd7d0f7a0a0ceb7e00b2cc2cc19b0"
+      "sha256": "3a559196e1e7764cc1178a59d73569fc66bcd36e7ff1ec1d1ccf6cc3767e4fff"
     },
     {
       "browser": "firefox",
@@ -71,7 +71,7 @@
         "width": 1920,
         "height": 1080
       },
-      "sha256": "8c53b0b689f9cd16fa2ce1bffb8969055651a235d794d589572ef4f2790d4326"
+      "sha256": "199c8f611c07f06c449d85a7405ce762272a15126d9049ee1cd7e70ab6f2333a"
     },
     {
       "browser": "firefox",
@@ -85,7 +85,7 @@
         "width": 2560,
         "height": 1440
       },
-      "sha256": "2d94e15843daecc86e98c2f9de9f9bfb08d6a84f18e5fa82e076816ebe9911dc"
+      "sha256": "aa7bc8e0259b82a491bdb4e5477452bf0ad1293c298bbd37e108442508c12e24"
     },
     {
       "browser": "webkit",
@@ -99,7 +99,7 @@
         "width": 375,
         "height": 812
       },
-      "sha256": "a18d36054d2f639320a56fa751833147ef4b98362afde9f9505ba1deabf713fe"
+      "sha256": "6b9339c096b0d0a73607a2b5cf3392519db760ba74dce32318b1466c01b30dde"
     },
     {
       "browser": "webkit",
@@ -113,7 +113,7 @@
         "width": 1920,
         "height": 1080
       },
-      "sha256": "2f70e2755322709766b13c06137c49072c0a67e4560fa6aa0bde7ff1de9039fa"
+      "sha256": "e49b3497edf6004799bc6d385c6faf3a643678221f843757b6ca256b2aab682a"
     },
     {
       "browser": "webkit",
@@ -127,7 +127,7 @@
         "width": 2560,
         "height": 1440
       },
-      "sha256": "4ac395a6d9fdf02bcf16958ddd8cde0c837689046cffba35af2f6c4ab0088de8"
+      "sha256": "90ada75c8b2c5432752ed6725dcc69578fc6f1af1b3de00ea7d138402aba8710"
     }
   ]
 }

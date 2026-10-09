@@ -1,10 +1,51 @@
 # Runtime Controls UI Consumer
 
-Status: stable identity, unacknowledged-response UI and read-only receipt panel
-verified with fixtures. Authentic generated contract integrated; automatic
-uncertainty settlement/reload recovery and live runtime acceptance remain pending.
+Status: stable identity, receipt readback and explicit original-key reload
+recovery implemented in the UI. Backend lookup integration, authentic updated
+OpenAPI and live runtime acceptance remain pending.
 
-## Authentic Contract And Readback Panel
+## Original-Key Recovery Successor
+
+The browser journal stores only operation/run/key metadata under actor/session
+identity. No message input, token or receipt body is persisted. Reload performs
+GET `/api/v1/sessions/{session_id}/runs/{run_id}/controls/lookup` with the original
+Idempotency-Key header; it never automatically sends POST. This distinct route
+is required: an old collection endpoint could ignore an optional header and
+return another command. The lookup producer and source-generated path remain
+an integration prerequisite, not an implemented claim of this UI-only slice.
+
+Recovery validates actor/session/run/operation and permits explicit local
+settlement only after acknowledged, rejected or terminal-observed readback.
+Missing/mismatched/legacy replies, 404 and failed fresh reads keep the handle.
+Settlement does not resend guidance or prove successful business execution.
+The same view can show old stop and new steer targets independently; submitted
+means processing started, not proven delivery. Browser storage failure blocks
+control dispatch before POST instead of silently losing the original key.
+
+Independent review reproduced two defects: a late original POST callback after
+lookup settlement could poison a successor handle, and pre-reservation input
+rejection could leave an unresolvable steer handle. Current-key callback fencing
+and pre-journal UTF-8 byte validation fix them. Eight regressions cover both
+stop/steer accepted/unknown late replies and ASCII/Unicode exact/over-limit input.
+All328 frontend tests across36 files and typecheck pass. Original history and
+generated receipt DTOs are retained; no migration or hand-written DTO is added.
+The independent closure proof passes both reproduced scenarios; the parent
+final Chromium/Firefox/WebKit fixture also passes all three cases, including
+over-limit UTF-8 input, without relaxing timeouts. Its result directory is
+`frontend/test-results/runtime-controls-css-final`. Final lint, production build,
+111 Markdown link checks and the regenerated nine-image manifest pass; the
+existing large-main-chunk warning remains. Native/backend acceptance is not
+inferred from these frontend results.
+
+The failed first browser packet is retained separately from the successful
+three-engine rerun: Chromium exceeded the unchanged 120-second beforeAll build
+limit, while Firefox/WebKit passed. The rerun passes all three. The publisher
+accepts `--input=<result-directory>` and still refuses failed Playwright results,
+allowing evidence publication without overwriting failed packets. Nine fixture
+screenshots were regenerated, verified and inspected on mobile/desktop. They
+are not native authorization, safe-stop, runtime dispatch or SDLC evidence.
+
+## Frozen Authentic Contract And Readback Panel
 
 The isolated hosted [codegen run37945042300](https://github.com/FerrPOINT/fleet-control/actions/runs/37945042300)
 completed successfully at workflow `db2bb4bd2b757afd652a01a4d537c19db20d6abb`,
@@ -98,12 +139,12 @@ not live runtime authorization, backend dispatch or SDLC acceptance.
   exactly-once acknowledged steer mirror now coexist with recovery/controls.
   Linux/PG/native evidence is still pending; frontend and wire shapes are not
   manually changed by that merge.
-- The read-only panel now distinguishes receipt states. Connect exact receipt
-  settlement to the frozen composer without guessing identity from list order.
-- Poll the original scoped command receipt, preserving uncertainty after a lost
-  HTTP response; absent list entries do not authorize a fresh command key.
-- Verify owner-only mutations, read-only receipt access, run changes and reload
-  recovery in browser tests, then capture any changed visible states.
+- Exact original-key settlement and reload recovery are implemented in the UI;
+  integrate the distinct lookup producer and authentic regenerated path.
+- Preserve uncertainty after missing/failed lookup; never infer original command
+  identity from collection ordering or issue a new key after an unknown POST.
+- Complete native owner-only/control recovery acceptance independently of the
+  frontend fixture checks and screenshot evidence.
 
 Task-bound controls remain denied until verified Workflow admission. Private
 chat controls do not grant machine authority or complete a business stage.

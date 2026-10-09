@@ -86,7 +86,24 @@ test('fixture: HTTP-success uncertainty retains steer and the original stop targ
   test.setTimeout(90000)
   const errors: string[] = []
   const commands: { path: string; key: string | undefined; body: unknown }[] = []
+  const lookups: { runId: string; key: string | undefined }[] = []
   let activeRun = 'original-run'
+  const receipt = (runId: string, operation: string) => ({
+    id:
+      operation === 'stop'
+        ? '00000000-0000-4000-8000-000000000001'
+        : '00000000-0000-4000-8000-000000000002',
+    session_id: 'session1',
+    session_run_id: runId,
+    agent_id: 'agent1',
+    actor_user_id: 'owner',
+    operation,
+    state: 'uncertain',
+    acknowledgement: null,
+    observed_run_state: null,
+    created_at: '2026-10-09T10:00:00Z',
+    updated_at: '2026-10-09T10:00:01Z',
+  })
   page.on('pageerror', (error) => errors.push(error.message))
   await page.route(`**${fixturePath}**`, (route) => {
     const path = new URL(route.request().url()).pathname
@@ -144,6 +161,19 @@ test('fixture: HTTP-success uncertainty retains steer and the original stop targ
         },
       })
     if (path.endsWith('/history')) return route.fulfill({ json: { items: [], next_before: null } })
+    if (path.endsWith('/controls/lookup')) {
+      const runId = path.split('/')[6]
+      const key = request.headers()['idempotency-key']
+      lookups.push({ runId, key })
+      const original = commands.find(
+        (command) => command.key === key && command.path.split('/')[6] === runId,
+      )
+      return original
+        ? route.fulfill({
+            json: receipt(runId, original.path.endsWith('/stop') ? 'stop' : 'steer'),
+          })
+        : route.fulfill({ status: 404, json: { error: 'Command not found' } })
+    }
     if (path.endsWith('/controls')) {
       const runId = path.split('/')[6]
       const operations = new Set(
@@ -152,22 +182,7 @@ test('fixture: HTTP-success uncertainty retains steer and the original stop targ
           .map((command) => (command.path.endsWith('/stop') ? 'stop' : 'steer')),
       )
       return route.fulfill({
-        json: [...operations].map((operation) => ({
-          id:
-            operation === 'stop'
-              ? '00000000-0000-4000-8000-000000000001'
-              : '00000000-0000-4000-8000-000000000002',
-          session_id: 'session1',
-          session_run_id: runId,
-          agent_id: 'agent1',
-          actor_user_id: 'owner',
-          operation,
-          state: 'uncertain',
-          acknowledgement: null,
-          observed_run_state: null,
-          created_at: '2026-10-09T10:00:00Z',
-          updated_at: '2026-10-09T10:00:01Z',
-        })),
+        json: [...operations].map((operation) => receipt(runId, operation)),
       })
     }
     if (path.endsWith('/runs') || path.endsWith('/approvals')) return route.fulfill({ json: [] })
@@ -182,6 +197,12 @@ test('fixture: HTTP-success uncertainty retains steer and the original stop targ
   )
   await page.goto(fixturePath, { waitUntil: 'domcontentloaded' })
   await ready
+  const input = page.getByLabel('Уточнение активному запуску')
+  await input.fill('я'.repeat(32769))
+  await expect(page.getByText('Уточнение не должно превышать 64 КиБ в UTF-8.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Передать уточнение запуску' })).toBeDisabled()
+  expect(commands).toHaveLength(0)
+  await input.fill('')
   const stop = page.getByRole('button', { name: 'Остановить запуск' })
   await expect(stop).toBeEnabled()
   await stop.click()
@@ -196,7 +217,6 @@ test('fixture: HTTP-success uncertainty retains steer and the original stop targ
     page.getByText('Исход команды неизвестен. Повторная отправка не разрешена.'),
   ).toBeVisible()
 
-  const input = page.getByLabel('Уточнение активному запуску')
   await input.fill('Проверь миграцию без изменения чужих данных')
   await page.getByRole('button', { name: 'Передать уточнение запуску' }).click()
   await expect(
@@ -206,6 +226,18 @@ test('fixture: HTTP-success uncertainty retains steer and the original stop targ
   await expect(input).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Передать уточнение запуску' })).toBeDisabled()
   expect(commands).toHaveLength(3)
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect(input).toBeDisabled()
+  await expect(input).toHaveValue('')
+  await expect
+    .poll(() =>
+      lookups.some((lookup) => lookup.runId === 'new-run' && lookup.key === commands[2].key),
+    )
+    .toBe(true)
+  expect(commands).toHaveLength(3)
+  await stop.click()
+  await expect.poll(() => commands.length).toBe(4)
+  expect(commands[3]).toEqual(commands[0])
   for (const viewport of [
     { width: 375, height: 812 },
     { width: 1920, height: 1080 },
@@ -213,7 +245,9 @@ test('fixture: HTTP-success uncertainty retains steer and the original stop targ
   ]) {
     await page.setViewportSize(viewport)
     await expect(input).toBeVisible()
-    const readback = page.getByText('Исход команды неизвестен. Повторная отправка не разрешена.')
+    const readback = page
+      .getByRole('region', { name: 'Последние команды запуска original-run' })
+      .getByText('Исход команды неизвестен. Повторная отправка не разрешена.')
     await readback.scrollIntoViewIfNeeded()
     await expect(readback).toBeInViewport({ ratio: 1 })
     expect(

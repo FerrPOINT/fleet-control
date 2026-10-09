@@ -1,6 +1,6 @@
 # Parallel Remaining Work: 9 October 2026
 
-Status: five implementation/preparation assignments dispatched. This document
+Status: five renewed implementation/verification assignments dispatched. This document
 records work ownership, not completion or permission to deploy.
 
 ## Current Dispatch
@@ -8,14 +8,47 @@ records work ownership, not completion or permission to deploy.
 The renewed parallel split keeps the existing workers and their isolated
 checkouts rather than restarting completed work:
 
-| Owner    | Current assignment                                                  | Required handoff                                                                                                                      |
-| -------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Feynman  | Configuration activation/drain/rollback after frozen provisioning17 | Separate source unit with exact revision/generation evidence, focused checks and explicit Base capability gaps                        |
-| Pascal   | Fix four independently reviewed defects in mapped recovery16        | Canonical utility hashes, Unicode mapping parity, lease-loop isolation and foreign-owner heartbeat safety; no edits to provisioning17 |
-| Ptolemy  | Complete Forge 12-stage diagnostic gate preparation                 | Immutable helper/seal, pure tests, invocation and exact cleanup; preserve the original aggregate deadline                             |
-| Anscombe | Independent review of generated-contract/readback UI integration    | Precise findings covering scoped receipts, truthful control states and narrow security migration; no Docker implementation overlap    |
-| Leibniz  | Retarget backend acceptance preparation to integrated source        | Exact-source test inventory, strict schema/migration gates, pure helper tests and immutable preparation seal                          |
-| Parent   | Chat/control UI, integration and scoped PR publication              | Generated types, receipt-state/readback UX, browser evidence and exact-head release checks                                            |
+| Owner    | Current assignment                                                   | Required handoff                                                                                                                                      |
+| -------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Feynman  | Configuration18 activation/drain/rollback                            | Isolated source unit after provisioning17; desired/effective revision transitions, run fences, focused tests and explicit Base capability gaps        |
+| Pascal   | Native acceptance preparation for integrated Docker source `be1b040` | Reproducible sealed helper covering 44 selectors plus lineage10/message-order1, canonical LF inputs and exact Compose cleanup; no heavy execution yet |
+| Ptolemy  | One authorized full12 Forge gate                                     | Actual terminal handle, all stage outcomes and cleanup proof for packet `dcbba1cb4e3f`; no replay or relaxed deadline                                 |
+| Anscombe | Original-key command lookup API and authentic codegen preparation    | Distinct GET `/controls/lookup`, required key header, actor/session/run authorization, tests, frozen source and reviewed generator packet             |
+| Leibniz  | Independent reload/control UI safety review                          | Reproducible actor/key isolation, stale receipt and duplicate-dispatch findings; preserve QA0e until final source/codegen freeze                      |
+| Parent   | Chat reload UI, browser checks, integration and scoped publication   | Metadata-only recovery, generated client, frontend/browser evidence, reviewed worker integration and exact-head PR checks                             |
+
+These are continuations of the existing five workers, not additional competing
+implementations. Each has a separate write set; the parent UI is read-only to
+reviewers. Only Forge owns the current heavy-job slot. Docker acceptance is
+prepared in parallel but is not launched until that slot is released.
+
+The four recovery16 fixes and provisioning17 have been normally merged at
+`be1b040597a9ddd0847aca2c10fdaadb96e4c4a9`, preserving both original parents.
+The 18 unique light cases pass; Rust/PG/physical Docker remain unverified.
+QA0e coverage review found all 130 ignored identities and strict schema gates
+present; that static audit is not a native test pass.
+
+Parent reload recovery is a separate UI source unit: sessionStorage contains
+only actor/session-scoped command handles, never steer text. Distinct original-key
+readback and explicit receipt settlement are implemented in the UI, but depend
+on Anscombe's new API and authentic generation before integration acceptance.
+Earlier frozen results below remain historical evidence, not evidence for these
+new changes.
+
+The parent reload fixture now passes Chromium, Firefox and WebKit (three cases)
+with original-key recovery and no automatic POST after reload. The first run's
+Chromium beforeAll build exceeded the unchanged 120-second limit; Firefox and
+WebKit passed. That failed packet remains in `frontend/test-results/runtime-controls-css`.
+The complete successful rerun is separate in
+`frontend/test-results/runtime-controls-css-recheck`. Its nine screenshots are
+published through the explicit-input generator and verified; neither run is
+live runtime acceptance. Independent review subsequently found two UI defects:
+late callbacks after settlement and pre-reservation oversized input. Both are
+fixed with eight new regression cases; all328 frontend tests pass. Independent
+closure proofs pass both cases. Final browser verification in
+`frontend/test-results/runtime-controls-css-final` passes all three engines,
+including the UTF-8 guard, and its nine captures replace the fixture manifest.
+These results are not inferred from the earlier packet.
 
 The parent integration is frozen at
 `7f9ae892f9db482bbf44fda5d3082a074b6421b1`: a normal merge of the checked

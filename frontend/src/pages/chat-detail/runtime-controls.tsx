@@ -7,7 +7,7 @@ import { formatDate } from '../common'
 
 const stateLabels: Record<RuntimeControlReceipt['state'], string> = {
   reserved: 'Команда зарезервирована. Отправка не подтверждена.',
-  submitted: 'Команда отправлена. Подтверждение ожидается.',
+  submitted: 'Обработка команды начата. Доставка не подтверждена.',
   acknowledged: 'Команда принята runtime.',
   uncertain: 'Исход команды неизвестен. Повторная отправка не разрешена.',
   rejected: 'Команда не отправлена.',
@@ -47,6 +47,7 @@ export function RuntimeControlsPanel({
       <header className="flex min-w-0 items-center justify-between gap-2">
         <h2 id={titleId} className="text-sm font-semibold text-text-primary">
           Последние команды запуска
+          <span className="sr-only"> {runId}</span>
         </h2>
         <Button
           type="button"
@@ -60,6 +61,7 @@ export function RuntimeControlsPanel({
           <RefreshCw className="h-4 w-4" aria-hidden />
         </Button>
       </header>
+      <p className="break-words text-xs text-text-muted [overflow-wrap:anywhere]">Запуск {runId}</p>
       {controls.isPending ? (
         <p role="status" className="text-sm text-text-muted">
           Загрузка состояния команд…

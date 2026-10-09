@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiRequest } from './client'
 import { steerSessionRun, stopSessionRun } from './fleet'
-import { listRuntimeControls } from './runtime-controls'
+import { listRuntimeControls, lookupRuntimeControl } from './runtime-controls'
 
 vi.mock('./client', () => ({ apiRequest: vi.fn(async () => []) }))
 
@@ -33,6 +33,15 @@ describe('runtime control command identity', () => {
 })
 
 describe('runtime controls transport', () => {
+  it('looks up the original key on a distinct GET route, never in the URL', async () => {
+    await lookupRuntimeControl('session', 'run', 'original-key')
+    expect(apiRequest).toHaveBeenCalledExactlyOnceWith(
+      '/api/v1/sessions/session/runs/run/controls/lookup',
+      {
+        headers: { 'Idempotency-Key': 'original-key' },
+      },
+    )
+  })
   it('only reads the exact session/run collection', async () => {
     await expect(listRuntimeControls('session', 'run')).resolves.toEqual([])
     expect(apiRequest).toHaveBeenCalledExactlyOnceWith('/api/v1/sessions/session/runs/run/controls')

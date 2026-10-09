@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ChatDetailPage } from './index'
 import * as fleet from '@/api/fleet'
 import * as chats from '@/api/task-chats'
+import { listRuntimeControls, lookupRuntimeControl } from '@/api/runtime-controls'
+import { saveControlHandle } from './control-journal'
 import type { AgentSession, SessionMessage } from '@/api/types'
 import { useAuthStore } from '@/shared/auth/store'
 import { ApiError, connectAuthenticatedEventStream } from '@sdlc/ui/lib'
@@ -18,7 +20,10 @@ vi.mock('@/api/fleet', () => ({
   steerSessionRun: vi.fn(),
   stopSessionRun: vi.fn(),
 }))
-vi.mock('@/api/runtime-controls', () => ({ listRuntimeControls: vi.fn(async () => []) }))
+vi.mock('@/api/runtime-controls', () => ({
+  listRuntimeControls: vi.fn(async () => []),
+  lookupRuntimeControl: vi.fn(),
+}))
 vi.mock('@/api/task-chats', async (original) => ({
   ...(await original<typeof import('@/api/task-chats')>()),
   getTaskContext: vi.fn(),
@@ -124,7 +129,9 @@ function renderPage(tab = 'dialogue') {
   return { router, client }
 }
 beforeEach(() => {
+  sessionStorage.clear()
   vi.clearAllMocks()
+  vi.mocked(lookupRuntimeControl).mockRejectedValue(new Error('Lookup unavailable'))
   useAuthStore.setState({ userId: 'owner', token: null })
   vi.mocked(fleet.getSession).mockResolvedValue({
     id: 'session1',
@@ -558,4 +565,344 @@ describe('production chat', () => {
     await waitFor(() => expect(fleet.stopSessionRun).toHaveBeenCalledTimes(2))
     expect(vi.mocked(fleet.stopSessionRun).mock.calls[1]).toEqual(original)
   })
+
+  it('reads the new steer target after an earlier stop was acknowledged', async () => {
+    vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      can_send: false,
+      can_steer: true,
+      can_stop: true,
+      active_run_id: 'run-a',
+      blocked_reason: null,
+    })
+    vi.mocked(fleet.stopSessionRun).mockResolvedValue({
+      session_id: 'session1',
+      run_id: 'run-a',
+      runtime_run_id: 'native-a',
+      accepted: true,
+      state: 'stopping',
+      message: 'Stopping acknowledged',
+    })
+    vi.mocked(fleet.steerSessionRun).mockResolvedValue({
+      session_id: 'session1',
+      run_id: 'run-b',
+      runtime_run_id: 'native-b',
+      accepted: false,
+      state: 'running',
+      message: 'Acceptance unknown',
+    })
+    const { client } = renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: 'Остановить запуск' }))
+    await waitFor(() => expect(fleet.stopSessionRun).toHaveBeenCalledTimes(1))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Остановить запуск' })).toBeEnabled(),
+    )
+    act(() =>
+      client.setQueryData(['chat-controls', 'session1'], {
+        can_send: false,
+        can_steer: true,
+        can_stop: true,
+        active_run_id: 'run-b',
+        blocked_reason: null,
+      }),
+    )
+    fireEvent.change(screen.getByLabelText('Уточнение активному запуску'), {
+      target: { value: 'Guidance for B only' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Передать уточнение запуску' }))
+    await screen.findByText('Принятие команды не подтверждено. Текст и ключ команды сохранены.')
+    await waitFor(() => expect(listRuntimeControls).toHaveBeenCalledWith('session1', 'run-b'))
+    expect(fleet.steerSessionRun).toHaveBeenCalledWith(
+      'session1',
+      'run-b',
+      { input: 'Guidance for B only' },
+      expect.any(String),
+    )
+    expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+  })
+
+  it('restores a pending steer without storing its text or dispatching after reload', async () => {
+    saveControlHandle('owner', 'session1', {
+      operation: 'steer',
+      runId: 'original-run',
+      key: 'original-key',
+    })
+    vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      can_send: true,
+      can_steer: false,
+      can_stop: false,
+      active_run_id: null,
+      blocked_reason: null,
+    })
+    renderPage()
+    const input = await screen.findByLabelText('Сообщение агенту')
+    expect(input).toHaveValue('')
+    expect(input).toBeDisabled()
+    await waitFor(() =>
+      expect(lookupRuntimeControl).toHaveBeenCalledWith('session1', 'original-run', 'original-key'),
+    )
+    expect(screen.getByRole('button', { name: 'Отправить сообщение' })).toBeDisabled()
+    expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+    expect(fleet.steerSessionRun).not.toHaveBeenCalled()
+  })
+
+  it('restores the original stop key instead of stopping the newly active run', async () => {
+    saveControlHandle('owner', 'session1', {
+      operation: 'stop',
+      runId: 'original-run',
+      key: 'original-key',
+    })
+    vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      can_send: false,
+      can_steer: true,
+      can_stop: true,
+      active_run_id: 'new-run',
+      blocked_reason: null,
+    })
+    vi.mocked(fleet.stopSessionRun).mockRejectedValue(new Error('Still unknown'))
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: 'Остановить запуск' }))
+    await waitFor(() =>
+      expect(fleet.stopSessionRun).toHaveBeenCalledWith('session1', 'original-run', 'original-key'),
+    )
+    expect(fleet.stopSessionRun).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not settle a restored steer from an empty or missing lookup response', async () => {
+    saveControlHandle('owner', 'session1', {
+      operation: 'steer',
+      runId: 'original-run',
+      key: 'original-key',
+    })
+    vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      can_send: true,
+      can_steer: false,
+      can_stop: false,
+      active_run_id: null,
+      blocked_reason: null,
+    })
+    vi.mocked(lookupRuntimeControl).mockResolvedValue(JSON.parse('[]'))
+    renderPage()
+    await screen.findByText(
+      'Доставка не подтверждена. Отсутствие квитанции не разрешает новую отправку.',
+    )
+    expect(
+      screen.queryByRole('button', { name: 'Закрыть сверку уточнения' }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Отправить сообщение' })).toBeDisabled()
+    expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+  })
+
+  it('releases an exact acknowledged steer only after explicit settlement, without redispatch', async () => {
+    saveControlHandle('owner', 'session1', {
+      operation: 'steer',
+      runId: 'original-run',
+      key: 'original-key',
+    })
+    vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      can_send: true,
+      can_steer: false,
+      can_stop: false,
+      active_run_id: null,
+      blocked_reason: null,
+    })
+    vi.mocked(lookupRuntimeControl).mockResolvedValue({
+      id: 'command',
+      actor_user_id: 'owner',
+      agent_id: 'agent1',
+      session_id: 'session1',
+      session_run_id: 'original-run',
+      operation: 'steer',
+      state: 'acknowledged',
+      acknowledgement: 'steered',
+      observed_run_state: null,
+      created_at: '2026-10-09T10:00:00Z',
+      updated_at: '2026-10-09T10:00:01Z',
+    })
+    renderPage()
+    const close = await screen.findByRole('button', { name: 'Закрыть сверку уточнения' })
+    expect(screen.getByLabelText('Сообщение агенту')).toBeDisabled()
+    fireEvent.click(close)
+    expect(await screen.findByLabelText('Сообщение агенту')).toBeEnabled()
+    expect(screen.getByLabelText('Сообщение агенту')).toHaveValue('')
+    expect(fleet.steerSessionRun).not.toHaveBeenCalled()
+    expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+    expect(
+      screen.queryByRole('button', { name: 'Закрыть сверку уточнения' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('does not send a control when metadata cannot be durably saved', async () => {
+    vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      can_send: false,
+      can_steer: true,
+      can_stop: true,
+      active_run_id: 'run',
+      blocked_reason: null,
+    })
+    renderPage()
+    fireEvent.change(await screen.findByLabelText('Уточнение активному запуску'), {
+      target: { value: 'Do not send without an original handle' },
+    })
+    const write = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('Quota')
+    })
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Передать уточнение запуску' }))
+      await screen.findByText(
+        'Метаданные исходной команды недоступны. Новая отправка заблокирована.',
+      )
+      expect(fleet.steerSessionRun).not.toHaveBeenCalled()
+      expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+      expect(screen.getByRole('button', { name: 'Передать уточнение запуску' })).toBeDisabled()
+    } finally {
+      write.mockRestore()
+    }
+  })
+
+  it.each([
+    { label: 'ASCII', input: 'a'.repeat(65536) },
+    { label: 'UTF-8', input: 'я'.repeat(32768) },
+  ])('allows exactly 64 KiB of $label steer', async ({ input }) => {
+    vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      can_send: false,
+      can_steer: true,
+      can_stop: true,
+      active_run_id: 'run-a',
+      blocked_reason: null,
+    })
+    vi.mocked(fleet.steerSessionRun).mockResolvedValue({
+      session_id: 'session1',
+      run_id: 'run-a',
+      runtime_run_id: 'native-a',
+      accepted: false,
+      state: 'running',
+      message: 'Acceptance unknown',
+    })
+    renderPage()
+    const editor = await screen.findByLabelText('Уточнение активному запуску')
+    fireEvent.change(editor, { target: { value: input } })
+    fireEvent.click(screen.getByRole('button', { name: 'Передать уточнение запуску' }))
+    await waitFor(() =>
+      expect(fleet.steerSessionRun).toHaveBeenCalledWith(
+        'session1',
+        'run-a',
+        { input },
+        expect.any(String),
+      ),
+    )
+    expect(screen.queryByText('Уточнение не должно превышать 64 КиБ в UTF-8.')).toBeNull()
+  })
+
+  it.each([
+    { label: 'ASCII', input: 'a'.repeat(65537) },
+    { label: 'UTF-8', input: 'я'.repeat(32769) },
+  ])('keeps oversized $label steer editable without reserving a handle', async ({ input }) => {
+    vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      can_send: false,
+      can_steer: true,
+      can_stop: true,
+      active_run_id: 'run-a',
+      blocked_reason: null,
+    })
+    renderPage()
+    const editor = await screen.findByLabelText('Уточнение активному запуску')
+    fireEvent.change(editor, { target: { value: input } })
+    await screen.findByText('Уточнение не должно превышать 64 КиБ в UTF-8.')
+    expect(editor).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Передать уточнение запуску' })).toBeDisabled()
+    expect(fleet.steerSessionRun).not.toHaveBeenCalled()
+    expect(sessionStorage.getItem('fleet-runtime-controls:v1:owner:session1')).toBeNull()
+    fireEvent.change(editor, { target: { value: 'Corrected guidance' } })
+    expect(screen.getByRole('button', { name: 'Передать уточнение запуску' })).toBeEnabled()
+  })
+
+  it.each([
+    { operation: 'steer', accepted: true },
+    { operation: 'steer', accepted: false },
+    { operation: 'stop', accepted: true },
+    { operation: 'stop', accepted: false },
+  ] as const)(
+    'ignores late $operation POST accepted=$accepted after exact settlement and successor',
+    async ({ operation, accepted }) => {
+      vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+      vi.mocked(chats.getChatControls).mockResolvedValue({
+        can_send: false,
+        can_steer: true,
+        can_stop: true,
+        active_run_id: 'run-a',
+        blocked_reason: null,
+      })
+      let resolveOriginal!: (result: Awaited<ReturnType<typeof fleet.stopSessionRun>>) => void
+      const control =
+        operation === 'steer' ? vi.mocked(fleet.steerSessionRun) : vi.mocked(fleet.stopSessionRun)
+      control
+        .mockImplementationOnce(() => new Promise((resolve) => (resolveOriginal = resolve)))
+        .mockRejectedValueOnce(new Error('Successor acceptance unknown'))
+      vi.mocked(lookupRuntimeControl).mockImplementation(async (_session, _run, key) => {
+        const originalKey =
+          operation === 'steer'
+            ? vi.mocked(fleet.steerSessionRun).mock.calls[0]?.[3]
+            : vi.mocked(fleet.stopSessionRun).mock.calls[0]?.[2]
+        if (key !== originalKey) throw new Error('Successor lookup unknown')
+        return {
+          id: 'command-a',
+          actor_user_id: 'owner',
+          agent_id: 'agent1',
+          session_id: 'session1',
+          session_run_id: 'run-a',
+          operation,
+          state: 'acknowledged',
+          acknowledgement: operation === 'steer' ? 'steered' : 'stopping',
+          observed_run_state: null,
+          created_at: '2026-10-09T10:00:00Z',
+          updated_at: '2026-10-09T10:00:01Z',
+        }
+      })
+      renderPage()
+      const editor = await screen.findByLabelText('Уточнение активному запуску')
+      const dispatch = (input: string) => {
+        if (operation === 'steer') fireEvent.change(editor, { target: { value: input } })
+        fireEvent.click(
+          screen.getByRole('button', {
+            name: operation === 'steer' ? 'Передать уточнение запуску' : 'Остановить запуск',
+          }),
+        )
+      }
+      dispatch('Original guidance')
+      fireEvent.click(
+        await screen.findByRole('button', {
+          name: operation === 'steer' ? 'Закрыть сверку уточнения' : 'Закрыть сверку остановки',
+        }),
+      )
+      dispatch('Successor guidance')
+      await screen.findByText('Successor acceptance unknown')
+      const storageKey = 'fleet-runtime-controls:v1:owner:session1'
+      const successor = JSON.parse(sessionStorage.getItem(storageKey)!)[operation]
+      await act(async () => {
+        resolveOriginal({
+          session_id: 'session1',
+          run_id: 'run-a',
+          runtime_run_id: 'native-a',
+          accepted,
+          state: 'running',
+          message: 'Late original response',
+        })
+      })
+      expect(JSON.parse(sessionStorage.getItem(storageKey)!)[operation]).toEqual(successor)
+      expect(
+        screen.queryByText('Метаданные исходной команды недоступны. Новая отправка заблокирована.'),
+      ).not.toBeInTheDocument()
+      if (operation === 'steer') expect(editor).toHaveValue('Successor guidance')
+      expect(control).toHaveBeenCalledTimes(2)
+      expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+    },
+  )
 })

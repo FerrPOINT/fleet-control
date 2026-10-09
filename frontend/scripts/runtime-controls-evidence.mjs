@@ -1,6 +1,14 @@
 import { createHash } from 'node:crypto'
 import { copyFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { parseArgs } from 'node:util'
+
+const { values } = parseArgs({
+  options: {
+    verify: { type: 'boolean', default: false },
+    input: { type: 'string', default: 'test-results/runtime-controls-css' },
+  },
+})
 
 const output = resolve('../docs/assets/design/runtime-controls')
 const browsers = ['chromium', 'firefox', 'webkit']
@@ -21,7 +29,7 @@ async function inspect(path, viewport) {
   return { size, sha256: digest(png) }
 }
 
-if (process.argv.includes('--verify')) {
+if (values.verify) {
   const manifest = JSON.parse(await readFile(resolve(output, 'manifest.json'), 'utf8'))
   if (
     manifest.evidence !== 'production-chat-with-fixture-api' ||
@@ -52,7 +60,7 @@ if (process.argv.includes('--verify')) {
   if (remaining.size) throw new Error('Missing browser/viewport evidence')
   process.stdout.write('Verified nine runtime-control fixture screenshots; liveAcceptance=false\n')
 } else {
-  const input = resolve('test-results/runtime-controls-css')
+  const input = resolve(values.input)
   const run = JSON.parse(await readFile(resolve(input, '.last-run.json'), 'utf8'))
   if (run.status !== 'passed') throw new Error('Only a passed Playwright run may be published')
   const directories = await readdir(input)

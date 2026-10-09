@@ -8,3 +8,10 @@ export function listRuntimeControls(sessionId: string, runId: string) {
     `/api/v1/sessions/${encodeURIComponent(sessionId)}/runs/${encodeURIComponent(runId)}/controls`,
   )
 }
+
+export function lookupRuntimeControl(sessionId: string, runId: string, key: string) {
+  return apiRequest<RuntimeControlReceipt>(
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/runs/${encodeURIComponent(runId)}/controls/lookup`,
+    { headers: { 'Idempotency-Key': key } },
+  )
+}

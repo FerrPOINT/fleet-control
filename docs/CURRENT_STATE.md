@@ -1,5 +1,27 @@
 # Current State
 
+## Original-Key Chat Recovery: 9 October 2026
+
+The UI successor adds actor/session-scoped sessionStorage handles containing
+only operation, original run and command key. Reload performs GET-only original-key
+lookup; steer text is not stored, and uncertainty never becomes a fresh prompt.
+Only an exact acknowledged/rejected/terminal-observed receipt permits explicit
+local settlement. An absent receipt, legacy list response, identity mismatch or
+failed fresh authorization remains blocked. ACK is not physical-stop evidence.
+
+Independent review found late POST callbacks poisoning successor handles and
+oversized steer reserving an unresolvable handle before backend validation.
+Both are fixed: callbacks are fenced by the current original key, and the
+64-KiB UTF-8 limit is enforced before journal writes. Eight regressions cover
+stop/steer late accepted/unknown replies and ASCII/Unicode size boundaries.
+All328 frontend tests across36 files and typecheck pass. Backend lookup source,
+authentic regenerated OpenAPI and native integration remain separate gates;
+the UI does not establish those capabilities or PM/SDLC acceptance.
+
+See the [consumer evidence](plans/2026-10-09-runtime-controls-ui.md) and
+[parallel assignments](plans/2026-10-09-parallel-remaining-work.md).
+The source-qualified sections below describe earlier frozen packets.
+
 ## Authentic API And Control Readback: 9 October 2026
 
 Hosted codegen run37945042300 succeeds for exact source `fc6ef12d` and Base19a.
