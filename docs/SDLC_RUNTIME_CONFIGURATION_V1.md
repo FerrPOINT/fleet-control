@@ -118,6 +118,10 @@ The isolated [configuration foundation candidate](plans/2026-10-09-runtime-confi
 now implements pinned package drafts, frozen fresh Workflow mapping, exact
 revision/head reads and scoped managed-file observation on top of foundation47.
 The preceding full materialization/admission checklist remains the business
-target, not completed acceptance. Candidate Linux gates are pending. There is no
+target, not completed acceptance. All 18 Linux backend gates passed on exact
+code `011afd9151c828279976aec5e6cf0a28b78c1f69`; see the candidate plan for
+counts and retained evidence. Publication documentation is a docs-only follow-up,
+not another code-gate execution. Frontend, live compatibility and physical
+acceptance remain pending. There is no
 seven-agent installation, native model/tools/inventory proof, assignment ACK,
 automatic dispatch or SDLC completion claim; machine `runtime_ready` remains false.

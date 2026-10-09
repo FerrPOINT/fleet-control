@@ -128,6 +128,8 @@ All additions default disabled/empty and preserve legacy configurations.
 
 - `FLEET_CONTROL_FLEET__BASE_PACKAGE_CHECKOUT`: operator-owned local Git cache,
   with the exact `4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58` commit available.
+  Its `remote.origin.url` must be `https://github.com/FerrPOINT/services-base.git`
+  or `git@github.com:FerrPOINT/services-base.git`, including for a bare cache.
   Runtime never fetches or reads working-tree role content. Separate from SDK pin.
 - `FLEET_CONTROL_SDLC__CONFIGURATION_READBACK_ENABLED`: default false.
 - `FLEET_CONTROL_SDLC__AUTH_URL`: fixed canonical Base Auth HTTP(S) origin,

@@ -1,8 +1,8 @@
 # Runtime Configuration Foundation Release Unit
 
-Status: isolated source candidate; exact-candidate Linux gates pending.
-Parent scope review permits a scoped local source-freeze commit, not publication.
-No new migration, publication, deployment or runtime acceptance is claimed.
+Status: exact-source Linux backend gates PASS; configuration-only Draft
+publication authorized, with foundation47 as a blocking dependency.
+No new migration, deployment, runtime readiness or completion is claimed.
 
 ## Parent And Scope
 
@@ -45,13 +45,17 @@ Foundation47's existing PM guard is unchanged. New integration `CurrentUser`
 fixtures retain foundation47's `central_write: None`. CI wiring supplies real
 package objects without replacing any parent lineage/profile/migration gate.
 OpenAPI adds only two paths and two schemas, preserving existing PM/Tracker DTOs;
-actual Rust export parity remains pending.
+actual Rust-generated OpenAPI byte parity passed in the backend packet below.
 
 ## Dependencies (Distinct Pins And Authorities)
 
-1. Release/publication depends on foundation47's exact reviewed parent, then the
-   usual main compatibility and PR review. This local branch is not permission to
-   merge/push, stack a remote PR or claim main acceptance of the integration tail.
+1. Release depends on [Fleet47](https://github.com/FerrPOINT/fleet-control/pull/47)
+   at exact reviewed parent `8befcb6ba34c58d2d146403cdd683dbf1dafbce3`, then the
+   usual main compatibility and PR review. The separate Draft targets `main`,
+   not the dependency branch. Until Fleet47 merges, the main comparison includes
+   its inherited foundation changes; the owned configuration diff is measured
+   against `8befcb6` and adds no migration or UI change. No automatic merge or
+   main acceptance of the integration tail is authorized.
 2. Build SDK stays `19a7a381ae6dbea61a643bb96189e483fa64df5c` in `.base-revision`.
    A fresh isolated sibling checkout is clean at that SHA; no frozen Forge SDK or
    shared checkout/cache is changed. SDK verification is a lightweight check only.
@@ -82,23 +86,41 @@ actual Rust export parity remains pending.
    native inventory. `runtime_ready=false` remains unconditional; observation
    UUIDs cannot authorize scheduling, dispatch or SDLC completion.
 
-## Next Gate
+## Verified Backend Evidence
 
-Parent reviewed the scope and authorized a task-owned local commit after light
-checks. No push/new PR or heavy gate is authorized or performed by this packet.
-After the local freeze and frozen-commit review, export immutable
-sources from the exact candidate Git SHA and run the Linux Rust 1.88.0/PostgreSQL
-and OpenAPI/strict commands in [TESTING](../TESTING.md#configuration-foundation-candidate-gates).
-Do not reuse integration CI as proof for this branch. `FLEET_TEST_DATABASE_URL`,
-`FLEET_MIGRATION_TEST_DATABASE_URL` and `FLEET_TEST_BASE_PACKAGE_CHECKOUT` must all
-be present; skipped real-object/DB tests are not acceptance.
+Linux Rust 1.88.0/PostgreSQL packet `sdlc-qa-fleet-config-ba43ca138e39`
+completed with exit 0 on 2026-10-09 at 11:09:15 UTC. Tested product code is exactly
+`011afd9151c828279976aec5e6cf0a28b78c1f69`, build SDK is `19a7a381`, and the
+separate real Git package input is `4b9b4c9` with canonical Base origin metadata.
+The subsequent publication commit changes documentation only; it is not a new
+execution of the code gates. Integration CI and Fleet47 evidence are not used
+as acceptance of this delta.
 
-Local QA waits for the exclusive heavy slot. Use verified maintenance Base
-ComposeHelper journal v2 from `SDLC_MAINTENANCE_BASE` User environment, source
-exports from Git SHA, explicit owner/purpose and exact disposable cleanup with
-independent empty inventory evidence. Preserve external caches, immutable sources,
-runtime images/volumes, backups and secrets. No custom local QA helper, accepted
-runtime mutation or physical completion receipt is introduced by this packet.
+All 18 named gates passed: preflight, fmt, workspace/all-target check, strict
+Clippy (`-D warnings`), API2 (2), configuration API (8), Base package (17),
+effective configuration (7), foundation (46), workspace tests, lineage (10),
+central profile (3), message order (1), chats directory (1), runtime approval
+events (1), migration up/status/down-one/up/status, Rust OpenAPI byte parity
+and compiled-source parity. All 15 default-ignored DB cases were explicitly
+executed in the supplemental gates, not accepted as skips.
+
+The retained private terminal report records 223 source/control files and
+source-manifest SHA-256
+`288537cad76962de119935f6603e4dfa80cf1b04b62eea313cdab85fa3d9049c`.
+All nine parity checks passed. Verified maintenance Base ComposeHelper journal
+v2 reached `cleaned`; independent inventory found no owned containers, networks
+or disposable volumes, including the exact four volume names. Permanent
+`sdlc1`/`sdlc2`/`sdlc-common` images and runtime state remained unchanged. Evidence
+and previous failed packets are retained privately; none is an admission receipt.
+
+## Remaining Release Gates
+
+The backend packet does not accept pinned Node22 frontend strict/compatibility,
+browser or visual gates, published-head CI/main compatibility, live Workflow v3
+and machine credentials, accepted package installation/repin, or native physical
+runtime/assignment/SDLC completion. These remain separate requirements. The Draft
+must not merge before Fleet47 and the remaining applicable release checks.
+Machine `runtime_ready=false` remains unconditional.
 
 ## Lightweight Preparation Checks
 
@@ -108,7 +130,7 @@ runtime mutation or physical completion receipt is introduced by this packet.
 - Read-only real Git-object/hash verification at package pin `4b9b4c9` passes:
   7 roles, 14 skills, all 21 content blobs match manifest hashes and inventory.
   Manifest SHA-256: `c8634b4767e83fcd09e69805a3b5c68e61788858ccf6b4145b11cf16f4f09112`.
-  The Rust consumer's real-object regression still must run in the Linux gate.
+  The Linux packet above also passed the Rust consumer's real-object regressions.
 - Structural comparisons preserve parent PM/session/central-auth source and every
   existing OpenAPI path/schema; only the two new paths/schemas are added. New and
   existing `CurrentUser` fixtures preserve `central_write`; migrations, entity
