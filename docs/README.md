@@ -7,6 +7,8 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 
 - [Docker and runtime controls source assembly](plans/2026-10-09-docker-controls-integration.md)
 - [Parallel remaining-work assignments](plans/2026-10-09-parallel-remaining-work.md)
+- [Clarification original-answer recovery](plans/2026-10-09-clarification-answer-recovery.md)
+- [Clarification uncertainty fixture screenshots](assets/design/clarification-uncertain/manifest.json)
 - [Exact-target approval recovery source](plans/2026-10-09-approval-recovery-release.md)
 - [Acknowledged steer transcript source](plans/2026-10-09-steer-transcript-release.md)
 - [Runtime controls UI and remaining receipt integration](plans/2026-10-09-runtime-controls-ui.md)

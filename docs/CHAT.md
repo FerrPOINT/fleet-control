@@ -543,6 +543,11 @@ Tracker owns questions/revisions/confirmation. The Fleet fixed-origin gateway fo
 verified bearer; operator read-all does not authorize consent. Answer persistence does not
 imply delivery to PM. Unknown acceptance retains the same command key and freezes editable
 payload until reconciliation; a revision conflict retains the draft for explicit review.
+The unknown-answer guard applies across questions and question versions. New answers
+and stale-draft transfer remain disabled; an explicit recovery action uses the original
+question, versions, payload and idempotency key, not the currently selected question.
+The originating question title remains visible. Acknowledgement clears only that draft
+and does not publish requirements. See the [recovery evidence](plans/2026-10-09-clarification-answer-recovery.md).
 
 The historical CHAT-01..14 table above is a source-review baseline, not current blanket
 status: foundation closed several standalone dispatch/SSE gates, while live cross-service

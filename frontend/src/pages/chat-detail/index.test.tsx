@@ -317,7 +317,8 @@ describe('production chat', () => {
     fireEvent.click(submit)
     await screen.findByText('Connection interrupted')
     expect(screen.getByLabelText('Комментарий')).toBeDisabled()
-    fireEvent.click(submit)
+    expect(submit).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить исходный ответ' }))
     await waitFor(() => expect(chats.answerClarification).toHaveBeenCalledTimes(2))
     const calls = vi.mocked(chats.answerClarification).mock.calls
     expect(calls[1]).toEqual(calls[0])
@@ -330,6 +331,66 @@ describe('production chat', () => {
     fireEvent.click(screen.getByRole('link', { name: 'Вернуться к чатам' }))
     await screen.findByRole('dialog')
     expect(router.state.location.pathname).toBe('/chats/session1')
+  })
+  it('does not replace an uncertain answer command by answering a different question', async () => {
+    vi.mocked(chats.getClarifications).mockResolvedValue({
+      questions: [question, { ...question, id: 'q2', text: 'Второй вопрос' }],
+    })
+    vi.mocked(chats.answerClarification).mockRejectedValue(new Error('Answer outcome unknown'))
+    renderPage('clarification')
+    fireEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+    await screen.findByText('Answer outcome unknown')
+    fireEvent.click(screen.getByRole('button', { name: /2\. Второй вопрос/ }))
+    expect(screen.getByText('Непроверенный ответ: Кто видит задачи?')).toBeVisible()
+    fireEvent.click(screen.getByRole('radio', { name: /Участники проекта/ }))
+    expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+    expect(chats.answerClarification).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить исходный ответ' }))
+    await waitFor(() => expect(chats.answerClarification).toHaveBeenCalledTimes(2))
+    const calls = vi.mocked(chats.answerClarification).mock.calls
+    expect(calls[1]).toEqual(calls[0])
+  })
+  it('does not rekey an uncertain answer when a newer question version arrives', async () => {
+    vi.mocked(chats.answerClarification).mockRejectedValue(new Error('Answer outcome unknown'))
+    const { client } = renderPage('clarification')
+    fireEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))
+    fireEvent.change(screen.getByLabelText('Комментарий'), { target: { value: 'Original input' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+    await screen.findByText('Answer outcome unknown')
+    client.setQueryData(['clarifications', 'session1'], {
+      questions: [{ ...question, version: 2 }],
+    })
+    await screen.findByText('Вопрос изменился. Несохранённый ответ сохранён отдельно.')
+    expect(
+      screen.getByRole('button', { name: 'Перенести черновик и проверить новый вопрос' }),
+    ).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить исходный ответ' }))
+    await waitFor(() => expect(chats.answerClarification).toHaveBeenCalledTimes(2))
+    const calls = vi.mocked(chats.answerClarification).mock.calls
+    expect(calls[1]).toEqual(calls[0])
+  })
+  it('unlocks the next question only after the original answer is acknowledged', async () => {
+    vi.mocked(chats.getClarifications).mockResolvedValue({
+      questions: [question, { ...question, id: 'q2', text: 'Второй вопрос' }],
+    })
+    vi.mocked(chats.answerClarification).mockRejectedValueOnce(new Error('Answer outcome unknown'))
+    renderPage('clarification')
+    fireEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+    await screen.findByText('Answer outcome unknown')
+    fireEvent.click(screen.getByRole('button', { name: /2\. Второй вопрос/ }))
+    expect(screen.getByRole('radio', { name: /Участники проекта/ })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить исходный ответ' }))
+    await screen.findByText('Ответ сохранён. Требования ещё не опубликованы.')
+    expect(
+      screen.queryByRole('button', { name: 'Повторить исходный ответ' }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: /Участники проекта/ })).toBeEnabled()
+    const calls = vi.mocked(chats.answerClarification).mock.calls
+    expect(calls).toHaveLength(2)
+    expect(calls[1]).toEqual(calls[0])
+    expect(chats.confirmRequirements).not.toHaveBeenCalled()
   })
   it('confirms exact hash/revision separately', async () => {
     renderPage('requirements')

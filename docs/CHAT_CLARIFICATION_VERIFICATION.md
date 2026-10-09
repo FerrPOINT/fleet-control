@@ -3,6 +3,18 @@
 Date: 2026-10-01. Status: verified foundation, incomplete approved vertical slice.
 No real PM publication/resume or live Backlog acceptance is claimed.
 
+## Original Answer Recovery (2026-10-09)
+
+The production controller now retains an uncertain answer across selection of a
+different question and arrival of a newer version. New commands/draft transfer
+are held; explicit recovery uses the captured original payload/key. Three new
+regressions include acknowledgement unlocking the next question. Node22.20.0
+passes all331 frontend tests, typecheck, lint and production build. The new
+browser fixture passes Chromium/Firefox/WebKit and generates nine separately
+verified screenshots. See [scope and evidence](plans/2026-10-09-clarification-answer-recovery.md).
+This is mounted-controller recovery, not durable browser recovery after reload,
+live Tracker delivery, PM admission or workflow resume acceptance.
+
 ## Acceptance And Callback Fixture Compile Findings (2026-10-09)
 
 Actual [run37967213470](https://github.com/FerrPOINT/fleet-control/actions/runs/37967213470),

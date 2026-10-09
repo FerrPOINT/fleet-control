@@ -23,7 +23,7 @@
     "format:check": "prettier --check .",
     "openapi:check": "node node_modules/@sdlc/ui/scripts/sdlc-openapi-check.mjs --spec ../openapi/openapi.json --schema src/api/generated.ts",
     "chat:contract": "node scripts/verify-chat-contract.mjs && node --test scripts/verify-chat-contract.test.mjs",
-    "chat:evidence:verify": "node scripts/publish-chat-controller-evidence.mjs --verify",
+    "chat:evidence:verify": "node scripts/publish-chat-controller-evidence.mjs --verify && node scripts/runtime-controls-evidence.mjs --scenario clarification-uncertain --verify",
     "openapi:compat": "node --test scripts/base-openapi-compat.test.mjs && node scripts/base-openapi-compat.mjs",
     "postinstall": "openapi-typescript ../openapi/openapi.json -o src/api/generated.ts",
     "theme:check": "node ../../services-base/frontend/scripts/sdlc-effective-theme-check.mjs",

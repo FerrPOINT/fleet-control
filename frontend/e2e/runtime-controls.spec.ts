@@ -263,3 +263,165 @@ test('fixture: HTTP-success uncertainty retains steer and the original stop targ
   }
   expect(errors).toEqual([])
 })
+
+test('fixture: uncertain clarification retains its original command across questions and versions', async ({
+  page,
+}, testInfo) => {
+  const commands: { path: string; payload: unknown }[] = []
+  const errors: string[] = []
+  let version = 1
+  page.on('pageerror', (error) => errors.push(error.message))
+  const question = {
+    id: 'q1',
+    request_id: 'request',
+    task_id: 'task',
+    root_task_id: 'task',
+    assignment_id: 'assignment',
+    execution_id: 'execution',
+    agent_id: 'agent1',
+    assignment_version: 1,
+    checkpoint_id: 'checkpoint',
+    author_subject: 'pm',
+    created_at: '2026-10-09T12:00:00Z',
+    requirement_revision: 3,
+    text: 'Кто видит задачи?',
+    rationale: 'Определяет границы доступа',
+    required: true,
+    mode: 'single',
+    options: [
+      {
+        id: 'project',
+        label: 'Участники проекта',
+        consequences: 'Только проект',
+        is_custom: false,
+      },
+    ],
+    recommended_option_id: 'project',
+    requirement_reference: 'REQ-04',
+    state: 'open',
+    answer: null,
+  }
+  await page.route(`**${fixturePath}**`, (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (path === fixturePath) return route.fulfill({ contentType: 'text/html', body: html })
+    const asset = assets.get(path)
+    return asset ? route.fulfill(asset) : route.fulfill({ status: 404 })
+  })
+  await page.route('**/api/v1/**', (route) => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    if (request.method() === 'POST') {
+      if (path !== '/api/v1/sessions/session1/clarifications/q1/answers')
+        throw new Error(`Unexpected clarification command: ${path}`)
+      commands.push({ path, payload: request.postDataJSON() })
+      version = 2
+      return route.fulfill({ status: 503, json: { error: 'Answer outcome unknown' } })
+    }
+    if (path === '/api/v1/agent-directory') return route.fulfill({ json: [] })
+    if (path === '/api/v1/sessions/session1')
+      return route.fulfill({
+        json: {
+          id: 'session1',
+          user_id: 'owner',
+          user_display_name: 'Владелец задачи',
+          primary_agent_id: 'agent1',
+          primary_agent_name: 'Project Manager',
+          title: 'Уточнение требований',
+          visibility: 'private',
+          task_key: 'FIXTURE-2',
+        },
+      })
+    if (path.endsWith('/task-context'))
+      return route.fulfill({
+        json: {
+          binding: {
+            tracker_instance_id: 'tracker',
+            project_id: 'project',
+            task_id: 'task',
+            root_task_id: 'task',
+            agent_id: 'agent1',
+            owner_subject: 'subject-owner',
+          },
+          tracker: {
+            contract_version: 1,
+            tracker_instance_id: 'tracker',
+            project_id: 'project',
+            task_id: 'task',
+            root_task_id: 'task',
+            owner_subject: 'subject-owner',
+            stage: 'Draft',
+            requirement_revision: 3,
+            waiting_reason: 'Требуется ответ',
+            permissions: { can_answer: true, can_confirm: false },
+            assignment: null,
+          },
+        },
+      })
+    if (path.endsWith('/chat-controls'))
+      return route.fulfill({
+        json: {
+          can_send: false,
+          can_steer: false,
+          can_stop: false,
+          active_run_id: null,
+          blocked_reason: 'workflow_assignment_required',
+        },
+      })
+    if (path.endsWith('/clarifications'))
+      return route.fulfill({
+        json: {
+          questions: [
+            { ...question, version },
+            { ...question, id: 'q2', text: 'Второй вопрос', version: 1 },
+          ],
+        },
+      })
+    if (path.endsWith('/requirements')) return route.fulfill({ json: { revisions: [] } })
+    if (path.endsWith('/history')) return route.fulfill({ json: { items: [], next_before: null } })
+    if (path.endsWith('/runs') || path.endsWith('/approvals')) return route.fulfill({ json: [] })
+    throw new Error(`Unexpected clarification read: ${path}`)
+  })
+  await page.goto(fixturePath, { waitUntil: 'domcontentloaded' })
+  await page.getByRole('tab', { name: /Уточнения/ }).click()
+  const choice = page.getByRole('radio', { name: /Участники проекта/ })
+  await expect(choice).not.toBeChecked()
+  await choice.check()
+  await page.getByLabel('Комментарий').fill('Исходный ответ владельца')
+  await page.getByRole('button', { name: 'Сохранить ответ' }).click()
+  await expect(page.getByText(/Неизвестен исход сохранения/)).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Перенести черновик и проверить новый вопрос' }),
+  ).toBeDisabled()
+  await page.getByRole('button', { name: /2\. Второй вопрос/ }).click()
+  await expect(page.getByText('Непроверенный ответ: Кто видит задачи?')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+  expect(commands).toHaveLength(1)
+  const retry = page.getByRole('button', { name: 'Повторить исходный ответ' })
+  for (const viewport of [
+    { width: 375, height: 812 },
+    { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+  ]) {
+    await page.setViewportSize(viewport)
+    await retry.scrollIntoViewIfNeeded()
+    await expect(retry).toBeInViewport({ ratio: 1 })
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
+    ).toBe(true)
+    await page.screenshot({
+      path: testInfo.outputPath(`clarification-uncertain-${viewport.width}.png`),
+      fullPage: true,
+      scale: 'css',
+    })
+  }
+  await retry.click()
+  await expect.poll(() => commands.length).toBe(2)
+  expect(commands[1]).toEqual(commands[0])
+  expect(commands[0].payload).toMatchObject({
+    expected_question_version: 1,
+    comment: 'Исходный ответ владельца',
+  })
+  expect(errors).toEqual([])
+})

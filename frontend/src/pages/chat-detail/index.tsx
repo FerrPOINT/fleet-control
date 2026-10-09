@@ -16,6 +16,7 @@ import {
   FileText,
   Info,
   MessageSquare,
+  RotateCw,
   Send,
   ShieldCheck,
   Square,
@@ -301,8 +302,12 @@ function ChatWorkspace({ id }: { id: string }) {
     },
   })
   const answer = useMutation({
-    mutationFn: (command: { questionId: string; questionKey: string; payload: AnswerInput }) =>
-      answerClarification(id, command.questionId, command.payload),
+    mutationFn: (command: {
+      questionId: string
+      questionKey: string
+      questionTitle: string
+      payload: AnswerInput
+    }) => answerClarification(id, command.questionId, command.payload),
     onSuccess: async (_result, command) => {
       setReceipt('Ответ сохранён. Требования ещё не опубликованы.')
       setDrafts((current) => {
@@ -775,7 +780,7 @@ function ChatWorkspace({ id }: { id: string }) {
                           !context?.permissions.can_answer ||
                           selectedQuestion.state !== 'open' ||
                           answer.isPending ||
-                          (answerUncertain && answer.variables?.questionKey === questionKey)
+                          answerUncertain
                         }
                       >
                         <legend>{selectedQuestion.text}</legend>
@@ -866,6 +871,7 @@ function ChatWorkspace({ id }: { id: string }) {
                             !owner ||
                             task.isError ||
                             answer.isPending ||
+                            answerUncertain ||
                             Boolean(
                               draft.text.trim() || draft.comment.trim() || draft.selected.length,
                             )
@@ -893,10 +899,28 @@ function ChatWorkspace({ id }: { id: string }) {
                 )}
                 {answer.isError && <ReadableError error={answer.error} />}
                 {answerUncertain && (
-                  <p role="status">
-                    Неизвестен исход сохранения. Проверьте состояние вопроса или повторите тот же
-                    ответ без изменения ключа.
-                  </p>
+                  <>
+                    <p>Непроверенный ответ: {answer.variables?.questionTitle}</p>
+                    <p role="status">
+                      Неизвестен исход сохранения. Новые ответы заблокированы до сверки исходной
+                      команды.
+                    </p>
+                    <Button
+                      variant="outline"
+                      disabled={
+                        !owner ||
+                        task.isError ||
+                        questions.isError ||
+                        !context?.permissions.can_answer
+                      }
+                      onClick={() => {
+                        if (answerUncertain && answer.variables) answer.mutate(answer.variables)
+                      }}
+                    >
+                      <RotateCw size={15} />
+                      Повторить исходный ответ
+                    </Button>
+                  </>
                 )}
               </div>
               <footer className="fc-chat-answer-footer">
@@ -910,13 +934,15 @@ function ChatWorkspace({ id }: { id: string }) {
                     !context?.permissions.can_answer ||
                     !draft.key ||
                     !canSubmitAnswer(selectedQuestion, draft.selected, draft.text) ||
-                    answer.isPending
+                    answer.isPending ||
+                    answerUncertain
                   }
                   onClick={() => {
                     if (!selectedQuestion) return
                     answer.mutate({
                       questionId: selectedQuestion.id,
                       questionKey,
+                      questionTitle: selectedQuestion.text,
                       payload: {
                         expected_question_version: selectedQuestion.version,
                         requirement_revision: selectedQuestion.requirement_revision,
