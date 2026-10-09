@@ -12,11 +12,37 @@ owned checkouts; Tracker and Workflow remain read-only references.
 
 | Owner | Independent work | Acceptance boundary |
 | ----- | ---------------- | ------------------- |
-| Pascal | Full backend gate expansion for journal9 cases and21/24 lineages | Extend existing controls only; preserve all old cases/guards and add exact new selectors/DB cleanup/ledger. Final source/schema pins remain parent-owned; no dispatch before authentic API generation. Source9a57 Clippy correction review is complete. |
-| Ptolemy | Actual Rust OpenAPI generation for clarification journal3b41 | Reuse hosted codegen controls; qualify generated schema, then generated client. No handwritten API or changes to frozen implementation. |
-| Feynman | Server journal review and human-session correction completed | P1 owner-subject PAT bypass fixed atd43f801 before journal access; seven negatives extend existing PG/HTTP case. Parent merges normally in7cc. Actual Rust/PG/auth acceptance stays open. |
+| Pascal | Finish the 74-stage backend controls and safe failure diagnostics | Correct any stale workflow summary pin; verify all selectors, source hashes, migration ledgers and pure tests. No publication or CI dispatch until the parent supplies the final integrated source. |
+| Feynman | Publish the private-approval ownership fix in existing PR47 | Recheck the current remote head/base, then normally fast-forward only the narrow two-file successor. Inspect fresh checks; old green checks do not accept the new head. No merge or broad runtime-history import. |
 | Anscombe | Supported-browser fixture checks and unknown-command reload regression | Lint/format/build pass. Run focused existing scenario/screens and add one browser reload/permission/original-command test in an isolated frontend successor; no backend/schema edits or live PM claim. |
-| Parent | Actual backend CI, integration, documentation and scoped publication | Resolve current Clippy findings, preserve gate scope, integrate independently checked successors, inspect hosted results. No acceptance from static checks alone. |
+| Parent | Integrate product fixes, release controls and evidence | Port the approval guard while preserving the accepted-runtime fixture; review worker commits, provide the final source pin, launch the combined backend gate and resolve its actual failure. Maintain documentation and scoped publication. |
+
+Ptolemy's codegen work is complete: run37999711562 succeeds and artifact11648708483
+contains authenticated schema874230b2. Parent independently reads it back and
+integrates the generated API/type alias. Final integrated Rust parity is still
+required; code generation is not runtime acceptance.
+
+The three active worker streams have disjoint write sets: backend gate controls,
+the existing PR47 approval patch, and frontend browser tests. Parent alone writes
+the combined product source and this release ledger. Completed work is not
+reassigned as a new audit. Deliverables are a concrete commit, exact commands and
+results, and a bounded blocker list, rather than a fresh broad plan.
+
+Integration order: review and integrate product corrections; publish the narrow
+PR successor independently; merge the final product source into backend controls
+and retarget its exact fingerprints; run the full gate; integrate the browser
+regression and inspect screenshots. Native lifecycle and real cross-service PM
+acceptance follow only after their prerequisites pass. Unavailable upstream
+admission/checkpoint contracts and the unqualified Compose helper remain explicit
+external blockers; no worker fabricates those producers or edits read-only
+Tracker/Workflow repositories to hide them.
+
+Parent ports the approval ownership correction as9025d42. The new guard applies
+before binding/receipt access; the existing test adds foreign-central denial
+before reservation and after delivery, with owner/legacy-admin positives. Parent
+preserves its accepted-runtime fixture rather than reverting to the older PR
+fixture. Rust formatting and diff checks pass; actual Rust/PG regression execution
+and successor CI remain pending.
 
 These tasks have disjoint write sets. Reviewers do not modify frozen owner
 checkouts. Shared runtime/admission, live PM and native acceptance remain explicit
@@ -35,6 +61,11 @@ boundary cases. No product-wide/backend/native acceptance follows from that merg
 Dedicated codegen controls7792bfc have parent15/15 pure PASS and seal/source
 review. The previously absent build-only branch is pushed normally; Ptolemy owns
 actual exact-head outcome and authenticated artifact readback, not invented schema.
+Actual codegen37999711562 is now SUCCESS; parent authenticated readback passes
+on artifact11648708483. Productb249ee5 integrates schema874230b2 and generated
+alias; client generation/post-generation typecheck/openapi:check/Prettier/8 pure
+cases pass. Fresh focused React rerun fails at worker startup before any test,
+not a product assertion or a new42-pass receipt. Final Rust/PG/browser remain open.
 
 Native-cut c89df468 independently closes both prior ready-publication and
 restart-window findings at source/pure scope. Owner Windows87 PASS/11 skips,
@@ -70,8 +101,13 @@ reports successful scratch/DB cleanup. Independently reviewed source9a57d11
 removes three redundant test borrows and moves a byte-identical test module after
 production items. Controls3600cb7 preserve all counts/dependency pins and update
 only source/file hashes/aggregate; Linux76/76 and Windows74 PASS/two skips pass.
-Normal FF push starts actual37999665761, in progress; its Clippy/PG/full70 are
-not accepted before the result.
+Actual37999665761 completes FAILURE at credentials_pg, exit101, after check,
+Clippy/Auth/runtime inventory/realAuth/API/credential units pass. Owned cleanup
+succeeds. The previous compiler-only failure artifact does not cover this test
+failure, so its assertion/root cause is unknown. Parent controls7a3333d add
+allowlisted test IDs/Fleet panic locations only, with strict failure readback;
+80 Linux and78 Windows/two skips pass. Raw private logs remain unpublished.
+This is diagnostic progress, not product test acceptance or full70 completion.
 
 Read-only existing sdlc1 browser pass confirms agents/chats reachability and the
 current-owner empty state; no task/run/message was created. Existing deployed

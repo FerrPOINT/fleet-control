@@ -505,7 +505,11 @@ recovery with closed new-answer permission, pending readback hold and failed
 readback hold. On exact3b41, parent executes42/42 chat-detail cases and the full
 36-file/337-test suite; typecheck passes after client generation from the existing
 schema. Assigned frontend verification passes lint, format:check and production
-build. Combined7cc has byte-identical frontend; parent reruns8/8 pure boundary
-cases. Authentic Rust generation/strict compatibility, supported-browser and
-new UI screenshot gates remain pending. These unit/build results are not live
+build. Actual Rust codegen37999711562 and independent parent artifact readback
+pass. Productb249ee5 integrates the authentic schema/generated alias; client
+generation, post-generation typecheck/openapi:check/Prettier and8/8 pure boundary
+cases pass. Its fresh focused React rerun fails before test collection because
+the fork worker does not respond within60 seconds; no new42-test pass is claimed.
+Final Rust schema parity, supported-browser and new UI screenshot gates remain
+pending. These unit/build results are not live
 Tracker, PM admission or native evidence.

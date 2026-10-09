@@ -543,8 +543,10 @@ The legacy `POST .../clarifications/{question_id}/answers` now uses the same
 journal and retains its successful `TrackerAnswer` response; unresolved delivery
 returns `503`. Saved-answer GET is not original-key lookup. No Tracker exact-
 command GET, unattended background delivery, PM continuation, runtime run or
-requirements publication is introduced. Rust route/schema declarations are
-included; generated OpenAPI/TypeScript regeneration and compatibility checks
+requirements publication is introduced. Actual Rust codegen37999711562 produces
+the four routes/two new DTOs without changing existing API. The authenticated
+schema is integrated atb249ee5 and TypeScript regeneration/openapi:check pass;
+strict final integrated Rust schema comparison and behavioral compatibility checks
 remain a coordinated pre-release gate, not completed evidence for this unit.
 See [the source boundary](plans/2026-10-10-clarification-command-custody.md).
 

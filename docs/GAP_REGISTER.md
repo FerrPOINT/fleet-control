@@ -2,9 +2,14 @@
 
 ## Current Open Release Gates: 10 October 2026
 
-The current committed source assembly is7cc3a81 (normal integration of runtime
-corrections, journal3b41 and human-guard correctiond43f801), not the historical heads below.
+The current product-code assembly is9025d42
+(runtime corrections, journal3b41, human guard, genuine generated API and private-
+approval ownership correction), not the historical heads below.
 Source integration is progress, not release acceptance. Its remaining gates are:
+
+The new approval-owner regression and existing PR47 successor require fresh
+Rust/PG/CI execution; old green PR checks do not accept this correction. Parent
+has ported the narrow guard without reverting its accepted-runtime fixture.
 
 Hosted37995542617 now proves the preflight blocker is passed but finds real
 compile E0599 at container_controller.rs:18:48 on b249. Authenticated safe failure
@@ -21,17 +26,22 @@ controls851c355 are pushed. Actual37998388510 passes check and fails Clippy in
 activation/preparation. Authenticated safe artifact11647977851 confirms owned
 cleanup. Test-only correction9a57d11 has independent source closure and formatting
 PASS. Controls3600cb7 preserve exact scope/pins; Linux76/76, Windows74 PASS/two
-skips pass and normal FF push starts actual37999665761 (in progress). Clippy/PG/
-full70 remain open until actual acceptance, not source review alone.
+skips pass. Actual37999665761 passes check/Clippy and initial Auth/API/credential
+unit stages, then fails credentials_pg with exit101. Owned cleanup succeeds;
+no safe test artifact is retained by the old compiler-only parser. Test root
+cause remains unknown. Successor7a3333d adds bounded safe test failure readback
+(80 Linux PASS,78 Windows PASS/two skips), not a product fix. PG/full70 remain open.
 
 Journal3b41 and the source-reviewed human-guard correctiond43f801 are normally
 integrated in7cc. Parent typecheck and337 frontend tests pass; assigned
-lint/format/build also pass, using the existing schema and mocked HTTP. New-route
-Rust OpenAPI generation, Rust/PG and live recovery remain explicit gates.
-Dedicated codegen controls7792bfc are reviewed/pushed with15/15 pure checks; this
-is not a generated artifact. Historical no-journal observations below apply to
-b249, not the new assembly. Actual backend37999665761 still targets9a57 and
-cannot accept journal migration21/24 or its nine authored cases.
+lint/format/build also pass on3b41. Actual Rust generation37999711562 and parent
+authenticated artifact readback pass; b249ee5 integrates schema874230b2 and the
+generated type alias. Post-generation typecheck/openapi:check/8 pure cases pass.
+The new React rerun collects no tests because fork-worker startup times out;
+do not count it as42 passed. Rust/PG, final Rust schema parity, browser and live
+recovery remain explicit gates. Historical no-journal observations below apply
+to b249, not the new assembly. Backend37999665761 targets9a57 and cannot accept
+journal migration21/24 or its nine authored cases.
 
 Read-only existing sdlc1 UI shows two agents and empty current-owner session lists;
 the create dialog was closed without saving. This is reachability/empty-state

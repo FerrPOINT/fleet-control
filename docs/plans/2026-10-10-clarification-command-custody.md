@@ -55,7 +55,11 @@ strict Clippy, focused and complete PostgreSQL/lineage suites, genuine Rust
 OpenAPI generation and strict compatibility, generated TypeScript, frontend
 typecheck/unit/browser checks and inspected UI evidence. Generated artifacts
 are deliberately not handwritten in this candidate; the temporary frontend
-receipt type must be reconciled with that output before release. Migration20
+receipt type is replaced atb249ee5 by the genuine Rust-generated alias. Actual
+codegen37999711562 and parent authenticated readback pass; schema874230b2 adds
+only four journal paths and two DTOs. Typecheck/openapi:check/8 pure cases pass;
+the new focused React rerun collects no tests after a fork-worker startup timeout.
+Final integrated Rust/PG/parity and browser gates remain pending. Migration20
 ownership/order must be reconciled normally with parent integration, not by
 rewriting historical migrations. Separate build-only codegen controls are pushed;
 the product release PR and runtime acceptance remain pending.
