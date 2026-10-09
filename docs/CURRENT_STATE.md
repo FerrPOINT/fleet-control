@@ -1,6 +1,6 @@
 # Current State
 
-## Current Integration Snapshot: 9 October 2026
+## Current Integration Snapshot: 10 October 2026
 
 Source-only assembly `b249bc895e5160fe13383c49d42a24c9308852b3` is **not
 merge-ready or live SDLC accepted**. Historical sections below qualify their own
@@ -25,6 +25,14 @@ heads; they do not accept this assembly.
   pins. Its actual24-case offline report is independently checked;16 synthetic
   oracle cases and8 real-module probes remain distinct. Producer admission stays
   BLOCKED/live=false. No pre-model authority or credential custody is invented.
+- Exact Fleetb249/Tracker PR114 head357caa7 source qualification passes39/39:
+  20 actual Fleet comparator tests, nine synthetic schema-oracle tests and ten
+  lexical source probes. Seven canonical Git OpenAPI DTO pairs match, including
+  nested closed fields, required/nullability, integer bounds and Analysis; source
+  checks cover response validation and owner-before-replay. No Rust/PG/live HTTP
+  was executed. Clarification GET exposes saved answer, not its original command
+  key; exact-command GET readback and durable reload recovery remain open. See
+  the [qualified scope and retained evidence](plans/2026-10-09-parallel-remaining-work.md#fleettracker-wire-source-qualification).
 - Forge daf's independent review finds an actual bridge cleanup deadline defect.
   Frozen successor89420cd has84/84 parent pure checks and independent scoped
   closure, including17 actual bounded deadline probes. These substitute external
@@ -44,9 +52,13 @@ heads; they do not accept this assembly.
 - Separate QA successorbc0b85e preserves df657 and adds the genuine stop-ACK/
   pre-CAS cut plus recovered A -> next B -> failed C -> current B rollback.
   Owner75 pure cases pass; parent verifies all27 sealed source files and exact
-  HEAD/tree/parent. Independent review, compilation and native execution remain
-  pending. Fresh image inspection finds PG present but both pinned controller
-  and Hermes images absent; local available commit RAM is below the6GiB guard.
+  HEAD/tree/parent. Ptolemy's independent review passes15/15, including two
+  reproductions of OPEN P2 orchestration findings: ready is visible before its
+  JSON is complete, and restart can occur120s after ready despite the55s withheld-
+  ACK window. Feynman owns a new successor; passing counterexamples are not
+  closure. Compilation and native execution remain pending. Latest retained image
+  inspection finds PG present but both pinned controller and Hermes images absent;
+  the retained local available commit RAM observation is below the6GiB guard.
 - Base815 has new retained Linux fake-contract evidence:224 passed, zero skips,
   44.041s, exit0; exact source/parents,14 canonical inputs and cleanup are verified.
   The [retained evidence](plans/2026-10-09-parallel-remaining-work.md#retained-base815-fake-contract-evidence)
@@ -55,12 +67,13 @@ heads; they do not accept this assembly.
   Base. Public Forge run37973076579 success does not restore private Base CI or
   accept full12/native gates. Protected runtime images and services are unchanged.
 
-Fleet backend controls freeze0fe has53 worker pure checks; the parent separately
-verifies all18 sealed files, exact HEAD/parent and six-addition delta. Review finds
-a process-custody defect: normal wait reaps the leader before cleanup signals its
-historical PGID. Independent review also finds setup outside the6600s wait with
-no shared cleanup/upload reserve. A normal successor is assigned for both;
-no actual70-stage gate has run.
+Fleet backend controls successor11168cae2e647718f574aeeb64a6bb5821b32956 has sole
+parent0fe34447a53da70f052eb51c87f781050a79cf88. Owner results are68 Linux passes
+and66 Windows passes with two Linux-only skips. Candidate fixes retain leader
+custody through drain/reap and share the hosted job deadline with cleanup/upload
+reserves. P1/P2 independent closure is pending with Anscombe; actual70 is NOT RUN.
+Historical0fe's53 worker checks and separate18-file parent seal stay immutable;
+neither those counts nor successor pure tests establish compiler/PG acceptance.
 This hosted path uses no ComposeHelper/local Docker, so the missing maintenance
 pin blocks Forge/native maintenance paths, not this backend gate. Product assembly
 and combined Rust/PG/native acceptance remain unchanged.

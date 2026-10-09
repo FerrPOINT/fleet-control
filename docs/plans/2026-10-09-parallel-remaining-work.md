@@ -1,6 +1,6 @@
 # Parallel Remaining Work: 9 October 2026
 
-Status: five renewed implementation/verification assignments dispatched. This document
+Status: 10 October checkpoint; five implementation/verification assignments. This document
 records work ownership, not completion or permission to deploy.
 
 ## Current Dispatch
@@ -38,12 +38,35 @@ findings do not certify an unexecuted compiler, database or live runtime gate.
 
 | Owner    | Current assignment                                                 | Required handoff                                                                                                              |
 | -------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| Ptolemy  | Independent native-cut review after Forge1db freeze | Review exactbc0 ACK/CAS, recovered-child/F6 rollback and peer isolation without native launch. Public-safe Forge1db awaits Anscombe; private maintenance pin remains missing. |
-| Leibniz  | Fleet executable backend gate custody/deadline successor | Controls0fe/productb249: fix reaped-leader signalling plus setup/global cleanup-upload budget; normal successor only. Retain all70 stages,19 DBs and strict source/schema pins. |
-| Feynman  | Native-image prerequisite audit after cutbc0 freeze | Preserve df657 and all original nine scenarios; locate only known exact archive metadata or record missing artifacts. No load/build/pull, pin replacement or native launch. |
+| Ptolemy  | Independent native-cut review completed; public-safe Forge/private-pin handoff | Exactbc0 review15/15 reproduces two OPEN P2; closure requires Feynman's new successor. Public-safe Forge1db review remains pending; private maintenance pin remains missing. |
+| Leibniz  | Fleet backend custody/deadline successor frozen | Exact11168ca, sole parent0fe: owner Linux68 PASS/Windows66 PASS plus two Linux-only skips. Retain all70 stages,19 DBs and strict source/schema pins; await Anscombe closure before dispatch. |
+| Feynman  | Native-cut ready-publication and restart-window successor | Fix both bc0 P2 in new normal source; preserve df657/original nine scenarios,55s withholding/60s product timeout and strict evidence. No native launch or silent pin replacement. |
 | Anscombe | Independent public-safe Forge and backend successor review | Maintenance publication audit complete: no qualified pin found in bounded scope. Review1db, then exact backend custody/deadline successor; do not transfer source closure to execution. |
-| Pascal   | Current Fleet/Tracker wire-contract qualification | Compare immutable b249/Tracker357 seven DTOs and command/replay behavior. Tracker/Workflow read-only; missing exact answer-key readback is not an invented endpoint. |
+| Pascal   | Completed Fleet/Tracker source qualification; docs/evidence integration | b249/Tracker357 seven DTOs match;39/39 offline checks, no Rust/PG/live HTTP. Record source vs execution and open review gates without editing product or inventing exact answer-key readback. |
 | Parent   | Normal integration, gate coordination and scoped publication | Review frozen handoffs, normally integrate accepted source, admit combined gates and reconcile exact receipts. Private-pin, private Base CI, native and PM/Workflow prerequisites cannot be waived. |
+
+### Fleet/Tracker Wire Source Qualification
+
+Exact Fleetb249bc895e5160fe13383c49d42a24c9308852b3 versus immutable Tracker PR114
+357caa7a60a717eb7b0ac72f286b793326992931 passes39/39 offline selectors:20 real
+exported Fleet comparator tests, nine synthetic schema-oracle tests and ten
+lexical source probes. Seven canonical Git OpenAPI DTO pairs match; required/
+nullable, closed nested fields, integer bounds, Analysis, typed response validation
+and owner-before-replay source are checked. Fourteen canonical inputs match
+before/after. No Cargo generation, Rust/PG/live HTTP or native acceptance follows.
+
+Workspace evidence `.local/fleet-tracker-wire-b249-review-20261009/REPORT.md`
+and `evidence/run-9cc4c4b66890/terminal-receipt.json` retain the scope/raw logs.
+Receipt SHA256:9f00f0de0900ae20971c3383f9ea73aeca1281d8ee860072f32c62f7fd5a6610.
+Packet seal SHA256:f69e81fe085f458c22579c77c6b60cbdf2456c4cd13fdfcd8f74be4a85314ca9.
+Measured host Python/jsonschema is an offline oracle, not a qualified Hermes venv.
+This extends only SOURCE parity beyond historical PR47 evidence.
+
+Real clarification GET returns `questions[].answer`; saved answer ID/request ID
+is not the original answer-command key. `/clarifications/{question_id}/answers`
+is POST-only, not an exact-command GET receipt. Authorized same-key/body POST
+replay exists, but durable reload/key custody and GET-only unknown-write recovery
+remain separate gaps. No producer/Workflow endpoint or capability is invented.
 
 ### Retained Base815 Fake-Contract Evidence
 
@@ -99,15 +122,28 @@ admission remain necessary; no prepared invocation is an execution grant.
   Owner75 pure cases pass. Genuine original-stop ACK is withheld before Fleet
   phase-CAS; recovery then exercises A -> next B -> failed C -> current B rollback
   with peer checks. This is implemented QA source, not native execution.
-  Independent review, locked compile, Linux filesystem and physical timing/
-  cleanup acceptance remain open. Exact controller/Hermes images are currently
+  Ptolemy's independent review passes15/15, including two reproductions of OPEN
+  P2: ready exists before its JSON is complete, and restart proceeds120s after
+  ready despite the55s withheld-ACK window. These are QA orchestration findings,
+  not demonstrated product/native false PASS. Feynman owns a new successor;
+  neither finding is closed. Report:
+  `.local/forge-feynman-cuts-review-20261009/qa/closure-bc0b85e/REPORT.md`;
+  review seal SHA256:77197f64897a888faa21ef29f79f274225237b75f58b677f95b597f80bb20c10.
+  Locked compile, Linux filesystem and physical timing/cleanup acceptance remain
+  open. Exact controller/Hermes images are currently
   absent and local heavy RAM guard fails; no native run was started.
 - Fleet controls0fe independent review passes10 bounded probes but confirms two
   findings: reaped leader is signalled by historical PGID, and setup601s plus
   relative gate6600s can exceed job120min before cleanup/upload. Counterexample
   reproduction is not a safety PASS. Source wiring independently covers all70
   transitions,367 input hashes, canonical20/split23 guards and19 DBs. A normal
-  held-custody/shared-deadline successor owns closure; actual70 is NOT RUN.
+  successor11168cae2e647718f574aeeb64a6bb5821b32956 has sole parent
+  0fe34447a53da70f052eb51c87f781050a79cf88 in
+  `.local/fleet-hosted-backend-custody-20261009/fleet-control`.
+  Owner Linux68 PASS/Windows66 PASS with two Linux-only skips cover candidate
+  held-custody/shared-deadline fixes; Anscombe P1/P2 closure remains pending.
+  Old0fe evidence/seal is immutable; actual70 is NOT RUN. This path has no
+  ComposeHelper/local Docker dependency, unlike native/Forge maintenance paths.
 - Fleet sequential-activation successord3066ebbbda168f16f59697831ea92de5132527b
   has sole parentf326. Worker reports21 Linux fake-contract cases and15 Windows
   loader/hash/README cases passing. Two new Rust and four PG regressions have not

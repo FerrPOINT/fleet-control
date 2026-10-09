@@ -1,6 +1,6 @@
 # Gap Register
 
-## Current Open Release Gates: 9 October 2026
+## Current Open Release Gates: 10 October 2026
 
 The current source assembly is b249bc8, not the historical heads below.
 Source integration is progress, not release acceptance. Its remaining gates are:
@@ -18,11 +18,17 @@ Source integration is progress, not release acceptance. Its remaining gates are:
   answer delivery/checkpoint/rebind and live owner-confirmation flow. Reviewed
   offline24-case packet does not close these requirements. Compatible Workflow
   build/native catalog and authoritative first-step proof remain external gates.
+  Separate b249/Tracker357 qualification closes the seven-DTO SOURCE parity
+  check only:39/39 (20 actual comparator, nine schema-oracle, ten lexical probes),
+  no Rust/PG/live HTTP. Canonical schemas and owner-before-replay source match;
+  this does not extend historical PR47 live evidence or establish PM admission.
 - **Chats:** live cross-service ownership/project/reconnect acceptance and
   clarification unknown-outcome recovery across reload. The mounted original
   command guard and closed-question retry have frontend/browser fixture evidence
   only; no new-answer permission bypass is permitted. [TrackerAnswer](../backend/domain/src/task_chats.rs)
-  has no original command key; the [answer proxy](../backend/api/src/routes/task_chats.rs)
+  has no original command key. Clarification GET returns saved answers, not
+  exact-command receipts; the answer route is POST-only, with no original-key GET.
+  The [answer proxy](../backend/api/src/routes/task_chats.rs)
   has no durable command journal, and the [mounted answer mutation](../frontend/src/pages/chat-detail/index.tsx)
   retains retry state in memory only. Fix8e5d75d does not close durable reload recovery.
 - **Forge:** actual bridge/global cleanup deadline has scoped independent source
@@ -44,23 +50,28 @@ Source integration is progress, not release acceptance. Its remaining gates are:
 Public-safe Forge controls1dbedf8 are now separately frozen from product25be;
 parent exact-source/lock/seal checks pass, independent review is pending. The
 missing private maintenance commit remains a real execution dependency, not a
-permission to use dirty/local-install bytes. Native-cut helperbc0b85e similarly
-has a verified source-only seal, not compiled/native acceptance. Fresh read-only
-Docker inspection finds controller076f31/Hermesf42cb images absent; PGb0f956 is
-present. Available local commit RAM remains below the6GiB heavy guard.
+permission to use dirty/local-install bytes. Native-cut helperbc0b85e has two
+OPEN P2 findings after Ptolemy's15/15 independent review: ready publication before
+complete JSON and restart outside the55s withheld-ACK window (120s counterexample).
+Feynman's normal successor and independent closure are pending; its source-only
+seal and passing reproductions are not compiled/native acceptance. Latest retained
+read-only Docker inspection finds controller076f31/Hermesf42cb images absent;
+PGb0f956 is present. The retained local commit RAM observation is below the6GiB
+heavy guard; this docs update performs no new resource probe or admission.
 
 New retained Base815 Linux fake-contract evidence is224/224, zero skips,44.041s,
 exit0, with exact canonical inputs/source parity and owned cleanup. It closes the
 new local raw-log retention item only, not CI, image/native acceptance or PM
 admission. The [evidence hashes and current owner/dependency matrix](plans/2026-10-09-parallel-remaining-work.md#retained-base815-fake-contract-evidence)
 keep this run separate from historical88.807s and the prepared execution gates.
-Fleet controls freeze0fe has53 worker pure checks and a separately parent-verified
-18-file seal. Normal exit reaps its child before cleanup signals the old PGID;
-held-leader custody/drain/reap needs a reviewed normal successor before dispatch.
-The same review identifies setup outside the6600s wait and no shared deadline/
-cleanup-upload reserve; both findings remain open on frozen0fe.
-No actual70-stage result exists. This hosted path has no ComposeHelper/local
-Docker dependency; do not apply Forge's maintenance-pin hold to it. Parent remote readback
+Fleet controls successor11168cae2e647718f574aeeb64a6bb5821b32956, sole parent0fe,
+has owner Linux68 PASS and Windows66 PASS/two Linux-only skips. It proposes
+held-leader custody/drain/reap and a shared elapsed deadline with cleanup/upload
+reserves. P1/P2 independent closure by Anscombe is pending; do not declare these
+findings closed from owner tests. Old0fe's53 worker checks and separate18-file
+parent seal remain unchanged. No actual70-stage result exists. This hosted path
+has no ComposeHelper/local Docker dependency; do not apply Forge's maintenance-pin
+hold to it. Parent remote readback
 keeps Workflow PR90 Draft/master and Tracker PR114 Draft/main, neither merged;
 separate namespace PR99/126 do not close the legacy PM producer gate. Exact
 heads and the current no-local-heavy resource observation are in the work plan.
