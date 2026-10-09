@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- После ошибки readiness refresh страница конфигурации показывает «Неизвестно»
+  для runtime и SDLC, сохраняя действующую редакцию; успешный повтор возвращает
+  свежие статусы, включая легитимные stopped/blocked состояния.
+
 - Process-log inserts return their own persisted redacted row atomically, even
   when another stdout/stderr writer has already inserted a newer log. PostgreSQL
   regressions cover deterministic interleaving, 64 writers and rejected inserts.
