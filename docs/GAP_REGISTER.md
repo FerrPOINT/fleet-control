@@ -51,11 +51,13 @@ Public-safe Forge controls1dbedf8 are now separately frozen from product25be;
 parent exact-source/lock/seal checks and independent118/118 bounded source/
 lifecycle review pass. Actual private-SDK bridge/full12 acceptance is pending. The
 missing private maintenance commit remains a real execution dependency, not a
-permission to use dirty/local-install bytes. Native-cut helperbc0b85e has two
-OPEN P2 findings after Ptolemy's15/15 independent review: ready publication before
-complete JSON and restart outside the55s withheld-ACK window (120s counterexample).
-Feynman's normal successor and independent closure are pending; its source-only
-seal and passing reproductions are not compiled/native acceptance. Latest retained
+permission to use dirty/local-install bytes. Native-cut helperbc0b85e's two
+P2 findings (partial ready publication and restart outside the55s window) are
+now independently source-closed by normal childc89df468. Linux22/22 owner and9/9
+focused reviewer cases pass; Windows skips are recorded separately. Physical
+crash/real Docker filesystem/Rust/PG acceptance remains pending. Image metadata
+revalidation separately has a reproduced FIFO hang before cleanup; Ptolemy owns
+the bounded regular-file fix, with Feynman reviewing it. Latest retained
 read-only Docker inspection finds controller076f31/Hermesf42cb images absent;
 PGb0f956 is present. The retained local commit RAM observation is below the6GiB
 heavy guard; this docs update performs no new resource probe or admission.
@@ -74,7 +76,12 @@ the scoped findings with79/79 Linux probes, not full backend acceptance.
 Published a3 run37992541106 fails before checkout on Docker Hub's anonymous pull
 limit. Normal childad893db changes only image/test strings to a byte-qualified
 immutable ECR mirror. Independent focused7/7 closure passes; normal push starts
-run37993165800/attempt1, currently in progress with no accepted backend result.
+run37993165800/attempt1, now terminal FAILURE in preflight with no accepted
+backend result. Normal source successorc3b950 removes a reproduced Git archive
+CRLF transformation using canonical blob bytes, retaining exact hash guards.
+Fleet193 + SDK85 lightweight export parity passes, not Auth89/full70. Child5259a40
+separates compiler artifact from final failure metadata; Linux76/76 and Windows
+74 PASS/two skips pass, with focused independent closure pending before push.
 Old0fe's53 worker checks and separate18-file
 parent seal remain unchanged. No actual70-stage result exists. This hosted path
 has no ComposeHelper/local Docker dependency; do not apply Forge's maintenance-pin

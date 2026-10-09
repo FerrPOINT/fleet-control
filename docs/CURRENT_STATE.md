@@ -56,8 +56,10 @@ heads; they do not accept this assembly.
   HEAD/tree/parent. Ptolemy's independent review passes15/15, including two
   reproductions of OPEN P2 orchestration findings: ready is visible before its
   JSON is complete, and restart can occur120s after ready despite the55s withheld-
-  ACK window. Feynman owns a new successor; passing counterexamples are not
-  closure. Compilation and native execution remain pending. Latest retained image
+  ACK window. Normal child c89df468 now independently closes both findings at
+  source/pure scope: Windows87 PASS/11 skips and Linux22/22 owner checks;
+  Windows8 PASS/3 skips and Linux9/9 focused independent checks. This is not
+  physical crash/filesystem acceptance. Compilation and native execution remain pending. Latest retained image
   inspection finds PG present but both pinned controller and Hermes images absent;
   the retained local available commit RAM observation is below the6GiB guard.
 - Base815 has new retained Linux fake-contract evidence:224 passed, zero skips,
@@ -80,16 +82,22 @@ fails before checkout at Docker Hub's anonymous pull limit; no backend stage ran
 Normal childad893db1fe34ad2a631297d76ee561c4fa1d0d1a changes only image/test
 strings to an exact-byte-qualified ECR mirror with immutable digests. That narrow
 successor passes7/7 independent focused checks and is normally pushed. Run
-37993165800/attempt1 is in progress; actual70 has no accepted result yet.
+37993165800/attempt1 is terminal FAILURE in preflight after container/source
+setup passed; actual70 has no accepted result yet. Exact Git blob export c3b950
+fixes a reproduced archive CRLF hash transformation without changing expected
+inputs. Lightweight Fleet193 + SDK85 parity passes; Auth89/full70 remain open.
+Normal child5259a40 fixes the independently found diagnostics variable collision;
+Linux76/76 and Windows74 PASS/two skips pass. Focused final closure is pending.
 Historical0fe's53 worker checks and separate18-file parent seal stay immutable;
 neither those counts nor successor pure tests establish compiler/PG acceptance.
 This hosted path uses no ComposeHelper/local Docker, so the missing maintenance
 pin blocks Forge/native maintenance paths, not this backend gate. Product assembly
 and combined Rust/PG/native acceptance remain unchanged.
 
-Current parallel work covers image-candidate provenance (Ptolemy), native crash
-cuts (Feynman), independent source review (Anscombe), and the completed contract/
-docs handoff (Pascal). Leibniz stopped with a model-capacity error; parent took
+Current parallel work covers the image-metadata FIFO/cleanup fix (Ptolemy), native
+execution handoff and focused review (Feynman), backend-controls closure (Anscombe),
+and a durable clarification answer-command journal (Pascal). These are separate
+owned changes, not completed acceptance. Leibniz stopped with a model-capacity error; parent took
 the executable Fleet gate, normal integration and scoped publication. Source
 merge alone does not establish acceptance. Combined backend/native, producer custody and external
 Workflow readiness remain open. Exact handoffs and dependencies are in the
