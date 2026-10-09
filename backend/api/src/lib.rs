@@ -72,6 +72,7 @@ pub mod routes;
         routes::sessions::steer_session_run,
         routes::sessions::stop_session_run,
         routes::sessions::list_controls,
+        routes::sessions::lookup_control,
         routes::sessions::read_control,
         routes::sessions::resolve_session_run_approval,
         routes::task_chats::bind_task_chat,
@@ -470,6 +471,10 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
             get(routes::sessions::list_controls),
         )
         .route(
+            "/api/v1/sessions/{session_id}/runs/{run_id}/controls/lookup",
+            get(routes::sessions::lookup_control),
+        )
+        .route(
             "/api/v1/sessions/{session_id}/runs/{run_id}/controls/{command_id}",
             get(routes::sessions::read_control),
         )
@@ -618,6 +623,68 @@ mod tests {
         },
     };
     use tower::ServiceExt;
+
+    #[test]
+    fn runtime_control_lookup_openapi_requires_key_and_returns_one_receipt() {
+        let spec: serde_json::Value = serde_json::from_str(&openapi_json()).unwrap();
+        let collection = "/api/v1/sessions/{session_id}/runs/{run_id}/controls";
+        let operation = &spec["paths"][format!("{collection}/lookup")]["get"];
+        let keys: Vec<_> = operation["parameters"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|parameter| parameter["name"] == "Idempotency-Key")
+            .collect();
+        assert_eq!(keys.len(), 1);
+        assert_eq!(keys[0]["in"], "header");
+        assert_eq!(keys[0]["required"], true);
+        assert_eq!(keys[0]["schema"]["type"], "string");
+        assert_eq!(
+            operation["responses"]["200"]["content"]["application/json"]["schema"]["$ref"],
+            "#/components/schemas/RuntimeControlReceipt"
+        );
+        assert!(operation["responses"]["404"].is_object());
+        assert_eq!(
+            spec["paths"][collection]["get"]["parameters"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
+        assert_eq!(
+            spec["paths"][collection]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+                ["type"],
+            "array"
+        );
+    }
+
+    #[tokio::test]
+    async fn runtime_control_lookup_literal_route_cannot_be_an_old_uuid_receipt() {
+        let uuid_route = "/controls/{command_id}";
+        let old = Router::new().route(
+            uuid_route,
+            get(|axum::extract::Path(_): axum::extract::Path<uuid::Uuid>| async { "receipt" }),
+        );
+        let request = || {
+            Request::builder()
+                .uri("/controls/lookup")
+                .body(Body::empty())
+                .unwrap()
+        };
+        assert_eq!(
+            old.clone().oneshot(request()).await.unwrap().status(),
+            StatusCode::BAD_REQUEST
+        );
+        let current = old.route("/controls/lookup", get(|| async { "lookup" }));
+        let response = current.oneshot(request()).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            axum::body::to_bytes(response.into_body(), 64)
+                .await
+                .unwrap(),
+            "lookup"
+        );
+    }
 
     #[tokio::test]
     async fn cors_preflight_supports_credentials_with_explicit_headers() {

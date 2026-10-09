@@ -34,6 +34,11 @@ delivery or another POST. No native protocol or installed compatibility is claim
 
 ## Durable Runtime Controls Unit13
 
+The Fleet-local controls/lookup GET reads a command's original actor/key receipt
+without contacting Hermes. Missing/404, an old server or a failed read retains
+the unknown-effect hold. The existing Hermes protocol and submission permit are
+unchanged; this lookup is not native acceptance or permission to send again.
+
 Controls require fresh exact original origin/credential/native run/session,
 verified POST capabilities and authenticated current run GET. Send one POST
 only after the durable submitted claim; validate bounded exact ACK shape,

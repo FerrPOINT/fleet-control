@@ -154,6 +154,32 @@ mod tests {
     }
 
     #[test]
+    fn runtime_control_lookup_requires_bounded_unambiguous_header_without_echo() {
+        let user = crate::middleware::CurrentUser {
+            id: Uuid::new_v4(),
+            role: domain::SystemRole::Admin,
+            is_system_admin: true,
+            central_write: None,
+        };
+        let mut headers = HeaderMap::new();
+        let maximum = "x".repeat(128);
+        headers.insert("Idempotency-Key", maximum.parse().unwrap());
+        let actor = control_actor(&user, &headers).unwrap();
+        assert_eq!(actor.user_id, user.id);
+        assert_eq!(actor.idempotency_key, maximum);
+        for key in ["private key", &"x".repeat(129)] {
+            headers.insert("Idempotency-Key", key.parse().unwrap());
+            let error = control_actor(&user, &headers).unwrap_err();
+            assert!(!error.to_string().contains(key));
+        }
+        headers.insert(
+            "Idempotency-Key",
+            axum::http::HeaderValue::from_bytes(b"private-\xff").unwrap(),
+        );
+        assert!(control_actor(&user, &headers).is_err());
+    }
+
+    #[test]
     fn parses_multiple_user_ids() {
         let first = Uuid::new_v4();
         let second = Uuid::new_v4();
@@ -730,6 +756,32 @@ pub async fn read_control(
     if receipt.session_run_id != run_id {
         return Err(AppError::not_found("runtime_control_command", command_id));
     }
+    Ok(Json(receipt))
+}
+
+#[utoipa::path(get,path="/api/v1/sessions/{session_id}/runs/{run_id}/controls/lookup",tag="sessions",
+    params(("session_id"=Uuid,Path),("run_id"=Uuid,Path),("Idempotency-Key"=String,Header)),
+    responses((status=200,body=domain::RuntimeControlReceipt),(status=403),(status=404),(status=422)))]
+pub async fn lookup_control(
+    State(ctx): State<Arc<AppContext>>,
+    Extension(user): Extension<crate::middleware::CurrentUser>,
+    human: Option<Extension<crate::middleware::VerifiedHumanSession>>,
+    Path((session_id, run_id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+) -> Result<Json<domain::RuntimeControlReceipt>, AppError> {
+    if human.is_none() {
+        return Err(AppError::Forbidden);
+    }
+    let actor = control_actor(&user, &headers)?;
+    let session = ctx.repo.get_session(session_id).await?;
+    ensure_session_read_access(&session, &user)?;
+    super::task_chats::require_project_access(&ctx, &user, session_id, &headers).await?;
+    ensure_run_belongs_to_session(&ctx.repo.get_session_agent_run(run_id).await?, session_id)?;
+    let receipt = ctx
+        .repo
+        .find_runtime_control_by_key(session_id, run_id, &actor)
+        .await?
+        .ok_or_else(|| AppError::not_found("runtime_control_command", run_id))?;
     Ok(Json(receipt))
 }
 

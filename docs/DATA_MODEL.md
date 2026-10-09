@@ -1,5 +1,13 @@
 # Data Model
 
+## Original Control Key Lookup
+
+The literal control lookup GET reuses runtime_control_commands' existing unique
+actor_user_id/idempotency_key index with exact session_id/session_run_id predicates
+and LIMIT 1. Its projection is the existing redacted RuntimeControlReceipt only;
+the key, payload hash and native pins stay private. There is no schema, migration,
+write, audit/event or outbox change. Missing history is not a submission permit.
+
 ## Hermes Recovery And Terminal Atomicity
 
 The recovery slice introduces no new migration or lineage entry. Optional verified recovery facts
