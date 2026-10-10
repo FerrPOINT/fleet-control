@@ -2,6 +2,105 @@
 
 ## Current Integration Snapshot: 10 October 2026
 
+Latest terminal results supersede the earlier checkpoints below. Full backend
+run38023648801/source56daff9/controls6f648430 still fails eight recovered-activation
+cases, now at authorization after the corrected configuration hash probe.
+Its authenticated receipt and exact evidence boundary are recorded below.
+Earlier run38021438217 exposed the ASCII-escaping fixture mismatch; that diagnosis
+does not prove the remaining authorization cause or accept the full runtime.
+
+C11 run38021888246/source994f29d/controlsc5ee9bc completes FAILURE at
+runtime_inventory. Authenticated, closed terminal telemetry identifies validation
+in gate_receipts and both cleanup checks; no compiler/test failure artifact was
+published. This is not a credential test result or real-Auth acceptance.
+The stage includes test-binary compilation/linking before list verification;
+the later diagnostic establishes the mismatch below. Normal diagnostics successor
+4244772 retains source994, all28 stages and242/17 expectations. Parent reviews
+the complete three-file diff and repeats112 Windows pure tests (108 pass,
+four explicit Linux-only skips); worker Linux112/112 is separate evidence.
+[Run38024208930](https://github.com/FerrPOINT/fleet-control/actions/runs/38024208930)
+completes FAILURE. Authenticated artifact11659222328, ZIP SHA256
+43eae76405caeff37e6f4926e52816916d659489b68d09b1149377ff661c7d04,
+proves complete lists:241 default versus242 expected, all17 ignored match, no
+extras, only `new_ids_are_plain_uuids` missing. Both cleanup checks pass. Source
+inspection finds its orphan test file; narrow successor3d1a108 declares the test
+module without lowering counts. It also retains687/435 credential regressions
+and the exact-two-case real-Auth CI correction. Those source fixes are integrated
+here but are not product-qualified. Reviewed controlscfe7805 normally publish
+source3d1a108; [run38026078533](https://github.com/FerrPOINT/fleet-control/actions/runs/38026078533)
+completes FAILURE at Clippy. Parent authenticates artifact11660525394, ZIP SHA256
+f40665d84b0ca204a3cf66005888a1d752cddd5111df0832f0eafe40db58219d:
+only coordinator.rs333 is disclosed; both cleanup checks pass. Source0e49430
+changes only the test's indexed loop to enumerate, preserving all variants.
+Normal controls01f32fe start
+[run38026636805](https://github.com/FerrPOINT/fleet-control/actions/runs/38026636805),
+confirmed in progress. Parent independently verifies135 canonical Fleet
+blobs/105 Rust files,309 combined inputs and248 default/18 ignored declarations.
+All original242/17 identities remain; five new PG cases are ordinary tests, not
+ignored. The01f successor passes119 Windows pure checks (115 pass/four explicit
+Linux-only skips); prior worker Linux118/118 applies only to cfe. All helper
+functions,28 stages and gates/counts remain unchanged. Actual Rust/Auth/PG remains
+pending on the corrected source.
+
+Frontend run38022762729/source5cc1fbb/controlsdb82829 fails preparation before
+tests. Parent authenticates failure artifact11658544399, ZIP SHA256
+dd76db8f5469ca11717fc6b51f994d781c3c03a6e23d41488994e4a8e87eee37.
+The closed input_inventory hint leads to a reproduced local qualification error:
+Windows git archive applied line-ending conversion. Canonical Git batch objects
+give all835 source hashes and aggregate
+2a35bedc6542643277496ad2f7816d0bcc89e3780e632d94139c6acd0a421677.
+Normal controls successorbea500d changes only that pin. Its67 pure tests pass
+on Windows and Linux; all23 commands/default pool/three engines remain unchanged.
+[Run38023185173](https://github.com/FerrPOINT/fleet-control/actions/runs/38023185173)
+completes FAILURE in the original three-browser fixture stage, after the
+default348 unit, typecheck/lint/build/theme/format gates pass. Fresh capture and
+manifest stages are skipped. Worker authenticates artifact11659871068, ZIP SHA256
+3dc947903a81e3fd712b9ec3bd7be7d405fd2e080f1c025bccc303c902247290.
+Each engine reports24 expected/two unexpected/nine skipped/zero flaky, with the
+same two failed scenario declarations at runtime-controls.spec.ts267 and
+fleet-control.spec.ts627. Closed evidence supplies no failing assertion or DOM.
+Source2398ff0 scopes retained-answer checks to server custody and adds draft
+checks; bf0ca7a aligns the legacy runtime fixture with journal/store/delivery,
+retained original key/body/command and reload readback. Parent reviews and
+integrates both fixes without changing production or relaxing assertions.
+Fresh browser qualification is still required.
+No fresh screenshot or live PM acceptance is inferred from this receipt.
+
+The [remaining delivery map](REMAINING_DELIVERY_WORK.md) records independent
+owners, dependencies and stop/go criteria. Task Tracker/Workflow remain read-only.
+The current runtime assembly is not merge-ready or live SDLC accepted.
+
+The reviewed test-only correction is now committed in56daff9 and normally
+published through controls6f648430. Independent qualification retains380 compiled
+Git inputs/170 Rust files,167 ignored identities and all81 stages; it adds exactly
+one default declaration (338 total). Final110 Linux pure control tests pass.
+[Run38023648801](https://github.com/FerrPOINT/fleet-control/actions/runs/38023648801)
+completes FAILURE in the same eight recovered-activation cases. Parent
+authenticates artifact11659287588, ZIP SHA256
+26ed13a6a71cf4a66323494be1fa2ca8b195fc103f1f800576b15c0502f4aad4;
+both cleanup checks pass. The corrected configuration probe no longer appears:
+failure locations259/286 are the subsequent `authorize_recovered_activation`
+calls. This is progress in diagnosis, not proof that recovery/activation works.
+The next cause is still under investigation; no guard or assertion is waived.
+
+Current parallel ownership: Curie prepares exactbf0 frontend controls;
+Pascal adds test-only read-only probes to narrow the exact56 recovered
+authorization failure; Feynman closes the Forge maintenance-packet prerequisite
+in an isolated successor. Parent owns integration, control qualification and
+publication. All write scopes are separate; heavy local execution remains held.
+Pascal's completed exact435 and narrow successor reviews find no P1/P2, not
+actual Auth success. Parent YAML parity plus eight synthetic Bash receipt vectors require
+both real-Auth case names/two passes; these are CI-control checks, not Auth tests.
+Tracker/Workflow and root Base foreign changes remain untouched.
+
+Fresh native image-build capacity observation still refuses execution: physical
+and commit headroom are below the unchanged6/6GiB guards; disk exceeds30GiB.
+No Docker/build/native operation was invoked by that host-only observation.
+Private Base PR180 remains exact815 and Draft; Forge PR88 remains exact9f4 and
+Draft. Neither metadata observation closes maintenance/image/full12 acceptance.
+
+## Earlier Integration Checkpoints
+
 Newest source checkpoint: normal mergef2e8495 integrates8c2d3c's seven additional
 Chats browser fixtures. The real generated-client frontend suite passes348/348
 tests in36 files using Node22/threads/one worker. No browser pass is claimed.

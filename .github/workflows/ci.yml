@@ -525,20 +525,33 @@ jobs:
           sha256sum "$binary" > "$RUNNER_TEMP/pm-auth-evidence/auth-binary.sha256"
           echo "FLEET_REAL_AUTH_TEST_BINARY=$binary" >> "$GITHUB_ENV"
           echo "FLEET_REAL_AUTH_TEST_BINARY_SHA256=$(sha256sum "$binary" | awk '{print $1}')" >> "$GITHUB_ENV"
-      - name: Require the real Fleet issuance, replay, conflict and revoke case
+      - name: Require real Fleet issuance replay conflict revoke expiry and restart
         run: |
           set -euo pipefail
-          cargo test --locked --manifest-path "$RUNNER_TEMP/pm-auth-source/fleet-control/backend/Cargo.toml" -p infra --test pm_credentials_real_auth -- --ignored --test-threads=1 2>&1 | tee "$RUNNER_TEMP/pm-auth-evidence/consumer.log"
+          cargo test --locked --manifest-path "$RUNNER_TEMP/pm-auth-source/fleet-control/backend/Cargo.toml" -p infra --test pm_credentials_real_auth -- --ignored --test-threads=1 > "$RUNNER_TEMP/pm-auth-evidence/consumer.log" 2>&1
           grep -Fx 'test real_base_delegation_wire_replay_conflict_and_revoke_match_fleet ... ok' "$RUNNER_TEMP/pm-auth-evidence/consumer.log"
-          grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/pm-auth-evidence/consumer.log"
+          grep -Fx 'test real_base_expired_children_replay_without_minting_and_are_rejected_by_fleet ... ok' "$RUNNER_TEMP/pm-auth-evidence/consumer.log"
+          grep -F 'test result: ok. 2 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/pm-auth-evidence/consumer.log"
           sha256sum --check "$RUNNER_TEMP/pm-auth-evidence/sources.sha256"
-      - name: Preserve non-secret source and consumer evidence
+          printf '%s\n' 'real_base_delegation_wire_replay_conflict_and_revoke_match_fleet: passed' 'real_base_expired_children_replay_without_minting_and_are_rejected_by_fleet: passed' '2 passed; 0 failed; 0 ignored' > "$RUNNER_TEMP/pm-auth-evidence/consumer-result.txt"
+      - name: Preserve non-secret source and consumer evidence only
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: fleet-real-auth-evidence
-          path: ${{ runner.temp }}/pm-auth-evidence
+          path: |
+            ${{ runner.temp }}/pm-auth-evidence/source-commits.txt
+            ${{ runner.temp }}/pm-auth-evidence/sources.sha256
+            ${{ runner.temp }}/pm-auth-evidence/auth-binary.sha256
+            ${{ runner.temp }}/pm-auth-evidence/consumer-result.txt
           retention-days: 14
+      - name: Remove only disposable Auth sources target and private diagnostics
+        if: always()
+        run: |
+          set -euo pipefail
+          test -n "$RUNNER_TEMP" && test "$RUNNER_TEMP" != /
+          rm -rf -- "$RUNNER_TEMP/pm-auth-source" "$RUNNER_TEMP/pm-auth-tmp" "$RUNNER_TEMP/pm-auth-target"
+          rm -f -- "$RUNNER_TEMP/swagger.zip" "$RUNNER_TEMP/pm-auth-evidence/consumer.log"
 
   frontend:
     runs-on: ubuntu-latest

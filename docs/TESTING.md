@@ -1,5 +1,21 @@
 # Testing
 
+## Activation Fixture Canonical Hash Regression
+
+Authenticated failure receipt11658528950 from run38021438217/sourcee369fed
+identifies eight recovered-activation cases and the configuration snapshot probe
+at `container_activation.rs:184`. The test helper encoded sorted JSON as UTF-8,
+but the fixture golden claim and production/Base contract require compact sorted
+JSON with `ensure_ascii=True`. Its Unicode snapshot has Base hash
+`a5de7dfacd6c2771ef639bb9cbbfe24b3f38b4eeb5170ad7f6c7a6c6b2404e69`,
+not UTF-8 hash `9e5270a6c07e557e12595f46a2b20f38c32ca11025f4b70cf33c61f2d6e3c759`.
+The helper now uses the required ASCII escaping, including DEL and surrogate
+pairs. A default regression checks two independently generated Python goldens
+and rejects the old Unicode byte recipe. Existing recovered PG cases and every
+production authorization/lease/configuration predicate remain unchanged.
+The failure proves the predecessor helper mismatch, not full activation closure;
+the corrected source requires a new exact-head Linux/PostgreSQL gate.
+
 ## Clarification Runtime Baseline Regression
 
 Session creation intentionally stores one pending primary run with no native
@@ -166,8 +182,8 @@ This is disposable source/binary compatibility, not installed-runtime acceptance
 The mandatory `real-base-auth` CI job uses a GitHub-managed Rust container and
 isolated PostgreSQL service with no published host port. It exports committed
 Fleet/SDK/Auth sources, builds Auth01388df separately from SDK19a7, records source
-and binary hashes, and requires the otherwise-ignored consumer case with exactly
-one PASS and zero ignores. It is not a local Compose project or installed-runtime
+and binary hashes, and requires both otherwise-ignored consumer cases with exactly
+two PASS and zero ignores, including natural expiry/restart. It is not a local Compose project or installed-runtime
 acceptance. This CI job depends on Base126 publishing the pinned Auth commit;
 the workflow itself has not run yet.
 
@@ -190,6 +206,27 @@ credentials migration. This correction is formatted, not yet Linux/PG verified.
 The credential-migration, smoke, OpenAPI and final parity stages did not run;
 all10 independent cleanup/input parity checks passed and permanent runtime was
 unchanged. Full acceptance waits for current-main reconciliation and a fresh gate.
+## Credential Qualification Successor
+
+The credential successor adds one coordinator unit case, five PostgreSQL cases
+and one real-Auth natural-expiry/restart case. Focused gates must require eight
+coordinator units, fifteen credential PG cases and both named real-Auth cases.
+The serial real-Auth CI receipt now requires two passed, zero failed and zero
+ignored, and preserves the original issuance/replay/conflict/revoke case.
+These source changes have not yet compiled or executed against Auth/PostgreSQL.
+
+Authenticated diagnostic run38024208930 on frozen994 observes241 default tests
+versus242 declarations, with all17 ignored identities matching. Its only missing
+name is `new_ids_are_plain_uuids`: `shared/src/id/tests.rs` existed but was not
+declared by its parent module. The successor adds that test-module declaration,
+not a lower expected count or a removed test. All later inventories must retain
+the original declaration and account separately for newly added tests. Source
+and formatting checks are not compiler-list or execution acceptance.
+
+Expired same-key replay at pinned Auth01388 returns the original expired child;
+introspection and Fleet authorization reject it. No token is renewed or minted
+by replay. The new test checks this across an Auth restart and explicitly does
+not prove Fleet journal recovery, physical lost ACK or runtime dispatch.
 
 The central directory regression explicitly executes the real PostgreSQL query
 with expanded and selected-foreign owner filters. It verifies that private rows,

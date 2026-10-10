@@ -35,9 +35,44 @@ fn generation() -> Generation {
 
 fn hash(value: &impl serde::Serialize) -> String {
     use sha2::{Digest, Sha256};
+    use std::fmt::Write;
+
     let mut value = serde_json::to_value(value).unwrap();
     value.sort_all_objects();
-    hex::encode(Sha256::digest(serde_json::to_vec(&value).unwrap()))
+    // Base receipts use compact sorted JSON with ensure_ascii=True.
+    let json = serde_json::to_string(&value).unwrap();
+    let mut ascii = String::with_capacity(json.len());
+    for c in json.chars() {
+        if c < '\u{7f}' {
+            ascii.push(c);
+        } else {
+            for unit in c.encode_utf16(&mut [0; 2]) {
+                write!(ascii, "\\u{unit:04x}").unwrap();
+            }
+        }
+    }
+    hex::encode(Sha256::digest(ascii.as_bytes()))
+}
+
+#[test]
+fn activation_probe_hash_matches_base_unicode_snapshot() {
+    use sha2::{Digest, Sha256};
+
+    let value = json!({"config":{"config_json":{},"soul_md":"\u{43f}\u{440}\u{438}\u{432}\u{435}\u{442} \u{1f600}","env_json":{}},"skills":[]});
+    // Independent Python json.dumps(sort_keys=True, separators=(',', ':'), ensure_ascii=True).
+    assert_eq!(
+        hash(&value),
+        "a5de7dfacd6c2771ef639bb9cbbfe24b3f38b4eeb5170ad7f6c7a6c6b2404e69"
+    );
+    assert_ne!(
+        hash(&value),
+        hex::encode(Sha256::digest(serde_json::to_vec(&value).unwrap()))
+    );
+    let controls = json!({"z":{"\\":"\"\\\n\t\u{7f}","\u{1f600}":"/srv/\u{430}\u{433}\u{435}\u{43d}\u{442}\u{44b}"},"\u{e9}":"\u{2028}\u{2029}"});
+    assert_eq!(
+        hash(&controls),
+        "9f8e9d6aa4038a3f5ee775ae03966955cbb132701da1266358b48d5af159b8a6"
+    );
 }
 
 fn recovered_command(l: &ContainerLaunch) -> ContainerRecoveryCommand {
@@ -174,6 +209,48 @@ SELECT
 "#, [record.claim.id.into(), record.claim.agent_id.into(),
         anchor.prepared.container.registration.generation.into(), json!(record).into(),
         proof.lease.request.id.into(), json!(proof.lease).into(), record.claim.revision.into(), json!(anchor).into()])).await;
+    let claim = &record.claim;
+    // Diagnostic copies preserve production binds but take no row locks or authority.
+    let checked = db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT h.effective_revision,r.snapshot FROM agent_config_heads h JOIN agent_config_revisions r
+            ON r.agent_id=h.agent_id AND r.revision=h.desired_revision
+         WHERE h.agent_id=$1 AND h.desired_revision=$2 AND h.draining AND r.state='activating'
+            AND r.claimed_at IS NOT NULL AND r.validation_errors='[]'::jsonb
+            AND NOT EXISTS(SELECT 1 FROM session_agent_runs WHERE agent_id=$1 AND state IN ('pending','running','waiting','stopping'))
+            AND NOT EXISTS(SELECT 1 FROM hermes_dispatch_journal WHERE agent_id=$1 AND state IN ('prepared','submitted'))
+            AND NOT EXISTS(SELECT 1 FROM message_dispatch_outbox WHERE agent_id=$1 AND state IN ('dispatching','uncertain'))
+            AND (NOT EXISTS(SELECT 1 FROM runtime_container_recoveries x JOIN runtime_container_launches l USING(generation) WHERE l.agent_id=$1)
+                OR ($3::uuid IS NOT NULL AND fleet_activation_anchor($3)
+                  AND NOT EXISTS(SELECT 1 FROM runtime_container_recoveries x JOIN runtime_container_launches l USING(generation) WHERE l.agent_id=$1 AND l.generation<>$3)))",
+        [claim.agent_id.into(),claim.revision.into(),Some(anchor.prepared.container.registration.generation).into()])).await;
+    let current = db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT r.id FROM runtime_container_recoveries r
+             WHERE r.generation=$3 AND r.lease=$4 AND
+               (EXISTS(SELECT 1 FROM runtime_container_activations a WHERE a.id=$1 AND a.record=$2)
+               OR ($5 AND NOT EXISTS(SELECT 1 FROM runtime_container_activations a WHERE a.agent_id=$6 AND a.revision=$7)
+                   AND fleet_activation_lineage($8)))
+             AND r.receipt IS NOT NULL AND r.lease_receipt IS NOT NULL AND r.expires_at>clock_timestamp()
+             AND NOT EXISTS(SELECT 1 FROM runtime_container_recoveries n WHERE n.generation=r.generation AND n.epoch>r.epoch)",
+        [claim.id.into(),json!(record).into(),anchor.prepared.container.registration.generation.into(),json!(proof.lease).into(),
+            (record.phase==Phase::Planned && claim.lineage.is_some()).into(),claim.agent_id.into(),claim.revision.into(),json!(claim).into()])).await;
+    let authority = db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres, r#"
+WITH proposed AS (
+ SELECT $1::uuid AS activation_id,$2::uuid AS recovery_id,$3::uuid AS controller_id,
+        $4::text AS plan_sha256,$5::jsonb AS claim
+)
+SELECT EXISTS(SELECT 1 FROM runtime_container_activations a JOIN runtime_container_recoveries r
+    ON r.id=proposed.recovery_id WHERE a.id=proposed.activation_id AND a.record->'claim'=proposed.claim
+    AND a.record#>>'{claim,intent_sha256}'=proposed.plan_sha256
+    AND r.generation=fleet_activation_scope(jsonb_build_object('claim',proposed.claim))
+    AND r.command#>>'{request,controller_id}'=proposed.controller_id::text
+    AND r.receipt IS NOT NULL AND r.lease_receipt IS NOT NULL AND r.expires_at>clock_timestamp()
+    AND NOT EXISTS(SELECT 1 FROM runtime_container_recoveries n WHERE n.generation=r.generation AND n.epoch>r.epoch)
+    AND fleet_activation_anchor(r.generation)
+    AND (a.record->>'phase' NOT IN ('committed','rolled_back') OR EXISTS(
+       SELECT 1 FROM runtime_container_activation_authorities old WHERE old.activation_id=a.id AND old.claim=proposed.claim AND old.plan_sha256=proposed.plan_sha256)))
+ AS allowed FROM proposed
+"#, [claim.id.into(),proof.lease.request.id.into(),proof.lease.request.controller_id.into(),
+        claim.intent_sha256.clone().into(),json!(claim).into()])).await;
     let closed = db.close().await;
     assert!(closed.is_ok(), "activation_probe_database_closed");
     assert!(snapshot.is_ok(), "activation_probe_select_succeeded");
@@ -208,6 +285,46 @@ SELECT
             "{predicate}"
         );
     }
+    assert!(checked.is_ok(), "activation_probe_checked_query_ok");
+    let checked = checked.unwrap_or_else(|_| panic!("activation_probe_checked_query_ok"));
+    assert!(checked.is_some(), "activation_probe_checked_row_present");
+    let checked = checked.unwrap_or_else(|| panic!("activation_probe_checked_row_present"));
+    let revision = checked.try_get::<Option<i64>>("", "effective_revision");
+    assert!(revision.is_ok(), "activation_probe_checked_revision_decode");
+    assert!(
+        matches!(revision, Ok(value) if value == claim.previous_revision),
+        "activation_probe_checked_revision_predicate"
+    );
+    let configuration = checked.try_get::<Value>("", "snapshot");
+    assert!(
+        configuration.is_ok(),
+        "activation_probe_checked_snapshot_decode"
+    );
+    assert!(
+        configuration.is_ok_and(|value| hash(&value) == claim.configuration_sha256),
+        "activation_probe_checked_snapshot_predicate"
+    );
+    assert!(current.is_ok(), "activation_probe_current_query_ok");
+    assert!(
+        matches!(current, Ok(Some(_))),
+        "activation_probe_current_row_present"
+    );
+    assert!(authority.is_ok(), "activation_probe_authority_query_ok");
+    let authority = authority.unwrap_or_else(|_| panic!("activation_probe_authority_query_ok"));
+    assert!(
+        authority.is_some(),
+        "activation_probe_authority_row_present"
+    );
+    let authority = authority.unwrap_or_else(|| panic!("activation_probe_authority_row_present"));
+    let allowed = authority.try_get::<bool>("", "allowed");
+    assert!(
+        allowed.is_ok(),
+        "activation_probe_authority_predicate_decode"
+    );
+    assert!(
+        matches!(allowed, Ok(true)),
+        "activation_probe_authority_predicate"
+    );
 }
 
 async fn recovered_step(

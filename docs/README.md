@@ -5,6 +5,7 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 
 ## Product And State
 
+- [Remaining delivery work and stop/go criteria](REMAINING_DELIVERY_WORK.md)
 - [Docker and runtime controls source assembly](plans/2026-10-09-docker-controls-integration.md)
 - [Parallel remaining-work assignments](plans/2026-10-09-parallel-remaining-work.md)
 - [Clarification original-answer recovery](plans/2026-10-09-clarification-answer-recovery.md)
