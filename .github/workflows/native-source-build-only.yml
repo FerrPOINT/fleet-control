@@ -1,0 +1,343 @@
+name: Native cold-source build only
+
+on:
+  push:
+    branches: [build-only/native-source-20261010]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-source-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    defaults:
+      run:
+        shell: bash
+    env:
+      CI: 'true'
+      PYTHONDONTWRITEBYTECODE: '1'
+      FLEET_QA_SOURCE_REPO: ${{ github.workspace }}/inputs/fleet
+      FLEET_QA_SDK_REPO: ${{ github.workspace }}/inputs/sdk
+      FLEET_QA_BASE_REPO: ${{ github.workspace }}/inputs/base-utility
+      FLEET_QA_HERMES_REPO: ${{ github.workspace }}/inputs/hermes
+      BASE_MAINTENANCE_REPO: ${{ github.workspace }}/inputs/base-maintenance
+      SDLC_RESOURCE_REGISTRY: ${{ runner.temp }}/native-owned-resource-registry
+    steps:
+      - name: Checkout reviewed controls
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          path: controls
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Public source and wrapper preflight before private access
+        working-directory: controls
+        run: |
+          python3 -B - <<'PY'
+          import hashlib, json, os, subprocess
+          from pathlib import Path
+          source = '5db4ff92d2168c46ce96b56f37acbbf7de92db33'
+          tree = '5328b7de2d2e1922ae6748b02f974471a01d9de4'
+          parent = 'e00b73070c327d28883c3f7a2a523b759df6662b'
+          def git(*args):
+              return subprocess.run(['git', '--no-replace-objects', *args], capture_output=True, check=True).stdout
+          assert os.environ['GITHUB_REPOSITORY'] == 'FerrPOINT/fleet-control'
+          assert os.environ['GITHUB_EVENT_NAME'] == 'push'
+          assert os.environ['GITHUB_REF'] == 'refs/heads/build-only/native-source-20261010'
+          assert os.environ['GITHUB_RUN_ATTEMPT'] == '1', 'No rerun fallback'
+          assert git('rev-parse', 'HEAD').decode().strip() == os.environ['GITHUB_SHA']
+          assert git('show', '-s', '--format=%T', source).decode().strip() == tree
+          assert git('show', '-s', '--format=%P', source).decode().split() == [parent]
+          assert git('merge-base', source, 'HEAD').decode().strip() == source
+          prefix = '.ci/native-source/'
+          rows = git('ls-tree', '-r', '-z', 'HEAD', '--', prefix).split(b'\0')
+          entries = []
+          for row in filter(None, rows):
+              meta, name = row.split(b'\t', 1)
+              mode, kind, oid = meta.decode().split()
+              path = name.decode()
+              assert mode in ('100644', '100755') and kind == 'blob'
+              assert path.startswith(prefix) and '\\' not in path and '..' not in Path(path).parts
+              entries.append((path, oid))
+          assert len(entries) == 36
+          allowed = {name for name, _ in entries} | {'.github/workflows/native-source-build-only.yml'}
+          assert set(git('diff', '--name-only', source, 'HEAD').decode().splitlines()) == allowed
+          helpers = {}
+          process = subprocess.Popen(['git', '--no-replace-objects', 'cat-file', '--batch'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+          total = 0
+          for path, oid in entries:
+              process.stdin.write((oid + '\n').encode()); process.stdin.flush()
+              header = process.stdout.readline().decode().split()
+              assert header[:2] == [oid, 'blob'] and len(header) == 3
+              size = int(header[2]); total += size
+              assert 0 <= size <= 1048576 and total <= 2097152
+              raw = process.stdout.read(size)
+              assert len(raw) == size and process.stdout.read(1) == b'\n'
+              assert hashlib.sha1(f'blob {size}\0'.encode() + raw).hexdigest() == oid
+              assert not Path(path).is_symlink() and Path(path).read_bytes() == raw
+              name = path.removeprefix(prefix)
+              if name != 'README.md':
+                  assert name.startswith(('qa/', 'images/'))
+                  helpers[name] = hashlib.sha256(raw).hexdigest()
+          process.stdin.close()
+          assert process.wait(timeout=30) == 0
+          assert len(helpers) == 35
+          assert hashlib.sha256(json.dumps(helpers, sort_keys=True, separators=(',', ':')).encode()).hexdigest() == 'd792df1cc665bb86a83bd88489984e4276212d7993dfeedef1b2f3a98735edc3'
+          actual = set()
+          for path in Path(prefix).rglob('*'):
+              assert not path.is_symlink()
+              if path.is_file(): actual.add(path.as_posix())
+          assert actual == {name for name, _ in entries}
+          print('public_source_and_exact_wrappers_pass')
+          PY
+      - name: Checkout exact Fleet source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: FerrPOINT/fleet-control
+          ref: 5db4ff92d2168c46ce96b56f37acbbf7de92db33
+          path: inputs/fleet
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout exact SDK
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: FerrPOINT/services-base
+          ref: 19a7a381ae6dbea61a643bb96189e483fa64df5c
+          path: inputs/sdk
+          token: ${{ secrets.SERVICES_BASE_TOKEN }}
+          persist-credentials: false
+      - name: Checkout exact cold recipe and utilities
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: FerrPOINT/services-base
+          ref: 9b53de7b23593949a9e6c05bd5a4f94b930e50a0
+          path: inputs/base-utility
+          token: ${{ secrets.SERVICES_BASE_TOKEN }}
+          persist-credentials: false
+      - name: Checkout exact cleanup helper
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: FerrPOINT/services-base
+          ref: 1cf6f3f72fc10043293d4804d05c9b1156b14ac3
+          path: inputs/base-maintenance
+          token: ${{ secrets.SERVICES_BASE_TOKEN }}
+          persist-credentials: false
+      - name: Checkout exact public Hermes
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: NousResearch/hermes-agent
+          ref: bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3
+          path: inputs/hermes
+          persist-credentials: false
+      - name: Cold build and unchanged offline qualification
+        working-directory: controls/.ci/native-source
+        run: |
+          python3 -B images/build.py --prepare --profile disposable-ci \
+            --fleet-repo "$FLEET_QA_SOURCE_REPO" --sdk-repo "$FLEET_QA_SDK_REPO" \
+            --base-repo "$FLEET_QA_BASE_REPO" --maintenance-repo "$BASE_MAINTENANCE_REPO" \
+            --hermes-repo "$FLEET_QA_HERMES_REPO" > "$RUNNER_TEMP/native-build-prepare.json"
+          BUILD_PACKET=$(python3 -B -c 'import json,sys; x=json.load(open(sys.argv[1])); assert x["state"]=="prepared_not_executed"; print(x["packet"])' "$RUNNER_TEMP/native-build-prepare.json")
+          DOCKER_CONTEXT=$(docker context show)
+          printf 'BUILD_PACKET=%s\nDOCKER_CONTEXT=%s\nSDLC_MAINTENANCE_BASE=%s\n' \
+            "$BUILD_PACKET" "$DOCKER_CONTEXT" "$BUILD_PACKET/context/sources/maintenance" >> "$GITHUB_ENV"
+          export BUILD_PACKET DOCKER_CONTEXT
+          python3 -B - <<'PY'
+          import json, os, sys
+          from pathlib import Path
+          sys.path.insert(0, str(Path('images').resolve()))
+          import build
+          root = Path(os.environ['BUILD_PACKET'])
+          build.verify(root)
+          context = os.environ['DOCKER_CONTEXT']
+          assert json.loads(build.checked(['docker', 'context', 'inspect', context, '--format', '{{json .Endpoints.docker.Host}}'])) == 'unix:///var/run/docker.sock'
+          docker = ['docker', '--context', context]
+          aliases = sorted(service['image'] for service in build.compose(root)['services'].values())
+          present = build.checked(docker + ['image', 'ls', '--format', '{{.Repository}}:{{.Tag}}']).decode().splitlines()
+          assert not set(aliases).intersection(present), 'No adoption of pre-existing aliases'
+          daemon = build.checked(docker + ['info', '--format', '{{.ID}}']).decode().strip()
+          with (root / 'alias-admission.json').open('x') as stream:
+              json.dump(dict(daemon=daemon, aliases=aliases, initially_absent=True), stream)
+          PY
+          python3 -B images/build.py --execute-build --packet "$BUILD_PACKET" \
+            --docker-context "$DOCKER_CONTEXT" --builder default \
+            --heavy-slot-ack "exclusive-source-image-build-$(basename "$BUILD_PACKET")-5db4ff92d216"
+      - name: Original nine native scenarios
+        working-directory: controls/.ci/native-source
+        run: |
+          python3 -B qa/run.py --prepare --image-build-packet "$BUILD_PACKET" > "$RUNNER_TEMP/native-nine-prepare.json"
+          NATIVE_PACKET=$(python3 -B -c 'import json,sys; x=json.load(open(sys.argv[1])); assert x["state"]=="prepared_not_executed" and x["execute_eligible"] is True; print(x["packet"])' "$RUNNER_TEMP/native-nine-prepare.json")
+          python3 -B qa/run.py --execute --packet "$NATIVE_PACKET" --image-build-packet "$BUILD_PACKET" \
+            --docker-context "$DOCKER_CONTEXT" --heavy-slot-ack 'exclusive native4 5db4ff92d216'
+          printf 'NATIVE_PACKET=%s\n' "$NATIVE_PACKET" >> "$GITHUB_ENV"
+      - name: Separate existing native cut supplement
+        working-directory: controls/.ci/native-source
+        run: |
+          python3 -B qa/cut_run.py --prepare --image-build-packet "$BUILD_PACKET" > "$RUNNER_TEMP/native-cut-prepare.json"
+          CUT_PACKET=$(python3 -B -c 'import json,sys; x=json.load(open(sys.argv[1])); assert x["state"]=="cut_prepared_not_executed"; print(x["packet"])' "$RUNNER_TEMP/native-cut-prepare.json")
+          python3 -B qa/cut_run.py --execute --packet "$CUT_PACKET" --image-build-packet "$BUILD_PACKET" \
+            --docker-context "$DOCKER_CONTEXT" --heavy-slot-ack 'exclusive native4cut 5db4ff92d216'
+          printf 'CUT_PACKET=%s\n' "$CUT_PACKET" >> "$GITHUB_ENV"
+      - name: Finally remove only this attempt's exact fresh candidate aliases
+        if: ${{ always() && env.BUILD_PACKET != '' }}
+        working-directory: controls/.ci/native-source
+        run: |
+          python3 -B - <<'PY'
+          import json, os, re, sys
+          from pathlib import Path
+          sys.path[:0] = [str(Path('images').resolve()), str(Path('qa').resolve())]
+          import build, cut_contract
+          from packet import sha
+          root = Path(os.environ['BUILD_PACKET'])
+          build.verify(root)
+          admission_path = root / 'alias-admission.json'
+          if not admission_path.exists():
+              print('no_alias_admission_no_image_mutation')
+              raise SystemExit(0)
+          assert not admission_path.is_symlink() and admission_path.stat().st_size <= 4096
+          admission = cut_contract.decode(admission_path.read_bytes())
+          context = os.environ['DOCKER_CONTEXT']
+          assert json.loads(build.checked(['docker', 'context', 'inspect', context, '--format', '{{json .Endpoints.docker.Host}}'])) == 'unix:///var/run/docker.sock'
+          docker = ['docker', '--context', context]
+          daemon = build.checked(docker + ['info', '--format', '{{.ID}}']).decode().strip()
+          spec = build.compose(root)
+          aliases = sorted(service['image'] for service in spec['services'].values())
+          assert admission == dict(daemon=daemon, aliases=aliases, initially_absent=True)
+          report_path = root / 'terminal-report.json'
+          report = None
+          if report_path.exists():
+              assert not report_path.is_symlink() and report_path.stat().st_size <= 65536
+              report = cut_contract.decode(report_path.read_bytes())
+              assert report['daemon'] == daemon and report['source'] == build.INPUTS['fleet']
+              assert report['seal_sha256'] == sha(root / 'seal.json')
+          qualified = report is not None and report['state'] == 'qualified_candidate_images_not_native_acceptance'
+          proof = build.candidate_receipt(root) if qualified else None
+          removed = {}
+          for kind in ('hermes', 'controller'):
+              service = spec['services'][kind + '-image']
+              alias = service['image']
+              present = build.checked(docker + ['image', 'ls', '--format', '{{.Repository}}:{{.Tag}}']).decode().splitlines()
+              if alias not in present:
+                  assert not qualified, 'Qualified alias disappeared before cleanup'
+                  continue
+              marker = root / 'execution.json'
+              assert marker.is_file() and not marker.is_symlink() and marker.stat().st_size <= 4096
+              value = build.image(docker, alias)
+              assert re.fullmatch(r'sha256:[a-f0-9]{64}', value['id'])
+              assert all(value['labels'].get(k) == v for k, v in service['build']['labels'].items())
+              if proof is not None: assert value['id'] == proof['images'][kind]
+              build.checked(docker + ['image', 'rm', '--no-prune', alias])
+              removed[kind] = value['id']
+          present = build.checked(docker + ['image', 'ls', '--format', '{{.Repository}}:{{.Tag}}']).decode().splitlines()
+          assert not set(aliases).intersection(present)
+          if qualified: assert set(removed) == {'controller', 'hermes'}
+          cleanup = dict(state='exact_candidate_aliases_removed', source=build.INPUTS['fleet'],
+              seal_sha256=sha(root / 'seal.json'), daemon=daemon, aliases_absent=2, removed=removed,
+              no_force=True, no_parent_prune=True)
+          with (root / 'evidence/candidate-alias-cleanup.json').open('x') as stream:
+              json.dump(cleanup, stream, sort_keys=True)
+          print('exact_owned_candidate_alias_cleanup_pass')
+          PY
+      - name: Closed successful receipt from existing assertions and reports
+        working-directory: controls/.ci/native-source
+        run: |
+          python3 -B - <<'PY'
+          import hashlib, json, os, re, sys
+          from pathlib import Path
+          sys.path[:0] = [str(Path('images').resolve()), str(Path('qa').resolve())]
+          import build, run, cut_run, cut_contract, cut_compile_proof
+          from packet import sha
+          def read(path):
+              assert not path.is_symlink() and path.is_file() and path.stat().st_size <= 1048576
+              return cut_contract.decode(path.read_bytes())
+          b, n, c = (Path(os.environ[key]) for key in ('BUILD_PACKET', 'NATIVE_PACKET', 'CUT_PACKET'))
+          proof = build.candidate_receipt(b)
+          candidate_cleanup = read(b / 'evidence/candidate-alias-cleanup.json')
+          assert candidate_cleanup == dict(state='exact_candidate_aliases_removed', source=build.INPUTS['fleet'],
+              seal_sha256=sha(b / 'seal.json'), daemon=proof['daemon'], aliases_absent=2,
+              removed={key: proof['images'][key] for key in ('controller', 'hermes')},
+              no_force=True, no_parent_prune=True)
+          bm = build.verify(b)
+          inventory = hashlib.sha256(json.dumps(bm['source_inventory'], sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+          assert bm['source_count'] == 14083 and inventory == '286d6e537a41f072bf92c159c422efa2e7035d3447d79d8976b3bd584cefd13e'
+          run.bind_candidates(b); cut_run.driver.bind_candidates(b)
+          manifests = [run.verify(n), cut_run.driver.verify(c)]
+          reports = [read(p / 'terminal-report.json') for p in (n, c)]
+          parity = {'sealed_sources_helpers', 'source_pins', 'maintenance', 'immutable_images', 'permanent_runtime_images', 'cleanup_inventory', 'retained_evidence'}
+          cleanups = []
+          for packet, manifest, report in zip((n, c), manifests, reports):
+              assert report['state'] == 'scoped_native_matrix_passed_not_sdlc_acceptance'
+              assert 'failure_phase' not in report and set(report['parity']) == parity
+              assert set(report['parity'].values()) == {'passed'}
+              assert report['fleet_commit'] == build.INPUTS['fleet']
+              assert report['manifest_sha256'] == sha(packet / 'manifest.json')
+              assert report['source_count'] == manifest['source_count']
+              assert manifest['images'] == proof['images']
+              assert manifest['candidate_binding']['receipt_sha256'] == proof['receipt_sha256']
+              assert manifest['candidate_binding']['daemon'] == proof['daemon']
+              assert report['runtime_ready'] is False and report['sdlc_completion'] is False
+              assert report['compile_proof'] == run.verify_compile_proof(packet, manifest)
+              assert report['stages'] and set(report['stages'].values()) == {'passed'}
+              cleanup = report['cleanup']
+              assert set(cleanup) == {'container', 'network', 'volume', 'exact_volume_names_still_present', 'exact_network_names_still_present', 'journal_phase'}
+              assert cleanup['journal_phase'] == 'cleaned'
+              assert all(cleanup[key] == [] for key in cleanup if key != 'journal_phase')
+              cleanups.append({'journal_phase': 'cleaned', 'containers': 0, 'networks': 0, 'volumes': 0})
+          run.validate_live(reports[0]['scenario'], build.INPUTS['fleet'])
+          assert reports[0]['scenario'] == read(n / 'evidence/live-report.json')
+          assert reports[1]['matrix_kind'] == 'protocol4_cut_supplement'
+          assert reports[1]['original_nine_native_acceptance'] == 'separate_pending'
+          assert reports[1]['cut_compile_proof'] == cut_compile_proof.verify(c, manifests[1])
+          ready = read(c / 'evidence/cut-ready.json')
+          gate = read(c / 'evidence/cut-stop-ack.json')
+          cut_contract.validate_gate(gate, ready['arm'])
+          ack_paths = list((c / 'evidence').glob('ack-*.json'))
+          dispatch_paths = list((c / 'evidence').glob('dispatch-*.json'))
+          trace_paths = ack_paths + dispatch_paths
+          assert len(ack_paths) <= 128 and len(dispatch_paths) <= 128
+          assert sum(p.stat().st_size for p in trace_paths) <= 1048576
+          for path in trace_paths: read(path)
+          cut_contract.validate_report(reports[1]['scenario'], ready['arm'], cut_run.trace(c))
+          assert reports[1]['scenario'] == read(c / 'evidence/cut-live-report.json')
+          for key in ('GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT'):
+              assert re.fullmatch(r'[0-9]{1,20}', os.environ[key])
+          assert os.environ['GITHUB_RUN_ATTEMPT'] == '1'
+          receipt = dict(kind='fleet-native-scoped-success-v1', state='scoped_native_matrices_passed_not_sdlc_acceptance',
+              run_id=os.environ['GITHUB_RUN_ID'], attempt=1, controls=os.environ['GITHUB_SHA'],
+              source=build.INPUTS['fleet'], source_tree=build.INPUTS['fleet_tree'], source_parent=build.INPUTS['fleet_parent'],
+              component='81028f8263cce0fb54d888ad050b34b969c0055e',
+              pins={key: build.INPUTS[key] for key in ('sdk', 'base', 'maintenance', 'hermes', 'maintenance_sha256', 'parents')},
+              inputs_sha256=sha(Path('images/inputs.json')), source_inventory_sha256=inventory,
+              source_files=14083, hermes_blobs=13770, images=proof['images'],
+              build_receipt_sha256=proof['receipt_sha256'], build_seal_sha256=proof['seal_sha256'],
+              helper_seals=dict(component_files_sha256='d792df1cc665bb86a83bd88489984e4276212d7993dfeedef1b2f3a98735edc3',
+                  original_nine=sha(n / 'seal.json'), cuts=sha(c / 'seal.json')),
+              candidate_cleanup=candidate_cleanup,
+              same_daemon=True, offline_qualification=True, policy=proof['policy'],
+              original_nine=dict(matrix=run.EXPECTED_MATRIX, validated=True, actual_rust_supervisor=True,
+                  genuine_hermes=True, controlled_model_prompts=6, no_second_native_post_or_generation=True,
+                  compile_proof_sha256=sha(n / 'output/compile-proof.json'), report_sha256=sha(n / 'terminal-report.json'), cleanup=cleanups[0]),
+              cuts=dict(matrix=cut_contract.MATRIX, validated=True,
+                  report_sha256=sha(c / 'terminal-report.json'), cleanup=cleanups[1]),
+              held=['PM/task-bound and real producer admission', 'general interrupted/F6 cuts beyond the exact supplement',
+                    'initial SDLC publication', 'real-provider/UI', 'stopped/unstarted recovery'],
+              runtime_ready=False, sdlc_completion=False)
+          raw = (json.dumps(receipt, indent=2, sort_keys=True) + '\n').encode()
+          assert len(raw) <= 65536
+          output = Path(os.environ['RUNNER_TEMP']) / 'native-safe-receipt'
+          output.mkdir(mode=0o700)
+          with (output / 'receipt.json').open('xb') as stream: stream.write(raw)
+          assert {p.name for p in output.iterdir()} == {'receipt.json'}
+          print('closed_native_success_receipt_ready')
+          PY
+      - name: Upload only the closed success receipt
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: native-source-scoped-success
+          path: ${{ runner.temp }}/native-safe-receipt/
+          if-no-files-found: error
+          retention-days: 7

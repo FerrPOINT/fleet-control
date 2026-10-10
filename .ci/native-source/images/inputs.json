@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "fleet": "5db4ff92d2168c46ce96b56f37acbbf7de92db33",
+  "fleet_parent": "e00b73070c327d28883c3f7a2a523b759df6662b",
+  "fleet_tree": "5328b7de2d2e1922ae6748b02f974471a01d9de4",
+  "sdk": "19a7a381ae6dbea61a643bb96189e483fa64df5c",
+  "base": "9b53de7b23593949a9e6c05bd5a4f94b930e50a0",
+  "maintenance": "1cf6f3f72fc10043293d4804d05c9b1156b14ac3",
+  "maintenance_sha256": "2569882c3bb6a8b86ebb42367254720c5f802d5423bc98ef02c6fe3283e0874f",
+  "hermes": "bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3",
+  "hermes_blobs": 13770,
+  "parents": {
+    "rust": "public.ecr.aws/docker/library/rust@sha256:af306cfa71d987911a781c37b59d7d67d934f49684058f96cf72079c3626bfe0",
+    "postgres": "public.ecr.aws/docker/library/postgres@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
+    "uv": "ghcr.io/astral-sh/uv@sha256:b1e699368d24c57cda93c338a57a8c5a119009ba809305cc8e86986d4a006754",
+    "docker": "docker.io/library/docker@sha256:e2ac8e8f66ae21a060b0a8e3005c70f6ed9441aabf409434463d1f6eecd38026",
+    "debian": "docker.io/library/debian@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587"
+  },
+  "artifacts": {
+    "wheel.whl": {
+      "url": "https://files.pythonhosted.org/packages/0b/2c/87f3254fd8ffd29e4c02732eee68a83a1d3c346ae39bc6822dcbcb697f2b/wheel-0.45.1-py3-none-any.whl",
+      "sha256": "708e7481cc80179af0e556bbf0cc00b8444c7321e2700b8d8580231d13017248",
+      "limit": 1048576
+    },
+    "setuptools.whl": {
+      "url": "https://files.pythonhosted.org/packages/5d/40/e1e72872c6354b306daef1703549e8e83b4d43cfea356311bf722a043752/setuptools-83.0.0-py3-none-any.whl",
+      "sha256": "29b23c360f22f414dc7336bb39178cc7bcbf6021ed2733cde173f09dba19abb3",
+      "limit": 2097152
+    },
+    "rust-manifest.toml": {
+      "url": "https://static.rust-lang.org/dist/channel-rust-1.88.0.toml",
+      "sha256": "431b7c5c0b9a511d8e31d29b378bbc74124e8521f14beb92d3a5a5f7e7e55449",
+      "limit": 2097152
+    },
+    "debian.InRelease": {
+      "url": "https://snapshot.debian.org/archive/debian/20261009T000000Z/dists/bookworm/InRelease",
+      "sha256": "77737fa4b34f2693e982cc9ee35736816c35a7778fc2d326cc1bbf5b301fe1aa",
+      "limit": 1048576
+    },
+    "updates.InRelease": {
+      "url": "https://snapshot.debian.org/archive/debian/20261009T000000Z/dists/bookworm-updates/InRelease",
+      "sha256": "5aff6e6e76c43a3b3f8ed100aa1fdad5bb0dda38dd981ac6b92464947c23b2f6",
+      "limit": 1048576
+    },
+    "security.InRelease": {
+      "url": "https://snapshot.debian.org/archive/debian-security/20261009T000000Z/dists/bookworm-security/InRelease",
+      "sha256": "6192a790ed1d11bf7b14ccadfc4d8de3aacd98ea8c005299ed35bfd29bdf42c8",
+      "limit": 1048576
+    }
+  }
+}

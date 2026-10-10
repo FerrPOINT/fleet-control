@@ -1,0 +1,24 @@
+[package]
+name = "fleet-native-acceptance"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.88"
+publish = false
+
+[workspace]
+resolver = "3"
+
+[dependencies]
+app = { path = "../fleet-control/backend/app" }
+domain = { path = "../fleet-control/backend/domain" }
+infra = { path = "../fleet-control/backend/infra" }
+shared = { path = "../fleet-control/backend/shared" }
+axum = { version = "0.8.3", features = ["macros", "multipart"] }
+tokio = { version = "1.44", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sea-orm = { version = "1.1", default-features = false, features = ["sqlx-postgres", "runtime-tokio-rustls", "macros", "with-json", "with-uuid", "with-chrono", "mock"] }
+uuid = { version = "1.16", features = ["v4", "v7", "serde"] }
+reqwest = { version = "0.12", features = ["json", "multipart", "stream"] }
+sha2 = "0.10"
+hex = "0.4"

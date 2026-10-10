@@ -1,0 +1,418 @@
+"""Existing image wrapper's cold-source successor. Preparation is the default task scope."""
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import stat
+import subprocess
+import sys
+import uuid
+
+sys.dont_write_bytecode = True
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent
+sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(ROOT / "qa"))
+from packet import export, git, inventory, member, sha, write_json
+import hosted_policy as policy
+import recipes
+
+INPUTS = json.loads((HERE / "inputs.json").read_bytes())
+HELPERS = ("build.py", "recipes.py", "qualify.py", "fetch.py", "snapshot.sh", "controller.Dockerfile", "inputs.json")
+PREFIX = "sdlc-build-fleet-native-"
+
+
+def checked(args, timeout=120):
+    result = subprocess.run(args, capture_output=True, timeout=timeout)
+    if result.returncode:
+        raise ValueError("Owned command failed; raw arguments/output withheld")
+    return result.stdout
+
+
+def logged(args, path, timeout=1800):
+    with path.open("xb") as output:
+        result = subprocess.run(args, stdout=output, stderr=subprocess.STDOUT, timeout=timeout)
+    if result.returncode:
+        raise ValueError("Owned phase failed; private output is not a public artifact")
+
+
+def image(docker, ref):
+    template = '{{json .Id}}|{{json .RepoDigests}}|{{json .RootFS.Layers}}|{{json .Config.Labels}}|{{.Os}}|{{.Architecture}}|{{json .Config.Volumes}}'
+    p = checked(docker + ["image", "inspect", ref, "--format", template]).decode().strip().split("|")
+    if len(p) != 7:
+        raise ValueError("Closed image metadata required")
+    return dict(id=json.loads(p[0]), repo_digests=json.loads(p[1]) or [], layers=json.loads(p[2]),
+                labels=json.loads(p[3]) or {}, os=p[4], architecture=p[5], volumes=json.loads(p[6]) or {})
+
+
+def canonical_ref(ref):
+    if ref.startswith("docker.io/library/"):
+        return ref.removeprefix("docker.io/library/")
+    if ref.startswith("library/"):
+        return ref.removeprefix("library/")
+    return ref
+
+
+def parent_identity(ref, value):
+    if (canonical_ref(ref) not in [canonical_ref(x) for x in value["repo_digests"]]
+            or value["os"] != "linux" or value["architecture"] != "amd64"
+            or not re.fullmatch(r"sha256:[a-f0-9]{64}", value["id"])):
+        raise ValueError("Exact public parent/platform proof required")
+
+
+def compose(root):
+    project = root.name
+    tags = {kind: project + "-" + kind + ":candidate" for kind in ("controller", "hermes")}
+    labels = {"sdlc.task": "fleet-native-source-build", "sdlc.purpose": "qualified-candidates-not-runtime-promotion",
+              "sdlc.fleet.qa.source": INPUTS["fleet"], "sdlc.hermes.revision": INPUTS["hermes"]}
+    result = {}
+    for kind in tags:
+        args = dict(RUST_IMAGE=INPUTS["parents"]["rust"], DOCKER_IMAGE=INPUTS["parents"]["docker"]) if kind == "controller" else dict(CONTROLLER_IMAGE=tags["controller"])
+        result[kind + "-image"] = dict(image=tags[kind], build=dict(context=str(root / "context"),
+            dockerfile="recipes/" + kind + ".Dockerfile", args=args, labels=labels))
+    return dict(name=project, services=result)
+
+
+def prepare(repos, profile):
+    p = policy.policy(profile)
+    for key in ("fleet", "sdk", "base", "maintenance", "hermes"):
+        git(repos[key], "cat-file", "-e", INPUTS[key] + "^{commit}")
+    if git(repos["fleet"], "show", INPUTS["fleet"] + ":.base-revision").decode().strip() != INPUTS["sdk"]:
+        raise ValueError("Product SDK pin mismatch")
+    parents = git(repos["fleet"], "show", "-s", "--format=%P", INPUTS["fleet"]).decode().split()
+    if parents != [INPUTS["fleet_parent"]]:
+        raise ValueError("Exact current product parent tuple required")
+    if git(repos["fleet"], "rev-parse", INPUTS["fleet"] + "^{tree}").decode().strip() != INPUTS["fleet_tree"]:
+        raise ValueError("Exact current product tree required")
+    import source_coverage
+    coverage = source_coverage.qualify(repos["fleet"], INPUTS["fleet"])
+    root = HERE / (PREFIX + uuid.uuid4().hex[:12])
+    root.mkdir()
+    try:
+        context = root / "context"
+        sources = context / "sources"
+        recipes_dir = context / "recipes"
+        recipes_dir.mkdir(parents=True)
+        for key, paths in (("fleet", ["backend", ".base-revision"]),
+                           ("sdk", ["Cargo.toml", "Cargo.lock", "crates", "LICENSE"]),
+                           ("base", ["deploy/fleet-standard.Dockerfile", "deploy/fleet-hermes-launch.py",
+                                     "deploy/fleet-hermes-container-launch.py", "scripts/runtime_boundary.py",
+                                     "scripts/runtime_bootstrap.py", "scripts/runtime_control.py", "scripts/runtime_replacement.py"]),
+                           ("maintenance", ["scripts/compose_helpers.py"]), ("hermes", ["."])):
+            export(repos[key], INPUTS[key], sources / key, paths)
+        if sha(sources / "maintenance/scripts/compose_helpers.py") != INPUTS["maintenance_sha256"]:
+            raise ValueError("Exact published maintenance helper required")
+        source_inventory = inventory(sources)
+        entries = {}
+        for entry in git(repos["hermes"], "ls-tree", "-r", "-z", INPUTS["hermes"]).split(b"\0"):
+            if not entry:
+                continue
+            meta, name = entry.split(b"\t", 1)
+            mode, kind, oid = meta.decode().split()
+            path = member(name.decode(), mode)
+            if kind != "blob":
+                raise ValueError("Ordinary Hermes Git blobs required")
+            entries[str(path)] = dict(git_blob=oid, size=(sources / "hermes" / path).stat().st_size)
+        if len(entries) != INPUTS["hermes_blobs"]:
+            raise ValueError("All 13770 Hermes blobs required")
+        for name in HELPERS:
+            shutil.copyfile(HERE / name, recipes_dir / name)
+        (recipes_dir / "hermes.Dockerfile").write_bytes(recipes.hermes_recipe(
+            (sources / "base/deploy/fleet-standard.Dockerfile").read_bytes(), INPUTS,
+            (sources / "hermes/uv.lock").read_bytes()))
+        (recipes_dir / "build-constraints.txt").write_bytes(recipes.build_constraints(INPUTS))
+        (context / ".dockerignore").write_text(".git\n**/.git\n**/.local\n**/target\n**/node_modules\n**/.venv\n**/__pycache__\n", encoding="utf-8", newline="\n")
+        parent = root / "parent"
+        (parent / "evidence").mkdir(parents=True)
+        write_json(parent / "manifest.json", {"hermes_source_files": len(entries)})
+        write_json(parent / "hermes-git-inventory.json", entries)
+        for name in ("pyproject.toml", "uv.lock"):
+            shutil.copyfile(sources / "hermes" / name, parent / "evidence" / ("hermes-" + name))
+        shutil.copyfile(HERE / "qualify.py", root / "qualify.py")
+        (root / "evidence").mkdir()
+        write_json(root / "build-compose.json", compose(root))
+        write_json(root / "manifest.json", dict(state="prepared_not_executed", project=root.name,
+            inputs=INPUTS, policy=p, source_inventory=source_inventory, files=inventory(root),
+            helpers={n: sha(HERE / n) for n in HELPERS}, policy_sha256=sha(ROOT / "qa/hosted_policy.py"),
+            source_coverage_sha256=sha(ROOT / "qa/source_coverage.py"),
+            packet_sha256=sha(ROOT / "qa/packet.py"), inherited_image_ids=[], no_runtime_promotion=True,
+            source_coverage=coverage, source_count=len(source_inventory), native_executed=False, schema_generation=False))
+        write_json(root / "seal.json", {"manifest_sha256": sha(root / "manifest.json")})
+        verify(root)
+    except BaseException as error:
+        write_json(root / "prepare-failure.json", {"state": "failed", "failure_class": type(error).__name__})
+        raise
+    return root
+
+
+def verify(root):
+    if root.is_symlink() or root.parent.resolve() != HERE.resolve() or not re.fullmatch(PREFIX + r"[a-f0-9]{12}", root.name):
+        raise ValueError("Owned direct-child packet required")
+    if (root / "prepare-failure.json").exists():
+        raise ValueError("Failed packet is immutable")
+    for name in ("context", "parent", "evidence", "manifest.json", "seal.json", "build-compose.json"):
+        if (root / name).is_symlink():
+            raise ValueError("Ordinary packet paths required")
+    m = json.loads((root / "manifest.json").read_bytes())
+    if (json.loads((root / "seal.json").read_bytes()) != {"manifest_sha256": sha(root / "manifest.json")}
+            or m["inputs"] != INPUTS or m["project"] != root.name
+            or m["policy"] != policy.policy(m["policy"]["profile"])
+            or m["inherited_image_ids"] != [] or m["native_executed"] is not False
+            or m["policy_sha256"] != sha(ROOT / "qa/hosted_policy.py")
+            or m["source_coverage_sha256"] != sha(ROOT / "qa/source_coverage.py")
+            or m["packet_sha256"] != sha(ROOT / "qa/packet.py")):
+        raise ValueError("Input/capacity/source seal mismatch")
+    for name, digest in m["files"].items():
+        member(name, "100644")
+        path = root / name
+        if path.is_symlink() or sha(path) != digest:
+            raise ValueError("Sealed context differs")
+    context_files = {n.removeprefix("context/"): digest for n, digest in m["files"].items() if n.startswith("context/")}
+    if (inventory(root / "context") != context_files
+            or inventory(root / "parent") != {n.removeprefix("parent/"): digest for n, digest in m["files"].items() if n.startswith("parent/")}
+            or inventory(root / "context/sources") != m["source_inventory"]
+            or m["source_count"] != len(m["source_inventory"])
+            or any(m["helpers"][n] != sha(HERE / n) for n in HELPERS)
+            or json.loads((root / "build-compose.json").read_bytes()) != compose(root)):
+        raise ValueError("Current helper/source/Compose differs")
+    return m
+
+
+def maintenance(root):
+    path = root / "context/sources/maintenance"
+    if sha(path / "scripts/compose_helpers.py") != INPUTS["maintenance_sha256"]:
+        raise ValueError("Maintenance source mismatch")
+    spec = importlib.util.spec_from_file_location("native_build_maintenance", path / "scripts/compose_helpers.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def qualification_proof(root, kind):
+    path = root / "evidence" / (kind + "-qualification.log")
+    if path.is_symlink() or path.stat().st_size > 1048576:
+        raise ValueError("Bounded ordinary qualification receipt required")
+    proof = json.loads(path.read_bytes())
+    if proof.get("state") != "qualified" or proof.get("kind") != kind or proof.get("native_executed") is not False:
+        raise ValueError("Actual offline qualification failed")
+    if kind == "controller":
+        if (not proof.get("rust", "").startswith("rustc 1.88.0 ")
+                or not proof.get("cargo", "").startswith("cargo 1.88.0 ")
+                or not proof.get("docker", "").startswith("Docker version ") or not proof.get("compose")):
+            raise ValueError("Controller toolchain proof incomplete")
+    elif (proof.get("source_files_verified") != 13770 or not proof.get("uv", "").startswith("uv 0.11.6")
+          or proof.get("installed_closure_check") != "uv_frozen_offline_check" or not proof.get("packages")
+          or proof.get("uv_lock_sha256") != sha(root / "context/sources/hermes/uv.lock")):
+        raise ValueError("Hermes source/installed closure proof incomplete")
+    return {"sha256": sha(path), "state": "qualified"}
+
+
+def qualify(api, root, docker, candidates, daemon):
+    helper = api.ComposeHelper(project=root.name, task="fleet-native-source-build",
+        purpose="offline-13770-blobs-and-locked-dependencies", docker=docker,
+        directory=root / "qualification", daemon_id=daemon)
+    proofs = {}
+    with helper:
+        services = {}
+        for kind in ("controller", "hermes"):
+            if candidates[kind]["volumes"]:
+                raise ValueError("Candidate inherited anonymous volumes")
+            services[kind] = dict(image=candidates[kind]["id"], network_mode="none", read_only=True,
+                user="999:999", cap_drop=["ALL"], security_opt=["no-new-privileges:true"], cpus=1,
+                mem_limit="512m", pids_limit=128, tmpfs=["/tmp:rw,noexec,nosuid,size=64m,mode=1777"],
+                environment=dict(HOME="/tmp", UV_OFFLINE="1", UV_NO_CACHE="1", UV_PYTHON_DOWNLOADS="never",
+                                 RUSTUP_TOOLCHAIN="1.88.0", RUSTUP_AUTO_INSTALL="0", PYTHONDONTWRITEBYTECODE="1"),
+                working_dir="/opt/hermes" if kind == "hermes" else "/tmp",
+                entrypoint=["/opt/hermes/.venv/bin/python" if kind == "hermes" else "python3", "-B", "/qa/qualify.py", kind],
+                volumes=[dict(type="bind", source=str(root), target="/qa", read_only=True)])
+        helper.write(services)
+        for kind in services:
+            policy.capacity(policy.resources(root), verify(root)["policy"]["profile"])
+            log = root / "evidence" / (kind + "-qualification.log")
+            # Compose's status output is not the qualifier's JSON receipt.
+            with log.open("xb") as output, (root / "evidence" / (kind + "-qualification-stderr.log")).open("xb") as errors:
+                result = subprocess.run(helper.run(kind), stdout=output, stderr=errors, timeout=180)
+            if result.returncode:
+                raise ValueError("Offline qualification failed; private stderr withheld")
+            proofs[kind] = qualification_proof(root, kind)
+    if json.loads(helper.journal.read_bytes()).get("phase") != "cleaned":
+        raise ValueError("Qualification v2 cleanup incomplete")
+    return proofs
+
+
+def candidate_receipt(root):
+    m = verify(root)
+    p = root / "terminal-report.json"
+    if p.is_symlink() or p.stat().st_size > 65536:
+        raise ValueError("Bounded candidate receipt required")
+    r = json.loads(p.read_bytes())
+    if (r.get("state") != "qualified_candidate_images_not_native_acceptance"
+            or r.get("source") != INPUTS["fleet"] or r.get("seal_sha256") != sha(root / "seal.json")
+            or r.get("cleanup") != "cleaned" or r.get("native_executed") is not False
+            or r.get("parity") != {"sources": True, "parents": True, "daemon": True, "permanent": True, "resources": True}
+            or set(r.get("qualification", {})) != {"controller", "hermes"}
+            or set(r.get("images", {})) != {"controller", "hermes", "postgres"}):
+        raise ValueError("Real qualified image receipt required")
+    for kind in ("controller", "hermes"):
+        q = r["qualification"][kind]
+        if q != qualification_proof(root, kind):
+            raise ValueError("Qualification readback hash mismatch")
+    for value in r["images"].values():
+        if not re.fullmatch(r"sha256:[a-f0-9]{64}", value):
+            raise ValueError("Closed actual image ID required")
+    if not isinstance(r.get("daemon"), str) or not re.fullmatch(r"[A-Za-z0-9:._-]{1,128}", r["daemon"]):
+        raise ValueError("Closed actual daemon identity required")
+    if type(r.get("socket_gid")) is not int or not 0 <= r["socket_gid"] <= 4294967294:
+        raise ValueError("Exact owned socket group required")
+    return dict(source=INPUTS["fleet"], images=r["images"], daemon=r["daemon"],
+                socket_gid=r["socket_gid"],
+                seal_sha256=sha(root / "seal.json"), receipt_sha256=sha(p), policy=m["policy"])
+
+
+def execute(root, ack, context, builder):
+    if ack != "exclusive-source-image-build-" + root.name + "-" + INPUTS["fleet"][:12]:
+        raise ValueError("Separate exact source build ACK required before any daemon IO")
+    m = verify(root)
+    if (root / "execution.json").exists():
+        raise ValueError("One immutable build attempt only")
+    profile = m["policy"]["profile"]
+    policy.phase_preflight(root, profile)
+    if not context or not builder:
+        raise ValueError("Explicit same-daemon context and existing builder required")
+    endpoint = json.loads(checked(["docker", "context", "inspect", context, "--format", "{{json .Endpoints.docker.Host}} "]))
+    if endpoint != "unix:///var/run/docker.sock" or os.name != "posix":
+        raise ValueError("Exact original local Linux socket required; no remote host controller")
+    socket = Path("/var/run/docker.sock").stat()
+    if not stat.S_ISSOCK(socket.st_mode):
+        raise ValueError("Actual local daemon socket required")
+    docker = ["docker", "--context", context]
+    daemon_root = Path(checked(docker + ["info", "--format", "{{.DockerRootDir}}"]).decode().strip())
+    if not daemon_root.is_absolute():
+        raise ValueError("Measured local daemon filesystem required")
+    policy.phase_preflight(daemon_root, profile)
+    buildx = checked(docker + ["buildx", "inspect", builder]).decode()
+    if not re.search(r"^Driver:\s+docker\s*$", buildx, re.M) or not re.search(r"^Endpoint:\s+" + re.escape(context) + r"\s*$", buildx, re.M):
+        raise ValueError("Existing same-daemon docker builder only; no bootstrap")
+    daemon = checked(docker + ["info", "--format", "{{.ID}}"]).decode().strip()
+    platform = checked(docker + ["info", "--format", "{{.OSType}}|{{.MemTotal}}|{{.NCPU}}"]).decode().strip().split("|")
+    if platform[0] != "linux" or int(platform[1]) < 6 * policy.GIB or int(platform[2]) < 2:
+        raise ValueError("Linux daemon capacity insufficient")
+    # Exclusive creation, before first pull/build: no repeated attempt on this packet.
+    with (root / "execution.json").open("x", encoding="utf-8") as stream:
+        json.dump({"started": datetime.now(timezone.utc).isoformat(), "ack_sha256": hashlib.sha256(ack.encode()).hexdigest()}, stream)
+    api = maintenance(root)
+    before = api.permanent_state(docker)
+    parents = {}
+    report = dict(state="failed", source=INPUTS["fleet"], seal_sha256=sha(root / "seal.json"),
+                  daemon=daemon, socket_gid=socket.st_gid, images={}, qualification={}, parity={}, cleanup="not_started", native_executed=False,
+                  runtime_ready=False, sdlc_completion=False)
+    spec = compose(root)
+    command = docker + ["compose", "-p", root.name, "-f", str(root / "build-compose.json")]
+    os.environ["SDLC_MIN_FREE_GIB"] = str(m["policy"]["floor_gib"])
+    os.environ["SDLC_RESOURCE_REGISTRY"] = str(root / "evidence/resource-registry")
+    try:
+        for kind, ref in INPUTS["parents"].items():
+            policy.capacity(policy.resources(root), profile)
+            policy.capacity(policy.resources(daemon_root), profile)
+            logged(docker + ["pull", "--platform", "linux/amd64", ref], root / "evidence" / (kind + "-pull.log"))
+            parents[kind] = image(docker, ref)
+            parent_identity(ref, parents[kind])
+        candidates = {}
+        for kind in ("controller", "hermes"):
+            verify(root)
+            policy.phase_preflight(root, profile)
+            policy.phase_preflight(daemon_root, profile)
+            if checked(docker + ["info", "--format", "{{.ID}}"]).decode().strip() != daemon:
+                raise ValueError("Daemon changed")
+            tag = spec["services"][kind + "-image"]["image"]
+            tags = checked(docker + ["image", "ls", "--format", "{{.Repository}}:{{.Tag}}"], timeout=30).decode().splitlines()
+            if tag in tags:
+                raise ValueError("Candidate tag exists; no adoption or overwrite")
+            if kind == "hermes" and image(docker, spec["services"]["controller-image"]["image"]) != candidates["controller"]:
+                raise ValueError("Controller build input changed")
+            logged(command + ["build", "--builder", builder, "--pull=false", "--no-cache", "--provenance=mode=max", kind + "-image"],
+                   root / "evidence" / (kind + "-build.log"))
+            value = image(docker, spec["services"][kind + "-image"]["image"])
+            if value["os"] != "linux" or value["architecture"] != "amd64" or value["volumes"]:
+                raise ValueError("Candidate platform/anonymous volume mismatch")
+            if any(value["labels"].get(k) != v for k, v in spec["services"][kind + "-image"]["build"]["labels"].items()):
+                raise ValueError("Candidate source ownership mismatch")
+            candidates[kind] = value
+            policy.capacity(policy.resources(root), profile)
+            policy.capacity(policy.resources(daemon_root), profile)
+        report["qualification"] = qualify(api, root, docker, candidates, daemon)
+        for kind, value in candidates.items():
+            if image(docker, spec["services"][kind + "-image"]["image"]) != value:
+                raise ValueError("Qualified candidate tag changed")
+        report["images"] = {kind: value["id"] for kind, value in candidates.items()} | {"postgres": parents["postgres"]["id"]}
+    except BaseException as error:
+        report["failure_class"] = type(error).__name__
+    finally:
+        def parity(name, function):
+            try:
+                if not function():
+                    raise ValueError("Parity mismatch")
+                report["parity"][name] = True
+            except BaseException as error:
+                report["parity"][name] = False
+                report.setdefault("failure_class", type(error).__name__)
+        parity("sources", lambda: verify(root) is not None)
+        parity("parents", lambda: len(parents) == len(INPUTS["parents"]) and all(image(docker, INPUTS["parents"][k]) == v for k, v in parents.items()))
+        parity("daemon", lambda: checked(docker + ["info", "--format", "{{.ID}}"]).decode().strip() == daemon)
+        parity("permanent", lambda: api.permanent_state(docker) == before)
+        def cleanup():
+            # Qualification v2 owns its resources. Never bypass a failed v2 close.
+            for kind in ("container", "network", "volume"):
+                if checked(docker + [kind, "ls", *(["-a"] if kind == "container" else []), "-q", "--filter", "label=com.docker.compose.project=" + root.name]).strip():
+                    raise ValueError("Qualification resources remain; preserve exact v2 journal")
+            logged(command + ["down", "--remove-orphans"], root / "evidence/build-cleanup.log", 120)
+            report["cleanup"] = "cleaned"
+            return True
+        parity("resources", cleanup)
+        if not report.get("failure_class") and all(report["parity"].values()) and report["images"]:
+            report["state"] = "qualified_candidate_images_not_native_acceptance"
+        write_json(root / "terminal-report.json", report)
+    print(json.dumps({k: report[k] for k in ("state", "source", "images", "cleanup", "native_executed")}))
+    return 0 if report["state"] == "qualified_candidate_images_not_native_acceptance" else 1
+
+
+def main():
+    parser = argparse.ArgumentParser(__doc__)
+    action = parser.add_mutually_exclusive_group(required=True)
+    for name in ("prepare", "verify", "execute-build"):
+        action.add_argument("--" + name, action="store_true")
+    for name in ("fleet", "sdk", "base", "maintenance", "hermes"):
+        parser.add_argument("--" + name + "-repo", type=Path)
+    parser.add_argument("--profile", choices=tuple(policy.PROFILES), default="local")
+    parser.add_argument("--packet", type=Path)
+    parser.add_argument("--heavy-slot-ack", default="")
+    parser.add_argument("--docker-context", default="")
+    parser.add_argument("--builder", default="")
+    args = parser.parse_args()
+    try:
+        if args.prepare:
+            repos = {name: getattr(args, name + "_repo") for name in ("fleet", "sdk", "base", "maintenance", "hermes")}
+            if any(p is None or not p.is_absolute() for p in repos.values()):
+                raise ValueError("Explicit existing Git input directories required")
+            root = prepare(repos, args.profile)
+        else:
+            if args.packet is None:
+                raise ValueError("Explicit owned packet required")
+            root = args.packet.resolve()
+            if args.execute_build:
+                return execute(root, args.heavy_slot_ack, args.docker_context, args.builder)
+            verify(root)
+        print(json.dumps({"state": "prepared_not_executed", "packet": str(root), "seal_sha256": sha(root / "seal.json")}))
+        return 0
+    except BaseException as error:
+        print(json.dumps({"state": "withheld", "failure_class": type(error).__name__}))
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
