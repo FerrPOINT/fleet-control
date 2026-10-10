@@ -744,10 +744,10 @@ class HostedBackendTests(unittest.TestCase):
                     gate.verify_test_log(stage, bad, REVIEWED)
 
     def test_successor_source_tree_and_six_lf_controls_remain_closed(self):
-        self.assertEqual(gate.SOURCE_SHA, "cb1f62ee86477d60242cc05222ec923dd3c74e37")
+        self.assertEqual(gate.SOURCE_SHA, "5bc0fd3fd92a11a6957858525d9b124be00c1644")
         tree = subprocess.run(["git", "-C", str(ROOT), "rev-parse", gate.SOURCE_SHA + "^{tree}"],
             capture_output=True, check=True, timeout=30).stdout.decode().strip()
-        self.assertEqual(tree, "bf6ef0f667527e33ab3dc29dc6a0ba02a04d01b2")
+        self.assertEqual(tree, "af43cdbe03ee89723f02132f6d0819b6fa86fa9d")
         delta = subprocess.run(["git", "-C", str(ROOT), "diff", "--name-status", gate.SOURCE_SHA],
             capture_output=True, check=True, timeout=30).stdout.decode()
         gate.validate_delta(delta)
@@ -819,6 +819,8 @@ class HostedBackendTests(unittest.TestCase):
                                         b"submit(&f.supervisor, &f.agent, &f.intent, authorize())")
         normalized = normalized.replace(b"Box::pin(submit(&other, &f.agent, &f.intent, authorize()))",
                                         b"submit(&other, &f.agent, &f.intent, authorize())")
+        normalized = normalized.replace(b"Box::pin(submit(supervisor, &f.agent, intent, async { Ok(()) }))",
+                                        b"submit(supervisor, &f.agent, intent, async { Ok(()) })")
         self.assertEqual(normalized, expected)
         expected_inventory = copy.deepcopy(prior)
         expected_inventory["source_commit"] = gate.SOURCE_SHA
@@ -1726,7 +1728,7 @@ class HostedBackendTests(unittest.TestCase):
                 expected = expected.replace(b"--memory 4g", b"--memory 6g")
             actual = self.source_blob(path, "78d3727e196ed17af3af371e3a56936e556cd7e8") if path in (gate.WORKFLOW, gate.GATE, gate.INVENTORY) else (ROOT / path).read_bytes()
             self.assertEqual(actual, expected, path)
-        self.assertEqual(gate.SOURCE_SHA, "cb1f62ee86477d60242cc05222ec923dd3c74e37")
+        self.assertEqual(gate.SOURCE_SHA, "5bc0fd3fd92a11a6957858525d9b124be00c1644")
         self.assertEqual(len(gate.GATES), 84)
 
     def test_hosted_six_gib_policy_is_exact_and_retains_three_gib_reserve(self):
@@ -2451,7 +2453,8 @@ class HostedBackendTests(unittest.TestCase):
     def test_aborted_test_identity_successor_preserves_f5_controls_and_189_test_bodies(self):
         import ast
         frozen = "f5ba26c11db095de5b14d080ce46dcbb998c960c"
-        before, after = (ast.parse(data) for data in (self.source_blob(gate.HELPER, frozen), (ROOT / gate.HELPER).read_bytes()))
+        successor = "afab44ddcc06358904efa58942ea94546572693f"
+        before, after = (ast.parse(data) for data in (self.source_blob(gate.HELPER, frozen), self.source_blob(gate.HELPER, successor)))
         functions = lambda tree: {node.name: ast.dump(node) for node in tree.body if isinstance(node, ast.FunctionDef)}
         old, new = functions(before), functions(after)
         self.assertEqual(old.keys(), new.keys())
@@ -2460,14 +2463,14 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(nonfunctions(before), nonfunctions(after))
         tests = lambda data: {node.name: ast.dump(node) for node in ast.walk(ast.parse(data))
             if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")}
-        old, new = tests(self.source_blob("scripts/tests/test_hosted_backend_gate.py", frozen)), tests(Path(__file__).read_bytes())
+        old, new = tests(self.source_blob("scripts/tests/test_hosted_backend_gate.py", frozen)), tests(self.source_blob("scripts/tests/test_hosted_backend_gate.py", successor))
         self.assertEqual(len(old), 189)
         self.assertTrue(old.keys() <= new.keys())
         self.assertEqual({name for name in old if old[name] != new[name]}, {
             "test_rust_stack_overflow_complete_pair_and_abort_project_only_enum",
             "test_cb1_source_binding_is_exact_two_operand_allocation_changes_with_188_identities_preserved"})
         for path in (gate.WORKFLOW, gate.GATE, gate.INIT, gate.INVENTORY):
-            self.assertEqual((ROOT / path).read_bytes(), self.source_blob(path, frozen), path)
+            self.assertEqual(self.source_blob(path, successor), self.source_blob(path, frozen), path)
         self.assertEqual(len(gate.GATES), 84)
 
     def test_rust_stack_overflow_complete_pair_and_abort_project_only_enum(self):
@@ -2519,10 +2522,54 @@ class HostedBackendTests(unittest.TestCase):
         for unexpected in (".await", "fixture(", "bounded_submit(", "tokio::", "std::env::", "repository("):
             self.assertNotIn(unexpected, block)
 
+    def test_bounded_submit_allocation_binding_is_single_wrapper_and_preserves_afab_195_identities(self):
+        import ast
+        frozen = "afab44ddcc06358904efa58942ea94546572693f"
+        cb1 = "cb1f62ee86477d60242cc05222ec923dd3c74e37"
+        path = "backend/infra/src/runtime/pm_recovery_pg_tests.rs"
+        call = b"submit(supervisor, &f.agent, intent, async { Ok(()) })"
+        old, actual = self.source_blob(path, cb1), self.source_blob(path)
+        self.assertEqual(old.count(call), 1)
+        self.assertEqual(actual.count(b"Box::pin(" + call + b")"), 1)
+        self.assertEqual(actual, old.replace(call, b"Box::pin(" + call + b")"))
+        self.assertEqual(actual.replace(b"Box::pin(" + call + b")", call), old)
+        self.assertEqual(gate.digest(actual), "56926dcd735da7e70ffabb0973871a0e3bc70949139f3788afa888c24fbecfc8")
+        previous = json.loads(self.source_blob(gate.INVENTORY, frozen))
+        expected = copy.deepcopy(previous)
+        expected["source_commit"] = expected["config_union_preparation"]["source_commit"] = gate.SOURCE_SHA
+        expected["compiled_source_sha256"]["fleet-control/" + path] = expected["rust_source_sha256"][path] = gate.digest(actual)
+        expected["config_union_preparation"]["codegen_evidence"]["artifact_bound_source_commit"] = gate.SOURCE_SHA
+        self.assertEqual(REVIEWED, expected)
+        # Authentic artifact source remains AA11, never relabeled to the fixture child.
+        self.assertEqual(REVIEWED["config_union_preparation"]["codegen_evidence"]["source_commit"],
+                         "aa11d3b90fcacb6f01a99b8a534cadbffbf54993")
+        helper = self.source_blob(gate.HELPER, frozen).replace(cb1.encode(), gate.SOURCE_SHA.encode())
+        helper = helper.replace(gate.digest(gate.canonical(previous["compiled_source_sha256"])).encode(),
+                                gate.SOURCE_INVENTORY_SHA.encode())
+        self.assertEqual((ROOT / gate.HELPER).read_bytes(), helper)
+        self.assertEqual((ROOT / gate.WORKFLOW).read_bytes(),
+                         self.source_blob(gate.WORKFLOW, frozen).replace(cb1.encode(), gate.SOURCE_SHA.encode()))
+        for file in (gate.GATE, gate.INIT):
+            self.assertEqual((ROOT / file).read_bytes(), self.source_blob(file, frozen))
+        tests = lambda data: {node.name: ast.dump(node) for node in ast.walk(ast.parse(data))
+            if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")}
+        before, after = tests(self.source_blob("scripts/tests/test_hosted_backend_gate.py", frozen)), tests(Path(__file__).read_bytes())
+        self.assertEqual(len(before), 195)
+        self.assertTrue(before.keys() <= after.keys())
+        self.assertEqual({name for name in before if before[name] != after[name]}, {
+            "test_successor_source_tree_and_six_lf_controls_remain_closed",
+            "test_resource_observation_successor_preserves_164_identities_guards_and_provenance",
+            "test_aborted_test_identity_successor_preserves_f5_controls_and_189_test_bodies",
+            "test_cb1_source_binding_is_exact_two_operand_allocation_changes_with_188_identities_preserved"})
+        self.assertEqual(len(gate.GATES), 84)
+
     def test_cb1_source_binding_is_exact_two_operand_allocation_changes_with_188_identities_preserved(self):
         import ast
         frozen = "c5ef8f64e7215659a3ec600846dab8e0e1c5fc93"
         original_source = "6768f6642ac5f08d2c77204f0e79ab356603e54f"
+        cb1 = "cb1f62ee86477d60242cc05222ec923dd3c74e37"
+        controls = "f5ba26c11db095de5b14d080ce46dcbb998c960c"
+        reviewed = json.loads(self.source_blob(gate.INVENTORY, controls))
         path = "backend/infra/src/runtime/pm_recovery_pg_tests.rs"
         old = self.source_blob(path, original_source)
         expected = old
@@ -2530,7 +2577,7 @@ class HostedBackendTests(unittest.TestCase):
                      b"submit(&other, &f.agent, &f.intent, authorize())"):
             self.assertEqual(expected.count(call), 1)
             expected = expected.replace(call, b"Box::pin(" + call + b")")
-        actual = self.source_blob(path)
+        actual = self.source_blob(path, cb1)
         self.assertEqual(actual, expected)
         inverse = actual
         for call in (b"submit(&f.supervisor, &f.agent, &f.intent, authorize())",
@@ -2539,21 +2586,22 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(inverse, old)
         previous = json.loads(self.source_blob(gate.INVENTORY, frozen))
         updated = copy.deepcopy(previous)
-        updated["source_commit"] = updated["config_union_preparation"]["source_commit"] = gate.SOURCE_SHA
+        updated["source_commit"] = updated["config_union_preparation"]["source_commit"] = cb1
         updated["compiled_source_sha256"]["fleet-control/" + path] = updated["rust_source_sha256"][path] = gate.digest(actual)
         binding = updated["config_union_preparation"]["codegen_evidence"]
-        binding["artifact_bound_source_commit"] = gate.SOURCE_SHA
+        binding["artifact_bound_source_commit"] = cb1
         binding["source_delta"] = subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT), "diff", "--name-only",
-            binding["source_commit"], gate.SOURCE_SHA], capture_output=True, check=True, timeout=30).stdout.decode().splitlines()
-        self.assertEqual(REVIEWED, updated)
-        gate.require_codegen_binding(REVIEWED)
-        helper = self.source_blob(gate.HELPER, frozen).replace(original_source.encode(), gate.SOURCE_SHA.encode())
-        helper = helper.replace(gate.digest(gate.canonical(previous["compiled_source_sha256"])).encode(), gate.SOURCE_INVENTORY_SHA.encode())
+            binding["source_commit"], cb1], capture_output=True, check=True, timeout=30).stdout.decode().splitlines()
+        self.assertEqual(reviewed, updated)
+        gate.require_codegen_binding(reviewed)
+        helper = self.source_blob(gate.HELPER, frozen).replace(original_source.encode(), cb1.encode())
+        helper = helper.replace(gate.digest(gate.canonical(previous["compiled_source_sha256"])).encode(),
+                                gate.digest(gate.canonical(reviewed["compiled_source_sha256"])).encode())
         without_parser = lambda data: ast.dump(ast.Module(body=[node for node in ast.parse(data).body
             if not (isinstance(node, ast.FunctionDef) and node.name == "safe_test_diagnostics")], type_ignores=[]))
-        self.assertEqual(without_parser((ROOT / gate.HELPER).read_bytes()), without_parser(helper))
-        self.assertEqual((ROOT / gate.WORKFLOW).read_bytes(), self.source_blob(gate.WORKFLOW, frozen).replace(
-            original_source.encode(), gate.SOURCE_SHA.encode()))
+        self.assertEqual(without_parser(self.source_blob(gate.HELPER, controls)), without_parser(helper))
+        self.assertEqual(self.source_blob(gate.WORKFLOW, controls), self.source_blob(gate.WORKFLOW, frozen).replace(
+            original_source.encode(), cb1.encode()))
         for file in (gate.GATE, gate.INIT):
             self.assertEqual((ROOT / file).read_bytes(), self.source_blob(file, frozen))
         identities = lambda data: {node.name for node in ast.walk(ast.parse(data))

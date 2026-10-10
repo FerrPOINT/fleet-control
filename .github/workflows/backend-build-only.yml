@@ -68,7 +68,7 @@ jobs:
         timeout-minutes: 2
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: cb1f62ee86477d60242cc05222ec923dd3c74e37 # AA11 codegen reused via exact API dependency closure parity.
+          ref: 5bc0fd3fd92a11a6957858525d9b124be00c1644 # AA11 codegen reused via exact API dependency closure parity.
           path: fleet-control
           persist-credentials: false
       - name: Check out pinned build SDK
@@ -169,7 +169,7 @@ jobs:
           ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
         run: |
           {
-            printf 'Source: `%s`\n\n' cb1f62ee86477d60242cc05222ec923dd3c74e37
+            printf 'Source: `%s`\n\n' 5bc0fd3fd92a11a6957858525d9b124be00c1644
             printf 'Workflow commit: `%s`\n\n' "$GITHUB_SHA"
             printf 'Run/attempt: `%s/%s`\n\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
             printf 'Artifact ID: `%s`\n\n' "$ARTIFACT_ID"

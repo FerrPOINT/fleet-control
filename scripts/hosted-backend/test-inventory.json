@@ -213,7 +213,7 @@
     "fleet-control/backend/infra/src/runtime/pm_events.rs": "08c38c979248ae9ae918fdc4cdbd1ace6fd2a59f46f62e5e508a1ed941867743",
     "fleet-control/backend/infra/src/runtime/pm_readback.rs": "86e2d2138f770d7451e53cc10d3a5790d6c8b58eb6bf3a3ffc6cb6b1a2b7a708",
     "fleet-control/backend/infra/src/runtime/pm_recovery.rs": "80e3fe8e7f2293dfb8406cd4e7f35b80c556e68fc4be002bbc25daa3f7ce5e67",
-    "fleet-control/backend/infra/src/runtime/pm_recovery_pg_tests.rs": "8d6cdd5675bc5190569d1b62d1c31ffdf3fe47070e505bd9a75fe1811882bcce",
+    "fleet-control/backend/infra/src/runtime/pm_recovery_pg_tests.rs": "56926dcd735da7e70ffabb0973871a0e3bc70949139f3788afa888c24fbecfc8",
     "fleet-control/backend/infra/src/runtime/pm_recovery_tests.rs": "a442ef991f446154302cc73527fc7e9ad630cc7f93897acc1df9ef332166b493",
     "fleet-control/backend/infra/src/runtime/pm_tools.rs": "059bdf1ef1de2af2b8f3e71bbb2fc6892cfb81c80d9255e93dc4e7f0340942d2",
     "fleet-control/backend/infra/src/runtime/recovery_wire.rs": "a095805c0765893a1809c02ebc34a7e265155f5148beb8c729a673dd787c732c",
@@ -438,7 +438,7 @@
         "backend/cli/Cargo.toml"
       ],
       "api_dependency_closure_git_sha256": "721d0adcd6a5c08d362ea5e25535173333aeac74173608009184818fc30c4159",
-      "artifact_bound_source_commit": "cb1f62ee86477d60242cc05222ec923dd3c74e37",
+      "artifact_bound_source_commit": "5bc0fd3fd92a11a6957858525d9b124be00c1644",
       "artifact_id": 11674599663,
       "artifact_zip_sha256": "8e1284e91d778d99281b1fa27df8b5dd7887679dd1068d023ae50a84f6fb1cbb",
       "binding_kind": "verified_api_dependency_closure_parity",
@@ -707,7 +707,7 @@
       "workflow_commit": "eed4bc54149e1b317c5eb3e3e7c628eeaffbdea4"
     },
     "prior_stages_preserved": 74,
-    "source_commit": "cb1f62ee86477d60242cc05222ec923dd3c74e37"
+    "source_commit": "5bc0fd3fd92a11a6957858525d9b124be00c1644"
   },
   "default_foundation_ignored": 124,
   "executed": false,
@@ -3189,7 +3189,7 @@
     "backend/infra/src/runtime/pm_events.rs": "08c38c979248ae9ae918fdc4cdbd1ace6fd2a59f46f62e5e508a1ed941867743",
     "backend/infra/src/runtime/pm_readback.rs": "86e2d2138f770d7451e53cc10d3a5790d6c8b58eb6bf3a3ffc6cb6b1a2b7a708",
     "backend/infra/src/runtime/pm_recovery.rs": "80e3fe8e7f2293dfb8406cd4e7f35b80c556e68fc4be002bbc25daa3f7ce5e67",
-    "backend/infra/src/runtime/pm_recovery_pg_tests.rs": "8d6cdd5675bc5190569d1b62d1c31ffdf3fe47070e505bd9a75fe1811882bcce",
+    "backend/infra/src/runtime/pm_recovery_pg_tests.rs": "56926dcd735da7e70ffabb0973871a0e3bc70949139f3788afa888c24fbecfc8",
     "backend/infra/src/runtime/pm_recovery_tests.rs": "a442ef991f446154302cc73527fc7e9ad630cc7f93897acc1df9ef332166b493",
     "backend/infra/src/runtime/pm_tools.rs": "059bdf1ef1de2af2b8f3e71bbb2fc6892cfb81c80d9255e93dc4e7f0340942d2",
     "backend/infra/src/runtime/recovery_wire.rs": "a095805c0765893a1809c02ebc34a7e265155f5148beb8c729a673dd787c732c",
@@ -3289,7 +3289,7 @@
     "backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a"
   },
-  "source_commit": "cb1f62ee86477d60242cc05222ec923dd3c74e37",
+  "source_commit": "5bc0fd3fd92a11a6957858525d9b124be00c1644",
   "utility_source_sha256": {
     "scripts/runtime_bootstrap.py": "5be8066b6f7dc68f8dda7f1040c0626dad272477c019b07263821df7f86b59a2",
     "scripts/runtime_boundary.py": "2e6bfa6907b93e6d436d2b6668ae20211aca53a64c433f7e1a98ab51245b3e89",
