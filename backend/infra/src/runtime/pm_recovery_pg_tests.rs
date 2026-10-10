@@ -77,9 +77,11 @@ fn supervisor(
 }
 
 async fn fixture(lost_ack: bool, concurrent: bool) -> Fixture {
+    eprintln!("\nFLEET_PM_RECOVERY_PHASE=fixture_entered");
     let repo = repository().await;
     migration::Migrator::up(&repo.db, None).await.unwrap();
     repo.ensure_runtime_templates().await.unwrap();
+    eprintln!("\nFLEET_PM_RECOVERY_PHASE=fixture_database_ready");
     let root = std::env::temp_dir().join(format!("fleet-pm-replay-{}", Uuid::new_v4()));
     std::fs::create_dir(&root).unwrap();
     let mut resources = Resources { root, server: None };
@@ -340,7 +342,9 @@ async fn fixture(lost_ack: bool, concurrent: bool) -> Fixture {
     ));
     let supervisor = supervisor(Arc::new(config), repo.clone(), launch.controller_id);
     // Capture the proof through the real prepare path, never a fabricated proof.
+    eprintln!("\nFLEET_PM_RECOVERY_PHASE=fixture_context_ready");
     let intent = prepare(&supervisor, &agent, intent).await.unwrap();
+    eprintln!("\nFLEET_PM_RECOVERY_PHASE=fixture_prepared");
     Fixture {
         supervisor,
         repo,
@@ -434,6 +438,7 @@ async fn bounded_submit(
     supervisor: &LocalRuntimeSupervisor,
     intent: &PmDispatchIntent,
 ) -> Result<String, AppError> {
+    eprintln!("\nFLEET_PM_RECOVERY_PHASE=submit_entered");
     // Task admission is outside this helper-level regression; production callers
     // supply verify_dispatch/machine_context. Context and repository guards are real.
     tokio::time::timeout(
@@ -444,9 +449,39 @@ async fn bounded_submit(
     .expect("bounded PM production-path test")
 }
 
+#[test]
+#[ignore = "reports future layout alongside isolated PostgreSQL production-path tests"]
+fn production_aaa_future_layout_without_constructing_or_polling_runtime() {
+    fn fixture_bytes<F, Fut>(_: F) -> usize
+    where
+        F: FnOnce(bool, bool) -> Fut,
+        Fut: std::future::Future,
+    {
+        std::mem::size_of::<Fut>()
+    }
+    fn submit_bytes<F, Fut>(_: F) -> usize
+    where
+        F: FnOnce(
+            &'static Fixture,
+            &'static LocalRuntimeSupervisor,
+            &'static PmDispatchIntent,
+        ) -> Fut,
+        Fut: std::future::Future,
+    {
+        std::mem::size_of::<Fut>()
+    }
+    // Function items are not called; no future, reference, process or DB is created.
+    eprintln!(
+        "\nFLEET_PM_RECOVERY_LAYOUT={},{}",
+        fixture_bytes(fixture),
+        submit_bytes(bounded_submit),
+    );
+}
+
 #[tokio::test]
 #[ignore = "requires isolated PostgreSQL, canonical utility9b and owned private HTTP bind"]
 async fn production_lost_ack_reload_reuses_original_journal_and_persists_same_native_ack() {
+    eprintln!("\nFLEET_PM_RECOVERY_PHASE=lost_ack_entered");
     let f = Box::pin(fixture(true, false)).await;
     assert!(bounded_submit(&f, &f.supervisor, &f.intent).await.is_err());
     let unknown = f
@@ -502,6 +537,7 @@ async fn production_lost_ack_reload_reuses_original_journal_and_persists_same_na
 #[tokio::test]
 #[ignore = "requires isolated PostgreSQL, canonical utility9b and owned private HTTP bind"]
 async fn production_concurrent_submission_cas_and_ack_keep_one_native_effect() {
+    eprintln!("\nFLEET_PM_RECOVERY_PHASE=concurrent_entered");
     let f = Box::pin(fixture(false, true)).await;
     let other_repo = repository().await;
     let other = supervisor(
@@ -517,6 +553,7 @@ async fn production_concurrent_submission_cas_and_ack_keep_one_native_effect() {
             Ok(())
         }
     };
+    eprintln!("\nFLEET_PM_RECOVERY_PHASE=concurrent_submit_entered");
     let (first, second) = tokio::time::timeout(Duration::from_secs(20), async {
         tokio::join!(
             submit(&f.supervisor, &f.agent, &f.intent, authorize()),
@@ -567,6 +604,7 @@ async fn production_concurrent_submission_cas_and_ack_keep_one_native_effect() {
 #[tokio::test]
 #[ignore = "requires isolated PostgreSQL, canonical utility9b and owned private HTTP bind"]
 async fn production_unknown_replay_rejects_current_token_context_revocation_before_post() {
+    eprintln!("\nFLEET_PM_RECOVERY_PHASE=revocation_entered");
     let f = Box::pin(fixture(true, false)).await;
     assert!(bounded_submit(&f, &f.supervisor, &f.intent).await.is_err());
     let unknown = f

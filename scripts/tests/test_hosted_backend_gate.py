@@ -44,10 +44,13 @@ class HostedBackendTests(unittest.TestCase):
         }
         for stage, names in previous["groups"].items():
             expected = set(names) | added if stage == "foundation" else set(names)
+            if stage == "pm_recovery_pg":
+                expected.add("runtime::pm_recovery::tests::pg::production_aaa_future_layout_without_constructing_or_polling_runtime")
             self.assertEqual(set(REVIEWED["groups"][stage]), expected, stage)
         self.assertEqual(set(REVIEWED["groups"]) - set(previous["groups"]), {"pm_ack_migration"})
-        self.assertEqual(REVIEWED["groups"]["pm_recovery_pg"], previous["groups"]["pm_recovery_pg"])
-        for kind, count in (("workspace_default_declarations", 400), ("ignored", 178)):
+        self.assertEqual([name for name in REVIEWED["groups"]["pm_recovery_pg"] if "production_aaa_future_layout" not in name],
+                         previous["groups"]["pm_recovery_pg"])
+        for kind, count in (("workspace_default_declarations", 400), ("ignored", 179)):
             identity = lambda row: (row["source"], row["name"])
             before = {identity(row) for row in previous[kind]}
             after = {identity(row) for row in REVIEWED[kind]}
@@ -233,12 +236,13 @@ class HostedBackendTests(unittest.TestCase):
         path = "backend/infra/src/runtime/pm_recovery_pg_tests.rs"
         prefix = "runtime::pm_recovery::tests::pg::"
         names = sorted(prefix + name for name in (
+            "production_aaa_future_layout_without_constructing_or_polling_runtime",
             "production_lost_ack_reload_reuses_original_journal_and_persists_same_native_ack",
             "production_concurrent_submission_cas_and_ack_keep_one_native_effect",
             "production_unknown_replay_rejects_current_token_context_revocation_before_post"))
         self.assertEqual(REVIEWED["groups"]["pm_recovery_pg"], names)
         source = self.source_blob(path).decode()
-        declarations = re.findall(r'#\[tokio::test\]\n#\[ignore[^\n]*\]\nasync fn (\w+)\(', source)
+        declarations = re.findall(r'#\[(?:tokio::)?test\]\n#\[ignore[^\n]*\]\n(?:async )?fn (\w+)\(', source)
         self.assertEqual(sorted(prefix + name for name in declarations), names)
         records = [row for row in REVIEWED["ignored"] if row["source"] == path]
         self.assertEqual(Counter(row["name"] for row in records), Counter(names))
@@ -248,11 +252,11 @@ class HostedBackendTests(unittest.TestCase):
         self.assertIn('#[cfg(target_os = "linux")]\n#[path = "pm_recovery_pg_tests.rs"]\nmod pg;',
                       self.source_blob("backend/infra/src/runtime/pm_recovery_tests.rs").decode())
         text = self.log("pm_recovery_pg")
-        self.assertEqual(gate.verify_test_log("pm_recovery_pg", text, REVIEWED)["passed"], 3)
+        self.assertEqual(gate.verify_test_log("pm_recovery_pg", text, REVIEWED)["passed"], 4)
         for name in names:
             line = "test " + name + " ... ok\n"
             for bad in (text.replace(line, ""), text + line, text.replace(line, line.replace("ok", "ignored")),
-                        text.replace("3 passed", "2 passed")):
+                        text.replace("4 passed", "3 passed")):
                 with self.subTest(name=name), self.assertRaises(ValueError):
                     gate.verify_test_log("pm_recovery_pg", bad, REVIEWED)
         ignored = "\n".join(row["name"] + ": test" for row in REVIEWED["ignored"])
@@ -740,10 +744,10 @@ class HostedBackendTests(unittest.TestCase):
                     gate.verify_test_log(stage, bad, REVIEWED)
 
     def test_successor_source_tree_and_six_lf_controls_remain_closed(self):
-        self.assertEqual(gate.SOURCE_SHA, "b97e1e6933d1c6156afc629708b53204cff6680a")
+        self.assertEqual(gate.SOURCE_SHA, "6768f6642ac5f08d2c77204f0e79ab356603e54f")
         tree = subprocess.run(["git", "-C", str(ROOT), "rev-parse", gate.SOURCE_SHA + "^{tree}"],
             capture_output=True, check=True, timeout=30).stdout.decode().strip()
-        self.assertEqual(tree, "4fc5867369f9fec582ea8ee4634f7b89eed88db5")
+        self.assertEqual(tree, "a998c0636dac4b7e3275b48e585dd5abf4ab40e7")
         delta = subprocess.run(["git", "-C", str(ROOT), "diff", "--name-status", gate.SOURCE_SHA],
             capture_output=True, check=True, timeout=30).stdout.decode()
         gate.validate_delta(delta)
@@ -757,6 +761,7 @@ class HostedBackendTests(unittest.TestCase):
         groups = copy.deepcopy(previous3445["groups"])
         new_case = "pm_dispatch::pm_publication_claim_requires_exact_run_instruction_receipt"
         groups["foundation"] = sorted(groups["foundation"] + [new_case])
+        groups["pm_recovery_pg"] = REVIEWED["groups"]["pm_recovery_pg"]
         self.assertEqual(REVIEWED["groups"], groups)
         self.assertEqual(set(REVIEWED["pm_workspace_required"])
                          - set(previous3445["pm_workspace_required"]), {new_case})
@@ -806,28 +811,37 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(body.count(b"let f = fixture(false, true).await;"), 1)
         expected = body.replace(b"let f = fixture(true, false).await;", b"let f = Box::pin(fixture(true, false)).await;")
         expected = expected.replace(b"let f = fixture(false, true).await;", b"let f = Box::pin(fixture(false, true)).await;")
-        self.assertEqual(self.source_blob(changed_rust), expected)
+        normalized = re.sub(rb'    eprintln!\("\\nFLEET_PM_RECOVERY_PHASE=[a-z_]+"\);\n', b"", self.source_blob(changed_rust))
+        start = normalized.index(b"#[test]\n#[ignore")
+        end = normalized.index(b"#[tokio::test]", start)
+        normalized = normalized[:start] + normalized[end:]
+        self.assertEqual(normalized, expected)
         expected_inventory = copy.deepcopy(prior)
         expected_inventory["source_commit"] = gate.SOURCE_SHA
         expected_inventory["config_union_preparation"]["source_commit"] = gate.SOURCE_SHA
         expected_inventory["config_union_preparation"]["codegen_evidence"] = preparation["codegen_evidence"]
-        expected_inventory["compiled_source_sha256"]["fleet-control/" + changed_rust] = gate.digest(expected)
-        expected_inventory["rust_source_sha256"][changed_rust] = gate.digest(expected)
+        expected_inventory["compiled_source_sha256"]["fleet-control/" + changed_rust] = gate.digest(self.source_blob(changed_rust))
+        expected_inventory["rust_source_sha256"][changed_rust] = gate.digest(self.source_blob(changed_rust))
+        expected_inventory["ignored"] = REVIEWED["ignored"]
+        expected_inventory["groups"]["pm_recovery_pg"] = REVIEWED["groups"]["pm_recovery_pg"]
         self.assertEqual(REVIEWED, expected_inventory)
         import ast
         old_helper = ast.parse(self.source_blob(gate.HELPER, prior_controls))
-        current_helper = ast.parse((ROOT / gate.HELPER).read_bytes())
+        current_helper = ast.parse(self.source_blob(gate.HELPER, "b9a81c8cb375bfe87a6531e001e16a7a1f4da4b7"))
         project = lambda tree: [ast.dump(node) for node in tree.body if not isinstance(node, ast.Assign)
             or not isinstance(node.targets[0], ast.Name) or node.targets[0].id not in {"SOURCE_SHA", "SOURCE_INVENTORY_SHA"}]
         self.assertEqual(project(old_helper), project(current_helper))
         old_tests = ast.parse(self.source_blob("scripts/tests/test_hosted_backend_gate.py", prior_controls))
         identities = lambda tree: {node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")}
         self.assertEqual(len(identities(old_tests)), 177)
-        self.assertEqual(identities(old_tests), identities(ast.parse(Path(__file__).read_bytes())))
+        self.assertEqual(identities(old_tests), identities(ast.parse(self.source_blob(
+            "scripts/tests/test_hosted_backend_gate.py", "b9a81c8cb375bfe87a6531e001e16a7a1f4da4b7"))))
         self.assertEqual((ROOT / gate.WORKFLOW).read_bytes(),
             self.source_blob(gate.WORKFLOW, prior_controls).replace(prior_source.encode(), gate.SOURCE_SHA.encode()))
-        self.assertEqual(REVIEWED["groups"], json.loads(self.source_blob(gate.INVENTORY,
-            "fe1fb3f5f863b8dad9dcd400ee2dccb68e69c4c4"))["groups"])
+        original_groups = json.loads(self.source_blob(gate.INVENTORY,
+            "fe1fb3f5f863b8dad9dcd400ee2dccb68e69c4c4"))["groups"]
+        self.assertEqual({k: v for k, v in REVIEWED["groups"].items() if k != "pm_recovery_pg"},
+                         {k: v for k, v in original_groups.items() if k != "pm_recovery_pg"})
         for path in gate.WRITE_SET:
             data = (ROOT / path).read_bytes()
             canonical = subprocess.run(["git", "-C", str(ROOT), "show", ":" + path],
@@ -1387,8 +1401,8 @@ class HostedBackendTests(unittest.TestCase):
 
     def test_all_167_ignored_exactly_once_and_337_default_declarations(self):
         records = REVIEWED["ignored"]
-        self.assertEqual(len(records), 178)
-        self.assertEqual(len({(x["source"], x["name"]) for x in records}), 178)
+        self.assertEqual(len(records), 179)
+        self.assertEqual(len({(x["source"], x["name"]) for x in records}), 179)
         self.assertEqual(Counter(x["gate"] for x in records)["runtime_controls"], 30)
         self.assertEqual(len(REVIEWED["groups"]["runtime_terminal"]), 14)
         self.assertEqual(len(REVIEWED["groups"]["foundation"]), 77)
@@ -1452,10 +1466,10 @@ class HostedBackendTests(unittest.TestCase):
 
     def test_workspace_actual_cases_match_compiler_list_not_static_count(self):
         listing = "\n".join(x["name"] + ": test" for x in REVIEWED["ignored"]) + "\nfirst: test\nsecond: test\n"
-        text = "test first ... ok\ntest second ... ok\ntest result: ok. 2 passed; 0 failed; 178 ignored;\n"
+        text = "test first ... ok\ntest second ... ok\ntest result: ok. 2 passed; 0 failed; 179 ignored;\n"
         result = gate.verify_test_log("workspace", text, REVIEWED, listing)
         self.assertEqual(result["passed"], 2)
-        for bad in (text.replace("test second ... ok\n", ""), text.replace("178 ignored", "162 ignored"), ""):
+        for bad in (text.replace("test second ... ok\n", ""), text.replace("179 ignored", "162 ignored"), ""):
             with self.assertRaises(ValueError):
                 gate.verify_test_log("workspace", bad, REVIEWED, listing)
 
@@ -1681,7 +1695,7 @@ class HostedBackendTests(unittest.TestCase):
         import ast
         frozen = "4b9e80c1359352dfa24b97650533c14cc6f718a3"
         old = ast.parse(self.source_blob(gate.HELPER, frozen))
-        new = ast.parse((ROOT / gate.HELPER).read_bytes())
+        new = ast.parse(self.source_blob(gate.HELPER, "b9a81c8cb375bfe87a6531e001e16a7a1f4da4b7"))
         functions = lambda tree: {node.name: node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.ClassDef))}
         before, after = functions(old), functions(new)
         self.assertEqual(before.keys(), after.keys())
@@ -1708,7 +1722,7 @@ class HostedBackendTests(unittest.TestCase):
                 expected = expected.replace(b"--memory 4g", b"--memory 6g")
             actual = self.source_blob(path, "78d3727e196ed17af3af371e3a56936e556cd7e8") if path in (gate.WORKFLOW, gate.INVENTORY) else (ROOT / path).read_bytes()
             self.assertEqual(actual, expected, path)
-        self.assertEqual(gate.SOURCE_SHA, "b97e1e6933d1c6156afc629708b53204cff6680a")
+        self.assertEqual(gate.SOURCE_SHA, "6768f6642ac5f08d2c77204f0e79ab356603e54f")
         self.assertEqual(len(gate.GATES), 84)
 
     def test_hosted_six_gib_policy_is_exact_and_retains_three_gib_reserve(self):
@@ -2357,6 +2371,190 @@ class HostedBackendTests(unittest.TestCase):
             for private in ("PRIVATE_SENTINEL", "TOKEN", name, "SQL"):
                 self.assertNotIn(private, gate.canonical(result).decode())
 
+    def test_pm_recovery_complete_markers_project_closed_layout_and_last_phase(self):
+        phases = ("concurrent_entered", "lost_ack_entered", "revocation_entered", "fixture_entered",
+                  "fixture_database_ready", "fixture_context_ready", "fixture_prepared", "submit_entered", "concurrent_submit_entered")
+        for newline in ("\n", "\r\n"):
+            for phase in phases:
+                raw = ("\nFLEET_PM_RECOVERY_LAYOUT=1,4294967295\nPRIVATE_SENTINEL SQL\n"
+                       "FLEET_PM_RECOVERY_PHASE=fixture_entered\nFLEET_PM_RECOVERY_PHASE=" + phase + "\n")
+                result = gate.safe_test_diagnostics(io.BytesIO(raw.replace("\n", newline).encode()), set(), {},
+                                                    Path("/qa/backend"), stage="pm_recovery_pg")
+                self.assertEqual(result["pm_recovery_diagnostics"], dict(fixture_future_bytes=1,
+                    submit_future_bytes=4294967295, last_phase=phase))
+                self.assertEqual(result["categories"], ["unknown"])
+                self.assertEqual(result["diagnostics"], [])
+                self.assertEqual(result["failed_tests"], [])
+                self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+
+    def test_pm_recovery_phase_enum_matches_exact_source_markers_and_metadata_selector(self):
+        path = "backend/infra/src/runtime/pm_recovery_pg_tests.rs"
+        source = self.source_blob(path).decode()
+        emitted = re.findall(r'eprintln!\("\\nFLEET_PM_RECOVERY_PHASE=([a-z_]+)"\);', source)
+        self.assertIsInstance(gate.PM_RECOVERY_PHASES, frozenset)
+        self.assertEqual(len(emitted), 9)
+        self.assertEqual(len(gate.PM_RECOVERY_PHASES), 9)
+        self.assertEqual(set(emitted), gate.PM_RECOVERY_PHASES)
+        selector = "runtime::pm_recovery::tests::pg::production_aaa_future_layout_without_constructing_or_polling_runtime"
+        self.assertEqual(REVIEWED["groups"]["pm_recovery_pg"][0], selector)
+        block = source[source.index("#[test]\n#[ignore"):source.index("#[tokio::test]", source.index("#[test]\n#[ignore"))]
+        self.assertIn('"\\nFLEET_PM_RECOVERY_LAYOUT={},{}"', block)
+        self.assertIn("fixture_bytes(fixture)", block)
+        self.assertIn("submit_bytes(bounded_submit)", block)
+        self.assertEqual(block.count("std::mem::size_of::<Fut>()"), 2)
+        for unexpected in (".await", "fixture(", "bounded_submit(", "tokio::", "std::env::", "repository("):
+            self.assertNotIn(unexpected, block)
+
+    def test_pm_recovery_layout_inventory_is_only_one_ignored_diagnostic_and_exact_git_binding(self):
+        frozen = "b9a81c8cb375bfe87a6531e001e16a7a1f4da4b7"
+        old = json.loads(self.source_blob(gate.INVENTORY, frozen))
+        expected = copy.deepcopy(old)
+        path = "backend/infra/src/runtime/pm_recovery_pg_tests.rs"
+        source = self.source_blob(path).decode()
+        added = "runtime::pm_recovery::tests::pg::production_aaa_future_layout_without_constructing_or_polling_runtime"
+        records = [row for row in REVIEWED["ignored"] if row["source"] == path]
+        self.assertEqual({row["name"] for row in records} - set(old["groups"]["pm_recovery_pg"]), {added})
+        for row in records:
+            name = row["name"].rsplit("::", 1)[-1]
+            self.assertEqual(row["line"], source[:source.index("fn " + name + "(") + 3].count("\n") + 1)
+            self.assertEqual({k: v for k, v in row.items() if k not in ("name", "line")},
+                             dict(package="infra", source=path, target_kind="lib", target="infra", gate="pm_recovery_pg"))
+        expected["ignored"] = sorted([row for row in old["ignored"] if row["source"] != path] + records,
+                                     key=lambda row: (row["source"], row["line"]))
+        expected["groups"]["pm_recovery_pg"] = sorted(row["name"] for row in records)
+        expected["source_commit"] = expected["config_union_preparation"]["source_commit"] = gate.SOURCE_SHA
+        expected["compiled_source_sha256"]["fleet-control/" + path] = expected["rust_source_sha256"][path] = gate.digest(source.encode())
+        binding = expected["config_union_preparation"]["codegen_evidence"]
+        binding["artifact_bound_source_commit"] = gate.SOURCE_SHA
+        binding["source_delta"] = subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT), "diff", "--name-only",
+            binding["source_commit"], gate.SOURCE_SHA], capture_output=True, check=True, timeout=30).stdout.decode().splitlines()
+        self.assertEqual(REVIEWED, expected)
+        gate.require_codegen_binding(REVIEWED)
+        self.assertEqual((len(REVIEWED["ignored"]), len(REVIEWED["workspace_default_declarations"])), (179, 400))
+        self.assertEqual(len(REVIEWED["groups"]["pm_recovery_pg"]), 4)
+        self.assertNotIn(added, REVIEWED["pm_workspace_required"])
+
+    def test_pm_recovery_duplicate_malformed_or_partial_layout_never_projects_numbers(self):
+        valid = "FLEET_PM_RECOVERY_LAYOUT=123,456\n"
+        malformed = ("0,1", "1,0", "-1,2", "1,-2", "01,2", "1,02", "true,2", "1,False", "1.0,2",
+                     "4294967296,1", "1,4294967296", "9" * 50 + ",1", "1", "1,2,3", "1,2 PRIVATE_SENTINEL", "")
+        vectors = [valid + valid, valid + valid.replace("123", "124"), valid.removesuffix("\n")]
+        for item in malformed:
+            bad = "FLEET_PM_RECOVERY_LAYOUT=" + item + "\n"
+            vectors.extend((bad, valid + bad, bad + valid))
+        vectors.extend((valid + "FLEET_PM_RECOVERY_LAYOUT=3,4", valid + "FLEET_PM_RECOVERY_LAYOUT=3,4\r\r\n"))
+        for raw in vectors:
+            with self.subTest(raw=raw):
+                result = gate.safe_test_diagnostics(io.BytesIO(("FLEET_PM_RECOVERY_PHASE=submit_entered\n" + raw).encode()),
+                    set(), {}, Path("/qa/backend"), stage="pm_recovery_pg")
+                self.assertEqual(result["pm_recovery_diagnostics"], dict(last_phase="submit_entered"))
+                self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+
+    def test_pm_recovery_markers_require_exact_lines_stage_and_existing_bounds(self):
+        good = b"FLEET_PM_RECOVERY_LAYOUT=123,456\nFLEET_PM_RECOVERY_PHASE=submit_entered\n"
+        for stage in (None, "workspace", "foundation", "credentials_pg", "PRIVATE_SENTINEL"):
+            result = gate.safe_test_diagnostics(io.BytesIO(good), set(), {}, Path("/qa/backend"), stage=stage)
+            self.assertNotIn("pm_recovery_diagnostics", result)
+        for raw in (b"prefix" + good.splitlines(keepends=True)[0], b"FLEET_PM_RECOVERY_PHASE=PRIVATE_SENTINEL\n",
+                    b"FLEET_PM_RECOVERY_PHASE=submit_entered suffix\n", b"FLEET_PM_RECOVERY_PHASE=submit_entered\r\r\n",
+                    b"FLEET_PM_RECOVERY_PHASE=submit_entered", b"test PRIVATE_SENTINEL ... " + good.splitlines(keepends=True)[0]):
+            result = gate.safe_test_diagnostics(io.BytesIO(raw), set(), {}, Path("/qa/backend"), stage="pm_recovery_pg")
+            self.assertNotIn("pm_recovery_diagnostics", result)
+        for limits in (dict(DIAGNOSTIC_INPUT_LIMIT=len(good) - 1), dict(DIAGNOSTIC_LINE_LIMIT=16)):
+            with mock.patch.multiple(gate, **limits):
+                result = gate.safe_test_diagnostics(io.BytesIO(good), set(), {}, Path("/qa/backend"), stage="pm_recovery_pg")
+            self.assertTrue(result["truncated"])
+            self.assertNotIn("pm_recovery_diagnostics", result)
+
+    def test_pm_recovery_stage_log_readback_integration_only_for_owned_recovery_stage(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "private").mkdir()
+            for stage in ("pm_recovery_pg", "credentials_pg"):
+                (root / "private" / (stage + ".log")).write_bytes(
+                    b"\nFLEET_PM_RECOVERY_LAYOUT=123,456\nFLEET_PM_RECOVERY_PHASE=fixture_prepared\n")
+                result = gate.test_failure_logs(root, stage, REVIEWED)
+                self.assertEqual("pm_recovery_diagnostics" in result, stage == "pm_recovery_pg")
+            result = gate.test_failure_logs(root, "foundation", REVIEWED)
+            self.assertNotIn("pm_recovery_diagnostics", result)
+            self.assertEqual(result["stage_log"]["state"], "missing")
+
+    def test_pm_recovery_optional_closed_schema_rejects_unsafe_values_and_anchors(self):
+        blank = dict(self.failure_test_value(), stage="pm_recovery_pg", gate_failed_stage="pm_recovery_pg",
+                     diagnostics=[], failed_tests=[], categories=["unknown"],
+                     stage_log=dict(state="readable", harness_exit_code=None, harness_signal=None))
+        layout = dict(fixture_future_bytes=1, submit_future_bytes=4294967295)
+        for data in (layout, dict(last_phase="fixture_entered"), dict(layout, last_phase="submit_entered")):
+            self.validate_failure(dict(blank, pm_recovery_diagnostics=data))
+        self.validate_failure(blank)
+        invalid = [None, [], True, {}, dict(layout, private="PRIVATE_SENTINEL"), dict(fixture_future_bytes=1),
+                   dict(submit_future_bytes=1), dict(last_phase="PRIVATE_SENTINEL"), dict(last_phase=True)]
+        for key in layout:
+            invalid.extend(dict(layout, **{key: item}) for item in (True, False, 0, -1, 4294967296, "1", 1.0, None, []))
+        for data in invalid:
+            with self.subTest(data=data), self.assertRaises(ValueError):
+                self.validate_failure(dict(blank, pm_recovery_diagnostics=data))
+        for changes in (dict(stage="credentials_pg", gate_failed_stage="credentials_pg"), dict(truncated=True),
+                        dict(stage_log=None), dict(stage_log=dict(state="missing", harness_exit_code=None, harness_signal=None))):
+            with self.assertRaises(ValueError):
+                self.validate_failure(dict(blank, pm_recovery_diagnostics=layout, **changes))
+        with self.assertRaises(ValueError):
+            self.validate_failure(dict(self.failure_value(), pm_recovery_diagnostics=layout))
+        without_log = dict(blank, pm_recovery_diagnostics=layout)
+        del without_log["stage_log"]
+        with self.assertRaises(ValueError):
+            self.validate_failure(without_log)
+
+    def test_pm_recovery_authenticated_optional_receipt_is_never_success_and_old_receipts_still_validate(self):
+        blank = dict(self.failure_test_value(), stage="pm_recovery_pg", gate_failed_stage="pm_recovery_pg",
+                     diagnostics=[], failed_tests=[], categories=["unknown"],
+                     stage_log=dict(state="readable", harness_exit_code=None, harness_signal=None))
+        for data in ({}, dict(pm_recovery_diagnostics=dict(fixture_future_bytes=123, submit_future_bytes=456,
+                                                         last_phase="fixture_prepared"))):
+            value = dict(blank, **data)
+            run, artifact, payload, args = self.failure_artifact(value=value)
+            self.assertEqual(json.loads(gate.validate_failure_readback(run, artifact, payload, **args)[gate.FAILURE_FILE]), value)
+            with self.assertRaises(ValueError):
+                gate.validate_readback(run, artifact, payload, **args)
+        value = dict(blank, pm_recovery_diagnostics=dict(last_phase="PRIVATE_SENTINEL"))
+        run, artifact, payload, args = self.failure_artifact(value=value)
+        with self.assertRaises(ValueError):
+            gate.validate_failure_readback(run, artifact, payload, **args)
+
+    def test_pm_recovery_diagnostic_successor_preserves_177_identities_and_all_execution_guards(self):
+        import ast
+        frozen = "b9a81c8cb375bfe87a6531e001e16a7a1f4da4b7"
+        functions = lambda data: {node.name: ast.dump(node) for node in ast.parse(data).body
+                                  if isinstance(node, (ast.FunctionDef, ast.ClassDef))}
+        before, after = functions(self.source_blob(gate.HELPER, frozen)), functions((ROOT / gate.HELPER).read_bytes())
+        self.assertEqual(before.keys(), after.keys())
+        self.assertEqual({name for name in before if before[name] != after[name]},
+                         {"safe_test_diagnostics", "test_failure_logs", "validate_failure_evidence", "reviewed_inventory",
+                          "verify_test_log", "verify_runtime_inventory", "execute", "validate_evidence_files"})
+        actual = (ROOT / gate.HELPER).read_bytes()
+        normalized = re.sub(rb"\b179\b", b"178", actual)
+        normalized = normalized.replace(b'len(value["groups"]["pm_recovery_pg"]) == 4',
+                                        b'len(value["groups"]["pm_recovery_pg"]) == 3')
+        normalized = normalized.replace(b'len(set(value["groups"]["pm_recovery_pg"])) == 4',
+                                        b'len(set(value["groups"]["pm_recovery_pg"])) == 3')
+        def project(data):
+            return [ast.dump(node) for node in ast.parse(data).body
+                if not (isinstance(node, ast.FunctionDef)
+                        and node.name in {"safe_test_diagnostics", "test_failure_logs", "validate_failure_evidence"})
+                and not (isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)
+                         and node.targets[0].id in {"SOURCE_SHA", "SOURCE_INVENTORY_SHA", "PM_RECOVERY_PHASES"})]
+        self.assertEqual(project(self.source_blob(gate.HELPER, frozen)), project(normalized))
+        tests = lambda data: {node.name for node in ast.walk(ast.parse(data))
+                              if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")}
+        original = tests(self.source_blob("scripts/tests/test_hosted_backend_gate.py", frozen))
+        self.assertEqual(len(original), 177)
+        self.assertTrue(original <= tests(Path(__file__).read_bytes()))
+        for path in (gate.GATE, gate.INIT):
+            self.assertEqual((ROOT / path).read_bytes(), self.source_blob(path, frozen), path)
+        self.assertEqual((ROOT / gate.WORKFLOW).read_bytes(), self.source_blob(gate.WORKFLOW, frozen).replace(
+            b"b97e1e6933d1c6156afc629708b53204cff6680a", gate.SOURCE_SHA.encode()))
+        self.assertEqual(len(gate.GATES), 84)
+
     def test_rust_stack_overflow_partial_foreign_prefix_suffix_stay_unknown(self):
         name = REVIEWED["groups"]["pm_recovery_pg"][0]
         trailer = ("error: test failed, to rerun pass `-p infra --lib`\nCaused by:\n"
@@ -2424,7 +2622,7 @@ class HostedBackendTests(unittest.TestCase):
         import ast
         frozen = "8ce324536f450f3893ed95f1b43cf683048f0723"
         before = ast.parse(self.source_blob(gate.HELPER, frozen))
-        after = ast.parse((ROOT / gate.HELPER).read_bytes())
+        after = ast.parse(self.source_blob(gate.HELPER, "b9a81c8cb375bfe87a6531e001e16a7a1f4da4b7"))
         functions = lambda tree: {node.name: ast.dump(node) for node in tree.body if isinstance(node, (ast.FunctionDef, ast.ClassDef))}
         old, new = functions(before), functions(after)
         self.assertEqual(old.keys(), new.keys())
@@ -2447,7 +2645,7 @@ class HostedBackendTests(unittest.TestCase):
         import ast
         frozen = "5b3ddd3ae164a5136e068550ec2e8c98e1234668"
         before = ast.parse(self.source_blob(gate.HELPER, frozen))
-        after = ast.parse((ROOT / gate.HELPER).read_bytes())
+        after = ast.parse(self.source_blob(gate.HELPER, "b9a81c8cb375bfe87a6531e001e16a7a1f4da4b7"))
         functions = lambda tree: {node.name: ast.dump(node) for node in tree.body
                                   if isinstance(node, (ast.FunctionDef, ast.ClassDef))}
         old, new = functions(before), functions(after)
@@ -2605,7 +2803,7 @@ class HostedBackendTests(unittest.TestCase):
         import ast
         frozen = "73b33f4422df8aa19fc81e45dabf901c00e792df"
         old_tree = ast.parse(self.source_blob(gate.HELPER, frozen))
-        new_tree = ast.parse((ROOT / gate.HELPER).read_bytes())
+        new_tree = ast.parse(self.source_blob(gate.HELPER, "b9a81c8cb375bfe87a6531e001e16a7a1f4da4b7"))
         functions = lambda tree: {node.name: node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.ClassDef))}
         before, after = functions(old_tree), functions(new_tree)
         self.assertEqual(before.keys(), after.keys())
@@ -2905,14 +3103,14 @@ class HostedBackendTests(unittest.TestCase):
         workflow_sha = "a" * 40
         focused = {name: dict(passed=len(names), failed=0, ignored=124 if name == "foundation" else 0,
                               tests=sorted(names)) for name, names in REVIEWED["groups"].items()}
-        focused["workspace"] = dict(passed=1, failed=0, ignored=178, tests=["normal"])
+        focused["workspace"] = dict(passed=1, failed=0, ignored=179, tests=["normal"])
         report = dict(backend_quality_gate=True, all_quality_gate=False, sdlc_acceptance=False, status="success",
                       gates=[dict(stage=name, status="passed") for name in gate.GATES], focused=focused,
-                      cleanup=dict(scratch=True, synthetic_databases=True), ignored_required=178, foundation_ignored=124,
+                      cleanup=dict(scratch=True, synthetic_databases=True), ignored_required=179, foundation_ignored=124,
                       contracts={stage: dict(passed=len(names), failed=0, ignored=0, tests=sorted(names))
                                  for stage, names in REVIEWED["python_contracts"].items()},
                       migration_ledger=dict(snapshots=gate.expected_migration_receipt(REVIEWED), applied_at_preserved=True),
-                      runtime_inventory=dict(ignored=178, listed_default_count=1, ignored_names_sha256=gate.digest(gate.canonical(
+                      runtime_inventory=dict(ignored=179, listed_default_count=1, ignored_names_sha256=gate.digest(gate.canonical(
                           sorted(item["name"] for item in REVIEWED["ignored"])))))
         report.update(report_changes or {})
         provenance = dict(version=1, repository=gate.REPOSITORY, branch=gate.BRANCH, source_sha=gate.SOURCE_SHA,

@@ -213,7 +213,7 @@
     "fleet-control/backend/infra/src/runtime/pm_events.rs": "08c38c979248ae9ae918fdc4cdbd1ace6fd2a59f46f62e5e508a1ed941867743",
     "fleet-control/backend/infra/src/runtime/pm_readback.rs": "86e2d2138f770d7451e53cc10d3a5790d6c8b58eb6bf3a3ffc6cb6b1a2b7a708",
     "fleet-control/backend/infra/src/runtime/pm_recovery.rs": "80e3fe8e7f2293dfb8406cd4e7f35b80c556e68fc4be002bbc25daa3f7ce5e67",
-    "fleet-control/backend/infra/src/runtime/pm_recovery_pg_tests.rs": "1f84feb87def01df0516f220d6a4a65902a69a3bedd0dcc3928f74fad8255a69",
+    "fleet-control/backend/infra/src/runtime/pm_recovery_pg_tests.rs": "3c8306c71b5dd4b51ccf0306beadc94edfcc059913cf34b18e6e32d0dc28bbf7",
     "fleet-control/backend/infra/src/runtime/pm_recovery_tests.rs": "a442ef991f446154302cc73527fc7e9ad630cc7f93897acc1df9ef332166b493",
     "fleet-control/backend/infra/src/runtime/pm_tools.rs": "059bdf1ef1de2af2b8f3e71bbb2fc6892cfb81c80d9255e93dc4e7f0340942d2",
     "fleet-control/backend/infra/src/runtime/recovery_wire.rs": "a095805c0765893a1809c02ebc34a7e265155f5148beb8c729a673dd787c732c",
@@ -438,7 +438,7 @@
         "backend/cli/Cargo.toml"
       ],
       "api_dependency_closure_git_sha256": "721d0adcd6a5c08d362ea5e25535173333aeac74173608009184818fc30c4159",
-      "artifact_bound_source_commit": "b97e1e6933d1c6156afc629708b53204cff6680a",
+      "artifact_bound_source_commit": "6768f6642ac5f08d2c77204f0e79ab356603e54f",
       "artifact_id": 11674599663,
       "artifact_zip_sha256": "8e1284e91d778d99281b1fa27df8b5dd7887679dd1068d023ae50a84f6fb1cbb",
       "binding_kind": "verified_api_dependency_closure_parity",
@@ -707,7 +707,7 @@
       "workflow_commit": "eed4bc54149e1b317c5eb3e3e7c628eeaffbdea4"
     },
     "prior_stages_preserved": 74,
-    "source_commit": "b97e1e6933d1c6156afc629708b53204cff6680a"
+    "source_commit": "6768f6642ac5f08d2c77204f0e79ab356603e54f"
   },
   "default_foundation_ignored": 124,
   "executed": false,
@@ -1172,6 +1172,7 @@
       "pm_human_controls::pm_human_receipt_claim_is_once_and_unknown_never_becomes_a_new_command"
     ],
     "pm_recovery_pg": [
+      "runtime::pm_recovery::tests::pg::production_aaa_future_layout_without_constructing_or_polling_runtime",
       "runtime::pm_recovery::tests::pg::production_concurrent_submission_cas_and_ack_keep_one_native_effect",
       "runtime::pm_recovery::tests::pg::production_lost_ack_reload_reuses_original_journal_and_persists_same_native_ack",
       "runtime::pm_recovery::tests::pg::production_unknown_replay_rejects_current_token_context_revocation_before_post"
@@ -1286,7 +1287,16 @@
   "ignored": [
     {
       "gate": "pm_recovery_pg",
-      "line": 449,
+      "line": 454,
+      "name": "runtime::pm_recovery::tests::pg::production_aaa_future_layout_without_constructing_or_polling_runtime",
+      "package": "infra",
+      "source": "backend/infra/src/runtime/pm_recovery_pg_tests.rs",
+      "target": "infra",
+      "target_kind": "lib"
+    },
+    {
+      "gate": "pm_recovery_pg",
+      "line": 483,
       "name": "runtime::pm_recovery::tests::pg::production_lost_ack_reload_reuses_original_journal_and_persists_same_native_ack",
       "package": "infra",
       "source": "backend/infra/src/runtime/pm_recovery_pg_tests.rs",
@@ -1295,7 +1305,7 @@
     },
     {
       "gate": "pm_recovery_pg",
-      "line": 504,
+      "line": 539,
       "name": "runtime::pm_recovery::tests::pg::production_concurrent_submission_cas_and_ack_keep_one_native_effect",
       "package": "infra",
       "source": "backend/infra/src/runtime/pm_recovery_pg_tests.rs",
@@ -1304,7 +1314,7 @@
     },
     {
       "gate": "pm_recovery_pg",
-      "line": 569,
+      "line": 606,
       "name": "runtime::pm_recovery::tests::pg::production_unknown_replay_rejects_current_token_context_revocation_before_post",
       "package": "infra",
       "source": "backend/infra/src/runtime/pm_recovery_pg_tests.rs",
@@ -3179,7 +3189,7 @@
     "backend/infra/src/runtime/pm_events.rs": "08c38c979248ae9ae918fdc4cdbd1ace6fd2a59f46f62e5e508a1ed941867743",
     "backend/infra/src/runtime/pm_readback.rs": "86e2d2138f770d7451e53cc10d3a5790d6c8b58eb6bf3a3ffc6cb6b1a2b7a708",
     "backend/infra/src/runtime/pm_recovery.rs": "80e3fe8e7f2293dfb8406cd4e7f35b80c556e68fc4be002bbc25daa3f7ce5e67",
-    "backend/infra/src/runtime/pm_recovery_pg_tests.rs": "1f84feb87def01df0516f220d6a4a65902a69a3bedd0dcc3928f74fad8255a69",
+    "backend/infra/src/runtime/pm_recovery_pg_tests.rs": "3c8306c71b5dd4b51ccf0306beadc94edfcc059913cf34b18e6e32d0dc28bbf7",
     "backend/infra/src/runtime/pm_recovery_tests.rs": "a442ef991f446154302cc73527fc7e9ad630cc7f93897acc1df9ef332166b493",
     "backend/infra/src/runtime/pm_tools.rs": "059bdf1ef1de2af2b8f3e71bbb2fc6892cfb81c80d9255e93dc4e7f0340942d2",
     "backend/infra/src/runtime/recovery_wire.rs": "a095805c0765893a1809c02ebc34a7e265155f5148beb8c729a673dd787c732c",
@@ -3279,7 +3289,7 @@
     "backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a"
   },
-  "source_commit": "b97e1e6933d1c6156afc629708b53204cff6680a",
+  "source_commit": "6768f6642ac5f08d2c77204f0e79ab356603e54f",
   "utility_source_sha256": {
     "scripts/runtime_bootstrap.py": "5be8066b6f7dc68f8dda7f1040c0626dad272477c019b07263821df7f86b59a2",
     "scripts/runtime_boundary.py": "2e6bfa6907b93e6d436d2b6668ae20211aca53a64c433f7e1a98ab51245b3e89",

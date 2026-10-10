@@ -27,7 +27,7 @@ import zipfile
 
 REPOSITORY = "FerrPOINT/fleet-control"
 BRANCH = "build-only/config-union-backend-20261010"
-SOURCE_SHA = "b97e1e6933d1c6156afc629708b53204cff6680a"
+SOURCE_SHA = "6768f6642ac5f08d2c77204f0e79ab356603e54f"
 BASE_SHA = "19a7a381ae6dbea61a643bb96189e483fa64df5c"
 AUTH_SHA = "01388dfb43332cbe5837fd5e1fadccf09cb8886d"
 UTILITY_SHA = "9b53de7b23593949a9e6c05bd5a4f94b930e50a0"
@@ -46,7 +46,7 @@ INVENTORY = "scripts/hosted-backend/test-inventory.json"
 WRITE_SET = {WORKFLOW, HELPER, GATE, INIT, INVENTORY, "scripts/tests/test_hosted_backend_gate.py"}
 ARTIFACT_FILES = {"report.json", "provenance.json", "SHA256SUMS"}
 FAILURE_FILE = "compiler-diagnostics.json"
-SOURCE_INVENTORY_SHA = "82efee9b2825dedad8a091118d2df0ebe636991af2133394b52cc838bb723dd7"
+SOURCE_INVENTORY_SHA = "6936d2eb0aeb49f2cde7d6a399081ae159d584e97c03ad2db73705cc0b61037a"
 DIAGNOSTIC_LIMIT = 32
 DIAGNOSTIC_INPUT_LIMIT = 16 * 1024 ** 2
 DIAGNOSTIC_LINE_LIMIT = 256 * 1024
@@ -67,6 +67,11 @@ TEST_CUSTOM_HINTS = {
     "recovery_guard_missing": "Missing recovery guard",
 }
 TEST_NULL_HINTS = {"null_definition_decode": "definition", "null_body_decode": "body"}
+PM_RECOVERY_PHASES = frozenset({
+    "concurrent_entered", "lost_ack_entered", "revocation_entered", "fixture_entered",
+    "fixture_database_ready", "fixture_context_ready", "fixture_prepared",
+    "submit_entered", "concurrent_submit_entered",
+})
 TEST_AUTHORIZE_HINTS = {
     label: 'called `Result::unwrap()` on an `Err` value: Unavailable("' + label + '")'
     for label in (
@@ -461,19 +466,19 @@ def inventory(root):
 def reviewed_inventory(controls):
     value = json.loads((controls / INVENTORY).read_bytes())
     require(value["source_commit"] == SOURCE_SHA and value["executed"] is False, "Inventory pin drift")
-    require(len(value["ignored"]) == 178 and value["default_foundation_ignored"] == 124
+    require(len(value["ignored"]) == 179 and value["default_foundation_ignored"] == 124
             and len(value["groups"]["runtime_controls"]) == 30
             and len(value["groups"]["runtime_terminal"]) == 14, "Ignored coverage weakened")
     require(len({(item["package"], item["target_kind"], item["target"], item["name"])
-                 for item in value["ignored"]}) == 178, "Duplicate ignored identities")
+                 for item in value["ignored"]}) == 179, "Duplicate ignored identities")
     require(len(value["groups"]["foundation"]) == 77 and len(value["workspace_default_declarations"]) == 400,
             "Default/foundation declaration coverage drift")
     require(len(value["pm_workspace_required"]) == 49 and len(set(value["pm_workspace_required"])) == 49,
             "PM workspace selector coverage drift")
     require(len(value["groups"]["pm_human_controls"]) == 5
             and len(set(value["groups"]["pm_human_controls"])) == 5, "PM human selector coverage drift")
-    require(len(value["groups"]["pm_recovery_pg"]) == 3
-            and len(set(value["groups"]["pm_recovery_pg"])) == 3, "PM recovery selector coverage drift")
+    require(len(value["groups"]["pm_recovery_pg"]) == 4
+            and len(set(value["groups"]["pm_recovery_pg"])) == 4, "PM recovery selector coverage drift")
     require({name: len(value["groups"][name]) for name in ("credentials_unit", "credentials_pg", "real_auth")}
             == dict(credentials_unit=8, credentials_pg=16, real_auth=2), "Credential coverage drift")
     require(len(value["groups"]["container_activation_pg"]) == 14
@@ -704,7 +709,7 @@ def failure_test_names(reviewed, stage):
     return set(reviewed["groups"].get(stage, ()))
 
 
-def safe_test_diagnostics(stream, names, allowed, fleet_backend):
+def safe_test_diagnostics(stream, names, allowed, fleet_backend, *, stage=None):
     # Panic detail yields only fixed hints, never raw messages, SQL or values.
     diagnostics, seen, failed, hints, truncated = [], set(), set(), set(), False
     panic_detail = False
@@ -714,6 +719,8 @@ def safe_test_diagnostics(stream, names, allowed, fleet_backend):
     termination = None
     conflicting_termination = False
     stack_header = stack_overflow = False
+    recovery = {}
+    layout_seen = layout_invalid = False
     signals = {"6, SIGABRT: process abort signal": "SIGABRT",
                "9, SIGKILL: kill": "SIGKILL", "11, SIGSEGV: invalid memory reference": "SIGSEGV"}
     remaining = DIAGNOSTIC_INPUT_LIMIT
@@ -738,6 +745,17 @@ def safe_test_diagnostics(stream, names, allowed, fleet_backend):
         # Rust 1.88's adjacent complete headers attest only a closed category.
         complete = line.endswith(b"\n")
         fatal_text = line.removesuffix(b"\n").removesuffix(b"\r").decode("utf-8", errors="replace")
+        if stage == "pm_recovery_pg":
+            if fatal_text.startswith("FLEET_PM_RECOVERY_LAYOUT="):
+                layout = re.fullmatch(r"FLEET_PM_RECOVERY_LAYOUT=([1-9][0-9]{0,9}),([1-9][0-9]{0,9})", fatal_text) if complete else None
+                if layout_seen or layout is None or any(int(item) > 4294967295 for item in layout.groups()):
+                    layout_invalid = True
+                elif not layout_invalid:
+                    recovery.update(fixture_future_bytes=int(layout[1]), submit_future_bytes=int(layout[2]))
+                layout_seen = True
+            phase = re.fullmatch(r"FLEET_PM_RECOVERY_PHASE=([a-z_]+)", fatal_text) if complete else None
+            if phase and phase[1] in PM_RECOVERY_PHASES:
+                recovery["last_phase"] = phase[1]
         if complete:
             if stack_header and fatal_text == "fatal runtime error: stack overflow, aborting":
                 stack_overflow = True
@@ -813,11 +831,17 @@ def safe_test_diagnostics(stream, names, allowed, fleet_backend):
         termination = None
     if stack_overflow and termination == (None, "SIGABRT"):
         hints.add("runtime_stack_overflow")
-    return dict(diagnostics=diagnostics, failed_tests=sorted(failed),
+    result = dict(diagnostics=diagnostics, failed_tests=sorted(failed),
                 categories=sorted(hints | {"test_failure" if diagnostics or failed else "unknown"}), truncated=truncated,
                 stage_log=dict(state="empty" if remaining == DIAGNOSTIC_INPUT_LIMIT else "readable",
                                harness_exit_code=termination[0] if termination else None,
                                harness_signal=termination[1] if termination else None))
+    if layout_invalid:
+        recovery.pop("fixture_future_bytes", None)
+        recovery.pop("submit_future_bytes", None)
+    if recovery and not truncated:
+        result["pm_recovery_diagnostics"] = recovery
+    return result
 
 
 def test_failure_logs(root, stage, reviewed):
@@ -827,7 +851,7 @@ def test_failure_logs(root, stage, reviewed):
         with (root / "private" / (stage + ".log")).open("rb") as stream:
             result["stage_log"]["state"] = "unreadable"
             result.update(safe_test_diagnostics(stream, failure_test_names(reviewed, stage),
-                                               reviewed["rust_source_sha256"], root / "src/fleet-control/backend"))
+                                               reviewed["rust_source_sha256"], root / "src/fleet-control/backend", stage=stage))
     except FileNotFoundError:
         pass
     except Exception:
@@ -852,6 +876,8 @@ def validate_failure_evidence(value, *, workflow_sha, run_id, attempt):
         extra.add("failed_tests")
         if "stage_log" in value:
             extra.add("stage_log")
+        if "pm_recovery_diagnostics" in value:
+            extra.add("pm_recovery_diagnostics")
     require(isinstance(value, dict) and set(value) == set(expected) | extra, "Unsafe failure evidence fields")
     require(all(type(value[key]) is type(item) and value[key] == item for key, item in expected.items()), "Failure provenance mismatch")
     reviewed = reviewed_inventory(controls)
@@ -859,6 +885,19 @@ def validate_failure_evidence(value, *, workflow_sha, run_id, attempt):
     require((bool(failure_test_names(reviewed, value["stage"])) if test_failure else value["stage"] in ("check", "clippy"))
             and value["gate_failed_stage"] in (value["stage"], "cleanup"), "Invalid failure stage")
     if test_failure:
+        if "pm_recovery_diagnostics" in value:
+            recovery = value["pm_recovery_diagnostics"]
+            require(value["stage"] == "pm_recovery_pg" and isinstance(value.get("stage_log"), dict)
+                    and value["stage_log"].get("state") == "readable"
+                    and value.get("truncated") is False, "Unanchored PM recovery diagnostics")
+            require(isinstance(recovery, dict) and bool(recovery)
+                    and set(recovery) <= {"fixture_future_bytes", "submit_future_bytes", "last_phase"}, "Unsafe PM recovery fields")
+            require(("fixture_future_bytes" in recovery) == ("submit_future_bytes" in recovery)
+                    and all(type(recovery[key]) is int and 1 <= recovery[key] <= 4294967295
+                            for key in ("fixture_future_bytes", "submit_future_bytes") if key in recovery), "Unsafe PM recovery layout")
+            require("last_phase" not in recovery or isinstance(recovery["last_phase"], str)
+                    and recovery["last_phase"] in PM_RECOVERY_PHASES,
+                    "Unsafe PM recovery phase")
         if "stage_log" in value:
             log = value["stage_log"]
             require(isinstance(log, dict) and set(log) == {"state", "harness_exit_code", "harness_signal"}, "Unsafe stage log fields")
@@ -929,7 +968,7 @@ def verify_test_log(stage, text, reviewed, ordinary_listing=""):
         require(bool(expected) and actual == expected, "Workspace default execution differs from compiler listing")
         require(bool(summaries) and sum(row[0] for row in summaries) == sum(actual.values())
                 and all(row[1] == 0 for row in summaries)
-                and sum(row[2] for row in summaries) == 178, "Workspace result/ignored totals drift")
+                and sum(row[2] for row in summaries) == 179, "Workspace result/ignored totals drift")
     else:
         expected = Counter(reviewed["groups"][stage])
         ignored = 124 if stage == "foundation" else 0
@@ -941,7 +980,7 @@ def verify_test_log(stage, text, reviewed, ordinary_listing=""):
 
 def verify_runtime_inventory(ordinary, ignored, reviewed):
     expected = Counter(item["name"] for item in reviewed["ignored"])
-    require(listed_names(ignored) == expected and sum(expected.values()) == 178, "Compiler ignored inventory drift")
+    require(listed_names(ignored) == expected and sum(expected.values()) == 179, "Compiler ignored inventory drift")
     require(bool(listed_names(ordinary) - expected), "Zero workspace default selection")
     require(all(listed_names(ordinary)[name] == 1 and name not in expected
                 for name in reviewed["pm_workspace_required"]), "PM compiler selectors missing/duplicate/ignored")
@@ -951,7 +990,7 @@ def verify_runtime_inventory(ordinary, ignored, reviewed):
                 for name in reviewed["groups"]["pm_recovery_pg"]), "PM recovery compiler selectors missing/duplicate/not ignored")
     require(all(listed_names(ordinary)[name] == expected[name] == 1
                 for name in reviewed["groups"]["pm_ack_migration"]), "PM ACK migration compiler selector missing/duplicate/not ignored")
-    return dict(ignored=178, ignored_names_sha256=digest(canonical(sorted(expected.elements()))),
+    return dict(ignored=179, ignored_names_sha256=digest(canonical(sorted(expected.elements()))),
                 listed_default_count=sum((listed_names(ordinary) - expected).values()))
 
 
@@ -1252,7 +1291,7 @@ def execute():
                   status="success" if success else "failure", failed_stage=None if success else failed_stage,
                   gates=safe_rows, focused=focused, runtime_inventory=runtime_inventory,
                   contracts=contracts, migration_ledger=migration_ledger,
-                  ignored_required=178, foundation_ignored=124, resources=resources, cleanup=cleanup,
+                  ignored_required=179, foundation_ignored=124, resources=resources, cleanup=cleanup,
                   service_disposal="GitHub-managed ephemeral service, platform cleanup after job",
                   local_docker_or_native_guard_waiver=False, private_diagnostics_uploaded=False)
     provenance = dict(version=1, repository=REPOSITORY, branch=BRANCH, source_sha=SOURCE_SHA, base_sha=BASE_SHA,
@@ -1362,8 +1401,8 @@ def validate_evidence_files(files, *, workflow_sha, run_id, attempt):
             and report["sdlc_acceptance"] is False and report["status"] == "success"
             and report["gates"] == [dict(stage=name, status="passed") for name in GATES]
             and report["cleanup"] == dict(scratch=True, synthetic_databases=True)
-            and report["ignored_required"] == 178 and report["foundation_ignored"] == 124
-            and report["runtime_inventory"]["ignored"] == 178, "Incomplete backend gate receipt")
+            and report["ignored_required"] == 179 and report["foundation_ignored"] == 124
+            and report["runtime_inventory"]["ignored"] == 179, "Incomplete backend gate receipt")
     reviewed = reviewed_inventory(controls)
     require_codegen_binding(reviewed)
     require(provenance["utility_tree"] == reviewed["utility_tree"], "Utility tree drift")
@@ -1379,7 +1418,7 @@ def validate_evidence_files(files, *, workflow_sha, run_id, attempt):
         require(actual == dict(passed=len(names), failed=0, ignored=124 if stage == "foundation" else 0,
                                tests=sorted(names)), "Focused test receipt mismatch")
     ws = report["focused"]["workspace"]
-    require(ws["passed"] > 0 and ws["failed"] == 0 and ws["ignored"] == 178
+    require(ws["passed"] > 0 and ws["failed"] == 0 and ws["ignored"] == 179
             and len(ws["tests"]) == ws["passed"] == report["runtime_inventory"]["listed_default_count"],
             "Empty/failed workspace receipt")
     require(report["runtime_inventory"]["ignored_names_sha256"] == digest(canonical(sorted(

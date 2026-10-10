@@ -5,6 +5,27 @@ No real PM publication/resume or live Backlog acceptance is claimed.
 
 ## Current Hosted Qualification (2026-10-10)
 
+External producer status, parent API/Git verified: Workflow
+[PR90](https://github.com/FerrPOINT/project-workflow/pull/90) merged into master
+at2026-10-10T20:28:19Z as `ef2cf9e06aafe1b295f34dbdca3a432227195266`,
+with head `994bc8ee024bfd7f0d92cf02189daad417f19149`; head-to-merge file diff is
+empty. The7fd-to994 ten-path delta includes command.checkpoint_ref PM resume
+repair, resource-context I/O threads, UI/tests and rewritten docs. PM OpenAPI
+is unchanged; neither that parity nor the merge proves this consumer qualified.
+
+The external docs' PM acceptance claim uses Fleet
+`91f64808e303c90a0d819bfdb70940b8d7133da2`, Tracker
+`e289a885892b76e933ed804ef055164b52fbe11d` and compiler SDK
+`913370b487ceadd408f975ea7f8ca96bfcb99484`, not ourb97/SDK19a assembly.
+Fleet main remains `c39ff84d82277004bf8170fbac2f3b122ea6bcad`;91f is diverged
+(ahead2/behind221), associated with open stacked PR65, current headc47d19c,
+base feat/chats-pm-consumer-20261008. Tracker main is
+`4c106e3272eddd01c1ace928d8c8a73b7a8e9127`,63 commits behinde289, which is
+associated with open PR127/base feat/shared-namespace-20261008. The external
+"merged Fleet" wording is not a Fleet/Tracker main release or this assembly's
+PM/native acceptance. No stacked PR is modified or imported here. Existing
+failure receipts below retain their original scopes.
+
 Corrected frontend
 [38072655687](https://github.com/FerrPOINT/fleet-control/actions/runs/38072655687),
 attempt1, is SUCCESS on product `aca917c4a79d1718beab8f5b82631f1698ebda5c`
@@ -35,7 +56,7 @@ its timestamp nor byte identity. This import is fixture evidence, not live accep
 
 The preceding successful packet and discovered defect are preserved below.
 
-Latest terminal backend observation
+Earlier backend SIGABRT-only observation
 [38079858809](https://github.com/FerrPOINT/fleet-control/actions/runs/38079858809)/1
 is FAILURE on controls `8ce324536f450f3893ed95f1b43cf683048f0723`, product
 `3fcbe6288dfb52d6b56eed5068ee364532ac84f6`. Parent and Pascal independently
@@ -53,10 +74,49 @@ Reviewed normal successor `78d3727e196ed17af3af371e3a56936e556cd7e8` is
 published. It adds only a fixed fatal category, requiring complete adjacent
 source-attested headers plus independently parsed nontruncated/nonconflicting
 SIGABRT. All172 prior pure identities and all84 gates remain;177 Linux pure
-tests pass without skips (Windows174 PASS/three platform skips). This diagnostic
-mechanism is not an observed fatal header or a product correction. Actual
+tests pass without skips (Windows174 PASS/three platform skips). Publication
+alone is not an observed fatal header or a product correction.
+
+Earlier backend stack-overflow observation
 [38081721112](https://github.com/FerrPOINT/fleet-control/actions/runs/38081721112)/1
-started on that exact head; no terminal result is recorded here.
+is FAILURE on exact controls `78d3727e196ed17af3af371e3a56936e556cd7e8`
+and product `3fcbe6288dfb52d6b56eed5068ee364532ac84f6`. Parent and Pascal
+independently verify original strict failure readback of artifact11681012075,
+ZIP SHA256 `ce46de37ac01cd18a510cf3e954bb4492d09fcf91b1a93fcb94e847a88d9ff14`.
+The failure is pm_recovery_pg13/84, gate exit101, categories
+`runtime_stack_overflow` and `unknown`, readable/untruncated stage log and
+harness SIGABRT; command exit and harness exit are null. Failed-test and
+diagnostic/frame lists are empty. Both scratch and synthetic database cleanup
+are true; all acceptance flags remain false. The preceding twelve gates pass,
+not all84 or the later dedicated024 qualification.
+
+The fixed enum attests complete adjacent Rust stack-overflow headers from an
+allowlisted test thread plus independently reported nonconflicting SIGABRT.
+This is actual stack-overflow evidence, not identification of a particular test,
+future or source line. The earlier8ce run retains its SIGABRT-only unknown
+classification; it is not retrospectively upgraded. Reviewed candidate
+`b97e1e6933d1c6156afc629708b53204cff6680a` is published as the normal sole child
+ofe90, changing only the three test-fixture await sites to Box::pin in
+pm_recovery_pg_tests.rs. Parent reports rustfmt/diff and independent review
+pass at publication, not compilation or fix acceptance. The actual successor
+attempt below failed; no particular overflowing future is measured. No raw
+private log or assertion body is retained here.
+
+Latest terminal backend observation
+[38083840384](https://github.com/FerrPOINT/fleet-control/actions/runs/38083840384)/1
+is FAILURE on exact controls `b9a81c8cb375bfe87a6531e001e16a7a1f4da4b7`
+and source `b97e1e6933d1c6156afc629708b53204cff6680a`.
+Parent original strict readback verifies artifact11682500179, ZIP SHA256
+`1f8f81b2424c11bd96d26158386321a946031046da570c85799ac04f70ff18be`.
+The closed receipt records pm_recovery_pg13/84, exit101, categories
+`runtime_stack_overflow` and `unknown`, readable/untruncated log and SIGABRT.
+Command/harness exit codes are null; failed-test and diagnostic/frame lists are
+empty. Both scratch and synthetic database cleanup are true; all acceptance
+flags remain false. The three-line Box::pin fixture candidate failed this
+qualification and did not fix the gate, rather than merely awaiting a first
+run. No particular test, future or source line causing overflow is identified.
+Prior78's stack-fatal evidence and8ce's SIGABRT-only unknown scope stay separate;
+this failure neither changes their receipts nor grants later-stage acceptance.
 
 Earlier backend admission refusal
 [38078901349](https://github.com/FerrPOINT/fleet-control/actions/runs/38078901349),
@@ -191,6 +251,40 @@ claimed. Earlier38075925575 failed at parent_pull with no exact parent/cause;
 this newer observation neither repeats nor retroactively explains that failure.
 
 Latest terminal Forge observation
+[38083675365](https://github.com/FerrPOINT/CI-CD/actions/runs/38083675365)/1
+is FAILURE on controls `29447047bc1eb5a63bea3048c2706a865a363d85` and unchanged
+product `5f973b33e758a4d60e86fc8ff4eda99c6d4496c1`. Authenticated original
+readback verifies A artifact11680789523, ZIP SHA256
+`f1960fa18c6dab936b9a651fd993dfc3bfa263f690e5c30b6a9860447f0c45c0`.
+The closed error is admission/closed_failure. All12 stages are unexecuted:
+A's five stages are NOT_RUN, B/C skipped with no fresh receipts. No Rust,
+OCI/CLI/checkpoint observation or actual aggregate result exists for this run.
+
+Receipt milestones and exact-source read-only reproduction identify the stale
+python_counts guard: OCI28 rejects the approved source's31 methods; PG has47.
+The final aggregate also expects OCI28, but that predicate was not reached.
+This is a controls count-mapping defect, not an observed native OCI cause.
+Cleanup complete/disposable_complete/daemon_stopped/delegation_removed are true
+with no errors, in a pre-bootstrap scope: no daemon/cache/native workload was
+reached, so these flags do not prove an actual daemon launch/stop or baseline
+inventory restoration. Full12 remains unaccepted; no full12.json is produced.
+
+Reviewed sole294 child `20e4f4fd12230ed87d01f05b18d3417a11e052a8`
+corrects the existing47/31 count mapping, exercises the actual count function
+in tests and updates stale fixtures/partitions. Parent reports Windows235
+selectors:214 PASS/21 skips, then Linux235/235 PASS with zero skips in9.258s;
+controls history and25 component checks pass. Independent Planck review finds
+no P1/P2. Parent published normal fast-forward294 to20e4 on the same build
+branch and verified the exact remote head. Actual push-triggered
+[38084941580](https://github.com/FerrPOINT/CI-CD/actions/runs/38084941580)/1
+on that exact20e4 head was created20:44:46Z and is in_progress as verified by
+parent API. Full12 qualification remains pending, not PASS. The backend
+successor's later terminal failure is recorded separately above; no Forge
+terminal result is claimed here.
+Product5f is unchanged. Historicalabf/d744 first-six-stage PASS and its distinct
+OCI failure follow without retrospective attribution.
+
+Earlier Forge workload observation
 [38077188736](https://github.com/FerrPOINT/CI-CD/actions/runs/38077188736)/1
 is FAILURE on controls `abf62e7d310249a3abd74ebbdd53c626f6312f55` and product
 `d7443f8dffdd7f5d921c5758bed4e5a35423c0ff`. Parent independently authenticates
