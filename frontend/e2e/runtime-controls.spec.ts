@@ -2,6 +2,13 @@ import { expect, test } from '@playwright/test'
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 import { build } from 'vite'
+import { createHash } from 'node:crypto'
+import type { AnswerInput, Question } from '../src/api/task-chats'
+import {
+  assertAnswerCommand,
+  sameAnswerRequest,
+  type ClarificationCommand,
+} from '../src/api/clarification-custody'
 
 // Real production component with mocked HTTP: not native runtime or authorization evidence.
 const root = fileURLToPath(new URL('../', import.meta.url))
@@ -267,22 +274,28 @@ test('fixture: HTTP-success uncertainty retains steer and the original stop targ
 test('fixture: uncertain clarification retains its original command across questions and versions', async ({
   page,
 }, testInfo) => {
-  const commands: { path: string; payload: unknown }[] = []
+  const commands: { path: string; payload: AnswerInput }[] = []
+  const stored: ClarificationCommand[] = []
+  const deliveries: { path: string; body: string | null }[] = []
+  const journalReads: { status: number; commands?: ClarificationCommand[] }[] = []
+  let journalAvailable = true
   const errors: string[] = []
   let version = 1
   page.on('pageerror', (error) => errors.push(error.message))
-  const question = {
-    id: 'q1',
-    request_id: 'request',
-    task_id: 'task',
-    root_task_id: 'task',
-    assignment_id: 'assignment',
-    execution_id: 'execution',
-    agent_id: 'agent1',
+  const now = '2026-10-09T12:00:00Z'
+  const question: Question = {
+    id: '00000000-0000-4000-8000-000000000801',
+    request_id: '00000000-0000-4000-8000-000000000803',
+    task_id: '00000000-0000-4000-8000-000000000804',
+    root_task_id: '00000000-0000-4000-8000-000000000804',
+    assignment_id: '00000000-0000-4000-8000-000000000805',
+    execution_id: '00000000-0000-4000-8000-000000000806',
+    agent_id: '00000000-0000-4000-8000-000000000807',
     assignment_version: 1,
-    checkpoint_id: 'checkpoint',
+    checkpoint_id: '00000000-0000-4000-8000-000000000808',
     author_subject: 'pm',
-    created_at: '2026-10-09T12:00:00Z',
+    created_at: now,
+    version: 1,
     requirement_revision: 3,
     text: 'Кто видит задачи?',
     rationale: 'Определяет границы доступа',
@@ -290,17 +303,26 @@ test('fixture: uncertain clarification retains its original command across quest
     mode: 'single',
     options: [
       {
-        id: 'project',
+        id: '00000000-0000-4000-8000-000000000809',
         label: 'Участники проекта',
         consequences: 'Только проект',
         is_custom: false,
       },
     ],
-    recommended_option_id: 'project',
+    recommended_option_id: '00000000-0000-4000-8000-000000000809',
     requirement_reference: 'REQ-04',
     state: 'open',
     answer: null,
   }
+  const secondQuestion: Question = {
+    ...question,
+    id: '00000000-0000-4000-8000-000000000802',
+    text: 'Второй вопрос',
+  }
+  const storePath = `/api/v1/sessions/session1/clarifications/${question.id}/answer-commands`
+  const journalPath = '/api/v1/sessions/session1/clarification-answer-commands'
+  const commandId = '00000000-0000-4000-8000-000000000810'
+  const deliveryPath = `${journalPath}/${commandId}/delivery`
   await page.route(`**${fixturePath}**`, (route) => {
     const path = new URL(route.request().url()).pathname
     if (path === fixturePath) return route.fulfill({ contentType: 'text/html', body: html })
@@ -311,11 +333,76 @@ test('fixture: uncertain clarification retains its original command across quest
     const request = route.request()
     const path = new URL(request.url()).pathname
     if (request.method() === 'POST') {
-      if (path !== '/api/v1/sessions/session1/clarifications/q1/answers')
-        throw new Error(`Unexpected clarification command: ${path}`)
-      commands.push({ path, payload: request.postDataJSON() })
-      version = 2
-      return route.fulfill({ status: 503, json: { error: 'Answer outcome unknown' } })
+      if (path === storePath) {
+        const payload = request.postDataJSON() as AnswerInput
+        expect(payload).toEqual({
+          expected_question_version: 1,
+          requirement_revision: 3,
+          selected_option_ids: question.options.map((option) => option.id),
+          text: null,
+          comment: 'Исходный ответ владельца',
+          idempotency_key: expect.any(String),
+        })
+        expect(payload.idempotency_key).toBeTruthy()
+        commands.push({ path, payload: structuredClone(payload) })
+        if (!stored.length) {
+          const canonical = JSON.stringify({
+            expected_question_version: payload.expected_question_version,
+            requirement_revision: payload.requirement_revision,
+            selected_option_ids: [...payload.selected_option_ids].sort(),
+            text: payload.text,
+            comment: payload.comment,
+            idempotency_key: payload.idempotency_key,
+          })
+          stored.push({
+            id: commandId,
+            session_id: 'session1',
+            question_id: question.id,
+            request: structuredClone(payload),
+            payload_sha256: createHash('sha256').update(canonical).digest('hex'),
+            state: 'stored',
+            answer: null,
+            rejection_status: null,
+            created_at: now,
+            updated_at: now,
+          })
+        }
+        expect(stored).toHaveLength(1)
+        const command = stored[0]
+        if (!command) throw new Error('Stored fixture command is missing')
+        expect(sameAnswerRequest(command.request, payload)).toBe(true)
+        expect(command.request).toEqual(payload)
+        assertAnswerCommand(command, 'session1')
+        return route.fulfill({ headers: { 'Cache-Control': 'no-store' }, json: command })
+      }
+      if (path === deliveryPath) {
+        expect(stored).toHaveLength(1)
+        expect(request.postData()).toBeNull()
+        deliveries.push({ path, body: request.postData() })
+        const command = stored[0]
+        if (!command) throw new Error('Stored fixture command is missing')
+        command.state = 'uncertain'
+        command.updated_at = '2026-10-09T12:00:01Z'
+        version = 2
+        // Keep the lost-ACK and journal-outage phases distinct from successful delivery.
+        if (deliveries.length === 1) journalAvailable = false
+        assertAnswerCommand(command, 'session1')
+        return route.fulfill({ headers: { 'Cache-Control': 'no-store' }, json: command })
+      }
+      throw new Error(`Unexpected clarification command: ${path}`)
+    }
+    if (path === journalPath) {
+      if (!journalAvailable) {
+        journalReads.push({ status: 503 })
+        return route.fulfill({
+          status: 503,
+          json: { error: { code: 'UNAVAILABLE', message: 'Fixture journal unavailable' } },
+        })
+      }
+      const pending = structuredClone(stored)
+      for (const command of pending) assertAnswerCommand(command, 'session1')
+      journalReads.push({ status: 200, commands: pending })
+      return route.fulfill({ headers: { 'Cache-Control': 'no-store' }, json: pending })
     }
     if (path === '/api/v1/agent-directory') return route.fulfill({ json: [] })
     if (path === '/api/v1/sessions/session1')
@@ -336,23 +423,23 @@ test('fixture: uncertain clarification retains its original command across quest
         json: {
           binding: {
             tracker_instance_id: 'tracker',
-            project_id: 'project',
-            task_id: 'task',
-            root_task_id: 'task',
-            agent_id: 'agent1',
+            project_id: '00000000-0000-4000-8000-000000000811',
+            task_id: question.task_id,
+            root_task_id: question.root_task_id,
+            agent_id: question.agent_id,
             owner_subject: 'subject-owner',
           },
           tracker: {
             contract_version: 1,
             tracker_instance_id: 'tracker',
-            project_id: 'project',
-            task_id: 'task',
-            root_task_id: 'task',
+            project_id: '00000000-0000-4000-8000-000000000811',
+            task_id: question.task_id,
+            root_task_id: question.root_task_id,
             owner_subject: 'subject-owner',
             stage: 'Draft',
             requirement_revision: 3,
-            waiting_reason: commands.length < 2 ? 'Требуется ответ' : 'Ответы сохранены',
-            permissions: { can_answer: commands.length < 2, can_confirm: false },
+            waiting_reason: deliveries.length < 2 ? 'Требуется ответ' : 'Ответы сохранены',
+            permissions: { can_answer: deliveries.length < 2, can_confirm: false },
             assignment: null,
           },
         },
@@ -367,21 +454,32 @@ test('fixture: uncertain clarification retains its original command across quest
           blocked_reason: 'workflow_assignment_required',
         },
       })
-    if (path.endsWith('/clarifications'))
+    if (path.endsWith('/clarifications')) {
+      // Current Tracker readback can advance without proving this command's delivery ACK.
+      const answered = deliveries.length >= 2 ? stored[0] : undefined
       return route.fulfill({
         json: {
-          questions: [
-            { ...question, version, state: commands.length < 2 ? 'open' : 'answered' },
-            {
-              ...question,
-              id: 'q2',
-              text: 'Второй вопрос',
-              version: 1,
-              state: commands.length < 2 ? 'open' : 'answered',
-            },
-          ],
+          questions: [question, secondQuestion].map((item, index): Question => ({
+            ...item,
+            version: index === 0 ? version : item.version,
+            state: answered ? 'answered' : 'open',
+            answer: answered
+              ? {
+                  id: `00000000-0000-4000-8000-${String(812 + index).padStart(12, '0')}`,
+                  question_id: item.id,
+                  question_version: 1,
+                  requirement_revision: item.requirement_revision,
+                  selected_option_ids: [...answered.request.selected_option_ids],
+                  text: answered.request.text,
+                  comment: index === 0 ? answered.request.comment : 'Независимый fixture-ответ',
+                  author_subject: 'subject-owner',
+                  created_at: now,
+                }
+              : null,
+          })),
         },
       })
+    }
     if (path.endsWith('/requirements')) return route.fulfill({ json: { revisions: [] } })
     if (path.endsWith('/history')) return route.fulfill({ json: { items: [], next_before: null } })
     if (path.endsWith('/runs') || path.endsWith('/approvals')) return route.fulfill({ json: [] })
@@ -389,6 +487,7 @@ test('fixture: uncertain clarification retains its original command across quest
   })
   await page.goto(fixturePath, { waitUntil: 'domcontentloaded' })
   await page.getByRole('tab', { name: /Уточнения/ }).click()
+  await expect.poll(() => journalReads.some((read) => read.status === 200)).toBe(true)
   const choice = page.getByRole('radio', { name: /Участники проекта/ })
   await expect(choice).not.toBeChecked()
   await choice.check()
@@ -437,5 +536,47 @@ test('fixture: uncertain clarification retains its original command across quest
   await retry.click()
   await expect.poll(() => commands.length).toBe(3)
   expect(commands[2]).toEqual(commands[0])
+  await expect.poll(() => deliveries.length).toBe(3)
+  expect(stored).toHaveLength(1)
+  const original = structuredClone(stored[0])
+  if (!original) throw new Error('Original fixture command is missing')
+  expect(original.state).toBe('uncertain')
+  expect(original.answer).toBeNull()
+  expect(original.rejection_status).toBeNull()
+  expect(original.request).toEqual(commands[0].payload)
+  expect(deliveries).toEqual(Array(3).fill({ path: deliveryPath, body: null }))
+  expect(journalReads.some((read) => read.status === 503)).toBe(true)
+
+  journalAvailable = true
+  const readsBeforeReload = journalReads.length
+  page.once('dialog', (dialog) => dialog.accept())
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.getByRole('tab', { name: /Уточнения/ }).click()
+  await expect.poll(() => journalReads.length).toBeGreaterThan(readsBeforeReload)
+  await expect
+    .poll(() => journalReads.slice(readsBeforeReload).some((read) => read.status === 200))
+    .toBe(true)
+  expect(journalReads.at(-1)?.commands).toEqual([original])
+  await page.getByRole('button', { name: /2\. Второй вопрос/ }).click()
+  const recover = page.getByRole('button', { name: 'Продолжить исходную команду' })
+  const retainedAnswer = page.getByRole('status').filter({ has: recover })
+  await expect(retainedAnswer).toHaveCount(1)
+  await expect(retainedAnswer).toContainText(original.question_id)
+  await expect(retainedAnswer.getByText('Исходный ответ владельца', { exact: true })).toBeVisible()
+  await expect(retry).toHaveCount(0)
+  await expect(choice).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+  await expect(recover).toBeEnabled()
+  await recover.click()
+  await expect.poll(() => deliveries.length).toBe(4)
+  await expect(page.getByRole('status', { name: 'Статус команды' })).toContainText(
+    'Доставка исходного ответа ещё не подтверждена.',
+  )
+  await expect(recover).toBeEnabled()
+  await expect(choice).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+  expect(commands).toHaveLength(3)
+  expect(stored).toEqual([original])
+  expect(deliveries).toEqual(Array(4).fill({ path: deliveryPath, body: null }))
   expect(errors).toEqual([])
 })
