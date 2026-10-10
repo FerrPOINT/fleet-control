@@ -208,6 +208,20 @@ impl HumanDraftGateway {
 
 #[async_trait]
 impl PmDraftTracker for HumanDraftGateway {
+    async fn context(&self, op: &PmDraftOperation) -> Result<TrackerTaskContext, AppError> {
+        self.read(
+            &[
+                "api",
+                "v1",
+                "issues",
+                &op.identity()?.task_id.to_string(),
+                "sdlc",
+                "context",
+            ],
+            None,
+        )
+        .await
+    }
     async fn verify_namespace(&self, op: &PmDraftOperation, agent: &Agent) -> Result<(), AppError> {
         super::pm_namespace::verify(&self.config, op, agent).await
     }
@@ -320,6 +334,47 @@ fn credential_provider(
         .ok_or_else(|| AppError::Unavailable("PM scoped credentials are not configured".into()))
 }
 
+async fn continue_created(
+    ctx: &AppContext,
+    gateway: &HumanDraftGateway,
+    operation: PmDraftOperation,
+) -> Result<PmDraftCreationResponse, AppError> {
+    let id = operation.id;
+    let owner = operation.owner_user_id;
+    app::pm_draft::continue_creation_with_credentials(
+        ctx.repo.as_ref(),
+        gateway,
+        operation,
+        credential_provider(ctx)?,
+    )
+    .await?;
+    if ctx.config.pm.dispatch.enabled {
+        let operation = ctx.repo.read_pm_draft_operation(id, owner).await?;
+        ctx.runtime.dispatch_pm_draft(&operation, gateway).await?;
+    }
+    // This is the existing Tracker creation receipt, not a claim of business completion.
+    creation_response(ctx, &ctx.repo.read_pm_draft_operation(id, owner).await?).await
+}
+
+async fn creation_response(
+    ctx: &AppContext,
+    operation: &PmDraftOperation,
+) -> Result<PmDraftCreationResponse, AppError> {
+    let mut response = operation.response();
+    if let Some(intent) = ctx.repo.get_pm_dispatch(operation.id).await? {
+        if intent.submitted {
+            response.next_step = PmDraftCreationStep::Runtime;
+            response.dispatch_allowed = intent.hermes_run_ref.is_some();
+            response.state = if response.dispatch_allowed {
+                PmDraftCreationState::RuntimeAccepted
+            } else {
+                PmDraftCreationState::AwaitingRuntimeAcceptance
+            };
+        }
+    }
+    Ok(response)
+}
+
 #[utoipa::path(post,path="/api/v1/projects/{project_id}/pm-drafts",tag="task-chats",operation_id="create_pm_draft",
     params(("project_id"=Uuid,Path)),request_body=CreatePmDraftRequest,
     responses((status=202,body=PmDraftCreationResponse),(status=400),(status=401),(status=403),(status=404),(status=409),(status=422),(status=503)))]
@@ -366,15 +421,7 @@ pub async fn create(
         .await?;
     Ok((
         StatusCode::ACCEPTED,
-        Json(
-            app::pm_draft::continue_creation_with_credentials(
-                ctx.repo.as_ref(),
-                &gateway,
-                operation,
-                credential_provider(&ctx)?,
-            )
-            .await?,
-        ),
+        Json(continue_created(&ctx, &gateway, operation).await?),
     ))
 }
 
@@ -397,7 +444,7 @@ pub async fn read(
         return Err(AppError::Forbidden);
     }
     authorized_project(&ctx, &headers, operation.project_id).await?;
-    Ok(Json(operation.response()))
+    Ok(Json(creation_response(&ctx, &operation).await?))
 }
 
 #[derive(Deserialize, utoipa::ToSchema)]
@@ -436,7 +483,7 @@ pub async fn read_by_key(
     if operation.owner_subject != subject.0 {
         return Err(AppError::Forbidden);
     }
-    Ok(Json(operation.response()))
+    Ok(Json(creation_response(&ctx, &operation).await?))
 }
 
 #[derive(Serialize, utoipa::ToSchema)]
@@ -493,15 +540,7 @@ pub async fn continue_operation(
     };
     Ok((
         StatusCode::ACCEPTED,
-        Json(
-            app::pm_draft::continue_creation_with_credentials(
-                ctx.repo.as_ref(),
-                &gateway,
-                operation,
-                credential_provider(&ctx)?,
-            )
-            .await?,
-        ),
+        Json(continue_created(&ctx, &gateway, operation).await?),
     ))
 }
 

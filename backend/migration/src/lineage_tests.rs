@@ -7,6 +7,26 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 static NEXT_SCHEMA: AtomicU64 = AtomicU64::new(0);
+
+#[tokio::test]
+async fn empty_pm_custody_downgrade_and_reupgrade_preserve_older_lineage() {
+    for legacy in [false, true] {
+        let fixture = Fixture::new().await;
+        if legacy {
+            LegacyMigrator::up(&fixture.db, None).await.unwrap();
+        } else {
+            Migrator::up(&fixture.db, None).await.unwrap();
+        }
+        let before = ledger(&fixture.db).await;
+        Migrator::down(&fixture.db, Some(1)).await.unwrap();
+        assert_eq!(ledger(&fixture.db).await, before[..before.len() - 1]);
+        Migrator::up(&fixture.db, None).await.unwrap();
+        let after = ledger(&fixture.db).await;
+        assert_eq!(&after[..after.len() - 1], &before[..before.len() - 1]);
+        assert_eq!(after.last().unwrap().0, "m20261010_000022_pm_dispatch");
+        fixture.close().await;
+    }
+}
 const COMBINED: &str = super::COMBINED_VERSION;
 const TASK_CHATS: &str = "m20261001_000010_task_chats";
 const PM_CREDENTIALS: &str = "m20261004_000011_pm_credentials";
@@ -25,6 +45,8 @@ const JOURNAL_TIME: &str = "m20261005_000014_hermes_journal_time_order";
 fn registered_versions_match_lineage_discriminators() {
     let canonical = Migrator::migrations();
     let legacy = LegacyMigrator::migrations();
+    assert_eq!(canonical.len(), 23);
+    assert_eq!(legacy.len(), 26);
     assert_eq!(legacy.len(), canonical.len() + 3);
     assert_eq!(canonical[9].name(), COMBINED);
     assert_eq!(canonical[10].name(), TASK_CHATS);
@@ -51,6 +73,8 @@ fn registered_versions_match_lineage_discriminators() {
     assert_eq!(legacy[23].name(), CLARIFICATION_COMMANDS);
     assert_eq!(canonical[21].name(), AUTHORITY_ALIAS);
     assert_eq!(legacy[24].name(), AUTHORITY_ALIAS);
+    assert_eq!(canonical[22].name(), "m20261010_000022_pm_dispatch");
+    assert_eq!(legacy[25].name(), "m20261010_000022_pm_dispatch");
     assert_eq!(
         legacy
             .iter()

@@ -6,6 +6,11 @@ use shared::AppError;
 /// The caller supplies a freshly authorized human gateway, never persisted credentials.
 #[async_trait]
 pub trait PmDraftTracker: Send + Sync {
+    async fn context(&self, _operation: &PmDraftOperation) -> Result<TrackerTaskContext, AppError> {
+        Err(AppError::Unavailable(
+            "PM current task context is unavailable".into(),
+        ))
+    }
     /// Fresh namespace ownership is necessary, but never authorizes Hermes dispatch.
     async fn verify_namespace(
         &self,
@@ -42,6 +47,37 @@ pub trait PmDraftCredentials: Send + Sync {
         repo: &dyn FleetRepository,
         operation: &PmDraftOperation,
     ) -> Result<(), AppError>;
+}
+
+pub async fn verify_dispatch(
+    repo: &dyn FleetRepository,
+    tracker: &dyn PmDraftTracker,
+    operation: &PmDraftOperation,
+) -> Result<(), AppError> {
+    let current = repo
+        .read_pm_draft_operation(operation.id, operation.owner_user_id)
+        .await?;
+    if &current != operation {
+        return Err(AppError::conflict(
+            "PM creation operation changed before dispatch",
+        ));
+    }
+    let agent = repo.get_agent(operation.request.agent_id).await?;
+    if agent.kind != AgentKind::Hermes
+        || agent.sdlc_role != Some(SdlcRole::ProjectManager)
+        || agent.status != AgentStatus::Running
+    {
+        return Err(AppError::conflict(
+            "a running Hermes Project Manager is required",
+        ));
+    }
+    tracker.verify_namespace(operation, &agent).await?;
+    operation.check_current(&tracker.reservation(operation).await?)?;
+    let input = tracker.original_input(operation).await?;
+    if operation.input.as_ref() != Some(&input) {
+        return Err(AppError::conflict("PM original input changed"));
+    }
+    verify_initial_pm_context(operation, &tracker.context(operation).await?)
 }
 
 pub async fn continue_creation(

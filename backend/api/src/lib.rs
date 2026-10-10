@@ -616,6 +616,10 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
             get(routes::pm_runtime::readback),
         )
         .route(
+            "/internal/runtime/v1/pm/agents/{agent_id}/mcp",
+            post(routes::pm_tools::handle).layer(DefaultBodyLimit::max(262144)),
+        )
+        .route(
             "/internal/runtime/v1/agents/{agent_id}/configuration",
             get(routes::sdlc_configuration::readback),
         )
