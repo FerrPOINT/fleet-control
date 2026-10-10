@@ -80,7 +80,8 @@ execution or installed/native compatibility. No previous packet accepts this new
 ## Approval Recovery Release Candidate
 
 The combined-source regression
-`pinned_recovery_keyset_scans_all_pages_before_idle_poll` seeds101 pinned runs,
+`pinned_recovery_keyset_reaches_valid_terminal_after_twenty_invalid_pinned_runs`
+retains its historical selector and now seeds101 pinned runs,
 sorts their keys and makes only the final run terminal. The final record must
 complete within20 seconds, without five idle intervals for five earlier full
 pages. Every earlier invalid record must be read and retain capacity; GET-only,
