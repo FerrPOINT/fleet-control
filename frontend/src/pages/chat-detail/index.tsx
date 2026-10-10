@@ -886,11 +886,12 @@ function ChatWorkspace({ id }: { id: string }) {
         <div>
           <dt>Задача</dt>
           <dd>
-            {task.isPending
-              ? 'Загрузка контекста'
-              : task.isError
-                ? 'Контекст не обновлён'
-                : (task.data?.binding?.task_id ?? 'Свободный чат')}
+            {storedContext?.task.task_id ??
+              (task.isPending
+                ? 'Загрузка контекста'
+                : task.isError
+                  ? 'Контекст не обновлён'
+                  : (task.data?.binding?.task_id ?? 'Свободный чат'))}
           </dd>
         </div>
         <div>
@@ -1009,7 +1010,7 @@ function ChatWorkspace({ id }: { id: string }) {
         <strong>{agent?.display_name ?? session.data.primary_agent_name}</strong>
         <span>{agent?.kind ?? 'Runtime неизвестен'}</span>
         <StatusBadge value={agent?.status} />
-        {controls.data?.blocked_reason && (
+        {!namespaceBlocked && controls.data?.blocked_reason && (
           <span>{blockedLabels[controls.data.blocked_reason] ?? controls.data.blocked_reason}</span>
         )}
       </div>
