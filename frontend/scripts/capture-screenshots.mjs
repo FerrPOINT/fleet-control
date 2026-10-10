@@ -1048,6 +1048,15 @@ async function mockApi(context) {
     if (sessionRunsMatch) {
       return json(route, sessionRuns[sessionRunsMatch[1]] ?? [])
     }
+    const runtimeControlsMatch = pathName.match(
+      /^\/api\/v1\/sessions\/([^/]+)\/runs\/([^/]+)\/controls$/,
+    )
+    if (
+      method === 'GET' &&
+      runtimeControlsMatch &&
+      sessionRuns[runtimeControlsMatch[1]]?.some((run) => run.id === runtimeControlsMatch[2])
+    )
+      return json(route, [])
     const sessionLeaderMatch = pathName.match(/^\/api\/v1\/sessions\/([^/]+)\/leader$/)
     if (sessionLeaderMatch) {
       const session = sessions.find((item) => item.id === sessionLeaderMatch[1]) ?? sessions[0]

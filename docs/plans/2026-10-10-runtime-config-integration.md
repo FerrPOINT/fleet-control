@@ -1,7 +1,7 @@
 # Runtime And Configuration Source Integration
 
 Normal candidate merge of integration6881c040 and configuration PR64 at820a1afe.
-Both histories are retained. This is a private source candidate, not a release,
+Both histories are retained. This is a source candidate, not a release,
 contract acceptance, runtime admission or native execution result. The historical
 PR64 and runtime-unit evidence below their respective plans does not accept this
 combined tree.
@@ -34,15 +34,23 @@ combined tree.
 - SDK19a, Base package4b9 and executable utility9b remain three distinct pins.
   No migration, lockfile, producer protocol or accepted runtime image is changed.
 
-## Generated Artifacts: Pending
+## Generated Artifacts: Verified Codegen
 
-`openapi/openapi.json` conflicted. The candidate mechanically retains the exact
-committed688 artifact, without manual JSON edits. Rust routes/DTO registrations
-from BOTH parents remain. The retained schema therefore intentionally lacks the
-two PR64 paths until genuine Rust union generation. Existing client bytes are not
-regenerated or declared compatible. Parent must authenticate exact-candidate
-codegen, regenerate the client and run parity/compatibility before public source
-publication. A byte-identical historical artifact is not a combined contract PASS.
+The merge initially retained the exact688 artifact, without manual JSON edits.
+Genuine Rust generation for frozen8c93f43 now passes in
+[run38015043570](https://github.com/FerrPOINT/fleet-control/actions/runs/38015043570),
+workflow5e57d5b. Parent authenticates artifact11656020208 and ZIP SHA256
+9e46aadcaf9de57d91d8389b0b460234ef1e0e6f02a72db81eea8af2d3d05ff8.
+The integrated schema SHA256 is
+1167220ea9f3d65ddca4cce1112a26d53c77f8c1684ef958859f737f20210953.
+All earlier operations/DTOs remain structurally identical; the generator adds
+only the two configuration paths and ConfigurationObservation/SdlcWorkflowBinding.
+The generated TypeScript client, typecheck, OpenAPI drift and compatibility with
+mainb750e7b pass, including eight compatibility regressions. The generated client
+remains ignored/reproducible through the existing postinstall convention.
+This proves contract generation, not all-target test compilation, PostgreSQL,
+native execution or model admission. Final combined-source Rust parity is still
+mandatory in the backend gate; a successful generator alone is not acceptance.
 
 ## Regression Gates
 

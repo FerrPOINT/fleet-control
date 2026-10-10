@@ -140,7 +140,7 @@ class CodegenTests(unittest.TestCase):
         run = dict(id=123, run_attempt=1, status="completed", conclusion="success", event="push", head_sha=workflow_sha,
                    head_branch=codegen.BRANCH, path=codegen.WORKFLOW, repository={"full_name": codegen.REPOSITORY})
         artifact = dict(expired=False, workflow_run={"id": 123, "head_sha": workflow_sha},
-                        name="fleet-openapi-config8c93-123-1", digest="sha256:" + codegen.digest(payload))
+                        name="fleet-openapi-authority-union-123-1", digest="sha256:" + codegen.digest(payload))
         args = dict(run_id=123, attempt=1, workflow_sha=workflow_sha, artifact_digest=codegen.digest(payload))
         return run, artifact, payload, args
 
@@ -174,12 +174,15 @@ class CodegenTests(unittest.TestCase):
 
     def schema_fixture(self):
         # Synthetic validation fixture only; never written to product or uploaded.
-        return {"openapi": "3.1.0", "paths": {path: {method: {}} for path, method in
+        value = {"openapi": "3.1.0", "paths": {path: {method: {}} for path, method in
                 (codegen.JOURNAL_OPERATIONS | codegen.CONFIG_OPERATIONS).items()},
                 "components": {"schemas": {name: {} for name in codegen.REQUIRED_SCHEMAS}}}
+        value["components"]["schemas"]["AgentSession"] = {
+            "properties": {"pending_delivery": {"type": ["boolean", "null"]}}}
+        return value
 
     def test_exact_journal_source_parent_tree_and_blobs(self):
-        self.assertEqual(codegen.SOURCE_SHA, "8c93f43fdbe31e9564f05c69c6d28a81d18cb2b6")
+        self.assertEqual(codegen.SOURCE_SHA, "32b9f063f9b5099ff61bca24ecdfeb9952889034")
         self.assertEqual(codegen.BASE_SHA, "19a7a381ae6dbea61a643bb96189e483fa64df5c")
         results = [f"{codegen.SOURCE_SHA} {codegen.SOURCE_PARENT}".encode(), codegen.SOURCE_TREE.encode()]
         results += [blob.encode() for blob in codegen.SOURCE_BLOBS.values()]
@@ -191,6 +194,37 @@ class CodegenTests(unittest.TestCase):
             changed[index] = b"0" * 40
             with self.subTest(index=index), patch.object(codegen, "git", side_effect=changed), self.assertRaises(ValueError):
                 codegen.qualify_source(ROOT)
+
+    def test_workflow_summary_and_artifact_match_new_union(self):
+        workflow = self.workflow()
+        steps = workflow["jobs"]["codegen"]["steps"]
+        summary = steps[-1]["run"]
+        self.assertIn("printf 'Source: `%s`\\n\\n' " + codegen.SOURCE_SHA, summary)
+        artifact = next(step for step in steps if step.get("id") == "artifact")
+        self.assertEqual(artifact["with"]["name"],
+                         "fleet-openapi-authority-union-${{ github.run_id }}-${{ github.run_attempt }}")
+        self.assertNotIn("8c93f43f", (ROOT / codegen.WORKFLOW).read_text())
+
+    def test_pending_delivery_is_optional_nullable_boolean_not_stale(self):
+        for field in (None, {}, {"type": "boolean"}, {"type": ["string", "null"]}):
+            value = self.schema_fixture()
+            properties = value["components"]["schemas"]["AgentSession"]["properties"]
+            if field is None:
+                del properties["pending_delivery"]
+            else:
+                properties["pending_delivery"] = field
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                codegen.schema_valid(codegen.canonical(value))
+        value = self.schema_fixture()
+        value["components"]["schemas"]["AgentSession"]["required"] = ["pending_delivery"]
+        with self.assertRaises(ValueError):
+            codegen.schema_valid(codegen.canonical(value))
+
+    def test_readback_rejects_previous_artifact_namespace(self):
+        run, artifact, payload, args = self.fixture()
+        artifact["name"] = "fleet-openapi-config8c93-123-1"
+        with self.assertRaises(ValueError):
+            codegen.validate_readback(run, artifact, payload, **args)
 
     def test_journal_operations_and_dtos_required_not_stale_schema(self):
         codegen.schema_valid(codegen.canonical(self.schema_fixture()))

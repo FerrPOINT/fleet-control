@@ -2,6 +2,23 @@
 
 Status: agreed target contract; deployment compatibility must be verified.
 
+## Runtime Scope Decision (2026-10-10)
+
+Hermes is consumed unchanged through its existing `/v1/runs` API. A custom
+Hermes pre-model authorization hook, reserved native-run handshake or producer
+patch is NOT a requirement or release dependency. The product owner explicitly
+rejected that extra mechanism. Earlier proposed contracts demanding it are
+superseded by this decision, not implemented capabilities.
+
+Fleet remains responsible for ordinary user/project/session authorization,
+current task assignment and workflow state before dispatch, isolated agent
+configuration, one active run and durable message/control idempotency. Those
+are Fleet/Tracker/Workflow responsibilities, not a second authorization layer
+inside Hermes. PM tools use supported runtime integration mechanisms; they do
+not require modifications to Hermes internals. Existing missing Fleet wiring
+must be implemented and tested; this decision does not turn held source paths
+into working runs or waive clarification/confirmation business gates.
+
 ## Source Compatibility Evidence (2026-10-08)
 
 The PR47 foundation reconciled with mainc8093aa retains Base875cac2 and

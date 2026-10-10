@@ -14,10 +14,10 @@ import tarfile
 import zipfile
 
 REPOSITORY = "FerrPOINT/fleet-control"
-BRANCH = "build-only/fleet-openapi-config8c93-20261010"
-SOURCE_SHA = "8c93f43fdbe31e9564f05c69c6d28a81d18cb2b6"
-SOURCE_PARENT = "3b09bd73356a7dba191d9f657037d8cc8cd48709"
-SOURCE_TREE = "35fe3e41005f1d0852006ea3058b500f878d2578"
+BRANCH = "build-only/fleet-openapi-authority-union-20261010"
+SOURCE_SHA = "32b9f063f9b5099ff61bca24ecdfeb9952889034"
+SOURCE_PARENT = "d71b14f5f61bc58200a085d97aac0b80a891c324"
+SOURCE_TREE = "f2e319df5875bbd05d08f503c8727376498969cb"
 SOURCE_BLOBS = {
     ".base-revision": "1716308f859d23508a6ca0bae105434221c00419",
     "backend/Cargo.lock": "1f2a6fee32bf3dabedafc3927c56c286e14c6daf",
@@ -27,14 +27,16 @@ SOURCE_BLOBS = {
     "backend/domain/src/clarification_commands.rs": "fd64e7a3600f0a4a93361029c7ba18693a2b7734",
     "backend/api/src/routes/sdlc_configuration.rs": "a9478a23db4e6f9d7db35b8342f382d1fa50775b",
     "backend/api/src/routes/agents.rs": "f512a6f5e4a0fb2c5e86e9c64fca8d827bb828da",
+    "backend/domain/src/lib.rs": "7d3a65c48ad4974620b05b0b3529c8a3bf22b149",
+    "backend/api/src/routes/sessions.rs": "06e2dd55e3dbd7a151827242e1adc7e792daa6e7",
 }
 BASE_SHA = "19a7a381ae6dbea61a643bb96189e483fa64df5c"
 QUALIFIED_EXPORT = {
     "base_lock_sha256": "9712da389d3bdc3224fb5185011814b14993a5341250ffd93a6bd8d2cdc1c235",
     "base_tree": "aa1a0486af1922c5a7fd4471e71e4fbb6aa4c7cc",
     "fleet_lock_sha256": "7ca269c7cd50cd0e9f0ca9173630353a231bf718004181e6f08bd97f495edb78",
-    "source_file_count": 282,
-    "source_inventory_sha256": "5535042ffffae6e3ee14ebc7bd563af5e6e171f018b35dc2b190870c982c837d"
+    "source_file_count": 283,
+    "source_inventory_sha256": "6105d3c5d660201536c9f06e91c7622d8ebabd54b83f5440f5cddd204bcdfceb"
 }
 WORKFLOW = ".github/workflows/openapi-codegen-build-only.yml"
 WRITE_SET = {WORKFLOW, "scripts/openapi_codegen.py", "scripts/tests/test_openapi_codegen.py"}
@@ -53,7 +55,7 @@ CONFIG_OPERATIONS = {
 }
 REQUIRED_SCHEMAS = (
     "ClarificationAnswerCommand", "ClarificationAnswerRequest", "ClarificationDeliveryState",
-    "ConfigurationObservation",
+    "ConfigurationObservation", "AgentSession",
 )
 
 
@@ -174,6 +176,10 @@ def schema_valid(data):
     schemas = value.get("components", {}).get("schemas", {})
     require(all(isinstance(schemas.get(name), dict) for name in REQUIRED_SCHEMAS),
             "Generated required DTOs missing")
+    session = schemas["AgentSession"]
+    require(session.get("properties", {}).get("pending_delivery") == {"type": ["boolean", "null"]}
+            and "pending_delivery" not in session.get("required", []),
+            "Generated optional pending-delivery contract missing")
 
 
 def generate():
@@ -248,7 +254,7 @@ def validate_readback(run, artifact, payload, *, run_id, attempt, workflow_sha, 
             and run["repository"]["full_name"] == REPOSITORY, "Unexpected/unsuccessful workflow identity")
     require(not artifact["expired"] and artifact["workflow_run"]["id"] == run_id
             and artifact["workflow_run"]["head_sha"] == workflow_sha
-            and artifact["name"] == f"fleet-openapi-config8c93-{run_id}-{attempt}"
+            and artifact["name"] == f"fleet-openapi-authority-union-{run_id}-{attempt}"
             and artifact["digest"] == "sha256:" + artifact_digest
             and digest(payload) == artifact_digest, "Artifact identity/digest mismatch")
     require(len(payload) <= 8 * 1024 ** 2, "Oversized artifact ZIP")

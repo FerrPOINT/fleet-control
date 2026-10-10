@@ -134,6 +134,16 @@
 - Integrate exact-request human tool approvals with immutable command replay,
   stale-assignment protection and no automatic redispatch after an unknown outcome.
   PM structured dispatch/resume and live clarification acceptance remain incomplete.
+- Первый prompt допускается при валидном подготовительном pending run без
+  runtime identity. Ожидающая доставка берётся из полного состояния сессии,
+  включая сообщения за пределами 500 строк истории; неизвестная проекция
+  и занятый runtime удерживают отправку.
+
+- Chats подтверждает сохранённую команду по hash исходного запроса, сохраняя
+  redacted-текст ответа. Message receipts, replay, dispatch и assistant mirror
+  используют конкретную сохранённую строку за пределами первых 500 сообщений.
+  История остаётся ограниченной; hash возвращается в авторизованном POST receipt.
+
 - После ошибки readiness refresh страница конфигурации показывает «Неизвестно»
   для runtime и SDLC, сохраняя действующую редакцию; успешный повтор возвращает
   свежие статусы, включая легитимные stopped/blocked состояния.

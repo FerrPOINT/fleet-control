@@ -2,10 +2,172 @@
 
 ## Current Open Release Gates: 10 October 2026
 
-The current tested-source candidate is5d91b13
-(runtime corrections, journal3b41, human guard, genuine generated API and private-
-approval ownership correction), not the historical heads below.
+### Latest Gate Disposition
+
+- Narrow C11 credential gate is verified by strict authenticated readback of
+  [run38028716924](https://github.com/FerrPOINT/fleet-control/actions/runs/38028716924),
+  controls7296506/source0e49430/artifact11661626156. All28 stages pass, including
+  real-Auth2 and credential PG15;18 ignored workspace cases are not counted as
+  passes. Installed Auth, runtime credential custody and PM admission stay open.
+  The earlier green01f run has an incomplete artifact and is not accepted.
+- Full backend controls1200321/source7dd6020 fail in
+  [run38028965529](https://github.com/FerrPOINT/fleet-control/actions/runs/38028965529).
+  Authenticated artifact11661374366 names the same eight authorization cases
+  at341/368 after successful preceding probes; both cleanup checks pass. Cause
+  and full acceptance stay open;116 pure control tests do not close that gate.
+- Frontend0917/sourcebf0 reaches capture after21 passed stages, including browser
+  fixtures, then fails in38027721811. Source60f35db includes a reproduced capture
+  fixture repair/native4 checks and journal-revocation guards/seven component
+  regressions. Current-source unit/browser/capture/visual acceptance is pending.
+  Reviewed controls4972214/run38030851556 are now executing on exact60f35db;
+  parent69 pure passes qualify controls, not frontend completion.
+- Private Base7170d3c publication is held for three review P2s: trailing-backslash
+  argv quoting, relative registry/output resolution, and disk-floor override.
+  A new isolated fix is required before Forge may pin/qualify that packet.
+  Source successor43d0205 fixes the three P2s and is separately published in
+  Draft [Base PR183](https://github.com/FerrPOINT/services-base/pull/183).
+  Parent92 focused checks pass. Private CI jobs do not start due to an explicit
+  billing-limit annotation; installation/native/consumer acceptance stay open.
+- Hermes is not to be modified: the owner rejected the extra producer pre-model
+  authorization mechanism. That proposed dependency is removed. Fleet dispatch,
+  supported PM tools and live continuation still need implementation/acceptance;
+  ordinary backend access and workflow business gates remain required. Historical
+  producer-blocker statements below are superseded by the current
+  [runtime decision](contracts/CHAT_CLARIFICATION_CONTRACT.md#runtime-scope-decision-2026-10-10).
+
+### Earlier Same-Day Evidence
+
+Latest verified state: full backend38023648801/source56daff9 fails eight recovered
+authorization cases at container_activation_pg after the configuration hash
+correction. Authenticated artifact11659287588 and successful cleanup do not prove
+the remaining cause. Pascal diagnoses that exact source without changing
+production authority predicates; a full passing Linux/PG gate remains required.
+
+C11 run38021888246 fails runtime_inventory with both cleanup checks successful.
+Closed authenticated terminal telemetry, not raw logs, establishes the stage;
+no failure artifact or actual credential/Auth result exists. Diagnose the strict
+source/compiler inventory without waiving unknown tests. The later diagnostic
+proves the missing test identity; the original run alone did not. Reviewed diagnostics
+successor4244772 retains frozen994,28 stages and242/17 counts. Its authenticated
+run38024208930 failure artifact11659222328 proves241/242 defaults, all17 ignored,
+only `new_ids_are_plain_uuids` absent, and both cleanup checks pass. The existing
+test file lacked its parent module declaration; source3d1a108 connects it instead
+of dropping the test/count. Worker successors6870ea0/4358dea add five PG/one unit
+credential cases and one real-Auth expiry/restart case, with formatting/static
+evidence only. Published controlscfe7805/source3d1a108 complete38026078533 with
+Clippy failure at coordinator.rs333; authenticated artifact11660525394 has both
+cleanup checks successful. Test-only source0e49430 changes that indexed loop to
+enumerate. Normal controls01f32fe/run38026636805 are confirmed in progress.
+Canonical inventory still requires248 defaults/18 ignored and all prior242/17
+identities. New119 Windows pure checks (115 pass/four Linux-only skips) qualify
+controls only; actual product/Auth/PG and a terminal receipt remain required.
+
+Frontend38022762729 fails preparation, with authenticated failure artifact
+11658544399. The reproduced Windows archive conversion affected only the local
+source inventory oracle. Normal successorbea500d pins all835 canonical Git blobs
+and retains23 standard gates/default pool/engines. Its67 pure tests pass on both
+platforms; run38023185173 completes FAILURE in three-browser fixtures after the
+default348 unit/build/theme/format gates pass. Fresh captures/manifest are skipped.
+Worker authenticates artifact11659871068 and its digest: each engine has the
+same two failed declarations (runtime-controls267/fleet-control627),24 expected,
+nine skipped and zero flaky. It does not expose the executed assertion. Parent
+reviews and integrates2398ff0's server-custody locator correction and bf0ca7a's
+command journal/store/delivery fixture alignment. Fresh full browser/screenshot
+qualification remains required. Neither source diagnosis nor old unit success
+closes this gap.
+Earlier browser failure38019603974 and live
+PM/native/Forge gaps remain open. See the current
+[delivery matrix](REMAINING_DELIVERY_WORK.md) for dependencies and stop/go.
+
+Follow-up publication: source56daff9/controls6f648430 starts full81-stage
+run38023648801. It completes FAILURE in eight container_activation_pg cases;
+authenticated artifact11659287588 identifies later authorize calls259/286, not
+the corrected configuration probe. Both cleanup checks pass. All167 ignored tests and prior337 default
+identities remain; new canonical-hash golden raises defaults to338. Independent
+380-input verification and110 Linux pure tests pass, not actual activation PG.
+The authorization cause remains open. Integrated credential/expiry/module/CI
+source corrections require new qualification, not inheritance of old receipts.
+The default348 hosted unit result is now actual evidence, not a replacement for
+the failed browser gate or missing fresh screenshots/live flow. Host-only native
+capacity recheck still fails the unchanged6/6GiB physical/commit guards; disk
+passes30GiB. No Docker/build/native operation or resource waiver follows.
+
+## Earlier Release Checkpoints
+
+Newest checkpoint: e369fed corrects per-page recovery idle latency and retains
+the historical regression selector while strengthening it to101 records. Reviewed
+controlseb214954 are normally published and run38021438217 is active. The full
+product/PG result remains open;110 Linux control tests do not resolve the old
+failure. New frontendf2e8495 passes348/348 unit tests in36 files, but its seven
+new browser fixtures, full browser gate and fresh screenshots remain unexecuted.
+
+Latest terminal checkpoint supersedes historical in-progress text below.
+Backend38018281445 fails approval_recovery, with authenticated safe artifact
+11657906403/ZIP62d8e61e25cb71f61e38f5f7a95316c8a8267bc6d18c367289ddd662a80a4fb4.
+Its completion wait fails at runtime_approval_recovery.rs1006; both cleanup checks
+pass, but the underlying recovery cause remains open. Frontend38019603974 fails
+the original three-browser fixture step; no full success receipt is accepted.
+New product58facc6 integratesc48d4fb. Parent53/53 focused tests, TypeScript and
+scoped ESLint pass; full new-source/browser/screens/live gates remain required.
+C11 Linux-controls preparation and independent security review are separate
+worker tasks, not completed credential acceptance.
+
+C11 frozen product994f29d now has independently verified/published controlsc5ee9bc
+and actual28-stage run38021888246. Parent revalidates309 canonical inputs,105 Rust
+files,242 default/17 ignored declarations and12/15 migrations, then runs99/99 pure
+Linux tests. Actual product/Auth/PG/OpenAPI results and dependency PR47/64 merges
+remain open; a later credential regression successor needs its own qualification.
+
+The current source candidate is1303be6, retaining8c93f43 normally integrated at65b4f33;
+the last completed81-stage source isafc5bb4 (config_files_unit failure). The union retains runtime
+corrections, journal3b41, human guard, private-approval ownership and PR64 config.
 Source integration is progress, not release acceptance. Its remaining gates are:
+
+Published controlsa7d7db2 now test that exact source in
+[run38011797295](https://github.com/FerrPOINT/fleet-control/actions/runs/38011797295).
+The run completes FAILURE at container_activation_pg62/74, exit101. Parent
+authenticates artifact11654672637, digest
+889a5ed28791e8d43c0fb5075dcad58d316433181b7bfa88d2396be412163999,
+with successful scratch/synthetic DB cleanup. message_order19 now passes by
+verified sequential ordering. Eight recovered-activation cases fail at positive
+authorize unwraps107/133; the safe receipt identifies no underlying predicate or
+database cause. Add read-only test precondition probes, not relaxed authority or
+longer leases. The full backend remains unaccepted; historical38008974895's
+message_order failure does not become a root-cause receipt for this successor.
+
+**Configuration integration:** normal merge8c93f43 retains PR64's standalone
+workflow/package unit and Docker custody/recovery guards. Owner/package readback
+precedes Docker effects; permanent binding failures enter HOLD. Genuine union
+Rust generation38015043570 and authenticated artifact11656020208 now provide
+schema1167220e, without manual schema splicing. Client generation/typecheck,
+OpenAPI drift and compatibility against mainb750e7b pass. The union still needs
+actual all-target/Clippy/tests/PG and native qualification; PR64's separate green
+CI does not accept the combined runtime. Diagnostic-only activation probes and
+an updated, exact-input combined backend inventory now targetafc5bb4 in actual
+81-stage run38017066472 (terminal FAILURE), controlsaa5ac3f. Parent independently
+verifies all380 Git inputs/170 Rust files and unchanged ignored/migration
+identities. Prior38016562420 atb0 completes FAILURE at Clippy; authenticated safe
+artifact11656123142 identifies the two diagnostic expression locations122/131
+and successful scratch/DB cleanup. afc changes only those redacted panic
+expressions. Run38017066472 then fails the Unix socket fixture bind in
+effective_configuration.rs294. Parent authenticates artifact11657125102,
+ZIPd00558cf68d03fec24bb1c43a13b478b040f4a75d9e50de9d1a24d27e3e2716e;
+scratch and synthetic DB cleanup pass. A lightweight WSL probe reproduces long
+pathname failure and short-path success; source1303be6 shortens the exclusive
+temporary fixture without removing tests or changing production guards. Reviewed
+normal controls9e838718 bind1303be6 and start actual81-stage run38018281445,
+confirmed in progress. All380 input files,167 ignored identities and migration
+registries are reverified; controls Linux110/110 pass, not product acceptance.
+No PG cause is inferred from either fixture failure.
+Frontend337/36 passes with threads, not the stopped default-fork
+attempt. The standard hosted frontend gate now runs as38019603974 on reviewed
+controlsba60890/sourceb0. Independent PNG and timeout findings are closed at921;
+its first actual run38018831265 fails preparation before frontend execution.
+The definite Base19a CRLF materialization mismatch is corrected by exact
+revision/path/blob/physical-hash attestation, not normalization or changed SDK.
+Parent/reviewer verify2279 canonical blobs and the one-file materialized profile;
+Windows49/49 and Linux49/49 control tests pass. The new hosted result and browser
+evidence remain required; live PM/native/SDLC are not accepted by these controls.
 
 Use the [current gate matrix](CURRENT_STATE.md#current-integration-snapshot-10-october-2026)
 for exact candidates and acceptance boundaries. Earlier failures below are

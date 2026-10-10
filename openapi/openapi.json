@@ -272,6 +272,55 @@
         }
       }
     },
+    "/api/v1/agents/{agent_id}/config/base-package": {
+      "post": {
+        "tags": [
+          "agents"
+        ],
+        "operationId": "prepare_base_package",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentConfigRevision"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Operator access required"
+          },
+          "404": {
+            "description": "Agent not found"
+          },
+          "409": {
+            "description": "Configuration or agent identity changed"
+          },
+          "422": {
+            "description": "Pinned package or agent configuration is invalid"
+          },
+          "503": {
+            "description": "Workflow owner binding readback unavailable"
+          }
+        }
+      }
+    },
     "/api/v1/agents/{agent_id}/config/revisions": {
       "get": {
         "tags": [
@@ -3554,6 +3603,52 @@
         }
       }
     },
+    "/internal/runtime/v1/agents/{agent_id}/configuration": {
+      "get": {
+        "tags": [
+          "sdlc-runtime"
+        ],
+        "operationId": "read_sdlc_configuration",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationObservation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/internal/runtime/v1/pm/runs/{session_run_id}": {
       "get": {
         "tags": [
@@ -4222,6 +4317,12 @@
               "null"
             ],
             "format": "uuid"
+          },
+          "pending_delivery": {
+            "type": [
+              "boolean",
+              "null"
+            ]
           },
           "primary_agent_id": {
             "type": "string",
@@ -5088,6 +5189,63 @@
           "delivered",
           "rejected"
         ]
+      },
+      "ConfigurationObservation": {
+        "type": "object",
+        "required": [
+          "contract_version",
+          "observation_ref",
+          "agent_id",
+          "sdlc_role",
+          "effective_revision",
+          "package",
+          "workflow_binding",
+          "observed_at",
+          "managed_files_verified",
+          "runtime_ready",
+          "blockers"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "contract_version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "effective_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "managed_files_verified": {
+            "type": "boolean"
+          },
+          "observation_ref": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "observed_at": {
+            "type": "string"
+          },
+          "package": {},
+          "runtime_ready": {
+            "type": "boolean"
+          },
+          "sdlc_role": {
+            "$ref": "#/components/schemas/SdlcRole"
+          },
+          "workflow_binding": {
+            "$ref": "#/components/schemas/SdlcWorkflowBinding"
+          }
+        }
       },
       "ConfirmRequirementsRequest": {
         "type": "object",
@@ -6674,6 +6832,65 @@
           "dev_ops"
         ]
       },
+      "SdlcWorkflowBinding": {
+        "type": "object",
+        "description": "Workflow-owned persisted mapping, not a native Hermes profile attestation.",
+        "required": [
+          "schema",
+          "namespace_id",
+          "namespace_name",
+          "workflow_id",
+          "workflow_key",
+          "role_key",
+          "profile",
+          "catalog_version",
+          "catalog_sha256",
+          "skills_revision",
+          "runtime_ready"
+        ],
+        "properties": {
+          "catalog_sha256": {
+            "type": "string"
+          },
+          "catalog_version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "namespace_id": {
+            "type": "string",
+            "maxLength": 19,
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "namespace_name": {
+            "type": "string"
+          },
+          "profile": {
+            "type": "string"
+          },
+          "role_key": {
+            "type": "string"
+          },
+          "runtime_ready": {
+            "type": "boolean"
+          },
+          "schema": {
+            "type": "string"
+          },
+          "skills_revision": {
+            "type": "string"
+          },
+          "workflow_id": {
+            "type": "string",
+            "maxLength": 19,
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "workflow_key": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "SessionAgentRun": {
         "type": "object",
         "required": [
@@ -6843,6 +7060,12 @@
           },
           "replayed": {
             "type": "boolean"
+          },
+          "request_payload_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "runtime_message_id": {
             "type": [
