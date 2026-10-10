@@ -117,8 +117,11 @@ class PluginTest(unittest.TestCase):
         for result in ({"ok": True, "allowed": False}, ValueError("private upstream detail")):
             with patch.object(PLUGIN, "owner_request", side_effect=result if isinstance(result, Exception) else None,
                               return_value=result):
-                self.assertIsNone(gate(self.request(), next_call, platform="api_server", session_id="native-session",
-                    model="model", provider="provider", api_mode="chat_completions", base_url="http://model.test/"))
+                with self.assertLogs(PLUGIN.logger, level="WARNING") as captured:
+                    self.assertIsNone(gate(self.request(), next_call, platform="api_server", session_id="native-session",
+                        model="model", provider="provider", api_mode="chat_completions", base_url="http://model.test/"))
+                self.assertNotIn("private upstream detail", str(captured.output))
+                self.assertNotIn("native-session", str(captured.output))
         self.assertEqual(provider, [])
 
     def test_verified_admission_preserves_provider_and_rejects_extra_tools(self):

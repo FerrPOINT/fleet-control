@@ -429,6 +429,7 @@ async fn runtime_control_http_sessionless_principal_cannot_impersonate_human() {
         .layer(axum::Extension(api::middleware::CurrentUser {
             id: f.owner,
             role: domain::SystemRole::Admin,
+            central_write: None,
             is_system_admin: true,
         }))
         .with_state(control_http_context(&f));

@@ -524,6 +524,7 @@ async fn targeted_approval_http_requires_human_and_unknown_ack_is_not_repeated()
     let user = api::middleware::CurrentUser {
         id: owner,
         role: domain::SystemRole::User,
+        central_write: None,
         is_system_admin: false,
     };
     let route = format!(
@@ -1495,7 +1496,16 @@ async fn pm_resume_journal_preserves_original_ids_and_refuses_replacement_or_los
             .is_err()
         );
     }
-    assert!(migration::Migrator::down(&db, Some(1)).await.is_err());
+    let resume_migration = migration::Migrator::migrations()
+        .into_iter()
+        .find(|item| item.name() == "m20261009_000026_pm_resumes")
+        .unwrap();
+    assert!(
+        resume_migration
+            .down(&migration::SchemaManager::new(&db))
+            .await
+            .is_err()
+    );
     assert!(
         repo.pm_resume(reservation.session_run_id)
             .await
@@ -2420,6 +2430,7 @@ async fn task_approval_history_survives_reassignment_but_not_project_access_revo
         .layer(axum::Extension(api::middleware::CurrentUser {
             id: session.user_id,
             role: domain::SystemRole::User,
+            central_write: None,
             is_system_admin: false,
         }))
         .with_state(ctx);
@@ -3278,6 +3289,7 @@ async fn task_approval_rechecks_assignment_after_waiting_for_actor_lock() {
         .layer(axum::Extension(api::middleware::CurrentUser {
             id: session.user_id,
             role: domain::SystemRole::User,
+            central_write: None,
             is_system_admin: false,
         }))
         .with_state(ctx);
@@ -3853,6 +3865,7 @@ async fn config_revision_readiness_http_uses_exact_heads_without_trusting_databa
                 .layer(axum::Extension(api::middleware::CurrentUser {
                     id: owner,
                     role: domain::SystemRole::Operator,
+                    central_write: None,
                     is_system_admin: false,
                 })),
         )
@@ -3861,6 +3874,7 @@ async fn config_revision_readiness_http_uses_exact_heads_without_trusting_databa
             endpoint.layer(axum::Extension(api::middleware::CurrentUser {
                 id: owner,
                 role: domain::SystemRole::User,
+                central_write: None,
                 is_system_admin: false,
             })),
         )

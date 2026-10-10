@@ -679,6 +679,7 @@ async fn public_creation_and_readback_require_human_owner_and_fresh_project_acce
     let identity = CurrentUser {
         id: saved.owner_user_id,
         role: SystemRole::User,
+        central_write: None,
         is_system_admin: false,
     };
     let central = VerifiedCentralSubject(saved.owner_subject.clone());
@@ -708,6 +709,7 @@ async fn public_creation_and_readback_require_human_owner_and_fresh_project_acce
         .layer(axum::Extension(CurrentUser {
             id: other.id,
             role: SystemRole::Admin,
+            central_write: None,
             is_system_admin: true,
         }))
         .layer(axum::Extension(VerifiedCentralSubject(other_subject)))

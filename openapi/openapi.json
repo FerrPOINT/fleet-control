@@ -3672,6 +3672,46 @@
         }
       }
     },
+    "/internal/runtime/v1/pm/executions/{execution_id}/admission": {
+      "get": {
+        "tags": [
+          "pm-runtime"
+        ],
+        "operationId": "execution_admission",
+        "parameters": [
+          {
+            "name": "execution_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PmNativeAdmissionObservation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/internal/runtime/v1/pm/runs/{session_run_id}": {
       "get": {
         "tags": [
@@ -6258,6 +6298,69 @@
           },
           "tracker_project_ref": {
             "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PmNativeAdmissionObservation": {
+        "type": "object",
+        "required": [
+          "contract_version",
+          "observation_ref",
+          "observed_at",
+          "identity",
+          "session_run_id",
+          "native_run_ref",
+          "native_session_ref",
+          "binding_ref",
+          "fence",
+          "effective_config_revision",
+          "configuration_sha256",
+          "native_configuration"
+        ],
+        "properties": {
+          "binding_ref": {
+            "type": "string"
+          },
+          "configuration_sha256": {
+            "type": "string"
+          },
+          "contract_version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "effective_config_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "fence": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "identity": {
+            "$ref": "#/components/schemas/PmExecutionIdentity"
+          },
+          "native_configuration": {
+            "$ref": "#/components/schemas/PmNativeConfiguration"
+          },
+          "native_run_ref": {
+            "type": "string"
+          },
+          "native_session_ref": {
+            "type": "string"
+          },
+          "observation_ref": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "session_run_id": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "additionalProperties": false

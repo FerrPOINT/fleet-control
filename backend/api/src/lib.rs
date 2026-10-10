@@ -17,6 +17,7 @@ pub mod routes;
     paths(
         routes::health::health,
         routes::pm_runtime::readback,
+        routes::pm_runtime::execution_admission,
         routes::pm_runtime::admit,
         routes::pm_runtime::tool,
         routes::sdlc_configuration::readback,
@@ -594,6 +595,10 @@ pub fn router(ctx: Arc<AppContext>) -> Router<Arc<AppContext>> {
         .route(
             "/internal/runtime/v1/pm/runs/{session_run_id}",
             get(routes::pm_runtime::readback),
+        )
+        .route(
+            "/internal/runtime/v1/pm/executions/{execution_id}/admission",
+            get(routes::pm_runtime::execution_admission),
         )
         .route(
             "/internal/runtime/v1/pm/agents/{agent_id}/admit",

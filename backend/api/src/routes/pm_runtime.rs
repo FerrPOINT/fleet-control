@@ -213,6 +213,32 @@ pub async fn readback(
     }))
 }
 
+#[utoipa::path(get,path="/internal/runtime/v1/pm/executions/{execution_id}/admission",tag="pm-runtime",
+    params(("execution_id"=Uuid,Path)),responses((status=200,body=domain::PmNativeAdmissionObservation),(status=401),(status=409),(status=503)))]
+pub async fn execution_admission(
+    State(ctx): State<Arc<AppContext>>,
+    Path(execution): Path<Uuid>,
+    headers: HeaderMap,
+) -> Result<Json<domain::PmNativeAdmissionObservation>, AppError> {
+    if execution.is_nil() || !separate_credential(&ctx.config) {
+        return Err(AppError::Unavailable(
+            "PM admission reader is not configured".into(),
+        ));
+    }
+    authorize(&headers, &ctx.config.pm.readback_token)?;
+    let record = ctx.repo.current_pm_execution_run(execution).await?;
+    record.reservation.validate()?;
+    let agent = ctx
+        .repo
+        .get_agent(record.reservation.identity.agent_id()?)
+        .await?;
+    Ok(Json(
+        ctx.runtime
+            .observe_pm_native_admission(&agent, &record)
+            .await?,
+    ))
+}
+
 fn separate_credential(config: &shared::AppConfig) -> bool {
     config.pm.readback_token != config.fleet.runtime_token_secret
         && config.pm.readback_token != config.auth.jwt_secret

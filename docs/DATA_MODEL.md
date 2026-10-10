@@ -1,5 +1,13 @@
 # Data Model
 
+Migration `m20261010_000027_pm_native_dispatch` extends the existing Hermes
+dispatch journal to task-bound PM runs. It verifies the original creation,
+assignment, credential/lease and Workflow receipt, and accepts the frozen
+`fleet-pm` session key for the initial message or acknowledged continuation.
+Free-chat journal rules remain in force. Downgrade refuses retained PM history.
+The private execution/admission readback derives its observation from existing
+run/configuration records; it does not add an admission table to Fleet.
+
 The optional `workflow_assignment` journal in the existing PM creation operation
 stores the server-derived reservation/input command, canonical hash, fixed origin
 and assignment-token fingerprint, then an immutable Workflow/mode/initial-phase

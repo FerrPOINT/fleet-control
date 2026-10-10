@@ -56,7 +56,7 @@ pub(crate) fn pm_tools(
         .ok_or_else(|| AppError::validation("Hermes configuration must be an object"))?;
     object(root, "platform_toolsets")?.insert("api_server".into(), json!(["fleet_pm"]));
     object(root, "plugins")?.insert("enabled".into(), json!(["fleet-pm"]));
-    object(root, "tool_search")?.insert("enabled".into(), json!("off"));
+    object(object(root, "tools")?, "tool_search")?.insert("enabled".into(), json!("off"));
     let memory = object(root, "memory")?;
     memory.insert("memory_enabled".into(), json!(false));
     memory.insert("user_profile_enabled".into(), json!(false));

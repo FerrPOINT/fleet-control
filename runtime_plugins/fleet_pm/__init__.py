@@ -1,6 +1,7 @@
 """Fleet-owned extension for pinned Hermes; no assignment or Tracker parent tokens."""
 import hashlib
 import json
+import logging
 import os
 from threading import Lock
 from urllib.error import HTTPError, URLError
@@ -18,6 +19,12 @@ TOOLS = {
     "fleet_pm_skills": ("skills", "Read an approved skill for this current phase."),
 }
 LIMIT = 256 * 1024
+logger = logging.getLogger(__name__)
+
+
+def refusal(reason):
+    logger.warning("Fleet PM provider admission refused: %s", reason)
+    return None
 
 
 def command_schema(operation):
@@ -164,14 +171,16 @@ def register(ctx):
         # Refusal returns no provider response; only verified admission calls next_call.
         try:
             if platform != "api_server" or not isinstance(request, dict):
-                return None
+                return refusal("native_request_context")
             names = sorted(tool.get("function", tool).get("name", "") for tool in request.get("tools", []))
             if names != sorted(TOOLS):
+                logger.warning("Fleet PM provider admission refused: tool_inventory expected=%s observed=%s",
+                               sorted(TOOLS), names)
                 return None
             if (api_mode != "chat_completions"
                     or any(not isinstance(value, str) or not value or len(value) > 512
                            for value in (model, provider, api_mode))):
-                return None
+                return refusal("model_configuration")
             # The gateway constructor has no max_tokens option at this pin.
             # Apply the owner-frozen bound to the actual provider request.
             request["max_tokens"] = output_limit
@@ -189,9 +198,9 @@ def register(ctx):
                 "output_limit": output_limit,
             }})
             if approved.get("allowed") is not True:
-                return None
+                return refusal("owner_denied")
         except Exception:
-            return None
+            return refusal("owner_unavailable")
         return next_call(request)
 
     ctx.register_middleware("llm_execution", admission)
@@ -221,7 +230,7 @@ def register(ctx):
                                              for value in (context_limit, actual_output_limit, turn_budget))):
                 return web.json_response({"error": "native_inventory_unsupported"}, status=409)
             return web.json_response({"contract_version": 1, "agent_id": config[0], "native_run_ref": run_id,
-                "session_id": agent.session_id, "model": agent.model, "provider": agent.provider,
+                "session_id": agent.session_id, "model": agent.model, "provider": agent.provider, "api_mode": agent.api_mode,
                 "context_limit": context_limit, "output_limit": actual_output_limit, "turn_budget": turn_budget,
                 "tools": tools, "route_sha256": hashlib.sha256(agent.base_url.encode()).hexdigest(),
                 "background_review_disabled": getattr(agent, "skip_background_review", None) is True,

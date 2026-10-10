@@ -14,6 +14,23 @@ pub const PM_NATIVE_TOOLS: [&str; 6] = [
     "fleet_pm_workflow",
 ];
 
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PmNativeAdmissionObservation {
+    pub contract_version: u8,
+    pub observation_ref: Uuid,
+    pub observed_at: chrono::DateTime<chrono::Utc>,
+    pub identity: crate::PmExecutionIdentity,
+    pub session_run_id: Uuid,
+    pub native_run_ref: String,
+    pub native_session_ref: String,
+    pub binding_ref: String,
+    pub fence: i64,
+    pub effective_config_revision: i64,
+    pub configuration_sha256: String,
+    pub native_configuration: PmNativeConfiguration,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PmNativeConfiguration {
@@ -63,6 +80,7 @@ pub struct PmNativeInventory {
     pub session_id: String,
     pub model: String,
     pub provider: String,
+    pub api_mode: String,
     pub context_limit: i64,
     pub output_limit: i64,
     pub turn_budget: i64,
@@ -92,6 +110,7 @@ impl PmNativeInventory {
             || record.hermes_session_ref.as_deref() != Some(self.session_id.as_str())
             || self.model != request.model
             || self.provider != request.provider
+            || self.api_mode != request.api_mode
             || self.output_limit != request.output_limit
             || self.route_sha256 != request.route_sha256
             || self.tools != request.tools

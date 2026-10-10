@@ -148,6 +148,7 @@ async fn rejected_purge_preserves_runtime_and_files(draining: bool) {
         .layer(axum::Extension(api::middleware::CurrentUser {
             id: owner,
             role: SystemRole::Operator,
+            central_write: None,
             is_system_admin: false,
         }))
         .with_state(ctx);

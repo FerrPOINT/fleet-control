@@ -58,6 +58,7 @@ pub struct SessionListFilter {
     pub leader_agent_id: Option<Uuid>,
     pub include_all_users: bool,
     pub task_project_access: Option<domain::TaskProjectAccess>,
+    pub private_user_id: Option<Uuid>,
 }
 
 #[derive(Debug, Clone)]
@@ -522,6 +523,14 @@ pub trait FleetRepository: Send + Sync {
     ) -> Result<Option<domain::PmRunRecord>, AppError> {
         Err(AppError::Unavailable(
             "PM native run lookup is unavailable".into(),
+        ))
+    }
+    async fn current_pm_execution_run(
+        &self,
+        _execution: Uuid,
+    ) -> Result<domain::PmRunRecord, AppError> {
+        Err(AppError::Unavailable(
+            "PM execution lookup is unavailable".into(),
         ))
     }
     async fn find_pm_creation_for_session(
@@ -1346,6 +1355,15 @@ pub trait RuntimeSupervisor: Send + Sync {
     ) -> Result<bool, AppError> {
         Err(AppError::Unavailable(
             "PM native admission is unavailable".into(),
+        ))
+    }
+    async fn observe_pm_native_admission(
+        &self,
+        _agent: &Agent,
+        _record: &domain::PmRunRecord,
+    ) -> Result<domain::PmNativeAdmissionObservation, AppError> {
+        Err(AppError::Unavailable(
+            "PM native admission observation is unavailable".into(),
         ))
     }
     async fn pm_native_tool(

@@ -8,6 +8,27 @@ pub(super) async fn verify(
     requested: &domain::PmNativeConfiguration,
 ) -> Result<bool, AppError> {
     requested.validate()?;
+    Ok(verified(supervisor, agent, record, Some(requested))
+        .await?
+        .is_some())
+}
+
+pub(super) async fn observe(
+    supervisor: &LocalRuntimeSupervisor,
+    agent: &Agent,
+    record: &domain::PmRunRecord,
+) -> Result<domain::PmNativeAdmissionObservation, AppError> {
+    verified(supervisor, agent, record, None)
+        .await?
+        .ok_or_else(|| AppError::Unavailable("PM Workflow enrollment is pending".into()))
+}
+
+async fn verified(
+    supervisor: &LocalRuntimeSupervisor,
+    agent: &Agent,
+    record: &domain::PmRunRecord,
+    requested: Option<&domain::PmNativeConfiguration>,
+) -> Result<Option<domain::PmNativeAdmissionObservation>, AppError> {
     let operation = supervisor
         .repo
         .find_pm_creation_for_session(record.reservation.session_id)
@@ -26,7 +47,7 @@ pub(super) async fn verify(
     let workflow = crate::pm_workflow::PmWorkflowClient::configured(&supervisor.config)?
         .ok_or_else(|| AppError::Unavailable("PM Workflow is unavailable".into()))?;
     if !workflow.verify_active_run(record).await? {
-        return Ok(false);
+        return Ok(None);
     }
     let original =
         record.reservation.runtime_binding.as_ref().ok_or_else(|| {
@@ -78,6 +99,15 @@ pub(super) async fn verify(
     if serde_json::to_value(&inventory).map_err(AppError::internal)? != value {
         return Err(AppError::conflict("PM native inventory is not canonical"));
     }
+    let actual_request = domain::PmNativeConfiguration {
+        model: inventory.model.clone(),
+        provider: inventory.provider.clone(),
+        api_mode: inventory.api_mode.clone(),
+        route_sha256: inventory.route_sha256.clone(),
+        tools: inventory.tools.clone(),
+        output_limit: inventory.output_limit,
+    };
+    let requested = requested.unwrap_or(&actual_request);
     inventory.verify(record, requested, &effective.snapshot.config.config_json)?;
     let expected_route = effective.snapshot.config.config_json["model"]["base_url"]
         .as_str()
@@ -113,5 +143,18 @@ pub(super) async fn verify(
             "PM lease is not active at native admission",
         ));
     }
-    Ok(true)
+    Ok(Some(domain::PmNativeAdmissionObservation {
+        contract_version: 1,
+        observation_ref: Uuid::new_v4(),
+        observed_at: chrono::Utc::now(),
+        identity: record.reservation.identity.clone(),
+        session_run_id: record.reservation.session_run_id,
+        native_run_ref: native.into(),
+        native_session_ref: inventory.session_id,
+        binding_ref: record.reservation.binding_ref.clone(),
+        fence: record.reservation.fence,
+        effective_config_revision: effective.revision,
+        configuration_sha256: crate::runtime_launches::snapshot_hash(&snapshot)?,
+        native_configuration: requested.clone(),
+    }))
 }

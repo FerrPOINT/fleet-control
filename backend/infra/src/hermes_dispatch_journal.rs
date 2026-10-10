@@ -199,6 +199,7 @@ pub(super) async fn claim(
         .await?
         .ok_or_else(|| AppError::internal("Hermes journal disappeared"))?;
     let frozen_role: String = column(&row, "run_role")?;
+    let requested_session_id: String = column(&row, "requested_session_id")?;
     let result = intent(row, run.clone(), agent.name.clone())?;
     if result.origin != origin || result.credential_fingerprint != credential_fingerprint {
         return Err(AppError::conflict(
@@ -212,8 +213,7 @@ pub(super) async fn claim(
     validate_current(&txn, &agent, &session, &run, &origin, &result.capabilities).await?;
     validate_launch_generation(&txn, agent.id, &result.capabilities).await?;
     if run.run_role != frozen_role
-        || run.runtime_session_id.as_deref()
-            != Some(format!("fleet:{}:{}", session.id, agent.id).as_str())
+        || run.runtime_session_id.as_deref() != Some(requested_session_id.as_str())
         || message.runtime_message_id.is_some()
         || message.delivery_state != "pending"
         || !matches!(outbox.as_str(), "dispatching" | "uncertain")

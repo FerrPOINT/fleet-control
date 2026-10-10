@@ -59,6 +59,7 @@ fn authorized_filter(
         before: query.before,
         limit: query.limit.unwrap_or(50),
         task_project_access: None,
+        private_user_id: current.central_write.map(|_| current.id),
     };
     filter.validate()?;
     Ok(filter)
@@ -104,6 +105,7 @@ mod tests {
         CurrentUser {
             id: Uuid::new_v4(),
             role,
+            central_write: None,
             is_system_admin: false,
         }
     }

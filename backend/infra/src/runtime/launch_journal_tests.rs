@@ -101,6 +101,7 @@ async fn runtime_launch_foreign_health_preserves_original_controller_state() {
         axum::Extension(api::middleware::CurrentUser {
             id: owner,
             role: domain::SystemRole::Operator,
+            central_write: None,
             is_system_admin: false,
         }),
         axum::extract::Path(agent.id),

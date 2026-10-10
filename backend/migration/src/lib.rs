@@ -33,6 +33,7 @@ mod m20261009_000023_pm_execution_lease;
 mod m20261009_000024_pm_workflow_assignment;
 mod m20261009_000025_pm_checkpoints;
 mod m20261009_000026_pm_resumes;
+mod m20261010_000027_pm_native_dispatch;
 
 pub struct Migrator;
 
@@ -138,5 +139,6 @@ fn runtime_followups() -> Vec<Box<dyn MigrationTrait>> {
         Box::new(m20261009_000024_pm_workflow_assignment::Migration),
         Box::new(m20261009_000025_pm_checkpoints::Migration),
         Box::new(m20261009_000026_pm_resumes::Migration),
+        Box::new(m20261010_000027_pm_native_dispatch::Migration),
     ]
 }

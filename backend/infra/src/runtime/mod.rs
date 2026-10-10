@@ -2650,6 +2650,13 @@ impl RuntimeSupervisor for LocalRuntimeSupervisor {
     ) -> Result<bool, AppError> {
         pm_admission::verify(self, agent, record, configuration).await
     }
+    async fn observe_pm_native_admission(
+        &self,
+        agent: &Agent,
+        record: &domain::PmRunRecord,
+    ) -> Result<domain::PmNativeAdmissionObservation, AppError> {
+        pm_admission::observe(self, agent, record).await
+    }
     async fn pm_native_tool(
         &self,
         agent: &Agent,

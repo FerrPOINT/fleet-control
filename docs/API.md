@@ -1,5 +1,11 @@
 # API
 
+`GET /internal/runtime/v1/pm/executions/{execution_id}/admission` uses the separate
+PM readback credential and returns a fresh server-verified current run/configuration
+observation. It rechecks original intake, Workflow, native inventory/custody and
+lease; unknown, stopped or ambiguous runs are unavailable. The PM caller supplies
+no readiness flag. This source addition remains under integrated qualification.
+
 Opt-in PM creation now prepares the current Tracker lease and the actual
 Workflow Draft assignment through internal owner HTTP contracts. Workflow intent
 is stored before POST; explicit replay keeps its original command/source/token
