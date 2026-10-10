@@ -24,7 +24,7 @@ import zipfile
 
 REPOSITORY = "FerrPOINT/fleet-control"
 BRANCH = "build-only/config-union-backend-20261010"
-SOURCE_SHA = "7dd60204bd352f5dbf3e61b8c2db14706450eea4"
+SOURCE_SHA = "7c7f9dd448cb103a47a74db6f4f84c73f3b68957"
 BASE_SHA = "19a7a381ae6dbea61a643bb96189e483fa64df5c"
 AUTH_SHA = "01388dfb43332cbe5837fd5e1fadccf09cb8886d"
 UTILITY_SHA = "9b53de7b23593949a9e6c05bd5a4f94b930e50a0"
@@ -43,7 +43,7 @@ INVENTORY = "scripts/hosted-backend/test-inventory.json"
 WRITE_SET = {WORKFLOW, HELPER, GATE, INIT, INVENTORY, "scripts/tests/test_hosted_backend_gate.py"}
 ARTIFACT_FILES = {"report.json", "provenance.json", "SHA256SUMS"}
 FAILURE_FILE = "compiler-diagnostics.json"
-SOURCE_INVENTORY_SHA = "a72e3c1fa142d2751ead9bbb1fe1d2662af28ee7d215cb2f80b7ba64b082b40c"
+SOURCE_INVENTORY_SHA = "f3585fe148cd49ee4e8df7c0e14c8c2ea1814e689613b4a78091a45fa9771aeb"
 DIAGNOSTIC_LIMIT = 32
 DIAGNOSTIC_INPUT_LIMIT = 16 * 1024 ** 2
 DIAGNOSTIC_LINE_LIMIT = 256 * 1024
@@ -64,6 +64,21 @@ TEST_CUSTOM_HINTS = {
     "recovery_guard_missing": "Missing recovery guard",
 }
 TEST_NULL_HINTS = {"null_definition_decode": "definition", "null_body_decode": "body"}
+TEST_AUTHORIZE_HINTS = {
+    label: 'called `Result::unwrap()` on an `Err` value: Unavailable("' + label + '")'
+    for label in (
+        "activation_authorize_begin",
+        "activation_authorize_lock",
+        "activation_authorize_agent",
+        "activation_authorize_readback",
+        "activation_authorize_receipt_decode",
+        "activation_authorize_receipt_validation",
+        "activation_authorize_current",
+        "activation_authorize_config",
+        "activation_authorize_authority_insert",
+        "activation_authorize_commit",
+    )
+}
 TEST_ACTIVATION_HINTS = frozenset({
     "activation_probe_request_scope_exact",
     "activation_probe_observation_snapshot_exact",
@@ -691,6 +706,8 @@ def safe_test_diagnostics(stream, names, allowed, fleet_backend):
         if panic_detail:
             if activation_detail and text in TEST_ACTIVATION_HINTS:
                 hints.add(text)
+            if activation_detail:
+                hints.update(category for category, message in TEST_AUTHORIZE_HINTS.items() if text == message)
             hints.update(category for category, message in TEST_CUSTOM_HINTS.items()
                          if re.search(r'(?<![A-Za-z0-9_])Custom\("' + re.escape(message) + r'"\)', text))
             for category, field in TEST_NULL_HINTS.items():
@@ -771,12 +788,12 @@ def validate_failure_evidence(value, *, workflow_sha, run_id, attempt):
     require(all(value[key] is None or type(value[key]) is int and 0 <= value[key] <= 255
                 for key in ("gate_exit_code", "command_exit_code")), "Invalid exit code")
     require(type(value["truncated"]) is bool and isinstance(value["categories"], list)
-            and all(isinstance(item, str) and item in ({"test_failure", "unknown", *TEST_CUSTOM_HINTS, *TEST_NULL_HINTS, *TEST_ACTIVATION_HINTS}
+            and all(isinstance(item, str) and item in ({"test_failure", "unknown", *TEST_CUSTOM_HINTS, *TEST_NULL_HINTS, *TEST_ACTIVATION_HINTS, *TEST_AUTHORIZE_HINTS}
                                                        if test_failure else {*CATEGORY_PATTERNS, "unknown"}) for item in value["categories"])
             and value["categories"] == sorted(set(value["categories"])), "Invalid fixed failure categories")
-    if test_failure and set(value["categories"]) & (TEST_CUSTOM_HINTS.keys() | TEST_NULL_HINTS.keys() | TEST_ACTIVATION_HINTS):
+    if test_failure and set(value["categories"]) & (TEST_CUSTOM_HINTS.keys() | TEST_NULL_HINTS.keys() | TEST_ACTIVATION_HINTS | TEST_AUTHORIZE_HINTS.keys()):
         require("test_failure" in value["categories"] and bool(value["diagnostics"]), "Unanchored test failure hint")
-    if test_failure and set(value["categories"]) & TEST_ACTIVATION_HINTS:
+    if test_failure and set(value["categories"]) & (TEST_ACTIVATION_HINTS | TEST_AUTHORIZE_HINTS.keys()):
         require(isinstance(value["diagnostics"], list)
                 and any(isinstance(record, dict) and record.get("file") == ACTIVATION_PROBE_SOURCE
                     for record in value["diagnostics"]), "Unanchored activation probe hint")

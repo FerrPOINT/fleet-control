@@ -29,6 +29,25 @@ class HostedBackendTests(unittest.TestCase):
         return subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT), "show",
             (pin or gate.SOURCE_SHA) + ":" + path], capture_output=True, check=True, timeout=30).stdout
 
+    def without_authorize_diagnostics(self, source):
+        import ast
+        node = next(node for node in ast.parse(source).body if isinstance(node, ast.Assign)
+                    and isinstance(node.targets[0], ast.Name) and node.targets[0].id == "TEST_AUTHORIZE_HINTS")
+        lines = source.splitlines(keepends=True)
+        source = "".join(lines[:node.lineno - 1] + lines[node.end_lineno:])
+        changes = (
+            ('            if activation_detail:\n'
+             '                hints.update(category for category, message in TEST_AUTHORIZE_HINTS.items() if text == message)\n', ""),
+            ("*TEST_ACTIVATION_HINTS, *TEST_AUTHORIZE_HINTS", "*TEST_ACTIVATION_HINTS"),
+            ("TEST_ACTIVATION_HINTS | TEST_AUTHORIZE_HINTS.keys()", "TEST_ACTIVATION_HINTS"),
+            ('& (TEST_ACTIVATION_HINTS):', '& TEST_ACTIVATION_HINTS:'),
+        )
+        for added, previous in changes:
+            count = 2 if added == "TEST_ACTIVATION_HINTS | TEST_AUTHORIZE_HINTS.keys()" else 1
+            self.assertEqual(source.count(added), count, added)
+            source = source.replace(added, previous, count)
+        return source
+
     def test_expansion_preserves_all_previous74_stages_and_case_identities(self):
         donor = "a7d7db205ee2ef7e480b5dc559156ad373135180"
         previous = json.loads(self.source_blob(gate.INVENTORY, donor))
@@ -59,7 +78,7 @@ class HostedBackendTests(unittest.TestCase):
         import ast
         donor = "6f648430a43ffbf021c804648fd05f27e2268bdb"
         old = ast.parse(self.source_blob(gate.HELPER, donor))
-        source = (ROOT / gate.HELPER).read_text()
+        source = self.without_authorize_diagnostics((ROOT / gate.HELPER).read_text())
         added_verification = ('    if success:\n'
             '        verify_evidence_directory(evidence, workflow_sha=workflow_sha, run_id=identity["run_id"],\n'
             '                                  attempt=identity["run_attempt"])\n')
@@ -157,10 +176,10 @@ class HostedBackendTests(unittest.TestCase):
                     gate.verify_test_log(stage, bad, REVIEWED)
 
     def test_successor_source_tree_and_six_lf_controls_remain_closed(self):
-        self.assertEqual(gate.SOURCE_SHA, "7dd60204bd352f5dbf3e61b8c2db14706450eea4")
+        self.assertEqual(gate.SOURCE_SHA, "7c7f9dd448cb103a47a74db6f4f84c73f3b68957")
         tree = subprocess.run(["git", "-C", str(ROOT), "rev-parse", gate.SOURCE_SHA + "^{tree}"],
             capture_output=True, check=True, timeout=30).stdout.decode().strip()
-        self.assertEqual(tree, "b548841cbdbce9504e0cad87ac12ace392f3dcf3")
+        self.assertEqual(tree, "bcf58d48d48537fda4eccad838249d130f45c6cc")
         delta = subprocess.run(["git", "-C", str(ROOT), "diff", "--name-status", gate.SOURCE_SHA],
             capture_output=True, check=True, timeout=30).stdout.decode()
         gate.validate_delta(delta)
@@ -1884,6 +1903,112 @@ class HostedBackendTests(unittest.TestCase):
                         dict(kind="safe_compiler_failure")):
             with self.assertRaises(ValueError):
                 self.validate_failure(dict(value, categories=[hint, "test_failure"], **changes))
+
+    def test_authorize_successor_preserves_every_predecessor_ast_guard_and_selector(self):
+        import ast
+        predecessor = "9e7fb08a8d1bd72539d5b0b04c85f8714c91b048"
+        old, new = (ast.parse(text) for text in (self.source_blob(gate.HELPER, predecessor),
+                    self.without_authorize_diagnostics((ROOT / gate.HELPER).read_text())))
+        def nodes(tree):
+            return {node.name if isinstance(node, (ast.FunctionDef, ast.ClassDef)) else node.targets[0].id: node
+                    for node in tree.body if isinstance(node, (ast.FunctionDef, ast.ClassDef, ast.Assign))}
+        before, after = nodes(old), nodes(new)
+        self.assertEqual(before.keys(), after.keys())
+        for name in before.keys() - {"SOURCE_SHA", "SOURCE_INVENTORY_SHA"}:
+            self.assertEqual(ast.dump(before[name]), ast.dump(after[name]), name)
+        selectors = lambda tree: {node.name for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")}
+        previous = selectors(ast.parse(self.source_blob("scripts/tests/test_hosted_backend_gate.py", predecessor)))
+        self.assertEqual(len(previous), 120)
+        self.assertTrue(previous <= selectors(ast.parse(Path(__file__).read_bytes())))
+        original = json.loads(self.source_blob(gate.INVENTORY, predecessor))
+        restored = copy.deepcopy(REVIEWED)
+        for key in ("compiled_source_sha256", "rust_source_sha256"):
+            changed = {name for name in original[key] if original[key][name] != restored[key][name]}
+            expected = ("fleet-control/" if key == "compiled_source_sha256" else "") + "backend/infra/src/container_activation.rs"
+            self.assertEqual(changed, {expected})
+            restored[key][expected] = original[key][expected]
+        restored["source_commit"] = original["source_commit"]
+        restored["config_union_preparation"]["source_commit"] = original["config_union_preparation"]["source_commit"]
+        restored["config_union_preparation"]["codegen_evidence"]["artifact_bound_source_commit"] = original["config_union_preparation"]["codegen_evidence"]["artifact_bound_source_commit"]
+        self.assertEqual(restored, original)
+        for path in (gate.GATE, gate.INIT):
+            self.assertEqual((ROOT / path).read_bytes(), self.source_blob(path, predecessor))
+
+    def test_authorize_labels_are_exact_source_attested_unavailable_not_custom(self):
+        expected = {"activation_authorize_" + label for label in (
+            "begin", "lock", "agent", "readback", "receipt_decode", "receipt_validation", "current", "config",
+            "authority_insert", "commit")}
+        self.assertEqual(set(gate.TEST_AUTHORIZE_HINTS), expected)
+        source = self.source_blob("backend/infra/src/container_activation.rs").decode()
+        self.assertEqual(set(re.findall(r'"(activation_authorize_[a-z_]+)"', source)), expected)
+        self.assertIn('AppError::Unavailable(stage.into())', source)
+        for hint, detail in gate.TEST_AUTHORIZE_HINTS.items():
+            self.assertEqual(detail, 'called `Result::unwrap()` on an `Err` value: Unavailable("' + hint + '")')
+            result = self.probe_diagnostics(detail)
+            self.assertEqual(result["categories"], [hint, "test_failure"])
+            self.assertNotIn("Unavailable", gate.canonical(result).decode())
+
+    def test_authorize_details_reject_private_prefix_suffix_debug_sql_and_unknown_labels(self):
+        for hint, detail in gate.TEST_AUTHORIZE_HINTS.items():
+            for text in (hint, 'Unavailable("' + hint + '")', 'Custom("' + hint + '")',
+                         "PRIVATE_SENTINEL " + detail, detail + " PRIVATE_SENTINEL", " " + detail, detail + " ",
+                         detail.replace(hint, hint + "_unknown"), "SELECT '" + detail + "';", "blank\n" + detail):
+                with self.subTest(hint=hint, detail=text):
+                    result = self.probe_diagnostics(text)
+                    self.assertEqual(result["categories"], ["test_failure"])
+                    self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+
+    def test_authorize_details_require_immediate_owned_panic_and_reset_foreign_frames(self):
+        detail = next(iter(gate.TEST_AUTHORIZE_HINTS.values()))
+        for options in (dict(thread="foreign"), dict(path="/qa/src/services-base/private.rs"),
+                        dict(path="infra/tests/support/pm_credential_creation.rs")):
+            result = self.probe_diagnostics(detail, **options)
+            self.assertFalse(set(result["categories"]) & gate.TEST_AUTHORIZE_HINTS.keys())
+        for boundary in ("thread 'foreign' panicked at infra/tests/container_activation.rs:111:5:",
+                         "thread 'malformed' panicked at PRIVATE_SENTINEL", "test result: FAILED",
+                         "test foreign ... FAILED"):
+            result = self.probe_diagnostics(boundary + "\n" + detail)
+            self.assertEqual(result["categories"], ["test_failure"])
+            self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+        name = REVIEWED["groups"]["container_activation_pg"][0]
+        for boundary in (f"thread '{name}' panicked at infra/tests/container_activation.rs:111:5:",
+                         "thread 'foreign' panicked at infra/tests/container_activation.rs:111:5:\nprivate"):
+            result = self.probe_diagnostics(boundary + "\n" +
+                f"thread '{name}' panicked at infra/tests/container_activation.rs:112:5:\n" + detail)
+            self.assertIn(next(iter(gate.TEST_AUTHORIZE_HINTS)), result["categories"])
+        result = gate.safe_test_diagnostics(io.BytesIO(detail.encode()), set(), REVIEWED["rust_source_sha256"], Path("/qa/backend"))
+        self.assertEqual(result["categories"], ["unknown"])
+
+    def test_authorize_details_keep_byte_line_count_and_schema_bounds(self):
+        hint, detail = next(iter(gate.TEST_AUTHORIZE_HINTS.items()))
+        for limit, amount in (("DIAGNOSTIC_INPUT_LIMIT", 8), ("DIAGNOSTIC_LINE_LIMIT", 64), ("DIAGNOSTIC_LIMIT", 0)):
+            with mock.patch.object(gate, limit, amount):
+                result = self.probe_diagnostics(detail)
+            self.assertTrue(result["truncated"])
+            self.assertNotIn(hint, result["categories"])
+        value = dict(self.failure_test_value(), **self.probe_diagnostics(detail), stage="container_activation_pg",
+                     gate_failed_stage="container_activation_pg")
+        for changes in (dict(categories=[hint]), dict(categories=[hint, hint, "test_failure"]),
+                        dict(categories=[hint + "_unknown", "test_failure"]), dict(diagnostics=[]),
+                        dict(diagnostics=self.failure_test_value()["diagnostics"]), dict(backend_quality_gate=True),
+                        dict(kind="safe_compiler_failure"), dict(message="PRIVATE_SENTINEL")):
+            with self.assertRaises(ValueError):
+                self.validate_failure(dict(value, **changes))
+
+    def test_authorize_hints_authenticated_readback_remains_failure_only(self):
+        for hint, detail in gate.TEST_AUTHORIZE_HINTS.items():
+            value = dict(self.failure_test_value(), **self.probe_diagnostics(detail), stage="container_activation_pg",
+                         gate_failed_stage="container_activation_pg")
+            run, artifact, payload, args = self.failure_artifact(value=value)
+            files = gate.validate_failure_readback(run, artifact, payload, **args)
+            retained = json.loads(files[gate.FAILURE_FILE])
+            self.assertEqual(retained["categories"], [hint, "test_failure"])
+            self.assertEqual(set(files), {gate.FAILURE_FILE})
+            for flag in ("backend_quality_gate", "all_quality_gate", "sdlc_acceptance"):
+                self.assertIs(retained[flag], False)
+            with self.assertRaises(ValueError):
+                gate.validate_failure_readback(run, artifact, payload, **dict(args, artifact_digest="sha256:" + "0" * 64))
 
 
 if __name__ == "__main__":

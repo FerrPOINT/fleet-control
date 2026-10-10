@@ -175,7 +175,7 @@
     "fleet-control/backend/infra/src/chats_directory.rs": "e5fad712fe695c5f883589f6df4e5eacf9be8a2422c50cb85a5836a82980e818",
     "fleet-control/backend/infra/src/clarification_commands.rs": "acbb6bfa0fbb42dcd672a944a4ced092135aa772386815a75c8308ac10421f03",
     "fleet-control/backend/infra/src/config_revisions.rs": "d2ff7f671b836845d5c10938f6c36509c2269c3241c1998de84756a131c94d44",
-    "fleet-control/backend/infra/src/container_activation.rs": "c3605651f61bd1a37c4b3ff339ef1532461008fc4ef3e00a3b247ab470ff5cf6",
+    "fleet-control/backend/infra/src/container_activation.rs": "f5f4d4bbd294a6c769e5a6e9aae4403465e222c164fd8d743cc60bafd5da048a",
     "fleet-control/backend/infra/src/container_preparation.rs": "e5ce092c8d604356fa6ff62b28c360d8d189297ae0a8aff84e05a98ec5489aa3",
     "fleet-control/backend/infra/src/container_recovery.rs": "bc785035261cf963020fe668561e128d2e8d04bd4498cbf723745992d825e38f",
     "fleet-control/backend/infra/src/container_runtime.rs": "86b0a69b1b1ad8c799e6ff9888738c77bedd8ee23dfc7e11df28a5c63aed3810",
@@ -396,7 +396,7 @@
     "activation_intent_cases": 20,
     "authentic_union_codegen_pending": false,
     "codegen_evidence": {
-      "artifact_bound_source_commit": "7dd60204bd352f5dbf3e61b8c2db14706450eea4",
+      "artifact_bound_source_commit": "7c7f9dd448cb103a47a74db6f4f84c73f3b68957",
       "artifact_id": 11656020208,
       "artifact_zip_sha256": "9e46aadcaf9de57d91d8389b0b460234ef1e0e6f02a72db81eea8af2d3d05ff8",
       "reported_by_parent": true,
@@ -418,7 +418,7 @@
       "runtime::container_activation::tests::workflow_rollback_preflight_selects_current_effective_not_desired_or_root_revision"
     ],
     "prior_stages_preserved": 74,
-    "source_commit": "7dd60204bd352f5dbf3e61b8c2db14706450eea4"
+    "source_commit": "7c7f9dd448cb103a47a74db6f4f84c73f3b68957"
   },
   "default_foundation_ignored": 119,
   "executed": false,
@@ -2666,7 +2666,7 @@
     "backend/infra/src/chats_directory.rs": "e5fad712fe695c5f883589f6df4e5eacf9be8a2422c50cb85a5836a82980e818",
     "backend/infra/src/clarification_commands.rs": "acbb6bfa0fbb42dcd672a944a4ced092135aa772386815a75c8308ac10421f03",
     "backend/infra/src/config_revisions.rs": "d2ff7f671b836845d5c10938f6c36509c2269c3241c1998de84756a131c94d44",
-    "backend/infra/src/container_activation.rs": "c3605651f61bd1a37c4b3ff339ef1532461008fc4ef3e00a3b247ab470ff5cf6",
+    "backend/infra/src/container_activation.rs": "f5f4d4bbd294a6c769e5a6e9aae4403465e222c164fd8d743cc60bafd5da048a",
     "backend/infra/src/container_preparation.rs": "e5ce092c8d604356fa6ff62b28c360d8d189297ae0a8aff84e05a98ec5489aa3",
     "backend/infra/src/container_recovery.rs": "bc785035261cf963020fe668561e128d2e8d04bd4498cbf723745992d825e38f",
     "backend/infra/src/container_runtime.rs": "86b0a69b1b1ad8c799e6ff9888738c77bedd8ee23dfc7e11df28a5c63aed3810",
@@ -2783,7 +2783,7 @@
     "backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a"
   },
-  "source_commit": "7dd60204bd352f5dbf3e61b8c2db14706450eea4",
+  "source_commit": "7c7f9dd448cb103a47a74db6f4f84c73f3b68957",
   "utility_source_sha256": {
     "scripts/runtime_bootstrap.py": "5be8066b6f7dc68f8dda7f1040c0626dad272477c019b07263821df7f86b59a2",
     "scripts/runtime_boundary.py": "2e6bfa6907b93e6d436d2b6668ae20211aca53a64c433f7e1a98ab51245b3e89",
