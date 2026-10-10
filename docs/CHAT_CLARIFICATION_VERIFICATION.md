@@ -5,6 +5,26 @@ No real PM publication/resume or live Backlog acceptance is claimed.
 
 ## Current Hosted Qualification (2026-10-10)
 
+Corrected frontend
+[38072655687](https://github.com/FerrPOINT/fleet-control/actions/runs/38072655687),
+attempt1, is SUCCESS on product `aca917c4a79d1718beab8f5b82631f1698ebda5c`
+and controls `fc0cffe86706ac3ce57dd113648dcb590186abc0`. The original strict
+reader verifies artifact11677891567, ZIP SHA256
+`7d99f084429afdaa5baa383d93af21003ae6b2ffcbf561945b3191d93a372435`,
+source provenance, closed members, PNG/checksum bindings and all23 gates.
+All461 unit tests in41 files pass without skips. Chromium, Firefox and WebKit
+each pass47 fixture tests with zero flaky cases and nine opt-in live skips.
+Those skips remain explicit; no live-service acceptance is claimed.
+The catalogue contains135 PNGs and browser fixtures186 PNGs. Parent visual
+review of mobile/desktop requirements confirms success without the contradictory
+unavailable warning and disabled confirmation controls; dialogue/clarification
+captures were also inspected. No whole-image-set visual approval is claimed.
+The frontend/OpenAPI/Base closure is byte-identical between this product and
+integration `3fcbe6288dfb52d6b56eed5068ee364532ac84f6`; this does not qualify
+the newer backend test inventory. Tracked capture import is still pending.
+
+The preceding successful packet and discovered defect are preserved below.
+
 Frontend [38070120966](https://github.com/FerrPOINT/fleet-control/actions/runs/38070120966),
 attempt1, is SUCCESS on product `6dd16d0c8ffc40d96519390bfb7c31324a8786f6`
 and controls `cc90ac6128094dee4df0c7f5491909ccc4a57642`.
@@ -25,10 +45,9 @@ requirements capture reveals a contradictory success plus unavailable warning
 after a matching confirmation receipt refreshes context to Backlog. Product
 `aca917c4a79d1718beab8f5b82631f1698ebda5c` corrects only that warning and adds
 a regression for disabled controls and exactly one confirmation call. Independent
-source review, syntax/AST and formatting checks pass; its semantic/unit/browser
-qualification and corrected captures are pending. Existing qualified screenshots
-remain evidence for their original source, not proof that this new fix passes.
-No new captures have been imported into the tracked screenshot catalogue yet.
+source review, syntax/AST and formatting checks pass; the subsequent38072655687
+qualification above verifies the correction. Earlier captures remain evidence
+for their original source, not substitutes for the corrected packet.
 
 Backend [38070952123](https://github.com/FerrPOINT/fleet-control/actions/runs/38070952123),
 attempt1, is FAILURE on product `5db4ff92d2168c46ce96b56f37acbbf7de92db33`

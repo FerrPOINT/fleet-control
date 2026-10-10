@@ -36,7 +36,7 @@ adding the023 continuation column; it is not untouched historical022 evidence.
 All14 cases and previous assertions remain. Full PG/HTTP and native acceptance
 remain open. The UI correction hides the unavailable warning after a
 verified requirements confirmation while preserving disabled/recovery guards;
-its new regression is authored, not yet executed.
+its regression and complete frontend fixture gate now pass on exactaca917.
 
 The alternative unused chat controller/storage helper/CSS were removed.
 Legacy sessions and leaders are retained outside current Chats development.
@@ -56,7 +56,7 @@ requires separate compatible chat/control evidence.
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | Rust OpenAPI, sourceaa11 | [38066257094](https://github.com/FerrPOINT/fleet-control/actions/runs/38066257094) SUCCESS; artifact11674599663; original strict readback verified; schema SHA256 `afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501`. Schema bytes equal the actuala5f schema compared against seven immutable Tracker357 DTOs; eight verifier units pass | Complete backend/DB/native checks remain separate from schema generation                                                     |
 | Backend, source5db       | [38070952123](https://github.com/FerrPOINT/fleet-control/actions/runs/38070952123) FAIL at pm_human_controls, exit101; original strict readback verifies artifact11676718746, three failed tests, frames931/1003 and owned cleanup. Prior foundation failures pass                                                                                        | Correct the023 downgrade/022 legacy setup boundaries without weakening assertions, then qualify all remaining gates          |
-| Frontend, source6dd/cc90 | [38070120966](https://github.com/FerrPOINT/fleet-control/actions/runs/38070120966) SUCCESS; two strict readbacks verify artifact11677007125. All23 gates,460 units,135 catalogue/186 fixture images; Chromium47, Firefox46/1 flaky, WebKit47 pass with nine opt-in live skips per browser                                                                 | Qualify the visually discovered confirmation-warning fix on aca917 and regenerate corrected captures; no live PM acceptance  |
+| Frontend, sourceaca/fc0  | [38072655687](https://github.com/FerrPOINT/fleet-control/actions/runs/38072655687) SUCCESS; original strict readback verifies artifact11677891567. All23 gates,461 units,135 catalogue/186 fixture images; all three browsers47 passed/zero flaky with nine opt-in live skips each. Corrected requirements captures visually reviewed                     | Import qualified captures and complete live PM acceptance; fixture success does not qualify backend or installed runtime     |
 | PM execution             | Structured tools, checkpoint continuation, controls, stream recovery and exact-run instruction receipts are integrated; actualaa11 compiles runtime/test targets before foundation failure                                                                                                                                                                | Complete PG/HTTP receipt and recovery regressions; real compatible service calls and owner flow remain required              |
 | Forge                    | [38065153549](https://github.com/FerrPOINT/CI-CD/actions/runs/38065153549) FAIL at native OCI, exit101. Authenticated A/B/C receipts verify first five stages, PostgreSQL3/3,24 negatives and cleanup. The closed80ff projection retains source25be oci_delivery.rs:540, the first CLI success assertion; the underlying CLI result is not retained       | Diagnose the existing closed CLI failure observation; qualify the original full12 pipeline and actual task delivery/rollback |
 | Base                     | [PR183](https://github.com/FerrPOINT/services-base/pull/183) merged externally as66b7faf; three maintenance helper blobs match the previously qualified payload and the Forge successor pins that merged object                                                                                                                                           | Consumer/native checks remain separate; no silent SDK or installed-packet promotion                                          |
@@ -68,11 +68,11 @@ Source/pure checks do not execute PostgreSQL, HTTP or native runtimes.
 Frontend diagnostics preserve the original unit command, pool and assertions.
 The historical failure receipt records all23 completed gates without browser
 counters; zero projection values were not passing test counts. Its successor
-now has qualified image evidence and actual counters, including the Firefox
-flaky result. Selected mobile/desktop images were inspected, but new captures
-are not imported into the tracked catalogue yet. Frontend/OpenAPI/Base bytes
-are equal between source6dd and source5db; this scoped parity does not qualify
-the newer backend or the subsequent aca917 UI correction. See the
+now has qualified image evidence and actual counters. The correctedaca917
+packet passes all three engines without flaky cases. Selected mobile/desktop
+images were inspected, but new captures are not imported into the tracked
+catalogue yet. Frontend/OpenAPI/Base bytes are equal between sourceaca917 and
+source3fc; this scoped parity does not qualify the newer backend. See the
 [exact verification scope](CHAT_CLARIFICATION_VERIFICATION.md#current-hosted-qualification-2026-10-10).
 
 Idle task-bound PM prompts already have an explicit capability restriction,
