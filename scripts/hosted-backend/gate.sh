@@ -127,7 +127,7 @@ cargo test --locked -p infra --test sdlc_foundation pm_human_controls:: -- --ign
 passed
 stage=pm_recovery_pg
 FLEET_TEST_DATABASE_URL="$FLEET_PM_RECOVERY_TEST_DATABASE_URL" \
-  cargo test --locked -p infra --lib runtime::pm_recovery::tests::pg:: -- --ignored --test-threads=1 2>&1 | tee "$QA_OUTPUT/$stage.log"
+  cargo test --locked -p infra --lib runtime::pm_recovery::tests::pg:: -- --ignored --test-threads=1 --nocapture 2>&1 | tee "$QA_OUTPUT/$stage.log"
 passed
 run_tests config_api -p api --lib routes::sdlc_configuration::tests::
 run_tests base_package_unit -p infra --lib base_package::tests::

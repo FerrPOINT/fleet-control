@@ -958,6 +958,30 @@ def listed_names(text):
 
 
 def verify_test_log(stage, text, reviewed, ordinary_listing=""):
+    if stage == "pm_recovery_pg":
+        pending, lines = None, []
+        for raw in text.split("\n"):
+            line = raw.removesuffix("\r")
+            start = re.fullmatch(r"test ([^ \r\n]+) \.\.\. ?", line)
+            if start:
+                require(pending is None and start[1] in reviewed["groups"][stage], "Invalid recovery test prefix")
+                pending = start[1]
+                continue
+            phase = re.fullmatch(r"FLEET_PM_RECOVERY_PHASE=([a-z_]+)", line)
+            layout = re.fullmatch(r"FLEET_PM_RECOVERY_LAYOUT=([1-9][0-9]{0,9}),([1-9][0-9]{0,9})", line)
+            if phase and phase[1] in PM_RECOVERY_PHASES or layout and all(int(item) <= 4294967295 for item in layout.groups()):
+                continue
+            if pending is not None:
+                if line == "":
+                    continue
+                require(line in {"ok", "FAILED", "ignored"}, "Incomplete recovery test completion")
+                lines.append("test " + pending + " ... " + line)
+                pending = None
+            else:
+                require(line not in {"ok", "FAILED", "ignored"}, "Unanchored recovery test completion")
+                lines.append(line)
+        require(pending is None, "Missing recovery test completion")
+        text = "\n".join(lines)
     require(not re.search(r"not configured[^\n]*skipp|PostgreSQL tests skipped", text, re.I), "Skipped PG fixture")
     require(not re.search(r"^test result: FAILED|^test .+ \.\.\. FAILED", text, re.M), "Failed test result")
     actual = Counter(re.findall(r"^test (.+) \.\.\. ok$", text, re.M))
