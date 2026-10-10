@@ -117,6 +117,10 @@ class HostedBackendTests(unittest.TestCase):
     def test_human_compiler_inventory_requires_five_ignored_and_all34_ordinary_pm_cases(self):
         previous = json.loads(self.source_blob(gate.INVENTORY, "0d1e5a4361610c0a0728137731f54fa5ab12c481"))
         self.assertEqual(len(previous["pm_workspace_required"]), 33)
+        inherited_and_human = set(previous["pm_workspace_required"]) | set(REVIEWED["groups"]["pm_human_controls"])
+        self.assertEqual(len(inherited_and_human), 38)
+        self.assertTrue(inherited_and_human <= (set(REVIEWED["pm_workspace_required"])
+                                               | set(REVIEWED["groups"]["pm_human_controls"])))
         self.assertEqual(set(REVIEWED["pm_workspace_required"]) - set(previous["pm_workspace_required"]), {
             "runtime::pm_tools::tests::task_binding_matches_draft_identity_only_with_every_field_and_original_agent"})
         ignored = "\n".join(row["name"] + ": test" for row in REVIEWED["ignored"])
@@ -151,39 +155,93 @@ class HostedBackendTests(unittest.TestCase):
                     gate.verify_migration_snapshots(root, REVIEWED)
 
     def test_human_current_codegen_and_final_source_pending_cannot_publish_success(self):
-        self.assertEqual(REVIEWED["openapi_binding"], dict(status="pending_authentic_codegen", sha256=None))
-        preparation = REVIEWED["config_union_preparation"]
+        pending = json.loads(self.source_blob(gate.INVENTORY, "6b3a8e67f95861cbad921ea0296f84e492554d63"))
+        self.assertEqual(pending["openapi_binding"], dict(status="pending_authentic_codegen", sha256=None))
+        preparation = pending["config_union_preparation"]
         self.assertIsNone(preparation["codegen_evidence"])
         for name in ("authentic_union_codegen_pending", "final_qualified_source_pending", "compiled_inventory_includes_pre_regen_schema"):
             self.assertIs(preparation[name], True)
         with mock.patch.object(gate, "hosted_identity", return_value=(Path("owned"), "a" * 40)), \
-                mock.patch.object(gate, "clean_head"), mock.patch.object(gate, "reviewed_inventory", return_value=REVIEWED), \
+                mock.patch.object(gate, "clean_head"), mock.patch.object(gate, "reviewed_inventory", return_value=pending), \
                 mock.patch.object(gate, "git") as git, mock.patch.object(gate.subprocess, "Popen") as spawn:
             with self.assertRaisesRegex(ValueError, "binding is pending"):
                 gate.preflight()
             git.assert_not_called()
             spawn.assert_not_called()
         run, artifact, payload, args = self.artifact()
-        with mock.patch.object(gate, "reviewed_inventory", return_value=REVIEWED):
+        with mock.patch.object(gate, "reviewed_inventory", return_value=pending):
             with self.assertRaisesRegex(ValueError, "binding is pending"):
                 gate.validate_readback(run, artifact, payload, **args)
 
     def test_human_final_sql_source_delta_is_exact_seven_paths_and_preserves_codegen_api_inputs(self):
         previous = "31ab4e90b77f389b7bc5f6cfaf5f4b3d38f2d75e"
+        sql_source = "dd5744e34cfd6d69dc7cffad882bdd635a887253"
         delta = subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT), "diff", "--name-only",
-            previous, gate.SOURCE_SHA], capture_output=True, check=True, timeout=30).stdout.decode().splitlines()
+            previous, sql_source], capture_output=True, check=True, timeout=30).stdout.decode().splitlines()
         self.assertEqual(set(delta), {"backend/infra/tests/support/pm_human_controls.rs",
             "backend/migration/src/m20261010_000023_pm_human_controls.rs", "docs/CURRENT_STATE.md",
             "docs/GAP_REGISTER.md", "docs/OPERATIONS.md", "docs/SECURITY.md", "docs/TESTING.md"})
         roots = ("backend/api", "backend/app", "backend/domain", "backend/shared", "backend/infra/src",
                  "backend/Cargo.lock", "backend/Cargo.toml", ".base-revision", "openapi")
         stable = subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT), "diff", "--name-only",
-            previous, gate.SOURCE_SHA, "--", *roots], capture_output=True, check=True, timeout=30).stdout
+            previous, sql_source, "--", *roots], capture_output=True, check=True, timeout=30).stdout
         self.assertEqual(stable, b"")
-        self.assertEqual(self.source_blob("openapi/openapi.json"), self.source_blob("openapi/openapi.json", previous))
-        # API-input parity does not authenticate the still-pending producer artifact.
+        self.assertEqual(self.source_blob("openapi/openapi.json", sql_source), self.source_blob("openapi/openapi.json", previous))
+        # Historical API-input parity alone could not authenticate the pending producer artifact.
         with self.assertRaisesRegex(ValueError, "binding is pending"):
-            gate.require_codegen_binding(REVIEWED)
+            gate.require_codegen_binding(json.loads(self.source_blob(gate.INVENTORY, "6b3a8e67f95861cbad921ea0296f84e492554d63")))
+
+    def test_human_typed_api_successor_requires_new_codegen_and_exact_two_path_delta(self):
+        previous = "dd5744e34cfd6d69dc7cffad882bdd635a887253"
+        api_source = "f7d586be10a958f4f454c357831018250c779256"
+        delta = subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT), "diff", "--name-only",
+            previous, api_source], capture_output=True, check=True, timeout=30).stdout.decode().splitlines()
+        self.assertEqual(set(delta), {"backend/api/src/routes/task_chats.rs",
+                                     "backend/infra/tests/support/pm_credential_creation.rs"})
+        parents = subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT), "rev-list", "--parents",
+            "-n", "1", api_source], capture_output=True, check=True, timeout=30).stdout.decode().split()
+        self.assertEqual(parents, [api_source, previous])
+        owner = self.source_blob("backend/api/src/routes/task_chats.rs").decode().split(
+            "pub(super) async fn require_pm_owner(", 1)[1].split("pub async fn ", 1)[0]
+        for field in ("tracker_instance_id", "project_id", "task_id", "root_task_id", "owner_subject"):
+            self.assertIn("identity." + field + " != binding." + field, owner)
+        self.assertIn("pm.request.agent_id != binding.agent_id", owner)
+        self.assertNotIn("pm.identity()? != binding", owner)
+        credential = self.source_blob("backend/infra/tests/support/pm_credential_creation.rs").decode()
+        self.assertIn(".get_task_chat_binding(op.session_id.unwrap())", credential)
+        pending = json.loads(self.source_blob(gate.INVENTORY, "6b3a8e67f95861cbad921ea0296f84e492554d63"))
+        self.assertEqual(pending["openapi_binding"], dict(status="pending_authentic_codegen", sha256=None))
+        with self.assertRaisesRegex(ValueError, "binding is pending"):
+            gate.require_codegen_binding(pending)
+
+    def test_human_authentic_f7_codegen_binds_only_exact_doc_schema_successor_with_backend_parity(self):
+        source = "f7d586be10a958f4f454c357831018250c779256"
+        delta = subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT), "diff", "--name-only",
+            source, gate.SOURCE_SHA], capture_output=True, check=True, timeout=30).stdout.decode().splitlines()
+        self.assertEqual(set(delta), {"docs/CURRENT_STATE.md", "docs/GAP_REGISTER.md", "openapi/openapi.json"})
+        listings = [subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT), "ls-tree", "-r", "-z",
+            pin, "--", "backend", ".base-revision"], capture_output=True, check=True, timeout=30).stdout
+            for pin in (source, gate.SOURCE_SHA)]
+        self.assertTrue(listings[0])
+        self.assertEqual(listings[0], listings[1])
+        preparation = REVIEWED["config_union_preparation"]
+        for name in ("authentic_union_codegen_pending", "final_qualified_source_pending", "compiled_inventory_includes_pre_regen_schema"):
+            self.assertIs(preparation[name], False)
+        self.assertEqual(preparation["codegen_evidence"], dict(
+            source_commit=source, workflow_commit="6f86fca225e4390847c99401f63b519e4dc34162",
+            run_id=38044630680, run_attempt=1, artifact_id=11667646855,
+            artifact_zip_sha256="1d7866097b944b8aa67abf25a16a970c20840fd1b9f2e0a3fba96ab5deceacac",
+            schema_sha256="e1b17e723abf43866c4f913c9fa4fba8b201bef5e3532b4a8f6cdc32ccbcce76",
+            artifact_bound_source_commit=gate.SOURCE_SHA, reported_by_parent=True,
+            binding_kind="verified_code_parity", source_delta=sorted(delta)))
+        self.assertNotEqual(source, gate.SOURCE_SHA)  # Artifact was produced on f7, not directly on d458.
+        self.assertEqual(REVIEWED["openapi_binding"], dict(status="verified", sha256=gate.OPENAPI_SHA))
+        self.assertEqual(gate.digest(self.source_blob("openapi/openapi.json")), gate.OPENAPI_SHA)
+        gate.require_codegen_binding(REVIEWED)
+        for old in ("ad980604beb2cff0890f4d1a07a185c97a444fda166985f2a6da465a222d129c",
+                    "1167220ea9f3d65ddca4cce1112a26d53c77f8c1684ef958859f737f20210953"):
+            with mock.patch.object(gate, "OPENAPI_SHA", old), self.assertRaises(ValueError):
+                gate.require_codegen_binding(REVIEWED)
 
     def test_successor_preserves_all_frozen_controls_gates_guards_and_input_pins(self):
         import ast
@@ -311,10 +369,10 @@ class HostedBackendTests(unittest.TestCase):
                     gate.verify_test_log(stage, bad, REVIEWED)
 
     def test_successor_source_tree_and_six_lf_controls_remain_closed(self):
-        self.assertEqual(gate.SOURCE_SHA, "dd5744e34cfd6d69dc7cffad882bdd635a887253")
+        self.assertEqual(gate.SOURCE_SHA, "d4584769c925c2a92829251960b85a14b63c31dd")
         tree = subprocess.run(["git", "-C", str(ROOT), "rev-parse", gate.SOURCE_SHA + "^{tree}"],
             capture_output=True, check=True, timeout=30).stdout.decode().strip()
-        self.assertEqual(tree, "ca6baf087ad5632ea6959abe5d4e302005f67a11")
+        self.assertEqual(tree, "33bfce243f52ac198ef88be37c331052c88c1451")
         delta = subprocess.run(["git", "-C", str(ROOT), "diff", "--name-status", gate.SOURCE_SHA],
             capture_output=True, check=True, timeout=30).stdout.decode()
         gate.validate_delta(delta)
@@ -647,12 +705,16 @@ class HostedBackendTests(unittest.TestCase):
                 self.assertEqual("#[ignore" in attrs, record.get("ignored", True))
 
     def test_authentic_codegen_binding_and_missing_ancestry_fail_before_private_or_heavy_effects(self):
-        self.assertEqual(gate.OPENAPI_SHA, "ad980604beb2cff0890f4d1a07a185c97a444fda166985f2a6da465a222d129c")
+        self.assertEqual(gate.OPENAPI_SHA, "e1b17e723abf43866c4f913c9fa4fba8b201bef5e3532b4a8f6cdc32ccbcce76")
+        prior_schema = "ad980604beb2cff0890f4d1a07a185c97a444fda166985f2a6da465a222d129c"
         frozen = json.loads(self.source_blob(gate.INVENTORY, "0d1e5a4361610c0a0728137731f54fa5ab12c481"))
-        self.assertEqual(frozen["openapi_binding"], dict(status="verified", sha256=gate.OPENAPI_SHA))
+        self.assertEqual(frozen["openapi_binding"], dict(status="verified", sha256=prior_schema))
+        self.assertEqual(gate.digest(self.source_blob("openapi/openapi.json", frozen["source_commit"])), prior_schema)
         self.assertEqual(gate.digest(self.source_blob("openapi/openapi.json")), gate.OPENAPI_SHA)
-        gate.require_codegen_binding(frozen)
-        with self.assertRaisesRegex(ValueError, "binding is pending"):
+        with mock.patch.object(gate, "OPENAPI_SHA", prior_schema):
+            gate.require_codegen_binding(frozen)
+        gate.require_codegen_binding(REVIEWED)
+        with mock.patch.object(gate, "OPENAPI_SHA", prior_schema), self.assertRaisesRegex(ValueError, "binding is pending"):
             gate.require_codegen_binding(REVIEWED)
         evidence = REVIEWED["config_union_preparation"]["prior_codegen_evidence"]
         self.assertEqual(evidence["run_id"], 38040550767)
@@ -661,7 +723,7 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(evidence["artifact_zip_sha256"], "a6d16c4dc3fb47d3b6da5da22d42b1c91db9f83fc2e77d2bbd3a7aa8b1577daf")
         self.assertEqual(evidence["workflow_commit"], "b22971dbfbc0476b7789f94fa28999581e17da08")
         self.assertEqual(evidence["source_commit"], "83091f055e3b34fcfe6a6d59b1703c117261c027")
-        self.assertEqual(evidence["schema_sha256"], gate.OPENAPI_SHA)
+        self.assertEqual(evidence["schema_sha256"], prior_schema)
         self.assertEqual(evidence["artifact_bound_source_commit"], frozen["source_commit"])
         pending = dict(REVIEWED, openapi_binding=dict(status="pending_final_source_binding", sha256=None))
         with self.assertRaisesRegex(ValueError, "binding is pending"):

@@ -24,7 +24,7 @@ import zipfile
 
 REPOSITORY = "FerrPOINT/fleet-control"
 BRANCH = "build-only/config-union-backend-20261010"
-SOURCE_SHA = "dd5744e34cfd6d69dc7cffad882bdd635a887253"
+SOURCE_SHA = "d4584769c925c2a92829251960b85a14b63c31dd"
 BASE_SHA = "19a7a381ae6dbea61a643bb96189e483fa64df5c"
 AUTH_SHA = "01388dfb43332cbe5837fd5e1fadccf09cb8886d"
 UTILITY_SHA = "9b53de7b23593949a9e6c05bd5a4f94b930e50a0"
@@ -32,8 +32,8 @@ UTILITY_INVENTORY_SHA = "8e727d1d2ba02941dc176f26945d25593068fc593cb619928538129
 PACKAGE_SHA = "4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58"
 PACKAGE_TREE = "96d9a7453744fd09f9ee3ba3b2c20f6b3d389b85"
 PACKAGE_INVENTORY_SHA = "1bdf56b21b0b97ec4a5a6303b04ecdda1b6609164aa018acc830187ca124f827"
-# Prior authentic schema only; current PM human-controls codegen binding remains pending.
-OPENAPI_SHA = "ad980604beb2cff0890f4d1a07a185c97a444fda166985f2a6da465a222d129c"
+# Authentic codegen38044630680/f7; exact backend parity binds the doc/schema-only successor.
+OPENAPI_SHA = "e1b17e723abf43866c4f913c9fa4fba8b201bef5e3532b4a8f6cdc32ccbcce76"
 SWAGGER_SHA = "481244d0812097b11fbaeef79f71d942b171617f9c9f9514e63acbe13e71ccdc"
 WORKFLOW = ".github/workflows/backend-build-only.yml"
 HELPER = "scripts/hosted_backend_gate.py"
@@ -43,7 +43,7 @@ INVENTORY = "scripts/hosted-backend/test-inventory.json"
 WRITE_SET = {WORKFLOW, HELPER, GATE, INIT, INVENTORY, "scripts/tests/test_hosted_backend_gate.py"}
 ARTIFACT_FILES = {"report.json", "provenance.json", "SHA256SUMS"}
 FAILURE_FILE = "compiler-diagnostics.json"
-SOURCE_INVENTORY_SHA = "eb6d92f7889aa1673b913eca26ddd5a5c107e2b9c5738beb016253088adb309e"
+SOURCE_INVENTORY_SHA = "e1ccc58fb513ded5295c57ce527e4cdd3577dba6f3b7b7a70e068433b3c6a917"
 DIAGNOSTIC_LIMIT = 32
 DIAGNOSTIC_INPUT_LIMIT = 16 * 1024 ** 2
 DIAGNOSTIC_LINE_LIMIT = 256 * 1024
