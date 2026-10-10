@@ -5,6 +5,222 @@ No real PM publication/resume or live Backlog acceptance is claimed.
 
 ## Current Hosted Qualification (2026-10-10)
 
+Corrected frontend
+[38072655687](https://github.com/FerrPOINT/fleet-control/actions/runs/38072655687),
+attempt1, is SUCCESS on product `aca917c4a79d1718beab8f5b82631f1698ebda5c`
+and controls `fc0cffe86706ac3ce57dd113648dcb590186abc0`. The original strict
+reader verifies artifact11677891567, ZIP SHA256
+`7d99f084429afdaa5baa383d93af21003ae6b2ffcbf561945b3191d93a372435`,
+source provenance, closed members, PNG/checksum bindings and all23 gates.
+All461 unit tests in41 files pass without skips. Chromium, Firefox and WebKit
+each pass47 fixture tests with zero flaky cases and nine opt-in live skips.
+Those skips remain explicit; no live-service acceptance is claimed.
+The catalogue contains135 PNGs and browser fixtures186 PNGs. Parent visual
+review of mobile/desktop requirements confirms success without the contradictory
+unavailable warning and disabled confirmation controls; dialogue/clarification
+captures were also inspected. No whole-image-set visual approval is claimed.
+The frontend/OpenAPI/Base closure is byte-identical between this product and
+integration `3fcbe6288dfb52d6b56eed5068ee364532ac84f6`; this does not qualify
+the newer backend test inventory. Reviewed asset-only `a7482a413b32971002e1bf5694c4a1a9586b602f`
+is normally merged into the integration history:135 catalogue PNGs plus nine
+Chromium PM views. Parent verification against its independent strict readback
+confirms all144 PNG bytes, hashes and dimensions; independent review confirms
+the45-by-three route bijection and metadata/source scope. Product/API and the
+historical PM folder are unchanged. See the [catalogue](assets/screens/manifest.md),
+[PM views](assets/design/chat-controller-2026-10-10/manifest.json) and
+[import receipt](assets/screens/qualified-import-38072655687.json).
+Original public manifest/provenance bytes are retained. The original generated
+Markdown is absent from the artifact; regenerated import Markdown claims neither
+its timestamp nor byte identity. This import is fixture evidence, not live acceptance.
+
+The preceding successful packet and discovered defect are preserved below.
+
+Latest terminal backend observation
+[38079858809](https://github.com/FerrPOINT/fleet-control/actions/runs/38079858809)/1
+is FAILURE on controls `8ce324536f450f3893ed95f1b43cf683048f0723`, product
+`3fcbe6288dfb52d6b56eed5068ee364532ac84f6`. Parent and Pascal independently
+verify original strict failure readback of artifact11680660984, ZIP SHA256
+`022fd2db5826367b3aaea547df7b0d6c2d80fffb363e324f78700727859082e3`.
+The failure is pm_recovery_pg13/84, gate exit101, readable/untruncated log and
+harness SIGABRT; command exit and harness exit are null. Failed-test/diagnostic
+lists are empty and category unknown. Scratch and synthetic database cleanup
+are both true; acceptance flags remain false.6 GiB admission and preceding
+gates pass, including check/Clippy/real Auth/API/credentials/foundation/PM human
+controls, not all84 gates. SIGABRT alone establishes neither stack overflow,
+allocation failure nor a source-fix cause.
+
+Reviewed normal successor `78d3727e196ed17af3af371e3a56936e556cd7e8` is
+published. It adds only a fixed fatal category, requiring complete adjacent
+source-attested headers plus independently parsed nontruncated/nonconflicting
+SIGABRT. All172 prior pure identities and all84 gates remain;177 Linux pure
+tests pass without skips (Windows174 PASS/three platform skips). This diagnostic
+mechanism is not an observed fatal header or a product correction. Actual
+[38081721112](https://github.com/FerrPOINT/fleet-control/actions/runs/38081721112)/1
+started on that exact head; no terminal result is recorded here.
+
+Earlier backend admission refusal
+[38078901349](https://github.com/FerrPOINT/fleet-control/actions/runs/38078901349),
+attempt1, is FAILURE on product `3fcbe6288dfb52d6b56eed5068ee364532ac84f6`
+and controls `431b7246c1927f220e63f7a644d4c9237c401c90`. Authenticated bounded
+console projection is resource_guard/value_error/cgroup_headroom. Closed numeric
+records report limit4294967296/current1079107584 bytes: headroom3215859712,
+required3221225472 (3 GiB), deficit5365760. File accounting is997036032 bytes;
+observed oom/oom_kill/oom_group_kill counters are zero. Counters are sequential,
+not an atomic partition; no command is attributed as the cache cause and no
+cache is subtracted. The refusal precedes scratch/export/Cargo/PG commands;
+the original84 gates did not start. Artifact inventory is empty, so no artifact
+ID/digest or strict artifact readback receipt exists. Fallback cleanup and
+container stop succeed, not a scoped cleanup artifact. Acceptance flags remain
+false. This does not retrospectively diagnose earlier failures below.
+
+Source-reviewed normal allocation successor `8ce324536f450f3893ed95f1b43cf683048f0723`
+sets workflow/helper attestation to6 GiB, preserving the3 GiB reserve and all84
+gates without cache subtraction, and is published by normal fast-forward.
+Its actual terminal attempt is recorded above. Publication alone was not a
+backend/PG PASS and does not retrospectively attribute the earlier charge.
+
+Earlier backend
+[38076192042](https://github.com/FerrPOINT/fleet-control/actions/runs/38076192042),
+attempt1, is FAILURE on the same product3fc and controls
+`73b33f4422df8aa19fc81e45dabf901c00e792df`. Authenticated job114283511740
+fails step13 in two seconds; the artifact inventory is empty. Bounded console
+inspection finds only the generic outer helper failure and wrapper exit1, not
+a phase, exception class, predicate or test result. No original strict artifact
+readback is possible without an artifact. Do not infer a preflight, resource or
+schema cause, reuse old cleanup receipts, or treat missing diagnostics as a
+passing gate. The successor adds stage-log observation but retains none here;
+the generic catch does not distinguish an early refusal from a later reporting
+exception. This is distinct from the earlier authenticated test-stage failure.
+
+Earlier backend
+[38073896066](https://github.com/FerrPOINT/fleet-control/actions/runs/38073896066),
+attempt1, is FAILURE on product `3fcbe6288dfb52d6b56eed5068ee364532ac84f6`
+and controls `5b3ddd3ae164a5136e068550ec2e8c98e1234668`. Parent original strict
+failure reader verifies artifact11677538834, ZIP SHA256
+`afb68c11d58e659634999f81f276cc313ca09042a6cd20a402275c16d73ecb90`,
+source/control bindings and successful scratch/synthetic database cleanup.
+The gate advances beyond PM human controls, then stops at `pm_recovery_pg`,
+exit101. The closed projection contains empty failed-test/diagnostic lists,
+category unknown and no command exit code. This is not evidence of no test
+failure, a compiler defect or a particular infrastructure cause. All later
+gates remain unqualified. The older failure and fixture repair below keep their
+historical scope. No unchanged rerun or assertion relaxation is used.
+
+Earlier classified native observation
+[38078412938](https://github.com/FerrPOINT/fleet-control/actions/runs/38078412938),
+attempt1, is FAILURE on controls `579b88090cf203a8a84b4b5672b81659370a037f`
+and the unchanged source5db. Its full closed projection records controller,
+exit_code1 and docker_cli_refused, all five parity booleans true, no Rust codes
+and native_executed=false. Artifacts0 means no artifact ID/digest or strict
+artifact readback. Setup's image20261004.327.1 resolves to runner-images
+`e3fe113a581eb9a44ca43f479b69f9c93f36df34`, whose
+[manifest](https://github.com/actions/runner-images/blob/e3fe113a581eb9a44ca43f479b69f9c93f36df34/images/ubuntu/Ubuntu2404-Readme.md#L75)
+lists Compose2.38.2. Its build parser lacks the optional provenance flag,
+introduced in [Compose2.39](https://github.com/docker/compose/releases/tag/v2.39.0).
+The exact rejected flag was not recovered from this run. Frozen component
+`49decc717fa17726e6e72f6533a9905c709cbd83` and caller
+`bb719909e2002feaafccebe5166a0c0607077966` implement only optional-flag removal
+instead of toolchain bootstrap. Independent review finds no P1/P2; parent public
+preflight and15 focused checks pass. Caller is published by normal fast-forward
+from579. These source/pure results are not a build/native PASS; successful
+build/native qualification remains required.
+
+Earlier native candidate-build observation
+[38079988227](https://github.com/FerrPOINT/fleet-control/actions/runs/38079988227)/1
+is FAILURE on exact callerbb7199. Job114294748966 step9 failed between
+19:29:43Z and19:31:23Z. Original frozen failure_projection validated the unique
+bounded console receipt after its helper bytes matched the exact caller Git
+blob. It records candidate_build/BuildFailure/command_nonzero, kindHermes,
+actualexit1, categoryUNKNOWN, log_scopeTAIL and no Rust codes. Source remains5db;
+all five source/parent/daemon/permanent/resource parity booleans are true.
+Ordered controller-then-Hermes progress proves controller build and its
+metadata/labels/platform checks returned successfully, not controller offline
+qualification, which occurs only after both builds. The same runner image and
+optional-flag removal advanced this attempt beyond579's distinct CLI refusal;
+UNKNOWN/TAIL does not establish the new Hermes failure's root cause.
+
+Artifact inventory is empty: no successful receipt or artifact readback exists.
+Cleanup step12 succeeds and the exact_owned_candidate_alias_cleanup_pass marker
+proves absence of this attempt's two exact aliases, not all daemon resources,
+removed-image counts or VM teardown. Builder cleanup=cleaned/resources=true;
+private journals were not uploaded/read. Native-nine/cuts and success upload are
+skipped, supplying no native execution/cleanup proof. No native, PM or full-SDLC
+acceptance is claimed; no raw log/body/path/argv/env/token is retained here.
+
+Reviewed diagnostic-only component `d8c969d0f902e9d538cf158aa818222cdd715da3`
+and caller `257d212464cde4202b1044b26447f9dbb185a97d` add four fixed UV symptom
+categories with complete same-vertex pairing, no new DTO. Recipes, locks, pins,
+resource guards and source5db remain unchanged. Independent review finds no
+P1/P2; parent public preflight and25 changed tests pass. Component pure suite
+has186 selectors,175 PASS/11 platform skips; caller55 PASS. These are source/pure
+results, not recovered cause or native acceptance. Caller is published by normal
+fast-forward frombb; its actual terminal result follows.
+
+Latest terminal native observation
+[38081865039](https://github.com/FerrPOINT/fleet-control/actions/runs/38081865039)/1
+is FAILURE on exact caller `257d212464cde4202b1044b26447f9dbb185a97d`,
+job114300272981/source5db. Authenticated original closed projection records
+candidate_build/BuildFailure/command_nonzero, kindHermes/outerexit1,
+categoryUNKNOWN/log_scopeTAIL, no UV category or Rust code. All five parity
+booleans are true; images empty, builder cleanup=cleaned, native_executed=false.
+Steps1-8 pass, step9 fails; native-nine/cuts and success receipt/upload are
+skipped. Artifacts0 means no artifact ID/digest or successful artifact readback.
+
+Cleanup12 succeeds and one exact_owned_candidate_alias_cleanup_pass marker
+proves only this attempt's two owned aliases absent after guarded cleanup, not
+all daemon resources, removed-image counts or VM teardown. Source order proves
+parent identity checks and controller build/metadata completed, not offline
+controller qualification. UNKNOWN/TAIL supplies no unique fatal symptom or
+recipe cause; the diagnostic-only successor did not recover such evidence.
+Native-nine/cuts, PM/full interrupted-F6, runtime and full-SDLC acceptance remain
+unproven. Earlierbb remains a separate UNKNOWN/TAIL failure, not retroactively
+diagnosed. No raw build log or private payload is retained here.
+
+Earlier native [38077155580](https://github.com/FerrPOINT/fleet-control/actions/runs/38077155580),
+attempt1, is FAILURE on controls `1fa0a6c9123ef61cdd2b1254264f94c64600ce32`
+and source `5db4ff92d2168c46ce96b56f37acbbf7de92db33`. The authenticated
+bounded closed console records candidate_build/BuildFailure/command_nonzero,
+all five parity booleans true, cleanup cleaned, images empty and native_executed
+false. Exact helper source confirms all five pinned parent pulls/identities
+completed before this failure. No candidate role, child return code or build
+cause is retained; wrapper exit1 is not the child's exit code. Native/cuts and
+success upload are skipped; artifacts are empty. Actual step12 and the exact
+owned-alias cleanup marker pass, verifying absence of two candidate aliases,
+not an independent full Docker resource inventory. No native acceptance is
+claimed. Earlier38075925575 failed at parent_pull with no exact parent/cause;
+this newer observation neither repeats nor retroactively explains that failure.
+
+Latest terminal Forge observation
+[38077188736](https://github.com/FerrPOINT/CI-CD/actions/runs/38077188736)/1
+is FAILURE on controls `abf62e7d310249a3abd74ebbdd53c626f6312f55` and product
+`d7443f8dffdd7f5d921c5758bed4e5a35423c0ff`. Parent independently authenticates
+all three original A/B/C readbacks, source/control/maintenance bindings and
+cleanup proofs. Fresh A/B receipts pass the first six stages: python75,
+row-smoke, smoke, check, Clippy and PostgreSQL3 tests/24 negatives. C fails OCI
+with Cargo101 at source `backend/tests/support/oci_delivery.rs:591:5`, the first
+assertion after execute. Retained CLI exit1/rejection has checkpointchild;
+workspace/integration/cli/openapi/release are NOT_RUN. The original aggregate
+refuses C, exit1/closed_failure; no full12 success receipt exists.
+
+| Job | Artifact    | ZIP SHA256                                                         |
+| --- | ----------- | ------------------------------------------------------------------ |
+| A   | 11679061814 | `0b98e488e8b2cb25199f2848cbafc9d89f44c45abfc1192dde699c5fc36679c4` |
+| B   | 11679913408 | `e88eb48d0cda1fc95ed5013bb67865a6ead8e19df090a3f12c3221867a31f314` |
+| C   | 11680466847 | `a2056d8e7a7f19f95db97e2ead02de197cb8bbd64f9b76237b9305c1f2807f51` |
+
+Checkpointchild observes a sequential metadata-presence prefix and absent result
+record, not authenticated contents, atomic snapshot, owner authority, bridge
+arrival or successful child effects. The CLI root cause remains unknown; no
+source/resource correction follows from presence alone. All A/B/C scoped cleanup
+is complete: daemons stopped, delegation removed and admitted inventories
+restored. Executed-stage remaining own containers/networks/volumes are zero;
+NOT_RUN stages and the failed OCI child claim no execution/acceptance proof.
+
+Earlier Forge38070539544 controls876/source25be retains its authenticated A/B/C
+receipt scope: first five stages plus PG3/24, OCI Cargo101/CLI1 at assertion540,
+later five NOT_RUN and cleanup. It did not identify the CLI cause; the freshd744
+checkpoint observation does not retroactively diagnose it.
+
 Frontend [38070120966](https://github.com/FerrPOINT/fleet-control/actions/runs/38070120966),
 attempt1, is SUCCESS on product `6dd16d0c8ffc40d96519390bfb7c31324a8786f6`
 and controls `cc90ac6128094dee4df0c7f5491909ccc4a57642`.
@@ -25,10 +241,9 @@ requirements capture reveals a contradictory success plus unavailable warning
 after a matching confirmation receipt refreshes context to Backlog. Product
 `aca917c4a79d1718beab8f5b82631f1698ebda5c` corrects only that warning and adds
 a regression for disabled controls and exactly one confirmation call. Independent
-source review, syntax/AST and formatting checks pass; its semantic/unit/browser
-qualification and corrected captures are pending. Existing qualified screenshots
-remain evidence for their original source, not proof that this new fix passes.
-No new captures have been imported into the tracked screenshot catalogue yet.
+source review, syntax/AST and formatting checks pass; the subsequent38072655687
+qualification above verifies the correction. Earlier captures remain evidence
+for their original source, not substitutes for the corrected packet.
 
 Backend [38070952123](https://github.com/FerrPOINT/fleet-control/actions/runs/38070952123),
 attempt1, is FAILURE on product `5db4ff92d2168c46ce96b56f37acbbf7de92db33`
@@ -49,6 +264,14 @@ historical022 schema or a passing whole-lineage upgrade. Independent review and
 Rust1.88 formatting pass; PostgreSQL execution remains required. Scratch and
 synthetic database cleanup of the original failed run are verified.
 No raw private logs or runtime credentials are retained in this evidence.
+
+Earlieraa11 compilation/check/Clippy and credential gates preceded its foundation
+failure; API generation was not runtime compilation. The source corrections
+restore the owner identity, a valid revision before drain and a PM draft chat
+without an extra ordinary pending run. Original022 downgrade refusal is tested
+directly with repaired024 installed, not as a successful historical whole-lineage
+downgrade. Denial, custody, ledger and no-redispatch assertions remain. These
+historical fixture facts are distinct from current8ce execution recorded above.
 
 These results qualify only their named fixture/source gates. They do not prove
 deployed PM tools, safe workflow continuation, real owner confirmation or full

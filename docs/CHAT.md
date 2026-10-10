@@ -22,8 +22,15 @@ Task-bound чат сохраняет отдельные вкладки диал�
 идентичности; старый несовместимый marker не переписывается автоматически.
 Лиды не добавляются в этот интерфейс. Owner-only ответы, exact-revision
 confirmation и scoped PM controls не означают завершения workflow или SDLC.
-Новая схема, объединённые React/browser проверки и live-приёмка ещё должны
-пройти квалификацию; текущие результаты указаны в [CURRENT_STATE](CURRENT_STATE.md).
+Объединённый frontend fixture gate прошёл на exactaca917: 461 unit tests,
+по47 browser tests без flaky в Chromium/Firefox/WebKit; по9 live-only tests
+явно пропущены. Новая схема и live-приёмка остаются отдельными gates.
+Текущие результаты указаны в [CURRENT_STATE](CURRENT_STATE.md).
+Актуальные девять видов диалога, уточнений и требований на трёх viewport:
+[манифест](assets/design/chat-controller-2026-10-10/manifest.json).
+Вместе с135 catalogue PNG они импортированы из аутентифицированного артефакта,
+не сняты с живого PM. Проверены bytes/checksums/dimensions; визуально просмотрены
+выбранные mobile/desktop виды, не весь набор страниц.
 Датированные разделы ниже сохраняют исторические проверки и legacy-спецификацию,
 а не переопределяют этот текущий scope.
 
