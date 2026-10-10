@@ -158,7 +158,7 @@
     "fleet-control/backend/domain/src/clarification_commands.rs": "4c657ad66764906a4654e80515382d17ea0a5ea1e1602a1264332f9c86e7f545",
     "fleet-control/backend/domain/src/lib.rs": "a23cf8e5cb40d841e071510a97788e734731bf98217c21e41b0af18460a8ca24",
     "fleet-control/backend/domain/src/pm_credentials.rs": "8a0f27219578df5a576d13e3d60fdf333140db1c29510b1dbda8b806f41a38c2",
-    "fleet-control/backend/domain/src/pm_dispatch.rs": "97fc64873ec8ed1d8fe009cb3e080850118fca05cbd47ea81754795e11c41f6c",
+    "fleet-control/backend/domain/src/pm_dispatch.rs": "ae71be0db1ea1c2d0258573a50def363dc92b2cc2a6db0d6a4bb4a0c2771f334",
     "fleet-control/backend/domain/src/pm_draft.rs": "77cbb42b4affa13efd455bbb90f915f7f1377dbfdcf4757c28f7b6c3b14d18e3",
     "fleet-control/backend/domain/src/pm_execution.rs": "3994f3ceec606ec9e2bbbe7e1a23b97dc8aa1f5c950f24a3eee7065c9611e404",
     "fleet-control/backend/domain/src/pm_tools.rs": "6f4975b118d28fa655a021ace9c180e23e5dbff534da6c10375ca3327db2ff77",
@@ -166,8 +166,9 @@
     "fleet-control/backend/domain/src/sdlc_workflow.rs": "b425cac6831d83ebdbd72b96b117200bb6923265b2ee882e06b854d5ffc2fb1c",
     "fleet-control/backend/domain/src/task_chats.rs": "e1873fe88e81af9e9a624a08c867ea9ecc9cc94f74701a791f36e9b41a4423b2",
     "fleet-control/backend/domain/src/tracker_events.rs": "36959ab7d5b967202c0a035c072178b7eef219606154ad6a29ae54e25efbe66b",
-    "fleet-control/backend/domain/src/tracker_metadata.rs": "5438af990e683462c867b9553a419cfdd80baa5b3b235eeff6793427769fc843",
+    "fleet-control/backend/domain/src/tracker_metadata.rs": "4ba732cbad45c119f8084707f2590f20c4090f8d389c2f881ebba76118637c24",
     "fleet-control/backend/domain/tests/fixtures/tracker-metadata-all8.http.json": "33938416ca9f28ce46588db0292ef7dee34628b58d3f6ce056442b8ebc40842e",
+    "fleet-control/backend/domain/tests/fixtures/tracker-metadata-analysis.http.json": "5b8498c99e335dc523c99a471111df979e4ba8e3030b5a5460e84a99e253f22f",
     "fleet-control/backend/domain/tests/fixtures/tracker-metadata-created.http.json": "b6b6fdb92fe5f66f366cbab3cd49d81ac99b58ec1c5c36255cf441ee8e1a6a9b",
     "fleet-control/backend/fixtures/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "fleet-control/backend/fixtures/dev/users.sql": "c25260eb138e1441d6780c277229a82bd679d754508007b4435f3c74bd678478",
@@ -205,12 +206,15 @@
     "fleet-control/backend/infra/src/runtime/container_replacement.rs": "7d010b3772d30c9ebe0308803b49f86781a085afe9f968e1b3868a10249be6be",
     "fleet-control/backend/infra/src/runtime/container_workers.rs": "16952cb5bd7db69b7cbc8df7ff44f36e6f7e97295e97c6743536f1f383069a64",
     "fleet-control/backend/infra/src/runtime/hermes_wire.rs": "d4405fb075a5a47cb24fe1fc7381270a0d1b794fc85cdb7550d4a9bbe5e2efea",
-    "fleet-control/backend/infra/src/runtime/mod.rs": "abc4bbd2d2a7fa7143f90494940869f9f7664c1093301a8b39e0087c0835edef",
+    "fleet-control/backend/infra/src/runtime/mod.rs": "6ecfaee0094f3609b2996c0467a38f0fc5da1f19daeeff06c42772ee9a7b2dbf",
     "fleet-control/backend/infra/src/runtime/native_context.rs": "201a9b00094a67ddd9ed60ff7a0432cbb9688d4faa40f63384af09915581eb55",
-    "fleet-control/backend/infra/src/runtime/pm_continuation.rs": "01bb0581ce2b346402eb2995a918bb13ee53399843fffb2ddc27b5eeb2a4c60f",
-    "fleet-control/backend/infra/src/runtime/pm_dispatch.rs": "e109f9d4fce56925648b3ce14044aa26c38d2670ae21ac026070203394d2e79c",
+    "fleet-control/backend/infra/src/runtime/pm_continuation.rs": "5f0ac8d8a46bae9452ac89fd607148328a2b8e5052674c6ba9c767ccce4afc0b",
+    "fleet-control/backend/infra/src/runtime/pm_dispatch.rs": "5c67b7ed21e253a2068bcc6b634b850722c524fb923dfaf8ec36bbe290c4f697",
     "fleet-control/backend/infra/src/runtime/pm_events.rs": "4557e8de8e04f34e9420a28459b5509b4240cde1cc37c1d6c1d717da7b711edd",
     "fleet-control/backend/infra/src/runtime/pm_readback.rs": "ef4f8d49236831e588bb9849065ce825bdf7c375c57091a754c8140cc2e2e2fb",
+    "fleet-control/backend/infra/src/runtime/pm_recovery.rs": "80e3fe8e7f2293dfb8406cd4e7f35b80c556e68fc4be002bbc25daa3f7ce5e67",
+    "fleet-control/backend/infra/src/runtime/pm_recovery_pg_tests.rs": "8ed16f089ee3bef3905dc2be66bc76856fa8c24c047a494b36272858915bdec6",
+    "fleet-control/backend/infra/src/runtime/pm_recovery_tests.rs": "a442ef991f446154302cc73527fc7e9ad630cc7f93897acc1df9ef332166b493",
     "fleet-control/backend/infra/src/runtime/pm_tools.rs": "e099f548157194ddf021351a6365923b87703532455fd0ad46c9079270ff847e",
     "fleet-control/backend/infra/src/runtime/recovery_wire.rs": "a095805c0765893a1809c02ebc34a7e265155f5148beb8c729a673dd787c732c",
     "fleet-control/backend/infra/src/runtime/run_control.rs": "7b8a4a00c85b162bee4db81efc18f3f6f50430858eb6834b95438f80c85cab3d",
@@ -227,6 +231,8 @@
     "fleet-control/backend/infra/tests/container_activation.rs": "6ba3f1f368a2bbe2e977fdb96a7a09dfe9a516b37c7052f32e1c36053df84e64",
     "fleet-control/backend/infra/tests/container_controller.rs": "375cd3fe30e971cb9acec71f9aa3f4c3f5f3bd94870a330a1e2ea74fc68a1c07",
     "fleet-control/backend/infra/tests/container_preparation.rs": "a4aba2b719b58869aa0ad188ba3df7b8b44397c7a90f9c9eaf2de29e293db21e",
+    "fleet-control/backend/infra/tests/fixtures/pm-dispatch/workflow-assign-request.json": "03c2dfdd9e8991b5c2cef9676953c211278912ee852b60240b2179471e3d1327",
+    "fleet-control/backend/infra/tests/fixtures/pm-dispatch/workflow-assign-response.json": "d5cb87cf82c3b5a8688321bb9f65ed0c4214c9ed87581671bdb379df8394e7d0",
     "fleet-control/backend/infra/tests/heartbeat_alerts.rs": "b58daf21ad6d99aaece1f71fcd50de8187fcdc611762dd106fc30b7467b6d413",
     "fleet-control/backend/infra/tests/human_permissions.rs": "c6894fb9a8292f89a04e36458b7700f6ac6d47d74e27e7d4dd2edf379ea0da78",
     "fleet-control/backend/infra/tests/managed_settings.rs": "a00d900832fae3193dfded72f3abc92ef27dd1e2c7d0014f55aee07e8338fbeb",
@@ -238,10 +244,10 @@
     "fleet-control/backend/infra/tests/support/hermes_dispatch_journal.rs": "c1fb6a5519b4ab9dcb0a350c76bbc01d0bf5cb56bbbd2c4bc896b2d6ae5f4d05",
     "fleet-control/backend/infra/tests/support/hermes_protocol_fixture.rs": "e7173c88917f5d3f442462271d79b38d83c856b9396d033f503dc97dae6b445e",
     "fleet-control/backend/infra/tests/support/pm_credential_creation.rs": "147c5dbf9634cb3b22556ea159e30cf52807e9f6931d448d5fb73427dc288671",
-    "fleet-control/backend/infra/tests/support/pm_dispatch.rs": "9fef7de8cf3786b29a93fe659de900e4be228986910263a4989ecfc8ed39e71d",
+    "fleet-control/backend/infra/tests/support/pm_dispatch.rs": "e67f01495ca5500aa4a7f15b9db9dda09a76ea8ae49c437624d3d92bf649ca27",
     "fleet-control/backend/infra/tests/support/pm_draft_creation.rs": "ac8266c52998abb22702b5a2a454ae101471cbfc4d84a53d7846f0e0ebd8883f",
     "fleet-control/backend/infra/tests/support/pm_events.rs": "c00dce8c2a4f6eb5bbb04fdc3ee9a648c32ff6e6b00d8ca1f4d5a8dda5cd5932",
-    "fleet-control/backend/infra/tests/support/pm_human_controls.rs": "44814b10d01d8404ea575f1ec0bf71ca84344973d5e0997066161e86ff497050",
+    "fleet-control/backend/infra/tests/support/pm_human_controls.rs": "ac6d72e106e135edda22a5d944c23f92b187999ffca9eb2ac6321cd4e4ecba16",
     "fleet-control/backend/infra/tests/support/runtime_acceptance.rs": "45416320e99ce5a9d6315ec2c973ab045a4ba3cbfad019100c4adbe0e953b993",
     "fleet-control/backend/infra/tests/support/runtime_acceptance_readback_http.rs": "c8d19de02071414eab6f886e2daa66c43d7aa923d3b0328fae33c62381a99c55",
     "fleet-control/backend/infra/tests/support/runtime_approval_recovery.rs": "354fc369572c6ded6ab9558ea34b6ca512a352fdd9f4a52500d32fddfaf9d9b8",
@@ -311,7 +317,7 @@
     "fleet-control/backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "fleet-control/backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a",
     "fleet-control/backend/tests/fixtures/.gitkeep": "1d85c5ed38a3fd81f2faaea018843e4fe329fd190486a34000e756cfba90a618",
-    "fleet-control/docs/TESTING.md": "f2655cfe3b621a176b82955db76bdbbcc43c966478162976512ce4f44ee61230",
+    "fleet-control/docs/TESTING.md": "40fae615a26760e7798ea89cc2e9e9b1a39a36013d59df4c8726eb0b2479c13c",
     "fleet-control/openapi/README.md": "2ede8bc480b593789d2192f5f5e82c21475921d616f063cb3bfe2a9dd55ebfe3",
     "fleet-control/openapi/openapi.json": "e1b17e723abf43866c4f913c9fa4fba8b201bef5e3532b4a8f6cdc32ccbcce76",
     "fleet-control/scripts/check_container_activation_contract.py": "80569d79dfef7cf3f16126eb0523ca1ad3da8941cdd255d8290dbcf9fc1fa12a",
@@ -411,21 +417,43 @@
     "activation_intent_cases": 20,
     "authentic_union_codegen_pending": false,
     "codegen_evidence": {
-      "artifact_bound_source_commit": "d4584769c925c2a92829251960b85a14b63c31dd",
-      "artifact_id": 11667646855,
-      "artifact_zip_sha256": "1d7866097b944b8aa67abf25a16a970c20840fd1b9f2e0a3fba96ab5deceacac",
-      "binding_kind": "verified_code_parity",
+      "api_dependency_closure": [
+        ".base-revision",
+        "backend/.cargo",
+        "backend/Cargo.lock",
+        "backend/Cargo.toml",
+        "backend/api",
+        "backend/api/Cargo.toml",
+        "backend/app",
+        "backend/app/Cargo.toml",
+        "backend/cli/Cargo.toml",
+        "backend/domain",
+        "backend/domain/Cargo.toml",
+        "backend/infra/Cargo.toml",
+        "backend/migration/Cargo.toml",
+        "backend/server/Cargo.toml",
+        "backend/shared",
+        "backend/shared/Cargo.toml"
+      ],
+      "api_dependency_closure_git_sha256": "c05997e5f6366bfead917e74ac3ca17c66434cfb6115d3a357368ef92c41eb2e",
+      "artifact_bound_source_commit": "c59dbea1ab73a782a28cf6106155c84d73e2e14d",
+      "artifact_id": 11667814381,
+      "artifact_zip_sha256": "88460dd3e78b1eac14fe224d3c9b2bc1360618c0211d435cd9883c8ffd06b0c6",
+      "binding_kind": "verified_api_dependency_closure_parity",
       "reported_by_parent": true,
       "run_attempt": 1,
-      "run_id": 38044630680,
+      "run_id": 38048577514,
       "schema_sha256": "e1b17e723abf43866c4f913c9fa4fba8b201bef5e3532b4a8f6cdc32ccbcce76",
-      "source_commit": "f7d586be10a958f4f454c357831018250c779256",
+      "source_commit": "4449a3b1cdd915e265543a24054506f15385393d",
       "source_delta": [
+        "backend/infra/src/runtime/pm_recovery_pg_tests.rs",
+        "backend/infra/src/runtime/pm_recovery_tests.rs",
         "docs/CURRENT_STATE.md",
         "docs/GAP_REGISTER.md",
-        "openapi/openapi.json"
+        "docs/TESTING.md",
+        "docs/contracts/CHAT_CLARIFICATION_CONTRACT.md"
       ],
-      "workflow_commit": "6f86fca225e4390847c99401f63b519e4dc34162"
+      "workflow_commit": "eed4bc54149e1b317c5eb3e3e7c628eeaffbdea4"
     },
     "compiled_inventory_includes_pre_regen_schema": false,
     "controls_donor": "a7d7db205ee2ef7e480b5dc559156ad373135180",
@@ -451,7 +479,7 @@
       "workflow_commit": "b22971dbfbc0476b7789f94fa28999581e17da08"
     },
     "prior_stages_preserved": 74,
-    "source_commit": "d4584769c925c2a92829251960b85a14b63c31dd"
+    "source_commit": "c59dbea1ab73a782a28cf6106155c84d73e2e14d"
   },
   "default_foundation_ignored": 124,
   "executed": false,
@@ -908,6 +936,11 @@
       "pm_human_controls::pm_human_custody_drift_or_revoked_owner_cannot_claim_and_stop_ack_is_not_terminal",
       "pm_human_controls::pm_human_receipt_claim_is_once_and_unknown_never_becomes_a_new_command"
     ],
+    "pm_recovery_pg": [
+      "runtime::pm_recovery::tests::pg::production_concurrent_submission_cas_and_ack_keep_one_native_effect",
+      "runtime::pm_recovery::tests::pg::production_lost_ack_reload_reuses_original_journal_and_persists_same_native_ack",
+      "runtime::pm_recovery::tests::pg::production_unknown_replay_rejects_current_token_context_revocation_before_post"
+    ],
     "real_auth": [
       "real_base_delegation_wire_replay_conflict_and_revoke_match_fleet",
       "real_base_expired_children_replay_without_minting_and_are_rejected_by_fleet"
@@ -1016,6 +1049,33 @@
     ]
   },
   "ignored": [
+    {
+      "gate": "pm_recovery_pg",
+      "line": 449,
+      "name": "runtime::pm_recovery::tests::pg::production_lost_ack_reload_reuses_original_journal_and_persists_same_native_ack",
+      "package": "infra",
+      "source": "backend/infra/src/runtime/pm_recovery_pg_tests.rs",
+      "target": "infra",
+      "target_kind": "lib"
+    },
+    {
+      "gate": "pm_recovery_pg",
+      "line": 504,
+      "name": "runtime::pm_recovery::tests::pg::production_concurrent_submission_cas_and_ack_keep_one_native_effect",
+      "package": "infra",
+      "source": "backend/infra/src/runtime/pm_recovery_pg_tests.rs",
+      "target": "infra",
+      "target_kind": "lib"
+    },
+    {
+      "gate": "pm_recovery_pg",
+      "line": 569,
+      "name": "runtime::pm_recovery::tests::pg::production_unknown_replay_rejects_current_token_context_revocation_before_post",
+      "package": "infra",
+      "source": "backend/infra/src/runtime/pm_recovery_pg_tests.rs",
+      "target": "infra",
+      "target_kind": "lib"
+    },
     {
       "gate": "central_profile",
       "line": 41,
@@ -1576,7 +1636,7 @@
     },
     {
       "gate": "pm_human_controls",
-      "line": 1372,
+      "line": 1375,
       "name": "pm_human_controls::pm_control_migration_rejects_forged_original_dispatch_tuple_without_a_receipt",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_human_controls.rs",
@@ -2674,6 +2734,7 @@
     "pm_dispatch::pm_production_dispatch_binds_and_steers_once_and_holds_unknown_post",
     "pm_dispatch::pm_submission_is_one_shot_across_concurrent_claims_and_repository_restart",
     "pm_dispatch::tests::continuation_outcomes_are_explicit_and_closed",
+    "pm_dispatch::tests::draft_assignment_rejects_noninitial_versions_keys_and_input",
     "pm_dispatch::tests::initial_dispatch_does_not_bypass_clarification_or_requirements",
     "pm_dispatch::tests::initial_dispatch_rejects_foreign_identity_and_current_assignment",
     "pm_dispatch::tests::initial_dispatch_reuses_the_original_operation_run_and_key",
@@ -2691,13 +2752,26 @@
     "pm_tools::tests::tool_target_is_closed_and_does_not_accept_credential_or_fence_overrides",
     "routes::pm_tools::tests::rpc_rejects_unrecognized_fields_and_tool_target_overrides",
     "routes::pm_tools::tests::tool_inventory_is_bounded_without_answer_confirm_or_credentials",
+    "runtime::pm_dispatch::tests::draft_assignment_decoder_requires_exact_producer_fields_including_nulls",
+    "runtime::pm_dispatch::tests::draft_assignment_readback_rejects_identity_input_and_future_resource_drift",
+    "runtime::pm_dispatch::tests::draft_bind_preserves_native_tuple_and_advanced_cursor_identity",
     "runtime::pm_dispatch::tests::first_step_is_instructions_not_a_completion_or_resume_receipt",
     "runtime::pm_dispatch::tests::native_guidance_ack_uses_the_existing_closed_three_field_contract",
     "runtime::pm_dispatch::tests::pm_bind_requires_the_complete_exact_initial_snapshot",
     "runtime::pm_dispatch::tests::workflow_capabilities_do_not_accept_catalog_credentials_or_base_pending",
+    "runtime::pm_recovery::tests::concurrent_original_and_same_key_replay_have_one_native_effect",
+    "runtime::pm_recovery::tests::original_key_lost_ack_then_reload_replay_returns_same_native_run",
+    "runtime::pm_recovery::tests::original_key_rejects_changed_payload_without_another_native_effect",
+    "runtime::pm_recovery::tests::replay_proof_rejects_legacy_request_capability_context_and_expiry_changes",
+    "runtime::pm_recovery::tests::replay_proof_reload_preserves_original_key_body_context_and_horizon",
     "runtime::pm_tools::tests::task_binding_matches_draft_identity_only_with_every_field_and_original_agent",
     "runtime::pm_tools::tests::waiting_snapshot_requires_exact_checkpoint_and_cannot_claim_step_or_resume",
-    "runtime::pm_tools::tests::workflow_readback_requires_closed_current_snapshot_and_keeps_token_in_memory"
+    "runtime::pm_tools::tests::workflow_readback_requires_closed_current_snapshot_and_keeps_token_in_memory",
+    "tracker_metadata::tests::actual_tracker_analysis_http_snapshot_preserves_digests_and_sequence_gaps",
+    "tracker_metadata::tests::analysis_intent_rejects_foreign_identity_or_changed_prepared_routing",
+    "tracker_metadata::tests::analysis_page_cannot_skip_invalid_events_or_escape_bound_scope",
+    "tracker_metadata::tests::analysis_reservation_requires_canonical_ordinal_and_safe_fence",
+    "tracker_metadata::tests::analysis_resources_are_closed_required_and_canonical_even_with_valid_digests"
   ],
   "python_contracts": {
     "container_activation_fake": [
@@ -2809,7 +2883,7 @@
     "backend/domain/src/clarification_commands.rs": "4c657ad66764906a4654e80515382d17ea0a5ea1e1602a1264332f9c86e7f545",
     "backend/domain/src/lib.rs": "a23cf8e5cb40d841e071510a97788e734731bf98217c21e41b0af18460a8ca24",
     "backend/domain/src/pm_credentials.rs": "8a0f27219578df5a576d13e3d60fdf333140db1c29510b1dbda8b806f41a38c2",
-    "backend/domain/src/pm_dispatch.rs": "97fc64873ec8ed1d8fe009cb3e080850118fca05cbd47ea81754795e11c41f6c",
+    "backend/domain/src/pm_dispatch.rs": "ae71be0db1ea1c2d0258573a50def363dc92b2cc2a6db0d6a4bb4a0c2771f334",
     "backend/domain/src/pm_draft.rs": "77cbb42b4affa13efd455bbb90f915f7f1377dbfdcf4757c28f7b6c3b14d18e3",
     "backend/domain/src/pm_execution.rs": "3994f3ceec606ec9e2bbbe7e1a23b97dc8aa1f5c950f24a3eee7065c9611e404",
     "backend/domain/src/pm_tools.rs": "6f4975b118d28fa655a021ace9c180e23e5dbff534da6c10375ca3327db2ff77",
@@ -2817,7 +2891,7 @@
     "backend/domain/src/sdlc_workflow.rs": "b425cac6831d83ebdbd72b96b117200bb6923265b2ee882e06b854d5ffc2fb1c",
     "backend/domain/src/task_chats.rs": "e1873fe88e81af9e9a624a08c867ea9ecc9cc94f74701a791f36e9b41a4423b2",
     "backend/domain/src/tracker_events.rs": "36959ab7d5b967202c0a035c072178b7eef219606154ad6a29ae54e25efbe66b",
-    "backend/domain/src/tracker_metadata.rs": "5438af990e683462c867b9553a419cfdd80baa5b3b235eeff6793427769fc843",
+    "backend/domain/src/tracker_metadata.rs": "4ba732cbad45c119f8084707f2590f20c4090f8d389c2f881ebba76118637c24",
     "backend/infra/src/approval_decisions.rs": "b410b51b63cadf507f7b2a890155f4f3d38155a406f91137f070c159e0084676",
     "backend/infra/src/base_package.rs": "fc218c622ff074f4857dbb623a46bc17358ec28b8fcab18b6df12cc8a8f92a01",
     "backend/infra/src/base_package_tests.rs": "0c1e2c08424a6f0b901126f8267abc5663716edc36c2c14b41a14c834a79f342",
@@ -2851,12 +2925,15 @@
     "backend/infra/src/runtime/container_replacement.rs": "7d010b3772d30c9ebe0308803b49f86781a085afe9f968e1b3868a10249be6be",
     "backend/infra/src/runtime/container_workers.rs": "16952cb5bd7db69b7cbc8df7ff44f36e6f7e97295e97c6743536f1f383069a64",
     "backend/infra/src/runtime/hermes_wire.rs": "d4405fb075a5a47cb24fe1fc7381270a0d1b794fc85cdb7550d4a9bbe5e2efea",
-    "backend/infra/src/runtime/mod.rs": "abc4bbd2d2a7fa7143f90494940869f9f7664c1093301a8b39e0087c0835edef",
+    "backend/infra/src/runtime/mod.rs": "6ecfaee0094f3609b2996c0467a38f0fc5da1f19daeeff06c42772ee9a7b2dbf",
     "backend/infra/src/runtime/native_context.rs": "201a9b00094a67ddd9ed60ff7a0432cbb9688d4faa40f63384af09915581eb55",
-    "backend/infra/src/runtime/pm_continuation.rs": "01bb0581ce2b346402eb2995a918bb13ee53399843fffb2ddc27b5eeb2a4c60f",
-    "backend/infra/src/runtime/pm_dispatch.rs": "e109f9d4fce56925648b3ce14044aa26c38d2670ae21ac026070203394d2e79c",
+    "backend/infra/src/runtime/pm_continuation.rs": "5f0ac8d8a46bae9452ac89fd607148328a2b8e5052674c6ba9c767ccce4afc0b",
+    "backend/infra/src/runtime/pm_dispatch.rs": "5c67b7ed21e253a2068bcc6b634b850722c524fb923dfaf8ec36bbe290c4f697",
     "backend/infra/src/runtime/pm_events.rs": "4557e8de8e04f34e9420a28459b5509b4240cde1cc37c1d6c1d717da7b711edd",
     "backend/infra/src/runtime/pm_readback.rs": "ef4f8d49236831e588bb9849065ce825bdf7c375c57091a754c8140cc2e2e2fb",
+    "backend/infra/src/runtime/pm_recovery.rs": "80e3fe8e7f2293dfb8406cd4e7f35b80c556e68fc4be002bbc25daa3f7ce5e67",
+    "backend/infra/src/runtime/pm_recovery_pg_tests.rs": "8ed16f089ee3bef3905dc2be66bc76856fa8c24c047a494b36272858915bdec6",
+    "backend/infra/src/runtime/pm_recovery_tests.rs": "a442ef991f446154302cc73527fc7e9ad630cc7f93897acc1df9ef332166b493",
     "backend/infra/src/runtime/pm_tools.rs": "e099f548157194ddf021351a6365923b87703532455fd0ad46c9079270ff847e",
     "backend/infra/src/runtime/recovery_wire.rs": "a095805c0765893a1809c02ebc34a7e265155f5148beb8c729a673dd787c732c",
     "backend/infra/src/runtime/run_control.rs": "7b8a4a00c85b162bee4db81efc18f3f6f50430858eb6834b95438f80c85cab3d",
@@ -2884,10 +2961,10 @@
     "backend/infra/tests/support/hermes_dispatch_journal.rs": "c1fb6a5519b4ab9dcb0a350c76bbc01d0bf5cb56bbbd2c4bc896b2d6ae5f4d05",
     "backend/infra/tests/support/hermes_protocol_fixture.rs": "e7173c88917f5d3f442462271d79b38d83c856b9396d033f503dc97dae6b445e",
     "backend/infra/tests/support/pm_credential_creation.rs": "147c5dbf9634cb3b22556ea159e30cf52807e9f6931d448d5fb73427dc288671",
-    "backend/infra/tests/support/pm_dispatch.rs": "9fef7de8cf3786b29a93fe659de900e4be228986910263a4989ecfc8ed39e71d",
+    "backend/infra/tests/support/pm_dispatch.rs": "e67f01495ca5500aa4a7f15b9db9dda09a76ea8ae49c437624d3d92bf649ca27",
     "backend/infra/tests/support/pm_draft_creation.rs": "ac8266c52998abb22702b5a2a454ae101471cbfc4d84a53d7846f0e0ebd8883f",
     "backend/infra/tests/support/pm_events.rs": "c00dce8c2a4f6eb5bbb04fdc3ee9a648c32ff6e6b00d8ca1f4d5a8dda5cd5932",
-    "backend/infra/tests/support/pm_human_controls.rs": "44814b10d01d8404ea575f1ec0bf71ca84344973d5e0997066161e86ff497050",
+    "backend/infra/tests/support/pm_human_controls.rs": "ac6d72e106e135edda22a5d944c23f92b187999ffca9eb2ac6321cd4e4ecba16",
     "backend/infra/tests/support/runtime_acceptance.rs": "45416320e99ce5a9d6315ec2c973ab045a4ba3cbfad019100c4adbe0e953b993",
     "backend/infra/tests/support/runtime_acceptance_readback_http.rs": "c8d19de02071414eab6f886e2daa66c43d7aa923d3b0328fae33c62381a99c55",
     "backend/infra/tests/support/runtime_approval_recovery.rs": "354fc369572c6ded6ab9558ea34b6ca512a352fdd9f4a52500d32fddfaf9d9b8",
@@ -2953,7 +3030,7 @@
     "backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a"
   },
-  "source_commit": "d4584769c925c2a92829251960b85a14b63c31dd",
+  "source_commit": "c59dbea1ab73a782a28cf6106155c84d73e2e14d",
   "utility_source_sha256": {
     "scripts/runtime_bootstrap.py": "5be8066b6f7dc68f8dda7f1040c0626dad272477c019b07263821df7f86b59a2",
     "scripts/runtime_boundary.py": "2e6bfa6907b93e6d436d2b6668ae20211aca53a64c433f7e1a98ab51245b3e89",
@@ -3656,36 +3733,43 @@
     },
     {
       "ignored": false,
-      "line": 123,
+      "line": 137,
       "name": "continuation_outcomes_are_explicit_and_closed",
       "package": "domain",
       "source": "backend/domain/src/pm_dispatch.rs"
     },
     {
       "ignored": false,
-      "line": 196,
+      "line": 210,
       "name": "initial_dispatch_reuses_the_original_operation_run_and_key",
       "package": "domain",
       "source": "backend/domain/src/pm_dispatch.rs"
     },
     {
       "ignored": false,
-      "line": 207,
+      "line": 221,
       "name": "initial_dispatch_rejects_foreign_identity_and_current_assignment",
       "package": "domain",
       "source": "backend/domain/src/pm_dispatch.rs"
     },
     {
       "ignored": false,
-      "line": 240,
+      "line": 254,
       "name": "initial_dispatch_does_not_bypass_clarification_or_requirements",
       "package": "domain",
       "source": "backend/domain/src/pm_dispatch.rs"
     },
     {
       "ignored": false,
-      "line": 259,
+      "line": 273,
       "name": "workflow_assignment_pins_original_input_without_inventing_code_resources",
+      "package": "domain",
+      "source": "backend/domain/src/pm_dispatch.rs"
+    },
+    {
+      "ignored": false,
+      "line": 319,
+      "name": "draft_assignment_rejects_noninitial_versions_keys_and_input",
       "package": "domain",
       "source": "backend/domain/src/pm_dispatch.rs"
     },
@@ -3761,21 +3845,56 @@
     },
     {
       "ignored": false,
-      "line": 308,
+      "line": 418,
+      "name": "actual_tracker_analysis_http_snapshot_preserves_digests_and_sequence_gaps",
+      "package": "domain",
+      "source": "backend/domain/src/tracker_metadata.rs"
+    },
+    {
+      "ignored": false,
+      "line": 442,
+      "name": "analysis_resources_are_closed_required_and_canonical_even_with_valid_digests",
+      "package": "domain",
+      "source": "backend/domain/src/tracker_metadata.rs"
+    },
+    {
+      "ignored": false,
+      "line": 488,
+      "name": "analysis_intent_rejects_foreign_identity_or_changed_prepared_routing",
+      "package": "domain",
+      "source": "backend/domain/src/tracker_metadata.rs"
+    },
+    {
+      "ignored": false,
+      "line": 520,
+      "name": "analysis_reservation_requires_canonical_ordinal_and_safe_fence",
+      "package": "domain",
+      "source": "backend/domain/src/tracker_metadata.rs"
+    },
+    {
+      "ignored": false,
+      "line": 550,
+      "name": "analysis_page_cannot_skip_invalid_events_or_escape_bound_scope",
+      "package": "domain",
+      "source": "backend/domain/src/tracker_metadata.rs"
+    },
+    {
+      "ignored": false,
+      "line": 592,
       "name": "actual_tracker_postgres_http_snapshots_decode_without_rewriting_source_digests",
       "package": "domain",
       "source": "backend/domain/src/tracker_metadata.rs"
     },
     {
       "ignored": false,
-      "line": 371,
+      "line": 655,
       "name": "metadata_discriminators_and_i64_cursors_are_strict_and_lossless",
       "package": "domain",
       "source": "backend/domain/src/tracker_metadata.rs"
     },
     {
       "ignored": false,
-      "line": 414,
+      "line": 698,
       "name": "metadata_missing_nulls_noncanonical_refs_hashes_and_page_forgery_fail_closed",
       "package": "domain",
       "source": "backend/domain/src/tracker_metadata.rs"
@@ -4671,70 +4790,91 @@
     },
     {
       "ignored": false,
-      "line": 2697,
+      "line": 2698,
       "name": "leader_authored_executor_message_gets_fleet_envelope",
       "package": "infra",
       "source": "backend/infra/src/runtime/mod.rs"
     },
     {
       "ignored": false,
-      "line": 2712,
+      "line": 2713,
       "name": "primary_leader_run_is_classified_as_leader",
       "package": "infra",
       "source": "backend/infra/src/runtime/mod.rs"
     },
     {
       "ignored": false,
-      "line": 2724,
+      "line": 2725,
       "name": "pick_error_redacts_secret_like_payloads",
       "package": "infra",
       "source": "backend/infra/src/runtime/mod.rs"
     },
     {
       "ignored": false,
-      "line": 2731,
+      "line": 2732,
       "name": "hermes_completion_reads_output_instead_of_event_name",
       "package": "infra",
       "source": "backend/infra/src/runtime/mod.rs"
     },
     {
       "ignored": false,
-      "line": 2741,
+      "line": 2742,
       "name": "missing_text_does_not_become_a_runtime_identifier",
       "package": "infra",
       "source": "backend/infra/src/runtime/mod.rs"
     },
     {
       "ignored": false,
-      "line": 2748,
+      "line": 2749,
       "name": "nested_delta_ignores_unrelated_event_fields",
       "package": "infra",
       "source": "backend/infra/src/runtime/mod.rs"
     },
     {
       "ignored": false,
-      "line": 867,
+      "line": 876,
+      "name": "draft_assignment_decoder_requires_exact_producer_fields_including_nulls",
+      "package": "infra",
+      "source": "backend/infra/src/runtime/pm_dispatch.rs"
+    },
+    {
+      "ignored": false,
+      "line": 909,
+      "name": "draft_assignment_readback_rejects_identity_input_and_future_resource_drift",
+      "package": "infra",
+      "source": "backend/infra/src/runtime/pm_dispatch.rs"
+    },
+    {
+      "ignored": false,
+      "line": 961,
+      "name": "draft_bind_preserves_native_tuple_and_advanced_cursor_identity",
+      "package": "infra",
+      "source": "backend/infra/src/runtime/pm_dispatch.rs"
+    },
+    {
+      "ignored": false,
+      "line": 1020,
       "name": "pm_bind_requires_the_complete_exact_initial_snapshot",
       "package": "infra",
       "source": "backend/infra/src/runtime/pm_dispatch.rs"
     },
     {
       "ignored": false,
-      "line": 905,
+      "line": 1073,
       "name": "first_step_is_instructions_not_a_completion_or_resume_receipt",
       "package": "infra",
       "source": "backend/infra/src/runtime/pm_dispatch.rs"
     },
     {
       "ignored": false,
-      "line": 934,
+      "line": 1102,
       "name": "workflow_capabilities_do_not_accept_catalog_credentials_or_base_pending",
       "package": "infra",
       "source": "backend/infra/src/runtime/pm_dispatch.rs"
     },
     {
       "ignored": false,
-      "line": 974,
+      "line": 1165,
       "name": "native_guidance_ack_uses_the_existing_closed_three_field_contract",
       "package": "infra",
       "source": "backend/infra/src/runtime/pm_dispatch.rs"
@@ -4752,6 +4892,41 @@
       "name": "wrong_or_missing_run_identity_fails_closed",
       "package": "infra",
       "source": "backend/infra/src/runtime/pm_readback.rs"
+    },
+    {
+      "ignored": false,
+      "line": 68,
+      "name": "replay_proof_reload_preserves_original_key_body_context_and_horizon",
+      "package": "infra",
+      "source": "backend/infra/src/runtime/pm_recovery_tests.rs"
+    },
+    {
+      "ignored": false,
+      "line": 85,
+      "name": "replay_proof_rejects_legacy_request_capability_context_and_expiry_changes",
+      "package": "infra",
+      "source": "backend/infra/src/runtime/pm_recovery_tests.rs"
+    },
+    {
+      "ignored": false,
+      "line": 222,
+      "name": "original_key_lost_ack_then_reload_replay_returns_same_native_run",
+      "package": "infra",
+      "source": "backend/infra/src/runtime/pm_recovery_tests.rs"
+    },
+    {
+      "ignored": false,
+      "line": 256,
+      "name": "concurrent_original_and_same_key_replay_have_one_native_effect",
+      "package": "infra",
+      "source": "backend/infra/src/runtime/pm_recovery_tests.rs"
+    },
+    {
+      "ignored": false,
+      "line": 277,
+      "name": "original_key_rejects_changed_payload_without_another_native_effect",
+      "package": "infra",
+      "source": "backend/infra/src/runtime/pm_recovery_tests.rs"
     },
     {
       "ignored": false,
@@ -5378,42 +5553,42 @@
     },
     {
       "ignored": false,
-      "line": 192,
+      "line": 191,
       "name": "pm_production_dispatch_binds_and_steers_once_and_holds_unknown_post",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_dispatch.rs"
     },
     {
       "ignored": false,
-      "line": 417,
+      "line": 422,
       "name": "pm_submission_is_one_shot_across_concurrent_claims_and_repository_restart",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_dispatch.rs"
     },
     {
       "ignored": false,
-      "line": 470,
+      "line": 474,
       "name": "pm_drain_and_owner_revocation_block_the_unconsumed_submission",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_dispatch.rs"
     },
     {
       "ignored": false,
-      "line": 500,
+      "line": 504,
       "name": "pm_guidance_unknown_is_not_retried_and_delivered_ack_does_not_complete_the_run",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_dispatch.rs"
     },
     {
       "ignored": false,
-      "line": 538,
+      "line": 542,
       "name": "pm_claims_complete_with_one_physical_connection_without_second_pool_acquisition",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_dispatch.rs"
     },
     {
       "ignored": false,
-      "line": 607,
+      "line": 611,
       "name": "pm_downgrade_refuses_unknown_known_and_guidance_custody_without_changing_ledger",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_dispatch.rs"

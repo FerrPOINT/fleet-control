@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 import hashlib
 import io
+import ipaddress
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -14,6 +15,7 @@ import re
 import selectors
 import shutil
 import signal
+import socket
 import stat
 import subprocess
 import tarfile
@@ -24,7 +26,7 @@ import zipfile
 
 REPOSITORY = "FerrPOINT/fleet-control"
 BRANCH = "build-only/config-union-backend-20261010"
-SOURCE_SHA = "d4584769c925c2a92829251960b85a14b63c31dd"
+SOURCE_SHA = "c59dbea1ab73a782a28cf6106155c84d73e2e14d"
 BASE_SHA = "19a7a381ae6dbea61a643bb96189e483fa64df5c"
 AUTH_SHA = "01388dfb43332cbe5837fd5e1fadccf09cb8886d"
 UTILITY_SHA = "9b53de7b23593949a9e6c05bd5a4f94b930e50a0"
@@ -32,7 +34,7 @@ UTILITY_INVENTORY_SHA = "8e727d1d2ba02941dc176f26945d25593068fc593cb619928538129
 PACKAGE_SHA = "4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58"
 PACKAGE_TREE = "96d9a7453744fd09f9ee3ba3b2c20f6b3d389b85"
 PACKAGE_INVENTORY_SHA = "1bdf56b21b0b97ec4a5a6303b04ecdda1b6609164aa018acc830187ca124f827"
-# Authentic codegen38044630680/f7; exact backend parity binds the doc/schema-only successor.
+# Authentic codegen38048577514/4449; exact API dependency closure parity binds c59.
 OPENAPI_SHA = "e1b17e723abf43866c4f913c9fa4fba8b201bef5e3532b4a8f6cdc32ccbcce76"
 SWAGGER_SHA = "481244d0812097b11fbaeef79f71d942b171617f9c9f9514e63acbe13e71ccdc"
 WORKFLOW = ".github/workflows/backend-build-only.yml"
@@ -43,7 +45,7 @@ INVENTORY = "scripts/hosted-backend/test-inventory.json"
 WRITE_SET = {WORKFLOW, HELPER, GATE, INIT, INVENTORY, "scripts/tests/test_hosted_backend_gate.py"}
 ARTIFACT_FILES = {"report.json", "provenance.json", "SHA256SUMS"}
 FAILURE_FILE = "compiler-diagnostics.json"
-SOURCE_INVENTORY_SHA = "e1ccc58fb513ded5295c57ce527e4cdd3577dba6f3b7b7a70e068433b3c6a917"
+SOURCE_INVENTORY_SHA = "9262d8c427e5452d414d1adc2b223666308b34ccf84b3bc7e35008057fc26b49"
 DIAGNOSTIC_LIMIT = 32
 DIAGNOSTIC_INPUT_LIMIT = 16 * 1024 ** 2
 DIAGNOSTIC_LINE_LIMIT = 256 * 1024
@@ -121,7 +123,7 @@ TEST_ACTIVATION_HINTS = frozenset({
 ACTIVATION_PROBE_SOURCE = "backend/infra/tests/container_activation.rs"
 FORBIDDEN = {".local", "target", "node_modules", ".venv", ".git", "backups", ".env"}
 GATES = ("preflight", "fmt", "check", "clippy", "auth_binary", "runtime_inventory", "real_auth",
-         "api2", "credentials_unit", "credentials_pg", "foundation", "pm_human_controls",
+         "api2", "credentials_unit", "credentials_pg", "foundation", "pm_human_controls", "pm_recovery_pg",
          "config_api", "base_package_unit", "config_files_unit", "package_effective_unit",
          "config_shared_unit", "base_package_pg", "config_revision_pg",
          "clarification_domain", "clarification_api", "clarification_pg", "clarification_migration", "workspace", "lineage10",
@@ -146,7 +148,8 @@ DATABASES = ("fleet_foundation_test", "fleet_migration_test", "fleet_message_ord
              "fleet_container_controller_test", "fleet_container_controller_migration_test", "fleet_mapped_controller_migration_test",
              "fleet_container_preparation_test", "fleet_container_preparation_migration_test", "fleet_container_activation_test",
              "fleet_container_activation_migration_test", "fleet_recovered_activation_migration_test",
-             "fleet_clarification_test", "fleet_clarification_migration_test", "fleet_configuration_test")
+             "fleet_clarification_test", "fleet_clarification_migration_test", "fleet_configuration_test",
+             "fleet_pm_recovery_test")
 URLS = {
     "FLEET_TEST_DATABASE_URL": "fleet_foundation_test",
     "FLEET_MIGRATION_TEST_DATABASE_URL": "fleet_migration_test",
@@ -169,6 +172,7 @@ URLS = {
     "FLEET_CLARIFICATION_TEST_DATABASE_URL": "fleet_clarification_test",
     "FLEET_CLARIFICATION_MIGRATION_TEST_DATABASE_URL": "fleet_clarification_migration_test",
     "FLEET_CONFIGURATION_TEST_DATABASE_URL": "fleet_configuration_test",
+    "FLEET_PM_RECOVERY_TEST_DATABASE_URL": "fleet_pm_recovery_test",
 }
 FLEET_ROOTS = ("backend", ".base-revision", "openapi", "docs/TESTING.md",
                "scripts/check_container_preparation_contract.py", "scripts/check_container_activation_contract.py",
@@ -454,17 +458,19 @@ def inventory(root):
 def reviewed_inventory(controls):
     value = json.loads((controls / INVENTORY).read_bytes())
     require(value["source_commit"] == SOURCE_SHA and value["executed"] is False, "Inventory pin drift")
-    require(len(value["ignored"]) == 174 and value["default_foundation_ignored"] == 124
+    require(len(value["ignored"]) == 177 and value["default_foundation_ignored"] == 124
             and len(value["groups"]["runtime_controls"]) == 30
             and len(value["groups"]["runtime_terminal"]) == 14, "Ignored coverage weakened")
     require(len({(item["package"], item["target_kind"], item["target"], item["name"])
-                 for item in value["ignored"]}) == 174, "Duplicate ignored identities")
-    require(len(value["groups"]["foundation"]) == 73 and len(value["workspace_default_declarations"]) == 382,
+                 for item in value["ignored"]}) == 177, "Duplicate ignored identities")
+    require(len(value["groups"]["foundation"]) == 73 and len(value["workspace_default_declarations"]) == 396,
             "Default/foundation declaration coverage drift")
-    require(len(value["pm_workspace_required"]) == 34 and len(set(value["pm_workspace_required"])) == 34,
+    require(len(value["pm_workspace_required"]) == 48 and len(set(value["pm_workspace_required"])) == 48,
             "PM workspace selector coverage drift")
     require(len(value["groups"]["pm_human_controls"]) == 5
             and len(set(value["groups"]["pm_human_controls"])) == 5, "PM human selector coverage drift")
+    require(len(value["groups"]["pm_recovery_pg"]) == 3
+            and len(set(value["groups"]["pm_recovery_pg"])) == 3, "PM recovery selector coverage drift")
     require({name: len(value["groups"][name]) for name in ("credentials_unit", "credentials_pg", "real_auth")}
             == dict(credentials_unit=8, credentials_pg=16, real_auth=2), "Credential coverage drift")
     require(len(value["groups"]["container_activation_pg"]) == 14
@@ -846,7 +852,7 @@ def verify_test_log(stage, text, reviewed, ordinary_listing=""):
         require(bool(expected) and actual == expected, "Workspace default execution differs from compiler listing")
         require(bool(summaries) and sum(row[0] for row in summaries) == sum(actual.values())
                 and all(row[1] == 0 for row in summaries)
-                and sum(row[2] for row in summaries) == 174, "Workspace result/ignored totals drift")
+                and sum(row[2] for row in summaries) == 177, "Workspace result/ignored totals drift")
     else:
         expected = Counter(reviewed["groups"][stage])
         ignored = 124 if stage == "foundation" else 0
@@ -858,13 +864,15 @@ def verify_test_log(stage, text, reviewed, ordinary_listing=""):
 
 def verify_runtime_inventory(ordinary, ignored, reviewed):
     expected = Counter(item["name"] for item in reviewed["ignored"])
-    require(listed_names(ignored) == expected and sum(expected.values()) == 174, "Compiler ignored inventory drift")
+    require(listed_names(ignored) == expected and sum(expected.values()) == 177, "Compiler ignored inventory drift")
     require(bool(listed_names(ordinary) - expected), "Zero workspace default selection")
     require(all(listed_names(ordinary)[name] == 1 and name not in expected
                 for name in reviewed["pm_workspace_required"]), "PM compiler selectors missing/duplicate/ignored")
     require(all(listed_names(ordinary)[name] == expected[name] == 1
                 for name in reviewed["groups"]["pm_human_controls"]), "PM human compiler selectors missing/duplicate/not ignored")
-    return dict(ignored=174, ignored_names_sha256=digest(canonical(sorted(expected.elements()))),
+    require(all(listed_names(ordinary)[name] == expected[name] == 1
+                for name in reviewed["groups"]["pm_recovery_pg"]), "PM recovery compiler selectors missing/duplicate/not ignored")
+    return dict(ignored=177, ignored_names_sha256=digest(canonical(sorted(expected.elements()))),
                 listed_default_count=sum((listed_names(ordinary) - expected).values()))
 
 
@@ -886,6 +894,23 @@ def resource_guard(root):
 def database_environment():
     return {key: f"postgres://{'fleet_approval_events_test' if key == 'FLEET_RUNTIME_APPROVAL_EVENTS_TEST_DATABASE_URL' else 'fleet_test'}@postgres:5432/{name}"
             for key, name in URLS.items()}
+
+
+def owned_private_ipv4():
+    candidates = {row[4][0] for row in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET, socket.SOCK_STREAM)}
+    private = []
+    for value in sorted(candidates):
+        address = ipaddress.IPv4Address(value)
+        if not any(address in ipaddress.IPv4Network(network) for network in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")):
+            continue
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+                probe.bind((value, 0))
+        except OSError:
+            continue
+        private.append(value)
+    require(len(private) == 1, "One bindable owned private IPv4 required for PM recovery fixture")
+    return private[0]
 
 
 def psql(sql=None, file=None, database="postgres"):
@@ -1043,6 +1068,8 @@ def execute():
                            QA_SOURCES=str(root / "sources.sha256"), QA_HELPER=str(controls / HELPER),
                            QA_INVENTORY=str(controls / INVENTORY), QA_SOURCE_COMMIT=SOURCE_SHA, QA_AUTH_SOURCE_COMMIT=AUTH_SHA,
                            QA_UTILITY_CHECKOUT=str(checkouts[3][0]), PYTHONDONTWRITEBYTECODE="1",
+                           FLEET_TEST_BASE_UTILITY_CHECKOUT=str(checkouts[3][0]),
+                           FLEET_PM_RECOVERY_TEST_HOST=owned_private_ipv4(),
                            FLEET_TEST_BASE_PACKAGE_CHECKOUT=str(checkouts[4][0]),
                            RUSTUP_TOOLCHAIN="1.88.0", CARGO_HOME=str(root / "cargo"), CARGO_TARGET_DIR=str(root / "target"),
                            TMPDIR=str(root / "tmp"), CARGO_BUILD_JOBS="1", CARGO_INCREMENTAL="0",
@@ -1109,7 +1136,7 @@ def execute():
                   status="success" if success else "failure", failed_stage=None if success else failed_stage,
                   gates=safe_rows, focused=focused, runtime_inventory=runtime_inventory,
                   contracts=contracts, migration_ledger=migration_ledger,
-                  ignored_required=174, foundation_ignored=124, resources=resources, cleanup=cleanup,
+                  ignored_required=177, foundation_ignored=124, resources=resources, cleanup=cleanup,
                   service_disposal="GitHub-managed ephemeral service, platform cleanup after job",
                   local_docker_or_native_guard_waiver=False, private_diagnostics_uploaded=False)
     provenance = dict(version=1, repository=REPOSITORY, branch=BRANCH, source_sha=SOURCE_SHA, base_sha=BASE_SHA,
@@ -1219,8 +1246,8 @@ def validate_evidence_files(files, *, workflow_sha, run_id, attempt):
             and report["sdlc_acceptance"] is False and report["status"] == "success"
             and report["gates"] == [dict(stage=name, status="passed") for name in GATES]
             and report["cleanup"] == dict(scratch=True, synthetic_databases=True)
-            and report["ignored_required"] == 174 and report["foundation_ignored"] == 124
-            and report["runtime_inventory"]["ignored"] == 174, "Incomplete backend gate receipt")
+            and report["ignored_required"] == 177 and report["foundation_ignored"] == 124
+            and report["runtime_inventory"]["ignored"] == 177, "Incomplete backend gate receipt")
     reviewed = reviewed_inventory(controls)
     require_codegen_binding(reviewed)
     require(provenance["utility_tree"] == reviewed["utility_tree"], "Utility tree drift")
@@ -1236,7 +1263,7 @@ def validate_evidence_files(files, *, workflow_sha, run_id, attempt):
         require(actual == dict(passed=len(names), failed=0, ignored=124 if stage == "foundation" else 0,
                                tests=sorted(names)), "Focused test receipt mismatch")
     ws = report["focused"]["workspace"]
-    require(ws["passed"] > 0 and ws["failed"] == 0 and ws["ignored"] == 174
+    require(ws["passed"] > 0 and ws["failed"] == 0 and ws["ignored"] == 177
             and len(ws["tests"]) == ws["passed"] == report["runtime_inventory"]["listed_default_count"],
             "Empty/failed workspace receipt")
     require(report["runtime_inventory"]["ignored_names_sha256"] == digest(canonical(sorted(

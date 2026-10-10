@@ -71,6 +71,7 @@ for name in FLEET_TEST_DATABASE_URL FLEET_MIGRATION_TEST_DATABASE_URL \
   FLEET_CONTAINER_ACTIVATION_MIGRATION_TEST_DATABASE_URL FLEET_RECOVERED_ACTIVATION_MIGRATION_TEST_DATABASE_URL \
   FLEET_CLARIFICATION_TEST_DATABASE_URL FLEET_CLARIFICATION_MIGRATION_TEST_DATABASE_URL \
   FLEET_CONFIGURATION_TEST_DATABASE_URL FLEET_TEST_BASE_PACKAGE_CHECKOUT QA_UTILITY_CHECKOUT \
+  FLEET_PM_RECOVERY_TEST_DATABASE_URL FLEET_TEST_BASE_UTILITY_CHECKOUT FLEET_PM_RECOVERY_TEST_HOST \
   QA_SOURCE_COMMIT QA_AUTH_SOURCE_COMMIT DATABASE_URL; do
   test -n "${!name}"
 done
@@ -122,6 +123,10 @@ run_tests credentials_pg -p infra --test sdlc_foundation pm_credential_creation:
 run_tests foundation -p infra --test sdlc_foundation
 stage=pm_human_controls
 cargo test --locked -p infra --test sdlc_foundation pm_human_controls:: -- --ignored --test-threads=1 2>&1 | tee "$QA_OUTPUT/$stage.log"
+passed
+stage=pm_recovery_pg
+FLEET_TEST_DATABASE_URL="$FLEET_PM_RECOVERY_TEST_DATABASE_URL" \
+  cargo test --locked -p infra --lib runtime::pm_recovery::tests::pg:: -- --ignored --test-threads=1 2>&1 | tee "$QA_OUTPUT/$stage.log"
 passed
 run_tests config_api -p api --lib routes::sdlc_configuration::tests::
 run_tests base_package_unit -p infra --lib base_package::tests::

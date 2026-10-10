@@ -5,6 +5,17 @@ checkpoint, not current jobs. Use [Current State](CURRENT_STATE.md) and the
 [Gap Register](GAP_REGISTER.md) for the active release decision. Original source
 identities, receipts and limitations are retained; no result is upgraded here.
 
+## Superseded PM Qualification Attempts
+
+- Backend sourcefacb, controls0d: [38041711484](https://github.com/FerrPOINT/fleet-control/actions/runs/38041711484)
+  failed workspace check. Strict artifact11666431970 identified13 Rust compiler
+  diagnostics; scratch/DB cleanup passed. Subsequent source fixes are not a
+  retroactive PASS for that run.
+- Frontend source34ee, controls66a: [38041893267](https://github.com/FerrPOINT/fleet-control/actions/runs/38041893267)
+  failed after20 gates. Strict artifact11665858046 identified the directory
+  declaration timeout; the exact failed action was not retained. Its published
+  back-link correction did not by itself prove complete browser acceptance.
+
 ## Current Integration Snapshot: 10 October 2026
 
 ### Current Integration Work
