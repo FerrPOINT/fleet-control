@@ -163,7 +163,7 @@
     "fleet-control/backend/infra/src/entities.rs": "af9f129152a466bfaa1149ba518cb31a4319ac4c2714adad9180dff798d47a7e",
     "fleet-control/backend/infra/src/lib.rs": "2c463080e90a8c7d2619c1a81a82a9c8fc3b17e0d0228c1fec465d2a6c7ed2f2",
     "fleet-control/backend/infra/src/pm_credentials.rs": "f6a3bee729e0f2d8c5397f10db3c3fd2f94854a06b6061531699eb255ef27958",
-    "fleet-control/backend/infra/src/pm_credentials/coordinator.rs": "d45514d660b18478c3dfe3753bcde490b312d5b105f31a74dba45c469013bca4",
+    "fleet-control/backend/infra/src/pm_credentials/coordinator.rs": "0be7f8a09497c7a97a810114da02749638f8977668b3f42e764f307307a6533e",
     "fleet-control/backend/infra/src/pm_draft.rs": "14a4abde0ef4c150833888f3189779b831d31b755bc9d5e59b2ebde573c55718",
     "fleet-control/backend/infra/src/pm_execution.rs": "1161dbde694171f4f31f97aff892bf15951371634cde2ef764c92acd0f8439b0",
     "fleet-control/backend/infra/src/runtime/mod.rs": "4c188d886d267998e966893e5a536cf333b9c893d926731a77bf408232d2e482",
@@ -770,7 +770,7 @@
     "backend/infra/src/entities.rs": "af9f129152a466bfaa1149ba518cb31a4319ac4c2714adad9180dff798d47a7e",
     "backend/infra/src/lib.rs": "2c463080e90a8c7d2619c1a81a82a9c8fc3b17e0d0228c1fec465d2a6c7ed2f2",
     "backend/infra/src/pm_credentials.rs": "f6a3bee729e0f2d8c5397f10db3c3fd2f94854a06b6061531699eb255ef27958",
-    "backend/infra/src/pm_credentials/coordinator.rs": "d45514d660b18478c3dfe3753bcde490b312d5b105f31a74dba45c469013bca4",
+    "backend/infra/src/pm_credentials/coordinator.rs": "0be7f8a09497c7a97a810114da02749638f8977668b3f42e764f307307a6533e",
     "backend/infra/src/pm_draft.rs": "14a4abde0ef4c150833888f3189779b831d31b755bc9d5e59b2ebde573c55718",
     "backend/infra/src/pm_execution.rs": "1161dbde694171f4f31f97aff892bf15951371634cde2ef764c92acd0f8439b0",
     "backend/infra/src/runtime/mod.rs": "4c188d886d267998e966893e5a536cf333b9c893d926731a77bf408232d2e482",
@@ -824,8 +824,8 @@
     "backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a"
   },
-  "source_commit": "3d1a10836ba1d2d6d136a3656201a4831e216118",
-  "source_tree": "7fa44857f5f43fe04c93fd5ca6af9ae4ceb049a0",
+  "source_commit": "0e494309d2f94e11598e6e7562c57de423d044e9",
+  "source_tree": "934f69f7f8d667a242531cf122917d8e74ca5cf9",
   "workspace_default_declarations": [
     {
       "ignored": false,

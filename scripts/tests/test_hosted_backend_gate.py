@@ -1226,22 +1226,25 @@ class HostedBackendTests(unittest.TestCase):
             "1 passed; 0 failed; 0 ignored;' ${QA_OUTPUT}/real_auth.log",
             "2 passed; 0 failed; 0 ignored;' ${QA_OUTPUT}/real_auth.log"))
         prior_workflow = yaml.load(self.source_blob(gate.WORKFLOW, "42447728419b69011efbd69f9f7ff5935c1e271f").decode().replace(
-            "994f29d93c6c35d1fc43329b29175cd6a4b0ad87", gate.SOURCE_SHA), Loader=yaml.BaseLoader)
+            "994f29d93c6c35d1fc43329b29175cd6a4b0ad87", gate.SOURCE_SHA).replace(
+            "Exact isolated C11 product source; no integration tail.",
+            "Exact C11 regressions with the test-only iterator correction."), Loader=yaml.BaseLoader)
         current_workflow = self.workflow()
         self.assertEqual(current_workflow, prior_workflow)
         self.assertEqual(len(gate.GATES), 28)
         self.assertEqual((gate.DEFAULT_COUNT, gate.IGNORED_COUNT), (248, 18))
         self.assertEqual(len(REVIEWED["compiled_source_sha256"]), 309)
-        self.assertEqual(gate.SOURCE_SHA, "3d1a10836ba1d2d6d136a3656201a4831e216118")
-        self.assertEqual(gate.SOURCE_TREE, "7fa44857f5f43fe04c93fd5ca6af9ae4ceb049a0")
-        self.assertEqual(gate.SOURCE_INVENTORY_SHA, "1dd6b5803f1878aa19458a5e3e9ee8c1e28047e59680df2d42d15ed0f5736b0b")
+        self.assertEqual(gate.SOURCE_SHA, "0e494309d2f94e11598e6e7562c57de423d044e9")
+        self.assertEqual(gate.SOURCE_TREE, "934f69f7f8d667a242531cf122917d8e74ca5cf9")
+        self.assertEqual(gate.SOURCE_INVENTORY_SHA, "2df727b43f468da1c0919fd6a004dd3836d6a548bbabeef807a608c8435de9c8")
 
     def test_ci_only_product_successor_preserves_exact_compiled_and_declaration_inventory(self):
         prior = json.loads(self.source_blob(gate.INVENTORY, "bdd1da4e97497f13d0cfd17d1e28c087b52c2051"))
         prior.update(source_commit=gate.SOURCE_SHA, source_tree=gate.SOURCE_TREE)
-        for path in ("backend/shared/src/id.rs", "docs/TESTING.md"):
+        for path in ("backend/shared/src/id.rs", "docs/TESTING.md", "backend/infra/src/pm_credentials/coordinator.rs"):
             prior["compiled_source_sha256"]["fleet-control/" + path] = gate.digest(self.source_blob(path))
         prior["rust_source_sha256"]["backend/shared/src/id.rs"] = gate.digest(self.source_blob("backend/shared/src/id.rs"))
+        prior["rust_source_sha256"]["backend/infra/src/pm_credentials/coordinator.rs"] = gate.digest(self.source_blob("backend/infra/src/pm_credentials/coordinator.rs"))
         self.assertEqual(REVIEWED, prior)
         changed = subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT), "diff", "--name-only",
             "4358dea9d62f6d26cafcd6da8de7b533ac65fe56", "2a1b20b2db022391025540074f53034270eca3a2"],
@@ -1257,6 +1260,22 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]["source"], "backend/shared/src/id/tests.rs")
         self.assertFalse(records[0]["ignored"])
+
+    def test_clippy_successor_changes_only_scope_variant_iteration_and_one_compiled_blob(self):
+        previous_source = "3d1a10836ba1d2d6d136a3656201a4831e216118"
+        path = "backend/infra/src/pm_credentials/coordinator.rs"
+        previous = self.source_blob(path, previous_source)
+        self.assertEqual(self.source_blob(path), previous.replace(
+            b"for index in 0..scopes.len() {", b"for (index, scope) in scopes.iter().enumerate() {").replace(
+            b".push(json!(scopes[index]));", b".push(json!(scope));"))
+        changed = subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT), "diff", "--name-only",
+            previous_source, gate.SOURCE_SHA], capture_output=True, check=True, timeout=30).stdout.decode().splitlines()
+        self.assertEqual(changed, [path])
+        prior = json.loads(self.source_blob(gate.INVENTORY, "cfe7805dfeff3c37558044b35c1454c27662bc8c"))
+        prior.update(source_commit=gate.SOURCE_SHA, source_tree=gate.SOURCE_TREE)
+        prior["compiled_source_sha256"]["fleet-control/" + path] = gate.digest(self.source_blob(path))
+        prior["rust_source_sha256"][path] = gate.digest(self.source_blob(path))
+        self.assertEqual(REVIEWED, prior)
 
     def test_regression_source_preserves_every_prior_declaration_and_adds_exact_seven(self):
         prior = json.loads(self.source_blob(gate.INVENTORY, "42447728419b69011efbd69f9f7ff5935c1e271f"))
