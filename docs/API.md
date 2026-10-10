@@ -1,5 +1,11 @@
 # API
 
+The PM MCP endpoint rejects duplicate, invalid or unsupported
+`MCP-Protocol-Version` headers with HTTP400. This is a transport error, not the
+HTTP422 domain-validation response from the shared SDK. The existing real HTTP
+negative cases retain their HTTP400 assertions. See the
+[MCP transport contract](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports#protocol-version-header).
+
 ## PM Human Controls Integration Candidate
 
 PM MCP `workflow_step` with a null/absent report returns the existing instruction

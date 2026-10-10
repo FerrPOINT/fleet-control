@@ -190,7 +190,7 @@ pub async fn handle(
             .get("mcp-protocol-version")
             .is_some_and(|v| v != "2025-03-26")
     {
-        return Err(AppError::validation("unsupported MCP protocol"));
+        return Err(AppError::invalid_input("unsupported MCP protocol"));
     }
     let request: Request = match serde_json::from_value(body) {
         Ok(v) => v,
