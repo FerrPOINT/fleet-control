@@ -24,8 +24,7 @@ impl MigrationTrait for Migration {
                 CHECK((length(intent->>'workflow_origin') BETWEEN 1 AND 1024) IS TRUE),
                 CHECK((intent->>'credential_fingerprint' ~ '^[0-9a-f]{64}$') IS TRUE),
                 CHECK((intent->>'workflow_credential_fingerprint' ~ '^[0-9a-f]{64}$') IS TRUE),
-                CHECK(hermes_run_ref IS NULL OR (submitted AND length(hermes_run_ref) BETWEEN 1 AND 512
-                    AND hermes_run_ref ~ '^[A-Za-z0-9_-]+$')),
+                CHECK(hermes_run_ref IS NULL OR (submitted AND hermes_run_ref ~ '^[A-Za-z0-9_-]{1,512}$')),
                 CHECK(guidance_attempted = (guidance_body IS NOT NULL)),
                 CHECK(NOT guidance_attempted OR hermes_run_ref IS NOT NULL),
                 CHECK(NOT guidance_delivered OR guidance_attempted),

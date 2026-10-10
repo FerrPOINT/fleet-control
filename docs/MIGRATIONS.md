@@ -2,7 +2,7 @@
 
 ## Current Integration Candidate
 
-The current registry contains21 canonical or24 split entries. The unit18 paragraph
+The current registry contains25 canonical or28 split entries. The unit18 paragraph
 below retains its original release-unit context, not the current registry count.
 Pending Docker migrations15/16/19 use parameterized `to_regprocedure`/
 `to_regclass` readback, so cached statements resolve current objects after a QA
@@ -11,6 +11,23 @@ timestamps remain unchanged; these three sources are absent from current main.
 This is a candidate source correction, not evidence of successful PostgreSQL
 execution or permission to downgrade populated production history. See
 [TESTING](TESTING.md) and [current gates](CURRENT_STATE.md).
+
+## PM ACK Bounds Repair024
+
+Migration `m20261010_000024_pm_ack_bounds` repairs the invalid PostgreSQL regex
+bound in an already-installed022 without changing022's original bytes or ledger.
+It locks the journal, asks PostgreSQL to canonicalize two trusted CHECK shapes
+in an empty session-local temporary table, and replaces only one exact validated
+original ACK constraint, retaining its name. Unknown/ambiguous shapes fail closed;
+an already repaired exact shape is a no-op. All journal rows, other constraints,
+immutable triggers and submission custody remain intact. The replacement retains
+the same ASCII allowlist and length1..512 using a separate length check.
+
+Down refuses any populated journal before changing a constraint. An empty down
+restores the original022 CHECK; re-up repairs it again. No destructive reset or
+operator ledger rewrite is supported. The temporary comparison table is removed
+inside the same atomic SQL block, including rollback on error. Source/rustfmt
+checks are not PostgreSQL upgrade acceptance; see the explicit [test](TESTING.md#pm-ack-bounds-additive-upgrade024).
 
 ## Historical Unit18 Scope
 

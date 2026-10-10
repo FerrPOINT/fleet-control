@@ -18,6 +18,11 @@ async fn empty_pm_custody_downgrade_and_reupgrade_preserve_older_lineage() {
             Migrator::up(&fixture.db, None).await.unwrap();
         }
         let before = ledger(&fixture.db).await;
+        // Qualify the empty additive ACK repair before exercising the older PM custody boundary.
+        assert_eq!(before.last().unwrap().0, "m20261010_000024_pm_ack_bounds");
+        Migrator::down(&fixture.db, Some(1)).await.unwrap();
+        let before = before[..before.len() - 1].to_vec();
+        assert_eq!(ledger(&fixture.db).await, before);
         Migrator::down(&fixture.db, Some(1)).await.unwrap();
         assert_eq!(ledger(&fixture.db).await, before[..before.len() - 1]);
         let at_dispatch = ledger(&fixture.db).await;
@@ -32,12 +37,13 @@ async fn empty_pm_custody_downgrade_and_reupgrade_preserve_older_lineage() {
         );
         Migrator::up(&fixture.db, None).await.unwrap();
         let after = ledger(&fixture.db).await;
-        assert_eq!(&after[..after.len() - 2], &before[..before.len() - 2]);
-        assert_eq!(after[after.len() - 2].0, "m20261010_000022_pm_dispatch");
+        assert_eq!(&after[..after.len() - 3], &before[..before.len() - 2]);
+        assert_eq!(after[after.len() - 3].0, "m20261010_000022_pm_dispatch");
         assert_eq!(
-            after.last().unwrap().0,
+            after[after.len() - 2].0,
             "m20261010_000023_pm_human_controls"
         );
+        assert_eq!(after.last().unwrap().0, "m20261010_000024_pm_ack_bounds");
         fixture.close().await;
     }
 }
@@ -59,8 +65,8 @@ const JOURNAL_TIME: &str = "m20261005_000014_hermes_journal_time_order";
 fn registered_versions_match_lineage_discriminators() {
     let canonical = Migrator::migrations();
     let legacy = LegacyMigrator::migrations();
-    assert_eq!(canonical.len(), 24);
-    assert_eq!(legacy.len(), 27);
+    assert_eq!(canonical.len(), 25);
+    assert_eq!(legacy.len(), 28);
     assert_eq!(legacy.len(), canonical.len() + 3);
     assert_eq!(canonical[9].name(), COMBINED);
     assert_eq!(canonical[10].name(), TASK_CHATS);
@@ -89,13 +95,15 @@ fn registered_versions_match_lineage_discriminators() {
     assert_eq!(legacy[24].name(), AUTHORITY_ALIAS);
     assert_eq!(canonical[22].name(), "m20261010_000022_pm_dispatch");
     assert_eq!(legacy[25].name(), "m20261010_000022_pm_dispatch");
+    assert_eq!(canonical[23].name(), "m20261010_000023_pm_human_controls");
+    assert_eq!(legacy[26].name(), "m20261010_000023_pm_human_controls");
     assert_eq!(
         canonical.last().unwrap().name(),
-        "m20261010_000023_pm_human_controls"
+        "m20261010_000024_pm_ack_bounds"
     );
     assert_eq!(
         legacy.last().unwrap().name(),
-        "m20261010_000023_pm_human_controls"
+        "m20261010_000024_pm_ack_bounds"
     );
     assert_eq!(
         legacy
