@@ -1068,7 +1068,15 @@ async function mockApi(context) {
       const session = sessions.find((item) => item.id === sessionMatch[1]) ?? sessions[0]
       return json(
         route,
-        pathName.endsWith('/handoff') ? { ...session, state: 'handoff_requested' } : session,
+        pathName.endsWith('/handoff')
+          ? { ...session, state: 'handoff_requested' }
+          : {
+              ...session,
+              task_bound: false,
+              pending_delivery: (sessionMessages[session.id] ?? []).some((message) =>
+                ['pending', 'dispatched'].includes(message.delivery_state),
+              ),
+            },
       )
     }
 

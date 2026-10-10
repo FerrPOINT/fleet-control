@@ -264,6 +264,7 @@ mod tests {
             external_session_id: None,
             last_message_preview: None,
             pending_delivery: None,
+            task_bound: None,
             created_at: "2026-10-06".into(),
             updated_at: "2026-10-06".into(),
         }

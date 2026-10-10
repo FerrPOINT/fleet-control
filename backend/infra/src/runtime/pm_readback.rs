@@ -46,7 +46,7 @@ pub(super) async fn probe(
     // A fresh authenticated read, never a cached Fleet status or an SSE EOF.
     let response = supervisor
         .client
-        .get(format!("{}/v1/runs/{raw_id}", base))
+        .get(format!("{base}/v1/runs/{raw_id}"))
         .timeout(Duration::from_secs(10))
         .bearer_auth(crate::agent_runtime_token(&supervisor.config, agent.id)?)
         .send()

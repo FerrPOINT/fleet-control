@@ -149,6 +149,98 @@ fn prompt(key: &str) -> CreateSessionMessageRequest {
     }
 }
 
+#[tokio::test]
+async fn chat_controls_hold_each_bound_pending_identity() {
+    let (repo, owner, _) = fixture().await.expect("Disposable PostgreSQL is required");
+    let agent_id = agent(&repo).await;
+    let session = repo
+        .create_session(chat(agent_id, "pending-control-identities"), owner)
+        .await
+        .unwrap();
+    let runs = repo.list_session_agent_runs(session.id).await.unwrap();
+    assert_eq!(runs.len(), 1);
+    let run = &runs[0];
+    let repo = Arc::new(repo);
+    let config = Arc::new(AppConfig::default());
+    let (events, _) = tokio::sync::broadcast::channel(32);
+    let runtime = Arc::new(infra::runtime::LocalRuntimeSupervisor::new(
+        config.clone(),
+        repo.clone(),
+        events.clone(),
+    ));
+    let (restart_tx, _) = tokio::sync::mpsc::channel(1);
+    let ctx = Arc::new(app::AppContext::new(
+        config,
+        repo.clone(),
+        Arc::new(infra::FilesystemProvisioner),
+        runtime,
+        events,
+        restart_tx,
+    ));
+    let router = axum::Router::new()
+        .route(
+            "/controls/{session_id}",
+            axum::routing::get(api::routes::task_chats::controls),
+        )
+        .layer(axum::Extension(api::middleware::CurrentUser {
+            id: owner,
+            role: domain::SystemRole::User,
+            is_system_admin: false,
+            central_write: None,
+        }))
+        .with_state(ctx);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!(
+        "http://{}/controls/{}",
+        listener.local_addr().unwrap(),
+        session.id
+    );
+    let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+    let client = reqwest::Client::new();
+    let initial = client.get(&url).send().await.unwrap();
+    assert_eq!(initial.status(), reqwest::StatusCode::OK);
+    let initial = initial.json::<serde_json::Value>().await.unwrap();
+    assert_eq!(
+        initial["can_send"], true,
+        "Only the completely unbound preparation slot permits a first prompt"
+    );
+    let db = connect_database(DatabaseConfig {
+        url: std::env::var("FLEET_TEST_DATABASE_URL").unwrap(),
+        max_connections: 2,
+        min_connections: 1,
+        connect_timeout_seconds: 10,
+        idle_timeout_seconds: 60,
+    })
+    .await
+    .unwrap();
+    for (session_identity, run_identity) in [
+        (Some("bound-session"), None),
+        (None, Some("bound-run")),
+        (Some("bound-session"), Some("bound-run")),
+    ] {
+        db.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE session_agent_runs SET runtime_session_id=$2,runtime_run_id=$3 WHERE id=$1",
+            [
+                run.id.into(),
+                session_identity.map(str::to_owned).into(),
+                run_identity.map(str::to_owned).into(),
+            ],
+        ))
+        .await
+        .unwrap();
+        let response = client.get(&url).send().await.unwrap();
+        assert_eq!(response.status(), reqwest::StatusCode::OK);
+        let response = response.json::<serde_json::Value>().await.unwrap();
+        assert_eq!(
+            response["can_send"], false,
+            "Either bound runtime identity must hold pending control"
+        );
+        assert_eq!(response["active_run_id"], run.id.to_string());
+    }
+    server.abort();
+}
+
 async fn approval_fixture(
     repo: &PostgresFleetRepository,
     owner: Uuid,
@@ -881,6 +973,7 @@ async fn message_receipts_and_replay_are_independent_of_history_limit() {
             .unwrap();
         let seed_size = history_size - i32::try_from(message_count(&db, session.id).await).unwrap();
         assert_eq!(session.pending_delivery, Some(false));
+        assert_eq!(session.task_bound, Some(false));
         let initial_runs = repo.list_session_agent_runs(session.id).await.unwrap();
         assert_eq!(initial_runs.len(), 1);
         assert_eq!(initial_runs[0].state, SessionRunState::Pending);
@@ -4167,6 +4260,10 @@ async fn task_binding_is_immutable_unique_and_replays_concurrent_requests() {
     );
     assert_eq!(first.unwrap(), binding);
     assert_eq!(replay.unwrap(), binding);
+    assert_eq!(
+        repo.get_session(session.id).await.unwrap().task_bound,
+        Some(true)
+    );
     let events = repo.list_session_events(session.id, 0).await.unwrap();
     assert_eq!(
         events

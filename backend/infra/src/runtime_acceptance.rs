@@ -363,8 +363,8 @@ pub(super) async fn terminal_packet(
                 "Hermes terminal packet contradicts committed outcome",
             ));
         }
-    } else if (!matches!(run.state.as_str(), "running" | "waiting" | "stopping")
-        && !(message.is_none() && run.state == command.state.as_str()))
+    } else if !(matches!(run.state.as_str(), "running" | "waiting" | "stopping")
+        || message.is_none() && run.state == command.state.as_str())
         || message
             .as_ref()
             .is_some_and(|message| message.delivery_state != "dispatched")

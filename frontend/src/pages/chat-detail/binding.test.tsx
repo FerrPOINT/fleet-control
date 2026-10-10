@@ -6,8 +6,9 @@ import { ChatDetailPage } from './index'
 import * as fleet from '@/api/fleet'
 import * as chats from '@/api/task-chats'
 import { useAuthStore } from '@/shared/auth/store'
-import type { AgentDirectoryItem, AgentSession } from '@/api/types'
+import type { AgentDirectoryItem, AgentSession, SessionMessage } from '@/api/types'
 import { ApiError } from '@sdlc/ui/lib'
+import { chatMessageRequest, payloadDigest } from './core'
 
 vi.mock('@/api/fleet', () => ({
   getSession: vi.fn(),
@@ -67,6 +68,7 @@ beforeEach(() => {
     state: 'active',
     visibility: 'private',
     pending_delivery: false,
+    task_bound: false,
   } as AgentSession)
   vi.mocked(fleet.listAgentDirectory).mockResolvedValue([
     { id: 'agent1', product_role: 'executor', status: 'running' } as AgentDirectoryItem,
@@ -87,6 +89,60 @@ beforeEach(() => {
 })
 
 describe('verified free-chat boundary', () => {
+  it('keeps private cursor order and overlap while appending a command after an older page', async () => {
+    const message = (id: string, body: string): SessionMessage => ({
+      id,
+      body,
+      session_id: 'session1',
+      author_type: 'user',
+      author_user_id: 'owner',
+      author_agent_id: null,
+      author_display_name: 'Owner',
+      message_kind: 'user_prompt',
+      runtime_message_id: null,
+      delivery_state: 'completed',
+      delivery_error: null,
+      created_at: '2026-10-01T12:00:00Z',
+      replayed: false,
+    })
+    let saved: SessionMessage | undefined
+    vi.mocked(chats.getChatHistory).mockImplementation(async (_id, before) =>
+      before
+        ? {
+            items: [message('oldest', 'Oldest'), message('latest', 'Outdated overlap')],
+            next_before: null,
+          }
+        : {
+            items: [message('latest', 'Latest'), ...(saved ? [saved] : [])],
+            next_before: 'latest',
+          },
+    )
+    vi.mocked(fleet.createSessionMessage).mockImplementation(async (_id, input) => {
+      saved = {
+        ...message('saved', input.body),
+        request_payload_hash: await payloadDigest(input),
+      }
+      return saved
+    })
+    renderPage()
+    await screen.findByText('Latest')
+    fireEvent.click(screen.getByRole('button', { name: 'Предыдущие сообщения' }))
+    await screen.findByText('Oldest')
+    expect(chats.getChatHistory).toHaveBeenCalledWith('session1', 'latest')
+    expect(screen.queryByText('Outdated overlap')).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Сообщение'), { target: { value: 'Newest command' } })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Отправить' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }))
+    await screen.findByText('Newest command')
+    expect(
+      [...document.querySelectorAll('.fc-chat-message > p')].map((node) => node.textContent),
+    ).toEqual(['Oldest', 'Latest', 'Newest command'])
+    expect(fleet.createSessionMessage).toHaveBeenCalledTimes(1)
+    const input = vi.mocked(fleet.createSessionMessage).mock.calls[0]![1]
+    expect(input).toEqual(chatMessageRequest('Newest command', input.idempotency_key!))
+    expect(sessionStorage.getItem('fleet-control.chat-dispatch.v1:session1')).toBeNull()
+  })
+
   it('hides the composer when the session itself is inaccessible', async () => {
     vi.mocked(chats.getTaskContext).mockRejectedValue(new ApiError(403, 'Forbidden'))
     vi.mocked(fleet.getSession).mockRejectedValue(new ApiError(403, 'Forbidden'))
@@ -100,8 +156,8 @@ describe('verified free-chat boundary', () => {
     renderPage()
     await screen.findByLabelText('Сообщение')
     expect(chats.getTaskContext).toHaveBeenCalledWith('session1')
-    expect(fleet.listSessionMessages).toHaveBeenCalledWith('session1')
-    expect(chats.getChatHistory).not.toHaveBeenCalled()
+    expect(chats.getChatHistory).toHaveBeenCalledWith('session1', undefined)
+    expect(fleet.listSessionMessages).not.toHaveBeenCalled()
     expect(chats.getClarifications).not.toHaveBeenCalled()
     expect(chats.listPendingAnswerCommands).not.toHaveBeenCalled()
   })
@@ -119,10 +175,7 @@ describe('verified free-chat boundary', () => {
     vi.mocked(chats.getTaskContext).mockRejectedValue(new ApiError(403, 'Binding access revoked'))
     renderPage()
     await screen.findByText('Binding access revoked')
-    await screen.findByLabelText('Сообщение агенту')
-    fireEvent.change(screen.getByLabelText('Сообщение агенту'), { target: { value: 'Retain me' } })
-    expect(screen.getByRole('button', { name: 'Отправить сообщение' })).toBeDisabled()
-    fireEvent.click(screen.getByRole('button', { name: 'Отправить сообщение' }))
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     expect(fleet.listSessionMessages).not.toHaveBeenCalled()
     expect(fleet.createSessionMessage).not.toHaveBeenCalled()
   })
