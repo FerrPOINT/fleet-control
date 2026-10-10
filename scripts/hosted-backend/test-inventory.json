@@ -179,7 +179,7 @@
     "fleet-control/backend/infra/src/container_preparation.rs": "e5ce092c8d604356fa6ff62b28c360d8d189297ae0a8aff84e05a98ec5489aa3",
     "fleet-control/backend/infra/src/container_recovery.rs": "bc785035261cf963020fe668561e128d2e8d04bd4498cbf723745992d825e38f",
     "fleet-control/backend/infra/src/container_runtime.rs": "86b0a69b1b1ad8c799e6ff9888738c77bedd8ee23dfc7e11df28a5c63aed3810",
-    "fleet-control/backend/infra/src/effective_configuration.rs": "97de68797c27886f082541ada1d3da97b6d90afc40af58095ec2124f6b36c598",
+    "fleet-control/backend/infra/src/effective_configuration.rs": "59bf81382133e560c2648dec7ba3252f90e1db84101d20730db15b45313838ce",
     "fleet-control/backend/infra/src/entities.rs": "af9f129152a466bfaa1149ba518cb31a4319ac4c2714adad9180dff798d47a7e",
     "fleet-control/backend/infra/src/hermes_approval_recovery.rs": "97b8bbcaa00997e56da4d54bdc0fefcc0e2e76babb11c37685daad5d1249b0ff",
     "fleet-control/backend/infra/src/hermes_dispatch_journal.rs": "5e603a5f8a18004801ad8dc19fdba7105665770fda96e6ad5873fa6f3c0e9b60",
@@ -396,7 +396,7 @@
     "activation_intent_cases": 20,
     "authentic_union_codegen_pending": false,
     "codegen_evidence": {
-      "artifact_bound_source_commit": "afc5bb4d9c376f4326c94af2465c51bf1f6d5dbc",
+      "artifact_bound_source_commit": "1303be6efec9329dcdcbc705cbe0b2431336dea8",
       "artifact_id": 11656020208,
       "artifact_zip_sha256": "9e46aadcaf9de57d91d8389b0b460234ef1e0e6f02a72db81eea8af2d3d05ff8",
       "reported_by_parent": true,
@@ -418,7 +418,7 @@
       "runtime::container_activation::tests::workflow_rollback_preflight_selects_current_effective_not_desired_or_root_revision"
     ],
     "prior_stages_preserved": 74,
-    "source_commit": "afc5bb4d9c376f4326c94af2465c51bf1f6d5dbc"
+    "source_commit": "1303be6efec9329dcdcbc705cbe0b2431336dea8"
   },
   "default_foundation_ignored": 119,
   "executed": false,
@@ -2649,7 +2649,7 @@
     "backend/infra/src/container_preparation.rs": "e5ce092c8d604356fa6ff62b28c360d8d189297ae0a8aff84e05a98ec5489aa3",
     "backend/infra/src/container_recovery.rs": "bc785035261cf963020fe668561e128d2e8d04bd4498cbf723745992d825e38f",
     "backend/infra/src/container_runtime.rs": "86b0a69b1b1ad8c799e6ff9888738c77bedd8ee23dfc7e11df28a5c63aed3810",
-    "backend/infra/src/effective_configuration.rs": "97de68797c27886f082541ada1d3da97b6d90afc40af58095ec2124f6b36c598",
+    "backend/infra/src/effective_configuration.rs": "59bf81382133e560c2648dec7ba3252f90e1db84101d20730db15b45313838ce",
     "backend/infra/src/entities.rs": "af9f129152a466bfaa1149ba518cb31a4319ac4c2714adad9180dff798d47a7e",
     "backend/infra/src/hermes_approval_recovery.rs": "97b8bbcaa00997e56da4d54bdc0fefcc0e2e76babb11c37685daad5d1249b0ff",
     "backend/infra/src/hermes_dispatch_journal.rs": "5e603a5f8a18004801ad8dc19fdba7105665770fda96e6ad5873fa6f3c0e9b60",
@@ -2762,7 +2762,7 @@
     "backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a"
   },
-  "source_commit": "afc5bb4d9c376f4326c94af2465c51bf1f6d5dbc",
+  "source_commit": "1303be6efec9329dcdcbc705cbe0b2431336dea8",
   "utility_source_sha256": {
     "scripts/runtime_bootstrap.py": "5be8066b6f7dc68f8dda7f1040c0626dad272477c019b07263821df7f86b59a2",
     "scripts/runtime_boundary.py": "2e6bfa6907b93e6d436d2b6668ae20211aca53a64c433f7e1a98ab51245b3e89",
@@ -3619,28 +3619,28 @@
     },
     {
       "ignored": false,
-      "line": 211,
+      "line": 213,
       "name": "base_package_skill_readback_excludes_unlisted_and_nested_files",
       "package": "infra",
       "source": "backend/infra/src/effective_configuration.rs"
     },
     {
       "ignored": false,
-      "line": 253,
+      "line": 255,
       "name": "base_package_skill_readback_rejects_hardlinked_instruction_without_mutation",
       "package": "infra",
       "source": "backend/infra/src/effective_configuration.rs"
     },
     {
       "ignored": false,
-      "line": 271,
+      "line": 273,
       "name": "base_package_skill_readback_bounds_directory_depth",
       "package": "infra",
       "source": "backend/infra/src/effective_configuration.rs"
     },
     {
       "ignored": false,
-      "line": 285,
+      "line": 287,
       "name": "base_package_skill_readback_rejects_linked_and_special_entries",
       "package": "infra",
       "source": "backend/infra/src/effective_configuration.rs"
