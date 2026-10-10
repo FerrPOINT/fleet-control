@@ -63,7 +63,8 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(before.keys(), after.keys())
         self.assertEqual({name for name in before if before[name] != after[name]}, {
             "reviewed_inventory", "expected_migration_receipt", "verify_migration_snapshots",
-            "verify_test_log", "verify_runtime_inventory", "execute", "validate_evidence_files"})
+            "verify_test_log", "verify_runtime_inventory", "execute", "validate_evidence_files",
+            "safe_test_diagnostics", "test_failure_logs", "validate_failure_evidence"})
 
     def test_additive024_requires_exact_ignored_upgrade_selector_and_owned_cleanup(self):
         name = "pm_ack_bounds_repairs_installed_022_preserving_custody_and_empty_roundtrip"
@@ -1980,6 +1981,133 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(next(step for step in steps if step.get("id") == "gate")["run"], "python3 -B controls/scripts/hosted_backend_gate.py execute")
         self.assertLess(next(i for i, step in enumerate(steps) if step.get("run", "").endswith(" cleanup")), steps.index(failed))
 
+    def test_stage_log_custody_distinguishes_missing_empty_unreadable_and_readable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "private").mkdir()
+            path = root / "private/pm_recovery_pg.log"
+            project = lambda: gate.test_failure_logs(root, "pm_recovery_pg", REVIEWED)
+            self.assertEqual(project()["stage_log"], dict(state="missing", harness_exit_code=None, harness_signal=None))
+            path.write_bytes(b"")
+            self.assertEqual(project()["stage_log"]["state"], "empty")
+            path.write_bytes(b"PRIVATE_SENTINEL SQL env TOKEN\n")
+            result = project()
+            self.assertEqual(result["stage_log"]["state"], "readable")
+            self.assertEqual(result["categories"], ["unknown"])
+            self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+            for error in (PermissionError("PRIVATE_SENTINEL"), OSError("PRIVATE_SENTINEL")):
+                with mock.patch.object(Path, "open", side_effect=error):
+                    result = project()
+                self.assertEqual(result["stage_log"]["state"], "unreadable")
+                self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+            with mock.patch.object(gate, "safe_test_diagnostics", side_effect=ValueError("PRIVATE_SENTINEL")):
+                self.assertEqual(project()["stage_log"]["state"], "unreadable")
+
+    def test_stage_log_known_cargo_exit_and_signals_are_closed_metadata_only(self):
+        header = "error: test failed, to rerun pass `-p infra --lib`\n\nCaused by:\n"
+        cases = [("exit status: 101", 101, None), ("exit status: 255", 255, None),
+                 ("signal: 6, SIGABRT: process abort signal", None, "SIGABRT"),
+                 ("signal: 9, SIGKILL: kill", None, "SIGKILL"),
+                 ("signal: 11, SIGSEGV: invalid memory reference", None, "SIGSEGV")]
+        for detail, code, signal in cases:
+            with self.subTest(detail=detail):
+                raw = header + "  process didn't exit successfully: `/PRIVATE_SENTINEL --env TOKEN=secret` (" + detail + ")\n"
+                result = gate.safe_test_diagnostics(io.BytesIO(raw.encode()), set(), {}, Path("/qa/backend"))
+                self.assertEqual(result["stage_log"], dict(state="readable", harness_exit_code=code, harness_signal=signal))
+                self.assertEqual(result["categories"], ["unknown"])
+                self.assertEqual(result["failed_tests"], [])
+                self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+                self.assertNotIn("TOKEN", gate.canonical(result).decode())
+
+    def test_stage_log_unknown_unanchored_conflicting_markers_remain_unknown(self):
+        header = "error: test failed, to rerun pass `-p infra --lib`\nCaused by:\n"
+        line = "  process didn't exit successfully: `PRIVATE_SENTINEL` (signal: 9, SIGKILL: kill)\n"
+        vectors = [line, "Caused by:\n" + line, header + "PRIVATE_SENTINEL\n" + line,
+                   header + "prefix" + line, header + line.rstrip() + "suffix\n",
+                   header + line.replace("9, SIGKILL: kill", "99, PRIVATE_SENTINEL"),
+                   header + line.replace("9, SIGKILL: kill", "9, SIGSEGV: invalid memory reference"),
+                   header + line.replace("signal: 9, SIGKILL: kill", "exit status: 256"),
+                   header + line.replace("signal: 9, SIGKILL: kill", "exit status: 0"),
+                   header + line + header + line.replace("9, SIGKILL: kill", "6, SIGABRT: process abort signal")]
+        for raw in vectors:
+            result = gate.safe_test_diagnostics(io.BytesIO(raw.encode()), set(), {}, Path("/qa/backend"))
+            self.assertEqual(result["stage_log"], dict(state="readable", harness_exit_code=None, harness_signal=None))
+            self.assertEqual(result["categories"], ["unknown"])
+            self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+
+    def test_stage_log_markers_obey_existing_input_line_and_command_bounds(self):
+        header = "error: test failed, to rerun pass `-p infra --lib`\nCaused by:\n"
+        line = "  process didn't exit successfully: `PRIVATE_SENTINEL` (signal: 9, SIGKILL: kill)\n"
+        for raw, limits in ((header + line + "PRIVATE_SENTINEL" * 100, dict(DIAGNOSTIC_INPUT_LIMIT=len(header + line) + 8)),
+                            (header + line, dict(DIAGNOSTIC_LINE_LIMIT=32))):
+            with mock.patch.multiple(gate, **limits):
+                result = gate.safe_test_diagnostics(io.BytesIO(raw.encode()), set(), {}, Path("/qa/backend"))
+            self.assertTrue(result["truncated"])
+            self.assertIsNone(result["stage_log"]["harness_signal"])
+            self.assertIsNone(result["stage_log"]["harness_exit_code"])
+            self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+        raw = header + line.replace("PRIVATE_SENTINEL", "x" * 4097)
+        result = gate.safe_test_diagnostics(io.BytesIO(raw.encode()), set(), {}, Path("/qa/backend"))
+        self.assertIsNone(result["stage_log"]["harness_signal"])
+
+    def test_stage_log_optional_schema_preserves_old_receipts_and_rejects_unsafe_types(self):
+        old = self.failure_test_value()
+        self.validate_failure(old)
+        blank = dict(old, diagnostics=[], failed_tests=[], categories=["unknown"])
+        for state in ("missing", "empty", "unreadable", "readable"):
+            self.validate_failure(dict(blank, stage_log=dict(state=state, harness_exit_code=None, harness_signal=None)))
+        log = dict(state="readable", harness_exit_code=None, harness_signal="SIGKILL")
+        self.validate_failure(dict(blank, stage_log=log))
+        for changes in (dict(state="PRIVATE_SENTINEL"), dict(state=True), dict(harness_exit_code=True),
+                        dict(harness_exit_code=-1), dict(harness_exit_code=0), dict(harness_exit_code=256),
+                        dict(harness_exit_code="101"), dict(harness_signal=9), dict(harness_signal="SIGTERM"),
+                        dict(harness_signal="PRIVATE_SENTINEL"), dict(private="PRIVATE_SENTINEL"),
+                        dict(harness_exit_code=101), dict(state="missing")):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                self.validate_failure(dict(blank, stage_log=dict(log, **changes)))
+        for invalid in (None, [], {}, dict(state="readable", harness_exit_code=None)):
+            with self.assertRaises(ValueError):
+                self.validate_failure(dict(blank, stage_log=invalid))
+        with self.assertRaises(ValueError):
+            self.validate_failure(dict(blank, stage_log=log, truncated=True))
+        with self.assertRaises(ValueError):
+            self.validate_failure(dict(old, stage_log=dict(log, state="empty", harness_signal=None)))
+        with self.assertRaises(ValueError):
+            self.validate_failure(dict(self.failure_value(), stage_log=log))
+
+    def test_stage_log_authenticated_failure_readback_accepts_both_closed_shapes_never_pass(self):
+        old = self.failure_test_value()
+        for value in (old, dict(old, stage_log=dict(state="readable", harness_exit_code=101, harness_signal=None))):
+            run, artifact, payload, args = self.failure_artifact(value=value)
+            self.assertEqual(json.loads(gate.validate_failure_readback(run, artifact, payload, **args)[gate.FAILURE_FILE]), value)
+            with self.assertRaises(ValueError):
+                gate.validate_readback(run, artifact, payload, **args)
+        run, artifact, payload, args = self.failure_artifact(value=dict(old, stage_log=dict(state="PRIVATE_SENTINEL")))
+        with self.assertRaises(ValueError):
+            gate.validate_failure_readback(run, artifact, payload, **args)
+
+    def test_stage_log_successor_preserves_151_identities_and_all_execution_guards(self):
+        import ast
+        frozen = "5b3ddd3ae164a5136e068550ec2e8c98e1234668"
+        before = ast.parse(self.source_blob(gate.HELPER, frozen))
+        after = ast.parse((ROOT / gate.HELPER).read_bytes())
+        functions = lambda tree: {node.name: ast.dump(node) for node in tree.body
+                                  if isinstance(node, (ast.FunctionDef, ast.ClassDef))}
+        old, new = functions(before), functions(after)
+        self.assertEqual(old.keys(), new.keys())
+        self.assertEqual({name for name in old if old[name] != new[name]},
+                         {"safe_test_diagnostics", "test_failure_logs", "validate_failure_evidence"})
+        constants = lambda tree: {node.targets[0].id: ast.dump(node.value) for node in tree.body
+                                  if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)}
+        self.assertEqual(constants(before), constants(after))
+        tests = lambda tree: {node.name for node in ast.walk(tree)
+                              if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")}
+        original = tests(ast.parse(self.source_blob("scripts/tests/test_hosted_backend_gate.py", frozen)))
+        self.assertEqual(len(original), 151)
+        self.assertTrue(original <= tests(ast.parse(Path(__file__).read_bytes())))
+        for path in (gate.WORKFLOW, gate.GATE, gate.INIT, gate.INVENTORY):
+            self.assertEqual((ROOT / path).read_bytes(), self.source_blob(path, frozen), path)
+
     def failure_value(self):
         return dict(version=1, kind="safe_compiler_failure", status="failure", repository=gate.REPOSITORY, branch=gate.BRANCH,
                     workflow_sha="a" * 40, workflow_path=gate.WORKFLOW, run_id=123, run_attempt=1,
@@ -2026,7 +2154,8 @@ class HostedBackendTests(unittest.TestCase):
                 "test PRIVATE_SENTINEL ... FAILED\n").encode()
         result = gate.safe_test_diagnostics(io.BytesIO(data), {name}, REVIEWED["rust_source_sha256"], Path("/qa/src/fleet-control/backend"))
         self.assertEqual(result, dict(failed_tests=[name], categories=["test_failure"], truncated=False,
-                                     diagnostics=[dict(error_code=None, file="backend/" + path, line=300, column=5)]))
+                                     diagnostics=[dict(error_code=None, file="backend/" + path, line=300, column=5)],
+                                     stage_log=dict(state="readable", harness_exit_code=None, harness_signal=None)))
         self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
 
     def test_test_failure_parser_rejects_unsafe_locations_and_bounds_private_input(self):

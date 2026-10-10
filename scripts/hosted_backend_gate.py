@@ -707,6 +707,12 @@ def safe_test_diagnostics(stream, names, allowed, fleet_backend):
     diagnostics, seen, failed, hints, truncated = [], set(), set(), set(), False
     panic_detail = False
     activation_detail = False
+    cargo_failure = cargo_cause = False
+    cargo_blank = False
+    termination = None
+    conflicting_termination = False
+    signals = {"6, SIGABRT: process abort signal": "SIGABRT",
+               "9, SIGKILL: kill": "SIGKILL", "11, SIGSEGV: invalid memory reference": "SIGSEGV"}
     remaining = DIAGNOSTIC_INPUT_LIMIT
     while remaining > 0:
         line = stream.readline(min(DIAGNOSTIC_LINE_LIMIT + 1, remaining + 1))
@@ -717,6 +723,7 @@ def safe_test_diagnostics(stream, names, allowed, fleet_backend):
             truncated = True
             panic_detail = False
             activation_detail = False
+            cargo_failure = cargo_cause = False
             while not line.endswith(b"\n") and remaining > 0:
                 line = stream.readline(min(DIAGNOSTIC_LINE_LIMIT + 1, remaining + 1))
                 if not line:
@@ -724,6 +731,29 @@ def safe_test_diagnostics(stream, names, allowed, fleet_backend):
                 remaining -= len(line)
             continue
         text = line.decode("utf-8", errors="replace").rstrip("\r\n")
+        # Cargo's closed trailer projects termination metadata, never its command.
+        if cargo_cause:
+            process = re.fullmatch(r"  process didn't exit successfully: `[^`\r\n]{1,4096}` \((exit status: [0-9]{1,3}|signal: [^\r\n]{1,80})\)", text)
+            marker = None
+            if process:
+                detail = process[1]
+                if detail.startswith("exit status: ") and 1 <= int(detail[13:]) <= 255:
+                    marker = (int(detail[13:]), None)
+                elif detail.startswith("signal: ") and detail[8:] in signals:
+                    marker = (None, signals[detail[8:]])
+            if marker is not None:
+                if termination is not None and termination != marker:
+                    conflicting_termination = True
+                termination = marker
+            cargo_failure = cargo_cause = False
+        elif cargo_failure and text == "Caused by:":
+            cargo_failure, cargo_cause = False, True
+        elif cargo_failure and not cargo_blank and text == "":
+            cargo_blank = True
+        else:
+            cargo_blank = False
+            cargo_failure = bool(re.fullmatch(
+                r"error: test failed, to rerun pass `-p (?:api|app|domain|shared|infra|migration|server|cli) --(?:lib|test [a-zA-Z0-9_-]{1,80})`", text))
         if text.startswith(("thread '", "test ")):
             panic_detail = False
             activation_detail = False
@@ -767,18 +797,27 @@ def safe_test_diagnostics(stream, names, allowed, fleet_backend):
         diagnostics.append(dict(error_code=None, file=file, line=line_number, column=column))
     if remaining <= 0:
         truncated = True
+    if truncated or conflicting_termination:
+        termination = None
     return dict(diagnostics=diagnostics, failed_tests=sorted(failed),
-                categories=sorted(hints | {"test_failure" if diagnostics or failed else "unknown"}), truncated=truncated)
+                categories=sorted(hints | {"test_failure" if diagnostics or failed else "unknown"}), truncated=truncated,
+                stage_log=dict(state="empty" if remaining == DIAGNOSTIC_INPUT_LIMIT else "readable",
+                               harness_exit_code=termination[0] if termination else None,
+                               harness_signal=termination[1] if termination else None))
 
 
 def test_failure_logs(root, stage, reviewed):
-    result = dict(diagnostics=[], failed_tests=[], categories=["unknown"], truncated=False, command_exit_code=None)
+    result = dict(diagnostics=[], failed_tests=[], categories=["unknown"], truncated=False, command_exit_code=None,
+                  stage_log=dict(state="missing", harness_exit_code=None, harness_signal=None))
     try:
         with (root / "private" / (stage + ".log")).open("rb") as stream:
+            result["stage_log"]["state"] = "unreadable"
             result.update(safe_test_diagnostics(stream, failure_test_names(reviewed, stage),
                                                reviewed["rust_source_sha256"], root / "src/fleet-control/backend"))
-    except Exception:
+    except FileNotFoundError:
         pass
+    except Exception:
+        result["stage_log"]["state"] = "unreadable"
     return result
 
 
@@ -797,6 +836,8 @@ def validate_failure_evidence(value, *, workflow_sha, run_id, attempt):
     extra = {"stage", "gate_failed_stage", "gate_exit_code", "command_exit_code", "diagnostics", "categories", "truncated", "cleanup"}
     if test_failure:
         extra.add("failed_tests")
+        if "stage_log" in value:
+            extra.add("stage_log")
     require(isinstance(value, dict) and set(value) == set(expected) | extra, "Unsafe failure evidence fields")
     require(all(type(value[key]) is type(item) and value[key] == item for key, item in expected.items()), "Failure provenance mismatch")
     reviewed = reviewed_inventory(controls)
@@ -804,6 +845,19 @@ def validate_failure_evidence(value, *, workflow_sha, run_id, attempt):
     require((bool(failure_test_names(reviewed, value["stage"])) if test_failure else value["stage"] in ("check", "clippy"))
             and value["gate_failed_stage"] in (value["stage"], "cleanup"), "Invalid failure stage")
     if test_failure:
+        if "stage_log" in value:
+            log = value["stage_log"]
+            require(isinstance(log, dict) and set(log) == {"state", "harness_exit_code", "harness_signal"}, "Unsafe stage log fields")
+            require(isinstance(log["state"], str) and log["state"] in {"missing", "empty", "unreadable", "readable"}, "Unsafe stage log state")
+            require(log["harness_exit_code"] is None or type(log["harness_exit_code"]) is int
+                    and 1 <= log["harness_exit_code"] <= 255, "Unsafe harness exit code")
+            require(log["harness_signal"] is None or isinstance(log["harness_signal"], str)
+                    and log["harness_signal"] in {"SIGABRT", "SIGKILL", "SIGSEGV"}, "Unsafe harness signal")
+            require(not (log["harness_exit_code"] is not None and log["harness_signal"] is not None)
+                    and (log["state"] == "readable" or log["harness_exit_code"] is None and log["harness_signal"] is None), "Inconsistent stage log termination")
+            require(not value.get("truncated") or log["harness_exit_code"] is None and log["harness_signal"] is None, "Truncated harness termination")
+            require(log["state"] == "readable" or not value["diagnostics"] and not value["failed_tests"]
+                    and value["categories"] == ["unknown"], "Inconsistent stage log diagnostics")
         names = value["failed_tests"]
         allowed_names = failure_test_names(reviewed, value["stage"])
         require(isinstance(names, list) and len(names) <= DIAGNOSTIC_LIMIT
