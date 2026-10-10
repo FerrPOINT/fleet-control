@@ -429,7 +429,11 @@ async fn http_delivered_answer_pending_resume_survives_reload_revoke_and_exact_i
     let (repo, op, _) = super::pm_draft_creation::credential_fixture()
         .await
         .expect("configured PostgreSQL fixture");
-    let binding = op.identity().unwrap();
+    let binding = repo
+        .get_task_chat_binding(op.session_id.unwrap())
+        .await
+        .unwrap()
+        .expect("persisted task-chat binding");
     let actor = ClarificationCommandActor {
         session_id: op.session_id.unwrap(),
         user_id: op.owner_user_id,
@@ -537,7 +541,7 @@ async fn http_delivered_answer_pending_resume_survives_reload_revoke_and_exact_i
     let (url, _fleet) = serve(routes).await;
     let client = reqwest::Client::new();
     let base = format!("{url}/api/v1/sessions/{}", actor.session_id);
-    let idle: domain::ChatControls = client
+    let idle: serde_json::Value = client
         .get(format!("{base}/chat-controls"))
         .bearer_auth("synthetic-human")
         .send()
@@ -546,10 +550,15 @@ async fn http_delivered_answer_pending_resume_survives_reload_revoke_and_exact_i
         .json()
         .await
         .unwrap();
-    assert!(!idle.can_send && !idle.can_steer && !idle.can_stop);
     assert_eq!(
-        idle.blocked_reason.as_deref(),
-        Some("pm_idle_prompt_contract_unavailable")
+        idle,
+        json!({
+            "can_send": false,
+            "can_steer": false,
+            "can_stop": false,
+            "active_run_id": null,
+            "blocked_reason": "pm_idle_prompt_contract_unavailable"
+        })
     );
     let reservation = domain::initial_pm_reservation(&op).unwrap();
     repo.reserve_pm_run(reservation.clone()).await.unwrap();

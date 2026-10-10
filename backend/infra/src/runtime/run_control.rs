@@ -187,6 +187,7 @@ async fn prepare_pm(
     operation: Operation,
     owner: Uuid,
 ) -> Result<(PreparedControl, domain::PmHumanControlScope), AppError> {
+    use super::{pm_dispatch, pm_tools};
     use crate::pm_credentials::PmCredentialCoordinator;
     use domain::*;
     let unavailable = || AppError::Unavailable("PM human control authority is unavailable".into());
@@ -226,7 +227,7 @@ async fn prepare_pm(
     if session.user_id != owner
         || !user.is_active
         || pm.owner_subject != binding.owner_subject
-        || pm.identity()? != binding
+        || !pm_tools::binding_matches(&binding, &pm.identity()?, pm.request.agent_id)
         || session.primary_agent_id != agent.id
         || session.agent_id != agent.id
         || session.state != SessionState::Active
