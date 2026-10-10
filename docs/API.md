@@ -2,6 +2,12 @@
 
 ## PM Human Controls Integration Candidate
 
+PM MCP `workflow_step` with a null/absent report returns the existing instruction
+response and retains it under the original key/body in the existing tool journal.
+New PM question/revision publication requires that proof for the same current
+run/native binding/assignment. A held call is not a publication receipt; no new
+route, public DTO, model-access authorization or Hermes hook is introduced.
+
 This candidate reuses the existing run stop/steer and clarification-command
 routes; it adds no second control API or scheduler. Workspace/PG/browser and
 authentic updated OpenAPI qualification remain required before release.
