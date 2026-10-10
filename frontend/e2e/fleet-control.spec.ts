@@ -1,7 +1,8 @@
-import { expect, test, type Page, type Route } from '@playwright/test'
+import { expect, test, type Page, type Route, type TestInfo } from '@playwright/test'
 import { generateKeyPairSync, sign } from 'node:crypto'
 import AxeBuilder from '@axe-core/playwright'
 import type { ClarificationCommand } from '../src/api/clarification-custody'
+import type { Question, RequirementsRevision } from '../src/api/task-chats'
 
 const now = '2026-09-01T10:00:00+03:00'
 
@@ -454,6 +455,421 @@ test('PM chat journal reload holds fresh writes and explicitly delivers the orig
   expect(command.request).toEqual(originalRequest)
   expect(errors).toEqual([])
 })
+
+test.describe('Chats UX fixture regression', () => {
+  for (const status of [409, 412]) {
+    test(`conflict ${status} requires explicit recheck and preserves the original draft`, async ({
+      page,
+    }, testInfo) => {
+      await page.setViewportSize({ width: 375, height: 812 })
+      const fixture = await installChatUxFixtures(page)
+      fixture.rejectionStatus = status
+      await page.goto(`/chats/${ids.session}?tab=clarification`)
+      const choice = page.getByRole('radio', { name: /Участники проекта/ })
+      const comment = page.getByLabel('Комментарий', { exact: true })
+      const text = page.getByLabel('Свой вариант или детали', { exact: true })
+      const save = page.getByRole('button', { name: 'Сохранить ответ' })
+      await expect(choice).not.toBeChecked()
+      await choice.check()
+      await text.fill('Fixture custom answer')
+      await comment.fill('Fixture retained conflict comment')
+      await save.click()
+      await expect(page.getByText('Исходный ответ отклонён Tracker', { exact: true })).toBeVisible()
+      await expect.poll(() => fixture.reads.questions).toBeGreaterThan(1)
+      await expect.poll(() => fixture.reads.context).toBeGreaterThan(1)
+      await expect.poll(() => fixture.reads.journal).toBeGreaterThan(1)
+      await expect(save).toBeDisabled()
+      await page.getByRole('tab', { name: /Диалог/ }).click()
+      await page.getByRole('tab', { name: /Уточнения/ }).click()
+      await page.getByRole('button', { name: /2\. Как подтвердить результат/ }).click()
+      await expect(save).toBeDisabled()
+      await page.getByRole('button', { name: /1\. Кто может просматривать задачи/ }).click()
+      await expect(choice).toBeChecked()
+      await expect(text).toHaveValue('Fixture custom answer')
+      await expect(comment).toHaveValue('Fixture retained conflict comment')
+      await expect(save).toBeDisabled()
+      expect(fixture.writes).toHaveLength(2)
+      await attachChatUxFixture(page, testInfo, `conflict-${status}-retained-draft`)
+
+      const recheck = page.getByRole('button', { name: 'Проверить актуальный вопрос' })
+      fixture.failQuestions = true
+      await recheck.click()
+      await expect(
+        page.getByText('Fixture recheck unavailable', { exact: true }).first(),
+      ).toBeVisible()
+      await expect(save).toBeDisabled()
+      expect(fixture.writes).toHaveLength(2)
+      fixture.failQuestions = false
+      const before = { ...fixture.reads }
+      await recheck.click()
+      await expect.poll(() => fixture.reads.questions).toBeGreaterThan(before.questions)
+      await expect.poll(() => fixture.reads.context).toBeGreaterThan(before.context)
+      await expect.poll(() => fixture.reads.journal).toBeGreaterThan(before.journal)
+      await expect(save).toBeEnabled()
+      await expect(recheck).toHaveCount(0)
+      await expect(choice).toBeChecked()
+      await expect(text).toHaveValue('Fixture custom answer')
+      await expect(comment).toHaveValue('Fixture retained conflict comment')
+      expect(fixture.writes).toHaveLength(2)
+      await attachChatUxFixture(page, testInfo, `conflict-${status}-explicitly-rechecked`)
+
+      await save.click()
+      await expect.poll(() => fixture.writes.length).toBe(4)
+      await expect(page.getByText('Исходный ответ отклонён Tracker', { exact: true })).toBeVisible()
+      await expect(save).toBeDisabled()
+      const [original, retried] = fixture.commands
+      if (!original || !retried) throw new Error('Expected two fixture answer commands')
+      expect(original.request).toMatchObject({
+        expected_question_version: 1,
+        requirement_revision: 1,
+        selected_option_ids: [ids.dev],
+        text: 'Fixture custom answer',
+        comment: 'Fixture retained conflict comment',
+      })
+      expect(retried.request).toEqual({ ...original.request, idempotency_key: expect.any(String) })
+      expect(retried.request.idempotency_key).not.toBe(original.request.idempotency_key)
+      expect(fixture.writes.map(({ path }) => path)).toEqual([
+        `/api/v1/sessions/${ids.session}/clarifications/${fixture.questions[0].id}/answer-commands`,
+        `/api/v1/sessions/${ids.session}/clarification-answer-commands/${original.id}/delivery`,
+        `/api/v1/sessions/${ids.session}/clarifications/${fixture.questions[0].id}/answer-commands`,
+        `/api/v1/sessions/${ids.session}/clarification-answer-commands/${retried.id}/delivery`,
+      ])
+      expect(fixture.errors).toEqual([])
+    })
+  }
+
+  for (const viewport of [
+    { width: 375, height: 812 },
+    { width: 768, height: 1024 },
+    { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+  ]) {
+    test(`keyboard question, URL tabs and unsaved cancel restore focus at ${viewport.width}`, async ({
+      page,
+    }, testInfo) => {
+      await page.setViewportSize(viewport)
+      const fixture = await installChatUxFixtures(page)
+      await page.goto(
+        `/chats/${ids.session}?tab=clarification&question=${fixture.questions[0].id}&returnTo=%2Fchats%3Fagent%3D${ids.dev}`,
+      )
+      const choice = page.getByRole('radio', { name: /Участники проекта/ })
+      await expect(choice).not.toBeChecked()
+      await choice.focus()
+      await page.keyboard.press('Space')
+      await expect(choice).toBeChecked()
+      await page.getByLabel('Комментарий', { exact: true }).fill('Fixture first-question draft')
+      const second = page.getByRole('button', { name: /2\. Как подтвердить результат/ })
+      await second.focus()
+      await page.keyboard.press('Enter')
+      await expect(
+        page.getByRole('group', { name: fixture.questions[1].text, exact: true }),
+      ).toBeFocused()
+      await expect(choice).not.toBeChecked()
+      await page.keyboard.press('Tab')
+      await expect(choice).toBeFocused()
+      await page.keyboard.press('Space')
+      await expect(choice).toBeChecked()
+      await page.getByLabel('Комментарий', { exact: true }).fill('Fixture second-question draft')
+      const clarificationTab = page.getByRole('tab', { name: /Уточнения/ })
+      const requirementsTab = page.getByRole('tab', { name: /Требования/ })
+      await clarificationTab.focus()
+      await page.keyboard.press('ArrowRight')
+      await expect(requirementsTab).toBeFocused()
+      await expect(requirementsTab).toHaveAttribute('aria-selected', 'true')
+      await expect.poll(() => new URL(page.url()).searchParams.get('tab')).toBe('requirements')
+      await expect
+        .poll(() => new URL(page.url()).searchParams.get('question'))
+        .toBe(fixture.questions[1].id)
+      await page.getByRole('combobox', { name: 'Редакция требований' }).focus()
+      await page.goBack()
+      await expect(clarificationTab).toHaveAttribute('aria-selected', 'true')
+      await expect(clarificationTab).toBeFocused()
+      await expect.poll(() => new URL(page.url()).searchParams.get('tab')).toBe('clarification')
+      await expect(second).toHaveAttribute('aria-current', 'true')
+      await expect(choice).toBeChecked()
+      await expect(page.getByLabel('Комментарий', { exact: true })).toHaveValue(
+        'Fixture second-question draft',
+      )
+      const first = page.getByRole('button', { name: /1\. Кто может просматривать задачи/ })
+      await first.focus()
+      await page.keyboard.press('Enter')
+      await expect(
+        page.getByRole('group', { name: fixture.questions[0].text, exact: true }),
+      ).toBeFocused()
+      await expect(choice).toBeChecked()
+      await expect(page.getByLabel('Комментарий', { exact: true })).toHaveValue(
+        'Fixture first-question draft',
+      )
+      await expect
+        .poll(() => new URL(page.url()).searchParams.get('returnTo'))
+        .toBe(`/chats?agent=${ids.dev}`)
+      const back = page.getByRole('link', { name: 'Вернуться к чатам' })
+      await back.focus()
+      await page.keyboard.press('Enter')
+      const unsaved = page.getByRole('dialog', { name: 'Остались несохранённые изменения' })
+      await expect(unsaved).toBeVisible()
+      await expect(unsaved.getByRole('button', { name: 'Остаться', exact: true })).toBeFocused()
+      await attachChatUxFixture(page, testInfo, `keyboard-unsaved-dialog-${viewport.width}`)
+      await page.keyboard.press('Escape')
+      await expect(unsaved).toBeHidden()
+      await expect(back).toBeFocused()
+      await expect.poll(() => new URL(page.url()).pathname).toBe(`/chats/${ids.session}`)
+      await expect(page.getByLabel('Комментарий', { exact: true })).toHaveValue(
+        'Fixture first-question draft',
+      )
+      await expect(choice).toBeChecked()
+      expect(fixture.writes).toEqual([])
+      await attachChatUxFixture(page, testInfo, `keyboard-unsaved-cancel-${viewport.width}`)
+      expect(fixture.errors).toEqual([])
+    })
+  }
+
+  test('uncertain server custody never enables a fresh answer after retry or reload', async ({
+    page,
+  }, testInfo) => {
+    const fixture = await installChatUxFixtures(page)
+    fixture.rejectionStatus = null
+    await page.goto(`/chats/${ids.session}?tab=clarification`)
+    const choice = page.getByRole('radio', { name: /Участники проекта/ })
+    const save = page.getByRole('button', { name: 'Сохранить ответ' })
+    const resume = page.getByRole('button', { name: 'Продолжить исходную команду' })
+    await choice.check()
+    await expect(page.getByRole('status', { name: 'Статус команды' })).toHaveAttribute(
+      'aria-live',
+      'polite',
+    )
+    await expect(page.getByRole('status', { name: 'Статус команды' })).toHaveAttribute(
+      'aria-atomic',
+      'true',
+    )
+    await page
+      .getByLabel('Свой вариант или детали', { exact: true })
+      .fill('Fixture server-retained answer')
+    await page.getByLabel('Комментарий', { exact: true }).fill('Fixture server-retained comment')
+    await save.click()
+    await expect(resume).toBeVisible()
+    await expect(page.getByText('Fixture server-retained answer', { exact: true })).toBeVisible()
+    await expect(choice).toBeDisabled()
+    await expect(save).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Проверить актуальный вопрос' })).toHaveCount(0)
+    await resume.click()
+    await expect(page.getByRole('status', { name: 'Статус команды' })).toContainText(
+      'Доставка исходного ответа ещё не подтверждена.',
+    )
+    await expect(choice).toBeDisabled()
+    await expect(save).toBeDisabled()
+    await expect.poll(() => fixture.writes.length).toBe(3)
+    const original = structuredClone(fixture.commands[0])
+    if (!original) throw new Error('Original fixture answer command is missing')
+    const readsBeforeReload = fixture.reads.journal
+    page.once('dialog', (dialog) => dialog.accept())
+    await page.reload()
+    await expect.poll(() => fixture.reads.journal).toBeGreaterThan(readsBeforeReload)
+    await expect(page.getByText('Fixture server-retained answer', { exact: true })).toBeVisible()
+    await expect(page.getByText('Fixture server-retained comment', { exact: true })).toBeVisible()
+    await expect(choice).not.toBeChecked()
+    await expect(choice).toBeDisabled()
+    await expect(save).toBeDisabled()
+    await page.getByRole('tab', { name: /Требования/ }).click()
+    await page.getByRole('tab', { name: /Уточнения/ }).click()
+    await page.getByRole('button', { name: /2\. Как подтвердить результат/ }).click()
+    await expect(choice).toBeDisabled()
+    await expect(save).toBeDisabled()
+    await resume.click()
+    await expect.poll(() => fixture.writes.length).toBe(4)
+    await expect(page.getByRole('status', { name: 'Статус команды' })).toContainText(
+      'Доставка исходного ответа ещё не подтверждена.',
+    )
+    await expect(save).toBeDisabled()
+    await expect(choice).toBeDisabled()
+    expect(fixture.commands).toEqual([original])
+    const deliveryPath = `/api/v1/sessions/${ids.session}/clarification-answer-commands/${original.id}/delivery`
+    expect(fixture.writes).toEqual([
+      {
+        path: `/api/v1/sessions/${ids.session}/clarifications/${original.question_id}/answer-commands`,
+        body: original.request,
+      },
+      { path: deliveryPath, body: null },
+      { path: deliveryPath, body: null },
+      { path: deliveryPath, body: null },
+    ])
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 1920, height: 1080 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await attachChatUxFixture(page, testInfo, `uncertain-custody-${viewport.width}`)
+    }
+    expect(fixture.errors).toEqual([])
+  })
+})
+
+async function attachChatUxFixture(page: Page, testInfo: TestInfo, name: string) {
+  const path = testInfo.outputPath(`chat-ux-fixture-${name}.png`)
+  await page.screenshot({ path, fullPage: true, scale: 'css', animations: 'disabled' })
+  await testInfo.attach(`chat-ux-fixture-${name}`, { path, contentType: 'image/png' })
+}
+
+async function installChatUxFixtures(page: Page) {
+  await installMocks(page, createState())
+  const question: Question = {
+    id: '00000000-0000-4000-8000-000000000701',
+    request_id: '00000000-0000-4000-8000-000000000703',
+    task_id: ids.session,
+    root_task_id: ids.session,
+    assignment_id: '00000000-0000-4000-8000-000000000704',
+    execution_id: '00000000-0000-4000-8000-000000000705',
+    checkpoint_id: '00000000-0000-4000-8000-000000000706',
+    agent_id: ids.dev,
+    assignment_version: 1,
+    author_subject: ids.dev,
+    created_at: now,
+    version: 1,
+    requirement_revision: 1,
+    requirement_reference: 'REQ-1',
+    text: 'Кто может просматривать задачи?',
+    rationale: 'Fixture access boundary.',
+    required: true,
+    mode: 'single',
+    state: 'open',
+    answer: null,
+    recommended_option_id: ids.dev,
+    options: [
+      {
+        id: ids.dev,
+        label: 'Участники проекта',
+        consequences: 'Fixture project scope.',
+        is_custom: false,
+      },
+    ],
+  }
+  const revision: RequirementsRevision = {
+    revision: 1,
+    author_subject: ids.dev,
+    content_hash: 'a'.repeat(64),
+    created_at: now,
+    goal: 'Fixture task goal',
+    scope: ['Fixture project scope'],
+    exclusions: [],
+    scenarios: ['Fixture review'],
+    acceptance_criteria: ['Fixture explicit answer'],
+    constraints: [],
+    dependencies: [],
+    assumptions: [],
+    checklist: [],
+    prerequisites: [],
+  }
+  const questions: [Question, Question] = [
+    question,
+    {
+      ...question,
+      id: '00000000-0000-4000-8000-000000000702',
+      text: 'Как подтвердить результат?',
+    },
+  ]
+  const fixture = {
+    questions,
+    commands: [] as ClarificationCommand[],
+    writes: [] as { path: string; body: unknown }[],
+    rejectionStatus: 409 as number | null,
+    failQuestions: false,
+    reads: { questions: 0, context: 0, journal: 0 },
+    errors: [] as string[],
+  }
+  page.on('pageerror', (error) => fixture.errors.push(error.message))
+  // All task/PM responses are local fixtures; no live acceptance or publication.
+  await page.route(`**/api/v1/sessions/${ids.session}/**`, async (route) => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    if (request.method() === 'POST') {
+      fixture.writes.push({ path, body: request.postData() ? request.postDataJSON() : null })
+      const storedQuestion = fixture.questions.find(
+        (item) =>
+          path === `/api/v1/sessions/${ids.session}/clarifications/${item.id}/answer-commands`,
+      )
+      if (storedQuestion) {
+        const command: ClarificationCommand = {
+          id: `00000000-0000-4000-8000-${String(780 + fixture.commands.length).padStart(12, '0')}`,
+          session_id: ids.session,
+          question_id: storedQuestion.id,
+          request: request.postDataJSON() as ClarificationCommand['request'],
+          payload_sha256: 'd'.repeat(64),
+          state: 'stored',
+          answer: null,
+          rejection_status: null,
+          created_at: now,
+          updated_at: now,
+        }
+        fixture.commands.push(command)
+        return fulfill(route, command)
+      }
+      const command = fixture.commands.find(
+        (item) =>
+          path ===
+          `/api/v1/sessions/${ids.session}/clarification-answer-commands/${item.id}/delivery`,
+      )
+      if (command) {
+        command.state = fixture.rejectionStatus === null ? 'uncertain' : 'rejected'
+        command.rejection_status = fixture.rejectionStatus
+        return fulfill(route, command)
+      }
+      return fulfill(route, { error: 'Unexpected chat UX fixture mutation' }, 403)
+    }
+    if (path.endsWith('/clarification-answer-commands')) {
+      fixture.reads.journal += 1
+      return fulfill(
+        route,
+        fixture.commands.filter((command) =>
+          ['stored', 'delivering', 'uncertain'].includes(command.state),
+        ),
+      )
+    }
+    if (path.endsWith('/task-context')) {
+      fixture.reads.context += 1
+      return fulfill(route, {
+        binding: {
+          tracker_instance_id: 'fixture-tracker',
+          project_id: ids.dev,
+          task_id: ids.session,
+          root_task_id: ids.session,
+          agent_id: ids.dev,
+          owner_subject: ids.user,
+        },
+        tracker: {
+          contract_version: 1,
+          tracker_instance_id: 'fixture-tracker',
+          project_id: ids.dev,
+          task_id: ids.session,
+          root_task_id: ids.session,
+          owner_subject: ids.user,
+          stage: 'Clarification',
+          requirement_revision: 1,
+          waiting_reason: 'Fixture owner answer required',
+          assignment: null,
+          permissions: { can_answer: true, can_confirm: false },
+        },
+      })
+    }
+    if (path.endsWith('/clarifications')) {
+      fixture.reads.questions += 1
+      return fixture.failQuestions
+        ? fulfill(route, { error: 'Fixture recheck unavailable' }, 409)
+        : fulfill(route, { questions: fixture.questions })
+    }
+    if (path.endsWith('/chat-controls'))
+      return fulfill(route, {
+        can_send: false,
+        can_steer: false,
+        can_stop: false,
+        active_run_id: null,
+        blocked_reason: 'workflow_assignment_required',
+      })
+    if (path.endsWith('/requirements')) return fulfill(route, { revisions: [revision] })
+    if (path.endsWith('/history')) return fulfill(route, { items: [], next_before: null })
+    return route.fallback()
+  })
+  return fixture
+}
 
 test('chat history preserves server order after clock rollback and page overlap', async ({
   page,
