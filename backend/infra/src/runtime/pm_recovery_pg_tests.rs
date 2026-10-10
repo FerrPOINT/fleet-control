@@ -443,7 +443,7 @@ async fn bounded_submit(
     // supply verify_dispatch/machine_context. Context and repository guards are real.
     tokio::time::timeout(
         Duration::from_secs(20),
-        submit(supervisor, &f.agent, intent, async { Ok(()) }),
+        Box::pin(submit(supervisor, &f.agent, intent, async { Ok(()) })),
     )
     .await
     .expect("bounded PM production-path test")
