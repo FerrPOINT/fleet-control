@@ -34,10 +34,14 @@ intent/reservation/heartbeat, not completed execution admission or safe-stop
 release/reacquire. Architect, Developer, Reviewer, Tester and DevOps execution
 lifecycles remain missing producer dependencies.
 
-Workflow PR90 at `66e5d6db9fc2ae9129c9162688bacb1a98c7a4a3` provides the
+Workflow PR90 at `7fdcd949c1372f444fc850f6bb142e4538088285` provides the
 role/mode catalog; catalog presence is not execution authority. PM continuation
 requires a genuine waiting checkpoint and answer event. An arbitrary idle PM
 turn must not fabricate those inputs or fall back to free-chat dispatch.
+The reviewed update from66e serializes initial/continuation run reservations and
+disables inherited HTTP proxy/netrc settings for trusted readback. Its runtime
+step API is unchanged; producer CI passes, but live Fleet integration and the
+broader owner-execution authority remain separate requirements.
 
 Source wire compatibility and the eleven accepted Tracker metadata event types
 do not prove live admission. See [metadata compatibility](TRACKER_METADATA11_COMPATIBILITY.md)
