@@ -12,10 +12,22 @@ Tracker and Workflow stay read-only; root Base foreign changes are untouched.
 
 | Owner | Current isolated write scope / deliverable | Handoff criterion |
 | --- | --- | --- |
-| Curie | New isolated frontend chat-detail/hooks/unit-test successor from7dd6020 | Close actual missing owner-revocation, session-switch and original-answer custody regressions; minimal fixes only for demonstrated bugs; no changes to frozen browser candidate, API, backend or E2E |
-| Pascal | New full-backend controls successor on exact7dd6020 | Integrate reviewed read-only SQL probes; preserve81 gates, selectors, migration lineages and privacy; parent reviews and publishes; no relaxed authority predicates |
-| Feynman | New clean private Base maintenance-packet candidate from verified upstream main | Locate canonical source provenance or disclose installed-byte origin; review exact three helpers and focused tests/docs; root dirty Base and PR180 stay untouched; no private source in public Forge history |
+| Curie | New isolated frontend controls on exact60f35db | Preserve23 stages, all68 prior pure selectors, default pool, three engines and135 captures; qualify836 canonical product blobs plus controls; no local browser/build or publication |
+| Pascal | New private Base safety successor from7170d3c | Fix three reviewed P2s: Windows argument quoting, canonical registry/output paths and local disk-floor override; refresh exact helper hashes/tests; root Base, PR180 and installed packet stay untouched |
+| Feynman | Isolated Forge full12 consumer successor from632ea83 | Preserve12 stages/budgets/privacy/public-safe history; wait for reviewed published safe Base pin, not rejected717; no private Base source in Forge |
+| Planck | Full81 artifact packaging successor from1200321 | Port the proven C11 closed-directory validation/upload strategy without changing81 gates, selectors or budgets; current120 run stays frozen; no early publication |
 | Parent | Fleet integration, exact-source controls, CI, documentation and publication | Review worker diffs; qualify source/control closure; normal history/push; authenticate terminal receipts before any acceptance claim |
+
+Latest actual results supersede the historical in-progress wording below.
+C11 controls7296506/run38028716924 succeed with authenticated complete artifact
+11661626156 and all28 stages; the old green01f archive remains rejected.
+Full81 controls1200321/run38028965529 are in progress. Frontend0917/run38027721811
+passes21 stages including three-engine fixtures, then fails capture. Source60f35db
+integrates the reproduced capture-fixture fix, native4 test hook and journal-error
+guards/seven new component cases; current-source full frontend acceptance is pending.
+Base717 is unpublished and withheld for three P2s; Forge cannot qualify that pin.
+
+### Earlier Same-Day Dispatch Evidence
 
 C11 controlscfe7805 normally publish exact3d1;
 [run38026078533](https://github.com/FerrPOINT/fleet-control/actions/runs/38026078533),

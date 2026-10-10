@@ -2,6 +2,44 @@
 
 ## Current Integration Snapshot: 10 October 2026
 
+### Latest Verified Checkpoint
+
+Product source is `60f35db0b73922a0d5f753d370e556edcf4d20b0`. This checkpoint
+supersedes the same-day in-progress statements below; it is not full acceptance.
+
+- C11 [run38028716924](https://github.com/FerrPOINT/fleet-control/actions/runs/38028716924)
+  succeeds on controls7296506/source0e49430. Strict authenticated readback accepts
+  artifact11661626156, ZIP SHA256
+  `c7e6dd0d5ece5171b8bcfa4d8e338d7a33bd1cf2ad595d6f733338c8cc4abbe8`.
+  All28 gates pass: workspace248 passed/18 ignored, credential unit8, PG15 and
+  real-Auth2 passed; both cleanup checks pass. This verifies the narrow component,
+  not installed Auth, credential handoff, model admission or the complete SDLC.
+  The earlier green38026636805 artifact is rejected: its ZIP lacks provenance
+  and checksum files. Green CI alone did not qualify that receipt.
+- Frontend [run38027721811](https://github.com/FerrPOINT/fleet-control/actions/runs/38027721811)
+  on controls0917f33/sourcebf0ca7a fails at capture after21 successful stages,
+  including the three-engine fixture stage. Authenticated artifact11660848489
+  contains no failing assertion or fresh images. Source investigation reproduces
+  a missing fixture run-controls GET; the integrated capture repair has4 passing
+  native Node tests and is mandatory in `screenshots:verify`. It is not yet a
+  successful full hosted capture. Seven new owner/journal/session-switch React
+  cases and two journal-error guards also require current-source execution.
+- Full81-stage [run38028965529](https://github.com/FerrPOINT/fleet-control/actions/runs/38028965529)
+  is in progress on frozen controls1200321/source7dd6020. Read-only recovered
+  authorization probes do not change production authority predicates.
+- Base maintenance candidate7170d3c is withheld from publication: independent
+  review found three P2s in Windows argument quoting, relative-path consistency
+  and the local disk-floor override. The isolated safety successor is in work;
+  neither root Base, PR180 nor the installed maintenance packet is changed.
+
+Curie owns current frontend controls, Pascal the Base safety successor, Feynman
+the Forge full12 consumer, and Planck full81 artifact packaging. Parent owns
+review/integration/publication. Heavy local jobs remain held; Tracker/Workflow
+remain read-only. The missing Hermes producer pre-model admission and credential
+transport remain blockers, not capabilities inferred from metadata.
+
+### Earlier Same-Day Checkpoints
+
 Latest terminal results supersede the earlier checkpoints below. Full backend
 run38023648801/source56daff9/controls6f648430 still fails eight recovered-activation
 cases, now at authorization after the corrected configuration hash probe.

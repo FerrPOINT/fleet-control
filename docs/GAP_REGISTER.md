@@ -2,6 +2,31 @@
 
 ## Current Open Release Gates: 10 October 2026
 
+### Latest Gate Disposition
+
+- Narrow C11 credential gate is verified by strict authenticated readback of
+  [run38028716924](https://github.com/FerrPOINT/fleet-control/actions/runs/38028716924),
+  controls7296506/source0e49430/artifact11661626156. All28 stages pass, including
+  real-Auth2 and credential PG15;18 ignored workspace cases are not counted as
+  passes. Installed Auth, runtime credential custody and PM admission stay open.
+  The earlier green01f run has an incomplete artifact and is not accepted.
+- Full backend controls1200321/source7dd6020 are executing in
+  [run38028965529](https://github.com/FerrPOINT/fleet-control/actions/runs/38028965529).
+  Earlier recovered-authorization failures are unresolved until actual readback;
+  prepared probes and116 pure control tests do not close that gate.
+- Frontend0917/sourcebf0 reaches capture after21 passed stages, including browser
+  fixtures, then fails in38027721811. Source60f35db includes a reproduced capture
+  fixture repair/native4 checks and journal-revocation guards/seven component
+  regressions. Current-source unit/browser/capture/visual acceptance is pending.
+- Private Base7170d3c publication is held for three review P2s: trailing-backslash
+  argv quoting, relative registry/output resolution, and disk-floor override.
+  A new isolated fix is required before Forge may pin/qualify that packet.
+- Hermes producer admission/secret transport and live PM continuation remain
+  unimplemented dependencies. Scope/ownership clarification is pending; no
+  fallback dispatch, env credential handoff or model-authority bypass is enabled.
+
+### Earlier Same-Day Evidence
+
 Latest verified state: full backend38023648801/source56daff9 fails eight recovered
 authorization cases at container_activation_pg after the configuration hash
 correction. Authenticated artifact11659287588 and successful cleanup do not prove
