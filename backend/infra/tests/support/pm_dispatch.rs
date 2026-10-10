@@ -83,7 +83,7 @@ fn workflow_capabilities(kind: &str) -> serde_json::Value {
             "terminal_proof":"configured-runtime-readback","dispatch_owner":"fleet","execution_token_header":"X-Workflow-Execution-Token"}})
 }
 
-fn workflow_assignment(request: &serde_json::Value) -> serde_json::Value {
+pub(super) fn workflow_assignment(request: &serde_json::Value) -> serde_json::Value {
     let mut result = request.clone();
     let map = result.as_object_mut().unwrap();
     let task = map.remove("task").unwrap();
@@ -320,6 +320,10 @@ async fn pm_production_dispatch_binds_and_steers_once_and_holds_unknown_post() {
                         assert_eq!(method, Method::POST);
                         assert_eq!(body, json!({"input":"Verified PM instructions"}));
                         Json(json!({"object":"hermes.run.steer","run_id":"run_pm","accepted":true})).into_response()
+                    }
+                    "/v1/runs/run_pm/events" => {
+                        assert_eq!(method, Method::GET);
+                        ([("content-type", "text/event-stream")], "").into_response()
                     }
                     _ => panic!("unexpected PM HTTP route"),
                 }

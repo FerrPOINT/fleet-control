@@ -291,14 +291,33 @@ impl<'a> Workflow<'a> {
     pub(super) async fn cursor(
         &self,
         intent: &PmDispatchIntent,
-        identity: &domain::PmExecutionIdentity,
+        operation: &PmDraftOperation,
     ) -> Result<(i64, i64, String, String), AppError> {
         self.verify_intent(intent)?;
+        let initial = domain::initial_pm_reservation(operation)?;
+        let identity = &initial.identity;
+        let original = self
+            .supervisor
+            .repo
+            .get_pm_dispatch(operation.id)
+            .await?
+            .ok_or_else(unavailable)?;
+        self.verify_intent(&original)?;
+        let native = original
+            .hermes_run_ref
+            .as_deref()
+            .filter(|_| original.submitted)
+            .ok_or_else(unavailable)?;
+        // Bind replay returns the actual task cursor; assign replay deliberately returns phase zero.
+        let binding = json!({"task":identity.task,"bind_operation_key":format!("fleet-pm-runtime-bind:{}",operation.id),
+            "assignment_operation_key":identity.assignment_operation_key,"assignment_revision":identity.assignment_revision,
+            "assignment_ref":identity.assignment_ref,"binding_ref":initial.binding_ref,"hermes_run_ref":native,
+            "mode_key":"draft","cycle_number":0,"attempt_number":1,"expected_binding_state":"unbound","concrete_agent_ref":identity.agent_ref});
         let assigned: AssignmentResponse = decode(
             self.call(
-                "/internal/runtime/assign",
+                "/internal/runtime/bind",
                 self.assignment,
-                Some(intent.workflow_assignment.clone()),
+                Some(binding),
                 None,
             )
             .await?,
@@ -319,6 +338,11 @@ impl<'a> Workflow<'a> {
             || a.attempt_number != 1
             || a.workflow_id <= 0
             || a.mode_id <= 0
+            || a.binding_state != "bound"
+            || a.binding_ref.as_deref() != Some(initial.binding_ref.as_str())
+            || a.hermes_run_ref.as_deref() != Some(native)
+            || a.bind_operation_key.as_deref()
+                != Some(format!("fleet-pm-runtime-bind:{}", operation.id).as_str())
             || !a.current_phase_code.starts_with("PM-DRAFT-")
             || !domain::valid_ref(&a.current_phase_code, 128)
             || !matches!(a.status.as_str(), "active" | "blocked")

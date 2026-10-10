@@ -6,6 +6,8 @@ impl LocalRuntimeSupervisor {
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
             handle.spawn(async move {
                 let mut after = None;
+                let mut pm_after = None;
+                let mut pm_tasks = container_workers::AgentTasks::default();
                 loop {
                     let mut page_has_records = false;
                     match supervisor.repo.list_recoverable_hermes_acceptances(after).await {
@@ -30,6 +32,19 @@ impl LocalRuntimeSupervisor {
                     }
                     if supervisor.repo.reconcile_runtime_controls().await.is_err() {
                         tracing::warn!("Runtime control terminal readback is unavailable");
+                    }
+                    if supervisor.config.pm.dispatch.enabled {
+                        match supervisor.repo.list_recoverable_pm_streams(pm_after).await {
+                            Ok(records) => {
+                                page_has_records |= !records.is_empty();
+                                if records.is_empty() { pm_after = None; }
+                                for run_id in records {
+                                    pm_after = Some(run_id);
+                                    supervisor.attach_pm_event_worker(run_id, &mut pm_tasks);
+                                }
+                            }
+                            Err(_) => tracing::warn!("PM event recovery queue is unavailable"),
+                        }
                     }
                     if page_has_records {
                         // Finish the keyset scan before idling; old unresolved ACKs
@@ -180,7 +195,7 @@ impl LocalRuntimeSupervisor {
             self.handle_hermes_event(
                 agent,
                 session,
-                message,
+                Some(message),
                 &pinned,
                 &runtime_run_id,
                 Some(event.to_owned()),
