@@ -1,0 +1,9 @@
+CREATE DATABASE fleet_migration_test;
+CREATE DATABASE fleet_message_order_test;
+CREATE DATABASE fleet_chats_directory_test;
+CREATE DATABASE fleet_migration_smoke;
+CREATE ROLE fleet_approval_events_test LOGIN;
+CREATE DATABASE fleet_runtime_approval_events_test OWNER fleet_approval_events_test;
+CREATE DATABASE fleet_credential_migration_test;
+CREATE DATABASE fleet_real_auth_test;
+CREATE DATABASE fleet_configuration_test;
