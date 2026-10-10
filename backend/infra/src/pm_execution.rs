@@ -549,6 +549,10 @@ pub(super) async fn claim_tool(
          AND s.id=b.session_id AND s.agent_id=b.agent_id AND s.state='active'
          AND u.id=s.user_id AND u.is_active AND t.session_id=s.id AND t.agent_id=b.agent_id AND t.owner_subject=u.central_sub
          AND a.id=b.agent_id AND a.kind='hermes' AND a.status='running' AND a.sdlc_role='project_manager'
+         AND NOT EXISTS(SELECT 1 FROM runtime_control_commands human
+            WHERE human.session_run_id=c.session_run_id
+              AND (human.state IN ('reserved','submitted','uncertain')
+                OR (human.operation='stop' AND human.state='acknowledged')))
          AND NOT EXISTS(SELECT 1 FROM agent_config_heads WHERE agent_id=b.agent_id AND draining)",
         [run.into(),key.into()])).await.map_err(dispatch_error_db)?;
     txn.commit().await.map_err(dispatch_error_db)?;

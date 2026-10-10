@@ -1,4 +1,4 @@
-use super::pm_dispatch::{Workflow, decode, unavailable};
+use super::pm_dispatch::{self, Workflow, decode, unavailable};
 use super::*;
 use crate::pm_credentials::{PmCredentialCoordinator, PmDelegatedCredential};
 use domain::*;
@@ -12,6 +12,19 @@ struct Scope {
     coordinator: PmCredentialCoordinator,
     credential: PmDelegatedCredential,
     context: TrackerTaskContext,
+}
+
+pub(super) fn binding_matches(
+    binding: &TaskChatBinding,
+    identity: &TrackerDraftIdentity,
+    agent_id: Uuid,
+) -> bool {
+    binding.tracker_instance_id == identity.tracker_instance_id
+        && binding.project_id == identity.project_id
+        && binding.task_id == identity.task_id
+        && binding.root_task_id == identity.root_task_id
+        && binding.owner_subject == identity.owner_subject
+        && binding.agent_id == agent_id
 }
 
 async fn scope(
@@ -38,7 +51,7 @@ async fn scope(
         || session.primary_agent_id != agent_id
         || session.agent_id != agent_id
         || !matches!(session.state, SessionState::Active)
-        || binding != operation.identity()?
+        || !binding_matches(&binding, &operation.identity()?, operation.request.agent_id)
         || record.terminal_status.is_some()
     {
         return Err(AppError::Forbidden);
@@ -197,6 +210,48 @@ fn matches_run(snapshot: &PmWorkflowSnapshot, record: &PmRunRecord) -> Result<()
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn task_binding_matches_draft_identity_only_with_every_field_and_original_agent() {
+        let identity = TrackerDraftIdentity {
+            tracker_instance_id: "tracker".into(),
+            project_id: Uuid::from_u128(1),
+            task_id: Uuid::from_u128(2),
+            root_task_id: Uuid::from_u128(3),
+            owner_subject: "owner".into(),
+        };
+        let agent_id = Uuid::from_u128(4);
+        let binding = TaskChatBinding {
+            tracker_instance_id: identity.tracker_instance_id.clone(),
+            project_id: identity.project_id,
+            task_id: identity.task_id,
+            root_task_id: identity.root_task_id,
+            agent_id,
+            owner_subject: identity.owner_subject.clone(),
+        };
+        assert!(binding_matches(&binding, &identity, agent_id));
+        for field in [
+            "tracker_instance_id",
+            "project_id",
+            "task_id",
+            "root_task_id",
+            "owner_subject",
+            "agent_id",
+        ] {
+            let mut foreign = binding.clone();
+            match field {
+                "tracker_instance_id" => foreign.tracker_instance_id = "foreign".into(),
+                "project_id" => foreign.project_id = Uuid::from_u128(5),
+                "task_id" => foreign.task_id = Uuid::from_u128(5),
+                "root_task_id" => foreign.root_task_id = Uuid::from_u128(5),
+                "owner_subject" => foreign.owner_subject = "foreign".into(),
+                "agent_id" => foreign.agent_id = Uuid::from_u128(5),
+                _ => unreachable!(),
+            }
+            assert!(!binding_matches(&foreign, &identity, agent_id));
+        }
+        assert!(!binding_matches(&binding, &identity, Uuid::from_u128(5)));
+    }
 
     fn snapshot() -> (PmExecutionIdentity, Value) {
         let id = Uuid::new_v4();

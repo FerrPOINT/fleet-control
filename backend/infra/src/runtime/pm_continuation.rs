@@ -1,6 +1,7 @@
 //! Continuation uses the saved human command, Workflow ledger and native custody.
 //! A stop ACK never releases capacity; only the existing verified readback does.
-use super::pm_dispatch::{Workflow, decode, unavailable};
+use super::pm_dispatch::{self, Workflow, decode, unavailable};
+use super::pm_tools;
 use super::*;
 use crate::pm_credentials::PmCredentialCoordinator;
 use domain::*;
@@ -63,8 +64,11 @@ pub(super) async fn resume(
         }
         Err(error) => return Err(error),
     };
-    if operation.identity()? != actor.binding
-        || operation.owner_subject != actor.subject
+    if !pm_tools::binding_matches(
+        &actor.binding,
+        &operation.identity()?,
+        operation.request.agent_id,
+    ) || operation.owner_subject != actor.subject
         || saved.session_id != actor.session_id
     {
         return Err(AppError::Forbidden);

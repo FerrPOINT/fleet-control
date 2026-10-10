@@ -61,10 +61,7 @@ async fn deliver(
     let gateway = TrackerGateway::configured(&ctx.config.tracker)?;
     let permit = ctx.repo.claim_clarification_delivery(actor, id).await?;
     let Some(attempt) = permit.attempt_id else {
-        if ctx.config.pm.dispatch.enabled {
-            ctx.runtime.resume_pm_answer(actor, &permit.command).await?;
-        }
-        return Ok(permit.command);
+        return continue_saved(ctx, actor, permit.command).await;
     };
     let command = permit.command;
     let response = gateway
@@ -85,10 +82,46 @@ async fn deliver(
         .finish_clarification_delivery(actor, id, attempt, outcome)
         .await?;
     // Delivery custody is committed first. Retrying this command never repeats the answer POST.
-    if ctx.config.pm.dispatch.enabled {
-        ctx.runtime.resume_pm_answer(actor, &delivered).await?;
+    continue_saved(ctx, actor, delivered).await
+}
+
+async fn continue_saved(
+    ctx: &Arc<AppContext>,
+    actor: &ClarificationCommandActor,
+    command: ClarificationAnswerCommand,
+) -> Result<ClarificationAnswerCommand, AppError> {
+    if command.state != domain::ClarificationDeliveryState::Delivered
+        || command.continuation_state != domain::ClarificationContinuationState::Pending
+    {
+        return Ok(command);
     }
-    Ok(delivered)
+    // A later verified tool journal can prove a historical rebind after Workflow
+    // has moved to another checkpoint. Never replay that old answer into the new one.
+    let command = ctx
+        .repo
+        .finish_clarification_continuation(
+            actor,
+            command.id,
+            domain::PmContinuationOutcome::Pending,
+        )
+        .await?;
+    if command.continuation_state != domain::ClarificationContinuationState::Pending
+        || !ctx.config.pm.dispatch.enabled
+    {
+        return Ok(command);
+    }
+    match ctx.runtime.resume_pm_answer(actor, &command).await {
+        Ok(outcome) => {
+            ctx.repo
+                .finish_clarification_continuation(actor, command.id, outcome)
+                .await
+        }
+        // The Tracker answer is already committed. Return it without claiming execution.
+        Err(AppError::Unavailable(_)) => {
+            ctx.repo.get_clarification_command(actor, command.id).await
+        }
+        Err(error) => Err(error),
+    }
 }
 
 fn classify_response(
@@ -198,6 +231,7 @@ mod tests {
 
     fn command() -> ClarificationAnswerCommand {
         ClarificationAnswerCommand {
+            continuation_state: domain::ClarificationContinuationState::NotRequired,
             id: Uuid::new_v4(),
             session_id: Uuid::new_v4(),
             question_id: Uuid::new_v4(),
