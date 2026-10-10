@@ -589,9 +589,9 @@ class SourceContracts(unittest.TestCase):
                          "4db07a426b6f7d38e518bd2adc0e28b6067bbdbe")
 
     def test_current_unit_counts_expand_all_source_declarations(self):
-        self.assertEqual(gate.SOURCE_SHA, "6dd16d0c8ffc40d96519390bfb7c31324a8786f6")
-        self.assertEqual(gate.SOURCE_TREE, "dc616102e1763f3ddb0de06f7a59813ee8295a96")
-        self.assertEqual(gate.SOURCE_PARENTS, ["dc7d1ee2574c1a05b55d794f4252b6ba37916a82"])
+        self.assertEqual(gate.SOURCE_SHA, "aca917c4a79d1718beab8f5b82631f1698ebda5c")
+        self.assertEqual(gate.SOURCE_TREE, "4df8c9365793e367204632e958330a6a99f0af20")
+        self.assertEqual(gate.SOURCE_PARENTS, ["5db4ff92d2168c46ce96b56f37acbbf7de92db33"])
         gate.qualify_source(ROOT)
         inventory = git_blob_inventory(gate.SOURCE_SHA)
         self.assertEqual(len(inventory), 905)
@@ -626,8 +626,8 @@ class SourceContracts(unittest.TestCase):
         self.assertEqual({path: inventory[path] for path in changed}, {
             "frontend/e2e/chats-directory.spec.ts": "1a77863db6cbeac868201b66635592730f63c180ead5044bbea3cd10ecd6c01b",
             "frontend/src/pages/chat-detail/binding.test.tsx": "53c60ade429f164c2d8a34079fe538c78abd3e60d4d0e5b538ceb11efe726f62",
-            index: "09cd2de75a4949b7ff82867b7c203a1dfccf0440b2caa43512087aca50b26746",
-            "frontend/src/pages/chat-detail/task-detail.tsx": "099c19f24ccf9618270befc4dc163109a7bf528a0f5961fae741633c163f8dab",
+            index: "9f80d4a3c156ca0fd7bde6971a8de5acb499ce83c7efcac585bc6f18a1145312",
+            "frontend/src/pages/chat-detail/task-detail.tsx": "269976087959d0da128a1e2095bec9088fc86d84b507f5358c2f8235affc3b04",
             "frontend/src/pages/chats/index.test.tsx": "a22b909fc5df7547868210ada833b03afecbc850a34d78d53972c4e112c099fe",
         })
         for removed in ("frontend/src/pages/chat-detail/run-controls.test.tsx",
@@ -671,11 +671,11 @@ class SourceContracts(unittest.TestCase):
             self.assertNotRegex(text, r"\b(?:it|test|describe)\.(?:skip|only|todo)\b")
             totals[path] = direct + sum(rows(array) for array in arrays)
         self.assertEqual(totals["frontend/src/api/task-chats.test.ts"], 20)
-        self.assertEqual(totals[index], 87)
+        self.assertEqual(totals[index], 88)
         self.assertEqual(totals["frontend/src/pages/chat-detail/control-journal.test.ts"], 20)
         self.assertEqual(totals["frontend/src/pages/chat-detail/answer-payload.test.ts"], 2)
         self.assertEqual(totals["frontend/src/pages/chat-detail/dispatch-recovery.test.tsx"], 16)
-        self.assertEqual((len(totals), sum(totals.values())), (41, 460))
+        self.assertEqual((len(totals), sum(totals.values())), (41, 461))
         self.assertEqual(gate.QUALIFIED_UNIT_COUNTS,
                          dict(files_passed=len(totals), tests_passed=sum(totals.values()), files_skipped=0, tests_skipped=0))
 
@@ -692,7 +692,8 @@ class CompletionContracts(unittest.TestCase):
                          dict(files_passed=2, tests_passed=8, files_skipped=0, tests_skipped=1))
 
     def test_exact_frozen_baseline_counts(self):
-        self.assertEqual(gate.unit_counts(b"Test Files 41 passed (41)\nTests 460 passed (460)"), gate.QUALIFIED_UNIT_COUNTS)
+        self.assertEqual(gate.unit_counts(b"Test Files 41 passed (41)\nTests 461 passed (461)"), gate.QUALIFIED_UNIT_COUNTS)
+        self.assertNotEqual(gate.unit_counts(b"Test Files 41 passed (41)\nTests 460 passed (460)"), gate.QUALIFIED_UNIT_COUNTS)
         self.assertNotEqual(gate.unit_counts(b"Test Files 38 passed (38)\nTests 411 passed (411)"), gate.QUALIFIED_UNIT_COUNTS)
         self.assertNotEqual(gate.unit_counts(b"Test Files 38 passed (38)\nTests 385 passed (385)"), gate.QUALIFIED_UNIT_COUNTS)
         self.assertNotEqual(gate.unit_counts(b"Test Files 38 passed (38)\nTests 382 passed (382)"), gate.QUALIFIED_UNIT_COUNTS)
