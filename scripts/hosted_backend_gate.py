@@ -26,7 +26,7 @@ import zipfile
 
 REPOSITORY = "FerrPOINT/fleet-control"
 BRANCH = "build-only/config-union-backend-20261010"
-SOURCE_SHA = "3445d922852026bb7ca08ea42186ca7028c7968b"
+SOURCE_SHA = "aa11d3b90fcacb6f01a99b8a534cadbffbf54993"
 BASE_SHA = "19a7a381ae6dbea61a643bb96189e483fa64df5c"
 AUTH_SHA = "01388dfb43332cbe5837fd5e1fadccf09cb8886d"
 UTILITY_SHA = "9b53de7b23593949a9e6c05bd5a4f94b930e50a0"
@@ -34,7 +34,7 @@ UTILITY_INVENTORY_SHA = "8e727d1d2ba02941dc176f26945d25593068fc593cb619928538129
 PACKAGE_SHA = "4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58"
 PACKAGE_TREE = "96d9a7453744fd09f9ee3ba3b2c20f6b3d389b85"
 PACKAGE_INVENTORY_SHA = "1bdf56b21b0b97ec4a5a6303b04ecdda1b6609164aa018acc830187ca124f827"
-# Authentic3445 codegen: run38063507780/1, artifact11673994046.
+# Authentic aa11 codegen: run38066257094/1, artifact11674599663.
 OPENAPI_SHA = "afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501"
 SWAGGER_SHA = "481244d0812097b11fbaeef79f71d942b171617f9c9f9514e63acbe13e71ccdc"
 WORKFLOW = ".github/workflows/backend-build-only.yml"
@@ -45,7 +45,7 @@ INVENTORY = "scripts/hosted-backend/test-inventory.json"
 WRITE_SET = {WORKFLOW, HELPER, GATE, INIT, INVENTORY, "scripts/tests/test_hosted_backend_gate.py"}
 ARTIFACT_FILES = {"report.json", "provenance.json", "SHA256SUMS"}
 FAILURE_FILE = "compiler-diagnostics.json"
-SOURCE_INVENTORY_SHA = "e2947698fe31e5f6fef81f5b1d12906a8a66d92e3c06588c0e375e97c98b46f7"
+SOURCE_INVENTORY_SHA = "b6264483a4dd538180b19a04036cb237afe9257530491e0abed6d78c5a1d0000"
 DIAGNOSTIC_LIMIT = 32
 DIAGNOSTIC_INPUT_LIMIT = 16 * 1024 ** 2
 DIAGNOSTIC_LINE_LIMIT = 256 * 1024
@@ -464,9 +464,9 @@ def reviewed_inventory(controls):
             and len(value["groups"]["runtime_terminal"]) == 14, "Ignored coverage weakened")
     require(len({(item["package"], item["target_kind"], item["target"], item["name"])
                  for item in value["ignored"]}) == 178, "Duplicate ignored identities")
-    require(len(value["groups"]["foundation"]) == 76 and len(value["workspace_default_declarations"]) == 399,
+    require(len(value["groups"]["foundation"]) == 77 and len(value["workspace_default_declarations"]) == 400,
             "Default/foundation declaration coverage drift")
-    require(len(value["pm_workspace_required"]) == 48 and len(set(value["pm_workspace_required"])) == 48,
+    require(len(value["pm_workspace_required"]) == 49 and len(set(value["pm_workspace_required"])) == 49,
             "PM workspace selector coverage drift")
     require(len(value["groups"]["pm_human_controls"]) == 5
             and len(set(value["groups"]["pm_human_controls"])) == 5, "PM human selector coverage drift")
