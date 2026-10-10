@@ -54,23 +54,25 @@ requires separate compatible chat/control evidence.
 
 ## Current Evidence
 
-| Scope                    | Verified evidence                                                                                                                                                                                                                                                                                                                                              | Still open                                                                                                      |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Rust OpenAPI, sourceaa11 | [38066257094](https://github.com/FerrPOINT/fleet-control/actions/runs/38066257094) SUCCESS; artifact11674599663; original strict readback verified; schema SHA256 `afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501`. Schema bytes equal the actuala5f schema compared against seven immutable Tracker357 DTOs; eight verifier units pass      | Complete backend/DB/native checks remain separate from schema generation                                        |
-| Backend, source3fc       | [38073896066](https://github.com/FerrPOINT/fleet-control/actions/runs/38073896066) FAIL on controls5b3 at pm_recovery_pg, exit101. Original strict readback verifies artifact11677538834 and scratch/synthetic DB cleanup; prior PM human-controls stage advances. Closed failed-test/frame lists are empty, category unknown                                  | Diagnose the PM recovery gate without guessing or weakening assertions; qualify all remaining gates             |
-| Frontend, sourceaca/fc0  | [38072655687](https://github.com/FerrPOINT/fleet-control/actions/runs/38072655687) SUCCESS; original strict readback verifies artifact11677891567. All23 gates,461 units,135 catalogue/186 fixture images; all three browsers47 passed/zero flaky with nine opt-in live skips each. 135 catalogue and9 PM views imported, selected corrected captures reviewed | Complete live PM acceptance; fixture success does not qualify backend or installed runtime                      |
-| PM execution             | Structured tools, checkpoint continuation, controls, stream recovery and exact-run instruction receipts are integrated; actualaa11 compiles runtime/test targets before foundation failure                                                                                                                                                                     | Complete PG/HTTP receipt and recovery regressions; real compatible service calls and owner flow remain required |
-| Forge                    | [38070539544](https://github.com/FerrPOINT/CI-CD/actions/runs/38070539544) FAIL on controls876/source25be. Authenticated A/B/C receipts verify first five stages, PostgreSQL3/3,24 negatives and cleanup. OCI cargo101 occurs at first CLI assertion540; retained CLI exit1/rejection is generic, not a proven root cause; later five stages NOT_RUN           | Diagnose the first CLI rejection; qualify the original full12 pipeline and actual task delivery/rollback        |
-| Base                     | [PR183](https://github.com/FerrPOINT/services-base/pull/183) merged externally as66b7faf; three maintenance helper blobs match the previously qualified payload and the Forge successor pins that merged object                                                                                                                                                | Consumer/native checks remain separate; no silent SDK or installed-packet promotion                             |
+| Scope                    | Verified evidence                                                                                                                                                                                                                                                                                                                                              | Still open                                                                                                                    |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Rust OpenAPI, sourceaa11 | [38066257094](https://github.com/FerrPOINT/fleet-control/actions/runs/38066257094) SUCCESS; artifact11674599663; original strict readback verified; schema SHA256 `afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501`. Schema bytes equal the actuala5f schema compared against seven immutable Tracker357 DTOs; eight verifier units pass      | Complete backend/DB/native checks remain separate from schema generation                                                      |
+| Backend, source3fc       | [38076192042](https://github.com/FerrPOINT/fleet-control/actions/runs/38076192042) FAIL on controls73b without retained gate evidence; artifact inventory is empty and the outer helper reports only generic failure. Earlier5b3 run38073896066 reaches pm_recovery_pg, exit101, with authenticated cleanup but no test/frame/cause                            | Diagnose the unclassified outer-helper failure, then qualify PM recovery and all remaining gates without weakening assertions |
+| Frontend, sourceaca/fc0  | [38072655687](https://github.com/FerrPOINT/fleet-control/actions/runs/38072655687) SUCCESS; original strict readback verifies artifact11677891567. All23 gates,461 units,135 catalogue/186 fixture images; all three browsers47 passed/zero flaky with nine opt-in live skips each. 135 catalogue and9 PM views imported, selected corrected captures reviewed | Complete live PM acceptance; fixture success does not qualify backend or installed runtime                                    |
+| PM execution             | Structured tools, checkpoint continuation, controls, stream recovery and exact-run instruction receipts are integrated; actualaa11 compiles runtime/test targets before foundation failure                                                                                                                                                                     | Complete PG/HTTP receipt and recovery regressions; real compatible service calls and owner flow remain required               |
+| Forge                    | [38070539544](https://github.com/FerrPOINT/CI-CD/actions/runs/38070539544) FAIL on controls876/source25be. Authenticated A/B/C receipts verify first five stages, PostgreSQL3/3,24 negatives and cleanup. OCI cargo101 occurs at first CLI assertion540; retained CLI exit1/rejection is generic, not a proven root cause; later five stages NOT_RUN           | Diagnose the first CLI rejection; qualify the original full12 pipeline and actual task delivery/rollback                      |
+| Base                     | [PR183](https://github.com/FerrPOINT/services-base/pull/183) merged externally as66b7faf; three maintenance helper blobs match the previously qualified payload and the Forge successor pins that merged object                                                                                                                                                | Consumer/native checks remain separate; no silent SDK or installed-packet promotion                                           |
 
 Native hosted source caller
-[38074207531](https://github.com/FerrPOINT/fleet-control/actions/runs/38074207531)
-fails on exact617 during cold build/offline qualification, before either native
-matrix. Public preflight and pinned checkouts pass; the closed wrapper reports
-failed/cleanup-cleaned with no published images. Failure class/subphase is not
-retained, so no registry/recipe/resource diagnosis is proved. Exact owned-alias
-cleanup step succeeds; no independent public resource-journal artifact exists.
-There is no native, installed-runtime or SDLC acceptance receipt.
+[38077155580](https://github.com/FerrPOINT/fleet-control/actions/runs/38077155580)
+fails on exact1fa0/source5db at `candidate_build / BuildFailure / command_nonzero`,
+before either native matrix. All five parity observations are true; source
+readback confirms that all five pinned parent pulls and identity checks passed.
+The candidate kind, child exit code and build cause are not retained. The prior
+d4dd run38075925575 failed earlier at parent_pull; its exact parent/cause remain
+unknown, not retroactively diagnosed by this attempt. Current artifacts are
+empty. The exact owned-alias cleanup marker passes, not an independent full
+resource-journal audit. There is no native, installed-runtime or SDLC acceptance.
 
 Backend controls retain all existing checks. The new024 ignored migration test
 must be explicitly selected and its own disposable database cleaned.
@@ -104,6 +106,14 @@ Do not repeat unchanged failed attempts or replace actual execution with fixture
 a healthy process, runtime ACK or a completed run. The real owner PM clarification
 and exact-revision confirmation flow and the broader seven-agent delivery/
 integration scenario are both still required.
+
+Release audit of exact698 versus mainc39 finds523 changed paths and15 new
+migrations010-024. That assembly is not a narrow one-migration main PR. Existing
+PR47 owns010; PR64's configuration delta requires reconciliation with current
+foundation/main. The prepared C11 unit owns011 relative to that prerequisite,
+not relative to current main. Keep release units and additive repairs separate;
+do not alter dependency PRs or migration history to make the broad diff appear
+ready. Full integration checks do not replace each release prefix's own gates.
 
 See [active gaps](GAP_REGISTER.md), [delivery order](REMAINING_DELIVERY_WORK.md),
 [approved plan](CHAT_CLARIFICATION_IMPLEMENTATION_PLAN.md),

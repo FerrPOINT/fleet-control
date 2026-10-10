@@ -35,7 +35,20 @@ its timestamp nor byte identity. This import is fixture evidence, not live accep
 
 The preceding successful packet and discovered defect are preserved below.
 
-Current backend
+Latest backend
+[38076192042](https://github.com/FerrPOINT/fleet-control/actions/runs/38076192042),
+attempt1, is FAILURE on the same product3fc and controls
+`73b33f4422df8aa19fc81e45dabf901c00e792df`. Authenticated job114283511740
+fails step13 in two seconds; the artifact inventory is empty. Bounded console
+inspection finds only the generic outer helper failure and wrapper exit1, not
+a phase, exception class, predicate or test result. No original strict artifact
+readback is possible without an artifact. Do not infer a preflight, resource or
+schema cause, reuse old cleanup receipts, or treat missing diagnostics as a
+passing gate. The successor adds stage-log observation but retains none here;
+the generic catch does not distinguish an early refusal from a later reporting
+exception. This is distinct from the earlier authenticated test-stage failure.
+
+Earlier backend
 [38073896066](https://github.com/FerrPOINT/fleet-control/actions/runs/38073896066),
 attempt1, is FAILURE on product `3fcbe6288dfb52d6b56eed5068ee364532ac84f6`
 and controls `5b3ddd3ae164a5136e068550ec2e8c98e1234668`. Parent original strict
@@ -48,6 +61,20 @@ category unknown and no command exit code. This is not evidence of no test
 failure, a compiler defect or a particular infrastructure cause. All later
 gates remain unqualified. The older failure and fixture repair below keep their
 historical scope. No unchanged rerun or assertion relaxation is used.
+
+Native [38077155580](https://github.com/FerrPOINT/fleet-control/actions/runs/38077155580),
+attempt1, is FAILURE on controls `1fa0a6c9123ef61cdd2b1254264f94c64600ce32`
+and source `5db4ff92d2168c46ce96b56f37acbbf7de92db33`. The authenticated
+bounded closed console records candidate_build/BuildFailure/command_nonzero,
+all five parity booleans true, cleanup cleaned, images empty and native_executed
+false. Exact helper source confirms all five pinned parent pulls/identities
+completed before this failure. No candidate role, child return code or build
+cause is retained; wrapper exit1 is not the child's exit code. Native/cuts and
+success upload are skipped; artifacts are empty. Actual step12 and the exact
+owned-alias cleanup marker pass, verifying absence of two candidate aliases,
+not an independent full Docker resource inventory. No native acceptance is
+claimed. Earlier38075925575 failed at parent_pull with no exact parent/cause;
+this newer observation neither repeats nor retroactively explains that failure.
 
 Frontend [38070120966](https://github.com/FerrPOINT/fleet-control/actions/runs/38070120966),
 attempt1, is SUCCESS on product `6dd16d0c8ffc40d96519390bfb7c31324a8786f6`
