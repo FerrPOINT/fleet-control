@@ -918,13 +918,18 @@ async fn assert_human_controls_downgrade_refused() {
     let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
         .await
         .unwrap();
+    let human_controls = migration::Migrator::migrations()
+        .into_iter()
+        .find(|item| item.name() == "m20261010_000023_pm_human_controls")
+        .expect("PM human controls migration must remain registered");
     let before = migration::Migrator::get_migration_models(&db)
         .await
         .unwrap()
         .into_iter()
         .map(|row| (row.version, row.applied_at))
         .collect::<Vec<_>>();
-    let error = migration::Migrator::down(&db, Some(1))
+    let error = human_controls
+        .down(&migration::SchemaManager::new(&db))
         .await
         .unwrap_err()
         .to_string();
@@ -954,7 +959,8 @@ async fn assert_pm_stop_claim_held(repo: &PostgresFleetRepository, run: Uuid) {
     assert!(saved.result.is_none());
 }
 
-// Legacy history is seeded at 022, before the continuation receipt column exists.
+// Synthetic pre-023 history uses the real 024 ACK repair, not untouched 022 schema.
+// The ledger stays at 022 until the normal upgrade; no continuation receipt column exists.
 // HTTP acceptance is not simulated here: this exercises only the migration's
 // interpretation of durable producer-shaped repository history in an owned schema.
 #[tokio::test]
@@ -993,8 +999,13 @@ async fn legacy_pm_answer_backfill_requires_source_answer_and_completed_gated_to
             Database::connect(options)
         };
         let db = connect().await.unwrap();
-        let count = migration::Migrator::migrations().len();
-        migration::Migrator::up(&db, Some(u32::try_from(count - 1).unwrap()))
+        let migrations = migration::Migrator::migrations();
+        let legacy_prefix = migrations
+            .iter()
+            .position(|item| item.name() == "m20261010_000022_pm_dispatch")
+            .expect("PM dispatch migration must remain registered")
+            + 1;
+        migration::Migrator::up(&db, Some(u32::try_from(legacy_prefix).unwrap()))
             .await
             .unwrap();
         let versions = migration::Migrator::get_migration_models(&db)
@@ -1004,6 +1015,33 @@ async fn legacy_pm_answer_backfill_requires_source_answer_and_completed_gated_to
             versions.last().unwrap().version,
             "m20261010_000022_pm_dispatch"
         );
+        let before_ack_repair = versions
+            .into_iter()
+            .map(|row| (row.version, row.applied_at))
+            .collect::<Vec<_>>();
+        // Apply only the registered constraint repair before seeding native ACK custody.
+        // Normal Migrator::up below still applies 023 and records idempotent 024 itself.
+        let ack_repair = migrations
+            .iter()
+            .find(|item| item.name() == "m20261010_000024_pm_ack_bounds")
+            .expect("PM ACK bounds migration must remain registered");
+        ack_repair
+            .up(&migration::SchemaManager::new(&db))
+            .await
+            .unwrap();
+        assert_eq!(
+            migration::Migrator::get_migration_models(&db)
+                .await
+                .unwrap()
+                .into_iter()
+                .map(|row| (row.version, row.applied_at))
+                .collect::<Vec<_>>(),
+            before_ack_repair
+        );
+        let columns = db.query_one(Statement::from_string(DatabaseBackend::Postgres,
+            "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema()
+                AND table_name='clarification_answer_commands' AND column_name='continuation_state') AS present".to_owned())).await.unwrap().unwrap();
+        assert!(!columns.try_get::<bool>("", "present").unwrap());
         let repo = PostgresFleetRepository::new(connect().await.unwrap());
         let subject = Uuid::new_v4().to_string();
         let owner = repo
