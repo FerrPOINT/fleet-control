@@ -127,6 +127,9 @@ Assignment capabilities require exactly `assign`, `bind`, `resume`, `rebind`,
 dispatch intents are not rewritten or resent with the new assignment payload.
 This source alignment and its synthetic fixtures are not executable qualification
 against deployed Workflow/Tracker/Hermes. No idle-owner prompt contract is added.
+The same PM wire was independently rechecked at Workflow PR90
+`66e5d6db9fc2ae9129c9162688bacb1a98c7a4a3`; its runtime contract is unchanged
+from the pinned163a source. This is source evidence, not installed acceptance.
 Fleet persists the request before calling Tracker,
 derives stable per-operation command keys, and always reads authoritative Draft
 and reservation operations before retrying writes. The original title/description

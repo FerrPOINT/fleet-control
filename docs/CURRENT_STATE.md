@@ -8,11 +8,15 @@ remain authoritative for later completion.
 
 ## Source And Scope
 
-- Published integration `c7375f1f782d993f1e42441b2f1bfb234def9126` preserves main
+- Integration checkpoint `3a907ae5edb6c9325e240337e010c4150305c9ee` preserves main
   Chats safeguards, the dialogue/clarification/requirements UI and PM tools,
   continuation and shared stream/recovery. It adds owner stop/steer, delivered
   answer continuation recovery, reviewed compiler corrections and browser fixture
   corrections. Source review passes; it is not runtime acceptance.
+- Workflow Draft assignment alignment and bounded original-key PM unknown-ACK
+  recovery are integrated after independent review. They do not modify Hermes
+  or require the optional free-chat recovery extension. New Rust/PG/native
+  qualification remains required; prior codegen is for the earlier sourcef7d.
 - Independently frozen product `32b9f063f9b5099ff61bca24ecdfeb9952889034` is the
   source for the earlier backend run. Its result does not qualify PM integration.
 - Current PM integration includes authority021, PM022 and human controls023:
@@ -33,7 +37,7 @@ remain authoritative for later completion.
 | Rust OpenAPI          | Current sourcef7d [38044630680](https://github.com/FerrPOINT/fleet-control/actions/runs/38044630680) PASS; strict artifact11667646855 readback, schema SHA256 `e1b17e723abf43866c4f913c9fa4fba8b201bef5e3532b4a8f6cdc32ccbcce76`; saved schema and ignored TypeScript client regenerated                    | Full workspace/infra/test qualification remains; API generation is not runtime acceptance                                                                                    |
 | Backend, source d458  | [38045475100](https://github.com/FerrPOINT/fleet-control/actions/runs/38045475100), controls9565, terminal FAIL at check; strict artifact11667463613 identifies two E0599 test connection-clone errors; scratch/DB cleanup pass                                                                             | Both test errors corrected in c737; current-source compilation, isolated PG and all82 gates remain open                                                                      |
 | Frontend, source d458 | [38045832446](https://github.com/FerrPOINT/fleet-control/actions/runs/38045832446), controlsaa787, terminal FAIL after20 gates, including typecheck,411 units/38 files,lint,build,format; strict artifact11667649166 identifies history fixture at fleet-control.spec.ts:888                                | Scoped task-bound history fixture correction; all browser engines, fresh captures and visual acceptance remain open                                                          |
-| PM integration        | Shared stream/final/recovery, typed continuation, owner controls and delivered-pending recovery are integrated; human-control API codegen passes                                                                                                                                                            | Current Workflow163a Draft assignment consumer and bounded unknown-ACK recovery are in progress; PG/HTTP/live flow remains open                                              |
+| PM integration        | Shared stream/final/recovery, typed continuation, owner controls, Workflow Draft assignment alignment and bounded unknown-ACK replay are integrated after independent review                                                                                                                                | New current-source codegen, production submission CAS/ACK, PG/HTTP/native/live flow remain open                                                                              |
 | Forge                 | Exact controlsab623f1 [38043788156](https://github.com/FerrPOINT/CI-CD/actions/runs/38043788156) FAIL before cache allocation; strict artifact11667031292 readback: host free100599193600 < required108279229428 bytes; data/inode checks pass, all five first-job stages NOT_RUN, cleanup/daemon stop pass | Resolve measured environment admission without claiming an OS disk-full error or lowering inherited budgets just to pass; physical per-stage proof and full12 receipt remain |
 | Base maintenance      | Draft [PR183](https://github.com/FerrPOINT/services-base/pull/183), exact43d0205;92 focused checks; run38030482035 has10 no-runner/no-step jobs with billing/spending-limit annotations                                                                                                                     | Private CI has not tested this head; native installation and consumer acceptance remain; no installed packet promotion                                                       |
 
