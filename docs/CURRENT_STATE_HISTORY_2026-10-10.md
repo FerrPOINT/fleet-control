@@ -7,6 +7,19 @@ identities, receipts and limitations are retained; no result is upgraded here.
 
 ## Superseded PM Qualification Attempts
 
+- Backend sourced458, controls9565: [38045475100](https://github.com/FerrPOINT/fleet-control/actions/runs/38045475100)
+  failed check. Strict artifact11667463613 identified two E0599 test connection
+  clone errors; scratch/DB cleanup passed. Sourcec737 corrected them; laterc59
+  passing compilation does not change this failed receipt or qualify PostgreSQL.
+- Frontend sourced458, controlsaa787: [38045832446](https://github.com/FerrPOINT/fleet-control/actions/runs/38045832446)
+  failed after20 gates including typecheck,411 units/38 files,lint,build,format.
+  Strict artifact11667649166 identified the history fixture declaration at
+  fleet-control.spec.ts:888. Its later task-bound setup correction does not
+  retroactively accept this attempt, other engines or fresh captures.
+- Base source43d0205: [38030482035](https://github.com/FerrPOINT/services-base/actions/runs/38030482035)
+  had10 failed jobs without runner/steps and explicit billing/spending-limit
+  annotations. Normal merge63e7a77 and docs child6602c63 preserve its helper blobs;
+  later CI has the same pre-execution blocker, not successful private CI.
 - Backend sourcefacb, controls0d: [38041711484](https://github.com/FerrPOINT/fleet-control/actions/runs/38041711484)
   failed workspace check. Strict artifact11666431970 identified13 Rust compiler
   diagnostics; scratch/DB cleanup passed. Subsequent source fixes are not a
@@ -27,13 +40,13 @@ preservation review confirms all58 main-only changes,150 frontend files and
 historical migration blobs. Authority021 precedes PM022: canonical23/split26.
 PM logic, compilation and live acceptance are not established by that review.
 
-| Scope | Current evidence | Remaining gate |
-| --- | --- | --- |
-| Rust OpenAPI, source32b9 | [run38036399848](https://github.com/FerrPOINT/fleet-control/actions/runs/38036399848) PASS; authenticated artifact11664003013, schema `ac545326e9b4ffca4378aee0aaaf9c2dd8c75faf02deb868cda0c87d7764b85a` equals committed schema | Not PM candidate codegen or full backend acceptance |
-| Frontend, source32b9 | [run38036497333](https://github.com/FerrPOINT/fleet-control/actions/runs/38036497333): typecheck, default unit stage, lint, compatibility, build and formatting PASS; focused local102/102 PASS | FAIL: fixture stage reaches1200-second timeout. Authenticated failure artifact11665170160 has no completed browser report or assertion locations; cleanup passes. Browser/capture/visual acceptance remains open |
-| Backend, source32b9 | [run38037641800](https://github.com/FerrPOINT/fleet-control/actions/runs/38037641800), controls6f23fd84, executing81 gates; actual inventory348 ordinary/169 ignored, activation PG14, migrations22/25 | Authority INSERT repair021 not yet verified by a successful PG receipt |
-| PM candidate3b234a1 | Ordinary unchanged Hermes `/v1/runs`, six scoped MCP tools, saved-answer continuation, sole owned PM migration022; rustfmt/source checks pass | Streaming/final persistence/restart attachment, owner composer/controls and delivered-answer resume visibility are being completed; authored Rust/PG/HTTP cases unexecuted |
-| Forge | [run38037085181](https://github.com/FerrPOINT/CI-CD/actions/runs/38037085181), controlseb91d4f, fails at manager bootstrap; authenticated artifact11663449669; all five first-job stages NOT_RUN, cleanup and daemon stop pass | Supported systemd delegation setup, physical CPU/memory/PID readback and full12 acceptance |
+| Scope                    | Current evidence                                                                                                                                                                                                                 | Remaining gate                                                                                                                                                                                                   |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rust OpenAPI, source32b9 | [run38036399848](https://github.com/FerrPOINT/fleet-control/actions/runs/38036399848) PASS; authenticated artifact11664003013, schema `ac545326e9b4ffca4378aee0aaaf9c2dd8c75faf02deb868cda0c87d7764b85a` equals committed schema | Not PM candidate codegen or full backend acceptance                                                                                                                                                              |
+| Frontend, source32b9     | [run38036497333](https://github.com/FerrPOINT/fleet-control/actions/runs/38036497333): typecheck, default unit stage, lint, compatibility, build and formatting PASS; focused local102/102 PASS                                  | FAIL: fixture stage reaches1200-second timeout. Authenticated failure artifact11665170160 has no completed browser report or assertion locations; cleanup passes. Browser/capture/visual acceptance remains open |
+| Backend, source32b9      | [run38037641800](https://github.com/FerrPOINT/fleet-control/actions/runs/38037641800), controls6f23fd84, executing81 gates; actual inventory348 ordinary/169 ignored, activation PG14, migrations22/25                           | Authority INSERT repair021 not yet verified by a successful PG receipt                                                                                                                                           |
+| PM candidate3b234a1      | Ordinary unchanged Hermes `/v1/runs`, six scoped MCP tools, saved-answer continuation, sole owned PM migration022; rustfmt/source checks pass                                                                                    | Streaming/final persistence/restart attachment, owner composer/controls and delivered-answer resume visibility are being completed; authored Rust/PG/HTTP cases unexecuted                                       |
+| Forge                    | [run38037085181](https://github.com/FerrPOINT/CI-CD/actions/runs/38037085181), controlseb91d4f, fails at manager bootstrap; authenticated artifact11663449669; all five first-job stages NOT_RUN, cleanup and daemon stop pass   | Supported systemd delegation setup, physical CPU/memory/PID readback and full12 acceptance                                                                                                                       |
 
 OpenAPI artifact ZIP SHA256:
 `73d381e51080ddfce4c24b49d265db13584412fb614bc91fd4191ea38acf1860`.
@@ -245,16 +258,16 @@ socket fixture correction is prepared in1303be6; reviewed successor38018281445
 is in progress. The newer assembly is **not
 merge-ready or live SDLC accepted**. Historical evidence qualifies only its own head.
 
-| Current gate | Exact source / authority | State |
-| --- | --- | --- |
-| Combined backend | Sourcee369fed, controlseb214954, run38021438217 |81-stage gate active; prior1303 approval_recovery failure authenticated, correction not yet product-qualified |
-| Config release PR64 | Head820a1af, normally merged into candidate8c93f43 | Separate five-job PASS; combined Rust/PG acceptance pending |
-| Union API/client | Source8c93f43, workflow5e57d5b, run38015043570 | Authenticated codegen PASS; typecheck/drift/compatibility PASS, not runtime acceptance |
-| Production Chats presentation | Integratedf2e8495; earlier hostedba60890/sourceb0 fails38019603974 |348/348 unit tests in36 files pass with threads; new browser fixtures and full hosted successor pending, not live PM |
-| Narrow C11 credential candidate | Product994f29d, controlsc5ee9bc, run38021888246 | Published28-stage gate created; parent309-input verification and99 Linux control tests pass, actual backend/Auth/PG result pending |
-| PM model admission | `app::pm_draft` creation and scoped credential preparation | Stops at awaiting_admission; no pre-model execution authority |
-| Forge full12 | Public-safe controls1dbedf8, maintenance pin commit null | Cannot start acceptance without published qualified Base inputs |
-| Physical runtimes | Reviewed Docker/config/recovery source | Exact images and actual native lifecycle remain unaccepted |
+| Current gate                    | Exact source / authority                                           | State                                                                                                                              |
+| ------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Combined backend                | Sourcee369fed, controlseb214954, run38021438217                    | 81-stage gate active; prior1303 approval_recovery failure authenticated, correction not yet product-qualified                      |
+| Config release PR64             | Head820a1af, normally merged into candidate8c93f43                 | Separate five-job PASS; combined Rust/PG acceptance pending                                                                        |
+| Union API/client                | Source8c93f43, workflow5e57d5b, run38015043570                     | Authenticated codegen PASS; typecheck/drift/compatibility PASS, not runtime acceptance                                             |
+| Production Chats presentation   | Integratedf2e8495; earlier hostedba60890/sourceb0 fails38019603974 | 348/348 unit tests in36 files pass with threads; new browser fixtures and full hosted successor pending, not live PM               |
+| Narrow C11 credential candidate | Product994f29d, controlsc5ee9bc, run38021888246                    | Published28-stage gate created; parent309-input verification and99 Linux control tests pass, actual backend/Auth/PG result pending |
+| PM model admission              | `app::pm_draft` creation and scoped credential preparation         | Stops at awaiting_admission; no pre-model execution authority                                                                      |
+| Forge full12                    | Public-safe controls1dbedf8, maintenance pin commit null           | Cannot start acceptance without published qualified Base inputs                                                                    |
+| Physical runtimes               | Reviewed Docker/config/recovery source                             | Exact images and actual native lifecycle remain unaccepted                                                                         |
 
 The run states are publication checkpoints, not live status widgets. Terminal
 results must be authenticated before changing acceptance. Documentation-only

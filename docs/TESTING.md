@@ -1,5 +1,33 @@
 # Testing
 
+## PM Unknown-ACK Production Submission Regression
+
+The three Linux-only tests in
+`backend/infra/src/runtime/pm_recovery_pg_tests.rs` exercise the production
+prepare/submit functions and PostgreSQL command journal:
+
+- Lost ACK followed by repository reload retains the original key, body and
+  replay deadline; the original native ACK is persisted without a second effect.
+- Concurrent submissions through separate connections converge on one native
+  effect and reject a conflicting ACK.
+- Changing the current derived runtime token rejects replay before another POST.
+
+Run explicitly against a disposable database named `fleet_*_test`:
+
+```bash
+cargo test --locked -p infra --lib runtime::pm_recovery::tests::pg:: -- --ignored --test-threads=1
+```
+
+Set `FLEET_TEST_DATABASE_URL`, `FLEET_TEST_BASE_UTILITY_CHECKOUT` to canonical
+utility9b sources, and `FLEET_PM_RECOVERY_TEST_HOST` to an owned, bindable private
+IPv4 address. Loopback does not satisfy the production endpoint guard. The full
+backend gate must require exactly three passing tests, not merely their presence
+in the ignored inventory. Its predecessor has82 stages; this adds a mandatory83rd.
+
+The HTTP peer and process boundary are controlled fixtures. These cases do not
+prove physical Docker/Hermes restart, real model inference, Tracker admission or
+Workflow authority. Source review and rustfmt pass; Rust/PG execution is pending.
+
 ## PM Human Controls Candidate
 
 Current qualification must execute the five isolated PG/HTTP tests in
@@ -64,7 +92,10 @@ clean pinned Hermes checkout and executes 24 cases: 8 real Python extension/nati
 context probes plus 16 synthetic contract tests. It performs no model, network,
 Docker, Cargo or activation; measured host Python dependencies are not a qualified
 Hermes venv. The [handoff requirements](contracts/PM_TOOLS_HANDOFF_REQUIREMENTS.md)
-retain producer pre-model barrier, identity and credential-custody blockers.
+retain historical producer-hook proposals; the current
+[runtime scope decision](contracts/CHAT_CLARIFICATION_CONTRACT.md#runtime-scope-decision-2026-10-10)
+supersedes the custom pre-model barrier. Ordinary identity and scoped credential
+checks remain required in Fleet and its producer services.
 Offline PASS never grants task admission or proves production runtime readiness.
 The runner successor separately tests 28 synthetic receipt/batch/cleanup/deadline cases;
 exit0 alone cannot grant PASS. The retained dc6ab 90-second rerun timeout remains
@@ -224,6 +255,7 @@ credentials migration. This correction is formatted, not yet Linux/PG verified.
 The credential-migration, smoke, OpenAPI and final parity stages did not run;
 all10 independent cleanup/input parity checks passed and permanent runtime was
 unchanged. Full acceptance waits for current-main reconciliation and a fresh gate.
+
 ## Credential Qualification Successor
 
 The credential successor adds one coordinator unit case, five PostgreSQL cases

@@ -15,9 +15,9 @@ import zipfile
 
 REPOSITORY = "FerrPOINT/fleet-control"
 BRANCH = "build-only/fleet-openapi-pm-union-20261010"
-SOURCE_SHA = "4449a3b1cdd915e265543a24054506f15385393d"
-SOURCE_PARENTS = ["daa2b11c6019154041db7b05bc244555c656b282"]
-SOURCE_TREE = "97c13141fb4829e001ca3b456163f0bac3481d63"
+SOURCE_SHA = "3c900b00f15aeda2016a45d080d850fa028cdcfd"
+SOURCE_PARENTS = ["ad2b6ac1a2d4f286edd00eeb1e1ecc137c1f3223"]
+SOURCE_TREE = "b975beb628bb68c03fb5bce45e7c43085837e41f"
 SOURCE_BLOBS = {
     ".base-revision": "1716308f859d23508a6ca0bae105434221c00419",
     "backend/Cargo.lock": "1f2a6fee32bf3dabedafc3927c56c286e14c6daf",
@@ -29,14 +29,15 @@ SOURCE_BLOBS = {
     "backend/api/src/routes/agents.rs": "f512a6f5e4a0fb2c5e86e9c64fca8d827bb828da",
     "backend/domain/src/lib.rs": "2a397f3aa00db7ae1d31cf65a2e9bb66a080c7cf",
     "backend/api/src/routes/sessions.rs": "a66dd4165c8d44fef9277325f0b479b8eadfd660",
+    "backend/api/src/routes/task_chats.rs": "4db07a426b6f7d38e518bd2adc0e28b6067bbdbe",
 }
 BASE_SHA = "19a7a381ae6dbea61a643bb96189e483fa64df5c"
 QUALIFIED_EXPORT = {
     "base_lock_sha256": "9712da389d3bdc3224fb5185011814b14993a5341250ffd93a6bd8d2cdc1c235",
     "base_tree": "aa1a0486af1922c5a7fd4471e71e4fbb6aa4c7cc",
     "fleet_lock_sha256": "7ca269c7cd50cd0e9f0ca9173630353a231bf718004181e6f08bd97f495edb78",
-    "source_file_count": 302,
-    "source_inventory_sha256": "4d5bc64110ddb90aa903bef30a0c3717f4f5eb1d62d81cbb59c0b9594e8a14c1"
+    "source_file_count": 303,
+    "source_inventory_sha256": "4ab1c70324a3b184096a69ed1dbdd72bcbf5f993fbdc1ecc6b01fb643f650457"
 }
 WORKFLOW = ".github/workflows/openapi-codegen-build-only.yml"
 WRITE_SET = {WORKFLOW, "scripts/openapi_codegen.py", "scripts/tests/test_openapi_codegen.py"}
