@@ -160,6 +160,19 @@ assignment bind and PM bind, obtains first-step instructions and sends ordinary
 runtime guidance. Native first-step evidence is not a predispatch prerequisite;
 no Hermes pre-model hook or reserved-run handshake is required.
 
+Before a new Fleet-mediated PM question/revision publication claim, the current
+run must have a validated instruction response in the existing `workflow_step`
+tool journal. Initial dispatch records its real first-step response under the
+original key; continuation must obtain its own `workflow_step(report: null)`
+response after verified rebind. Old-run receipts and guidance flags do not
+substitute for this proof, and old journals are not backfilled. Instruction-only
+network uncertainty may repeat the frozen READ body with fresh authority; this
+is not Workflow's durable report replay. Concurrent publication cannot claim
+before the receipt is stored. Existing publication receipt/readback recovery,
+read tools, owner answers and Stop remain independent. This guarantees validated
+instructions before Fleet-mediated publish, not delivery/readership by the model,
+model-access authorization, or a barrier before model execution/external work.
+
 Wait captures an execution checkpoint. Resume requires terminal readback of the old
 run; a Stop ACK alone does not release capacity. Saved-answer delivery and continuation
 confirmation remain separate. Continuation verifies the original checkpoint,

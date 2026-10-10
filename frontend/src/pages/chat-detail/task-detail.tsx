@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useBlocker, useParams, useSearchParams } from 'react-router'
+import { Link, useBlocker, useNavigationType, useParams, useSearchParams } from 'react-router'
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowDown,
@@ -88,6 +88,7 @@ export function TaskChatDetailPage() {
 function ChatWorkspace({ id }: { id: string }) {
   const { t } = useTranslation()
   const [params, setParams] = useSearchParams()
+  const navigationType = useNavigationType()
   const client = useQueryClient()
   const token = useAuthStore((state) => state.token)
   const userId = useAuthStore((state) => state.userId)
@@ -180,14 +181,14 @@ function ChatWorkspace({ id }: { id: string }) {
   useEffect(() => {
     if (previousTab.current === tab) return
     previousTab.current = tab
-    // Wait for the previous Base tab panel to unmount before restoring lost focus.
+    // History restores the selected tab even if Base retains focus in the old panel.
     const frame = requestAnimationFrame(() => {
-      if (document.activeElement === document.body) {
+      if (navigationType === 'POP' || document.activeElement === document.body) {
         tabList.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus()
       }
     })
     return () => cancelAnimationFrame(frame)
-  }, [tab])
+  }, [tab, navigationType])
   const draft = drafts[questionKey] ?? { selected: [], text: '', comment: '', key: '' }
   const dirty =
     Boolean(body.trim()) ||

@@ -43,7 +43,8 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
         assigned["concrete_agent_ref"] = json!(reservation.identity.agent_ref);
         assigned["bind_operation_key"] = json!(format!("fleet-pm-runtime-bind:{}", op.id));
         let phase_state = Arc::new(Mutex::new(
-            json!({"phase":"PM-DRAFT-01","status":"active","blocked_body":null}),
+            json!({"phase":"PM-DRAFT-01","status":"active","blocked_body":null,
+                "instruction_fault":null,"lost_instruction_body":null}),
         ));
         let ledger = Arc::new(Mutex::new(
             json!({"contract_version":1,"identity":reservation.identity,"state":"active","version":1,"fence":1,
@@ -107,8 +108,19 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
                             return (StatusCode::SERVICE_UNAVAILABLE,Json(json!({"error":"committed response lost"}))).into_response();
                         }
                         assert!(body.get("report").is_none());
+                        if phase["instruction_fault"]=="lost-once" {
+                            phase["instruction_fault"]=Value::Null;
+                            phase["lost_instruction_body"]=body;
+                            return (StatusCode::SERVICE_UNAVAILABLE,Json(json!({"error":"instruction response lost"}))).into_response();
+                        }
+                        if body["step_operation_key"]=="initial-instructions" && !phase["lost_instruction_body"].is_null() {
+                            assert_eq!(body,phase["lost_instruction_body"],"instruction READ repeats only the frozen original body");
+                        }
+                        let task_key=if phase["instruction_fault"]=="wrong-task-once" {
+                            phase["instruction_fault"]=Value::Null;json!("FOREIGN-1")
+                        } else {json!(reservation.identity.task)};
                         return Json(json!({"ok":true,"exit_code":0,"output":"Current phase instructions","result":{"ok":true,
-                            "task_key":reservation.identity.task,"phase_code":phase["phase"],"status":phase["status"],
+                            "task_key":task_key,"phase_code":phase["phase"],"status":phase["status"],
                             "instructions":"Current phase instructions","phase_contract":{},"workflow_id":1,"mode_id":2,"mode_key":"draft","cycle_number":0}})).into_response();
                     }
                     let mut snapshot=ledger.lock().await;
@@ -398,6 +410,200 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
             "agent_id":op.request.agent_id,"assignment_version":1});
         let document = json!({"goal":"Owner goal","scope":["bounded"],"exclusions":[],"scenarios":[],"acceptance_criteria":["criterion"],"constraints":[],"dependencies":[],"assumptions":[],"checklist":[],"prerequisites":[]});
         let revision = json!({"fence":fence,"expected_requirement_revision":null,"document":document,"idempotency_key":"original-revision"});
+        let publish = json!({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"tracker_publish_revision",
+            "arguments":{"operation_id":op.id,"session_run_id":op.id,"command":revision}}});
+        let (left, right) = tokio::join!(
+            client
+                .post(&endpoint)
+                .bearer_auth(&native)
+                .json(&publish)
+                .send(),
+            client
+                .post(&endpoint)
+                .bearer_auth(&native)
+                .json(&publish)
+                .send()
+        );
+        for response in [left.unwrap(), right.unwrap()] {
+            let response: Value = response.json().await.unwrap();
+            assert_eq!(response["result"]["isError"], true);
+        }
+        assert!(
+            fixture.remote.revisions.lock().await.is_empty(),
+            "no publish before real instruction proof"
+        );
+        phase_state.lock().await["instruction_fault"] = json!("wrong-task-once");
+        assert!(
+            runtime
+                .call_pm_tool(
+                    op.request.agent_id,
+                    "workflow_step",
+                    PmToolCall {
+                        operation_id: op.id,
+                        session_run_id: op.id,
+                        command: json!({"step_operation_key":"invalid-instructions","report":null})
+                    }
+                )
+                .await
+                .is_err()
+        );
+        assert!(
+            fixture
+                .remote
+                .repo
+                .get_pm_tool(op.id, "invalid-instructions")
+                .await
+                .unwrap()
+                .unwrap()
+                .result
+                .is_none()
+        );
+        assert!(
+            !fixture
+                .remote
+                .repo
+                .claim_pm_tool(op.id, "original-revision")
+                .await
+                .unwrap()
+        );
+        let instruction_call = PmToolCall {
+            operation_id: op.id,
+            session_run_id: op.id,
+            command: json!({"step_operation_key":"initial-instructions","report":null}),
+        };
+        phase_state.lock().await["instruction_fault"] = json!("lost-once");
+        assert!(
+            runtime
+                .call_pm_tool(
+                    op.request.agent_id,
+                    "workflow_step",
+                    instruction_call.clone()
+                )
+                .await
+                .is_err()
+        );
+        let unknown = fixture
+            .remote
+            .repo
+            .get_pm_tool(op.id, "initial-instructions")
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(unknown.attempted && unknown.result.is_none());
+        assert!(
+            !fixture
+                .remote
+                .repo
+                .claim_pm_tool(op.id, "original-revision")
+                .await
+                .unwrap()
+        );
+        let restarted_repo = Arc::new(PostgresFleetRepository::new(
+            sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+                .await
+                .unwrap(),
+        ));
+        let (restart_events, _) = tokio::sync::broadcast::channel(32);
+        let restarted = infra::runtime::LocalRuntimeSupervisor::new(
+            Arc::new(fixture.config.clone()),
+            restarted_repo.clone(),
+            restart_events,
+        );
+        db.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE agent_config_heads SET draining=true WHERE agent_id=$1",
+            [op.request.agent_id.into()],
+        ))
+        .await
+        .unwrap();
+        assert!(
+            restarted
+                .call_pm_tool(
+                    op.request.agent_id,
+                    "workflow_step",
+                    instruction_call.clone()
+                )
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            calls
+                .lock()
+                .await
+                .iter()
+                .filter(|call| call.as_str() == "POST /internal/runtime/step")
+                .count(),
+            2,
+            "safe READ repeat still requires fresh current config authority"
+        );
+        db.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE agent_config_heads SET draining=false WHERE agent_id=$1",
+            [op.request.agent_id.into()],
+        ))
+        .await
+        .unwrap();
+        let instructions = restarted
+            .call_pm_tool(
+                op.request.agent_id,
+                "workflow_step",
+                instruction_call.clone(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            instructions["result"]["instructions"],
+            "Current phase instructions"
+        );
+        let confirmed = restarted_repo
+            .get_pm_tool(op.id, "initial-instructions")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(confirmed.request, unknown.request);
+        assert_eq!(confirmed.result, Some(instructions.clone()));
+        let before = calls
+            .lock()
+            .await
+            .iter()
+            .filter(|call| call.as_str() == "POST /internal/runtime/step")
+            .count();
+        assert_eq!(
+            before, 3,
+            "one rejected instruction response, one lost safe READ and one exact frozen READ after restart"
+        );
+        assert_eq!(
+            restarted
+                .call_pm_tool(op.request.agent_id, "workflow_step", instruction_call)
+                .await
+                .unwrap(),
+            instructions
+        );
+        assert_eq!(
+            calls
+                .lock()
+                .await
+                .iter()
+                .filter(|call| call.as_str() == "POST /internal/runtime/step")
+                .count(),
+            before
+        );
+        let delivered: bool = db
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT guidance_delivered FROM pm_dispatch_journal WHERE session_run_id=$1",
+                [op.id.into()],
+            ))
+            .await
+            .unwrap()
+            .unwrap()
+            .try_get("", "guidance_delivered")
+            .unwrap();
+        assert!(
+            !delivered,
+            "validated instructions are not steer delivery to the model"
+        );
+        let bootstrap_reads = before;
         for _ in 0..2 {
             let response:Value=client.post(&endpoint).bearer_auth(&native).json(&json!({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"tracker_publish_revision",
             "arguments":{"operation_id":op.id,"session_run_id":op.id,"command":revision}}})).send().await.unwrap().json().await.unwrap();
@@ -480,7 +686,8 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
                 before
             );
             assert_eq!(
-                before, 4,
+                before - bootstrap_reads,
+                4,
                 "advance + instructions + lost ACK + exact replay; cached replay is local"
             );
             let saved = fixture
@@ -589,6 +796,29 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
                 .unwrap()
                 .parse()
                 .unwrap();
+            let mut continuation_revision = revision.clone();
+            continuation_revision["expected_requirement_revision"] = json!(1);
+            continuation_revision["idempotency_key"] = json!("continuation-revision");
+            let continuation_publish = PmToolCall {
+                operation_id: resumed.id,
+                session_run_id: current,
+                command: continuation_revision,
+            };
+            assert!(
+                runtime
+                    .call_pm_tool(
+                        op.request.agent_id,
+                        "tracker_publish_revision",
+                        continuation_publish.clone()
+                    )
+                    .await
+                    .is_err()
+            );
+            assert_eq!(
+                fixture.remote.revisions.lock().await.len(),
+                1,
+                "old run instruction proof cannot admit continuation publication"
+            );
             let instructions = runtime
                 .call_pm_tool(
                     op.request.agent_id,
@@ -603,6 +833,47 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
                 .unwrap();
             assert_eq!(instructions["result"]["phase_code"], "PM-DRAFT-02");
             assert_ne!(current, op.id, "PM rebind must use the new native run");
+            assert!(
+                fixture
+                    .remote
+                    .repo
+                    .get_pm_tool(current, "initial-instructions")
+                    .await
+                    .unwrap()
+                    .is_none()
+            );
+            assert!(
+                fixture
+                    .remote
+                    .repo
+                    .get_pm_tool(current, "instructions-after-rebind")
+                    .await
+                    .unwrap()
+                    .unwrap()
+                    .result
+                    .is_some()
+            );
+            runtime
+                .call_pm_tool(
+                    op.request.agent_id,
+                    "tracker_publish_revision",
+                    continuation_publish.clone(),
+                )
+                .await
+                .unwrap();
+            runtime
+                .call_pm_tool(
+                    op.request.agent_id,
+                    "tracker_publish_revision",
+                    continuation_publish,
+                )
+                .await
+                .unwrap();
+            assert_eq!(
+                fixture.remote.revisions.lock().await.len(),
+                2,
+                "new run proof permits one original publication and its receipt replay"
+            );
         }
         let requests = calls.lock().await;
         assert_eq!(
