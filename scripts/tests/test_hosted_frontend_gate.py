@@ -82,7 +82,7 @@ def readback_metadata(payload):
                head_sha="a" * 40, head_branch=gate.BRANCH, path=gate.WORKFLOW,
                repository=dict(full_name=gate.REPOSITORY))
     artifact = dict(id=456, expired=False, workflow_run=dict(id=123, head_sha="a" * 40, head_branch=gate.BRANCH),
-                    name="fleet-frontend-b0ad56c-123-2", digest="sha256:" + gate.digest(payload))
+                    name="fleet-frontend-chats-123-2", digest="sha256:" + gate.digest(payload))
     return run, artifact
 
 
@@ -127,10 +127,17 @@ class SourceContracts(unittest.TestCase):
 
     def test_exact_two_parent_tuple(self):
         gate.validate_source_tuple(gate.SOURCE_SHA, gate.SOURCE_TREE, gate.SOURCE_PARENTS)
-        for parents in (gate.SOURCE_PARENTS[:1], list(reversed(gate.SOURCE_PARENTS)),
-                        gate.SOURCE_PARENTS + ["f" * 40], ["f" * 40, gate.SOURCE_PARENTS[1]]):
+        for parents in ([], ["f" * 40], gate.SOURCE_PARENTS + ["f" * 40]):
             with self.subTest(parents=parents), self.assertRaises(ValueError):
                 gate.validate_source_tuple(gate.SOURCE_SHA, gate.SOURCE_TREE, parents)
+        # Retain ordered merge-parent coverage even though this source has one parent.
+        merge_parents = ["1" * 40, "2" * 40]
+        with patch.object(gate, "SOURCE_PARENTS", merge_parents):
+            gate.validate_source_tuple(gate.SOURCE_SHA, gate.SOURCE_TREE, merge_parents)
+            for parents in (merge_parents[:1], list(reversed(merge_parents)),
+                            merge_parents + ["f" * 40], ["f" * 40, merge_parents[1]]):
+                with self.subTest(parents=parents), self.assertRaises(ValueError):
+                    gate.validate_source_tuple(gate.SOURCE_SHA, gate.SOURCE_TREE, parents)
 
     def test_wrong_commit_or_tree(self):
         for sha, tree in (("f" * 40, gate.SOURCE_TREE), (gate.SOURCE_SHA, "f" * 40)):
@@ -193,7 +200,8 @@ class CompletionContracts(unittest.TestCase):
                          dict(files_passed=2, tests_passed=8, files_skipped=0, tests_skipped=1))
 
     def test_exact_frozen_baseline_counts(self):
-        self.assertEqual(gate.unit_counts(b"Test Files 36 passed (36)\nTests 337 passed (337)"), gate.QUALIFIED_UNIT_COUNTS)
+        self.assertEqual(gate.unit_counts(b"Test Files 36 passed (36)\nTests 348 passed (348)"), gate.QUALIFIED_UNIT_COUNTS)
+        self.assertNotEqual(gate.unit_counts(b"Test Files 36 passed (36)\nTests 337 passed (337)"), gate.QUALIFIED_UNIT_COUNTS)
         self.assertNotEqual(gate.unit_counts(b"Test Files 35 passed (35)\nTests 336 passed (336)"), gate.QUALIFIED_UNIT_COUNTS)
 
     @staticmethod
@@ -397,7 +405,7 @@ class EvidenceContracts(unittest.TestCase):
 
     def test_provenance_cannot_claim_live_acceptance_or_other_inputs(self):
         for key, value in (("all_sdlc_acceptance", True), ("live_pm_acceptance", True),
-                           ("live_runtime_acceptance", True), ("source_parents", gate.SOURCE_PARENTS[:1]),
+                           ("live_runtime_acceptance", True), ("source_parents", gate.SOURCE_PARENTS[:-1]),
                            ("schema_sha256", "874" + "0" * 61), ("base_sha", "f" * 40),
                            ("base_inventory_sha256", "0" * 64), ("gates", ["build"]),
                            ("build_file_count", 0), ("build_manifest_sha256", ""),
@@ -633,7 +641,7 @@ class FailureContracts(unittest.TestCase):
     def metadata(self, payload):
         run, artifact = readback_metadata(payload)
         run["conclusion"] = "failure"
-        artifact["name"] = "fleet-frontend-failure-b0ad56c-123-2"
+        artifact["name"] = "fleet-frontend-failure-chats-123-2"
         return run, artifact
 
     def readback(self, payload, run=None, artifact=None):

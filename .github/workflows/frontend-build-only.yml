@@ -2,7 +2,7 @@ name: Frontend Build Only
 
 on:
   push:
-    branches: [build-only/fleet-frontend-b0ad56c-20261010]
+    branches: [build-only/frontend-chats-successor-20261010]
 
 permissions:
   contents: read
@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   frontend:
-    if: github.repository == 'FerrPOINT/fleet-control' && github.event_name == 'push' && github.ref == 'refs/heads/build-only/fleet-frontend-b0ad56c-20261010' && github.event.deleted == false
+    if: github.repository == 'FerrPOINT/fleet-control' && github.event_name == 'push' && github.ref == 'refs/heads/build-only/frontend-chats-successor-20261010' && github.event.deleted == false
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     defaults:
@@ -37,10 +37,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 -B controls/scripts/hosted_frontend_gate.py preflight
-      - name: Check out exact product source including both parents
+      - name: Check out exact product source including parent history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # official v7
         with:
-          ref: b0ad56ca5a90a87b2b2d46c5bfbfc52c9c643d6d
+          ref: 5cc1fbb75f9096f10dc32250bf7bab5c36386f9c
           path: fleet-control
           fetch-depth: 0
           persist-credentials: false
@@ -115,7 +115,7 @@ jobs:
         id: artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # official v7
         with:
-          name: fleet-frontend-b0ad56c-${{ github.run_id }}-${{ github.run_attempt }}
+          name: fleet-frontend-chats-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/fleet-frontend-public
           if-no-files-found: error
           retention-days: 14
@@ -129,7 +129,7 @@ jobs:
         run: |
           set -euo pipefail
           {
-            printf 'Product source: `%s`\n\n' b0ad56ca5a90a87b2b2d46c5bfbfc52c9c643d6d
+            printf 'Product source: `%s`\n\n' 5cc1fbb75f9096f10dc32250bf7bab5c36386f9c
             printf 'Workflow commit: `%s`\n\n' "$GITHUB_SHA"
             printf 'Run/attempt: `%s/%s`\n\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
             printf 'Artifact ID: `%s`\n\n' "$ARTIFACT_ID"
@@ -143,7 +143,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # official v7
         with:
-          name: fleet-frontend-failure-b0ad56c-${{ github.run_id }}-${{ github.run_attempt }}
+          name: fleet-frontend-failure-chats-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/fleet-frontend-failure
           if-no-files-found: ignore
           retention-days: 14

@@ -16,11 +16,10 @@ import zipfile
 import zlib
 
 REPOSITORY = "FerrPOINT/fleet-control"
-BRANCH = "build-only/fleet-frontend-b0ad56c-20261010"
-SOURCE_SHA = "b0ad56ca5a90a87b2b2d46c5bfbfc52c9c643d6d"
-SOURCE_TREE = "8f3dff0c05234f5140cb9185c0b9fab4d913dcf1"
-SOURCE_PARENTS = ["c0513190b1802cddfd3c8ad26005634724326cd3",
-                  "ab222f0499de5d2394cff6d32af659bc3c94396e"]
+BRANCH = "build-only/frontend-chats-successor-20261010"
+SOURCE_SHA = "5cc1fbb75f9096f10dc32250bf7bab5c36386f9c"
+SOURCE_TREE = "a04eed56e712e9cda6bbe96bfdff0cd671e8d8d1"
+SOURCE_PARENTS = ["46c7bab9fed34d62fa4515949edc10f492383c42"]
 BASE_SHA = "19a7a381ae6dbea61a643bb96189e483fa64df5c"
 BASE_TREE = "aa1a0486af1922c5a7fd4471e71e4fbb6aa4c7cc"
 BASE_MATERIALIZED_FILES = {
@@ -34,9 +33,9 @@ WORKFLOW = ".github/workflows/frontend-build-only.yml"
 WRITE_SET = {WORKFLOW, "scripts/hosted_frontend_gate.py", "scripts/tests/test_hosted_frontend_gate.py"}
 NODE = "22.20.0"
 PNPM = "10.28.1"
-QUALIFIED_UNIT_COUNTS = dict(files_passed=36, tests_passed=337, files_skipped=0, tests_skipped=0)
+QUALIFIED_UNIT_COUNTS = dict(files_passed=36, tests_passed=348, files_skipped=0, tests_skipped=0)
 QUALIFIED_INPUTS = {
-    "source_inventory_sha256": "56a30e0ea610bf051ea82184be98201cb8891f2c5c43070f667d537c8a9f1a05",
+    "source_inventory_sha256": "738f30b0671b5b7cc602fbf849f60d6247da47b9db7b8b93f88187315df81558",
     "base_inventory_sha256": "437244f3861d17356cbe33162dceca877aea74d82dccae9b9b1a2915b62ee444",
     "frontend_lock_sha256": "37918d9d24852a14f24c43a593777e99d36e0e58de2e7b9a58a4415fd927fb67",
     "base_lock_sha256": "149adc7015cd1b7fa1d093e5501156ed6e149efbc82b222c82a2797912261fb4",
@@ -152,7 +151,7 @@ def git(root, *args):
 
 def validate_source_tuple(commit, tree, parents):
     require((commit, tree, parents) == (SOURCE_SHA, SOURCE_TREE, SOURCE_PARENTS),
-            "Exact source commit/tree/two-parent tuple mismatch")
+            "Exact source commit/tree/parent tuple mismatch")
 
 
 def qualify_source(root):
@@ -786,7 +785,7 @@ def validate_readback(run, artifact, payload, *, run_id, attempt, workflow_sha, 
     require(artifact["id"] == artifact_id and artifact["expired"] is False
             and artifact["workflow_run"]["id"] == run_id and artifact["workflow_run"]["head_sha"] == workflow_sha
             and artifact["workflow_run"]["head_branch"] == BRANCH
-            and artifact["name"] == f"fleet-frontend-b0ad56c-{run_id}-{attempt}"
+            and artifact["name"] == f"fleet-frontend-chats-{run_id}-{attempt}"
             and artifact["digest"] == "sha256:" + artifact_digest and digest(payload) == artifact_digest,
             "Artifact identity/digest mismatch")
     with zipfile.ZipFile(io.BytesIO(payload)) as archive:
@@ -844,7 +843,7 @@ def validate_failure_readback(run, artifact, payload, *, run_id, attempt, workfl
     require(artifact["id"] == artifact_id and artifact["expired"] is False
             and artifact["workflow_run"]["id"] == run_id and artifact["workflow_run"]["head_sha"] == workflow_sha
             and artifact["workflow_run"]["head_branch"] == BRANCH
-            and artifact["name"] == f"fleet-frontend-failure-b0ad56c-{run_id}-{attempt}"
+            and artifact["name"] == f"fleet-frontend-failure-chats-{run_id}-{attempt}"
             and artifact["digest"] == "sha256:" + artifact_digest and digest(payload) == artifact_digest,
             "Failure artifact identity/digest mismatch")
     with zipfile.ZipFile(io.BytesIO(payload)) as archive:
