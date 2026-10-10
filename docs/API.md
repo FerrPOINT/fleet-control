@@ -556,3 +556,63 @@ See [the source boundary](plans/2026-10-10-clarification-command-custody.md).
 ## Общая база
 
 Подключение версий, границы контрактов и проверки описаны в [BASE_INTEGRATION](BASE_INTEGRATION.md).
+
+## Configuration Foundation Release Candidate
+
+This packet extends foundation47 `8befcb6`; its own Linux tests and generated
+OpenAPI parity are still pending. It adds no migration and does not enable SDLC
+assignment, native admission or automatic dispatch.
+
+### Pinned Package Draft
+
+`POST /api/v1/agents/{agent_id}/config/base-package` requires an operator/admin.
+There is no request-controlled checkout or revision. The server reads regular Git
+blobs at Base `4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58` from
+`fleet.base_package_checkout`, independently of SDK `.base-revision`.
+All seven roles, fourteen skills, hashes and inventory are verified before a new
+draft freezes the concrete role instruction, allowlisted skills and fresh
+Workflow v3 mapping. Other skills are disabled in the draft; active files,
+effective head and runs are untouched. The protected revision response includes
+SOUL/skill content, as existing operator revision reads do; errors/audit do not.
+
+Missing checkout/package, wrong role/runtime/profile: `422`; changed desired
+revision/identity/drain: `409`; Workflow unavailable/denied: `503`.
+Validate, activation request, supervisor preflight and readiness re-read the
+[Workflow binding](contracts/SDLC_WORKFLOW_BINDING_V1.md). Package snapshots are
+reverified against Git, not trusted because they contain a proof JSON field.
+Preflight failure before mutation preserves the old head/files and releases drain;
+unverified rollback retains the existing fail-closed drain behavior.
+
+History remains latest-100; validation/activation use exact agent/revision lookup,
+and readiness loads the effective head directly. An older draft may validate but
+cannot activate unless it is the current desired validated revision.
+Role/namespace/workflow/product-role changes and rebind are fenced under the
+agent row lock against drain, unresolved runs and pending/dispatching/uncertain
+outbox work. Unchanged identity fields permit metadata-only updates when not draining.
+
+### Machine Configuration Observation
+
+`GET /internal/runtime/v1/agents/{agent_id}/configuration` is opt-in and outside
+human/browser authentication. Exactly one Authorization header is required before
+token parsing or HTTP. A fresh Base PAT introspection must identify the registered
+canonical subject, exactly one `fleet-control:read` scope and an allowed concrete
+agent UUID. Wildcards, write/duplicate scopes, revoked tokens and browser/local
+credentials fail closed; no user is created. Transport has no retry/redirect/proxy,
+identity encoding only, five-second timeout and 16 KiB response bound.
+
+The response contains public package proof, frozen Workflow mapping, agent/role,
+effective revision, observation UUID/time and blockers, with `Cache-Control: no-store`.
+It excludes SOUL/skill content, env values, paths and credentials. Git provenance,
+managed files and a fresh owner mapping must verify; agent/effective head are
+re-read to detect concurrent change/drain. Missing effective package/drain/change:
+`409`; invalid configuration or unavailable provenance/files/owner: `503`;
+missing/duplicate/invalid/revoked credential: `401`; foreign subject/scopes/agent:
+`403`. Disabled/invalid server authority returns `503` before authentication IO.
+
+For package snapshots, HOME skills must contain exactly the expected flat
+`<skill>/SKILL.md` files. Unattested support/scripts, flat Markdown, nested/case
+aliases, links/special entries and Unix hardlinks are rejected without mutation
+(maximum 4096 entries, 16 directory levels). Legacy non-package managed-file
+verification is unchanged. Project/external/plugin discovery and loaded native
+settings remain unverified. `runtime_ready=false` is unconditional: this is not an
+admission receipt, lease, assignment ACK or authority to dispatch.

@@ -52,6 +52,8 @@ mod hermes_protocol_fixture;
 #[path = "support/runtime_run_control.rs"]
 mod runtime_run_control;
 
+#[path = "support/base_package.rs"]
+mod base_package;
 #[path = "support/runtime_approval_recovery.rs"]
 mod runtime_approval_recovery;
 
@@ -87,6 +89,10 @@ async fn recovery_fixture() -> Option<(PostgresFleetRepository, Uuid, Uuid)> {
 }
 
 async fn agent(repo: &PostgresFleetRepository) -> Uuid {
+    agent_with_config(repo, &AppConfig::default()).await
+}
+
+async fn agent_with_config(repo: &PostgresFleetRepository, config: &AppConfig) -> Uuid {
     repo.ensure_runtime_templates().await.unwrap();
     let result = repo
         .create_agent(
@@ -103,7 +109,7 @@ async fn agent(repo: &PostgresFleetRepository) -> Uuid {
                 workflow_name: None,
                 executor_ids: vec![],
             },
-            &AppConfig::default(),
+            config,
         )
         .await
         .unwrap();
@@ -3168,7 +3174,7 @@ async fn unknown_dispatch_holds_agent_capacity_and_terminal_mirror_is_deduplicat
 }
 
 #[tokio::test]
-async fn readiness_http_does_not_trust_database_only_effective_revision() {
+async fn config_revision_readiness_http_uses_exact_heads_without_trusting_database_only_files() {
     let Some((repo, owner, _)) = fixture().await else {
         return;
     };
@@ -3218,6 +3224,51 @@ async fn readiness_http_does_not_trust_database_only_effective_revision() {
     repo.finish_config_activation(agent.id, revision.revision, None, true)
         .await
         .unwrap();
+    for skill in repo.list_agent_skills(agent.id).await.unwrap() {
+        if skill.state == domain::SkillState::Enabled {
+            repo.update_agent_skill(
+                agent.id,
+                skill.name,
+                domain::UpdateSkillRequest {
+                    state: skill.state,
+                    content: Some("Synthetic config-history regression skill".into()),
+                },
+            )
+            .await
+            .unwrap();
+        }
+    }
+    let old_draft = repo
+        .create_config_revision(agent.id, configuration(), owner)
+        .await
+        .unwrap();
+    for _ in 0..100 {
+        repo.create_config_revision(agent.id, configuration(), owner)
+            .await
+            .unwrap();
+    }
+    assert!(
+        repo.list_config_revisions(agent.id)
+            .await
+            .unwrap()
+            .iter()
+            .all(
+                |value| value.revision != revision.revision && value.revision != old_draft.revision
+            )
+    );
+    assert_eq!(
+        repo.get_config_revision(agent.id, old_draft.revision)
+            .await
+            .unwrap()
+            .revision,
+        old_draft.revision
+    );
+    let other_agent = self::agent(&repo).await;
+    assert!(
+        repo.get_config_revision(other_agent, old_draft.revision)
+            .await
+            .is_err()
+    );
     let repo = Arc::new(repo);
     let config = Arc::new(config);
     let (events, _) = tokio::sync::broadcast::channel(32);
@@ -3235,10 +3286,19 @@ async fn readiness_http_does_not_trust_database_only_effective_revision() {
         events,
         restart_tx,
     ));
-    let endpoint = axum::Router::new().route(
-        "/agents/{id}/readiness",
-        axum::routing::get(api::routes::agents::get_sdlc_readiness),
-    );
+    let endpoint = axum::Router::new()
+        .route(
+            "/agents/{id}/readiness",
+            axum::routing::get(api::routes::agents::get_sdlc_readiness),
+        )
+        .route(
+            "/agents/{id}/config/revisions/{revision}/validate",
+            axum::routing::post(api::routes::agents::validate_config_revision),
+        )
+        .route(
+            "/agents/{id}/config/revisions/{revision}/activate",
+            axum::routing::post(api::routes::agents::activate_config_revision),
+        );
     let router = axum::Router::new()
         .nest(
             "/operator",
@@ -3284,6 +3344,65 @@ async fn readiness_http_does_not_trust_database_only_effective_revision() {
     );
     assert!(!body.to_string().contains(root.to_str().unwrap()));
     assert!(!body.to_string().contains("readiness-test-runtime-secret"));
+    let revision_url = format!(
+        "{base}/operator/agents/{}/config/revisions/{}",
+        agent.id, old_draft.revision
+    );
+    let validated = client
+        .post(format!("{revision_url}/validate"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(validated.status(), reqwest::StatusCode::OK);
+    let validated: serde_json::Value = validated.json().await.unwrap();
+    assert_eq!(validated["revision"], old_draft.revision);
+    assert_eq!(validated["state"], "validated");
+    assert_eq!(validated["validation_errors"], serde_json::json!([]));
+    assert_eq!(
+        client
+            .post(format!("{revision_url}/activate"))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        reqwest::StatusCode::CONFLICT
+    );
+    for action in ["validate", "activate"] {
+        assert_eq!(
+            client
+                .post(format!(
+                    "{base}/operator/agents/{other_agent}/config/revisions/{}/{action}",
+                    old_draft.revision
+                ))
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            reqwest::StatusCode::NOT_FOUND
+        );
+        assert_eq!(
+            client
+                .post(format!(
+                    "{base}/user/agents/{}/config/revisions/{}/{action}",
+                    agent.id, old_draft.revision
+                ))
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            reqwest::StatusCode::FORBIDDEN
+        );
+    }
+    let refreshed: serde_json::Value = client
+        .get(format!("{base}/operator/agents/{}/readiness", agent.id))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(refreshed["effective_revision"], revision.revision);
+    assert_eq!(refreshed["ready_for_sdlc"], false);
     assert_eq!(
         client
             .get(format!("{base}/user/agents/{}/readiness", agent.id))
@@ -3378,6 +3497,167 @@ async fn config_revision_drains_runs_and_failed_rollback_stays_blocked() {
     assert!(revisions[0].draining);
     assert_eq!(revisions[0].state, "failed");
     assert!(revisions[1].is_effective);
+}
+
+#[tokio::test]
+async fn config_revision_identity_guard_fences_rebind_active_runs_and_unknown_dispatch() {
+    let Some((repo, owner, _)) = fixture().await else {
+        return;
+    };
+    let agent_id = agent(&repo).await;
+    let namespace = domain::WorkflowNamespaceCatalogEntry {
+        id: "42".into(),
+        name: "hermes-developer".into(),
+        workflow_id: "17".into(),
+    };
+    let workflow = domain::WorkflowCatalogEntry {
+        id: "17".into(),
+        name: "Developer".into(),
+    };
+    let original = repo
+        .rebind_workflow_binding(agent_id, namespace.clone(), workflow.clone())
+        .await
+        .unwrap();
+    let mut replacement = namespace.clone();
+    replacement.id = "43".into();
+    let patch: domain::UpdateAgentRequest = serde_json::from_value(serde_json::json!({
+        "sdlc_role": "tester", "namespace_id": "43", "workflow_id": "18"
+    }))
+    .unwrap();
+    let session = repo
+        .create_session(chat(agent_id, "rebind-guard"), owner)
+        .await
+        .unwrap();
+    let run = repo
+        .prepare_session_agent_run(
+            session.id,
+            agent_id,
+            SessionRunRole::Primary,
+            "fleet:rebind".into(),
+        )
+        .await
+        .unwrap();
+    for state in [
+        SessionRunState::Pending,
+        SessionRunState::Running,
+        SessionRunState::Waiting,
+        SessionRunState::Stopping,
+    ] {
+        repo.update_session_agent_run_dispatch(run.id, None, state, None)
+            .await
+            .unwrap();
+        assert!(matches!(
+            repo.rebind_workflow_binding(agent_id, replacement.clone(), workflow.clone())
+                .await,
+            Err(shared::AppError::Conflict(_))
+        ));
+        assert!(matches!(
+            repo.update_agent(agent_id, patch.clone()).await,
+            Err(shared::AppError::Conflict(_))
+        ));
+    }
+    let label: domain::UpdateAgentRequest = serde_json::from_value(serde_json::json!({
+        "display_name": "New label", "product_role": "executor", "role": "developer",
+        "sdlc_role": "developer", "namespace_id": "42", "workflow_id": "17"
+    }))
+    .unwrap();
+    repo.update_agent(agent_id, label).await.unwrap();
+    repo.update_session_agent_run_dispatch(run.id, None, SessionRunState::Cancelled, None)
+        .await
+        .unwrap();
+    let message = repo
+        .create_session_message(session.id, prompt("rebind-uncertain"), owner)
+        .await
+        .unwrap();
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    for state in ["pending", "dispatching", "uncertain"] {
+        db.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE message_dispatch_outbox SET state=$2 WHERE message_id=$1",
+            [message.id.into(), state.into()],
+        ))
+        .await
+        .unwrap();
+        assert!(matches!(
+            repo.rebind_workflow_binding(agent_id, replacement.clone(), workflow.clone())
+                .await,
+            Err(shared::AppError::Conflict(_))
+        ));
+        assert!(matches!(
+            repo.update_agent(agent_id, patch.clone()).await,
+            Err(shared::AppError::Conflict(_))
+        ));
+    }
+    db.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE message_dispatch_outbox SET state='failed' WHERE message_id=$1",
+        [message.id.into()],
+    ))
+    .await
+    .unwrap();
+    let draft = repo
+        .create_config_revision(agent_id, configuration(), owner)
+        .await
+        .unwrap();
+    repo.validate_config_revision(agent_id, draft.revision, vec![])
+        .await
+        .unwrap();
+    let txn = db.begin().await.unwrap();
+    txn.query_one(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT id FROM agents WHERE id=$1 FOR UPDATE",
+        [agent_id.into()],
+    ))
+    .await
+    .unwrap();
+    let repo = Arc::new(repo);
+    let worker = repo.clone();
+    let next_namespace = replacement.clone();
+    let next_workflow = workflow.clone();
+    let (started, ready) = tokio::sync::oneshot::channel();
+    let pending = tokio::spawn(async move {
+        started.send(()).unwrap();
+        worker
+            .rebind_workflow_binding(agent_id, next_namespace, next_workflow)
+            .await
+    });
+    ready.await.unwrap();
+    sleep(Duration::from_millis(50)).await;
+    assert!(!pending.is_finished(), "rebind bypassed the agent row lock");
+    txn.execute(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "UPDATE agent_config_heads SET draining=true WHERE agent_id=$1",
+        [agent_id.into()],
+    ))
+    .await
+    .unwrap();
+    txn.commit().await.unwrap();
+    assert!(matches!(
+        tokio::time::timeout(Duration::from_secs(3), pending)
+            .await
+            .unwrap()
+            .unwrap(),
+        Err(shared::AppError::Conflict(_))
+    ));
+    assert!(matches!(
+        repo.update_agent(agent_id, patch).await,
+        Err(shared::AppError::Conflict(_))
+    ));
+    let retained = repo
+        .list_workflow_bindings()
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|value| value.agent_id == agent_id)
+        .unwrap();
+    assert_eq!(retained.namespace_id, original.namespace_id);
+    assert_eq!(retained.workflow_id, original.workflow_id);
+    assert_eq!(
+        repo.get_agent(agent_id).await.unwrap().namespace_id,
+        original.namespace_id
+    );
 }
 
 async fn runtime_http_fixture(runtime_status: &'static str) {

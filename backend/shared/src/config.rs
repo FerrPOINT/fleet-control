@@ -18,6 +18,35 @@ pub struct AppConfig {
     pub pm: PmConfig,
     #[serde(default)]
     pub tracker: TrackerConfig,
+    #[serde(default)]
+    pub sdlc: SdlcConfig,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SdlcConfig {
+    pub configuration_readback_enabled: bool,
+    pub auth_url: String,
+    pub configuration_reader_subject: String,
+    pub configuration_reader_agent_ids: String,
+    pub workflow_binding: SdlcWorkflowConfig,
+}
+
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SdlcWorkflowConfig {
+    pub url: String,
+    #[serde(skip_serializing)]
+    pub read_pat: String,
+}
+
+impl std::fmt::Debug for SdlcWorkflowConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SdlcWorkflowConfig")
+            .field("url", &self.url)
+            .field("read_pat", &"[REDACTED]")
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -195,6 +224,9 @@ pub struct FleetConfig {
     /// Trusted operator-only Docker opt-in; never derived from agent settings.
     #[serde(default)]
     pub container_control: Option<ContainerControlConfig>,
+    /// Operator-owned local Git object cache. Empty disables Base package preparation.
+    #[serde(default)]
+    pub base_package_checkout: String,
     pub agents_root: String,
     pub hermes_source: String,
     pub hermes_command: String,
@@ -483,6 +515,7 @@ impl Default for FleetConfig {
     fn default() -> Self {
         Self {
             container_control: None,
+            base_package_checkout: String::new(),
             agents_root: "./data/agents".to_string(),
             hermes_source: "../прототипы/hermes".to_string(),
             hermes_command: "hermes".to_string(),

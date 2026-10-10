@@ -156,3 +156,28 @@ Default ports:
 - `FLEET_CONTROL_AUTH__OIDC_AUDIENCE` — ожидаемый `aud` (пусто = не проверять).
 - `FLEET_CONTROL_AUTH__OIDC_ROLE_CLAIM` — клейм роли (default `role`; admin→Admin, operator/maintainer→Operator, прочее→User).
 - `FLEET_CONTROL_AUTH__OIDC_JWKS_REFRESH_SECS` — интервал обновления кэша ключей (default 300; принудительный refresh при неизвестном `kid`).
+
+## Configuration Foundation Candidate
+
+All additions default disabled/empty and preserve legacy configurations.
+
+- `FLEET_CONTROL_FLEET__BASE_PACKAGE_CHECKOUT`: operator-owned local Git cache,
+  with the exact `4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58` commit available.
+  Its `remote.origin.url` must be `https://github.com/FerrPOINT/services-base.git`
+  or `git@github.com:FerrPOINT/services-base.git`, including for a bare cache.
+  Runtime never fetches or reads working-tree role content. Separate from SDK pin.
+- `FLEET_CONTROL_SDLC__CONFIGURATION_READBACK_ENABLED`: default false.
+- `FLEET_CONTROL_SDLC__AUTH_URL`: fixed canonical Base Auth HTTP(S) origin,
+  without credentials, path, query or fragment.
+- `FLEET_CONTROL_SDLC__CONFIGURATION_READER_SUBJECT`: canonical non-nil machine UUID.
+- `FLEET_CONTROL_SDLC__CONFIGURATION_READER_AGENT_IDS`: nonempty comma-separated
+  canonical non-nil agent UUIDs, unique, no spaces, at most 4096 bytes.
+- `FLEET_CONTROL_SDLC__WORKFLOW_BINDING__URL`: fixed Workflow HTTP(S) origin.
+- `FLEET_CONTROL_SDLC__WORKFLOW_BINDING__READ_PAT`: dedicated server-only Base PAT
+  accepted by Workflow's namespace-binding owner endpoint with exactly
+  `project-workflow:read`. Debug and serialization redact/omit this credential.
+
+The incoming configuration reader PAT must have exactly `fleet-control:read`.
+Do not substitute browser tokens, legacy Workflow catalog tokens, PM callback
+secrets or role-reader credentials. No automatic issuance, live configuration
+change or deployment activation is part of this candidate.

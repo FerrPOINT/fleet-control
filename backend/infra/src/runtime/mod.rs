@@ -179,8 +179,24 @@ impl LocalRuntimeSupervisor {
                                 claimed.push(revision);
                                 continue;
                             }
-                            let result = supervisor.apply_config_revision(&revision).await;
-                            let reconciled = !matches!(&result, Err(AppError::Unavailable(_)));
+                            // Owner readback happens before any runtime/file mutation. Its
+                            // failure must not be confused with an unverified rollback.
+                            let preflight = async {
+                                let agent = supervisor.repo.get_agent(revision.agent_id).await?;
+                                supervisor
+                                    .verify_config_activation_binding(&agent, &revision)
+                                    .await
+                            }
+                            .await;
+                            let (result, reconciled) = match preflight {
+                                Err(error) => (Err(error), true),
+                                Ok(()) => {
+                                    let result = supervisor.apply_config_revision(&revision).await;
+                                    let reconciled =
+                                        !matches!(&result, Err(AppError::Unavailable(_)));
+                                    (result, reconciled)
+                                }
+                            };
                             let error = result
                                 .err()
                                 .map(|error| crate::redact_text(&error.to_string()));
@@ -208,6 +224,35 @@ impl LocalRuntimeSupervisor {
                 }
             });
         }
+    }
+
+    async fn verify_config_activation_binding(
+        &self,
+        agent: &Agent,
+        revision: &domain::AgentConfigRevision,
+    ) -> Result<(), AppError> {
+        app::sdlc_workflow::verify_revision_binding(
+            &self.config.sdlc.workflow_binding,
+            agent,
+            revision,
+        )
+        .await?;
+        if revision
+            .snapshot
+            .config
+            .config_json
+            .get("fleet_sdlc_package")
+            .is_some()
+        {
+            self.repo
+                .verify_base_package_revision(
+                    agent.id,
+                    revision.revision,
+                    &self.config.fleet.base_package_checkout,
+                )
+                .await?;
+        }
+        Ok(())
     }
 
     async fn apply_config_revision(
