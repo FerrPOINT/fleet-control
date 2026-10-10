@@ -26,13 +26,21 @@ extras, only `new_ids_are_plain_uuids` missing. Both cleanup checks pass. Source
 inspection finds its orphan test file; narrow successor3d1a108 declares the test
 module without lowering counts. It also retains687/435 credential regressions
 and the exact-two-case real-Auth CI correction. Those source fixes are integrated
-here but are not product-qualified. Reviewed controlscfe7805 now normally publish
+here but are not product-qualified. Reviewed controlscfe7805 normally publish
 source3d1a108; [run38026078533](https://github.com/FerrPOINT/fleet-control/actions/runs/38026078533)
-is confirmed in progress. Parent independently verifies135 canonical Fleet
+completes FAILURE at Clippy. Parent authenticates artifact11660525394, ZIP SHA256
+f40665d84b0ca204a3cf66005888a1d752cddd5111df0832f0eafe40db58219d:
+only coordinator.rs333 is disclosed; both cleanup checks pass. Source0e49430
+changes only the test's indexed loop to enumerate, preserving all variants.
+Normal controls01f32fe start
+[run38026636805](https://github.com/FerrPOINT/fleet-control/actions/runs/38026636805),
+confirmed in progress. Parent independently verifies135 canonical Fleet
 blobs/105 Rust files,309 combined inputs and248 default/18 ignored declarations.
 All original242/17 identities remain; five new PG cases are ordinary tests, not
-ignored. Parent118 pure checks finish114 pass/four Linux-only skips; worker
-Linux118/118 is separate control evidence. Actual Rust/Auth/PG remains pending.
+ignored. The01f successor passes119 Windows pure checks (115 pass/four explicit
+Linux-only skips); prior worker Linux118/118 applies only to cfe. All helper
+functions,28 stages and gates/counts remain unchanged. Actual Rust/Auth/PG remains
+pending on the corrected source.
 
 Frontend run38022762729/source5cc1fbb/controlsdb82829 fails preparation before
 tests. Parent authenticates failure artifact11658544399, ZIP SHA256
@@ -52,8 +60,10 @@ Each engine reports24 expected/two unexpected/nine skipped/zero flaky, with the
 same two failed scenario declarations at runtime-controls.spec.ts267 and
 fleet-control.spec.ts627. Closed evidence supplies no failing assertion or DOM.
 Source2398ff0 scopes retained-answer checks to server custody and adds draft
-checks; parent reviews that bounded fix, but has not integrated/browser-qualified
-it. The separate legacy runtime fixture must adopt the command journal contract.
+checks; bf0ca7a aligns the legacy runtime fixture with journal/store/delivery,
+retained original key/body/command and reload readback. Parent reviews and
+integrates both fixes without changing production or relaxing assertions.
+Fresh browser qualification is still required.
 No fresh screenshot or live PM acceptance is inferred from this receipt.
 
 The [remaining delivery map](REMAINING_DELIVERY_WORK.md) records independent
@@ -73,8 +83,8 @@ failure locations259/286 are the subsequent `authorize_recovered_activation`
 calls. This is progress in diagnosis, not proof that recovery/activation works.
 The next cause is still under investigation; no guard or assertion is waived.
 
-Current parallel ownership: Curie aligns the existing runtime browser fixture
-with journal/store/delivery/readback; Pascal diagnoses the exact56 recovered
+Current parallel ownership: Curie prepares exactbf0 frontend controls;
+Pascal adds test-only read-only probes to narrow the exact56 recovered
 authorization failure; Feynman closes the Forge maintenance-packet prerequisite
 in an isolated successor. Parent owns integration, control qualification and
 publication. All write scopes are separate; heavy local execution remains held.
