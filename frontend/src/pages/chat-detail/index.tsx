@@ -195,7 +195,7 @@ function ChatWorkspace({ id }: { id: string }) {
     ? params.get('tab')!
     : 'dialogue'
   const previousTab = useRef(tab)
-  const owner = session.data?.user_id === userId
+  const owner = session.isSuccess && session.data?.user_id === userId
   const answerCommands = useQuery({
     queryKey: ['clarification-commands', id],
     queryFn: () => listPendingAnswerCommands(id),
@@ -425,7 +425,11 @@ function ChatWorkspace({ id }: { id: string }) {
     onSuccess: async (result) => {
       setReceipt(
         result.state === 'delivered'
-          ? 'Исходный ответ подтверждён. Требования ещё не опубликованы.'
+          ? result.continuation_state === 'pending'
+            ? 'Ответ доставлен. Продолжение PM ещё не подтверждено.'
+            : result.continuation_state === 'confirmed'
+              ? 'Ответ доставлен. Продолжение PM подтверждено. Требования ещё не опубликованы.'
+              : 'Исходный ответ подтверждён. Требования ещё не опубликованы.'
           : result.state === 'rejected'
             ? 'Исходный ответ отклонён. Проверьте актуальный вопрос.'
             : 'Доставка исходного ответа ещё не подтверждена.',
@@ -488,6 +492,14 @@ function ChatWorkspace({ id }: { id: string }) {
   if (!readbackRunIds.length && runs.data?.[0]) readbackRunIds.push(runs.data[0].id)
   const steerTooLarge = Boolean(controls.data?.can_steer) && exceedsSteerLimit(body.trim())
   const standaloneHeld = dispatchHeld(id)
+  const canStop =
+    owner &&
+    bound &&
+    task.isSuccess &&
+    controls.isSuccess &&
+    Boolean(controls.data.can_stop && controls.data.active_run_id) &&
+    !stop.isPending &&
+    !journal.error
   const canSubmitMessage =
     owner &&
     bound &&
@@ -858,8 +870,9 @@ function ChatWorkspace({ id }: { id: string }) {
                       variant="outline"
                       aria-label="Остановить запуск"
                       title="Остановить запуск"
-                      disabled={stop.isPending || journal.error}
+                      disabled={!canStop}
                       onClick={() => {
+                        if (!canStop) return
                         const command =
                           journal.entries.stop ??
                           ((stop.isError || stopUnacknowledged) && stop.variables
@@ -1067,7 +1080,11 @@ function ChatWorkspace({ id }: { id: string }) {
                   <section key={command.id} className="fc-chat-question" role="status">
                     <h3>
                       Сохранённый ответ:{' '}
-                      {command.state === 'stored' ? 'ожидает доставки' : 'требует сверки'}
+                      {command.state === 'delivered' && command.continuation_state === 'pending'
+                        ? 'доставлен, продолжение PM требует сверки'
+                        : command.state === 'stored'
+                          ? 'ожидает доставки'
+                          : 'требует сверки'}
                     </h3>
                     <p>{command.request.text}</p>
                     <p>{command.request.comment}</p>

@@ -17,9 +17,9 @@ import zlib
 
 REPOSITORY = "FerrPOINT/fleet-control"
 BRANCH = "build-only/frontend-main-union-20261010"
-SOURCE_SHA = "34ee5f0b8f4c7f65d9b1f1503b38c21316c1b49b"
-SOURCE_TREE = "fc74ed299d89cc872874ae7314eb2f3a16de419b"
-SOURCE_PARENTS = ["089ee0c7066adf459849556f511d81dc859cb6c3"]
+SOURCE_SHA = "d4584769c925c2a92829251960b85a14b63c31dd"
+SOURCE_TREE = "33bfce243f52ac198ef88be37c331052c88c1451"
+SOURCE_PARENTS = ["153242c5cbe3dfd93eca65529c81c6e422ec9fff"]
 BASE_SHA = "19a7a381ae6dbea61a643bb96189e483fa64df5c"
 BASE_TREE = "aa1a0486af1922c5a7fd4471e71e4fbb6aa4c7cc"
 BASE_MATERIALIZED_FILES = {
@@ -28,14 +28,14 @@ BASE_MATERIALIZED_FILES = {
         "ef0fae09d1a5359eb23ade564541b03bc1f1514c2017317fc7922ced72c26d75",
     ),
 }
-SCHEMA_SHA256 = "ad980604beb2cff0890f4d1a07a185c97a444fda166985f2a6da465a222d129c"
+SCHEMA_SHA256 = "e1b17e723abf43866c4f913c9fa4fba8b201bef5e3532b4a8f6cdc32ccbcce76"
 WORKFLOW = ".github/workflows/frontend-build-only.yml"
 WRITE_SET = {WORKFLOW, "scripts/hosted_frontend_gate.py", "scripts/tests/test_hosted_frontend_gate.py"}
 NODE = "22.20.0"
 PNPM = "10.28.1"
-QUALIFIED_UNIT_COUNTS = dict(files_passed=38, tests_passed=385, files_skipped=0, tests_skipped=0)
+QUALIFIED_UNIT_COUNTS = dict(files_passed=38, tests_passed=411, files_skipped=0, tests_skipped=0)
 QUALIFIED_INPUTS = {
-    "source_inventory_sha256": "5f4e020c89d16405b27aa7db01bfb0465a72d2eb6270673e455767be6a73546a",
+    "source_inventory_sha256": "c7a996dc1de77be51df3fa8d10aae689e85aa43a6100a8a287265e3fe2485430",
     "base_inventory_sha256": "437244f3861d17356cbe33162dceca877aea74d82dccae9b9b1a2915b62ee444",
     "frontend_lock_sha256": "37918d9d24852a14f24c43a593777e99d36e0e58de2e7b9a58a4415fd927fb67",
     "base_lock_sha256": "149adc7015cd1b7fa1d093e5501156ed6e149efbc82b222c82a2797912261fb4",

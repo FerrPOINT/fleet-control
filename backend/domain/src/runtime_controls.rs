@@ -3,6 +3,21 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+// Internal proof reloaded by the supervisor, never an HTTP request body.
+#[derive(Clone)]
+pub struct PmHumanControlScope {
+    pub record: crate::PmRunRecord,
+    pub intent: crate::PmDispatchIntent,
+    pub owner_subject: String,
+    pub owner_user_id: Uuid,
+}
+
+#[derive(Default)]
+pub struct PmHumanControls {
+    pub can_steer: bool,
+    pub can_stop: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum RuntimeControlOperation {

@@ -1,5 +1,26 @@
 # Data Model
 
+## PM Human Controls Integration Candidate
+
+Additive migration023 follows authority021 and PM022 in both supported
+lineages (canonical24/split27). It extends existing journals, not a new command
+ledger. Migration and historical backfill behavior still require current-source
+PostgreSQL qualification and closure of the recorded backend review findings.
+
+`clarification_answer_commands.continuation_state` is
+`not_required | pending | confirmed`; `confirmed` requires `state=delivered`.
+The original answer, owner, binding and payload stay immutable. Delivered
+answers with pending continuation remain discoverable and prevent a new answer
+from bypassing unresolved custody. Existing delivery leases remain separate
+from execution continuation; neither state proves requirements publication.
+
+The runtime-control foreign key points to `session_agent_runs`. Insert-time
+custody checks distinguish accepted free-chat dispatch from accepted bound PM
+dispatch; they do not trust a caller's task binding or native IDs. Existing
+actor/key uniqueness and immutable control history remain. Terminal release
+requires the matching committed terminal mirror, not a stop ACK. Down migration
+must preserve history and refuse unsafe downgrade; live migration proof is pending.
+
 ## Original Control Key Lookup
 
 The literal control lookup GET reuses runtime_control_commands' existing unique

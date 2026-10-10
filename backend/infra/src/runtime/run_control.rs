@@ -49,10 +49,41 @@ pub(super) async fn send<T: Serialize + ?Sized>(
     if agent.kind != AgentKind::Hermes || agent.id != run.agent_id {
         return Err(AppError::conflict("runtime control agent changed"));
     }
-    let reservation = supervisor
+    let pm = supervisor
         .repo
-        .reserve_runtime_control(run, actor, operation.domain(), input)
-        .await?;
+        .get_task_chat_binding(run.session_id)
+        .await?
+        .is_some();
+    let replay = pm
+        && supervisor
+            .repo
+            .find_runtime_control_by_key(run.session_id, run.id, actor)
+            .await?
+            .is_some();
+    let scope = if replay {
+        // HTTP has freshly authorized Tracker project/owner/assignment. Recheck local
+        // custody and the original payload below, without requiring a second dispatch.
+        Some(pm_replay_scope(supervisor, agent, run, actor.user_id).await?)
+    } else if pm {
+        Some(
+            prepare_pm(supervisor, agent, run, operation, actor.user_id)
+                .await?
+                .1,
+        )
+    } else {
+        None
+    };
+    let reservation = if let Some(scope) = &scope {
+        supervisor
+            .repo
+            .reserve_pm_runtime_control(run, actor, operation.domain(), input, scope)
+            .await?
+    } else {
+        supervisor
+            .repo
+            .reserve_runtime_control(run, actor, operation.domain(), input)
+            .await?
+    };
     let id = reservation.receipt.id;
     if !reservation.dispatch {
         if operation == Operation::Steer
@@ -65,7 +96,16 @@ pub(super) async fn send<T: Serialize + ?Sized>(
         }
         return Ok(reservation.receipt);
     }
-    let prepared = match prepare(supervisor, agent, run, operation).await {
+    let preparation = if scope.is_some() {
+        prepare_pm(supervisor, agent, run, operation, actor.user_id)
+            .await
+            .map(|(prepared, fresh)| (prepared, Some(fresh)))
+    } else {
+        prepare(supervisor, agent, run, operation)
+            .await
+            .map(|prepared| (prepared, None))
+    };
+    let (prepared, scope) = match preparation {
         Ok(prepared) => prepared,
         Err(error) => {
             let receipt = supervisor.repo.retire_runtime_control(id, false).await?;
@@ -75,7 +115,12 @@ pub(super) async fn send<T: Serialize + ?Sized>(
             return Err(error);
         }
     };
-    let claimed = match supervisor.repo.claim_runtime_control(id).await {
+    let claim = if let Some(scope) = &scope {
+        supervisor.repo.claim_pm_runtime_control(id, scope).await
+    } else {
+        supervisor.repo.claim_runtime_control(id).await
+    };
+    let claimed = match claim {
         Ok(claimed) => claimed,
         Err(error) => {
             // A concurrent claimant may already own the effect; never reset its submitted state.
@@ -110,6 +155,256 @@ pub(super) async fn send<T: Serialize + ?Sized>(
         }
         Err(_) => supervisor.repo.retire_runtime_control(id, true).await,
     }
+}
+
+pub(super) async fn pm_human_controls(
+    supervisor: &LocalRuntimeSupervisor,
+    agent: &Agent,
+    run: &SessionAgentRun,
+    owner: Uuid,
+) -> Result<domain::PmHumanControls, AppError> {
+    let receipts = supervisor
+        .repo
+        .list_runtime_controls(run.session_id, run.id)
+        .await?;
+    if receipts.iter().any(|receipt| {
+        matches!(
+            receipt.state,
+            domain::RuntimeControlState::Reserved
+                | domain::RuntimeControlState::Submitted
+                | domain::RuntimeControlState::Uncertain
+        ) || (receipt.operation == domain::RuntimeControlOperation::Stop
+            && receipt.state == domain::RuntimeControlState::Acknowledged)
+    }) {
+        return Ok(domain::PmHumanControls::default());
+    }
+    let can_stop = prepare_pm(supervisor, agent, run, Operation::Stop, owner)
+        .await
+        .is_ok();
+    let can_steer = prepare_pm(supervisor, agent, run, Operation::Steer, owner)
+        .await
+        .is_ok();
+    Ok(domain::PmHumanControls {
+        can_steer,
+        can_stop,
+    })
+}
+
+async fn pm_replay_scope(
+    supervisor: &LocalRuntimeSupervisor,
+    agent: &Agent,
+    expected: &SessionAgentRun,
+    owner: Uuid,
+) -> Result<domain::PmHumanControlScope, AppError> {
+    let session = supervisor.repo.get_session(expected.session_id).await?;
+    let binding = supervisor
+        .repo
+        .get_task_chat_binding(session.id)
+        .await?
+        .ok_or(AppError::Forbidden)?;
+    let pm = supervisor
+        .repo
+        .read_pm_operation_for_session(session.id, owner)
+        .await?;
+    let record = supervisor.repo.get_pm_run(expected.id).await?;
+    let intent = supervisor
+        .repo
+        .get_pm_dispatch(expected.id)
+        .await?
+        .ok_or_else(|| AppError::conflict("original PM dispatch is missing"))?;
+    if session.user_id != owner
+        || session.primary_agent_id != agent.id
+        || session.agent_id != agent.id
+        || pm.owner_subject != binding.owner_subject
+        || !super::pm_tools::binding_matches(&binding, &pm.identity()?, pm.request.agent_id)
+        || pm.request.agent_id != agent.id
+        || record.reservation.identity != pm.execution_identity()?
+        || record.reservation.session_id != session.id
+        || record.reservation.session_run_id != expected.id
+        || record.hermes_run_ref != expected.runtime_run_id
+        || expected.runtime_session_id.as_deref()
+            != Some(record.reservation.runtime_session_id().as_str())
+        || !intent.submitted
+        || intent.hermes_run_ref != record.hermes_run_ref
+    {
+        return Err(AppError::Forbidden);
+    }
+    Ok(domain::PmHumanControlScope {
+        record,
+        intent,
+        owner_subject: binding.owner_subject,
+        owner_user_id: owner,
+    })
+}
+
+async fn prepare_pm(
+    supervisor: &LocalRuntimeSupervisor,
+    agent: &Agent,
+    expected: &SessionAgentRun,
+    operation: Operation,
+    owner: Uuid,
+) -> Result<(PreparedControl, domain::PmHumanControlScope), AppError> {
+    use super::{pm_dispatch, pm_tools};
+    use crate::pm_credentials::PmCredentialCoordinator;
+    use domain::*;
+    let unavailable = || AppError::Unavailable("PM human control authority is unavailable".into());
+    let session = supervisor.repo.get_session(expected.session_id).await?;
+    let user = supervisor
+        .repo
+        .find_user_by_id(owner)
+        .await?
+        .ok_or(AppError::Forbidden)?;
+    let binding = supervisor
+        .repo
+        .get_task_chat_binding(session.id)
+        .await?
+        .ok_or(AppError::Forbidden)?;
+    let pm = supervisor
+        .repo
+        .read_pm_operation_for_session(session.id, owner)
+        .await
+        .map_err(|error| match error {
+            AppError::NotFound { .. } => {
+                AppError::conflict("task control admission is not verified")
+            }
+            error => error,
+        })?;
+    let record = supervisor
+        .repo
+        .get_pm_run(expected.id)
+        .await
+        .map_err(|error| match error {
+            AppError::NotFound { .. } => {
+                AppError::conflict("task control admission is not verified")
+            }
+            error => error,
+        })?;
+    let current = supervisor.repo.get_session_agent_run(expected.id).await?;
+    let current_agent = supervisor.repo.get_agent(agent.id).await?;
+    if session.user_id != owner
+        || !user.is_active
+        || pm.owner_subject != binding.owner_subject
+        || !pm_tools::binding_matches(&binding, &pm.identity()?, pm.request.agent_id)
+        || session.primary_agent_id != agent.id
+        || session.agent_id != agent.id
+        || session.state != SessionState::Active
+        || current_agent.kind != AgentKind::Hermes
+        || current_agent.sdlc_role != Some(SdlcRole::ProjectManager)
+        || current_agent.status != AgentStatus::Running
+        || pm.request.agent_id != agent.id
+        || record.reservation.identity != pm.execution_identity()?
+        || record.reservation.session_id != session.id
+        || record.terminal_status.is_some()
+        || current.session_id != session.id
+        || current.agent_id != agent.id
+        || current.runtime_run_id != expected.runtime_run_id
+        || current.runtime_session_id != expected.runtime_session_id
+        || current.runtime_run_id != record.hermes_run_ref
+        || current.runtime_session_id.as_deref()
+            != Some(record.reservation.runtime_session_id().as_str())
+        || !matches!(
+            current.state,
+            SessionRunState::Running | SessionRunState::Waiting | SessionRunState::Stopping
+        )
+    {
+        return Err(AppError::Forbidden);
+    }
+    crate::pm_tool_config::verify(supervisor.repo.as_ref(), &current_agent, &supervisor.config)
+        .await?;
+    let intent = supervisor
+        .repo
+        .get_pm_dispatch(expected.id)
+        .await?
+        .ok_or_else(unavailable)?;
+    if !intent.submitted
+        || intent.hermes_run_ref != record.hermes_run_ref
+        || record.hermes_run_ref.is_none()
+    {
+        return Err(unavailable());
+    }
+    let workflow = pm_dispatch::Workflow::configured(supervisor)?;
+    workflow.verify_intent(&intent)?;
+    let coordinator =
+        PmCredentialCoordinator::configured(&supervisor.config)?.ok_or_else(unavailable)?;
+    let credential = coordinator.runtime_credential(&pm).await?;
+    let context = coordinator.machine_context(&pm, &credential).await?;
+    let (snapshot, _) = pm_tools::read_workflow(&workflow, &record.reservation.identity).await?;
+    if snapshot.session_run_id != expected.id
+        || snapshot.identity != record.reservation.identity
+        || snapshot.binding_ref != record.reservation.binding_ref
+        || snapshot.fence != record.reservation.fence
+        || Some(snapshot.hermes_run_ref.as_str()) != record.hermes_run_ref.as_deref()
+        || (operation == Operation::Steer
+            && (snapshot.state != "active"
+                || !snapshot.workflow_step_allowed
+                || current.state != SessionRunState::Running
+                || !matches!(
+                    context.stage,
+                    TrackerStage::Draft | TrackerStage::Clarification
+                )
+                || context.waiting_reason.as_deref() == Some("waiting_for_owner_confirmation")))
+    {
+        return Err(AppError::conflict(
+            "PM control requires the current Workflow run and fence",
+        ));
+    }
+    if operation == Operation::Steer {
+        let questions: TrackerClarifications = pm_dispatch::decode(
+            coordinator
+                .tracker_call(&credential, reqwest::Method::GET, "clarifications", None)
+                .await?,
+        )?;
+        if questions
+            .questions
+            .iter()
+            .any(|q| matches!(q.state, TrackerQuestionState::Open))
+        {
+            return Err(AppError::conflict(
+                "PM clarification requires the structured owner answer",
+            ));
+        }
+    }
+    let base = pm_dispatch::verify_context(supervisor, &current_agent, &intent).await?;
+    let token = crate::agent_runtime_token(&supervisor.config, agent.id)?;
+    capability(&supervisor.probe_hermes(&current_agent).await?, operation)?;
+    let run_id = record.hermes_run_ref.clone().ok_or_else(unavailable)?;
+    let session_id = record.hermes_session_ref.clone().ok_or_else(unavailable)?;
+    let native = hermes_wire::read_accepted_run(&supervisor.client, &base, &token, &run_id).await?;
+    let status = native["status"].as_str();
+    if hermes_wire::effective_session(&native, &run_id)? != session_id
+        || match operation {
+            Operation::Steer => status != Some("running"),
+            Operation::Stop => !matches!(
+                status,
+                Some("queued" | "started" | "running" | "waiting_for_approval" | "stopping")
+            ),
+        }
+    {
+        return Err(AppError::conflict(
+            "PM native run no longer accepts this control",
+        ));
+    }
+    coordinator.machine_context(&pm, &credential).await?;
+    pm_dispatch::verify_context(supervisor, &current_agent, &intent).await?;
+    let scope = PmHumanControlScope {
+        record,
+        intent,
+        owner_subject: binding.owner_subject,
+        owner_user_id: owner,
+    };
+    supervisor
+        .repo
+        .check_pm_runtime_control(&current, owner, operation.domain(), &scope)
+        .await?;
+    Ok((
+        PreparedControl {
+            base,
+            token,
+            run_id,
+            session_id,
+        },
+        scope,
+    ))
 }
 
 async fn prepare(
