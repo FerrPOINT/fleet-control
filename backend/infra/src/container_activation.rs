@@ -25,24 +25,38 @@ pub(super) async fn authorize(
     record: &Activation,
     proof: &RecoveredProof,
 ) -> Result<(), AppError> {
-    let tx = repo.db.begin().await.map_err(|_| held())?;
+    let tx = repo
+        .db
+        .begin()
+        .await
+        .map_err(|_| authorize_failure("activation_authorize_begin"))?;
     if record.phase.terminal() {
-        container_runtime::lock(&tx, record.claim.agent_id).await?;
+        container_runtime::lock(&tx, record.claim.agent_id)
+            .await
+            .map_err(|_| authorize_failure("activation_authorize_lock"))?;
         let observation: runtime::container_control::ContainerReceipt =
-            serde_json::from_value(proof.observation.clone()).map_err(|_| held())?;
+            serde_json::from_value(proof.observation.clone())
+                .map_err(|_| authorize_failure("activation_authorize_receipt_decode"))?;
         runtime::container_control::validate_receipt(
             &observation,
             &record.claim.anchor().prepared.container.registration,
             0,
             "observe",
-        )?;
-        if encode(&observation.snapshot)?
-            != record.claim.anchor().snapshot.clone().ok_or_else(held)?
+        )
+        .map_err(|_| authorize_failure("activation_authorize_receipt_validation"))?;
+        if encode(&observation.snapshot)
+            .map_err(|_| authorize_failure("activation_authorize_receipt_validation"))?
+            != record
+                .claim
+                .anchor()
+                .snapshot
+                .clone()
+                .ok_or_else(|| authorize_failure("activation_authorize_receipt_validation"))?
             || (record.claim.lineage.is_some()
                 && observation.observation
                     != runtime::container_control::ContainerObservation::NamespaceExited)
         {
-            return Err(held());
+            return Err(authorize_failure("activation_authorize_receipt_validation"));
         }
         let row=tx.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
             "SELECT a.id FROM runtime_container_activations a JOIN runtime_container_recoveries r
@@ -50,10 +64,10 @@ pub(super) async fn authorize(
              WHERE a.id=$1 AND a.record=$2 AND r.lease=$3 AND fleet_activation_anchor(r.generation)
              AND r.receipt IS NOT NULL AND r.lease_receipt IS NOT NULL AND r.expires_at>clock_timestamp()
              AND NOT EXISTS(SELECT 1 FROM runtime_container_recoveries n WHERE n.generation=r.generation AND n.epoch>r.epoch)
-             FOR UPDATE OF r,a",[record.claim.id.into(),encode(record)?.into(),encode(&proof.lease)?.into()]))
-             .await.map_err(|_| held())?;
+             FOR UPDATE OF r,a",[record.claim.id.into(),encode(record).map_err(|_| authorize_failure("activation_authorize_current"))?.into(),encode(&proof.lease).map_err(|_| authorize_failure("activation_authorize_current"))?.into()]))
+             .await.map_err(|_| authorize_failure("activation_authorize_current"))?;
         if row.is_none() {
-            return Err(held());
+            return Err(authorize_failure("activation_authorize_current"));
         }
     } else {
         checked(&tx, &record.claim, Some((record, proof))).await?;
@@ -62,8 +76,14 @@ pub(super) async fn authorize(
         "INSERT INTO runtime_container_activation_authorities(activation_id,recovery_id,controller_id,plan_sha256,claim)
          VALUES($1,$2,$3,$4,$5) ON CONFLICT(activation_id,recovery_id) DO NOTHING",
         [record.claim.id.into(),proof.lease.request.id.into(),proof.lease.request.controller_id.into(),
-        record.claim.intent_sha256.clone().into(),encode(&record.claim)?.into()])).await.map_err(|_| held())?;
-    tx.commit().await.map_err(|_| held())
+        record.claim.intent_sha256.clone().into(),encode(&record.claim).map_err(|_| authorize_failure("activation_authorize_authority_insert"))?.into()])).await.map_err(|_| authorize_failure("activation_authorize_authority_insert"))?;
+    tx.commit()
+        .await
+        .map_err(|_| authorize_failure("activation_authorize_commit"))
+}
+
+fn authorize_failure(stage: &'static str) -> AppError {
+    AppError::Unavailable(stage.into())
 }
 
 pub(super) async fn for_launch(
@@ -255,14 +275,29 @@ async fn checked(
     claim: &Claim,
     recovered: Option<(&Activation, &RecoveredProof)>,
 ) -> Result<(), AppError> {
-    let agent = container_runtime::lock(tx, claim.agent_id).await?;
-    if agent.try_get::<String>("", "kind").map_err(|_| held())? != "hermes"
+    // Preserve ordinary activation errors; recovered failures expose fixed stages only.
+    let fail = |stage| {
+        if recovered.is_some() {
+            authorize_failure(stage)
+        } else {
+            held()
+        }
+    };
+    let agent = container_runtime::lock(tx, claim.agent_id)
+        .await
+        .map_err(|error| {
+            recovered.map_or(error, |_| authorize_failure("activation_authorize_lock"))
+        })?;
+    if agent
+        .try_get::<String>("", "kind")
+        .map_err(|_| fail("activation_authorize_agent"))?
+        != "hermes"
         || agent
             .try_get::<Option<shared::Timestamp>>("", "archived_at")
-            .map_err(|_| held())?
+            .map_err(|_| fail("activation_authorize_agent"))?
             .is_some()
     {
-        return Err(held());
+        return Err(fail("activation_authorize_agent"));
     }
     let row = tx.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
         "SELECT h.effective_revision,r.snapshot FROM agent_config_heads h JOIN agent_config_revisions r
@@ -275,13 +310,16 @@ async fn checked(
             AND (NOT EXISTS(SELECT 1 FROM runtime_container_recoveries x JOIN runtime_container_launches l USING(generation) WHERE l.agent_id=$1)
                 OR ($3::uuid IS NOT NULL AND fleet_activation_anchor($3)
                   AND NOT EXISTS(SELECT 1 FROM runtime_container_recoveries x JOIN runtime_container_launches l USING(generation) WHERE l.agent_id=$1 AND l.generation<>$3)))",
-        [claim.agent_id.into(),claim.revision.into(),recovered.map(|_| claim.anchor().prepared.container.registration.generation).into()])).await.map_err(|_| held())?.ok_or_else(held)?;
+        [claim.agent_id.into(),claim.revision.into(),recovered.map(|_| claim.anchor().prepared.container.registration.generation).into()])).await.map_err(|_| fail("activation_authorize_readback"))?.ok_or_else(|| fail("activation_authorize_readback"))?;
     if let Some((record, proof)) = recovered {
         let b = &claim.anchor().prepared.container;
         let receipt: runtime::container_control::ContainerReceipt =
-            serde_json::from_value(proof.observation.clone()).map_err(|_| held())?;
-        runtime::container_control::validate_receipt(&receipt, &b.registration, 0, "observe")?;
-        if encode(&record.claim)? != encode(claim)?
+            serde_json::from_value(proof.observation.clone())
+                .map_err(|_| fail("activation_authorize_receipt_decode"))?;
+        runtime::container_control::validate_receipt(&receipt, &b.registration, 0, "observe")
+            .map_err(|_| fail("activation_authorize_receipt_validation"))?;
+        if encode(&record.claim).map_err(|_| fail("activation_authorize_receipt_validation"))?
+            != encode(claim).map_err(|_| fail("activation_authorize_receipt_validation"))?
             || (claim.lineage.is_some()
                 && receipt.observation
                     != runtime::container_control::ContainerObservation::NamespaceExited)
@@ -290,10 +328,17 @@ async fn checked(
             || proof.lease.request.original_controller_id != claim.controller_id
             || proof.lease.request.controller_id == claim.controller_id
             || proof.lease.request.launch_sha256
-                != runtime::container_control::launch_hash(claim.anchor())?
-            || encode(&receipt.snapshot)? != claim.anchor().snapshot.clone().ok_or_else(held)?
+                != runtime::container_control::launch_hash(claim.anchor())
+                    .map_err(|_| fail("activation_authorize_receipt_validation"))?
+            || encode(&receipt.snapshot)
+                .map_err(|_| fail("activation_authorize_receipt_validation"))?
+                != claim
+                    .anchor()
+                    .snapshot
+                    .clone()
+                    .ok_or_else(|| fail("activation_authorize_receipt_validation"))?
         {
-            return Err(held());
+            return Err(fail("activation_authorize_receipt_validation"));
         }
         let current=tx.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
             "SELECT r.id FROM runtime_container_recoveries r
@@ -303,22 +348,26 @@ async fn checked(
                    AND fleet_activation_lineage($8)))
              AND r.receipt IS NOT NULL AND r.lease_receipt IS NOT NULL AND r.expires_at>clock_timestamp()
              AND NOT EXISTS(SELECT 1 FROM runtime_container_recoveries n WHERE n.generation=r.generation AND n.epoch>r.epoch) FOR UPDATE OF r",
-            [claim.id.into(),encode(record)?.into(),b.registration.generation.into(),encode(&proof.lease)?.into(),
-                (record.phase==Phase::Planned && claim.lineage.is_some()).into(),claim.agent_id.into(),claim.revision.into(),encode(claim)?.into()]))
-            .await.map_err(|_| held())?;
+            [claim.id.into(),encode(record).map_err(|_| fail("activation_authorize_current"))?.into(),b.registration.generation.into(),encode(&proof.lease).map_err(|_| fail("activation_authorize_current"))?.into(),
+                (record.phase==Phase::Planned && claim.lineage.is_some()).into(),claim.agent_id.into(),claim.revision.into(),encode(claim).map_err(|_| fail("activation_authorize_current"))?.into()]))
+            .await.map_err(|_| fail("activation_authorize_current"))?;
         if current.is_none() {
-            return Err(held());
+            return Err(fail("activation_authorize_current"));
         }
     }
     if row
         .try_get::<Option<i64>>("", "effective_revision")
-        .map_err(|_| held())?
+        .map_err(|_| fail("activation_authorize_config"))?
         != claim.previous_revision
         || runtime::container_control::canonical_hash(
-            &row.try_get::<Value>("", "snapshot").map_err(|_| held())?,
-        )? != claim.configuration_sha256
+            &row.try_get::<Value>("", "snapshot")
+                .map_err(|_| fail("activation_authorize_config"))?,
+        )
+        .map_err(|error| {
+            recovered.map_or(error, |_| authorize_failure("activation_authorize_config"))
+        })? != claim.configuration_sha256
     {
-        return Err(held());
+        return Err(fail("activation_authorize_config"));
     }
     for (column, expected) in [
         ("runtime_path", &claim.previous.prepared.paths.runtime),
@@ -326,16 +375,20 @@ async fn checked(
         ("workspace_path", &claim.previous.prepared.paths.workspace),
         ("logs_path", &claim.previous.prepared.paths.logs),
     ] {
-        if agent.try_get::<String>("", column).map_err(|_| held())? != *expected {
-            return Err(held());
+        if agent
+            .try_get::<String>("", column)
+            .map_err(|_| fail("activation_authorize_agent"))?
+            != *expected
+        {
+            return Err(fail("activation_authorize_agent"));
         }
     }
     if agent
         .try_get::<Option<i32>>("", "api_port")
-        .map_err(|_| held())?
+        .map_err(|_| fail("activation_authorize_agent"))?
         != claim.previous.prepared.api_port
     {
-        return Err(held());
+        return Err(fail("activation_authorize_agent"));
     }
     Ok(())
 }

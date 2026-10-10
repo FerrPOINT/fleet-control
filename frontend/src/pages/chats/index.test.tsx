@@ -2,15 +2,20 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, useLocation, useNavigate } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ChatsPage } from './index'
+import { ChatsPage, groupChats } from './index'
 import * as fleet from '@/api/fleet'
 import * as directory from '@/api/chats-directory'
 import * as auth from '@/api/auth'
 import type { AgentDirectoryItem, AgentSession, UserResponse } from '@/api/types'
 import { useAuthStore } from '@/shared/auth/store'
 
-vi.mock('@/api/fleet', () => ({ createSession: vi.fn() }))
 vi.mock('@/api/chats-directory', () => ({ getChatsDirectory: vi.fn() }))
+vi.mock('@/api/fleet', () => ({
+  getSession: vi.fn(),
+  createSession: vi.fn(),
+  listAgentDirectory: vi.fn(),
+  listSessions: vi.fn(),
+}))
 vi.mock('@/api/auth', () => ({ listUsers: vi.fn() }))
 const owner = '00000000-0000-4000-8000-000000000001'
 const other = '00000000-0000-4000-8000-000000000002'
@@ -95,7 +100,10 @@ function renderPage(url = '/chats') {
 }
 beforeEach(() => {
   vi.clearAllMocks()
+  sessionStorage.clear()
   useAuthStore.setState({
+    token: 'test-token',
+    signingOut: false,
     userId: owner,
     displayName: 'Owner',
     email: 'owner@example.test',
@@ -103,6 +111,8 @@ beforeEach(() => {
     isSystemAdmin: false,
     permissions: ['sessions:write_own'],
   })
+  vi.mocked(fleet.listAgentDirectory).mockResolvedValue([developer, tester])
+  vi.mocked(fleet.getSession).mockResolvedValue({ ...session, title: 'Private work' })
   vi.mocked(directory.getChatsDirectory).mockImplementation(async (query = {}) =>
     query.agentId === tester.id
       ? page([testerSession], tester.id)
@@ -325,10 +335,13 @@ describe('server-scoped ChatsPage', () => {
   it('reuses private-chat idempotency after a failed create', async () => {
     vi.mocked(fleet.createSession).mockRejectedValueOnce(new Error('offline'))
     renderPage()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Новый чат' })).toBeEnabled())
     fireEvent.click(await screen.findByRole('button', { name: 'Новый чат' }))
     fireEvent.change(screen.getByLabelText('Название'), { target: { value: '  Private work  ' } })
     fireEvent.click(screen.getByRole('button', { name: 'Создать сессию' }))
     await screen.findByRole('alert')
+    await screen.findByText(/Создание не подтверждено/)
+    await waitFor(() => expect(fleet.createSession).toHaveBeenCalledTimes(1))
     const first = vi.mocked(fleet.createSession).mock.calls[0]?.[0]
     expect(first).toMatchObject({
       primary_agent_id: developer.id,
@@ -340,5 +353,65 @@ describe('server-scoped ChatsPage', () => {
     expect(vi.mocked(fleet.createSession).mock.calls[1]?.[0].idempotency_key).toBe(
       first?.idempotency_key,
     )
+  })
+})
+
+describe('ChatsPage', () => {
+  it('keeps each concrete agent chat separate even when the task is the same', () => {
+    const groups = groupChats(
+      [developer, tester],
+      [session, { ...session, id: 'chat-2', primary_agent_id: tester.id }],
+    )
+    expect(groups[0]?.sessions.map((item) => item.id)).toEqual([session.id])
+    expect(groups[1]?.sessions.map((item) => item.id)).toEqual(['chat-2'])
+  })
+
+  it('defaults to the owner filter and switches agent groups', async () => {
+    vi.mocked(directory.getChatsDirectory).mockImplementation(async (query = {}) =>
+      query.agentId === tester.id ? page([], tester.id) : page(),
+    )
+    renderPage()
+    expect(await screen.findByRole('link', { name: /Implement login/ })).toHaveAttribute(
+      'href',
+      `/chats/${session.id}?returnTo=${encodeURIComponent(`/chats?agent=${developer.id}&users=${owner}`)}`,
+    )
+    expect(directory.getChatsDirectory).toHaveBeenCalledWith(
+      expect.objectContaining({ userIds: [owner] }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: /Tester/ }))
+    await waitFor(() =>
+      expect(screen.queryByRole('link', { name: /Implement login/ })).not.toBeInTheDocument(),
+    )
+    expect(await screen.findByText('Сессий по выбранному фильтру нет')).toBeVisible()
+  })
+
+  it('reuses a private-chat idempotency key after a failed create', async () => {
+    vi.mocked(fleet.createSession).mockRejectedValueOnce(new Error('offline'))
+    renderPage()
+    const newChat = await screen.findByRole('button', { name: 'Новый чат' })
+    await waitFor(() => expect(newChat).toBeEnabled())
+    fireEvent.click(newChat)
+    fireEvent.change(screen.getByLabelText('Название'), { target: { value: '  Private work  ' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Создать сессию' }))
+    await screen.findByText(/Создание не подтверждено/)
+    await waitFor(() => expect(fleet.createSession).toHaveBeenCalledTimes(1))
+    const first = vi.mocked(fleet.createSession).mock.calls[0]?.[0]
+    expect(first).toMatchObject({
+      primary_agent_id: developer.id,
+      title: 'Private work',
+      leader_agent_id: null,
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Создать сессию' }))
+    await waitFor(() => expect(fleet.createSession).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(fleet.createSession).mock.calls[1]?.[0].idempotency_key).toBe(
+      first?.idempotency_key,
+    )
+  })
+
+  it('renders loading failures instead of an empty directory', async () => {
+    vi.mocked(directory.getChatsDirectory).mockRejectedValue(new Error('offline'))
+    renderPage()
+    expect(await screen.findByRole('alert')).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Новый чат' })).not.toBeInTheDocument()
   })
 })

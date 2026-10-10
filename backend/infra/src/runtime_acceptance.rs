@@ -441,6 +441,7 @@ pub(super) async fn terminal(
             delivery_state: MessageDeliveryState::Mirrored,
             delivery_error: None,
             replayed: replay,
+            request_payload_hash: None,
             created_at: api_ts(row.created_at),
         }),
         !replay,

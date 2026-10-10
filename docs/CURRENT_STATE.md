@@ -2,9 +2,63 @@
 
 ## Current Integration Snapshot: 10 October 2026
 
+### Current Integration Work
+
+Published runtime source is `7c7f9dd`. A separate, uncommitted normal merge with
+GitHub main `c39ff84` preserves both the standalone Chats delivery safeguards and
+the PM dialogue/clarification/requirements interface. Backend source review has
+no confirmed P1/P2 findings; six source checks and focused rustfmt pass. This is
+not compiled Rust/PostgreSQL acceptance. The added exact-row receipt regression
+also checks redaction on replay and dispatch.
+
+The pending union's merged OpenAPI generates its client successfully. The Base
+generated-client drift check and compatibility check against freshly fetched
+main `c39ff84` pass; four native capture-contract tests pass and retain45 views
+at each of three viewports. Documentation links pass across128 Markdown files.
+Focused merged React tests pass102/102 across four files, with Node22,
+threads/one worker and384MiB heap. This follows fixes for the failed-context
+observer remount loop and explicit readiness waits before keyboard/control
+interactions; all original behavior assertions remain. A denied session also
+has an explicit no-composer/no-POST regression. Scoped ESLint and formatting pass.
+Full TypeScript checking exhausts the384MiB local heap, so typecheck remains
+unverified. These checks do not regenerate OpenAPI from compiled Rust, execute
+the full/default-pool or browser suite, or produce fresh screenshots.
+
+- Frontend [run38032377582](https://github.com/FerrPOINT/fleet-control/actions/runs/38032377582),
+  controls `ea0d633`, source `59d00fe`: default unit stage passes; the run fails
+  at OpenAPI compatibility against the newer main. Browser/capture acceptance
+  is not established. The main integration must retain its pending-delivery and
+  original-payload-hash fields, then regenerate/check the actual union client.
+- Backend [run38033313593](https://github.com/FerrPOINT/fleet-control/actions/runs/38033313593),
+  controls `084d9f0`, source `7c7f9dd`, fails the same eight recovered-activation
+  cases. Authenticated artifact11663304119, ZIP SHA256
+  `bcc0fa122c70956765852fba111673ff483b2c1a06b2b3052f0758bbc4aa2839`,
+  identifies `activation_authorize_authority_insert`; both cleanup checks pass.
+  The fixed label narrows the failing operation, not its SQL/schema root cause.
+  Investigation now targets that INSERT without weakening authority predicates.
+- Forge [run38032103574](https://github.com/FerrPOINT/CI-CD/actions/runs/38032103574),
+  controls `b9375dc`: authenticated artifact11662920813, ZIP SHA256
+  `c81ddfb2e17b6dc3a01eb254311d7419eaaa204117688b8a297ea093094ba1c0`,
+  reports failure during bootstrap before the admission seal. All five first-job
+  test stages are NOT_RUN; later jobs are skipped. Owned cleanup and daemon stop
+  pass. The receipt does not identify a Docker timeout or other root cause.
+- PM bootstrap candidate `fc29a9d` uses ordinary Hermes `/v1/runs` and the
+  existing Workflow assign/bind/step endpoints. It is disabled by default and
+  remains unintegrated: tool credential configuration, answer delivery and
+  checkpoint/resume are in work. Its written Rust/PG cases have not run.
+
+Parallel ownership: Curie handed off the inherited browser fixtures and19 source
+preservation checks; Feynman reviewed the Forge diagnostic successor without
+confirmed P1/P2 findings; Pascal fixes the localized activation INSERT;
+Planck implements PM
+tools and continuation. Parent owns the normal merge, final tests, docs and
+publication. Hermes itself is unchanged; no custom pre-model access gate is
+required. Tracker and Workflow remain read-only. Existing screenshots are
+historical evidence, not fresh screenshots of the pending union.
+
 ### Latest Verified Checkpoint
 
-Product source is `60f35db0b73922a0d5f753d370e556edcf4d20b0`. This checkpoint
+Product source is `59d00fe` (normal successor of `60f35db`). This checkpoint
 supersedes the same-day in-progress statements below; it is not full acceptance.
 
 - C11 [run38028716924](https://github.com/FerrPOINT/fleet-control/actions/runs/38028716924)
@@ -42,12 +96,25 @@ supersedes the same-day in-progress statements below; it is not full acceptance.
   limits. Private CI/native installation are not accepted.
 - Reviewed frontend controls4972214 on exact60f35db are published separately;
   [run38030851556](https://github.com/FerrPOINT/fleet-control/actions/runs/38030851556)
-  is in progress. Parent69 pure checks pass without skips; all23 stages, original
+  fails at unit after10 successful gates. Strict readback authenticates
+  artifact11661818565, ZIP SHA256
+  `cddfe8b249e9346c799f37fb5e441cc478e95288039e672ef21c2150bc1c4c7d`.
+  The closed artifact does not expose the failing case or assertion; cleanup
+  succeeds. Parent69 pure checks pass without skips; all23 stages, original
   selectors, engines and135 capture paths remain. Canonical source count837 is
   correct (835 predecessor blobs plus the delivery document and capture test).
+  A bounded local reproduction runs the entire60-case chat-detail file and
+  finds one keyboard-tab timing failure (59 pass). The test focused a panel
+  before Radix selected/mounted it; source59d00fe waits for selection and the
+  revision select without removing assertions or adding delays. Repeating all60
+  cases passes, as do focused formatting and the4 capture-contract tests. This
+  uses Node22/threads/one worker, not the hosted default-pool355-test/full-browser
+  gate; it does not establish the sole cause of the hosted failure. A normal
+  exact-source frontend controls successor is being prepared.
 
-Curie owns current frontend controls, Pascal the Base safety successor, Feynman
-the Forge full12 consumer, and Planck full81 artifact packaging. Parent owns
+Curie owns current frontend controls, Pascal the bounded recovered-authorization
+diagnostic, Feynman the Forge published-maintenance consumer, and Planck actual
+PM orchestration over the existing Hermes API. Parent owns
 review/integration/publication. Heavy local jobs remain held; Tracker/Workflow
 remain read-only. Following the owner's explicit decision, Hermes stays unchanged:
 custom producer pre-model admission is removed from requirements. Fleet-side

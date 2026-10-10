@@ -7,7 +7,7 @@ import * as fleet from '@/api/fleet'
 import * as chats from '@/api/task-chats'
 import { listRuntimeControls, lookupRuntimeControl } from '@/api/runtime-controls'
 import { saveControlHandle } from './control-journal'
-import type { AgentSession, SessionMessage } from '@/api/types'
+import type { AgentDirectoryItem, AgentSession, SessionMessage } from '@/api/types'
 import type { ClarificationCommand } from '@/api/clarification-custody'
 import { useAuthStore } from '@/shared/auth/store'
 import { ApiError, connectAuthenticatedEventStream } from '@sdlc/ui/lib'
@@ -17,6 +17,7 @@ vi.mock('@/api/fleet', () => ({
   getSession: vi.fn(),
   listAgentDirectory: vi.fn(),
   listSessionAgentRuns: vi.fn(),
+  listSessionMessages: vi.fn(),
   createSessionMessage: vi.fn(),
   steerSessionRun: vi.fn(),
   stopSessionRun: vi.fn(),
@@ -136,7 +137,12 @@ beforeEach(() => {
   sessionStorage.clear()
   vi.clearAllMocks()
   vi.mocked(lookupRuntimeControl).mockRejectedValue(new Error('Lookup unavailable'))
-  useAuthStore.setState({ userId: 'owner', token: null })
+  useAuthStore.setState({
+    userId: 'owner',
+    token: 'fixture-token',
+    signingOut: false,
+    permissions: ['sessions:write_own'],
+  })
   vi.mocked(fleet.getSession).mockResolvedValue({
     id: 'session1',
     user_id: 'owner',
@@ -144,11 +150,16 @@ beforeEach(() => {
     primary_agent_id: 'agent1',
     primary_agent_name: 'PM',
     title: 'Task',
+    state: 'active',
+    pending_delivery: false,
     visibility: 'private',
     task_key: 'TASK-1',
   } as AgentSession)
-  vi.mocked(fleet.listAgentDirectory).mockResolvedValue([])
+  vi.mocked(fleet.listAgentDirectory).mockResolvedValue([
+    { id: 'agent1', product_role: 'executor', status: 'running' } as AgentDirectoryItem,
+  ])
   vi.mocked(fleet.listSessionAgentRuns).mockResolvedValue([])
+  vi.mocked(fleet.listSessionMessages).mockResolvedValue([])
   vi.mocked(chats.getTaskContext).mockResolvedValue(context)
   vi.mocked(chats.getChatControls).mockResolvedValue({
     can_send: false,
@@ -798,6 +809,7 @@ describe('production chat', () => {
       })
       const { client } = renderPage('clarification')
       const recommended = await screen.findByRole('radio', { name: /Участники проекта/ })
+      await waitFor(() => expect(recommended).toBeEnabled())
       act(() => recommended.focus())
       await userEvent.keyboard('{ArrowDown}')
       expect(screen.getByRole('radio', { name: /Команда/ })).toBeChecked()
@@ -1153,6 +1165,9 @@ describe('production chat', () => {
     })
     vi.mocked(fleet.stopSessionRun).mockRejectedValue(new Error('Unknown stop outcome'))
     const { client } = renderPage()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Остановить запуск' })).toBeEnabled(),
+    )
     fireEvent.click(await screen.findByRole('button', { name: 'Остановить запуск' }))
     await screen.findByText('Unknown stop outcome')
     const original = vi.mocked(fleet.stopSessionRun).mock.calls[0]
@@ -1227,6 +1242,9 @@ describe('production chat', () => {
       message: 'Acceptance unknown',
     })
     const { client } = renderPage()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Остановить запуск' })).toBeEnabled(),
+    )
     fireEvent.click(await screen.findByRole('button', { name: 'Остановить запуск' }))
     await screen.findByText(/Принятие остановки не подтверждено/)
     const original = vi.mocked(fleet.stopSessionRun).mock.calls[0]
@@ -1270,6 +1288,9 @@ describe('production chat', () => {
       message: 'Acceptance unknown',
     })
     const { client } = renderPage()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Остановить запуск' })).toBeEnabled(),
+    )
     fireEvent.click(await screen.findByRole('button', { name: 'Остановить запуск' }))
     await waitFor(() => expect(fleet.stopSessionRun).toHaveBeenCalledTimes(1))
     await waitFor(() =>
@@ -1341,6 +1362,9 @@ describe('production chat', () => {
     })
     vi.mocked(fleet.stopSessionRun).mockRejectedValue(new Error('Still unknown'))
     renderPage()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Остановить запуск' })).toBeEnabled(),
+    )
     fireEvent.click(await screen.findByRole('button', { name: 'Остановить запуск' }))
     await waitFor(() =>
       expect(fleet.stopSessionRun).toHaveBeenCalledWith('session1', 'original-run', 'original-key'),
@@ -1546,21 +1570,28 @@ describe('production chat', () => {
       })
       renderPage()
       const editor = await screen.findByLabelText('Уточнение активному запуску')
-      const dispatch = (input: string) => {
+      const dispatch = async (input: string) => {
         if (operation === 'steer') fireEvent.change(editor, { target: { value: input } })
+        await waitFor(() =>
+          expect(
+            screen.getByRole('button', {
+              name: operation === 'steer' ? 'Передать уточнение запуску' : 'Остановить запуск',
+            }),
+          ).toBeEnabled(),
+        )
         fireEvent.click(
           screen.getByRole('button', {
             name: operation === 'steer' ? 'Передать уточнение запуску' : 'Остановить запуск',
           }),
         )
       }
-      dispatch('Original guidance')
+      await dispatch('Original guidance')
       fireEvent.click(
         await screen.findByRole('button', {
           name: operation === 'steer' ? 'Закрыть сверку уточнения' : 'Закрыть сверку остановки',
         }),
       )
-      dispatch('Successor guidance')
+      await dispatch('Successor guidance')
       await screen.findByText('Successor acceptance unknown')
       const storageKey = 'fleet-runtime-controls:v1:owner:session1'
       const successor = JSON.parse(sessionStorage.getItem(storageKey)!)[operation]
