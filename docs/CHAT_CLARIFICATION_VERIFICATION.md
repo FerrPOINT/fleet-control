@@ -155,7 +155,7 @@ on exactf5/sourcecb1 was created21:38:53Z and completed FAILURE at21:54:02Z,
 job114319687647. Original frozenf5 strict readback passes for artifact11683587503,
 ZIP SHA256 `9b41e1db6377fc9f2858a73f85105002559188cd61936187847f034674a69536`;
 safe JSON SHA256 `c612755071b70ba4290509e0923ab1a340d5e1fea07d792edab0af52477c57d1`.
-Latest terminal backend receipt records pm_recovery_pg13/84, exit101,
+That terminal backend receipt records pm_recovery_pg13/84, exit101,
 runtime_stack_overflow plus unknown/SIGABRT, readable/untruncated log, empty
 failed-test/diagnostic lists, null command/harness exits, scratch and synthetic
 database cleanup true. Layout remains fixture52440/bounded submit45096 bytes;
@@ -165,6 +165,38 @@ test completed, nor identify the cause, peak stack or overflowing boundary.
 All acceptance flags remain false. Earlierc5/layout/phase evidence stays exact;
 no real PM/full-SDLC/source acceptance is claimed. Forge20e has authenticated
 A+B PASS and C failure below, not full12 acceptance.
+
+Published normal controls successor `afab44ddcc06358904efa58942ea94546572693f`
+retains sourcecb1 and frozenf5 history. Reported pure checks are Windows195
+selectors (192 PASS/three skips), Linux195 PASS, parent six and Planck six plus
+two focused checks PASS; these are not backend qualification.
+Actual [38090509225](https://github.com/FerrPOINT/fleet-control/actions/runs/38090509225)/1
+completed FAILURE at2026-10-10T22:28:39Z, job114325793793. Original strict
+readback passes for artifact11684336462, ZIP SHA256
+`dad8cce4f148d59e92fd87ae92b3bda938f026ab2763b21296adbe4070873ccb`;
+safe JSON SHA256 `3f21f9ee674dc51f1d71d218745199c7e950597fe63f53213646489d92be4484`.
+The closed receipt records pm_recovery_pg13/84, exit101,
+runtime_stack_overflow plus test_failure/SIGABRT, readable/untruncated log and
+the exact aborted test
+`runtime::pm_recovery::tests::pg::production_lost_ack_reload_reuses_original_journal_and_persists_same_native_ack`.
+Layout remains fixture52440/bounded submit45096 bytes, last phase submit_entered;
+diagnostics are empty and command/harness exit numbers null. No source frame or
+final harness counts are retained. Scratch and synthetic database cleanup are
+true; all acceptance flags remain false. The test identity is not an assertion,
+overflowing frame or cause, and does not establish that other tests passed.
+Frozenf5 and prior receipts retain their original classifications.
+Published normal source successor `5bc0fd3fd92a11a6957858525d9b124be00c1644`,
+sole child ofb0b78ee, boxes the submit future at the bounded_submit timeout
+boundary, without changing submit internals.
+Parent/Planck approved this minimal experiment, not a proven fix.
+Reviewed controls `50cb550af47e06530997fc1f84a5562fd4503b9e` are published.
+Reported pure checks are Windows196 selectors (193 PASS/three skips), Linux196
+PASS and parent three focused checks PASS, with Curie approval.
+Parent fresh API verification identifies actual push run
+[38092256984](https://github.com/FerrPOINT/fleet-control/actions/runs/38092256984)/1,
+created2026-10-10T22:39:45Z, in progress on exact50cb/source5bc.
+No terminal result or qualification is claimed; afab remains the latest
+terminal backend observation.
 
 Earlier backend admission refusal
 [38078901349](https://github.com/FerrPOINT/fleet-control/actions/runs/38078901349),
@@ -358,6 +390,8 @@ source, PM or native Hermes acceptance is granted. Historical A-only and partial
 B reports retain their scopes; no old receipt is reused or overwritten.
 Product5f is unchanged. Historicalabf/d744 first-six-stage PASS and its distinct
 OCI failure follow without retrospective attribution.
+Preparede781 normally merges903; fresh qualification is pending,
+not a new run or a replacement for this terminal receipt.
 
 Earlier Forge workload observation
 [38077188736](https://github.com/FerrPOINT/CI-CD/actions/runs/38077188736)/1
