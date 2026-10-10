@@ -14,6 +14,7 @@ import re
 import selectors
 import shutil
 import signal
+import stat
 import subprocess
 import tarfile
 import tempfile
@@ -49,6 +50,10 @@ DIAGNOSTIC_LIMIT = 32
 DIAGNOSTIC_INPUT_LIMIT = 16 * 1024 ** 2
 DIAGNOSTIC_LINE_LIMIT = 256 * 1024
 FAILURE_SIZE_LIMIT = 16 * 1024
+INVENTORY_INPUT_LIMIT = 1024 * 1024
+INVENTORY_LINE_LIMIT = 4096
+INVENTORY_RECORD_LIMIT = 4096
+INVENTORY_SAMPLE_LIMIT = 8
 CATEGORY_PATTERNS = {
     "network": ("failed to download", "could not resolve host", "timeout was reached", "network failure", "failed to fetch"),
     "dependency": ("failed to select a version", "no matching package named", "requires rustc", "failed to load source for dependency"),
@@ -614,10 +619,125 @@ def test_failure_logs(root, stage, reviewed):
     return result
 
 
+def inventory_listing(path):
+    """Read only bounded regular owned logs; never return non-test lines."""
+    names, remaining, lines = Counter(), INVENTORY_INPUT_LIMIT, 0
+    try:
+        require(not path.is_symlink(), "Inventory log link forbidden")
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+        with os.fdopen(fd, "rb") as stream:
+            require(stat.S_ISREG(os.fstat(stream.fileno()).st_mode), "Inventory log is not regular")
+            while remaining > 0 and lines < INVENTORY_RECORD_LIMIT:
+                line = stream.readline(min(INVENTORY_LINE_LIMIT + 1, remaining + 1))
+                if not line:
+                    return names, "complete"
+                remaining -= len(line)
+                lines += 1
+                if len(line) > INVENTORY_LINE_LIMIT or remaining < 0:
+                    return names, "limited"
+                text = line.decode("utf-8").rstrip("\r\n")
+                match = re.fullmatch(r"([^\r\n]+): test", text)
+                if match:
+                    names[match[1]] += 1
+            return names, "limited"
+    except Exception:
+        # Missing files, symlinks, FIFOs, decoding and IO failures carry no private text.
+        return Counter(), "unavailable"
+
+
+def inventory_failure_logs(root, reviewed):
+    ordinary, ordinary_status = inventory_listing(root / "private/workspace-list.log")
+    ignored, ignored_status = inventory_listing(root / "private/ignored-list.log")
+    expected = dict(default=Counter(item["name"] for item in reviewed["workspace_default_declarations"]),
+                    ignored=Counter(item["name"] for item in reviewed["ignored"]))
+    defaults = ordinary - expected["ignored"]
+    actual = dict(default=Counter(name.rsplit("::", 1)[-1] for name in defaults.elements()), ignored=ignored)
+    differences, samples = {}, []
+    eligible_samples = 0
+    for scope in ("default", "ignored"):
+        missing, extra = expected[scope] - actual[scope], actual[scope] - expected[scope]
+        differences[scope] = dict(missing=sum(missing.values()), extra=sum(extra.values()),
+            unallowlisted_extra=sum(count for name, count in extra.items() if name not in expected[scope]))
+        for difference, values in (("missing", missing), ("extra", extra)):
+            for name, count in sorted(values.items()):
+                if name in expected[scope]:
+                    eligible_samples += 1
+                    if len(samples) < INVENTORY_SAMPLE_LIMIT:
+                        samples.append(dict(scope=scope, difference=difference, name=name, count=count))
+    statuses = dict(ordinary=ordinary_status, ignored=ignored_status)
+    reason = ("listing_unavailable" if "unavailable" in statuses.values() else
+              "listing_limit" if "limited" in statuses.values() else
+              "listing_mismatch" if any(x["missing"] or x["extra"] for x in differences.values()) else "listing_matches")
+    inventory = dict(reason=reason, input_status=statuses,
+        expected=dict(default=DEFAULT_COUNT, ignored=IGNORED_COUNT),
+        observed=dict(ordinary=sum(ordinary.values()), ignored=sum(ignored.values()), default=sum(defaults.values())),
+        differences=differences, samples=samples, samples_truncated=eligible_samples > len(samples))
+    return dict(diagnostics=[], command_exit_code=None,
+                categories=["inventory_mismatch" if reason == "listing_mismatch" else "inventory_unavailable"],
+                truncated="limited" in statuses.values(), inventory=inventory)
+
+
+def validate_inventory_failure(value, reviewed):
+    require(isinstance(value, dict) and set(value) == {
+        "reason", "input_status", "expected", "observed", "differences", "samples", "samples_truncated"},
+        "Unsafe inventory evidence fields")
+    require(isinstance(value["input_status"], dict) and set(value["input_status"]) == {"ordinary", "ignored"}
+            and all(x in ("complete", "limited", "unavailable") for x in value["input_status"].values()),
+            "Invalid inventory input status")
+    require(value["expected"] == dict(default=DEFAULT_COUNT, ignored=IGNORED_COUNT)
+            and all(type(x) is int for x in value["expected"].values()), "Inventory expectation drift")
+    observed, differences = value["observed"], value["differences"]
+    require(isinstance(observed, dict) and set(observed) == {"ordinary", "ignored", "default"}
+            and all(type(x) is int and 0 <= x <= INVENTORY_RECORD_LIMIT for x in observed.values())
+            and 0 <= observed["ordinary"] - observed["default"] <= IGNORED_COUNT
+            and (value["input_status"]["ordinary"] != "unavailable" or observed["ordinary"] == 0)
+            and (value["input_status"]["ignored"] != "unavailable" or observed["ignored"] == 0), "Invalid inventory counts")
+    require(isinstance(differences, dict) and set(differences) == {"default", "ignored"}, "Invalid inventory scopes")
+    allowed = dict(default=Counter(item["name"] for item in reviewed["workspace_default_declarations"]),
+                   ignored=Counter(item["name"] for item in reviewed["ignored"]))
+    for scope, row in differences.items():
+        require(isinstance(row, dict) and set(row) == {"missing", "extra", "unallowlisted_extra"}
+                and all(type(x) is int and 0 <= x <= INVENTORY_RECORD_LIMIT for x in row.values())
+                and row["unallowlisted_extra"] <= row["extra"]
+                and row["missing"] <= value["expected"][scope]
+                and value["expected"][scope] - row["missing"] + row["extra"] == observed[scope],
+                "Inconsistent inventory differences")
+    statuses = value["input_status"].values()
+    reason = ("listing_unavailable" if "unavailable" in statuses else "listing_limit" if "limited" in statuses else
+              "listing_mismatch" if any(x["missing"] or x["extra"] for x in differences.values()) else "listing_matches")
+    require(value["reason"] == reason, "Invalid inventory reason")
+    samples = value["samples"]
+    require(isinstance(samples, list) and len(samples) <= INVENTORY_SAMPLE_LIMIT
+            and type(value["samples_truncated"]) is bool, "Inventory sample count bound")
+    seen, totals = set(), Counter()
+    for sample in samples:
+        require(isinstance(sample, dict) and set(sample) == {"scope", "difference", "name", "count"}, "Unsafe inventory sample fields")
+        scope, difference, name = sample["scope"], sample["difference"], sample["name"]
+        require(isinstance(scope, str) and scope in allowed and difference in ("missing", "extra")
+                and isinstance(name, str) and name in allowed[scope], "Non-allowlisted inventory identity")
+        require(type(sample["count"]) is int and 1 <= sample["count"] <= INVENTORY_RECORD_LIMIT
+                and (difference != "missing" or sample["count"] <= allowed[scope][name]), "Invalid inventory sample count")
+        key = (scope, difference, name)
+        require(key not in seen and (scope, "extra" if difference == "missing" else "missing", name) not in seen,
+                "Duplicate/conflicting inventory sample")
+        seen.add(key)
+        totals[(scope, difference)] += sample["count"]
+    omitted = False
+    for scope, row in differences.items():
+        for difference in ("missing", "extra"):
+            safe_count = row[difference] - (row["unallowlisted_extra"] if difference == "extra" else 0)
+            require(totals[(scope, difference)] <= safe_count
+                    and (value["samples_truncated"] or totals[(scope, difference)] == safe_count), "Inventory sample totals drift")
+            omitted |= totals[(scope, difference)] < safe_count
+    require(value["samples_truncated"] == omitted
+            and (not omitted or len(samples) == INVENTORY_SAMPLE_LIMIT), "Invalid inventory sample truncation")
+
+
 def validate_failure_evidence(value, *, workflow_sha, run_id, attempt):
     controls = Path(__file__).resolve().parents[1]
-    require(isinstance(value, dict) and value.get("kind") in ("safe_compiler_failure", "safe_test_failure"), "Invalid failure kind")
+    require(isinstance(value, dict) and value.get("kind") in ("safe_compiler_failure", "safe_test_failure", "safe_inventory_failure"), "Invalid failure kind")
     test_failure = value["kind"] == "safe_test_failure"
+    inventory_failure = value["kind"] == "safe_inventory_failure"
     expected = dict(version=1, kind=value["kind"], status="failure", repository=REPOSITORY,
                     branch=BRANCH, workflow_sha=workflow_sha, workflow_path=WORKFLOW,
                     source_sha=SOURCE_SHA, base_sha=BASE_SHA, auth_sha=AUTH_SHA, run_id=run_id, run_attempt=attempt,
@@ -628,11 +748,14 @@ def validate_failure_evidence(value, *, workflow_sha, run_id, attempt):
     extra = {"stage", "gate_failed_stage", "gate_exit_code", "command_exit_code", "diagnostics", "categories", "truncated", "cleanup"}
     if test_failure:
         extra.add("failed_tests")
+    if inventory_failure:
+        extra.add("inventory")
     require(isinstance(value, dict) and set(value) == set(expected) | extra, "Unsafe failure evidence fields")
     require(all(type(value[key]) is type(item) and value[key] == item for key, item in expected.items()), "Failure provenance mismatch")
     reviewed = reviewed_inventory(controls)
     require(isinstance(value["stage"], str) and value["stage"] in GATES, "Invalid failure stage")
-    require((bool(failure_test_names(reviewed, value["stage"])) if test_failure else value["stage"] in ("check", "clippy"))
+    require((value["stage"] == "runtime_inventory" if inventory_failure else
+             bool(failure_test_names(reviewed, value["stage"])) if test_failure else value["stage"] in ("check", "clippy"))
             and value["gate_failed_stage"] in (value["stage"], "cleanup"), "Invalid failure stage")
     if test_failure:
         names = value["failed_tests"]
@@ -643,9 +766,16 @@ def validate_failure_evidence(value, *, workflow_sha, run_id, attempt):
     require(all(value[key] is None or type(value[key]) is int and 0 <= value[key] <= 255
                 for key in ("gate_exit_code", "command_exit_code")), "Invalid exit code")
     require(type(value["truncated"]) is bool and isinstance(value["categories"], list)
-            and all(isinstance(item, str) and item in ({"test_failure", "unknown", *TEST_CUSTOM_HINTS, *TEST_NULL_HINTS, *TEST_ACTIVATION_HINTS}
+            and all(isinstance(item, str) and item in ({"inventory_mismatch", "inventory_unavailable"} if inventory_failure else
+                                                      {"test_failure", "unknown", *TEST_CUSTOM_HINTS, *TEST_NULL_HINTS, *TEST_ACTIVATION_HINTS}
                                                        if test_failure else {*CATEGORY_PATTERNS, "unknown"}) for item in value["categories"])
             and value["categories"] == sorted(set(value["categories"])), "Invalid fixed failure categories")
+    if inventory_failure:
+        validate_inventory_failure(value["inventory"], reviewed)
+        require(value["diagnostics"] == [] and value["command_exit_code"] is None
+                and value["categories"] == ["inventory_mismatch" if value["inventory"]["reason"] == "listing_mismatch" else "inventory_unavailable"]
+                and value["truncated"] == ("limited" in value["inventory"]["input_status"].values()),
+                "Invalid inventory diagnostic framing")
     if test_failure and set(value["categories"]) & (TEST_CUSTOM_HINTS.keys() | TEST_NULL_HINTS.keys() | TEST_ACTIVATION_HINTS):
         require("test_failure" in value["categories"] and bool(value["diagnostics"]), "Unanchored test failure hint")
     if test_failure and set(value["categories"]) & TEST_ACTIVATION_HINTS:
@@ -936,6 +1066,9 @@ def execute():
             if not success and failed_stage in ("check", "clippy"):
                 compiler_stage = failed_stage
                 compiler_failure = compiler_failure_logs(root, compiler_stage, reviewed)
+            elif not success and failed_stage == "runtime_inventory":
+                compiler_stage = failed_stage
+                compiler_failure = inventory_failure_logs(root, reviewed)
             elif not success and failure_test_names(reviewed, failed_stage):
                 compiler_stage = failed_stage
                 compiler_failure = test_failure_logs(root, compiler_stage, reviewed)
@@ -978,7 +1111,8 @@ def execute():
     (evidence / "SHA256SUMS").write_text("".join(digest((evidence / name).read_bytes()) + "  " + name + "\n"
                                               for name in ("report.json", "provenance.json")), newline="\n")
     if not success and compiler_failure is not None:
-        failure_artifact = dict(version=1, kind="safe_compiler_failure" if compiler_stage in ("check", "clippy") else "safe_test_failure", status="failure", repository=REPOSITORY,
+        failure_artifact = dict(version=1, kind="safe_inventory_failure" if compiler_stage == "runtime_inventory" else
+                               "safe_compiler_failure" if compiler_stage in ("check", "clippy") else "safe_test_failure", status="failure", repository=REPOSITORY,
                        branch=BRANCH, workflow_path=WORKFLOW,
                        **identity, source_sha=SOURCE_SHA, base_sha=BASE_SHA, auth_sha=AUTH_SHA,
                        package_sha=PACKAGE_SHA, package_tree=PACKAGE_TREE, package_inventory_sha256=PACKAGE_INVENTORY_SHA,

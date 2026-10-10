@@ -959,6 +959,276 @@ class HostedBackendTests(unittest.TestCase):
     def validate_failure(self, value):
         return gate.validate_failure_evidence(value, workflow_sha="a" * 40, run_id=123, attempt=1)
 
+    def inventory_texts(self):
+        defaults = ["tests::" + item["name"] for item in REVIEWED["workspace_default_declarations"]]
+        ignored = [item["name"] for item in REVIEWED["ignored"]]
+        return ("".join(name + ": test\n" for name in defaults + ignored),
+                "".join(name + ": test\n" for name in ignored))
+
+    def inventory_result(self, ordinary, ignored):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "private").mkdir()
+            for name, text in (("workspace-list.log", ordinary), ("ignored-list.log", ignored)):
+                if text is not None:
+                    (root / "private" / name).write_bytes(text.encode() if isinstance(text, str) else text)
+            return gate.inventory_failure_logs(root, REVIEWED)
+
+    def inventory_value(self, result):
+        value = self.failure_value()
+        value.update(kind="safe_inventory_failure", stage="runtime_inventory", gate_failed_stage="runtime_inventory",
+                     gate_exit_code=1, **result)
+        return value
+
+    def test_inventory_matching_lists_are_failed_stage_evidence_not_mismatch_or_pass(self):
+        ordinary, ignored = self.inventory_texts()
+        gate.verify_runtime_inventory(ordinary, ignored, REVIEWED)
+        result = self.inventory_result(ordinary, ignored)
+        self.assertEqual(result["inventory"]["reason"], "listing_matches")
+        self.assertEqual(result["inventory"]["observed"], dict(ordinary=259, default=242, ignored=17))
+        self.assertEqual(result["categories"], ["inventory_unavailable"])
+        self.assertEqual(result["inventory"]["samples"], [])
+        value = self.inventory_value(result)
+        self.validate_failure(value)
+        self.assertTrue(all(value[key] is False for key in ("backend_quality_gate", "all_quality_gate", "sdlc_acceptance")))
+
+    def test_inventory_missing_extra_and_duplicate_counts_preserve_strict_verifier(self):
+        ordinary, ignored = self.inventory_texts()
+        first = ordinary.splitlines(keepends=True)[0]
+        known = ignored.splitlines(keepends=True)[0]
+        vectors = ((ordinary.replace(first, "", 1), ignored, "default", "missing", 1),
+                   (ordinary + first, ignored, "default", "extra", 1),
+                   (ordinary, ignored.replace(known, "", 1), "ignored", "missing", 1),
+                   (ordinary, ignored + known, "ignored", "extra", 1),
+                   (ordinary + "PRIVATE_SENTINEL: test\n", ignored, "default", "unallowlisted_extra", 1))
+        for actual, actual_ignored, scope, field, count in vectors:
+            with self.subTest(scope=scope, field=field):
+                with self.assertRaises(ValueError):
+                    gate.verify_runtime_inventory(actual, actual_ignored, REVIEWED)
+                result = self.inventory_result(actual, actual_ignored)
+                self.assertEqual(result["inventory"]["reason"], "listing_mismatch")
+                self.assertEqual(result["inventory"]["differences"][scope][field], count)
+                self.assertEqual(result["categories"], ["inventory_mismatch"])
+                self.validate_failure(self.inventory_value(result))
+                self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+
+    def test_inventory_private_lines_foreign_names_paths_and_hashes_never_emitted(self):
+        ordinary, ignored = self.inventory_texts()
+        known = REVIEWED["ignored"][0]["name"]
+        private = "PRIVATE_SENTINEL_" + "a" * 64
+        ordinary += private + ": test\n/credentials/" + private + ": test\n"
+        ordinary += "error: PRIVATE_SENTINEL_BODY\n" + "PRIVATE_SENTINEL: test suffix\n"
+        ignored += "foreign::" + known + ": test\n" + known + "_PRIVATE_SENTINEL: test\n"
+        result = self.inventory_result(ordinary, ignored)
+        self.assertEqual(result["inventory"]["differences"]["default"]["unallowlisted_extra"], 2)
+        self.assertEqual(result["inventory"]["differences"]["ignored"]["unallowlisted_extra"], 2)
+        self.assertEqual(result["inventory"]["samples"], [])
+        self.validate_failure(self.inventory_value(result))
+        self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+        self.assertNotIn("a" * 64, gate.canonical(result).decode())
+
+    def test_inventory_samples_bounded_by_eight_canonical_identities(self):
+        _, ignored = self.inventory_texts()
+        result = self.inventory_result(ignored, "")
+        inventory = result["inventory"]
+        self.assertEqual(inventory["differences"]["default"]["missing"], 242)
+        self.assertEqual(inventory["differences"]["ignored"]["missing"], 17)
+        self.assertEqual(len(inventory["samples"]), 8)
+        self.assertTrue(inventory["samples_truncated"])
+        self.validate_failure(self.inventory_value(result))
+        self.assertLess(len(gate.canonical(self.inventory_value(result))), gate.FAILURE_SIZE_LIMIT)
+
+    def test_inventory_bounded_byte_line_and_record_reads_fail_closed(self):
+        ordinary, ignored = self.inventory_texts()
+        for constant, bound in (("INVENTORY_INPUT_LIMIT", 64), ("INVENTORY_LINE_LIMIT", 32),
+                                ("INVENTORY_RECORD_LIMIT", 1)):
+            with self.subTest(constant=constant), mock.patch.object(gate, constant, bound):
+                result = self.inventory_result(ordinary, ignored)
+                self.assertEqual(result["inventory"]["reason"], "listing_limit")
+                self.assertTrue(result["truncated"])
+                self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+        with mock.patch.object(gate, "INVENTORY_LINE_LIMIT", 16):
+            result = self.inventory_result(b"PRIVATE_SENTINEL" * 100, ignored)
+        self.validate_failure(self.inventory_value(result))
+        self.assertEqual(result["inventory"]["observed"]["ordinary"], 0)
+
+    def test_inventory_missing_invalid_utf8_and_nonregular_files_are_unavailable(self):
+        ordinary, ignored = self.inventory_texts()
+        for actual in (None, b"\xffPRIVATE_SENTINEL"):
+            result = self.inventory_result(actual, ignored)
+            self.assertEqual(result["inventory"]["reason"], "listing_unavailable")
+            self.assertEqual(result["inventory"]["input_status"]["ordinary"], "unavailable")
+            self.validate_failure(self.inventory_value(result))
+            self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+        with tempfile.TemporaryDirectory() as directory:
+            self.assertEqual(gate.inventory_listing(Path(directory)), (Counter(), "unavailable"))
+
+    @unittest.skipUnless(sys.platform == "linux", "Linux nofollow/nonblocking special-file proof")
+    def test_inventory_actual_fifo_and_symlink_fail_without_blocking_or_reading_target(self):
+        import time
+        ordinary, ignored = self.inventory_texts()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "private").mkdir()
+            (root / "private/ignored-list.log").write_text(ignored)
+            path = root / "private/workspace-list.log"
+            os.mkfifo(path)
+            started = time.monotonic()
+            result = gate.inventory_failure_logs(root, REVIEWED)
+            self.assertLess(time.monotonic() - started, 2)
+            self.validate_failure(self.inventory_value(result))
+            self.assertEqual(result["inventory"]["reason"], "listing_unavailable")
+            path.unlink()
+            target = root / "private-target"
+            target.write_text(ordinary + "PRIVATE_SENTINEL: test\n")
+            path.symlink_to(target)
+            result = gate.inventory_failure_logs(root, REVIEWED)
+            self.assertEqual(result["inventory"]["observed"]["ordinary"], 0)
+            self.validate_failure(self.inventory_value(result))
+            self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+
+    def test_inventory_closed_schema_rejects_private_fields_names_and_noninteger_counts(self):
+        ordinary, ignored = self.inventory_texts()
+        result = self.inventory_result(ordinary.split("\n", 1)[1], ignored)
+        valid = result["inventory"]
+        self.validate_failure(self.inventory_value(result))
+        mutations = [dict(valid, raw="PRIVATE_SENTINEL"), dict(valid, expected=dict(default=243, ignored=17)),
+                     dict(valid, observed=dict(valid["observed"], default=True)),
+                     dict(valid, observed=dict(valid["observed"], ordinary=4097)),
+                     dict(valid, reason="listing_matches"), dict(valid, samples_truncated=True),
+                     dict(valid, input_status=dict(ordinary="PRIVATE_SENTINEL", ignored="complete"))]
+        for change in (dict(name="PRIVATE_SENTINEL"), dict(name="foreign::" + valid["samples"][0]["name"]),
+                       dict(name=valid["samples"][0]["name"] + "_suffix"), dict(count=True), dict(count=0),
+                       dict(count=4097), dict(raw="PRIVATE_SENTINEL"), dict(scope="private"), dict(difference="unknown")):
+            mutations.append(dict(valid, samples=[dict(valid["samples"][0], **change)]))
+        mutations.append(dict(valid, samples=valid["samples"] * 2))
+        mutations.append(dict(valid, samples=[]))
+        mutations.append(dict(valid, differences=dict(valid["differences"], default=dict(missing=1, extra=0, unallowlisted_extra=1))))
+        mutations.append(dict(valid, input_status=dict(ordinary="unavailable", ignored="complete"), reason="listing_unavailable"))
+        mutations.append(dict(valid, observed=dict(valid["observed"], ordinary=300)))
+        for inventory in mutations:
+            with self.subTest(inventory=inventory), self.assertRaises(ValueError):
+                self.validate_failure(self.inventory_value(dict(result, inventory=inventory)))
+
+    def test_inventory_failure_framing_rejects_wrong_kind_stage_categories_and_acceptance(self):
+        value = self.inventory_value(self.inventory_result(*self.inventory_texts()))
+        for change in (dict(kind="safe_test_failure"), dict(kind="safe_compiler_failure"), dict(stage="check"),
+                       dict(command_exit_code=101), dict(categories=["inventory_mismatch"]), dict(truncated=True),
+                       dict(diagnostics=[dict(error_code=None, file="backend/api/src/routes/sessions.rs", line=1, column=1)]),
+                       dict(backend_quality_gate=True), dict(all_quality_gate=True), dict(sdlc_acceptance=True),
+                       dict(source_sha="a" * 40), dict(control_sha256={}), dict(private="PRIVATE_SENTINEL")):
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                self.validate_failure(dict(value, **change))
+
+    def test_inventory_authenticated_readback_retains_failure_identity_and_rejects_raw_members(self):
+        value = self.inventory_value(self.inventory_result(None, None))
+        run, artifact, payload, args = self.failure_artifact(value=value)
+        files = gate.validate_failure_readback(run, artifact, payload, **args)
+        self.assertEqual(json.loads(files[gate.FAILURE_FILE])["kind"], "safe_inventory_failure")
+        for change in (dict(id=456), dict(run_attempt=2), dict(head_sha="b" * 40), dict(conclusion="success")):
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                gate.validate_failure_readback(dict(run, **change), artifact, payload, **args)
+        with self.assertRaises(ValueError):
+            gate.validate_failure_readback(run, artifact, payload + b"PRIVATE_SENTINEL", **args)
+        with self.assertRaises(ValueError):
+            gate.validate_readback(run, artifact, payload, **args)
+        run, artifact, payload, args = self.failure_artifact(extra=["workspace-list.log"], value=value)
+        with self.assertRaises(ValueError):
+            gate.validate_failure_readback(run, artifact, payload, **args)
+
+    def test_inventory_readback_cli_authenticates_before_creating_output(self):
+        value = self.inventory_value(self.inventory_result(None, None))
+        run, artifact, payload, arguments = self.failure_artifact(value=value)
+        artifact.update(id=42, size_in_bytes=len(payload))
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "readback"
+            args = SimpleNamespace(mode="readback-failure", artifact_id=42, output=output, **arguments)
+            with mock.patch.object(gate, "command", side_effect=[gate.canonical(run), gate.canonical(artifact), payload]), \
+                    mock.patch("sys.stdout", new_callable=io.StringIO) as stdout:
+                gate.readback(args)
+            self.assertEqual(set(path.name for path in output.iterdir()), {gate.FAILURE_FILE})
+            self.assertEqual(json.loads(stdout.getvalue())["state"], "verified_safe_inventory_failure")
+            self.assertFalse(json.loads(stdout.getvalue())["backend_quality_gate"])
+            output = Path(directory) / "rejected"
+            args.output = output
+            with mock.patch.object(gate, "command", side_effect=[gate.canonical(dict(run, head_sha="b" * 40)),
+                                                                 gate.canonical(artifact), payload]), self.assertRaises(ValueError):
+                gate.readback(args)
+            self.assertFalse(output.exists())
+
+    def test_inventory_capture_precedes_actual_scratch_removal_and_publishes_only_safe_failure(self):
+        import ast
+        import shutil
+        from contextlib import redirect_stdout
+        source = ast.parse((ROOT / gate.HELPER).read_text())
+        original = next(node for node in source.body if isinstance(node, ast.FunctionDef) and node.name == "execute")
+        cleanup_try = next(node for node in original.body if isinstance(node, ast.Try) and node.finalbody)
+        cleanup_function = copy.deepcopy(original)
+        cleanup_function.name = "cleanup_probe"
+        cleanup_function.body = ast.parse(
+            "success = False\nfailed_stage = 'runtime_inventory'\ncompiler_stage = compiler_failure = None").body + copy.deepcopy(cleanup_try.finalbody) + ast.parse(
+            "return compiler_stage, compiler_failure, cleanup, failed_stage").body
+        tail_function = copy.deepcopy(original)
+        start = next(index for index, node in enumerate(original.body) if isinstance(node, ast.If)
+                     and "compiler_failure is not None" in ast.unparse(node.test))
+        tail_function.name, tail_function.body = "tail_probe", copy.deepcopy(original.body[start:])
+        module = ast.fix_missing_locations(ast.Module(body=[cleanup_function, tail_function], type_ignores=[]))
+        with tempfile.TemporaryDirectory() as directory:
+            temporary = Path(directory)
+            root = temporary / "fc11"
+            (root / "private").mkdir(parents=True)
+            (root / "private/workspace-list.log").write_text("PRIVATE_SENTINEL: test\n")
+            (root / "private/ignored-list.log").write_text("")
+            identity = dict(workflow_sha="a" * 40, run_id=123, run_attempt=1)
+            environment = dict(vars(gate), BUDGET=None, success=False, process=None, root=root, temporary=temporary,
+                reviewed=REVIEWED, compiler_stage=None, compiler_failure=None, failed_stage="runtime_inventory",
+                owned_dbs=[], cleanup={}, identity=identity, stop_owned_group=mock.Mock(),
+                remove_scratch=mock.Mock(side_effect=lambda *args: shutil.rmtree(root)),
+                check_budget=mock.Mock(), workflow_sha="a" * 40, before=REVIEWED["compiled_source_sha256"],
+                provenance=dict(control_sha256=self.failure_value()["control_sha256"]),
+                code=1, phase="gate_receipts", failure=dict(category="validation", exit_code=None))
+            exec(compile(module, "<inventory-cleanup-regression>", "exec"), environment)
+            stage, result, cleanup, failed = environment["cleanup_probe"]()
+            self.assertFalse(root.exists())
+            self.assertEqual(stage, "runtime_inventory")
+            self.assertEqual(result["inventory"]["differences"]["default"]["unallowlisted_extra"], 1)
+            environment.update(compiler_stage=stage, compiler_failure=result, cleanup=cleanup, failed_stage=failed)
+            output = io.StringIO()
+            with redirect_stdout(output):
+                self.assertEqual(environment["tail_probe"](), 1)
+            data = (temporary / "fleet-backend-failure-evidence" / gate.FAILURE_FILE).read_bytes()
+            self.validate_failure(json.loads(data))
+            self.assertEqual(json.loads(data)["kind"], "safe_inventory_failure")
+            self.assertNotIn("PRIVATE_SENTINEL", output.getvalue())
+            self.assertNotIn("PRIVATE_SENTINEL", data.decode())
+            self.assertEqual(json.loads(output.getvalue().splitlines()[-1])["state"], "backend_quality_gate_failed")
+
+    def test_inventory_diagnostics_do_not_change_frozen_verifier_counts_gates_or_inputs(self):
+        import ast
+        predecessor = self.source_blob(gate.HELPER, "c5ee9bc34ef5b8518ee4f89ac8e008785c8a8207").decode()
+        current = (ROOT / gate.HELPER).read_text()
+        for name in ("verify_runtime_inventory", "verify_log_cli", "reviewed_inventory", "preflight"):
+            definitions = [next(node for node in ast.parse(text).body if isinstance(node, ast.FunctionDef) and node.name == name)
+                           for text in (predecessor, current)]
+            self.assertEqual(ast.dump(definitions[0], include_attributes=False), ast.dump(definitions[1], include_attributes=False))
+        constants = lambda text: {node.targets[0].id: ast.dump(node, include_attributes=False)
+            for node in ast.parse(text).body if isinstance(node, ast.Assign) and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name) and node.targets[0].id.isupper()}
+        old, new = constants(predecessor), constants(current)
+        self.assertTrue(all(new.get(name) == value for name, value in old.items()))
+        for path in ("scripts/hosted-backend/test-inventory.json", "scripts/hosted-backend/gate.sh", "scripts/hosted-backend/init.sql"):
+            self.assertEqual((ROOT / path).read_bytes(), self.source_blob(path, "c5ee9bc34ef5b8518ee4f89ac8e008785c8a8207"))
+        prior_workflow = yaml.load(self.source_blob(gate.WORKFLOW, "c5ee9bc34ef5b8518ee4f89ac8e008785c8a8207"), Loader=yaml.BaseLoader)
+        current_workflow = self.workflow()
+        current_step = next(step for step in current_workflow["jobs"]["backend"]["steps"]
+                            if step["name"] == "Retain explicitly safe compiler, test or inventory failure evidence only")
+        current_step["name"] = "Retain explicitly safe compiler or test failure evidence only"
+        self.assertEqual(current_workflow, prior_workflow)
+        self.assertEqual(len(gate.GATES), 28)
+        self.assertEqual((gate.DEFAULT_COUNT, gate.IGNORED_COUNT), (242, 17))
+        self.assertEqual(len(REVIEWED["compiled_source_sha256"]), 309)
+        self.assertEqual(gate.SOURCE_SHA, "994f29d93c6c35d1fc43329b29175cd6a4b0ad87")
+
     def test_failure_schema_strict_no_private_fields_or_fake_pass(self):
         value = self.failure_value()
         self.validate_failure(value)
