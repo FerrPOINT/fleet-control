@@ -295,13 +295,15 @@ async fn pm_observed_terminal_remains_recoverable_until_mirrored_and_marker_is_m
 #[derive(Clone, Copy)]
 enum StreamCase {
     Final,
+    TerminalAtRestart,
     EofComplete,
     EofRunning,
     WrongSession,
+    WrongReadbackPin,
     UnknownAck,
 }
 
-async fn http_stream(case: StreamCase) {
+async fn http_stream(case: StreamCase, dispatch_enabled: bool) {
     use axum::{
         Json,
         http::{HeaderMap, Method, StatusCode, Uri},
@@ -310,7 +312,7 @@ async fn http_stream(case: StreamCase) {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let origin = format!("http://{}", listener.local_addr().unwrap());
     let mut config = AppConfig::default();
-    config.pm.dispatch.enabled = true;
+    config.pm.dispatch.enabled = dispatch_enabled;
     config.fleet.runtime_token_secret = "isolated-pm-stream-secret".into();
     let (repo, reservation) = journal(origin, &config).await;
     let id = reservation.session_run_id;
@@ -354,8 +356,10 @@ async fn http_stream(case: StreamCase) {
             }
             if uri.path()==format!("/v1/runs/{NATIVE}") {
                 let first=r.fetch_add(1,Ordering::SeqCst)==0;
-                let terminal=!first && !matches!(case,StreamCase::EofRunning|StreamCase::WrongSession);
-                let mut payload=json!({"object":"hermes.run","run_id":NATIVE,"session_id":EFFECTIVE,"status":if terminal {"completed"} else {"running"}});
+                let terminal=matches!(case,StreamCase::TerminalAtRestart|StreamCase::WrongReadbackPin)
+                    || (!first && !matches!(case,StreamCase::EofRunning|StreamCase::WrongSession));
+                let session=if matches!(case,StreamCase::WrongReadbackPin) { "foreign-session" } else { EFFECTIVE };
+                let mut payload=json!({"object":"hermes.run","run_id":NATIVE,"session_id":session,"status":if terminal {"completed"} else {"running"}});
                 if terminal { payload["completed"]=json!(true); payload["partial"]=json!(false); payload["interrupted"]=json!(false);
                     payload["final_response"]=json!(format!("PM {token} reply")); }
                 return Json(payload).into_response();
@@ -366,9 +370,14 @@ async fn http_stream(case: StreamCase) {
     let _server = pm_dispatch::AbortServer(tokio::spawn(async move {
         axum::serve(listener, router).await.unwrap()
     }));
-    // Persisted ACK predates this supervisor: recovery must reconstruct the effective pin using GET only.
+    // ACK (and, when disabled, its accepted effective pin) predates this supervisor.
     if !matches!(case, StreamCase::UnknownAck) {
         repo.record_pm_submission(id, NATIVE.into()).await.unwrap();
+        if !dispatch_enabled {
+            repo.accept_pm_run(id, NATIVE.into(), EFFECTIVE.into())
+                .await
+                .unwrap();
+        }
     }
     let cursor = repo
         .session_event_cursor(reservation.session_id)
@@ -376,7 +385,8 @@ async fn http_stream(case: StreamCase) {
         .unwrap();
     let repo = Arc::new(repo);
     let (events, _) = broadcast::channel(64);
-    let _supervisor = LocalRuntimeSupervisor::new(Arc::new(config), repo.clone(), events);
+    let config = Arc::new(config);
+    let _supervisor = LocalRuntimeSupervisor::new(config.clone(), repo.clone(), events.clone());
     if matches!(case, StreamCase::UnknownAck) {
         assert!(
             !repo
@@ -391,8 +401,13 @@ async fn http_stream(case: StreamCase) {
     } else {
         tokio::time::timeout(Duration::from_secs(15), async {
             loop {
-                let done = if matches!(case, StreamCase::Final | StreamCase::EofComplete) {
+                let done = if matches!(
+                    case,
+                    StreamCase::Final | StreamCase::EofComplete | StreamCase::TerminalAtRestart
+                ) {
                     repo.pm_stream_context(id).await.unwrap().1
+                } else if matches!(case, StreamCase::WrongReadbackPin) {
+                    reads.load(Ordering::SeqCst) > 0
                 } else {
                     streams.load(Ordering::SeqCst) > 0
                         && reads.load(Ordering::SeqCst)
@@ -411,6 +426,19 @@ async fn http_stream(case: StreamCase) {
         .await
         .expect("PM recovery/follower must settle");
     }
+    if matches!(case, StreamCase::WrongReadbackPin) {
+        sleep(Duration::from_millis(150)).await;
+        assert_eq!(streams.load(Ordering::SeqCst), 0);
+        assert_eq!(
+            repo.get_pm_run(id)
+                .await
+                .unwrap()
+                .hermes_session_ref
+                .as_deref(),
+            Some(EFFECTIVE),
+            "foreign readback must not replace the accepted pin"
+        );
+    }
     let messages = repo
         .list_session_messages(reservation.session_id)
         .await
@@ -421,8 +449,20 @@ async fn http_stream(case: StreamCase) {
         .unwrap();
     assert_eq!(posts.load(Ordering::SeqCst), 0, "recovery must never POST");
     assert_eq!(unauthorized.load(Ordering::SeqCst), 0);
-    if matches!(case, StreamCase::Final | StreamCase::EofComplete) {
-        assert_eq!(streams.load(Ordering::SeqCst), 1);
+    let runs = repo
+        .list_session_agent_runs(reservation.session_id)
+        .await
+        .unwrap();
+    assert_eq!(runs.len(), 1, "recovery must not allocate a new run");
+    assert_eq!(runs[0].id, id);
+    if matches!(
+        case,
+        StreamCase::Final | StreamCase::EofComplete | StreamCase::TerminalAtRestart
+    ) {
+        assert_eq!(
+            streams.load(Ordering::SeqCst),
+            usize::from(!matches!(case, StreamCase::TerminalAtRestart))
+        );
         let mirrors: Vec<_> = messages
             .iter()
             .filter(|m| m.message_kind == MessageKind::AssistantMessage)
@@ -459,26 +499,62 @@ async fn http_stream(case: StreamCase) {
             .filter(|e| e.event_type == "session_run_delta")
             .map(|e| &e.payload)
             .collect();
-        assert_eq!(deltas.len(), 3);
+        assert_eq!(
+            deltas.len(),
+            if matches!(case, StreamCase::TerminalAtRestart) {
+                0
+            } else {
+                3
+            }
+        );
         assert!(deltas.iter().all(|p| p["run_id"] == json!(id)
             && p["text"].is_string()
             && !p.to_string().contains(&token)));
-        assert!(
-            deltas.last().unwrap()["text"]
-                .as_str()
-                .unwrap()
-                .ends_with(" reply")
-        );
+        if !matches!(case, StreamCase::TerminalAtRestart) {
+            assert!(
+                deltas.last().unwrap()["text"]
+                    .as_str()
+                    .unwrap()
+                    .ends_with(" reply")
+            );
+        }
         let saved_cursor = repo
             .session_event_cursor(reservation.session_id)
             .await
             .unwrap();
+        assert!(
+            !repo
+                .list_recoverable_pm_streams(None)
+                .await
+                .unwrap()
+                .contains(&id)
+        );
+        let _restarted = (!dispatch_enabled)
+            .then(|| LocalRuntimeSupervisor::new(config.clone(), repo.clone(), events.clone()));
         sleep(Duration::from_millis(150)).await;
         assert_eq!(
             repo.session_event_cursor(reservation.session_id)
                 .await
                 .unwrap(),
             saved_cursor
+        );
+        assert_eq!(
+            repo.list_session_messages(reservation.session_id)
+                .await
+                .unwrap()
+                .iter()
+                .filter(|m| m.message_kind == MessageKind::AssistantMessage)
+                .count(),
+            1,
+            "terminal mirror remains once across supervisor reconstruction"
+        );
+        assert_eq!(posts.load(Ordering::SeqCst), 0);
+        assert_eq!(
+            repo.list_session_agent_runs(reservation.session_id)
+                .await
+                .unwrap()
+                .len(),
+            1
         );
     } else {
         assert!(
@@ -492,7 +568,10 @@ async fn http_stream(case: StreamCase) {
         next.dispatch_operation_key = "blocked-next".into();
         next.fence += 1;
         assert!(repo.reserve_pm_run(next).await.is_err());
-        if matches!(case, StreamCase::WrongSession) {
+        if matches!(
+            case,
+            StreamCase::WrongSession | StreamCase::WrongReadbackPin
+        ) {
             assert!(
                 session_events
                     .iter()
@@ -504,15 +583,28 @@ async fn http_stream(case: StreamCase) {
 
 #[tokio::test]
 async fn pm_http_restart_follow_cumulative_redacted_deltas_and_final_message() {
-    http_stream(StreamCase::Final).await;
+    http_stream(StreamCase::Final, true).await;
 }
 #[tokio::test]
 async fn pm_http_eof_requires_independent_terminal_readback() {
-    http_stream(StreamCase::EofComplete).await;
-    http_stream(StreamCase::EofRunning).await;
+    http_stream(StreamCase::EofComplete, true).await;
+    http_stream(StreamCase::EofRunning, true).await;
 }
 #[tokio::test]
 async fn pm_http_foreign_session_and_unknown_ack_never_release_or_redispatch() {
-    http_stream(StreamCase::WrongSession).await;
-    http_stream(StreamCase::UnknownAck).await;
+    http_stream(StreamCase::WrongSession, true).await;
+    http_stream(StreamCase::UnknownAck, true).await;
+}
+
+#[tokio::test]
+async fn pm_http_disabled_dispatch_recovers_accepted_sse_and_terminal_once() {
+    http_stream(StreamCase::Final, false).await;
+    http_stream(StreamCase::TerminalAtRestart, false).await;
+}
+
+#[tokio::test]
+async fn pm_http_disabled_dispatch_denies_foreign_pins_and_unknown_ack() {
+    http_stream(StreamCase::WrongSession, false).await;
+    http_stream(StreamCase::WrongReadbackPin, false).await;
+    http_stream(StreamCase::UnknownAck, false).await;
 }

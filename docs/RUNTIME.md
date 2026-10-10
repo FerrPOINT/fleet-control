@@ -35,6 +35,14 @@ changed-generation unknown intents remain held without a new key or launch.
 No Hermes patch or extension is required for this PM path. Source-only: authored
 Rust HTTP tests, PostgreSQL custody and real native qualification are pending.
 
+Disabling `pm.dispatch.enabled` prevents new PM dispatch, tool actions and
+continuation; it does not cancel accepted runs. After restart, the existing
+read-only follower still uses the original submitted ACK, runtime origin,
+credential and effective-session pin to read status/events and commit the final
+mirror once. Missing or foreign acceptance remains held: recovery does not POST,
+allocate a replacement run or infer completion from EOF. The disabled-dispatch
+PG/HTTP regressions are authored; current-source execution is still pending.
+
 Docker config activation now has a bounded live-custodian fresh-generation path;
 see [unit18 source contract](CONTAINER_ACTIVATION_RELEASE.md). Desired/effective
 publication, drain, original safe-stop and exact rollback remain separate gates.
