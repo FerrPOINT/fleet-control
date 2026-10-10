@@ -150,7 +150,7 @@ test('directory uses server counts, concrete cursors and scoped returnTo across 
   expect(requests.at(-1)!.searchParams.get('before')).toBe(first)
   const href = new URL((await link.getAttribute('href'))!, 'http://localhost')
   expect(href.pathname).toBe(`/chats/${last}`)
-  const returnTo = new URL(href.searchParams.get('backTo')!, 'http://localhost')
+  const returnTo = new URL(href.searchParams.get('returnTo')!, 'http://localhost')
   expect(returnTo.searchParams.get('q')).toBe('literal%_')
   expect(returnTo.searchParams.get('before')).toBe(first)
   expect(returnTo.searchParams.get('users')).toBe(owner)
