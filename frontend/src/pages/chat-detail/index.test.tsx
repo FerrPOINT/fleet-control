@@ -1966,7 +1966,7 @@ describe('production chat', () => {
 describe('production runtime control authority', () => {
   const storageKey = 'fleet-runtime-controls:v1:owner:session1'
   const privateSession = { ...sessionFixture, task_bound: false }
-  const acknowledgement = {
+  const acknowledgement: Awaited<ReturnType<typeof fleet.steerSessionRun>> = {
     session_id: 'session1',
     run_id: 'original-run',
     runtime_run_id: 'native-original',
@@ -2034,7 +2034,7 @@ describe('production runtime control authority', () => {
     await waitFor(() => expect(submit).toBeEnabled())
     await userEvent.click(submit)
     await screen.findByText('Ответ runtime не соответствует исходной команде')
-    const originalKey = vi.mocked(fleet.steerSessionRun).mock.calls[0][3]
+    const originalKey = vi.mocked(fleet.steerSessionRun).mock.calls[0]![3]
     expect(JSON.parse(sessionStorage.getItem(storageKey)!)).toEqual({
       steer: { operation: 'steer', runId: 'original-run', key: originalKey },
     })
@@ -2100,7 +2100,7 @@ describe('production runtime control authority', () => {
     await waitFor(() => expect(submit).toBeEnabled())
     await userEvent.click(submit)
     await waitFor(() => expect(fleet.steerSessionRun).toHaveBeenCalledTimes(1))
-    const originalKey = vi.mocked(fleet.steerSessionRun).mock.calls[0][3]
+    const originalKey = vi.mocked(fleet.steerSessionRun).mock.calls[0]![3]
     const original = sessionStorage.getItem(storageKey)!
     expect(JSON.parse(original)).toEqual({
       steer: { operation: 'steer', runId: 'original-run', key: originalKey },
@@ -2110,7 +2110,7 @@ describe('production runtime control authority', () => {
     await act(async () => {
       await router.navigate('/chats')
     })
-    await userEvent.click(await screen.findByRole('button', { name: 'Выйти', exact: true }))
+    await userEvent.click(await screen.findByRole('button', { name: /^Выйти$/ }))
     await screen.findByText('Список')
     await act(async () => resolveOriginal(acknowledgement))
     expect(sessionStorage.getItem(storageKey)).toBe(original)
@@ -2153,14 +2153,14 @@ describe('production runtime control authority', () => {
     fireEvent.change(await screen.findByLabelText('Сообщение'), {
       target: { value: 'Original prompt with uncertain acceptance' },
     })
-    const submit = screen.getByRole('button', { name: 'Отправить', exact: true })
+    const submit = screen.getByRole('button', { name: /^Отправить$/ })
     await waitFor(() => expect(submit).toBeEnabled())
     await userEvent.click(submit)
     await screen.findByText(
       'Ответ неизвестен. Черновик и исходный ключ сохранены; повторить можно только тот же запрос.',
     )
     expect(fleet.createSessionMessage).toHaveBeenCalledTimes(1)
-    const original = vi.mocked(fleet.createSessionMessage).mock.calls[0]
+    const original = vi.mocked(fleet.createSessionMessage).mock.calls[0]!
     expect(original[1]).toEqual({
       author_agent_id: null,
       body: 'Original prompt with uncertain acceptance',

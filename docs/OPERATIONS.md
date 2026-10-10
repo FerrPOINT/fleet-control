@@ -205,6 +205,16 @@ settings changes, skill/config edits, runtime actions, handoff and delegation.
 
 ## Recovery
 
+### Accepted PM Runs
+
+Set `pm.dispatch.enabled=false` to prevent new PM dispatch and continuation,
+not to cancel an existing run. Preserve the original runtime credentials and
+launch context when restarting Fleet: accepted-run status/event recovery remains
+read-only and finishes its mirror without a new prompt. A changed context or
+unknown ACK stays held for reconciliation. Do not clear custody or create a new
+run to repair a missing terminal message. This behavior has source regressions;
+native and current-source PostgreSQL acceptance remain separate gates.
+
 ### Tracker Metadata Worker
 
 Enable only via the [deployment variables](ENV.md#tracker-metadata-polling).

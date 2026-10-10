@@ -443,6 +443,36 @@ async fn pm_submission_is_one_shot_across_concurrent_claims_and_repository_resta
     let mut changed = intent;
     changed.request_body = changed.request_body.replace("Original", "Changed");
     assert!(restarted.prepare_pm_dispatch(changed).await.is_err());
+    // Exercise the database CHECK itself, not the Rust pre-validation, without consuming the ACK.
+    for (run_ref, valid) in [
+        ("r".to_string(), true),
+        ("r".repeat(255), true),
+        ("r".repeat(256), true),
+        ("r".repeat(512), true),
+        (String::new(), false),
+        ("r".repeat(513), false),
+        ("run/slash".to_string(), false),
+        ("run.dot".to_string(), false),
+        ("run space".to_string(), false),
+        ("run\n".to_string(), false),
+        ("run\u{e9}".to_string(), false),
+    ] {
+        let txn = db.begin().await.unwrap();
+        let result = txn
+            .execute(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "UPDATE pm_dispatch_journal SET hermes_run_ref=$2 WHERE session_run_id=$1 AND submitted",
+                [id.into(), run_ref.into()],
+            ))
+            .await;
+        assert_eq!(result.is_ok(), valid, "PM ACK character and length guard");
+        if let Ok(result) = result {
+            assert_eq!(result.rows_affected(), 1);
+        }
+        txn.rollback().await.unwrap();
+        let pending = restarted.get_pm_dispatch(id).await.unwrap().unwrap();
+        assert!(pending.submitted && pending.hermes_run_ref.is_none());
+    }
     restarted
         .record_pm_submission(id, "run_pm_original".into())
         .await

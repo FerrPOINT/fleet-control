@@ -1,5 +1,32 @@
 # Testing
 
+## PM ACK Bounds Additive Upgrade024
+
+New ignored migration selector:
+`pm_ack_bounds_repairs_installed_022_preserving_custody_and_empty_roundtrip`.
+Run only on an owned empty disposable database:
+
+```bash
+FLEET_PM_ACK_MIGRATION_TEST_DATABASE_URL=postgresql://.../fleet_pm_ack_migration_test \
+  cargo test --locked -p migration --test pm_ack_bounds -- --ignored --test-threads=1
+```
+
+The fixture preserves a real installed022 ledger and pending journal while023/024
+are applied; it characterizes the old regex error, proves valid/invalid ACK bounds,
+unchanged earlier applied timestamps and immutable trigger, unknown/ambiguous
+constraint refusal, clean roundtrip and pending/acknowledged populated downgrade
+refusal. The runner must own and finally remove this synthetic database. The
+existing foundation selector
+`pm_dispatch::pm_submission_is_one_shot_across_concurrent_claims_and_repository_restart`
+retains its assertions and adds11 direct SQL boundary vectors with transaction
+rollback. The original failed credentials MCP case is unchanged and remains
+mandatory. Canonical/split counts become25/28; this adds one ignored migration
+test, no ordinary test names. Backend controls must explicitly select it and
+regenerate fingerprints/declaration lines; old83-stage receipts are not proof.
+
+Rustfmt/diff and source/predicate checks passed. Rust/PG upgrade, original failed
+credentials case and subsequent backend qualification remain pending.
+
 ## PM Unknown-ACK Production Submission Regression
 
 The three Linux-only tests in
