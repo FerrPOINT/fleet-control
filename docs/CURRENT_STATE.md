@@ -2,11 +2,26 @@
 
 ## Current Integration Snapshot: 10 October 2026
 
-Current product-code assembly `d5f18d0`, a normal descendant
+Current tested-source candidate `5d91b13`, a normal descendant
 of b249 with runtime corrections, durable clarification custody, generated API
 and the private-approval ownership correction, is **not
 merge-ready or live SDLC accepted**. Historical sections below qualify their own
 heads; they do not accept this assembly.
+
+| Current gate | Exact source / authority | State |
+| --- | --- | --- |
+| Combined backend | Source5d91b13, controlsf34ed9b, run38008974895 | In progress; no full backend acceptance |
+| Config release PR64 | Head820a1af, run38008810511, dependency PR47 at11f97aa | Fresh CI pending; Draft |
+| Production Chats presentation | Frontend tree13ccbaba, correction6c022f3 |42 unit cases and six three-engine fixture cases pass; no live PM acceptance |
+| PM model admission | `app::pm_draft` creation and scoped credential preparation | Stops at awaiting_admission; no pre-model execution authority |
+| Forge full12 | Public-safe controls1dbedf8, maintenance pin commit null | Cannot start acceptance without published qualified Base inputs |
+| Physical runtimes | Reviewed Docker/config/recovery source | Exact images and actual native lifecycle remain unaccepted |
+
+The run states are publication checkpoints, not live status widgets. Terminal
+results must be authenticated before changing acceptance. Documentation-only
+successors do not change the frozen source of either CI run.
+
+### Retained Evidence And Earlier Corrections
 
 The approval correction rejects unrelated central users before reading or
 reserving private-session decisions, including historical replay. Its regression

@@ -1,8 +1,10 @@
 # SDLC: реализация и оставшаяся приёмка
 
-Дата: 1 октября 2026. Статус: частичная реализация foundation; автоматический
-SDLC не включён. Этот документ уточняет исторические отметки `done` в
-IMPLEMENTATION_PLAN и CURRENT_STATE. Они не являются приёмкой нового SDLC.
+Baseline: 1 октября 2026. Автоматический SDLC не включён. Таблицы ниже сохраняют
+состав исходного foundation и целевого SDLC, а не актуальную очередь доработок.
+Текущие exact heads, выполненные проверки и открытые release gates находятся в
+[CURRENT_STATE](CURRENT_STATE.md) и [GAP_REGISTER](GAP_REGISTER.md).
+Исторические отметки `done` в IMPLEMENTATION_PLAN не являются приёмкой SDLC.
 
 ## Границы
 
@@ -17,7 +19,7 @@ IMPLEMENTATION_PLAN и CURRENT_STATE. Они не являются приёмк�
 лидом или handoff. `/sessions` остаётся legacy-маршрутом с прежними controls.
 Смена агента SDLC-задачи в будущем создаёт отдельный чат, не меняет существующий.
 
-## Реализовано в этом изменении
+## Исторический Foundation Baseline
 
 | Область | Реализация | Доказательство / предел |
 | --- | --- | --- |
@@ -80,7 +82,12 @@ Read-only source review: Hermes HEAD `bbaf7af5c83546d19f8060f4097d3bb25cd1a3c3`.
 Terminal `interrupted` трактуется как failed, без fabricated assistant reply;
 это проверено отдельным fake Hermes HTTP regression.
 
-## Оставшиеся блокеры по этапам
+## Исходный План По Этапам
+
+Это исходный checklist, не текущий перечень отсутствующей реализации. Например,
+task-bound chats, cursor history, PM creation saga и runtime recovery получили
+последующие реализации; их live-приёмка остаётся отдельной проверкой. Статус
+каждого текущего gate определяется документами выше, а не этой таблицей.
 
 | Этап | Обязательная работа | Владелец |
 | --- | --- | --- |

@@ -2,10 +2,14 @@
 
 ## Current Open Release Gates: 10 October 2026
 
-The current product-code assembly isd5f18d0
+The current tested-source candidate is5d91b13
 (runtime corrections, journal3b41, human guard, genuine generated API and private-
 approval ownership correction), not the historical heads below.
 Source integration is progress, not release acceptance. Its remaining gates are:
+
+Use the [current gate matrix](CURRENT_STATE.md#current-integration-snapshot-10-october-2026)
+for exact candidates and acceptance boundaries. Earlier failures below are
+retained provenance, not pending instructions to rerun their superseded heads.
 
 PR47 at11f97aa now has five fresh green CI jobs and a passed PostgreSQL owner-
 approval regression. That narrow PR does not accept the parent assembly, whose
