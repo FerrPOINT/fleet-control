@@ -34,6 +34,15 @@
 - Prepare the isolated free-chat Hermes immutable request journal, single POST
   permit and atomic ACK/session readback release. Own only additive migration12;
   compilation, real PostgreSQL and exact-source release gates remain pending.
+- Private и task-bound Chats выбираются по сохранённой Fleet binding. Private
+  UI сохраняет original-command recovery и получает cursor history с append
+  order; server-scoped directory сохраняет защиту создания и фильтры возврата.
+- Steer/stop проверяют актуального владельца и runtime identity; неизвестный
+  исход удерживается после reload. Ответы Task и подтверждения редакций сохраняют
+  исходный ключ и принимают только receipt соответствующего вопроса/владельца.
+- Pending run с единственным runtime session ID удерживает новый prompt;
+  подготовительный слот без обеих runtime identities остаётся допустимым.
+
 
 - Reconcile the task-chat foundation with accepted main34aaec0 by normal merge;
   retain atomic redacted process logs, canonical heartbeat monitoring and both

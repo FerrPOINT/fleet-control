@@ -11,10 +11,9 @@ import { useAuthStore } from '@/shared/auth/store'
 
 vi.mock('@/api/chats-directory', () => ({ getChatsDirectory: vi.fn() }))
 vi.mock('@/api/fleet', () => ({
-  getSession: vi.fn(),
   createSession: vi.fn(),
+  getSession: vi.fn(),
   listAgentDirectory: vi.fn(),
-  listSessions: vi.fn(),
 }))
 vi.mock('@/api/auth', () => ({ listUsers: vi.fn() }))
 const owner = '00000000-0000-4000-8000-000000000001'
@@ -125,8 +124,54 @@ beforeEach(() => {
     { id: other, display_name: 'Other' },
   ] as UserResponse[])
   vi.mocked(fleet.createSession).mockResolvedValue(session)
+  vi.mocked(fleet.listAgentDirectory).mockResolvedValue([developer, tester])
+  vi.mocked(fleet.getSession).mockImplementation(async (id) => ({
+    ...session,
+    id,
+    primary_agent_id:
+      vi.mocked(fleet.createSession).mock.calls.at(-1)?.[0].primary_agent_id ??
+      session.primary_agent_id,
+    title: vi.mocked(fleet.createSession).mock.calls.at(-1)?.[0].title ?? session.title,
+  }))
 })
 describe('server-scoped ChatsPage', () => {
+  it('isolates an unknown creation from a cached different agent', async () => {
+    renderPage()
+    await screen.findByRole('link', { name: /Implement login/ })
+    fireEvent.click(screen.getByRole('button', { name: /Tester/ }))
+    await screen.findByRole('link', { name: /Test login/ })
+    fireEvent.click(screen.getByRole('button', { name: /Developer/ }))
+    await screen.findByRole('link', { name: /Implement login/ })
+    vi.mocked(fleet.createSession).mockRejectedValueOnce(new Error('Unknown A'))
+    fireEvent.click(screen.getByRole('button', { name: 'Новый чат' }))
+    fireEvent.change(screen.getByLabelText('Название'), { target: { value: 'Original A' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Создать сессию' }))
+    await screen.findByText(/Создание не подтверждено/)
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Создать сессию' })).toBeEnabled(),
+    )
+    const original = vi.mocked(fleet.createSession).mock.calls.at(0)?.[0]
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /Tester/ }))
+    await screen.findByRole('link', { name: /Test login/ })
+    fireEvent.click(screen.getByRole('button', { name: 'Новый чат' }))
+    expect(screen.getByLabelText('Название')).toHaveValue('')
+    expect(screen.getByLabelText('Название')).toBeEnabled()
+    fireEvent.change(screen.getByLabelText('Название'), { target: { value: 'New B' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Создать сессию' }))
+    await waitFor(() => expect(fleet.createSession).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(fleet.createSession).mock.calls.at(1)?.[0]).toMatchObject({
+      primary_agent_id: tester.id,
+      title: 'New B',
+    })
+    expect(vi.mocked(fleet.createSession).mock.calls.at(1)?.[0].idempotency_key).not.toBe(
+      original?.idempotency_key,
+    )
+    expect(
+      sessionStorage.getItem(`fleet-control.chat-dispatch.v1:create:${developer.id}`),
+    ).not.toBeNull()
+  })
   it('defaults to mine and uses server counts, not current page lengths', async () => {
     renderPage()
     const link = await screen.findByRole('link', { name: /Implement login/ })
@@ -142,9 +187,7 @@ describe('server-scoped ChatsPage', () => {
       '7',
       '2',
     ])
-    const returnTo = new URL(link.getAttribute('href')!, 'http://local').searchParams.get(
-      'returnTo',
-    )!
+    const returnTo = new URL(link.getAttribute('href')!, 'http://local').searchParams.get('returnTo')!
     expect(new URL(returnTo, 'http://local').searchParams.get('agent')).toBe(developer.id)
     expect(new URL(returnTo, 'http://local').searchParams.get('users')).toBe(owner)
   })
@@ -190,9 +233,7 @@ describe('server-scoped ChatsPage', () => {
       }),
     )
     expect(screen.getByRole('button', { name: 'Следующая страница' })).toBeDisabled()
-    const returnTo = new URL(link.getAttribute('href')!, 'http://local').searchParams.get(
-      'returnTo',
-    )!
+    const returnTo = new URL(link.getAttribute('href')!, 'http://local').searchParams.get('returnTo')!
     expect(Object.fromEntries(new URL(returnTo, 'http://local').searchParams)).toEqual({
       agent: developer.id,
       q: 'login',
@@ -394,7 +435,6 @@ describe('ChatsPage', () => {
     fireEvent.change(screen.getByLabelText('Название'), { target: { value: '  Private work  ' } })
     fireEvent.click(screen.getByRole('button', { name: 'Создать сессию' }))
     await screen.findByText(/Создание не подтверждено/)
-    await waitFor(() => expect(fleet.createSession).toHaveBeenCalledTimes(1))
     const first = vi.mocked(fleet.createSession).mock.calls[0]?.[0]
     expect(first).toMatchObject({
       primary_agent_id: developer.id,

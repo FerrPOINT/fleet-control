@@ -189,6 +189,7 @@ test('fixture: HTTP-success uncertainty retains steer and the original stop targ
           task_key: 'FIXTURE-1',
           state: 'active',
           pending_delivery: false,
+          task_bound: false,
           created_at: '2026-10-09T10:00:00Z',
           updated_at: '2026-10-09T10:00:00Z',
         },
@@ -206,6 +207,8 @@ test('fixture: HTTP-success uncertainty retains steer and the original stop targ
         },
       })
     if (path.endsWith('/messages')) return route.fulfill({ json: [] })
+    if (path === '/api/v1/sessions/session1/history' && request.method() === 'GET')
+      return route.fulfill({ json: { items: [], next_before: null } })
     if (path.endsWith('/stream'))
       return route.fulfill({
         contentType: 'text/event-stream',
@@ -375,13 +378,18 @@ test('fixture: uncertain clarification retains its original command across quest
   const deliveryPath = `${journalPath}/${commandId}/delivery`
   await page.route(`**${fixturePath}**`, (route) => {
     const path = new URL(route.request().url()).pathname
-    if (path === fixturePath) return route.fulfill({ contentType: 'text/html', body: html })
+    if (path === fixturePath)
+      return route.fulfill({
+        contentType: 'text/html',
+        body: html.replace('id="root"', 'id="root" data-runtime-controls-owner="true"'),
+      })
     const asset = assets.get(path)
     return asset ? route.fulfill(asset) : route.fulfill({ status: 404 })
   })
   await page.route('**/api/v1/**', (route) => {
     const request = route.request()
     const path = new URL(request.url()).pathname
+    expect(request.headers().authorization).toBe('Bearer fixture-only-owner-token')
     if (request.method() === 'POST') {
       if (path === storePath) {
         const payload = request.postDataJSON() as AnswerInput
@@ -466,6 +474,7 @@ test('fixture: uncertain clarification retains its original command across quest
           title: 'Уточнение требований',
           visibility: 'private',
           task_key: 'FIXTURE-2',
+          task_bound: true,
         },
       })
     if (path.endsWith('/task-context'))
@@ -532,6 +541,12 @@ test('fixture: uncertain clarification retains its original command across quest
     }
     if (path.endsWith('/requirements')) return route.fulfill({ json: { revisions: [] } })
     if (path.endsWith('/history')) return route.fulfill({ json: { items: [], next_before: null } })
+    if (path === '/api/v1/sessions/session1/stream' && request.method() === 'GET')
+      return route.fulfill({
+        contentType: 'text/event-stream',
+        headers: { 'Cache-Control': 'no-store' },
+        body: ': fixture heartbeat\n\n',
+      })
     if (path.endsWith('/runs') || path.endsWith('/approvals')) return route.fulfill({ json: [] })
     throw new Error(`Unexpected clarification read: ${path}`)
   })

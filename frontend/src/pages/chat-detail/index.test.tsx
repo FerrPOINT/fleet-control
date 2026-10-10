@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -114,6 +114,20 @@ const revision: chats.RequirementsRevision = {
     prerequisites: [],
   },
 }
+const sessionFixture = {
+  id: 'session1',
+  user_id: 'owner',
+  user_display_name: 'Owner',
+  primary_agent_id: 'agent1',
+  primary_agent_name: 'PM',
+  title: 'Task',
+  state: 'active',
+  pending_delivery: false,
+  visibility: 'private',
+  task_key: 'TASK-1',
+  task_bound: true,
+} as AgentSession
+
 function renderPage(tab = 'dialogue', search = '') {
   const router = createMemoryRouter(
     [
@@ -143,18 +157,7 @@ beforeEach(() => {
     signingOut: false,
     permissions: ['sessions:write_own'],
   })
-  vi.mocked(fleet.getSession).mockResolvedValue({
-    id: 'session1',
-    user_id: 'owner',
-    user_display_name: 'Owner',
-    primary_agent_id: 'agent1',
-    primary_agent_name: 'PM',
-    title: 'Task',
-    state: 'active',
-    pending_delivery: false,
-    visibility: 'private',
-    task_key: 'TASK-1',
-  } as AgentSession)
+  vi.mocked(fleet.getSession).mockResolvedValue(sessionFixture)
   vi.mocked(fleet.listAgentDirectory).mockResolvedValue([
     { id: 'agent1', product_role: 'executor', status: 'running' } as AgentDirectoryItem,
   ])
@@ -374,6 +377,138 @@ describe('PM delivered answer continuation receipt', () => {
 })
 
 describe('production chat', () => {
+  it('retains the original confirmation key while switching tabs after an unknown receipt', async () => {
+    vi.mocked(chats.confirmRequirements).mockRejectedValueOnce(new Error('Unknown confirmation'))
+    renderPage('requirements')
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Подтверждаю цель/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить редакцию 3' }))
+    await screen.findByText('Unknown confirmation')
+    const original = vi.mocked(chats.confirmRequirements).mock.calls.at(0)
+    await userEvent.click(screen.getByRole('tab', { name: /Диалог/ }))
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: /Диалог/ })).toHaveAttribute('aria-selected', 'true'),
+    )
+    await userEvent.click(screen.getByRole('tab', { name: /Требования/ }))
+    expect(screen.getByRole('button', { name: 'Подтвердить редакцию 3' })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить редакцию 3' }))
+    await waitFor(() => expect(chats.confirmRequirements).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(chats.confirmRequirements).mock.calls.at(1)).toEqual(original)
+    await screen.findByText('Подтверждение сохранено. Следующее назначение проверяется отдельно.')
+  })
+
+  it('accepts the matching late confirmation while its tab is hidden', async () => {
+    let resolve!: (value: Awaited<ReturnType<typeof chats.confirmRequirements>>) => void
+    vi.mocked(chats.confirmRequirements).mockReturnValue(
+      new Promise((value) => {
+        resolve = value
+      }),
+    )
+    renderPage('requirements')
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Подтверждаю цель/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить редакцию 3' }))
+    await waitFor(() => expect(chats.confirmRequirements).toHaveBeenCalledOnce())
+    await userEvent.click(screen.getByRole('tab', { name: /Диалог/ }))
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: /Диалог/ })).toHaveAttribute('aria-selected', 'true'),
+    )
+    await act(async () =>
+      resolve({
+        id: 'confirmation',
+        task_id: 'task',
+        revision: 3,
+        content_hash: 'hash3',
+        owner_subject: 'subject-owner',
+        created_at: '2026-10-01T12:00:00Z',
+        stage: 'Backlog',
+      }),
+    )
+    expect(
+      sessionStorage.getItem('fleet-control.chat-dispatch.v1:session1:confirmation'),
+    ).toBeNull()
+    await userEvent.click(screen.getByRole('tab', { name: /Требования/ }))
+    expect(screen.getByRole('button', { name: 'Подтвердить редакцию 3' })).toBeDisabled()
+  })
+  it('holds a foreign answer receipt without discarding its draft', async () => {
+    vi.mocked(chats.answerClarification).mockResolvedValue({
+      id: 'foreign-answer',
+      question_id: 'foreign-question',
+      question_version: 1,
+      requirement_revision: 3,
+      selected_option_ids: ['project'],
+      text: null,
+      comment: null,
+      author_subject: 'subject-owner',
+      created_at: '2026-10-01T12:00:00Z',
+    })
+    renderPage('clarification')
+    fireEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))
+    fireEvent.change(screen.getByLabelText('Комментарий'), { target: { value: 'Retained draft' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+    await screen.findByText('Не удалось проверить подтверждение сохранения ответа.')
+    expect(screen.getByLabelText('Комментарий')).toHaveValue('Retained draft')
+    expect(sessionStorage.getItem('fleet-control.chat-dispatch.v1:session1:answer')).not.toBeNull()
+    expect(
+      screen.queryByText('Ответ сохранён. Требования ещё не опубликованы.'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('does not release an unknown answer after a later definitive rejection', async () => {
+    vi.mocked(chats.answerClarification)
+      .mockRejectedValueOnce(new Error('Lost first answer'))
+      .mockRejectedValueOnce(new ApiError(409, 'Later version conflict'))
+    renderPage('clarification')
+    fireEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+    await screen.findByText('Lost first answer')
+    const original = vi.mocked(chats.answerClarification).mock.calls.at(0)?.[2]
+    expect(original).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+    await screen.findByText('Later version conflict')
+    expect(vi.mocked(chats.answerClarification).mock.calls.at(1)?.[2]).toEqual(original)
+    expect(sessionStorage.getItem('fleet-control.chat-dispatch.v1:session1:answer')).not.toBeNull()
+    expect(screen.getByRole('radio', { name: /Участники проекта/ })).toBeDisabled()
+  })
+
+  it('holds unknown requirements confirmation through reload', async () => {
+    vi.mocked(chats.confirmRequirements).mockRejectedValue(new Error('Lost confirmation receipt'))
+    renderPage('requirements')
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Подтверждаю цель/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить редакцию 3' }))
+    await screen.findByText('Lost confirmation receipt')
+    expect(
+      sessionStorage.getItem('fleet-control.chat-dispatch.v1:session1:confirmation'),
+    ).not.toBeNull()
+    cleanup()
+    renderPage('requirements')
+    await screen.findByText(
+      'Исход подтверждения требует сверки после перезагрузки. Новая команда заблокирована.',
+    )
+    expect(screen.getByRole('button', { name: 'Подтвердить редакцию 3' })).toBeDisabled()
+    expect(chats.confirmRequirements).toHaveBeenCalledTimes(1)
+  })
+
+  it('holds an unknown answer through reload without saving its private payload', async () => {
+    vi.mocked(chats.answerClarification).mockRejectedValue(new Error('Lost answer receipt'))
+    const view = renderPage('clarification')
+    fireEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))
+    fireEvent.change(screen.getByLabelText('Комментарий'), {
+      target: { value: 'Private answer comment' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+    await screen.findByText('Lost answer receipt')
+    const raw = sessionStorage.getItem('fleet-control.chat-dispatch.v1:session1:answer')!
+    expect(raw).not.toContain('Private answer comment')
+    expect(raw).not.toContain('owned-fixture-token')
+    view.router.dispose()
+    // A new mounted form models reload; storage survives, private form memory does not.
+    cleanup()
+    renderPage('clarification')
+    await screen.findByText(
+      'Исход сохранения ответа требует сверки после перезагрузки. Новый ответ заблокирован.',
+    )
+    expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+    expect(chats.answerClarification).toHaveBeenCalledTimes(1)
+  })
   const message = (
     id: string,
     body: string,
@@ -1300,7 +1435,26 @@ describe('production chat', () => {
     expect(screen.getByLabelText('Комментарий')).toHaveValue('New draft')
     expect(screen.getByText('Old draft')).toBeVisible()
   })
+  it('keeps ordinary task commands disabled even if a control response advertises steer', async () => {
+    vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      can_send: false,
+      can_steer: true,
+      can_stop: true,
+      active_run_id: 'run-1',
+      blocked_reason: null,
+    })
+    renderPage()
+    expect(await screen.findByLabelText('Сообщение агенту')).toBeDisabled()
+    expect(screen.queryByLabelText('Уточнение активному запуску')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Отправить сообщение' })).toBeDisabled()
+    expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+    expect(fleet.steerSessionRun).not.toHaveBeenCalled()
+    expect(fleet.stopSessionRun).not.toHaveBeenCalled()
+  })
+
   it('never converts an uncertain steer into a new prompt after controls change', async () => {
+    vi.mocked(fleet.getSession).mockResolvedValue({ ...sessionFixture, task_bound: false })
     vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
     vi.mocked(chats.getChatControls).mockResolvedValue({
       can_send: false,
@@ -1336,6 +1490,7 @@ describe('production chat', () => {
   })
 
   it('replays a lost stop response only against its original run and key', async () => {
+    vi.mocked(fleet.getSession).mockResolvedValue({ ...sessionFixture, task_bound: false })
     vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
     vi.mocked(chats.getChatControls).mockResolvedValue({
       can_send: false,
@@ -1368,6 +1523,7 @@ describe('production chat', () => {
   })
 
   it('retains an unacknowledged steer returned with HTTP success without creating a new prompt', async () => {
+    vi.mocked(fleet.getSession).mockResolvedValue({ ...sessionFixture, task_bound: false })
     vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
     vi.mocked(chats.getChatControls).mockResolvedValue({
       can_send: false,
@@ -1406,6 +1562,7 @@ describe('production chat', () => {
   })
 
   it('replays an unacknowledged stop returned with HTTP success only against its original run', async () => {
+    vi.mocked(fleet.getSession).mockResolvedValue({ ...sessionFixture, task_bound: false })
     vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
     vi.mocked(chats.getChatControls).mockResolvedValue({
       can_send: false,
@@ -1444,6 +1601,7 @@ describe('production chat', () => {
   })
 
   it('reads the new steer target after an earlier stop was acknowledged', async () => {
+    vi.mocked(fleet.getSession).mockResolvedValue({ ...sessionFixture, task_bound: false })
     vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
     vi.mocked(chats.getChatControls).mockResolvedValue({
       can_send: false,
@@ -1507,6 +1665,7 @@ describe('production chat', () => {
       runId: 'original-run',
       key: 'original-key',
     })
+    vi.mocked(fleet.getSession).mockResolvedValue({ ...sessionFixture, task_bound: false })
     vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
     vi.mocked(chats.getChatControls).mockResolvedValue({
       can_send: true,
@@ -1533,6 +1692,7 @@ describe('production chat', () => {
       runId: 'original-run',
       key: 'original-key',
     })
+    vi.mocked(fleet.getSession).mockResolvedValue({ ...sessionFixture, task_bound: false })
     vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
     vi.mocked(chats.getChatControls).mockResolvedValue({
       can_send: false,
@@ -1559,6 +1719,7 @@ describe('production chat', () => {
       runId: 'original-run',
       key: 'original-key',
     })
+    vi.mocked(fleet.getSession).mockResolvedValue({ ...sessionFixture, task_bound: false })
     vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
     vi.mocked(chats.getChatControls).mockResolvedValue({
       can_send: true,
@@ -1585,6 +1746,7 @@ describe('production chat', () => {
       runId: 'original-run',
       key: 'original-key',
     })
+    vi.mocked(fleet.getSession).mockResolvedValue({ ...sessionFixture, task_bound: false })
     vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
     vi.mocked(chats.getChatControls).mockResolvedValue({
       can_send: true,
@@ -1620,6 +1782,7 @@ describe('production chat', () => {
   })
 
   it('does not send a control when metadata cannot be durably saved', async () => {
+    vi.mocked(fleet.getSession).mockResolvedValue({ ...sessionFixture, task_bound: false })
     vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
     vi.mocked(chats.getChatControls).mockResolvedValue({
       can_send: false,
@@ -1652,6 +1815,7 @@ describe('production chat', () => {
     { label: 'ASCII', input: 'a'.repeat(65536) },
     { label: 'UTF-8', input: 'я'.repeat(32768) },
   ])('allows exactly 64 KiB of $label steer', async ({ input }) => {
+    vi.mocked(fleet.getSession).mockResolvedValue({ ...sessionFixture, task_bound: false })
     vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
     vi.mocked(chats.getChatControls).mockResolvedValue({
       can_send: false,
@@ -1687,6 +1851,7 @@ describe('production chat', () => {
     { label: 'ASCII', input: 'a'.repeat(65537) },
     { label: 'UTF-8', input: 'я'.repeat(32769) },
   ])('keeps oversized $label steer editable without reserving a handle', async ({ input }) => {
+    vi.mocked(fleet.getSession).mockResolvedValue({ ...sessionFixture, task_bound: false })
     vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
     vi.mocked(chats.getChatControls).mockResolvedValue({
       can_send: false,
@@ -1715,6 +1880,7 @@ describe('production chat', () => {
   ] as const)(
     'ignores late $operation POST accepted=$accepted after exact settlement and successor',
     async ({ operation, accepted }) => {
+      vi.mocked(fleet.getSession).mockResolvedValue({ ...sessionFixture, task_bound: false })
       vi.mocked(chats.getTaskContext).mockResolvedValue({ binding: null, tracker: null })
       vi.mocked(chats.getChatControls).mockResolvedValue({
         can_send: false,
