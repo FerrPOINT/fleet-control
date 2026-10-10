@@ -79,6 +79,16 @@ execution or installed/native compatibility. No previous packet accepts this new
 
 ## Approval Recovery Release Candidate
 
+The combined-source regression
+`pinned_recovery_keyset_scans_all_pages_before_idle_poll` seeds101 pinned runs,
+sorts their keys and makes only the final run terminal. The final record must
+complete within20 seconds, without five idle intervals for five earlier full
+pages. Every earlier invalid record must be read and retain capacity; GET-only,
+exact terminal mirror and no-redispatch assertions remain. The test is ignored
+by default and requires its explicit PostgreSQL gate. Formatting alone does not
+qualify this new source; the prior38018281445 completion-wait failure remains
+unresolved until an actual successor result proves otherwise.
+
 Unit14 has21 new named cases: snapshot unit3, exact-pending unit1, recovery
 PG/HTTP15, logical-clock PG1 and migration1. Targeted unit group is2 including
 its inherited ACK case; journal12 PG group is16. Required commands/envs and

@@ -7,8 +7,10 @@ impl LocalRuntimeSupervisor {
             handle.spawn(async move {
                 let mut after = None;
                 loop {
+                    let mut page_has_records = false;
                     match supervisor.repo.list_recoverable_hermes_acceptances(after).await {
                         Ok(records) => {
+                            page_has_records = !records.is_empty();
                             if records.is_empty() { after = None; }
                             for (message, run) in records {
                                 // Invalid old ACKs must not starve later pending or pinned readbacks.
@@ -29,7 +31,13 @@ impl LocalRuntimeSupervisor {
                     if supervisor.repo.reconcile_runtime_controls().await.is_err() {
                         tracing::warn!("Runtime control terminal readback is unavailable");
                     }
-                    sleep(Duration::from_secs(5)).await;
+                    if page_has_records {
+                        // Finish the keyset scan before idling; old unresolved ACKs
+                        // must not add one poll interval for every later page.
+                        tokio::task::yield_now().await;
+                    } else {
+                        sleep(Duration::from_secs(5)).await;
+                    }
                 }
             });
         }
