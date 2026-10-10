@@ -739,10 +739,10 @@ class HostedBackendTests(unittest.TestCase):
                     gate.verify_test_log(stage, bad, REVIEWED)
 
     def test_successor_source_tree_and_six_lf_controls_remain_closed(self):
-        self.assertEqual(gate.SOURCE_SHA, "aa11d3b90fcacb6f01a99b8a534cadbffbf54993")
+        self.assertEqual(gate.SOURCE_SHA, "5db4ff92d2168c46ce96b56f37acbbf7de92db33")
         tree = subprocess.run(["git", "-C", str(ROOT), "rev-parse", gate.SOURCE_SHA + "^{tree}"],
             capture_output=True, check=True, timeout=30).stdout.decode().strip()
-        self.assertEqual(tree, "62dceae7398630709c471cd8627e1364e5527ceb")
+        self.assertEqual(tree, "5328b7de2d2e1922ae6748b02f974471a01d9de4")
         delta = subprocess.run(["git", "-C", str(ROOT), "diff", "--name-status", gate.SOURCE_SHA],
             capture_output=True, check=True, timeout=30).stdout.decode()
         gate.validate_delta(delta)
@@ -764,14 +764,31 @@ class HostedBackendTests(unittest.TestCase):
         preparation = REVIEWED["config_union_preparation"]
         self.assertEqual(preparation["prior_3445_codegen_evidence"],
                          previous3445["config_union_preparation"]["codegen_evidence"])
-        self.assertEqual(preparation["codegen_evidence"], dict(
-            source_commit=gate.SOURCE_SHA, artifact_bound_source_commit=gate.SOURCE_SHA,
-            workflow_commit="4b35d38eda32e66b79a99bbefaa1ed7be8c94f31",
-            run_id=38066257094, run_attempt=1, artifact_id=11674599663,
-            artifact_zip_sha256="8e1284e91d778d99281b1fa27df8b5dd7887679dd1068d023ae50a84f6fb1cbb",
-            reported_by_parent=False, schema_sha256=gate.OPENAPI_SHA, source_file_count=305,
-            source_inventory_sha256="34c748fcfa80e9fde9bfe474acd08ecbe509befde29313ba7882ea08198b408b",
-            source_tree="62dceae7398630709c471cd8627e1364e5527ceb"))
+        # Original artifact identity remains aa11; only the attested target changes.
+        original = json.loads(self.source_blob(gate.INVENTORY,
+            "fe1fb3f5f863b8dad9dcd400ee2dccb68e69c4c4"))["config_union_preparation"]["codegen_evidence"]
+        closure = [".base-revision", "backend/.cargo", "backend/Cargo.toml", "backend/Cargo.lock",
+            "backend/api", "backend/app", "backend/domain", "backend/shared"] + [
+            "backend/" + member + "/Cargo.toml"
+            for member in ("api", "app", "domain", "shared", "infra", "migration", "server", "cli")]
+        source_delta = ["backend/infra/tests/sdlc_foundation.rs", "backend/infra/tests/support/pm_dispatch.rs",
+            "backend/infra/tests/support/pm_events.rs", "docs/CURRENT_STATE.md", "docs/GAP_REGISTER.md"]
+        source = original["source_commit"]
+        listing = lambda pin: subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT),
+            "ls-tree", "-r", "-z", pin, "--", *closure], capture_output=True, check=True, timeout=30).stdout
+        accepted, current = listing(source), listing(gate.SOURCE_SHA)
+        self.assertTrue(accepted)
+        self.assertEqual(accepted, current)
+        self.assertEqual(gate.digest(accepted), "721d0adcd6a5c08d362ea5e25535173333aeac74173608009184818fc30c4159")
+        delta = subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT), "diff",
+            "--name-only", source, gate.SOURCE_SHA], capture_output=True, check=True, timeout=30).stdout.decode().splitlines()
+        self.assertEqual(delta, source_delta)
+        self.assertEqual(preparation["codegen_evidence"], dict(original,
+            artifact_bound_source_commit=gate.SOURCE_SHA, binding_kind="verified_api_dependency_closure_parity",
+            api_dependency_closure=closure, api_dependency_closure_git_sha256=gate.digest(accepted),
+            source_delta=source_delta))
+        self.assertEqual(REVIEWED["groups"], json.loads(self.source_blob(gate.INVENTORY,
+            "fe1fb3f5f863b8dad9dcd400ee2dccb68e69c4c4"))["groups"])
         for path in gate.WRITE_SET:
             data = (ROOT / path).read_bytes()
             canonical = subprocess.run(["git", "-C", str(ROOT), "show", ":" + path],
