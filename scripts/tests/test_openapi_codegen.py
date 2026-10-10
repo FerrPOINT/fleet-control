@@ -163,10 +163,13 @@ class CodegenTests(unittest.TestCase):
                         {"source_sha": "212d07391b83b8a5081c946b87b4215053c4a153"},
                         {"source_sha": "83091f055e3b34fcfe6a6d59b1703c117261c027"},
                         {"source_sha": "31ab4e90b77f389b7bc5f6cfaf5f4b3d38f2d75e"},
+                        {"source_sha": "f7d586be10a958f4f454c357831018250c779256"},
                         {"source_inventory_sha256": "48077b8901381fa9609fc88e0e864dc04a19817f3ae83f1e63f90459c72253ff"},
                         {"source_inventory_sha256": "2f9240f7c8c5ca1da152aed05a50d6748122490463332e7b41fb1e17da4bf842"},
                         {"source_inventory_sha256": "6105d3c5d660201536c9f06e91c7622d8ebabd54b83f5440f5cddd204bcdfceb"},
                         {"source_inventory_sha256": "c94d72c164e26e7cab2e9810f99cdcf8a960e9716c27cc2f63632df83337dec6"},
+                        {"source_inventory_sha256": "388ec5ba3512d0f94614874e0c9f394b7fd6bda50f2288c25d36e62f7b079918"},
+                        {"source_file_count": 297},
                         {"source_file_count": 292},
                         {"source_file_count": 294},
                         {"source_file_count": 283}, {"base_sha": "b" * 40}, {"all_quality_gate": True},
@@ -174,6 +177,7 @@ class CodegenTests(unittest.TestCase):
                         {"source_parents": "b" * 40}, {"source_parents": []},
                         {"source_parents": ["5cad61a38b29058581a9ce6a8a05426303d32e53", "3694cbd399113ee25bfaa5bae7ae009df96f1e57"]},
                         {"source_parents": ["b" * 40]},
+                        {"source_parents": ["dd5744e34cfd6d69dc7cffad882bdd635a887253"]},
                         {"source_tree": "b" * 40}, {"qualified_source_blobs": {}},
                         {"source_inventory_sha256": "b" * 64}, {"base_tree": "b" * 40},
                         {"source_file_count": 0}, {"fleet_lock_sha256": "b" * 64}, {"base_lock_sha256": "b" * 64}):
@@ -195,7 +199,7 @@ class CodegenTests(unittest.TestCase):
         return value
 
     def test_exact_journal_source_parent_tree_and_blobs(self):
-        self.assertEqual(codegen.SOURCE_SHA, "f7d586be10a958f4f454c357831018250c779256")
+        self.assertEqual(codegen.SOURCE_SHA, "4449a3b1cdd915e265543a24054506f15385393d")
         self.assertEqual(codegen.BASE_SHA, "19a7a381ae6dbea61a643bb96189e483fa64df5c")
         codegen.qualify_source(ROOT)
         results = [" ".join([codegen.SOURCE_SHA, *codegen.SOURCE_PARENTS]).encode(), codegen.SOURCE_TREE.encode()]
@@ -210,6 +214,7 @@ class CodegenTests(unittest.TestCase):
                 codegen.qualify_source(ROOT)
 
         for parents in ([], ["b" * 40],
+                        ["dd5744e34cfd6d69dc7cffad882bdd635a887253"],
                         ["5cad61a38b29058581a9ce6a8a05426303d32e53", "3694cbd399113ee25bfaa5bae7ae009df96f1e57"],
                         [*codegen.SOURCE_PARENTS, "b" * 40]):
             changed = [" ".join([codegen.SOURCE_SHA, *parents]).encode(), *results[1:]]

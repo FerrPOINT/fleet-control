@@ -15,9 +15,9 @@ import zipfile
 
 REPOSITORY = "FerrPOINT/fleet-control"
 BRANCH = "build-only/fleet-openapi-pm-union-20261010"
-SOURCE_SHA = "f7d586be10a958f4f454c357831018250c779256"
-SOURCE_PARENTS = ["dd5744e34cfd6d69dc7cffad882bdd635a887253"]
-SOURCE_TREE = "92248caec55cf3358035fe5d08ef0c86162bbb61"
+SOURCE_SHA = "4449a3b1cdd915e265543a24054506f15385393d"
+SOURCE_PARENTS = ["daa2b11c6019154041db7b05bc244555c656b282"]
+SOURCE_TREE = "97c13141fb4829e001ca3b456163f0bac3481d63"
 SOURCE_BLOBS = {
     ".base-revision": "1716308f859d23508a6ca0bae105434221c00419",
     "backend/Cargo.lock": "1f2a6fee32bf3dabedafc3927c56c286e14c6daf",
@@ -35,8 +35,8 @@ QUALIFIED_EXPORT = {
     "base_lock_sha256": "9712da389d3bdc3224fb5185011814b14993a5341250ffd93a6bd8d2cdc1c235",
     "base_tree": "aa1a0486af1922c5a7fd4471e71e4fbb6aa4c7cc",
     "fleet_lock_sha256": "7ca269c7cd50cd0e9f0ca9173630353a231bf718004181e6f08bd97f495edb78",
-    "source_file_count": 297,
-    "source_inventory_sha256": "388ec5ba3512d0f94614874e0c9f394b7fd6bda50f2288c25d36e62f7b079918"
+    "source_file_count": 302,
+    "source_inventory_sha256": "4d5bc64110ddb90aa903bef30a0c3717f4f5eb1d62d81cbb59c0b9594e8a14c1"
 }
 WORKFLOW = ".github/workflows/openapi-codegen-build-only.yml"
 WRITE_SET = {WORKFLOW, "scripts/openapi_codegen.py", "scripts/tests/test_openapi_codegen.py"}
