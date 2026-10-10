@@ -22,7 +22,7 @@ jobs:
         shell: bash
     container:
       image: public.ecr.aws/docker/library/rust@sha256:af306cfa71d987911a781c37b59d7d67d934f49684058f96cf72079c3626bfe0 # 1.88.0-bookworm; exact Docker Official Image index
-      options: --cpus 2 --memory 4g
+      options: --cpus 2 --memory 6g
     services:
       postgres:
         image: public.ecr.aws/docker/library/postgres@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94 # 17.6-alpine; exact Docker Official Image index

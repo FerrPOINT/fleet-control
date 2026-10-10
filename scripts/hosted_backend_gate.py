@@ -947,7 +947,7 @@ def resource_guard(root):
     maximum = Path("/sys/fs/cgroup/memory.max").read_text().strip()
     current = int(Path("/sys/fs/cgroup/memory.current").read_text())
     free = shutil.disk_usage(root).free
-    require(maximum.isdigit() and int(maximum) == 4 * 1024 ** 3, "Hosted compiler cgroup must be bounded at 4 GiB")
+    require(maximum.isdigit() and int(maximum) == 6 * 1024 ** 3, "Hosted compiler cgroup must be bounded at 6 GiB")
     if int(maximum) - current < 3 * 1024 ** 3:
         counters = dict.fromkeys(("anon", "file", "shmem", "kernel", "inactive_file", "slab", "slab_reclaimable", "slab_unreclaimable"))
         events = dict.fromkeys(("low", "high", "max", "oom", "oom_kill", "oom_group_kill"))
@@ -1504,7 +1504,7 @@ def main():
                    "Inventory pin drift": "inventory_pin", "Input fingerprint drift": "inventory_hash",
                    "Utility source/worktree drift": "utility_bytes", "Canonical package origin required": "package_origin",
                    "Hosted temporary root missing": "temporary_root",
-                   "Hosted compiler cgroup must be bounded at 4 GiB": "cgroup_limit",
+                   "Hosted compiler cgroup must be bounded at 6 GiB": "cgroup_limit",
                    "Hosted initial cgroup headroom below 3 GiB": "cgroup_headroom",
                    "Disposable hosted CI requires 5 GiB free; no waiver": "disk_floor",
                    "Execution restricted to the exact dedicated hosted branch push": "hosted_identity",

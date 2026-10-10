@@ -1279,7 +1279,7 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(set(flow["jobs"]), {"backend"})
         job = flow["jobs"]["backend"]
         self.assertEqual(job["runs-on"], "ubuntu-24.04")
-        self.assertEqual(job["container"], dict(image="public.ecr.aws/docker/library/rust@sha256:af306cfa71d987911a781c37b59d7d67d934f49684058f96cf72079c3626bfe0", options="--cpus 2 --memory 4g"))
+        self.assertEqual(job["container"], dict(image="public.ecr.aws/docker/library/rust@sha256:af306cfa71d987911a781c37b59d7d67d934f49684058f96cf72079c3626bfe0", options="--cpus 2 --memory 6g"))
         self.assertEqual(job["env"]["CARGO_BUILD_JOBS"], "1")
         self.assertIn("github.event.deleted == false", job["if"])
         self.assertIn("github.ref == 'refs/heads/" + gate.BRANCH + "'", job["if"])
@@ -1502,7 +1502,7 @@ class HostedBackendTests(unittest.TestCase):
 
     def test_hosted_disk_memory_guards_are_measured_and_fail_closed(self):
         data = {"/proc/meminfo": "MemAvailable: 5000000 kB\nCommitLimit: 7000000 kB\nCommitted_AS: 1000000 kB\n",
-                "/sys/fs/cgroup/memory.max": str(4 * 1024 ** 3), "/sys/fs/cgroup/memory.current": str(512 * 1024 ** 2)}
+                "/sys/fs/cgroup/memory.max": str(6 * 1024 ** 3), "/sys/fs/cgroup/memory.current": str(512 * 1024 ** 2)}
         with mock.patch.object(Path, "read_text", autospec=True, side_effect=lambda path: data[path.as_posix()]), \
                 mock.patch.object(Path, "open", side_effect=FileNotFoundError), mock.patch.object(sys, "stdout", io.StringIO()), \
                 mock.patch.object(gate.shutil, "disk_usage", return_value=SimpleNamespace(free=5 * 1024 ** 3)) as disk:
@@ -1511,13 +1511,13 @@ class HostedBackendTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 gate.resource_guard(Path("owned"))
             disk.return_value.free += 1
-            data["/sys/fs/cgroup/memory.current"] = str(2 * 1024 ** 3)
+            data["/sys/fs/cgroup/memory.current"] = str(4 * 1024 ** 3)
             with self.assertRaises(ValueError):
                 gate.resource_guard(Path("owned"))
 
-    def resource_observation(self, body, *, current=2 * 1024 ** 3, available=5000000, event_body=b""):
+    def resource_observation(self, body, *, current=4 * 1024 ** 3, available=5000000, event_body=b""):
         data = {"/proc/meminfo": f"MemAvailable: {available} kB\nCommitLimit: 7000000 kB\nCommitted_AS: 1000000 kB\n",
-                "/sys/fs/cgroup/memory.max": str(4 * 1024 ** 3), "/sys/fs/cgroup/memory.current": str(current)}
+                "/sys/fs/cgroup/memory.max": str(6 * 1024 ** 3), "/sys/fs/cgroup/memory.current": str(current)}
         stream = mock.MagicMock()
         stream.__enter__.return_value = stream
         stream.read.return_value = body
@@ -1568,7 +1568,7 @@ class HostedBackendTests(unittest.TestCase):
         value = self.resource_observation(b"file 123456\nPRIVATE_SENTINEL 999\nslab 789\nanon 456\n")
         self.assertEqual([value[key] for key in ("cgroup_anon_bytes", "cgroup_file_bytes", "cgroup_slab_bytes")], [456, 123456, 789])
         self.assertEqual((value["cgroup_limit_bytes"], value["cgroup_current_bytes"], value["proc_mem_available_bytes"]),
-                         (4 * 1024 ** 3, 2 * 1024 ** 3, 5000000 * 1024))
+                         (6 * 1024 ** 3, 4 * 1024 ** 3, 5000000 * 1024))
         self.assertEqual(self.resource_observation(b"anon 0\nfile 0\nslab 0\n")["cgroup_anon_bytes"], 0)
 
     def test_resource_observation_missing_invalid_private_or_oversized_stat_stays_null(self):
@@ -1588,27 +1588,27 @@ class HostedBackendTests(unittest.TestCase):
         self.assertIsNone(value["proc_mem_available_bytes"])
 
     def test_resource_observation_never_runs_for_success_limit_or_disk_refusal(self):
-        data = {"/proc/meminfo": "MemAvailable: 5000000 kB\n", "/sys/fs/cgroup/memory.max": str(4 * 1024 ** 3),
-                "/sys/fs/cgroup/memory.current": str(1024 ** 3)}
+        data = {"/proc/meminfo": "MemAvailable: 5000000 kB\n", "/sys/fs/cgroup/memory.max": str(6 * 1024 ** 3),
+                "/sys/fs/cgroup/memory.current": str(3 * 1024 ** 3)}
         output = io.StringIO()
         with mock.patch.object(Path, "read_text", autospec=True, side_effect=lambda path: data[path.as_posix()]), \
                 mock.patch.object(Path, "open") as opened, mock.patch.object(sys, "stdout", output), \
                 mock.patch.object(gate.shutil, "disk_usage", return_value=SimpleNamespace(free=5 * 1024 ** 3)) as disk:
-            self.assertEqual(gate.resource_guard(Path("owned"))["cgroup_current_bytes"], 1024 ** 3)
-            data["/sys/fs/cgroup/memory.max"] = str(6 * 1024 ** 3)
-            with self.assertRaisesRegex(ValueError, "^Hosted compiler cgroup must be bounded at 4 GiB$"):
-                gate.resource_guard(Path("owned"))
+            self.assertEqual(gate.resource_guard(Path("owned"))["cgroup_current_bytes"], 3 * 1024 ** 3)
             data["/sys/fs/cgroup/memory.max"] = str(4 * 1024 ** 3)
+            with self.assertRaisesRegex(ValueError, "^Hosted compiler cgroup must be bounded at 6 GiB$"):
+                gate.resource_guard(Path("owned"))
+            data["/sys/fs/cgroup/memory.max"] = str(6 * 1024 ** 3)
             disk.return_value.free -= 1
             with self.assertRaisesRegex(ValueError, "^Disposable hosted CI requires 5 GiB free; no waiver$"):
                 gate.resource_guard(Path("owned"))
         opened.assert_not_called()
         self.assertEqual(output.getvalue(), "")
-        self.assertEqual(self.resource_observation(b"anon 1\n", current=1024 ** 3 + 1)["cgroup_current_bytes"], 1024 ** 3 + 1)
+        self.assertEqual(self.resource_observation(b"anon 1\n", current=3 * 1024 ** 3 + 1)["cgroup_current_bytes"], 3 * 1024 ** 3 + 1)
 
     def test_resource_observation_preserves_absolute_budget_timeout(self):
-        data = {"/proc/meminfo": "MemAvailable: 5000000 kB\n", "/sys/fs/cgroup/memory.max": str(4 * 1024 ** 3),
-                "/sys/fs/cgroup/memory.current": str(2 * 1024 ** 3)}
+        data = {"/proc/meminfo": "MemAvailable: 5000000 kB\n", "/sys/fs/cgroup/memory.max": str(6 * 1024 ** 3),
+                "/sys/fs/cgroup/memory.current": str(4 * 1024 ** 3)}
         for timeout_at in ("memory.stat", "memory.events"):
             output = io.StringIO()
             def open_counter(path, mode):
@@ -1649,21 +1649,82 @@ class HostedBackendTests(unittest.TestCase):
         functions = lambda tree: {node.name: node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.ClassDef))}
         before, after = functions(old), functions(new)
         self.assertEqual(before.keys(), after.keys())
-        self.assertEqual({name for name in before if ast.dump(before[name]) != ast.dump(after[name])}, {"resource_guard"})
+        self.assertEqual({name for name in before if ast.dump(before[name]) != ast.dump(after[name])}, {"resource_guard", "main"})
         guard = copy.deepcopy(after["resource_guard"])
         blocks = [node for node in guard.body if isinstance(node, ast.If)]
         self.assertEqual(len(blocks), 1)
         self.assertEqual(ast.unparse(blocks[0].test), "int(maximum) - current < 3 * 1024 ** 3")
         guard.body.remove(blocks[0])
-        self.assertEqual(ast.dump(before["resource_guard"]), ast.dump(guard))
+        expected = ast.unparse(before["resource_guard"])
+        self.assertEqual(expected.count("== 4 * 1024 ** 3"), 1)
+        self.assertEqual(expected.count("bounded at 4 GiB"), 1)
+        expected = expected.replace("== 4 * 1024 ** 3", "== 6 * 1024 ** 3").replace("bounded at 4 GiB", "bounded at 6 GiB")
+        self.assertEqual(ast.dump(ast.parse(expected).body[0]), ast.dump(guard))
         names = lambda tree: {node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")}
         original = names(ast.parse(self.source_blob("scripts/tests/test_hosted_backend_gate.py", frozen)))
         self.assertEqual(len(original), 164)
         self.assertTrue(original <= names(ast.parse(Path(__file__).read_bytes())))
         for path in (gate.WORKFLOW, gate.GATE, gate.INIT, gate.INVENTORY):
-            self.assertEqual((ROOT / path).read_bytes(), self.source_blob(path, frozen), path)
+            expected = self.source_blob(path, frozen)
+            if path == gate.WORKFLOW:
+                self.assertEqual(expected.count(b"--memory 4g"), 1)
+                expected = expected.replace(b"--memory 4g", b"--memory 6g")
+            self.assertEqual((ROOT / path).read_bytes(), expected, path)
         self.assertEqual(gate.SOURCE_SHA, "3fcbe6288dfb52d6b56eed5068ee364532ac84f6")
         self.assertEqual(len(gate.GATES), 84)
+
+    def test_hosted_six_gib_policy_is_exact_and_retains_three_gib_reserve(self):
+        data = {"/proc/meminfo": "MemAvailable: 15030344 kB\n", "/sys/fs/cgroup/memory.max": str(6 * 1024 ** 3),
+                "/sys/fs/cgroup/memory.current": "1079107584"}
+        output = io.StringIO()
+        with mock.patch.object(Path, "read_text", autospec=True, side_effect=lambda path: data[path.as_posix()]), \
+                mock.patch.object(Path, "open", side_effect=FileNotFoundError) as opened, mock.patch.object(sys, "stdout", output), \
+                mock.patch.object(gate.shutil, "disk_usage", return_value=SimpleNamespace(free=5 * 1024 ** 3)) as disk:
+            value = gate.resource_guard(Path("owned"))
+            self.assertEqual(value["cgroup_limit_bytes"], 6 * 1024 ** 3)
+            self.assertEqual(value["cgroup_current_bytes"], 1079107584)
+            self.assertEqual(value["hosted_initial_cgroup_headroom_guard_bytes"], 3 * 1024 ** 3)
+            self.assertEqual(value["hosted_disk_guard_bytes"], 5 * 1024 ** 3)
+            self.assertIs(value["native_guards_unchanged"], True)
+            for limit in (4 * 1024 ** 3, 5 * 1024 ** 3, 8 * 1024 ** 3, "max"):
+                data["/sys/fs/cgroup/memory.max"] = str(limit)
+                with self.assertRaisesRegex(ValueError, "^Hosted compiler cgroup must be bounded at 6 GiB$"):
+                    gate.resource_guard(Path("owned"))
+            opened.assert_not_called()
+            self.assertEqual(output.getvalue(), "")
+            data["/sys/fs/cgroup/memory.max"] = str(6 * 1024 ** 3)
+            data["/sys/fs/cgroup/memory.current"] = str(3 * 1024 ** 3)
+            gate.resource_guard(Path("owned"))
+            disk.return_value.free -= 1
+            with self.assertRaisesRegex(ValueError, "^Disposable hosted CI requires 5 GiB free; no waiver$"):
+                gate.resource_guard(Path("owned"))
+            disk.return_value.free += 1
+            data["/sys/fs/cgroup/memory.current"] = str(3 * 1024 ** 3 + 1)
+            with self.assertRaisesRegex(ValueError, "^Hosted initial cgroup headroom below 3 GiB$"):
+                gate.resource_guard(Path("owned"))
+
+    def test_hosted_six_gib_policy_keeps_170_identities_and_original_artifact_binding(self):
+        import ast
+        frozen = "431b7246c1927f220e63f7a644d4c9237c401c90"
+        expected = self.source_blob(gate.HELPER, frozen)
+        self.assertEqual(expected.count(b"== 4 * 1024 ** 3"), 1)
+        self.assertEqual(expected.count(b"bounded at 4 GiB"), 2)
+        expected = expected.replace(b"== 4 * 1024 ** 3", b"== 6 * 1024 ** 3").replace(b"bounded at 4 GiB", b"bounded at 6 GiB")
+        self.assertEqual((ROOT / gate.HELPER).read_bytes(), expected)
+        for path in (gate.WORKFLOW, gate.GATE, gate.INIT, gate.INVENTORY):
+            expected = self.source_blob(path, frozen)
+            if path == gate.WORKFLOW:
+                self.assertEqual(expected.count(b"--memory 4g"), 1)
+                expected = expected.replace(b"--memory 4g", b"--memory 6g")
+            self.assertEqual((ROOT / path).read_bytes(), expected)
+        names = lambda tree: {node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")}
+        original = names(ast.parse(self.source_blob("scripts/tests/test_hosted_backend_gate.py", frozen)))
+        self.assertEqual(len(original), 170)
+        self.assertTrue(original <= names(ast.parse(Path(__file__).read_bytes())))
+        binding = REVIEWED["config_union_preparation"]["codegen_evidence"]
+        self.assertEqual(binding, json.loads(self.source_blob(gate.INVENTORY, frozen))["config_union_preparation"]["codegen_evidence"])
+        self.assertEqual(binding["source_commit"], "aa11d3b90fcacb6f01a99b8a534cadbffbf54993")
+        self.assertEqual(binding["binding_kind"], "verified_api_dependency_closure_parity")
 
     def test_cleanup_only_exact_owned_scratch_and_verified_identity(self):
         identity = dict(workflow_sha="a" * 40, run_id=1, run_attempt=1)
@@ -2259,7 +2320,11 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(len(original), 151)
         self.assertTrue(original <= tests(ast.parse(Path(__file__).read_bytes())))
         for path in (gate.WORKFLOW, gate.GATE, gate.INIT, gate.INVENTORY):
-            self.assertEqual((ROOT / path).read_bytes(), self.source_blob(path, frozen), path)
+            expected = self.source_blob(path, frozen)
+            if path == gate.WORKFLOW:
+                self.assertEqual(expected.count(b"--memory 4g"), 1)
+                expected = expected.replace(b"--memory 4g", b"--memory 6g")
+            self.assertEqual((ROOT / path).read_bytes(), expected, path)
 
     def catch_projection(self, run):
         budget = SimpleNamespace(arm=lambda: None, close=lambda: None, cleanup=lambda **_: None)
@@ -2291,7 +2356,7 @@ class HostedBackendTests(unittest.TestCase):
                  ("reviewed_inventory", "inventory_binding", ValueError("Input fingerprint drift"), "value_error", "inventory_hash"),
                  ("qualify_utility", "utility_qualification", ValueError("Utility source/worktree drift"), "value_error", "utility_bytes"),
                  ("qualify_package", "package_qualification", ValueError("Canonical package origin required"), "value_error", "package_origin"),
-                 ("resource_guard", "resource_guard", ValueError("Hosted compiler cgroup must be bounded at 4 GiB"), "value_error", "cgroup_limit"),
+                 ("resource_guard", "resource_guard", ValueError("Hosted compiler cgroup must be bounded at 6 GiB"), "value_error", "cgroup_limit"),
                  ("resource_guard", "resource_guard", ValueError("Hosted initial cgroup headroom below 3 GiB"), "value_error", "cgroup_headroom"),
                  ("resource_guard", "resource_guard", ValueError("Disposable hosted CI requires 5 GiB free; no waiver"), "value_error", "disk_floor")]
         with tempfile.TemporaryDirectory() as directory:
@@ -2352,6 +2417,11 @@ class HostedBackendTests(unittest.TestCase):
         labels.update(node.args[0].value for node in ast.walk(frozen) if isinstance(node, ast.Call)
                       and isinstance(node.func, ast.Name) and node.func.id in ("ValueError", "TimeoutError")
                       and len(node.args) == 1 and isinstance(node.args[0], ast.Constant))
+        self.assertIn("Hosted compiler cgroup must be bounded at 6 GiB", {
+            node.args[1].value for node in ast.walk(tree) if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name) and node.func.id == "require" and len(node.args) == 2
+            and isinstance(node.args[1], ast.Constant)})
+        labels.add("Hosted compiler cgroup must be bounded at 6 GiB")
         self.assertTrue(set(reasons) <= labels)
         self.assertEqual(len(reasons), 30)
         self.assertTrue(all(re.fullmatch(r"[a-z_]{1,40}", code) for code in reasons.values()))
@@ -2404,7 +2474,11 @@ class HostedBackendTests(unittest.TestCase):
 
         self.assertEqual(ast.dump(before["execute"]), ast.dump(RemoveCheckpoints().visit(copy.deepcopy(after["execute"]))))
         for path in (gate.WORKFLOW, gate.GATE, gate.INIT, gate.INVENTORY):
-            self.assertEqual((ROOT / path).read_bytes(), self.source_blob(path, frozen))
+            expected = self.source_blob(path, frozen)
+            if path == gate.WORKFLOW:
+                self.assertEqual(expected.count(b"--memory 4g"), 1)
+                expected = expected.replace(b"--memory 4g", b"--memory 6g")
+            self.assertEqual((ROOT / path).read_bytes(), expected)
         names = lambda tree: {node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")}
         original = names(ast.parse(self.source_blob("scripts/tests/test_hosted_backend_gate.py", frozen)))
         self.assertEqual(len(original), 158)
