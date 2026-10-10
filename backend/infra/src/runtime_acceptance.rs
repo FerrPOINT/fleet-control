@@ -231,22 +231,6 @@ pub(super) async fn terminal(
     {
         return Err(AppError::validation("invalid Hermes terminal packet"));
     }
-    let body = command
-        .body
-        .as_deref()
-        .map(|body| redact_text(body.trim()))
-        .filter(|body| !body.is_empty());
-    let error = command.error.as_deref().map(redact_text);
-    let delivery = if command.state == SessionRunState::Failed {
-        MessageDeliveryState::Failed
-    } else {
-        MessageDeliveryState::Completed
-    };
-    let delivery_error = if command.state == SessionRunState::Failed {
-        error.clone()
-    } else {
-        None
-    };
     let txn = repo.db.begin().await.map_err(terminal_database_error)?;
     let run = locked_run(&txn, command.run_id).await?;
     let message = session_message::Entity::find_by_id(command.message_id)
@@ -310,6 +294,34 @@ pub(super) async fn terminal(
             "Hermes terminal packet identity or pin does not match",
         ));
     }
+    let replay = matches!(run.state.as_str(), "completed" | "failed" | "cancelled");
+    terminal_packet(txn, run, Some(message), command, replay).await
+}
+
+// Both authorities reach this writer only after validating their original custody.
+pub(super) async fn terminal_packet(
+    txn: sea_orm::DatabaseTransaction,
+    run: session_agent_run::Model,
+    message: Option<session_message::Model>,
+    command: app::HermesTerminalCommit,
+    replay: bool,
+) -> Result<(SessionAgentRun, Option<SessionMessage>, bool), AppError> {
+    let body = command
+        .body
+        .as_deref()
+        .map(|body| redact_text(body.trim()))
+        .filter(|body| !body.is_empty());
+    let error = command.error.as_deref().map(redact_text);
+    let delivery = if command.state == SessionRunState::Failed {
+        MessageDeliveryState::Failed
+    } else {
+        MessageDeliveryState::Completed
+    };
+    let delivery_error = if command.state == SessionRunState::Failed {
+        error.clone()
+    } else {
+        None
+    };
     let mut assistants = session_message::Entity::find()
         .filter(session_message::Column::SessionId.eq(run.session_id))
         .filter(session_message::Column::MessageKind.eq("assistant_message"))
@@ -338,20 +350,24 @@ pub(super) async fn terminal(
             ));
         }
     }
-    let replay = matches!(run.state.as_str(), "completed" | "failed" | "cancelled");
     if replay {
         if run.state != command.state.as_str()
             || run.last_error != error
-            || message.delivery_state != delivery.as_str()
-            || message.delivery_error != delivery_error
+            || message.as_ref().is_some_and(|message| {
+                message.delivery_state != delivery.as_str()
+                    || message.delivery_error != delivery_error
+            })
             || body.is_some() != assistant.is_some()
         {
             return Err(AppError::conflict(
                 "Hermes terminal packet contradicts committed outcome",
             ));
         }
-    } else if !matches!(run.state.as_str(), "running" | "waiting" | "stopping")
-        || message.delivery_state != "dispatched"
+    } else if (!matches!(run.state.as_str(), "running" | "waiting" | "stopping")
+        && !(message.is_none() && run.state == command.state.as_str()))
+        || message
+            .as_ref()
+            .is_some_and(|message| message.delivery_state != "dispatched")
     {
         return Err(AppError::conflict(
             "Hermes terminal packet requires a pinned active run",
@@ -412,10 +428,12 @@ pub(super) async fn terminal(
                 .await
                 .map_err(terminal_database_error)?;
         }
-        let mut prompt = message.into_active_model();
-        prompt.delivery_state = Set(delivery.as_str().to_string());
-        prompt.delivery_error = Set(delivery_error);
-        prompt.update(&txn).await.map_err(terminal_database_error)?;
+        if let Some(message) = message {
+            let mut prompt = message.into_active_model();
+            prompt.delivery_state = Set(delivery.as_str().to_string());
+            prompt.delivery_error = Set(delivery_error);
+            prompt.update(&txn).await.map_err(terminal_database_error)?;
+        }
         let mut updated = run.into_active_model();
         updated.state = Set(command.state.as_str().to_string());
         updated.last_error = Set(error);
@@ -477,6 +495,32 @@ async fn locked_run(
     txn: &sea_orm::DatabaseTransaction,
     run_id: Uuid,
 ) -> Result<session_agent_run::Model, AppError> {
+    let run = locked_primary_run(txn, run_id).await?;
+    let scoped = txn
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT EXISTS(SELECT 1 FROM task_chat_bindings WHERE session_id=$1)
+             OR EXISTS(SELECT 1 FROM pm_run_bindings WHERE session_run_id=$2) AS scoped",
+            [run.session_id.into(), run.id.into()],
+        ))
+        .await
+        .map_err(AppError::database)?
+        .ok_or_else(|| AppError::internal("missing task/PM boundary check"))?;
+    if scoped
+        .try_get::<bool>("", "scoped")
+        .map_err(AppError::database)?
+    {
+        return Err(AppError::conflict(
+            "task-bound and PM runs require their own acceptance authority",
+        ));
+    }
+    Ok(run)
+}
+
+pub(super) async fn locked_primary_run(
+    txn: &sea_orm::DatabaseTransaction,
+    run_id: Uuid,
+) -> Result<session_agent_run::Model, AppError> {
     let seed = session_agent_run::Entity::find_by_id(run_id)
         .one(txn)
         .await
@@ -519,24 +563,6 @@ async fn locked_run(
     {
         return Err(AppError::conflict(
             "Hermes acceptance requires the concrete current primary agent",
-        ));
-    }
-    let scoped = txn
-        .query_one(Statement::from_sql_and_values(
-            DatabaseBackend::Postgres,
-            "SELECT EXISTS(SELECT 1 FROM task_chat_bindings WHERE session_id=$1)
-             OR EXISTS(SELECT 1 FROM pm_run_bindings WHERE session_run_id=$2) AS scoped",
-            [run.session_id.into(), run.id.into()],
-        ))
-        .await
-        .map_err(AppError::database)?
-        .ok_or_else(|| AppError::internal("missing task/PM boundary check"))?;
-    if scoped
-        .try_get::<bool>("", "scoped")
-        .map_err(AppError::database)?
-    {
-        return Err(AppError::conflict(
-            "task-bound and PM runs require their own acceptance authority",
         ));
     }
     Ok(run)

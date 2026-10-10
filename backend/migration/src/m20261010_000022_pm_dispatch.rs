@@ -15,6 +15,7 @@ impl MigrationTrait for Migration {
                 guidance_body text CHECK(octet_length(guidance_body) BETWEEN 1 AND 32768),
                 guidance_attempted boolean NOT NULL DEFAULT false,
                 guidance_delivered boolean NOT NULL DEFAULT false,
+                terminal_committed boolean NOT NULL DEFAULT false,
                 created_at timestamptz NOT NULL DEFAULT now(),
                 CHECK((intent->>'session_run_id'=session_run_id::text) IS TRUE),
                 CHECK((intent->'submitted'='false'::jsonb AND intent->'hermes_run_ref'='null'::jsonb) IS TRUE),
@@ -26,13 +27,14 @@ impl MigrationTrait for Migration {
                 CHECK(hermes_run_ref IS NULL OR (submitted AND hermes_run_ref ~ '^[A-Za-z0-9_-]{1,512}$')),
                 CHECK(guidance_attempted = (guidance_body IS NOT NULL)),
                 CHECK(NOT guidance_attempted OR hermes_run_ref IS NOT NULL),
-                CHECK(NOT guidance_delivered OR guidance_attempted)
+                CHECK(NOT guidance_delivered OR guidance_attempted),
+                CHECK(NOT terminal_committed OR hermes_run_ref IS NOT NULL)
             );
             CREATE FUNCTION guard_pm_dispatch_journal() RETURNS trigger LANGUAGE plpgsql AS $$
             BEGIN
                 IF TG_OP='DELETE' THEN RAISE EXCEPTION 'PM dispatch custody cannot be deleted'; END IF;
                 IF TG_OP='INSERT' THEN
-                    IF NEW.submitted OR NEW.hermes_run_ref IS NOT NULL OR NEW.guidance_attempted OR NEW.guidance_delivered THEN
+                    IF NEW.submitted OR NEW.hermes_run_ref IS NOT NULL OR NEW.guidance_attempted OR NEW.guidance_delivered OR NEW.terminal_committed THEN
                         RAISE EXCEPTION 'PM dispatch must start unsubmitted';
                     END IF;
                 ELSE
@@ -41,7 +43,8 @@ impl MigrationTrait for Migration {
                        OR (OLD.submitted AND NOT NEW.submitted)
                        OR (OLD.hermes_run_ref IS NOT NULL AND NEW.hermes_run_ref IS DISTINCT FROM OLD.hermes_run_ref)
                        OR (OLD.guidance_attempted AND (NOT NEW.guidance_attempted OR NEW.guidance_body IS DISTINCT FROM OLD.guidance_body))
-                       OR (OLD.guidance_delivered AND NOT NEW.guidance_delivered) THEN
+                       OR (OLD.guidance_delivered AND NOT NEW.guidance_delivered)
+                       OR (OLD.terminal_committed AND NOT NEW.terminal_committed) THEN
                         RAISE EXCEPTION 'PM dispatch custody is immutable';
                     END IF;
                 END IF;
@@ -54,7 +57,7 @@ impl MigrationTrait for Migration {
             CREATE TABLE pm_tool_commands (
                 session_run_id uuid NOT NULL REFERENCES pm_run_bindings(session_run_id),
                 operation_key text NOT NULL CHECK(length(operation_key) BETWEEN 1 AND 128),
-                kind text NOT NULL CHECK(kind IN ('question','revision','stop')),
+                kind text NOT NULL CHECK(kind IN ('question','revision','stop','workflow_step')),
                 request jsonb NOT NULL CHECK(jsonb_typeof(request)='object' AND octet_length(request::text)<=262144),
                 attempted boolean NOT NULL DEFAULT false,
                 result jsonb CHECK(octet_length(result::text)<=262144),

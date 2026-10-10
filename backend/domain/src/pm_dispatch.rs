@@ -26,6 +26,14 @@ pub enum PmGuidancePermit {
     Unknown,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum PmContinuationOutcome {
+    NotRequired,
+    Pending,
+    Confirmed,
+}
+
 pub fn initial_pm_reservation(operation: &PmDraftOperation) -> Result<PmRunReservation, AppError> {
     let reservation = PmRunReservation {
         session_id: operation.session_id.ok_or_else(stale)?,
@@ -110,6 +118,22 @@ fn stale() -> AppError {
 mod tests {
     use super::*;
     use crate::*;
+
+    #[test]
+    fn continuation_outcomes_are_explicit_and_closed() {
+        for (outcome, wire) in [
+            (PmContinuationOutcome::NotRequired, "not_required"),
+            (PmContinuationOutcome::Pending, "pending"),
+            (PmContinuationOutcome::Confirmed, "confirmed"),
+        ] {
+            assert_eq!(serde_json::to_value(outcome).unwrap(), json!(wire));
+            assert_eq!(
+                serde_json::from_value::<PmContinuationOutcome>(json!(wire)).unwrap(),
+                outcome
+            );
+        }
+        assert!(serde_json::from_value::<PmContinuationOutcome>(json!("delivered")).is_err());
+    }
 
     fn operation() -> PmDraftOperation {
         let mut reservation: TrackerPmDraftReservation = serde_json::from_str(include_str!(
