@@ -39,8 +39,15 @@ pub async fn list_sessions(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<crate::middleware::CurrentUser>,
     Query(query): Query<SessionQuery>,
+    headers: HeaderMap,
 ) -> Result<Json<Vec<AgentSession>>, AppError> {
     let (user_ids, include_all_users) = parse_user_filter(query.user_id.as_deref(), &user)?;
+    let task_project_access =
+        if ctx.config.tracker.url.is_empty() && ctx.config.tracker.instance_id.is_empty() {
+            None
+        } else {
+            Some(super::project_access::authorized_projects(&ctx, &headers).await?)
+        };
     Ok(Json(
         ctx.repo
             .list_sessions(SessionListFilter {
@@ -48,6 +55,7 @@ pub async fn list_sessions(
                 user_ids,
                 leader_agent_id: query.leader_agent_id,
                 include_all_users,
+                task_project_access,
                 private_user_id: user.central_write.map(|_| user.id),
             })
             .await?,
@@ -200,6 +208,7 @@ mod tests {
             external_session_id: None,
             last_message_preview: None,
             pending_delivery: None,
+            task_bound: None,
             created_at: "2026-10-06".into(),
             updated_at: "2026-10-06".into(),
         }
@@ -266,7 +275,9 @@ pub async fn get_session(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<crate::middleware::CurrentUser>,
     Path(session_id): Path<Uuid>,
+    headers: HeaderMap,
 ) -> Result<Json<AgentSession>, AppError> {
+    super::task_chats::require_project_access(&ctx, &user, session_id, &headers).await?;
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_read_access(&session, &user)?;
     Ok(Json(session))
@@ -282,6 +293,9 @@ pub async fn handoff_session(
     let audit_payload = serde_json::to_value(&req).map_err(AppError::internal)?;
     let before = ctx.repo.get_session(session_id).await?;
     ensure_session_write_access(&before, &user)?;
+    if ctx.repo.get_task_chat_binding(session_id).await?.is_some() {
+        return Err(AppError::conflict("task-bound chat agent is immutable"));
+    }
     let session = ctx.repo.handoff_session(session_id, req).await?;
     ctx.repo
         .insert_audit(
@@ -304,7 +318,9 @@ pub async fn list_session_messages(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<crate::middleware::CurrentUser>,
     Path(session_id): Path<Uuid>,
+    headers: HeaderMap,
 ) -> Result<Json<Vec<SessionMessage>>, AppError> {
+    super::task_chats::require_project_access(&ctx, &user, session_id, &headers).await?;
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_read_access(&session, &user)?;
     Ok(Json(ctx.repo.list_session_messages(session_id).await?))
@@ -334,6 +350,11 @@ pub async fn create_session_message(
     });
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_write_access(&session, &user)?;
+    if ctx.repo.get_task_chat_binding(session_id).await?.is_some() {
+        return Err(AppError::conflict(
+            "task-bound messages require a verified workflow assignment; ordinary prompts cannot resume clarification",
+        ));
+    }
     let agent = ctx.repo.get_agent(session.primary_agent_id).await?;
     if agent.kind == domain::AgentKind::JavaAgent {
         return Err(AppError::validation(
@@ -369,7 +390,9 @@ pub async fn list_session_participants(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<crate::middleware::CurrentUser>,
     Path(session_id): Path<Uuid>,
+    headers: HeaderMap,
 ) -> Result<Json<Vec<SessionParticipant>>, AppError> {
+    super::task_chats::require_project_access(&ctx, &user, session_id, &headers).await?;
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_read_access(&session, &user)?;
     Ok(Json(ctx.repo.list_session_participants(session_id).await?))
@@ -415,6 +438,9 @@ pub async fn assign_session_leader(
     let audit_payload = serde_json::to_value(&req).map_err(AppError::internal)?;
     let before = ctx.repo.get_session(session_id).await?;
     ensure_session_write_access(&before, &user)?;
+    if ctx.repo.get_task_chat_binding(session_id).await?.is_some() {
+        return Err(AppError::conflict("task-bound chats cannot change leader"));
+    }
     let session = ctx
         .repo
         .assign_session_leader(session_id, req, user.id)
@@ -440,7 +466,9 @@ pub async fn list_session_agent_runs(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<crate::middleware::CurrentUser>,
     Path(session_id): Path<Uuid>,
+    headers: HeaderMap,
 ) -> Result<Json<Vec<SessionAgentRun>>, AppError> {
+    super::task_chats::require_project_access(&ctx, &user, session_id, &headers).await?;
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_read_access(&session, &user)?;
     Ok(Json(ctx.repo.list_session_agent_runs(session_id).await?))
@@ -459,6 +487,7 @@ pub async fn stream_session(
     Query(query): Query<StreamQuery>,
     headers: HeaderMap,
 ) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, AppError> {
+    super::task_chats::require_project_access(&ctx, &user, session_id, &headers).await?;
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_read_access(&session, &user)?;
     let header_cursor = headers
@@ -491,8 +520,8 @@ pub async fn stream_session(
             .data(serde_json::json!({ "type": "snapshot", "session_id": session_id }).to_string()),
     );
     let stream = futures_util::stream::unfold(
-        (ctx, user, token, cursor, queue),
-        move |(ctx, user, token, mut cursor, mut queue)| async move {
+        (ctx, user, token, headers, cursor, queue),
+        move |(ctx, user, token, headers, mut cursor, mut queue)| async move {
             loop {
                 let valid_token = match crate::middleware::central_auth::check_token(&token).await {
                     crate::middleware::central_auth::CentralCheck::Validated(central, name) => {
@@ -531,10 +560,16 @@ pub async fn stream_session(
                 {
                     return None;
                 }
+                if super::task_chats::require_project_access(&ctx, &user, session_id, &headers)
+                    .await
+                    .is_err()
+                {
+                    return None;
+                }
                 if let Some(event) = queue.pop_front() {
                     return Some((
                         Ok::<_, Infallible>(event),
-                        (ctx, user, token, cursor, queue),
+                        (ctx, user, token, headers, cursor, queue),
                     ));
                 }
                 let events = ctx
@@ -569,6 +604,11 @@ pub async fn steer_session_run(
 ) -> Result<Json<RuntimeRunControlResponse>, AppError> {
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_write_access(&session, &user)?;
+    if ctx.repo.get_task_chat_binding(session_id).await?.is_some() {
+        return Err(AppError::conflict(
+            "task-bound chat control requires a verified workflow assignment",
+        ));
+    }
     let run = ctx.repo.get_session_agent_run(run_id).await?;
     ensure_run_belongs_to_session(&run, session_id)?;
     let agent = ctx.repo.get_agent(run.agent_id).await?;
@@ -590,12 +630,14 @@ pub async fn stop_session_run(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<crate::middleware::CurrentUser>,
     Path((session_id, run_id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
 ) -> Result<Json<RuntimeRunControlResponse>, AppError> {
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_write_access(&session, &user)?;
     let run = ctx.repo.get_session_agent_run(run_id).await?;
     ensure_run_belongs_to_session(&run, session_id)?;
     let agent = ctx.repo.get_agent(run.agent_id).await?;
+    super::task_chats::require_project_access(&ctx, &user, session_id, &headers).await?;
     let response = ctx.runtime.stop_run(&agent, &run).await?;
     ctx.repo
         .insert_audit(
@@ -609,45 +651,20 @@ pub async fn stop_session_run(
     Ok(Json(response))
 }
 
-#[utoipa::path(post, path = "/api/v1/sessions/{session_id}/runs/{run_id}/approval", tag = "sessions", params(("session_id" = Uuid, Path), ("run_id" = Uuid, Path)), request_body = ResolveRuntimeApprovalRequest, responses((status = 200, body = RuntimeRunControlResponse)))]
+#[utoipa::path(post, path = "/api/v1/sessions/{session_id}/runs/{run_id}/approval", tag = "sessions", params(("session_id" = Uuid, Path), ("run_id" = Uuid, Path)), request_body = ResolveRuntimeApprovalRequest, responses((status = 409, description = "Use the exact approval request decision endpoint")))]
 pub async fn resolve_session_run_approval(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<crate::middleware::CurrentUser>,
     Path((session_id, run_id)): Path<(Uuid, Uuid)>,
-    Json(req): Json<ResolveRuntimeApprovalRequest>,
+    Json(_req): Json<ResolveRuntimeApprovalRequest>,
 ) -> Result<Json<RuntimeRunControlResponse>, AppError> {
     let session = ctx.repo.get_session(session_id).await?;
     ensure_session_write_access(&session, &user)?;
     let run = ctx.repo.get_session_agent_run(run_id).await?;
     ensure_run_belongs_to_session(&run, session_id)?;
-    let agent = ctx.repo.get_agent(run.agent_id).await?;
-    let audit_payload = serde_json::json!({
-        "session_id": session_id,
-        "runtime_run_id": run.runtime_run_id,
-        "choice": req.choice,
-        "resolve_all": req.resolve_all,
-    });
-    let response = ctx
-        .runtime
-        .resolve_approval(&agent, &run, req.clone())
-        .await?;
-    let resolved_count = ctx
-        .repo
-        .resolve_runtime_approval_requests_for_run(run.id, req, user.id)
-        .await?;
-    ctx.repo
-        .insert_audit(
-            Some(user.id),
-            "session_run.approval",
-            "session_run",
-            Some(run.id.to_string()),
-            serde_json::json!({
-                "request": audit_payload,
-                "resolved_approval_requests": resolved_count,
-            }),
-        )
-        .await?;
-    Ok(Json(response))
+    Err(AppError::conflict(
+        "run-wide approval is disabled; use an exact approval request decision",
+    ))
 }
 
 fn ensure_run_belongs_to_session(run: &SessionAgentRun, session_id: Uuid) -> Result<(), AppError> {
@@ -665,7 +682,7 @@ fn session_stream_subject_matches(subject: &str, expected_user_id: Uuid) -> bool
     subject.parse::<Uuid>().ok() == Some(expected_user_id)
 }
 
-fn ensure_session_read_access(
+pub(super) fn ensure_session_read_access(
     session: &AgentSession,
     user: &crate::middleware::CurrentUser,
 ) -> Result<(), AppError> {

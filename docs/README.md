@@ -5,6 +5,10 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 
 ## Product And State
 
+- [Chat clarification implementation plan](CHAT_CLARIFICATION_IMPLEMENTATION_PLAN.md)
+- [Chat clarification verification](CHAT_CLARIFICATION_VERIFICATION.md)
+- [Chat clarification contract](contracts/CHAT_CLARIFICATION_CONTRACT.md)
+- [PM clarification owner gateway ADR](adr/0013-pm-clarification-owner-gateway.md)
 - [SDLC_IMPLEMENTATION.md](SDLC_IMPLEMENTATION.md) — реализация нового SDLC, границы и оставшаяся приёмка.
 
 - [TZ.md](TZ.md)
@@ -75,6 +79,11 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 - [CI_CD.md](CI_CD.md)
 
 ## Evidence
+
+- [Chat and clarification design proposal](design/CHAT_CLARIFICATION_PREVIEW.md)
+- [PM Draft creation and recovery proposal](design/PM_DRAFT_CREATION_PREVIEW.md) (approval pending)
+  is an isolated clickable proposal with fictional data, not an implemented
+  Tracker clarification flow or an approved production design.
 
 - [HEARTBEAT_ALERT_VERIFICATION.md](HEARTBEAT_ALERT_VERIFICATION.md) records the
   main-based monitoring correction, real PostgreSQL regression and separate

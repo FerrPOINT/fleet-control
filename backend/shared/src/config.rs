@@ -14,6 +14,83 @@ pub struct AppConfig {
     pub fleet: FleetConfig,
     #[serde(default)]
     pub metrics: MetricsConfig,
+    #[serde(default)]
+    pub pm: PmConfig,
+    #[serde(default)]
+    pub tracker: TrackerConfig,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TrackerConfig {
+    pub url: String,
+    pub instance_id: String,
+    pub pm_draft_creation_enabled: bool,
+    pub pm_draft_project_ids: Vec<uuid::Uuid>,
+    pub events: TrackerEventsConfig,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TrackerEventsConfig {
+    pub enabled: bool,
+    pub auth_url: String,
+    pub machine_subject: String,
+    #[serde(skip_serializing)]
+    pub read_pat: String,
+    pub poll_interval_seconds: u64,
+}
+
+impl Default for TrackerEventsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            auth_url: String::new(),
+            machine_subject: String::new(),
+            read_pat: String::new(),
+            poll_interval_seconds: 5,
+        }
+    }
+}
+
+impl std::fmt::Debug for TrackerEventsConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TrackerEventsConfig")
+            .field("enabled", &self.enabled)
+            .field("auth_url", &self.auth_url)
+            .field("machine_subject", &self.machine_subject)
+            .field("read_pat", &"[REDACTED]")
+            .field("poll_interval_seconds", &self.poll_interval_seconds)
+            .finish()
+    }
+}
+
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PmConfig {
+    #[serde(skip_serializing)]
+    pub readback_token: String,
+    #[serde(skip_serializing)]
+    pub namespace_read_pat: String,
+    pub namespace_authority_issuer: String,
+    pub namespace_provisioner_subject: String,
+}
+
+impl std::fmt::Debug for PmConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PmConfig")
+            .field("readback_token", &"[REDACTED]")
+            .field("namespace_read_pat", &"[REDACTED]")
+            .field(
+                "namespace_authority_issuer",
+                &self.namespace_authority_issuer,
+            )
+            .field(
+                "namespace_provisioner_subject",
+                &self.namespace_provisioner_subject,
+            )
+            .finish()
+    }
 }
 
 pub use sdlc_shared::DatabaseConfig;

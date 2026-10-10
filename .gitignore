@@ -1,6 +1,7 @@
 /target
 node_modules
 dist
+chat-preview-dist
 *.log
 .env
 .env.local

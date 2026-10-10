@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "source": "isolated-design-proposal",
+  "approval": "approved",
+  "approval_at_capture": "pending",
+  "approval_date": "2026-10-01",
+  "generated_at": "2026-10-01T12:35:46.0608538Z",
+  "count": 7,
+  "screens": [
+    {
+      "file": "chat-1920x1080.jpg",
+      "view": "chat",
+      "route": "http://127.0.0.1:55494/chat-preview.html#/?view=chat",
+      "viewport": {
+        "height": 1080,
+        "width": 1920
+      },
+      "data": "fictional",
+      "sha256": "b384994c48347b10466b429a03def69d48327637aff4315bf9f4eb8ca99e1c1d"
+    },
+    {
+      "file": "chat-2560x1440.jpg",
+      "view": "chat",
+      "route": "http://127.0.0.1:55494/chat-preview.html#/?view=chat",
+      "viewport": {
+        "height": 1440,
+        "width": 2560
+      },
+      "data": "fictional",
+      "sha256": "89a53c66fb7bb3d54b0a78f18f7a53324fbca5622e0df71aaf18dfb5732b77e0"
+    },
+    {
+      "file": "chat-375x812.jpg",
+      "view": "chat",
+      "route": "http://127.0.0.1:55494/chat-preview.html#/?view=chat",
+      "viewport": {
+        "height": 812,
+        "width": 375
+      },
+      "data": "fictional",
+      "sha256": "c41a29693bc62abd87025fa6a2b93a7aa31920fc3c026afb611d5b7e2027344c"
+    },
+    {
+      "file": "clarify-1920x1080.jpg",
+      "view": "clarify",
+      "route": "http://127.0.0.1:55494/chat-preview.html#/?view=clarify",
+      "viewport": {
+        "height": 1080,
+        "width": 1920
+      },
+      "data": "fictional",
+      "sha256": "d98da1d1173f881a7f85a434a81ea45b3d2c8b5e5bcad35bb24ec8127ce06b0d"
+    },
+    {
+      "file": "clarify-2560x1440.jpg",
+      "view": "clarify",
+      "route": "http://127.0.0.1:55494/chat-preview.html#/?view=clarify",
+      "viewport": {
+        "height": 1440,
+        "width": 2560
+      },
+      "data": "fictional",
+      "sha256": "596c5de68fcccaab468e9463d7b8cfdc5e4cdc376357fc6a56d97da386436831"
+    },
+    {
+      "file": "clarify-375x812.jpg",
+      "view": "clarify",
+      "route": "http://127.0.0.1:55494/chat-preview.html#/?view=clarify",
+      "viewport": {
+        "height": 812,
+        "width": 375
+      },
+      "data": "fictional",
+      "sha256": "d880ee95b108398540f43e727cf79417d4c90f04787d22a3af1c928329a646d6"
+    },
+    {
+      "file": "requirements-review-768x1024.jpg",
+      "view": "requirements-review",
+      "route": "http://127.0.0.1:55494/chat-preview.html#/?view=clarify",
+      "viewport": {
+        "height": 1024,
+        "width": 768
+      },
+      "data": "fictional",
+      "sha256": "fa79f502e448e48d5bd747287f00bd83101e262276d31efb2d2d36f5e3d311d7"
+    }
+  ]
+}

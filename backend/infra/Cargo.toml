@@ -32,6 +32,11 @@ hmac.workspace = true
 hex.workspace = true
 
 [dev-dependencies]
+base64 = "0.22"
+jsonwebtoken.workspace = true
+rand_core.workspace = true
+rsa = { version = "0.9", features = ["std"] }
+api = { path = "../api" }
 axum.workspace = true
 serial_test = "3.2"
 tokio = { workspace = true, features = ["macros", "rt"] }

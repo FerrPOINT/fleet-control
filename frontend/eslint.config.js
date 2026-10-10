@@ -9,6 +9,7 @@ export default tseslint.config(
     ignores: [
       'coverage',
       'dist',
+      'chat-preview-dist',
       'node_modules',
       'playwright-report',
       'src/api/generated.ts',
