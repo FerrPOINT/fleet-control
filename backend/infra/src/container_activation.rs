@@ -363,8 +363,9 @@ async fn checked(
             &row.try_get::<Value>("", "snapshot")
                 .map_err(|_| fail("activation_authorize_config"))?,
         )
-        .map_err(|_| fail("activation_authorize_config"))?
-            != claim.configuration_sha256
+        .map_err(|error| {
+            recovered.map_or(error, |_| authorize_failure("activation_authorize_config"))
+        })? != claim.configuration_sha256
     {
         return Err(fail("activation_authorize_config"));
     }
