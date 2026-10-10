@@ -4,7 +4,7 @@
 
 ### Latest Verified Checkpoint
 
-Product source is `60f35db0b73922a0d5f753d370e556edcf4d20b0`. This checkpoint
+Product source is `59d00fe` (normal successor of `60f35db`). This checkpoint
 supersedes the same-day in-progress statements below; it is not full acceptance.
 
 - C11 [run38028716924](https://github.com/FerrPOINT/fleet-control/actions/runs/38028716924)
@@ -42,12 +42,25 @@ supersedes the same-day in-progress statements below; it is not full acceptance.
   limits. Private CI/native installation are not accepted.
 - Reviewed frontend controls4972214 on exact60f35db are published separately;
   [run38030851556](https://github.com/FerrPOINT/fleet-control/actions/runs/38030851556)
-  is in progress. Parent69 pure checks pass without skips; all23 stages, original
+  fails at unit after10 successful gates. Strict readback authenticates
+  artifact11661818565, ZIP SHA256
+  `cddfe8b249e9346c799f37fb5e441cc478e95288039e672ef21c2150bc1c4c7d`.
+  The closed artifact does not expose the failing case or assertion; cleanup
+  succeeds. Parent69 pure checks pass without skips; all23 stages, original
   selectors, engines and135 capture paths remain. Canonical source count837 is
   correct (835 predecessor blobs plus the delivery document and capture test).
+  A bounded local reproduction runs the entire60-case chat-detail file and
+  finds one keyboard-tab timing failure (59 pass). The test focused a panel
+  before Radix selected/mounted it; source59d00fe waits for selection and the
+  revision select without removing assertions or adding delays. Repeating all60
+  cases passes, as do focused formatting and the4 capture-contract tests. This
+  uses Node22/threads/one worker, not the hosted default-pool355-test/full-browser
+  gate; it does not establish the sole cause of the hosted failure. A normal
+  exact-source frontend controls successor is being prepared.
 
-Curie owns current frontend controls, Pascal the Base safety successor, Feynman
-the Forge full12 consumer, and Planck full81 artifact packaging. Parent owns
+Curie owns current frontend controls, Pascal the bounded recovered-authorization
+diagnostic, Feynman the Forge published-maintenance consumer, and Planck actual
+PM orchestration over the existing Hermes API. Parent owns
 review/integration/publication. Heavy local jobs remain held; Tracker/Workflow
 remain read-only. Following the owner's explicit decision, Hermes stays unchanged:
 custom producer pre-model admission is removed from requirements. Fleet-side
