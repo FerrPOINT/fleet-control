@@ -9,6 +9,7 @@ import type { AgentDirectoryItem, AgentSession } from '@/api/types'
 import { useAuthStore } from '@/shared/auth/store'
 
 vi.mock('@/api/fleet', () => ({
+  getSession: vi.fn(),
   createSession: vi.fn(),
   listAgentDirectory: vi.fn(),
   listSessions: vi.fn(),
@@ -60,7 +61,10 @@ function renderPage() {
 describe('ChatsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    sessionStorage.clear()
     useAuthStore.setState({
+      token: 'test-token',
+      signingOut: false,
       userId: 'owner',
       displayName: 'Owner',
       email: 'owner@example.test',
@@ -69,7 +73,10 @@ describe('ChatsPage', () => {
       permissions: ['sessions:write_own'],
     })
     vi.mocked(fleet.listAgentDirectory).mockResolvedValue([developer, tester])
-    vi.mocked(fleet.listSessions).mockResolvedValue([session])
+    vi.mocked(fleet.listSessions).mockImplementation(async (agent) =>
+      agent === developer.id ? [session] : [],
+    )
+    vi.mocked(fleet.getSession).mockResolvedValue({ ...session, title: 'Private work' })
     vi.mocked(auth.listUsers).mockResolvedValue([])
     vi.mocked(fleet.createSession).mockResolvedValue(session)
   })
@@ -87,21 +94,24 @@ describe('ChatsPage', () => {
     renderPage()
     expect(await screen.findByRole('link', { name: /Implement login/ })).toHaveAttribute(
       'href',
-      '/chats/chat-1',
+      '/chats/chat-1?backTo=%2Fchats%3F',
     )
-    expect(fleet.listSessions).toHaveBeenCalledWith(undefined, ['owner'])
+    expect(fleet.listSessions).toHaveBeenCalledWith('developer', ['owner'])
     fireEvent.click(screen.getByRole('button', { name: /Tester/ }))
     expect(screen.queryByRole('link', { name: /Implement login/ })).not.toBeInTheDocument()
-    expect(screen.getByText('Сессий по выбранному фильтру нет')).toBeVisible()
+    expect(await screen.findByText('Сессий по выбранному фильтру нет')).toBeVisible()
   })
 
   it('reuses a private-chat idempotency key after a failed create', async () => {
     vi.mocked(fleet.createSession).mockRejectedValueOnce(new Error('offline'))
     renderPage()
-    fireEvent.click(await screen.findByRole('button', { name: 'Новый чат' }))
+    const newChat = await screen.findByRole('button', { name: 'Новый чат' })
+    await waitFor(() => expect(newChat).toBeEnabled())
+    fireEvent.click(newChat)
     fireEvent.change(screen.getByLabelText('Название'), { target: { value: '  Private work  ' } })
     fireEvent.click(screen.getByRole('button', { name: 'Создать сессию' }))
-    await screen.findByRole('alert')
+    await screen.findByText(/Создание не подтверждено/)
+    await waitFor(() => expect(fleet.createSession).toHaveBeenCalledTimes(1))
     const first = vi.mocked(fleet.createSession).mock.calls[0]?.[0]
     expect(first).toMatchObject({
       primary_agent_id: developer.id,

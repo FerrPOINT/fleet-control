@@ -3065,6 +3065,12 @@
             ],
             "format": "uuid"
           },
+          "pending_delivery": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "primary_agent_id": {
             "type": "string",
             "format": "uuid"
@@ -4989,6 +4995,12 @@
           },
           "replayed": {
             "type": "boolean"
+          },
+          "request_payload_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "runtime_message_id": {
             "type": [

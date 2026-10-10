@@ -1570,7 +1570,7 @@ test('Chats groups private sessions by agent and keeps leader controls out of th
   await page.getByRole('link', { name: /Initial developer task/ }).click()
   await expect(page.getByLabel('Лидер сессии')).not.toBeVisible()
   await expect(page.getByLabel('Новый основной агент')).not.toBeVisible()
-  await expect(page.getByPlaceholder('Напишите сообщение для этой сессии')).toBeVisible()
+  await expect(page.getByLabel('Сообщение', { exact: true })).toBeVisible()
 })
 
 test('Hermes fleet control flow covers agents, runtime, skills, sessions and handoff', async ({
