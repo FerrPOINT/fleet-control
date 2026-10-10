@@ -97,6 +97,7 @@ impl std::fmt::Debug for TrackerEventsConfig {
 #[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PmConfig {
+    pub dispatch: PmDispatchConfig,
     #[serde(skip_serializing)]
     pub readback_token: String,
     #[serde(skip_serializing)]
@@ -104,6 +105,17 @@ pub struct PmConfig {
     pub namespace_authority_issuer: String,
     pub namespace_provisioner_subject: String,
     pub credentials: PmCredentialsConfig,
+}
+
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PmDispatchConfig {
+    pub enabled: bool,
+    pub tool_origin: Option<String>,
+    #[serde(skip_serializing)]
+    pub assignment_token: String,
+    #[serde(skip_serializing)]
+    pub runtime_token: String,
 }
 
 #[derive(Clone, Serialize, Deserialize)]

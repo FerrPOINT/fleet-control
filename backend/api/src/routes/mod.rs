@@ -13,6 +13,7 @@ pub mod logs;
 pub mod pm_drafts;
 mod pm_namespace;
 pub mod pm_runtime;
+pub mod pm_tools;
 pub mod project_access;
 pub mod sdlc_configuration;
 pub mod sessions;

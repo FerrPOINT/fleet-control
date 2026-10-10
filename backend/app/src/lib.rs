@@ -570,6 +570,90 @@ pub trait FleetRepository: Send + Sync {
             "PM run repository is not available".into(),
         ))
     }
+    async fn prepare_pm_dispatch(
+        &self,
+        _intent: domain::PmDispatchIntent,
+    ) -> Result<domain::PmDispatchIntent, AppError> {
+        Err(AppError::Unavailable(
+            "PM dispatch journal is unavailable".into(),
+        ))
+    }
+    async fn read_pm_operation_for_session(
+        &self,
+        _session: Uuid,
+        _owner: Uuid,
+    ) -> Result<domain::PmDraftOperation, AppError> {
+        Err(AppError::Unavailable(
+            "PM operation lookup is unavailable".into(),
+        ))
+    }
+    async fn has_pm_run_custody(&self, _session: Uuid) -> Result<bool, AppError> {
+        Err(AppError::Unavailable(
+            "PM custody lookup is unavailable".into(),
+        ))
+    }
+    async fn get_pm_tool(
+        &self,
+        _run: Uuid,
+        _key: &str,
+    ) -> Result<Option<domain::PmToolCommand>, AppError> {
+        Err(AppError::Unavailable(
+            "PM tool custody lookup is unavailable".into(),
+        ))
+    }
+    async fn prepare_pm_tool(
+        &self,
+        _command: domain::PmToolCommand,
+    ) -> Result<domain::PmToolCommand, AppError> {
+        Err(AppError::Unavailable(
+            "PM tool custody is unavailable".into(),
+        ))
+    }
+    async fn claim_pm_tool(&self, _run: Uuid, _key: &str) -> Result<bool, AppError> {
+        Err(AppError::Unavailable(
+            "PM tool custody is unavailable".into(),
+        ))
+    }
+    async fn finish_pm_tool(
+        &self,
+        _run: Uuid,
+        _key: &str,
+        _result: serde_json::Value,
+    ) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "PM tool custody is unavailable".into(),
+        ))
+    }
+    async fn claim_pm_submission(&self, _id: Uuid) -> Result<bool, AppError> {
+        Err(AppError::Unavailable(
+            "PM dispatch journal is unavailable".into(),
+        ))
+    }
+    async fn get_pm_dispatch(
+        &self,
+        _id: Uuid,
+    ) -> Result<Option<domain::PmDispatchIntent>, AppError> {
+        Ok(None)
+    }
+    async fn record_pm_submission(&self, _id: Uuid, _run_ref: String) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "PM dispatch journal is unavailable".into(),
+        ))
+    }
+    async fn claim_pm_guidance(
+        &self,
+        _id: Uuid,
+        _body: String,
+    ) -> Result<domain::PmGuidancePermit, AppError> {
+        Err(AppError::Unavailable(
+            "PM guidance journal is unavailable".into(),
+        ))
+    }
+    async fn finish_pm_guidance(&self, _id: Uuid) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "PM guidance journal is unavailable".into(),
+        ))
+    }
     async fn get_pm_run(&self, _id: Uuid) -> Result<domain::PmRunRecord, AppError> {
         Err(AppError::Unavailable(
             "PM run repository is not available".into(),
@@ -961,6 +1045,32 @@ pub trait FleetRepository: Send + Sync {
             "Hermes terminal commit is unavailable".into(),
         ))
     }
+    /// PM custody is separate; the terminal mirror writer is shared with ordinary runs.
+    async fn commit_pm_terminal(
+        &self,
+        _command: HermesTerminalCommit,
+        _status: domain::PmRuntimeStatus,
+    ) -> Result<(SessionAgentRun, Option<SessionMessage>, bool), AppError> {
+        Err(AppError::Unavailable(
+            "PM terminal commit is unavailable".into(),
+        ))
+    }
+    async fn pm_stream_context(
+        &self,
+        _run_id: Uuid,
+    ) -> Result<(domain::PmRunRecord, bool), AppError> {
+        Err(AppError::Unavailable(
+            "PM stream context is unavailable".into(),
+        ))
+    }
+    async fn list_recoverable_pm_streams(
+        &self,
+        _after: Option<Uuid>,
+    ) -> Result<Vec<Uuid>, AppError> {
+        Err(AppError::Unavailable(
+            "PM stream recovery is unavailable".into(),
+        ))
+    }
     async fn list_recoverable_hermes_acceptances(
         &self,
         _after: Option<Uuid>,
@@ -1184,6 +1294,35 @@ pub trait AgentProvisioner: Send + Sync {
 
 #[async_trait]
 pub trait RuntimeSupervisor: Send + Sync {
+    fn authorize_pm_tool(&self, _agent: Uuid, _bearer: &str) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "PM tool authentication is unavailable".into(),
+        ))
+    }
+    async fn call_pm_tool(
+        &self,
+        _agent: Uuid,
+        _name: &str,
+        _call: domain::PmToolCall,
+    ) -> Result<serde_json::Value, AppError> {
+        Err(AppError::Unavailable("PM tools are unavailable".into()))
+    }
+    async fn resume_pm_answer(
+        &self,
+        _actor: &domain::ClarificationCommandActor,
+        _command: &domain::ClarificationAnswerCommand,
+    ) -> Result<domain::PmContinuationOutcome, AppError> {
+        Err(AppError::Unavailable(
+            "PM continuation is unavailable".into(),
+        ))
+    }
+    async fn dispatch_pm_draft(
+        &self,
+        _operation: &domain::PmDraftOperation,
+        _tracker: &dyn pm_draft::PmDraftTracker,
+    ) -> Result<(), AppError> {
+        Err(AppError::Unavailable("PM dispatch is unavailable".into()))
+    }
     async fn resolve_targeted_approval(
         &self,
         _agent: &Agent,

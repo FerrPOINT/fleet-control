@@ -445,6 +445,8 @@ fn inconsistent() -> AppError {
 pub enum PmDraftCreationState {
     Incomplete,
     AwaitingAdmission,
+    AwaitingRuntimeAcceptance,
+    RuntimeAccepted,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -455,6 +457,7 @@ pub enum PmDraftCreationStep {
     Reservation,
     Chat,
     Admission,
+    Runtime,
 }
 
 #[derive(Debug, Serialize, ToSchema)]

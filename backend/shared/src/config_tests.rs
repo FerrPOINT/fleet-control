@@ -122,6 +122,24 @@ fn pm_config_debug_does_not_disclose_readback_credential() {
 }
 
 #[test]
+fn pm_dispatch_is_opt_in_and_does_not_serialize_machine_tokens() {
+    let legacy: PmConfig = serde_json::from_value(serde_json::json!({})).unwrap();
+    assert!(!legacy.dispatch.enabled);
+    let mut configured = legacy;
+    configured.dispatch.assignment_token = "assignment-fixture-only".into();
+    configured.dispatch.runtime_token = "runtime-fixture-only".into();
+    let serialized = serde_json::to_string(&configured).unwrap();
+    let debug = format!("{configured:?}");
+    for token in [
+        &configured.dispatch.assignment_token,
+        &configured.dispatch.runtime_token,
+    ] {
+        assert!(!serialized.contains(token));
+        assert!(!debug.contains(token));
+    }
+}
+
+#[test]
 fn pm_credentials_default_disabled_and_never_serialize_parent_secret() {
     let legacy: PmConfig = serde_json::from_value(serde_json::json!({})).unwrap();
     assert!(!legacy.credentials.enabled);
