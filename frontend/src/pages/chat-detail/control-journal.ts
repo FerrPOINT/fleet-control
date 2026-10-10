@@ -57,7 +57,10 @@ export function saveControlHandle(actorId: string, sessionId: string, handle: Co
       key: handle.key,
     },
   }
-  sessionStorage.setItem(storageKey(actorId, sessionId), JSON.stringify(next))
+  const expected = JSON.stringify(next)
+  sessionStorage.setItem(storageKey(actorId, sessionId), expected)
+  if (sessionStorage.getItem(storageKey(actorId, sessionId)) !== expected)
+    throw new Error('Control journal write was not retained')
   return next
 }
 
@@ -67,7 +70,10 @@ export function clearControlHandle(actorId: string, sessionId: string, handle: C
   if (prior && (prior.runId !== handle.runId || prior.key !== handle.key))
     throw new Error('Original control identity changed')
   delete entries[handle.operation]
-  sessionStorage.setItem(storageKey(actorId, sessionId), JSON.stringify(entries))
+  const expected = JSON.stringify(entries)
+  sessionStorage.setItem(storageKey(actorId, sessionId), expected)
+  if (sessionStorage.getItem(storageKey(actorId, sessionId)) !== expected)
+    throw new Error('Control journal write was not retained')
   return entries
 }
 
