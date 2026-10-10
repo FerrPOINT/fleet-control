@@ -11,3 +11,6 @@ pub type AgentLogId = Uuid;
 pub fn new_id() -> Uuid {
     Uuid::new_v4()
 }
+
+#[cfg(test)]
+mod tests;
