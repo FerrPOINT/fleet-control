@@ -198,7 +198,9 @@ class SourceContracts(unittest.TestCase):
 
     def test_schema_pin_is_current(self):
         self.assertEqual(gate.digest((ROOT / "openapi/openapi.json").read_bytes()), gate.SCHEMA_SHA256)
-        self.assertEqual(gate.SCHEMA_SHA256, "1167220ea9f3d65ddca4cce1112a26d53c77f8c1684ef958859f737f20210953")
+        self.assertEqual(gate.SCHEMA_SHA256, "ac545326e9b4ffca4378aee0aaaf9c2dd8c75faf02deb868cda0c87d7764b85a")
+        self.assertEqual(gate.digest(gate.git(ROOT, "show", "59d00fe3269d67ab09819f19c6b2b5703a6e2268:openapi/openapi.json")),
+                         "1167220ea9f3d65ddca4cce1112a26d53c77f8c1684ef958859f737f20210953")
 
     def test_no_local_or_external_runner(self):
         with patch.dict(os.environ, {}, clear=True), self.assertRaises(ValueError):
@@ -265,14 +267,13 @@ class SourceContracts(unittest.TestCase):
         self.assertEqual(len(frozen_inventory), 837)
         self.assertEqual(gate.digest(gate.canonical(frozen_inventory)),
                          "32e20f4613f580cea502ba03c4ed854df16f6573cc18bcd645214bbdee848df1")
-        self.assertEqual(gate.SOURCE_SHA, "59d00fe3269d67ab09819f19c6b2b5703a6e2268")
-        self.assertEqual(gate.SOURCE_TREE, "18d42f2c02af23a369f32d177829b84c5fad0978")
-        self.assertEqual(gate.SOURCE_PARENTS, ["cd3027575a37f5401e4a3b2970b134aa5a506312"])
-        gate.qualify_source(ROOT)
-        inventory = git_blob_inventory(gate.SOURCE_SHA)
+        baseline = "59d00fe3269d67ab09819f19c6b2b5703a6e2268"
+        self.assertEqual(gate.git(ROOT, "show", "-s", "--format=%T %P", baseline).decode().strip(),
+                         "18d42f2c02af23a369f32d177829b84c5fad0978 cd3027575a37f5401e4a3b2970b134aa5a506312")
+        inventory = git_blob_inventory(baseline)
         self.assertEqual(len(inventory), 837)
-        self.assertEqual(gate.digest(gate.canonical(inventory)), gate.QUALIFIED_INPUTS["source_inventory_sha256"])
-        self.assertEqual(gate.tracked_inventory(ROOT, gate.SOURCE_SHA), inventory)
+        self.assertEqual(gate.digest(gate.canonical(inventory)),
+                         "72ef3e8d14cfc66642694ea13c14cf6eb386c1e0b15dd554b1fc1bdb589c3f27")
         previous = "7dd60204bd352f5dbf3e61b8c2db14706450eea4"
         self.assertEqual(gate.git(ROOT, "diff", "--no-renames", "--name-status", previous,
                                   frozen).decode().splitlines(), [
@@ -284,7 +285,7 @@ class SourceContracts(unittest.TestCase):
             "M\tfrontend/src/pages/chat-detail/index.tsx",
         ])
         self.assertEqual(gate.git(ROOT, "diff", "--no-renames", "--name-status", frozen,
-                                  gate.SOURCE_SHA).decode().splitlines(), [
+                                  baseline).decode().splitlines(), [
             "M\tdocs/CURRENT_STATE.md",
             "M\tdocs/GAP_REGISTER.md",
             "M\tdocs/REMAINING_DELIVERY_WORK.md",
@@ -293,7 +294,7 @@ class SourceContracts(unittest.TestCase):
             "M\tdocs/plans/2026-10-09-parallel-remaining-work.md",
             "M\tfrontend/src/pages/chat-detail/index.test.tsx",
         ])
-        self.assertEqual(gate.git(ROOT, "diff", "--exit-code", previous, gate.SOURCE_SHA,
+        self.assertEqual(gate.git(ROOT, "diff", "--exit-code", previous, baseline,
                                   "--", "frontend/e2e"), b"")
         package = json.loads(gate.git(ROOT, "show", previous + ":frontend/package.json"))
         package["scripts"]["screenshots:verify"] = (
@@ -320,12 +321,12 @@ class SourceContracts(unittest.TestCase):
                       "sessionRuns[runtimeControlsMatch[1]]?.some((run) => run.id === runtimeControlsMatch[2])"):
             self.assertIn(guard, capture[start:end])
         self.assertEqual(len(gate.capture_paths(ROOT)), 135)
-        source = (ROOT / "frontend/src/pages/chat-detail/index.tsx").read_text(encoding="utf-8")
+        source = gate.git(ROOT, "show", baseline + ":frontend/src/pages/chat-detail/index.tsx").decode()
         original_source = gate.git(ROOT, "show", previous + ":frontend/src/pages/chat-detail/index.tsx").decode()
         self.assertEqual(source.replace("                        answerCommands.isError ||\n", "", 1)
                          .replace("                        questions.isError ||\n                        answerCommands.isError\n",
                                   "                        questions.isError\n", 1), original_source)
-        tests = (ROOT / "frontend/src/pages/chat-detail/index.test.tsx").read_text(encoding="utf-8")
+        tests = gate.git(ROOT, "show", baseline + ":frontend/src/pages/chat-detail/index.test.tsx").decode()
         before = (
             "      expect(screen.getByRole('tab', { name: /Требования/ })).toHaveFocus()\n"
             "      act(() => screen.getByRole('combobox', { name: 'Редакция требований' }).focus())")
@@ -348,8 +349,51 @@ class SourceContracts(unittest.TestCase):
         self.assertIn("expect(stored[0]!.request).toEqual(original![2])", tests[start:end])
         self.assertIn("expect(stored).toEqual([{ ...persisted, state: 'uncertain' }])", tests[start:end])
         self.assertNotIn("state: 'delivered'", tests[start:end])
+        previous_helper = gate.git(ROOT, "show", "ea0d6338a63c1e08426ffdd3db315228d14c4e26:scripts/hosted_frontend_gate.py").decode()
+        self.assertIn("QUALIFIED_UNIT_COUNTS = dict(files_passed=36, tests_passed=355, files_skipped=0, tests_skipped=0)",
+                      previous_helper)
+
+    def test_main_union_exact_source_inventory_and_additive_test_counts(self):
+        self.assertEqual(gate.SOURCE_SHA, "32b9f063f9b5099ff61bca24ecdfeb9952889034")
+        self.assertEqual(gate.SOURCE_TREE, "f2e319df5875bbd05d08f503c8727376498969cb")
+        self.assertEqual(gate.SOURCE_PARENTS, ["d71b14f5f61bc58200a085d97aac0b80a891c324"])
+        gate.qualify_source(ROOT)
+        inventory = git_blob_inventory(gate.SOURCE_SHA)
+        self.assertEqual(len(inventory), 872)
+        self.assertEqual(gate.digest(gate.canonical(inventory)), gate.QUALIFIED_INPUTS["source_inventory_sha256"])
+        self.assertEqual(gate.tracked_inventory(ROOT, gate.SOURCE_SHA), inventory)
+        union = "9e0bb491282ba8c13bc11b66b6d83cc59045a04d"
+        self.assertEqual(gate.git(ROOT, "show", "-s", "--format=%T %P", union).decode().strip(),
+                         "2d24440b5c1e464623f17297c9f4ceab8d3eaa39 7c7f9dd448cb103a47a74db6f4f84c73f3b68957 c39ff84d82277004bf8170fbac2f3b122ea6bcad")
+        self.assertEqual(gate.git(ROOT, "diff", "--exit-code", union, gate.SOURCE_SHA,
+                                  "--", "frontend", "openapi"), b"")
+        baseline = git_blob_inventory("59d00fe3269d67ab09819f19c6b2b5703a6e2268")
+        tests = lambda items: {p: h for p, h in items.items()
+                               if re.fullmatch(r"frontend/src/.+\.test\.(ts|tsx)", p)}
+        old, current = tests(baseline), tests(inventory)
+        self.assertEqual((len(old), len(current)), (36, 38))
+        self.assertEqual(set(old) - set(current), set())
+        self.assertEqual({p for p in current if current[p] != old.get(p)}, {
+            "frontend/src/pages/chat-detail/binding.test.tsx", "frontend/src/pages/chat-detail/core.test.ts",
+            "frontend/src/pages/chat-detail/index.test.tsx", "frontend/src/pages/chats/index.test.tsx",
+        })
+        for path, plain, parameters in (
+            ("chat-detail/binding.test.tsx", 5, []),
+            ("chat-detail/core.test.ts", 10, [
+                "['pending', 'running', 'waiting', 'stopping']", "['pending', 'dispatched']",
+                "['runtime_session_id', 'runtime_run_id'] as const"]),
+            ("chats/index.test.tsx", 19, []),
+        ):
+            body = (ROOT / "frontend/src/pages" / path).read_text(encoding="utf-8")
+            self.assertEqual(len(re.findall(r"\bit\(", body)), plain)
+            self.assertEqual(re.findall(r"\bit\.each\((.*?)\)\(", body, re.S), parameters)
+            self.assertNotRegex(body, r"\b(?:it|test|describe)\.(?:skip|only|todo)\b")
+        # Parent's actual focused 102 = detail 60 + directory 19 + core 18 + binding 5.
+        # Only those four files differ from the hosted 355/36 baseline: 355 - 60 - 15 + 102.
         self.assertEqual(gate.QUALIFIED_UNIT_COUNTS,
-                         dict(files_passed=36, tests_passed=355, files_skipped=0, tests_skipped=0))
+                         dict(files_passed=38, tests_passed=355 - 60 - 15 + 102, files_skipped=0, tests_skipped=0))
+        self.assertEqual(gate.git(ROOT, "diff", "--exit-code", union, gate.SOURCE_SHA,
+                                  "--", "frontend/playwright.config.ts"), b"")
 
 
 class CompletionContracts(unittest.TestCase):
@@ -364,7 +408,8 @@ class CompletionContracts(unittest.TestCase):
                          dict(files_passed=2, tests_passed=8, files_skipped=0, tests_skipped=1))
 
     def test_exact_frozen_baseline_counts(self):
-        self.assertEqual(gate.unit_counts(b"Test Files 36 passed (36)\nTests 355 passed (355)"), gate.QUALIFIED_UNIT_COUNTS)
+        self.assertEqual(gate.unit_counts(b"Test Files 38 passed (38)\nTests 382 passed (382)"), gate.QUALIFIED_UNIT_COUNTS)
+        self.assertNotEqual(gate.unit_counts(b"Test Files 36 passed (36)\nTests 355 passed (355)"), gate.QUALIFIED_UNIT_COUNTS)
         self.assertNotEqual(gate.unit_counts(b"Test Files 36 passed (36)\nTests 348 passed (348)"), gate.QUALIFIED_UNIT_COUNTS)
         self.assertNotEqual(gate.unit_counts(b"Test Files 36 passed (36)\nTests 337 passed (337)"), gate.QUALIFIED_UNIT_COUNTS)
         self.assertNotEqual(gate.unit_counts(b"Test Files 35 passed (35)\nTests 336 passed (336)"), gate.QUALIFIED_UNIT_COUNTS)
@@ -429,6 +474,54 @@ class CompletionContracts(unittest.TestCase):
         with patch.object(gate, "checkout"), patch.object(gate, "git", return_value=b""), \
                 patch.object(gate, "bounded_file", return_value=b"modified"), self.assertRaises(ValueError):
             gate.verify_parity(ROOT, state)
+
+    def test_main_fixture_screenshot_writes_are_exact_and_stage_bound(self):
+        expected = {f"docs/assets/screens/chats-core-main-20261007/{name}-{viewport}.png"
+                    for name in ("dialogue", "clarification-unavailable", "requirements-unavailable", "denied", "read-only")
+                    for viewport in gate.VIEWPORTS}
+        self.assertEqual(gate.SOURCE_FIXTURE_SCREENS, expected)
+        self.assertEqual(len(expected), 15)
+        body = (ROOT / "frontend/e2e/chats-core.spec.ts").read_text(encoding="utf-8")
+        self.assertIn("if (info.project.name !== 'chromium') return", body)
+        self.assertIn("const dir = resolve('../docs/assets/screens/chats-core-main-20261007')", body)
+        self.assertIn("path: resolve(dir, `${name}-${viewport.width}x${viewport.height}.png`)", body)
+        for name in ("'dialogue'", "'clarification-unavailable'", "'requirements-unavailable'", "'denied'", "'read-only'"):
+            self.assertIn(name, body)
+        schema = (ROOT / "openapi/openapi.json").read_bytes()
+        state = dict(source={p: gate.digest(b"original") for p in expected}, base={}, screens=[], gates=[])
+        state["source"]["openapi/openapi.json"] = gate.digest(schema)
+        changed = set(expected)
+
+        def git(root, *args):
+            if root == ROOT / "fleet-control" and args[:3] == ("diff", "--name-only", "HEAD"):
+                return "\n".join(sorted(changed)).encode()
+            return b""
+
+        def read(root, name):
+            return schema if name == "openapi/openapi.json" else b"changed" if name in changed else b"original"
+
+        with patch.object(gate, "checkout"), patch.object(gate, "git", side_effect=git), \
+                patch.object(gate, "bounded_file", side_effect=read), patch.object(gate, "png_valid") as validate_png:
+            with self.assertRaises(ValueError):
+                gate.verify_parity(ROOT, state)
+            gate.verify_parity(ROOT, state, fixtures=True)
+            self.assertEqual(validate_png.call_count, 15)
+            state["gates"] = ["fixtures"]
+            gate.verify_parity(ROOT, state)
+            validate_png.side_effect = ValueError("Invalid/bounded fixture PNG required")
+            with self.assertRaises(ValueError):
+                gate.verify_parity(ROOT, state)
+            validate_png.side_effect = None
+            for extra in ("docs/assets/screens/chats-core-main-20261007/private.log",
+                          "docs/assets/screens/chats-core-main-20261007/unknown-375x812.png",
+                          "docs/assets/screens/375x812/chats.png", "frontend/src/pages/chat-detail/index.tsx"):
+                changed.add(extra)
+                with self.subTest(extra=extra), self.assertRaises(ValueError):
+                    gate.verify_parity(ROOT, state)
+                changed.remove(extra)
+            del state["source"][next(iter(expected))]
+            with self.assertRaises(ValueError):
+                gate.verify_parity(ROOT, state)
 
     def test_build_requires_index_js_css_and_records_content(self):
         with tempfile.TemporaryDirectory() as folder:

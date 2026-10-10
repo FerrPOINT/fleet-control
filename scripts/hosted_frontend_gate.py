@@ -16,10 +16,10 @@ import zipfile
 import zlib
 
 REPOSITORY = "FerrPOINT/fleet-control"
-BRANCH = "build-only/frontend-unit-sync-20261010"
-SOURCE_SHA = "59d00fe3269d67ab09819f19c6b2b5703a6e2268"
-SOURCE_TREE = "18d42f2c02af23a369f32d177829b84c5fad0978"
-SOURCE_PARENTS = ["cd3027575a37f5401e4a3b2970b134aa5a506312"]
+BRANCH = "build-only/frontend-main-union-20261010"
+SOURCE_SHA = "32b9f063f9b5099ff61bca24ecdfeb9952889034"
+SOURCE_TREE = "f2e319df5875bbd05d08f503c8727376498969cb"
+SOURCE_PARENTS = ["d71b14f5f61bc58200a085d97aac0b80a891c324"]
 BASE_SHA = "19a7a381ae6dbea61a643bb96189e483fa64df5c"
 BASE_TREE = "aa1a0486af1922c5a7fd4471e71e4fbb6aa4c7cc"
 BASE_MATERIALIZED_FILES = {
@@ -28,19 +28,24 @@ BASE_MATERIALIZED_FILES = {
         "ef0fae09d1a5359eb23ade564541b03bc1f1514c2017317fc7922ced72c26d75",
     ),
 }
-SCHEMA_SHA256 = "1167220ea9f3d65ddca4cce1112a26d53c77f8c1684ef958859f737f20210953"
+SCHEMA_SHA256 = "ac545326e9b4ffca4378aee0aaaf9c2dd8c75faf02deb868cda0c87d7764b85a"
 WORKFLOW = ".github/workflows/frontend-build-only.yml"
 WRITE_SET = {WORKFLOW, "scripts/hosted_frontend_gate.py", "scripts/tests/test_hosted_frontend_gate.py"}
 NODE = "22.20.0"
 PNPM = "10.28.1"
-QUALIFIED_UNIT_COUNTS = dict(files_passed=36, tests_passed=355, files_skipped=0, tests_skipped=0)
+QUALIFIED_UNIT_COUNTS = dict(files_passed=38, tests_passed=382, files_skipped=0, tests_skipped=0)
 QUALIFIED_INPUTS = {
-    "source_inventory_sha256": "72ef3e8d14cfc66642694ea13c14cf6eb386c1e0b15dd554b1fc1bdb589c3f27",
+    "source_inventory_sha256": "f5a2256ec0dc268f1b90ac7f2a955a57ff1c411512edaa8387fdb08d454b777d",
     "base_inventory_sha256": "437244f3861d17356cbe33162dceca877aea74d82dccae9b9b1a2915b62ee444",
     "frontend_lock_sha256": "37918d9d24852a14f24c43a593777e99d36e0e58de2e7b9a58a4415fd927fb67",
     "base_lock_sha256": "149adc7015cd1b7fa1d093e5501156ed6e149efbc82b222c82a2797912261fb4",
 }
 VIEWPORTS = ("375x812", "1920x1080", "2560x1440")
+SOURCE_FIXTURE_SCREENS = frozenset(
+    f"docs/assets/screens/chats-core-main-20261007/{name}-{viewport}.png"
+    for name in ("dialogue", "clarification-unavailable", "requirements-unavailable", "denied", "read-only")
+    for viewport in VIEWPORTS
+)
 SCREEN_MANIFEST = "docs/assets/screens/manifest.md"
 GENERATED = "frontend/src/api/generated.ts"
 MAX_FILE = 16 * 1024 ** 2
@@ -526,11 +531,14 @@ def load_state():
     return workspace, private, state
 
 
-def verify_parity(workspace, state, *, captured=False):
+def verify_parity(workspace, state, *, captured=False, fixtures=False):
     source, base = workspace / "fleet-control", workspace / "services-base"
     checkout(source, SOURCE_SHA, REPOSITORY)
     checkout(base, BASE_SHA, "FerrPOINT/services-base")
     allowed = set(state["screens"]) | {SCREEN_MANIFEST} if captured else set()
+    if fixtures or "fixtures" in state.get("gates", []):
+        require(SOURCE_FIXTURE_SCREENS <= state["source"].keys(), "Missing pinned fixture screenshots")
+        allowed.update(SOURCE_FIXTURE_SCREENS)
     if captured:
         allowed.update(name for name in state["source"] if re.fullmatch(
             r"docs/assets/screens/(375x812|1920x1080|2560x1440)/[a-z0-9-]+\.png", name))
@@ -540,6 +548,8 @@ def verify_parity(workspace, state, *, captured=False):
         require(all(root == source and name in allowed for name in changes), "Unexpected tracked or file-mode change")
         for name, expected in inventory.items():
             if root == source and name in allowed:
+                if name in SOURCE_FIXTURE_SCREENS:
+                    png_valid(bounded_file(root, name))
                 continue
             require(digest(bounded_file(root, name)) == expected, "Tracked source/dependency drift")
         untracked = git(root, "ls-files", "--others", "--exclude-standard", "-z").decode().split("\0")
@@ -640,7 +650,7 @@ def gate(name):
         state["browsers"] = browser_counts(json.loads(bounded_file(private, "browser.json")))
     if name == "build":
         state["build"] = build_inventory(source)
-    verify_parity(workspace, state, captured=name in ("capture", "screens-after"))
+    verify_parity(workspace, state, captured=name in ("capture", "screens-after"), fixtures=name == "fixtures")
     state["gates"].append(name)
     save_state(private, state)
     print("Passed frontend gate: " + name)
