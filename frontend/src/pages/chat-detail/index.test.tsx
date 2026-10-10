@@ -181,6 +181,144 @@ beforeEach(() => {
     stage: 'Backlog',
   })
 })
+
+describe('PM delivered answer continuation receipt', () => {
+  const command: ClarificationCommand = {
+    id: 'delivered-pm-original',
+    session_id: 'session1',
+    question_id: 'q1',
+    request: {
+      expected_question_version: 1,
+      requirement_revision: 3,
+      selected_option_ids: ['project'],
+      text: 'Original delivered answer',
+      comment: null,
+      idempotency_key: 'original-delivered-key',
+    },
+    payload_sha256: 'a'.repeat(64),
+    state: 'delivered',
+    continuation_state: 'pending',
+    answer: {
+      id: 'saved-answer',
+      question_id: 'q1',
+      question_version: 1,
+      requirement_revision: 3,
+      selected_option_ids: ['project'],
+      text: 'Original delivered answer',
+      comment: null,
+      author_subject: 'subject-owner',
+      created_at: '2026-10-10T00:00:00Z',
+    },
+    rejection_status: null,
+    created_at: '2026-10-10T00:00:00Z',
+    updated_at: '2026-10-10T00:00:00Z',
+  }
+
+  it('reloads delivered pending custody and recovers only the original command ID', async () => {
+    vi.mocked(chats.listPendingAnswerCommands).mockResolvedValue([command])
+    vi.mocked(chats.deliverAnswerCommand).mockResolvedValue(command)
+    renderPage('clarification')
+    await screen.findByText(/доставлен, продолжение PM требует сверки/)
+    expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+    expect(chats.deliverAnswerCommand).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'Продолжить исходную команду' }))
+    await screen.findByText('Ответ доставлен. Продолжение PM ещё не подтверждено.')
+    expect(chats.deliverAnswerCommand).toHaveBeenCalledExactlyOnceWith('session1', command.id)
+    expect(chats.answerClarification).not.toHaveBeenCalled()
+    expect(chats.confirmRequirements).not.toHaveBeenCalled()
+    expect(screen.getByText(command.request.text!)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+    expect(command.request.idempotency_key).toBe('original-delivered-key')
+    expect(sessionStorage.length).toBe(0)
+  })
+
+  it('keeps delivered pending custody after recovery authorization fails', async () => {
+    vi.mocked(chats.listPendingAnswerCommands).mockResolvedValue([command])
+    vi.mocked(chats.deliverAnswerCommand).mockRejectedValue(new ApiError(403, 'Доступ отозван'))
+    renderPage('clarification')
+    await screen.findByText(/доставлен, продолжение PM требует сверки/)
+    await userEvent.click(screen.getByRole('button', { name: 'Продолжить исходную команду' }))
+    await screen.findByText('Доступ отозван')
+    expect(screen.getByText(command.request.text!)).toBeInTheDocument()
+    expect(chats.deliverAnswerCommand).toHaveBeenCalledExactlyOnceWith('session1', command.id)
+    expect(chats.answerClarification).not.toHaveBeenCalled()
+    expect(chats.confirmRequirements).not.toHaveBeenCalled()
+    await act(async () => {
+      useAuthStore.setState({ userId: 'read-only-operator' })
+    })
+    expect(screen.getByRole('button', { name: 'Продолжить исходную команду' })).toBeDisabled()
+  })
+
+  it('settles continuation only on a confirmed receipt and never claims requirements published', async () => {
+    vi.mocked(chats.listPendingAnswerCommands).mockResolvedValue([command])
+    vi.mocked(chats.deliverAnswerCommand).mockImplementation(async () => {
+      vi.mocked(chats.listPendingAnswerCommands).mockResolvedValue([])
+      return { ...command, continuation_state: 'confirmed' }
+    })
+    renderPage('clarification')
+    await screen.findByText(/доставлен, продолжение PM требует сверки/)
+    await userEvent.click(screen.getByRole('button', { name: 'Продолжить исходную команду' }))
+    await screen.findByText(
+      'Ответ доставлен. Продолжение PM подтверждено. Требования ещё не опубликованы.',
+    )
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: 'Продолжить исходную команду' }),
+      ).not.toBeInTheDocument(),
+    )
+    expect(chats.answerClarification).not.toHaveBeenCalled()
+    expect(chats.confirmRequirements).not.toHaveBeenCalled()
+  })
+
+  it('keeps idle PM free-form disabled with an explicit unsupported contract reason', async () => {
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      can_send: false,
+      can_steer: false,
+      can_stop: false,
+      active_run_id: null,
+      blocked_reason: 'pm_idle_prompt_contract_unavailable',
+    })
+    renderPage()
+    await screen.findByText('Новый запуск PM без сохранённого ответа пока недоступен')
+    expect(screen.getByRole('textbox', { name: 'Сообщение агенту' })).toBeDisabled()
+    expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+    expect(fleet.steerSessionRun).not.toHaveBeenCalled()
+  })
+
+  it('routes an authorized task-bound composer to steer, never ordinary message or answer POST', async () => {
+    vi.mocked(chats.getChatControls).mockResolvedValue({
+      can_send: false,
+      can_steer: true,
+      can_stop: true,
+      active_run_id: 'pm-run',
+      blocked_reason: null,
+    })
+    vi.mocked(fleet.steerSessionRun).mockResolvedValue({
+      session_id: 'session1',
+      run_id: 'pm-run',
+      runtime_run_id: 'native-pm',
+      accepted: true,
+      state: 'running',
+      message: 'Guidance acknowledged',
+    })
+    renderPage()
+    const editor = await screen.findByLabelText('Уточнение активному запуску')
+    fireEvent.change(editor, { target: { value: 'Original owner guidance' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Передать уточнение запуску' }))
+    await waitFor(() =>
+      expect(fleet.steerSessionRun).toHaveBeenCalledExactlyOnceWith(
+        'session1',
+        'pm-run',
+        { input: 'Original owner guidance' },
+        expect.any(String),
+      ),
+    )
+    expect(fleet.createSessionMessage).not.toHaveBeenCalled()
+    expect(chats.answerClarification).not.toHaveBeenCalled()
+    expect(chats.confirmRequirements).not.toHaveBeenCalled()
+  })
+})
+
 describe('production chat', () => {
   const message = (
     id: string,

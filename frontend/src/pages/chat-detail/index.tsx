@@ -387,7 +387,11 @@ function ChatWorkspace({ id }: { id: string }) {
     onSuccess: async (result) => {
       setReceipt(
         result.state === 'delivered'
-          ? 'Исходный ответ подтверждён. Требования ещё не опубликованы.'
+          ? result.continuation_state === 'pending'
+            ? 'Ответ доставлен. Продолжение PM ещё не подтверждено.'
+            : result.continuation_state === 'confirmed'
+              ? 'Ответ доставлен. Продолжение PM подтверждено. Требования ещё не опубликованы.'
+              : 'Исходный ответ подтверждён. Требования ещё не опубликованы.'
           : result.state === 'rejected'
             ? 'Исходный ответ отклонён. Проверьте актуальный вопрос.'
             : 'Доставка исходного ответа ещё не подтверждена.',
@@ -1021,7 +1025,11 @@ function ChatWorkspace({ id }: { id: string }) {
                   <section key={command.id} className="fc-chat-question" role="status">
                     <h3>
                       Сохранённый ответ:{' '}
-                      {command.state === 'stored' ? 'ожидает доставки' : 'требует сверки'}
+                      {command.state === 'delivered' && command.continuation_state === 'pending'
+                        ? 'доставлен, продолжение PM требует сверки'
+                        : command.state === 'stored'
+                          ? 'ожидает доставки'
+                          : 'требует сверки'}
                     </h3>
                     <p>{command.request.text}</p>
                     <p>{command.request.comment}</p>

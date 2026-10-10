@@ -607,12 +607,35 @@ async fn pm_downgrade_refuses_unknown_known_and_guidance_custody_without_changin
     let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
         .await
         .unwrap();
+    // Exercise 022's refusal itself, not a later migration's down path.
+    let versions = migration::Migrator::get_migration_models(&db)
+        .await
+        .unwrap();
+    let successors = versions
+        .iter()
+        .filter(|migration| migration.version.as_str() > "m20261010_000022_pm_dispatch")
+        .count();
+    if successors > 0 {
+        migration::Migrator::down(&db, Some(u32::try_from(successors).unwrap()))
+            .await
+            .unwrap();
+    }
     let before = migration::Migrator::get_migration_models(&db)
         .await
         .unwrap()
         .into_iter()
         .map(|r| (r.version, r.applied_at))
         .collect::<Vec<_>>();
+    assert!(
+        before
+            .iter()
+            .any(|(version, _)| version == "m20261010_000022_pm_dispatch")
+    );
+    assert!(
+        before
+            .iter()
+            .all(|(version, _)| version.as_str() <= "m20261010_000022_pm_dispatch")
+    );
     assert!(repo.claim_pm_submission(id).await.unwrap());
     for phase in ["unknown", "known", "guidance"] {
         if phase == "known" {

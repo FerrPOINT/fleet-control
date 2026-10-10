@@ -654,6 +654,7 @@ pub async fn steer_session_run(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<crate::middleware::CurrentUser>,
     human: Option<Extension<crate::middleware::VerifiedHumanSession>>,
+    subject: Option<Extension<crate::middleware::VerifiedCentralSubject>>,
     Path((session_id, run_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
     Json(req): Json<SteerSessionRunRequest>,
@@ -666,9 +667,8 @@ pub async fn steer_session_run(
     ensure_session_write_access(&session, &user)?;
     super::task_chats::require_project_access(&ctx, &user, session_id, &headers).await?;
     if ctx.repo.get_task_chat_binding(session_id).await?.is_some() {
-        return Err(AppError::conflict(
-            "task-bound chat control requires a verified workflow assignment",
-        ));
+        let Extension(subject) = subject.ok_or(AppError::Forbidden)?;
+        super::task_chats::require_pm_owner(&ctx, &user, &subject.0, session_id, &headers).await?;
     }
     let run = ctx.repo.get_session_agent_run(run_id).await?;
     ensure_run_belongs_to_session(&run, session_id)?;
@@ -682,6 +682,7 @@ pub async fn stop_session_run(
     State(ctx): State<Arc<AppContext>>,
     Extension(user): Extension<crate::middleware::CurrentUser>,
     human: Option<Extension<crate::middleware::VerifiedHumanSession>>,
+    subject: Option<Extension<crate::middleware::VerifiedCentralSubject>>,
     Path((session_id, run_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<Json<RuntimeRunControlResponse>, AppError> {
@@ -693,9 +694,8 @@ pub async fn stop_session_run(
     ensure_session_write_access(&session, &user)?;
     super::task_chats::require_project_access(&ctx, &user, session_id, &headers).await?;
     if ctx.repo.get_task_chat_binding(session_id).await?.is_some() {
-        return Err(AppError::conflict(
-            "task-bound chat control requires a verified workflow assignment",
-        ));
+        let Extension(subject) = subject.ok_or(AppError::Forbidden)?;
+        super::task_chats::require_pm_owner(&ctx, &user, &subject.0, session_id, &headers).await?;
     }
     let run = ctx.repo.get_session_agent_run(run_id).await?;
     ensure_run_belongs_to_session(&run, session_id)?;

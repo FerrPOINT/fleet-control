@@ -11,6 +11,7 @@ mod effective_configuration;
 pub mod entities;
 mod hermes_approval_recovery;
 mod hermes_dispatch_journal;
+mod pm_controls;
 pub mod pm_credentials;
 mod pm_draft;
 mod pm_execution;
@@ -1047,6 +1048,15 @@ impl FleetRepository for PostgresFleetRepository {
     ) -> Result<domain::ClarificationDeliveryPermit, AppError> {
         clarification_commands::claim(self, actor, id).await
     }
+
+    async fn finish_clarification_continuation(
+        &self,
+        actor: &domain::ClarificationCommandActor,
+        id: Uuid,
+        outcome: domain::PmContinuationOutcome,
+    ) -> Result<domain::ClarificationAnswerCommand, AppError> {
+        clarification_commands::finish_continuation(self, actor, id, outcome).await
+    }
     async fn finish_clarification_delivery(
         &self,
         actor: &domain::ClarificationCommandActor,
@@ -1078,6 +1088,33 @@ impl FleetRepository for PostgresFleetRepository {
         input: Option<&str>,
     ) -> Result<domain::RuntimeControlReservation, AppError> {
         runtime_controls::reserve(self, run, actor, operation, input).await
+    }
+
+    async fn reserve_pm_runtime_control(
+        &self,
+        run: &SessionAgentRun,
+        actor: &domain::RuntimeControlActor,
+        op: domain::RuntimeControlOperation,
+        input: Option<&str>,
+        scope: &domain::PmHumanControlScope,
+    ) -> Result<domain::RuntimeControlReservation, AppError> {
+        runtime_controls::reserve_scoped(self, run, actor, op, input, Some(scope)).await
+    }
+    async fn check_pm_runtime_control(
+        &self,
+        run: &SessionAgentRun,
+        owner: Uuid,
+        op: domain::RuntimeControlOperation,
+        scope: &domain::PmHumanControlScope,
+    ) -> Result<(), AppError> {
+        runtime_controls::check_pm(self, run, owner, op, scope).await
+    }
+    async fn claim_pm_runtime_control(
+        &self,
+        id: Uuid,
+        scope: &domain::PmHumanControlScope,
+    ) -> Result<bool, AppError> {
+        runtime_controls::claim_scoped(self, id, Some(scope)).await
     }
 
     async fn claim_runtime_control(&self, id: Uuid) -> Result<bool, AppError> {

@@ -20,10 +20,24 @@ async fn empty_pm_custody_downgrade_and_reupgrade_preserve_older_lineage() {
         let before = ledger(&fixture.db).await;
         Migrator::down(&fixture.db, Some(1)).await.unwrap();
         assert_eq!(ledger(&fixture.db).await, before[..before.len() - 1]);
+        let at_dispatch = ledger(&fixture.db).await;
+        assert_eq!(
+            at_dispatch.last().unwrap().0,
+            "m20261010_000022_pm_dispatch"
+        );
+        Migrator::down(&fixture.db, Some(1)).await.unwrap();
+        assert_eq!(
+            ledger(&fixture.db).await,
+            at_dispatch[..at_dispatch.len() - 1]
+        );
         Migrator::up(&fixture.db, None).await.unwrap();
         let after = ledger(&fixture.db).await;
-        assert_eq!(&after[..after.len() - 1], &before[..before.len() - 1]);
-        assert_eq!(after.last().unwrap().0, "m20261010_000022_pm_dispatch");
+        assert_eq!(&after[..after.len() - 2], &before[..before.len() - 2]);
+        assert_eq!(after[after.len() - 2].0, "m20261010_000022_pm_dispatch");
+        assert_eq!(
+            after.last().unwrap().0,
+            "m20261010_000023_pm_human_controls"
+        );
         fixture.close().await;
     }
 }
@@ -70,6 +84,14 @@ fn registered_versions_match_lineage_discriminators() {
     assert_eq!(legacy[23].name(), CLARIFICATION_COMMANDS);
     assert_eq!(canonical[21].name(), "m20261010_000022_pm_dispatch");
     assert_eq!(legacy[24].name(), "m20261010_000022_pm_dispatch");
+    assert_eq!(
+        canonical.last().unwrap().name(),
+        "m20261010_000023_pm_human_controls"
+    );
+    assert_eq!(
+        legacy.last().unwrap().name(),
+        "m20261010_000023_pm_human_controls"
+    );
     assert_eq!(
         legacy
             .iter()

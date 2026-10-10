@@ -23,6 +23,15 @@ pub enum ClarificationDeliveryState {
     Rejected,
 }
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ClarificationContinuationState {
+    #[default]
+    NotRequired,
+    Pending,
+    Confirmed,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ClarificationAnswerCommand {
     pub id: Uuid,
@@ -31,6 +40,8 @@ pub struct ClarificationAnswerCommand {
     pub request: ClarificationAnswerRequest,
     pub payload_sha256: String,
     pub state: ClarificationDeliveryState,
+    #[serde(default)]
+    pub continuation_state: ClarificationContinuationState,
     pub answer: Option<TrackerAnswer>,
     pub rejection_status: Option<u16>,
     pub created_at: String,

@@ -52,7 +52,8 @@ export async function listPendingAnswerCommands(id: string) {
   for (const value of values) {
     assertAnswerCommand(value, id)
     if (
-      !['stored', 'delivering', 'uncertain'].includes(value.state) ||
+      (!['stored', 'delivering', 'uncertain'].includes(value.state) &&
+        !(value.state === 'delivered' && value.continuation_state === 'pending')) ||
       result.some((item) => item.id === value.id)
     )
       throw new Error('Invalid pending answer command inventory')
@@ -113,6 +114,8 @@ export function canSubmitAnswer(question: Question, selected: string[], text: st
 export const blockedLabels: Record<string, string> = {
   read_only: 'Только чтение',
   workflow_assignment_required: 'Ожидается проверенное назначение workflow',
+  pm_idle_prompt_contract_unavailable: 'Новый запуск PM без сохранённого ответа пока недоступен',
+  pm_control_authority_unavailable: 'Управление PM ожидает проверки текущего назначения и запуска',
   java_chat_phase_2: 'Чат Java Agent пока недоступен',
   dispatch_pending_or_uncertain: 'Доставка ожидается или требует сверки',
   runtime_stopped_messages_queue: 'Агент остановлен: сообщение будет сохранено в очереди',
