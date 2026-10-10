@@ -1443,10 +1443,10 @@ impl LocalRuntimeSupervisor {
                 }
                 _ = terminal_watch.tick() => {
                     let current = self.repo.get_session_agent_run(run.id).await?;
-                    if matches!(current.state, SessionRunState::Completed | SessionRunState::Failed | SessionRunState::Cancelled) {
-                        if message.is_some() || self.repo.pm_stream_context(run.id).await?.1 {
-                            return Ok(());
-                        }
+                    if matches!(current.state, SessionRunState::Completed | SessionRunState::Failed | SessionRunState::Cancelled)
+                        && (message.is_some() || self.repo.pm_stream_context(run.id).await?.1)
+                    {
+                        return Ok(());
                     }
                     continue;
                 }
