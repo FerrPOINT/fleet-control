@@ -2,6 +2,30 @@
 
 ## Current Open Release Gates: 10 October 2026
 
+Latest verified state: full backend38021438217 fails eight recovered-activation
+cases at container_activation_pg; safe artifact11658528950 identifies the
+configuration snapshot hash probe, not successful activation. The fixture hash
+uses UTF-8 while Base/production and its independent golden require ASCII
+escaping. Test-only correction/default golden regression are prepared and need
+a new exact-source full Linux/PG gate. Production authority predicates stay intact.
+
+C11 run38021888246 fails runtime_inventory with both cleanup checks successful.
+Closed authenticated terminal telemetry, not raw logs, establishes the stage;
+no failure artifact or actual credential/Auth result exists. Diagnose the strict
+source/compiler inventory without waiving unknown tests. Worker successor6870ea0
+adds five PG/one unit credential regressions but has formatting/static evidence
+only; it is not qualified by the earlier frozen994 run.
+
+Frontend38022762729 fails preparation, with authenticated failure artifact
+11658544399. The reproduced Windows archive conversion affected only the local
+source inventory oracle. Normal successorbea500d pins all835 canonical Git blobs
+and retains23 standard gates/default pool/engines. Its67 pure tests pass on both
+platforms; run38023185173 is active, not accepted. Earlier browser failure38019603974
+and live PM/native/Forge gaps remain open. See the current
+[delivery matrix](REMAINING_DELIVERY_WORK.md) for dependencies and stop/go.
+
+## Earlier Release Checkpoints
+
 Newest checkpoint: e369fed corrects per-page recovery idle latency and retains
 the historical regression selector while strengthening it to101 records. Reviewed
 controlseb214954 are normally published and run38021438217 is active. The full

@@ -1,5 +1,21 @@
 # Testing
 
+## Activation Fixture Canonical Hash Regression
+
+Authenticated failure receipt11658528950 from run38021438217/sourcee369fed
+identifies eight recovered-activation cases and the configuration snapshot probe
+at `container_activation.rs:184`. The test helper encoded sorted JSON as UTF-8,
+but the fixture golden claim and production/Base contract require compact sorted
+JSON with `ensure_ascii=True`. Its Unicode snapshot has Base hash
+`a5de7dfacd6c2771ef639bb9cbbfe24b3f38b4eeb5170ad7f6c7a6c6b2404e69`,
+not UTF-8 hash `9e5270a6c07e557e12595f46a2b20f38c32ca11025f4b70cf33c61f2d6e3c759`.
+The helper now uses the required ASCII escaping, including DEL and surrogate
+pairs. A default regression checks two independently generated Python goldens
+and rejects the old Unicode byte recipe. Existing recovered PG cases and every
+production authorization/lease/configuration predicate remain unchanged.
+The failure proves the predecessor helper mismatch, not full activation closure;
+the corrected source requires a new exact-head Linux/PostgreSQL gate.
+
 ## Clarification Runtime Baseline Regression
 
 Session creation intentionally stores one pending primary run with no native
