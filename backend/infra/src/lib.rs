@@ -38,10 +38,11 @@ use domain::{
     IntegrationSettings, LeaderExecutor, ManagedSettingsSnapshot, ManagedSettingsVersion,
     MessageAuthorType, MessageDeliveryState, MessageKind, PortSettings, PurgeAgentFilesResponse,
     ResolveRuntimeApprovalRequest, RuntimeApprovalRequest, RuntimeApprovalState, RuntimeSettings,
-    RuntimeTemplate, SessionAgentRun, SessionMessage, SessionParticipant, SessionParticipantType,
-    SessionRole, SessionRunRole, SessionRunState, SessionState, SessionVisibility, SkillState,
-    SystemRole, UpdateAgentConfigRequest, UpdateAgentRequest, UpdateLeaderExecutorsRequest,
-    UpdateSkillRequest, UpdateUserRoleRequest, UserResponse, WorkflowBinding,
+    RuntimeTemplate, SdlcRole, SessionAgentRun, SessionMessage, SessionParticipant,
+    SessionParticipantType, SessionRole, SessionRunRole, SessionRunState, SessionState,
+    SessionVisibility, SkillState, SystemRole, UpdateAgentConfigRequest, UpdateAgentRequest,
+    UpdateLeaderExecutorsRequest, UpdateSkillRequest, UpdateUserRoleRequest, UserResponse,
+    WorkflowBinding,
 };
 use entities::{
     agent, agent_config, agent_event, agent_log, agent_runtime, agent_session, agent_skill,
