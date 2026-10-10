@@ -113,13 +113,13 @@ const revision: chats.RequirementsRevision = {
     prerequisites: [],
   },
 }
-function renderPage(tab = 'dialogue') {
+function renderPage(tab = 'dialogue', search = '') {
   const router = createMemoryRouter(
     [
       { path: '/chats/:sessionId', element: <ChatDetailPage /> },
       { path: '/chats', element: <p>Список</p> },
     ],
-    { initialEntries: [`/chats/session1?tab=${tab}`] },
+    { initialEntries: [`/chats/session1?tab=${tab}${search ? `&${search}` : ''}`] },
   )
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -371,6 +371,287 @@ describe('production chat', () => {
     await userEvent.click(screen.getByRole('tab', { name: /Уточнения/ }))
     await waitFor(() => expect(router.state.location.search).toContain('tab=clarification'))
     expect(screen.getByLabelText('Комментарий')).toHaveValue('Мой черновик')
+  })
+  describe('clarification UX regression', () => {
+    it('preserves independent choices, custom text and comments across questions and tabs', async () => {
+      vi.mocked(chats.getClarifications).mockResolvedValue({
+        questions: [question, { ...question, id: 'q2', text: 'Второй вопрос', mode: 'text' }],
+      })
+      const { router } = renderPage('clarification', 'returnTo=%2Fchats%3Fsearch%3Dtask')
+      await userEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))
+      fireEvent.change(screen.getByLabelText('Свой вариант или детали'), {
+        target: { value: 'Первый вариант' },
+      })
+      fireEvent.change(screen.getByLabelText('Комментарий'), {
+        target: { value: 'Первый комментарий' },
+      })
+      await userEvent.click(screen.getByRole('button', { name: /2\. Второй вопрос/ }))
+      expect(router.state.location.search).toContain('question=q2')
+      fireEvent.change(screen.getByLabelText('Ваш ответ'), { target: { value: 'Второй вариант' } })
+      fireEvent.change(screen.getByLabelText('Комментарий'), {
+        target: { value: 'Второй комментарий' },
+      })
+      await userEvent.click(screen.getByRole('tab', { name: /Требования/ }))
+      await userEvent.click(screen.getByRole('tab', { name: /Уточнения/ }))
+      expect(screen.getByLabelText('Ваш ответ')).toHaveValue('Второй вариант')
+      expect(screen.getByLabelText('Комментарий')).toHaveValue('Второй комментарий')
+      await userEvent.click(screen.getByRole('button', { name: /1\. Кто видит задачи/ }))
+      expect(screen.getByRole('radio', { name: /Участники проекта/ })).toBeChecked()
+      expect(screen.getByLabelText('Свой вариант или детали')).toHaveValue('Первый вариант')
+      expect(screen.getByLabelText('Комментарий')).toHaveValue('Первый комментарий')
+      expect(new URLSearchParams(router.state.location.search).get('returnTo')).toBe(
+        '/chats?search=task',
+      )
+      expect(chats.answerClarification).not.toHaveBeenCalled()
+      expect(sessionStorage.length).toBe(0)
+      const stored = Array.from({ length: localStorage.length }, (_, index) =>
+        localStorage.getItem(localStorage.key(index)!),
+      ).join('')
+      expect(stored).not.toContain('Первый вариант')
+      expect(stored).not.toContain('Второй комментарий')
+    })
+
+    it.each([409, 412])(
+      'requires explicit recheck after conflict %s even when automatic readback returns the same version',
+      async (status) => {
+        vi.mocked(chats.answerClarification).mockRejectedValue(
+          new ApiError(status, 'Редакция изменилась'),
+        )
+        renderPage('clarification')
+        await userEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))
+        fireEvent.change(screen.getByLabelText('Комментарий'), {
+          target: { value: 'Не терять ответ' },
+        })
+        await userEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+        await screen.findByText('Редакция изменилась')
+        await waitFor(() => expect(chats.getClarifications).toHaveBeenCalledTimes(2))
+        expect(screen.getByLabelText('Комментарий')).toHaveValue('Не терять ответ')
+        expect(screen.getByRole('radio', { name: /Участники проекта/ })).toBeChecked()
+        const save = screen.getByRole('button', { name: 'Сохранить ответ' })
+        expect(save).toBeDisabled()
+        await userEvent.click(save)
+        expect(chats.answerClarification).toHaveBeenCalledTimes(1)
+        await userEvent.click(screen.getByRole('button', { name: 'Проверить актуальный вопрос' }))
+        await waitFor(() => expect(save).toBeEnabled())
+        expect(screen.getByLabelText('Комментарий')).toHaveValue('Не терять ответ')
+        expect(chats.getClarifications).toHaveBeenCalledTimes(3)
+        expect(chats.answerClarification).toHaveBeenCalledTimes(1)
+        const originalKey = vi.mocked(chats.answerClarification).mock.calls[0]![2].idempotency_key
+        await userEvent.click(save)
+        await waitFor(() => expect(chats.answerClarification).toHaveBeenCalledTimes(2))
+        expect(vi.mocked(chats.answerClarification).mock.calls[1]![2]).toEqual(
+          expect.objectContaining({
+            selected_option_ids: ['project'],
+            comment: 'Не терять ответ',
+          }),
+        )
+        expect(vi.mocked(chats.answerClarification).mock.calls[1]![2].idempotency_key).not.toBe(
+          originalKey,
+        )
+      },
+    )
+
+    it('keeps a conflicting draft blocked when explicit recheck fails', async () => {
+      vi.mocked(chats.answerClarification).mockRejectedValue(
+        new ApiError(409, 'Редакция изменилась'),
+      )
+      renderPage('clarification')
+      await userEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))
+      fireEvent.change(screen.getByLabelText('Комментарий'), {
+        target: { value: 'Сохранить при ошибке' },
+      })
+      await userEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+      await screen.findByText('Редакция изменилась')
+      await waitFor(() => expect(chats.getClarifications).toHaveBeenCalledTimes(2))
+      vi.mocked(chats.getClarifications).mockRejectedValue(new Error('Recheck unavailable'))
+      await userEvent.click(screen.getByRole('button', { name: 'Проверить актуальный вопрос' }))
+      await waitFor(() =>
+        expect(screen.getAllByText('Recheck unavailable').length).toBeGreaterThan(0),
+      )
+      expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+      expect(chats.answerClarification).toHaveBeenCalledTimes(1)
+      vi.mocked(chats.getClarifications).mockResolvedValue({ questions: [question] })
+      await userEvent.click(screen.getByRole('button', { name: 'Проверить актуальный вопрос' }))
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeEnabled(),
+      )
+      expect(screen.getByLabelText('Комментарий')).toHaveValue('Сохранить при ошибке')
+      expect(screen.getByRole('radio', { name: /Участники проекта/ })).toBeChecked()
+    })
+
+    it('waits for all recheck reads and retains the server-custody hold', async () => {
+      vi.mocked(chats.answerClarification).mockRejectedValue(new ApiError(409, 'Conflict'))
+      renderPage('clarification')
+      await userEvent.click(await screen.findByRole('radio', { name: /Участники проекта/ }))
+      await userEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+      await screen.findByText('Conflict')
+      await waitFor(() => expect(chats.listPendingAnswerCommands).toHaveBeenCalledTimes(2))
+      let finish!: (commands: ClarificationCommand[]) => void
+      vi.mocked(chats.listPendingAnswerCommands).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve
+          }),
+      )
+      const recheck = screen.getByRole('button', { name: 'Проверить актуальный вопрос' })
+      await userEvent.click(recheck)
+      expect(recheck).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+      await userEvent.click(recheck)
+      expect(chats.listPendingAnswerCommands).toHaveBeenCalledTimes(3)
+      await act(async () => {
+        finish([
+          {
+            id: 'held',
+            session_id: 'session1',
+            question_id: 'q1',
+            state: 'uncertain',
+            payload_sha256: 'a'.repeat(64),
+            answer: null,
+            rejection_status: null,
+            created_at: '2026-10-10T00:00:00Z',
+            updated_at: '2026-10-10T00:00:00Z',
+            request: {
+              expected_question_version: 1,
+              requirement_revision: 3,
+              selected_option_ids: ['project'],
+              text: null,
+              comment: null,
+              idempotency_key: 'original-held',
+            },
+          },
+        ])
+      })
+      await waitFor(() => expect(recheck).not.toBeInTheDocument())
+      expect(screen.getByRole('button', { name: 'Сохранить ответ' })).toBeDisabled()
+      expect(screen.getByRole('radio', { name: /Участники проекта/ })).toBeChecked()
+      expect(chats.answerClarification).toHaveBeenCalledTimes(1)
+    })
+
+    it('warns on browser unload and restores focus and the draft when Escape cancels leaving', async () => {
+      const { router } = renderPage('clarification')
+      fireEvent.change(await screen.findByLabelText('Комментарий'), {
+        target: { value: 'Остаться с черновиком' },
+      })
+      const unload = new Event('beforeunload', { cancelable: true })
+      window.dispatchEvent(unload)
+      expect(unload.defaultPrevented).toBe(true)
+      const back = screen.getByRole('link', { name: 'Вернуться к чатам' })
+      await userEvent.click(back)
+      await screen.findByRole('dialog', { name: 'Остались несохранённые изменения' })
+      await userEvent.keyboard('{Escape}')
+      await waitFor(() => expect(back).toHaveFocus())
+      expect(router.state.location.pathname).toBe('/chats/session1')
+      expect(screen.getByLabelText('Комментарий')).toHaveValue('Остаться с черновиком')
+      await userEvent.click(back)
+      await userEvent.click(await screen.findByRole('button', { name: 'Уйти без сохранения' }))
+      await screen.findByText('Список')
+      expect(router.state.location.pathname).toBe('/chats')
+      const cleanUnload = new Event('beforeunload', { cancelable: true })
+      window.dispatchEvent(cleanUnload)
+      expect(cleanUnload.defaultPrevented).toBe(false)
+    })
+
+    it('supports keyboard tab navigation and URL history without losing the selected question', async () => {
+      vi.mocked(chats.getClarifications).mockResolvedValue({
+        questions: [question, { ...question, id: 'q2', text: 'Второй вопрос' }],
+      })
+      const { router } = renderPage('clarification', 'question=q2')
+      const clarification = await screen.findByRole('tab', { name: /Уточнения/ })
+      await screen.findByRole('button', { name: /2\. Второй вопрос/ })
+      act(() => clarification.focus())
+      await userEvent.keyboard('{ArrowRight}')
+      await waitFor(() => expect(router.state.location.search).toContain('tab=requirements'))
+      expect(screen.getByRole('tab', { name: /Требования/ })).toHaveFocus()
+      act(() => screen.getByRole('combobox', { name: 'Редакция требований' }).focus())
+      await act(() => router.navigate(-1))
+      await waitFor(() => expect(clarification).toHaveAttribute('aria-selected', 'true'))
+      await waitFor(() => expect(clarification).toHaveFocus())
+      expect(screen.getByRole('button', { name: /2\. Второй вопрос/ })).toHaveAttribute(
+        'aria-current',
+        'true',
+      )
+      expect(screen.getByRole('radio', { name: /Участники проекта/ })).not.toBeChecked()
+    })
+
+    it('focuses the selected question after keyboard activation without preselecting a recommendation', async () => {
+      vi.mocked(chats.getClarifications).mockResolvedValue({
+        questions: [question, { ...question, id: 'q2', text: 'Второй вопрос' }],
+      })
+      renderPage('clarification')
+      const second = await screen.findByRole('button', { name: /2\. Второй вопрос/ })
+      act(() => second.focus())
+      await userEvent.keyboard('{Enter}')
+      expect(screen.getByRole('group', { name: 'Второй вопрос' })).toHaveFocus()
+      expect(screen.getByRole('radio', { name: /Участники проекта/ })).not.toBeChecked()
+      await userEvent.tab()
+      expect(screen.getByRole('radio', { name: /Участники проекта/ })).toHaveFocus()
+      await userEvent.keyboard(' ')
+      expect(screen.getByRole('radio', { name: /Участники проекта/ })).toBeChecked()
+    })
+
+    it('keeps native radio keyboard selection and does not steal editor focus on refresh', async () => {
+      vi.mocked(chats.getClarifications).mockResolvedValue({
+        questions: [
+          {
+            ...question,
+            options: [
+              ...question.options,
+              { id: 'team', label: 'Команда', consequences: 'Только команда' },
+            ],
+          },
+        ],
+      })
+      const { client } = renderPage('clarification')
+      const recommended = await screen.findByRole('radio', { name: /Участники проекта/ })
+      act(() => recommended.focus())
+      await userEvent.keyboard('{ArrowDown}')
+      expect(screen.getByRole('radio', { name: /Команда/ })).toBeChecked()
+      expect(recommended).not.toBeChecked()
+      const comment = screen.getByLabelText('Комментарий')
+      act(() => comment.focus())
+      await act(async () => {
+        await client.invalidateQueries({ queryKey: ['clarifications', 'session1'] })
+      })
+      expect(comment).toHaveFocus()
+    })
+
+    it('announces command delivery in an existing polite live region', async () => {
+      renderPage('clarification')
+      await screen.findByRole('radio', { name: /Участники проекта/ })
+      const status = screen.getByRole('status', { name: 'Статус команды' })
+      expect(status).toHaveAttribute('aria-live', 'polite')
+      expect(status).toHaveAttribute('aria-atomic', 'true')
+      expect(status).toBeEmptyDOMElement()
+      await userEvent.click(screen.getByRole('radio', { name: /Участники проекта/ }))
+      await userEvent.click(screen.getByRole('button', { name: 'Сохранить ответ' }))
+      await waitFor(() =>
+        expect(status).toHaveTextContent('Ответ сохранён. Требования ещё не опубликованы.'),
+      )
+      expect(screen.getByRole('status', { name: 'Статус команды' })).toBe(status)
+    })
+
+    it('announces refreshed user-message delivery without replacing its status node', async () => {
+      const pending: SessionMessage = {
+        ...message('user-message', 'Ожидающее сообщение'),
+        author_type: 'user' as const,
+        delivery_state: 'pending',
+      }
+      vi.mocked(chats.getChatHistory).mockResolvedValue({ items: [pending], next_before: null })
+      const { client } = renderPage()
+      await screen.findByText('Ожидающее сообщение')
+      const status = screen.getByRole('status', { name: 'Доставка сообщения' })
+      expect(status).toHaveAttribute('aria-live', 'polite')
+      const before = status.textContent
+      await act(async () => {
+        client.setQueryData(['chat-history', 'session1'], {
+          pages: [{ items: [{ ...pending, delivery_state: 'completed' }], next_before: null }],
+          pageParams: [undefined],
+        })
+      })
+      expect(screen.getByRole('status', { name: 'Доставка сообщения' })).toBe(status)
+      expect(status.textContent).not.toBe(before)
+    })
   })
   it('never allows an operator reading another owner chat to consent', async () => {
     useAuthStore.setState({ userId: 'operator', permissions: ['sessions:read_all'] })
