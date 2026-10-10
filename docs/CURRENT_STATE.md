@@ -3,22 +3,18 @@
 ## Current Integration Snapshot: 10 October 2026
 
 Latest terminal results supersede the earlier checkpoints below. Full backend
-run38021438217/sourcee369fed/controlseb214954 reaches container_activation_pg and
-fails eight recovered-activation cases. Parent authenticates safe artifact
-11658528950, ZIP SHA256
-6619b8d1ec4329ea0147aa4c131fd59d533db67bda3a1ec740db7694b32eede7;
-both scratch and synthetic DB cleanup pass. The fixed diagnostic identifies
-`activation_probe_configuration_snapshot_exact` at container_activation.rs184.
-Source inspection and independent Python hashing reproduce the fixture helper's
-UTF-8 versus Base ASCII-escaping mismatch. A test-only correction and default
-golden regression are prepared; a new full backend gate is still required.
+run38023648801/source56daff9/controls6f648430 still fails eight recovered-activation
+cases, now at authorization after the corrected configuration hash probe.
+Its authenticated receipt and exact evidence boundary are recorded below.
+Earlier run38021438217 exposed the ASCII-escaping fixture mismatch; that diagnosis
+does not prove the remaining authorization cause or accept the full runtime.
 
 C11 run38021888246/source994f29d/controlsc5ee9bc completes FAILURE at
 runtime_inventory. Authenticated, closed terminal telemetry identifies validation
 in gate_receipts and both cleanup checks; no compiler/test failure artifact was
-published. This is not a credential test result or real-Auth acceptance. Strict
+published. This is not a credential test result or real-Auth acceptance.
 The stage includes test-binary compilation/linking before list verification;
-no compiler-list mismatch has been established. Normal diagnostics successor
+the later diagnostic establishes the mismatch below. Normal diagnostics successor
 4244772 retains source994, all28 stages and242/17 expectations. Parent reviews
 the complete three-file diff and repeats112 Windows pure tests (108 pass,
 four explicit Linux-only skips); worker Linux112/112 is separate evidence.
@@ -30,7 +26,13 @@ extras, only `new_ids_are_plain_uuids` missing. Both cleanup checks pass. Source
 inspection finds its orphan test file; narrow successor3d1a108 declares the test
 module without lowering counts. It also retains687/435 credential regressions
 and the exact-two-case real-Auth CI correction. Those source fixes are integrated
-here but have not compiled/run; strict successor controls remain separate.
+here but are not product-qualified. Reviewed controlscfe7805 now normally publish
+source3d1a108; [run38026078533](https://github.com/FerrPOINT/fleet-control/actions/runs/38026078533)
+is confirmed in progress. Parent independently verifies135 canonical Fleet
+blobs/105 Rust files,309 combined inputs and248 default/18 ignored declarations.
+All original242/17 identities remain; five new PG cases are ordinary tests, not
+ignored. Parent118 pure checks finish114 pass/four Linux-only skips; worker
+Linux118/118 is separate control evidence. Actual Rust/Auth/PG remains pending.
 
 Frontend run38022762729/source5cc1fbb/controlsdb82829 fails preparation before
 tests. Parent authenticates failure artifact11658544399, ZIP SHA256
@@ -44,9 +46,15 @@ on Windows and Linux; all23 commands/default pool/three engines remain unchanged
 [Run38023185173](https://github.com/FerrPOINT/fleet-control/actions/runs/38023185173)
 completes FAILURE in the original three-browser fixture stage, after the
 default348 unit, typecheck/lint/build/theme/format gates pass. Fresh capture and
-manifest stages are skipped. A bounded failure artifact was uploaded; its
-authenticated readback and diagnosis are assigned to the UI worker. No artifact
-identity, browser count, screenshot or live PM acceptance is inferred here.
+manifest stages are skipped. Worker authenticates artifact11659871068, ZIP SHA256
+3dc947903a81e3fd712b9ec3bd7be7d405fd2e080f1c025bccc303c902247290.
+Each engine reports24 expected/two unexpected/nine skipped/zero flaky, with the
+same two failed scenario declarations at runtime-controls.spec.ts267 and
+fleet-control.spec.ts627. Closed evidence supplies no failing assertion or DOM.
+Source2398ff0 scopes retained-answer checks to server custody and adds draft
+checks; parent reviews that bounded fix, but has not integrated/browser-qualified
+it. The separate legacy runtime fixture must adopt the command journal contract.
+No fresh screenshot or live PM acceptance is inferred from this receipt.
 
 The [remaining delivery map](REMAINING_DELIVERY_WORK.md) records independent
 owners, dependencies and stop/go criteria. Task Tracker/Workflow remain read-only.
@@ -65,12 +73,13 @@ failure locations259/286 are the subsequent `authorize_recovered_activation`
 calls. This is progress in diagnosis, not proof that recovery/activation works.
 The next cause is still under investigation; no guard or assertion is waived.
 
-Current parallel ownership: Curie owns browser-failure diagnosis and a scoped
-Chats fix; Feynman prepares strict C11 controls for the separate687/435 test
-successor; Pascal independently reviews real-Auth expiry/restart semantics.
-Parent owns runtime/full-backend acceptance, integration and publication. Pascal
-finds no P1/P2 in the exact435 expiry/restart delta; actual Auth execution remains
-pending. Parent YAML parity plus eight synthetic Bash receipt vectors require
+Current parallel ownership: Curie aligns the existing runtime browser fixture
+with journal/store/delivery/readback; Pascal diagnoses the exact56 recovered
+authorization failure; Feynman closes the Forge maintenance-packet prerequisite
+in an isolated successor. Parent owns integration, control qualification and
+publication. All write scopes are separate; heavy local execution remains held.
+Pascal's completed exact435 and narrow successor reviews find no P1/P2, not
+actual Auth success. Parent YAML parity plus eight synthetic Bash receipt vectors require
 both real-Auth case names/two passes; these are CI-control checks, not Auth tests.
 Tracker/Workflow and root Base foreign changes remain untouched.
 

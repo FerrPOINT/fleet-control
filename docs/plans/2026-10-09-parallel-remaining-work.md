@@ -7,6 +7,27 @@ records work ownership, not completion or permission to deploy.
 
 ### Latest Assignment Checkpoint
 
+The current independent assignments below supersede all older worker tables.
+Tracker and Workflow stay read-only; root Base foreign changes are untouched.
+
+| Owner | Current isolated write scope / deliverable | Handoff criterion |
+| --- | --- | --- |
+| Curie | Existing runtime-controls browser fixture only, on child2398ff0; journal/store/delivery/readback contract alignment | Preserve uncertainty/original key/body and inherited scenarios; minimal reviewed patch; no relaxed custody guards or timeout/skip changes; fresh browser acceptance remains parent-owned |
+| Pascal | Exact56 recovered-activation source/SQL diagnosis, read-only | Demonstrated cause at authorize calls259/286 or a bounded safe diagnostic proposal; no guessed production fix or weaker authority predicate |
+| Feynman | Forge maintenance-packet closure in a separate owned successor | Qualified immutable Base helper inputs or exact missing blobs; minimum public-safe Forge patch and pure tests; no private ancestry/source publication or guessed pin |
+| Parent | Fleet integration, exact-source controls, CI, documentation and publication | Review worker diffs; qualify source/control closure; normal history/push; authenticate terminal receipts before any acceptance claim |
+
+C11 controlscfe7805 normally publish exact3d1 and start
+[run38026078533](https://github.com/FerrPOINT/fleet-control/actions/runs/38026078533),
+confirmed in progress. Source declares248 default/18 ignored tests, preserving
+all original242/17 identities. Parent114 pure passes/four Linux skips and
+worker118 Linux passes are controls evidence, not product/Auth/PG acceptance.
+Both earlier full-backend38023648801 and browser38023185173 are terminal FAILURE;
+the independent runtime/UI tasks address those actual results, not active jobs.
+No worker runs heavy local jobs, publishes branches or edits another scope.
+
+### Historical Assignment Checkpoints
+
 The following terminal-result update supersedes historical in-progress statements
 below. Backend38018281445 and frontend38019603974 both complete FAILURE.
 Parent authenticates backend artifact11657906403, ZIP SHA256

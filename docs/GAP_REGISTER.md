@@ -2,26 +2,28 @@
 
 ## Current Open Release Gates: 10 October 2026
 
-Latest verified state: full backend38021438217 fails eight recovered-activation
-cases at container_activation_pg; safe artifact11658528950 identifies the
-configuration snapshot hash probe, not successful activation. The fixture hash
-uses UTF-8 while Base/production and its independent golden require ASCII
-escaping. Test-only correction/default golden regression are prepared and need
-a new exact-source full Linux/PG gate. Production authority predicates stay intact.
+Latest verified state: full backend38023648801/source56daff9 fails eight recovered
+authorization cases at container_activation_pg after the configuration hash
+correction. Authenticated artifact11659287588 and successful cleanup do not prove
+the remaining cause. Pascal diagnoses that exact source without changing
+production authority predicates; a full passing Linux/PG gate remains required.
 
 C11 run38021888246 fails runtime_inventory with both cleanup checks successful.
 Closed authenticated terminal telemetry, not raw logs, establishes the stage;
 no failure artifact or actual credential/Auth result exists. Diagnose the strict
-source/compiler inventory without waiving unknown tests. Compilation/linking in
-that stage may also fail; no list mismatch has been proved. Reviewed diagnostics
+source/compiler inventory without waiving unknown tests. The later diagnostic
+proves the missing test identity; the original run alone did not. Reviewed diagnostics
 successor4244772 retains frozen994,28 stages and242/17 counts. Its authenticated
 run38024208930 failure artifact11659222328 proves241/242 defaults, all17 ignored,
 only `new_ids_are_plain_uuids` absent, and both cleanup checks pass. The existing
 test file lacked its parent module declaration; source3d1a108 connects it instead
 of dropping the test/count. Worker successors6870ea0/4358dea add five PG/one unit
 credential cases and one real-Auth expiry/restart case, with formatting/static
-evidence only. Their strict successor controls are being prepared separately;
-neither source is qualified by the frozen994 runs.
+evidence only. Strict successor controlscfe7805/source3d1a108 are now normally
+published; run38026078533 is confirmed in progress. Canonical inventory requires
+248 defaults/18 ignored, preserving all242/17 prior identities. Parent114 pure
+passes/four Linux-only skips and worker118 Linux passes qualify controls only;
+actual product/Auth/PG acceptance and a terminal receipt remain required.
 
 Frontend38022762729 fails preparation, with authenticated failure artifact
 11658544399. The reproduced Windows archive conversion affected only the local
@@ -29,8 +31,13 @@ source inventory oracle. Normal successorbea500d pins all835 canonical Git blobs
 and retains23 standard gates/default pool/engines. Its67 pure tests pass on both
 platforms; run38023185173 completes FAILURE in three-browser fixtures after the
 default348 unit/build/theme/format gates pass. Fresh captures/manifest are skipped.
-Safe failure upload succeeded, but authenticated readback/root-cause analysis
-remain pending with the UI worker. Earlier browser failure38019603974 and live
+Worker authenticates artifact11659871068 and its digest: each engine has the
+same two failed declarations (runtime-controls267/fleet-control627),24 expected,
+nine skipped and zero flaky. It does not expose the executed assertion. Parent
+reviews source2398ff0's server-custody locator correction; the separate old runtime
+fixture still needs command journal/store/delivery alignment and a fresh full
+browser gate. Neither source diagnosis nor old unit success closes this gap.
+Earlier browser failure38019603974 and live
 PM/native/Forge gaps remain open. See the current
 [delivery matrix](REMAINING_DELIVERY_WORK.md) for dependencies and stop/go.
 
