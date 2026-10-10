@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { ApiError } from '@sdlc/ui/lib'
 import { isCurrentAuth, useAuthStore, type AuthScope } from '@/shared/auth/store'
-import { ControlPreparationError } from '@/shared/chat-control-recovery'
+
+class ControlPreparationError extends Error {}
 
 // Reuses PR59's tab-scoped digest marker; private payloads remain in memory.
 type Marker = { actor: string; agent: string; service: string; key: string; digest: string }
