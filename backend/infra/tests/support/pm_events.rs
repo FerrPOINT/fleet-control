@@ -12,9 +12,38 @@ async fn journal(
     origin: String,
     config: &AppConfig,
 ) -> (PostgresFleetRepository, PmRunReservation) {
-    let (repo, reservation) = pm_fixture()
+    let (repo, mut reservation) = pm_fixture()
         .await
         .expect("isolated PostgreSQL required for PM stream tests");
+    let original = repo.get_session(reservation.session_id).await.unwrap();
+    let mut binding = repo
+        .get_task_chat_binding(original.id)
+        .await
+        .unwrap()
+        .unwrap();
+    binding.task_id = Uuid::new_v4();
+    binding.root_task_id = binding.task_id;
+    let session = repo
+        .create_pm_draft_chat(
+            domain::CreatePmDraftChat {
+                binding: binding.clone(),
+                title: "PM stream".into(),
+                task_key: reservation.identity.task.clone(),
+                idempotency_key: "pm-stream-chat".into(),
+            },
+            original.user_id,
+        )
+        .await
+        .unwrap();
+    reservation.session_id = session.id;
+    reservation.identity.task_ref = binding.task_id.to_string();
+    reservation.identity.root_ref = binding.root_task_id.to_string();
+    assert!(
+        repo.list_session_agent_runs(session.id)
+            .await
+            .unwrap()
+            .is_empty()
+    );
     let agent = reservation.identity.agent_id().unwrap();
     let port = reqwest::Url::parse(&origin).unwrap().port().unwrap();
     let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
@@ -28,6 +57,9 @@ async fn journal(
     .await
     .unwrap();
     repo.reserve_pm_run(reservation.clone()).await.unwrap();
+    let runs = repo.list_session_agent_runs(session.id).await.unwrap();
+    assert_eq!(runs.len(), 1);
+    assert_eq!(runs[0].id, reservation.session_run_id);
     let mut hash = Sha256::new();
     hash.update(b"fleet-hermes-default-profile-v1\0");
     hash.update(
