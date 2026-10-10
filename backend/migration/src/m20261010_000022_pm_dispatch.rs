@@ -48,14 +48,51 @@ impl MigrationTrait for Migration {
                 RETURN NEW;
             END $$;
             CREATE TRIGGER pm_dispatch_immutable BEFORE INSERT OR UPDATE OR DELETE ON pm_dispatch_journal
-                FOR EACH ROW EXECUTE FUNCTION guard_pm_dispatch_journal();"
+                FOR EACH ROW EXECUTE FUNCTION guard_pm_dispatch_journal();
+            CREATE UNIQUE INDEX pm_creation_session ON pm_draft_creation_operations((operation->>'session_id'))
+                WHERE operation->>'session_id' IS NOT NULL;
+            CREATE TABLE pm_tool_commands (
+                session_run_id uuid NOT NULL REFERENCES pm_run_bindings(session_run_id),
+                operation_key text NOT NULL CHECK(length(operation_key) BETWEEN 1 AND 128),
+                kind text NOT NULL CHECK(kind IN ('question','revision','stop')),
+                request jsonb NOT NULL CHECK(jsonb_typeof(request)='object' AND octet_length(request::text)<=262144),
+                attempted boolean NOT NULL DEFAULT false,
+                result jsonb CHECK(octet_length(result::text)<=262144),
+                PRIMARY KEY(session_run_id,operation_key),
+                CHECK(result IS NULL OR attempted)
+            );
+            CREATE FUNCTION guard_pm_tool_command() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN
+                IF TG_OP='DELETE' THEN RAISE EXCEPTION 'PM tool custody cannot be deleted'; END IF;
+                IF TG_OP='INSERT' THEN
+                    IF NEW.attempted OR NEW.result IS NOT NULL THEN RAISE EXCEPTION 'PM tool must start unsubmitted'; END IF;
+                ELSE
+                    IF (NEW.session_run_id,NEW.operation_key,NEW.kind,NEW.request) IS DISTINCT FROM
+                       (OLD.session_run_id,OLD.operation_key,OLD.kind,OLD.request)
+                       OR (OLD.attempted AND NOT NEW.attempted)
+                       OR (OLD.result IS NOT NULL AND NEW.result IS DISTINCT FROM OLD.result) THEN
+                        RAISE EXCEPTION 'PM tool custody is immutable';
+                    END IF;
+                END IF;
+                RETURN NEW;
+            END $$;
+            CREATE TRIGGER pm_tool_immutable BEFORE INSERT OR UPDATE OR DELETE ON pm_tool_commands
+                FOR EACH ROW EXECUTE FUNCTION guard_pm_tool_command();"
         ).await?;
         Ok(())
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager.get_connection().execute_unprepared(
-            "DROP TABLE IF EXISTS pm_dispatch_journal; DROP FUNCTION IF EXISTS guard_pm_dispatch_journal();"
+            "LOCK TABLE pm_dispatch_journal, pm_tool_commands IN ACCESS EXCLUSIVE MODE;
+             DO $$ BEGIN
+                 IF EXISTS(SELECT 1 FROM pm_dispatch_journal) OR EXISTS(SELECT 1 FROM pm_tool_commands) THEN
+                     RAISE EXCEPTION 'PM dispatch custody prevents downgrade';
+                 END IF;
+             END $$;
+             DROP TABLE IF EXISTS pm_tool_commands; DROP FUNCTION IF EXISTS guard_pm_tool_command();
+             DROP INDEX IF EXISTS pm_creation_session;
+             DROP TABLE IF EXISTS pm_dispatch_journal; DROP FUNCTION IF EXISTS guard_pm_dispatch_journal();"
         ).await?;
         Ok(())
     }

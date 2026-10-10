@@ -111,6 +111,7 @@ pub struct PmConfig {
 #[serde(default)]
 pub struct PmDispatchConfig {
     pub enabled: bool,
+    pub tool_origin: Option<String>,
     #[serde(skip_serializing)]
     pub assignment_token: String,
     #[serde(skip_serializing)]

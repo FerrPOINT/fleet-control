@@ -14,6 +14,7 @@ mod hermes_dispatch_journal;
 pub mod pm_credentials;
 mod pm_draft;
 mod pm_execution;
+mod pm_tool_config;
 pub mod runtime;
 mod runtime_acceptance;
 mod runtime_controls;
@@ -873,6 +874,40 @@ impl FleetRepository for PostgresFleetRepository {
     }
     async fn get_pm_run(&self, id: Uuid) -> Result<domain::PmRunRecord, AppError> {
         pm_execution::get(self, id).await
+    }
+    async fn read_pm_operation_for_session(
+        &self,
+        session: Uuid,
+        owner: Uuid,
+    ) -> Result<domain::PmDraftOperation, AppError> {
+        let row = self.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "SELECT id FROM pm_draft_creation_operations WHERE owner_user_id=$1 AND operation->>'session_id'=$2 LIMIT 1",
+            [owner.into(), session.to_string().into()])).await.map_err(pm_execution::dispatch_error_db)?
+            .ok_or_else(|| AppError::not_found("PM operation", session))?;
+        self.read_pm_creation(
+            row.try_get("", "id")
+                .map_err(pm_execution::dispatch_error_db)?,
+            owner,
+        )
+        .await
+    }
+    async fn prepare_pm_tool(
+        &self,
+        command: domain::PmToolCommand,
+    ) -> Result<domain::PmToolCommand, AppError> {
+        pm_execution::prepare_tool(self, command)
+            .await
+            .map_err(pm_execution::dispatch_error)
+    }
+    async fn claim_pm_tool(&self, run: Uuid, key: &str) -> Result<bool, AppError> {
+        pm_execution::claim_tool(self, run, key)
+            .await
+            .map_err(pm_execution::dispatch_error)
+    }
+    async fn finish_pm_tool(&self, run: Uuid, key: &str, result: Value) -> Result<(), AppError> {
+        pm_execution::finish_tool(self, run, key, result)
+            .await
+            .map_err(pm_execution::dispatch_error)
     }
     async fn prepare_pm_dispatch(
         &self,
@@ -5355,6 +5390,11 @@ pub(crate) async fn configuration_files(
         ));
     }
     let mut content = revision.snapshot.config.config_json.clone();
+    pm_tool_config::configure(&mut content, agent, config)?;
+    if config.pm.dispatch.enabled && agent.sdlc_role == Some(SdlcRole::ProjectManager) {
+        pm_tool_config::reject_server_secrets(&content.to_string(), config)?;
+        pm_tool_config::reject_server_secrets(&revision.snapshot.config.soul_md, config)?;
+    }
     if content
         .get("terminal")
         .is_some_and(|value| !value.is_object())
@@ -5401,6 +5441,9 @@ pub(crate) async fn configuration_files(
                 return Err(AppError::validation(format!(
                     "masked value for {key} cannot replace a secret reference"
                 )));
+            }
+            if config.pm.dispatch.enabled && agent.sdlc_role == Some(SdlcRole::ProjectManager) {
+                pm_tool_config::reject_server_secrets(&value, config)?;
             }
             env.push_str(&format!(
                 "{key}={}\n",

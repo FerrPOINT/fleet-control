@@ -14,6 +14,8 @@ pub mod pm_execution;
 pub use pm_execution::*;
 pub mod pm_dispatch;
 pub use pm_dispatch::*;
+pub mod pm_tools;
+pub use pm_tools::*;
 pub mod pm_credentials;
 pub use pm_credentials::*;
 pub mod chats_directory;

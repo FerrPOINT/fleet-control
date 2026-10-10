@@ -26,6 +26,111 @@ fn unavailable() -> AppError {
 }
 
 impl PmCredentialCoordinator {
+    /// Base owns idempotent delegation. Runtime leases are reconstructed in memory;
+    /// no child bearer or native tool secret is persisted in Fleet.
+    pub async fn runtime_credential(
+        &self,
+        operation: &PmDraftOperation,
+    ) -> Result<PmDelegatedCredential, AppError> {
+        let journal = operation.credentials.as_ref().ok_or_else(unavailable)?;
+        if journal.intent != self.intent(operation)? {
+            return Err(AppError::conflict("PM original credential context changed"));
+        }
+        self.principal(
+            self.issuer.parent.clone(),
+            &["task-tracker:read".into(), "task-tracker:write".into()],
+        )
+        .await?;
+        let window = Utc::now()
+            .timestamp()
+            .div_euclid((self.ttl_seconds / 2).max(1));
+        let command = PmCredentialCommand::tracker(
+            &operation.execution_identity()?,
+            format!("fleet-pm-tools:{}:{window}", operation.id),
+            self.ttl_seconds,
+        )?;
+        let credential = self.issuer.issue(&command).await?;
+        self.principal(credential.bearer.clone(), command.scopes())
+            .await?;
+        self.context(operation, &credential).await?;
+        Ok(credential)
+    }
+    pub async fn tracker_call(
+        &self,
+        credential: &PmDelegatedCredential,
+        method: reqwest::Method,
+        suffix: &str,
+        body: Option<&serde_json::Value>,
+    ) -> Result<serde_json::Value, AppError> {
+        let mut url = self.issuer.tracker_origin.clone();
+        url.set_path(&format!(
+            "/api/v1/issues/{}/sdlc/{suffix}",
+            credential.task_id
+        ));
+        let mut request = self
+            .issuer
+            .client
+            .request(method, url)
+            .header(header::ACCEPT_ENCODING, "identity")
+            .header(header::CACHE_CONTROL, "no-cache, no-store");
+        if let Some(body) = body {
+            request = request.json(body);
+        }
+        let mut response = self
+            .issuer
+            .client
+            .execute(credential.authorize(request)?)
+            .await
+            .map_err(|_| unavailable())?;
+        match response.status() {
+            StatusCode::OK | StatusCode::CREATED => (),
+            StatusCode::UNAUTHORIZED => return Err(AppError::Unauthorized),
+            StatusCode::FORBIDDEN => return Err(AppError::Forbidden),
+            StatusCode::CONFLICT => {
+                return Err(AppError::conflict(
+                    "PM Tracker command is stale or conflicts",
+                ));
+            }
+            _ => return Err(unavailable()),
+        }
+        if !response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|v| {
+                v.split(';')
+                    .next()
+                    .is_some_and(|m| m.trim().eq_ignore_ascii_case("application/json"))
+            })
+            || response
+                .headers()
+                .get(header::CONTENT_ENCODING)
+                .is_some_and(|v| v != "identity")
+        {
+            return Err(unavailable());
+        }
+        let mut bytes = Vec::new();
+        while let Some(chunk) = response.chunk().await.map_err(|_| unavailable())? {
+            if bytes.len().saturating_add(chunk.len()) > 262144 {
+                return Err(unavailable());
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        serde_json::from_slice(&bytes).map_err(|_| unavailable())
+    }
+
+    pub async fn machine_context(
+        &self,
+        operation: &PmDraftOperation,
+        credential: &PmDelegatedCredential,
+    ) -> Result<domain::TrackerTaskContext, AppError> {
+        let context = canonical(
+            self.tracker_call(credential, reqwest::Method::GET, "context", None)
+                .await?,
+        )?;
+        domain::verify_pm_machine_context(operation, &context)?;
+        Ok(context)
+    }
     pub fn configured(config: &shared::AppConfig) -> Result<Option<Self>, AppError> {
         let credentials = &config.pm.credentials;
         if !credentials.enabled {

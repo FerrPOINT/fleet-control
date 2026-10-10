@@ -336,12 +336,101 @@ pub(super) fn dispatch_error(error: AppError) -> AppError {
     }
 }
 
+pub(super) fn dispatch_error_db(_: sea_orm::DbErr) -> AppError {
+    AppError::Database("PM custody database operation failed".into())
+}
+
+pub(super) async fn prepare_tool(
+    repo: &PostgresFleetRepository,
+    command: domain::PmToolCommand,
+) -> Result<domain::PmToolCommand, AppError> {
+    domain::pm_tool_key(&command.key)?;
+    if command.attempted
+        || command.result.is_some()
+        || !matches!(command.kind.as_str(), "question" | "revision" | "stop")
+        || !command.request.is_object()
+        || command.request.to_string().len() > 262144
+    {
+        return Err(AppError::validation("invalid PM tool custody"));
+    }
+    repo.db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "INSERT INTO pm_tool_commands(session_run_id,operation_key,kind,request) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING",
+        [command.session_run_id.into(),command.key.clone().into(),command.kind.clone().into(),command.request.clone().into()])).await.map_err(dispatch_error_db)?;
+    let row = repo.db.query_one(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "SELECT kind,request,result,attempted FROM pm_tool_commands WHERE session_run_id=$1 AND operation_key=$2",
+        [command.session_run_id.into(),command.key.clone().into()])).await.map_err(dispatch_error_db)?.ok_or_else(||AppError::conflict("missing PM tool custody"))?;
+    if row
+        .try_get::<String>("", "kind")
+        .map_err(dispatch_error_db)?
+        != command.kind
+        || row
+            .try_get::<Value>("", "request")
+            .map_err(dispatch_error_db)?
+            != command.request
+    {
+        return Err(AppError::conflict(
+            "PM tool key has a different original request",
+        ));
+    }
+    Ok(domain::PmToolCommand {
+        attempted: row.try_get("", "attempted").map_err(dispatch_error_db)?,
+        result: row.try_get("", "result").map_err(dispatch_error_db)?,
+        ..command
+    })
+}
+
+pub(super) async fn claim_tool(
+    repo: &PostgresFleetRepository,
+    run: Uuid,
+    key: &str,
+) -> Result<bool, AppError> {
+    let txn = repo.db.begin().await.map_err(dispatch_error_db)?;
+    let record = load(&txn, run, false).await?;
+    txn.query_one(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT id FROM agents WHERE id=$1 FOR NO KEY UPDATE",
+        [record.reservation.identity.agent_id()?.into()],
+    ))
+    .await
+    .map_err(dispatch_error_db)?;
+    let result = txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "UPDATE pm_tool_commands c SET attempted=true FROM pm_run_bindings b,session_agent_runs r,agent_sessions s,users u,task_chat_bindings t,agents a
+         WHERE c.session_run_id=$1 AND c.operation_key=$2 AND NOT c.attempted
+         AND b.session_run_id=c.session_run_id AND b.hermes_run_ref IS NOT NULL AND b.terminal_status IS NULL
+         AND r.id=b.session_run_id AND r.state IN ('running','waiting','stopping')
+         AND s.id=b.session_id AND s.agent_id=b.agent_id AND s.state='active'
+         AND u.id=s.user_id AND u.is_active AND t.session_id=s.id AND t.agent_id=b.agent_id AND t.owner_subject=u.central_sub
+         AND a.id=b.agent_id AND a.kind='hermes' AND a.status='running' AND a.sdlc_role='project_manager'
+         AND NOT EXISTS(SELECT 1 FROM agent_config_heads WHERE agent_id=b.agent_id AND draining)",
+        [run.into(),key.into()])).await.map_err(dispatch_error_db)?;
+    txn.commit().await.map_err(dispatch_error_db)?;
+    Ok(result.rows_affected() == 1)
+}
+
+pub(super) async fn finish_tool(
+    repo: &PostgresFleetRepository,
+    run: Uuid,
+    key: &str,
+    result: Value,
+) -> Result<(), AppError> {
+    if result.to_string().len() > 262144 {
+        return Err(AppError::validation("PM tool result exceeds its bound"));
+    }
+    let updated = repo.db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "UPDATE pm_tool_commands SET result=$3 WHERE session_run_id=$1 AND operation_key=$2 AND attempted AND (result IS NULL OR result=$3)",
+        [run.into(),key.into(),result.into()])).await.map_err(dispatch_error_db)?;
+    if updated.rows_affected() != 1 {
+        return Err(AppError::conflict("PM tool acknowledgement changed"));
+    }
+    Ok(())
+}
+
 pub(super) async fn claim_submission(
     repo: &PostgresFleetRepository,
     id: Uuid,
 ) -> Result<bool, AppError> {
     let txn = repo.db.begin().await.map_err(AppError::database)?;
-    let record = get(repo, id).await?;
+    let record = load(&txn, id, false).await?;
     let agent = record.reservation.identity.agent_id()?;
     // Same agent lock as capacity reservation/configuration drain, before consuming the one-shot permit.
     txn.query_one(Statement::from_sql_and_values(
@@ -420,7 +509,7 @@ pub(super) async fn claim_guidance(
         return Err(AppError::validation("PM guidance exceeds its bound"));
     }
     let txn = repo.db.begin().await.map_err(AppError::database)?;
-    let record = get(repo, id).await?;
+    let record = load(&txn, id, false).await?;
     txn.query_one(Statement::from_sql_and_values(
         DatabaseBackend::Postgres,
         "SELECT id FROM agents WHERE id=$1 FOR NO KEY UPDATE",

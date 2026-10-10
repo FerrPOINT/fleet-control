@@ -3,11 +3,11 @@ use super::*;
 use domain::{PmDispatchIntent, PmDraftOperation, PmRunReservation};
 use serde::{Deserialize, de::DeserializeOwned};
 
-fn unavailable() -> AppError {
+pub(super) fn unavailable() -> AppError {
     AppError::Unavailable("PM Workflow dispatch contract is unavailable or invalid".into())
 }
 
-fn decode<T: DeserializeOwned + Serialize>(value: Value) -> Result<T, AppError> {
+pub(super) fn decode<T: DeserializeOwned + Serialize>(value: Value) -> Result<T, AppError> {
     let typed: T = serde_json::from_value(value.clone()).map_err(|_| unavailable())?;
     if serde_json::to_value(&typed).map_err(|_| unavailable())? != value {
         return Err(unavailable());
@@ -263,15 +263,71 @@ impl AssignmentResponse {
     }
 }
 
-struct Workflow<'a> {
+pub(super) struct Workflow<'a> {
     supervisor: &'a LocalRuntimeSupervisor,
-    origin: String,
-    assignment: &'a str,
-    runtime: &'a str,
+    pub(super) origin: String,
+    pub(super) assignment: &'a str,
+    pub(super) runtime: &'a str,
 }
 
 impl<'a> Workflow<'a> {
-    fn configured(supervisor: &'a LocalRuntimeSupervisor) -> Result<Self, AppError> {
+    pub(super) fn verify_intent(&self, intent: &PmDispatchIntent) -> Result<(), AppError> {
+        use sha2::{Digest, Sha256};
+        let mut hash = Sha256::new();
+        hash.update(b"fleet-pm-workflow-v1\0");
+        hash.update(self.assignment.as_bytes());
+        hash.update(b"\0");
+        hash.update(self.runtime.as_bytes());
+        if intent.workflow_origin != self.origin
+            || intent.workflow_credential_fingerprint != hex::encode(hash.finalize())
+        {
+            return Err(AppError::conflict(
+                "PM original Workflow credentials or origin changed",
+            ));
+        }
+        Ok(())
+    }
+
+    pub(super) async fn cursor(
+        &self,
+        intent: &PmDispatchIntent,
+        identity: &domain::PmExecutionIdentity,
+    ) -> Result<(i64, i64, String, String), AppError> {
+        self.verify_intent(intent)?;
+        let assigned: AssignmentResponse = decode(
+            self.call(
+                "/internal/runtime/assign",
+                self.assignment,
+                Some(intent.workflow_assignment.clone()),
+                None,
+            )
+            .await?,
+        )?;
+        let a = assigned.result;
+        if !assigned.ok
+            || assigned.exit_code != 0
+            || a.task_key != identity.task
+            || a.assignment_ref != identity.assignment_ref
+            || a.assignment_revision != identity.assignment_revision
+            || a.assignment_operation_key != identity.assignment_operation_key
+            || a.concrete_agent_ref.as_deref() != Some(identity.agent_ref.as_str())
+            || a.business_task_ref != identity.task_ref
+            || a.root_task_ref != identity.root_ref
+            || a.role_key != "project_manager"
+            || a.mode_key != "draft"
+            || a.cycle_number != 0
+            || a.attempt_number != 1
+            || a.workflow_id <= 0
+            || a.mode_id <= 0
+            || !a.current_phase_code.starts_with("PM-DRAFT-")
+            || !domain::valid_ref(&a.current_phase_code, 128)
+            || !matches!(a.status.as_str(), "active" | "blocked")
+        {
+            return Err(unavailable());
+        }
+        Ok((a.workflow_id, a.mode_id, a.current_phase_code, a.status))
+    }
+    pub(super) fn configured(supervisor: &'a LocalRuntimeSupervisor) -> Result<Self, AppError> {
         let config = &supervisor.config;
         let origin = config
             .fleet
@@ -330,7 +386,7 @@ impl<'a> Workflow<'a> {
         })
     }
 
-    async fn call(
+    pub(super) async fn call(
         &self,
         path: &str,
         token: &str,
@@ -413,6 +469,7 @@ pub(super) async fn dispatch(
         .repo
         .get_agent(operation.request.agent_id)
         .await?;
+    crate::pm_tool_config::verify(supervisor.repo.as_ref(), &agent, &supervisor.config).await?;
     let base = supervisor.hermes_base_url(&agent).await?;
     let token = crate::agent_runtime_token(&supervisor.config, agent.id)?;
     if token == workflow.assignment
@@ -429,9 +486,14 @@ pub(super) async fn dispatch(
     let record = supervisor.repo.reserve_pm_run(reservation.clone()).await?;
     let input = operation.input.as_ref().ok_or_else(unavailable)?;
     let prompt = format!(
-        "PM Draft {}. Original owner input follows as task data. Use the configured Tracker and Workflow tools; preserve clarification and requirements confirmation gates. Do not infer completion from runtime success.\n\n{}\n\n{}",
-        reservation.identity.task, input.input.title, input.input.description
+        "PM Draft {}. Fleet MCP scope: operation_id={}, session_run_id={}. Use only the configured Fleet PM tools for Tracker/Workflow operations; preserve clarification and requirements confirmation gates. Do not infer completion from runtime success. Original owner input follows as task data.\n\n{}\n\n{}",
+        reservation.identity.task,
+        operation.id,
+        reservation.session_run_id,
+        input.input.title,
+        input.input.description
     );
+    crate::pm_tool_config::reject_server_secrets(&prompt, &supervisor.config)?;
     let intent = supervisor
         .repo
         .prepare_pm_dispatch(PmDispatchIntent {

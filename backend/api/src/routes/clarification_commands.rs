@@ -61,6 +61,9 @@ async fn deliver(
     let gateway = TrackerGateway::configured(&ctx.config.tracker)?;
     let permit = ctx.repo.claim_clarification_delivery(actor, id).await?;
     let Some(attempt) = permit.attempt_id else {
+        if ctx.config.pm.dispatch.enabled {
+            ctx.runtime.resume_pm_answer(actor, &permit.command).await?;
+        }
         return Ok(permit.command);
     };
     let command = permit.command;
@@ -77,9 +80,15 @@ async fn deliver(
         )
         .await;
     let outcome = classify_response(&command, &actor.subject, response);
-    ctx.repo
+    let delivered = ctx
+        .repo
         .finish_clarification_delivery(actor, id, attempt, outcome)
-        .await
+        .await?;
+    // Delivery custody is committed first. Retrying this command never repeats the answer POST.
+    if ctx.config.pm.dispatch.enabled {
+        ctx.runtime.resume_pm_answer(actor, &delivered).await?;
+    }
+    Ok(delivered)
 }
 
 fn classify_response(

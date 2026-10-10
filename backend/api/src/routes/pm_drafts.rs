@@ -341,7 +341,7 @@ async fn continue_created(
 ) -> Result<PmDraftCreationResponse, AppError> {
     let id = operation.id;
     let owner = operation.owner_user_id;
-    let response = app::pm_draft::continue_creation_with_credentials(
+    app::pm_draft::continue_creation_with_credentials(
         ctx.repo.as_ref(),
         gateway,
         operation,
@@ -353,6 +353,25 @@ async fn continue_created(
         ctx.runtime.dispatch_pm_draft(&operation, gateway).await?;
     }
     // This is the existing Tracker creation receipt, not a claim of business completion.
+    creation_response(ctx, &ctx.repo.read_pm_draft_operation(id, owner).await?).await
+}
+
+async fn creation_response(
+    ctx: &AppContext,
+    operation: &PmDraftOperation,
+) -> Result<PmDraftCreationResponse, AppError> {
+    let mut response = operation.response();
+    if let Some(intent) = ctx.repo.get_pm_dispatch(operation.id).await? {
+        if intent.submitted {
+            response.next_step = PmDraftCreationStep::Runtime;
+            response.dispatch_allowed = intent.hermes_run_ref.is_some();
+            response.state = if response.dispatch_allowed {
+                PmDraftCreationState::RuntimeAccepted
+            } else {
+                PmDraftCreationState::AwaitingRuntimeAcceptance
+            };
+        }
+    }
     Ok(response)
 }
 
@@ -425,7 +444,7 @@ pub async fn read(
         return Err(AppError::Forbidden);
     }
     authorized_project(&ctx, &headers, operation.project_id).await?;
-    Ok(Json(operation.response()))
+    Ok(Json(creation_response(&ctx, &operation).await?))
 }
 
 #[derive(Deserialize, utoipa::ToSchema)]
@@ -464,7 +483,7 @@ pub async fn read_by_key(
     if operation.owner_subject != subject.0 {
         return Err(AppError::Forbidden);
     }
-    Ok(Json(operation.response()))
+    Ok(Json(creation_response(&ctx, &operation).await?))
 }
 
 #[derive(Serialize, utoipa::ToSchema)]

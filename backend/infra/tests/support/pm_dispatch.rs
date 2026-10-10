@@ -101,11 +101,89 @@ fn workflow_assignment(request: &serde_json::Value) -> serde_json::Value {
     result
 }
 
-struct AbortServer(tokio::task::JoinHandle<()>);
+pub(super) struct AbortServer(pub(super) tokio::task::JoinHandle<()>);
 impl Drop for AbortServer {
     fn drop(&mut self) {
         self.0.abort();
     }
+}
+
+pub(super) struct ToolHome(std::path::PathBuf);
+impl Drop for ToolHome {
+    fn drop(&mut self) {
+        std::fs::remove_dir_all(&self.0).expect("remove owned PM fixture home");
+    }
+}
+
+// Materialize the effective profile in an owned temporary home, without starting a runtime.
+pub(super) async fn install_tool_home(
+    repo: &PostgresFleetRepository,
+    op: &domain::PmDraftOperation,
+    config: &mut AppConfig,
+) -> ToolHome {
+    use sha2::{Digest, Sha256};
+    let root = std::env::temp_dir().join(format!("fleet-pm-tools-test-{}", Uuid::new_v4()));
+    std::fs::create_dir(&root).unwrap();
+    config.fleet.agents_root = root.to_string_lossy().into_owned();
+    let agent = repo.get_agent(op.request.agent_id).await.unwrap();
+    let home = root.join(&agent.name);
+    let config_path = home.join("config");
+    let workspace = home.join("workspace");
+    std::fs::create_dir_all(&config_path).unwrap();
+    std::fs::create_dir_all(&workspace).unwrap();
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "UPDATE agents SET runtime_path=$2,config_path=$3,workspace_path=$4,logs_path=$5 WHERE id=$1",
+        [agent.id.into(),home.join("runtime").to_string_lossy().into_owned().into(),config_path.to_string_lossy().into_owned().into(),
+         workspace.to_string_lossy().into_owned().into(),home.join("logs").to_string_lossy().into_owned().into()])).await.unwrap();
+    std::fs::write(
+        home.join(".fleet-agent.json"),
+        json!({"id":agent.id,"name":agent.name,"kind":"hermes"}).to_string(),
+    )
+    .unwrap();
+    let origin = config
+        .pm
+        .dispatch
+        .tool_origin
+        .as_ref()
+        .unwrap()
+        .trim_end_matches('/');
+    let yaml = json!({"model":"test-model","terminal":{"cwd":workspace.to_string_lossy()},
+        "mcp_servers":{"fleet_pm":{"url":format!("{origin}/internal/runtime/v1/pm/agents/{}/mcp",agent.id),
+        "transport":"http","headers":{"Authorization":"Bearer ${API_SERVER_KEY}","MCP-Protocol-Version":"2025-03-26"},"strict_redirect_headers":true,"trust":"full"}},
+        "platform_toolsets":{"api_server":["fleet_pm"]}});
+    let env = format!(
+        "HERMES_HOME={}\nHERMES_SERVE_HEADLESS=1\nAPI_SERVER_ENABLED=true\nAPI_SERVER_KEY={}\n",
+        serde_json::to_string(&config_path.to_string_lossy()).unwrap(),
+        infra::agent_runtime_token(config, agent.id).unwrap()
+    );
+    let files = [
+        ("config.yaml", serde_json::to_string_pretty(&yaml).unwrap()),
+        ("SOUL.md", "# Fixture PM\n".into()),
+        (".env", env),
+    ];
+    let mut hashes = serde_json::Map::new();
+    for (name, body) in files {
+        hashes.insert(
+            name.into(),
+            json!(hex::encode(Sha256::digest(body.as_bytes()))),
+        );
+        std::fs::write(config_path.join(name), body).unwrap();
+    }
+    std::fs::write(
+        config_path.join(".fleet-config-revision.json"),
+        json!({"agent_id":agent.id,"revision":1,"hashes":hashes}).to_string(),
+    )
+    .unwrap();
+    let snapshot = json!({"config":{"config_json":{"model":"test-model"},"soul_md":"# Fixture PM\n","env_json":{}},"skills":[]});
+    db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "INSERT INTO agent_config_revisions(agent_id,revision,state,snapshot,created_by_user_id) VALUES($1,1,'active',$2,$3)",
+        [agent.id.into(),snapshot.into(),op.owner_user_id.into()])).await.unwrap();
+    db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "INSERT INTO agent_config_heads(agent_id,desired_revision,effective_revision,draining) VALUES($1,1,1,false)",[agent.id.into()])).await.unwrap();
+    ToolHome(root)
 }
 
 // Exercises the production service, not a parallel orchestration model. External services are
@@ -128,6 +206,7 @@ async fn pm_production_dispatch_binds_and_steers_once_and_holds_unknown_post() {
         let port = listener.local_addr().unwrap().port();
         let mut config = AppConfig::default();
         config.pm.dispatch.enabled = true;
+        config.pm.dispatch.tool_origin = Some(format!("http://127.0.0.1:{port}"));
         config.pm.dispatch.assignment_token = "a".repeat(40);
         config.pm.dispatch.runtime_token = "r".repeat(40);
         config.pm.readback_token = "p".repeat(40);
@@ -147,6 +226,7 @@ async fn pm_production_dispatch_binds_and_steers_once_and_holds_unknown_post() {
         ))
         .await
         .unwrap();
+        let _home = install_tool_home(&repo, &op, &mut config).await;
         let calls = Arc::new(Mutex::new(Vec::<String>::new()));
         let assigned = Arc::new(Mutex::new(None::<serde_json::Value>));
         let state = (
@@ -448,4 +528,123 @@ async fn pm_guidance_unknown_is_not_retried_and_delivered_ack_does_not_complete_
         repo.get_session_agent_run(id).await.unwrap().state,
         SessionRunState::Running
     );
+}
+
+#[tokio::test]
+async fn pm_claims_complete_with_one_physical_connection_without_second_pool_acquisition() {
+    let (_, reservation, _) = setup().await;
+    let id = reservation.session_run_id;
+    let mut options =
+        sea_orm::ConnectOptions::new(std::env::var("FLEET_TEST_DATABASE_URL").unwrap());
+    options
+        .max_connections(1)
+        .min_connections(1)
+        .connect_timeout(Duration::from_secs(1));
+    let db = sea_orm::Database::connect(options).await.unwrap();
+    let repo = PostgresFleetRepository::new(db);
+    assert!(
+        tokio::time::timeout(Duration::from_secs(2), repo.claim_pm_submission(id))
+            .await
+            .unwrap()
+            .unwrap()
+    );
+    assert!(
+        !tokio::time::timeout(Duration::from_secs(2), repo.claim_pm_submission(id))
+            .await
+            .unwrap()
+            .unwrap()
+    );
+    repo.record_pm_submission(id, "run_single_pool".into())
+        .await
+        .unwrap();
+    repo.accept_pm_run(id, "run_single_pool".into(), "native-session".into())
+        .await
+        .unwrap();
+    let body = r#"{"input":"Verified instructions"}"#.to_owned();
+    assert!(matches!(
+        tokio::time::timeout(
+            Duration::from_secs(2),
+            repo.claim_pm_guidance(id, body.clone())
+        )
+        .await
+        .unwrap()
+        .unwrap(),
+        PmGuidancePermit::Claimed
+    ));
+    assert!(matches!(
+        tokio::time::timeout(Duration::from_secs(2), repo.claim_pm_guidance(id, body))
+            .await
+            .unwrap()
+            .unwrap(),
+        PmGuidancePermit::Unknown
+    ));
+    let tool = domain::PmToolCommand {
+        session_run_id: id,
+        key: "publish-original".into(),
+        kind: "revision".into(),
+        request: json!({"goal":"original"}),
+        result: None,
+        attempted: false,
+    };
+    repo.prepare_pm_tool(tool.clone()).await.unwrap();
+    assert!(
+        tokio::time::timeout(Duration::from_secs(2), repo.claim_pm_tool(id, &tool.key))
+            .await
+            .unwrap()
+            .unwrap()
+    );
+    assert!(!repo.claim_pm_tool(id, &tool.key).await.unwrap());
+    let mut changed = tool;
+    changed.request = json!({"goal":"changed"});
+    assert!(repo.prepare_pm_tool(changed).await.is_err());
+}
+
+#[tokio::test]
+async fn pm_downgrade_refuses_unknown_known_and_guidance_custody_without_changing_ledger() {
+    use migration::MigratorTrait;
+    let (repo, reservation, _) = setup().await;
+    let id = reservation.session_run_id;
+    let db = sea_orm::Database::connect(std::env::var("FLEET_TEST_DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+    let before = migration::Migrator::get_migration_models(&db)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|r| (r.version, r.applied_at))
+        .collect::<Vec<_>>();
+    assert!(repo.claim_pm_submission(id).await.unwrap());
+    for phase in ["unknown", "known", "guidance"] {
+        if phase == "known" {
+            repo.record_pm_submission(id, "run_custody".into())
+                .await
+                .unwrap();
+            repo.accept_pm_run(id, "run_custody".into(), "native-session".into())
+                .await
+                .unwrap();
+        }
+        if phase == "guidance" {
+            assert!(matches!(
+                repo.claim_pm_guidance(id, r#"{"input":"original"}"#.into())
+                    .await
+                    .unwrap(),
+                PmGuidancePermit::Claimed
+            ));
+        }
+        let original = repo.get_pm_dispatch(id).await.unwrap().unwrap();
+        let error = migration::Migrator::down(&db, Some(1))
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("PM dispatch custody prevents downgrade"));
+        assert!(repo.get_pm_dispatch(id).await.unwrap().unwrap() == original);
+        let after = migration::Migrator::get_migration_models(&db)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|r| (r.version, r.applied_at))
+            .collect::<Vec<_>>();
+        assert_eq!(before, after);
+        assert!(!repo.claim_pm_submission(id).await.unwrap());
+    }
 }
