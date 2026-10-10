@@ -579,9 +579,9 @@ class SourceContracts(unittest.TestCase):
                          "4db07a426b6f7d38e518bd2adc0e28b6067bbdbe")
 
     def test_current_unit_counts_expand_all_source_declarations(self):
-        self.assertEqual(gate.SOURCE_SHA, "ce4153f453e730dad1e315131d65ca030243264c")
-        self.assertEqual(gate.SOURCE_TREE, "67ea7aa66bf66f803226abbd4893be7517ca3317")
-        self.assertEqual(gate.SOURCE_PARENTS, ["32d096a8826275ebeef432e634ecb9b61c26547f"])
+        self.assertEqual(gate.SOURCE_SHA, "f9c5fa5c8014e51818bb9e67ced84edd40e7e892")
+        self.assertEqual(gate.SOURCE_TREE, "60e2fc0701a983b0b31294d0ea8b1330e795ed22")
+        self.assertEqual(gate.SOURCE_PARENTS, ["ce4153f453e730dad1e315131d65ca030243264c"])
         gate.qualify_source(ROOT)
         inventory = git_blob_inventory(gate.SOURCE_SHA)
         self.assertEqual(len(inventory), 903)
@@ -609,8 +609,11 @@ class SourceContracts(unittest.TestCase):
             self.assertEqual(gate.git(ROOT, "rev-parse", gate.SOURCE_SHA + ":" + path).decode().strip(), blob)
         index = "frontend/src/pages/chat-detail/index.test.tsx"
         self.assertEqual(gate.git(ROOT, "diff", "--exit-code",
-                                  "9d7775cd1b871a0de5579a5047268b244ba8e395", gate.SOURCE_SHA,
+                                  "9d7775cd1b871a0de5579a5047268b244ba8e395", gate.SOURCE_PARENTS[0],
                                   "--", index), b"")
+        self.assertEqual(gate.git(ROOT, "diff", "--name-only", gate.SOURCE_PARENTS[0], gate.SOURCE_SHA),
+                         (index + "\n").encode())
+        self.assertEqual(inventory[index], "4dc0d8da86896dbf814845250b8b62c0bac4c539d0856423aa32a757bdad98a4")
         for removed in ("frontend/src/pages/chat-detail/run-controls.test.tsx",
                         "frontend/src/shared/chat-control-recovery.test.ts"):
             self.assertNotIn(removed, inventory)
