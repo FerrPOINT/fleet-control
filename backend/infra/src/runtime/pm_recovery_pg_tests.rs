@@ -556,8 +556,8 @@ async fn production_concurrent_submission_cas_and_ack_keep_one_native_effect() {
     eprintln!("\nFLEET_PM_RECOVERY_PHASE=concurrent_submit_entered");
     let (first, second) = tokio::time::timeout(Duration::from_secs(20), async {
         tokio::join!(
-            submit(&f.supervisor, &f.agent, &f.intent, authorize()),
-            submit(&other, &f.agent, &f.intent, authorize())
+            Box::pin(submit(&f.supervisor, &f.agent, &f.intent, authorize())),
+            Box::pin(submit(&other, &f.agent, &f.intent, authorize()))
         )
     })
     .await
