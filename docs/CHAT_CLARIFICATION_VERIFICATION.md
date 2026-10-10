@@ -35,7 +35,7 @@ its timestamp nor byte identity. This import is fixture evidence, not live accep
 
 The preceding successful packet and discovered defect are preserved below.
 
-Latest terminal backend observation
+Earlier backend SIGABRT-only observation
 [38079858809](https://github.com/FerrPOINT/fleet-control/actions/runs/38079858809)/1
 is FAILURE on controls `8ce324536f450f3893ed95f1b43cf683048f0723`, product
 `3fcbe6288dfb52d6b56eed5068ee364532ac84f6`. Parent and Pascal independently
@@ -53,10 +53,33 @@ Reviewed normal successor `78d3727e196ed17af3af371e3a56936e556cd7e8` is
 published. It adds only a fixed fatal category, requiring complete adjacent
 source-attested headers plus independently parsed nontruncated/nonconflicting
 SIGABRT. All172 prior pure identities and all84 gates remain;177 Linux pure
-tests pass without skips (Windows174 PASS/three platform skips). This diagnostic
-mechanism is not an observed fatal header or a product correction. Actual
+tests pass without skips (Windows174 PASS/three platform skips). Publication
+alone is not an observed fatal header or a product correction.
+
+Latest terminal backend observation
 [38081721112](https://github.com/FerrPOINT/fleet-control/actions/runs/38081721112)/1
-started on that exact head; no terminal result is recorded here.
+is FAILURE on exact controls `78d3727e196ed17af3af371e3a56936e556cd7e8`
+and product `3fcbe6288dfb52d6b56eed5068ee364532ac84f6`. Parent and Pascal
+independently verify original strict failure readback of artifact11681012075,
+ZIP SHA256 `ce46de37ac01cd18a510cf3e954bb4492d09fcf91b1a93fcb94e847a88d9ff14`.
+The failure is pm_recovery_pg13/84, gate exit101, categories
+`runtime_stack_overflow` and `unknown`, readable/untruncated stage log and
+harness SIGABRT; command exit and harness exit are null. Failed-test and
+diagnostic/frame lists are empty. Both scratch and synthetic database cleanup
+are true; all acceptance flags remain false. The preceding twelve gates pass,
+not all84 or the later dedicated024 qualification.
+
+The fixed enum attests complete adjacent Rust stack-overflow headers from an
+allowlisted test thread plus independently reported nonconflicting SIGABRT.
+This is actual stack-overflow evidence, not identification of a particular test,
+future or source line. The earlier8ce run retains its SIGABRT-only unknown
+classification; it is not retrospectively upgraded. Reviewed candidate
+`b97e1e6933d1c6156afc629708b53204cff6680a` is published as the normal sole child
+ofe90, changing only the three test-fixture await sites to Box::pin in
+pm_recovery_pg_tests.rs. Parent reports rustfmt/diff and independent review
+pass; no compilation or fresh CI result is claimed. This is not a proven fix
+or a measured overflowing future. Only a fresh reviewed exact-source gate can
+qualify that candidate. No raw private log or assertion body is retained here.
 
 Earlier backend admission refusal
 [38078901349](https://github.com/FerrPOINT/fleet-control/actions/runs/38078901349),
