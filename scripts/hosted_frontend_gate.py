@@ -17,9 +17,9 @@ import zlib
 
 REPOSITORY = "FerrPOINT/fleet-control"
 BRANCH = "build-only/frontend-main-union-20261010"
-SOURCE_SHA = "60d030ff9e73e59cec6e9ef0f804ce9c8f47b42a"
-SOURCE_TREE = "e44dece7415901725cdf3aaa47edfa1c9cd6a898"
-SOURCE_PARENTS = ["423e992cd70ccf95018ea6e080ff3fe742ea19d5", "708bc5f8d7da0cfd4db20919e0272f338da45e6b"]
+SOURCE_SHA = "ff012d35241c91e2a8eed6e3676a2074230c0458"
+SOURCE_TREE = "82c8a59c9efdf001a1017ede41c345cb1079b14f"
+SOURCE_PARENTS = ["4e0e185fb3061a08cd9e1e004f66af390bb9c020"]
 BASE_SHA = "19a7a381ae6dbea61a643bb96189e483fa64df5c"
 BASE_TREE = "aa1a0486af1922c5a7fd4471e71e4fbb6aa4c7cc"
 BASE_MATERIALIZED_FILES = {
@@ -36,7 +36,7 @@ NODE = "22.20.0"
 PNPM = "10.28.1"
 QUALIFIED_UNIT_COUNTS = dict(files_passed=41, tests_passed=460, files_skipped=0, tests_skipped=0)
 QUALIFIED_INPUTS = {
-    "source_inventory_sha256": "73608daeabf114af613ca51b98cafa61e60f4b8e290dd9ea5f07a466df42e955",
+    "source_inventory_sha256": "cebeca889ccac2d1b8d3fff4514c8dcf83711537d2f3b3f17518b5d231bdbc01",
     "base_inventory_sha256": "437244f3861d17356cbe33162dceca877aea74d82dccae9b9b1a2915b62ee444",
     "frontend_lock_sha256": "37918d9d24852a14f24c43a593777e99d36e0e58de2e7b9a58a4415fd927fb67",
     "base_lock_sha256": "149adc7015cd1b7fa1d093e5501156ed6e149efbc82b222c82a2797912261fb4",

@@ -579,10 +579,9 @@ class SourceContracts(unittest.TestCase):
                          "4db07a426b6f7d38e518bd2adc0e28b6067bbdbe")
 
     def test_current_unit_counts_expand_all_source_declarations(self):
-        self.assertEqual(gate.SOURCE_SHA, "60d030ff9e73e59cec6e9ef0f804ce9c8f47b42a")
-        self.assertEqual(gate.SOURCE_TREE, "e44dece7415901725cdf3aaa47edfa1c9cd6a898")
-        self.assertEqual(gate.SOURCE_PARENTS, ["423e992cd70ccf95018ea6e080ff3fe742ea19d5",
-                                              "708bc5f8d7da0cfd4db20919e0272f338da45e6b"])
+        self.assertEqual(gate.SOURCE_SHA, "ff012d35241c91e2a8eed6e3676a2074230c0458")
+        self.assertEqual(gate.SOURCE_TREE, "82c8a59c9efdf001a1017ede41c345cb1079b14f")
+        self.assertEqual(gate.SOURCE_PARENTS, ["4e0e185fb3061a08cd9e1e004f66af390bb9c020"])
         gate.qualify_source(ROOT)
         inventory = git_blob_inventory(gate.SOURCE_SHA)
         self.assertEqual(len(inventory), 905)
@@ -616,7 +615,7 @@ class SourceContracts(unittest.TestCase):
                            gate.SOURCE_SHA, "--", "frontend").decode().splitlines()
         self.assertEqual({path: inventory[path] for path in changed}, {
             "frontend/src/pages/chat-detail/binding.test.tsx": "53c60ade429f164c2d8a34079fe538c78abd3e60d4d0e5b538ceb11efe726f62",
-            index: "ac5b0775eb33d9b64f00987a2cff5943269fac93d6c98b02dac67fc542a14bec",
+            index: "09cd2de75a4949b7ff82867b7c203a1dfccf0440b2caa43512087aca50b26746",
             "frontend/src/pages/chat-detail/task-detail.tsx": "099c19f24ccf9618270befc4dc163109a7bf528a0f5961fae741633c163f8dab",
             "frontend/src/pages/chats/index.test.tsx": "a22b909fc5df7547868210ada833b03afecbc850a34d78d53972c4e112c099fe",
         })
