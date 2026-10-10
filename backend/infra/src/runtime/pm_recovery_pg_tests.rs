@@ -198,6 +198,7 @@ async fn fixture(lost_ack: bool, concurrent: bool) -> Fixture {
     launch.prepared.configuration_sha256 = None;
     launch.prepared.container.registration.container_id = generation.simple().to_string().repeat(2);
     launch.prepared.container.registration.resource_id = agent.id;
+    launch.prepared.container.registration.network_sha256 = Some("f".repeat(64));
     launch.prepared.container.registration.policy_sha256 =
         container_control::canonical_hash(&policy).unwrap();
     launch.prepared.container.registration.compose_sha256 =
@@ -211,12 +212,21 @@ async fn fixture(lost_ack: bool, concurrent: bool) -> Fixture {
     launch.prepared.container.source_sha256 =
         super::super::super::container_lifecycle::UTILITY_SHA256.map(str::to_owned);
     let r = &launch.prepared.container.registration;
+    container_control::validate_registration(r).unwrap();
     let snapshot = json!({"contract_version":2,"container_id":r.container_id,"engine":r.engine,
         "policy_sha256":r.policy_sha256,"inventory_sha256":r.running_inventory_sha256,
+        "network_sha256":r.network_sha256,
         "started_at":"2026-10-10T00:00:00Z","init_pid":42});
     let receipt = json!({"contract_version":2,"operation_id":r.operation_id,"container_id":r.container_id,
         "resource_id":r.resource_id,"generation":generation,"registration_sha256":container_control::canonical_hash(r).unwrap(),
         "state":"observed","observation":"running","snapshot":snapshot});
+    container_control::validate_receipt(
+        &serde_json::from_value(receipt.clone()).unwrap(),
+        r,
+        0,
+        "observe",
+    )
+    .unwrap();
     // The executable is a controlled process boundary, not a Docker/Base emulator.
     // Canonical utility bytes are still verified by production ContainerControl.
     std::fs::write(&python, format!(
