@@ -2,53 +2,51 @@
 
 ## Current Open Release Gates: 10 October 2026
 
-Status: open. This checklist does not narrow the approved runtime/execution
-objective to already implemented code. Exact source/check boundaries are in
-[Current State](CURRENT_STATE.md#current-integration-snapshot-10-october-2026).
-Historical attempts are in [gap history](GAP_REGISTER_HISTORY_2026-10-10.md).
+Status: open. The approved runtime/execution objective is not narrowed to code
+already implemented. [CURRENT_STATE](CURRENT_STATE.md) records exact current
+source/check evidence; [delivery order](REMAINING_DELIVERY_WORK.md) identifies
+workstreams without duplicating the history of every qualification attempt.
 
 ## Required Before Merge-Ready
 
-| Gate                           | Current limitation                                                                                                                                                                                                | Exit evidence                                                                                                                                                                                                                                 |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Isolated agents/configuration  | Authority repair and test-only drain correction merged; earlier full32b PG receipt still fails recovered stop                                                                                                     | Current-source PG lifecycle, marker/path/junction safety, effective config, drain/activation/rollback and readiness tests pass; no config change under an active run                                                                          |
-| Tracker assignment consumption | PM has a dedicated path; no generic seven-role lease consumer. Analysis reservation is prepared, not dispatch authority; other non-PM lifecycles remain producer gaps                                             | Fresh owner/project/assignment, effective config, lease/fence, heartbeat and first-step checks; stale lease/replacement cannot cause side effects; no Hermes patch                                                                            |
-| Hermes dispatch/recovery       | Bounded original-key PM unknown-ACK replay is source-reviewed/integrated, not production-path PG/native-qualified; no optional free-chat extension prerequisite                                                   | Exact request/key survives unknown acceptance and restart; one native run; stream EOF is not completion; final transcript persists once                                                                                                       |
-| PM structured tools            | Six tool source paths are integrated, not live-qualified                                                                                                                                                          | Real scoped Base/Tracker/Workflow calls; no owner impersonation; current phase after advancement; report retry reuses the original immutable body/key                                                                                         |
-| PM answer continuation         | Delivered-pending discovery and original-ID recovery published; unprovable legacy delivered PM history explicitly blocks023 upgrade                                                                               | Current-source PG/HTTP proof, historical-data rehearsal and authoritative reconciliation where needed; old run terminal proof and exact checkpoint/rebind before confirmed continuation                                                       |
-| PM stream and human controls   | Shared stream/final/recovery and controls integrated; sourcec59 passes all-target check but Clippy fails at task_chats.rs:65:5 before PG                                                                          | Current-source Rust compilation and tests, real messages/deltas/final response, reconnect/restart attachment, owner stop/steer and safe-stop readback; approval is run/action-bound and audited                                               |
-| Idle PM dialogue               | Workflow66e5d6d still requires a genuine waiting checkpoint and answer event for resume; its Draft assignment is not an idle turn                                                                                 | Supported existing contract for a new idle turn, or an explicit producer dependency and visible capability restriction; no fabricated question/checkpoint or silent free-chat fallback                                                        |
-| Production Chats               | Three tabs have source/component evidence; latest browser attempt reaches41 passing Chromium cases then times out in the unauthenticated runtime-control fixture. PM creation still has no production form caller | Connected PM creation/recovery entrypoint, agent-to-task navigation, own-user filters, owner-only answers/confirmation, conflict input preservation, delivery/continuation partial success, denied/count/stream isolation; three engines pass |
-| Requirements/confirmation      | Gateway and exact-revision UI are not full vertical acceptance                                                                                                                                                    | Real PM questions, saved owner answers, final full revision/hash, separate owner confirmation and actual Tracker Backlog; stale revision and operator proxy confirmation rejected                                                             |
-| Forge task delivery            | Source candidate and isolated harness do not prove installed task attempts                                                                                                                                        | Candidate branch/exact SHA, real repo pipeline, attempt leases, artifacts and deployment/health/acceptance receipts; negative receipt checks and rollback; full12 success                                                                     |
-| Base shared utilities          | Maintenance6602c63 is published with normal main reconciliation and unchanged helper blobs; latest private CI is billing-blocked before any step                                                                  | Required auth/scopes and maintenance packet verified on exact source; safe installer/cleanup and real consumer checks; no business scheduler/clarification logic in Base                                                                      |
-| Contracts/migrations/API       | Rust OpenAPI on source4449 passes with authenticated artifact11667814381; schema unchanged and TypeScript regenerated; full workspace/DB/HTTP checks remain                                                       | Current Rust/PG/HTTP tests, clean migration up/down/history preservation, generated OpenAPI/client and producer contract comparisons on the final heads                                                                                       |
-| Screenshots/docs/release       | Old screenshots and historical receipts are not current production proof                                                                                                                                          | Fresh required viewport captures/manifest, visual review, docs/link/redaction/Compose gates, separate reviewed task-owned PRs and exact remote heads                                                                                          |
-| Live acceptance                | No completed genuine PM or full runtime/execution acceptance receipt for this assembly                                                                                                                            | Compatible services complete approved live and negative flows, including restart/unknown outcomes, without duplicate chats/answers/runs or false business success                                                                             |
+| Gate                     | Current limitation                                                                                                                                               | Exit evidence                                                                                                                                                                                                |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Combined source          | Latest Chats foundation and PM runtime assembly are being reconciled; independent corrections alone do not qualify the union                                     | Reviewed normal merge preserving both histories, task-bound access, paginated private history, owner controls and original command custody                                                                   |
+| Agents/configuration     | Lifecycle and revisions exist; complete current-source PG/native qualification remains open                                                                      | Path/marker/junction safety, real two-agent isolation, readiness, drain/activation/interrupted recovery/rollback; peer unchanged and no replacement under an active run                                      |
+| Tracker assignments      | Dedicated PM path exists; no generic seven-role execution consumer. Analysis reservation is not dispatch authority; other non-PM lifecycles remain producer gaps | Compatible producer-backed ownership, assignment, effective config, lease/fence, heartbeat and first step; stale/replaced execution cannot perform side effects                                              |
+| Hermes dispatch/recovery | Bounded original-key PM replay is reviewed, not fully production-path qualified                                                                                  | Original request/key survives crash/unknown acceptance; one native run; durable stream/final mirror once; EOF never implies completion                                                                       |
+| PM tools                 | Six source paths exist, not live-qualified                                                                                                                       | Real scoped Tracker/Workflow/Base calls; no owner impersonation; current assignment checked; retries retain immutable body/key                                                                               |
+| PM continuation          | Delivered-pending discovery/original-ID recovery exist; unprovable legacy delivered history blocks023 upgrade                                                    | PG/HTTP and historical-data rehearsal; real old-run terminal/safe-stop proof and exact checkpoint/rebind before confirmed continuation                                                                       |
+| PM stream/controls       | Source3c passes fmt/check, then fails three Clippy findings; reviewed correction awaits combined-source qualification                                            | Complete Rust/PG gate, actual delta/final/reconnect, owner stop/steer, safe-stop readback and audited run/action-bound approvals                                                                             |
+| Idle PM dialogue         | Workflow requires a genuine waiting checkpoint and answer event, not an arbitrary idle turn                                                                      | Supported producer contract, or explicit capability restriction; no fabricated question/checkpoint or silent free-chat fallback                                                                              |
+| Production Chats         | Latest Chromium attempt passes42 cases then times out in clarification recovery; creation form remains an isolated preview                                       | Reviewed production creation/recovery entrypoint, agent-to-task navigation, filters, owner-only actions, preserved drafts, explicit partial success and foreign-user/count/stream denial; three engines pass |
+| Requirements             | Gateway and exact-revision UI are not live vertical acceptance                                                                                                   | Real questions/answers/final document, owner exact revision/hash confirmation and actual Tracker Backlog; stale revision and operator proxy rejected                                                         |
+| Forge                    | First partition of the latest full12 successor passes; later execution/receipts remain unqualified                                                               | Terminal exact-source full12; actual candidate SHA/repo pipeline/attempt/artifact/deployment/health/acceptance receipts and rollback; scoped cleanup                                                         |
+| Base                     | Task-owned maintenance6602c63 is published; private CI stopped before any step on billing/spending limits                                                        | Required auth/scopes/maintenance input verified on exact source and native consumers; no business scheduler or clarification logic in Base                                                                   |
+| Contracts/migrations     | Source3c Rust OpenAPI and seven producer DTO comparisons pass; foundation changes require regeneration                                                           | Final-source generated API/client, clean DB migrations/history preservation, PG/HTTP and contract checks                                                                                                     |
+| Docs/screens/release     | Existing captures and historical receipts do not qualify a new assembly                                                                                          | Fresh required viewports/manifest and visual review; links/redaction/Compose gates; separate reviewed task-owned PRs and exact remote heads                                                                  |
+| Live acceptance          | No genuine complete PM or full runtime/execution acceptance receipt for this assembly                                                                            | Compatible services complete approved positive/negative flows and seven-agent delivery/integration without duplicate work or false success                                                                   |
 
 ## Execution Rules
 
-- Source corrections `8b1f350` (Clippy guard) and `8f53740` (authenticated private
-  runtime-control fixture) address the latest observed source defects, not full
-  acceptance. Keep the c59 failures above until a new exact-source gate qualifies
-  the successors; regenerate Rust OpenAPI after the API implementation change.
-- Reuse existing supervisor, stream decoder and command journals. Keep PM business
-  state in Tracker/Workflow; do not create another scheduler, transcript engine
-  or generic orchestration framework.
-- Keep Fleet/Forge/Base commits separate and preserve other work. Existing
-  narrower PRs remain dependencies, not vehicles for an unrelated broad diff.
-- Do not modify Tracker, Workflow or Hermes to manufacture a passing consumer
-  test. Record an actual missing producer contract explicitly.
-- Local resource guards still apply. A hosted or pure-control result is not an
-  installed-runtime result; Linux-only skips are not passing native checks.
-- Run completion, tool acceptance and workflow stage completion are different.
-  Requirements confirmation is a separate owner decision, not a PM tool action.
-- Existing tasks/chats are not automatically enrolled in SDLC. Rollout stays
-  opt-in; disablement preserves history and stops new assignments.
+- Use one reviewed source candidate for the next qualification cycle. Reuse the
+  existing supervisor, stream decoder, command journals and CI checks; do not
+  introduce another scheduler, transcript engine or generic controls framework.
+- Keep Fleet/Forge/Base commits separate and preserve other work. Narrower
+  foundation/configuration PRs remain dependencies, not vehicles for unrelated
+  broad diffs. Preserve Git history without force push.
+- Do not modify read-only Tracker/Workflow or unchanged Hermes to manufacture a
+  passing consumer. Record actual missing producer contracts explicitly.
+- Local resource guards remain mandatory. Pure checks and platform skips are not
+  native acceptance; a successful source generation is not a successful runtime.
+- Answer persistence, delivery, run completion, workflow completion and owner
+  requirements confirmation are separate states.
+- Existing tasks/chats stay unenrolled. Opt-in disablement preserves history and
+  prevents new assignments, rather than silently cancelling active work.
 
-The seven-agent/full automatic delivery and integration acceptance remains in
-[SDLC_IMPLEMENTATION](SDLC_IMPLEMENTATION.md); the narrower PM vertical plan
-does not remove that later runtime/execution obligation. Follow the
-[approved clarification plan](CHAT_CLARIFICATION_IMPLEMENTATION_PLAN.md) and
-[contract](contracts/CHAT_CLARIFICATION_CONTRACT.md), with the unchanged-Hermes
-scope decision taking precedence over historical custom-handshake proposals.
+The [clarification plan](CHAT_CLARIFICATION_IMPLEMENTATION_PLAN.md) is a vertical
+slice, not removal of the [full SDLC obligation](SDLC_IMPLEMENTATION.md).
+The unchanged-Hermes [contract decision](contracts/CHAT_CLARIFICATION_CONTRACT.md)
+supersedes historical custom-handshake proposals. Older limitations and receipts
+remain in [gap history](GAP_REGISTER_HISTORY_2026-10-10.md) and the
+[previous gap snapshot](https://github.com/FerrPOINT/fleet-control/blob/3c900b00f15aeda2016a45d080d850fa028cdcfd/docs/GAP_REGISTER.md).
