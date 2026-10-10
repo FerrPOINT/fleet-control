@@ -513,7 +513,13 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
             session_id: op.session_id.unwrap(),
             user_id: op.owner_user_id,
             subject: op.owner_subject.clone(),
-            binding: op.identity().unwrap(),
+            binding: fixture
+                .remote
+                .repo
+                .get_task_chat_binding(op.session_id.unwrap())
+                .await
+                .unwrap()
+                .expect("persisted task-chat binding"),
         };
         let saved = fixture
             .remote
