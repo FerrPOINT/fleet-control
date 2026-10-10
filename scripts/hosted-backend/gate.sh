@@ -12,7 +12,7 @@ run_tests() {
   stage=$1
   shift
   local log=${QA_OUTPUT}/$stage.log expected=${QA_EXPECTED}/$stage.txt count ignored=0
-  if [[ "$stage" == foundation ]]; then ignored=119; fi
+  if [[ "$stage" == foundation ]]; then ignored=124; fi
   local exact=()
   if [[ "$stage" == lookup_* || "$stage" == control_api || "$stage" == container_preparation_projection ]]; then exact=(--exact); fi
   test -s "$expected"
@@ -120,6 +120,9 @@ run_tests api2 -p api --lib routes::pm_runtime::tests::
 run_tests credentials_unit -p infra --lib pm_credentials::
 run_tests credentials_pg -p infra --test sdlc_foundation pm_credential_creation::
 run_tests foundation -p infra --test sdlc_foundation
+stage=pm_human_controls
+cargo test --locked -p infra --test sdlc_foundation pm_human_controls:: -- --ignored --test-threads=1 2>&1 | tee "$QA_OUTPUT/$stage.log"
+passed
 run_tests config_api -p api --lib routes::sdlc_configuration::tests::
 run_tests base_package_unit -p infra --lib base_package::tests::
 run_tests config_files_unit -p infra --lib effective_configuration::tests::
@@ -253,6 +256,8 @@ stage=migration_smoke
   cargo run --locked -p migration -- status
   migration_snapshot up
   cargo run --locked -p migration -- down -n 1
+  migration_snapshot down_human
+  cargo run --locked -p migration -- down -n 1
   migration_snapshot down_pm
   cargo run --locked -p migration -- down -n 1
   migration_snapshot down_alias
@@ -269,7 +274,9 @@ stage=migration_smoke
   migration_snapshot alias_reapply
   cargo run --locked -p migration -- up -n 1
   migration_snapshot pm_reapply
-  cargo run --locked -p migration -- down -n 23
+  cargo run --locked -p migration -- up -n 1
+  migration_snapshot human_reapply
+  cargo run --locked -p migration -- down -n 24
   cargo run --locked -p migration -- status
   migration_snapshot down_all
   cargo run --locked -p migration -- up
