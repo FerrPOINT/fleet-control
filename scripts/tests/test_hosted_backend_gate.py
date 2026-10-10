@@ -168,6 +168,23 @@ class HostedBackendTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "binding is pending"):
                 gate.validate_readback(run, artifact, payload, **args)
 
+    def test_human_final_sql_source_delta_is_exact_seven_paths_and_preserves_codegen_api_inputs(self):
+        previous = "31ab4e90b77f389b7bc5f6cfaf5f4b3d38f2d75e"
+        delta = subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT), "diff", "--name-only",
+            previous, gate.SOURCE_SHA], capture_output=True, check=True, timeout=30).stdout.decode().splitlines()
+        self.assertEqual(set(delta), {"backend/infra/tests/support/pm_human_controls.rs",
+            "backend/migration/src/m20261010_000023_pm_human_controls.rs", "docs/CURRENT_STATE.md",
+            "docs/GAP_REGISTER.md", "docs/OPERATIONS.md", "docs/SECURITY.md", "docs/TESTING.md"})
+        roots = ("backend/api", "backend/app", "backend/domain", "backend/shared", "backend/infra/src",
+                 "backend/Cargo.lock", "backend/Cargo.toml", ".base-revision", "openapi")
+        stable = subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT), "diff", "--name-only",
+            previous, gate.SOURCE_SHA, "--", *roots], capture_output=True, check=True, timeout=30).stdout
+        self.assertEqual(stable, b"")
+        self.assertEqual(self.source_blob("openapi/openapi.json"), self.source_blob("openapi/openapi.json", previous))
+        # API-input parity does not authenticate the still-pending producer artifact.
+        with self.assertRaisesRegex(ValueError, "binding is pending"):
+            gate.require_codegen_binding(REVIEWED)
+
     def test_successor_preserves_all_frozen_controls_gates_guards_and_input_pins(self):
         import ast
         donor = "084d9f0f7b94953251b58a912b32b92cedbda020"
@@ -294,10 +311,10 @@ class HostedBackendTests(unittest.TestCase):
                     gate.verify_test_log(stage, bad, REVIEWED)
 
     def test_successor_source_tree_and_six_lf_controls_remain_closed(self):
-        self.assertEqual(gate.SOURCE_SHA, "31ab4e90b77f389b7bc5f6cfaf5f4b3d38f2d75e")
+        self.assertEqual(gate.SOURCE_SHA, "dd5744e34cfd6d69dc7cffad882bdd635a887253")
         tree = subprocess.run(["git", "-C", str(ROOT), "rev-parse", gate.SOURCE_SHA + "^{tree}"],
             capture_output=True, check=True, timeout=30).stdout.decode().strip()
-        self.assertEqual(tree, "9b51d60334080a2486b7c232d03399ce5b89729f")
+        self.assertEqual(tree, "ca6baf087ad5632ea6959abe5d4e302005f67a11")
         delta = subprocess.run(["git", "-C", str(ROOT), "diff", "--name-status", gate.SOURCE_SHA],
             capture_output=True, check=True, timeout=30).stdout.decode()
         gate.validate_delta(delta)

@@ -241,7 +241,7 @@
     "fleet-control/backend/infra/tests/support/pm_dispatch.rs": "9fef7de8cf3786b29a93fe659de900e4be228986910263a4989ecfc8ed39e71d",
     "fleet-control/backend/infra/tests/support/pm_draft_creation.rs": "ac8266c52998abb22702b5a2a454ae101471cbfc4d84a53d7846f0e0ebd8883f",
     "fleet-control/backend/infra/tests/support/pm_events.rs": "c00dce8c2a4f6eb5bbb04fdc3ee9a648c32ff6e6b00d8ca1f4d5a8dda5cd5932",
-    "fleet-control/backend/infra/tests/support/pm_human_controls.rs": "eb9014a5d4c271bbcf72eada293fd88b0ba073b6bea88342837e4e2e73910554",
+    "fleet-control/backend/infra/tests/support/pm_human_controls.rs": "44814b10d01d8404ea575f1ec0bf71ca84344973d5e0997066161e86ff497050",
     "fleet-control/backend/infra/tests/support/runtime_acceptance.rs": "45416320e99ce5a9d6315ec2c973ab045a4ba3cbfad019100c4adbe0e953b993",
     "fleet-control/backend/infra/tests/support/runtime_acceptance_readback_http.rs": "c8d19de02071414eab6f886e2daa66c43d7aa923d3b0328fae33c62381a99c55",
     "fleet-control/backend/infra/tests/support/runtime_approval_recovery.rs": "354fc369572c6ded6ab9558ea34b6ca512a352fdd9f4a52500d32fddfaf9d9b8",
@@ -283,7 +283,7 @@
     "fleet-control/backend/migration/src/m20261010_000020_clarification_commands.rs": "d5faa9357728d88ad6add184f0bac57422fd15a0ffe99cda5004af81af4615c6",
     "fleet-control/backend/migration/src/m20261010_000021_activation_authority_alias.rs": "9e72de2d30f81dfe0b9787cc5aaa2b59f6572861352c48b35e1d56d737a9c39f",
     "fleet-control/backend/migration/src/m20261010_000022_pm_dispatch.rs": "2665d63e0c24fa94bb02f5c1e37ba1639d93f8d9c538ad6dcc203e27281e46ed",
-    "fleet-control/backend/migration/src/m20261010_000023_pm_human_controls.rs": "f4e8e1eda4eed6c5a9f44c3ab26883c0c1fdde5541b8f9e8ce1aaef5e63146d0",
+    "fleet-control/backend/migration/src/m20261010_000023_pm_human_controls.rs": "27a54c08073e054ce8498ad8cc4f14e8c3866418627f5533bd3750c96c00f51e",
     "fleet-control/backend/migration/src/main.rs": "f3b909b740d719ab257a55470645cd293f07a01cec34a804ee679a17e8c9427c",
     "fleet-control/backend/migration/tests/central_subject.rs": "23b3a4e4b2cad68436acb6e8860c31927311ea1879083195c179185338a5e275",
     "fleet-control/backend/migration/tests/clarification_commands.rs": "6155a6b7445c7a9a74ec581a51b09ef04a89e790738458c1f6437263e69f4063",
@@ -311,7 +311,7 @@
     "fleet-control/backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "fleet-control/backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a",
     "fleet-control/backend/tests/fixtures/.gitkeep": "1d85c5ed38a3fd81f2faaea018843e4fe329fd190486a34000e756cfba90a618",
-    "fleet-control/docs/TESTING.md": "c5f4df48331ff10412614dd8b8f6b57c6041a4c005f5a1543f49701f42650545",
+    "fleet-control/docs/TESTING.md": "f2655cfe3b621a176b82955db76bdbbcc43c966478162976512ce4f44ee61230",
     "fleet-control/openapi/README.md": "2ede8bc480b593789d2192f5f5e82c21475921d616f063cb3bfe2a9dd55ebfe3",
     "fleet-control/openapi/openapi.json": "ad980604beb2cff0890f4d1a07a185c97a444fda166985f2a6da465a222d129c",
     "fleet-control/scripts/check_container_activation_contract.py": "80569d79dfef7cf3f16126eb0523ca1ad3da8941cdd255d8290dbcf9fc1fa12a",
@@ -435,7 +435,7 @@
       "workflow_commit": "b22971dbfbc0476b7789f94fa28999581e17da08"
     },
     "prior_stages_preserved": 74,
-    "source_commit": "31ab4e90b77f389b7bc5f6cfaf5f4b3d38f2d75e"
+    "source_commit": "dd5744e34cfd6d69dc7cffad882bdd635a887253"
   },
   "default_foundation_ignored": 124,
   "executed": false,
@@ -1560,7 +1560,7 @@
     },
     {
       "gate": "pm_human_controls",
-      "line": 1340,
+      "line": 1372,
       "name": "pm_human_controls::pm_control_migration_rejects_forged_original_dispatch_tuple_without_a_receipt",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_human_controls.rs",
@@ -2871,7 +2871,7 @@
     "backend/infra/tests/support/pm_dispatch.rs": "9fef7de8cf3786b29a93fe659de900e4be228986910263a4989ecfc8ed39e71d",
     "backend/infra/tests/support/pm_draft_creation.rs": "ac8266c52998abb22702b5a2a454ae101471cbfc4d84a53d7846f0e0ebd8883f",
     "backend/infra/tests/support/pm_events.rs": "c00dce8c2a4f6eb5bbb04fdc3ee9a648c32ff6e6b00d8ca1f4d5a8dda5cd5932",
-    "backend/infra/tests/support/pm_human_controls.rs": "eb9014a5d4c271bbcf72eada293fd88b0ba073b6bea88342837e4e2e73910554",
+    "backend/infra/tests/support/pm_human_controls.rs": "44814b10d01d8404ea575f1ec0bf71ca84344973d5e0997066161e86ff497050",
     "backend/infra/tests/support/runtime_acceptance.rs": "45416320e99ce5a9d6315ec2c973ab045a4ba3cbfad019100c4adbe0e953b993",
     "backend/infra/tests/support/runtime_acceptance_readback_http.rs": "c8d19de02071414eab6f886e2daa66c43d7aa923d3b0328fae33c62381a99c55",
     "backend/infra/tests/support/runtime_approval_recovery.rs": "354fc369572c6ded6ab9558ea34b6ca512a352fdd9f4a52500d32fddfaf9d9b8",
@@ -2912,7 +2912,7 @@
     "backend/migration/src/m20261010_000020_clarification_commands.rs": "d5faa9357728d88ad6add184f0bac57422fd15a0ffe99cda5004af81af4615c6",
     "backend/migration/src/m20261010_000021_activation_authority_alias.rs": "9e72de2d30f81dfe0b9787cc5aaa2b59f6572861352c48b35e1d56d737a9c39f",
     "backend/migration/src/m20261010_000022_pm_dispatch.rs": "2665d63e0c24fa94bb02f5c1e37ba1639d93f8d9c538ad6dcc203e27281e46ed",
-    "backend/migration/src/m20261010_000023_pm_human_controls.rs": "f4e8e1eda4eed6c5a9f44c3ab26883c0c1fdde5541b8f9e8ce1aaef5e63146d0",
+    "backend/migration/src/m20261010_000023_pm_human_controls.rs": "27a54c08073e054ce8498ad8cc4f14e8c3866418627f5533bd3750c96c00f51e",
     "backend/migration/src/main.rs": "f3b909b740d719ab257a55470645cd293f07a01cec34a804ee679a17e8c9427c",
     "backend/migration/tests/central_subject.rs": "23b3a4e4b2cad68436acb6e8860c31927311ea1879083195c179185338a5e275",
     "backend/migration/tests/clarification_commands.rs": "6155a6b7445c7a9a74ec581a51b09ef04a89e790738458c1f6437263e69f4063",
@@ -2937,7 +2937,7 @@
     "backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a"
   },
-  "source_commit": "31ab4e90b77f389b7bc5f6cfaf5f4b3d38f2d75e",
+  "source_commit": "dd5744e34cfd6d69dc7cffad882bdd635a887253",
   "utility_source_sha256": {
     "scripts/runtime_bootstrap.py": "5be8066b6f7dc68f8dda7f1040c0626dad272477c019b07263821df7f86b59a2",
     "scripts/runtime_boundary.py": "2e6bfa6907b93e6d436d2b6668ae20211aca53a64c433f7e1a98ab51245b3e89",

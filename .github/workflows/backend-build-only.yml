@@ -68,7 +68,7 @@ jobs:
         timeout-minutes: 2
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: 31ab4e90b77f389b7bc5f6cfaf5f4b3d38f2d75e # PM human-controls union; new authentic codegen binding pending.
+          ref: dd5744e34cfd6d69dc7cffad882bdd635a887253 # PM human-controls final SQL fixes; authentic codegen binding pending.
           path: fleet-control
           persist-credentials: false
       - name: Check out pinned build SDK
@@ -169,7 +169,7 @@ jobs:
           ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
         run: |
           {
-            printf 'Source: `%s`\n\n' 31ab4e90b77f389b7bc5f6cfaf5f4b3d38f2d75e
+            printf 'Source: `%s`\n\n' dd5744e34cfd6d69dc7cffad882bdd635a887253
             printf 'Workflow commit: `%s`\n\n' "$GITHUB_SHA"
             printf 'Run/attempt: `%s/%s`\n\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
             printf 'Artifact ID: `%s`\n\n' "$ARTIFACT_ID"
