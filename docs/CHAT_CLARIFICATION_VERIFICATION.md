@@ -102,7 +102,7 @@ pass at publication, not compilation or fix acceptance. The actual successor
 attempt below failed; no particular overflowing future is measured. No raw
 private log or assertion body is retained here.
 
-Latest terminal backend observation
+Earlier backend fixture-candidate failure
 [38083840384](https://github.com/FerrPOINT/fleet-control/actions/runs/38083840384)/1
 is FAILURE on exact controls `b9a81c8cb375bfe87a6531e001e16a7a1f4da4b7`
 and source `b97e1e6933d1c6156afc629708b53204cff6680a`.
@@ -126,11 +126,45 @@ Controls normally mergeb9 with6768 asa7, followed by reviewed capture correction
 with four required completions (three functional plus one metadata case).
 Parent and Planck review pass; parent reports188 pure selectors on Windows
 (185 PASS/three skips), Linux188 PASS, and seven focused checks PASS. These
-checks do not execute or qualify the PM PostgreSQL suite. Actual published
+checks do not execute or qualify the PM PostgreSQL suite. Earlier diagnostic backend
 push run [38086971343](https://github.com/FerrPOINT/fleet-control/actions/runs/38086971343)/1
-is in_progress on exactc5/source6768, job114315393768, created21:16:15Z.
-No terminal result, observed layout/phase, stack cause, real PM/full-SDLC or
-source acceptance is claimed; the precedingb9 failure remains unchanged.
+is FAILURE on exactc5/source6768, job114315393768, created21:16:15Z.
+Parent and Pascal original strict readbacks pass for artifact11682133897,
+ZIP SHA256 `fc55e4de59cb74720e5c9f0dfc93cc546757c105609206ae1788f215ddd0391c`.
+The closed receipt records pm_recovery_pg13/84, exit101,
+runtime_stack_overflow plus unknown/SIGABRT, readable/nontruncated log, empty
+failed-test/diagnostic lists, null command/harness exits and both scoped cleanups
+true. Future layout reports fixture52440 bytes and bounded submit45096 bytes;
+last phase is concurrent_submit_entered. These are future layout measurements,
+not peak stack or cause. The phase interval includes join and later assertions
+until the next marker, so it does not localize failure to polling either operand.
+All acceptance flags remain false; earlierb9/78/8ce evidence stays unchanged.
+
+Published normal successor `cb1f62ee86477d60242cc05222ec923dd3c74e37` changes
+only the two join operands to Box::pin, retaining the barrier of two, join,
+20-second timeout and all assertions, without spawning. Parent/Planck review
+and rustfmt pass. It is a minimal test candidate, not a qualified fix or a
+measured cause. Reviewed controls `f5ba26c11db095de5b14d080ce46dcbb998c960c`,
+tree `45a62439d64c48883f07fee405b8ba3668e9dfa3`, normally mergec5+cb1.
+All59 helper function ASTs matchc5; gates/resources/pins/capture are unchanged,
+with source bindings and one inverse guard updated. Parent/Planck review pass;
+Windows189 selectors give186 PASS/three skips, Linux189 PASS, parent three
+focused checks PASS. Published normal fast-forward remote head is exactf5.
+Actual push run [38088419588](https://github.com/FerrPOINT/fleet-control/actions/runs/38088419588)/1
+on exactf5/sourcecb1 was created21:38:53Z and completed FAILURE at21:54:02Z,
+job114319687647. Original frozenf5 strict readback passes for artifact11683587503,
+ZIP SHA256 `9b41e1db6377fc9f2858a73f85105002559188cd61936187847f034674a69536`;
+safe JSON SHA256 `c612755071b70ba4290509e0923ab1a340d5e1fea07d792edab0af52477c57d1`.
+Latest terminal backend receipt records pm_recovery_pg13/84, exit101,
+runtime_stack_overflow plus unknown/SIGABRT, readable/untruncated log, empty
+failed-test/diagnostic lists, null command/harness exits, scratch and synthetic
+database cleanup true. Layout remains fixture52440/bounded submit45096 bytes;
+last phase is submit_entered. Candidatecb1 did not pass qualification or fix
+the gate. The changed phase does not prove that the concurrent test or another
+test completed, nor identify the cause, peak stack or overflowing boundary.
+All acceptance flags remain false. Earlierc5/layout/phase evidence stays exact;
+no real PM/full-SDLC/source acceptance is claimed. Forge20e has authenticated
+A+B PASS and C failure below, not full12 acceptance.
 
 Earlier backend admission refusal
 [38078901349](https://github.com/FerrPOINT/fleet-control/actions/runs/38078901349),
@@ -264,7 +298,7 @@ not an independent full Docker resource inventory. No native acceptance is
 claimed. Earlier38075925575 failed at parent_pull with no exact parent/cause;
 this newer observation neither repeats nor retroactively explains that failure.
 
-Latest terminal Forge observation
+Earlier Forge admission refusal
 [38083675365](https://github.com/FerrPOINT/CI-CD/actions/runs/38083675365)/1
 is FAILURE on controls `29447047bc1eb5a63bea3048c2706a865a363d85` and unchanged
 product `5f973b33e758a4d60e86fc8ff4eda99c6d4496c1`. Authenticated original
@@ -291,15 +325,37 @@ controls history and25 component checks pass. Independent Planck review finds
 no P1/P2. Parent published normal fast-forward294 to20e4 on the same build
 branch and verified the exact remote head. Actual push-triggered
 [38084941580](https://github.com/FerrPOINT/CI-CD/actions/runs/38084941580)/1
-on that exact20e4 head was created20:44:46Z and is in_progress as verified by
-parent API. Current authenticated A readback verifies artifact11682820106,
+on that exact20e4 head was created20:44:46Z and is now terminal FAILURE.
+Authenticated A readback verifies artifact11682820106,
 ZIP SHA256 `8a27896b822fd1e6ea34edf37d3f35e413101b90253872f9e798a4a5d1d67303`,
 report SHA256 `c14d8218ade2608d756c19884ce3158fff74700972eaffb45c2b742c09a9ed28`.
 A's five stages pass:78 Python tests (PG47/OCI31 declarations), row-smoke,
 smoke, check and Clippy. Cleanup complete, daemon stopped and delegation removed
-are true for A. B is still live, C/aggregate pending fresh B/C receipts;
-full12_accepted=false. This is an A partition PASS, not PostgreSQL/OCI execution,
-aggregate or source acceptance. No Forge terminal result is claimed here.
+are true for A. Subsequent original strict20e B readback verifies fresh
+artifact11684025342, ZIP SHA256
+`d864ef204888e944c6d7c86d99c7780ff58df9456d8a416b6329d1ba251d68ae`,
+report SHA256 `5cb39a984dd9698ac95210357ee0ce50d87a3a3434a7e516399d3e1e3c008cac`.
+B job114310611360 completed SUCCESS at2026-10-10T21:40:45Z: actual PostgreSQL
+three tests PASS and24 negatives. All twelve stage journal proofs are cleaned;
+cleanup_complete/disposable_complete/daemon_stopped/delegation_removed are true.
+Exact run/attempt/head/product5f/SDK19a/Base66b7/provenance bindings pass, with
+no historical receipt reuse. Parent independently verifies artifact metadata
+and digest. Terminal C job114320034562 fails OCI; authenticated C summary binds
+artifact11683372011, ZIP SHA256
+`4e1e2f56634a91d2e0a96b849dc060f7af1918971a21bdcdc528d6bc294443c4`,
+report SHA256 `c111d5649c65c763fcc206f1d9f189c0bc10e5dde94c7898e8e5ef30402fb0f9`.
+Cargo exits101; retained CLI exits1 with checkpointchild and
+childErrorClassRuntimeError, scopefixture_observation_only/acceptanceVerifiedfalse.
+The source-owned assertion is oci_delivery.rs:603:5; compiler diagnostics are
+empty. This observes a child category, not root cause, an SDK bug or API
+authority. First six stages actually pass across A/B; OCI fails and subsequent
+workspace/integration/cli/openapi/release are NOT_RUN.
+
+All three independent-daemon partitions report cleanup complete, daemon stopped
+and delegation removed. Original20e aggregate exits1, first rejecting the
+C PARTITION_PASS predicate at run.py:973; full12_accepted=false. No full12,
+source, PM or native Hermes acceptance is granted. Historical A-only and partial
+B reports retain their scopes; no old receipt is reused or overwritten.
 Product5f is unchanged. Historicalabf/d744 first-six-stage PASS and its distinct
 OCI failure follow without retrospective attribution.
 
