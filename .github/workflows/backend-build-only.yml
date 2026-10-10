@@ -68,7 +68,7 @@ jobs:
         timeout-minutes: 2
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: 994f29d93c6c35d1fc43329b29175cd6a4b0ad87 # Exact isolated C11 product source; no integration tail.
+          ref: 4358dea9d62f6d26cafcd6da8de7b533ac65fe56 # Exact C11 credential regressions; no integration tail.
           path: fleet-control
           persist-credentials: false
       - name: Check out pinned build SDK
@@ -162,7 +162,7 @@ jobs:
           ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
         run: |
           {
-            printf 'Source: `%s`\n\n' 994f29d93c6c35d1fc43329b29175cd6a4b0ad87
+            printf 'Source: `%s`\n\n' 4358dea9d62f6d26cafcd6da8de7b533ac65fe56
             printf 'Workflow commit: `%s`\n\n' "$GITHUB_SHA"
             printf 'Run/attempt: `%s/%s`\n\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
             printf 'Artifact ID: `%s`\n\n' "$ARTIFACT_ID"

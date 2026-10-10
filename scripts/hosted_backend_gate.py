@@ -24,10 +24,10 @@ import zipfile
 
 REPOSITORY = "FerrPOINT/fleet-control"
 BRANCH = "build-only/c11-backend-20261010"
-SOURCE_SHA = "994f29d93c6c35d1fc43329b29175cd6a4b0ad87"
-SOURCE_TREE = "5d99e3ebc1e1a6c882d9d0f9aea86db7960745fa"
-IGNORED_COUNT = 17
-DEFAULT_COUNT = 242
+SOURCE_SHA = "4358dea9d62f6d26cafcd6da8de7b533ac65fe56"
+SOURCE_TREE = "acae77505e8a55b4c42f95c65be657a33b41f2f5"
+IGNORED_COUNT = 18
+DEFAULT_COUNT = 248
 FOUNDATION_IGNORED = 0
 BASE_SHA = "19a7a381ae6dbea61a643bb96189e483fa64df5c"
 AUTH_SHA = "01388dfb43332cbe5837fd5e1fadccf09cb8886d"
@@ -45,7 +45,7 @@ INVENTORY = "scripts/hosted-backend/test-inventory.json"
 WRITE_SET = {WORKFLOW, HELPER, GATE, INIT, INVENTORY, "scripts/tests/test_hosted_backend_gate.py"}
 ARTIFACT_FILES = {"report.json", "provenance.json", "SHA256SUMS"}
 FAILURE_FILE = "compiler-diagnostics.json"
-SOURCE_INVENTORY_SHA = "440829d0beea11b4914aac1a20ee798b3e491696cff8a2a63a3a54923f077620"
+SOURCE_INVENTORY_SHA = "bf10f571dd0f8d8794264dac4213752906ddfab4be6f1e31929df4bfa9b0e331"
 DIAGNOSTIC_LIMIT = 32
 DIAGNOSTIC_INPUT_LIMIT = 16 * 1024 ** 2
 DIAGNOSTIC_LINE_LIMIT = 256 * 1024
@@ -368,10 +368,10 @@ def reviewed_inventory(controls):
     require(len({(item["package"], item["target_kind"], item["target"], item["name"])
                  for item in value["ignored"]}) == IGNORED_COUNT, "Duplicate ignored identities")
     require({name: len(names) for name, names in value["groups"].items()} == dict(
-        api2=2, credentials_unit=7, credentials_pg=10, foundation=56, config_api=8,
+        api2=2, credentials_unit=8, credentials_pg=15, foundation=61, config_api=8,
         base_package_unit=11, config_files_unit=4, package_effective_unit=2, config_shared_unit=10,
         base_package_pg=8, config_revision_pg=3, lineage10=10, central_profile=3, message_order=1,
-        chats_directory=1, runtime_approval_events=1, credentials_migration=1, real_auth=1),
+        chats_directory=1, runtime_approval_events=1, credentials_migration=1, real_auth=2),
         "Exact C11 group coverage drift")
     require(value["package_input"] == dict(commit=PACKAGE_SHA, tree=PACKAGE_TREE,
             inventory_sha256=PACKAGE_INVENTORY_SHA), "Package input drift")
