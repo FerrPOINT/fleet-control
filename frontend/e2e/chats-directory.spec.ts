@@ -190,7 +190,7 @@ test('directory uses server counts, concrete cursors and scoped returnTo across 
   }
   await link.click()
   await expect(page.getByRole('heading', { name: 'Second page chat' })).toBeVisible()
-  await page.getByRole('link', { name: 'Вернуться к чатам' }).click()
+  await page.getByRole('link', { name: 'Назад к чатам' }).click()
   await expect(link).toBeVisible()
   const restored = new URL(page.url())
   expect(Object.fromEntries(restored.searchParams)).toEqual(
