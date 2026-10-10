@@ -88,14 +88,17 @@ fn status(payload: &Value, raw_id: &str, session_id: &str) -> Result<PmRuntimeSt
             "Hermes PM readback identity mismatch".into(),
         ));
     }
-    match payload.get("status").and_then(Value::as_str) {
-        Some("queued" | "started" | "running" | "waiting_for_approval" | "stopping") => {
-            Ok(PmRuntimeStatus::Running)
-        }
-        Some("completed") => Ok(PmRuntimeStatus::Completed),
-        Some("failed" | "interrupted") => Ok(PmRuntimeStatus::Failed),
-        Some("cancelled") => Ok(PmRuntimeStatus::Cancelled),
-        Some("stopped") => Ok(PmRuntimeStatus::Stopped),
+    if matches!(
+        payload.get("status").and_then(Value::as_str),
+        Some("queued" | "started" | "running" | "waiting_for_approval" | "stopping")
+    ) {
+        return Ok(PmRuntimeStatus::Running);
+    }
+    match hermes_wire::terminal_readback(payload, raw_id)? {
+        "run.completed" => Ok(PmRuntimeStatus::Completed),
+        "run.failed" | "run.interrupted" => Ok(PmRuntimeStatus::Failed),
+        "run.cancelled" => Ok(PmRuntimeStatus::Cancelled),
+        "run.stopped" => Ok(PmRuntimeStatus::Stopped),
         _ => Err(AppError::Unavailable(
             "Hermes PM run status is unknown".into(),
         )),
@@ -106,7 +109,8 @@ fn status(payload: &Value, raw_id: &str, session_id: &str) -> Result<PmRuntimeSt
 mod tests {
     use super::*;
     fn value(state: &str) -> Value {
-        json!({"object":"hermes.run","run_id":"run_test","session_id":"fleet:test:agent","status":state})
+        json!({"object":"hermes.run","run_id":"run_test","session_id":"fleet:test:agent","status":state,
+            "completed":state=="completed","partial":false,"interrupted":state=="interrupted"})
     }
     #[test]
     fn only_runtime_terminal_status_is_proof() {
@@ -122,14 +126,18 @@ mod tests {
                 PmRuntimeStatus::Running
             );
         }
-        assert_eq!(
-            status(&value("interrupted"), "run_test", "fleet:test:agent").unwrap(),
-            PmRuntimeStatus::Failed
-        );
-        assert_eq!(
-            status(&value("completed"), "run_test", "fleet:test:agent").unwrap(),
-            PmRuntimeStatus::Completed
-        );
+        for (state, expected) in [
+            ("completed", PmRuntimeStatus::Completed),
+            ("failed", PmRuntimeStatus::Failed),
+            ("interrupted", PmRuntimeStatus::Failed),
+            ("cancelled", PmRuntimeStatus::Cancelled),
+            ("stopped", PmRuntimeStatus::Stopped),
+        ] {
+            assert_eq!(
+                status(&value(state), "run_test", "fleet:test:agent").unwrap(),
+                expected
+            );
+        }
         for state in ["eof", "success", "succeeded", "unknown", ""] {
             assert!(status(&value(state), "run_test", "fleet:test:agent").is_err());
         }
@@ -143,5 +151,23 @@ mod tests {
         missing.as_object_mut().unwrap().remove("session_id");
         assert!(status(&missing, "run_test", "fleet:test:agent").is_err());
         assert!(status(&Value::Null, "run_test", "fleet:test:agent").is_err());
+    }
+
+    #[test]
+    fn completed_requires_the_shared_terminal_flags() {
+        for (field, wrong) in [
+            ("completed", false),
+            ("partial", true),
+            ("interrupted", true),
+        ] {
+            let mut missing = value("completed");
+            missing.as_object_mut().unwrap().remove(field);
+            assert!(status(&missing, "run_test", "fleet:test:agent").is_err());
+            for bad in [json!(wrong), json!("false"), Value::Null] {
+                let mut payload = value("completed");
+                payload[field] = bad;
+                assert!(status(&payload, "run_test", "fleet:test:agent").is_err());
+            }
+        }
     }
 }

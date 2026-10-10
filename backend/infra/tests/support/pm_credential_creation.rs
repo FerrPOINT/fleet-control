@@ -21,7 +21,13 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
     use axum::{http::Method, response::IntoResponse};
     use domain::*;
     use sha2::{Digest, Sha256};
-    for fault in ["none", "stop-not-terminal", "unknown-native-post"] {
+    for fault in [
+        "none",
+        "stop-not-terminal",
+        "unknown-native-post",
+        "invalid-terminal",
+        "lost-guidance-ack",
+    ] {
         let mut fixture = fixture()
             .await
             .expect("isolated PostgreSQL required for PM tool integration");
@@ -158,13 +164,22 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
                 assert_eq!(headers["authorization"],expected_native);
                 match path {
                     "/health"=>Json(json!({"status":"ok"})).into_response(),
-                    "/v1/capabilities"=>Json(super::hermes_protocol_fixture::capabilities()).into_response(),
+                    "/v1/capabilities"=>{
+                        let mut capabilities=super::hermes_protocol_fixture::capabilities();
+                        if fault=="lost-guidance-ack" {
+                            capabilities["features"]["run_steer"]=json!(true);
+                            capabilities["endpoints"]["run_steer"]=json!({"method":"POST","path":"/v1/runs/{run_id}/steer"});
+                        }
+                        Json(capabilities).into_response()
+                    }
                     "/v1/runs/run_old/stop"=>{
                         assert_eq!(method,Method::POST);
                         if fault!="stop-not-terminal" {stopped.store(true,Ordering::SeqCst);}
                         Json(json!({"run_id":"run_old","status":"stopping"})).into_response()
                     }
-                    "/v1/runs/run_old"=>Json(if stopped.load(Ordering::SeqCst){json!({"object":"hermes.run","run_id":"run_old","session_id":"native-session",
+                    "/v1/runs/run_old"=>Json(if stopped.load(Ordering::SeqCst)&&fault=="invalid-terminal" {
+                        json!({"object":"hermes.run","run_id":"run_old","session_id":"native-session","status":"completed"})
+                    }else if stopped.load(Ordering::SeqCst){json!({"object":"hermes.run","run_id":"run_old","session_id":"native-session",
                         "status":"stopped","completed":false,"partial":true,"interrupted":true})}else{json!({"object":"hermes.run","run_id":"run_old","session_id":"native-session","status":"running"})}).into_response(),
                     "/v1/runs"=>{
                         assert_eq!(method,Method::POST);assert_eq!(headers["idempotency-key"],ledger.lock().await["resume_session_run_id"].as_str().unwrap());
@@ -290,6 +305,163 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
             axum::serve(api_listener, api_router).await.unwrap()
         }));
         let client = reqwest::Client::new();
+        if fault == "lost-guidance-ack" {
+            let repo = &fixture.remote.repo;
+            repo.observe_pm_run(op.id, PmRuntimeStatus::Running)
+                .await
+                .unwrap();
+            // Seed the durable post-attempt state: native guidance ACK was lost, not delivered.
+            let guidance = json!({"input":"Original initial guidance"}).to_string();
+            assert!(matches!(
+                repo.claim_pm_guidance(op.id, guidance.clone())
+                    .await
+                    .unwrap(),
+                PmGuidancePermit::Claimed
+            ));
+            assert!(matches!(
+                repo.claim_pm_guidance(op.id, guidance).await.unwrap(),
+                PmGuidancePermit::Unknown
+            ));
+            let agent = repo.get_agent(op.request.agent_id).await.unwrap();
+            let run = repo.get_session_agent_run(op.id).await.unwrap();
+            let owner = RuntimeControlActor {
+                user_id: op.owner_user_id,
+                idempotency_key: "owner-stop-after-lost-guidance".into(),
+            };
+            assert!(fixture.remote.questions.lock().await.is_empty());
+            assert_eq!(ledger.lock().await["state"], "active");
+            assert_eq!(ledger.lock().await["workflow_step_allowed"], true);
+            let coordinator = fixture.coordinator();
+            let credential = coordinator.runtime_credential(&op).await.unwrap();
+            assert_eq!(
+                coordinator
+                    .machine_context(&op, &credential)
+                    .await
+                    .unwrap()
+                    .stage,
+                TrackerStage::Draft
+            );
+            let scope = PmHumanControlScope {
+                record: repo.get_pm_run(op.id).await.unwrap(),
+                intent: repo.get_pm_dispatch(op.id).await.unwrap().unwrap(),
+                owner_user_id: owner.user_id,
+                owner_subject: op.owner_subject.clone(),
+            };
+            repo.check_pm_runtime_control(
+                &run,
+                owner.user_id,
+                RuntimeControlOperation::Stop,
+                &scope,
+            )
+            .await
+            .unwrap();
+            assert!(
+                repo.check_pm_runtime_control(
+                    &run,
+                    owner.user_id,
+                    RuntimeControlOperation::Steer,
+                    &scope
+                )
+                .await
+                .is_err()
+            );
+            let controls = runtime
+                .pm_human_controls(&agent, &run, owner.user_id)
+                .await
+                .unwrap();
+            assert!(controls.can_stop);
+            assert!(!controls.can_steer);
+            assert!(
+                runtime
+                    .steer_run(
+                        &agent,
+                        &run,
+                        SteerSessionRunRequest {
+                            input: "Must remain held".into()
+                        },
+                        RuntimeControlActor {
+                            idempotency_key: "held-steer".into(),
+                            ..owner.clone()
+                        },
+                    )
+                    .await
+                    .is_err()
+            );
+            let mut stale = run.clone();
+            stale.runtime_run_id = Some("run_foreign".into());
+            assert!(
+                runtime
+                    .stop_run(&agent, &stale, owner.clone())
+                    .await
+                    .is_err()
+            );
+            assert!(
+                runtime
+                    .stop_run(
+                        &agent,
+                        &run,
+                        RuntimeControlActor {
+                            user_id: Uuid::new_v4(),
+                            ..owner.clone()
+                        }
+                    )
+                    .await
+                    .is_err()
+            );
+            fixture.remote.mode.store(3, Ordering::SeqCst);
+            assert!(runtime.stop_run(&agent, &run, owner.clone()).await.is_err());
+            fixture.remote.mode.store(0, Ordering::SeqCst);
+            let first = runtime.stop_run(&agent, &run, owner.clone()).await.unwrap();
+            let replay = runtime.stop_run(&agent, &run, owner).await.unwrap();
+            assert!(first.accepted && replay.accepted);
+            assert_eq!(first.command.unwrap().id, replay.command.unwrap().id);
+            assert_eq!(replay.state, SessionRunState::Stopping);
+            assert!(
+                repo.get_pm_run(op.id)
+                    .await
+                    .unwrap()
+                    .terminal_status
+                    .is_none()
+            );
+            assert_eq!(
+                repo.list_runtime_controls(run.session_id, run.id)
+                    .await
+                    .unwrap()
+                    .len(),
+                1
+            );
+            let runs = db
+                .query_one(Statement::from_sql_and_values(
+                    DatabaseBackend::Postgres,
+                    "SELECT count(*) AS count FROM session_agent_runs WHERE session_id=$1",
+                    [run.session_id.into()],
+                ))
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(runs.try_get::<i64>("", "count").unwrap(), 1);
+            let guidance = db.query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "SELECT guidance_attempted,guidance_delivered FROM pm_dispatch_journal WHERE session_run_id=$1",
+                [op.id.into()],
+            )).await.unwrap().unwrap();
+            assert!(guidance.try_get::<bool>("", "guidance_attempted").unwrap());
+            assert!(!guidance.try_get::<bool>("", "guidance_delivered").unwrap());
+            let requests = calls.lock().await;
+            assert_eq!(
+                requests
+                    .iter()
+                    .filter(|r| r.as_str() == "POST /v1/runs/run_old/stop")
+                    .count(),
+                1
+            );
+            assert!(
+                !requests
+                    .iter()
+                    .any(|r| r == "POST /v1/runs" || r == "POST /v1/runs/run_old/steer")
+            );
+            continue;
+        }
         let endpoint = format!("{api_origin}/mcp/{}", op.request.agent_id);
         let initialize = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"test","version":"1"}}});
         assert_eq!(
@@ -875,6 +1047,16 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
                 "new run proof permits one original publication and its receipt replay"
             );
         }
+        if fault == "invalid-terminal" {
+            let record = fixture.remote.repo.get_pm_run(op.id).await.unwrap();
+            let agent = fixture
+                .remote
+                .repo
+                .get_agent(op.request.agent_id)
+                .await
+                .unwrap();
+            assert!(runtime.probe_pm_run(&agent, &record).await.is_err());
+        }
         let requests = calls.lock().await;
         assert_eq!(
             requests
@@ -888,7 +1070,7 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
                 .iter()
                 .filter(|r| r.as_str() == "POST /v1/runs")
                 .count(),
-            usize::from(fault != "stop-not-terminal")
+            usize::from(matches!(fault, "none" | "unknown-native-post"))
         );
         assert_eq!(
             requests
@@ -901,12 +1083,49 @@ async fn pm_mcp_publishes_tracker_receipts_then_resumes_only_after_saved_answer_
             ledger.lock().await["state"],
             if fault == "none" {
                 "active"
-            } else if fault == "stop-not-terminal" {
+            } else if matches!(fault, "stop-not-terminal" | "invalid-terminal") {
                 "waiting"
             } else {
                 "resume_pending"
             }
         );
+        if fault == "invalid-terminal" {
+            assert!(
+                fixture
+                    .remote
+                    .repo
+                    .get_pm_run(op.id)
+                    .await
+                    .unwrap()
+                    .terminal_status
+                    .is_none()
+            );
+            assert!(fixture.remote.repo.get_pm_run(saved.id).await.is_err());
+            assert!(
+                fixture
+                    .remote
+                    .repo
+                    .get_pm_dispatch(saved.id)
+                    .await
+                    .unwrap()
+                    .is_none()
+            );
+            assert!(
+                !requests
+                    .iter()
+                    .any(|r| r.as_str() == "POST /internal/runtime/v1/pm/resume")
+            );
+            let runs = db
+                .query_one(Statement::from_sql_and_values(
+                    DatabaseBackend::Postgres,
+                    "SELECT count(*) AS count FROM session_agent_runs WHERE session_id=$1",
+                    [actor.session_id.into()],
+                ))
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(runs.try_get::<i64>("", "count").unwrap(), 1);
+        }
         if fault == "unknown-native-post" {
             let journal = fixture
                 .remote

@@ -27,6 +27,125 @@ REVIEWED = gate.reviewed_inventory(ROOT)
 
 
 class HostedBackendTests(unittest.TestCase):
+    def test_stop025_successor_keeps_all196_identities_and_exact_execution_guards(self):
+        import ast
+        frozen = "50cb550af47e06530997fc1f84a5562fd4503b9e"
+        old = self.source_blob(gate.HELPER, frozen).decode()
+        current = (ROOT / gate.HELPER).read_text()
+        normalized = current.replace(gate.SOURCE_SHA, "5bc0fd3fd92a11a6957858525d9b124be00c1644")
+        normalized = normalized.replace(gate.SOURCE_INVENTORY_SHA,
+            "0f55274de1a4b602e0378eb47db48ee23aedd731b4e3d4782f01db811f48e5c0")
+        normalized = re.sub(r"\b180\b", "179", normalized)
+        normalized = re.sub(r"\b125\b", "124", normalized)
+        for before, after in (
+            ('len(value["workspace_default_declarations"]) == 401', 'len(value["workspace_default_declarations"]) == 400'),
+            ('len(value["pm_workspace_required"]) == 50', 'len(value["pm_workspace_required"]) == 49'),
+            ('len(set(value["pm_workspace_required"])) == 50', 'len(set(value["pm_workspace_required"])) == 49'),
+            ('len(value["groups"]["pm_human_controls"]) == 6', 'len(value["groups"]["pm_human_controls"]) == 5'),
+            ('len(set(value["groups"]["pm_human_controls"])) == 6', 'len(set(value["groups"]["pm_human_controls"])) == 5'),
+            ('len(value["migration_registries"]["canonical"]) == 26', 'len(value["migration_registries"]["canonical"]) == 25'),
+            ('len(value["migration_registries"]["split"]) == 29', 'len(value["migration_registries"]["split"]) == 28'),
+        ):
+            self.assertEqual(normalized.count(before), 1, before)
+            normalized = normalized.replace(before, after)
+        functions = lambda text: {node.name: ast.dump(node) for node in ast.parse(text).body
+            if isinstance(node, (ast.FunctionDef, ast.ClassDef))}
+        before, after = functions(old), functions(normalized)
+        self.assertEqual(before.keys(), after.keys())
+        self.assertEqual({name for name in before if before[name] != after[name]},
+                         {"expected_migration_receipt", "verify_migration_snapshots"})
+        old_stages = next(ast.literal_eval(n.value) for n in ast.parse(old).body
+            if isinstance(n, ast.Assign) and n.targets[0].id == "GATES")
+        self.assertEqual(gate.GATES, old_stages)
+        self.assertEqual(len(gate.GATES), 84)
+        names = lambda data: {n.name for n in ast.walk(ast.parse(data))
+            if isinstance(n, ast.FunctionDef) and n.name.startswith("test_")}
+        previous = names(self.source_blob("scripts/tests/test_hosted_backend_gate.py", frozen))
+        self.assertEqual(len(previous), 196)
+        self.assertTrue(previous <= names(Path(__file__).read_bytes()))
+        self.assertEqual((ROOT / gate.INIT).read_bytes(), self.source_blob(gate.INIT, frozen))
+        self.assertEqual((ROOT / gate.WORKFLOW).read_bytes(), self.source_blob(gate.WORKFLOW, frozen).replace(
+            b"5bc0fd3fd92a11a6957858525d9b124be00c1644", gate.SOURCE_SHA.encode()))
+        shell = (ROOT / gate.GATE).read_bytes()
+        shell = shell.replace(b"ignored=125", b"ignored=124")
+        shell = shell.replace(b"  cargo run --locked -p migration -- down -n 1\n  migration_snapshot down_stop\n", b"")
+        shell = shell.replace(b"  cargo run --locked -p migration -- up -n 1\n  migration_snapshot stop_reapply\n", b"")
+        shell = shell.replace(b"down -n 26", b"down -n 25")
+        self.assertEqual(shell, self.source_blob(gate.GATE, frozen))
+
+    def test_stop025_inventory_adds_only_one_ordinary_one_ignored_and_one_rust_file(self):
+        previous = json.loads(self.source_blob(gate.INVENTORY, "50cb550af47e06530997fc1f84a5562fd4503b9e"))
+        identity = lambda row: (row["source"], row["name"])
+        for key, added in (
+            ("workspace_default_declarations", ("backend/infra/src/runtime/pm_readback.rs", "completed_requires_the_shared_terminal_flags")),
+            ("ignored", ("backend/infra/tests/support/pm_human_controls.rs",
+                "pm_human_controls::pm_stop_custody_migration_preserves_original_function_and_holds_unsafe_downgrade")),
+        ):
+            before, after = ({identity(row) for row in value[key]} for value in (previous, REVIEWED))
+            self.assertEqual(after - before, {added})
+            self.assertTrue(before <= after)
+        migration = "backend/migration/src/m20261011_000025_pm_stop_custody.rs"
+        self.assertEqual(set(REVIEWED["rust_source_sha256"]) - set(previous["rust_source_sha256"]), {migration})
+        self.assertTrue(previous["rust_source_sha256"].keys() <= REVIEWED["rust_source_sha256"].keys())
+        self.assertEqual((len(REVIEWED["compiled_source_sha256"]), len(REVIEWED["rust_source_sha256"])), (404, 191))
+        self.assertEqual((len(REVIEWED["workspace_default_declarations"]), len(REVIEWED["ignored"])), (401, 180))
+        self.assertEqual(REVIEWED["default_foundation_ignored"], 125)
+        for stage, names in previous["groups"].items():
+            actual = REVIEWED["groups"][stage]
+            if stage == "pm_human_controls":
+                self.assertEqual(set(actual) - set(names), {
+                    "pm_human_controls::pm_stop_custody_migration_preserves_original_function_and_holds_unsafe_downgrade"})
+                self.assertTrue(set(names) <= set(actual))
+            else:
+                self.assertEqual(actual, names, stage)
+        for key in ("authority", "utility_source_sha256", "utility_tree", "package_input", "python_contracts"):
+            self.assertEqual(REVIEWED[key], previous[key], key)
+
+    def test_stop025_actual_pg_selector_and_both_new_ledger_edges_cannot_be_omitted(self):
+        name = "pm_human_controls::pm_stop_custody_migration_preserves_original_function_and_holds_unsafe_downgrade"
+        text = self.log("pm_human_controls")
+        self.assertEqual(gate.verify_test_log("pm_human_controls", text, REVIEWED)["passed"], 6)
+        for bad in (text.replace("test " + name + " ... ok\n", ""), text + "test " + name + " ... ok\n",
+                    text.replace("test " + name + " ... ok", "test " + name + " ... ignored")):
+            with self.assertRaises(ValueError):
+                gate.verify_test_log("pm_human_controls", bad, REVIEWED)
+        old = json.loads(self.source_blob(gate.INVENTORY, "50cb550af47e06530997fc1f84a5562fd4503b9e"))
+        old_helper = self.source_blob(gate.HELPER, "50cb550af47e06530997fc1f84a5562fd4503b9e").decode()
+        namespace = {}
+        function = old_helper.split("def expected_migration_receipt(reviewed):", 1)[1].split("\n\ndef ", 1)[0]
+        exec("def expected_migration_receipt(reviewed):" + function, {"require": gate.require}, namespace)
+        expected = gate.expected_migration_receipt(REVIEWED)
+        historical = namespace["expected_migration_receipt"](old)
+        self.assertEqual(expected["down_stop"], historical["up"])
+        self.assertEqual(expected["ack_reapply"], historical["ack_reapply"])
+        for key in historical.keys() - {"up", "final_up"}:
+            self.assertEqual(expected[key], historical[key], key)
+        self.assertEqual(expected["stop_reapply"], expected["up"])
+        for stage in ("down_stop", "stop_reapply"):
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self.migration_files(root, expected)
+                ledger = root / ("migration-" + stage + "-ledger.tsv")
+                ledger.write_text(ledger.read_text().replace("\t1000\n", "\t1001\n", 1), newline="\n")
+                with self.assertRaises(ValueError):
+                    gate.verify_migration_snapshots(root, REVIEWED)
+
+    def test_runtime_stream_lifetime_fixture_inverse_matches_58e_exactly(self):
+        path = "backend/infra/tests/support/runtime_stream_bounds.rs"
+        name = "runtime_stream_bounds_invalid_json_utf8_and_foreign_control_payloads_never_mirror"
+        before = self.source_blob(path, "58e0c18040e35f649bb1f3e5dd32e2190bfa94fa")
+        current = self.source_blob(path)
+        signature = ('#[test]\n#[ignore = "requires isolated FLEET_TEST_DATABASE_URL"]\nfn ' + name + '() {').encode()
+        original = signature.replace(b"#[test]", b"#[tokio::test]").replace(b"\nfn ", b"\nasync fn ")
+        block = (b'        let runtime = tokio::runtime::Builder::new_current_thread()\n'
+                 b'            .enable_all()\n            .build()\n'
+                 b'            .expect("isolated runtime stream fixture");\n'
+                 b'        runtime.block_on(rejected(EventResponse::body(vec![frame])));')
+        self.assertEqual(current.count(signature), 1)
+        self.assertEqual(current.count(block), 1)
+        self.assertEqual(current.replace(signature, original).replace(block,
+            b"        rejected(EventResponse::body(vec![frame])).await;"), before)
+
     def test_additive024_keeps_all83_gates_and_exact_source_selected_cases(self):
         import ast
         donor = "8f78939ea6401d12060d85814390edf0c4cd7f0b"
@@ -44,13 +163,15 @@ class HostedBackendTests(unittest.TestCase):
         }
         for stage, names in previous["groups"].items():
             expected = set(names) | added if stage == "foundation" else set(names)
+            if stage == "pm_human_controls":
+                expected.add("pm_human_controls::pm_stop_custody_migration_preserves_original_function_and_holds_unsafe_downgrade")
             if stage == "pm_recovery_pg":
                 expected.add("runtime::pm_recovery::tests::pg::production_aaa_future_layout_without_constructing_or_polling_runtime")
             self.assertEqual(set(REVIEWED["groups"][stage]), expected, stage)
         self.assertEqual(set(REVIEWED["groups"]) - set(previous["groups"]), {"pm_ack_migration"})
         self.assertEqual([name for name in REVIEWED["groups"]["pm_recovery_pg"] if "production_aaa_future_layout" not in name],
                          previous["groups"]["pm_recovery_pg"])
-        for kind, count in (("workspace_default_declarations", 400), ("ignored", 179)):
+        for kind, count in (("workspace_default_declarations", 401), ("ignored", 180)):
             identity = lambda row: (row["source"], row["name"])
             before = {identity(row) for row in previous[kind]}
             after = {identity(row) for row in REVIEWED[kind]}
@@ -460,7 +581,7 @@ class HostedBackendTests(unittest.TestCase):
         source = self.source_blob(path).decode()
         declared = re.findall(r'#\[tokio::test\]\n#\[ignore = "requires isolated FLEET_TEST_DATABASE_URL"\]\nasync fn (\w+)\(', source)
         names = ["pm_human_controls::" + name for name in declared]
-        self.assertEqual(len(names), 5)
+        self.assertEqual(len(names), 6)
         self.assertEqual(sorted(names), REVIEWED["groups"]["pm_human_controls"])
         records = [row for row in REVIEWED["ignored"] if row["source"] == path]
         self.assertEqual(Counter(row["name"] for row in records), Counter(names))
@@ -473,7 +594,7 @@ class HostedBackendTests(unittest.TestCase):
         for name in names:
             line = "test " + name + " ... ok\n"
             for bad in (text.replace(line, ""), text + line, text.replace(line, line.replace("ok", "ignored")),
-                        text.replace("5 passed", "4 passed")):
+                        text.replace("6 passed", "5 passed")):
                 with self.subTest(name=name), self.assertRaises(ValueError):
                     gate.verify_test_log("pm_human_controls", bad, REVIEWED)
         shell = (ROOT / gate.GATE).read_text()
@@ -484,7 +605,7 @@ class HostedBackendTests(unittest.TestCase):
         previous = json.loads(self.source_blob(gate.INVENTORY, "0d1e5a4361610c0a0728137731f54fa5ab12c481"))
         self.assertEqual(len(previous["pm_workspace_required"]), 33)
         inherited_and_human = set(previous["pm_workspace_required"]) | set(REVIEWED["groups"]["pm_human_controls"])
-        self.assertEqual(len(inherited_and_human), 38)
+        self.assertEqual(len(inherited_and_human), 39)
         self.assertTrue(inherited_and_human <= (set(REVIEWED["pm_workspace_required"])
                                                | set(REVIEWED["groups"]["pm_human_controls"])))
         frozen = json.loads(self.source_blob(gate.INVENTORY, "9565ecc1c2d114d44132598d77f4c5942d440d1d"))
@@ -615,6 +736,9 @@ class HostedBackendTests(unittest.TestCase):
                 gate.require_codegen_binding(frozen)
 
     def test_successor_preserves_all_frozen_controls_gates_guards_and_input_pins(self):
+        # Keep this historical transition bound to its reviewed frozen controls.
+        historical = "50cb550af47e06530997fc1f84a5562fd4503b9e"
+        REVIEWED = json.loads(self.source_blob(gate.INVENTORY, historical))
         import ast
         donor = "084d9f0f7b94953251b58a912b32b92cedbda020"
         old = ast.parse(self.source_blob(gate.HELPER, donor))
@@ -686,8 +810,8 @@ class HostedBackendTests(unittest.TestCase):
                            ("084d9f0f7b94953251b58a912b32b92cedbda020", 126)):
             previous = selectors(ast.parse(self.source_blob("scripts/tests/test_hosted_backend_gate.py", pin)))
             self.assertEqual(len(previous), count)
-            self.assertTrue(previous <= selectors(ast.parse(Path(__file__).read_bytes())))
-        self.assertEqual((ROOT / gate.INIT).read_bytes().replace(b"CREATE DATABASE fleet_pm_recovery_test;\n", b"").replace(
+            self.assertTrue(previous <= selectors(ast.parse(self.source_blob("scripts/tests/test_hosted_backend_gate.py", historical))))
+        self.assertEqual(self.source_blob(gate.INIT, historical).replace(b"CREATE DATABASE fleet_pm_recovery_test;\n", b"").replace(
             b"CREATE DATABASE fleet_pm_ack_migration_test;\n", b""), self.source_blob(gate.INIT, donor))
 
     def test_successor_credential_additions_are_source_declared_and_never_silently_ignored(self):
@@ -736,7 +860,7 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(sum(row["source"] == "backend/shared/src/id/tests.rs" and row["name"] == "new_ids_are_plain_uuids"
                              for row in REVIEWED["workspace_default_declarations"]), 1)
         for stage in ("credentials_pg", "credentials_unit", "real_auth", "foundation"):
-            text = self.log(stage, 124 if stage == "foundation" else 0)
+            text = self.log(stage, 125 if stage == "foundation" else 0)
             gate.verify_test_log(stage, text, REVIEWED)
             for bad in (text.replace(" ... ok", " ... ignored", 1), "\n".join(text.splitlines()[1:]),
                         text + text.splitlines()[0] + "\n", text.replace("0 failed", "1 failed")):
@@ -744,28 +868,33 @@ class HostedBackendTests(unittest.TestCase):
                     gate.verify_test_log(stage, bad, REVIEWED)
 
     def test_successor_source_tree_and_six_lf_controls_remain_closed(self):
-        self.assertEqual(gate.SOURCE_SHA, "5bc0fd3fd92a11a6957858525d9b124be00c1644")
+        self.assertEqual(gate.SOURCE_SHA, "8f8e69d637a64b2d7a3e8c2bc6dca00517539667")
         tree = subprocess.run(["git", "-C", str(ROOT), "rev-parse", gate.SOURCE_SHA + "^{tree}"],
             capture_output=True, check=True, timeout=30).stdout.decode().strip()
-        self.assertEqual(tree, "af43cdbe03ee89723f02132f6d0819b6fa86fa9d")
+        self.assertEqual(tree, "8738d803e309b0bd0479e1dd624186b94c1704c7")
         delta = subprocess.run(["git", "-C", str(ROOT), "diff", "--name-status", gate.SOURCE_SHA],
             capture_output=True, check=True, timeout=30).stdout.decode()
         gate.validate_delta(delta)
-        self.assertEqual(len(REVIEWED["compiled_source_sha256"]), 403)
-        self.assertEqual(len(REVIEWED["rust_source_sha256"]), 190)
+        self.assertEqual(len(REVIEWED["compiled_source_sha256"]), 404)
+        self.assertEqual(len(REVIEWED["rust_source_sha256"]), 191)
         previous3445 = json.loads(self.source_blob(gate.INVENTORY, "d4c56055b74a1dd4efdb487f9fc5f6407852f075"))
         identity = lambda row: (row["source"], row["name"])
         self.assertEqual({identity(row) for row in REVIEWED["workspace_default_declarations"]}
                          - {identity(row) for row in previous3445["workspace_default_declarations"]},
-                         {('backend/infra/tests/support/pm_dispatch.rs', 'pm_publication_claim_requires_exact_run_instruction_receipt')})
+                         {('backend/infra/tests/support/pm_dispatch.rs', 'pm_publication_claim_requires_exact_run_instruction_receipt'),
+                          ('backend/infra/src/runtime/pm_readback.rs', 'completed_requires_the_shared_terminal_flags')})
         groups = copy.deepcopy(previous3445["groups"])
         new_case = "pm_dispatch::pm_publication_claim_requires_exact_run_instruction_receipt"
         groups["foundation"] = sorted(groups["foundation"] + [new_case])
         groups["pm_recovery_pg"] = REVIEWED["groups"]["pm_recovery_pg"]
+        groups["pm_human_controls"] = sorted(groups["pm_human_controls"] + [
+            "pm_human_controls::pm_stop_custody_migration_preserves_original_function_and_holds_unsafe_downgrade"])
         self.assertEqual(REVIEWED["groups"], groups)
         self.assertEqual(set(REVIEWED["pm_workspace_required"])
-                         - set(previous3445["pm_workspace_required"]), {new_case})
-        self.assertEqual(REVIEWED["migration_registries"], previous3445["migration_registries"])
+                         - set(previous3445["pm_workspace_required"]), {new_case,
+                            "runtime::pm_readback::tests::completed_requires_the_shared_terminal_flags"})
+        self.assertEqual(REVIEWED["migration_registries"], {key: names + ["m20261011_000025_pm_stop_custody"]
+            for key, names in previous3445["migration_registries"].items()})
         gate.require_codegen_binding(REVIEWED)
         preparation = REVIEWED["config_union_preparation"]
         self.assertEqual(preparation["prior_3445_codegen_evidence"],
@@ -782,9 +911,13 @@ class HostedBackendTests(unittest.TestCase):
         prior_source = prior["source_commit"]
         new_delta = subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT), "diff",
             "--name-only", prior_source, gate.SOURCE_SHA], capture_output=True, check=True, timeout=30).stdout.decode().splitlines()
-        changed_rust = "backend/infra/src/runtime/pm_recovery_pg_tests.rs"
-        self.assertEqual([path for path in new_delta if path.startswith("backend/")], [changed_rust])
-        self.assertTrue(all(path == changed_rust or path == "README.md" or path.startswith("docs/") for path in new_delta))
+        changed_rust = {"backend/infra/src/runtime/pm_recovery_pg_tests.rs", "backend/infra/src/pm_controls.rs",
+            "backend/infra/src/runtime/pm_readback.rs", "backend/infra/tests/sdlc_foundation.rs",
+            "backend/infra/tests/support/pm_credential_creation.rs", "backend/infra/tests/support/pm_human_controls.rs",
+            "backend/infra/tests/support/runtime_stream_bounds.rs", "backend/migration/src/lib.rs",
+            "backend/migration/src/lineage_tests.rs", "backend/migration/src/m20261011_000025_pm_stop_custody.rs"}
+        self.assertEqual({path for path in new_delta if path.startswith("backend/")}, changed_rust)
+        self.assertTrue(all(path in changed_rust or path == "README.md" or path.startswith("docs/") for path in new_delta))
         source_delta = sorted(set(prior["config_union_preparation"]["codegen_evidence"]["source_delta"]) | set(new_delta))
         source = original["source_commit"]
         listing = lambda pin: subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT),
@@ -801,11 +934,12 @@ class HostedBackendTests(unittest.TestCase):
             api_dependency_closure=closure, api_dependency_closure_git_sha256=gate.digest(accepted),
             source_delta=source_delta))
         changed_compiled = {path for path, value in REVIEWED["compiled_source_sha256"].items()
-                            if value != prior["compiled_source_sha256"][path]}
+                            if value != prior["compiled_source_sha256"].get(path)}
         changed_fingerprints = {path for path, value in REVIEWED["rust_source_sha256"].items()
-                               if value != prior["rust_source_sha256"][path]}
-        self.assertEqual(changed_compiled, {"fleet-control/" + changed_rust})
-        self.assertEqual(changed_fingerprints, {changed_rust})
+                               if value != prior["rust_source_sha256"].get(path)}
+        self.assertEqual(changed_compiled, {"fleet-control/" + path for path in changed_rust})
+        self.assertEqual(changed_fingerprints, changed_rust)
+        changed_rust = "backend/infra/src/runtime/pm_recovery_pg_tests.rs"
         body = self.source_blob(changed_rust, prior_source)
         self.assertEqual(body.count(b"let f = fixture(true, false).await;"), 2)
         self.assertEqual(body.count(b"let f = fixture(false, true).await;"), 1)
@@ -826,10 +960,19 @@ class HostedBackendTests(unittest.TestCase):
         expected_inventory["source_commit"] = gate.SOURCE_SHA
         expected_inventory["config_union_preparation"]["source_commit"] = gate.SOURCE_SHA
         expected_inventory["config_union_preparation"]["codegen_evidence"] = preparation["codegen_evidence"]
-        expected_inventory["compiled_source_sha256"]["fleet-control/" + changed_rust] = gate.digest(self.source_blob(changed_rust))
-        expected_inventory["rust_source_sha256"][changed_rust] = gate.digest(self.source_blob(changed_rust))
+        for path in changed_fingerprints:
+            expected_inventory["compiled_source_sha256"]["fleet-control/" + path] = gate.digest(self.source_blob(path))
+            expected_inventory["rust_source_sha256"][path] = gate.digest(self.source_blob(path))
+        expected_inventory["workspace_default_declarations"] = REVIEWED["workspace_default_declarations"]
         expected_inventory["ignored"] = REVIEWED["ignored"]
+        expected_inventory["default_foundation_ignored"] = 125
+        expected_inventory["pm_workspace_required"] = sorted(prior["pm_workspace_required"] + [
+            "runtime::pm_readback::tests::completed_requires_the_shared_terminal_flags"])
         expected_inventory["groups"]["pm_recovery_pg"] = REVIEWED["groups"]["pm_recovery_pg"]
+        expected_inventory["groups"]["pm_human_controls"] = sorted(prior["groups"]["pm_human_controls"] + [
+            "pm_human_controls::pm_stop_custody_migration_preserves_original_function_and_holds_unsafe_downgrade"])
+        expected_inventory["migration_registries"] = {key: names + ["m20261011_000025_pm_stop_custody"]
+            for key, names in prior["migration_registries"].items()}
         self.assertEqual(REVIEWED, expected_inventory)
         import ast
         old_helper = ast.parse(self.source_blob(gate.HELPER, prior_controls))
@@ -846,6 +989,8 @@ class HostedBackendTests(unittest.TestCase):
             self.source_blob(gate.WORKFLOW, prior_controls).replace(prior_source.encode(), gate.SOURCE_SHA.encode()))
         original_groups = json.loads(self.source_blob(gate.INVENTORY,
             "fe1fb3f5f863b8dad9dcd400ee2dccb68e69c4c4"))["groups"]
+        original_groups["pm_human_controls"] = sorted(original_groups["pm_human_controls"] + [
+            "pm_human_controls::pm_stop_custody_migration_preserves_original_function_and_holds_unsafe_downgrade"])
         self.assertEqual({k: v for k, v in REVIEWED["groups"].items() if k != "pm_recovery_pg"},
                          {k: v for k, v in original_groups.items() if k != "pm_recovery_pg"})
         for path in gate.WRITE_SET:
@@ -873,7 +1018,7 @@ class HostedBackendTests(unittest.TestCase):
                      "long_history_creation_replay_dispatch_and_terminal_mirror_return_exact_message",
                      "task_binding_is_immutable_unique_and_replays_concurrent_requests"):
             self.assertEqual(REVIEWED["groups"]["foundation"].count(name), 1)
-            text = self.log("foundation", 124)
+            text = self.log("foundation", 125)
             line = "test " + name + " ... ok\n"
             for bad in (text.replace(line, ""), text.replace(line, line.replace("ok", "ignored")), text + line):
                 with self.subTest(name=name), self.assertRaises(ValueError):
@@ -911,7 +1056,7 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(len(frozen["groups"]["container_activation_pg"]), 14)
         for stage in ("container_activation_pg", "foundation"):
             names = frozen["groups"][stage]
-            ignored = 124 if stage == "foundation" else 0
+            ignored = 125 if stage == "foundation" else 0
             text = "".join("test " + name + " ... ok\n" for name in names)
             text += f"test result: ok. {len(names)} passed; 0 failed; {ignored} ignored;\n"
             gate.verify_test_log(stage, text, frozen)
@@ -925,7 +1070,8 @@ class HostedBackendTests(unittest.TestCase):
         for key in ("canonical", "split"):
             self.assertEqual(REVIEWED["migration_registries"][key], previous["migration_registries"][key]
                              + ["m20261010_000021_activation_authority_alias", "m20261010_000022_pm_dispatch",
-                                "m20261010_000023_pm_human_controls", "m20261010_000024_pm_ack_bounds"])
+                                "m20261010_000023_pm_human_controls", "m20261010_000024_pm_ack_bounds",
+                                "m20261011_000025_pm_stop_custody"])
         expected = gate.expected_migration_receipt(REVIEWED)
         self.assertEqual(expected["down_alias"], sorted(previous["migration_registries"]["canonical"]))
         self.assertEqual(expected["down_one"], expected["down_alias"][:-1])
@@ -933,17 +1079,18 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(expected["alias_reapply"], expected["down_pm"])
         self.assertEqual(expected["pm_reapply"], expected["down_human"])
         self.assertEqual(expected["human_reapply"], expected["down_ack"])
-        self.assertEqual(expected["ack_reapply"], expected["up"])
+        self.assertEqual(expected["ack_reapply"], expected["down_stop"])
+        self.assertEqual(expected["stop_reapply"], expected["up"])
         shell = (ROOT / gate.GATE).read_text()
         snapshots = re.findall(r"^  migration_snapshot (\w+)$", shell, re.M)
         self.assertEqual(snapshots, list(expected))
         source = (ROOT / gate.HELPER).read_text()
-        self.assertIn('("up", "down_ack"), ("down_ack", "down_human"), ("down_human", "down_pm"), ("down_pm", "down_alias"), ("down_alias", "down_one"), ("down_one", "down_recovered")', source)
+        self.assertIn('("up", "down_stop"), ("down_stop", "down_ack"), ("down_ack", "down_human"), ("down_human", "down_pm"), ("down_pm", "down_alias"), ("down_alias", "down_one"), ("down_one", "down_recovered")', source)
         self.assertIn('("reapply", "alias_reapply")', source)
-        self.assertIn("cargo run --locked -p migration -- down -n 25", shell)
+        self.assertIn("cargo run --locked -p migration -- down -n 26", shell)
         segment = shell.split("stage=migration_smoke\n", 1)[1].split("} 2>&1", 1)[0]
-        self.assertEqual(segment.count("cargo run --locked -p migration -- down -n 1\n"), 6)
-        self.assertEqual(segment.count("cargo run --locked -p migration -- up -n 1\n"), 6)
+        self.assertEqual(segment.count("cargo run --locked -p migration -- down -n 1\n"), 7)
+        self.assertEqual(segment.count("cargo run --locked -p migration -- up -n 1\n"), 7)
         prior_shell = self.source_blob(gate.GATE, "084d9f0f7b94953251b58a912b32b92cedbda020").decode()
         historical_shell = self.source_blob(gate.GATE, "9565ecc1c2d114d44132598d77f4c5942d440d1d").decode()
         self.assertEqual(historical_shell.split("stage=migration_smoke\n", 1)[0].replace(
@@ -1028,7 +1175,7 @@ class HostedBackendTests(unittest.TestCase):
         self.assertIn("run_tests foundation -p infra --test sdlc_foundation\n", shell)
         self.assertIn("cargo test --locked --workspace -- --test-threads=1", shell)
         for stage in ("foundation", "credentials_pg", "lineage10", "config_shared_unit"):
-            text = self.log(stage, 124 if stage == "foundation" else 0)
+            text = self.log(stage, 125 if stage == "foundation" else 0)
             gate.verify_test_log(stage, text, REVIEWED)
             for bad in ("\n".join(text.splitlines()[1:]), text.replace(" ... ok", " ... ignored", 1),
                         text + text.splitlines()[0] + "\n"):
@@ -1051,7 +1198,7 @@ class HostedBackendTests(unittest.TestCase):
         self.assertIn(case, REVIEWED["groups"]["lineage10"])
         lineage = self.source_blob("backend/migration/src/lineage_tests.rs").decode()
         self.assertIn("for legacy in [false, true]", lineage)
-        self.assertIn('assert_eq!(after[after.len() - 3].0, "m20261010_000022_pm_dispatch")', lineage)
+        self.assertIn('assert_eq!(after[after.len() - 4].0, "m20261010_000022_pm_dispatch")', lineage)
         self.assertIn('"m20261010_000023_pm_human_controls"', lineage)
         name = "pm_dispatch::pm_downgrade_refuses_unknown_known_and_guidance_custody_without_changing_ledger"
         self.assertIn(name, REVIEWED["groups"]["foundation"])
@@ -1061,8 +1208,8 @@ class HostedBackendTests(unittest.TestCase):
         self.assertIn("assert_eq!(before, after)", source)
         expected = gate.expected_migration_receipt(REVIEWED)
         self.assertEqual({key: len(value) for key, value in expected.items()},
-            dict(up=25, down_ack=24, down_human=23, down_pm=22, down_alias=21, down_one=20, down_recovered=19,
-                 recovered_reapply=20, reapply=21, alias_reapply=22, pm_reapply=23, human_reapply=24, ack_reapply=25, down_all=0, final_up=25))
+            dict(up=26, down_stop=25, down_ack=24, down_human=23, down_pm=22, down_alias=21, down_one=20, down_recovered=19,
+                 recovered_reapply=20, reapply=21, alias_reapply=22, pm_reapply=23, human_reapply=24, ack_reapply=25, stop_reapply=26, down_all=0, final_up=26))
         for mutation in ("drop_pm", "reorder"):
             bad = copy.deepcopy(REVIEWED)
             if mutation == "drop_pm":
@@ -1407,13 +1554,13 @@ class HostedBackendTests(unittest.TestCase):
 
     def test_all_167_ignored_exactly_once_and_337_default_declarations(self):
         records = REVIEWED["ignored"]
-        self.assertEqual(len(records), 179)
-        self.assertEqual(len({(x["source"], x["name"]) for x in records}), 179)
+        self.assertEqual(len(records), 180)
+        self.assertEqual(len({(x["source"], x["name"]) for x in records}), 180)
         self.assertEqual(Counter(x["gate"] for x in records)["runtime_controls"], 30)
         self.assertEqual(len(REVIEWED["groups"]["runtime_terminal"]), 14)
         self.assertEqual(len(REVIEWED["groups"]["foundation"]), 77)
-        self.assertEqual(REVIEWED["default_foundation_ignored"], 124)
-        self.assertEqual(len(REVIEWED["workspace_default_declarations"]), 400)
+        self.assertEqual(REVIEWED["default_foundation_ignored"], 125)
+        self.assertEqual(len(REVIEWED["workspace_default_declarations"]), 401)
         self.assertIn("activation_probe_hash_matches_base_unicode_snapshot",
                       {row["name"] for row in REVIEWED["workspace_default_declarations"]})
         self.assertEqual(REVIEWED["authority"]["old_ignored"], 130)
@@ -1426,7 +1573,7 @@ class HostedBackendTests(unittest.TestCase):
                         "cargo clippy --locked --workspace --all-targets --message-format=json -- -D warnings",
                         "cargo test --locked --workspace -- --test-threads=1",
                         "cargo test --locked -p migration --lib lineage_tests -- --include-ignored --test-threads=1",
-                        "cargo run --locked -p migration -- down -n 1", "cargo run --locked -p migration -- down -n 25",
+                        "cargo run --locked -p migration -- down -n 1", "cargo run --locked -p migration -- down -n 26",
                         "cargo build --locked -p auth-server --bin auth-server",
                         "cargo test --locked -p infra --test pm_credentials_real_auth -- --ignored --test-threads=1",
                         "cmp ../openapi/openapi.json ${QA_OUTPUT}/openapi.json"):
@@ -1456,7 +1603,7 @@ class HostedBackendTests(unittest.TestCase):
                 gate.verify_test_log("runtime_controls", bad, REVIEWED)
 
     def test_foundation_53_passed_and_119_ignored_never_lowered(self):
-        gate.verify_test_log("foundation", self.log("foundation", 124), REVIEWED)
+        gate.verify_test_log("foundation", self.log("foundation", 125), REVIEWED)
         with self.assertRaises(ValueError):
             gate.verify_test_log("foundation", self.log("foundation", 115), REVIEWED)
 
@@ -1465,17 +1612,17 @@ class HostedBackendTests(unittest.TestCase):
         ignored = "\n".join(name + ": test" for name in names)
         ordinary = ignored + "\nnormal: test\n" + "\n".join(name + ": test" for name in REVIEWED["pm_workspace_required"])
         result = gate.verify_runtime_inventory(ordinary, ignored, REVIEWED)
-        self.assertEqual(result["listed_default_count"], 50)
+        self.assertEqual(result["listed_default_count"], 51)
         for bad in ("", ignored + "\nextra: test", ignored + "\n" + names[0] + ": test", "\n".join(ignored.splitlines()[1:])):
             with self.assertRaises(ValueError):
                 gate.verify_runtime_inventory(ordinary, bad, REVIEWED)
 
     def test_workspace_actual_cases_match_compiler_list_not_static_count(self):
         listing = "\n".join(x["name"] + ": test" for x in REVIEWED["ignored"]) + "\nfirst: test\nsecond: test\n"
-        text = "test first ... ok\ntest second ... ok\ntest result: ok. 2 passed; 0 failed; 179 ignored;\n"
+        text = "test first ... ok\ntest second ... ok\ntest result: ok. 2 passed; 0 failed; 180 ignored;\n"
         result = gate.verify_test_log("workspace", text, REVIEWED, listing)
         self.assertEqual(result["passed"], 2)
-        for bad in (text.replace("test second ... ok\n", ""), text.replace("179 ignored", "162 ignored"), ""):
+        for bad in (text.replace("test second ... ok\n", ""), text.replace("180 ignored", "162 ignored"), ""):
             with self.assertRaises(ValueError):
                 gate.verify_test_log("workspace", bad, REVIEWED, listing)
 
@@ -1728,7 +1875,7 @@ class HostedBackendTests(unittest.TestCase):
                 expected = expected.replace(b"--memory 4g", b"--memory 6g")
             actual = self.source_blob(path, "78d3727e196ed17af3af371e3a56936e556cd7e8") if path in (gate.WORKFLOW, gate.GATE, gate.INVENTORY) else (ROOT / path).read_bytes()
             self.assertEqual(actual, expected, path)
-        self.assertEqual(gate.SOURCE_SHA, "5bc0fd3fd92a11a6957858525d9b124be00c1644")
+        self.assertEqual(gate.SOURCE_SHA, "8f8e69d637a64b2d7a3e8c2bc6dca00517539667")
         self.assertEqual(len(gate.GATES), 84)
 
     def test_hosted_six_gib_policy_is_exact_and_retains_three_gib_reserve(self):
@@ -2523,6 +2670,9 @@ class HostedBackendTests(unittest.TestCase):
             self.assertNotIn(unexpected, block)
 
     def test_bounded_submit_allocation_binding_is_single_wrapper_and_preserves_afab_195_identities(self):
+        # Keep this historical transition bound to its reviewed frozen controls.
+        historical = "50cb550af47e06530997fc1f84a5562fd4503b9e"
+        REVIEWED = json.loads(self.source_blob(gate.INVENTORY, historical))
         import ast
         frozen = "afab44ddcc06358904efa58942ea94546572693f"
         cb1 = "cb1f62ee86477d60242cc05222ec923dd3c74e37"
@@ -2536,24 +2686,24 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(gate.digest(actual), "56926dcd735da7e70ffabb0973871a0e3bc70949139f3788afa888c24fbecfc8")
         previous = json.loads(self.source_blob(gate.INVENTORY, frozen))
         expected = copy.deepcopy(previous)
-        expected["source_commit"] = expected["config_union_preparation"]["source_commit"] = gate.SOURCE_SHA
+        expected["source_commit"] = expected["config_union_preparation"]["source_commit"] = "5bc0fd3fd92a11a6957858525d9b124be00c1644"
         expected["compiled_source_sha256"]["fleet-control/" + path] = expected["rust_source_sha256"][path] = gate.digest(actual)
-        expected["config_union_preparation"]["codegen_evidence"]["artifact_bound_source_commit"] = gate.SOURCE_SHA
+        expected["config_union_preparation"]["codegen_evidence"]["artifact_bound_source_commit"] = "5bc0fd3fd92a11a6957858525d9b124be00c1644"
         self.assertEqual(REVIEWED, expected)
         # Authentic artifact source remains AA11, never relabeled to the fixture child.
         self.assertEqual(REVIEWED["config_union_preparation"]["codegen_evidence"]["source_commit"],
                          "aa11d3b90fcacb6f01a99b8a534cadbffbf54993")
-        helper = self.source_blob(gate.HELPER, frozen).replace(cb1.encode(), gate.SOURCE_SHA.encode())
+        helper = self.source_blob(gate.HELPER, frozen).replace(cb1.encode(), "5bc0fd3fd92a11a6957858525d9b124be00c1644".encode())
         helper = helper.replace(gate.digest(gate.canonical(previous["compiled_source_sha256"])).encode(),
-                                gate.SOURCE_INVENTORY_SHA.encode())
-        self.assertEqual((ROOT / gate.HELPER).read_bytes(), helper)
-        self.assertEqual((ROOT / gate.WORKFLOW).read_bytes(),
-                         self.source_blob(gate.WORKFLOW, frozen).replace(cb1.encode(), gate.SOURCE_SHA.encode()))
+                                "0f55274de1a4b602e0378eb47db48ee23aedd731b4e3d4782f01db811f48e5c0".encode())
+        self.assertEqual(self.source_blob(gate.HELPER, historical), helper)
+        self.assertEqual(self.source_blob(gate.WORKFLOW, historical),
+                         self.source_blob(gate.WORKFLOW, frozen).replace(cb1.encode(), "5bc0fd3fd92a11a6957858525d9b124be00c1644".encode()))
         for file in (gate.GATE, gate.INIT):
-            self.assertEqual((ROOT / file).read_bytes(), self.source_blob(file, frozen))
+            self.assertEqual(self.source_blob(file, historical), self.source_blob(file, frozen))
         tests = lambda data: {node.name: ast.dump(node) for node in ast.walk(ast.parse(data))
             if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")}
-        before, after = tests(self.source_blob("scripts/tests/test_hosted_backend_gate.py", frozen)), tests(Path(__file__).read_bytes())
+        before, after = tests(self.source_blob("scripts/tests/test_hosted_backend_gate.py", frozen)), tests(self.source_blob("scripts/tests/test_hosted_backend_gate.py", historical))
         self.assertEqual(len(before), 195)
         self.assertTrue(before.keys() <= after.keys())
         self.assertEqual({name for name in before if before[name] != after[name]}, {
@@ -2564,6 +2714,9 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(len(gate.GATES), 84)
 
     def test_cb1_source_binding_is_exact_two_operand_allocation_changes_with_188_identities_preserved(self):
+        # Keep this historical transition bound to its reviewed frozen controls.
+        historical = "50cb550af47e06530997fc1f84a5562fd4503b9e"
+        REVIEWED = json.loads(self.source_blob(gate.INVENTORY, historical))
         import ast
         frozen = "c5ef8f64e7215659a3ec600846dab8e0e1c5fc93"
         original_source = "6768f6642ac5f08d2c77204f0e79ab356603e54f"
@@ -2603,19 +2756,22 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(self.source_blob(gate.WORKFLOW, controls), self.source_blob(gate.WORKFLOW, frozen).replace(
             original_source.encode(), cb1.encode()))
         for file in (gate.GATE, gate.INIT):
-            self.assertEqual((ROOT / file).read_bytes(), self.source_blob(file, frozen))
+            self.assertEqual(self.source_blob(file, historical), self.source_blob(file, frozen))
         identities = lambda data: {node.name for node in ast.walk(ast.parse(data))
             if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")}
         before = identities(self.source_blob("scripts/tests/test_hosted_backend_gate.py", frozen))
         self.assertEqual(len(before), 188)
-        self.assertTrue(before <= identities(Path(__file__).read_bytes()))
+        self.assertTrue(before <= identities(self.source_blob("scripts/tests/test_hosted_backend_gate.py", historical)))
 
     def test_pm_recovery_nocapture_only_one_command_and_split_libtest_completions_are_exact(self):
+        # Keep this historical transition bound to its reviewed frozen controls.
+        historical = "50cb550af47e06530997fc1f84a5562fd4503b9e"
+        REVIEWED = json.loads(self.source_blob(gate.INVENTORY, historical))
         frozen = "a7a5ac7f9ada5878436b88eefd8e7cad2a42a6a1"
         previous = self.source_blob(gate.GATE, frozen)
         command = b"runtime::pm_recovery::tests::pg:: -- --ignored --test-threads=1"
         self.assertEqual(previous.count(command), 1)
-        self.assertEqual((ROOT / gate.GATE).read_bytes(), previous.replace(command, command + b" --nocapture"))
+        self.assertEqual(self.source_blob(gate.GATE, historical), previous.replace(command, command + b" --nocapture"))
         names = REVIEWED["groups"]["pm_recovery_pg"]
         lines = ["running 4 tests"]
         for index, name in enumerate(names):
@@ -2643,16 +2799,22 @@ class HostedBackendTests(unittest.TestCase):
                 gate.verify_test_log("pm_recovery_pg", bad, REVIEWED)
 
     def test_pm_recovery_nocapture_completion_normalization_preserves_every_prior_verifier_guard(self):
+        # Keep this historical transition bound to its reviewed frozen controls.
+        historical = "50cb550af47e06530997fc1f84a5562fd4503b9e"
+        REVIEWED = json.loads(self.source_blob(gate.INVENTORY, historical))
         import ast
         frozen = "a7a5ac7f9ada5878436b88eefd8e7cad2a42a6a1"
         function = lambda data: next(node for node in ast.parse(data).body
             if isinstance(node, ast.FunctionDef) and node.name == "verify_test_log")
-        old, new = function(self.source_blob(gate.HELPER, frozen)), function((ROOT / gate.HELPER).read_bytes())
+        old, new = function(self.source_blob(gate.HELPER, frozen)), function(self.source_blob(gate.HELPER, historical))
         self.assertEqual(ast.unparse(new.body[0].test), "stage == 'pm_recovery_pg'")
         del new.body[0]
         self.assertEqual(ast.dump(new), ast.dump(old))
 
     def test_pm_recovery_layout_inventory_is_only_one_ignored_diagnostic_and_exact_git_binding(self):
+        # Keep this historical transition bound to its reviewed frozen controls.
+        historical = "50cb550af47e06530997fc1f84a5562fd4503b9e"
+        REVIEWED = json.loads(self.source_blob(gate.INVENTORY, historical))
         frozen = "b9a81c8cb375bfe87a6531e001e16a7a1f4da4b7"
         old = json.loads(self.source_blob(gate.INVENTORY, frozen))
         expected = copy.deepcopy(old)
@@ -2669,12 +2831,12 @@ class HostedBackendTests(unittest.TestCase):
         expected["ignored"] = sorted([row for row in old["ignored"] if row["source"] != path] + records,
                                      key=lambda row: (row["source"], row["line"]))
         expected["groups"]["pm_recovery_pg"] = sorted(row["name"] for row in records)
-        expected["source_commit"] = expected["config_union_preparation"]["source_commit"] = gate.SOURCE_SHA
+        expected["source_commit"] = expected["config_union_preparation"]["source_commit"] = "5bc0fd3fd92a11a6957858525d9b124be00c1644"
         expected["compiled_source_sha256"]["fleet-control/" + path] = expected["rust_source_sha256"][path] = gate.digest(source.encode())
         binding = expected["config_union_preparation"]["codegen_evidence"]
-        binding["artifact_bound_source_commit"] = gate.SOURCE_SHA
+        binding["artifact_bound_source_commit"] = "5bc0fd3fd92a11a6957858525d9b124be00c1644"
         binding["source_delta"] = subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT), "diff", "--name-only",
-            binding["source_commit"], gate.SOURCE_SHA], capture_output=True, check=True, timeout=30).stdout.decode().splitlines()
+            binding["source_commit"], "5bc0fd3fd92a11a6957858525d9b124be00c1644"], capture_output=True, check=True, timeout=30).stdout.decode().splitlines()
         self.assertEqual(REVIEWED, expected)
         gate.require_codegen_binding(REVIEWED)
         self.assertEqual((len(REVIEWED["ignored"]), len(REVIEWED["workspace_default_declarations"])), (179, 400))
@@ -2685,7 +2847,7 @@ class HostedBackendTests(unittest.TestCase):
         valid = "FLEET_PM_RECOVERY_LAYOUT=123,456\n"
         malformed = ("0,1", "1,0", "-1,2", "1,-2", "01,2", "1,02", "true,2", "1,False", "1.0,2",
                      "4294967296,1", "1,4294967296", "9" * 50 + ",1", "1", "1,2,3", "1,2 PRIVATE_SENTINEL", "")
-        vectors = [valid + valid, valid + valid.replace("123", "124"), valid.removesuffix("\n")]
+        vectors = [valid + valid, valid + valid.replace("123", "125"), valid.removesuffix("\n")]
         for item in malformed:
             bad = "FLEET_PM_RECOVERY_LAYOUT=" + item + "\n"
             vectors.extend((bad, valid + bad, bad + valid))
@@ -2769,16 +2931,19 @@ class HostedBackendTests(unittest.TestCase):
             gate.validate_failure_readback(run, artifact, payload, **args)
 
     def test_pm_recovery_diagnostic_successor_preserves_177_identities_and_all_execution_guards(self):
+        # Keep this historical transition bound to its reviewed frozen controls.
+        historical = "50cb550af47e06530997fc1f84a5562fd4503b9e"
+        REVIEWED = json.loads(self.source_blob(gate.INVENTORY, historical))
         import ast
         frozen = "b9a81c8cb375bfe87a6531e001e16a7a1f4da4b7"
         functions = lambda data: {node.name: ast.dump(node) for node in ast.parse(data).body
                                   if isinstance(node, (ast.FunctionDef, ast.ClassDef))}
-        before, after = functions(self.source_blob(gate.HELPER, frozen)), functions((ROOT / gate.HELPER).read_bytes())
+        before, after = functions(self.source_blob(gate.HELPER, frozen)), functions(self.source_blob(gate.HELPER, historical))
         self.assertEqual(before.keys(), after.keys())
         self.assertEqual({name for name in before if before[name] != after[name]},
                          {"safe_test_diagnostics", "test_failure_logs", "validate_failure_evidence", "reviewed_inventory",
                           "verify_test_log", "verify_runtime_inventory", "execute", "validate_evidence_files"})
-        actual = (ROOT / gate.HELPER).read_bytes()
+        actual = self.source_blob(gate.HELPER, historical)
         normalized = re.sub(rb"\b179\b", b"178", actual)
         normalized = normalized.replace(b'len(value["groups"]["pm_recovery_pg"]) == 4',
                                         b'len(value["groups"]["pm_recovery_pg"]) == 3')
@@ -2795,11 +2960,11 @@ class HostedBackendTests(unittest.TestCase):
                               if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")}
         original = tests(self.source_blob("scripts/tests/test_hosted_backend_gate.py", frozen))
         self.assertEqual(len(original), 177)
-        self.assertTrue(original <= tests(Path(__file__).read_bytes()))
+        self.assertTrue(original <= tests(self.source_blob("scripts/tests/test_hosted_backend_gate.py", historical)))
         for path in (gate.INIT,):
             self.assertEqual((ROOT / path).read_bytes(), self.source_blob(path, frozen), path)
-        self.assertEqual((ROOT / gate.WORKFLOW).read_bytes(), self.source_blob(gate.WORKFLOW, frozen).replace(
-            b"b97e1e6933d1c6156afc629708b53204cff6680a", gate.SOURCE_SHA.encode()))
+        self.assertEqual(self.source_blob(gate.WORKFLOW, historical), self.source_blob(gate.WORKFLOW, frozen).replace(
+            b"b97e1e6933d1c6156afc629708b53204cff6680a", "5bc0fd3fd92a11a6957858525d9b124be00c1644".encode()))
         self.assertEqual(len(gate.GATES), 84)
 
     def test_rust_stack_overflow_partial_foreign_prefix_suffix_stay_unknown(self):
@@ -3348,16 +3513,16 @@ class HostedBackendTests(unittest.TestCase):
         # Positive evidence fixtures exercise the validator, not pending source qualification.
         self.enterContext(mock.patch.object(gate, "reviewed_inventory", return_value=self.synthetic_bound_inventory()))
         workflow_sha = "a" * 40
-        focused = {name: dict(passed=len(names), failed=0, ignored=124 if name == "foundation" else 0,
+        focused = {name: dict(passed=len(names), failed=0, ignored=125 if name == "foundation" else 0,
                               tests=sorted(names)) for name, names in REVIEWED["groups"].items()}
-        focused["workspace"] = dict(passed=1, failed=0, ignored=179, tests=["normal"])
+        focused["workspace"] = dict(passed=1, failed=0, ignored=180, tests=["normal"])
         report = dict(backend_quality_gate=True, all_quality_gate=False, sdlc_acceptance=False, status="success",
                       gates=[dict(stage=name, status="passed") for name in gate.GATES], focused=focused,
-                      cleanup=dict(scratch=True, synthetic_databases=True), ignored_required=179, foundation_ignored=124,
+                      cleanup=dict(scratch=True, synthetic_databases=True), ignored_required=180, foundation_ignored=125,
                       contracts={stage: dict(passed=len(names), failed=0, ignored=0, tests=sorted(names))
                                  for stage, names in REVIEWED["python_contracts"].items()},
                       migration_ledger=dict(snapshots=gate.expected_migration_receipt(REVIEWED), applied_at_preserved=True),
-                      runtime_inventory=dict(ignored=179, listed_default_count=1, ignored_names_sha256=gate.digest(gate.canonical(
+                      runtime_inventory=dict(ignored=180, listed_default_count=1, ignored_names_sha256=gate.digest(gate.canonical(
                           sorted(item["name"] for item in REVIEWED["ignored"])))))
         report.update(report_changes or {})
         provenance = dict(version=1, repository=gate.REPOSITORY, branch=gate.BRANCH, source_sha=gate.SOURCE_SHA,
@@ -3558,7 +3723,7 @@ class HostedBackendTests(unittest.TestCase):
 
     def test_migration_smoke_exact21_20_19_20_21_0_21_not_count_waiver(self):
         expected = gate.expected_migration_receipt(REVIEWED)
-        self.assertEqual([len(v) for v in expected.values()], [25, 24, 23, 22, 21, 20, 19, 20, 21, 22, 23, 24, 25, 0, 25])
+        self.assertEqual([len(v) for v in expected.values()], [26, 25, 24, 23, 22, 21, 20, 19, 20, 21, 22, 23, 24, 25, 26, 0, 26])
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             self.migration_files(root, expected)
@@ -3567,10 +3732,10 @@ class HostedBackendTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 gate.verify_migration_snapshots(root, REVIEWED)
         text = (ROOT / gate.GATE).read_text()
-        self.assertIn("cargo run --locked -p migration -- down -n 25", text)
+        self.assertIn("cargo run --locked -p migration -- down -n 26", text)
         for name in expected:
             self.assertIn("migration_snapshot " + name, text)
-        self.assertEqual(len(REVIEWED["migration_registries"]["split"]), 28)
+        self.assertEqual(len(REVIEWED["migration_registries"]["split"]), 29)
         self.assertIn("split_down_one_and_reapply_preserves_other_history", "\n".join(REVIEWED["groups"]["lineage10"]))
 
     def test_readback_requires_each_python_stage_exact_cases_and_migration_ledger(self):
@@ -3644,7 +3809,7 @@ class HostedBackendTests(unittest.TestCase):
                 drop.assert_not_called()
 
     def test_fleet_allowlist_only_required_scripts_no_cache_or_runtime_input(self):
-        self.assertEqual(len(REVIEWED["compiled_source_sha256"]), 403)
+        self.assertEqual(len(REVIEWED["compiled_source_sha256"]), 404)
         self.assertEqual(len(REVIEWED["utility_source_sha256"]), 10)
         for name in REVIEWED["compiled_source_sha256"]:
             self.assertFalse({".local", ".git", "target", "node_modules", "__pycache__", ".venv"}.intersection(Path(name).parts))

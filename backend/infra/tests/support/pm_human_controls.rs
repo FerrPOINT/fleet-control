@@ -1352,6 +1352,359 @@ async fn accepted_legacy_run(
         .unwrap();
 }
 
+#[tokio::test]
+#[ignore = "requires isolated FLEET_TEST_DATABASE_URL"]
+async fn pm_stop_custody_migration_preserves_original_function_and_holds_unsafe_downgrade() {
+    use domain::{PmGuidancePermit, PmRunReservation};
+    use migration::MigratorTrait;
+    use sea_orm::{ConnectOptions, Database};
+    for legacy in [false, true] {
+        let prefix = if legacy { 28 } else { 25 };
+        let url =
+            std::env::var("FLEET_TEST_DATABASE_URL").expect("isolated PostgreSQL is required");
+        let admin = Database::connect(&url).await.unwrap();
+        let schema = format!("fleet_pm_stop_{}", Uuid::new_v4().simple());
+        admin
+            .execute_unprepared(&format!("CREATE SCHEMA {schema}"))
+            .await
+            .unwrap();
+        let mut options = ConnectOptions::new(url);
+        options.max_connections(2).set_schema_search_path(&schema);
+        let db = Database::connect(options.clone()).await.unwrap();
+        if legacy {
+            migration::LegacyMigrator::up(&db, Some(prefix))
+                .await
+                .unwrap();
+        } else {
+            migration::Migrator::up(&db, Some(prefix)).await.unwrap();
+        }
+        let versions = migration::Migrator::get_migration_models(&db)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|r| (r.version, r.applied_at))
+            .collect::<Vec<_>>();
+        assert_eq!(versions.len(), prefix as usize);
+        assert_eq!(versions.last().unwrap().0, "m20261010_000024_pm_ack_bounds");
+        let definition_sql = "SELECT p.oid::bigint AS id,p.prosrc AS body,
+        pg_get_functiondef(p.oid) AS definition,pg_get_triggerdef(t.oid) AS trigger_definition
+        FROM pg_proc p JOIN pg_trigger t ON t.tgfoid=p.oid
+        WHERE t.tgrelid='runtime_control_commands'::regclass AND t.tgname='runtime_control_custody'";
+        let original = db
+            .query_one(Statement::from_string(
+                DatabaseBackend::Postgres,
+                definition_sql.to_owned(),
+            ))
+            .await
+            .unwrap()
+            .unwrap();
+        let original_id: i64 = original.try_get("", "id").unwrap();
+        let original_body: String = original.try_get("", "body").unwrap();
+        let repo_db = Database::connect(options).await.unwrap();
+        let repo_pool = repo_db.get_postgres_connection_pool().clone();
+        let repo = PostgresFleetRepository::new(repo_db);
+        let subject = Uuid::new_v4().to_string();
+        let owner = repo
+            .find_or_create_central_user(&subject, &format!("{subject}@example.test"), "Owner")
+            .await
+            .unwrap();
+        let agent_id = agent(&repo).await;
+        db.execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE agents SET sdlc_role='project_manager' WHERE id=$1",
+            [agent_id.into()],
+        ))
+        .await
+        .unwrap();
+        let session = repo
+            .create_session(chat(agent_id, "pm-stop-migration"), owner.id)
+            .await
+            .unwrap();
+        let binding = domain::TaskChatBinding {
+            tracker_instance_id: "stop-migration-tracker".into(),
+            project_id: Uuid::new_v4(),
+            task_id: Uuid::new_v4(),
+            root_task_id: Uuid::new_v4(),
+            agent_id,
+            owner_subject: subject.clone(),
+        };
+        repo.bind_task_chat(session.id, binding.clone(), "stop-migration-binding".into())
+            .await
+            .unwrap();
+        let reservation = PmRunReservation {
+            session_id: session.id,
+            session_run_id: Uuid::new_v4(),
+            identity: domain::PmExecutionIdentity {
+                task: "SDLC-42".into(),
+                execution_ref: Uuid::new_v4().to_string(),
+                tracker_instance_ref: binding.tracker_instance_id,
+                tracker_project_ref: binding.project_id.to_string(),
+                task_ref: binding.task_id.to_string(),
+                root_ref: binding.root_task_id.to_string(),
+                agent_ref: agent_id.to_string(),
+                assignment_operation_key: "assign-stop-migration".into(),
+                assignment_ref: Uuid::new_v4().to_string(),
+                assignment_revision: 1,
+            },
+            binding_ref: "stop-migration-binding".into(),
+            dispatch_operation_key: "stop-migration-dispatch".into(),
+            checkpoint_ref: None,
+            fence: 1,
+        };
+        accepted_legacy_run(&repo, &reservation, "run_stop_migration").await;
+        let guidance = json!({"input":"Initial guidance with unknown native ACK"}).to_string();
+        assert!(matches!(
+            repo.claim_pm_guidance(reservation.session_run_id, guidance.clone())
+                .await
+                .unwrap(),
+            PmGuidancePermit::Claimed
+        ));
+        assert!(matches!(
+            repo.claim_pm_guidance(reservation.session_run_id, guidance)
+                .await
+                .unwrap(),
+            PmGuidancePermit::Unknown
+        ));
+        let custody = legacy_history_snapshot(&db).await;
+        let old_stop_error = db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+        "INSERT INTO runtime_control_commands(id,session_id,session_run_id,agent_id,actor_user_id,operation,idempotency_key,
+            payload_sha256,runtime_run_id,runtime_session_id,original_request_sha256,api_origin,credential_fingerprint)
+         SELECT $1,$2,$3,$4,$5,'stop',$6,repeat('b',64),'run_stop_migration','effective-legacy-session',
+            encode(sha256(convert_to(intent->>'request_body','UTF8')),'hex'),
+            intent->>'origin',intent->>'credential_fingerprint' FROM pm_dispatch_journal WHERE session_run_id=$3",
+        [Uuid::new_v4().into(),session.id.into(),reservation.session_run_id.into(),agent_id.into(),
+            owner.id.into(),Uuid::new_v4().to_string().into()])).await.unwrap_err();
+        assert!(
+            old_stop_error
+                .to_string()
+                .contains("runtime control requires original admitted dispatch custody")
+        );
+        assert!(
+            repo.list_runtime_controls(session.id, reservation.session_run_id)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(legacy_history_snapshot(&db).await, custody);
+        let old_prerequisite =
+            "(b.reservation->>'checkpoint_ref' IS NOT NULL OR j.guidance_delivered)";
+        let new_prerequisite = "(NEW.operation='stop' OR b.reservation->>'checkpoint_ref' IS NOT NULL OR j.guidance_delivered)";
+        assert_eq!(original_body.matches(old_prerequisite).count(), 1);
+        // An empty control ledger can restore the exact function OID/body and trigger definition.
+        for _ in 0..2 {
+            migration::Migrator::up(&db, None).await.unwrap();
+            let upgraded = migration::Migrator::get_migration_models(&db)
+                .await
+                .unwrap()
+                .into_iter()
+                .map(|r| (r.version, r.applied_at))
+                .collect::<Vec<_>>();
+            assert_eq!(&upgraded[..prefix as usize], &versions);
+            assert_eq!(upgraded.len(), prefix as usize + 1);
+            assert_eq!(
+                upgraded[prefix as usize].0,
+                "m20261011_000025_pm_stop_custody"
+            );
+            let active = db
+                .query_one(Statement::from_string(
+                    DatabaseBackend::Postgres,
+                    definition_sql.to_owned(),
+                ))
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(
+                active.try_get::<String>("", "body").unwrap(),
+                original_body.replace(old_prerequisite, new_prerequisite)
+            );
+            let saved = db.query_one(Statement::from_string(DatabaseBackend::Postgres,
+            "SELECT oid::bigint AS id,prosrc AS body FROM pg_proc WHERE oid='admit_runtime_control_custody_v23()'::regprocedure".to_owned()))
+            .await.unwrap().unwrap();
+            assert_eq!(saved.try_get::<i64>("", "id").unwrap(), original_id);
+            assert_eq!(saved.try_get::<String>("", "body").unwrap(), original_body);
+            assert_eq!(legacy_history_snapshot(&db).await, custody);
+            migration::Migrator::down(&db, Some(1)).await.unwrap();
+            let restored = db
+                .query_one(Statement::from_string(
+                    DatabaseBackend::Postgres,
+                    definition_sql.to_owned(),
+                ))
+                .await
+                .unwrap()
+                .unwrap();
+            for column in ["body", "definition", "trigger_definition"] {
+                assert_eq!(
+                    restored.try_get::<String>("", column).unwrap(),
+                    original.try_get::<String>("", column).unwrap()
+                );
+            }
+            assert_eq!(restored.try_get::<i64>("", "id").unwrap(), original_id);
+            assert_eq!(
+                migration::Migrator::get_migration_models(&db)
+                    .await
+                    .unwrap()
+                    .into_iter()
+                    .map(|r| (r.version, r.applied_at))
+                    .collect::<Vec<_>>(),
+                versions
+            );
+            assert_eq!(legacy_history_snapshot(&db).await, custody);
+        }
+        migration::Migrator::up(&db, None).await.unwrap();
+        // Direct INSERTs exercise the DB trigger, independently of repository admission.
+        for case in [
+            "steer",
+            "foreign_owner",
+            "foreign_run",
+            "foreign_session",
+            "foreign_hash",
+        ] {
+            let error = db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+            "INSERT INTO runtime_control_commands(id,session_id,session_run_id,agent_id,actor_user_id,operation,idempotency_key,
+                payload_sha256,runtime_run_id,runtime_session_id,original_request_sha256,api_origin,credential_fingerprint)
+             SELECT $1,$2,$3,$4,$5,$6,$7,repeat('b',64),$8,$9,
+                CASE WHEN $10 THEN repeat('f',64) ELSE encode(sha256(convert_to(intent->>'request_body','UTF8')),'hex') END,
+                intent->>'origin',intent->>'credential_fingerprint' FROM pm_dispatch_journal WHERE session_run_id=$3",
+            [Uuid::new_v4().into(),session.id.into(),reservation.session_run_id.into(),agent_id.into(),
+                (if case=="foreign_owner" {Uuid::new_v4()} else {owner.id}).into(),
+                (if case=="steer" {"steer"} else {"stop"}).into(),Uuid::new_v4().to_string().into(),
+                (if case=="foreign_run" {"run_foreign"} else {"run_stop_migration"}).into(),
+                (if case=="foreign_session" {"foreign-session"} else {"effective-legacy-session"}).into(),
+                (case=="foreign_hash").into()])).await.unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains("runtime control requires original admitted dispatch custody"),
+                "{case}"
+            );
+        }
+        let run = repo
+            .get_session_agent_run(reservation.session_run_id)
+            .await
+            .unwrap();
+        let scope = PmHumanControlScope {
+            record: repo.get_pm_run(run.id).await.unwrap(),
+            intent: repo.get_pm_dispatch(run.id).await.unwrap().unwrap(),
+            owner_user_id: owner.id,
+            owner_subject: subject,
+        };
+        let actor = RuntimeControlActor {
+            user_id: owner.id,
+            idempotency_key: "original-stop".into(),
+        };
+        let stop = repo
+            .reserve_pm_runtime_control(&run, &actor, RuntimeControlOperation::Stop, None, &scope)
+            .await
+            .unwrap();
+        assert!(stop.dispatch);
+        assert!(
+            repo.claim_pm_runtime_control(stop.receipt.id, &scope)
+                .await
+                .unwrap()
+        );
+        assert!(
+            !repo
+                .claim_pm_runtime_control(stop.receipt.id, &scope)
+                .await
+                .unwrap()
+        );
+        repo.retire_runtime_control(stop.receipt.id, true)
+            .await
+            .unwrap();
+        let before = migration::Migrator::get_migration_models(&db)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|r| (r.version, r.applied_at))
+            .collect::<Vec<_>>();
+        let active = db
+            .query_one(Statement::from_string(
+                DatabaseBackend::Postgres,
+                definition_sql.to_owned(),
+            ))
+            .await
+            .unwrap()
+            .unwrap();
+        let data = legacy_history_snapshot(&db).await;
+        let control_sql =
+            "SELECT to_jsonb(c) AS record FROM runtime_control_commands c WHERE id=$1";
+        let original_control: Value = db
+            .query_one(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                control_sql,
+                [stop.receipt.id.into()],
+            ))
+            .await
+            .unwrap()
+            .unwrap()
+            .try_get("", "record")
+            .unwrap();
+        for _ in 0..2 {
+            let error = migration::Migrator::down(&db, Some(1))
+                .await
+                .unwrap_err()
+                .to_string();
+            assert!(error.contains("PM stop custody prevents guidance prerequisite downgrade"));
+            assert_eq!(
+                migration::Migrator::get_migration_models(&db)
+                    .await
+                    .unwrap()
+                    .into_iter()
+                    .map(|r| (r.version, r.applied_at))
+                    .collect::<Vec<_>>(),
+                before
+            );
+            assert_eq!(legacy_history_snapshot(&db).await, data);
+            let unchanged = db
+                .query_one(Statement::from_string(
+                    DatabaseBackend::Postgres,
+                    definition_sql.to_owned(),
+                ))
+                .await
+                .unwrap()
+                .unwrap();
+            for column in ["body", "definition", "trigger_definition"] {
+                assert_eq!(
+                    unchanged.try_get::<String>("", column).unwrap(),
+                    active.try_get::<String>("", column).unwrap()
+                );
+            }
+            let current_control: Value = db
+                .query_one(Statement::from_sql_and_values(
+                    DatabaseBackend::Postgres,
+                    control_sql,
+                    [stop.receipt.id.into()],
+                ))
+                .await
+                .unwrap()
+                .unwrap()
+                .try_get("", "record")
+                .unwrap();
+            assert_eq!(current_control, original_control);
+            let receipt = repo
+                .get_runtime_control(session.id, stop.receipt.id)
+                .await
+                .unwrap();
+            assert_eq!(receipt.state, RuntimeControlState::Uncertain);
+            assert_eq!(
+                repo.list_runtime_controls(session.id, run.id)
+                    .await
+                    .unwrap()
+                    .len(),
+                1
+            );
+        }
+        drop(repo);
+        repo_pool.close().await;
+        db.close().await.unwrap();
+        admin
+            .execute_unprepared(&format!("DROP SCHEMA {schema} CASCADE"))
+            .await
+            .unwrap();
+        admin.close().await.unwrap();
+    }
+}
+
 async fn complete_legacy_tool(
     repo: &PostgresFleetRepository,
     db: &sea_orm::DatabaseConnection,
