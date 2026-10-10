@@ -1,5 +1,6 @@
 """Pure/static regressions. Never start frontend, browsers, containers, or Cargo."""
 import io
+import hashlib
 from contextlib import redirect_stdout
 import json
 import os
@@ -17,6 +18,40 @@ import zlib
 from scripts import hosted_frontend_gate as gate
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def git_blob_inventory(sha):
+    inventory = {}
+    entries = gate.git(ROOT, "ls-tree", "-rz", sha).split(b"\0")
+    process = subprocess.Popen(
+        ["git", "--no-replace-objects", "-C", str(ROOT), "cat-file", "--batch"],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+    )
+    try:
+        for entry in filter(None, entries):
+            meta, name = entry.split(b"\t", 1)
+            mode, kind, blob = meta.split()
+            gate.require(mode in (b"100644", b"100755") and kind == b"blob", "Non-blob source")
+            process.stdin.write(blob + b"\n")
+            process.stdin.flush()
+            actual_blob, actual_kind, raw_size = process.stdout.readline(256).split()
+            size = int(raw_size)
+            gate.require(actual_blob == blob and actual_kind == kind and 0 <= size <= gate.MAX_FILE,
+                         "Invalid Git batch header")
+            data = process.stdout.read(size)
+            gate.require(len(data) == size and process.stdout.read(1) == b"\n", "Invalid Git batch frame")
+            gate.require(hashlib.sha1(b"blob " + str(size).encode() + b"\0" + data).hexdigest() == blob.decode(),
+                         "Invalid Git blob bytes")
+            inventory[name.decode()] = gate.digest(data)
+        process.stdin.close()
+        gate.require(process.wait(timeout=10) == 0, "Git batch failed")
+    finally:
+        if process.poll() is None:
+            process.kill()
+        process.wait(timeout=10)
+        process.stdin.close()
+        process.stdout.close()
+    return inventory
 
 
 def png(width=375, height=812):
@@ -188,19 +223,20 @@ class SourceContracts(unittest.TestCase):
         self.assertNotEqual(gate.qualified_inputs(state), original)
 
     def test_fixture_successor_exact_source_delta_inventory_and_original_key_body(self):
-        self.assertEqual(gate.SOURCE_SHA, "bf0ca7a182ed6344483a0ee4ce3a4333b4fc58c3")
-        self.assertEqual(gate.SOURCE_TREE, "d40b5a8f5e8cff28e54a670b1dc117ec6ee4bb1e")
-        self.assertEqual(gate.SOURCE_PARENTS, ["2398ff09974a1fbcdaf8f898568edb4f85bf9ed1"])
+        frozen = "bf0ca7a182ed6344483a0ee4ce3a4333b4fc58c3"
+        self.assertEqual(gate.git(ROOT, "show", "-s", "--format=%T %P", frozen).decode().strip(),
+                         "d40b5a8f5e8cff28e54a670b1dc117ec6ee4bb1e 2398ff09974a1fbcdaf8f898568edb4f85bf9ed1")
         gate.qualify_source(ROOT)
         changes = gate.git(ROOT, "diff", "--no-renames", "--name-status",
-                           "5cc1fbb75f9096f10dc32250bf7bab5c36386f9c", gate.SOURCE_SHA)
+                           "5cc1fbb75f9096f10dc32250bf7bab5c36386f9c", frozen)
         self.assertEqual(changes.decode().splitlines(), [
             "M\tfrontend/e2e/fleet-control.spec.ts",
             "M\tfrontend/e2e/runtime-controls.spec.ts",
         ])
-        inventory = gate.tracked_inventory(ROOT, gate.SOURCE_SHA)
+        inventory = git_blob_inventory(frozen)
         self.assertEqual(len(inventory), 835)
-        self.assertEqual(gate.digest(gate.canonical(inventory)), gate.QUALIFIED_INPUTS["source_inventory_sha256"])
+        self.assertEqual(gate.digest(gate.canonical(inventory)),
+                         "bb4ee11daf691177c14abc7a408372a899be301ab96cd11af47ba0bddb162263")
         runtime = (ROOT / "frontend/e2e/runtime-controls.spec.ts").read_text(encoding="utf-8")
         for assertion in (
             "expect(commands[1]).toEqual(commands[0])",
@@ -221,6 +257,70 @@ class SourceContracts(unittest.TestCase):
         self.assertIn("body: original.request", chats)
         self.assertIn("const retainedAnswer = page.getByRole('status').filter({ has: resume })", chats)
 
+    def test_capture_permissions_successor_exact_source_closure_and_mandatory_native_tests(self):
+        self.assertEqual(gate.SOURCE_SHA, "60f35db0b73922a0d5f753d370e556edcf4d20b0")
+        self.assertEqual(gate.SOURCE_TREE, "78547522533dcf5c5bc6b8d5e750e4bd94b96e3c")
+        self.assertEqual(gate.SOURCE_PARENTS, ["f9644cb1963dee198a0abd7ccd534ade1f9f3110"])
+        gate.qualify_source(ROOT)
+        inventory = git_blob_inventory(gate.SOURCE_SHA)
+        self.assertEqual(len(inventory), 837)
+        self.assertEqual(gate.digest(gate.canonical(inventory)), gate.QUALIFIED_INPUTS["source_inventory_sha256"])
+        self.assertEqual(gate.tracked_inventory(ROOT, gate.SOURCE_SHA), inventory)
+        previous = "7dd60204bd352f5dbf3e61b8c2db14706450eea4"
+        self.assertEqual(gate.git(ROOT, "diff", "--no-renames", "--name-status", previous,
+                                  gate.SOURCE_SHA).decode().splitlines(), [
+            "M\tdocs/plans/2026-10-09-parallel-remaining-work.md",
+            "M\tfrontend/package.json",
+            "M\tfrontend/scripts/capture-screenshots.mjs",
+            "A\tfrontend/scripts/capture-screenshots.test.mjs",
+            "M\tfrontend/src/pages/chat-detail/index.test.tsx",
+            "M\tfrontend/src/pages/chat-detail/index.tsx",
+        ])
+        self.assertEqual(gate.git(ROOT, "diff", "--exit-code", previous, gate.SOURCE_SHA,
+                                  "--", "frontend/e2e"), b"")
+        package = json.loads(gate.git(ROOT, "show", previous + ":frontend/package.json"))
+        package["scripts"]["screenshots:verify"] = (
+            "node --test scripts/capture-screenshots.test.mjs && node scripts/verify-screenshots.mjs")
+        self.assertEqual(json.loads((ROOT / "frontend/package.json").read_bytes()), package)
+        self.assertEqual(gate.GATES["screens-before"], [["pnpm", "screenshots:verify"]])
+        self.assertEqual(gate.GATES["screens-after"], [["pnpm", "screenshots:verify"]])
+        native = (ROOT / "frontend/scripts/capture-screenshots.test.mjs").read_text(encoding="utf-8")
+        self.assertEqual(re.findall(r"^test\('([^']+)'", native, re.M), [
+            "chat capture can read the control journal for every fixture session run",
+            "unknown and mismatched run targets remain unhandled",
+            "read-only control fixture does not accept mutations or lookups",
+            "capture retains 45 views at each of the three required viewports",
+        ])
+        self.assertNotRegex(native, r"\btest\.(skip|only|todo)\b")
+        self.assertIn("assert.equal(unhandled.size, 0", native)
+        self.assertIn("['POST', 'PUT', 'PATCH', 'DELETE']", native)
+        capture = (ROOT / "frontend/scripts/capture-screenshots.mjs").read_text(encoding="utf-8")
+        original_capture = gate.git(ROOT, "show", previous + ":frontend/scripts/capture-screenshots.mjs").decode()
+        start = capture.index("    const runtimeControlsMatch = pathName.match(")
+        end = capture.index("    const sessionLeaderMatch =", start)
+        self.assertEqual(capture[:start] + capture[end:], original_capture)
+        for guard in ("method === 'GET'", "runtimeControlsMatch &&",
+                      "sessionRuns[runtimeControlsMatch[1]]?.some((run) => run.id === runtimeControlsMatch[2])"):
+            self.assertIn(guard, capture[start:end])
+        self.assertEqual(len(gate.capture_paths(ROOT)), 135)
+        source = (ROOT / "frontend/src/pages/chat-detail/index.tsx").read_text(encoding="utf-8")
+        original_source = gate.git(ROOT, "show", previous + ":frontend/src/pages/chat-detail/index.tsx").decode()
+        self.assertEqual(source.replace("                        answerCommands.isError ||\n", "", 1)
+                         .replace("                        questions.isError ||\n                        answerCommands.isError\n",
+                                  "                        questions.isError\n", 1), original_source)
+        tests = (ROOT / "frontend/src/pages/chat-detail/index.test.tsx").read_text(encoding="utf-8")
+        start = tests.index("  describe('answer custody permissions and session isolation'")
+        end = tests.index("  it('requires explicit answer and does not publish after saving it'", start)
+        self.assertEqual(tests[:start] + tests[end:], gate.git(ROOT, "show", previous +
+                         ":frontend/src/pages/chat-detail/index.test.tsx").decode())
+        self.assertEqual(len(re.findall(r"\bit\(", tests[start:end])), 4)
+        self.assertIn("it.each(['session owner', 'Tracker access', 'journal access'])", tests[start:end])
+        self.assertIn("expect(stored[0]!.request).toEqual(original![2])", tests[start:end])
+        self.assertIn("expect(stored).toEqual([{ ...persisted, state: 'uncertain' }])", tests[start:end])
+        self.assertNotIn("state: 'delivered'", tests[start:end])
+        self.assertEqual(gate.QUALIFIED_UNIT_COUNTS,
+                         dict(files_passed=36, tests_passed=355, files_skipped=0, tests_skipped=0))
+
 
 class CompletionContracts(unittest.TestCase):
     def test_unit_summary_needs_completed_tests(self):
@@ -234,7 +334,8 @@ class CompletionContracts(unittest.TestCase):
                          dict(files_passed=2, tests_passed=8, files_skipped=0, tests_skipped=1))
 
     def test_exact_frozen_baseline_counts(self):
-        self.assertEqual(gate.unit_counts(b"Test Files 36 passed (36)\nTests 348 passed (348)"), gate.QUALIFIED_UNIT_COUNTS)
+        self.assertEqual(gate.unit_counts(b"Test Files 36 passed (36)\nTests 355 passed (355)"), gate.QUALIFIED_UNIT_COUNTS)
+        self.assertNotEqual(gate.unit_counts(b"Test Files 36 passed (36)\nTests 348 passed (348)"), gate.QUALIFIED_UNIT_COUNTS)
         self.assertNotEqual(gate.unit_counts(b"Test Files 36 passed (36)\nTests 337 passed (337)"), gate.QUALIFIED_UNIT_COUNTS)
         self.assertNotEqual(gate.unit_counts(b"Test Files 35 passed (35)\nTests 336 passed (336)"), gate.QUALIFIED_UNIT_COUNTS)
 

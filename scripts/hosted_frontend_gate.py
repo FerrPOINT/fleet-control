@@ -16,10 +16,10 @@ import zipfile
 import zlib
 
 REPOSITORY = "FerrPOINT/fleet-control"
-BRANCH = "build-only/frontend-fixture-successor-20261010"
-SOURCE_SHA = "bf0ca7a182ed6344483a0ee4ce3a4333b4fc58c3"
-SOURCE_TREE = "d40b5a8f5e8cff28e54a670b1dc117ec6ee4bb1e"
-SOURCE_PARENTS = ["2398ff09974a1fbcdaf8f898568edb4f85bf9ed1"]
+BRANCH = "build-only/frontend-capture-permissions-20261010"
+SOURCE_SHA = "60f35db0b73922a0d5f753d370e556edcf4d20b0"
+SOURCE_TREE = "78547522533dcf5c5bc6b8d5e750e4bd94b96e3c"
+SOURCE_PARENTS = ["f9644cb1963dee198a0abd7ccd534ade1f9f3110"]
 BASE_SHA = "19a7a381ae6dbea61a643bb96189e483fa64df5c"
 BASE_TREE = "aa1a0486af1922c5a7fd4471e71e4fbb6aa4c7cc"
 BASE_MATERIALIZED_FILES = {
@@ -33,9 +33,9 @@ WORKFLOW = ".github/workflows/frontend-build-only.yml"
 WRITE_SET = {WORKFLOW, "scripts/hosted_frontend_gate.py", "scripts/tests/test_hosted_frontend_gate.py"}
 NODE = "22.20.0"
 PNPM = "10.28.1"
-QUALIFIED_UNIT_COUNTS = dict(files_passed=36, tests_passed=348, files_skipped=0, tests_skipped=0)
+QUALIFIED_UNIT_COUNTS = dict(files_passed=36, tests_passed=355, files_skipped=0, tests_skipped=0)
 QUALIFIED_INPUTS = {
-    "source_inventory_sha256": "bb4ee11daf691177c14abc7a408372a899be301ab96cd11af47ba0bddb162263",
+    "source_inventory_sha256": "32e20f4613f580cea502ba03c4ed854df16f6573cc18bcd645214bbdee848df1",
     "base_inventory_sha256": "437244f3861d17356cbe33162dceca877aea74d82dccae9b9b1a2915b62ee444",
     "frontend_lock_sha256": "37918d9d24852a14f24c43a593777e99d36e0e58de2e7b9a58a4415fd927fb67",
     "base_lock_sha256": "149adc7015cd1b7fa1d093e5501156ed6e149efbc82b222c82a2797912261fb4",
