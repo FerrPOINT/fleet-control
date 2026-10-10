@@ -171,11 +171,13 @@ class HostedBackendTests(unittest.TestCase):
     def test_recovery_authentic4449_codegen_reuse_requires_exact_api_dependency_closure(self):
         import hashlib
         import tomllib
-        evidence = REVIEWED["config_union_preparation"]["codegen_evidence"]
+        frozen = json.loads(self.source_blob(gate.INVENTORY, "b6e933260e9327a29c5a80211411cf24cd04b88d"))
+        evidence = frozen["config_union_preparation"]["codegen_evidence"]
+        target = frozen["source_commit"]
         source = "4449a3b1cdd915e265543a24054506f15385393d"
         closure = evidence["api_dependency_closure"]
         self.assertEqual(evidence["source_commit"], source)
-        self.assertEqual(evidence["artifact_bound_source_commit"], gate.SOURCE_SHA)
+        self.assertEqual(evidence["artifact_bound_source_commit"], target)
         self.assertEqual(evidence["binding_kind"], "verified_api_dependency_closure_parity")
         self.assertEqual((evidence["run_id"], evidence["run_attempt"], evidence["artifact_id"]),
                          (38048577514, 1, 11667814381))
@@ -187,22 +189,22 @@ class HostedBackendTests(unittest.TestCase):
             "docs/TESTING.md", "docs/contracts/CHAT_CLARIFICATION_CONTRACT.md"})
         git = lambda *args: subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT), *args],
             capture_output=True, check=True, timeout=30).stdout
-        self.assertEqual(git("diff", "--name-only", source, gate.SOURCE_SHA).decode().splitlines(), evidence["source_delta"])
+        self.assertEqual(git("diff", "--name-only", source, target).decode().splitlines(), evidence["source_delta"])
         self.assertEqual(set(closure), {".base-revision", "backend/.cargo", "backend/Cargo.toml", "backend/Cargo.lock",
             "backend/api", "backend/app", "backend/domain", "backend/shared"} | {
             "backend/" + member + "/Cargo.toml" for member in ("api", "app", "domain", "shared", "infra", "migration", "server", "cli")})
-        listings = [git("ls-tree", "-r", "-z", pin, "--", *closure) for pin in (source, gate.SOURCE_SHA)]
+        listings = [git("ls-tree", "-r", "-z", pin, "--", *closure) for pin in (source, target)]
         self.assertTrue(listings[0])
         self.assertEqual(listings[0], listings[1])
         self.assertEqual(hashlib.sha256(listings[0]).hexdigest(), evidence["api_dependency_closure_git_sha256"])
-        self.assertEqual(gate.digest(self.source_blob("openapi/openapi.json")), gate.OPENAPI_SHA)
+        self.assertEqual(gate.digest(self.source_blob("openapi/openapi.json", target)), evidence["schema_sha256"])
         reached, pending, base = set(), ["api"], set()
         while pending:
             package = pending.pop()
             if package in reached:
                 continue
             reached.add(package)
-            manifest = tomllib.loads(self.source_blob("backend/" + package + "/Cargo.toml").decode())
+            manifest = tomllib.loads(self.source_blob("backend/" + package + "/Cargo.toml", target).decode())
             self.assertNotIn("build", manifest["package"])
             for dependency in manifest.get("dependencies", {}).values():
                 if isinstance(dependency, dict) and "path" in dependency:
@@ -214,10 +216,14 @@ class HostedBackendTests(unittest.TestCase):
                         pending.append(path[3:])
         self.assertEqual(reached, {"api", "app", "domain", "shared"})
         self.assertEqual(base, {"sdlc-shared", "sdlc-auth-core", "sdlc-telemetry"})
-        for path in git("ls-tree", "-r", "--name-only", gate.SOURCE_SHA, "--", "backend").decode().splitlines():
+        for path in git("ls-tree", "-r", "--name-only", target, "--", "backend").decode().splitlines():
             if path.endswith("/build.rs") or "rust-toolchain" in path or path.endswith("/Cargo.toml"):
                 self.assertIn(path, closure)
-        gate.require_codegen_binding(REVIEWED)
+        gate.require_codegen_binding(frozen)
+        self.assertEqual(REVIEWED["openapi_binding"], dict(status="pending_authentic_codegen", sha256=None))
+        self.assertIsNone(REVIEWED["config_union_preparation"]["codegen_evidence"])
+        with self.assertRaisesRegex(ValueError, "binding is pending"):
+            gate.require_codegen_binding(REVIEWED)
 
     def synthetic_bound_inventory(self):
         return dict(REVIEWED, openapi_binding=dict(status="verified", sha256=gate.OPENAPI_SHA))
@@ -566,10 +572,10 @@ class HostedBackendTests(unittest.TestCase):
                     gate.verify_test_log(stage, bad, REVIEWED)
 
     def test_successor_source_tree_and_six_lf_controls_remain_closed(self):
-        self.assertEqual(gate.SOURCE_SHA, "c59dbea1ab73a782a28cf6106155c84d73e2e14d")
+        self.assertEqual(gate.SOURCE_SHA, "3c900b00f15aeda2016a45d080d850fa028cdcfd")
         tree = subprocess.run(["git", "-C", str(ROOT), "rev-parse", gate.SOURCE_SHA + "^{tree}"],
             capture_output=True, check=True, timeout=30).stdout.decode().strip()
-        self.assertEqual(tree, "6acba662312af8d48069ed07f2d087379739c5c5")
+        self.assertEqual(tree, "b975beb628bb68c03fb5bce45e7c43085837e41f")
         delta = subprocess.run(["git", "-C", str(ROOT), "diff", "--name-status", gate.SOURCE_SHA],
             capture_output=True, check=True, timeout=30).stdout.decode()
         gate.validate_delta(delta)

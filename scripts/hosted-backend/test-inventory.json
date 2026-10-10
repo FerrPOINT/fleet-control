@@ -134,7 +134,7 @@
     "fleet-control/backend/api/src/routes/sdlc_configuration_tests.rs": "e884f82df2b50d9c60cb55c73d05790d1a779ac649b323a27e1d68143eedb8da",
     "fleet-control/backend/api/src/routes/sessions.rs": "b3fe11653bb5cd63f4bbe3f9bf801606cb928f0c9d4270a9fc7dd8a5279ddb24",
     "fleet-control/backend/api/src/routes/settings.rs": "74216216fc632135d4a18b3927a18f27bc727ef9010ea4e8af0f3647e09de095",
-    "fleet-control/backend/api/src/routes/task_chats.rs": "3443a4614171243fb32d7fde3dd3bb76305761fa4d21426cd155bdacaee476df",
+    "fleet-control/backend/api/src/routes/task_chats.rs": "6edc5899e23f1c965bcc914b026de1b8394603a61f76aee71511c0f3981a88f7",
     "fleet-control/backend/api/src/routes/users.rs": "599a8dc239ded6e1a978072c0b58ed96e733202f4ca73ad7661c56e158fac20c",
     "fleet-control/backend/api/src/routes/workflows.rs": "0aba26c73cacebe5edd98c0f2d02a766a62906cfeb7d20f7e24312e2541eb4f8",
     "fleet-control/backend/api/tests/fixtures/pm-draft/readback.json": "a4b555d66f8817f5a4b5e8bb39df8ceaaf60c885b45e2f4a81e1bb663f74bc91",
@@ -415,8 +415,32 @@
   "config_union_preparation": {
     "activation_diagnostic_commit": "ab222f0499de5d2394cff6d32af659bc3c94396e",
     "activation_intent_cases": 20,
-    "authentic_union_codegen_pending": false,
-    "codegen_evidence": {
+    "authentic_union_codegen_pending": true,
+    "codegen_evidence": null,
+    "compiled_inventory_includes_pre_regen_schema": true,
+    "controls_donor": "a7d7db205ee2ef7e480b5dc559156ad373135180",
+    "executed": false,
+    "final_qualified_source_pending": false,
+    "new_named_activation_cases": [
+      "runtime::container_activation::tests::binding_permanent_failures_hold_on_first_attempt_without_native_permit",
+      "runtime::container_activation::tests::binding_unavailable_retries_only_before_recorded_activation",
+      "runtime::container_activation::tests::workflow_owner_http_failure_is_read_only_and_never_enters_package_or_native_io",
+      "runtime::container_activation::tests::workflow_preflight_never_rebinds_foreign_activation_or_changed_revision",
+      "runtime::container_activation::tests::workflow_preflight_selects_immutable_target_for_fresh_and_resumed_forward_phases",
+      "runtime::container_activation::tests::workflow_rollback_preflight_selects_current_effective_not_desired_or_root_revision"
+    ],
+    "prior_codegen_evidence": {
+      "artifact_bound_source_commit": "facb25b9eae66db0c8b762ab68a5963422edf58f",
+      "artifact_id": 11666035358,
+      "artifact_zip_sha256": "a6d16c4dc3fb47d3b6da5da22d42b1c91db9f83fc2e77d2bbd3a7aa8b1577daf",
+      "reported_by_parent": true,
+      "run_attempt": 1,
+      "run_id": 38040550767,
+      "schema_sha256": "ad980604beb2cff0890f4d1a07a185c97a444fda166985f2a6da465a222d129c",
+      "source_commit": "83091f055e3b34fcfe6a6d59b1703c117261c027",
+      "workflow_commit": "b22971dbfbc0476b7789f94fa28999581e17da08"
+    },
+    "prior_recovery_codegen_evidence": {
       "api_dependency_closure": [
         ".base-revision",
         "backend/.cargo",
@@ -455,31 +479,8 @@
       ],
       "workflow_commit": "eed4bc54149e1b317c5eb3e3e7c628eeaffbdea4"
     },
-    "compiled_inventory_includes_pre_regen_schema": false,
-    "controls_donor": "a7d7db205ee2ef7e480b5dc559156ad373135180",
-    "executed": false,
-    "final_qualified_source_pending": false,
-    "new_named_activation_cases": [
-      "runtime::container_activation::tests::binding_permanent_failures_hold_on_first_attempt_without_native_permit",
-      "runtime::container_activation::tests::binding_unavailable_retries_only_before_recorded_activation",
-      "runtime::container_activation::tests::workflow_owner_http_failure_is_read_only_and_never_enters_package_or_native_io",
-      "runtime::container_activation::tests::workflow_preflight_never_rebinds_foreign_activation_or_changed_revision",
-      "runtime::container_activation::tests::workflow_preflight_selects_immutable_target_for_fresh_and_resumed_forward_phases",
-      "runtime::container_activation::tests::workflow_rollback_preflight_selects_current_effective_not_desired_or_root_revision"
-    ],
-    "prior_codegen_evidence": {
-      "artifact_bound_source_commit": "facb25b9eae66db0c8b762ab68a5963422edf58f",
-      "artifact_id": 11666035358,
-      "artifact_zip_sha256": "a6d16c4dc3fb47d3b6da5da22d42b1c91db9f83fc2e77d2bbd3a7aa8b1577daf",
-      "reported_by_parent": true,
-      "run_attempt": 1,
-      "run_id": 38040550767,
-      "schema_sha256": "ad980604beb2cff0890f4d1a07a185c97a444fda166985f2a6da465a222d129c",
-      "source_commit": "83091f055e3b34fcfe6a6d59b1703c117261c027",
-      "workflow_commit": "b22971dbfbc0476b7789f94fa28999581e17da08"
-    },
     "prior_stages_preserved": 74,
-    "source_commit": "c59dbea1ab73a782a28cf6106155c84d73e2e14d"
+    "source_commit": "3c900b00f15aeda2016a45d080d850fa028cdcfd"
   },
   "default_foundation_ignored": 124,
   "executed": false,
@@ -2715,8 +2716,8 @@
     ]
   },
   "openapi_binding": {
-    "sha256": "e1b17e723abf43866c4f913c9fa4fba8b201bef5e3532b4a8f6cdc32ccbcce76",
-    "status": "verified"
+    "sha256": null,
+    "status": "pending_authentic_codegen"
   },
   "package_input": {
     "commit": "4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58",
@@ -2868,7 +2869,7 @@
     "backend/api/src/routes/sdlc_configuration_tests.rs": "e884f82df2b50d9c60cb55c73d05790d1a779ac649b323a27e1d68143eedb8da",
     "backend/api/src/routes/sessions.rs": "b3fe11653bb5cd63f4bbe3f9bf801606cb928f0c9d4270a9fc7dd8a5279ddb24",
     "backend/api/src/routes/settings.rs": "74216216fc632135d4a18b3927a18f27bc727ef9010ea4e8af0f3647e09de095",
-    "backend/api/src/routes/task_chats.rs": "3443a4614171243fb32d7fde3dd3bb76305761fa4d21426cd155bdacaee476df",
+    "backend/api/src/routes/task_chats.rs": "6edc5899e23f1c965bcc914b026de1b8394603a61f76aee71511c0f3981a88f7",
     "backend/api/src/routes/users.rs": "599a8dc239ded6e1a978072c0b58ed96e733202f4ca73ad7661c56e158fac20c",
     "backend/api/src/routes/workflows.rs": "0aba26c73cacebe5edd98c0f2d02a766a62906cfeb7d20f7e24312e2541eb4f8",
     "backend/app/src/auth.rs": "a25c79608d4510f4716954beddbb8e80ac7c9bba40360d6e12ba38d8d11473aa",
@@ -3030,7 +3031,7 @@
     "backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a"
   },
-  "source_commit": "c59dbea1ab73a782a28cf6106155c84d73e2e14d",
+  "source_commit": "3c900b00f15aeda2016a45d080d850fa028cdcfd",
   "utility_source_sha256": {
     "scripts/runtime_bootstrap.py": "5be8066b6f7dc68f8dda7f1040c0626dad272477c019b07263821df7f86b59a2",
     "scripts/runtime_boundary.py": "2e6bfa6907b93e6d436d2b6668ae20211aca53a64c433f7e1a98ab51245b3e89",
@@ -3488,28 +3489,28 @@
     },
     {
       "ignored": false,
-      "line": 678,
+      "line": 676,
       "name": "replacement_pm_invalidates_old_binding_and_errors_keep_their_class",
       "package": "api",
       "source": "backend/api/src/routes/task_chats.rs"
     },
     {
       "ignored": false,
-      "line": 700,
+      "line": 698,
       "name": "gateway_rejects_credentials_query_and_non_http_urls",
       "package": "api",
       "source": "backend/api/src/routes/task_chats.rs"
     },
     {
       "ignored": false,
-      "line": 713,
+      "line": 711,
       "name": "context_identity_cannot_be_spoofed_by_local_uuid_or_email",
       "package": "api",
       "source": "backend/api/src/routes/task_chats.rs"
     },
     {
       "ignored": false,
-      "line": 721,
+      "line": 719,
       "name": "invalid_contract_shape_and_unsafe_versions_never_return_success",
       "package": "api",
       "source": "backend/api/src/routes/task_chats.rs"

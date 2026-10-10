@@ -40,7 +40,12 @@ test.beforeAll(async () => {
           import { useAuthStore } from '@/shared/auth/store'
           import '@/index.css'
           localStorage.setItem('theme', 'dark')
-          useAuthStore.setState({ userId: 'owner', token: null, permissions: [] })
+          const fixtureOwner = document.getElementById('root')?.dataset.runtimeControlsOwner === 'true'
+          useAuthStore.setState({
+            userId: 'owner',
+            token: fixtureOwner ? 'fixture-only-owner-token' : null,
+            permissions: fixtureOwner ? ['sessions:read_own', 'sessions:write_own', 'agents:read_directory'] : []
+          })
           const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
           const router = createMemoryRouter([
             { path: '/chats/:sessionId', element: createElement(ChatDetailPage) },
@@ -114,13 +119,18 @@ test('fixture: HTTP-success uncertainty retains steer and the original stop targ
   page.on('pageerror', (error) => errors.push(error.message))
   await page.route(`**${fixturePath}**`, (route) => {
     const path = new URL(route.request().url()).pathname
-    if (path === fixturePath) return route.fulfill({ contentType: 'text/html', body: html })
+    if (path === fixturePath)
+      return route.fulfill({
+        contentType: 'text/html',
+        body: html.replace('id="root"', 'id="root" data-runtime-controls-owner="true"'),
+      })
     const asset = assets.get(path)
     return asset ? route.fulfill(asset) : route.fulfill({ status: 404 })
   })
   await page.route('**/api/v1/**', (route) => {
     const request = route.request()
     const path = new URL(request.url()).pathname
+    expect(request.headers().authorization).toBe('Bearer fixture-only-owner-token')
     if (request.method() === 'POST') {
       if (!/^\/api\/v1\/sessions\/session1\/runs\/[^/]+\/(stop|steer)$/.test(path))
         throw new Error(`Unexpected fixture command: ${path}`)
@@ -141,18 +151,46 @@ test('fixture: HTTP-success uncertainty retains steer and the original stop targ
         },
       })
     }
-    if (path === '/api/v1/agent-directory') return route.fulfill({ json: [] })
+    if (path === '/api/v1/agent-directory')
+      return route.fulfill({
+        json: [
+          {
+            id: 'agent1',
+            ordinal: 1,
+            name: 'agent1',
+            display_name: 'Developer',
+            kind: 'hermes',
+            product_role: 'executor',
+            role: 'developer',
+            status: 'running',
+            description: null,
+            namespace_id: null,
+            workflow_id: null,
+            runtime_version: null,
+            dashboard_port: null,
+            api_port: null,
+          },
+        ],
+      })
     if (path === '/api/v1/sessions/session1')
       return route.fulfill({
         json: {
           id: 'session1',
+          agent_id: 'agent1',
+          agent_name: 'Developer',
           user_id: 'owner',
+          user_email: 'owner@example.test',
+          user_username: 'owner',
           user_display_name: 'Владелец задачи',
           primary_agent_id: 'agent1',
           primary_agent_name: 'Developer',
           title: 'Проверка управляющих команд',
           visibility: 'private',
           task_key: 'FIXTURE-1',
+          state: 'active',
+          pending_delivery: false,
+          created_at: '2026-10-09T10:00:00Z',
+          updated_at: '2026-10-09T10:00:00Z',
         },
       })
     if (path.endsWith('/task-context'))
@@ -167,7 +205,13 @@ test('fixture: HTTP-success uncertainty retains steer and the original stop targ
           blocked_reason: null,
         },
       })
-    if (path.endsWith('/history')) return route.fulfill({ json: { items: [], next_before: null } })
+    if (path.endsWith('/messages')) return route.fulfill({ json: [] })
+    if (path.endsWith('/stream'))
+      return route.fulfill({
+        contentType: 'text/event-stream',
+        headers: { 'Cache-Control': 'no-store' },
+        body: ': fixture heartbeat\n\n',
+      })
     if (path.endsWith('/controls/lookup')) {
       const runId = path.split('/')[6]
       const key = request.headers()['idempotency-key']
@@ -224,6 +268,12 @@ test('fixture: HTTP-success uncertainty retains steer and the original stop targ
     page.getByText('Исход команды неизвестен. Повторная отправка не разрешена.'),
   ).toBeVisible()
 
+  await page.waitForResponse(
+    async (response) =>
+      new URL(response.url()).pathname === '/api/v1/sessions/session1/chat-controls' &&
+      response.ok() &&
+      (await response.json()).active_run_id === 'new-run',
+  )
   await input.fill('Проверь миграцию без изменения чужих данных')
   await page.getByRole('button', { name: 'Передать уточнение запуску' }).click()
   await expect(
