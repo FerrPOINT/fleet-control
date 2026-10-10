@@ -13,7 +13,7 @@ owned checkouts; Tracker and Workflow remain read-only references.
 | Owner | Independent work | Acceptance boundary |
 | ----- | ---------------- | ------------------- |
 | Pascal | Diagnostic source and independent controls review | Read-only probesab222f0 normally integrated inb0ad56c; all13 activation cases/guards preserved. Independent ef3 controls review:25 targeted tests, nine negative vectors and all25 fixed hints pass, no P1/P2. Base180 exact published helper mismatches the required hash and lacks two cleanup files; no pin fallback. |
-| Feynman | Combined backend CI controls | Frozen ef3b474 bindsb0ad56c,81 stages with all prior74,20 activation-intent cases, mandatory exact package4b9 and schema1167. Parent independently verifies380 compiled Git blobs/170 Rust files and publishes the dedicated build-only run38016562420. Prepare a separate test-only afc5bb4 successor, but do not replace the running result or redispatch before its terminal receipt. |
+| Feynman | Combined backend CI controls | Frozen successoraa5ac3f bindsafc5bb4,81 stages with all prior74,20 activation-intent cases, exact package4b9 and schema1167. Parent independently verifies380 compiled Git blobs/170 Rust files, then normally publishes after authenticating terminal38016562420. New run38017066472 is in progress; freeze inputs until its result. |
 | Curie | Dedicated hosted frontend controls | Own only frontend-build-only workflow/helper/tests in a separate checkout. Exactb0 frontend/schema, pinned SDK/Node/pnpm, unchanged default unit/browser gates and fixture-only evidence. No product/backend control edits or publication before parent review. |
 | Anscombe | Completed selector correction6c022f3 and current-client captures | Two files/five added lines; lint/format/typecheck/focused test/build and six browser cases pass.27 fresh fixture captures; own processes removed. No backend/schema or live acceptance claim. |
 | Parent | API generation, integration and publication | Authenticated union schema/client integrated asc051319; probes normally merged inb0ad56c. Sourceafc5bb4 removes only two diagnostic ok-expect chains without exposing private errors. Review/authenticate actual backend/frontend results and publish narrow release units only after their own gates. |
@@ -43,11 +43,16 @@ Publishing this build-only
 bootstrap does not make the combined product merge-ready or certify runtime/PM.
 
 Actual backend [run38016562420](https://github.com/FerrPOINT/fleet-control/actions/runs/38016562420)
-is in progress on exactef3b474/sourceb0ad56c. Source-to-controls delta is exactly
+completes FAILURE at Clippy on exactef3b474/sourceb0ad56c. Parent authenticates
+safe artifact11656123142/ZIP0ce97501fabd6d423035cfbc73b64e9adcbe41b14eeeb2cab7c7ceb09d5da525,
+two diagnostic source locations122/131 and successful scratch/synthetic DB cleanup.
+Normal sourceafc5bb4 fixes only those panic expression chains. Reviewed normal
+successoraa5ac3f starts [run38017066472](https://github.com/FerrPOINT/fleet-control/actions/runs/38017066472),
+now in progress on exactafc. Source-to-controls delta is exactly
 six additions; all prior ignored identities and migration registries remain.
 Controls pure evidence: Linux110/110; parent Windows108 PASS/two POSIX-only skips.
-These do not accept the product. Parent's later diagnostic-onlyafc5bb4 is not the
-source of that run and is not substituted into its results.
+These do not accept the product. The two run/source pairs remain distinct;
+neither Clippy result resolves historical recovered-activation PG62.
 
 Current regenerated-client frontend suite passes337 tests/36 files using threads
 and one worker. The default local fork attempt was stopped without a test result
