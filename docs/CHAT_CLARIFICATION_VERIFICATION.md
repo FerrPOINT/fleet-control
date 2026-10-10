@@ -21,7 +21,17 @@ unavailable warning and disabled confirmation controls; dialogue/clarification
 captures were also inspected. No whole-image-set visual approval is claimed.
 The frontend/OpenAPI/Base closure is byte-identical between this product and
 integration `3fcbe6288dfb52d6b56eed5068ee364532ac84f6`; this does not qualify
-the newer backend test inventory. Tracked capture import is still pending.
+the newer backend test inventory. Reviewed asset-only `a7482a413b32971002e1bf5694c4a1a9586b602f`
+is normally merged into the integration history:135 catalogue PNGs plus nine
+Chromium PM views. Parent verification against its independent strict readback
+confirms all144 PNG bytes, hashes and dimensions; independent review confirms
+the45-by-three route bijection and metadata/source scope. Product/API and the
+historical PM folder are unchanged. See the [catalogue](assets/screens/manifest.md),
+[PM views](assets/design/chat-controller-2026-10-10/manifest.json) and
+[import receipt](assets/screens/qualified-import-38072655687.json).
+Original public manifest/provenance bytes are retained. The original generated
+Markdown is absent from the artifact; regenerated import Markdown claims neither
+its timestamp nor byte identity. This import is fixture evidence, not live acceptance.
 
 The preceding successful packet and discovered defect are preserved below.
 

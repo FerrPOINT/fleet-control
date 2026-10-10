@@ -22,6 +22,7 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
 
 - [Chat clarification implementation plan](CHAT_CLARIFICATION_IMPLEMENTATION_PLAN.md)
 - [Chat clarification verification](CHAT_CLARIFICATION_VERIFICATION.md)
+- [Qualified PM chat, clarification and requirements views](assets/design/chat-controller-2026-10-10/manifest.json)
 - [Chat clarification contract](contracts/CHAT_CLARIFICATION_CONTRACT.md)
 - [PM clarification owner gateway ADR](adr/0013-pm-clarification-owner-gateway.md)
 - [SDLC_IMPLEMENTATION.md](SDLC_IMPLEMENTATION.md) — реализация нового SDLC, границы и оставшаяся приёмка.
@@ -109,5 +110,10 @@ Fleet Control is the runtime fleet layer in the SDLC suite. It complements
   nine-image three-browser fixture packet.
 
 - [assets/screens/manifest.md](assets/screens/manifest.md) contains the
-  generated route-to-screenshot matrix for 135 fixture screenshots at three
-  viewports. It does not prove real runtime execution or Central Auth acceptance.
+  route-to-screenshot matrix for 135 fixture screenshots at three viewports,
+  imported from authenticated hosted run38072655687. The
+  [import receipt](assets/screens/qualified-import-38072655687.json) binds those
+  images and nine additional PM chat views to exact source, routes and hashes.
+  Original public metadata is preserved; the regenerated Markdown is not the
+  unavailable original capture manifest. This does not prove real runtime
+  execution, live PM/SDLC completion or Central Auth acceptance.
