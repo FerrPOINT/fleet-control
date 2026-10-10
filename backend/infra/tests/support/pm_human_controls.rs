@@ -987,9 +987,12 @@ async fn legacy_pm_answer_backfill_requires_source_answer_and_completed_gated_to
             .execute_unprepared(&format!("CREATE SCHEMA {schema}"))
             .await
             .unwrap();
-        let mut options = ConnectOptions::new(url);
-        options.max_connections(2).set_schema_search_path(&schema);
-        let db = Database::connect(options).await.unwrap();
+        let connect = || {
+            let mut options = ConnectOptions::new(url.clone());
+            options.max_connections(2).set_schema_search_path(&schema);
+            Database::connect(options)
+        };
+        let db = connect().await.unwrap();
         let count = migration::Migrator::migrations().len();
         migration::Migrator::up(&db, Some(u32::try_from(count - 1).unwrap()))
             .await
@@ -1001,7 +1004,7 @@ async fn legacy_pm_answer_backfill_requires_source_answer_and_completed_gated_to
             versions.last().unwrap().version,
             "m20261010_000022_pm_dispatch"
         );
-        let repo = PostgresFleetRepository::new(db.clone());
+        let repo = PostgresFleetRepository::new(connect().await.unwrap());
         let subject = Uuid::new_v4().to_string();
         let owner = repo
             .find_or_create_central_user(&subject, &format!("{subject}@example.test"), "Owner")

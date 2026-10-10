@@ -5101,6 +5101,9 @@
               }
             ]
           },
+          "continuation_state": {
+            "$ref": "#/components/schemas/ClarificationContinuationState"
+          },
           "created_at": {
             "type": "string"
           },
@@ -5179,6 +5182,14 @@
           }
         },
         "additionalProperties": false
+      },
+      "ClarificationContinuationState": {
+        "type": "string",
+        "enum": [
+          "not_required",
+          "pending",
+          "confirmed"
+        ]
       },
       "ClarificationDeliveryState": {
         "type": "string",

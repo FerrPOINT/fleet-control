@@ -888,8 +888,7 @@ async function installChatUxFixtures(page: Page) {
 test('chat history preserves server order after clock rollback and page overlap', async ({
   page,
 }) => {
-  const state = createState()
-  await installMocks(page, state)
+  await installChatUxFixtures(page)
   const first = {
     ...makeMessage(ids.session, 'First appended'),
     id: '00000000-0000-4000-8000-000000000601',

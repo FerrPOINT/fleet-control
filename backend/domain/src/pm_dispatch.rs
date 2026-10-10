@@ -94,20 +94,34 @@ pub fn initial_pm_assignment(
         .ok_or_else(stale)?
         .owner_cas
         .version;
-    // Workflow's business-pre-decomposition profile has no code workspace/decomposition.
-    // Its opaque work/queue refs map to the actual business task and persisted PM assignment.
-    Ok(json!({
-        "assignment_shape":"business-pre-decomposition", "task":identity.task,
-        "role_key":"project_manager", "workflow_key":"hermes-sdlc:project_manager",
-        "mode_key":"draft", "execution_scope":"business", "stage_key":"Draft",
-        "cycle_number":0, "attempt_number":1, "operation_key":identity.assignment_operation_key,
-        "business_task_ref":identity.task_ref, "root_task_ref":identity.root_ref,
-        "work_item_ref":identity.task_ref, "work_item_revision":0,
-        "queue_item_ref":identity.assignment_ref, "stage_revision":owner_version.to_string(),
-        "assignment_ref":identity.assignment_ref,
-        "exact_input_refs":[{"kind":"original_input", "ref":input.snapshot_ref, "hash":input.sha256}],
-        "runtime_compatibility":compatibility, "expected_revision":0, "expected_status":"missing"
-    }))
+    if identity.assignment_revision != 1
+        || owner_version != 1
+        || identity.root_ref != identity.task_ref
+        || identity.assignment_operation_key != format!("pm-draft:{}", identity.assignment_ref)
+        || identity
+            .task
+            .strip_prefix("SDLC-")
+            .and_then(|ordinal| ordinal.parse::<i64>().ok())
+            .is_none()
+        || input.snapshot_ref.is_nil()
+        || input.sha256.len() != 64
+        || !input
+            .sha256
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return Err(stale());
+    }
+    // Workflow owns role/mode and leaves later-stage work/queue/workspace refs null.
+    let mut request = serde_json::to_value(identity).map_err(AppError::internal)?;
+    request.as_object_mut().ok_or_else(stale)?.extend(
+        json!({"owner_version":owner_version,"input_snapshot_ref":input.snapshot_ref,
+            "input_sha256":input.sha256,"runtime_compatibility":compatibility})
+        .as_object()
+        .ok_or_else(stale)?
+        .clone(),
+    );
+    Ok(request)
 }
 
 fn stale() -> AppError {
@@ -258,19 +272,39 @@ mod tests {
     #[test]
     fn workflow_assignment_pins_original_input_without_inventing_code_resources() {
         let operation = operation();
-        let value = initial_pm_assignment(&operation, json!({"exact":"compatibility"})).unwrap();
-        assert_eq!(value["assignment_shape"], "business-pre-decomposition");
-        assert_eq!(value["expected_revision"], 0);
-        assert_eq!(value["expected_status"], "missing");
+        let expected: Value = serde_json::from_str(include_str!(
+            "../../infra/tests/fixtures/pm-dispatch/workflow-assign-request.json"
+        ))
+        .unwrap();
+        let value =
+            initial_pm_assignment(&operation, expected["runtime_compatibility"].clone()).unwrap();
+        assert_eq!(value, expected);
+        assert_eq!(value["owner_version"], 1);
+        assert_eq!(value["assignment_revision"], 1);
         assert_eq!(
-            value["exact_input_refs"][0]["ref"],
+            value["execution_ref"],
+            operation.execution_identity().unwrap().execution_ref
+        );
+        assert_eq!(
+            value["input_snapshot_ref"],
             json!(operation.input.as_ref().unwrap().input.snapshot_ref)
         );
         assert_eq!(
-            value["exact_input_refs"][0]["hash"],
+            value["input_sha256"],
             operation.input.as_ref().unwrap().input.sha256
         );
         for name in [
+            "assignment_shape",
+            "operation_key",
+            "expected_revision",
+            "expected_status",
+            "role_key",
+            "workflow_key",
+            "mode_key",
+            "stage_key",
+            "work_item_ref",
+            "work_item_revision",
+            "queue_item_ref",
             "task_workspace_ref",
             "decomposition_revision_ref",
             "tech_execution_workspace_ref",
@@ -278,6 +312,39 @@ mod tests {
             "lease_generation",
         ] {
             assert!(value.get(name).is_none());
+        }
+    }
+
+    #[test]
+    fn draft_assignment_rejects_noninitial_versions_keys_and_input() {
+        let operation = operation();
+        for field in [
+            "assignment_version",
+            "owner_version",
+            "key",
+            "ordinal",
+            "snapshot",
+            "hash",
+        ] {
+            let mut wrong = operation.clone();
+            match field {
+                "assignment_version" => wrong.reservation.as_mut().unwrap().assignment.version = 2,
+                "owner_version" => wrong.reservation.as_mut().unwrap().owner_cas.version = 2,
+                "key" => {
+                    wrong.reservation.as_mut().unwrap().assignment_operation_key = "foreign".into()
+                }
+                "ordinal" => {
+                    wrong.reservation.as_mut().unwrap().execution.key =
+                        "SDLC-9223372036854775808".into()
+                }
+                "snapshot" => wrong.input.as_mut().unwrap().input.snapshot_ref = Uuid::nil(),
+                "hash" => wrong.input.as_mut().unwrap().input.sha256 = "G".repeat(64),
+                _ => unreachable!(),
+            }
+            assert!(
+                initial_pm_assignment(&wrong, Value::Null).is_err(),
+                "{field}"
+            );
         }
     }
 }
