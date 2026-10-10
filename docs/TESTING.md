@@ -1,5 +1,27 @@
 # Testing
 
+## Credential Qualification Successor
+
+The credential successor adds one coordinator unit case, five PostgreSQL cases
+and one real-Auth natural-expiry/restart case. Focused gates must require eight
+coordinator units, fifteen credential PG cases and both named real-Auth cases.
+The serial real-Auth CI receipt now requires two passed, zero failed and zero
+ignored, and preserves the original issuance/replay/conflict/revoke case.
+These source changes have not yet compiled or executed against Auth/PostgreSQL.
+
+Authenticated diagnostic run38024208930 on frozen994 observes241 default tests
+versus242 declarations, with all17 ignored identities matching. Its only missing
+name is `new_ids_are_plain_uuids`: `shared/src/id/tests.rs` existed but was not
+declared by its parent module. The successor adds that test-module declaration,
+not a lower expected count or a removed test. All later inventories must retain
+the original declaration and account separately for newly added tests. Source
+and formatting checks are not compiler-list or execution acceptance.
+
+Expired same-key replay at pinned Auth01388 returns the original expired child;
+introspection and Fleet authorization reject it. No token is renewed or minted
+by replay. The new test checks this across an Auth restart and explicitly does
+not prove Fleet journal recovery, physical lost ACK or runtime dispatch.
+
 The central directory regression explicitly executes the real PostgreSQL query
 with expanded and selected-foreign owner filters. It verifies that private rows,
 counts and foreign cursors are denied together, while standalone legacy expanded

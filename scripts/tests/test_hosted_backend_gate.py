@@ -1232,19 +1232,31 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(len(gate.GATES), 28)
         self.assertEqual((gate.DEFAULT_COUNT, gate.IGNORED_COUNT), (248, 18))
         self.assertEqual(len(REVIEWED["compiled_source_sha256"]), 309)
-        self.assertEqual(gate.SOURCE_SHA, "2a1b20b2db022391025540074f53034270eca3a2")
-        self.assertEqual(gate.SOURCE_TREE, "cd1e86288e0a50a2e5dbbd7283923cf0353e492a")
-        self.assertEqual(gate.SOURCE_INVENTORY_SHA, "bf10f571dd0f8d8794264dac4213752906ddfab4be6f1e31929df4bfa9b0e331")
+        self.assertEqual(gate.SOURCE_SHA, "3d1a10836ba1d2d6d136a3656201a4831e216118")
+        self.assertEqual(gate.SOURCE_TREE, "7fa44857f5f43fe04c93fd5ca6af9ae4ceb049a0")
+        self.assertEqual(gate.SOURCE_INVENTORY_SHA, "1dd6b5803f1878aa19458a5e3e9ee8c1e28047e59680df2d42d15ed0f5736b0b")
 
     def test_ci_only_product_successor_preserves_exact_compiled_and_declaration_inventory(self):
         prior = json.loads(self.source_blob(gate.INVENTORY, "bdd1da4e97497f13d0cfd17d1e28c087b52c2051"))
         prior.update(source_commit=gate.SOURCE_SHA, source_tree=gate.SOURCE_TREE)
+        for path in ("backend/shared/src/id.rs", "docs/TESTING.md"):
+            prior["compiled_source_sha256"]["fleet-control/" + path] = gate.digest(self.source_blob(path))
+        prior["rust_source_sha256"]["backend/shared/src/id.rs"] = gate.digest(self.source_blob("backend/shared/src/id.rs"))
         self.assertEqual(REVIEWED, prior)
         changed = subprocess.run(["git", "--no-replace-objects", "-C", str(ROOT), "diff", "--name-only",
-            "4358dea9d62f6d26cafcd6da8de7b533ac65fe56", gate.SOURCE_SHA],
+            "4358dea9d62f6d26cafcd6da8de7b533ac65fe56", "2a1b20b2db022391025540074f53034270eca3a2"],
             capture_output=True, check=True, timeout=30).stdout.decode().splitlines()
         self.assertEqual(changed, [".github/workflows/ci.yml"])
         self.assertEqual(self.source_blob(".github/workflows/ci.yml"), (ROOT / ".github/workflows/ci.yml").read_bytes())
+
+    def test_orphan_id_declaration_is_retained_and_registered_in_final_product_source(self):
+        self.assertRegex(self.source_blob("backend/shared/src/id.rs").decode(), r"#\[cfg\(test\)\]\s+mod tests;")
+        self.assertEqual(self.source_blob("backend/shared/src/id/tests.rs"),
+                         self.source_blob("backend/shared/src/id/tests.rs", "994f29d93c6c35d1fc43329b29175cd6a4b0ad87"))
+        records = [item for item in REVIEWED["workspace_default_declarations"] if item["name"] == "new_ids_are_plain_uuids"]
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["source"], "backend/shared/src/id/tests.rs")
+        self.assertFalse(records[0]["ignored"])
 
     def test_regression_source_preserves_every_prior_declaration_and_adds_exact_seven(self):
         prior = json.loads(self.source_blob(gate.INVENTORY, "42447728419b69011efbd69f9f7ff5935c1e271f"))
@@ -1276,7 +1288,8 @@ class HostedBackendTests(unittest.TestCase):
         changed = {path for path, sha in REVIEWED["compiled_source_sha256"].items()
                    if sha != prior["compiled_source_sha256"][path]}
         self.assertEqual(changed, {"fleet-control/" + path for path, _ in additions} |
-                         {"fleet-control/backend/infra/tests/pm_credentials_real_auth.rs"})
+                         {"fleet-control/backend/infra/tests/pm_credentials_real_auth.rs",
+                          "fleet-control/backend/shared/src/id.rs", "fleet-control/docs/TESTING.md"})
 
     def test_regression_successor_refuses_old_inventory_and_reports_only_exact_missing_additions(self):
         prior = json.loads(self.source_blob(gate.INVENTORY, "42447728419b69011efbd69f9f7ff5935c1e271f"))
