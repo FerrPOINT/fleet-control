@@ -56,6 +56,14 @@ Base path: `/api/v1`.
 
 ## PM Chat Gateway
 
+Server-only C11 credential preparation is independently opt-in during create
+and explicit continuation after existing human/owner/project authorization.
+It persists the original issuance intent before Base mutation, then verifies
+current parent/child identity and Tracker assignment on replay. Preparation can
+fail while preserving the original creation/credential journal for continuation.
+Public creation DTOs/routes remain unchanged: no credentials or issuance receipt
+are exposed, `dispatch_allowed` stays false, and success is not runtime admission.
+
 - `POST /projects/{project_id}/pm-drafts`: opt-in verified human owner creation;
   accepts `agent_id`, `title`, `description`, `idempotency_key`. The operation is
   persisted before Tracker HTTP, recovers Draft/reservation through authoritative

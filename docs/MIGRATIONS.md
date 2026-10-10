@@ -32,6 +32,23 @@ acceptance.
 
 ## Rules
 
+### Persisted PM Credentials (C11)
+
+The sole C11 addition is `m20261004_000011_pm_credentials`, appended after
+task chats to both registries: canonical12 and historical split15 entries.
+Historical migration source bytes are unchanged. No Hermes/runtime migrations
+are included. The migration extends only the existing PM creation JSON journal
+and installs closed-shape, assignment-bound, monotonic credential guards.
+
+Journal-free operations retain their original JSON and support11 down/reapply.
+Any retained credential journal refuses downgrade with
+`PM credential journals require explicit reconciliation before downgrade`;
+its exact version/applied_at ledger and recovery records must remain unchanged.
+Task-chat refusal tests first remove this empty successor, then test the named
+task-chat guard without accepting an unrelated SQL error. The dedicated
+credential migration, retained-journal and both-lineage suites are mandatory
+CI gates, not executed evidence for this source candidate.
+
 Migration rules:
 
 - Migrations must be reversible unless they intentionally introduce one-way data

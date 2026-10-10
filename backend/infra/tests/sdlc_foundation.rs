@@ -17,6 +17,9 @@ use uuid::Uuid;
 #[path = "support/pm_draft_creation.rs"]
 mod pm_draft_creation;
 
+#[path = "support/pm_credential_creation.rs"]
+mod pm_credential_creation;
+
 #[path = "support/base_package.rs"]
 mod base_package;
 

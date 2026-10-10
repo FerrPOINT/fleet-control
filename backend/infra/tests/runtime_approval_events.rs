@@ -141,18 +141,26 @@ async fn authenticated_hermes_sse_ingests_exact_requests_and_never_response_even
     run_migrations(database.clone()).await.unwrap();
     let db = connect_database(database.clone()).await.unwrap();
     let migrations = db
-        .query_one(Statement::from_string(
+        .query_all(Statement::from_string(
             DatabaseBackend::Postgres,
-            "SELECT count(*)::bigint AS count FROM seaql_migrations".to_owned(),
+            "SELECT version FROM seaql_migrations ORDER BY version".to_owned(),
         ))
         .await
         .unwrap()
-        .unwrap()
-        .try_get::<i64>("", "count")
-        .unwrap();
-    assert_eq!(
-        migrations, 11,
-        "fixture must include accepted deployment and pending task-chat migrations"
+        .into_iter()
+        .map(|row| row.try_get::<String>("", "version").unwrap())
+        .collect::<Vec<_>>();
+    use migration::MigratorTrait;
+    let mut expected = migration::Migrator::migrations()
+        .iter()
+        .map(|migration| migration.name().to_string())
+        .collect::<Vec<_>>();
+    expected.sort();
+    assert_eq!(migrations, expected);
+    assert!(
+        migrations
+            .iter()
+            .any(|version| version == "m20261004_000011_pm_credentials")
     );
     let owner = Uuid::new_v4();
     db.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,

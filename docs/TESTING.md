@@ -50,7 +50,37 @@ fictional data and an isolated screenshot manifest; it is not live acceptance.
 
 ## PM Chat Slice
 
-Run `FLEET_TEST_DATABASE_URL` against an isolated PostgreSQL instance for the 37
+### Persisted Credentials (C11)
+
+The extracted C11 candidate requires fresh exact-head Linux Rust1.88 locked
+check/strict Clippy/workspace tests; prior combined branch results are not its
+acceptance. Mandatory focused CI selects all7 `infra --lib pm_credentials::`
+cases, the shared disabled/redacted config case and10 PostgreSQL
+`infra --test sdlc_foundation pm_credential_creation::` cases with a required
+owned `FLEET_TEST_DATABASE_URL`. Recovery cases include lost ACK, replay,
+concurrency/payload conflict, parent/child revocation, expiry, strict journal
+shapes, atomic audit rollback and exact named credential downgrade refusal.
+
+Run `cargo test --locked -p migration --test pm_credentials -- --ignored
+--test-threads=1` with separate empty
+`FLEET_CREDENTIAL_MIGRATION_TEST_DATABASE_URL`. Run all10 lineage cases with
+`--include-ignored`, historical message ordering and approval SSE with their
+separate owned DBs. No missing env, ignored result or zero-match filter is PG
+evidence. The complete foundation suite now includes the ten credential cases
+as well as unchanged PR64 package/Workflow tests; preserve its exact package
+checkout env and separate SDK pin.
+
+The `real-base-auth` job builds exact Auth01388 separately from SDK19a, exports
+committed sources, binds binary SHA256 and runs the explicitly ignored real
+issuance/replay/conflict/introspection/revoke consumer once. It uses synthetic
+credentials and an owned loopback server, never an installed runtime. Only
+source/binary hashes and a fixed consumer result are uploaded; the private log
+and exact disposable source/tmp/target directories are cleaned even on failure.
+Auth-source qualification is not deployed Auth/Tracker or model admission.
+Rust OpenAPI byte parity remains mandatory; C11 adds no public DTO/route fields
+and intentionally preserves PR64's generated API and client artifacts.
+
+Run `FLEET_TEST_DATABASE_URL` against an isolated PostgreSQL instance for the 56
 `infra/tests/sdlc_foundation.rs` tests. Without that variable the tests skip and must not
 be counted as database acceptance. Binding tests cover concurrent replay, ownership,
 duplicate task/agent pair, immutable payload, once-only audit/event, scoped pagination,

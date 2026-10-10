@@ -122,6 +122,28 @@ Default ports:
 - `FLEET_CONTROL_AUTH__OIDC_ROLE_CLAIM` — клейм роли (default `role`; admin→Admin, operator/maintainer→Operator, прочее→User).
 - `FLEET_CONTROL_AUTH__OIDC_JWKS_REFRESH_SECS` — интервал обновления кэша ключей (default 300; принудительный refresh при неизвестном `kid`).
 
+## PM Credential Preparation
+
+`FLEET_CONTROL_PM__CREDENTIALS__ENABLED` defaults to `false`. Enabling requires
+`AUTH_URL` as a fixed Base root HTTP(S) origin, `MACHINE_SUBJECT` as the canonical
+non-nil central UUID frozen in Tracker's PM assignment, and `PARENT_PAT` as a
+server-only current Base PAT with exactly `task-tracker:read` and
+`task-tracker:write`. These keys share the `FLEET_CONTROL_PM__CREDENTIALS__`
+prefix. `TTL_SECONDS` defaults to300 and permits1..1800.
+
+Base's separate delegation policy must authorize the child scope. SDK19a is
+not the delegation producer; the isolated real Auth test pins source01388
+separately. Installed Auth/Tracker acceptance is still required before opt-in.
+Neither existing readback nor namespace settings enable issuance.
+
+Config serialization/Debug excludes/redacts the parent PAT. Fleet persists
+only immutable command/acknowledgement metadata, never a child bearer. Retry
+uses the original key and fresh parent/child introspection and Tracker context.
+Changed parent/origin/subject/command or an expired receipt requires explicit
+reconciliation, not automatic reminting. This does not claim a lease, dispatch
+a model, deliver runtime credentials or alter Workflow/config authority.
+See [C11 source scope](plans/2026-10-10-c11-persisted-pm-credentials.md).
+
 ## Configuration Foundation Candidate
 
 All additions default disabled/empty and preserve legacy configurations.

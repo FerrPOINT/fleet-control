@@ -138,6 +138,30 @@ jobs:
         run: |
           cargo test --locked -p api --lib routes::pm_runtime::tests:: -- --test-threads=1
           cargo test --locked -p api --lib routes::sdlc_configuration::tests:: -- --test-threads=1
+      - name: Persisted PM credential unit and PostgreSQL recovery regressions
+        run: |
+          set -euo pipefail
+          test -n "$FLEET_TEST_DATABASE_URL"
+          cargo test --locked -p infra --lib pm_credentials:: -- --test-threads=1 2>&1 | tee "$RUNNER_TEMP/credential-unit.log"
+          grep -F 'test result: ok. 7 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/credential-unit.log"
+          cargo test --locked -p shared --lib config::tests::pm_credentials_default_disabled_and_never_serialize_parent_secret -- --exact --test-threads=1 2>&1 | tee "$RUNNER_TEMP/credential-config.log"
+          grep -Fx 'test config::tests::pm_credentials_default_disabled_and_never_serialize_parent_secret ... ok' "$RUNNER_TEMP/credential-config.log"
+          grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/credential-config.log"
+          cargo test --locked -p infra --test sdlc_foundation pm_credential_creation:: -- --test-threads=1 2>&1 | tee "$RUNNER_TEMP/credential-pg.log"
+          for name in \
+            pm_credentials_pg_lost_ack_restart_replays_exact_child_without_run_or_secret \
+            pm_credentials_pg_partial_success_keeps_receipt_and_checks_current_context_on_replay \
+            pm_credentials_pg_rotated_parent_origins_or_ttl_conflict_before_external_request \
+            pm_credentials_pg_concurrent_preparation_freezes_one_receipt_and_rejects_payload_conflict \
+            pm_credentials_pg_revoked_child_cannot_be_used \
+            pm_credentials_pg_expired_receipt_stops_before_external_renewal \
+            pm_credentials_pg_database_guards_monotonic_journal_and_single_redacted_audit \
+            pm_credentials_pg_first_intent_and_ack_require_readable_strict_shapes \
+            pm_credentials_pg_revoked_parent_prevents_post_and_does_not_erase_ack \
+            pm_credentials_pg_audit_failure_rolls_back_journal_and_recovers_original_child; do
+            grep -Fx "test pm_credential_creation::$name ... ok" "$RUNNER_TEMP/credential-pg.log"
+          done
+          grep -F 'test result: ok. 10 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/credential-pg.log"
       - name: Historical lineage upgrade and central profile preservation
         run: |
           cargo test --locked -p migration --lib lineage_tests -- --include-ignored --test-threads=1
@@ -171,11 +195,130 @@ jobs:
         run: |
           psql -h 127.0.0.1 -U fleet_control -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE fleet_message_order_test;'
           cargo test --locked -p migration --test message_order -- --ignored --test-threads=1
+      - name: Additive credential migration and legacy downgrade
+        env:
+          PGPASSWORD: fleet_control
+          FLEET_CREDENTIAL_MIGRATION_TEST_DATABASE_URL: postgres://fleet_control:fleet_control@127.0.0.1:5432/fleet_credential_migration_test
+        run: |
+          set -euo pipefail
+          psql -h 127.0.0.1 -U fleet_control -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE fleet_credential_migration_test;'
+          cargo test --locked -p migration --test pm_credentials -- --ignored --test-threads=1 2>&1 | tee "$RUNNER_TEMP/credential-migration.log"
+          grep -Fx 'test credentials_additive_upgrade_preserves_legacy_operation_and_empty_downgrade ... ok' "$RUNNER_TEMP/credential-migration.log"
+          grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/credential-migration.log"
       - name: OpenAPI drift gate
         run: |
           mkdir -p ../openapi
           cargo run --locked -p api --bin gen-openapi > ../openapi/openapi.json.generated
           diff -u ../openapi/openapi.json ../openapi/openapi.json.generated
+
+  real-base-auth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    container:
+      image: public.ecr.aws/docker/library/rust@sha256:af306cfa71d987911a781c37b59d7d67d934f49684058f96cf72079c3626bfe0
+      options: --cpus 2 --memory 4g
+    defaults:
+      run:
+        shell: bash
+    services:
+      postgres:
+        image: public.ecr.aws/docker/library/postgres@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94
+        env:
+          POSTGRES_USER: fleet_test
+          POSTGRES_DB: fleet_real_auth_test
+          POSTGRES_HOST_AUTH_METHOD: trust
+        options: >-
+          --cpus 1 --memory 512m
+          --health-cmd "pg_isready -U fleet_test -d fleet_real_auth_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CARGO_BUILD_JOBS: "1"
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      FLEET_REAL_AUTH_TEST_OWNED: source-qualified-disposable
+      FLEET_REAL_AUTH_TEST_SOURCE_SHA: 01388dfb43332cbe5837fd5e1fadccf09cb8886d
+      FLEET_REAL_AUTH_TEST_DATABASE_URL: postgres://fleet_test@postgres:5432/fleet_real_auth_test
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: fleet-control
+          persist-credentials: false
+      - name: Read build SDK revision
+        id: base
+        run: echo "sha=$(cat fleet-control/.base-revision)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        with:
+          repository: FerrPOINT/services-base
+          path: services-base
+          ref: ${{ steps.base.outputs.sha }}
+          token: ${{ secrets.SERVICES_BASE_TOKEN }}
+          persist-credentials: false
+      - name: Check out real Auth separately from the build SDK
+        uses: actions/checkout@v7
+        with:
+          repository: FerrPOINT/services-base
+          path: base-auth-source
+          ref: 01388dfb43332cbe5837fd5e1fadccf09cb8886d
+          token: ${{ secrets.SERVICES_BASE_TOKEN }}
+          persist-credentials: false
+      - name: Install compiler prerequisites
+        run: apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev curl unzip
+      - name: Export exact committed sources and record provenance
+        run: |
+          set -euo pipefail
+          test "$(rustc --version | awk '{print $2}')" = 1.88.0
+          test "$(df -PB1 "$RUNNER_TEMP" | awk 'END {print $4}')" -ge 5368709120
+          test "$(git -C base-auth-source rev-parse HEAD)" = "$FLEET_REAL_AUTH_TEST_SOURCE_SHA"
+          test "$(git -C services-base rev-parse HEAD)" = "$(cat fleet-control/.base-revision)"
+          root="$RUNNER_TEMP/pm-auth-source"
+          mkdir -p "$root/fleet-control" "$root/services-base" "$root/base-auth-source" "$RUNNER_TEMP/pm-auth-tmp" "$RUNNER_TEMP/pm-auth-evidence"
+          git -C fleet-control archive HEAD backend .base-revision openapi | tar -x -C "$root/fleet-control"
+          git -C services-base archive HEAD crates Cargo.toml Cargo.lock LICENSE | tar -x -C "$root/services-base"
+          git -C base-auth-source archive "$FLEET_REAL_AUTH_TEST_SOURCE_SHA" crates Cargo.toml Cargo.lock LICENSE frontend/src/lib/theme-preference.js | tar -x -C "$root/base-auth-source"
+          printf 'fleet=%s\nsdk=%s\nauth=%s\n' "$(git -C fleet-control rev-parse HEAD)" "$(git -C services-base rev-parse HEAD)" "$FLEET_REAL_AUTH_TEST_SOURCE_SHA" > "$RUNNER_TEMP/pm-auth-evidence/source-commits.txt"
+          find "$root" -type f -print0 | sort -z | xargs -0 sha256sum > "$RUNNER_TEMP/pm-auth-evidence/sources.sha256"
+          echo "TMPDIR=$RUNNER_TEMP/pm-auth-tmp" >> "$GITHUB_ENV"
+          echo "CARGO_TARGET_DIR=$RUNNER_TEMP/pm-auth-target/fleet" >> "$GITHUB_ENV"
+          curl --fail --location --proto '=https' --proto-redir '=https' --retry 0 https://github.com/swagger-api/swagger-ui/archive/refs/tags/v5.17.14.zip --output "$RUNNER_TEMP/swagger.zip"
+          printf '%s  %s\n' 481244d0812097b11fbaeef79f71d942b171617f9c9f9514e63acbe13e71ccdc "$RUNNER_TEMP/swagger.zip" | sha256sum --check
+          echo "SWAGGER_UI_DOWNLOAD_URL=file://$RUNNER_TEMP/swagger.zip" >> "$GITHUB_ENV"
+      - name: Build the qualified real Auth binary
+        run: |
+          set -euo pipefail
+          cargo build --locked --manifest-path "$RUNNER_TEMP/pm-auth-source/base-auth-source/Cargo.toml" --target-dir "$RUNNER_TEMP/pm-auth-target/base" -p auth-server --bin auth-server
+          binary="$RUNNER_TEMP/pm-auth-target/base/debug/auth-server"
+          sha256sum "$binary" > "$RUNNER_TEMP/pm-auth-evidence/auth-binary.sha256"
+          echo "FLEET_REAL_AUTH_TEST_BINARY=$binary" >> "$GITHUB_ENV"
+          echo "FLEET_REAL_AUTH_TEST_BINARY_SHA256=$(sha256sum "$binary" | awk '{print $1}')" >> "$GITHUB_ENV"
+      - name: Require real Fleet issuance replay conflict and revoke
+        run: |
+          set -euo pipefail
+          cargo test --locked --manifest-path "$RUNNER_TEMP/pm-auth-source/fleet-control/backend/Cargo.toml" -p infra --test pm_credentials_real_auth -- --ignored --test-threads=1 > "$RUNNER_TEMP/pm-auth-evidence/consumer.log" 2>&1
+          grep -Fx 'test real_base_delegation_wire_replay_conflict_and_revoke_match_fleet ... ok' "$RUNNER_TEMP/pm-auth-evidence/consumer.log"
+          grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/pm-auth-evidence/consumer.log"
+          sha256sum --check "$RUNNER_TEMP/pm-auth-evidence/sources.sha256"
+          printf 'real_base_delegation_wire_replay_conflict_and_revoke_match_fleet: 1 passed; 0 failed; 0 ignored\n' > "$RUNNER_TEMP/pm-auth-evidence/consumer-result.txt"
+      - name: Preserve non-secret source and consumer evidence only
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fleet-real-auth-evidence
+          path: |
+            ${{ runner.temp }}/pm-auth-evidence/source-commits.txt
+            ${{ runner.temp }}/pm-auth-evidence/sources.sha256
+            ${{ runner.temp }}/pm-auth-evidence/auth-binary.sha256
+            ${{ runner.temp }}/pm-auth-evidence/consumer-result.txt
+          retention-days: 14
+      - name: Remove exact disposable source scratch targets and private log
+        if: always()
+        run: |
+          set -euo pipefail
+          test -n "$RUNNER_TEMP" && test "$RUNNER_TEMP" != /
+          rm -rf -- "$RUNNER_TEMP/pm-auth-source" "$RUNNER_TEMP/pm-auth-tmp" "$RUNNER_TEMP/pm-auth-target"
+          rm -f -- "$RUNNER_TEMP/swagger.zip" "$RUNNER_TEMP/pm-auth-evidence/consumer.log"
 
   frontend:
     runs-on: ubuntu-latest

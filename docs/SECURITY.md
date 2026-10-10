@@ -13,6 +13,15 @@ compatibility path, not proof of central privileges.
 
 ## PM Clarification Commands
 
+C11 persisted credential preparation is disabled by default and server-owned.
+Only original assignment-derived commands with immutable owner/key custody may
+be issued/replayed. Fresh Base parent/child introspection and exact Tracker
+owner/assignment context are required; rotated parent/origin/TTL, revoked child
+or expired receipt never authorizes a new key. Parent PATs stay in deployment
+config, child bearers in memory; DB/audit/API store only bounded non-secret
+metadata. Existing human/private-owner/project guards and PR64 configuration
+authority are unchanged. Credentials are not delivered to a runtime or model.
+
 The server-only delegated PM client binds its credential to the assigned task
 and permits only enumerated SDLC GET/POST operations. It denies legacy API paths,
 other tasks, owner answers/confirmation and verifier/assignment actions before

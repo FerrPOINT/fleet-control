@@ -17,6 +17,7 @@ mod m20261001_000010_session_events;
 mod m20261001_000010_task_chats;
 mod m20261001_000011_message_dispatch;
 mod m20261001_000012_config_revisions;
+mod m20261004_000011_pm_credentials;
 
 pub struct Migrator;
 
@@ -81,6 +82,7 @@ impl MigratorTrait for CanonicalMigrator {
         let mut migrations = common_migrations();
         migrations.push(Box::new(m20261001_000009_sdlc_foundation::Migration));
         migrations.push(Box::new(m20261001_000010_task_chats::Migration));
+        migrations.push(Box::new(m20261004_000011_pm_credentials::Migration));
         migrations
     }
 }
@@ -97,6 +99,7 @@ impl MigratorTrait for LegacyMigrator {
             Box::new(m20261001_000011_message_dispatch::Migration),
             Box::new(m20261001_000012_config_revisions::Migration),
             Box::new(m20261001_000010_task_chats::Migration),
+            Box::new(m20261004_000011_pm_credentials::Migration),
         ]);
         migrations
     }

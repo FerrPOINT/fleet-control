@@ -41,6 +41,7 @@ impl PostgresFleetRepository {
             || operation.input.is_some()
             || operation.reservation.is_some()
             || operation.session_id.is_some()
+            || operation.credentials.is_some()
         {
             return Err(AppError::validation("invalid PM creation operation"));
         }
@@ -140,6 +141,24 @@ impl PostgresFleetRepository {
                 ));
             }
         }
+        let credential_event = match &proof {
+            PmDraftProof::CredentialIntent(intent) if operation.credentials.is_none() => Some((
+                "pm_credentials.intent",
+                serde_json::json!({"request_sha256": intent.request_sha256}),
+            )),
+            PmDraftProof::CredentialAcknowledged(receipt)
+                if operation
+                    .credentials
+                    .as_ref()
+                    .is_some_and(|journal| journal.receipt.is_none()) =>
+            {
+                Some((
+                    "pm_credentials.acknowledged",
+                    serde_json::json!({"token_id": receipt.token_id,"expires_at": receipt.expires_at}),
+                ))
+            }
+            _ => None,
+        };
         operation.apply(proof)?;
         txn.execute(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
@@ -153,6 +172,13 @@ impl PostgresFleetRepository {
         ))
         .await
         .map_err(AppError::database)?;
+        if let Some((action, payload)) = credential_event {
+            txn.execute(Statement::from_sql_and_values(DatabaseBackend::Postgres,
+                "INSERT INTO audit_log(id,actor_user_id,action,entity_type,entity_id,payload,created_at)
+                 VALUES($1,$2,$3,'pm_draft_operation',$4,$5,now())",
+                [Uuid::new_v4().into(),owner.into(),action.into(),id.to_string().into(),payload.into()]))
+                .await.map_err(AppError::database)?;
+        }
         txn.commit().await.map_err(AppError::database)?;
         Ok(operation)
     }

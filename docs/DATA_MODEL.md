@@ -17,6 +17,15 @@ are not implemented here yet. See [scope and blockers](SDLC_IMPLEMENTATION.md).
 
 ## PM Chat Bindings
 
+C11 extends `pm_draft_creation_operations.operation` with optional private
+`credentials`: an immutable issuance intent (original command/key, canonical
+payload hash, parent fingerprint, fixed Base/Tracker origins, frozen machine
+subject) plus a monotonic acknowledgement (child token UUID, expiry, scopes).
+Legacy records omit this field. Raw parent/child bearers are never persisted or
+returned. Intent/first ACK and their redacted audit entries commit atomically;
+payload conflict cannot replace either receipt. Migration11 refuses downgrade
+while any credential journal remains. No new runtime/run/Workflow table exists.
+
 `pm_draft_creation_operations` is the owner/key-unique creation ledger in pending
 migration 000010. It stores immutable owner/project/agent/input and monotonically
 added Tracker Draft, original-input, reservation and atomic chat receipts.
