@@ -95,5 +95,8 @@ test('capture retains 45 views at each of the three required viewports', () => {
     { name: '2560x1440', width: 2560, height: 1440 },
   ])
   assert(viewports.every(({ screens }) => screens === coreScreens))
-  assert.equal(viewports.reduce((count, { screens }) => count + screens.length, 0), 135)
+  assert.equal(
+    viewports.reduce((count, { screens }) => count + screens.length, 0),
+    135,
+  )
 })
