@@ -633,6 +633,7 @@ test.describe('Chats UX fixture regression', () => {
     const choice = page.getByRole('radio', { name: /Участники проекта/ })
     const save = page.getByRole('button', { name: 'Сохранить ответ' })
     const resume = page.getByRole('button', { name: 'Продолжить исходную команду' })
+    const retainedAnswer = page.getByRole('status').filter({ has: resume })
     await choice.check()
     await expect(page.getByRole('status', { name: 'Статус команды' })).toHaveAttribute(
       'aria-live',
@@ -648,7 +649,16 @@ test.describe('Chats UX fixture regression', () => {
     await page.getByLabel('Комментарий', { exact: true }).fill('Fixture server-retained comment')
     await save.click()
     await expect(resume).toBeVisible()
-    await expect(page.getByText('Fixture server-retained answer', { exact: true })).toBeVisible()
+    await expect(retainedAnswer).toHaveCount(1)
+    await expect(
+      retainedAnswer.getByText('Fixture server-retained answer', { exact: true }),
+    ).toBeVisible()
+    await expect(page.getByLabel('Свой вариант или детали', { exact: true })).toHaveValue(
+      'Fixture server-retained answer',
+    )
+    await expect(page.getByLabel('Комментарий', { exact: true })).toHaveValue(
+      'Fixture server-retained comment',
+    )
     await expect(choice).toBeDisabled()
     await expect(save).toBeDisabled()
     await expect(page.getByRole('button', { name: 'Проверить актуальный вопрос' })).toHaveCount(0)
@@ -665,8 +675,12 @@ test.describe('Chats UX fixture regression', () => {
     page.once('dialog', (dialog) => dialog.accept())
     await page.reload()
     await expect.poll(() => fixture.reads.journal).toBeGreaterThan(readsBeforeReload)
-    await expect(page.getByText('Fixture server-retained answer', { exact: true })).toBeVisible()
-    await expect(page.getByText('Fixture server-retained comment', { exact: true })).toBeVisible()
+    await expect(
+      retainedAnswer.getByText('Fixture server-retained answer', { exact: true }),
+    ).toBeVisible()
+    await expect(
+      retainedAnswer.getByText('Fixture server-retained comment', { exact: true }),
+    ).toBeVisible()
     await expect(choice).not.toBeChecked()
     await expect(choice).toBeDisabled()
     await expect(save).toBeDisabled()
