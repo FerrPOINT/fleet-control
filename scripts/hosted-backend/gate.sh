@@ -114,7 +114,7 @@ passed
 stage=real_auth
 cargo test --locked -p infra --test pm_credentials_real_auth -- --ignored --test-threads=1 2>&1 | tee ${QA_OUTPUT}/real_auth.log
 while IFS= read -r name; do grep -Fx "test $name ... ok" ${QA_OUTPUT}/real_auth.log; done < ${QA_EXPECTED}/real_auth.txt
-grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' ${QA_OUTPUT}/real_auth.log
+grep -F 'test result: ok. 2 passed; 0 failed; 0 ignored;' ${QA_OUTPUT}/real_auth.log
 passed
 run_tests api2 -p api --lib routes::pm_runtime::tests::
 run_tests credentials_unit -p infra --lib pm_credentials::

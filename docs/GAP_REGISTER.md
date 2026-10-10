@@ -2,27 +2,60 @@
 
 ## Current Open Release Gates: 10 October 2026
 
-Latest verified state: full backend38021438217 fails eight recovered-activation
-cases at container_activation_pg; safe artifact11658528950 identifies the
-configuration snapshot hash probe, not successful activation. The fixture hash
-uses UTF-8 while Base/production and its independent golden require ASCII
-escaping. Test-only correction/default golden regression are prepared and need
-a new exact-source full Linux/PG gate. Production authority predicates stay intact.
+Latest verified state: full backend38023648801/source56daff9 fails eight recovered
+authorization cases at container_activation_pg after the configuration hash
+correction. Authenticated artifact11659287588 and successful cleanup do not prove
+the remaining cause. Pascal diagnoses that exact source without changing
+production authority predicates; a full passing Linux/PG gate remains required.
 
 C11 run38021888246 fails runtime_inventory with both cleanup checks successful.
 Closed authenticated terminal telemetry, not raw logs, establishes the stage;
 no failure artifact or actual credential/Auth result exists. Diagnose the strict
-source/compiler inventory without waiving unknown tests. Worker successor6870ea0
-adds five PG/one unit credential regressions but has formatting/static evidence
-only; it is not qualified by the earlier frozen994 run.
+source/compiler inventory without waiving unknown tests. The later diagnostic
+proves the missing test identity; the original run alone did not. Reviewed diagnostics
+successor4244772 retains frozen994,28 stages and242/17 counts. Its authenticated
+run38024208930 failure artifact11659222328 proves241/242 defaults, all17 ignored,
+only `new_ids_are_plain_uuids` absent, and both cleanup checks pass. The existing
+test file lacked its parent module declaration; source3d1a108 connects it instead
+of dropping the test/count. Worker successors6870ea0/4358dea add five PG/one unit
+credential cases and one real-Auth expiry/restart case, with formatting/static
+evidence only. Published controlscfe7805/source3d1a108 complete38026078533 with
+Clippy failure at coordinator.rs333; authenticated artifact11660525394 has both
+cleanup checks successful. Test-only source0e49430 changes that indexed loop to
+enumerate. Normal controls01f32fe/run38026636805 are confirmed in progress.
+Canonical inventory still requires248 defaults/18 ignored and all prior242/17
+identities. New119 Windows pure checks (115 pass/four Linux-only skips) qualify
+controls only; actual product/Auth/PG and a terminal receipt remain required.
 
 Frontend38022762729 fails preparation, with authenticated failure artifact
 11658544399. The reproduced Windows archive conversion affected only the local
 source inventory oracle. Normal successorbea500d pins all835 canonical Git blobs
 and retains23 standard gates/default pool/engines. Its67 pure tests pass on both
-platforms; run38023185173 is active, not accepted. Earlier browser failure38019603974
-and live PM/native/Forge gaps remain open. See the current
+platforms; run38023185173 completes FAILURE in three-browser fixtures after the
+default348 unit/build/theme/format gates pass. Fresh captures/manifest are skipped.
+Worker authenticates artifact11659871068 and its digest: each engine has the
+same two failed declarations (runtime-controls267/fleet-control627),24 expected,
+nine skipped and zero flaky. It does not expose the executed assertion. Parent
+reviews and integrates2398ff0's server-custody locator correction and bf0ca7a's
+command journal/store/delivery fixture alignment. Fresh full browser/screenshot
+qualification remains required. Neither source diagnosis nor old unit success
+closes this gap.
+Earlier browser failure38019603974 and live
+PM/native/Forge gaps remain open. See the current
 [delivery matrix](REMAINING_DELIVERY_WORK.md) for dependencies and stop/go.
+
+Follow-up publication: source56daff9/controls6f648430 starts full81-stage
+run38023648801. It completes FAILURE in eight container_activation_pg cases;
+authenticated artifact11659287588 identifies later authorize calls259/286, not
+the corrected configuration probe. Both cleanup checks pass. All167 ignored tests and prior337 default
+identities remain; new canonical-hash golden raises defaults to338. Independent
+380-input verification and110 Linux pure tests pass, not actual activation PG.
+The authorization cause remains open. Integrated credential/expiry/module/CI
+source corrections require new qualification, not inheritance of old receipts.
+The default348 hosted unit result is now actual evidence, not a replacement for
+the failed browser gate or missing fresh screenshots/live flow. Host-only native
+capacity recheck still fails the unchanged6/6GiB physical/commit guards; disk
+passes30GiB. No Docker/build/native operation or resource waiver follows.
 
 ## Earlier Release Checkpoints
 

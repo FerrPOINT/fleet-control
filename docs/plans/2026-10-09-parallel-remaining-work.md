@@ -7,6 +7,30 @@ records work ownership, not completion or permission to deploy.
 
 ### Latest Assignment Checkpoint
 
+The current independent assignments below supersede all older worker tables.
+Tracker and Workflow stay read-only; root Base foreign changes are untouched.
+
+| Owner | Current isolated write scope / deliverable | Handoff criterion |
+| --- | --- | --- |
+| Curie | Exactbf0 frontend controls in a new owned successor | Both fixture fixes are reviewed/integrated; retain23 gates, all scenarios/engines and canonical835 source inventory; no heavy/publication actions; fresh browser acceptance remains parent-owned |
+| Pascal | Test-only read-only SQL probes in an owned exact56 successor | Source review found no proved contradiction; diagnose exact checked/current/authority predicates without INSERT/locks/renewals or weaker production guards |
+| Feynman | Forge maintenance-packet closure in a separate owned successor | Qualified immutable Base helper inputs or exact missing blobs; minimum public-safe Forge patch and pure tests; no private ancestry/source publication or guessed pin |
+| Parent | Fleet integration, exact-source controls, CI, documentation and publication | Review worker diffs; qualify source/control closure; normal history/push; authenticate terminal receipts before any acceptance claim |
+
+C11 controlscfe7805 normally publish exact3d1;
+[run38026078533](https://github.com/FerrPOINT/fleet-control/actions/runs/38026078533),
+completes FAILURE at Clippy, authenticated artifact11660525394. Test-only iterator
+correction0e49430 and normal controls01f32fe start
+[run38026636805](https://github.com/FerrPOINT/fleet-control/actions/runs/38026636805),
+confirmed in progress. Source still declares248 default/18 ignored tests,
+preserving all original identities. Parent115 pure passes/four Linux skips
+qualify the new controls, not product/Auth/PG acceptance.
+Both earlier full-backend38023648801 and browser38023185173 are terminal FAILURE;
+the independent runtime/UI tasks address those actual results, not active jobs.
+No worker runs heavy local jobs, publishes branches or edits another scope.
+
+### Historical Assignment Checkpoints
+
 The following terminal-result update supersedes historical in-progress statements
 below. Backend38018281445 and frontend38019603974 both complete FAILURE.
 Parent authenticates backend artifact11657906403, ZIP SHA256

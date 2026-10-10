@@ -68,7 +68,7 @@ jobs:
         timeout-minutes: 2
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: 56daff9c9f60e9c0ec8e3855be0213f803b80a97 # Same authentic schema; Base-canonical activation fixture and golden regression.
+          ref: 7dd60204bd352f5dbf3e61b8c2db14706450eea4 # Same authentic schema; readonly authorize probes and exact credential regressions.
           path: fleet-control
           persist-credentials: false
       - name: Check out pinned build SDK
@@ -172,7 +172,7 @@ jobs:
           ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
         run: |
           {
-            printf 'Source: `%s`\n\n' 56daff9c9f60e9c0ec8e3855be0213f803b80a97
+            printf 'Source: `%s`\n\n' 7dd60204bd352f5dbf3e61b8c2db14706450eea4
             printf 'Workflow commit: `%s`\n\n' "$GITHUB_SHA"
             printf 'Run/attempt: `%s/%s`\n\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
             printf 'Artifact ID: `%s`\n\n' "$ARTIFACT_ID"

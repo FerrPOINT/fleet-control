@@ -182,8 +182,8 @@ This is disposable source/binary compatibility, not installed-runtime acceptance
 The mandatory `real-base-auth` CI job uses a GitHub-managed Rust container and
 isolated PostgreSQL service with no published host port. It exports committed
 Fleet/SDK/Auth sources, builds Auth01388df separately from SDK19a7, records source
-and binary hashes, and requires the otherwise-ignored consumer case with exactly
-one PASS and zero ignores. It is not a local Compose project or installed-runtime
+and binary hashes, and requires both otherwise-ignored consumer cases with exactly
+two PASS and zero ignores, including natural expiry/restart. It is not a local Compose project or installed-runtime
 acceptance. This CI job depends on Base126 publishing the pinned Auth commit;
 the workflow itself has not run yet.
 
@@ -206,6 +206,27 @@ credentials migration. This correction is formatted, not yet Linux/PG verified.
 The credential-migration, smoke, OpenAPI and final parity stages did not run;
 all10 independent cleanup/input parity checks passed and permanent runtime was
 unchanged. Full acceptance waits for current-main reconciliation and a fresh gate.
+## Credential Qualification Successor
+
+The credential successor adds one coordinator unit case, five PostgreSQL cases
+and one real-Auth natural-expiry/restart case. Focused gates must require eight
+coordinator units, fifteen credential PG cases and both named real-Auth cases.
+The serial real-Auth CI receipt now requires two passed, zero failed and zero
+ignored, and preserves the original issuance/replay/conflict/revoke case.
+These source changes have not yet compiled or executed against Auth/PostgreSQL.
+
+Authenticated diagnostic run38024208930 on frozen994 observes241 default tests
+versus242 declarations, with all17 ignored identities matching. Its only missing
+name is `new_ids_are_plain_uuids`: `shared/src/id/tests.rs` existed but was not
+declared by its parent module. The successor adds that test-module declaration,
+not a lower expected count or a removed test. All later inventories must retain
+the original declaration and account separately for newly added tests. Source
+and formatting checks are not compiler-list or execution acceptance.
+
+Expired same-key replay at pinned Auth01388 returns the original expired child;
+introspection and Fleet authorization reject it. No token is renewed or minted
+by replay. The new test checks this across an Auth restart and explicitly does
+not prove Fleet journal recovery, physical lost ACK or runtime dispatch.
 
 The central directory regression explicitly executes the real PostgreSQL query
 with expanded and selected-foreign owner filters. It verifies that private rows,

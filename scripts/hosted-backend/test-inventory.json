@@ -185,7 +185,7 @@
     "fleet-control/backend/infra/src/hermes_dispatch_journal.rs": "5e603a5f8a18004801ad8dc19fdba7105665770fda96e6ad5873fa6f3c0e9b60",
     "fleet-control/backend/infra/src/lib.rs": "9e0baf1d898d67537e0666423e5454562744c8a9c3788cad3b38092da3f9042e",
     "fleet-control/backend/infra/src/pm_credentials.rs": "f6a3bee729e0f2d8c5397f10db3c3fd2f94854a06b6061531699eb255ef27958",
-    "fleet-control/backend/infra/src/pm_credentials/coordinator.rs": "0f8432ab1a04d60e4bc4660cfc56df8558734073e91dfa9383001885a2fc4cbd",
+    "fleet-control/backend/infra/src/pm_credentials/coordinator.rs": "0be7f8a09497c7a97a810114da02749638f8977668b3f42e764f307307a6533e",
     "fleet-control/backend/infra/src/pm_draft.rs": "14a4abde0ef4c150833888f3189779b831d31b755bc9d5e59b2ebde573c55718",
     "fleet-control/backend/infra/src/pm_execution.rs": "1161dbde694171f4f31f97aff892bf15951371634cde2ef764c92acd0f8439b0",
     "fleet-control/backend/infra/src/runtime/acceptance_readback.rs": "6e919c948c4ef40bf7d4a4e9c5e069c2eeb08a2b24800836f277194082cb71f0",
@@ -215,20 +215,20 @@
     "fleet-control/backend/infra/tests/agent_logs.rs": "b9780e307c0bc87f3e4649570ce80c93927dc9e04961743ed53622de566bace9",
     "fleet-control/backend/infra/tests/central_profile.rs": "33475276225fff250d9028fa458efc131698bb3083e6a23ca2a93d375444f193",
     "fleet-control/backend/infra/tests/chats_directory.rs": "75d8136a932cf1d8381362809721ed5b9759e2541b6d520b0d6a7f5ab8aebbd7",
-    "fleet-control/backend/infra/tests/container_activation.rs": "344e6316a2de7815b02ec14fed84f979994428ae9ad6408ec8faa13d3e5212ee",
+    "fleet-control/backend/infra/tests/container_activation.rs": "9eb349a1304fbc24fd5befe0b4626bc88ca1092128d56fa90212bb24705ab0f9",
     "fleet-control/backend/infra/tests/container_controller.rs": "375cd3fe30e971cb9acec71f9aa3f4c3f5f3bd94870a330a1e2ea74fc68a1c07",
     "fleet-control/backend/infra/tests/container_preparation.rs": "a4aba2b719b58869aa0ad188ba3df7b8b44397c7a90f9c9eaf2de29e293db21e",
     "fleet-control/backend/infra/tests/heartbeat_alerts.rs": "b58daf21ad6d99aaece1f71fcd50de8187fcdc611762dd106fc30b7467b6d413",
     "fleet-control/backend/infra/tests/human_permissions.rs": "c6894fb9a8292f89a04e36458b7700f6ac6d47d74e27e7d4dd2edf379ea0da78",
     "fleet-control/backend/infra/tests/managed_settings.rs": "a00d900832fae3193dfded72f3abc92ef27dd1e2c7d0014f55aee07e8338fbeb",
-    "fleet-control/backend/infra/tests/pm_credentials_real_auth.rs": "38793b262babcb6f0ddb5353001ec3f10b9531b716e0f77454f21b2d274a55fb",
+    "fleet-control/backend/infra/tests/pm_credentials_real_auth.rs": "61b8267f53fa1dc3f16336b24fe438a061319c9c0ed190579c9f741f3e7182ec",
     "fleet-control/backend/infra/tests/runtime_approval_events.rs": "462727f4a50969e0f971de209c8972c5194136b528d8236c901f127ec038a7b5",
     "fleet-control/backend/infra/tests/sdlc_foundation.rs": "82ceeb30a870e9851279fa56cf9a3db8e46da41024aaa66f55ce6f9d7e8f6582",
     "fleet-control/backend/infra/tests/support/base_package.rs": "a9fa2da281182dd2685dfeaa89c9bf052b604a757285a6028b8d8a83119d4b75",
     "fleet-control/backend/infra/tests/support/clarification_custody.rs": "142c92494640f5e9c7d06e61bc5ac5a17508a0a24406a8e19fc49bef04a90081",
     "fleet-control/backend/infra/tests/support/hermes_dispatch_journal.rs": "c1fb6a5519b4ab9dcb0a350c76bbc01d0bf5cb56bbbd2c4bc896b2d6ae5f4d05",
     "fleet-control/backend/infra/tests/support/hermes_protocol_fixture.rs": "e7173c88917f5d3f442462271d79b38d83c856b9396d033f503dc97dae6b445e",
-    "fleet-control/backend/infra/tests/support/pm_credential_creation.rs": "7f137e3a478c378819120eb30622ed16288c0ba71a2421e40d368a1a5a0b5d4a",
+    "fleet-control/backend/infra/tests/support/pm_credential_creation.rs": "fcc19599299f4b28d48d38f6129f58bfa9704a1a6d26e3d2dfcde1decdd42433",
     "fleet-control/backend/infra/tests/support/pm_draft_creation.rs": "ac8266c52998abb22702b5a2a454ae101471cbfc4d84a53d7846f0e0ebd8883f",
     "fleet-control/backend/infra/tests/support/runtime_acceptance.rs": "45416320e99ce5a9d6315ec2c973ab045a4ba3cbfad019100c4adbe0e953b993",
     "fleet-control/backend/infra/tests/support/runtime_acceptance_readback_http.rs": "c8d19de02071414eab6f886e2daa66c43d7aa923d3b0328fae33c62381a99c55",
@@ -290,13 +290,13 @@
     "fleet-control/backend/shared/src/config.rs": "050e4f8c696cced9cfa1530258f5cd15de9f0a6469ac7860cbe9262d70209968",
     "fleet-control/backend/shared/src/config_tests.rs": "660bd283df3d5fbb48a1d44efa93aec58d1e60baa3e1846631c0db76690c27b9",
     "fleet-control/backend/shared/src/events.rs": "b14b97f11b2fbaea95c17945b06210d26d051f1b685ef614da51d5f4b30d139b",
-    "fleet-control/backend/shared/src/id.rs": "d13c7bb53907926164bc9559147c48f91748ed08f910984f1f9914d6ccc77d3f",
+    "fleet-control/backend/shared/src/id.rs": "4c4f6c20883311c86217381c8818eef57470f7f5550c4a55d8c3c4a9cb27201e",
     "fleet-control/backend/shared/src/id/tests.rs": "27e47e4925778eb948d53de636729d0021a393358a2ae9b3403e8344160354fd",
     "fleet-control/backend/shared/src/lib.rs": "0a0a95455af49316bf252f1624b2ecd30469f9ff7b82961882d62ab574649805",
     "fleet-control/backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "fleet-control/backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a",
     "fleet-control/backend/tests/fixtures/.gitkeep": "1d85c5ed38a3fd81f2faaea018843e4fe329fd190486a34000e756cfba90a618",
-    "fleet-control/docs/TESTING.md": "9ad6cc8707a4458e40f9842337ec8726f8cef71c469007d505c159b31f9455bc",
+    "fleet-control/docs/TESTING.md": "9c2008a52634d0d9978011952e6e48cb4a6a3693650c92330bb2c98065d2d169",
     "fleet-control/openapi/README.md": "2ede8bc480b593789d2192f5f5e82c21475921d616f063cb3bfe2a9dd55ebfe3",
     "fleet-control/openapi/openapi.json": "1167220ea9f3d65ddca4cce1112a26d53c77f8c1684ef958859f737f20210953",
     "fleet-control/scripts/check_container_activation_contract.py": "80569d79dfef7cf3f16126eb0523ca1ad3da8941cdd255d8290dbcf9fc1fa12a",
@@ -396,7 +396,7 @@
     "activation_intent_cases": 20,
     "authentic_union_codegen_pending": false,
     "codegen_evidence": {
-      "artifact_bound_source_commit": "56daff9c9f60e9c0ec8e3855be0213f803b80a97",
+      "artifact_bound_source_commit": "7dd60204bd352f5dbf3e61b8c2db14706450eea4",
       "artifact_id": 11656020208,
       "artifact_zip_sha256": "9e46aadcaf9de57d91d8389b0b460234ef1e0e6f02a72db81eea8af2d3d05ff8",
       "reported_by_parent": true,
@@ -418,7 +418,7 @@
       "runtime::container_activation::tests::workflow_rollback_preflight_selects_current_effective_not_desired_or_root_revision"
     ],
     "prior_stages_preserved": 74,
-    "source_commit": "56daff9c9f60e9c0ec8e3855be0213f803b80a97"
+    "source_commit": "7dd60204bd352f5dbf3e61b8c2db14706450eea4"
   },
   "default_foundation_ignored": 119,
   "executed": false,
@@ -670,11 +670,16 @@
     ],
     "credentials_pg": [
       "pm_credential_creation::pm_credentials_pg_audit_failure_rolls_back_journal_and_recovers_original_child",
+      "pm_credential_creation::pm_credentials_pg_changed_valid_child_expiry_replay_conflicts_without_context_or_mutation",
+      "pm_credential_creation::pm_credentials_pg_changed_valid_child_uuid_replay_conflicts_without_context_or_mutation",
+      "pm_credential_creation::pm_credentials_pg_child_principal_mismatch_retains_ack_without_usable_credential",
       "pm_credential_creation::pm_credentials_pg_concurrent_preparation_freezes_one_receipt_and_rejects_payload_conflict",
       "pm_credential_creation::pm_credentials_pg_database_guards_monotonic_journal_and_single_redacted_audit",
       "pm_credential_creation::pm_credentials_pg_expired_receipt_stops_before_external_renewal",
       "pm_credential_creation::pm_credentials_pg_first_intent_and_ack_require_readable_strict_shapes",
       "pm_credential_creation::pm_credentials_pg_lost_ack_restart_replays_exact_child_without_run_or_secret",
+      "pm_credential_creation::pm_credentials_pg_parent_principal_mismatch_prevents_first_post",
+      "pm_credential_creation::pm_credentials_pg_parent_principal_mismatch_retains_ack_without_another_post",
       "pm_credential_creation::pm_credentials_pg_partial_success_keeps_receipt_and_checks_current_context_on_replay",
       "pm_credential_creation::pm_credentials_pg_revoked_child_cannot_be_used",
       "pm_credential_creation::pm_credentials_pg_revoked_parent_prevents_post_and_does_not_erase_ack",
@@ -683,6 +688,7 @@
     "credentials_unit": [
       "pm_credentials::coordinator::tests::configuration_is_opt_in_and_requires_canonical_subject_and_fixed_origins",
       "pm_credentials::coordinator::tests::introspection_accepts_the_pinned_base_dto_without_weakening_closed_fields",
+      "pm_credentials::coordinator::tests::introspection_rejects_wrong_subject_and_non_exact_parent_or_child_scopes",
       "pm_credentials::tests::credentials_allow_only_bound_pm_operations_not_owner_or_legacy_actions",
       "pm_credentials::tests::exact_scope_replay_and_revoke_never_follow_redirects_or_retry",
       "pm_credentials::tests::lost_issuer_is_unknown_not_a_new_command_and_never_echoes_secrets",
@@ -706,11 +712,16 @@
       "message_history_returns_latest_page_and_scopes_cursor",
       "pm_callback_requires_machine_auth_and_fresh_authenticated_runtime_proof",
       "pm_credential_creation::pm_credentials_pg_audit_failure_rolls_back_journal_and_recovers_original_child",
+      "pm_credential_creation::pm_credentials_pg_changed_valid_child_expiry_replay_conflicts_without_context_or_mutation",
+      "pm_credential_creation::pm_credentials_pg_changed_valid_child_uuid_replay_conflicts_without_context_or_mutation",
+      "pm_credential_creation::pm_credentials_pg_child_principal_mismatch_retains_ack_without_usable_credential",
       "pm_credential_creation::pm_credentials_pg_concurrent_preparation_freezes_one_receipt_and_rejects_payload_conflict",
       "pm_credential_creation::pm_credentials_pg_database_guards_monotonic_journal_and_single_redacted_audit",
       "pm_credential_creation::pm_credentials_pg_expired_receipt_stops_before_external_renewal",
       "pm_credential_creation::pm_credentials_pg_first_intent_and_ack_require_readable_strict_shapes",
       "pm_credential_creation::pm_credentials_pg_lost_ack_restart_replays_exact_child_without_run_or_secret",
+      "pm_credential_creation::pm_credentials_pg_parent_principal_mismatch_prevents_first_post",
+      "pm_credential_creation::pm_credentials_pg_parent_principal_mismatch_retains_ack_without_another_post",
       "pm_credential_creation::pm_credentials_pg_partial_success_keeps_receipt_and_checks_current_context_on_replay",
       "pm_credential_creation::pm_credentials_pg_revoked_child_cannot_be_used",
       "pm_credential_creation::pm_credentials_pg_revoked_parent_prevents_post_and_does_not_erase_ack",
@@ -839,7 +850,8 @@
       "tests::base_package_effective_readback_uses_git_pin_and_closed_home_inventory"
     ],
     "real_auth": [
-      "real_base_delegation_wire_replay_conflict_and_revoke_match_fleet"
+      "real_base_delegation_wire_replay_conflict_and_revoke_match_fleet",
+      "real_base_expired_children_replay_without_minting_and_are_rejected_by_fleet"
     ],
     "recovered_activation_migration": [
       "recovered_activation_additive_roundtrip_preserves_original_recovery_guard_and_ledger"
@@ -983,7 +995,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 268,
+      "line": 350,
       "name": "recovered_activation_requires_original_plan_current_lease_and_exact_cas",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -992,7 +1004,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 374,
+      "line": 456,
       "name": "recovered_activation_publishes_only_after_readiness_and_renews_exited_original_anchor",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1001,7 +1013,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 900,
+      "line": 982,
       "name": "recovered_committed_child_next_activation_and_failure_rollback_keep_original_anchor",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1010,7 +1022,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 906,
+      "line": 988,
       "name": "recovered_rolled_back_child_next_activation_and_failure_rollback_keep_original_anchor",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1019,7 +1031,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 912,
+      "line": 994,
       "name": "recovered_next_claim_rejects_foreign_lineage_unknown_lease_and_duplicate_plan",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1028,7 +1040,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 1113,
+      "line": 1195,
       "name": "recovered_next_claim_expiry_and_new_epoch_require_latest_original_authority",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1037,7 +1049,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 1207,
+      "line": 1289,
       "name": "recovered_terminal_draft_keeps_historical_custody_and_fenced_regular_stop_both_outcomes",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1046,7 +1058,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 1351,
+      "line": 1433,
       "name": "recovered_child_sql_origin_serializes_heartbeat_then_holds_unknown_expired_and_new_epoch",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1055,7 +1067,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 1732,
+      "line": 1814,
       "name": "activation_cas_stop_proof_and_readiness_gate_effective_revision",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1064,7 +1076,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 1839,
+      "line": 1921,
       "name": "rollback_requires_candidate_exit_and_preserves_previous_effective",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1073,7 +1085,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 1957,
+      "line": 2039,
       "name": "unknown_preparation_and_foreign_claim_cannot_release_drain",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1082,7 +1094,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 2043,
+      "line": 2125,
       "name": "claimed_preplan_survives_restart_as_audited_hold_without_reclaim_or_drain_release",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1091,7 +1103,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 2122,
+      "line": 2204,
       "name": "recorded_unknown_restart_audits_original_command_and_rejects_stale_progress",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1181,7 +1193,7 @@
     },
     {
       "gate": "real_auth",
-      "line": 83,
+      "line": 168,
       "name": "real_base_delegation_wire_replay_conflict_and_revoke_match_fleet",
       "package": "infra",
       "source": "backend/infra/tests/pm_credentials_real_auth.rs",
@@ -2447,6 +2459,15 @@
       "source": "backend/migration/tests/runtime_controls.rs",
       "target": "runtime_controls",
       "target_kind": "test"
+    },
+    {
+      "gate": "real_auth",
+      "line": 272,
+      "name": "real_base_expired_children_replay_without_minting_and_are_rejected_by_fleet",
+      "package": "infra",
+      "source": "backend/infra/tests/pm_credentials_real_auth.rs",
+      "target": "pm_credentials_real_auth",
+      "target_kind": "test"
     }
   ],
   "journal_preparation": {
@@ -2655,7 +2676,7 @@
     "backend/infra/src/hermes_dispatch_journal.rs": "5e603a5f8a18004801ad8dc19fdba7105665770fda96e6ad5873fa6f3c0e9b60",
     "backend/infra/src/lib.rs": "9e0baf1d898d67537e0666423e5454562744c8a9c3788cad3b38092da3f9042e",
     "backend/infra/src/pm_credentials.rs": "f6a3bee729e0f2d8c5397f10db3c3fd2f94854a06b6061531699eb255ef27958",
-    "backend/infra/src/pm_credentials/coordinator.rs": "0f8432ab1a04d60e4bc4660cfc56df8558734073e91dfa9383001885a2fc4cbd",
+    "backend/infra/src/pm_credentials/coordinator.rs": "0be7f8a09497c7a97a810114da02749638f8977668b3f42e764f307307a6533e",
     "backend/infra/src/pm_draft.rs": "14a4abde0ef4c150833888f3189779b831d31b755bc9d5e59b2ebde573c55718",
     "backend/infra/src/pm_execution.rs": "1161dbde694171f4f31f97aff892bf15951371634cde2ef764c92acd0f8439b0",
     "backend/infra/src/runtime/acceptance_readback.rs": "6e919c948c4ef40bf7d4a4e9c5e069c2eeb08a2b24800836f277194082cb71f0",
@@ -2685,20 +2706,20 @@
     "backend/infra/tests/agent_logs.rs": "b9780e307c0bc87f3e4649570ce80c93927dc9e04961743ed53622de566bace9",
     "backend/infra/tests/central_profile.rs": "33475276225fff250d9028fa458efc131698bb3083e6a23ca2a93d375444f193",
     "backend/infra/tests/chats_directory.rs": "75d8136a932cf1d8381362809721ed5b9759e2541b6d520b0d6a7f5ab8aebbd7",
-    "backend/infra/tests/container_activation.rs": "344e6316a2de7815b02ec14fed84f979994428ae9ad6408ec8faa13d3e5212ee",
+    "backend/infra/tests/container_activation.rs": "9eb349a1304fbc24fd5befe0b4626bc88ca1092128d56fa90212bb24705ab0f9",
     "backend/infra/tests/container_controller.rs": "375cd3fe30e971cb9acec71f9aa3f4c3f5f3bd94870a330a1e2ea74fc68a1c07",
     "backend/infra/tests/container_preparation.rs": "a4aba2b719b58869aa0ad188ba3df7b8b44397c7a90f9c9eaf2de29e293db21e",
     "backend/infra/tests/heartbeat_alerts.rs": "b58daf21ad6d99aaece1f71fcd50de8187fcdc611762dd106fc30b7467b6d413",
     "backend/infra/tests/human_permissions.rs": "c6894fb9a8292f89a04e36458b7700f6ac6d47d74e27e7d4dd2edf379ea0da78",
     "backend/infra/tests/managed_settings.rs": "a00d900832fae3193dfded72f3abc92ef27dd1e2c7d0014f55aee07e8338fbeb",
-    "backend/infra/tests/pm_credentials_real_auth.rs": "38793b262babcb6f0ddb5353001ec3f10b9531b716e0f77454f21b2d274a55fb",
+    "backend/infra/tests/pm_credentials_real_auth.rs": "61b8267f53fa1dc3f16336b24fe438a061319c9c0ed190579c9f741f3e7182ec",
     "backend/infra/tests/runtime_approval_events.rs": "462727f4a50969e0f971de209c8972c5194136b528d8236c901f127ec038a7b5",
     "backend/infra/tests/sdlc_foundation.rs": "82ceeb30a870e9851279fa56cf9a3db8e46da41024aaa66f55ce6f9d7e8f6582",
     "backend/infra/tests/support/base_package.rs": "a9fa2da281182dd2685dfeaa89c9bf052b604a757285a6028b8d8a83119d4b75",
     "backend/infra/tests/support/clarification_custody.rs": "142c92494640f5e9c7d06e61bc5ac5a17508a0a24406a8e19fc49bef04a90081",
     "backend/infra/tests/support/hermes_dispatch_journal.rs": "c1fb6a5519b4ab9dcb0a350c76bbc01d0bf5cb56bbbd2c4bc896b2d6ae5f4d05",
     "backend/infra/tests/support/hermes_protocol_fixture.rs": "e7173c88917f5d3f442462271d79b38d83c856b9396d033f503dc97dae6b445e",
-    "backend/infra/tests/support/pm_credential_creation.rs": "7f137e3a478c378819120eb30622ed16288c0ba71a2421e40d368a1a5a0b5d4a",
+    "backend/infra/tests/support/pm_credential_creation.rs": "fcc19599299f4b28d48d38f6129f58bfa9704a1a6d26e3d2dfcde1decdd42433",
     "backend/infra/tests/support/pm_draft_creation.rs": "ac8266c52998abb22702b5a2a454ae101471cbfc4d84a53d7846f0e0ebd8883f",
     "backend/infra/tests/support/runtime_acceptance.rs": "45416320e99ce5a9d6315ec2c973ab045a4ba3cbfad019100c4adbe0e953b993",
     "backend/infra/tests/support/runtime_acceptance_readback_http.rs": "c8d19de02071414eab6f886e2daa66c43d7aa923d3b0328fae33c62381a99c55",
@@ -2756,13 +2777,13 @@
     "backend/shared/src/config.rs": "050e4f8c696cced9cfa1530258f5cd15de9f0a6469ac7860cbe9262d70209968",
     "backend/shared/src/config_tests.rs": "660bd283df3d5fbb48a1d44efa93aec58d1e60baa3e1846631c0db76690c27b9",
     "backend/shared/src/events.rs": "b14b97f11b2fbaea95c17945b06210d26d051f1b685ef614da51d5f4b30d139b",
-    "backend/shared/src/id.rs": "d13c7bb53907926164bc9559147c48f91748ed08f910984f1f9914d6ccc77d3f",
+    "backend/shared/src/id.rs": "4c4f6c20883311c86217381c8818eef57470f7f5550c4a55d8c3c4a9cb27201e",
     "backend/shared/src/id/tests.rs": "27e47e4925778eb948d53de636729d0021a393358a2ae9b3403e8344160354fd",
     "backend/shared/src/lib.rs": "0a0a95455af49316bf252f1624b2ecd30469f9ff7b82961882d62ab574649805",
     "backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a"
   },
-  "source_commit": "56daff9c9f60e9c0ec8e3855be0213f803b80a97",
+  "source_commit": "7dd60204bd352f5dbf3e61b8c2db14706450eea4",
   "utility_source_sha256": {
     "scripts/runtime_bootstrap.py": "5be8066b6f7dc68f8dda7f1040c0626dad272477c019b07263821df7f86b59a2",
     "scripts/runtime_boundary.py": "2e6bfa6907b93e6d436d2b6668ae20211aca53a64c433f7e1a98ab51245b3e89",
@@ -3892,14 +3913,14 @@
     },
     {
       "ignored": false,
-      "line": 272,
+      "line": 367,
       "name": "introspection_accepts_the_pinned_base_dto_without_weakening_closed_fields",
       "package": "infra",
       "source": "backend/infra/src/pm_credentials/coordinator.rs"
     },
     {
       "ignored": false,
-      "line": 292,
+      "line": 387,
       "name": "configuration_is_opt_in_and_requires_canonical_subject_and_fixed_origins",
       "package": "infra",
       "source": "backend/infra/src/pm_credentials/coordinator.rs"
@@ -4928,70 +4949,70 @@
     },
     {
       "ignored": false,
-      "line": 229,
+      "line": 536,
       "name": "pm_credentials_pg_lost_ack_restart_replays_exact_child_without_run_or_secret",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 282,
+      "line": 589,
       "name": "pm_credentials_pg_partial_success_keeps_receipt_and_checks_current_context_on_replay",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 303,
+      "line": 610,
       "name": "pm_credentials_pg_rotated_parent_origins_or_ttl_conflict_before_external_request",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 335,
+      "line": 642,
       "name": "pm_credentials_pg_concurrent_preparation_freezes_one_receipt_and_rejects_payload_conflict",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 365,
+      "line": 672,
       "name": "pm_credentials_pg_revoked_child_cannot_be_used",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 381,
+      "line": 688,
       "name": "pm_credentials_pg_expired_receipt_stops_before_external_renewal",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 397,
+      "line": 704,
       "name": "pm_credentials_pg_database_guards_monotonic_journal_and_single_redacted_audit",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 490,
+      "line": 797,
       "name": "pm_credentials_pg_first_intent_and_ack_require_readable_strict_shapes",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 594,
+      "line": 901,
       "name": "pm_credentials_pg_revoked_parent_prevents_post_and_does_not_erase_ack",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
     },
     {
       "ignored": false,
-      "line": 610,
+      "line": 917,
       "name": "pm_credentials_pg_audit_failure_rolls_back_journal_and_recovers_original_child",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_credential_creation.rs"
@@ -5142,6 +5163,48 @@
       "name": "activation_probe_hash_matches_base_unicode_snapshot",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs"
+    },
+    {
+      "ignored": false,
+      "line": 272,
+      "name": "introspection_rejects_wrong_subject_and_non_exact_parent_or_child_scopes",
+      "package": "infra",
+      "source": "backend/infra/src/pm_credentials/coordinator.rs"
+    },
+    {
+      "ignored": false,
+      "line": 371,
+      "name": "pm_credentials_pg_changed_valid_child_expiry_replay_conflicts_without_context_or_mutation",
+      "package": "infra",
+      "source": "backend/infra/tests/support/pm_credential_creation.rs"
+    },
+    {
+      "ignored": false,
+      "line": 366,
+      "name": "pm_credentials_pg_changed_valid_child_uuid_replay_conflicts_without_context_or_mutation",
+      "package": "infra",
+      "source": "backend/infra/tests/support/pm_credential_creation.rs"
+    },
+    {
+      "ignored": false,
+      "line": 483,
+      "name": "pm_credentials_pg_child_principal_mismatch_retains_ack_without_usable_credential",
+      "package": "infra",
+      "source": "backend/infra/tests/support/pm_credential_creation.rs"
+    },
+    {
+      "ignored": false,
+      "line": 377,
+      "name": "pm_credentials_pg_parent_principal_mismatch_prevents_first_post",
+      "package": "infra",
+      "source": "backend/infra/tests/support/pm_credential_creation.rs"
+    },
+    {
+      "ignored": false,
+      "line": 430,
+      "name": "pm_credentials_pg_parent_principal_mismatch_retains_ack_without_another_post",
+      "package": "infra",
+      "source": "backend/infra/tests/support/pm_credential_creation.rs"
     }
   ]
 }

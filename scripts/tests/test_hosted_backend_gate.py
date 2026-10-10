@@ -42,7 +42,7 @@ class HostedBackendTests(unittest.TestCase):
                   "config_revision_readiness_http_uses_exact_heads_without_trusting_database_only_files"}
         for stage, names in previous["groups"].items():
             expected = [rename.get(name, name) for name in names]
-            if stage in ("foundation", "container_activation_intent"):
+            if stage in ("foundation", "container_activation_intent", "credentials_unit", "credentials_pg", "real_auth"):
                 self.assertTrue(set(expected) <= set(REVIEWED["groups"][stage]), stage)
             else:
                 self.assertEqual(REVIEWED["groups"][stage], expected, stage)
@@ -54,6 +54,160 @@ class HostedBackendTests(unittest.TestCase):
             if not path.startswith("fleet-control/"):
                 self.assertEqual(REVIEWED["compiled_source_sha256"][path], value)
         self.assertEqual(REVIEWED["authority"], previous["authority"])
+
+    def test_successor_preserves_all_frozen_controls_gates_guards_and_input_pins(self):
+        import ast
+        donor = "6f648430a43ffbf021c804648fd05f27e2268bdb"
+        old = ast.parse(self.source_blob(gate.HELPER, donor))
+        current = ast.parse((ROOT / gate.HELPER).read_bytes())
+        constants = lambda tree: {node.targets[0].id: node.value for node in tree.body
+            if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)}
+        before, after = constants(old), constants(current)
+        for name in before.keys() - {"SOURCE_SHA", "SOURCE_INVENTORY_SHA", "TEST_ACTIVATION_HINTS"}:
+            self.assertEqual(ast.dump(before[name]), ast.dump(after[name]), name)
+
+        class Counts(ast.NodeTransformer):
+            def visit_Constant(self, node):
+                if type(node.value) is int:
+                    node.value = {167: 168, 338: 344, 53: 58}.get(node.value, node.value)
+                return node
+
+        old_functions = {node.name: node for node in old.body if isinstance(node, (ast.FunctionDef, ast.ClassDef))}
+        new_functions = {node.name: node for node in current.body if isinstance(node, (ast.FunctionDef, ast.ClassDef))}
+        self.assertEqual(old_functions.keys(), new_functions.keys())
+        for name, node in old_functions.items():
+            actual = copy.deepcopy(new_functions[name])
+            if name == "reviewed_inventory":
+                actual.body = [item for item in actual.body if not (
+                    isinstance(item, ast.Expr) and isinstance(item.value, ast.Call)
+                    and item.value.args and isinstance(item.value.args[-1], ast.Constant)
+                    and item.value.args[-1].value == "Credential coverage drift")]
+            self.assertEqual(ast.dump(Counts().visit(node)), ast.dump(actual), name)
+        old_tests = ast.parse(self.source_blob("scripts/tests/test_hosted_backend_gate.py", donor))
+        selectors = lambda tree: {node.name for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")}
+        self.assertEqual(len(selectors(old_tests)), 110)
+        self.assertTrue(selectors(old_tests) <= selectors(ast.parse(Path(__file__).read_bytes())))
+        self.assertEqual((ROOT / gate.INIT).read_bytes(), self.source_blob(gate.INIT, donor))
+        self.assertEqual((ROOT / gate.GATE).read_bytes(), self.source_blob(gate.GATE, donor).replace(
+            b"test result: ok. 1 passed; 0 failed; 0 ignored;", b"test result: ok. 2 passed; 0 failed; 0 ignored;", 1))
+
+    def test_successor_credential_additions_are_source_declared_and_never_silently_ignored(self):
+        previous = json.loads(self.source_blob(gate.INVENTORY, "6f648430a43ffbf021c804648fd05f27e2268bdb"))
+        identity = lambda row: (row["package"], row["source"], row["name"])
+        for kind, added in (("workspace_default_declarations", 6), ("ignored", 1)):
+            before, after = ({identity(row) for row in value[kind]} for value in (previous, REVIEWED))
+            self.assertTrue(before <= after)
+            self.assertEqual(len(after - before), added)
+        pg_path = "backend/infra/tests/support/pm_credential_creation.rs"
+        before = set(previous["groups"]["credentials_pg"])
+        new_pg = set(REVIEWED["groups"]["credentials_pg"]) - before
+        self.assertEqual(len(new_pg), 5)
+        for record in REVIEWED["workspace_default_declarations"]:
+            if record["source"] == pg_path and "pm_credential_creation::" + record["name"] in new_pg:
+                self.assertIs(record["ignored"], False)
+                self.assertNotIn(record["name"], {row["name"].rsplit("::", 1)[-1] for row in REVIEWED["ignored"]})
+        for stage, names in previous["groups"].items():
+            expected = set(names)
+            if stage in ("foundation", "credentials_pg"):
+                expected |= new_pg
+            elif stage == "credentials_unit":
+                expected.add("pm_credentials::coordinator::tests::introspection_rejects_wrong_subject_and_non_exact_parent_or_child_scopes")
+            elif stage == "real_auth":
+                expected.add("real_base_expired_children_replay_without_minting_and_are_rejected_by_fleet")
+            self.assertEqual(set(REVIEWED["groups"][stage]), expected, stage)
+        self.assertEqual({stage: len(REVIEWED["groups"][stage]) for stage in (
+            "foundation", "credentials_pg", "credentials_unit", "real_auth")},
+            dict(foundation=58, credentials_pg=15, credentials_unit=8, real_auth=2))
+        self.assertIn("#[cfg(test)]\nmod tests;", self.source_blob("backend/shared/src/id.rs").decode())
+        self.assertEqual(sum(row["source"] == "backend/shared/src/id/tests.rs" and row["name"] == "new_ids_are_plain_uuids"
+                             for row in REVIEWED["workspace_default_declarations"]), 1)
+        for stage in ("credentials_pg", "credentials_unit", "real_auth", "foundation"):
+            text = self.log(stage, 119 if stage == "foundation" else 0)
+            gate.verify_test_log(stage, text, REVIEWED)
+            for bad in (text.replace(" ... ok", " ... ignored", 1), "\n".join(text.splitlines()[1:]),
+                        text + text.splitlines()[0] + "\n", text.replace("0 failed", "1 failed")):
+                with self.subTest(stage=stage), self.assertRaises(ValueError):
+                    gate.verify_test_log(stage, bad, REVIEWED)
+
+    def test_successor_source_tree_and_six_lf_controls_remain_closed(self):
+        self.assertEqual(gate.SOURCE_SHA, "7dd60204bd352f5dbf3e61b8c2db14706450eea4")
+        tree = subprocess.run(["git", "-C", str(ROOT), "rev-parse", gate.SOURCE_SHA + "^{tree}"],
+            capture_output=True, check=True, timeout=30).stdout.decode().strip()
+        self.assertEqual(tree, "b548841cbdbce9504e0cad87ac12ace392f3dcf3")
+        delta = subprocess.run(["git", "-C", str(ROOT), "diff", "--name-status", gate.SOURCE_SHA],
+            capture_output=True, check=True, timeout=30).stdout.decode()
+        gate.validate_delta(delta)
+        self.assertEqual(len(REVIEWED["compiled_source_sha256"]), 380)
+        self.assertEqual(len(REVIEWED["rust_source_sha256"]), 170)
+        for path in gate.WRITE_SET:
+            data = (ROOT / path).read_bytes()
+            canonical = subprocess.run(["git", "-C", str(ROOT), "show", ":" + path],
+                capture_output=True, check=True, timeout=30).stdout
+            self.assertEqual(data, canonical, path)
+            self.assertNotIn(b"\r", data, path)
+        source = next(step["with"] for step in self.workflow()["jobs"]["backend"]["steps"]
+            if step.get("with", {}).get("path") == "fleet-control")
+        self.assertEqual(source["ref"], gate.SOURCE_SHA)
+        summary = self.workflow()["jobs"]["backend"]["steps"][-1]["run"]
+        self.assertIn("printf 'Source: `%s`\\n\\n' " + gate.SOURCE_SHA, summary)
+
+    def test_successor_auth_two_case_summary_rejects_old_single_case_receipt(self):
+        text = self.log("real_auth")
+        gate.verify_test_log("real_auth", text, REVIEWED)
+        for bad in (text.replace("2 passed", "1 passed"),
+                    "\n".join(text.splitlines()[1:]), text.replace("0 ignored", "1 ignored")):
+            with self.assertRaises(ValueError):
+                gate.verify_test_log("real_auth", bad, REVIEWED)
+        shell = (ROOT / gate.GATE).read_text().split("stage=real_auth\n", 1)[1].split("\npassed", 1)[0]
+        self.assertIn("--ignored --test-threads=1", shell)
+        self.assertIn("done < ${QA_EXPECTED}/real_auth.txt", shell)
+        self.assertIn("grep -Fx \"test $name ... ok\"", shell)
+        self.assertIn("grep -F 'test result: ok. 2 passed; 0 failed; 0 ignored;'", shell)
+        self.assertNotIn("test result: ok. 1 passed", shell)
+
+    def test_successor_adds_only_twelve_source_attested_readonly_probe_hints(self):
+        import ast
+        old = ast.parse(self.source_blob(gate.HELPER, "6f648430a43ffbf021c804648fd05f27e2268bdb"))
+        before = next(ast.literal_eval(node.value.args[0]) for node in old.body if isinstance(node, ast.Assign)
+            and any(isinstance(target, ast.Name) and target.id == "TEST_ACTIVATION_HINTS" for target in node.targets))
+        expected = {"activation_probe_" + suffix for suffix in (
+            "checked_query_ok", "checked_row_present", "checked_revision_decode", "checked_revision_predicate",
+            "checked_snapshot_decode", "checked_snapshot_predicate", "current_query_ok", "current_row_present",
+            "authority_query_ok", "authority_row_present", "authority_predicate_decode", "authority_predicate")}
+        self.assertEqual(len(before), 25)
+        self.assertEqual(gate.TEST_ACTIVATION_HINTS - before, expected)
+        self.assertTrue(before <= gate.TEST_ACTIVATION_HINTS)
+        source = self.source_blob(gate.ACTIVATION_PROBE_SOURCE)
+        self.assertEqual(gate.digest(source), "9eb349a1304fbc24fd5befe0b4626bc88ca1092128d56fa90212bb24705ab0f9")
+        helper = source.decode().split("async fn assert_recovered_preconditions(", 1)[1].split("async fn recovered_step(", 1)[0]
+        self.assertTrue(expected <= set(re.findall(r'"(activation_probe_[a-z_]+)"', helper)))
+        for hint in expected:
+            result = self.probe_diagnostics(hint)
+            self.assertEqual(result["categories"], sorted([hint, "test_failure"]))
+            self.assertNotIn("PRIVATE_SENTINEL", gate.canonical(result).decode())
+
+    def test_successor_new_probe_hint_readback_rejects_private_and_unanchored_values(self):
+        for hint in sorted(value for value in gate.TEST_ACTIVATION_HINTS
+                           if value.startswith(("activation_probe_checked_", "activation_probe_current_", "activation_probe_authority_"))):
+            result = self.probe_diagnostics(hint)
+            value = dict(self.failure_test_value(), stage="container_activation_pg",
+                         gate_failed_stage="container_activation_pg", **result)
+            run, artifact, payload, args = self.failure_artifact(value=value)
+            files = gate.validate_failure_readback(run, artifact, payload, **args)
+            retained = json.loads(files[gate.FAILURE_FILE])
+            for flag in ("backend_quality_gate", "all_quality_gate", "sdlc_acceptance"):
+                self.assertFalse(retained[flag])
+            for detail in (hint + " PRIVATE_SENTINEL", "PRIVATE_SENTINEL " + hint, hint + "_unknown",
+                           "SELECT '" + hint + "';", "blank\n" + hint):
+                self.assertEqual(self.probe_diagnostics(detail)["categories"], ["test_failure"])
+            for options in (dict(thread="foreign"), dict(path="/qa/src/services-base/private.rs")):
+                expected = ["unknown"] if "path" in options else ["test_failure"]
+                self.assertEqual(self.probe_diagnostics(hint, **options)["categories"], expected)
+            for change in (dict(categories=[hint]), dict(categories=[hint, "PRIVATE_SENTINEL", "test_failure"]),
+                           dict(diagnostics=[]), dict(backend_quality_gate=True)):
+                with self.assertRaises(ValueError):
+                    self.validate_failure(dict(value, **change))
 
     def test_journal_nine_identities_ignore_flags_and_lines_match_actual_git_source(self):
         specs = (
@@ -302,13 +456,13 @@ class HostedBackendTests(unittest.TestCase):
 
     def test_all_167_ignored_exactly_once_and_337_default_declarations(self):
         records = REVIEWED["ignored"]
-        self.assertEqual(len(records), 167)
-        self.assertEqual(len({(x["source"], x["name"]) for x in records}), 167)
+        self.assertEqual(len(records), 168)
+        self.assertEqual(len({(x["source"], x["name"]) for x in records}), 168)
         self.assertEqual(Counter(x["gate"] for x in records)["runtime_controls"], 30)
         self.assertEqual(len(REVIEWED["groups"]["runtime_terminal"]), 14)
-        self.assertEqual(len(REVIEWED["groups"]["foundation"]), 53)
+        self.assertEqual(len(REVIEWED["groups"]["foundation"]), 58)
         self.assertEqual(REVIEWED["default_foundation_ignored"], 119)
-        self.assertEqual(len(REVIEWED["workspace_default_declarations"]), 338)
+        self.assertEqual(len(REVIEWED["workspace_default_declarations"]), 344)
         self.assertIn("activation_probe_hash_matches_base_unicode_snapshot",
                       {row["name"] for row in REVIEWED["workspace_default_declarations"]})
         self.assertEqual(REVIEWED["authority"]["old_ignored"], 130)
@@ -367,10 +521,10 @@ class HostedBackendTests(unittest.TestCase):
 
     def test_workspace_actual_cases_match_compiler_list_not_static_count(self):
         listing = "\n".join(x["name"] + ": test" for x in REVIEWED["ignored"]) + "\nfirst: test\nsecond: test\n"
-        text = "test first ... ok\ntest second ... ok\ntest result: ok. 2 passed; 0 failed; 167 ignored;\n"
+        text = "test first ... ok\ntest second ... ok\ntest result: ok. 2 passed; 0 failed; 168 ignored;\n"
         result = gate.verify_test_log("workspace", text, REVIEWED, listing)
         self.assertEqual(result["passed"], 2)
-        for bad in (text.replace("test second ... ok\n", ""), text.replace("167 ignored", "162 ignored"), ""):
+        for bad in (text.replace("test second ... ok\n", ""), text.replace("168 ignored", "162 ignored"), ""):
             with self.assertRaises(ValueError):
                 gate.verify_test_log("workspace", bad, REVIEWED, listing)
 
@@ -1201,14 +1355,14 @@ class HostedBackendTests(unittest.TestCase):
         workflow_sha = "a" * 40
         focused = {name: dict(passed=len(names), failed=0, ignored=119 if name == "foundation" else 0,
                               tests=sorted(names)) for name, names in REVIEWED["groups"].items()}
-        focused["workspace"] = dict(passed=1, failed=0, ignored=167, tests=["normal"])
+        focused["workspace"] = dict(passed=1, failed=0, ignored=168, tests=["normal"])
         report = dict(backend_quality_gate=True, all_quality_gate=False, sdlc_acceptance=False, status="success",
                       gates=[dict(stage=name, status="passed") for name in gate.GATES], focused=focused,
-                      cleanup=dict(scratch=True, synthetic_databases=True), ignored_required=167, foundation_ignored=119,
+                      cleanup=dict(scratch=True, synthetic_databases=True), ignored_required=168, foundation_ignored=119,
                       contracts={stage: dict(passed=len(names), failed=0, ignored=0, tests=sorted(names))
                                  for stage, names in REVIEWED["python_contracts"].items()},
                       migration_ledger=dict(snapshots=gate.expected_migration_receipt(REVIEWED), applied_at_preserved=True),
-                      runtime_inventory=dict(ignored=167, listed_default_count=1, ignored_names_sha256=gate.digest(gate.canonical(
+                      runtime_inventory=dict(ignored=168, listed_default_count=1, ignored_names_sha256=gate.digest(gate.canonical(
                           sorted(item["name"] for item in REVIEWED["ignored"])))))
         report.update(report_changes or {})
         provenance = dict(version=1, repository=gate.REPOSITORY, branch=gate.BRANCH, source_sha=gate.SOURCE_SHA,
@@ -1569,7 +1723,7 @@ class HostedBackendTests(unittest.TestCase):
                                           Path("/qa/src/fleet-control/backend"))
 
     def test_all_exact_activation_probe_literals_emit_only_closed_hint_and_location(self):
-        self.assertEqual(len(gate.TEST_ACTIVATION_HINTS), 25)
+        self.assertEqual(len(gate.TEST_ACTIVATION_HINTS), 37)
         source = self.source_blob(gate.ACTIVATION_PROBE_SOURCE).decode()
         helper = source.split("async fn assert_recovered_preconditions(", 1)[1].split("async fn recovered_step(", 1)[0]
         self.assertEqual(set(re.findall(r'"(activation_probe_[a-z_]+)"', helper)), gate.TEST_ACTIVATION_HINTS)
