@@ -706,7 +706,8 @@ pub(super) async fn reconcile(repo: &PostgresFleetRepository) -> Result<u64, App
             [run_id.into(),run.runtime_run_id.clone().into(),if run.state == "failed" {"failed"} else {"completed"}.into(),
              id.into(),run.runtime_session_id.clone().into(),run.state.clone().into()]))
             .await.map_err(database_error)?.unwrap();
-        if !proof.try_get::<bool>("", "pm").map_err(database_error)?
+        let pm_proven = proof.try_get::<bool>("", "pm").map_err(database_error)?;
+        if !pm_proven
             && (run.last_event_at.is_none()
                 || !proof.try_get::<bool>("", "valid").map_err(database_error)?)
         {
@@ -720,6 +721,7 @@ pub(super) async fn reconcile(repo: &PostgresFleetRepository) -> Result<u64, App
                 | RuntimeControlState::Submitted
                 | RuntimeControlState::Uncertain
         ) || !matches!(run.state.as_str(), "completed" | "failed" | "cancelled")
+            || (pm_proven && (run.session_id != prior.session_id || run.agent_id != prior.agent_id))
             || run.runtime_run_id.as_deref()
                 != Some(
                     record
@@ -727,13 +729,14 @@ pub(super) async fn reconcile(repo: &PostgresFleetRepository) -> Result<u64, App
                         .map_err(database_error)?
                         .as_str(),
                 )
-            || run.runtime_session_id.as_deref()
-                != Some(
-                    record
-                        .try_get::<String>("", "runtime_session_id")
-                        .map_err(database_error)?
-                        .as_str(),
-                )
+            || (!pm_proven
+                && run.runtime_session_id.as_deref()
+                    != Some(
+                        record
+                            .try_get::<String>("", "runtime_session_id")
+                            .map_err(database_error)?
+                            .as_str(),
+                    ))
         {
             continue;
         }

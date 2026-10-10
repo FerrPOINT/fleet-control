@@ -54,7 +54,17 @@ pub(super) async fn send<T: Serialize + ?Sized>(
         .get_task_chat_binding(run.session_id)
         .await?
         .is_some();
-    let scope = if pm {
+    let replay = pm
+        && supervisor
+            .repo
+            .find_runtime_control_by_key(run.session_id, run.id, actor)
+            .await?
+            .is_some();
+    let scope = if replay {
+        // HTTP has freshly authorized Tracker project/owner/assignment. Recheck local
+        // custody and the original payload below, without requiring a second dispatch.
+        Some(pm_replay_scope(supervisor, agent, run, actor.user_id).await?)
+    } else if pm {
         Some(
             prepare_pm(supervisor, agent, run, operation, actor.user_id)
                 .await?
@@ -177,6 +187,53 @@ pub(super) async fn pm_human_controls(
     Ok(domain::PmHumanControls {
         can_steer,
         can_stop,
+    })
+}
+
+async fn pm_replay_scope(
+    supervisor: &LocalRuntimeSupervisor,
+    agent: &Agent,
+    expected: &SessionAgentRun,
+    owner: Uuid,
+) -> Result<domain::PmHumanControlScope, AppError> {
+    let session = supervisor.repo.get_session(expected.session_id).await?;
+    let binding = supervisor
+        .repo
+        .get_task_chat_binding(session.id)
+        .await?
+        .ok_or(AppError::Forbidden)?;
+    let pm = supervisor
+        .repo
+        .read_pm_operation_for_session(session.id, owner)
+        .await?;
+    let record = supervisor.repo.get_pm_run(expected.id).await?;
+    let intent = supervisor
+        .repo
+        .get_pm_dispatch(expected.id)
+        .await?
+        .ok_or_else(|| AppError::conflict("original PM dispatch is missing"))?;
+    if session.user_id != owner
+        || session.primary_agent_id != agent.id
+        || session.agent_id != agent.id
+        || pm.owner_subject != binding.owner_subject
+        || pm.identity()? != binding
+        || pm.request.agent_id != agent.id
+        || record.reservation.identity != pm.execution_identity()?
+        || record.reservation.session_id != session.id
+        || record.reservation.session_run_id != expected.id
+        || record.hermes_run_ref != expected.runtime_run_id
+        || expected.runtime_session_id.as_deref()
+            != Some(record.reservation.runtime_session_id().as_str())
+        || !intent.submitted
+        || intent.hermes_run_ref != record.hermes_run_ref
+    {
+        return Err(AppError::Forbidden);
+    }
+    Ok(domain::PmHumanControlScope {
+        record,
+        intent,
+        owner_subject: binding.owner_subject,
+        owner_user_id: owner,
     })
 }
 

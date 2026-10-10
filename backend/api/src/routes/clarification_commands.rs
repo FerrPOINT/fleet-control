@@ -92,6 +92,20 @@ async fn continue_saved(
 ) -> Result<ClarificationAnswerCommand, AppError> {
     if command.state != domain::ClarificationDeliveryState::Delivered
         || command.continuation_state != domain::ClarificationContinuationState::Pending
+    {
+        return Ok(command);
+    }
+    // A later verified tool journal can prove a historical rebind after Workflow
+    // has moved to another checkpoint. Never replay that old answer into the new one.
+    let command = ctx
+        .repo
+        .finish_clarification_continuation(
+            actor,
+            command.id,
+            domain::PmContinuationOutcome::Pending,
+        )
+        .await?;
+    if command.continuation_state != domain::ClarificationContinuationState::Pending
         || !ctx.config.pm.dispatch.enabled
     {
         return Ok(command);
