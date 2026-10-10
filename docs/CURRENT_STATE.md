@@ -7,7 +7,7 @@ accepted**. This snapshot is not a job monitor. Linked CI runs are authoritative
 
 ## Source And Scope
 
-Integration input `aca917c4a79d1718beab8f5b82631f1698ebda5c` normally
+Integration input `dd482b91517d8faf30947c6abec6771502a5c0de` normally
 merges the Chats foundation and runtime assembly, original-command recovery,
 canonical clarification answers and accepted-PM-run following while new dispatch
 is disabled. Migration024 repairs the ACK constraint additively; original022 is
@@ -29,8 +29,12 @@ it does not claim a successful historical whole-lineage downgrade. Existing
 denial, custody, ledger and no-redispatch assertions remain. Independent source
 review and Rust1.88 formatting pass. Actual5db backend qualification passes the
 previous foundation failures, then fails three PM human-control tests whose
-migration-boundary setup requires correction. Full PG/HTTP and native acceptance
-remain open. The latest UI correction hides the unavailable warning after a
+migration-boundary setup required correction. Reviewed test-only1301903 now
+selects the named023 downgrade and inclusive022 prefix. Its synthetic pre-023
+history explicitly uses the real024 ACK repair without changing the ledger or
+adding the023 continuation column; it is not untouched historical022 evidence.
+All14 cases and previous assertions remain. Full PG/HTTP and native acceptance
+remain open. The UI correction hides the unavailable warning after a
 verified requirements confirmation while preserving disabled/recovery guards;
 its new regression is authored, not yet executed.
 

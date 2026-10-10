@@ -40,8 +40,14 @@ exit101 at `pm_human_controls`, three failed test names and frames931/1003 in
 failures are passed; later gates remain unqualified. Source inspection finds
 two tests sharing a downgrade helper that now selects024 rather than023, and a
 legacy setup using migration-count-minus-one that no longer stops at022.
-Corrections still require review and PostgreSQL execution; this diagnosis is
-not a passing regression. Scratch and synthetic database cleanup are verified.
+Reviewed test-only `13019034e1cad9b2a704e7b2503bc268489f195e` selects the
+named023 downgrade and the inclusive022 prefix. The legacy fixture invokes the
+real024 ACK repair before seeding, verifies the unchanged full migration ledger
+and absent023 continuation column, then keeps its original normal upgrade and
+all14 cases. This is synthetic pre-023 history with the repair, not untouched
+historical022 schema or a passing whole-lineage upgrade. Independent review and
+Rust1.88 formatting pass; PostgreSQL execution remains required. Scratch and
+synthetic database cleanup of the original failed run are verified.
 No raw private logs or runtime credentials are retained in this evidence.
 
 These results qualify only their named fixture/source gates. They do not prove
