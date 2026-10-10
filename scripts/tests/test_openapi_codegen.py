@@ -160,6 +160,8 @@ class CodegenTests(unittest.TestCase):
 
     def test_readback_rejects_forged_source_acceptance_and_unsafe_zip(self):
         for changes in ({"source_sha": "b" * 40},
+                        {"source_sha": "3c900b00f15aeda2016a45d080d850fa028cdcfd"},
+                        {"source_inventory_sha256": "4ab1c70324a3b184096a69ed1dbdd72bcbf5f993fbdc1ecc6b01fb643f650457"},
                         {"source_sha": "4449a3b1cdd915e265543a24054506f15385393d"},
                         {"source_tree": "97c13141fb4829e001ca3b456163f0bac3481d63"},
                         {"source_inventory_sha256": "4d5bc64110ddb90aa903bef30a0c3717f4f5eb1d62d81cbb59c0b9594e8a14c1"},
@@ -201,11 +203,12 @@ class CodegenTests(unittest.TestCase):
                 (codegen.JOURNAL_OPERATIONS | codegen.CONFIG_OPERATIONS).items()},
                 "components": {"schemas": {name: {} for name in codegen.REQUIRED_SCHEMAS}}}
         value["components"]["schemas"]["AgentSession"] = {
-            "properties": {"pending_delivery": {"type": ["boolean", "null"]}}}
+            "properties": {"pending_delivery": {"type": ["boolean", "null"]},
+                           "task_bound": {"type": ["boolean", "null"]}}}
         return value
 
     def test_exact_journal_source_parent_tree_and_blobs(self):
-        self.assertEqual(codegen.SOURCE_SHA, "3c900b00f15aeda2016a45d080d850fa028cdcfd")
+        self.assertEqual(codegen.SOURCE_SHA, "ce4153f453e730dad1e315131d65ca030243264c")
         self.assertEqual(codegen.BASE_SHA, "19a7a381ae6dbea61a643bb96189e483fa64df5c")
         codegen.qualify_source(ROOT)
         results = [" ".join([codegen.SOURCE_SHA, *codegen.SOURCE_PARENTS]).encode(), codegen.SOURCE_TREE.encode()]
@@ -238,19 +241,20 @@ class CodegenTests(unittest.TestCase):
         self.assertNotIn("8c93f43f", (ROOT / codegen.WORKFLOW).read_text())
 
     def test_pending_delivery_is_optional_nullable_boolean_not_stale(self):
-        for field in (None, {}, {"type": "boolean"}, {"type": ["string", "null"]}):
+        for name in ("pending_delivery", "task_bound"):
+            for field in (None, {}, {"type": "boolean"}, {"type": ["string", "null"]}):
+                value = self.schema_fixture()
+                properties = value["components"]["schemas"]["AgentSession"]["properties"]
+                if field is None:
+                    del properties[name]
+                else:
+                    properties[name] = field
+                with self.subTest(name=name, field=field), self.assertRaises(ValueError):
+                    codegen.schema_valid(codegen.canonical(value))
             value = self.schema_fixture()
-            properties = value["components"]["schemas"]["AgentSession"]["properties"]
-            if field is None:
-                del properties["pending_delivery"]
-            else:
-                properties["pending_delivery"] = field
-            with self.subTest(field=field), self.assertRaises(ValueError):
+            value["components"]["schemas"]["AgentSession"]["required"] = [name]
+            with self.subTest(name=name, required=True), self.assertRaises(ValueError):
                 codegen.schema_valid(codegen.canonical(value))
-        value = self.schema_fixture()
-        value["components"]["schemas"]["AgentSession"]["required"] = ["pending_delivery"]
-        with self.assertRaises(ValueError):
-            codegen.schema_valid(codegen.canonical(value))
 
     def test_readback_rejects_previous_artifact_namespace(self):
         run, artifact, payload, args = self.fixture()

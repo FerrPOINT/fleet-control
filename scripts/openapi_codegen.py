@@ -15,9 +15,9 @@ import zipfile
 
 REPOSITORY = "FerrPOINT/fleet-control"
 BRANCH = "build-only/fleet-openapi-pm-union-20261010"
-SOURCE_SHA = "3c900b00f15aeda2016a45d080d850fa028cdcfd"
-SOURCE_PARENTS = ["ad2b6ac1a2d4f286edd00eeb1e1ecc137c1f3223"]
-SOURCE_TREE = "b975beb628bb68c03fb5bce45e7c43085837e41f"
+SOURCE_SHA = "ce4153f453e730dad1e315131d65ca030243264c"
+SOURCE_PARENTS = ["32d096a8826275ebeef432e634ecb9b61c26547f"]
+SOURCE_TREE = "67ea7aa66bf66f803226abbd4893be7517ca3317"
 SOURCE_BLOBS = {
     ".base-revision": "1716308f859d23508a6ca0bae105434221c00419",
     "backend/Cargo.lock": "1f2a6fee32bf3dabedafc3927c56c286e14c6daf",
@@ -27,9 +27,9 @@ SOURCE_BLOBS = {
     "backend/domain/src/clarification_commands.rs": "0c5d1610f2cd649cf1754489df6bac556bb19686",
     "backend/api/src/routes/sdlc_configuration.rs": "a9478a23db4e6f9d7db35b8342f382d1fa50775b",
     "backend/api/src/routes/agents.rs": "f512a6f5e4a0fb2c5e86e9c64fca8d827bb828da",
-    "backend/domain/src/lib.rs": "2a397f3aa00db7ae1d31cf65a2e9bb66a080c7cf",
-    "backend/api/src/routes/sessions.rs": "a66dd4165c8d44fef9277325f0b479b8eadfd660",
-    "backend/api/src/routes/task_chats.rs": "4db07a426b6f7d38e518bd2adc0e28b6067bbdbe",
+    "backend/domain/src/lib.rs": "a0c51b3e6683463698db5b7596c7565a90ed7ae4",
+    "backend/api/src/routes/sessions.rs": "faca62d5e4d75157f3abf080aa1a6631b1bc00d3",
+    "backend/api/src/routes/task_chats.rs": "a4a632956aacc9b80c1773c99e0d7a89522a361f",
 }
 BASE_SHA = "19a7a381ae6dbea61a643bb96189e483fa64df5c"
 QUALIFIED_EXPORT = {
@@ -37,7 +37,7 @@ QUALIFIED_EXPORT = {
     "base_tree": "aa1a0486af1922c5a7fd4471e71e4fbb6aa4c7cc",
     "fleet_lock_sha256": "7ca269c7cd50cd0e9f0ca9173630353a231bf718004181e6f08bd97f495edb78",
     "source_file_count": 303,
-    "source_inventory_sha256": "4ab1c70324a3b184096a69ed1dbdd72bcbf5f993fbdc1ecc6b01fb643f650457"
+    "source_inventory_sha256": "95ab4d1ff7b20675b38dfdab686360ab6348bde52409b92849c60475b35a5546"
 }
 WORKFLOW = ".github/workflows/openapi-codegen-build-only.yml"
 WRITE_SET = {WORKFLOW, "scripts/openapi_codegen.py", "scripts/tests/test_openapi_codegen.py"}
@@ -181,6 +181,9 @@ def schema_valid(data):
     require(session.get("properties", {}).get("pending_delivery") == {"type": ["boolean", "null"]}
             and "pending_delivery" not in session.get("required", []),
             "Generated optional pending-delivery contract missing")
+    require(session.get("properties", {}).get("task_bound") == {"type": ["boolean", "null"]}
+            and "task_bound" not in session.get("required", []),
+            "Generated optional task-bound contract missing")
 
 
 def generate():
