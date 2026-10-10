@@ -2123,7 +2123,8 @@ impl FleetRepository for PostgresFleetRepository {
             .query_one(Statement::from_sql_and_values(
                 DatabaseBackend::Postgres,
                 "SELECT EXISTS(SELECT 1 FROM session_messages WHERE session_id=$1 \
-             AND delivery_state IN ('pending','dispatched')) AS pending_delivery",
+             AND delivery_state IN ('pending','dispatched')) AS pending_delivery, \
+             EXISTS(SELECT 1 FROM task_chat_bindings WHERE session_id=$1) AS task_bound",
                 [id.into()],
             ))
             .await
@@ -2133,6 +2134,11 @@ impl FleetRepository for PostgresFleetRepository {
         session.pending_delivery = Some(
             delivery
                 .try_get("", "pending_delivery")
+                .map_err(AppError::database)?,
+        );
+        session.task_bound = Some(
+            delivery
+                .try_get("", "task_bound")
                 .map_err(AppError::database)?,
         );
         Ok(session)
@@ -4640,6 +4646,7 @@ fn session_from_model(
         external_session_id: row.external_session_id,
         last_message_preview: row.last_message_preview.map(|value| redact_text(&value)),
         pending_delivery: None,
+        task_bound: None,
         created_at: api_ts(row.created_at),
         updated_at: api_ts(row.updated_at),
     }

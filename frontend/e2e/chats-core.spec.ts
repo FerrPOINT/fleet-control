@@ -55,7 +55,8 @@ type State = {
   denied: boolean
   runs: unknown[]
   messages: ReturnType<typeof message>[]
-  posts: { path: string; body: Record<string, string> }[]
+  posts: { path: string; body: Record<string, string>; key?: string }[]
+  controlLookups: { runId: string; key: string | undefined }[]
   requests: string[]
   unknown: boolean
   preflightDenied: boolean
@@ -66,6 +67,9 @@ type State = {
   receiptHash: 'correct' | 'missing' | 'wrong'
   pendingDelivery: boolean | null
   taskContextDenied: boolean
+  controlRunId: string | null
+  controlCapabilities: boolean
+  controlUnknown: boolean
 }
 type Stream = { url: string; emit: (data: unknown) => void; connected: () => number }
 const test = base.extend<{ stream: Stream }>({
@@ -130,12 +134,16 @@ async function install(page: Page, stream: Stream, overrides: Partial<State> = {
       ),
     ],
     posts: [],
+    controlLookups: [],
     requests: [],
     unknown: false,
     receiptBody: null,
     receiptHash: 'correct',
     pendingDelivery: false,
     taskContextDenied: false,
+    controlRunId: null,
+    controlCapabilities: false,
+    controlUnknown: false,
     preflightDenied: false,
     creates: 0,
     createdTitle: null,
@@ -284,15 +292,18 @@ async function install(page: Page, stream: Stream, overrides: Partial<State> = {
         const run = value as Record<string, unknown>
         return (
           ['pending', 'running', 'waiting', 'stopping'].includes(String(run.state)) &&
-          (run.state !== 'pending' || run.runtime_run_id != null || run.last_event_at != null)
+          (run.state !== 'pending' ||
+            run.runtime_session_id != null ||
+            run.runtime_run_id != null ||
+            run.last_event_at != null)
         )
       }) as Record<string, unknown> | undefined
       const owner = state.actor === session.user_id
       const pending = state.pendingDelivery !== false
       return reply({
         can_send: owner && !active && !pending,
-        can_steer: false,
-        can_stop: false,
+        can_steer: owner && state.controlCapabilities && active?.id === state.controlRunId,
+        can_stop: owner && state.controlCapabilities && active?.id === state.controlRunId,
         active_run_id: active?.id ?? null,
         blocked_reason: !owner
           ? 'read_only'
@@ -310,15 +321,63 @@ async function install(page: Page, stream: Stream, overrides: Partial<State> = {
               ...session,
               title: state.createdTitle ?? session.title,
               pending_delivery: state.pendingDelivery,
+              task_bound: false,
             },
         state.denied || state.preflightDenied ? 403 : 200,
       )
     if (path === `/api/v1/sessions/${sessionId}/messages` && req.method() === 'GET')
       return reply(state.messages)
+    const controlRead = path.match(
+      new RegExp(`^/api/v1/sessions/${sessionId}/runs/([^/]+)/controls(/lookup)?$`),
+    )
+    if (controlRead && req.method() === 'GET') {
+      const runId = controlRead[1]
+      const key = req.headers()['idempotency-key']
+      const originals = state.posts.filter(
+        (command) =>
+          command.path === `/api/v1/sessions/${sessionId}/runs/${runId}/steer` ||
+          command.path === `/api/v1/sessions/${sessionId}/runs/${runId}/stop`,
+      )
+      const receipts = originals.map((command) => ({
+        id: '00000000-0000-4000-8000-000000000301',
+        session_id: sessionId,
+        session_run_id: runId,
+        agent_id: agentId,
+        actor_user_id: userId,
+        operation: command.path.endsWith('/steer') ? 'steer' : 'stop',
+        state: 'uncertain',
+        acknowledgement: null,
+        observed_run_state: null,
+        created_at: now,
+        updated_at: now,
+      }))
+      if (!controlRead[2]) return reply(receipts)
+      state.controlLookups.push({ runId, key })
+      const index = originals.findIndex((command) => command.key === key)
+      return index < 0
+        ? reply({ error: { code: 'NOT_FOUND', message: 'Original command not found' } }, 404)
+        : reply(receipts[index])
+    }
     if (path.endsWith('/runs')) return reply(state.runs)
+    if (path.endsWith('/history')) return reply({ items: state.messages, next_before: null })
     if (req.method() === 'POST') {
       const body = req.postDataJSON() as Record<string, string>
-      state.posts.push({ path, body })
+      state.posts.push({ path, body, key: req.headers()['idempotency-key'] })
+      if (
+        state.controlRunId &&
+        (path === `/api/v1/sessions/${sessionId}/runs/${state.controlRunId}/steer` ||
+          path === `/api/v1/sessions/${sessionId}/runs/${state.controlRunId}/stop`)
+      ) {
+        if (state.controlUnknown) return route.abort('failed')
+        return reply({
+          session_id: sessionId,
+          run_id: state.controlRunId,
+          runtime_run_id: 'controlled-runtime-run',
+          accepted: true,
+          state: 'running',
+          message: 'Accepted',
+        })
+      }
       if (state.rejection)
         return reply({ error: { message: 'Conflicting original key' } }, state.rejection)
       if (state.unknown) return route.abort('failed')
@@ -361,6 +420,54 @@ const sizes = [
   { width: 1920, height: 1080 },
   { width: 2560, height: 1440 },
 ]
+
+test('unknown steer stays held after reload and never becomes an ordinary prompt', async ({
+  page,
+  stream,
+}) => {
+  const state = await install(page, stream, {
+    controlRunId: 'controlled-run',
+    controlCapabilities: true,
+    controlUnknown: true,
+    runs: [
+      {
+        id: 'controlled-run',
+        session_id: sessionId,
+        agent_id: agentId,
+        state: 'running',
+        runtime_session_id: 'controlled-session',
+        runtime_run_id: 'controlled-runtime-run',
+      },
+    ],
+  })
+  await page.goto(`/chats/${sessionId}`)
+  await page.getByLabel('Уточнение активному запуску').fill('Original private steer')
+  await page.getByRole('button', { name: 'Передать уточнение запуску' }).click()
+  await expect(page.getByText(/Нельзя повторить его как новый prompt/)).toBeVisible()
+  expect(state.posts).toHaveLength(1)
+  expect(state.posts[0].body).toEqual({ input: 'Original private steer' })
+  const originalKey = state.posts[0].key
+  expect(originalKey).toBeTruthy()
+  const metadata = await page.evaluate(() => JSON.stringify(sessionStorage))
+  expect(metadata).not.toContain('Original private steer')
+  expect(metadata).not.toContain('qa-access-token')
+  state.runs = []
+  state.controlRunId = null
+  state.controlCapabilities = false
+  await page.reload()
+  await expect(page.getByLabel('Сообщение агенту', { exact: true })).toBeDisabled()
+  await expect(
+    page.getByRole('button', { name: 'Отправить сообщение', exact: true }),
+  ).toBeDisabled()
+  expect(state.posts).toHaveLength(1)
+  expect(state.posts[0].path).toMatch(/\/runs\/controlled-run\/steer$/)
+  await expect.poll(() => state.controlLookups.length).toBeGreaterThan(0)
+  expect(
+    state.controlLookups.every(
+      (lookup) => lookup.runId === 'controlled-run' && lookup.key === originalKey,
+    ),
+  ).toBe(true)
+})
 async function capture(page: Page, info: TestInfo, name: string) {
   if (info.project.name !== 'chromium') return
   const viewport = page.viewportSize()!
@@ -723,11 +830,12 @@ test('denied task context cannot become an unbound standalone dispatch', async (
 }) => {
   const state = await install(page, stream, { taskContextDenied: true })
   await page.goto(`/chats/${sessionId}`)
-  await expect(page.getByLabel('Сообщение агенту', { exact: true })).toBeDisabled()
+  await expect(page.getByRole('alert')).toBeVisible()
+  await expect(page.getByLabel('Сообщение агенту', { exact: true })).toHaveCount(0)
   await expect(page.getByLabel('Сообщение', { exact: true })).toHaveCount(0)
   await expect(
     page.getByRole('button', { name: 'Отправить сообщение', exact: true }),
-  ).toBeDisabled()
+  ).toHaveCount(0)
   expect(state.requests).toContain(`/api/v1/sessions/${sessionId}/task-context`)
   expect(state.requests).not.toContain(`/api/v1/sessions/${sessionId}/messages`)
   expect(state.posts).toEqual([])

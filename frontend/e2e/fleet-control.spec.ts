@@ -11,6 +11,7 @@ test('PM chat clarification preserves explicit answers and exact confirmation', 
 }, testInfo) => {
   test.setTimeout(90000)
   const state = createState()
+  state.sessions[0].task_bound = true
   await installMocks(page, state)
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
@@ -256,6 +257,7 @@ test('PM chat journal reload holds fresh writes and explicitly delivers the orig
   page,
 }) => {
   const state = createState()
+  state.sessions[0].task_bound = true
   await installMocks(page, state)
   const originalRequest = {
     expected_question_version: 1,
@@ -725,7 +727,9 @@ async function attachChatUxFixture(page: Page, testInfo: TestInfo, name: string)
 }
 
 async function installChatUxFixtures(page: Page) {
-  await installMocks(page, createState())
+  const state = createState()
+  state.sessions[0].task_bound = true
+  await installMocks(page, state)
   const question: Question = {
     id: '00000000-0000-4000-8000-000000000701',
     request_id: '00000000-0000-4000-8000-000000000703',
@@ -1173,6 +1177,7 @@ function makeSession(
     visibility: leader ? 'leader_scoped' : 'private',
     title,
     task_key: taskKey,
+    task_bound: false,
     state: 'active',
     namespace_id: agent.namespace_id,
     external_session_id: `hermes-${agent.name}`,
@@ -1838,7 +1843,12 @@ async function installMocks(page: Page, state: ApiState) {
           makeRun(session.id, target),
         ]
       }
-      return fulfill(route, session)
+      return fulfill(route, {
+        ...session,
+        pending_delivery: (state.messagesBySession[session.id] ?? []).some((message) =>
+          ['pending', 'dispatched'].includes(message.delivery_state),
+        ),
+      })
     }
 
     if (pathName === '/api/v1/workflow-catalog') {
