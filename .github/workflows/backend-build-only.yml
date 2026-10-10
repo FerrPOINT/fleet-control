@@ -1,0 +1,182 @@
+name: Exact Source Backend Build Only
+
+on:
+  push:
+    branches: [build-only/config-union-backend-20261010]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: fleet-backend-gate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  backend:
+    if: github.repository == 'FerrPOINT/fleet-control' && github.event_name == 'push' && github.ref == 'refs/heads/build-only/config-union-backend-20261010' && github.event.deleted == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    container:
+      image: public.ecr.aws/docker/library/rust@sha256:af306cfa71d987911a781c37b59d7d67d934f49684058f96cf72079c3626bfe0 # 1.88.0-bookworm; exact Docker Official Image index
+      options: --cpus 2 --memory 4g
+    services:
+      postgres:
+        image: public.ecr.aws/docker/library/postgres@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94 # 17.6-alpine; exact Docker Official Image index
+        env:
+          POSTGRES_USER: fleet_test
+          POSTGRES_DB: fleet_foundation_test
+          POSTGRES_HOST_AUTH_METHOD: trust
+        options: >-
+          --cpus 1 --memory 512m
+          --health-cmd "pg_isready -U fleet_test -d fleet_foundation_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      RUSTUP_TOOLCHAIN: "1.88.0"
+      CARGO_BUILD_JOBS: "1"
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+    steps:
+      - name: Install control prerequisites without private inputs
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends python3 git pkg-config libssl-dev postgresql-client curl unzip
+      - name: Check out reviewed build controls
+        id: controls
+        timeout-minutes: 2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          path: controls
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require authentic codegen binding and restrict exact delta before Base tokens
+        timeout-minutes: 1
+        env:
+          FLEET_GATE_READ_TOKEN: ${{ github.token }}
+        run: python3 -B controls/scripts/hosted_backend_gate.py preflight
+      - name: Check out exact Fleet source
+        timeout-minutes: 2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: 8c93f43fdbe31e9564f05c69c6d28a81d18cb2b6 # PREPARED ONLY: authentic union codegen/final source binding pending.
+          path: fleet-control
+          persist-credentials: false
+      - name: Check out pinned build SDK
+        timeout-minutes: 2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: FerrPOINT/services-base
+          ref: 19a7a381ae6dbea61a643bb96189e483fa64df5c
+          path: services-base
+          token: ${{ secrets.SERVICES_BASE_TOKEN }}
+          persist-credentials: false
+      - name: Check out qualified real Auth separately
+        timeout-minutes: 2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: FerrPOINT/services-base
+          ref: 01388dfb43332cbe5837fd5e1fadccf09cb8886d
+          path: base-auth-source
+          token: ${{ secrets.SERVICES_BASE_TOKEN }}
+          persist-credentials: false
+      - name: Check out immutable runtime utility and fake contract fixtures separately
+        timeout-minutes: 2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: FerrPOINT/services-base
+          ref: 9b53de7b23593949a9e6c05bd5a4f94b930e50a0
+          path: fleet-runtime-contract-base
+          fetch-depth: 0
+          token: ${{ secrets.SERVICES_BASE_TOKEN }}
+          persist-credentials: false
+      - name: Check out exact published role package separately from SDK and utilities
+        timeout-minutes: 2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: FerrPOINT/services-base
+          ref: 4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58
+          path: base-role-package
+          token: ${{ secrets.SERVICES_BASE_TOKEN }}
+          persist-credentials: false
+      - name: Normalize authenticated checkout package origin to the producer contract
+        timeout-minutes: 1
+        run: |
+          set -euo pipefail
+          cd base-role-package
+          case "$(git config --get remote.origin.url)" in
+            https://github.com/FerrPOINT/services-base|https://github.com/FerrPOINT/services-base.git) ;;
+            *) exit 1 ;;
+          esac
+          git remote set-url origin https://github.com/FerrPOINT/services-base.git
+      - name: Require exact compiler and QA components
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          test "$(rustc --version | awk '{print $2}')" = 1.88.0
+          rustup component add --toolchain 1.88.0 rustfmt clippy
+          pkg-config --exists openssl
+      - name: Full exact-source backend Linux PostgreSQL gate
+        id: gate
+        timeout-minutes: 117
+        env:
+          FLEET_GATE_READ_TOKEN: ${{ github.token }}
+        run: python3 -B controls/scripts/hosted_backend_gate.py execute
+      - name: Final owned scratch cleanup fallback
+        timeout-minutes: 1
+        env:
+          FLEET_GATE_READ_TOKEN: ${{ github.token }}
+        if: always() && steps.controls.outcome == 'success'
+        run: python3 -B controls/scripts/hosted_backend_gate.py cleanup
+      - name: Retain explicitly safe compiler or test failure evidence only
+        timeout-minutes: 1
+        if: failure() && steps.gate.outcome == 'failure'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: fleet-backend-failure-config-union8c-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/fleet-backend-failure-evidence/compiler-diagnostics.json
+          if-no-files-found: warn
+          retention-days: 14
+          archive: true
+          overwrite: false
+          include-hidden-files: false
+      - name: Retain safe full backend report and provenance only
+        id: artifact
+        timeout-minutes: 1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: fleet-backend-config-union8c-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/fleet-backend-evidence/report.json
+            ${{ runner.temp }}/fleet-backend-evidence/provenance.json
+            ${{ runner.temp }}/fleet-backend-evidence/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14
+          archive: true
+          overwrite: false
+          include-hidden-files: false
+      - name: Record immutable gate artifact identity
+        timeout-minutes: 1
+        env:
+          ARTIFACT_ID: ${{ steps.artifact.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.artifact.outputs.artifact-digest }}
+          ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
+        run: |
+          {
+            printf 'Source: `%s`\n\n' 8c93f43fdbe31e9564f05c69c6d28a81d18cb2b6
+            printf 'Workflow commit: `%s`\n\n' "$GITHUB_SHA"
+            printf 'Run/attempt: `%s/%s`\n\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
+            printf 'Artifact ID: `%s`\n\n' "$ARTIFACT_ID"
+            printf 'Artifact ZIP SHA-256: `%s`\n\n' "$ARTIFACT_DIGEST"
+            printf 'Artifact: %s\n\n' "$ARTIFACT_URL"
+            printf 'Full backend gate only; frontend, native runtime and SDLC acceptance remain separate.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
