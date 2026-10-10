@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import io
 import json
@@ -12,6 +11,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 import zipfile
 import zlib
 
@@ -95,18 +95,30 @@ def canonical(value):
 
 def bounded_command(args, *, limit=1024 ** 2, cwd=None):
     # Bound the download itself, not just ZIP expansion; never echo diagnostics.
-    with tempfile.TemporaryFile() as errors, subprocess.Popen(
-            args, cwd=cwd, stdout=subprocess.PIPE, stderr=errors) as process:
-        with ThreadPoolExecutor(max_workers=1) as reader:
-            result = reader.submit(process.stdout.read, limit + 1)
-            try:
-                output = result.result(timeout=120)
-                require(len(output) <= limit, "Control response exceeds size limit")
-                require(process.wait(timeout=5) == 0, "Control command failed")
-                return output
-            finally:
-                if process.poll() is None:
-                    process.kill()
+    deadline = time.monotonic() + 120
+    with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as errors:
+        process = subprocess.Popen(args, cwd=cwd, stdout=output, stderr=errors)
+        try:
+            while True:
+                require(os.fstat(output.fileno()).st_size <= limit
+                        and os.fstat(errors.fileno()).st_size <= MAX_FILE, "Control response exceeds size limit")
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError("Control command deadline exceeded")
+                code = process.poll()
+                if code is not None:
+                    require(code == 0, "Control command failed")
+                    output.seek(0)
+                    data = output.read(limit + 1)
+                    require(len(data) <= limit, "Control response exceeds size limit")
+                    require(time.monotonic() < deadline, "Control command deadline exceeded")
+                    return data
+                time.sleep(min(0.02, remaining))
+        finally:
+            # No pipe reader waits on EOF from descendants; signal only this child.
+            if process.poll() is None:
+                process.kill()
+            process.wait(timeout=5)
 
 
 def git(root, *args):
@@ -424,8 +436,15 @@ def png_valid(data):
             and data[12:16] == b"IHDR", "Invalid/bounded fixture PNG required")
     width, height = int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
     require(1 <= width <= 8192 and 1 <= height <= 32768, "Unexpected PNG dimensions")
+    require(data[24] == 8 and data[25] in (2, 6) and data[26:29] == b"\0\0\0",
+            "Unsupported screenshot PNG encoding")
+    stride = width * (3 if data[25] == 2 else 4) + 1
+    expected = stride * height
+    require(expected <= 128 * 1024 ** 2, "Decoded screenshot exceeds size limit")
+    decoder, produced, ended = zlib.decompressobj(), 0, False
     offset, chunks = 8, []
     while offset < len(data):
+        require(offset + 12 <= len(data), "Truncated PNG chunk")
         size = int.from_bytes(data[offset:offset + 4], "big")
         kind = data[offset + 4:offset + 8]
         require(offset + 12 + size <= len(data) and kind in
@@ -435,10 +454,32 @@ def png_valid(data):
         chunk = data[offset + 4:offset + 8 + size]
         require(zlib.crc32(chunk) == int.from_bytes(data[offset + 8 + size:offset + 12 + size], "big"),
                 "Invalid PNG chunk checksum")
+        require(kind != b"IHDR" or (offset == 8 and size == 13), "Invalid PNG header")
+        require(kind != b"IEND" or (size == 0 and offset + 12 == len(data)), "Invalid PNG end")
+        if kind == b"IDAT":
+            require(not ended, "Noncontiguous PNG image stream")
+            pending = data[offset + 8:offset + 8 + size]
+            while True:
+                bound = min(64 * 1024, expected + 1 - produced)
+                try:
+                    pixels = decoder.decompress(pending, bound)
+                except zlib.error:
+                    raise ValueError("Invalid PNG image stream") from None
+                pending = decoder.unconsumed_tail
+                require(not decoder.unused_data and produced + len(pixels) <= expected,
+                        "PNG image stream size or trailing data mismatch")
+                require(all(pixels[i] <= 4 for i in range((-produced) % stride, len(pixels), stride)),
+                        "Invalid PNG scanline filter")
+                produced += len(pixels)
+                if not pending and len(pixels) < bound:
+                    break
+        elif b"IDAT" in chunks:
+            ended = True
         chunks.append(kind)
         offset += 12 + size
     require(chunks[0] == b"IHDR" and chunks.count(b"IHDR") == 1 and b"IDAT" in chunks
             and chunks[-1] == b"IEND" and chunks.count(b"IEND") == 1, "Incomplete fixture PNG")
+    require(decoder.eof and produced == expected, "Incomplete PNG scanlines")
 
 
 def artifact_name(name):

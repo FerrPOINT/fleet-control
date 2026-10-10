@@ -26,6 +26,13 @@ def png(width=375, height=812):
             + chunk(b"IDAT", zlib.compress(row * height)) + chunk(b"IEND", b""))
 
 
+def png_stream(body, *, width=375, height=812, encoding=(8, 2, 0, 0, 0)):
+    def chunk(kind, data):
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, *encoding))
+            + chunk(b"IDAT", body) + chunk(b"IEND", b""))
+
+
 def checksums(files):
     files["SHA256SUMS"] = "".join(gate.digest(files[name]) + "  " + name + "\n"
                                   for name in sorted(files) if name != "SHA256SUMS").encode()
@@ -399,6 +406,60 @@ class EvidenceContracts(unittest.TestCase):
             with self.assertRaises(ValueError):
                 gate.png_valid(bad)
 
+    def test_png_invalid_pixel_stream_rejected_by_full_readback(self):
+        bad = png_stream(b"PRIVATE_SENTINEL" * 100)
+        files = dict(self.files)
+        files["fixtures/example-chromium/fixture.png"] = bad
+        checksums(files)
+        with self.assertRaises(ValueError):
+            gate.png_valid(bad)
+        with self.assertRaises(ValueError):
+            validate(zipped(files))
+
+    def test_png_complete_scanlines_encoding_filters_and_stream_end_required(self):
+        row = b"\0" + random.Random(23).randbytes(375 * 3)
+        pixels = row * 812
+        compressed = zlib.compress(pixels)
+        invalid_later_filter = bytearray(pixels)
+        invalid_later_filter[65 * len(row)] = 5
+        for body in (compressed[:-1], zlib.compress(pixels[:-1]), zlib.compress(pixels + row),
+                     zlib.compress(b"\5" + pixels[1:]), compressed + b"PRIVATE_SENTINEL",
+                     compressed + zlib.compress(pixels), zlib.compress(invalid_later_filter)):
+            with self.subTest(size=len(body)), self.assertRaises(ValueError):
+                gate.png_valid(png_stream(body))
+        for encoding in ((16, 2, 0, 0, 0), (8, 3, 0, 0, 0), (8, 2, 1, 0, 0),
+                         (8, 2, 0, 1, 0), (8, 2, 0, 0, 1)):
+            with self.subTest(encoding=encoding), self.assertRaises(ValueError):
+                gate.png_valid(png_stream(compressed, encoding=encoding))
+        with self.assertRaises(ValueError):
+            gate.png_valid(png_stream(compressed, width=8192, height=32768))
+
+    def test_png_header_and_end_chunk_lengths_and_truncated_chunks_rejected(self):
+        data = png()
+        def chunk(kind, body):
+            return struct.pack(">I", len(body)) + kind + body + struct.pack(">I", zlib.crc32(kind + body))
+        for bad in (data[:8] + chunk(b"IHDR", data[16:29] + b"\0") + data[33:],
+                    data[:-12] + chunk(b"IEND", b"\0"), data + b"\0" * 4,
+                    data[:33] + chunk(b"IHDR", data[16:29]) + data[33:]):
+            with self.assertRaises(ValueError):
+                gate.png_valid(bad)
+
+    def test_png_rgb_rgba_multi_idat_and_streaming_filter_boundaries(self):
+        for channels, color in ((3, 2), (4, 6)):
+            row = b"\4" + random.Random(23).randbytes(375 * channels)
+            data = png_stream(zlib.compress(row * 812), encoding=(8, color, 0, 0, 0))
+            gate.png_valid(data)
+            size = int.from_bytes(data[33:37], "big")
+            body = data[41:41 + size]
+            def chunk(kind, part):
+                return struct.pack(">I", len(part)) + kind + part + struct.pack(">I", zlib.crc32(kind + part))
+            middle = len(body) // 2
+            gate.png_valid(data[:33] + chunk(b"IDAT", body[:middle])
+                           + chunk(b"IDAT", body[middle:]) + data[45 + size:])
+            with self.assertRaises(ValueError):
+                gate.png_valid(data[:33] + chunk(b"IDAT", body[:middle])
+                               + chunk(b"sRGB", b"\0") + chunk(b"IDAT", body[middle:]) + data[45 + size:])
+
     def test_source_file_symlink_and_path_escape_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -414,27 +475,91 @@ class EvidenceContracts(unittest.TestCase):
 
     def test_bounded_command_stops_before_oversized_response_consumed(self):
         process = MagicMock()
-        process.__enter__.return_value = process
-        process.stdout.read.return_value = b"x" * 21
         process.poll.return_value = None
-        with patch.object(gate.subprocess, "Popen", return_value=process), self.assertRaises(ValueError):
+        def spawn(*args, **kwargs):
+            kwargs["stdout"].write(b"x" * 21)
+            kwargs["stdout"].flush()
+            return process
+        with patch.object(gate.subprocess, "Popen", side_effect=spawn), self.assertRaises(ValueError):
             gate.bounded_command(["gh", "api", "fixture"], limit=20)
-        process.stdout.read.assert_called_once_with(21)
+        process.stdout.read.assert_not_called()
         process.kill.assert_called_once()
+        process.wait.assert_called_once_with(timeout=5)
 
     def test_bounded_command_success_and_timeout(self):
         process = MagicMock()
-        process.__enter__.return_value = process
-        process.stdout.read.return_value = b"bounded"
         process.wait.return_value = 0
         process.poll.return_value = 0
-        with patch.object(gate.subprocess, "Popen", return_value=process):
+        def spawn(*args, **kwargs):
+            kwargs["stdout"].write(b"bounded")
+            kwargs["stdout"].flush()
+            return process
+        with patch.object(gate.subprocess, "Popen", side_effect=spawn):
             self.assertEqual(gate.bounded_command(["gh", "api", "fixture"], limit=20), b"bounded")
+        process.kill.assert_not_called()
         process.poll.return_value = None
         with patch.object(gate.subprocess, "Popen", return_value=process), \
-                patch.object(gate, "ThreadPoolExecutor") as executor, self.assertRaises(TimeoutError):
-            executor.return_value.__enter__.return_value.submit.return_value.result.side_effect = TimeoutError
+                patch.object(gate.time, "monotonic", side_effect=[0, 121]), self.assertRaises(TimeoutError):
             gate.bounded_command(["gh", "api", "fixture"], limit=20)
+        process.kill.assert_called_once()
+
+    def test_command_timeout_returns_with_retained_stdout_handle_and_reaps_only_child(self):
+        process, retained = MagicMock(), []
+        process.poll.return_value = None
+        def spawn(*args, **kwargs):
+            retained.append(os.dup(kwargs["stdout"].fileno()))
+            return process
+        try:
+            with patch.object(gate.subprocess, "Popen", side_effect=spawn), \
+                    patch.object(gate.time, "monotonic", side_effect=[0, 121]), self.assertRaises(TimeoutError):
+                gate.bounded_command(["gh", "api", "fixture"], limit=20)
+            self.assertEqual(os.fstat(retained[0]).st_size, 0)
+            process.kill.assert_called_once_with()
+            process.wait.assert_called_once_with(timeout=5)
+            process.stdout.read.assert_not_called()
+        finally:
+            for descriptor in retained:
+                os.close(descriptor)
+
+    def test_command_deadline_not_renewed_and_checked_after_readback(self):
+        process = MagicMock()
+        process.poll.return_value = None
+        with patch.object(gate.subprocess, "Popen", return_value=process), \
+                patch.object(gate.time, "monotonic", side_effect=[0, 119, 121]), \
+                patch.object(gate.time, "sleep") as sleep, self.assertRaises(TimeoutError):
+            gate.bounded_command(["gh", "api", "fixture"])
+        sleep.assert_called_once_with(0.02)
+        process.kill.assert_called_once()
+        process.poll.return_value = 0
+        with patch.object(gate.subprocess, "Popen", return_value=process), \
+                patch.object(gate.time, "monotonic", side_effect=[0, 1, 121]), self.assertRaises(ValueError):
+            gate.bounded_command(["gh", "api", "fixture"])
+
+    def test_command_spool_read_is_bounded_and_nonzero_or_oversized_errors_refuse(self):
+        process = MagicMock()
+        process.poll.return_value = 0
+        with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as errors:
+            wrapped = MagicMock(wraps=output)
+            wrapped.__enter__.return_value = wrapped
+            def spawn(*args, **kwargs):
+                kwargs["stdout"].write(b"bounded")
+                kwargs["stdout"].flush()
+                return process
+            with patch.object(gate.tempfile, "TemporaryFile", side_effect=[wrapped, errors]), \
+                    patch.object(gate.subprocess, "Popen", side_effect=spawn):
+                self.assertEqual(gate.bounded_command(["gh", "api", "fixture"], limit=20), b"bounded")
+            wrapped.read.assert_called_once_with(21)
+        process.poll.return_value = 7
+        with patch.object(gate.subprocess, "Popen", return_value=process), self.assertRaises(ValueError):
+            gate.bounded_command(["gh", "api", "fixture"])
+        process.poll.return_value = None
+        def noisy(*args, **kwargs):
+            kwargs["stderr"].write(b"PRIVATE_SENTINEL" * 10)
+            kwargs["stderr"].flush()
+            return process
+        with patch.object(gate.subprocess, "Popen", side_effect=noisy), patch.object(gate, "MAX_FILE", 20), \
+                self.assertRaisesRegex(ValueError, "^Control response exceeds size limit$"):
+            gate.bounded_command(["gh", "api", "fixture"])
         process.kill.assert_called_once()
 
 
