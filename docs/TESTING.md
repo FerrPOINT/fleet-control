@@ -1,5 +1,17 @@
 # Testing
 
+## Clarification Runtime Baseline Regression
+
+Session creation intentionally stores one pending primary run with no native
+session/run IDs. The clarification expiry and HTTP reload cases snapshot that
+baseline before their commands, require its pending/undispatched identity, and
+compare the complete serialized run records afterward. No added run, native ID,
+state/model/metadata/timestamp mutation is allowed. Requiring an empty run list
+was inconsistent with the existing creation contract. All prior lease/immutable
+body, exact original POST, owner/project/sessionless and uncertainty assertions
+remain. Actual run38006625294 exposed the two predecessor assertions at309/683;
+the correction needs its own exact-source PostgreSQL run.
+
 ## Task Control Project Revocation Regression
 
 The existing foundation case

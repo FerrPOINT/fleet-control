@@ -42,8 +42,17 @@ review finds no P1/P2 in the project-control correction; fmt/diff and123 Markdow
 links pass. Parent verifies all163 Rust Git blobs, changed compiled inputs and
 the aggregate. Controls retain74 stages/9 clarification cases/21 canonical and24
 split migrations; Linux90 PASS and Windows88 PASS/two Linux-only skips qualify
-only control logic. Actual run38006625294 is confirmed in progress at4a8f71f,
-testing source140234b. It is not a retry of the unchanged failed source.
+only control logic. Actual run38006625294 at4a8f71f/source140234b completes
+FAILURE at clarification_pg. Sequential gate receipts establish credentials_pg,
+foundation (including the stop/steer revocation correction), clarification domain
+and API passed. Parent independently authenticates safe artifact11651638800,
+digest69c966b128a41bb14d612484ded8912e0739745d1c47e3b9163c58a496f7ebac;
+scratch/synthetic DB cleanup passes. Both failed test locations309/683 require an
+empty session-run list, although creation already inserts a pending primary row.
+The next test-only correction requires that initial row to be pending with no
+runtime IDs and compares every serialized run field after expiry/HTTP recovery.
+Existing authority/lease/body/replay assertions remain; actual corrected PG
+execution is pending. No production code or schema is changed by that correction.
 
 Current-client visual follow-up6c022f3 is normally merged asd5f18d0. Its two-file
 delta adds local semantic styling/native color-scheme to the requirements select

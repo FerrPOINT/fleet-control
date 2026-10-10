@@ -32,8 +32,13 @@ fixture captures; parent verifies WebKit desktop/mobile and42 merged-source
 chat-detail tests, typecheck and ESLint. These close the scoped fixture defects,
 not native popup/light-theme, live PM or production-manifest acceptance.
 Reviewed controls4a8f71f/source140234b are normally published and actual Linux/PG
-run38006625294 is in progress. Independent source review,163 Rust-blob parity
-and90 Linux control tests pass; no actual full backend PASS is claimed.
+run38006625294 fails at clarification_pg after foundation/domain/API pass.
+Authenticated artifact11651638800 (cleanup true) identifies only the two
+clarification expiry/HTTP-reload assertions309/683. They assume zero runs despite
+the existing pending primary placeholder from session creation. The next
+test-only correction checks the undispatched baseline and full post-operation
+record equality, preserving all earlier assertions. Exact-source PG rerun remains
+open; no actual full backend PASS is claimed.
 
 Hosted37995542617 now proves the preflight blocker is passed but finds real
 compile E0599 at container_controller.rs:18:48 on b249. Authenticated safe failure
