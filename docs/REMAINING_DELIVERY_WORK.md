@@ -2,8 +2,9 @@
 
 ## Scope And Evidence Boundary
 
-Published source checkpoint: `7c7f9dd`, 10 October 2026. Normal integration with
-main `c39ff84` is in progress in an isolated checkout, not yet an accepted release.
+Published integration checkpoint: `9e0bb49`, 10 October 2026, a normal merge with
+main `c39ff84`. Additive authority alias repair is integrated by `d71b14f`;
+its PostgreSQL regression and full gates remain required before acceptance.
 This is a delivery map for the current Chats/PM clarification slice, not an
 operational diary, deployment permission or a new test execution. Leaders,
 delegation UI and the complete autonomous SDLC are outside this slice.
@@ -20,7 +21,7 @@ Neither that merge nor a healthy process enables PM admission.
 | --- | --- | --- |
 | Curie | Fleet inherited Chats browser fixtures | Source handoff and19 preservation checks complete; the merged four-file component suite passes102/102; browser execution remains required |
 | Feynman | Read-only independent review; reports outside product | Forge diagnostic review has no confirmed P1/P2 findings; PM source findings are passed to its implementer |
-| Pascal | Isolated Fleet recovered-activation INSERT fix | Diagnose authenticated `activation_authorize_authority_insert` and fix the actual cause with a narrow regression; do not weaken authority predicates |
+| Pascal | Exact-source backend gate preparation | Alias repair reviewed and integrated; preserve all selectors, update22/25 lineages and14 activation PG cases, regenerate API from Rust before claiming parity |
 | Planck | Fleet PM tools/continuation in a separate branch | Configure supported Hermes tools, deliver saved answers and implement checkpoint/rebind/new-run continuation without a second unknown dispatch or Hermes modifications |
 | Parent | Main integration, final verification, docs and publication | Normal-history merge, generated API/client parity, exact-source checks, current screenshots and task-owned PRs; no unrelated working-tree changes |
 
