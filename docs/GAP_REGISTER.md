@@ -28,6 +28,10 @@ Historical attempts are in [gap history](GAP_REGISTER_HISTORY_2026-10-10.md).
 
 ## Execution Rules
 
+- Source corrections `8b1f350` (Clippy guard) and `8f53740` (authenticated private
+  runtime-control fixture) address the latest observed source defects, not full
+  acceptance. Keep the c59 failures above until a new exact-source gate qualifies
+  the successors; regenerate Rust OpenAPI after the API implementation change.
 - Reuse existing supervisor, stream decoder and command journals. Keep PM business
   state in Tracker/Workflow; do not create another scheduler, transcript engine
   or generic orchestration framework.

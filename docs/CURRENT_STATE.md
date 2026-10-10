@@ -26,6 +26,11 @@ remain authoritative for later completion.
   canonical24/split27. Sourcec59 passes fmt/check, then fails Clippy before PG
   qualification. Older source32b has canonical22/split25; its receipts do not
   qualify the current migration or runtime assembly.
+- Reviewed successors correct the nested PM authorization guard (`8b1f350`)
+  and the private runtime-control fixture (`8f53740`) without changing production
+  permissions, privacy, assertions or timeouts. The fixture now supplies its own
+  authenticated owner and actual free-chat reads. These source corrections do
+  not change the failed c59 receipts below; fresh codegen and full gates are required.
 - Hermes is consumed unchanged through its existing API. No custom pre-model
   hook, reserved-run handshake, second scheduler or host-controller service is
   required. Fleet still checks owner/project/current assignment before dispatch.
