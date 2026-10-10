@@ -20,6 +20,12 @@ scoped ESLint pass; full new-source/browser/screens/live gates remain required.
 C11 Linux-controls preparation and independent security review are separate
 worker tasks, not completed credential acceptance.
 
+C11 frozen product994f29d now has independently verified/published controlsc5ee9bc
+and actual28-stage run38021888246. Parent revalidates309 canonical inputs,105 Rust
+files,242 default/17 ignored declarations and12/15 migrations, then runs99/99 pure
+Linux tests. Actual product/Auth/PG/OpenAPI results and dependency PR47/64 merges
+remain open; a later credential regression successor needs its own qualification.
+
 The current source candidate is1303be6, retaining8c93f43 normally integrated at65b4f33;
 the last completed81-stage source isafc5bb4 (config_files_unit failure). The union retains runtime
 corrections, journal3b41, human guard, private-approval ownership and PR64 config.

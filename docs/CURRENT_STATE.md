@@ -36,10 +36,11 @@ merge-ready or live SDLC accepted**. Historical evidence qualifies only its own 
 
 | Current gate | Exact source / authority | State |
 | --- | --- | --- |
-| Combined backend | Source1303be6, controls9e838718, run38018281445 |81-stage gate in progress; priorafc config_files_unit failure authenticated; correction not yet Rust-qualified |
+| Combined backend | Sourcee369fed, controlseb214954, run38021438217 |81-stage gate active; prior1303 approval_recovery failure authenticated, correction not yet product-qualified |
 | Config release PR64 | Head820a1af, normally merged into candidate8c93f43 | Separate five-job PASS; combined Rust/PG acceptance pending |
 | Union API/client | Source8c93f43, workflow5e57d5b, run38015043570 | Authenticated codegen PASS; typecheck/drift/compatibility PASS, not runtime acceptance |
-| Production Chats presentation | Frontend tree13ccbaba, hosted controlsba60890/sourceb0, run38019603974 |337 local tests/36 files pass with threads; standard hosted unit/build/three-browser gate in progress, not live PM |
+| Production Chats presentation | Integratedf2e8495; earlier hostedba60890/sourceb0 fails38019603974 |348/348 unit tests in36 files pass with threads; new browser fixtures and full hosted successor pending, not live PM |
+| Narrow C11 credential candidate | Product994f29d, controlsc5ee9bc, run38021888246 | Published28-stage gate created; parent309-input verification and99 Linux control tests pass, actual backend/Auth/PG result pending |
 | PM model admission | `app::pm_draft` creation and scoped credential preparation | Stops at awaiting_admission; no pre-model execution authority |
 | Forge full12 | Public-safe controls1dbedf8, maintenance pin commit null | Cannot start acceptance without published qualified Base inputs |
 | Physical runtimes | Reviewed Docker/config/recovery source | Exact images and actual native lifecycle remain unaccepted |
