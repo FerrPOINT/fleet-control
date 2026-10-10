@@ -90,6 +90,8 @@ test('directory uses server counts, concrete cursors and scoped returnTo across 
       return reply([agent(dev, 1, 'Directory developer'), agent(qa, 2, 'Directory reviewer')])
     if (url.pathname === `/api/v1/sessions/${last}`)
       return reply(session(last, dev, 'Second page chat'))
+    if (url.pathname === `/api/v1/sessions/${last}/messages` && route.request().method() === 'GET')
+      return reply([])
     if (url.pathname.endsWith('/task-context')) return reply({ binding: null, tracker: null })
     if (url.pathname.endsWith('/chat-controls'))
       return reply({

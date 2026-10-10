@@ -40,7 +40,7 @@ jobs:
       - name: Check out exact product source including parent history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # official v7
         with:
-          ref: 83091f055e3b34fcfe6a6d59b1703c117261c027
+          ref: 089ee0c7066adf459849556f511d81dc859cb6c3
           path: fleet-control
           fetch-depth: 0
           persist-credentials: false
@@ -129,7 +129,7 @@ jobs:
         run: |
           set -euo pipefail
           {
-            printf 'Product source: `%s`\n\n' 83091f055e3b34fcfe6a6d59b1703c117261c027
+            printf 'Product source: `%s`\n\n' 089ee0c7066adf459849556f511d81dc859cb6c3
             printf 'Workflow commit: `%s`\n\n' "$GITHUB_SHA"
             printf 'Run/attempt: `%s/%s`\n\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
             printf 'Artifact ID: `%s`\n\n' "$ARTIFACT_ID"

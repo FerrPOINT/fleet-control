@@ -198,7 +198,7 @@ class SourceContracts(unittest.TestCase):
 
     def test_schema_pin_is_current(self):
         self.assertEqual(gate.digest((ROOT / "openapi/openapi.json").read_bytes()), gate.SCHEMA_SHA256)
-        self.assertEqual(gate.SCHEMA_SHA256, "ac545326e9b4ffca4378aee0aaaf9c2dd8c75faf02deb868cda0c87d7764b85a")
+        self.assertEqual(gate.SCHEMA_SHA256, "ad980604beb2cff0890f4d1a07a185c97a444fda166985f2a6da465a222d129c")
         self.assertEqual(gate.digest(gate.git(ROOT, "show", "59d00fe3269d67ab09819f19c6b2b5703a6e2268:openapi/openapi.json")),
                          "1167220ea9f3d65ddca4cce1112a26d53c77f8c1684ef958859f737f20210953")
 
@@ -397,21 +397,21 @@ class SourceContracts(unittest.TestCase):
                                   "--", "frontend/playwright.config.ts"), b"")
 
     def test_pm_stream_union_exact_source_inventory_and_original_frontend(self):
-        self.assertEqual(gate.SOURCE_SHA, "83091f055e3b34fcfe6a6d59b1703c117261c027")
-        self.assertEqual(gate.SOURCE_TREE, "12f57611eae3d7b9bf73e3ebca41afd60cd36a1a")
-        self.assertEqual(gate.SOURCE_PARENTS, ["af0a9d14360bc91875e54602c3340d5fcd8dbd59",
-                                             "8e6c25b9f77ed5f43d52661d8fdd6b2019a93804"])
-        gate.qualify_source(ROOT)
-        inventory = git_blob_inventory(gate.SOURCE_SHA)
+        source = "83091f055e3b34fcfe6a6d59b1703c117261c027"
+        self.assertEqual(gate.git(ROOT, "show", "-s", "--format=%T %P", source).decode().strip(),
+                         "12f57611eae3d7b9bf73e3ebca41afd60cd36a1a af0a9d14360bc91875e54602c3340d5fcd8dbd59 8e6c25b9f77ed5f43d52661d8fdd6b2019a93804")
+        inventory = git_blob_inventory(source)
         self.assertEqual(len(inventory), 885)
-        self.assertEqual(gate.digest(gate.canonical(inventory)), gate.QUALIFIED_INPUTS["source_inventory_sha256"])
-        self.assertEqual(gate.tracked_inventory(ROOT, gate.SOURCE_SHA), inventory)
+        self.assertEqual(gate.digest(gate.canonical(inventory)),
+                         "6c11bea33f3f3856e4eec47db2669bc678378147cf7f54e0bf3407089b314246")
+        with self.assertRaisesRegex(ValueError, "Source bytes differ from exact committed tree"):
+            gate.tracked_inventory(ROOT, source)
         frozen = "32b9f063f9b5099ff61bca24ecdfeb9952889034"
         path = "frontend/e2e/chats-directory.spec.ts"
-        self.assertEqual(gate.git(ROOT, "diff", "--name-only", frozen, gate.SOURCE_SHA,
+        self.assertEqual(gate.git(ROOT, "diff", "--name-only", frozen, source,
                                   "--", "frontend", "openapi").decode().splitlines(), [path])
         old = gate.git(ROOT, "show", frozen + ":" + path).decode()
-        current = gate.git(ROOT, "show", gate.SOURCE_SHA + ":" + path).decode()
+        current = gate.git(ROOT, "show", source + ":" + path).decode()
         self.assertEqual(gate.digest(current.encode()), "e20b01fb9cd482bcdf26c5c601e3da188dafe12117e5d01673b810c87a623c55")
         marker = "  await page.goto('/chats')"
         self.assertEqual(old[old.index(marker):], current[current.index(marker):])
@@ -422,6 +422,29 @@ class SourceContracts(unittest.TestCase):
                         "route.request().method() === 'OPTIONS'", "const reply = (json: unknown)"):
             self.assertIn(setting, current)
         self.assertRegex(current, r"contentType: 'text/event-stream',\s+headers,")
+
+    def test_directory_messages_successor_exact_source_and_preserved_assertions(self):
+        self.assertEqual(gate.SOURCE_SHA, "089ee0c7066adf459849556f511d81dc859cb6c3")
+        self.assertEqual(gate.SOURCE_TREE, "8f288ba7db64911fc5ca8f3703ee981528e557f6")
+        self.assertEqual(gate.SOURCE_PARENTS, ["facb25b9eae66db0c8b762ab68a5963422edf58f",
+                                             "a8b045a080dd11da9827279c7cd79088f30542e7"])
+        gate.qualify_source(ROOT)
+        inventory = git_blob_inventory(gate.SOURCE_SHA)
+        self.assertEqual(len(inventory), 885)
+        self.assertEqual(gate.digest(gate.canonical(inventory)), gate.QUALIFIED_INPUTS["source_inventory_sha256"])
+        self.assertEqual(gate.tracked_inventory(ROOT, gate.SOURCE_SHA), inventory)
+        previous = "83091f055e3b34fcfe6a6d59b1703c117261c027"
+        path = "frontend/e2e/chats-directory.spec.ts"
+        self.assertEqual(gate.git(ROOT, "diff", "--name-only", previous, gate.SOURCE_SHA,
+                                  "--", "frontend", "openapi").decode().splitlines(),
+                         [path, "openapi/openapi.json"])
+        old = gate.git(ROOT, "show", previous + ":" + path).decode()
+        current = gate.git(ROOT, "show", gate.SOURCE_SHA + ":" + path).decode()
+        self.assertEqual(gate.digest(current.encode()), "0cb8a1963ec1fb2c5ab73a2077d1318150ae83fd6dbe51a08c257bfcf0373401")
+        added = "    if (url.pathname === `/api/v1/sessions/${last}/messages` && route.request().method() === 'GET')\n      return reply([])\n"
+        self.assertEqual(current.replace(added, "", 1), old)
+        self.assertEqual(current.count("expect("), 27)
+        self.assertLess(current.index(added), current.index("if (url.pathname !== '/api/v1/chats/directory') return reply({})"))
 
 
 class CompletionContracts(unittest.TestCase):
