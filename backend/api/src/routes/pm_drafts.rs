@@ -208,6 +208,20 @@ impl HumanDraftGateway {
 
 #[async_trait]
 impl PmDraftTracker for HumanDraftGateway {
+    async fn context(&self, op: &PmDraftOperation) -> Result<TrackerTaskContext, AppError> {
+        self.read(
+            &[
+                "api",
+                "v1",
+                "issues",
+                &op.identity()?.task_id.to_string(),
+                "sdlc",
+                "context",
+            ],
+            None,
+        )
+        .await
+    }
     async fn verify_namespace(&self, op: &PmDraftOperation, agent: &Agent) -> Result<(), AppError> {
         super::pm_namespace::verify(&self.config, op, agent).await
     }
@@ -320,6 +334,28 @@ fn credential_provider(
         .ok_or_else(|| AppError::Unavailable("PM scoped credentials are not configured".into()))
 }
 
+async fn continue_created(
+    ctx: &AppContext,
+    gateway: &HumanDraftGateway,
+    operation: PmDraftOperation,
+) -> Result<PmDraftCreationResponse, AppError> {
+    let id = operation.id;
+    let owner = operation.owner_user_id;
+    let response = app::pm_draft::continue_creation_with_credentials(
+        ctx.repo.as_ref(),
+        gateway,
+        operation,
+        credential_provider(ctx)?,
+    )
+    .await?;
+    if ctx.config.pm.dispatch.enabled {
+        let operation = ctx.repo.read_pm_draft_operation(id, owner).await?;
+        ctx.runtime.dispatch_pm_draft(&operation, gateway).await?;
+    }
+    // This is the existing Tracker creation receipt, not a claim of business completion.
+    Ok(response)
+}
+
 #[utoipa::path(post,path="/api/v1/projects/{project_id}/pm-drafts",tag="task-chats",operation_id="create_pm_draft",
     params(("project_id"=Uuid,Path)),request_body=CreatePmDraftRequest,
     responses((status=202,body=PmDraftCreationResponse),(status=400),(status=401),(status=403),(status=404),(status=409),(status=422),(status=503)))]
@@ -366,15 +402,7 @@ pub async fn create(
         .await?;
     Ok((
         StatusCode::ACCEPTED,
-        Json(
-            app::pm_draft::continue_creation_with_credentials(
-                ctx.repo.as_ref(),
-                &gateway,
-                operation,
-                credential_provider(&ctx)?,
-            )
-            .await?,
-        ),
+        Json(continue_created(&ctx, &gateway, operation).await?),
     ))
 }
 
@@ -493,15 +521,7 @@ pub async fn continue_operation(
     };
     Ok((
         StatusCode::ACCEPTED,
-        Json(
-            app::pm_draft::continue_creation_with_credentials(
-                ctx.repo.as_ref(),
-                &gateway,
-                operation,
-                credential_provider(&ctx)?,
-            )
-            .await?,
-        ),
+        Json(continue_created(&ctx, &gateway, operation).await?),
     ))
 }
 

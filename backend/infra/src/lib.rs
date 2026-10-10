@@ -874,6 +874,46 @@ impl FleetRepository for PostgresFleetRepository {
     async fn get_pm_run(&self, id: Uuid) -> Result<domain::PmRunRecord, AppError> {
         pm_execution::get(self, id).await
     }
+    async fn prepare_pm_dispatch(
+        &self,
+        intent: domain::PmDispatchIntent,
+    ) -> Result<domain::PmDispatchIntent, AppError> {
+        pm_execution::prepare_dispatch(self, intent)
+            .await
+            .map_err(pm_execution::dispatch_error)
+    }
+    async fn claim_pm_submission(&self, id: Uuid) -> Result<bool, AppError> {
+        pm_execution::claim_submission(self, id)
+            .await
+            .map_err(pm_execution::dispatch_error)
+    }
+    async fn get_pm_dispatch(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<domain::PmDispatchIntent>, AppError> {
+        pm_execution::get_dispatch(self, id)
+            .await
+            .map_err(pm_execution::dispatch_error)
+    }
+    async fn record_pm_submission(&self, id: Uuid, run_ref: String) -> Result<(), AppError> {
+        pm_execution::record_submission(self, id, run_ref)
+            .await
+            .map_err(pm_execution::dispatch_error)
+    }
+    async fn claim_pm_guidance(
+        &self,
+        id: Uuid,
+        body: String,
+    ) -> Result<domain::PmGuidancePermit, AppError> {
+        pm_execution::claim_guidance(self, id, body)
+            .await
+            .map_err(pm_execution::dispatch_error)
+    }
+    async fn finish_pm_guidance(&self, id: Uuid) -> Result<(), AppError> {
+        pm_execution::finish_guidance(self, id)
+            .await
+            .map_err(pm_execution::dispatch_error)
+    }
     async fn accept_pm_run(
         &self,
         id: Uuid,

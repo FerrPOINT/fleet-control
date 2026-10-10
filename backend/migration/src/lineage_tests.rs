@@ -48,6 +48,8 @@ fn registered_versions_match_lineage_discriminators() {
     assert_eq!(legacy[22].name(), RECOVERED_ACTIVATION);
     assert_eq!(canonical[20].name(), CLARIFICATION_COMMANDS);
     assert_eq!(legacy[23].name(), CLARIFICATION_COMMANDS);
+    assert_eq!(canonical[21].name(), "m20261010_000021_pm_dispatch");
+    assert_eq!(legacy[24].name(), "m20261010_000021_pm_dispatch");
     assert_eq!(
         legacy
             .iter()

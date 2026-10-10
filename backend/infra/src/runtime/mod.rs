@@ -36,6 +36,7 @@ mod container_replacement;
 mod container_workers;
 mod hermes_wire;
 mod native_context;
+mod pm_dispatch;
 mod pm_readback;
 pub(crate) mod recovery_wire;
 mod run_control;
@@ -1903,6 +1904,13 @@ impl LocalRuntimeSupervisor {
 
 #[async_trait]
 impl RuntimeSupervisor for LocalRuntimeSupervisor {
+    async fn dispatch_pm_draft(
+        &self,
+        operation: &domain::PmDraftOperation,
+        tracker: &dyn app::pm_draft::PmDraftTracker,
+    ) -> Result<(), AppError> {
+        pm_dispatch::dispatch(self, operation, tracker).await
+    }
     async fn resolve_targeted_approval(
         &self,
         agent: &Agent,

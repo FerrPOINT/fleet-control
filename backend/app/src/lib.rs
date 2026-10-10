@@ -570,6 +570,44 @@ pub trait FleetRepository: Send + Sync {
             "PM run repository is not available".into(),
         ))
     }
+    async fn prepare_pm_dispatch(
+        &self,
+        _intent: domain::PmDispatchIntent,
+    ) -> Result<domain::PmDispatchIntent, AppError> {
+        Err(AppError::Unavailable(
+            "PM dispatch journal is unavailable".into(),
+        ))
+    }
+    async fn claim_pm_submission(&self, _id: Uuid) -> Result<bool, AppError> {
+        Err(AppError::Unavailable(
+            "PM dispatch journal is unavailable".into(),
+        ))
+    }
+    async fn get_pm_dispatch(
+        &self,
+        _id: Uuid,
+    ) -> Result<Option<domain::PmDispatchIntent>, AppError> {
+        Ok(None)
+    }
+    async fn record_pm_submission(&self, _id: Uuid, _run_ref: String) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "PM dispatch journal is unavailable".into(),
+        ))
+    }
+    async fn claim_pm_guidance(
+        &self,
+        _id: Uuid,
+        _body: String,
+    ) -> Result<domain::PmGuidancePermit, AppError> {
+        Err(AppError::Unavailable(
+            "PM guidance journal is unavailable".into(),
+        ))
+    }
+    async fn finish_pm_guidance(&self, _id: Uuid) -> Result<(), AppError> {
+        Err(AppError::Unavailable(
+            "PM guidance journal is unavailable".into(),
+        ))
+    }
     async fn get_pm_run(&self, _id: Uuid) -> Result<domain::PmRunRecord, AppError> {
         Err(AppError::Unavailable(
             "PM run repository is not available".into(),
@@ -1184,6 +1222,13 @@ pub trait AgentProvisioner: Send + Sync {
 
 #[async_trait]
 pub trait RuntimeSupervisor: Send + Sync {
+    async fn dispatch_pm_draft(
+        &self,
+        _operation: &domain::PmDraftOperation,
+        _tracker: &dyn pm_draft::PmDraftTracker,
+    ) -> Result<(), AppError> {
+        Err(AppError::Unavailable("PM dispatch is unavailable".into()))
+    }
     async fn resolve_targeted_approval(
         &self,
         _agent: &Agent,
