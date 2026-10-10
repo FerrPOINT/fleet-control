@@ -1,5 +1,31 @@
 # Current State
 
+## Task-Chat Readiness Reconciliation: 9 October 2026
+
+Foundation source `8faea62e3343cfe2017153bf9e7bcb3d449c626b` passed all five
+hosted CI jobs in run37930186282, including Linux/PostgreSQL, generated OpenAPI,
+frontend and three-browser fixture acceptance. That evidence is source-specific;
+the live PM cases remain unaccepted.
+
+Accepted main `b750e7b` subsequently merged PR63 readiness refresh protection.
+This candidate preserves that source by normal merge, including all three
+running/ready, running/blocked and stopped/blocked refresh regression cases, plus
+the foundation's two localized effective-readback blocker cases. Backend, Base
+pin, generated contracts and lockfiles are unchanged relative to `8faea62`.
+Fresh merged-head verification/publication remains a separate gate. No runtime,
+rollout or PM admission is enabled by this reconciliation.
+
+## Task-Chat And Monitoring Reconciliation: 9 October 2026
+
+This isolated candidate normally merges PR47 `8befcb6` with accepted main
+`34aaec0`, retaining both histories and Base SDK `19a7a381`. Atomic redacted
+process-log insertion and canonical heartbeat incident recovery coexist with
+the task-chat foundation. Both browser test families and screenshot packets
+are retained. Only source/light checks have run on this merged tree; the older
+QA packets below do not accept it. Fresh Linux/PostgreSQL, browser and exact-head
+CI acceptance remain pending. Credentials release, installed runtime and rollout
+flags are not changed by this reconciliation.
+
 ## Task-Chat Reconciliation: 9 October 2026
 
 The PR47 candidate normally merges accepted main2fad131 and pins Base19a7a381;
@@ -224,6 +250,21 @@ The merged eleven-file schema passed clean up, pending migration 000010 down,
 reapply and status on an isolated PostgreSQL 17 database. This feature owns only
 one new migration. Disposable QA database ownership was verified before cleanup;
 accepted runtimes, images and volumes were not changed.
+
+## October 7 Heartbeat Monitoring Candidate
+
+A separate main-based patch corrects the canonical heartbeat alert kind,
+concurrent incident deduplication, fresh-heartbeat resolution without a status
+transition, and atomic resolution/audit. Five new PostgreSQL cases pass, as do
+the full 99-case workspace suite and 10 explicitly executed opt-in cases.
+Frontend passes 160 unit tests and the three-engine heartbeat browser case;
+nine fixture screenshots cover the required viewports.
+
+Rust-generated OpenAPI is byte-identical. Owned QA cleanup and all 165 frozen
+source hashes are verified. Its SDK remains main's exact `875cac2` pin, not the historical/integration
+`cbb4e99` pin described below. See [scope and remaining release checks](HEARTBEAT_ALERT_VERIFICATION.md). This monitoring correction does not enable
+runtime recovery or automatic SDLC; installed/live acceptance remains separate.
+
 ## October 5 Profile Integration Candidate
 
 This isolated candidate joins the main-based profile-name fix with historical
