@@ -22,3 +22,4 @@ CREATE DATABASE fleet_clarification_test;
 CREATE DATABASE fleet_clarification_migration_test;
 CREATE DATABASE fleet_configuration_test;
 CREATE DATABASE fleet_pm_recovery_test;
+CREATE DATABASE fleet_pm_ack_migration_test;

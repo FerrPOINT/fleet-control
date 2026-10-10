@@ -194,7 +194,7 @@
     "fleet-control/backend/infra/src/pm_draft.rs": "14a4abde0ef4c150833888f3189779b831d31b755bc9d5e59b2ebde573c55718",
     "fleet-control/backend/infra/src/pm_execution.rs": "eabb9af68299644bfa890c866997a1b08319e69a202157a1d80398c538276e37",
     "fleet-control/backend/infra/src/pm_tool_config.rs": "42fc72111ae3d4e06345984157e790ac1e22518efc65ed5e0aa5eb65f1a8b6d1",
-    "fleet-control/backend/infra/src/runtime/acceptance_readback.rs": "79cfda0e640e043bbcf3566740e929e05683711dc613bb95aaf0e364684cda4d",
+    "fleet-control/backend/infra/src/runtime/acceptance_readback.rs": "587e4b003e63221ad2eb9a540dd2707ac3ecb4255f66e59c4a5f710df42c5446",
     "fleet-control/backend/infra/src/runtime/approval_snapshot.rs": "78b842f5635feba0c89509770c0e927df95fd3da7d9ca6b166b23cfd04b13f5f",
     "fleet-control/backend/infra/src/runtime/container_activation.rs": "0f40cae8beed991c9e1222ef696b9e5ffbe01ae24b1ad320acd65c09b6929bce",
     "fleet-control/backend/infra/src/runtime/container_control.rs": "d0ee81fd284b9439904fe573430aea15785b9588e1403b1df5d98a8cf6db0725",
@@ -210,7 +210,7 @@
     "fleet-control/backend/infra/src/runtime/native_context.rs": "201a9b00094a67ddd9ed60ff7a0432cbb9688d4faa40f63384af09915581eb55",
     "fleet-control/backend/infra/src/runtime/pm_continuation.rs": "5f0ac8d8a46bae9452ac89fd607148328a2b8e5052674c6ba9c767ccce4afc0b",
     "fleet-control/backend/infra/src/runtime/pm_dispatch.rs": "5c67b7ed21e253a2068bcc6b634b850722c524fb923dfaf8ec36bbe290c4f697",
-    "fleet-control/backend/infra/src/runtime/pm_events.rs": "4557e8de8e04f34e9420a28459b5509b4240cde1cc37c1d6c1d717da7b711edd",
+    "fleet-control/backend/infra/src/runtime/pm_events.rs": "08c38c979248ae9ae918fdc4cdbd1ace6fd2a59f46f62e5e508a1ed941867743",
     "fleet-control/backend/infra/src/runtime/pm_readback.rs": "86e2d2138f770d7451e53cc10d3a5790d6c8b58eb6bf3a3ffc6cb6b1a2b7a708",
     "fleet-control/backend/infra/src/runtime/pm_recovery.rs": "80e3fe8e7f2293dfb8406cd4e7f35b80c556e68fc4be002bbc25daa3f7ce5e67",
     "fleet-control/backend/infra/src/runtime/pm_recovery_pg_tests.rs": "8ed16f089ee3bef3905dc2be66bc76856fa8c24c047a494b36272858915bdec6",
@@ -244,9 +244,9 @@
     "fleet-control/backend/infra/tests/support/hermes_dispatch_journal.rs": "c1fb6a5519b4ab9dcb0a350c76bbc01d0bf5cb56bbbd2c4bc896b2d6ae5f4d05",
     "fleet-control/backend/infra/tests/support/hermes_protocol_fixture.rs": "e7173c88917f5d3f442462271d79b38d83c856b9396d033f503dc97dae6b445e",
     "fleet-control/backend/infra/tests/support/pm_credential_creation.rs": "147c5dbf9634cb3b22556ea159e30cf52807e9f6931d448d5fb73427dc288671",
-    "fleet-control/backend/infra/tests/support/pm_dispatch.rs": "e67f01495ca5500aa4a7f15b9db9dda09a76ea8ae49c437624d3d92bf649ca27",
+    "fleet-control/backend/infra/tests/support/pm_dispatch.rs": "1db3a0579affb6a05c3e9433a434ecfdbb482e2303ce7260e52edc687e4e29d3",
     "fleet-control/backend/infra/tests/support/pm_draft_creation.rs": "ac8266c52998abb22702b5a2a454ae101471cbfc4d84a53d7846f0e0ebd8883f",
-    "fleet-control/backend/infra/tests/support/pm_events.rs": "c00dce8c2a4f6eb5bbb04fdc3ee9a648c32ff6e6b00d8ca1f4d5a8dda5cd5932",
+    "fleet-control/backend/infra/tests/support/pm_events.rs": "df215a5e55725227ffa035f01c1cfd40b2dc9c433e439aefbd6b63df8528aab6",
     "fleet-control/backend/infra/tests/support/pm_human_controls.rs": "ac6d72e106e135edda22a5d944c23f92b187999ffca9eb2ac6321cd4e4ecba16",
     "fleet-control/backend/infra/tests/support/runtime_acceptance.rs": "45416320e99ce5a9d6315ec2c973ab045a4ba3cbfad019100c4adbe0e953b993",
     "fleet-control/backend/infra/tests/support/runtime_acceptance_readback_http.rs": "c8d19de02071414eab6f886e2daa66c43d7aa923d3b0328fae33c62381a99c55",
@@ -260,8 +260,8 @@
     "fleet-control/backend/infra/tests/support/runtime_terminal.rs": "afeb8e1487e3b8d29ea0e26d8e65c9ae70e39f3791a4b309324111fad5b2212f",
     "fleet-control/backend/infra/tests/support/runtime_unknown_recovery.rs": "8e7bc9eb88f7934572756bcfc77cbb54ce4f435148fa6adc4e0bf05362c23848",
     "fleet-control/backend/migration/Cargo.toml": "3a5974a6bcbefc3a8dc4bb74218380ed6c3598305e72d8d50cdc167873e1b06b",
-    "fleet-control/backend/migration/src/lib.rs": "c3329cfe93b89a5073b20ade46ef83759b7a93604d8c7b8279a08d6e8ee76059",
-    "fleet-control/backend/migration/src/lineage_tests.rs": "14ef018fbb55b4833af846caefa7e9d1cc61c29aa645923b38976480a5b8e1ed",
+    "fleet-control/backend/migration/src/lib.rs": "6bdfa6fd7d66c218d0af78632518e1704ef5a454719e6a20528ebd9460ca93a3",
+    "fleet-control/backend/migration/src/lineage_tests.rs": "e23963b0a25f6730fe812c00613a92f5c7d6d4625449bfcd8bbbb9983d9c6806",
     "fleet-control/backend/migration/src/m20260901_000001_fleet_control.rs": "4233864b48d995ded086df33f49a72bb7955f9474892f1317fe346115a34608b",
     "fleet-control/backend/migration/src/m20260901_000002_session_users.rs": "736f64d760a6c1d061f7c986fc2bec124071cf07d6740305905bbf0db769445b",
     "fleet-control/backend/migration/src/m20260901_000003_leaders_sessions.rs": "beebfbf6370edaf682136238cc8f00e26de87f4b611f00e81e13ba670961650f",
@@ -290,6 +290,7 @@
     "fleet-control/backend/migration/src/m20261010_000021_activation_authority_alias.rs": "9e72de2d30f81dfe0b9787cc5aaa2b59f6572861352c48b35e1d56d737a9c39f",
     "fleet-control/backend/migration/src/m20261010_000022_pm_dispatch.rs": "2665d63e0c24fa94bb02f5c1e37ba1639d93f8d9c538ad6dcc203e27281e46ed",
     "fleet-control/backend/migration/src/m20261010_000023_pm_human_controls.rs": "27a54c08073e054ce8498ad8cc4f14e8c3866418627f5533bd3750c96c00f51e",
+    "fleet-control/backend/migration/src/m20261010_000024_pm_ack_bounds.rs": "970bef40afaf4987fe9ccefe68399d1be76601381c62af4edfed969e9de9881c",
     "fleet-control/backend/migration/src/main.rs": "f3b909b740d719ab257a55470645cd293f07a01cec34a804ee679a17e8c9427c",
     "fleet-control/backend/migration/tests/central_subject.rs": "23b3a4e4b2cad68436acb6e8860c31927311ea1879083195c179185338a5e275",
     "fleet-control/backend/migration/tests/clarification_commands.rs": "6155a6b7445c7a9a74ec581a51b09ef04a89e790738458c1f6437263e69f4063",
@@ -300,6 +301,7 @@
     "fleet-control/backend/migration/tests/hermes_journal_time_order.rs": "8a4d973b337b3dfe121de559a08db691214ea884abea39ab4f93f657d8a2d87e",
     "fleet-control/backend/migration/tests/mapped_controller_recovery.rs": "1282967e3865e6e0a61b2a60e7ece6c707cd135253ba781507bc722dcd8a9574",
     "fleet-control/backend/migration/tests/message_order.rs": "1a9ca88498c5dd0eca875887b0aeb97cc533d813b8d161ffb5f24c4301809e46",
+    "fleet-control/backend/migration/tests/pm_ack_bounds.rs": "be6e71f8ef796ed07e6d02dd56e4ab559f12d20ad2b82323d52f2a7b3b973dbf",
     "fleet-control/backend/migration/tests/pm_credentials.rs": "d4a3f240a78d8c1afc29b97d17aac29179459b4ff96b23d023450ee9c787c463",
     "fleet-control/backend/migration/tests/recovered_activation.rs": "f76696f05cde5c94e86247cc030cfd7f9f370eaf3d16841d911fd1c5c2e3b297",
     "fleet-control/backend/migration/tests/runtime_controls.rs": "7860e5d77acda234169bc9f393ae3e98b1bf9a3ce7c309db64122988ff8a49a2",
@@ -317,7 +319,7 @@
     "fleet-control/backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "fleet-control/backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a",
     "fleet-control/backend/tests/fixtures/.gitkeep": "1d85c5ed38a3fd81f2faaea018843e4fe329fd190486a34000e756cfba90a618",
-    "fleet-control/docs/TESTING.md": "40fae615a26760e7798ea89cc2e9e9b1a39a36013d59df4c8726eb0b2479c13c",
+    "fleet-control/docs/TESTING.md": "7529cd8684782262d45eef2ac41e204122fcc1b596769c574acaff4be7c016d2",
     "fleet-control/openapi/README.md": "2ede8bc480b593789d2192f5f5e82c21475921d616f063cb3bfe2a9dd55ebfe3",
     "fleet-control/openapi/openapi.json": "afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501",
     "fleet-control/scripts/check_container_activation_contract.py": "80569d79dfef7cf3f16126eb0523ca1ad3da8941cdd255d8290dbcf9fc1fa12a",
@@ -415,22 +417,9 @@
   "config_union_preparation": {
     "activation_diagnostic_commit": "ab222f0499de5d2394cff6d32af659bc3c94396e",
     "activation_intent_cases": 20,
-    "authentic_union_codegen_pending": false,
-    "codegen_evidence": {
-      "artifact_bound_source_commit": "ce4153f453e730dad1e315131d65ca030243264c",
-      "artifact_id": 11671964606,
-      "artifact_zip_sha256": "d209ef81e0f962dae8f1465852a0b06dcb6faacdd350ff85b5fda95a980c75cf",
-      "reported_by_parent": true,
-      "run_attempt": 1,
-      "run_id": 38058114502,
-      "schema_sha256": "afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501",
-      "source_commit": "ce4153f453e730dad1e315131d65ca030243264c",
-      "source_file_count": 303,
-      "source_inventory_sha256": "95ab4d1ff7b20675b38dfdab686360ab6348bde52409b92849c60475b35a5546",
-      "source_tree": "67ea7aa66bf66f803226abbd4893be7517ca3317",
-      "workflow_commit": "e8fd29e4d45c749ac601d743a09400867f9635e6"
-    },
-    "compiled_inventory_includes_pre_regen_schema": false,
+    "authentic_union_codegen_pending": true,
+    "codegen_evidence": null,
+    "compiled_inventory_includes_pre_regen_schema": true,
     "controls_donor": "a7d7db205ee2ef7e480b5dc559156ad373135180",
     "executed": false,
     "final_qualified_source_pending": false,
@@ -454,18 +443,18 @@
       "workflow_commit": "b22971dbfbc0476b7789f94fa28999581e17da08"
     },
     "prior_exact_source_codegen_evidence": {
-      "artifact_bound_source_commit": "3c900b00f15aeda2016a45d080d850fa028cdcfd",
-      "artifact_id": 11669374937,
-      "artifact_zip_sha256": "8283b599e66dc66d5a05e961ae2b59bc5dffc1c408f7d2f35352608198730701",
+      "artifact_bound_source_commit": "ce4153f453e730dad1e315131d65ca030243264c",
+      "artifact_id": 11671964606,
+      "artifact_zip_sha256": "d209ef81e0f962dae8f1465852a0b06dcb6faacdd350ff85b5fda95a980c75cf",
       "reported_by_parent": true,
       "run_attempt": 1,
-      "run_id": 38052082418,
-      "schema_sha256": "e1b17e723abf43866c4f913c9fa4fba8b201bef5e3532b4a8f6cdc32ccbcce76",
-      "source_commit": "3c900b00f15aeda2016a45d080d850fa028cdcfd",
+      "run_id": 38058114502,
+      "schema_sha256": "afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501",
+      "source_commit": "ce4153f453e730dad1e315131d65ca030243264c",
       "source_file_count": 303,
-      "source_inventory_sha256": "4ab1c70324a3b184096a69ed1dbdd72bcbf5f993fbdc1ecc6b01fb643f650457",
-      "source_tree": "b975beb628bb68c03fb5bce45e7c43085837e41f",
-      "workflow_commit": "91a1c48c7a3f0cfad33586fb55c45f47ff864bc2"
+      "source_inventory_sha256": "95ab4d1ff7b20675b38dfdab686360ab6348bde52409b92849c60475b35a5546",
+      "source_tree": "67ea7aa66bf66f803226abbd4893be7517ca3317",
+      "workflow_commit": "e8fd29e4d45c749ac601d743a09400867f9635e6"
     },
     "prior_recovery_codegen_evidence": {
       "api_dependency_closure": [
@@ -507,7 +496,7 @@
       "workflow_commit": "eed4bc54149e1b317c5eb3e3e7c628eeaffbdea4"
     },
     "prior_stages_preserved": 74,
-    "source_commit": "ce4153f453e730dad1e315131d65ca030243264c"
+    "source_commit": "3445d922852026bb7ca08ea42186ca7028c7968b"
   },
   "default_foundation_ignored": 124,
   "executed": false,
@@ -835,6 +824,8 @@
       "pm_draft_creation::namespace_revocation_blocks_remote_mutations_and_replayed_creation",
       "pm_draft_creation::public_creation_and_readback_require_human_owner_and_fresh_project_access",
       "pm_events::pm_disabled_continuation_is_pending_for_custody_not_required_only_when_absent",
+      "pm_events::pm_http_disabled_dispatch_denies_foreign_pins_and_unknown_ack",
+      "pm_events::pm_http_disabled_dispatch_recovers_accepted_sse_and_terminal_once",
       "pm_events::pm_http_eof_requires_independent_terminal_readback",
       "pm_events::pm_http_foreign_session_and_unknown_ack_never_release_or_redispatch",
       "pm_events::pm_http_restart_follow_cumulative_redacted_deltas_and_final_message",
@@ -957,6 +948,9 @@
     "package_effective_unit": [
       "tests::base_package_effective_readback_all_roles_rejects_unattested_support",
       "tests::base_package_effective_readback_uses_git_pin_and_closed_home_inventory"
+    ],
+    "pm_ack_migration": [
+      "pm_ack_bounds_repairs_installed_022_preserving_custody_and_empty_roundtrip"
     ],
     "pm_human_controls": [
       "pm_human_controls::http_delivered_answer_pending_resume_survives_reload_revoke_and_exact_id_recovery",
@@ -2493,7 +2487,7 @@
     },
     {
       "gate": "lineage10",
-      "line": 212,
+      "line": 220,
       "name": "lineage_tests::fresh_canonical_install_is_repeatable",
       "package": "migration",
       "source": "backend/migration/src/lineage_tests.rs",
@@ -2502,7 +2496,7 @@
     },
     {
       "gate": "lineage10",
-      "line": 247,
+      "line": 255,
       "name": "lineage_tests::common_prefix_completes_with_canonical_foundation",
       "package": "migration",
       "source": "backend/migration/src/lineage_tests.rs",
@@ -2511,7 +2505,7 @@
     },
     {
       "gate": "lineage10",
-      "line": 264,
+      "line": 272,
       "name": "lineage_tests::split_down_one_and_reapply_preserves_other_history",
       "package": "migration",
       "source": "backend/migration/src/lineage_tests.rs",
@@ -2520,7 +2514,7 @@
     },
     {
       "gate": "lineage10",
-      "line": 293,
+      "line": 301,
       "name": "lineage_tests::complete_split_history_preserves_data_and_ledger",
       "package": "migration",
       "source": "backend/migration/src/lineage_tests.rs",
@@ -2529,7 +2523,7 @@
     },
     {
       "gate": "lineage10",
-      "line": 326,
+      "line": 334,
       "name": "lineage_tests::partial_split_history_completes_only_missing_versions",
       "package": "migration",
       "source": "backend/migration/src/lineage_tests.rs",
@@ -2538,7 +2532,7 @@
     },
     {
       "gate": "lineage10",
-      "line": 350,
+      "line": 358,
       "name": "lineage_tests::unknown_history_fails_without_rewriting_data_or_ledger",
       "package": "migration",
       "source": "backend/migration/src/lineage_tests.rs",
@@ -2547,7 +2541,7 @@
     },
     {
       "gate": "lineage10",
-      "line": 369,
+      "line": 377,
       "name": "lineage_tests::mixed_history_fails_without_rewriting_data_or_ledger",
       "package": "migration",
       "source": "backend/migration/src/lineage_tests.rs",
@@ -2556,7 +2550,7 @@
     },
     {
       "gate": "lineage10",
-      "line": 433,
+      "line": 441,
       "name": "lineage_tests::both_accepted_foundations_upgrade_task_chats_without_legacy_rebinding",
       "package": "migration",
       "source": "backend/migration/src/lineage_tests.rs",
@@ -2565,7 +2559,7 @@
     },
     {
       "gate": "lineage10",
-      "line": 513,
+      "line": 521,
       "name": "lineage_tests::task_chat_downgrade_preserves_unmessaged_binding_and_draft_operation",
       "package": "migration",
       "source": "backend/migration/src/lineage_tests.rs",
@@ -2645,6 +2639,15 @@
       "target_kind": "test"
     },
     {
+      "gate": "pm_ack_migration",
+      "line": 67,
+      "name": "pm_ack_bounds_repairs_installed_022_preserving_custody_and_empty_roundtrip",
+      "package": "migration",
+      "source": "backend/migration/tests/pm_ack_bounds.rs",
+      "target": "pm_ack_bounds",
+      "target_kind": "test"
+    },
+    {
       "gate": "credentials_migration",
       "line": 7,
       "name": "credentials_additive_upgrade_preserves_legacy_operation_and_empty_downgrade",
@@ -2711,7 +2714,8 @@
       "m20261010_000020_clarification_commands",
       "m20261010_000021_activation_authority_alias",
       "m20261010_000022_pm_dispatch",
-      "m20261010_000023_pm_human_controls"
+      "m20261010_000023_pm_human_controls",
+      "m20261010_000024_pm_ack_bounds"
     ],
     "split": [
       "m20260901_000001_fleet_control",
@@ -2740,12 +2744,13 @@
       "m20261010_000020_clarification_commands",
       "m20261010_000021_activation_authority_alias",
       "m20261010_000022_pm_dispatch",
-      "m20261010_000023_pm_human_controls"
+      "m20261010_000023_pm_human_controls",
+      "m20261010_000024_pm_ack_bounds"
     ]
   },
   "openapi_binding": {
-    "sha256": "afa46ac37b726232eda73df46c24d1d42c796f8873eefb68454fbe0f243df501",
-    "status": "verified"
+    "sha256": null,
+    "status": "pending_authentic_codegen"
   },
   "package_input": {
     "commit": "4b9b4c9297a13fb28a6ba2039af2f7cb719f2f58",
@@ -2942,7 +2947,7 @@
     "backend/infra/src/pm_draft.rs": "14a4abde0ef4c150833888f3189779b831d31b755bc9d5e59b2ebde573c55718",
     "backend/infra/src/pm_execution.rs": "eabb9af68299644bfa890c866997a1b08319e69a202157a1d80398c538276e37",
     "backend/infra/src/pm_tool_config.rs": "42fc72111ae3d4e06345984157e790ac1e22518efc65ed5e0aa5eb65f1a8b6d1",
-    "backend/infra/src/runtime/acceptance_readback.rs": "79cfda0e640e043bbcf3566740e929e05683711dc613bb95aaf0e364684cda4d",
+    "backend/infra/src/runtime/acceptance_readback.rs": "587e4b003e63221ad2eb9a540dd2707ac3ecb4255f66e59c4a5f710df42c5446",
     "backend/infra/src/runtime/approval_snapshot.rs": "78b842f5635feba0c89509770c0e927df95fd3da7d9ca6b166b23cfd04b13f5f",
     "backend/infra/src/runtime/container_activation.rs": "0f40cae8beed991c9e1222ef696b9e5ffbe01ae24b1ad320acd65c09b6929bce",
     "backend/infra/src/runtime/container_control.rs": "d0ee81fd284b9439904fe573430aea15785b9588e1403b1df5d98a8cf6db0725",
@@ -2958,7 +2963,7 @@
     "backend/infra/src/runtime/native_context.rs": "201a9b00094a67ddd9ed60ff7a0432cbb9688d4faa40f63384af09915581eb55",
     "backend/infra/src/runtime/pm_continuation.rs": "5f0ac8d8a46bae9452ac89fd607148328a2b8e5052674c6ba9c767ccce4afc0b",
     "backend/infra/src/runtime/pm_dispatch.rs": "5c67b7ed21e253a2068bcc6b634b850722c524fb923dfaf8ec36bbe290c4f697",
-    "backend/infra/src/runtime/pm_events.rs": "4557e8de8e04f34e9420a28459b5509b4240cde1cc37c1d6c1d717da7b711edd",
+    "backend/infra/src/runtime/pm_events.rs": "08c38c979248ae9ae918fdc4cdbd1ace6fd2a59f46f62e5e508a1ed941867743",
     "backend/infra/src/runtime/pm_readback.rs": "86e2d2138f770d7451e53cc10d3a5790d6c8b58eb6bf3a3ffc6cb6b1a2b7a708",
     "backend/infra/src/runtime/pm_recovery.rs": "80e3fe8e7f2293dfb8406cd4e7f35b80c556e68fc4be002bbc25daa3f7ce5e67",
     "backend/infra/src/runtime/pm_recovery_pg_tests.rs": "8ed16f089ee3bef3905dc2be66bc76856fa8c24c047a494b36272858915bdec6",
@@ -2990,9 +2995,9 @@
     "backend/infra/tests/support/hermes_dispatch_journal.rs": "c1fb6a5519b4ab9dcb0a350c76bbc01d0bf5cb56bbbd2c4bc896b2d6ae5f4d05",
     "backend/infra/tests/support/hermes_protocol_fixture.rs": "e7173c88917f5d3f442462271d79b38d83c856b9396d033f503dc97dae6b445e",
     "backend/infra/tests/support/pm_credential_creation.rs": "147c5dbf9634cb3b22556ea159e30cf52807e9f6931d448d5fb73427dc288671",
-    "backend/infra/tests/support/pm_dispatch.rs": "e67f01495ca5500aa4a7f15b9db9dda09a76ea8ae49c437624d3d92bf649ca27",
+    "backend/infra/tests/support/pm_dispatch.rs": "1db3a0579affb6a05c3e9433a434ecfdbb482e2303ce7260e52edc687e4e29d3",
     "backend/infra/tests/support/pm_draft_creation.rs": "ac8266c52998abb22702b5a2a454ae101471cbfc4d84a53d7846f0e0ebd8883f",
-    "backend/infra/tests/support/pm_events.rs": "c00dce8c2a4f6eb5bbb04fdc3ee9a648c32ff6e6b00d8ca1f4d5a8dda5cd5932",
+    "backend/infra/tests/support/pm_events.rs": "df215a5e55725227ffa035f01c1cfd40b2dc9c433e439aefbd6b63df8528aab6",
     "backend/infra/tests/support/pm_human_controls.rs": "ac6d72e106e135edda22a5d944c23f92b187999ffca9eb2ac6321cd4e4ecba16",
     "backend/infra/tests/support/runtime_acceptance.rs": "45416320e99ce5a9d6315ec2c973ab045a4ba3cbfad019100c4adbe0e953b993",
     "backend/infra/tests/support/runtime_acceptance_readback_http.rs": "c8d19de02071414eab6f886e2daa66c43d7aa923d3b0328fae33c62381a99c55",
@@ -3005,8 +3010,8 @@
     "backend/infra/tests/support/runtime_stream_bounds.rs": "a1808321e84c8150904baaeb8f165618134e26fdda578ebe52ca17a4b6f1a178",
     "backend/infra/tests/support/runtime_terminal.rs": "afeb8e1487e3b8d29ea0e26d8e65c9ae70e39f3791a4b309324111fad5b2212f",
     "backend/infra/tests/support/runtime_unknown_recovery.rs": "8e7bc9eb88f7934572756bcfc77cbb54ce4f435148fa6adc4e0bf05362c23848",
-    "backend/migration/src/lib.rs": "c3329cfe93b89a5073b20ade46ef83759b7a93604d8c7b8279a08d6e8ee76059",
-    "backend/migration/src/lineage_tests.rs": "14ef018fbb55b4833af846caefa7e9d1cc61c29aa645923b38976480a5b8e1ed",
+    "backend/migration/src/lib.rs": "6bdfa6fd7d66c218d0af78632518e1704ef5a454719e6a20528ebd9460ca93a3",
+    "backend/migration/src/lineage_tests.rs": "e23963b0a25f6730fe812c00613a92f5c7d6d4625449bfcd8bbbb9983d9c6806",
     "backend/migration/src/m20260901_000001_fleet_control.rs": "4233864b48d995ded086df33f49a72bb7955f9474892f1317fe346115a34608b",
     "backend/migration/src/m20260901_000002_session_users.rs": "736f64d760a6c1d061f7c986fc2bec124071cf07d6740305905bbf0db769445b",
     "backend/migration/src/m20260901_000003_leaders_sessions.rs": "beebfbf6370edaf682136238cc8f00e26de87f4b611f00e81e13ba670961650f",
@@ -3035,6 +3040,7 @@
     "backend/migration/src/m20261010_000021_activation_authority_alias.rs": "9e72de2d30f81dfe0b9787cc5aaa2b59f6572861352c48b35e1d56d737a9c39f",
     "backend/migration/src/m20261010_000022_pm_dispatch.rs": "2665d63e0c24fa94bb02f5c1e37ba1639d93f8d9c538ad6dcc203e27281e46ed",
     "backend/migration/src/m20261010_000023_pm_human_controls.rs": "27a54c08073e054ce8498ad8cc4f14e8c3866418627f5533bd3750c96c00f51e",
+    "backend/migration/src/m20261010_000024_pm_ack_bounds.rs": "970bef40afaf4987fe9ccefe68399d1be76601381c62af4edfed969e9de9881c",
     "backend/migration/src/main.rs": "f3b909b740d719ab257a55470645cd293f07a01cec34a804ee679a17e8c9427c",
     "backend/migration/tests/central_subject.rs": "23b3a4e4b2cad68436acb6e8860c31927311ea1879083195c179185338a5e275",
     "backend/migration/tests/clarification_commands.rs": "6155a6b7445c7a9a74ec581a51b09ef04a89e790738458c1f6437263e69f4063",
@@ -3045,6 +3051,7 @@
     "backend/migration/tests/hermes_journal_time_order.rs": "8a4d973b337b3dfe121de559a08db691214ea884abea39ab4f93f657d8a2d87e",
     "backend/migration/tests/mapped_controller_recovery.rs": "1282967e3865e6e0a61b2a60e7ece6c707cd135253ba781507bc722dcd8a9574",
     "backend/migration/tests/message_order.rs": "1a9ca88498c5dd0eca875887b0aeb97cc533d813b8d161ffb5f24c4301809e46",
+    "backend/migration/tests/pm_ack_bounds.rs": "be6e71f8ef796ed07e6d02dd56e4ab559f12d20ad2b82323d52f2a7b3b973dbf",
     "backend/migration/tests/pm_credentials.rs": "d4a3f240a78d8c1afc29b97d17aac29179459b4ff96b23d023450ee9c787c463",
     "backend/migration/tests/recovered_activation.rs": "f76696f05cde5c94e86247cc030cfd7f9f370eaf3d16841d911fd1c5c2e3b297",
     "backend/migration/tests/runtime_controls.rs": "7860e5d77acda234169bc9f393ae3e98b1bf9a3ce7c309db64122988ff8a49a2",
@@ -3059,7 +3066,7 @@
     "backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a"
   },
-  "source_commit": "ce4153f453e730dad1e315131d65ca030243264c",
+  "source_commit": "3445d922852026bb7ca08ea42186ca7028c7968b",
   "utility_source_sha256": {
     "scripts/runtime_bootstrap.py": "5be8066b6f7dc68f8dda7f1040c0626dad272477c019b07263821df7f86b59a2",
     "scripts/runtime_boundary.py": "2e6bfa6907b93e6d436d2b6668ae20211aca53a64c433f7e1a98ab51245b3e89",
@@ -5603,28 +5610,28 @@
     },
     {
       "ignored": false,
-      "line": 474,
+      "line": 504,
       "name": "pm_drain_and_owner_revocation_block_the_unconsumed_submission",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_dispatch.rs"
     },
     {
       "ignored": false,
-      "line": 504,
+      "line": 534,
       "name": "pm_guidance_unknown_is_not_retried_and_delivered_ack_does_not_complete_the_run",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_dispatch.rs"
     },
     {
       "ignored": false,
-      "line": 542,
+      "line": 572,
       "name": "pm_claims_complete_with_one_physical_connection_without_second_pool_acquisition",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_dispatch.rs"
     },
     {
       "ignored": false,
-      "line": 611,
+      "line": 641,
       "name": "pm_downgrade_refuses_unknown_known_and_guidance_custody_without_changing_ledger",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_dispatch.rs"
@@ -5694,22 +5701,36 @@
     },
     {
       "ignored": false,
-      "line": 506,
+      "line": 585,
       "name": "pm_http_restart_follow_cumulative_redacted_deltas_and_final_message",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_events.rs"
     },
     {
       "ignored": false,
-      "line": 510,
+      "line": 589,
       "name": "pm_http_eof_requires_independent_terminal_readback",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_events.rs"
     },
     {
       "ignored": false,
-      "line": 515,
+      "line": 594,
       "name": "pm_http_foreign_session_and_unknown_ack_never_release_or_redispatch",
+      "package": "infra",
+      "source": "backend/infra/tests/support/pm_events.rs"
+    },
+    {
+      "ignored": false,
+      "line": 600,
+      "name": "pm_http_disabled_dispatch_recovers_accepted_sse_and_terminal_once",
+      "package": "infra",
+      "source": "backend/infra/tests/support/pm_events.rs"
+    },
+    {
+      "ignored": false,
+      "line": 606,
+      "name": "pm_http_disabled_dispatch_denies_foreign_pins_and_unknown_ack",
       "package": "infra",
       "source": "backend/infra/tests/support/pm_events.rs"
     },
@@ -5722,7 +5743,7 @@
     },
     {
       "ignored": false,
-      "line": 59,
+      "line": 65,
       "name": "registered_versions_match_lineage_discriminators",
       "package": "migration",
       "source": "backend/migration/src/lineage_tests.rs"
