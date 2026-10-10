@@ -12,24 +12,33 @@ a new exact-source full Linux/PG gate. Production authority predicates stay inta
 C11 run38021888246 fails runtime_inventory with both cleanup checks successful.
 Closed authenticated terminal telemetry, not raw logs, establishes the stage;
 no failure artifact or actual credential/Auth result exists. Diagnose the strict
-source/compiler inventory without waiving unknown tests. Worker successor6870ea0
-adds five PG/one unit credential regressions but has formatting/static evidence
-only; it is not qualified by the earlier frozen994 run.
+source/compiler inventory without waiving unknown tests. Compilation/linking in
+that stage may also fail; no list mismatch has been proved. Reviewed diagnostics
+successor4244772 retains frozen994,28 stages and242/17 counts; actual new
+run38024208930 is active. Worker successors6870ea0/4358dea add five PG/one unit
+credential cases and one real-Auth expiry/restart case, with formatting/static
+evidence only. Their strict successor controls are being prepared separately;
+neither source is qualified by the frozen994 runs.
 
 Frontend38022762729 fails preparation, with authenticated failure artifact
 11658544399. The reproduced Windows archive conversion affected only the local
 source inventory oracle. Normal successorbea500d pins all835 canonical Git blobs
 and retains23 standard gates/default pool/engines. Its67 pure tests pass on both
-platforms; run38023185173 is active, not accepted. Earlier browser failure38019603974
-and live PM/native/Forge gaps remain open. See the current
+platforms; run38023185173 completes FAILURE in three-browser fixtures after the
+default348 unit/build/theme/format gates pass. Fresh captures/manifest are skipped.
+Safe failure upload succeeded, but authenticated readback/root-cause analysis
+remain pending with the UI worker. Earlier browser failure38019603974 and live
+PM/native/Forge gaps remain open. See the current
 [delivery matrix](REMAINING_DELIVERY_WORK.md) for dependencies and stop/go.
 
 Follow-up publication: source56daff9/controls6f648430 starts full81-stage
 run38023648801, confirmed active. All167 ignored tests and prior337 default
 identities remain; new canonical-hash golden raises defaults to338. Independent
 380-input verification and110 Linux pure tests pass, not actual activation PG.
-Frontend38023185173 has reached the three-browser fixture step after default348
-unit/build gates; full browser/screens/live evidence remains open.
+The default348 hosted unit result is now actual evidence, not a replacement for
+the failed browser gate or missing fresh screenshots/live flow. Host-only native
+capacity recheck still fails the unchanged6/6GiB physical/commit guards; disk
+passes30GiB. No Docker/build/native operation or resource waiver follows.
 
 ## Earlier Release Checkpoints
 

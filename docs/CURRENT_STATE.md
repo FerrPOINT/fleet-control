@@ -17,8 +17,14 @@ C11 run38021888246/source994f29d/controlsc5ee9bc completes FAILURE at
 runtime_inventory. Authenticated, closed terminal telemetry identifies validation
 in gate_receipts and both cleanup checks; no compiler/test failure artifact was
 published. This is not a credential test result or real-Auth acceptance. Strict
-compiler/source inventory mismatch diagnosis is in progress, without dropping
-tests or changing counts to an unknown compiler listing.
+The stage includes test-binary compilation/linking before list verification;
+no compiler-list mismatch has been established. Normal diagnostics successor
+4244772 retains source994, all28 stages and242/17 expectations. Parent reviews
+the complete three-file diff and repeats112 Windows pure tests (108 pass,
+four explicit Linux-only skips); worker Linux112/112 is separate evidence.
+[Run38024208930](https://github.com/FerrPOINT/fleet-control/actions/runs/38024208930)
+is confirmed active on424, not credential or real-Auth acceptance. New687/435
+credential/expiry regressions remain separate, uncompiled source changes.
 
 Frontend run38022762729/source5cc1fbb/controlsdb82829 fails preparation before
 tests. Parent authenticates failure artifact11658544399, ZIP SHA256
@@ -30,7 +36,11 @@ give all835 source hashes and aggregate
 Normal controls successorbea500d changes only that pin. Its67 pure tests pass
 on Windows and Linux; all23 commands/default pool/three engines remain unchanged.
 [Run38023185173](https://github.com/FerrPOINT/fleet-control/actions/runs/38023185173)
-is confirmed active. No current browser/screens/live PM pass is claimed.
+completes FAILURE in the original three-browser fixture stage, after the
+default348 unit, typecheck/lint/build/theme/format gates pass. Fresh capture and
+manifest stages are skipped. A bounded failure artifact was uploaded; its
+authenticated readback and diagnosis are assigned to the UI worker. No artifact
+identity, browser count, screenshot or live PM acceptance is inferred here.
 
 The [remaining delivery map](REMAINING_DELIVERY_WORK.md) records independent
 owners, dependencies and stop/go criteria. Task Tracker/Workflow remain read-only.
@@ -41,10 +51,20 @@ published through controls6f648430. Independent qualification retains380 compile
 Git inputs/170 Rust files,167 ignored identities and all81 stages; it adds exactly
 one default declaration (338 total). Final110 Linux pure control tests pass.
 [Run38023648801](https://github.com/FerrPOINT/fleet-control/actions/runs/38023648801)
-is confirmed active on that exact source, not product acceptance. Frontend
-38023185173 has reached the original three-browser fixture step, after the
-standard default348 unit, typecheck/lint/build/theme/format gates. Its terminal
-browser/screens result remains open. Neither run is silently retargeted by docs.
+is confirmed active on that exact source, not product acceptance. It is not
+retargeted by later documentation or worker changes.
+
+Current parallel ownership: Curie owns browser-failure diagnosis and a scoped
+Chats fix; Feynman prepares strict C11 controls for the separate687/435 test
+successor; Pascal independently reviews real-Auth expiry/restart semantics.
+Parent owns runtime/full-backend acceptance, integration and publication.
+Tracker/Workflow and root Base foreign changes remain untouched.
+
+Fresh native image-build capacity observation still refuses execution: physical
+and commit headroom are below the unchanged6/6GiB guards; disk exceeds30GiB.
+No Docker/build/native operation was invoked by that host-only observation.
+Private Base PR180 remains exact815 and Draft; Forge PR88 remains exact9f4 and
+Draft. Neither metadata observation closes maintenance/image/full12 acceptance.
 
 ## Earlier Integration Checkpoints
 
