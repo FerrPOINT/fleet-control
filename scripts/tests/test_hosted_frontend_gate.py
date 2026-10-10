@@ -156,6 +156,16 @@ class SourceContracts(unittest.TestCase):
                          "source_bytes")
         self.assertEqual(gate.safe_failure_hint(ValueError(
             "Base materialized bytes differ from the pinned attribute contract")), "base_materialization")
+        self.assertEqual(len(set(gate.SAFE_FAILURE_HINTS.values())), len(gate.SAFE_FAILURE_HINTS))
+        for message, hint in gate.SAFE_FAILURE_HINTS.items():
+            with self.subTest(hint=hint):
+                self.assertRegex(hint, r"^[a-z_]+$")
+                self.assertEqual(gate.safe_failure_hint(ValueError(message)), hint)
+                for untrusted in ("PRIVATE_SENTINEL " + message, message + " PRIVATE_SENTINEL",
+                                  message + "\nPRIVATE_SENTINEL", "/private/" + message,
+                                  hint, message.swapcase()):
+                    self.assertEqual(gate.safe_failure_hint(ValueError(untrusted)), "unclassified")
+                self.assertEqual(gate.safe_failure_hint(KeyError(message)), "unclassified")
         for error in (OSError("PRIVATE_SENTINEL"), KeyError("PRIVATE_SENTINEL"),
                       ValueError("Source bytes differ from exact committed tree PRIVATE_SENTINEL")):
             self.assertEqual(gate.safe_failure_hint(error), "unclassified")
