@@ -9,11 +9,15 @@ Source integration is progress, not release acceptance. Its remaining gates are:
 
 Published controlsa7d7db2 now test that exact source in
 [run38011797295](https://github.com/FerrPOINT/fleet-control/actions/runs/38011797295).
-Exact-source/codegen preflight passes; the Linux/PostgreSQL gate is in progress
-at this checkpoint. The reviewed catalog lookup correction and strengthened
-same-connection/OID test still need its actual result. Historical38008974895's
-message_order failure is not a failure receipt for the successor. Neither pure
-diagnostic checks nor the absence of a new failure establishes backend success.
+The run completes FAILURE at container_activation_pg62/74, exit101. Parent
+authenticates artifact11654672637, digest
+889a5ed28791e8d43c0fb5075dcad58d316433181b7bfa88d2396be412163999,
+with successful scratch/synthetic DB cleanup. message_order19 now passes by
+verified sequential ordering. Eight recovered-activation cases fail at positive
+authorize unwraps107/133; the safe receipt identifies no underlying predicate or
+database cause. Add read-only test precondition probes, not relaxed authority or
+longer leases. The full backend remains unaccepted; historical38008974895's
+message_order failure does not become a root-cause receipt for this successor.
 
 **Configuration integration:** source688 does not contain PR64's standalone
 workflow/package configuration unit at820a1af. Its separate green CI is not

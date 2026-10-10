@@ -12,10 +12,10 @@ owned checkouts; Tracker and Workflow remain read-only references.
 
 | Owner | Independent work | Acceptance boundary |
 | ----- | ---------------- | ------------------- |
-| Pascal | Backend gate and external prerequisites | Watch actual38011797295 at controls a7d7db2/source6881c04 to terminal; authenticate the safe receipt and cleanup, without cancel/rerun or raw logs. Independently refresh published PM/Workflow and Forge/Base prerequisites, read-only; report actionable differences only. |
+| Pascal | Diagnose recovered-activation authorization | Actual38011797295 fails at container_activation_pg62/74; parent authenticates receipt/cleanup. Add only read-only test precondition assertions at the two known positive authorize sites, preserving all13 cases/guards/leases. No local PG or public push; production fix needs proof. External refresh complete. |
 | Feynman | Combine configuration and runtime guards | Release split complete:10 single-migration units plus5 without migrations. Own candidate normally merges PR64 at820 into688, preserving both guards, recovery custody and tests. No public push, repin, new migration or manual generated schema; authentic codegen/combined gates remain required. |
 | Anscombe | Completed selector correction6c022f3 and current-client captures | Two files/five added lines; lint/format/typecheck/focused test/build and six browser cases pass.27 fresh fixture captures; own processes removed. No backend/schema or live acceptance claim. |
-| Parent | Integration, corrections and publication | Source6881c04 is published; corrected controls a7d7db2 start actual38011797295. Integrate reviewed task-owned changes and maintain docs, preserving every authority/ledger assertion. No deployment or full backend acceptance before evidence. |
+| Parent | Integration, corrections and publication | Authenticate terminal38011797295 and review diagnostic/source candidates. Configuration normal merge3b09bd7 is prepared in owned worker checkout, not accepted or published; actual union codegen/client/combined gates remain. Preserve every authority/ledger assertion. |
 
 Ptolemy's codegen work is complete: run37999711562 succeeds and artifact11648708483
 contains authenticated schema874230b2. Parent independently reads it back and
@@ -37,7 +37,11 @@ and restored by a targeted normal local fetch; no history rewrite or foreign
 working-tree change is used to make the merge proceed.
 
 Current gate: [38011797295](https://github.com/FerrPOINT/fleet-control/actions/runs/38011797295),
-verified in progress at publication. Controls preserve all74 stages,9 journal
+now terminal FAILURE at container_activation_pg62. Parent authenticates safe
+artifact11654672637/digest889a5ed28791e8d43c0fb5075dcad58d316433181b7bfa88d2396be412163999;
+scratch and synthetic DB cleanup pass. message_order19 passes by sequential
+ordering. Positive authorize locations107/133 identify the next diagnostic scope,
+not a root cause or permission to weaken recovery predicates. Controls preserve all74 stages,9 journal
 cases, canonical21/split24 migrations,167 ignored/294 ordinary cases and all
 dependency/API pins. Source-to-controls delta remains exactly six additions;
 gate.sh and init.sql are unchanged. The fixed-hint parser now clears previous

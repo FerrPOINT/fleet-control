@@ -10,7 +10,7 @@ heads; they do not accept this assembly.
 
 | Current gate | Exact source / authority | State |
 | --- | --- | --- |
-| Combined backend | Source6881c04, controlsa7d7db2, run38011797295 | Linux/PG gate in progress; no full backend acceptance |
+| Combined backend | Source6881c04, controlsa7d7db2, run38011797295 | FAILURE at container_activation_pg, stage62/74; message_order passes |
 | Config release PR64 | Head820a1af, run38008810511, dependency PR47 at11f97aa | Separate five-job PASS; not integrated into688; combined candidate pending |
 | Production Chats presentation | Frontend tree13ccbaba, correction6c022f3 |42 unit cases and six three-engine fixture cases pass; no live PM acceptance |
 | PM model admission | `app::pm_draft` creation and scoped credential preparation | Stops at awaiting_admission; no pre-model execution authority |
@@ -21,8 +21,17 @@ The run states are publication checkpoints, not live status widgets. Terminal
 results must be authenticated before changing acceptance. Documentation-only
 successors do not change the frozen source of either CI run.
 
-Run38011797295 passes exact-source/codegen preflight and reaches the full
-Linux/PostgreSQL step. The source includes the reviewed parameterized catalog
+Run38011797295 completes FAILURE at container_activation_pg, exit101. Parent
+authenticates safe artifact11654672637, ZIP SHA256
+889a5ed28791e8d43c0fb5075dcad58d316433181b7bfa88d2396be412163999;
+owned scratch and synthetic database cleanup both pass. Eight recovered-activation
+cases fail at the shared positive authorization unwraps107/133, not seed inserts.
+The receipt does not reveal which protected predicate or authority insert failed.
+Test-only read-only precondition diagnostics are the next step; no lease, guard
+or production assertion is weakened. Sequential stage ordering verifies that
+message_order19 and all earlier stages complete before failure62. This accepts
+the same-connection roundtrip in this run, not the older failure's exact cause.
+The source includes the reviewed parameterized catalog
 lookups and same-connection/OID roundtrip regression after historical38008974895's
 message_order failure. Controls change no gate inventory or authority:74 stages,
 9 journal cases,21 canonical/24 split migrations and dependency pins remain.
