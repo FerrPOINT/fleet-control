@@ -2,6 +2,16 @@
 
 ## Current Integration Snapshot: 10 October 2026
 
+Newest source checkpoint: normal mergef2e8495 integrates8c2d3c's seven additional
+Chats browser fixtures. The real generated-client frontend suite passes348/348
+tests in36 files using Node22/threads/one worker. No browser pass is claimed.
+Backend producte369fed and reviewed controlseb214954 are normally published;
+[run38021438217](https://github.com/FerrPOINT/fleet-control/actions/runs/38021438217)
+is confirmed active in the full81-stage Linux/PG gate. All167 ignored identities,
+migration registries and input pins are retained. Control tests pass110/110 on
+Linux, not product acceptance. The scan-pacing correction and stronger101-record
+regression still require the actual hosted result.
+
 Latest terminal checkpoint supersedes historical in-progress text below:
 backend38018281445 (source1303be6, controls9e838718) fails approval_recovery;
 frontend38019603974 (sourceb0ad56c, controlsba60890) fails the original three-browser

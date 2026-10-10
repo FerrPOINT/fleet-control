@@ -2,6 +2,13 @@
 
 ## Current Open Release Gates: 10 October 2026
 
+Newest checkpoint: e369fed corrects per-page recovery idle latency and retains
+the historical regression selector while strengthening it to101 records. Reviewed
+controlseb214954 are normally published and run38021438217 is active. The full
+product/PG result remains open;110 Linux control tests do not resolve the old
+failure. New frontendf2e8495 passes348/348 unit tests in36 files, but its seven
+new browser fixtures, full browser gate and fresh screenshots remain unexecuted.
+
 Latest terminal checkpoint supersedes historical in-progress text below.
 Backend38018281445 fails approval_recovery, with authenticated safe artifact
 11657906403/ZIP62d8e61e25cb71f61e38f5f7a95316c8a8267bc6d18c367289ddd662a80a4fb4.
