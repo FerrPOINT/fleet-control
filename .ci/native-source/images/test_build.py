@@ -645,7 +645,9 @@ class CandidateBuildDiagnosticTests(unittest.TestCase):
                  and any(key.arg == "candidate_kind" for key in node.keywords)]
         self.assertEqual(len(calls), 1)
         self.assertEqual(ast.unparse(calls[0].keywords[0].value), "kind")
-        self.assertIn("['build', '--builder', builder, '--pull=false', '--no-cache', '--provenance=mode=max', kind + '-image']", ast.unparse(calls[0]))
+        self.assertIn("['build', '--builder', builder, '--pull=false', '--no-cache', kind + '-image']", ast.unparse(calls[0]))
+        self.assertNotIn("--provenance", ast.unparse(execute))
+        self.assertNotIn("--sbom", ast.unparse(execute))
 
     def test_complete_anchored_rust_frames_only_with_actual_buildkit_prefixes(self):
         for prefix in (b"", b"#16 35.89 ", b"35.89 "):

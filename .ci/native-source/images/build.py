@@ -519,7 +519,7 @@ def execute(root, ack, context, builder):
             if kind == "hermes" and image(docker, spec["services"]["controller-image"]["image"]) != candidates["controller"]:
                 raise BuildFailure("controller_input_changed")
             operation = "candidate_build"
-            logged(command + ["build", "--builder", builder, "--pull=false", "--no-cache", "--provenance=mode=max", kind + "-image"],
+            logged(command + ["build", "--builder", builder, "--pull=false", "--no-cache", kind + "-image"],
                    root / "evidence" / (kind + "-build.log"), candidate_kind=kind)
             operation = "candidate_metadata"
             value = image(docker, spec["services"][kind + "-image"]["image"])

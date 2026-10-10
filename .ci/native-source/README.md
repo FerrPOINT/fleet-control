@@ -95,8 +95,8 @@ prevents success output; terminal VM teardown is not cleanup evidence.
 The authored caller requires parent/independent review before publication. Its
 public preflight verifies the exact source tuple and additions before any private
 Base token use. All35 copied QA/image files match component
-`72e20098026c207fc91a39d9e3e12c88d6616f23`; their compact path/SHA256 map digest is
-`f8b89add449bb286d2d34e34316adae2c8336f16a934648277145793062aa8da`.
+`49decc717fa17726e6e72f6533a9905c709cbd83`; their compact path/SHA256 map digest is
+`e721784ae16eb2d825134ac158c3951f99aba62e3896ea8d266e4b65a194b648`.
 Only this README and the workflow are caller-specific. No cache, Git donor,
 credentials or prepared packet is included. In that one host job, set absolute
 exact Git input directories (no dependency copies):
@@ -200,7 +200,7 @@ prefixes; the list is a bounded subset, not a complete compiler inventory.
 Complete anchored existing CLI/recipe refusals can also establish
 docker_cli_refused, compose_config_refused, pinned_fetch_refused,
 pinned_hash_refused, apt_refused or account_refused in either a full log or tail.
-Only the exact current build flags, Compose build shape and UID/GID999 are
+Only the current or retained historical build flags, Compose build shape and UID/GID999 are
 recognized. The existing fetch script's closed ValueError proves a fetch
 refusal, not a hash mismatch; only the explicit checksum-check diagnostic maps
 to pinned_hash_refused. Generic summaries, incomplete lines or conflicting
@@ -218,3 +218,25 @@ The direct qualified source would be5db only. Later UI-only aca/152 commits and
 the subsequent infra test-only fixture repair require explicit source parity
 review, not a claim that this job directly checked their heads. They do not
 replace the frozen source inventory or introduce PM/F6 coverage.
+
+## Host Compose compatibility
+
+Run38078412938 used runner image20261004.327.1, whose official software manifest
+lists host Compose2.38.2. This version supports builder/pull/no-cache but not the
+provenance flag introduced in2.39.0. The cold image's Docker pin does not select
+the host CLI. The closed failure retained docker_cli_refused/controller/exit1,
+not the flag name; the compatibility defect is independently source-attested.
+
+The successor removes only optional `--provenance=mode=max` from the existing
+Compose build command. Repository plans/contracts and the actual qualification,
+source, ELF/native and receipt validators have no BuildKit/SLSA attestation
+consumer or max-metadata requirement. This is an explicit compatibility
+simplification, not a waiver of required acceptance or a SLSA claim.
+`--builder`, `--pull=false` and `--no-cache`, recipes, all existing pins,
+resources, same-daemon checks, matrices, cleanup and validators remain unchanged.
+No host plugin bootstrap/upgrade, Docker config, daemon/store change, new
+transport, step or fallback is introduced. Native execution remains pending.
+
+Evidence: [actual runner software manifest](https://github.com/actions/runner-images/blob/e3fe113a581eb9a44ca43f479b69f9c93f36df34/images/ubuntu/Ubuntu2404-Readme.md#L75),
+[Compose2.38.2 build flags](https://github.com/docker/compose/blob/9e17a091be5abf792fcb4c4e35a80a7cc51cbe6b/cmd/compose/build.go#L123),
+[Compose2.39.0 release](https://github.com/docker/compose/releases/tag/v2.39.0).
