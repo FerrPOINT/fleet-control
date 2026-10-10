@@ -12,10 +12,10 @@ owned checkouts; Tracker and Workflow remain read-only references.
 
 | Owner | Independent work | Acceptance boundary |
 | ----- | ---------------- | ------------------- |
-| Pascal | Observe actual corrected backend run38008974895 | Baseline correction independently reviewed; controlsf34ed9b/source5d91b13 published with74/9/21/24/167/294 unchanged. Authenticate terminal safe artifact without raw logs or blind retry. |
-| Feynman | Completed fresh PR64 CI38008810511 watch | All five exact-head jobs SUCCESS on820a1af. Parent independently verifies head/jobs and zero review threads; main/Draft/CLEAN/MERGEABLE. No source/merge/ready changes or duplicate backend watch. |
+| Pascal | Safe test-reason diagnostic categories | Actual38008974895 fails message_order; safe artifact independently authenticated. Add only fixed enum hints and strict parser/readback regression tests in owned controls; preserve all74 gates/source inventory/pins, no push or rerun. |
+| Feynman | Review candidate late-bound migration lookups | PR64 CI watch complete, all five jobs PASS. Independently review four Rust files addressing the source OID hazard and strengthening same-connection roundtrip. No product writes, native execution or causal CI claim. |
 | Anscombe | Completed selector correction6c022f3 and current-client captures | Two files/five added lines; lint/format/typecheck/focused test/build and six browser cases pass.27 fresh fixture captures; own processes removed. No backend/schema or live acceptance claim. |
-| Parent | Integrate reviewed fixes and qualify release evidence | Clarification baseline correction5d91b13 and controlsf34ed9b are published. Preserve pending run identity and every authority assertion; integrate terminal evidence only after independent verification. Maintain docs and release boundaries without duplicating the two CI watches. |
+| Parent | Correct the migration roundtrip and integrate release evidence | Authenticate actual380089 failure; implement parameterized current-object lookup and stable-connection/OID regression. Review worker controls, preserve every authority/ledger assertion and publish only after exact-source checks. |
 
 Ptolemy's codegen work is complete: run37999711562 succeeds and artifact11648708483
 contains authenticated schema874230b2. Parent independently reads it back and

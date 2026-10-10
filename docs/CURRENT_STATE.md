@@ -10,7 +10,7 @@ heads; they do not accept this assembly.
 
 | Current gate | Exact source / authority | State |
 | --- | --- | --- |
-| Combined backend | Source5d91b13, controlsf34ed9b, run38008974895 | In progress; no full backend acceptance |
+| Combined backend | Source5d91b13, controlsf34ed9b, run38008974895 | FAILURE at message_order; candidate late-binding correction pending PG |
 | Config release PR64 | Head820a1af, run38008810511, dependency PR47 at11f97aa | All five CI jobs PASS; Draft, dependency/live gates open |
 | Production Chats presentation | Frontend tree13ccbaba, correction6c022f3 |42 unit cases and six three-engine fixture cases pass; no live PM acceptance |
 | PM model admission | `app::pm_draft` creation and scoped credential preparation | Stops at awaiting_admission; no pre-model execution authority |
@@ -73,8 +73,20 @@ Reviewed test-only successor5d91b13 and controlsf34ed9b are normally published.
 Both independent reviewers preserve the baseline/authority invariants; parent
 verifies all163 Rust Git blobs and changed compiled inputs. Linux90/Windows88
 PASS plus two Linux-only skips qualify controls only. Actual74-stage run38008974895
-is confirmed in progress atf34ed9b/source5d91b13, with all counts/dependency pins
-unchanged. Neither the earlier failure nor source review accepts this new run.
+completes FAILURE atmessage_order onf34ed9b/source5d91b13. Worker and parent
+independently authenticate artifact11652543000, ZIP SHA256
+548ce464583479b43504a089e30c38b62729ee088e9b6c55e754c9712d2c742d,
+with scratch/synthetic DB cleanup true. The named historical-backfill regression
+fails atmessage_order.rs:116:35 during reapply. Prior clarification PG/migration,
+workspace and lineage gates pass by verified sequential stage ordering. The safe
+receipt identifies location, not the underlying database error.
+
+Independent source review identifies an early-bound catalog OID hazard in pending
+Docker migrations15/16/19. The candidate uses parameterized late lookup and
+strengthens the existing roundtrip with one connection, stable backend PID and
+changed object OIDs. All DDL/predicates and historical transcript/ledger checks
+remain. Formatting passes; actual PostgreSQL acceptance and the exact cause of
+the older failure remain unproved. No full backend/native PASS is claimed.
 
 Separate config PR64 is normally refreshed to820a1af with latest dependencyPR47
 11f97aa, which contains actualmainb750e7b. Source merge conflicts are closed:

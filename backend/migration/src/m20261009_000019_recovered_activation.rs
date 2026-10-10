@@ -7,9 +7,10 @@ pub struct Migration;
 async fn anchor_state(manager: &SchemaManager<'_>, up: bool) -> Result<(), DbErr> {
     let row = manager
         .get_connection()
-        .query_one(sea_orm::Statement::from_string(
+        .query_one(sea_orm::Statement::from_sql_and_values(
             sea_orm::DbBackend::Postgres,
-            "SELECT pg_get_functiondef('fleet_guard_container_recovery()'::regprocedure) AS body",
+            "SELECT pg_get_functiondef(to_regprocedure($1)) AS body",
+            ["fleet_guard_container_recovery()".into()],
         ))
         .await?
         .ok_or_else(|| DbErr::Custom("Missing recovery guard".into()))?;

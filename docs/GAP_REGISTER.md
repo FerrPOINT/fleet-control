@@ -44,7 +44,13 @@ test-only correction checks the undispatched baseline and full post-operation
 record equality, preserving all earlier assertions. Exact-source PG rerun remains
 open; no actual full backend PASS is claimed.
 The reviewed correction is now source5d91b13; published controlsf34ed9b preserve
-all74 gates/9 journal cases and exact pins. Actual38008974895 is in progress.
+all74 gates/9 journal cases and exact pins. Actual38008974895 fails atmessage_order;
+worker/parent authenticate artifact11652543000 and successful owned cleanup.
+Clarification PG/migration, workspace and lineage gates pass before that failure.
+The receipt names reapply atmessage_order.rs:116:35 without a database reason.
+Candidate parameterized catalog lookup15/16/19 and single-connection/OID regression
+address the independently reviewed early-binding hazard. Actual PG and proof of
+the older failure's root cause remain open; no guard or assertion is removed.
 Separate PR64 source conflicts are closed by normal dependency merge820a1af;
 its new CI38008810511 passes all five jobs on the exact head. It remains Draft,
 with PR47/live configuration

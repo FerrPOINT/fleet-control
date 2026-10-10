@@ -11,11 +11,12 @@ async fn snapshot_versions(manager: &SchemaManager<'_>, mapped: bool) -> Result<
     };
     let rows = manager
         .get_connection()
-        .query_all(sea_orm::Statement::from_string(
+        .query_all(sea_orm::Statement::from_sql_and_values(
             sea_orm::DbBackend::Postgres,
             "SELECT conname,pg_get_constraintdef(oid) AS definition FROM pg_constraint
-         WHERE conrelid='runtime_container_launches'::regclass AND contype='c'
+         WHERE conrelid=to_regclass($1) AND contype='c'
            AND pg_get_constraintdef(oid) LIKE '%contract_version%'",
+            ["runtime_container_launches".into()],
         ))
         .await?;
     if rows.len() != 1 {

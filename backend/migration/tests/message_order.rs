@@ -1,11 +1,14 @@
 use migration::{Migrator, MigratorTrait};
-use sea_orm::{ConnectionTrait, Database, DatabaseBackend, Statement};
+use sea_orm::{ConnectOptions, ConnectionTrait, Database, DatabaseBackend, Statement};
 
 #[tokio::test]
 #[ignore = "requires an empty disposable FLEET_MESSAGE_ORDER_TEST_DATABASE_URL database"]
 async fn historical_backfill_and_clock_rollback_keep_order_without_changing_wire() {
     let url = std::env::var("FLEET_MESSAGE_ORDER_TEST_DATABASE_URL").unwrap();
-    let db = Database::connect(url).await.unwrap();
+    // Reuse the prepared-statement cache across drop/recreate boundaries.
+    let mut options = ConnectOptions::new(url);
+    options.max_connections(1).min_connections(1);
+    let db = Database::connect(options).await.unwrap();
     Migrator::up(&db, Some(10)).await.unwrap();
     db.execute_unprepared(
         "INSERT INTO users(id,email,username,display_name,password_hash) VALUES
@@ -85,6 +88,21 @@ async fn historical_backfill_and_clock_rollback_keep_order_without_changing_wire
         "INSERT INTO session_messages(id,session_id,author_type,body,message_kind,append_sequence) VALUES
           (gen_random_uuid(),'cccccccc-cccc-4ccc-8ccc-cccccccccccc','system','Forbidden','system_event',100);"
     ).await.is_err());
+    let object_identity = || {
+        Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT pg_backend_pid()::bigint AS connection_pid,
+                to_regprocedure($1)::oid::bigint AS hermes_oid,
+                to_regprocedure($2)::oid::bigint AS recovery_oid,
+                to_regclass($3)::oid::bigint AS launches_oid",
+            [
+                "fleet_guard_hermes_dispatch()".into(),
+                "fleet_guard_container_recovery()".into(),
+                "runtime_container_launches".into(),
+            ],
+        )
+    };
+    let original_identity = db.query_one(object_identity()).await.unwrap().unwrap();
     let migrations = Migrator::migrations();
     let task_chat_index = migrations
         .iter()
@@ -114,6 +132,22 @@ async fn historical_backfill_and_clock_rollback_keep_order_without_changing_wire
             .collect::<Vec<_>>()
     );
     Migrator::up(&db, None).await.unwrap();
+    let restored_identity = db.query_one(object_identity()).await.unwrap().unwrap();
+    assert_eq!(
+        original_identity
+            .try_get::<i64>("", "connection_pid")
+            .unwrap(),
+        restored_identity
+            .try_get::<i64>("", "connection_pid")
+            .unwrap()
+    );
+    for object in ["hermes_oid", "recovery_oid", "launches_oid"] {
+        assert_ne!(
+            original_identity.try_get::<i64>("", object).unwrap(),
+            restored_identity.try_get::<i64>("", object).unwrap(),
+            "roundtrip must exercise recreated objects on the same connection"
+        );
+    }
     let after = db
         .query_all(Statement::from_string(
             DatabaseBackend::Postgres,
