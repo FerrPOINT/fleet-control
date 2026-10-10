@@ -1,6 +1,10 @@
 use super::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+#[cfg(target_os = "linux")]
+#[path = "pm_recovery_pg_tests.rs"]
+mod pg;
+
 fn capabilities() -> Value {
     json!({"object":"hermes.api_server.capabilities","platform":"hermes-agent",
         "auth":{"type":"bearer","required":true},
