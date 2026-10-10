@@ -308,7 +308,9 @@ class HostedBackendTests(unittest.TestCase):
         self.assertEqual(len(REVIEWED["groups"]["runtime_terminal"]), 14)
         self.assertEqual(len(REVIEWED["groups"]["foundation"]), 53)
         self.assertEqual(REVIEWED["default_foundation_ignored"], 119)
-        self.assertEqual(len(REVIEWED["workspace_default_declarations"]), 337)
+        self.assertEqual(len(REVIEWED["workspace_default_declarations"]), 338)
+        self.assertIn("activation_probe_hash_matches_base_unicode_snapshot",
+                      {row["name"] for row in REVIEWED["workspace_default_declarations"]})
         self.assertEqual(REVIEWED["authority"]["old_ignored"], 130)
         for x in records:
             self.assertIn(x["name"], REVIEWED["groups"][x["gate"]])

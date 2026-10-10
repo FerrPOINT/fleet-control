@@ -215,7 +215,7 @@
     "fleet-control/backend/infra/tests/agent_logs.rs": "b9780e307c0bc87f3e4649570ce80c93927dc9e04961743ed53622de566bace9",
     "fleet-control/backend/infra/tests/central_profile.rs": "33475276225fff250d9028fa458efc131698bb3083e6a23ca2a93d375444f193",
     "fleet-control/backend/infra/tests/chats_directory.rs": "75d8136a932cf1d8381362809721ed5b9759e2541b6d520b0d6a7f5ab8aebbd7",
-    "fleet-control/backend/infra/tests/container_activation.rs": "f05103a6e1351c5e293cc9b8511b42fd47668cac07c01c93382db6818bdcc6d0",
+    "fleet-control/backend/infra/tests/container_activation.rs": "344e6316a2de7815b02ec14fed84f979994428ae9ad6408ec8faa13d3e5212ee",
     "fleet-control/backend/infra/tests/container_controller.rs": "375cd3fe30e971cb9acec71f9aa3f4c3f5f3bd94870a330a1e2ea74fc68a1c07",
     "fleet-control/backend/infra/tests/container_preparation.rs": "a4aba2b719b58869aa0ad188ba3df7b8b44397c7a90f9c9eaf2de29e293db21e",
     "fleet-control/backend/infra/tests/heartbeat_alerts.rs": "b58daf21ad6d99aaece1f71fcd50de8187fcdc611762dd106fc30b7467b6d413",
@@ -296,7 +296,7 @@
     "fleet-control/backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "fleet-control/backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a",
     "fleet-control/backend/tests/fixtures/.gitkeep": "1d85c5ed38a3fd81f2faaea018843e4fe329fd190486a34000e756cfba90a618",
-    "fleet-control/docs/TESTING.md": "34547db106be060bcafc349c7d035d506b2c8e7fe33879929634d58c5180edef",
+    "fleet-control/docs/TESTING.md": "9ad6cc8707a4458e40f9842337ec8726f8cef71c469007d505c159b31f9455bc",
     "fleet-control/openapi/README.md": "2ede8bc480b593789d2192f5f5e82c21475921d616f063cb3bfe2a9dd55ebfe3",
     "fleet-control/openapi/openapi.json": "1167220ea9f3d65ddca4cce1112a26d53c77f8c1684ef958859f737f20210953",
     "fleet-control/scripts/check_container_activation_contract.py": "80569d79dfef7cf3f16126eb0523ca1ad3da8941cdd255d8290dbcf9fc1fa12a",
@@ -396,7 +396,7 @@
     "activation_intent_cases": 20,
     "authentic_union_codegen_pending": false,
     "codegen_evidence": {
-      "artifact_bound_source_commit": "e369fed00f06afb4c9f5cb7dd5cd49f2b3575aa6",
+      "artifact_bound_source_commit": "56daff9c9f60e9c0ec8e3855be0213f803b80a97",
       "artifact_id": 11656020208,
       "artifact_zip_sha256": "9e46aadcaf9de57d91d8389b0b460234ef1e0e6f02a72db81eea8af2d3d05ff8",
       "reported_by_parent": true,
@@ -418,7 +418,7 @@
       "runtime::container_activation::tests::workflow_rollback_preflight_selects_current_effective_not_desired_or_root_revision"
     ],
     "prior_stages_preserved": 74,
-    "source_commit": "e369fed00f06afb4c9f5cb7dd5cd49f2b3575aa6"
+    "source_commit": "56daff9c9f60e9c0ec8e3855be0213f803b80a97"
   },
   "default_foundation_ignored": 119,
   "executed": false,
@@ -983,7 +983,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 233,
+      "line": 268,
       "name": "recovered_activation_requires_original_plan_current_lease_and_exact_cas",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -992,7 +992,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 339,
+      "line": 374,
       "name": "recovered_activation_publishes_only_after_readiness_and_renews_exited_original_anchor",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1001,7 +1001,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 865,
+      "line": 900,
       "name": "recovered_committed_child_next_activation_and_failure_rollback_keep_original_anchor",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1010,7 +1010,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 871,
+      "line": 906,
       "name": "recovered_rolled_back_child_next_activation_and_failure_rollback_keep_original_anchor",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1019,7 +1019,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 877,
+      "line": 912,
       "name": "recovered_next_claim_rejects_foreign_lineage_unknown_lease_and_duplicate_plan",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1028,7 +1028,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 1078,
+      "line": 1113,
       "name": "recovered_next_claim_expiry_and_new_epoch_require_latest_original_authority",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1037,7 +1037,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 1172,
+      "line": 1207,
       "name": "recovered_terminal_draft_keeps_historical_custody_and_fenced_regular_stop_both_outcomes",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1046,7 +1046,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 1316,
+      "line": 1351,
       "name": "recovered_child_sql_origin_serializes_heartbeat_then_holds_unknown_expired_and_new_epoch",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1055,7 +1055,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 1697,
+      "line": 1732,
       "name": "activation_cas_stop_proof_and_readiness_gate_effective_revision",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1064,7 +1064,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 1804,
+      "line": 1839,
       "name": "rollback_requires_candidate_exit_and_preserves_previous_effective",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1073,7 +1073,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 1922,
+      "line": 1957,
       "name": "unknown_preparation_and_foreign_claim_cannot_release_drain",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1082,7 +1082,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 2008,
+      "line": 2043,
       "name": "claimed_preplan_survives_restart_as_audited_hold_without_reclaim_or_drain_release",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -1091,7 +1091,7 @@
     },
     {
       "gate": "container_activation_pg",
-      "line": 2087,
+      "line": 2122,
       "name": "recorded_unknown_restart_audits_original_command_and_rejects_stale_progress",
       "package": "infra",
       "source": "backend/infra/tests/container_activation.rs",
@@ -2685,7 +2685,7 @@
     "backend/infra/tests/agent_logs.rs": "b9780e307c0bc87f3e4649570ce80c93927dc9e04961743ed53622de566bace9",
     "backend/infra/tests/central_profile.rs": "33475276225fff250d9028fa458efc131698bb3083e6a23ca2a93d375444f193",
     "backend/infra/tests/chats_directory.rs": "75d8136a932cf1d8381362809721ed5b9759e2541b6d520b0d6a7f5ab8aebbd7",
-    "backend/infra/tests/container_activation.rs": "f05103a6e1351c5e293cc9b8511b42fd47668cac07c01c93382db6818bdcc6d0",
+    "backend/infra/tests/container_activation.rs": "344e6316a2de7815b02ec14fed84f979994428ae9ad6408ec8faa13d3e5212ee",
     "backend/infra/tests/container_controller.rs": "375cd3fe30e971cb9acec71f9aa3f4c3f5f3bd94870a330a1e2ea74fc68a1c07",
     "backend/infra/tests/container_preparation.rs": "a4aba2b719b58869aa0ad188ba3df7b8b44397c7a90f9c9eaf2de29e293db21e",
     "backend/infra/tests/heartbeat_alerts.rs": "b58daf21ad6d99aaece1f71fcd50de8187fcdc611762dd106fc30b7467b6d413",
@@ -2762,7 +2762,7 @@
     "backend/shared/src/lib_tests.rs": "0a450beaad8cfa735faef14989db5e950ddcc6b138e04cb28c3db5724574a5bd",
     "backend/shared/src/telemetry.rs": "7545c5cbb6a938ce161822b098f2571cc57d78fb6d153320e23fced2d6dab10a"
   },
-  "source_commit": "e369fed00f06afb4c9f5cb7dd5cd49f2b3575aa6",
+  "source_commit": "56daff9c9f60e9c0ec8e3855be0213f803b80a97",
   "utility_source_sha256": {
     "scripts/runtime_bootstrap.py": "5be8066b6f7dc68f8dda7f1040c0626dad272477c019b07263821df7f86b59a2",
     "scripts/runtime_boundary.py": "2e6bfa6907b93e6d436d2b6668ae20211aca53a64c433f7e1a98ab51245b3e89",
@@ -5135,6 +5135,13 @@
       "name": "now_returns_timestamp",
       "package": "shared",
       "source": "backend/shared/src/lib_tests.rs"
+    },
+    {
+      "ignored": false,
+      "line": 58,
+      "name": "activation_probe_hash_matches_base_unicode_snapshot",
+      "package": "infra",
+      "source": "backend/infra/tests/container_activation.rs"
     }
   ]
 }
