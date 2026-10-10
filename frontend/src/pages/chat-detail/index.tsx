@@ -13,7 +13,9 @@ export function ChatDetailPage() {
   const { sessionId = '' } = useParams()
   const actorId = useAuthStore((state) => state.userId)
   const authVersion = useAuthStore((state) => state.authVersion)
-  return <ChatBindingWorkspace key={`${actorId}:${authVersion}:${sessionId}`} sessionId={sessionId} />
+  return (
+    <ChatBindingWorkspace key={`${actorId}:${authVersion}:${sessionId}`} sessionId={sessionId} />
+  )
 }
 
 function ChatBindingWorkspace({ sessionId }: { sessionId: string }) {

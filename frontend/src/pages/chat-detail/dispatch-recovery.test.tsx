@@ -6,7 +6,12 @@ import { useDispatchRecovery } from './dispatch-recovery'
 
 const scope = 'session-one:answer'
 const input = { text: 'Private original answer', idempotency_key: 'original-key' }
-const marker = { actor: 'owner', agent: 'agent-one', service: 'original-service', key: 'original-key' }
+const marker = {
+  actor: 'owner',
+  agent: 'agent-one',
+  service: 'original-service',
+  key: 'original-key',
+}
 
 beforeEach(async () => {
   sessionStorage.clear()
@@ -20,7 +25,12 @@ describe('original answer metadata settlement', () => {
     expect(result.current.restored).toBe(true)
     let settled = false
     await act(async () => {
-      settled = await result.current.finishRecovered(input, marker.key, marker.agent, marker.service)
+      settled = await result.current.finishRecovered(
+        input,
+        marker.key,
+        marker.agent,
+        marker.service,
+      )
     })
     expect(settled).toBe(true)
     expect(result.current.held).toBe(false)

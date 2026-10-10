@@ -833,9 +833,9 @@ test('denied task context cannot become an unbound standalone dispatch', async (
   await expect(page.getByRole('alert')).toBeVisible()
   await expect(page.getByLabel('Сообщение агенту', { exact: true })).toHaveCount(0)
   await expect(page.getByLabel('Сообщение', { exact: true })).toHaveCount(0)
-  await expect(
-    page.getByRole('button', { name: 'Отправить сообщение', exact: true }),
-  ).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Отправить сообщение', exact: true })).toHaveCount(
+    0,
+  )
   expect(state.requests).toContain(`/api/v1/sessions/${sessionId}/task-context`)
   expect(state.requests).not.toContain(`/api/v1/sessions/${sessionId}/messages`)
   expect(state.posts).toEqual([])

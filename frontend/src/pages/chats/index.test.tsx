@@ -187,7 +187,9 @@ describe('server-scoped ChatsPage', () => {
       '7',
       '2',
     ])
-    const returnTo = new URL(link.getAttribute('href')!, 'http://local').searchParams.get('returnTo')!
+    const returnTo = new URL(link.getAttribute('href')!, 'http://local').searchParams.get(
+      'returnTo',
+    )!
     expect(new URL(returnTo, 'http://local').searchParams.get('agent')).toBe(developer.id)
     expect(new URL(returnTo, 'http://local').searchParams.get('users')).toBe(owner)
   })
@@ -233,7 +235,9 @@ describe('server-scoped ChatsPage', () => {
       }),
     )
     expect(screen.getByRole('button', { name: 'Следующая страница' })).toBeDisabled()
-    const returnTo = new URL(link.getAttribute('href')!, 'http://local').searchParams.get('returnTo')!
+    const returnTo = new URL(link.getAttribute('href')!, 'http://local').searchParams.get(
+      'returnTo',
+    )!
     expect(Object.fromEntries(new URL(returnTo, 'http://local').searchParams)).toEqual({
       agent: developer.id,
       q: 'login',
