@@ -358,9 +358,17 @@ describe('PM delivered answer continuation receipt', () => {
           await client.refetchQueries({ queryKey: [authority, 'session1'], exact: true })
         })
       }
-      await waitFor(() => expect(stop).toBeDisabled())
-      fireEvent.click(stop)
+      if (authority === 'session') {
+        await screen.findByText('Нет доступа к чату или чат недоступен.')
+        expect(screen.queryByRole('button', { name: 'Остановить запуск' })).not.toBeInTheDocument()
+      } else {
+        await waitFor(() =>
+          expect(screen.getByRole('button', { name: 'Остановить запуск' })).toBeDisabled(),
+        )
+        fireEvent.click(screen.getByRole('button', { name: 'Остановить запуск' }))
+      }
       expect(fleet.stopSessionRun).not.toHaveBeenCalled()
+      expect(sessionStorage.getItem('fleet-runtime-controls:v1:owner:session1')).toBeNull()
     },
   )
 })
